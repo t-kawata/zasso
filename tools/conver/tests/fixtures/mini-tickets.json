@@ -7,6 +7,21 @@
   },
   "phases": [
     {
+      "id": 3,
+      "name": "P3",
+      "tickets": [
+        {
+          "id": 2,
+          "phaseId": 3,
+          "title": "P3-2 source ticket",
+          "status": "reviewed",
+          "contracts": [
+            { "id": "C001", "sourceEdge": "n1->n3", "precondition": "pre", "postcondition": "post", "invariant": "inv" }
+          ]
+        }
+      ]
+    },
+    {
       "id": 4,
       "name": "P4",
       "tickets": [

@@ -19,7 +19,7 @@ node .claude/scripts/tickets/validate-graph-arg.js "$ARGUMENTS" || exit 2
 ## Overview
 
 ```
-Step 1 (preflight): a marker needing a new resolving ticket → create-resolving-ticket.js (auto, never ask the human)
+ Preflight (Step 1): a marker needing a new resolving ticket → batch-create-resolving-tickets.js (auto, never ask the human)
 
 Inspection loop — one command, repeated per ticket:
 
@@ -116,10 +116,10 @@ Classify the four classes and act on each:
 |-------|---------|--------|
 | `resolvedCandidates` | Marker key references a COMPLETED ticket (reviewed/done/R<round>) | Verify in code that the defect is resolved. **If resolved** → `remove-stub.js --file=<path> --line=<N>`. **If NOT resolved** → create a resolving ticket (below) and rewrite the marker key |
 | `pendingObligations` | Marker key references an ACTIVE ticket (todo/in_progress/planned/remanded) | Legitimate pending work — leave for the phasify key rewrite |
-| `orphans` | No key (MUST RESOLVE) or key references a non-existent ticket | Create a resolving ticket via `create-resolving-ticket.js` (requires a valid source ticket to clone) and rewrite the marker key, or remove if dead |
+| `orphans` | No key (MUST RESOLVE) or key references a non-existent ticket | Create a resolving ticket via `batch-create-resolving-tickets.js` (requires a valid source ticket to clone) and rewrite the marker key, or remove if dead |
 | `excuses` | Terminal-excuse language without a work item | Convert the resolution plan to an AI-executable work item, or remove |
 
-**Resolving-ticket creation (auto — never pause to ask the human)**: Any marker that needs a new resolving ticket — a NOT-resolved reference to a completed ticket, or any Check C failure where the marker references an existing ticket — is handled by `batch-create-resolving-tickets.js` (PX-1). Like every ticket-adding flow in this repo, it routes through the **shared creation core** `generic-ticket-creation.js` (`createTickets`, PX-2) — here with the **`resolving` seed**. The manifest below is the **batch form of the resolving seed**: `batch-create-resolving-tickets.js` flattens the core's `{ type: "resolving", sourceKey, seed, stubs[] }` into `{ file, line, content, sourceKey?, seed? }`, where `content` is the on-disk marker line (the core's `stubs[0]`). The tool deep-clones each referenced ticket, embeds `stubs[]` (for phasify's re-rewrite), appends a non-PX ticket in the max phase (status `todo`), and atomically rewrites every on-disk marker key. **Review first with `--no-write`** (zero side effects), then commit. **Keyless MUST-RESOLVE markers** need an explicit `sourceKey` in the manifest (the core cannot auto-derive a cloneable source); remove them if the defect is dead in code, or record them as a crime if the work is live. **Do not stop to ask the human** — this is the AI's work item, per the no-external-excuse rule.
+**Resolving-ticket creation (auto — never pause to ask the human)**: Any marker that needs a new resolving ticket — a NOT-resolved reference to a completed ticket, or any Check C failure where the marker references an existing ticket — is handled by `batch-create-resolving-tickets.js`. Like every ticket-adding flow in this repo, it routes through the **shared creation core** `generic-ticket-creation.js` — here with the **`resolving` seed**. The manifest below is the **batch form of the resolving seed**: `batch-create-resolving-tickets.js` accepts two entry shapes — a **grouped entry** `{ sourceKey, stubs: [{ file, line, content }, ...], seed? }` that creates ONE ticket per (sourceKey, unit) group with every marker embedded in `stubs[]`, or a **legacy single-marker entry** `{ file, line, content, sourceKey?, seed? }` (one ticket per entry). Either shape produces one resolving ticket per entry; the grouped shape prevents the per-marker ticket explosion. The tool deep-clones each referenced ticket, embeds `stubs[]` (for phasify's re-rewrite), appends a non-PX ticket in the max phase (status `todo`), and atomically rewrites every on-disk marker key. **Review first with `--no-write`** (zero side effects), then commit. **Keyless MUST-RESOLVE markers** need an explicit `sourceKey` in the manifest (the core cannot auto-derive a cloneable source); remove them if the defect is dead in code, or record them as a crime if the work is live. **Do not stop to ask the human** — this is the AI's work item, per the no-external-excuse rule.
 
 Resolving-seed manifest format — one entry per marker (pipe this JSON via stdin; do **not** save it to a fixed-named file such as `manifest.json`, which would collide with other work):
 ```json
@@ -148,9 +148,9 @@ echo '<manifest-json>' | node .claude/scripts/tickets/batch-create-resolving-tic
 
 **Post-creation content rewrite (mandatory)**: each new resolving ticket carries the SOURCE ticket's **OLD content** (it is a deep-clone). Rewrite each one into the NEW work item **one field at a time (max 3 fields per `update-ticket.js` call)**, in this order: `title` → `background` → `scope` → `acceptanceCriteria` → `invariants` → `testUnit` → `testIntegration` → `testExceptions` → `contracts` → `investigation` → `boyScoutPlan` → `instrumentation` → `notes`. **PRESERVE** `nodeIds`/`relatedTicketIds`/`referenceSection`/`referenceUrls`/`sourcePaths`/`rfcDiscrepancies` — they are already correct from the clone; add to arrays, never overwrite.
 
-*On failure*: exit non-zero and **zero writes** — Tickets.json and all source files stay byte-identical (atomic all-or-nothing, C002). stderr lists each failure with its file:line and an Action-directive; fix the manifest (or the marker) and re-run.
+*On failure*: exit non-zero and **zero writes** — Tickets.json and all source files stay byte-identical (atomic all-or-nothing). stderr lists each failure with its file:line and an Action-directive; fix the manifest (or the marker) and re-run.
 
-Safety guarantees (contracts C002/C003/C007/C008/C009): all-or-nothing — any validation failure leaves Tickets.json and all source files untouched; idempotent re-run — markers already referencing an active ticket are skipped, so re-running never duplicates tickets; duplicate `file:line` entries are rejected; an on-disk marker that no longer carries the manifest's expected key is refused.
+Safety guarantees: all-or-nothing — any validation failure leaves Tickets.json and all source files untouched; idempotent re-run — markers already referencing an active ticket are skipped, so re-running never duplicates tickets; duplicate `file:line` entries are rejected; an on-disk marker that no longer carries the manifest's expected key is refused.
 
 Then run the validator as the loop condition:
 

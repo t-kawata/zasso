@@ -10,6 +10,70 @@
       "status": "resolved",
       "note": "[resolved] P0-2 の深掘りに伴いスタブマーカーを通常コメントに置き換え",
       "resolved_at": "2026-06-25T09:00:08.497Z"
+    },
+    {
+      "id": 2,
+      "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+      "line": 99,
+      "description": "manifest: [{ file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P9-99: reason -- Implement fix\" }],",
+      "detected_at": "2026-08-05T01:33:31.188Z",
+      "status": "false_positive"
+    },
+    {
+      "id": 3,
+      "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+      "line": 321,
+      "description": "writeLine(srcFile, 5, \"// [::STUB::] P9-9: edited after manifest build\");",
+      "detected_at": "2026-08-05T01:33:31.188Z",
+      "status": "false_positive"
+    },
+    {
+      "id": 4,
+      "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+      "line": 99,
+      "description": "manifest: [{ file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P9-99: reason -- Implement fix\" }],",
+      "detected_at": "2026-08-05T02:42:34.408Z",
+      "status": "false_positive"
+    },
+    {
+      "id": 5,
+      "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+      "line": 321,
+      "description": "writeLine(srcFile, 5, \"// [::STUB::] P9-9: edited after manifest build\");",
+      "detected_at": "2026-08-05T02:42:34.408Z",
+      "status": "false_positive"
+    },
+    {
+      "id": 6,
+      "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+      "line": 357,
+      "description": "{ sourceKey: \"P3-2\", stubs: [{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: two -- Implement two\" }] },",
+      "detected_at": "2026-08-05T02:42:34.408Z",
+      "status": "false_positive"
+    },
+    {
+      "id": 7,
+      "file": "/Users/kawata/shyme/zasso/tools/conver/tests/fixtures/src/p3.rs",
+      "line": 7,
+      "description": "// [::STUB::] P3-2: reason two -- Implement two",
+      "detected_at": "2026-08-05T02:42:34.408Z",
+      "status": "false_positive"
+    },
+    {
+      "id": 8,
+      "file": "/Users/kawata/shyme/zasso/tools/conver/tests/print-manifest-for-find-omissions.test.cjs",
+      "line": 25,
+      "description": "markers: [{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: three -- Implement three\" }],",
+      "detected_at": "2026-08-05T02:42:34.408Z",
+      "status": "false_positive"
+    },
+    {
+      "id": 9,
+      "file": "/Users/kawata/shyme/zasso/tools/conver/tests/update-stub.test.cjs",
+      "line": 217,
+      "description": "{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: three -- three\", resolveByTicket: \"P3-2\" },",
+      "detected_at": "2026-08-05T02:42:34.408Z",
+      "status": "false_positive"
     }
   ]
 }

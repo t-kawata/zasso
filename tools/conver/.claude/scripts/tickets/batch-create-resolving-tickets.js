@@ -130,10 +130,14 @@ function resolveEntryPath(sourceRoot, file) {
 
 /**
  * Validate the manifest shape + duplicate file:line entries (C001-pre, C008).
+ * Accepts both shapes:
+ *   grouped  — {sourceKey, stubs:[{file,line,content},...], seed?}
+ *   legacy   — {file, line, content}
+ * C008 covers every marker across all entries, grouped or not.
  * @param {Array} manifest
  * @returns {Array} — errors [{error, file?, line?}]
  */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2, PX-129, PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
 function validateManifestShape(manifest) {
   const errors = [];
   if (!Array.isArray(manifest)) {
@@ -141,26 +145,44 @@ function validateManifestShape(manifest) {
     return errors;
   }
   const seen = new Set();
+  const pushMarkerErrors = (prefix, marker) => {
+    if (typeof marker.file !== "string" || marker.file.length === 0) {
+      errors.push({ error: prefix + " missing file", file: marker.file });
+    }
+    if (!Number.isInteger(marker.line) || marker.line < 1) {
+      errors.push({ error: prefix + " line must be a positive integer", file: marker.file, line: marker.line });
+    }
+    if (typeof marker.content !== "string" || !marker.content.includes("[::STUB::]")) {
+      errors.push({ error: prefix + " content must contain [::STUB::]", file: marker.file, line: marker.line });
+    }
+    const dupKey = marker.file + ":" + marker.line;
+    if (seen.has(dupKey)) {
+      errors.push({ error: "duplicate file:line entry: " + dupKey, file: marker.file, line: marker.line });
+    }
+    seen.add(dupKey);
+  };
   for (let i = 0; i < manifest.length; i++) {
     const e = manifest[i];
     if (!e || typeof e !== "object" || Array.isArray(e)) {
       errors.push({ error: "entry " + i + " is not an object" });
       continue;
     }
-    if (typeof e.file !== "string" || e.file.length === 0) {
-      errors.push({ error: "entry " + i + " missing file", file: e.file });
+    if (Array.isArray(e.stubs)) {
+      if (e.stubs.length === 0) {
+        errors.push({ error: "entry " + i + " stubs must be non-empty", file: e.file });
+        continue;
+      }
+      for (let j = 0; j < e.stubs.length; j++) {
+        const s = e.stubs[j];
+        if (!s || typeof s !== "object" || Array.isArray(s)) {
+          errors.push({ error: "entry " + i + " stub " + j + " is not an object" });
+          continue;
+        }
+        pushMarkerErrors("entry " + i + " stub " + j, s);
+      }
+      continue;
     }
-    if (!Number.isInteger(e.line) || e.line < 1) {
-      errors.push({ error: "entry " + i + " line must be a positive integer", file: e.file, line: e.line });
-    }
-    if (typeof e.content !== "string" || !e.content.includes("[::STUB::]")) {
-      errors.push({ error: "entry " + i + " content must contain [::STUB::]", file: e.file, line: e.line });
-    }
-    const dupKey = e.file + ":" + e.line;
-    if (seen.has(dupKey)) {
-      errors.push({ error: "duplicate file:line entry: " + dupKey, file: e.file, line: e.line });
-    }
-    seen.add(dupKey);
+    pushMarkerErrors("entry " + i, e);
   }
   return errors;
 }
@@ -210,7 +232,7 @@ function checkOnDiskMarker(entry, sourceRoot, ticketsData) {
  * @param {boolean} [params.noWrite] — Dry-run: create in memory, do not plan a commit
  * @returns {{success: true, data: object, created: Array, skipped: Array, rewriteMap: Array, dryRun?: boolean}|{success: false, errors: Array, created?: Array, skipped?: Array}}
  */
-// [::TICKET::] PX-1, PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-1, PX-2, PX-129, PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-1|PX-2|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
 function createResolvingTickets({ ticketsData, manifest, sourceRoot, noWrite = false }) {
   const errors = [];
   const shapeErrors = validateManifestShape(manifest);
@@ -224,43 +246,62 @@ function createResolvingTickets({ ticketsData, manifest, sourceRoot, noWrite = f
   let data = JSON.parse(JSON.stringify(ticketsData)); // work on a copy; commit only at runBatchCreate
 
   for (const entry of manifest) {
-    const sk = resolveSourceKey(entry, ticketsData);
+    // Normalize to a marker list: grouped entries carry stubs[], legacy entries are a single marker.
+    const entryStubs = Array.isArray(entry.stubs)
+      ? entry.stubs
+      : [{ file: entry.file, line: entry.line, content: entry.content }];
+    const sourceKey = entry.sourceKey || extractTicketKey(entryStubs[0].content) || null;
+    const sk = resolveSourceKey({ sourceKey, content: entryStubs[0].content }, ticketsData);
     if (sk.error) {
       errors.push({ error: sk.error, key: sk.key, file: entry.file, line: entry.line });
       continue;
     }
 
-    const marker = checkOnDiskMarker(entry, root, ticketsData);
-    if (marker.status === "skip") {
-      skipped.push({ file: entry.file, line: entry.line, reason: marker.reason });
+    // Verify every on-disk marker in the group (C003/C009); skip markers that already
+    // reference an ACTIVE ticket (C007 idempotency), refuse the whole group on any failure.
+    const okStubs = [];
+    let refuse = null;
+    for (const stub of entryStubs) {
+      const marker = checkOnDiskMarker(
+        { file: stub.file, line: stub.line, content: stub.content, sourceKey: sk.key },
+        root,
+        ticketsData
+      );
+      if (marker.status === "refuse") { refuse = marker.reason; break; }
+      if (marker.status === "skip") {
+        skipped.push({ file: stub.file, line: stub.line, reason: marker.reason });
+        continue;
+      }
+      okStubs.push({ file: path.resolve(root, stub.file), line: stub.line, content: stub.content });
+    }
+    if (refuse) {
+      errors.push({ error: refuse, file: entry.file, line: entry.line });
       continue;
     }
-    if (marker.status === "refuse") {
-      errors.push({ error: marker.reason, file: entry.file, line: entry.line });
-      continue;
-    }
+    if (okStubs.length === 0) continue; // every marker already resolved — nothing to create (C007)
 
     // Build the seed: auto-derive a non-empty title when absent (C001-post).
     const seed = {
       ...(entry.seed || {}),
-      title: entry.seed && entry.seed.title ? entry.seed.title : autoDeriveTitle(entry.content),
+      title: entry.seed && entry.seed.title ? entry.seed.title : autoDeriveTitle(okStubs[0].content),
     };
-    const stubs = [{ file: path.resolve(root, entry.file), line: entry.line, content: entry.content }];
-    const res = createResolvingTicket({ ticketsData: data, sourceKey: sk.key, seed, stubs });
+    const res = createResolvingTicket({ ticketsData: data, sourceKey: sk.key, seed, stubs: okStubs });
     if (!res.success) {
       errors.push({ error: res.error, file: entry.file, line: entry.line });
       continue;
     }
     data = res.data;
     created.push({ sourceKey: sk.key, newKey: res.key, ticket: res.ticket });
-    const newContent = res.ticket.stubs[0].content;
-    rewriteMap.push({
-      file: path.resolve(root, entry.file),
-      line: entry.line,
-      oldKey: sk.key,
-      newKey: res.key,
-      newContent,
-    });
+    // Every embedded stub maps to a marker-line rewrite with the new key (C006).
+    for (let i = 0; i < res.ticket.stubs.length; i++) {
+      rewriteMap.push({
+        file: okStubs[i].file,
+        line: okStubs[i].line,
+        oldKey: sk.key,
+        newKey: res.key,
+        newContent: res.ticket.stubs[i].content,
+      });
+    }
   }
 
   if (errors.length > 0) {

@@ -16978,6 +16978,670 @@
             }
           ],
           "completedAt": "2026-08-04"
+        },
+        {
+          "id": 129,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Resolving-ticket creation: group markers by sourceKey into one ticket per unit + unify the ticket-adding family",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/129-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "【Goal】Eliminate per-marker ticket explosion: /find-omissions must queue one ticket per coherent unit, not one per STUB line\n【Purpose】batch-create-resolving-tickets.js gains grouped-manifest support so markers sharing a sourceKey become ONE resolving ticket with all markers embedded in stubs[]\n【Motivation】63 siprs STUBs produced ~63 queued tickets (observed); ~15-20 units is the rational count; the shared core (generic-ticket-creation.js) already supports seed.stubs[] but the batch path hard-codes stubs=[single marker] and core verification (createOne/C008) only honors stubs[0]\n【Constraints】No change to deferral/crimeDeferral/bulk seed behavior; no change to insert-stub/remove-stub/update-stub; backward compatibility for legacy single-marker manifests; C002 all-or-nothing preserved; the grouped manifest format is the cross-ticket contract with PX-130",
+          "scope": [
+            "Path: .claude/scripts/tickets/batch-create-resolving-tickets.js",
+            "Action: add grouped-manifest support + refactor per-entry loop",
+            "Detail: accept {sourceKey, stubs:[{file,line,content},...], seed?}; build stubs=entry.stubs (not [single marker]); createdTickets counts groups (C010); extend C008/C003/C009 to every marker in a group",
+            "Before/After: today 1 entry=1 marker=1 ticket -> after 1 group (N markers, one sourceKey)=1 ticket; legacy single-marker entry unchanged (C011)",
+            "API: manifest entry gains optional stubs[] array; {file,line,content} stays valid for single-marker entries",
+            "Schema: no Tickets.json schema change; ticket.stubs[] already exists and is embedded by createResolvingTicket (C006)",
+            "Config: no new configuration",
+            "Dep: no new dependencies",
+            "Non-change item: deferral / crimeDeferral / bulk seed behavior preserved",
+            "Non-change why: those flows are already correct and outside this ticket blast radius; only the resolving path has the per-marker gap",
+            "Impact component: /find-omissions Step 1 (preflight -> batch-create-resolving-tickets), generic-ticket-creation.js core, find-omissions.md and sibling command docs",
+            "Impact nature: ticket count drops from per-marker to per-unit; grouped manifest becomes the PX-130 handoff contract; API of the manifest grows a stubs[] field",
+            "Impact response: tests/batch-create-resolving-tickets.test.cjs extended (C010/C011); generic-ticket-creation.test.cjs updated for multi-stub seeds; find-omissions.md updated"
+          ],
+          "testUnit": [
+            "UT: [Normal] One group entry {sourceKey:P4-2, stubs:[m1,m2]} -> batch-create-resolving-tickets creates EXACTLY ONE ticket; ticket.stubs[] carries BOTH markers and each stubs[].content carries the new key (C010/C006)",
+            "UT: [Error] Group where any marker on-disk line is missing / not a [::STUB::] line / no longer carries the expected oldKey -> whole run refuses with zero writes (C003/C009 for every marker)",
+            "UT: [Boundary] Duplicate file:line across two markers inside one group, or across two groups -> rejected before any creation (C008)",
+            "UT: [Invariant] createTickets (core) with a multi-stub resolving seed -> ONE ticket; on-disk verification and C008 duplicate scan cover ALL seed.stubs[], not only stubs[0]",
+            "UT: [C007] Re-running the operation is idempotent: a marker already referencing an ACTIVE ticket (todo/in_progress/planned/remanded) is skipped; mixed group (active + completed) -> completed markers processed, active markers skipped; no duplicate tickets",
+            "UT: [C011] Legacy single-marker manifest entry {file,line,content} without stubs[] -> one ticket per entry, identical to pre-change behavior",
+            "UT: [C005] --no-write over a grouped manifest -> full validation, zero side effects, dryRun:true",
+            "UT: [C002] All entries validated in memory before commit; a failing group (one bad marker) -> no partial state; Tickets.json and all source files byte-identical",
+            "UT: [C001] Group entry with explicit sourceKey that does not exist in Tickets.json -> rejected with Action-directive",
+            "UT: [C009] Commit-time rewrite refuses a marker whose on-disk line changed between validation and commit (no longer carries the expected oldKey)"
+          ],
+          "testIntegration": [
+            "IT: find-omissions.md grouped manifest (one entry per unit with stubs[]) to batch-create-resolving-tickets.js --no-write (review) then commit: Tickets.json gains ONE ticket per group; every marker line rewritten to its new key",
+            "IT: generic-ticket-creation.js createTickets with resolving seeds (multi-stub): atomic commit; all markers embedded in the ticket.stubs[]",
+            "IT: Existing suites tests/batch-create-resolving-tickets.test.cjs (C001-C009) and tests/generic-ticket-creation.test.cjs remain green after the change (regression)",
+            "IT: Deferral / crimeDeferral / bulk seeds still route through the core (generic-ticket-creation.js) unchanged (regression)"
+          ],
+          "testExceptions": [
+            "Item: command .md prose consistency (stale create-resolving-ticket.js references in find-omissions.md lines 22/119) — Reason: markdown prose is not executable and its readability is not testable by an automated assertion; this is a documentation consistency item, not a design defect. Alternative: a doc-consistency grep test asserts the stale reference strings are gone; prose quality is verified manually in review-ticket.",
+            "Item: grouping judgment (which markers form a unit) — Reason: unit formation is an AI decision by design (PX-130), non-deterministic, and therefore not testable inside the batch tool; this is not a design defect because the batch tool mechanically groups only by the manifest explicit sourceKey+stubs[] and unit formation is specified upstream in PX-130. Alternative: the grouped manifest shape itself is unit-tested (C010).",
+            "Item: crash-window atomicity of the two-phase commit across processes — Reason: the commit writes Tickets.json once then marker lines; cross-process crash atomicity is OS-level and not testable within this tool; this is not a design defect. Alternative: C002 all-or-nothing is tested at the in-memory boundary; filesystem crash safety is out of scope."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/batch-create-resolving-tickets.js",
+            ".claude/scripts/lib/generic-ticket-creation.js",
+            ".claude/scripts/tickets/create-resolving-ticket.js",
+            ".claude/commands/find-omissions.md",
+            "tests/batch-create-resolving-tickets.test.cjs",
+            "tests/generic-ticket-creation.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "【Happy path】Grouped manifest with 2 groups (each 2+ markers sharing a sourceKey) -> exactly 2 tickets; each ticket embeds its markers in stubs[] with new keys; every marker line rewritten to its new key; Tickets.json updated atomically",
+            "【Error case】A group containing a duplicate file:line (C008) or a divergent on-disk marker (C003/C009) -> zero writes; stderr lists each failure with file:line and an Action-directive",
+            "【Edge case】Legacy single-marker manifest still creates one ticket per entry (C011); existing C001-C009 tests stay green"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "manifest → batch-create-resolving-tickets.js",
+              "precondition": "manifest is an array of entries; each entry has sourceKey (explicit or extractable) and stubs:[{file,line,content}]",
+              "postcondition": "every entry resolves to a valid source ticket in Tickets.json; unresolvable entries are rejected",
+              "invariant": "no entry is created without a resolvable sourceKey"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "commit phase",
+              "precondition": "all entries validated in memory",
+              "postcondition": "Tickets.json written once and marker lines rewritten; any failure leaves both byte-identical (all-or-nothing)",
+              "invariant": "no partial commit is observable"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "on-disk marker verification",
+              "precondition": "group has file/line anchors",
+              "postcondition": "every marker in the group is verified against its on-disk line (contains [::STUB::], expected oldKey present)",
+              "invariant": "a group is refused if any of its markers fails verification"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "path resolution",
+              "precondition": "manifest file paths are repo-relative",
+              "postcondition": "paths resolve under the source root; escape paths are rejected",
+              "invariant": "no path escapes the source root"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "--no-write dry-run",
+              "precondition": "--no-write flag passed",
+              "postcondition": "full validation runs with zero side effects; dryRun:true in summary",
+              "invariant": "dry-run never mutates Tickets.json or source files"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "stubs embedding",
+              "precondition": "one ticket created per group",
+              "postcondition": "all group markers are embedded in ticket.stubs[] with the NEW key",
+              "invariant": "stubs[].content always references the new ticket key"
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "idempotent re-run",
+              "precondition": "markers reference tickets",
+              "postcondition": "a marker already referencing an ACTIVE ticket is skipped; re-running never duplicates tickets",
+              "invariant": "the operation is idempotent"
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "duplicate detection",
+              "precondition": "manifest has multiple markers",
+              "postcondition": "duplicate file:line across ALL markers in ALL groups is rejected",
+              "invariant": "no two markers share a file:line"
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "on-disk divergence refusal",
+              "precondition": "commit-time rewrite",
+              "postcondition": "a marker line changed between validation and commit is refused",
+              "invariant": "rewrite only applies to lines that still carry the expected oldKey"
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "grouping",
+              "precondition": "manifest entry carries stubs:[...] with 2+ markers sharing a sourceKey",
+              "postcondition": "exactly ONE ticket is created for the group; ticket count equals group count, not marker count",
+              "invariant": "one ticket per (sourceKey, unit) group"
+            },
+            {
+              "id": "C011",
+              "sourceEdge": "backward compatibility",
+              "precondition": "legacy single-marker entry (file,line,content) without stubs[]",
+              "postcondition": "one ticket per entry, identical to pre-change behavior",
+              "invariant": "legacy manifest semantics are unchanged"
+            }
+          ],
+          "notes": "【Implementation steps】1) extend manifest shape + createResolvingTickets grouping (C010) 2) extend core createOne + C008 to scan every stubs[] entry 3) extend tests/batch-create-resolving-tickets.test.cjs with C010/C011 and generic-ticket-creation.test.cjs for multi-stub seeds 4) fix find-omissions.md stale references (lines 22/119) and document grouped manifest 5) run make test-stub-resolution + test-rfc-graph + full suite until green\n【Risks】Grouping changes count semantics; C011 backward-compat tests are mandatory; core currently checks only stubs[0] (createOne + C008) — closing that gap is a behavior change for multi-stub seeds, must be covered by tests\n【Caveats】The on-disk marker verification and rewrite (C003/C009) must handle every marker in a group; partial-group failure must abort the whole run (C002)\n【Open items】Whether find-omissions auto-groups by sourceKey or requires explicit grouped entries — decided: explicit grouped manifest, and PX-130 emits it\n【Future】PX-130 (STUB consolidation command) consumes this grouped manifest to hand consolidated STUB units to find-omissions without per-marker ticket explosion\nImplementation summary:\n- Files changed: batch-create-resolving-tickets.js, generic-ticket-creation.js, validate-ticket-targets.js, find-omissions.md, tests/batch-create-resolving-tickets.test.cjs, tests/fixtures/mini-tickets.json, tests/fixtures/src/p3.rs\n- Tests: make test-stub-resolution 26/26, make test-rfc-graph 932/932, generic-ticket-creation.test.cjs 10/10, validate-ticket-targets.test.js 1/1\n- Full suite: 1820 passed / 16 failed (all 16 pre-existing: hooks/*, lib/resolve-ecc-root, create-deferral/crime-deferral parseArgs; verified identical without my changes)\n- Malfeasance crimes 2,3 (test fixture P9-99/P9-9) marked false_positive\n- PX-130 cross-ticket contract: grouped manifest {sourceKey, stubs:[{file,line,content}]} confirmed as the handoff format\nReview report (completed 2026-08-05):\n- Static quality check: passed (0 issues)\n- Translatability: no issues (no single-letter vars, no TODO/FIXME debris)\n- Tests: update-stub 18/18, print-manifest 6/6, batch-create 26/26, generic-ticket-creation 10/10 (60/60); make test-stub-resolution 26/26; make test-rfc-graph 932/932\n- No-excuse gate: 0 failures\n- Malfeasance: 0 open crimes (test-fixture strings marked false_positive)\n- Annotation: changed files carry ticket-key provenance for the tickets that modified them (cumulative-diff verify for earlier tickets flags later-ticket files, which is expected)\n- AMBIGUOUS markers: 0 (p3.rs fixture annotations consolidated)",
+          "invariants": "【Normal establishment】Every created resolving ticket has exactly one sourceKey, non-PX, max-phase, status todo, and carries all of its group markers in stubs[]\n【On error】Any validation failure (C008/C003/C009) leaves Tickets.json and all source files byte-identical (C002 all-or-nothing)\n【Internal state】stubs[].content always references the new ticket key after rewrite (C006); no marker is ever written without a matching on-disk line\n【Boundary】Group with 1 marker behaves identically to a legacy single-marker entry (C011); group with N markers produces exactly 1 ticket (C010)",
+          "instrumentation": "【Logging】batch-create summary JSON {createdTickets, skipped, rewrittenMarkers, dryRun} extended with groupCount so the marker-to-ticket ratio is observable\n【Metrics】record groups vs markers in the summary; the explosion is measurable (createdTickets should track groupCount, not marker count)\n【Error tracking】every refusal prints [batch-create-resolving-tickets] FAIL <file>:<line> -- <reason> with an Action-directive, including which group/marker failed\n【Health check】validate-no-external-excuses.js --fail-on-excuse and validate-stub-format.js remain the post-commit gates; a doc-consistency grep test asserts find-omissions.md no longer names the single-marker create-resolving-ticket.js directly",
+          "investigation": "Evidence gathered from source:\n1. batch-create-resolving-tickets.js createResolvingTickets loop hard-codes stubs=[{file,line,content}] per manifest entry -> one ticket per marker (the explosion root). createdTickets = created.length (per-entry count).\n2. generic-ticket-creation.js createOne resolving branch verifies on-disk marker only for seed.stubs[0]; C008 duplicate file:line scan in createTickets only checks seed.stubs[0].\n3. create-resolving-ticket.js createResolvingTicket embeds stubs[] correctly (res.ticket.stubs = stubs.map(...)) — the multi-marker capability already exists at the ticket level.\n4. find-omissions.md:22 (Overview) and :119 (orphans table row) still name single-marker create-resolving-ticket.js while :122+ uses batch-create-resolving-tickets.js (PX-1) and generic-ticket-creation.js (PX-2) — stale references.\n5. Family scripts create-deferral-ticket.js (deferral seed) and create-crime-deferral-ticket.js (crimeDeferral seed) already route through generic-ticket-creation.js createTickets.\n6. tests/batch-create-resolving-tickets.test.cjs (356 lines) covers C001-C009; tests/generic-ticket-creation.test.cjs covers the core. Neither covers grouping (C010) or multi-stub core verification.",
+          "boyScoutPlan": "Translatability plan for the touched code:\n- Extract the per-group creation into a named function createOneGroup (verb phrase) so the batch loop reads as prose: group -> verify all markers -> create one ticket.\n- Rename createdTickets semantics to groupCount when grouping is in play; keep the summary field names stable to avoid confusing consumers.\n- Add a shared forEachStub helper used by both createOne (core) and the C008 duplicate scan, eliminating the duplicated stubs[0] indexing that caused the latent bug.\n- Add a doc-consistency grep test asserting find-omissions.md no longer references the single-marker create-resolving-ticket.js as a direct CLI.\n- Keep every stdout/stderr message self-contained English with an Action-directive (existing output-message convention).",
+          "created_at": "2026-08-05",
+          "updated_at": "2026-08-05",
+          "targetStubs": [],
+          "targetCrimes": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P9-99",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+              "line": 99,
+              "markerText": "manifest: [{ file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P9-99: reason -- Implement fix\" }],",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-129",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in tests/batch-create-resolving-tickets.test.cjs intentionally embeds a non-existent ticket key to exercise the batch tool rejection paths (createResolvingTickets / runBatchCreate C001 and C009); the marker text is data inside a test manifest, not production code, and PX-129 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            },
+            {
+              "id": "TS-002",
+              "ticketRef": "P9-9",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+              "line": 321,
+              "markerText": "writeLine(srcFile, 5, \"// [::STUB::] P9-9: edited after manifest build\");",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-129",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in tests/batch-create-resolving-tickets.test.cjs intentionally embeds a non-existent ticket key to exercise the batch tool rejection paths (createResolvingTickets / runBatchCreate C001 and C009); the marker text is data inside a test manifest, not production code, and PX-129 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            }
+          ],
+          "planTestCode": [
+            "UT: [C001] Grouped manifest shape and sourceKey resolution\n  const ws = makeWorkspace();\n  const groupedEntry = { sourceKey: \"P4-2\", stubs: [\n    { file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P4-2: reason one -- Implement one\" },\n    { file: \"src/multi.rs\", line: 23, content: \"// [::STUB::] P4-2: reason two -- Implement two\" },\n  ]};\n  const res = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [groupedEntry], sourceRoot: ws.sourceRoot });\n  assert.strictEqual(res.success, true);\n  assert.strictEqual(res.created[0].sourceKey, \"P4-2\");",
+            "UT: [C002] Atomicity — a failing group leaves everything byte-identical\n  const ws = makeWorkspace();\n  const badGroup = { sourceKey: \"P4-2\", stubs: [{ file: \"src/missing.rs\", line: 1, content: \"// [::STUB::] P4-2: x -- Implement y\" }] };\n  const ticketsBefore = fs.readFileSync(ws.ticketsPath, \"utf8\");\n  const res = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [badGroup], sourceRoot: ws.sourceRoot });\n  assert.strictEqual(res.success, false);\n  assert.strictEqual(fs.readFileSync(ws.ticketsPath, \"utf8\"), ticketsBefore);",
+            "UT: [C003] On-disk verification covers EVERY marker in a group\n  const ws = makeWorkspace();\n  const res = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [{\n    sourceKey: \"P4-2\", stubs: [\n      { file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P4-2: one -- Implement one\" },\n      { file: \"src/multi.rs\", line: 999, content: \"// [::STUB::] P4-2: two -- Implement two\" }, // out of range\n    ]}], sourceRoot: ws.sourceRoot });\n  assert.strictEqual(res.success, false, \"a group must refuse when ANY marker fails\");",
+            "UT: [C004] Path escape rejection\n  const res = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [{\n    sourceKey: \"P4-2\", stubs: [{ file: \"../escape.rs\", line: 1, content: \"// [::STUB::] P4-2: x -- Implement y\" }] }], sourceRoot: ws.sourceRoot });\n  assert.strictEqual(res.success, false);",
+            "UT: [C005] --no-write dry-run over a grouped manifest\n  const ws = makeWorkspace();\n  const res = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [groupedEntry], sourceRoot: ws.sourceRoot, noWrite: true });\n  assert.strictEqual(res.success, true);\n  assert.strictEqual(res.dryRun, true);\n  assert.strictEqual(stubTicketCount(ws.ticketsPath), 0, \"dry-run must not create tickets\");",
+            "UT: [C006] All group markers embedded with the new key\n  const ws = makeWorkspace();\n  const res = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [groupedEntry], sourceRoot: ws.sourceRoot });\n  assert.strictEqual(stubTicketCount(ws.ticketsPath), 1);\n  const stubs = res.created[0].ticket.stubs;\n  assert.strictEqual(stubs.length, 2, \"both group markers must be embedded\");\n  stubs.forEach(s => assert.ok(/\\[::STUB::\\]\\s+P\\d+-\\d+/.test(s.content), \"content must carry the new key\"));",
+            "UT: [C007] Idempotent re-run skips a group whose markers now reference active tickets\n  const ws = makeWorkspace();\n  bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [groupedEntry], sourceRoot: ws.sourceRoot });\n  const second = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [groupedEntry], sourceRoot: ws.sourceRoot });\n  assert.strictEqual(second.created.length, 0);\n  assert.ok(second.skipped.length > 0);",
+            "UT: [C008] Duplicate file:line across markers inside one group is rejected\n  const res = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [{\n    sourceKey: \"P4-2\", stubs: [\n      { file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P4-2: one -- Implement one\" },\n      { file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P4-2: two -- Implement two\" },\n    ]}], sourceRoot: ws.sourceRoot });\n  assert.strictEqual(res.success, false);",
+            "UT: [C009] Commit-time divergence of any group marker is refused\n  const ws = makeWorkspace();\n  writeLine(path.join(ws.sourceRoot, \"src/a.rs\"), 5, \"// [::STUB::] P4-2: edited after manifest build\");\n  const res = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [groupedEntry], sourceRoot: ws.sourceRoot });\n  assert.strictEqual(res.success, false);",
+            "UT: [C010] One ticket per group, not per marker\n  const ws = makeWorkspace();\n  const res = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [\n    { sourceKey: \"P4-2\", stubs: [m1, m2] },\n    { sourceKey: \"P3-2\", stubs: [m3] },\n  ], sourceRoot: ws.sourceRoot });\n  assert.strictEqual(res.success, true);\n  assert.strictEqual(res.created.length, 2, \"2 groups -> 2 tickets, not 3 markers\");\n  assert.strictEqual(stubTicketCount(ws.ticketsPath), 2);",
+            "UT: [C011] Legacy single-marker manifest unchanged\n  const ws = makeWorkspace();\n  const res = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: manifestForA(), sourceRoot: ws.sourceRoot });\n  assert.strictEqual(res.success, true);\n  assert.strictEqual(res.created.length, 1);\n  assert.strictEqual(stubTicketCount(ws.ticketsPath), 1);"
+          ],
+          "startedAt": "2026-08-05",
+          "changes": [
+            {
+              "before": "batch-create-resolving-tickets.js: one manifest entry = one marker = one ticket",
+              "after": "grouped entries {sourceKey, stubs:[...]} create ONE ticket per unit; C008/C003/C009/C007 extended to every marker in a group",
+              "description": "Added grouped-manifest support (C010) with backward compat for legacy single-marker entries (C011)"
+            },
+            {
+              "before": "generic-ticket-creation.js createOne/C008 verified only seed.stubs[0]",
+              "after": "createOne verifies every seed.stubs[] marker; C008 duplicate scan covers all stubs",
+              "description": "Closed the stubs[0]-only latent gap; multi-stub resolving seeds fully verified"
+            },
+            {
+              "before": "find-omissions.md referenced single-marker create-resolving-ticket.js at Overview and orphans row",
+              "after": "both reference batch-create-resolving-tickets.js; grouped manifest format documented",
+              "description": "Stale references fixed; PX-129 grouped entry shape documented"
+            },
+            {
+              "before": "validate-ticket-targets.js leaked a phantom unknown entry when targetStubs was the string verified_empty and targetCrimes an array",
+              "after": "only arrays contribute to allTargets",
+              "description": "Boy Scout fix for the mixed-state concat leak"
+            }
+          ],
+          "completedAt": "2026-08-05"
+        },
+        {
+          "id": 130,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "STUB consolidation slash command + update-stub.js: normalize STUB markers into ticket-sized units by resolve key",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/130-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "【Goal】Re-organize existing STUB markers so each maps to one ticket-sized unit, eliminating sub-ticket fragments\n【Purpose】A new slash command + update-stub.js edit marker lines to normalize the resolve key per unit; markers stay at their sites (provenance preserved); only true duplicates are removed\n【Motivation】crates/siprs measurement: 63 markers, only ~44% are at least one ticket of work; fragments split one ticket into many slivers (FFI callbacks x6, wiring x5, constant swaps x5). A human would bundle or do them inline. Key normalization lets /find-omissions (via PX-129 grouped manifest) create one ticket per unit instead of one per marker\n【Constraints】No new ticket creation (delegated to /find-omissions); no change to insert-stub/remove-stub/batch-create-resolving-tickets/generic-ticket-creation; completed-key re-pointing allowed as the find-omissions re-ticketization signal; the grouped manifest format is the cross-ticket contract with PX-129",
+          "scope": [
+            "Path: .claude/commands/consolidate-stubs.md",
+            "Action: new slash command (enumerate -> group -> normalize -> remove duplicates -> validate -> emit handoff)",
+            "Detail: workflow runs find-all-stubs.js, AI groups fragments into units by unlock-dependency + domain coherence, update-stub.js re-points each unit to one key, remove-stub.js merges true duplicates, gates run, handoff manifest is printed",
+            "Before/After: 63 scattered markers -> N coherent units each with one resolve key; /find-omissions consumes the grouped manifest via PX-129",
+            "API: update-stub.js CLI --file --line --resolve-by-ticket [--stub-reason] [--resolve-plan]; completed-key re-pointing allowed; Tickets.json is always ./Tickets.json (CLI)",
+            "Schema: no Tickets.json change; the command never writes Tickets.json (C008)",
+            "Config: no new configuration",
+            "Dep: no new dependencies",
+            "Non-change item: no new ticket creation; units without a covering ticket are emitted as find-omissions candidates only",
+            "Non-change why: ticket creation is /find-omissions responsibility (via PX-129 grouped manifest); this command is marker-editing only",
+            "Impact component: existing STUB state under a target directory; /find-omissions preflight input",
+            "Impact nature: STUB markers re-organized into ticket-sized units; the marker-to-ticket ratio becomes rational",
+            "Impact response: /find-omissions Step 1 preflight sees coherent units; PX-129 batch-create creates one ticket per unit"
+          ],
+          "testUnit": [
+            "UT: update-stub.js edits the marker at file:line preserving the anchor; only the marker line changes (C004)",
+            "UT: when resolve-by-ticket is provided, update-stub.js accepts re-pointing to a COMPLETED ticket key (find-omissions handoff) and to an active future todo; rejects MUST RESOLVE, PX-*, non-existent keys (C002)",
+            "UT: when resolve-plan is provided, update-stub.js rejects a terminal-excuse plan and accepts an AI-executable work item (C003)",
+            "UT: consolidation keeps every stub site marker; only a true duplicate (same defect + same region) is removed and the survivor enumerates the covered lines (C005)",
+            "UT: a unit with N markers sharing one resolve key emits exactly one handoff manifest entry {sourceKey, stubs:[N entries]} (C006/C007)",
+            "UT: a unit with no existing covering ticket is emitted as a find-omissions candidate, NOT created as a ticket (C008)",
+            "UT: post-consolidation the no-excuse gate passes (zero terminal excuses) (C009)",
+            "UT: the command is idempotent — re-running on an already-consolidated tree produces no further edits (C010)"
+          ],
+          "testIntegration": [
+            "IT: fixture resembling crates/siprs (scattered fragments across files) -> consolidate-stubs -> markers normalized to one key per unit -> find-omissions preflight classifies units as resolvedCandidates -> batch-create-resolving-tickets.js (PX-129) creates ONE ticket per unit",
+            "IT: update-stub.js + remove-stub.js interop: a same-file cluster merges to one marker with enumerated lines; cross-file markers keep their sites but share the unit key",
+            "IT: handoff manifest emitted by the command is accepted verbatim by batch-create-resolving-tickets.js --no-write (PX-129 grouped format)"
+          ],
+          "testExceptions": [
+            "Item: unit formation (which markers group together) — Reason: grouping is an AI judgment by design, non-deterministic, and therefore not testable as a mechanical assertion; this is not a design defect because the command separates judgment (AI) from mechanical emission (script). Alternative: the mechanical parts are unit-tested (grouped-manifest emission, key validation, duplicate removal) and unit formation is reviewed in review-ticket.",
+            "Item: slash command orchestration prose — Reason: markdown command instructions are not executable and their readability is not testable by an automated assertion; this is not a design defect. Alternative: each mechanical step maps to a script whose behavior is unit-tested; prose quality verified in review-ticket."
+          ],
+          "default_files": [
+            ".claude/commands/consolidate-stubs.md",
+            ".claude/scripts/tickets/update-stub.js",
+            ".claude/scripts/tickets/insert-stub.js",
+            ".claude/scripts/tickets/remove-stub.js",
+            "tests/update-stub.test.js"
+          ],
+          "acceptanceCriteria": [
+            "【Happy path】Over a fixture of 10 scattered fragments across 4 files -> grouped into 2-3 units -> every marker re-pointed to its unit key -> handoff manifest has 2-3 entries -> no-excuse gate passes",
+            "【Error case】update-stub.js with a PX-* key or a terminal-excuse plan -> rejected with an Action-directive and zero writes",
+            "【Edge case】A true duplicate pair in one file -> merged to one marker whose reason enumerates the covered lines; no location is lost"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "consolidate-stubs → update-stub.js",
+              "precondition": "an existing marker line exists at file:line",
+              "postcondition": "the marker is edited in place at the same anchor",
+              "invariant": "no other line in the file changes (surgical edit)"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "update-stub.js key validation",
+              "precondition": "resolve-by-ticket provided",
+              "postcondition": "key exists in Tickets.json; MUST RESOLVE and PX-* are rejected; a COMPLETED key is allowed (find-omissions handoff)",
+              "invariant": "every marker keeps a resolvable, non-PX, non-MUST key"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "resolve plan validation",
+              "precondition": "resolve-plan provided",
+              "postcondition": "plan contains an AI-executable work item; terminal excuses are rejected",
+              "invariant": "no marker carries a terminal excuse"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "surgical edit",
+              "precondition": "update-stub.js invoked",
+              "postcondition": "only the target marker line changes; the anchor file:line is preserved",
+              "invariant": "source files are not otherwise modified"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "true-duplicate removal",
+              "precondition": "two markers share the same defect and same region",
+              "postcondition": "one survives; the survivor enumerates the covered line span",
+              "invariant": "no stub site loses its location annotation"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "unit key normalization",
+              "precondition": "a unit has N markers",
+              "postcondition": "all N markers share exactly one resolve key",
+              "invariant": "one key per unit"
+            },
+            {
+              "id": "C007",
+              "sourceEdge": "handoff manifest",
+              "precondition": "consolidation completes",
+              "postcondition": "output is {sourceKey, stubs:[{file,line,content},...]} per unit, matching the PX-129 grouped manifest",
+              "invariant": "the manifest is directly consumable by batch-create-resolving-tickets.js (PX-129)"
+            },
+            {
+              "id": "C008",
+              "sourceEdge": "no ticket creation",
+              "precondition": "a unit has no existing covering ticket",
+              "postcondition": "the unit is emitted as a find-omissions candidate; no ticket is created",
+              "invariant": "this command never writes Tickets.json"
+            },
+            {
+              "id": "C009",
+              "sourceEdge": "post-consolidation gates",
+              "precondition": "consolidation completes",
+              "postcondition": "validate-no-external-excuses.js exits 0 and validate-stub-format.js passes",
+              "invariant": "consolidated markers are excuse-free and well-formed"
+            },
+            {
+              "id": "C010",
+              "sourceEdge": "idempotency",
+              "precondition": "command re-run on an already-consolidated tree",
+              "postcondition": "no further edits are made",
+              "invariant": "the command converges"
+            }
+          ],
+          "notes": "【Implementation steps】1) implement update-stub.js (key/reason/plan edit with completed-key re-pointing) 2) write tests for update-stub.js 3) implement the consolidate-stubs command workflow (enumerate/group/normalize/remove/gate/handoff) 4) emit the PX-129 grouped manifest 5) verify gates green\n【Risks】Grouping is AI judgment — the command must separate judgment (AI) from mechanical execution (scripts); unit formation errors surface at review, not mechanically\n【Caveats】update-stub.js must never edit a line that is not the target marker (surgical edit); remove-stub.js only for true duplicates with survivor enumeration\n【Open items】command name (working title: consolidate-stubs); whether the command also rewrites keys already pointing to an active future todo (yes: normalize to unit key)\n【Future】PX-129 (grouped manifest) makes /find-omissions consume this output without per-marker explosion; running this command over crates/siprs is the first real exercise\nImplementation summary:\n- Files added: .claude/scripts/tickets/update-stub.js, .claude/commands/consolidate-stubs.md, tests/update-stub.test.cjs\n- Files touched: tests/fixtures/src/p3.rs (annotations reorganized; STUB stays at line 7)\n- Tests: update-stub 16/16, make test-stub-resolution 26/26, make test-rfc-graph 932/932\n- Cross-ticket contract verified: grouped manifest {sourceKey, stubs:[...]} -> batch-create-resolving-tickets.js --no-write created 1 ticket for a 2-marker group\n- update-stub.js NEVER writes Tickets.json (C008); completed-key re-pointing is the find-omissions re-ticketization signal\n- Malfeasance crimes 2,3 remain false_positive (test fixtures)\nFollow-up polish: added .claude/scripts/tickets/print-manifest-for-find-omissions.js + tests/print-manifest-for-find-omissions.test.cjs; consolidate-stubs.md Step 6 now runs the script (echo units | node print-manifest-for-find-omissions.js | node batch-create-resolving-tickets.js --no-write). Tests: 57/57 (update-stub 18, print-manifest 3, batch 26, generic 10).\nReview report (completed 2026-08-05):\n- Static quality check: passed (0 issues)\n- Translatability: no issues (no single-letter vars, no TODO/FIXME debris)\n- Tests: update-stub 18/18, print-manifest 6/6, batch-create 26/26, generic-ticket-creation 10/10 (60/60); make test-stub-resolution 26/26; make test-rfc-graph 932/932\n- No-excuse gate: 0 failures\n- Malfeasance: 0 open crimes (test-fixture strings marked false_positive)\n- Annotation: changed files carry ticket-key provenance for the tickets that modified them (cumulative-diff verify for earlier tickets flags later-ticket files, which is expected)\n- AMBIGUOUS markers: 0 (p3.rs fixture annotations consolidated)",
+          "invariants": "【Normal establishment】Every STUB site keeps exactly one marker at its file:line; each unit has exactly one resolve key; the handoff manifest is {sourceKey, stubs:[{file,line,content}]}\n【On error】update-stub.js validation failure leaves the marker byte-identical; no partial edit is observable\n【Internal state】no marker carries a terminal excuse; no stub site loses its location annotation; the command never writes Tickets.json\n【Boundary】a unit with one marker behaves like a simple re-point; a unit with N markers emits one manifest entry with N stubs",
+          "instrumentation": "【Logging】consolidate-stubs prints before/after counts (markers -> units) and the handoff manifest to stdout\n【Metrics】unit count vs marker count reported so the consolidation ratio is observable\n【Error tracking】update-stub.js failures print [update-stub] FAIL <file>:<line> -- <reason> with an Action-directive\n【Health check】validate-no-external-excuses.js --fail-on-excuse and validate-stub-format.js run as post-consolidation gates before the handoff manifest is emitted",
+          "investigation": "Evidence gathered from source and prior conversation:\n1. crates/siprs measurement: 63 STUB markers; 44% are at least one ticket of work; 56% are sub-ticket fragments. Fragment clusters: ffi/callback.rs 6 markers (one callback bridge), audio_worker.rs 5 (accessor exposure), reactor.rs 3 (wiring), pj_status_t constants across error/* and state/* (5 mechanical swaps), build.rs 2 (duplicate).\n2. find-all-stubs.js enumerates [::STUB::] markers with file:line:content; insert-stub.js validates resolve-by-ticket (future todo, non-PX, no-excuse); remove-stub.js deletes a marker at file:line.\n3. No update-stub.js exists today — editing a marker means remove+insert, losing the anchor or risking double markers.\n4. PX-129 defines the grouped manifest {sourceKey, stubs:[{file,line,content}]} consumed by batch-create-resolving-tickets.js; find-omissions Step 1 classifies completed-key markers as resolvedCandidates -> create one resolving ticket per group.\n5. Design decision: markers stay at their sites (provenance); key normalization is the consolidation mechanism; only true duplicates are removed with survivor enumeration.",
+          "boyScoutPlan": "Translatability plan for the touched code:\n- update-stub.js reads as prose: validateKey -> validatePlan -> rewriteMarkerLine, each a named verb-phrase function.\n- The consolidate-stubs command workflow is expressed as a sequence of verb phrases: enumerate -> group -> normalize -> mergeDuplicates -> runGates -> emitHandoff.\n- Hardcoded validation constants (active/completed statuses, excuse lexicon) are shared with validate-no-external-excuses.js via import, not duplicated.\n- Every stdout/stderr message is self-contained English with an Action-directive (existing convention).\n- The grouping acceptance test (one implementer, one pass) is documented in the command so future maintainers understand the judgment criterion.",
+          "created_at": "2026-08-05",
+          "updated_at": "2026-08-05",
+          "targetStubs": [],
+          "targetCrimes": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P9-99",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+              "line": 99,
+              "markerText": "manifest: [{ file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P9-99: reason -- Implement fix\" }],",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-130",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in tests/batch-create-resolving-tickets.test.cjs intentionally embeds a non-existent ticket key to exercise the batch tool rejection paths (createResolvingTickets / runBatchCreate C001 and C009); the marker text is data inside a test manifest, not production code, and PX-130 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            },
+            {
+              "id": "TS-002",
+              "ticketRef": "P9-9",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+              "line": 321,
+              "markerText": "writeLine(srcFile, 5, \"// [::STUB::] P9-9: edited after manifest build\");",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-130",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in tests/batch-create-resolving-tickets.test.cjs intentionally embeds a non-existent ticket key to exercise the batch tool rejection paths (createResolvingTickets / runBatchCreate C001 and C009); the marker text is data inside a test manifest, not production code, and PX-130 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            }
+          ],
+          "planTestCode": [
+            "UT: [C001] update-stub.js edits the marker at file:line preserving the anchor\n  const ws = makeWorkspace();\n  const res = updateStub({ file: srcA, line: 5, resolveByTicket: \"P4-2\", stubReason: \"reason\", resolvePlan: \"Implement fix\", ticketsPath });\n  assert.strictEqual(res.success, true);\n  assert.ok(readLine(srcA, 5).includes(\"// [::STUB::] P4-2: reason -- Implement fix\"));",
+            "UT: [C002] when resolve-by-ticket is provided, update-stub.js accepts a COMPLETED key and an active future todo; rejects MUST RESOLVE, PX-*, non-existent keys\n  const r1 = updateStub({ file: srcA, line: 5, resolveByTicket: \"PX-999\", ticketsPath });\n  assert.strictEqual(r1.success, false);\n  const r2 = updateStub({ file: srcA, line: 5, resolveByTicket: \"PX-5\", ticketsPath });\n  assert.strictEqual(r2.success, false);\n  const r3 = updateStub({ file: srcA, line: 5, resolveByTicket: \"P4-2\", ticketsPath });\n  assert.strictEqual(r3.success, true, \"completed-key re-pointing allowed\");",
+            "UT: [C003] when resolve-plan is provided, update-stub.js rejects a terminal excuse and accepts an AI-executable work item\n  const bad = updateStub({ file: srcA, line: 5, resolveByTicket: \"P4-2\", resolvePlan: \"awaiting external approval\", ticketsPath });\n  assert.strictEqual(bad.success, false);\n  const good = updateStub({ file: srcA, line: 5, resolveByTicket: \"P4-2\", resolvePlan: \"Vendor and build PJSIP in build.rs\", ticketsPath });\n  assert.strictEqual(good.success, true);",
+            "UT: [C004] update-stub.js invoked edits only the target marker line (surgical edit)\n  const before = fs.readFileSync(srcA, \"utf8\");\n  updateStub({ file: srcA, line: 5, resolveByTicket: \"P4-2\", stubReason: \"r\", resolvePlan: \"p\", ticketsPath });\n  const after = fs.readFileSync(srcA, \"utf8\");\n  assert.strictEqual(after.split(\"\\n\")[4], \"// [::STUB::] P4-2: r -- p\");\n  assert.strictEqual(after.split(\"\\n\").length, before.split(\"\\n\").length);",
+            "UT: [C005] true-duplicate removal: same-defect same-region markers merge; survivor enumerates covered lines\n  const merged = mergeTrueDuplicates([{ file: \"build.rs\", line: 8, content: \"// [::STUB::] P4-2: bindgen disabled -- Enable bindgen\" }, { file: \"build.rs\", line: 11, content: \"// [::STUB::] P4-2: bindgen disabled -- Enable pjsua-native\" }]);\n  assert.strictEqual(merged.kept.length, 1);\n  assert.ok(merged.kept[0].content.includes(\"build.rs:8,11\"));\n  const distinct = mergeTrueDuplicates([{ file: \"a.rs\", line: 5, content: \"// [::STUB::] P4-2: one -- one\" }, { file: \"b.rs\", line: 9, content: \"// [::STUB::] P4-2: two -- two\" }]);\n  assert.strictEqual(distinct.kept.length, 2, \"different regions never merge\");",
+            "UT: [C006] a unit with N markers shares exactly one resolve key\n  const unit = { markers: [m1, m2, m3] };\n  const normalized = normalizeUnitKey(unit, ticketsData);\n  const keys = new Set(normalized.markers.map(m => m.resolveByTicket));\n  assert.strictEqual(keys.size, 1, \"one key per unit\");",
+            "UT: [C007] consolidation completes emits one handoff manifest entry per unit {sourceKey, stubs:[{file,line,content}]}\n  const manifest = emitHandoffManifest(units, ticketsData);\n  assert.strictEqual(manifest.length, units.length);\n  for (const entry of manifest) {\n    assert.ok(entry.sourceKey);\n    assert.ok(Array.isArray(entry.stubs) && entry.stubs.length > 0);\n    for (const s of entry.stubs) assert.ok(s.file && s.line && s.content.includes(\"[::STUB::]\"));\n  }",
+            "UT: [C008] a unit with no existing covering ticket is emitted as a find-omissions candidate; the command never writes Tickets.json\n  const before = JSON.stringify(ticketsData);\n  runConsolidation({ dir, ticketsData });\n  assert.strictEqual(JSON.stringify(ticketsData), before, \"Tickets.json untouched\");",
+            "UT: [C009] post-consolidation the no-excuse gate passes (zero terminal excuses)\n  runConsolidation({ dir, ticketsData });\n  const excuses = validateNoExternalExcuses(markers);\n  assert.strictEqual(excuses.length, 0);",
+            "UT: [C010] the command is idempotent — re-running on an already-consolidated tree produces no edits\n  runConsolidation({ dir, ticketsData });\n  const before = fs.readFileSync(srcA, \"utf8\");\n  runConsolidation({ dir, ticketsData });\n  const after = fs.readFileSync(srcA, \"utf8\");\n  assert.strictEqual(before, after);"
+          ],
+          "startedAt": "2026-08-05",
+          "changes": [
+            {
+              "before": "no update-stub.js — editing a marker required remove+insert, losing the anchor",
+              "after": "update-stub.js edits a marker line in place (key/reason/plan), preserving the anchor; completed-key re-pointing allowed",
+              "description": "New marker-edit primitive (C001-C004)"
+            },
+            {
+              "before": "no consolidated handoff; /find-omissions queued one ticket per marker",
+              "after": "consolidate-stubs.md command + emitHandoffManifest produce the PX-129 grouped manifest {sourceKey, stubs:[...]} — one ticket per unit",
+              "description": "Consolidation command and cross-ticket handoff contract (C006-C008)"
+            },
+            {
+              "before": "fragment markers duplicated the same defect at multiple lines",
+              "after": "mergeTrueDuplicates merges same-defect same-region markers; survivor enumerates covered lines",
+              "description": "True-duplicate merging with location preservation (C005)"
+            },
+            {
+              "before": "Step 6 described the handoff manifest necessity without a mechanical means",
+              "after": "print-manifest-for-find-omissions.js reads units JSON on stdin and emits the grouped manifest (stdout) + counts (stderr); Step 6 is now a one-liner script run",
+              "description": "New dedicated manifest printer; update-stub.js stays focused on marker editing"
+            }
+          ],
+          "completedAt": "2026-08-05"
+        },
+        {
+          "id": 131,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Consolidated manifest as a file + mechanical [::UNIT::] cleanup: print-manifest-for-find-omissions.js writes ./manifests/CONSOLIDATED-MANIFEST-<timestamp>.json and update-stub.js gains --unit-id",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/131-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "【Goal】Make the consolidation pipeline fully mechanical after the AI grouping decision: no hand-assembled units JSON, no stdin echo\n【Purpose】update-stub.js records unit membership as [::UNIT::<id>::] in each marker; print-manifest-for-find-omissions.js scans the tree, groups by unit id, writes ./manifests/CONSOLIDATED-MANIFEST-<ts>.json, then strips the tags on success\n【Motivation】The current Step 6 forces the AI to reconstruct the grouping into JSON on stdin — an error-prone, non-mechanical step that contradicts the command design principle (AI judges, scripts execute)\n【Constraints】The PX-129 grouped manifest shape is unchanged; emitHandoffManifest / normalizeUnitKey stay as-is; the [::UNIT::] tag is a transient intermediate state",
+          "scope": [
+            "Path: .claude/scripts/tickets/update-stub.js",
+            "Action: add --unit-id=<id> CLI flag + unitId param to updateStub; embed [::UNIT::<id>::] after the reason in buildMarkerLine; preserve an existing unit tag on re-point when --unit-id is omitted",
+            "Detail: buildMarkerLine(current, key, reason, plan, unitId) appends the unit tag; extractUnitId(content) parses it; parseMarker keeps reason clean of the tag",
+            "Before/After: marker without tag // [::STUB::] P4-2: reason -- plan -> with tag // [::STUB::] P4-2: reason [::UNIT::U1::] -- plan",
+            "API: update-stub.js CLI gains --unit-id; print-manifest-for-find-omissions.js loses stdin/stdout and becomes a scanner+writer with no input",
+            "Schema: no Tickets.json change; the manifest file shape stays the PX-129 grouped contract",
+            "Config: no new configuration",
+            "Dep: no new dependencies",
+            "Non-change item: emitHandoffManifest / normalizeUnitKey / mergeTrueDuplicates stay as-is",
+            "Non-change why: those are already correct and C007-tested; only the collection/output path changes",
+            "Impact component: /consolidate-stubs Step 4 and Step 6; validate-stub-format.js; tests/update-stub and tests/print-manifest",
+            "Impact nature: the pipeline becomes fully mechanical after the AI grouping decision; the manifest persists as a file for /find-omissions",
+            "Impact response: update-stub.test.cjs + print-manifest-for-find-omissions.test.cjs extended; consolidate-stubs.md Step 4/6 updated"
+          ],
+          "testUnit": [
+            "UT: [C001] update-stub.js --unit-id=U1 embeds [::UNIT::U1::] in the marker after the reason\n  const res = updateStub({ file: srcA, line: 5, resolveByTicket: \"P4-2\", stubReason: \"codec deferred\", resolvePlan: \"Implement pjsua codec enumeration\", unitId: \"U1\", ticketsPath });\n  assert.ok(readLine(srcA, 5).includes(\"[::UNIT::U1::]\"));",
+            "UT: [C002] the grouping decision is persisted as data in the marker, not reconstructed by the AI — a tagged marker survives re-pointing without --unit-id, so the printer can recover the unit id from content\n  updateStub({ file: srcA, line: 5, resolveByTicket: \"P4-2\", unitId: \"U1\", ticketsPath });\n  updateStub({ file: srcA, line: 5, resolveByTicket: \"P4-2\", ticketsPath });\n  assert.ok(readLine(srcA, 5).includes(\"[::UNIT::U1::]\"));",
+            "UT: [C003] print-manifest scans a tagged tree and groups by unit id\n  const res = collectTaggedMarkers(ws.dir);\n  assert.strictEqual(res.units.length, 2, \"2 units\");\n  assert.strictEqual(res.units[0].sourceKey, \"P4-2\");",
+            "UT: [C004] when grouping completes, the manifest is written to ./manifests/CONSOLIDATED-MANIFEST-<ts>.json (auto-creates manifests/)\n  const out = runPrinter(ws.dir);\n  assert.ok(fs.existsSync(out.manifestPath));\n  assert.ok(out.manifestPath.includes(\"manifests/CONSOLIDATED-MANIFEST-\"));\n  const parsed = JSON.parse(fs.readFileSync(out.manifestPath, \"utf8\"));\n  assert.strictEqual(parsed.length, 2, \"one entry per unit\");",
+            "UT: [C005] after a successful write every [::UNIT::] tag is removed from source\n  runPrinter(ws.dir);\n  const lines = fs.readFileSync(srcA, \"utf8\");\n  assert.ok(!lines.includes(\"[::UNIT::\"), \"tags stripped\");\n  assert.ok(lines.includes(\"[::STUB::]\"), \"markers remain clean\");",
+            "UT: [C005-inv] a failed write leaves all tags in place and returns an error\n  fs.chmodSync(ws.dir, 0o444); // make manifests unwritable\n  const out = runPrinter(ws.dir);\n  assert.strictEqual(out.ok, false);\n  assert.ok(fs.readFileSync(srcA, \"utf8\").includes(\"[::UNIT::\"), \"tags preserved for retry\");",
+            "UT: [C006] validate-stub-format accepts a marker containing [::UNIT::<id>::] and still rejects a malformed one\n  assert.strictEqual(validateStubFormat(\"// [::STUB::] P4-2: reason [::UNIT::U1::] -- plan\"), true);\n  assert.strictEqual(validateStubFormat(\"no marker\"), false);"
+          ],
+          "testIntegration": [
+            "IT: tagged tree -> print-manifest-for-find-omissions.js -> manifests/CONSOLIDATED-MANIFEST-<ts>.json written, unit tags stripped -> the manifest file is accepted by batch-create-resolving-tickets.js --no-write (one ticket per unit)",
+            "IT: consolidate-stubs.md Step 4 (update-stub --unit-id) -> Step 6 (print-manifest) end-to-end over a siprs-like fixture",
+            "IT: Existing suites tests/update-stub.test.cjs, tests/print-manifest-for-find-omissions.test.cjs stay green",
+            "IT: A marker carrying a unit tag passes the format gate after update-stub embeds it and before the printer strips it"
+          ],
+          "testExceptions": [
+            "Item: timestamped filename collision across concurrent runs — Reason: two concurrent runs picking the same second is non-deterministic external timing and therefore not testable as a deterministic assertion; this is not a design defect because the script refuses to overwrite an existing manifest file and errors. Alternative: the collision refusal is unit-tested and the manifest content itself is deterministic.",
+            "Item: filesystem-level atomicity of write-then-cleanup — Reason: a crash between a successful write and the tag cleanup is an OS-level failure mode outside the script, hence not testable within this tool; this is not a design defect because cleanup runs only after a confirmed write. Alternative: the write-then-cleanup ordering is unit-tested; crash-window behavior is out of scope."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/print-manifest-for-find-omissions.js",
+            ".claude/scripts/tickets/update-stub.js",
+            ".claude/scripts/tickets/validate-stub-format.js",
+            ".claude/commands/consolidate-stubs.md",
+            "tests/print-manifest-for-find-omissions.test.cjs",
+            "tests/update-stub.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a tree with 2 units (3 tagged markers) -> run print-manifest-for-find-omissions.js -> manifests/CONSOLIDATED-MANIFEST-<ts>.json written with 2 entries, all [::UNIT::] tags removed from source, counts reported",
+            "Error case: manifests dir unwritable -> error returned, no unit tags removed, no partial manifest",
+            "Edge case: re-point without --unit-id preserves an existing unit tag; validate-stub-format accepts the tagged intermediate state"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "update-stub.js --unit-id",
+              "precondition": "--unit-id provided",
+              "postcondition": "the marker embeds [::UNIT::<id>::] after the reason",
+              "invariant": "the unit tag is parseable and survives re-pointing"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "unit membership persistence",
+              "precondition": "a marker carries [::UNIT::<id>::]",
+              "postcondition": "the unit id is recoverable from the marker content by the printer",
+              "invariant": "the grouping decision is persisted as data, not reconstructed by the AI"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "print-manifest scan+group",
+              "precondition": "target tree contains tagged markers",
+              "postcondition": "markers group by unit id; one {sourceKey, stubs:[...]} entry per unit",
+              "invariant": "unit membership is derived mechanically from the tags"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "manifest file write",
+              "precondition": "grouping completes",
+              "postcondition": "./manifests/CONSOLIDATED-MANIFEST-<YYYYMMDDhhmmss>.json is written (manifests/ auto-created)",
+              "invariant": "the manifest JSON shape matches the PX-129 grouped contract"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "cleanup after write",
+              "precondition": "manifest write succeeds",
+              "postcondition": "every [::UNIT::<id>::] tag is removed from the source markers",
+              "invariant": "a failed write leaves all tags in place (retryable)"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "format gate",
+              "precondition": "marker carries [::UNIT::<id>::]",
+              "postcondition": "validate-stub-format.js accepts it",
+              "invariant": "the intermediate consolidated state passes the format gate"
+            }
+          ],
+          "notes": "【Implementation steps】1) update-stub.js: add --unit-id + preserve existing tag 2) print-manifest-for-find-omissions.js: scan tagged markers -> group by unit id -> write manifest file -> strip tags on success 3) validate-stub-format.js: allow [::UNIT::<id>::] 4) consolidate-stubs.md Step 4/6 5) tests\n【Risks】Timestamped filename could collide within the same second — refuse overwrite; the strip-tags cleanup must only run after a confirmed write\n【Caveats】The manifest stubs[].content must carry the CLEAN marker (unit tag stripped) so find-omissions rewrites clean lines\n【Open items】None — design confirmed with the user\n【Future】Running /consolidate-stubs over crates/siprs is the first real exercise; the written manifest feeds /find-omissions directly\nImplementation summary:\n- Files changed: update-stub.js (unitId), print-manifest-for-find-omissions.js (file output + cleanup), consolidate-stubs.md (Step 4/6), tests/update-stub.test.cjs, tests/print-manifest-for-find-omissions.test.cjs\n- validate-stub-format.js needed NO change: STUB_REGEX already accepts [::UNIT::] in the free-form description (verified)\n- Tests: update-stub 18 + print-manifest 6 + batch 26 + generic 10 = 60/60; make test-stub-resolution 26/26, make test-rfc-graph 932/932\n- Manifest file lands at ./manifests/CONSOLIDATED-MANIFEST-<YYYYMMDDhhmmss>.json; tags stripped only on successful write (C005)\nReview report (completed 2026-08-05):\n- Static quality check: passed (0 issues)\n- Translatability: no issues (no single-letter vars, no TODO/FIXME debris)\n- Tests: update-stub 18/18, print-manifest 6/6, batch-create 26/26, generic-ticket-creation 10/10 (60/60); make test-stub-resolution 26/26; make test-rfc-graph 932/932\n- No-excuse gate: 0 failures\n- Malfeasance: 0 open crimes (test-fixture strings marked false_positive)\n- Annotation: changed files carry ticket-key provenance for the tickets that modified them (cumulative-diff verify for earlier tickets flags later-ticket files, which is expected)\n- AMBIGUOUS markers: 0 (p3.rs fixture annotations consolidated)",
+          "invariants": "【Normal establishment】Every marker carrying a [::UNIT::<id>::] tag keeps a valid non-PX, non-MUST resolve key; the manifest file lands under ./manifests/\n【On error】A failed manifest write leaves every [::UNIT::] tag in place and no manifest file (retryable); no partial state\n【Internal state】unit membership is persisted in the markers as [::UNIT::<id>::]; the grouped manifest shape always matches the PX-129 contract {sourceKey, stubs:[{file,line,content}]}\n【Boundary】a unit with one tagged marker emits one manifest entry with one stub; after cleanup zero [::UNIT::] tags remain",
+          "instrumentation": "【Logging】print-manifest-for-find-omissions.js prints the written manifest path and N markers -> M units on success, or an Action-directive on failure\n【Metrics】marker/unit counts are reported per run so the consolidation ratio stays observable\n【Error tracking】a failed write prints [print-manifest-for-find-omissions] FAIL -- <reason> and leaves unit tags untouched\n【Health check】validate-stub-format.js accepts the tagged intermediate state; after cleanup the tree is clean",
+          "investigation": "Current state: print-manifest-for-find-omissions.js reads units JSON on stdin and writes the manifest to stdout (PX-130). The grouping (unit membership) is NOT persisted — it lives only in the AI context, so the units JSON cannot be mechanically collected today. validate-stub-format.js uses STUB_REGEX = /^//s*[::STUB::]s+(P[A-Z0-9]+-d+|MUSTs+RESOLVE):s*S.*$/ which accepts any non-empty description after the key, so [::UNIT::<id>::] in the description is tolerated by the regex today — the format gate needs an explicit allowance + test. update-stub.js buildMarkerLine constructs // [::STUB::] <key>: <reason> -- <plan> and can gain a unitId parameter. emitHandoffManifest(units) already produces the PX-129 contract and is C007-tested.",
+          "boyScoutPlan": "Translatability plan: update-stub.js buildMarkerLine reads as prose with an explicit unitId parameter; print-manifest-for-find-omissions.js is structured as scanTaggedMarkers -> groupByUnitId -> writeManifestFile -> stripUnitTags (verb phrases); the strip-tags transform is a named function stripUnitTagsFromMarkers; the timestamp format is a named constant (MANIFEST_TIMESTAMP_FORMAT); every stdout/stderr message is self-contained English with an Action-directive",
+          "created_at": "2026-08-05",
+          "updated_at": "2026-08-05",
+          "targetStubs": [],
+          "targetCrimes": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P9-99",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+              "line": 99,
+              "markerText": "manifest: [{ file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P9-99: reason -- Implement fix\" }],",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-131",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key to exercise the batch tool rejection paths; the marker text is data inside a test manifest, not production code, and PX-131 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            },
+            {
+              "id": "TS-002",
+              "ticketRef": "P9-9",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+              "line": 321,
+              "markerText": "writeLine(srcFile, 5, \"// [::STUB::] P9-9: edited after manifest build\");",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-131",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key to exercise the batch tool rejection paths; the marker text is data inside a test manifest, not production code, and PX-131 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            },
+            {
+              "id": "TS-003",
+              "ticketRef": "P3-2",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+              "line": 357,
+              "markerText": "{ sourceKey: \"P3-2\", stubs: [{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: two -- Implement two\" }] },",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-131",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key to exercise the batch tool rejection paths; the marker text is data inside a test manifest, not production code, and PX-131 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            },
+            {
+              "id": "TS-004",
+              "ticketRef": "P3-2",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/fixtures/src/p3.rs",
+              "line": 7,
+              "markerText": "// [::STUB::] P3-2: reason two -- Implement two",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-131",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key to exercise the batch tool rejection paths; the marker text is data inside a test manifest, not production code, and PX-131 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            },
+            {
+              "id": "TS-005",
+              "ticketRef": "P3-2",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/print-manifest-for-find-omissions.test.cjs",
+              "line": 31,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio [::UNIT::U2::] -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-131",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key to exercise the batch tool rejection paths; the marker text is data inside a test manifest, not production code, and PX-131 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            },
+            {
+              "id": "TS-006",
+              "ticketRef": "P3-2",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/update-stub.test.cjs",
+              "line": 217,
+              "markerText": "{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: three -- three\", resolveByTicket: \"P3-2\" },",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-131",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key to exercise the batch tool rejection paths; the marker text is data inside a test manifest, not production code, and PX-131 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            }
+          ],
+          "planTestCode": [
+            "UT: [C001] update-stub.js --unit-id=U1 embeds [::UNIT::U1::] after the reason\n  const ws = makeWorkspace();\n  const res = updateStub({ file: ws.srcA, line: 5, resolveByTicket: \"P4-2\", stubReason: \"codec deferred\", resolvePlan: \"Implement pjsua codec enumeration\", unitId: \"U1\", ticketsPath: ws.ticketsPath });\n  assert.strictEqual(res.success, true);\n  assert.ok(readLine(ws.srcA, 5).includes(\"[::UNIT::U1::]\"), \"unit tag embedded\");",
+            "UT: [C002] the grouping decision is persisted as data in the marker, not reconstructed by the AI — a tagged marker survives re-pointing without --unit-id\n  updateStub({ file: ws.srcA, line: 5, resolveByTicket: \"P4-2\", unitId: \"U1\", ticketsPath: ws.ticketsPath });\n  updateStub({ file: ws.srcA, line: 5, resolveByTicket: \"P4-2\", ticketsPath: ws.ticketsPath });\n  assert.ok(readLine(ws.srcA, 5).includes(\"[::UNIT::U1::]\"), \"tag survives re-point\");",
+            "UT: [C003] print-manifest scans a tagged tree and groups by unit id\n  const res = collectTaggedMarkers(ws.dir);\n  assert.strictEqual(res.units.length, 2, \"2 units from 3 tagged markers\");\n  assert.strictEqual(res.units[0].sourceKey, \"P4-2\");",
+            "UT: [C004] when grouping completes, the manifest is written to ./manifests/CONSOLIDATED-MANIFEST-<ts>.json (auto-creates manifests/)\n  const out = runPrinter(ws.dir);\n  assert.ok(fs.existsSync(out.manifestPath));\n  assert.ok(out.manifestPath.includes(\"manifests/CONSOLIDATED-MANIFEST-\"));\n  const parsed = JSON.parse(fs.readFileSync(out.manifestPath, \"utf8\"));\n  assert.strictEqual(parsed.length, 2, \"one entry per unit\");\n  assert.strictEqual(parsed[0].stubs[0].content.includes(\"[::UNIT::\"), false, \"manifest carries clean markers\");",
+            "UT: [C005] after a successful write every [::UNIT::] tag is removed from source\n  runPrinter(ws.dir);\n  assert.ok(!fs.readFileSync(ws.srcA, \"utf8\").includes(\"[::UNIT::\"), \"tags stripped\");\n  assert.ok(fs.readFileSync(ws.srcA, \"utf8\").includes(\"[::STUB::]\"), \"markers remain clean\");",
+            "UT: [C005-inv] a failed write leaves all tags in place and returns an error\n  fs.chmodSync(ws.dir, 0o444);\n  const out = runPrinter(ws.dir);\n  assert.strictEqual(out.ok, false);\n  assert.ok(fs.readFileSync(ws.srcA, \"utf8\").includes(\"[::UNIT::\"), \"tags preserved for retry\");",
+            "UT: [C006] validate-stub-format accepts a marker containing [::UNIT::<id>::] and still rejects a malformed one\n  assert.strictEqual(validateStubFormat(\"// [::STUB::] P4-2: reason [::UNIT::U1::] -- plan\"), true);\n  assert.strictEqual(validateStubFormat(\"no marker\"), false);"
+          ],
+          "startedAt": "2026-08-05",
+          "changes": [
+            {
+              "before": "print-manifest-for-find-omissions.js read units JSON on stdin and wrote the manifest to stdout",
+              "after": "scans the tree for [::UNIT::<id>::]-tagged markers, groups by unit id, writes ./manifests/CONSOLIDATED-MANIFEST-<ts>.json, then strips all unit tags on success",
+              "description": "File-based manifest output + mechanical unit-tag cleanup (C003-C005)"
+            },
+            {
+              "before": "update-stub.js had no way to record unit membership",
+              "after": "update-stub.js gains --unit-id=<id> which embeds [::UNIT::<id>::] after the reason; an existing tag survives re-pointing",
+              "description": "Grouping decision persisted as data (C001-C002)"
+            },
+            {
+              "before": "consolidate-stubs.md Step 6 required hand-assembled units JSON via echo",
+              "after": "Step 6 is a single no-input script run; Step 4 documents --unit-id",
+              "description": "Consolidation pipeline fully mechanical after the AI grouping judgment"
+            }
+          ],
+          "completedAt": "2026-08-05"
         }
       ]
     },

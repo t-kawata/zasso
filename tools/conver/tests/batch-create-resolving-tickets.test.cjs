@@ -327,6 +327,111 @@ describe("C009 on-disk divergence", function () {
 });
 
 // ---------------------------------------------------------------------------
+// C010 — grouping: one ticket per (sourceKey, unit) group
+// ---------------------------------------------------------------------------
+
+// @verifies C010 (PX-129 contract)
+describe("C010 grouped manifest entries", function () {
+  it("C010-post: one group with 2 markers sharing a sourceKey creates exactly ONE ticket", () => {
+    const ws = makeWorkspace();
+    const groupedEntry = {
+      sourceKey: "P4-2",
+      stubs: [
+        { file: "src/a.rs", line: 5, content: "// [::STUB::] P4-2: reason one -- Implement one" },
+        { file: "src/multi.rs", line: 23, content: "// [::STUB::] P4-2: reason two -- Implement two" },
+      ],
+    };
+    const res = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [groupedEntry], sourceRoot: ws.sourceRoot });
+    assert.strictEqual(res.success, true, JSON.stringify(res.errors));
+    assert.strictEqual(res.created.length, 1, "one group -> one ticket, not two");
+    assert.strictEqual(res.created[0].ticket.stubs.length, 2, "both markers must be embedded");
+    assert.strictEqual(stubTicketCount(ws.ticketsPath), 1);
+  });
+
+  it("C010-post: two groups with different sourceKeys create two tickets", () => {
+    const ws = makeWorkspace();
+    const res = bcr.runBatchCreate({
+      ticketsPath: ws.ticketsPath,
+      manifest: [
+        { sourceKey: "P4-2", stubs: [{ file: "src/a.rs", line: 5, content: "// [::STUB::] P4-2: one -- Implement one" }] },
+        { sourceKey: "P3-2", stubs: [{ file: "src/p3.rs", line: 7, content: "// [::STUB::] P3-2: two -- Implement two" }] },
+      ],
+      sourceRoot: ws.sourceRoot,
+    });
+    assert.strictEqual(res.success, true, JSON.stringify(res.errors));
+    assert.strictEqual(res.created.length, 2, "2 groups -> 2 tickets");
+    assert.strictEqual(stubTicketCount(ws.ticketsPath), 2);
+  });
+
+  it("C008-inv: duplicate file:line across markers inside one group is rejected", () => {
+    const ws = makeWorkspace();
+    const ticketsBefore = fs.readFileSync(ws.ticketsPath, "utf8");
+    const res = bcr.runBatchCreate({
+      ticketsPath: ws.ticketsPath,
+      manifest: [{
+        sourceKey: "P4-2",
+        stubs: [
+          { file: "src/a.rs", line: 5, content: "// [::STUB::] P4-2: one -- Implement one" },
+          { file: "src/a.rs", line: 5, content: "// [::STUB::] P4-2: two -- Implement two" },
+        ],
+      }],
+      sourceRoot: ws.sourceRoot,
+    });
+    assert.strictEqual(res.success, false, "duplicate within a group must abort");
+    assert.ok(res.errors.some((err) => /duplicate/i.test(err.error)), "must report a duplicate error");
+    assert.strictEqual(fs.readFileSync(ws.ticketsPath, "utf8"), ticketsBefore);
+  });
+
+  it("C003-inv: a group where ANY marker fails on-disk verification is refused", () => {
+    const ws = makeWorkspace();
+    const res = bcr.runBatchCreate({
+      ticketsPath: ws.ticketsPath,
+      manifest: [{
+        sourceKey: "P4-2",
+        stubs: [
+          { file: "src/a.rs", line: 5, content: "// [::STUB::] P4-2: one -- Implement one" },
+          { file: "src/multi.rs", line: 999, content: "// [::STUB::] P4-2: two -- Implement two" },
+        ],
+      }],
+      sourceRoot: ws.sourceRoot,
+    });
+    assert.strictEqual(res.success, false, "one bad marker must refuse the whole group");
+  });
+
+  it("C007-inv: re-running a grouped manifest skips when markers now reference active tickets", () => {
+    const ws = makeWorkspace();
+    const groupedEntry = {
+      sourceKey: "P4-2",
+      stubs: [
+        { file: "src/a.rs", line: 5, content: "// [::STUB::] P4-2: one -- Implement one" },
+        { file: "src/multi.rs", line: 23, content: "// [::STUB::] P4-2: two -- Implement two" },
+      ],
+    };
+    const r1 = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [groupedEntry], sourceRoot: ws.sourceRoot });
+    assert.strictEqual(r1.success, true, JSON.stringify(r1.errors));
+    assert.strictEqual(stubTicketCount(ws.ticketsPath), 1);
+    const r2 = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: [groupedEntry], sourceRoot: ws.sourceRoot });
+    assert.ok(!r2.success || r2.created.length === 0, "re-run must not create tickets");
+    assert.strictEqual(stubTicketCount(ws.ticketsPath), 1, "ticket count must not grow");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// C011 — backward compatibility: legacy single-marker manifests unchanged
+// ---------------------------------------------------------------------------
+
+// @verifies C011 (PX-129 contract)
+describe("C011 legacy single-marker manifest", function () {
+  it("C011-post: a legacy {file,line,content} entry still creates exactly one ticket", () => {
+    const ws = makeWorkspace();
+    const res = bcr.runBatchCreate({ ticketsPath: ws.ticketsPath, manifest: manifestForA(), sourceRoot: ws.sourceRoot });
+    assert.strictEqual(res.success, true, JSON.stringify(res.errors));
+    assert.strictEqual(res.created.length, 1);
+    assert.strictEqual(stubTicketCount(ws.ticketsPath), 1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // parseArgs / loadManifest (CLI surface)
 // ---------------------------------------------------------------------------
 
