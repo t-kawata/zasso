@@ -136,20 +136,15 @@ node .claude/scripts/tickets/batch-update-stub.js --rollback manifests/ROLLBACK-
 
 ### Step 5 — Verify the result (blocking gate)
 
-The batch tool has already emitted the manifest. Run the three-part blocking gate. The first runs in **consolidation mode** — `--for-consolidate` makes the validator accept completed-key references (the find-omissions re-ticketization handoff) while still failing on terminal excuses and malformed markers. The third confirms the manifest is actually consumable by `/find-omissions` (one ticket per unit, valid source keys, no duplicate markers):
+The batch tool has already emitted the manifest. Run the blocking gate:
 
 ```bash
-node .claude/scripts/tickets/validate-no-external-excuses.js --for-consolidate
-node .claude/scripts/tickets/validate-stub-format.js --scan .
-MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1) && \
-cat "$MANIFEST" \
-  | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write
+bash .claude/scripts/tickets/consolidate-stubs-gate.sh
 ```
 
-- `--for-consolidate` exits non-zero only on a **real** problem (a terminal-excuse plan, a malformed marker, or a non-existent key). Markers re-pointed to a completed key are the intended output and do **not** fail here.
-- The `batch-create-resolving-tickets.js --no-write` dry-run validates the **manifest file itself** — every `sourceKey` must exist, every `stub` must resolve to a real on-disk marker, and there must be no duplicate markers. It reports `createdTickets` = the number of units.
+The gate exits non-zero only on a **real** problem — a terminal-excuse plan, a malformed marker, a non-existent key, or a manifest that is not consumable by `/find-omissions`. Markers re-pointed to a completed key are the intended output and do **not** fail.
 
-**This is a blocking gate — if any of the three commands exits non-zero, you must NOT proceed.** A failure means a real defect slipped through Step 4 (or the tree changed after the apply). Recover in this exact order:
+**This is a blocking gate — if the gate exits non-zero, you must NOT proceed.** A failure means a real defect slipped through Step 4 (or the tree changed after the apply). Recover in this exact order:
 
 1. **Roll back the apply** — restore the pre-consolidation state precisely:
    ```bash

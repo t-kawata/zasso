@@ -18653,6 +18653,246 @@
             }
           ],
           "completedAt": "2026-08-05"
+        },
+        {
+          "id": 136,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "consolidate-stubs.md: consolidate the Step 5 blocking gate into a single shell script + trim noise descriptions",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/136-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "【Goal】Replace the multi-command Step 5 gate with one consolidate-stubs-gate.sh invocation and trim the accompanying explanation to operator-level meaning\n【Purpose】The gate is currently 3 commands plus a fragile MANIFEST=$(ls -t ...) subshell that must be copy-pasted, and the explanation walks through each internal script (--for-consolidate / --no-write), which is noise to anyone treating the gate as a black box\n【Motivation】Single-script encapsulation makes the gate repeatable, less error-prone, and testable; the description should say what the gate does (what blocks it), not how it is wired\n【Constraints】The gate must run from the Tickets.json root; it exits non-zero on any real problem and passes for completed-key re-pointed markers; the Step 5 recovery sequence stays",
+          "scope": [
+            "Path: .claude/scripts/tickets/consolidate-stubs-gate.sh",
+            "Action: new shell script — the blocking three-part gate for /consolidate-stubs Step 5",
+            "Detail: runs validate-no-external-excuses.js --for-consolidate, validate-stub-format.js --scan ., picks the newest manifests/CONSOLIDATED-MANIFEST-*.json via 'ls -t | head -1' and pipes it to batch-create-resolving-tickets.js --no-write; set -euo pipefail so any failure aborts with a non-zero exit",
+            "Before/After: 3 manual commands + a MANIFEST subshell that must be copy-pasted -> a single 'node .claude/scripts/tickets/consolidate-stubs-gate.sh' invocation",
+            "API: node .claude/scripts/tickets/consolidate-stubs-gate.sh — exit 0 when all gates pass, non-zero when blocked; run from the directory containing Tickets.json",
+            "Schema: no Tickets.json change",
+            "Config: no new configuration",
+            "Dep: no new dependencies (reuses the three existing validators)",
+            "Non-change item: the three gate commands and their individual semantics; the Step 5 recovery sequence in consolidate-stubs.md",
+            "Non-change why: the gate is a composition — the validators stay single-purpose and individually tested",
+            "Impact component: /consolidate-stubs Step 5 — a single, repeatable, testable blocking gate",
+            "Impact nature: operator reliability — one command instead of a fragile copy-paste sequence",
+            "Impact response: consolidate-stubs-gate.sh added; consolidate-stubs.md Step 5 rewritten to one invocation + operator-level description; a gate test added"
+          ],
+          "testUnit": [
+            "UT: [Normal] the gate script runs from a valid fixture workspace (mini-tickets.json + a valid marker) and exits 0\n  const ws = makeWorkspace(); // fixtures with a valid marker + Tickets.json\n  const out = execFileSync('bash', [GATE], { cwd: ws.dir, encoding: 'utf8' });\n  assert.ok(out, 'gate runs');",
+            "UT: [Error] the gate exits 1 when a malformed marker exists in the tree\n  writeFile(path.join(ws.dir, 'src/a.rs'), '// [::STUB::] broken\\nfn a() {}\\n');\n  let status = 0;\n  try { execFileSync('bash', [GATE], { cwd: ws.dir, encoding: 'utf8' }); } catch (e) { status = e.status; }\n  assert.strictEqual(status, 1, 'malformed marker blocks the gate');",
+            "UT: [Error] the gate exits non-zero when no manifest exists (the newest-manifest glob fails)\n  // workspace with valid markers but no manifests/ dir\n  let status = 0;\n  try { execFileSync('bash', [GATE], { cwd: ws.dir, encoding: 'utf8' }); } catch (e) { status = e.status; }\n  assert.notStrictEqual(status, 0, 'missing manifest blocks the gate');",
+            "UT: [Boundary] the gate picks the newest manifest when more than one CONSOLIDATED-MANIFEST exists — no concatenated-JSON parse error\n  writeFile(path.join(ws.dir, 'manifests/CONSOLIDATED-MANIFEST-20260101000000.json'), JSON.stringify([{ sourceKey: 'P4-2', stubs: [{ file: 'src/a.rs', line: 4, content: '// [::STUB::] P4-2: reason -- Implement' }] }]));\n  writeFile(path.join(ws.dir, 'manifests/CONSOLIDATED-MANIFEST-20260102000000.json'), JSON.stringify([{ sourceKey: 'P4-2', stubs: [{ file: 'src/a.rs', line: 4, content: '// [::STUB::] P4-2: reason -- Implement' }] }]));\n  const out = execFileSync('bash', [GATE], { cwd: ws.dir, encoding: 'utf8' });\n  assert.ok(out, 'newest manifest is validated without a parse error');",
+            "UT: [Invariant] consolidate-stubs.md Step 5 documents exactly one gate invocation and does not reference the internal scripts/flags\n  const doc = fs.readFileSync('.claude/commands/consolidate-stubs.md', 'utf8');\n  const step5 = doc.split('### Step 5')[1] || '';\n  assert.ok(step5.includes('consolidate-stubs-gate.sh'), 'doc calls the gate script');\n  assert.ok(!/--for-consolidate|--no-write|validate-no-external-excuses|batch-create-resolving-tickets/.test(step5), 'doc does not leak internal commands');",
+            "UT: [C004] the Step 5 description is operator-level — it names what the gate fails on, not how it is wired\n  assert.ok(/terminal-excuse|malformed marker|non-existent key/.test(step5), 'doc names the failure modes at the operator level');"
+          ],
+          "testIntegration": [
+            "IT: a fixture workspace -> run the gate -> exit 0; introduce a malformed marker -> the gate exits 1 (end-to-end gate behavior)",
+            "IT: consolidate-stubs.md Step 5 and the gate script agree — the documented command is the script's actual path and runs from the Tickets.json root",
+            "IT: existing suites stay green — validate-no-external-excuses, validate-stub-format, batch-create-resolving-tickets are unchanged and individually tested"
+          ],
+          "testExceptions": [
+            "Item: verifying a deep subprocess failure inside batch-create-resolving-tickets.js --no-write (e.g. Tickets.json corruption mid-gate) — Reason: the manifest is a transient artifact and the validators are individually unit-tested; the gate only orchestrates them with set -euo pipefail, and the deep failure mode cannot test mechanically as a unit assertion because it requires corrupting shared state mid-run. This is not a design defect — the abort path is asserted by the malformed-marker and missing-manifest tests — Alternative: those abort-path tests cover the non-zero propagation; deeper subprocess failure modes are out of scope.",
+            "Item: whether the shell orchestration layer can test the node validators' runtime behavior — Reason: the .sh only composes node scripts and cannot test node runtime semantics itself; the validators have their own suites. This is not a design defect — the gate test asserts the orchestration (exit codes), and each validator is covered by its own test file — Alternative: tests/consolidate-stubs-gate.test.cjs asserts the gate's exit behavior; the validators' suites cover their internals."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/consolidate-stubs-gate.sh",
+            ".claude/commands/consolidate-stubs.md",
+            "tests/consolidate-stubs-gate.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a valid fixture tree -> node .claude/scripts/tickets/consolidate-stubs-gate.sh exits 0; consolidate-stubs.md Step 5 shows one command",
+            "Error case: a malformed marker or a missing manifest -> the gate exits non-zero",
+            "Edge case: multiple CONSOLIDATED-MANIFEST files -> the newest is validated; the Step 5 description contains no internal script/flag references"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "consolidate-stubs.md Step 5 gate block -> single invocation",
+              "precondition": "the doc Step 5 gate block is read",
+              "postcondition": "it shows exactly one command: node .claude/scripts/tickets/consolidate-stubs-gate.sh",
+              "invariant": "no internal scripts or flags appear in the doc's gate description"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "gate script -> validators",
+              "precondition": "the gate runs from the directory containing Tickets.json",
+              "postcondition": "exit 0 when the validators pass and the newest manifest is valid",
+              "invariant": "exit non-zero on any real problem (terminal-excuse plan, malformed marker, non-existent key, manifest defect)"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "gate script -> newest manifest",
+              "precondition": "more than one CONSOLIDATED-MANIFEST-*.json exists under manifests/",
+              "postcondition": "the newest manifest is validated",
+              "invariant": "no concatenated-JSON parse error is reachable"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "Step 5 description -> operator level",
+              "precondition": "the doc accompanies the gate invocation",
+              "postcondition": "the explanation names the gate's failure modes at the operator level and does not explain the internal commands",
+              "invariant": "the description is meaningful to an operator who does not know the internal scripts"
+            }
+          ],
+          "notes": "【Implementation steps】1) add .claude/scripts/tickets/consolidate-stubs-gate.sh (set -euo pipefail; the three validators; newest-manifest selection) 2) rewrite consolidate-stubs.md Step 5 to one invocation + operator-level description 3) add tests/consolidate-stubs-gate.test.cjs\n【Risks】the newest-manifest glob must fail closed when no manifest exists (set -e aborts); the doc must not reintroduce internal flags\n【Caveats】the shell script is an orchestration layer — the validators stay the single source of truth for their own semantics\n【Open items】whether find-omissions should reuse the gate script (out of scope)\n【Future】the gate can be wired into CI as a single health check\nImplementation summary:\n- Changed files: .claude/scripts/tickets/consolidate-stubs-gate.sh (new), .claude/commands/consolidate-stubs.md, tests/consolidate-stubs-gate.test.cjs (new), tests/validate-stub-format.test.cjs (C004 updated)\n- TDD: gate tests written first (RED 5/7 failed), then the gate script + doc rewrite made them green (7/7)\n- Fixed during implementation: the doc initially invoked the bash script with 'node' (Node crash) -> corrected to 'bash'; PX-134 C004 test regressed when the doc lost its inline '--scan' line -> updated to assert the gate script runs the scan mode\n- Contract coverage: verify-red-coverage 4/4 with @verifies\n- Tests: 89/89 (gate 7 + validate-stub-format + batch-update-stub + consolidate-stubs-doc + batch-create + update-stub + print-manifest + find-all-stubs)\n- E2E verified: apply -> manifest -> gate exits 0; repo root without manifests -> gate exits 1 (blocks)\n- Quality: run-quality-checks 0 issues; bash -n syntax OK\n- Crimes: 0 open",
+          "invariants": "- 【Normal establishment】the gate exits 0 iff all three validators pass and the newest manifest is valid\n- 【On error】any validator failure or a missing manifest aborts the gate with a non-zero exit\n- 【Internal state】the doc and the gate agree on the single invocation path\n- 【Boundary】multiple manifests resolve to the newest; the Step 5 description is operator-level (no internal commands)",
+          "instrumentation": "- 【Logging】the gate inherits each validator's stdout/stderr; the script itself is silent\n- 【Metrics】n/a — an orchestration layer produces no runtime metrics\n- 【Error tracking】a non-zero exit propagates; the failing validator's stderr is the diagnosis\n- 【Health check】the gate is the health check for the consolidation output",
+          "investigation": "Evidence: consolidate-stubs.md Step 5 (L139-151) currently documents a 3-command gate with a MANIFEST=$(ls -t ...) subshell and per-command explanations (--for-consolidate, --no-write). The three commands are individually validated by their own suites (validate-no-external-excuses, validate-stub-format --scan, batch-create-resolving-tickets). A shell script that composes them with set -euo pipefail makes the gate a single repeatable invocation. The description should state the gate contract (what fails it) without referencing the internal scripts.",
+          "boyScoutPlan": "Translatability: the gate script reads as a three-line prose sequence (validate excuses -> validate format -> validate manifest). The doc Step 5 description states the gate's contract as a verb phrase ('run the blocking gate') and names the failure modes at the operator level. No internal flags leak into the doc.",
+          "created_at": "2026-08-05",
+          "updated_at": "2026-08-05",
+          "targetStubs": "verified_empty",
+          "targetCrimes": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P9-99",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 99,
+              "markerText": "manifest: [{ file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P9-99: reason -- Implement fix\" }],",
+              "contracts": [
+                "C002"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-136 (gate consolidation) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-002",
+              "ticketRef": "P9-9",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 321,
+              "markerText": "writeLine(srcFile, 5, \"// [::STUB::] P9-9: edited after manifest build\");",
+              "contracts": [
+                "C002"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-136 (gate consolidation) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-003",
+              "ticketRef": "P3-2",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 357,
+              "markerText": "{ sourceKey: \"P3-2\", stubs: [{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: two -- Implement two\" }] },",
+              "contracts": [
+                "C002"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-136 (gate consolidation) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-004",
+              "ticketRef": "P3-2",
+              "file": "tests/batch-update-stub.test.cjs",
+              "line": 42,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C002"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-136 (gate consolidation) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-005",
+              "ticketRef": "P3-2",
+              "file": "tests/fixtures/src/p3.rs",
+              "line": 7,
+              "markerText": "// [::STUB::] P3-2: reason two -- Implement two",
+              "contracts": [
+                "C002"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-136 (gate consolidation) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-006",
+              "ticketRef": "P3-2",
+              "file": "tests/print-manifest-for-find-omissions.test.cjs",
+              "line": 31,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio [::UNIT::U2::] -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C002"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-136 (gate consolidation) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            },
+            {
+              "id": "TS-007",
+              "ticketRef": "P3-2",
+              "file": "tests/update-stub.test.cjs",
+              "line": 217,
+              "markerText": "{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: three -- three\", resolveByTicket: \"P3-2\" },",
+              "contracts": [
+                "C002"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key (P9-99 / P9-9 / P3-2) to exercise the tool rejection paths; the marker text is data inside a test manifest (a string constant in a .test.cjs or a fixture .rs file), not production code, and PX-136 (gate consolidation) leaves the fixture as-is to preserve those tests.",
+                "approvedBy": "make-ticket"
+              }
+            }
+          ],
+          "planTestCode": [
+            "UT: [C001] the doc Step 5 gate block shows exactly one invocation and leaks no internal scripts/flags\n  const doc = fs.readFileSync('.claude/commands/consolidate-stubs.md', 'utf8');\n  const step5 = doc.split('### Step 5')[1] || '';\n  assert.ok(step5.includes('consolidate-stubs-gate.sh'), 'doc calls the gate script');\n  assert.ok(!/--for-consolidate|--no-write|validate-no-external-excuses|batch-create-resolving-tickets/.test(step5), 'no internal scripts or flags in the doc');",
+            "UT: [C002] the gate exits 0 on a valid workspace and 1 on a malformed marker\n  const ws = makeWorkspace(); // valid marker at src/a.rs:4 + mini-tickets.json + a valid manifest\n  execFileSync('bash', [GATE], { cwd: ws.dir, encoding: 'utf8' }); // no throw = exit 0\n  const badWs = makeWorkspace();\n  writeFile(path.join(badWs.dir, 'src/a.rs'), '// [::STUB::] broken\\nfn a() {}\\n');\n  let status = 0;\n  try { execFileSync('bash', [GATE], { cwd: badWs.dir, encoding: 'utf8' }); } catch (e) { status = e.status; }\n  assert.strictEqual(status, 1, 'malformed marker blocks the gate');",
+            "UT: [C002] the gate exits non-zero when no manifest exists\n  const ws = makeWorkspace(); // valid markers but no manifests/ dir\n  let status = 0;\n  try { execFileSync('bash', [GATE], { cwd: ws.dir, encoding: 'utf8' }); } catch (e) { status = e.status; }\n  assert.notStrictEqual(status, 0, 'missing manifest blocks the gate');",
+            "UT: [C003] when more than one CONSOLIDATED-MANIFEST exists the newest is validated, no concatenated-JSON parse error\n  const ws = makeWorkspace();\n  writeFile(path.join(ws.dir, 'manifests/CONSOLIDATED-MANIFEST-20260101000000.json'), JSON.stringify([{ sourceKey: 'P4-2', stubs: [{ file: 'src/a.rs', line: 4, content: '// [::STUB::] P4-2: reason -- Implement' }] }]));\n  writeFile(path.join(ws.dir, 'manifests/CONSOLIDATED-MANIFEST-20260102000000.json'), JSON.stringify([{ sourceKey: 'PX-999', stubs: [] }])); // invalid older manifest\n  const out = execFileSync('bash', [GATE], { cwd: ws.dir, encoding: 'utf8' });\n  assert.ok(out, 'newest valid manifest passes; older invalid manifest is ignored');",
+            "UT: [C004] the Step 5 description names the failure modes at the operator level\n  assert.ok(/terminal-excuse|malformed marker|non-existent key/.test(step5), 'doc names what the gate fails on');"
+          ],
+          "startedAt": "2026-08-05",
+          "changes": [
+            {
+              "before": "consolidate-stubs.md Step 5 documented a 3-command gate with a MANIFEST=$(ls -t ...) subshell and per-internal-command explanations",
+              "after": "a single 'bash .claude/scripts/tickets/consolidate-stubs-gate.sh' invocation plus an operator-level description (failure modes only, no internal scripts/flags)",
+              "description": "Single-script gate consolidation (C001, C004)"
+            },
+            {
+              "before": "the gate commands had to be copy-pasted and were not testable as a unit",
+              "after": ".claude/scripts/tickets/consolidate-stubs-gate.sh (set -euo pipefail; BASH_SOURCE-resolved validators; newest-manifest selection) is repeatable and testable",
+              "description": "Gate script added (C002, C003)"
+            },
+            {
+              "before": "validate-stub-format.test.cjs C004 asserted the doc Step 5 block itself ran '--scan'",
+              "after": "it asserts the gate script runs the scan mode (the scan command moved inside the script)",
+              "description": "PX-134 C004 test updated for the new gate architecture"
+            },
+            {
+              "before": "no gate test existed",
+              "after": "tests/consolidate-stubs-gate.test.cjs added with @verifies C001-C004 (7 tests)",
+              "description": "Gate test suite (RED->GREEN)"
+            }
+          ],
+          "completedAt": "2026-08-05"
         }
       ]
     },

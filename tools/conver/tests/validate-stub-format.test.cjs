@@ -6,7 +6,7 @@
  *   C001 --scan <dir> validates every marker and exits 0 iff all valid
  *   C002 a malformed marker exits 1 and stderr lists file:line + each error
  *   C003 no-arg invocation still exits 1 with a usage message (backward compat)
- *   C004 consolidate-stubs.md Step 5 gate runs the scan mode
+ *   C004 the consolidate-stubs gate runs the scan mode
  * [::TICKET::] PX-134 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-134 --for-spec --no-implementation-order`.
  */
 
@@ -18,7 +18,7 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
 const SCRIPT = path.resolve(__dirname, "../.claude/scripts/tickets/validate-stub-format.js");
-const DOC_PATH = path.resolve(__dirname, "../.claude/commands/consolidate-stubs.md");
+const GATE = path.resolve(__dirname, "../.claude/scripts/tickets/consolidate-stubs-gate.sh");
 
 function makeWorkspace() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "vsf-"));
@@ -91,9 +91,8 @@ test("--scan with no directory argument exits 1 with usage", () => {
 });
 
 // @verifies C004 (PX-134 contract)
-test("C004: consolidate-stubs.md Step 5 gate uses the scan mode", () => {
-  const doc = fs.readFileSync(DOC_PATH, "utf8");
-  const step5 = doc.split("### Step 5")[1] || "";
-  assert.ok(step5.includes("validate-stub-format.js --scan"), "gate uses the scan mode");
-  assert.ok(!/^node \.claude\/scripts\/tickets\/validate-stub-format\.js$/m.test(step5), "no bare no-arg invocation in the gate block");
+test("C004: the consolidate-stubs gate runs the scan mode", () => {
+  const gate = fs.readFileSync(GATE, "utf8");
+  assert.ok(gate.includes("validate-stub-format.js") && gate.includes("--scan"), "the gate runs the scan mode");
+  assert.ok(!/validate-stub-format\.js"\s*$/.test(gate), "no bare no-arg invocation in the gate");
 });
