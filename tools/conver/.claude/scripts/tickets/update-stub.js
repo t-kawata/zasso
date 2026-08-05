@@ -131,8 +131,8 @@ function validateResolvePlan(markerText) {
  * @param {string} params.ticketsPath — Path to Tickets.json
  * @returns {{success: boolean, error?: string, file?: string, line?: number, content?: string}}
  */
-// [::TICKET::] PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131) --for-spec --no-implementation-order`.
-function updateStub({ file, line, resolveByTicket, stubReason, resolvePlan, unitId, ticketsPath }) {
+// [::TICKET::] PX-130, PX-131, PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-130|PX-131|PX-132) --for-spec --no-implementation-order`.
+function updateStub({ file, line, resolveByTicket, stubReason, resolvePlan, unitId, ticketsPath, dryRun = false }) {
   if (!file || !Number.isInteger(line) || line < 1) {
     return { success: false, error: "--file and a positive integer --line are required" };
   }
@@ -184,12 +184,16 @@ function updateStub({ file, line, resolveByTicket, stubReason, resolvePlan, unit
   const planCheck = validateResolvePlan(markerText);
   if (!planCheck.ok) return { success: false, error: planCheck.error };
 
-  // Surgical edit: replace only the target marker line.
-  lines[idx] = markerText;
-  try {
-    fs.writeFileSync(absFile, lines.join("\n"), "utf8");
-  } catch (e) {
-    return { success: false, error: "cannot write file: " + e.message };
+  // Surgical edit: replace only the target marker line. dryRun validates and
+  // prepares the new content without writing — used by batch-update-stub.js for
+  // all-or-nothing atomic commits.
+  if (!dryRun) {
+    lines[idx] = markerText;
+    try {
+      fs.writeFileSync(absFile, lines.join("\n"), "utf8");
+    } catch (e) {
+      return { success: false, error: "cannot write file: " + e.message };
+    }
   }
 
   return { success: true, file: absFile, line, content: markerText };

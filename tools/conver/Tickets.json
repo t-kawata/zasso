@@ -17642,6 +17642,241 @@
             }
           ],
           "completedAt": "2026-08-05"
+        },
+        {
+          "id": 132,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "batch-update-stub.js: batch consolidation from a units decision file + three-point verification (completeness / atomicity / debris)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/132-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "【Goal】Mechanize consolidate-stubs Step 4: replace N per-marker update-stub.js CLI calls with one batch command driven by a units decision file\n【Purpose】batch-update-stub.js reads the AI-authored decision file, applies every marker edit atomically, merges duplicates, validates, emits the manifest, and runs a three-point verification\n【Motivation】The per-marker CLI loop is repetitive and transcription-error-prone; review identified that no completeness check (漏れ) existed — a marker omitted from grouping would silently remain\n【Constraints】The grouped manifest shape stays the PX-129 contract; update-stub.js and print-manifest-for-find-omissions.js remain the single-operation building blocks",
+          "scope": [
+            "Path: .claude/scripts/tickets/batch-update-stub.js",
+            "Action: new batch consolidation script (read decision file -> resolve lines -> apply updateStub per marker -> merge duplicates -> gates -> emit manifest -> verify clean)",
+            "Detail: reads a units decision JSON [{unitId, resolveByTicket?, reason?, plan?, markerLines:[file:line,...]}]; resolves markerLines against the scanned markers; applies updateStub to each; derives keys when absent; merges true duplicates; runs no-excuse/format gates; emits the manifest via print-manifest logic; removes the decision file",
+            "Before/After: N per-marker update-stub.js CLI calls -> one batch command; AI authors one structured decision file",
+            "API: batch-update-stub.js <decision.json> [dir]; stdin may carry the decision JSON; output is the manifest path + counts + unassigned list",
+            "Schema: no Tickets.json change; the decision file is a new transient input consumed on success",
+            "Config: no new configuration",
+            "Dep: no new dependencies",
+            "Non-change item: update-stub.js / print-manifest-for-find-omissions.js keep their single-operation behavior",
+            "Non-change why: they are the building blocks; batch-update-stub.js composes them",
+            "Impact component: /consolidate-stubs Step 3-4; the completeness gap is closed",
+            "Impact nature: the pipeline becomes fully mechanical after one structured decision file; 漏れ/失敗/ゴミ are verified mechanically",
+            "Impact response: consolidate-stubs.md Step 3-4 updated; tests/batch-update-stub.test.cjs added"
+          ],
+          "testUnit": [
+            "UT: [C001] batch-update-stub.js reads a units decision file and applies updateStub to every marker\n  const res = runBatchUpdate({ decisionPath, ticketsPath, dir });\n  assert.ok(res.ok);\n  assert.ok(readLine(srcA, 5).includes(\"[::UNIT::U1::]\"));\n  assert.ok(readLine(srcB, 9).includes(\"[::UNIT::U1::]\"));",
+            "UT: [C002] resolve key derivation — explicit resolveByTicket wins; otherwise derived from the markers existing keys\n  const withKey = runBatchUpdate({ decision: [{ unitId: \"U1\", resolveByTicket: \"P4-2\", markerLines: [\"src/a.rs:5\"] }] });\n  assert.ok(readLine(srcA, 5).includes(\"[::STUB::] P4-2:\"));\n  const derived = runBatchUpdate({ decision: [{ unitId: \"U2\", markerLines: [\"src/c.rs:7\"] }] });\n  assert.ok(readLine(srcC, 7).includes(extractTicketKey(readLine(srcC, 7))), \"key derived from marker\");",
+            "UT: [C004] 漏れ — a scanned marker absent from the decision file is reported as unassigned\n  const res = runBatchUpdate({ decision: [{ unitId: \"U1\", markerLines: [\"src/a.rs:5\"] }] });\n  assert.ok(res.unassigned.some(u => u.file.includes(\"src/b.rs\")), \"b.rs:9 must be reported unassigned\");",
+            "UT: [C003] 失敗 — one bad marker key aborts the whole run with zero writes\n  const res = runBatchUpdate({ decision: [{ unitId: \"U1\", resolveByTicket: \"PX-999\", markerLines: [\"src/a.rs:5\"] }] });\n  assert.strictEqual(res.ok, false);\n  assert.ok(!fs.readFileSync(srcA, \"utf8\").includes(\"[::UNIT::\"), \"no partial edit\");\n  assert.ok(res.failures.some(f => f.file.includes(\"src/a.rs\")));",
+            "UT: [C005] ゴミ — after a successful run, zero [::UNIT::] tags remain, format gate passes, decision file removed, the tree is left clean\n  runBatchUpdate({ decisionPath, dir });\n  assert.ok(!scanTaggedMarkers(dir).length, \"zero unit tags remain\");\n  assert.ok(validateStubFormat(readLine(srcA, 5)).valid);\n  assert.ok(!fs.existsSync(decisionPath), \"decision file consumed\");",
+            "UT: [C006] when consolidation completes, the manifest output matches the PX-129 contract\n  const res = runBatchUpdate({ decisionPath, dir });\n  assert.ok(res.ok);\n  const manifest = JSON.parse(fs.readFileSync(res.manifestPath, \"utf8\"));\n  assert.ok(manifest.every(e => e.sourceKey && Array.isArray(e.stubs)));"
+          ],
+          "testIntegration": [
+            "IT: units decision file -> batch-update-stub.js -> markers normalized + manifest file written + tags stripped + decision file removed -> manifest accepted by batch-create-resolving-tickets.js --no-write (one ticket per unit)",
+            "IT: a siprs-like fixture where one marker is intentionally omitted from the decision file -> batch-update-stub.js reports the omission",
+            "IT: Existing suites update-stub.test.cjs and print-manifest-for-find-omissions.test.cjs stay green"
+          ],
+          "testExceptions": [
+            "Item: cross-process crash between the manifest write and tag cleanup — Reason: cleanup runs only after a confirmed write; a crash between write and cleanup is an OS-level failure mode, not testable within this tool; this is not a design defect — Alternative: the write-then-cleanup ordering and the post-cleanup zero-tag assertion are unit-tested; crash-window behavior is out of scope.",
+            "Item: judging which markers are genuinely out of consolidation scope (already-active-key markers left unassigned on purpose) — Reason: scope judgment is an AI decision by design, non-deterministic, and therefore not testable as a mechanical assertion; this is not a design defect because the tool separates judgment (which markers to include) from mechanical coverage checking (scanned vs assigned) — Alternative: the mechanical coverage check is unit-tested; scope judgment is reviewed in review-ticket."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/batch-update-stub.js",
+            ".claude/scripts/tickets/update-stub.js",
+            ".claude/scripts/tickets/print-manifest-for-find-omissions.js",
+            ".claude/commands/consolidate-stubs.md",
+            "tests/batch-update-stub.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: a units decision file for 2 units (5 markers) -> batch-update-stub.js -> all markers re-pointed + tagged, duplicates merged, manifest written, tags stripped, decision file removed, zero unassigned reported",
+            "Error case: a decision file with one bad marker key -> whole run aborts with zero writes, the failing file:line is listed",
+            "Edge case: a marker in the scan not in the decision file -> reported as unassigned (漏れ); an already-consolidated tree re-run -> zero edits"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "units decision file → batch-update-stub.js",
+              "precondition": "decision file is an array of units; each unit has unitId and markerLines",
+              "postcondition": "every listed marker is edited via updateStub (key + [::UNIT::<id>::]); true duplicates merge",
+              "invariant": "no marker is edited outside the decision file"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "resolve key derivation",
+              "precondition": "a unit has markers",
+              "postcondition": "explicit resolveByTicket wins; otherwise the key derives from the markers existing keys",
+              "invariant": "every unit resolves to exactly one non-PX, non-MUST key present in Tickets.json"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "atomicity",
+              "precondition": "any marker edit fails",
+              "postcondition": "the whole run aborts with zero writes; stderr lists each failing file:line",
+              "invariant": "no partial consolidation is observable"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "completeness (漏れ)",
+              "precondition": "consolidation completes",
+              "postcondition": "scanned markers not in the decision file are reported as unassigned",
+              "invariant": "no scanned marker is silently skipped"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "debris (ゴミ)",
+              "precondition": "a successful run",
+              "postcondition": "zero [::UNIT::] tags remain; validate-stub-format passes; the decision file is removed",
+              "invariant": "the tree is left clean"
+            },
+            {
+              "id": "C006",
+              "sourceEdge": "manifest output",
+              "precondition": "consolidation completes",
+              "postcondition": "the manifest matches the PX-129 grouped contract {sourceKey, stubs:[{file,line,content}]}",
+              "invariant": "the manifest is directly consumable by batch-create-resolving-tickets.js"
+            }
+          ],
+          "notes": "【Implementation steps】1) batch-update-stub.js: read decision file, resolve markerLines, apply updateStub per marker 2) 漏れ check (scanned vs assigned) 3) atomicity (all-or-nothing) 4) ゴミ check (zero tags + format + decision file removal) 5) emit manifest 6) consolidate-stubs.md Step 3-4 update 7) tests\n【Risks】The 漏れ check must distinguish intentionally-untouched markers (already-active-key) from genuinely-missed ones — the tool reports all unassigned and the AI reviews the list\n【Caveats】atomicity requires building the full edit set in memory before any write\n【Open items】whether the decision file lives in a temp/scratch path or a fixed name (decided: the AI passes the path; it is consumed on success)\n【Future】running /consolidate-stubs over crates/siprs with the batch command is the first real exercise\nImplementation summary:\n- Files added: .claude/scripts/tickets/batch-update-stub.js, tests/batch-update-stub.test.cjs\n- Files changed: update-stub.js (dryRun param), consolidate-stubs.md (Step 3-4 rewritten to batch approach, all English)\n- Tests: batch-update-stub 7/7, update-stub 18, print-manifest 6, batch-create 26, generic 10 (67/67); make test-stub-resolution 26/26, make test-rfc-graph 932/932\n- Three-point verification: omissions (UNASSIGNED report), failures (atomic zero-write abort), debris (tags stripped, decision file consumed, format gate)\n- consolidate-stubs.md now fully English\nStrictness refinement (follow-up): batch-update-stub.js now performs strict schema validation (validateDecisionUnits) BEFORE any edit — catches missing/duplicate unitId, empty markerLines, invalid file:line refs, cross-unit duplicate markers, and non-object units. Semantic failures (marker not found, invalid resolve key, terminal-excuse plan) are collected and reported together with the schema problems. The CLI prints kind problem/cause/fix blocks on stderr, each ending with Return to consolidate-stubs Step 3, edit the units JSON, then re-run — so non-deterministic AI output can never cause a partial or wrong edit (all-or-nothing). All code comments and the command file are English-only.\nCLI simplification (follow-up): the [dir] argument is abolished — the target source tree is always the current directory (the Tickets.json root), same convention as batch-create-resolving-tickets.js. The CLI rejects a second positional argument with a kind message (exit 2); runBatchUpdate keeps an optional dir param for test isolation only. consolidate-stubs.md updated.\nConsolidation mode (--for-consolidate) + dry-run + rollback (follow-up):\n- validate-no-external-excuses.js: --for-consolidate makes Check C accept completed-key references (the find-omissions re-ticketization handoff) while still failing on terminal excuses, malformed markers, and non-existent keys. The consolidation gate is now mechanically passable — no interpretation needed.\n- batch-update-stub.js: --dry-run shows the full edit plan + UNASSIGNED with zero side effects before any apply; apply writes a precise rollback backup (manifests/ROLLBACK-<ts>.json) and --rollback restores it without destructive git commands.\n- consolidate-stubs.md: Step 4 = dry-run then apply; Step 5 = --for-consolidate; git-based redo removed.\nReview report (2026-08-05):\n- Static quality check: passed (0 issues)\n- Translatability: no issues (no TODO/FIXME debris, no single-letter vars)\n- Tests: 72/72 (batch-update-stub 12, update-stub 18, print-manifest 6, batch-create 26, generic 10); validate-no-external-excuses legacy 31/31; make test-stub-resolution 26/26; make test-rfc-graph 932/932\n- Annotation: all changed source files carry PX-132 provenance; 0 AMBIGUOUS (resolved the test-file AMBIGUOUS and fixed the shebang position)\n- Malfeasance: 0 open crimes\n- verify-final-contracts: 100% fulfilled\n- Scope check: --for-consolidate (Check C mode), --dry-run (plan review), --rollback (precise undo), blocking 3-part gate in consolidate-stubs.md Step 5 — all implemented and tested",
+          "invariants": "【Normal establishment】every scanned marker is in exactly one unit (assigned) or reported unassigned; every unit resolves to exactly one non-PX, non-MUST key present in Tickets.json\n【On error】any marker edit failure aborts the whole run with zero writes (atomicity)\n【Internal state】after a successful run, zero [::UNIT::] tags remain, the decision file is removed, and the manifest matches the PX-129 contract\n【Boundary】a unit with one marker and no explicit key derives it from the marker; an already-consolidated tree re-runs with zero edits",
+          "instrumentation": "【Logging】batch-update-stub.js reports the manifest path, marker/unit counts, and any unassigned markers on completion\n【Metrics】markers -> units ratio and the number of unassigned (漏れ) markers per run\n【Error tracking】failures list each failing file:line with an Action-directive; atomic abort on any failure\n【Health check】post-run zero-[::UNIT::] assertion + validate-stub-format + decision-file-removed check",
+          "investigation": "Evidence: consolidate-stubs.md Step 4 currently documents per-marker update-stub.js CLI invocations (N markers x 6 flags). update-stub.js exposes updateStub({file, line, resolveByTicket, stubReason, resolvePlan, unitId, ticketsPath}) and mergeTrueDuplicates / normalizeUnitKey / extractUnitId. print-manifest-for-find-omissions.js exposes scanTaggedMarkers(dir) / groupByUnitId / writeManifestFile / stripUnitTags / runPrinter. batch-create-resolving-tickets.js establishes the manifest-input + atomic-commit pattern (C001-C011) that batch-update-stub.js should mirror. No completeness check exists today — find-omissions preflight-stub-cleanup catches unconsolidated markers only at the boundary.",
+          "boyScoutPlan": "Translatability plan: batch-update-stub.js is structured as verb-phrase functions — readDecisionFile -> resolveMarkerLines -> applyAllEdits -> mergeTrueDuplicates -> runGates -> emitManifest -> verifyClean. The three-point verification is one named function verifyConsolidation({assigned, scanned, leftovers}) so the coverage logic reads as prose. Reuse extractTicketKey / extractUnitId / scanTaggedMarkers instead of duplicating the regexes.",
+          "created_at": "2026-08-05",
+          "updated_at": "2026-08-05",
+          "targetStubs": [],
+          "targetCrimes": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P9-99",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+              "line": 99,
+              "markerText": "manifest: [{ file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P9-99: reason -- Implement fix\" }],",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key to exercise the tool rejection paths; the marker text is data inside a test manifest, not production code, and PX-132 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            },
+            {
+              "id": "TS-002",
+              "ticketRef": "P9-9",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+              "line": 321,
+              "markerText": "writeLine(srcFile, 5, \"// [::STUB::] P9-9: edited after manifest build\");",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key to exercise the tool rejection paths; the marker text is data inside a test manifest, not production code, and PX-132 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            },
+            {
+              "id": "TS-003",
+              "ticketRef": "P3-2",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs",
+              "line": 357,
+              "markerText": "{ sourceKey: \"P3-2\", stubs: [{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: two -- Implement two\" }] },",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key to exercise the tool rejection paths; the marker text is data inside a test manifest, not production code, and PX-132 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            },
+            {
+              "id": "TS-004",
+              "ticketRef": "P3-2",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/fixtures/src/p3.rs",
+              "line": 7,
+              "markerText": "// [::STUB::] P3-2: reason two -- Implement two",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key to exercise the tool rejection paths; the marker text is data inside a test manifest, not production code, and PX-132 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            },
+            {
+              "id": "TS-005",
+              "ticketRef": "P3-2",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/print-manifest-for-find-omissions.test.cjs",
+              "line": 31,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio [::UNIT::U2::] -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key to exercise the tool rejection paths; the marker text is data inside a test manifest, not production code, and PX-132 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            },
+            {
+              "id": "TS-006",
+              "ticketRef": "P3-2",
+              "file": "/Users/kawata/shyme/zasso/tools/conver/tests/update-stub.test.cjs",
+              "line": 217,
+              "markerText": "{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: three -- three\", resolveByTicket: \"P3-2\" },",
+              "contracts": [
+                "C001"
+              ],
+              "deferredTo": "PX-132",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "Test fixture string literal in test files intentionally embeds a non-existent ticket key to exercise the tool rejection paths; the marker text is data inside a test manifest, not production code, and PX-132 keeps the fixture as-is to preserve those tests.",
+                "approvedBy": "start-ticket"
+              }
+            }
+          ],
+          "planTestCode": [
+            "UT: [C001] batch-update-stub.js reads a units decision file and applies updateStub to every marker\n  const ws = makeWorkspace();\n  const decision = [{ unitId: \"U1\", resolveByTicket: \"P4-2\", reason: \"codec deferred\", plan: \"Implement pjsua codec enumeration\", markerLines: [\"src/a.rs:5\", \"src/b.rs:9\"] }];\n  const res = runBatchUpdate({ decision, dir: ws.dir, ticketsPath: ws.ticketsPath });\n  assert.strictEqual(res.ok, true, JSON.stringify(res.error));\n  assert.ok(readLine(ws.srcA, 5).includes(\"[::UNIT::U1::]\"));\n  assert.ok(readLine(ws.srcB, 9).includes(\"[::UNIT::U1::]\"));",
+            "UT: [C002] resolve key derivation — explicit resolveByTicket wins; otherwise derived from the markers existing keys\n  const withKey = runBatchUpdate({ decision: [{ unitId: \"U1\", resolveByTicket: \"P4-2\", markerLines: [\"src/a.rs:5\"] }], dir, ticketsPath });\n  assert.ok(readLine(srcA, 5).includes(\"[::STUB::] P4-2:\"));\n  const derived = runBatchUpdate({ decision: [{ unitId: \"U2\", markerLines: [\"src/c.rs:7\"] }], dir, ticketsPath });\n  assert.ok(/\\[::STUB::\\]\\s+P[A-Z0-9]+-\\d+/.test(readLine(srcC, 7)), \"key derived from the marker\");",
+            "UT: [C004] 漏れ — a scanned marker absent from the decision file is reported as unassigned\n  const res = runBatchUpdate({ decision: [{ unitId: \"U1\", markerLines: [\"src/a.rs:5\"] }], dir, ticketsPath });\n  assert.strictEqual(res.ok, true);\n  assert.ok(res.unassigned.some(u => u.file.includes(\"src/b.rs\")), \"b.rs:9 reported unassigned\");",
+            "UT: [C003] 失敗 — one bad marker key aborts the whole run with zero writes\n  const before = fs.readFileSync(srcA, \"utf8\");\n  const res = runBatchUpdate({ decision: [{ unitId: \"U1\", resolveByTicket: \"PX-999\", markerLines: [\"src/a.rs:5\"] }], dir, ticketsPath });\n  assert.strictEqual(res.ok, false);\n  assert.strictEqual(fs.readFileSync(srcA, \"utf8\"), before, \"no partial edit\");\n  assert.ok(res.failures.some(f => f.file.includes(\"src/a.rs\")));",
+            "UT: [C005] ゴミ — after a successful run, zero [::UNIT::] tags remain, format gate passes, decision file removed, the tree is left clean\n  const decisionPath = path.join(dir, \"units.json\");\n  fs.writeFileSync(decisionPath, JSON.stringify(decision));\n  runBatchUpdate({ decisionPath, dir, ticketsPath });\n  assert.strictEqual(scanTaggedMarkers(dir).length, 0, \"zero unit tags remain\");\n  assert.ok(validateStubFormat(readLine(srcA, 5)).valid, \"format gate passes\");\n  assert.ok(!fs.existsSync(decisionPath), \"decision file consumed\");",
+            "UT: [C006] when consolidation completes, the manifest output matches the PX-129 contract\n  const res = runBatchUpdate({ decision, dir, ticketsPath });\n  const manifest = JSON.parse(fs.readFileSync(res.manifestPath, \"utf8\"));\n  assert.ok(manifest.every(e => e.sourceKey && Array.isArray(e.stubs)));"
+          ],
+          "startedAt": "2026-08-05",
+          "changes": [
+            {
+              "before": "consolidate-stubs Step 4 required N per-marker update-stub.js CLI calls (transcription-error-prone)",
+              "after": "batch-update-stub.js applies a units decision file atomically: resolve -> validate (dryRun) -> commit -> manifest -> strip tags -> consume decision file",
+              "description": "Batch consolidation with three-point verification (C001-C006)"
+            },
+            {
+              "before": "no completeness check — a marker omitted from grouping would silently remain until find-omissions preflight",
+              "after": "batch-update-stub.js reports scanned markers not assigned to any unit as UNASSIGNED (C004 漏れ)",
+              "description": "Completeness (omissions) verification added"
+            },
+            {
+              "before": "update-stub.js always wrote immediately per call",
+              "after": "updateStub gains dryRun (validate-only) so batch-update-stub.js achieves all-or-nothing atomic commits (C003)",
+              "description": "Atomicity via dryRun"
+            }
+          ],
+          "completedAt": "2026-08-05"
         }
       ]
     },

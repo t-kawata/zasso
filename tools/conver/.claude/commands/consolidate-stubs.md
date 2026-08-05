@@ -35,94 +35,127 @@ Collect every `[::STUB::]` marker with `{ file, line, content }`.
 
 ### Step 2 — Group into units (AI judgment — the only non-deterministic step)
 
-Group fragments into ticket-sized units by logical cohesion. The primary signal is the **unlock dependency** (the prerequisite that must hold before the work is doable, e.g. "the FFI layer is linked", "the runtime owns the event bus"); secondary signals are domain coherence, shared spec section, and shared work-item shape.
+A **unit** is a set of markers that should become **one ticket**. Two markers belong in the same unit only when both of the following hold.
 
-**Acceptance test for a unit**: "If I wrote a single ticket for this unit, would its ACs be coherent, and could one implementer do all of its markers in one pass once the unlock dependency lands?"
+**Criterion 1 — Same unlock dependency (the grouping key).**
+The unlock dependency is the prerequisite that must become true before the work is doable — read it from each marker's plan ("once X", "after Y", "requires Z"). Markers that wait on **the same** prerequisite are candidates for one unit; markers that wait on **different** prerequisites belong to different units.
 
-Split a unit when it is too large to be one ticket; merge when too small.
+**Criterion 2 — Single coherent deliverable (the validity check).**
+The markers in a unit must all contribute to **one deliverable** — one feature/module outcome that a single ticket's Acceptance Criteria can describe. If the group would need two unrelated sets of ACs, split it.
 
-### Step 3 — Choose each unit's resolve key
+**The single-ticket test (apply this to every candidate unit):**
+> Could one implementer complete **all** of this unit's markers in **one pass** — after the unlock dependency lands — and verify the result with **one test surface**?
 
-For each unit pick exactly one resolve key:
+Answer these three questions. If **any** is "no", split the unit:
 
-- If the unit's work is already covered by an **active future todo** ticket → re-point to that key.
-- Otherwise (the common case) → re-point to the **original completed ticket** whose scope the work belongs to. This is the `resolvedCandidates` handoff: `/find-omissions` will create a resolving ticket cloned from it.
+| Question | Split when… |
+|---|---|
+| Same unlock dependency? | Markers wait on different prerequisites — e.g. "once the FFI is linked" vs "once the runtime owns the event bus". |
+| One deliverable? | Markers produce unrelated outcomes — e.g. one adds audio capture, another fixes error codes. |
+| One pass / one test surface? | A marker alone would need its own test setup or its own review. |
 
-The following resolve keys are **forbidden** — do not use them as a unit key:
+**Merge rule:** two separately-formed units may merge only when they share the same unlock dependency **and** the same deliverable **and** neither is independently testable on its own. When in doubt, **split** — a ticket that is too small is a minor cost, a ticket that bundles two deliverables is a review and testing liability.
+
+**Example:** markers that say "once the FFI is linked" and produce FFI bindings (a `bindings` module, generated constants, callback stubs) form one unit. A marker that says "once the FFI is linked" but produces a **user-facing audio API** with its own ACs and tests is a different unit — it has a different deliverable even though it shares the unlock.
+
+### Step 3 — Author the units decision file
+
+For each unit, decide one resolve key:
+
+- If the unit's work is already covered by an **active future todo** ticket → use that key.
+- Otherwise (the common case) → use the **original completed ticket** whose scope the work belongs to. **If you omit the key, the batch tool derives it from the markers' existing keys automatically.**
+- Forbidden keys:
 
 | Forbidden | Why | What to do instead |
 |---|---|---|
-| `MUST RESOLVE` | This is a placeholder meaning "to be resolved later, unspecified". A STUB must reference a **concrete existing ticket**; an unspecified target cannot be cloned or tracked, so the marker would become an orphan. | Re-point the unit to the original completed ticket whose scope the work belongs to (or an active future todo ticket). |
-| `PX-*` (e.g. `PX-5`) | PX-phase tickets have ambiguous ordering and break the pipeline timeline, so they are rejected as resolve targets by the tooling. | Use a normal `P{phase}-{id}` ticket key. |
-| A key not present in `Tickets.json` | A non-existent ticket cannot be cloned by `/find-omissions` (no source to deep-clone), so the marker can never be re-ticketed. | Choose the ticket whose scope actually covers the unit's work — it must already exist in `Tickets.json`. |
-| A terminal-excuse plan (e.g. "awaiting approval", "blocked until the FFI is linked") | A resolution plan must be an **AI-executable work item**. "Waiting for X" is not something an AI can do, so the marker would fail the no-excuse gate and the ticket could never be implemented. | Rewrite the plan as an imperative deliverable, e.g. "Vendor and build the FFI library in build.rs". |
+| `MUST RESOLVE` | An unspecified target cannot be cloned or tracked; the marker would become an orphan. | Re-point to the original completed ticket (or an active future todo). |
+| `PX-*` (e.g. `PX-5`) | PX-phase tickets have ambiguous ordering and are rejected by the tooling. | Use a normal `P{phase}-{id}` ticket key. |
+| A key not in `Tickets.json` | A non-existent ticket cannot be cloned by `/find-omissions`. | Choose a ticket that already exists in `Tickets.json`. |
+| A terminal-excuse plan (e.g. "awaiting approval") | A resolution plan must be an **AI-executable work item** or the no-excuse gate fails. | Rewrite the plan as an imperative deliverable. |
 
-### Step 4 — Normalize markers mechanically (update-stub.js)
+Write your decision once to a JSON file — the batch tool does all the mechanical work from here:
 
-Re-point every marker in a unit to its unit key via `update-stub.js` (never edit source by hand). The tool preserves each marker's file:line anchor and only rewrites the target line.
-
-```bash
-node .claude/scripts/tickets/update-stub.js \
-  --file=<path> --line=<N> --resolve-by-ticket=<unit-key> \
-  --stub-reason="<merged reason>" --resolve-plan="<unit work item>" \
-  --unit-id=<unit-id>
+```json
+[
+  {
+    "unitId": "U1",
+    "resolveByTicket": "P4-2",
+    "reason": "codec enumeration deferred until FFI types exist",
+    "plan": "Implement pjsua codec enumeration via runtime codec API",
+    "markerLines": ["src/call.rs:23", "src/config.rs:69"]
+  }
+]
 ```
 
-Each flag means:
+Each field means:
 
-| Flag | What to put | Example |
+| Field | What it is | Required? |
 |---|---|---|
-| `--file=<path>` | The source file that contains the marker you are re-pointing. | `--file=src/call.rs` |
-| `--line=<N>` | The 1-indexed line number of that marker (from Step 1's enumeration). | `--line=23` |
-| `--resolve-by-ticket=<unit-key>` | The unit's resolve key chosen in Step 3 — the same key for **every** marker in the unit. | `--resolve-by-ticket=P4-2` |
-| `--stub-reason="..."` | The reason this code stays a stub, merged across the unit's markers (a single line). | `--stub-reason="codec enumeration deferred until FFI types exist"` |
-| `--resolve-plan="..."` | What the resolving ticket must concretely implement — an imperative, AI-executable deliverable (a single line). | `--resolve-plan="Implement pjsua codec enumeration via runtime codec API"` |
-| `--unit-id=<unit-id>` | The unit's identifier — the **same id for every marker in the unit**. This tag is what the manifest printer uses to group the markers back together, so pick a distinct id per unit (e.g. `U1`, `U2`, ...). | `--unit-id=U1` |
+| `unitId` | A unique identifier for this unit (e.g. `"U1"`, `"U2"`, …). It is what the manifest printer uses to group this unit's markers back together, so it must be **unique across the whole file**. | **Required** |
+| `resolveByTicket` | The one resolve key for this unit — the ticket the consolidated work belongs to (an active future todo, or the original completed ticket). **Omit it to let the tool derive the key from the markers' existing keys.** | Optional |
+| `reason` | The merged "why this stays a stub" text, written once for the whole unit. **Omit it to keep each marker's existing reason.** | Optional |
+| `plan` | The merged resolution plan — what the resolving ticket must concretely implement, as an AI-executable deliverable. **Omit it to keep each marker's existing plan.** | Optional |
+| `markerLines` | Every marker in this unit, as `"<file>:<line>"` taken from Step 1's enumeration (e.g. `"src/call.rs:23"`). A marker may belong to **exactly one** unit. | **Required** |
 
-Run this once per marker in the unit, always passing the same `--resolve-by-ticket` **and** the same `--unit-id`. Tickets.json is always `./Tickets.json` in the current directory — `--tickets-path` is not accepted (same convention as `batch-create-resolving-tickets.js`).
-
-**Merge true duplicates** (same defect, same file/region) by keeping the lowest-line marker and removing the others with `remove-stub.js`; the survivor's content is annotated with the covered line span:
+Create the file under `/tmp` with a **collision-free name** — never a fixed name inside the repo (a fixed name would collide with other work and could be committed by accident). Use `mktemp` / `$TMPDIR`, e.g.:
 
 ```bash
-node .claude/scripts/tickets/remove-stub.js --file=<path> --lines=<N1,N2,...>
+UNITS_JSON="$TMPDIR/units-$(mktemp -u XXXXXX).json"
 ```
 
-Each flag means:
+The batch tool consumes (deletes) the file on success, so the decision never lingers in the repo.
 
-| Flag | What to put | Example |
-|---|---|---|
-| `--file=<path>` | The source file that contains the duplicate markers. | `--file=build.rs` |
-| `--lines=<N1,N2,...>` | The comma-separated line numbers of the markers to **remove** — the redundant duplicates, **not** the survivor you keep. | `--lines=11` (when keeping line 8) |
+### Step 4 — Verify the plan, then apply (batch-update-stub.js)
 
-### Step 5 — Run the gates
+**First, review the edit plan with `--dry-run`** — it shows every marker → unit → key change plus the `UNASSIGNED` list, **with zero side effects**:
 
 ```bash
-node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
+node .claude/scripts/tickets/batch-update-stub.js "$UNITS_JSON" --dry-run
+```
+
+Confirm the grouping (and that the `UNASSIGNED` list is expected), then apply:
+
+```bash
+node .claude/scripts/tickets/batch-update-stub.js "$UNITS_JSON"
+```
+
+The tool validates every edit first (atomic — any failure aborts with zero writes), then re-points all listed markers to their unit key, merges true duplicates, runs the gates, emits the manifest, strips the `[::UNIT::]` tags, writes a **rollback backup** (`manifests/ROLLBACK-<ts>.json`), and consumes the decision file.
+
+It reports:
+- the manifest path + `N markers -> M units`,
+- **Omissions**: any scanned marker you did **not** assign to a unit (`UNASSIGNED: file:line, ...`),
+- **Failures**: any edit that failed to validate (with zero writes made),
+- **Debris**: the decision file is removed and the tree is left clean on success,
+- **Rollback**: the backup path, in case you later decide the apply was wrong.
+
+**Undo a wrong apply precisely** — no git involved:
+
+```bash
+node .claude/scripts/tickets/batch-update-stub.js --rollback manifests/ROLLBACK-<ts>.json
+```
+
+### Step 5 — Verify the result (blocking gate)
+
+The batch tool has already run the gates and emitted the manifest. Run the three-part blocking gate. The first runs in **consolidation mode** — `--for-consolidate` makes the validator accept completed-key references (the find-omissions re-ticketization handoff) while still failing on terminal excuses and malformed markers. The third confirms the manifest is actually consumable by `/find-omissions` (one ticket per unit, valid source keys, no duplicate markers):
+
+```bash
+node .claude/scripts/tickets/validate-no-external-excuses.js --for-consolidate
 node .claude/scripts/tickets/validate-stub-format.js
-```
-
-Loop until exit 0: fix any reported marker (rewrite the plan / rewrite the key / remove a stale duplicate). Note that markers re-pointed to a completed key will fail Check C (stale key) by design — that is the find-omissions re-ticketization signal, not an excuse; the gate's intent is zero terminal excuses (Check A/B) and well-formed markers.
-
-### Step 6 — Emit the handoff manifest
-
-Run the manifest printer (no input — it scans the tree for the `[::UNIT::]` tags you embedded in Step 4):
-
-```bash
-node .claude/scripts/tickets/print-manifest-for-find-omissions.js
-```
-
-The script:
-1. scans the tree for `[::UNIT::<id>::]`-tagged markers and groups them by unit id,
-2. writes the grouped manifest — one `{ sourceKey, stubs: [{file,line,content}] }` entry per unit — to **`./manifests/CONSOLIDATED-MANIFEST-<YYYYMMDDhhmmss>.json`** (auto-creating `manifests/`),
-3. and only after a successful write, mechanically strips every `[::UNIT::]` tag from the source markers so they return to their clean format.
-
-That manifest file is the input to `/find-omissions` Step 1, which creates one resolving ticket per unit. You can preview the ticket count without committing by piping the file to the batch tool's dry-run:
-
-```bash
 cat manifests/CONSOLIDATED-MANIFEST-*.json \
   | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write
 ```
 
-## Output Message Convention
+- `--for-consolidate` exits non-zero only on a **real** problem (a terminal-excuse plan, a malformed marker, or a non-existent key). Markers re-pointed to a completed key are the intended output and do **not** fail here.
+- The `batch-create-resolving-tickets.js --no-write` dry-run validates the **manifest file itself** — every `sourceKey` must exist, every `stub` must resolve to a real on-disk marker, and there must be no duplicate markers. It reports `createdTickets` = the number of units.
 
-Every stdout/stderr line is English, self-contained, and Action-directive. A fresh session must be able to act on a message alone.
+**This is a blocking gate — if any of the three commands exits non-zero, you must NOT proceed.** A failure means a real defect slipped through Step 4 (or the tree changed after the apply). Recover in this exact order:
+
+1. **Roll back the apply** — restore the pre-consolidation state precisely:
+   ```bash
+   node .claude/scripts/tickets/batch-update-stub.js --rollback manifests/ROLLBACK-<ts>.json
+   ```
+2. **Return to Step 3 and fix the units JSON** — correct the `reason` / `plan` / `resolveByTicket` / `markerLines` entry that caused the failure, and create a fresh `/tmp` decision file.
+3. **Re-run Step 4** — `--dry-run` to confirm the fix, then apply (this also rewrites the manifest).
+4. **Re-run this gate** — loop until all three commands exit 0.
+
+The manifest file — **`./manifests/CONSOLIDATED-MANIFEST-<YYYYMMDDhhmmss>.json`** — is the deliverable passed to `/find-omissions` Step 1, which creates one resolving ticket per unit.
