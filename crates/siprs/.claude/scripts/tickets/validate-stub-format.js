@@ -12,7 +12,14 @@
  *
  * [::TICKET::] PX-77: Core Validation Scripts — validate-stub-format (C001)
  */
+const fs = require("fs");
+const path = require("path");
+const { execFileSync } = require("child_process");
+
 const STUB_REGEX = /^\/\/\s*\[::STUB::\]\s+(P[A-Z0-9]+-\d+|MUST\s+RESOLVE):\s*\S.*$/;
+
+// Directory tree scan root (the Tickets.json root when run from the gate).
+const SCAN_ARG = "--scan";
 
 /**
  * Validate a STUB marker string against the required format.
@@ -93,8 +100,55 @@ function validateStubFormat(content) {
   return { valid: true, errors: [] };
 }
 
-// [::TICKET::] PX-77, PX-78, PX-79, PX-80, PX-81 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-80|PX-81) --for-spec --no-implementation-order`.
+/**
+ * Validate every STUB marker under a directory against the format rule.
+ * Reuses review/find-all-stubs.js for the scan so the quoted-string and
+ * fixture-directory heuristics stay single-sourced. Exits 0 iff all valid.
+ * @param {string} dir — Directory to scan
+ * @returns {{total: number, pass: number, fail: number, failures: Array}}
+ */
+// [::TICKET::] PX-134, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-134|PX-135) --for-spec --no-implementation-order`.
+function scanValidate(dir) {
+  const scanner = path.resolve(__dirname, "review/find-all-stubs.js");
+  const stdout = execFileSync("node", [scanner, path.resolve(dir)], { encoding: "utf8" });
+  const stubs = JSON.parse(stdout).stubs || [];
+
+  const failures = [];
+  let pass = 0;
+  for (const stub of stubs) {
+    const result = validateStubFormat(stub.content);
+    if (result.valid) pass++;
+    else failures.push({ file: stub.file, line: stub.line, errors: result.errors });
+  }
+
+  console.log(JSON.stringify({ total: stubs.length, pass, fail: failures.length }));
+  for (const failure of failures) {
+    for (const error of failure.errors) {
+      console.error("[validate-stub-format] FAIL " + failure.file + ":" + failure.line + " -- " + error);
+    }
+  }
+  return { total: stubs.length, pass, fail: failures.length, failures };
+}
+
+/**
+ * Dispatch the CLI: --scan <dir> runs a tree-wide format gate; otherwise the
+ * original single-string mode validates one marker line.
+ */
+// [::TICKET::] PX-134, PX-135 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-134|PX-135) --for-spec --no-implementation-order`.
 function main() {
+  const scanIndex = process.argv.indexOf(SCAN_ARG);
+  if (scanIndex !== -1) {
+    const dir = process.argv[scanIndex + 1];
+    if (!dir) {
+      console.error("[ERROR] --scan requires a directory argument");
+      console.error("Action: Run: node .claude/scripts/tickets/validate-stub-format.js --scan <directory>");
+      process.exit(1);
+    }
+    const result = scanValidate(path.resolve(dir));
+    process.exit(result.fail > 0 ? 1 : 0);
+    return;
+  }
+
   const input = process.argv[2];
   if (!input) {
     console.error('[ERROR] Missing input string');
@@ -109,4 +163,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { validateStubFormat };
+module.exports = { validateStubFormat, scanValidate };

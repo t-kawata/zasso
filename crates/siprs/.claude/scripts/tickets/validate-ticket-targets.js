@@ -403,7 +403,7 @@ function checkDagCycles(stubId, allTargetStubs, allItems) {
  * @param {string} ticketKey — Ticket to validate
  * @returns {{valid: boolean, errors: Array, formattedErrors: string[], checks: Array, skipped?: boolean, verifiedEmpty?: boolean}}
  */
-// [::TICKET::] PX-77, PX-78, PX-79, PX-95, PX-94 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-95|PX-94) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-77, PX-78, PX-79, PX-95, PX-94, PX-129, PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79|PX-95|PX-94|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
 function validateTargets(ticketsData, ticketKey) {
   const ticket = findTicket(ticketsData, ticketKey);
   if (!ticket) {
@@ -425,7 +425,11 @@ function validateTargets(ticketsData, ticketKey) {
     };
   }
 
-  const allTargets = [].concat(targetStubs || []).concat(targetCrimes || []);
+  // Only arrays contribute targets — 'verified_empty' (string) or an absent field must not
+  // leak a phantom "unknown" entry into allTargets (PX-129).
+  const allTargets = []
+    .concat(Array.isArray(targetStubs) ? targetStubs : [])
+    .concat(Array.isArray(targetCrimes) ? targetCrimes : []);
   const allContractIds = (ticket.contracts || []).map(function (c) { return c.id; });
   const allTargetStubs = targetStubs || [];
   const errors = [];

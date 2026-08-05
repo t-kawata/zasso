@@ -198,6 +198,96 @@ console.log('\n## Error: Nonexistent directory\n');
   assert(result === null || result.error !== undefined, 'nonexistent directory returns null/error');
 })();
 
+// ===== PX-139: Test-fixture false positives — quoted-string suppression =====
+// [::TICKET::] PX-139: scan-algorithm quoted-string rejection + fixtures-dir exclusion.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+console.log('\n## PX-139 — Quoted-string and fixtures-dir suppression\n');
+
+(function () {
+  // C001-Pre: a scanned line with [::STUB::] bounded by quotes on the same line.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'px139-c1-'));
+  const srcDir = path.join(dir, 'src');
+  fs.mkdirSync(srcDir, { recursive: true });
+  fs.writeFileSync(path.join(srcDir, 'fixture.test.cjs'),
+    'manifest: [{ file: "src/a.rs", line: 5, content: "// [::STUB::] P9-99: reason -- Implement fix" }],\n' +
+    'writeLine(srcFile, 5, "// [::STUB::] P9-9: edited after manifest build");\n' +
+    '{ sourceKey: "P3-2", stubs: [{ file: "src/p3.rs", line: 7, content: "// [::STUB::] P3-2: two -- Implement two" }] },\n');
+
+  // C001-Post: quoted marker text is data, not a marker — never emitted.
+  const result = enumerateTargets(dir, 'PX-139', makeTicketsData(-1, 139));
+  assert(result.targetCrimes.length === 0, 'C001: quoted marker lines are not emitted as crimes');
+  assert(result.targetStubs.length === 0, 'C001: quoted marker lines are not emitted as stubs');
+
+  // C001-Inv: a real // comment marker is still emitted and classified as ORPHAN_TICKET_REF.
+  fs.writeFileSync(path.join(srcDir, 'real.rs'), '// [::STUB::] P99-99: real orphan\n');
+  const result2 = enumerateTargets(dir, 'PX-139', makeTicketsData(-1, 139));
+  const realOrphans = result2.targetCrimes.filter(function (c) { return c.crimeType === 'ORPHAN_TICKET_REF'; });
+  assert(realOrphans.length === 1, 'C001-inv: only the real comment marker is emitted');
+  assertStrictEqual(realOrphans[0].ticketRef, 'P99-99', 'C001-inv: real orphan ticketRef preserved');
+
+  // C001-Boundary: a marker whose description contains quotes is not suppressed.
+  fs.writeFileSync(path.join(srcDir, 'quotes.rs'), '// [::STUB::] P99-99: use "quotes" in description\n');
+  const result3 = enumerateTargets(dir, 'PX-139', makeTicketsData(-1, 139));
+// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+  assert(result3.targetCrimes.some(function (c) { return c.ticketRef === 'P99-99' && c.file.endsWith('quotes.rs'); }),
+    'C001-boundary: marker with quotes in description still emitted');
+
+  fs.rmSync(dir, { recursive: true, force: true });
+})();
+
+(function () {
+  // C002-Pre: a directory entry named fixtures exists with a marker file.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'px139-c2-'));
+  fs.mkdirSync(path.join(dir, 'fixtures', 'src'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'fixtures', 'src', 'f.rs'), '// [::STUB::] P3-2: fixture marker\n');
+  fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src', 'a.rs'), '// [::STUB::] P3-2: real marker\n');
+  fs.mkdirSync(path.join(dir, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'tests', 't.rs'), '// [::STUB::] P3-2: under tests, not fixtures\n');
+
+  const result = enumerateTargets(dir, 'PX-139', makeTicketsData(-1, 139));
+
+  // C002-Post: the fixtures dir subtree is not scanned.
+// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+  assert(!result.targetCrimes.some(function (c) { return c.file.includes('fixtures'); }),
+    'C002: fixtures dir not scanned');
+  // C002-Inv: non-fixtures directories are still scanned.
+// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+  assert(result.targetCrimes.some(function (c) { return c.file.endsWith('src/a.rs'); }),
+    'C002: src/a.rs (not fixtures) still scanned');
+// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+  assert(result.targetCrimes.some(function (c) { return c.file.endsWith('tests/t.rs'); }),
+    'C002-inv: tests/t.rs (not fixtures) still scanned');
+
+  fs.rmSync(dir, { recursive: true, force: true });
+})();
+
+(function () {
+  // C003-Pre/Post/Invariant: shared lib exports contain the exact former regex behavior.
+  let lib;
+  try {
+    lib = require('../../lib/stub-marker-scan');
+  } catch (e) {
+    failed++;
+    console.log('  ✗ C003: lib/stub-marker-scan.js not found: ' + e.message + '\n');
+    return;
+  }
+  const STUB_RE = /\[::STUB::\]/;
+  const STUB_IN_QUOTES_RE = /['"`][^'"`]*\[::STUB::\][^'"`]*['"`]/;
+  const samples = [
+    'content: "// [::STUB::] P9-99: reason"',
+    '// [::STUB::] P3-2: real',
+  ];
+  assert(typeof lib.containsStubMarker === 'function', 'C003: containsStubMarker exported');
+  assert(typeof lib.isStubInQuotes === 'function', 'C003: isStubInQuotes exported');
+// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+  assert(samples.every(function (l) { return lib.containsStubMarker(l) === STUB_RE.test(l); }),
+    'C003: containsStubMarker parity with STUB_RE');
+// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+  assert(samples.every(function (l) { return lib.isStubInQuotes(l) === STUB_IN_QUOTES_RE.test(l); }),
+    'C003: isStubInQuotes parity with STUB_IN_QUOTES_RE');
+})();
+
 // Cleanup
 fs.rmSync(tmpDir, { recursive: true, force: true });
 

@@ -13,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const { findTicket, ticketExists, ticketIsDone } = require('../lib/find-ticket');
 const { syncMalfeasance } = require('../lib/malfeasance-utils');
+const { containsStubMarker, isStubInQuotes, FIXTURE_STORAGE_DIR } = require('../lib/stub-marker-scan');
 
 // [::TICKET::] PX-90: Extensions to scan for STUB markers
 // Only programming-language source file extensions.
@@ -34,7 +35,11 @@ const EXCLUDED_FILENAMES = new Set(['Tickets.json', 'Malfeasance.json']);
 // own scripts would detect the pipeline's own [::STUB::] markers, causing infinite
 // cross-ticket dependency chains. Pipeline internals are tracked by design-time
 // RFC analysis, not by runtime STUB scanning.
-const SKIP_DIRS = new Set(['node_modules', 'target', '.git', '.claude', 'dist', 'build']);
+// [::TICKET::] PX-139: `fixtures` is skipped EXCEPTIONALLY — it is the storage
+// directory for test fixture files (test INPUTS), not production code. This matches
+// review/find-all-stubs.js so both scanners agree; it is NOT a blanket tests/ exclusion.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
+const SKIP_DIRS = new Set(['node_modules', 'target', '.git', '.claude', 'dist', 'build', FIXTURE_STORAGE_DIR]);
 
 // Generate a unique STUB id
 let stubCounter = 0;
@@ -148,6 +153,7 @@ function scanDirectory(dirPath, ticketsData, ownTicketKey) {
 // [::TICKET::] PX-77, PX-78, PX-79 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-77|PX-78|PX-79) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-93: Added null guard for classifyStubs returning null.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-93 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
 function scanFile(filePath, ticketsData, ownTicketKey, targetStubs, targetCrimes) {
   let content;
   try {
@@ -161,7 +167,9 @@ function scanFile(filePath, ticketsData, ownTicketKey, targetStubs, targetCrimes
   const lines = content.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!line.includes('[::STUB::]')) continue;
+    if (!containsStubMarker(line)) continue;
+    // A marker inside a quoted string is test/data reference text, not a real marker.
+    if (isStubInQuotes(line)) continue;
 
     const targetRef = extractTicketRef(line);
     if (!targetRef) continue;

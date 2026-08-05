@@ -65,6 +65,10 @@ const STUB_TICKET_KEY_RE = /\[::STUB::\].*?([A-Z]+[A-Z\d]*-\d+)/;
 // Statuses that mean "this ticket will still resolve work".
 const ACTIVE_STATUSES = new Set(['todo', 'in_progress', 'planned', 'remanded']);
 
+// Completed statuses: in consolidation mode (--for-consolidate) a marker re-pointed
+// to a completed ticket is the find-omissions re-ticketization handoff, not a defect.
+const COMPLETED_STATUS_RE = /^(reviewed|done|R[1-9]\d*)$/;
+
 // -- Pure functions --
 
 /**
@@ -101,12 +105,15 @@ function findTicket(ticketsData, ticketKey) {
 
 /**
  * Check C — Key Validity.
+ * In consolidation mode (forConsolidate) a COMPLETED key is also accepted — that is
+ * the find-omissions re-ticketization handoff; non-existent and keyless still fail.
  * @param {string|null} ticketKey — Extracted key or null
  * @param {object} ticketsData — Parsed Tickets.json
+ * @param {boolean} [forConsolidate] — Accept completed-key references
  * @returns {{passed: boolean, reason: string}}
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
-function checkKeyValidity(ticketKey, ticketsData) {
+// [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
+function checkKeyValidity(ticketKey, ticketsData, forConsolidate) {
   if (!ticketKey) {
     return { passed: false, reason: 'Marker has no ticket key (MUST RESOLVE) — keyless markers fail Check C' };
   }
@@ -114,10 +121,13 @@ function checkKeyValidity(ticketKey, ticketsData) {
   if (!ticket) {
     return { passed: false, reason: 'Ticket ' + ticketKey + ' does not exist in Tickets.json' };
   }
-  if (!ACTIVE_STATUSES.has(ticket.status)) {
-    return { passed: false, reason: 'Ticket ' + ticketKey + ' has status "' + ticket.status + '" which is not an active obligation' };
+  if (ACTIVE_STATUSES.has(ticket.status)) {
+    return { passed: true, reason: 'Ticket ' + ticketKey + ' is an active obligation' };
   }
-  return { passed: true, reason: 'Ticket ' + ticketKey + ' is an active obligation' };
+  if (forConsolidate && COMPLETED_STATUS_RE.test(ticket.status)) {
+    return { passed: true, reason: 'Ticket ' + ticketKey + ' is completed — accepted as the find-omissions re-ticketization handoff (--for-consolidate)' };
+  }
+  return { passed: false, reason: 'Ticket ' + ticketKey + ' has status "' + ticket.status + '" which is not an active obligation' };
 }
 
 /**
@@ -126,8 +136,8 @@ function checkKeyValidity(ticketKey, ticketsData) {
  * @param {object} ticketsData — Parsed Tickets.json
  * @returns {{passed: boolean, fail: boolean, key: string|null, checks: Array}}
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
-function classifyVerdict(markerContent, ticketsData) {
+// [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
+function classifyVerdict(markerContent, ticketsData, forConsolidate) {
   const excuseHit = EXCUSE_PATTERNS.some(re => re.test(markerContent || ''));
   const workItem = WORK_ITEM_VERB_RE.test(markerContent || '');
 
@@ -155,7 +165,7 @@ function classifyVerdict(markerContent, ticketsData) {
 
   // Check C: key validity (hard gate).
   const key = extractTicketKey(markerContent);
-  const cv = checkKeyValidity(key, ticketsData);
+  const cv = checkKeyValidity(key, ticketsData, forConsolidate);
   const checkC = {
     check: 'C',
     passed: cv.passed,
@@ -188,13 +198,13 @@ function scanStubs(dir) {
  * @param {object} ticketsData — Parsed Tickets.json
  * @returns {{total: number, pass: number, fail: number, failures: Array}}
  */
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
-function validateStubs(dir, ticketsData) {
+// [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
+function validateStubs(dir, ticketsData, forConsolidate) {
   const stubs = scanStubs(dir);
   const failures = [];
   let pass = 0;
   for (const stub of stubs) {
-    const verdict = classifyVerdict(stub.content, ticketsData);
+    const verdict = classifyVerdict(stub.content, ticketsData, forConsolidate);
     if (verdict.passed) {
       pass++;
     } else {
@@ -206,15 +216,17 @@ function validateStubs(dir, ticketsData) {
 
 // -- CLI entry point --
 
-// [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-120, PX-121, PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121|PX-132) --for-spec --no-implementation-order`.
 function main() {
   // The pipeline always runs from the directory containing Tickets.json, so the
   // scan root and the Tickets.json path are fixed to the current directory.
   const args = process.argv.slice(2);
   let failOnExcuse = false;
+  let forConsolidate = false;
 
   for (const arg of args) {
     if (arg === '--fail-on-excuse') failOnExcuse = true;
+    if (arg === '--for-consolidate') forConsolidate = true;
   }
 
   let ticketsData;
@@ -228,7 +240,7 @@ function main() {
 
   let result;
   try {
-    result = validateStubs('.', ticketsData);
+    result = validateStubs('.', ticketsData, forConsolidate);
   } catch (e) {
     console.error('[validate-no-external-excuses] Error: stub scan failed:', e.message);
     process.exit(1);
@@ -244,7 +256,9 @@ function main() {
     }
   }
 
-  if (failOnExcuse && result.fail > 0) {
+  // --for-consolidate fails on any remaining failure too (those are Check A/B or format
+  // problems; completed-key Check C markers already pass in this mode).
+  if ((failOnExcuse || forConsolidate) && result.fail > 0) {
     console.error('[validate-no-external-excuses] ' + result.fail + ' failures — see stderr for per-stub Action directives. Fix and re-validate before proceeding.');
     process.exit(1);
   }
@@ -262,5 +276,6 @@ module.exports = {
   EXCUSE_PATTERNS,
   WORK_ITEM_VERB_RE,
   ACTIVE_STATUSES,
+  COMPLETED_STATUS_RE,
   STUB_TICKET_KEY_RE
 };

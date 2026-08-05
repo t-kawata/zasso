@@ -75,26 +75,31 @@ function setCrimeDeferredTo(ticketsData, crimeId, newKey) {
  * @param {string|null} sourceRoot — Repo root for resolving-seed file paths
  * @returns {{success: true, data: object, created: Array}|{success: false, error: string}}
  */
-// [::TICKET::] PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-2 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-2, PX-129, PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-2|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
 function createOne(data, seed, sourceRoot) {
   switch (seed.type) {
     case "resolving": {
-      const stub = (seed.stubs || [])[0];
-      // C003/C009: verify the on-disk marker before creating when a file/line is given.
-      if (stub && stub.file && stub.line) {
-        const marker = checkOnDiskMarker(
-          { file: stub.file, line: stub.line, content: stub.content, sourceKey: seed.sourceKey },
-          sourceRoot || process.cwd(),
-          data
-        );
-        if (marker.status === "skip") return { success: true, data, created: [] };
-        if (marker.status === "refuse") return { success: false, error: marker.reason };
+      // C003/C009: verify EVERY on-disk marker before creating (PX-129); skip markers
+      // that already reference an ACTIVE ticket (C007 idempotency), refuse on any failure.
+      const okStubs = [];
+      for (const stub of seed.stubs || []) {
+        if (stub && stub.file && stub.line) {
+          const marker = checkOnDiskMarker(
+            { file: stub.file, line: stub.line, content: stub.content, sourceKey: seed.sourceKey },
+            sourceRoot || process.cwd(),
+            data
+          );
+          if (marker.status === "skip") continue;
+          if (marker.status === "refuse") return { success: false, error: marker.reason };
+        }
+        okStubs.push(stub);
       }
+      if (okStubs.length === 0) return { success: true, data, created: [] };
       const res = createResolvingTicket({
         ticketsData: data,
         sourceKey: seed.sourceKey,
         seed: seed.seed,
-        stubs: seed.stubs || [],
+        stubs: okStubs,
       });
       if (!res.success) return { success: false, error: res.error };
       return { success: true, data: res.data, created: [{ sourceKey: seed.sourceKey, newKey: res.key, ticket: res.ticket }] };
@@ -135,22 +140,24 @@ function createOne(data, seed, sourceRoot) {
  * @returns {{success: true, data: object, created: Array, dryRun?: boolean}
  *          |{success: false, errors: Array, created: Array}}
  */
-// [::TICKET::] PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-2 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-2, PX-129, PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-2|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
 function createTickets({ ticketsData, seeds, sourceRoot, noWrite = false }) {
   const errors = [];
   if (!Array.isArray(seeds)) {
     return { success: false, errors: [{ error: "seeds must be an array" }], created: [] };
   }
 
-  // C008: reject duplicate file:line across resolving seeds before any creation.
+  // C008: reject duplicate file:line across resolving seeds before any creation (PX-129:
+  // scan EVERY stub in a multi-stub seed, not only stubs[0]).
   const seen = new Set();
   for (const seed of seeds) {
     if (seed.type === "resolving") {
-      const stub = (seed.stubs || [])[0];
-      if (stub && stub.file && stub.line) {
-        const dupKey = stub.file + ":" + stub.line;
-        if (seen.has(dupKey)) errors.push({ error: "duplicate file:line seed: " + dupKey });
-        seen.add(dupKey);
+      for (const stub of seed.stubs || []) {
+        if (stub && stub.file && stub.line) {
+          const dupKey = stub.file + ":" + stub.line;
+          if (seen.has(dupKey)) errors.push({ error: "duplicate file:line seed: " + dupKey });
+          seen.add(dupKey);
+        }
       }
     }
   }

@@ -37,6 +37,7 @@ const { classifyVerdict, checkKeyValidity, EXCUSE_PATTERNS, WORK_ITEM_VERB_RE } 
 
 // Fixture: build a Tickets.json-like structure with the correct phase per key
 // [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-132 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-132 --for-spec --no-implementation-order`.
 function fixtureTickets(map) {
   const byPhase = {};
   for (const key of Object.keys(map)) {
@@ -113,6 +114,24 @@ console.log('\n## C002 — key validity\n');
   assert(checkKeyValidity('P9-99', fixtureTickets({})).passed === false, 'nonexistent key fails');
   assert(checkKeyValidity(null, fixtureTickets({})).passed === false, 'keyless MUST RESOLVE fails');
   assert(checkKeyValidity(undefined, fixtureTickets({})).passed === false, 'undefined key fails');
+})();
+
+(function testC002ForConsolidateAcceptsCompleted() {
+  console.log('  ── --for-consolidate accepts completed keys, still rejects non-existent/keyless');
+  for (const status of ['reviewed', 'done', 'R1', 'R2']) {
+    const tickets = fixtureTickets({ 'P4-2': { status } });
+    assert(checkKeyValidity('P4-2', tickets, true).passed === true, 'status ' + status + ' must pass Check C in consolidation mode');
+  }
+  assert(checkKeyValidity('P9-99', fixtureTickets({}), true).passed === false, 'nonexistent key still fails in consolidation mode');
+  assert(checkKeyValidity(null, fixtureTickets({}), true).passed === false, 'keyless still fails in consolidation mode');
+})();
+
+(function testC002ClassifyVerdictForConsolidate() {
+  console.log('  ── classifyVerdict with forConsolidate passes a completed-key marker with an executable plan');
+  const tickets = fixtureTickets({ 'P4-2': { status: 'reviewed' } });
+  const marker = '// [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration';
+  assert(classifyVerdict(marker, tickets).passed === false, 'normal mode: Check C fails for a completed key');
+  assert(classifyVerdict(marker, tickets, true).passed === true, 'consolidation mode: same marker passes');
 })();
 
 // ============================================================
