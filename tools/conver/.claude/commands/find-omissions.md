@@ -22,7 +22,7 @@ node .claude/scripts/tickets/require-consolidated-manifest.js || exit 2
 ## Overview
 
 ```
- Preflight (Step 1): a marker needing a new resolving ticket → batch-create-resolving-tickets.js (auto, never ask the human)
+Step 1 (re-ticketize, before inspection): a marker needing a new resolving ticket → batch-create-resolving-tickets.js (auto, never ask the human)
 
 Inspection loop — one command, repeated per ticket:
 
@@ -37,7 +37,7 @@ Inspection loop — one command, repeated per ticket:
 
   ↓  when a gap is found:
 
-  add-omission-ticket.js --ticket-key=<KEY> < foundOmissions.json
+  echo '<foundOmissions JSON>' | node add-omission-ticket.js --ticket-key=<KEY>
     └─ appends to _tmp-omissions-*.json
 ```
 
@@ -117,7 +117,7 @@ cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js
 
 **What to expect**:
 - **review first (`--no-write`)**: validates the whole manifest with zero side effects; stdout prints `{ createdTickets, skipped, rewrittenMarkers, dryRun: true }`.
-- **commit**: on success stdout prints `{ createdTickets, skipped, rewrittenMarkers, dryRun: false }` — Tickets.json gained one `todo` ticket per non-skipped entry, and every on-disk marker line now references its new key.
+- **commit**: on success stdout prints `{ createdTickets, skipped, rewrittenMarkers, dryRun: false }` — Tickets.json gained one `todo` ticket per non-skipped entry, and every on-disk marker line of a created unit now references its new key (C007-skipped markers — already referencing an active ticket — are left untouched).
 - **re-run is safe**: markers already referencing an active ticket are skipped, so re-running never duplicates tickets.
 - **on failure nothing is written**: stderr lists each failure with its file:line and an Action-directive; fix the reported marker and re-run.
 
@@ -138,6 +138,8 @@ node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
 
 - **exit 0** → zero failures, proceed to Step 2.
 - **exit 1** → read each `[validate-no-external-excuses] FAIL <file>:<line> -- <check> -- Action:` line, fix the marker (remove / rewrite the plan / rewrite the key), and re-run the gate. **Loop until exit 0.** A round that makes no progress is a hard-stop diagnostic — do not proceed with unresolved excuses.
+
+> **Why a completed-key marker can fail here**: this validator runs in normal mode (`--fail-on-excuse`), where Check C rejects a marker referencing a **completed** ticket — unlike `/consolidate-stubs`'s Step 5 gate, which accepts completed keys via `--for-consolidate`. That gate covers only the *grouped* markers; completed-key leftovers (left `UNASSIGNED`, or added after the consolidate apply) are this safety net's job. `preflight-stub-cleanup.js` classifies them and prints the `remove-stub.js` / `create-resolving-ticket.js` commands — resolve each, then re-run the validator.
 
 **Output message convention**: every stdout/stderr line from these scripts is English, self-contained, and Action-directive. A fresh session must be able to act on a message alone.
 

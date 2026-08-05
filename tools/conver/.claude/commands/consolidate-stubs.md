@@ -91,10 +91,10 @@ Each field means:
 
 | Field | What it is | Required? |
 |---|---|---|
-| `unitId` | A unique identifier for this unit (e.g. `"U1"`, `"U2"`, …). It is what the manifest printer uses to group this unit's markers back together, so it must be **unique across the whole file**. | **Required** |
+| `unitId` | A unique identifier for this unit (e.g. `"U1"`, `"U2"`, …). Step 4 tags this unit's markers with `[::UNIT::<id>::]` so the manifest printer can group them back together — it must be **unique across the whole file**. It is an in-memory grouping id only: it does **not** appear in the emitted manifest (one `{ sourceKey, stubs: […] }` entry per unit), and the decision file is consumed on success. | **Required** |
 | `resolveByTicket` | The one resolve key for this unit — the ticket the consolidated work belongs to (an active future todo, or the original completed ticket). **Omit it to let the tool derive the key from the FIRST marker's existing key only** — a unit whose first marker is `MUST RESOLVE` or `PX-*` requires an explicit `resolveByTicket`. | Optional |
 | `reason` | The merged "why this stays a stub" text, written once for the whole unit. **Omit it to keep each marker's existing reason.** | Optional |
-| `plan` | The merged resolution plan — what the resolving ticket must concretely implement, as an AI-executable deliverable. **Omit it to keep each marker's existing plan.** | Optional |
+| `plan` | The merged resolution plan — what the resolving ticket must concretely implement, as an AI-executable deliverable. Keep it on **one line** — `validate-stub-format` rejects markers with non-empty trailing lines, so a multi-line plan would fail the Step 5 gate. **Omit it to keep each marker's existing plan.** | Optional |
 | `markerLines` | Every marker in this unit, as `"<file>:<line>"` taken from Step 1's enumeration (e.g. `"src/call.rs:23"`). A marker may belong to **exactly one** unit. | **Required** |
 
 Create the file under `/tmp` with a **collision-free name** — never a fixed name inside the repo (a fixed name would collide with other work and could be committed by accident). Use `mktemp` / `$TMPDIR`, e.g.:
@@ -150,7 +150,7 @@ The gate exits non-zero only on a **real** problem — a terminal-excuse plan, a
    ```bash
    node .claude/scripts/tickets/batch-update-stub.js --rollback manifests/ROLLBACK-<ts>.json
    ```
-2. **Return to Step 3 and fix the units JSON** — correct the `reason` / `plan` / `resolveByTicket` / `markerLines` entry that caused the failure, and create a fresh `/tmp` decision file.
+2. **Return to Step 3 and fix the units JSON** — correct the `reason` / `plan` / `resolveByTicket` / `markerLines` entry that caused the failure, and create a fresh `/tmp` decision file. **If the failure is on a marker NOT in the units JSON** (an `UNASSIGNED` marker, or one added after the apply), fix that marker directly — re-point its key to a valid ticket, rewrite a terminal-excuse plan into an imperative deliverable, or fold it into a unit in the decision file — then continue with Step 4.
 3. **Re-run Step 4** — `--dry-run` to confirm the fix, then apply (this also rewrites the manifest).
 4. **Re-run this gate** — loop until all three commands exit 0.
 

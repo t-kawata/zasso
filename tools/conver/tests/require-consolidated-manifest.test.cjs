@@ -89,3 +89,14 @@ test("C001: findConsolidatedManifest returns the manifest path, null when absent
     "returns the matching manifest path"
   );
 });
+
+// @verifies C001 (PX-138 contract)
+test("C001: when multiple manifests exist the newest is selected", () => {
+  const dir = makeWorkspace();
+  writeManifest(dir, "CONSOLIDATED-MANIFEST-20260101000000.json");
+  writeManifest(dir, "CONSOLIDATED-MANIFEST-20260102000000.json");
+  assert.ok(
+    findConsolidatedManifest(dir).endsWith("CONSOLIDATED-MANIFEST-20260102000000.json"),
+    "the newest manifest is selected (matches the gate's ls -t | head -1)"
+  );
+});

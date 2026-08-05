@@ -26,9 +26,9 @@ const MANIFESTS_DIR = 'manifests';
 const MANIFEST_PREFIX = 'CONSOLIDATED-MANIFEST-';
 
 /**
- * Find a consolidated manifest file under a directory (read-only probe).
+ * Find the newest consolidated manifest file under a directory (read-only probe).
  * @param {string} dir — Root directory (manifests/ lives here)
- * @returns {string|null} — Absolute path to a matching manifest, or null
+ * @returns {string|null} — Absolute path to the newest matching manifest, or null
  */
 // [::TICKET::] PX-138 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-138 --for-spec --no-implementation-order`.
 function findConsolidatedManifest(dir) {
@@ -39,7 +39,13 @@ function findConsolidatedManifest(dir) {
   } catch {
     return null; // manifests/ missing → no manifest
   }
-  const match = entries.find((name) => name.startsWith(MANIFEST_PREFIX) && name.endsWith('.json'));
+  // Newest first, matching the gate's `ls -t | head -1`: the printer names
+  // manifests CONSOLIDATED-MANIFEST-<YYYYMMDDhhmmss>.json and never reuses a
+  // timestamp, so the filename sort is chronological.
+  const candidates = entries
+    .filter((name) => name.startsWith(MANIFEST_PREFIX) && name.endsWith('.json'))
+    .sort();
+  const match = candidates[candidates.length - 1];
   return match ? path.join(manifestsDir, match) : null;
 }
 

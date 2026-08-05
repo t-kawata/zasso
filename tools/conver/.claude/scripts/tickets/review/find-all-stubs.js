@@ -4,17 +4,11 @@ const fs = require('fs');
 const path = require('path');
 const { CFG } = require('../../lib/tickets');
 
-const STUB_RE = /\[::STUB::\]/;
-// Data reference: [::STUB::] inside a quoted string (e.g. a test assertion
-// checking for the absence of a marker) is not an actual stub marker.
-// Real markers live in comments and are never inside quotes.
-const STUB_IN_QUOTES_RE = /['"`][^'"`]*\[::STUB::\][^'"`]*['"`]/;
-// 'fixtures' is the conventional test-data directory: [::STUB::] markers inside
-// it are test INPUTS (fixture files) that the tool under test reads, not real
-// code stubs. Skipping them prevents false positives in the preflight gate.
+const { containsStubMarker, isStubInQuotes, FIXTURE_STORAGE_DIR } = require('../../lib/stub-marker-scan');
 // [::TICKET::] PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-2 --for-spec --no-implementation-order`.
-const SKIP_DIRS = new Set(['node_modules', 'target', '.git', '.claude', 'fixtures']);
-// [::TICKET::] PX-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-2 --for-spec --no-implementation-order`.
+// Quoted-string marker rejection and the exceptional `fixtures` storage-directory
+// skip are single-sourced in lib/stub-marker-scan.js (PX-139).
+const SKIP_DIRS = new Set(['node_modules', 'target', '.git', '.claude', FIXTURE_STORAGE_DIR]);
 
 function main() {
   const dir = process.argv[2];
@@ -55,6 +49,7 @@ function scanDirectory(dirPath, results) {
   }
 }
 
+// [::TICKET::] PX-139 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-139 --for-spec --no-implementation-order`.
 function scanFile(filePath, results) {
   let content;
   try {
@@ -64,7 +59,7 @@ function scanFile(filePath, results) {
   }
   const lines = content.split('\n');
   for (let i = 0; i < lines.length; i++) {
-    if (STUB_RE.test(lines[i]) && !STUB_IN_QUOTES_RE.test(lines[i])) {
+    if (containsStubMarker(lines[i]) && !isStubInQuotes(lines[i])) {
       results.push({
         file: filePath,
         line: i + 1,
