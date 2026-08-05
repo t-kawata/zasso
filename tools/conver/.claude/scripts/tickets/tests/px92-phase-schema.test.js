@@ -11,6 +11,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { spawnSync } = require('child_process');
 
 let passed = 0;
@@ -159,6 +160,75 @@ console.log('\n## C002 — path normalization\n');
   } catch (e) {
     assert(true, 'Malfeasance.json check (file may be empty)');
   }
+})();
+
+// ======================================================================
+// PX-140: syncMalfeasance path normalization (C001/C002)
+// ======================================================================
+
+console.log('\n## PX-140 — syncMalfeasance path normalization\n');
+
+// [::TICKET::] PX-140 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-140 --for-spec --no-implementation-order`.
+(function testPX140SyncNormalizesAbsolutePath() {
+  // C001-Post: an absolute-path targetCrime is stored project-root-relative.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'px140-c1-'));
+  const absFile = path.join(dir, 'tests', 'a.rs');
+  const ticketsData = {
+    phases: [{ phaseId: -1, tickets: [{ id: 140, phaseId: -1, status: 'todo',
+      targetCrimes: [{ file: absFile, line: 7, markerText: '// [::STUB::] P3-2: x' }] }] }]
+  };
+  const syncMalfeasance = require('../../lib/malfeasance-utils').syncMalfeasance;
+  syncMalfeasance(ticketsData, 'PX-140', dir);
+
+  const records = JSON.parse(fs.readFileSync(path.join(dir, 'Malfeasance.json'), 'utf8')).records;
+  assert(!records[0].file.startsWith('/'), 'C001-post: stored file is relative');
+  assertStrictEqual(records[0].file, 'tests/a.rs', 'C001-post: file normalized to the malfeasance dir root');
+})();
+
+(function testPX140SyncKeepsRelativePath() {
+  // C001-Inv: normalizePath is idempotent — an already-relative path is unchanged.
+  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'px140-c2-'));
+  const relData = { phases: [{ phaseId: -1, tickets: [{ id: 140, phaseId: -1, status: 'todo',
+    targetCrimes: [{ file: 'tests/a.rs', line: 7, markerText: '// [::STUB::] P3-2: x' }] }] }] };
+  require('../../lib/malfeasance-utils').syncMalfeasance(relData, 'PX-140', dir2);
+  const rec2 = JSON.parse(fs.readFileSync(path.join(dir2, 'Malfeasance.json'), 'utf8')).records[0];
+  assertStrictEqual(rec2.file, 'tests/a.rs', 'C001-inv: already-relative path unchanged');
+})();
+
+(function testPX140SyncEmptyFile() {
+  // C001-Err: an empty-file crime still syncs without crashing.
+  const dir3 = fs.mkdtempSync(path.join(os.tmpdir(), 'px140-c3-'));
+  const emptyData = { phases: [{ phaseId: -1, tickets: [{ id: 140, phaseId: -1, status: 'todo',
+    targetCrimes: [{ file: '', line: 1, markerText: 'x' }] }] }] };
+  const res = require('../../lib/malfeasance-utils').syncMalfeasance(emptyData, 'PX-140', dir3);
+  assertStrictEqual(res.added, 1, 'C001-err: empty-file crime still added');
+})();
+
+(function testPX140NoDuplicateOnResync() {
+  // C002-Post: re-sync with the same targetCrimes creates no duplicate records.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'px140-c5-'));
+  const absFile = path.join(dir, 'tests', 'b.rs');
+  const data = { phases: [{ phaseId: -1, tickets: [{ id: 140, phaseId: -1, status: 'todo',
+    targetCrimes: [{ file: absFile, line: 9, markerText: 'x' }] }] }] };
+  const syncMalfeasance = require('../../lib/malfeasance-utils').syncMalfeasance;
+  syncMalfeasance(data, 'PX-140', dir);
+  syncMalfeasance(data, 'PX-140', dir);
+  const records = JSON.parse(fs.readFileSync(path.join(dir, 'Malfeasance.json'), 'utf8')).records;
+  assertStrictEqual(records.length, 1, 'C002-post: re-sync creates no duplicate records');
+})();
+
+(function testPX140DedupNormalizedKey() {
+  // C002-Inv: the dedup key is the normalized file + line, so absolute and
+  // relative spellings of the same record collide and dedup to one.
+  const dir4 = fs.mkdtempSync(path.join(os.tmpdir(), 'px140-c4-'));
+  const abs = path.join(dir4, 'tests', 'c.rs');
+  const syncMalfeasance = require('../../lib/malfeasance-utils').syncMalfeasance;
+  syncMalfeasance({ phases: [{ phaseId: -1, tickets: [{ id: 140, phaseId: -1, status: 'todo',
+    targetCrimes: [{ file: abs, line: 9, markerText: 'x' }] }] }] }, 'PX-140', dir4);
+  syncMalfeasance({ phases: [{ phaseId: -1, tickets: [{ id: 140, phaseId: -1, status: 'todo',
+    targetCrimes: [{ file: 'tests/c.rs', line: 9, markerText: 'x' }] }] }] }, 'PX-140', dir4);
+  const recs4 = JSON.parse(fs.readFileSync(path.join(dir4, 'Malfeasance.json'), 'utf8')).records;
+  assertStrictEqual(recs4.length, 1, 'C002-inv: absolute + relative same record dedup to one');
 })();
 
 // ======================================================================

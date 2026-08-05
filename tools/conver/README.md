@@ -13,10 +13,10 @@ conver は **「RFC設計書への収束」** に集中する二層ループ開�
 
 ```
              上流ループ（設計ループ・人間実行）
- ┌──────────────────────────────────────────────────────────────────┐
+ ┌─────────────────────────────────────────────────────────────────────────┐
  │  /grill-me-for-rfc   /graphify-rfc   /boundify-graph  /split-to-tickets │
  │   (RFC設計書)         (GRAPH.json)     (Dirs-Tree.json)  (Tickets.json)  │
- └──────────────┬──────────────────────────────────────────────────┘
+ └──────────────┬──────────────────────────────────────────────────────────┘
                 │ RFC 自体に追加が必要なとき
                 ▼ /drill-rfc-down（RFC + GRAPH を矛盾なく更新）
                 │
@@ -24,10 +24,12 @@ conver は **「RFC設計書への収束」** に集中する二層ループ開�
                 ▼
              実装ループ（実装収束ループ・conver.js 自動実行）
  ┌──────────────────────────────────────────────────────────────────┐
- │  make → plan → start → review → resolve → find-omissions     │
- │     ▲                                             │               │
- │     │ ギャップが実装起因なら omission を            │ 設計vs実装     │
- │     │ Tickets.json にマージして再実装（収束）       │ のギャップ計測  │
+ │  make → plan → start → review → resolve                          │
+ │                                    ↓                             │
+ │                           consolidate-stubs → find-omissions     │
+ │     ▲                                             │              │
+ │     │ ギャップが実装起因なら omission を            │ 設計vs実装      │
+ │     │ Tickets.json にマージして再実装（収束）       │ のギャップ計測    │
  │     └─────────────────── 収束 ────────────────────┘               │
  └──────────────────────────────────────────────────────────────────┘
 ```
@@ -35,7 +37,7 @@ conver は **「RFC設計書への収束」** に集中する二層ループ開�
 | ループ | 実行主体 | コマンド | 責務 |
 |--------|----------|----------|------|
 | **上流ループ** | 人間（Claude Code 上で実行） | `/grill-me-for-rfc` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets` | RFC 設計書の作成 → 論理グラフ化 → ディレクトリ境界生成 → チケット分解 |
-| **実装ループ** | `conver.js`（ACP クライアント・自動） | `/make-ticket` → `/plan-ticket` → `/start-ticket` → `/review-ticket` → `/resolve-ticket` → `/find-omissions` | チケット実装 → 品質検証 → 警告・犯罪・スタブ解決 → 契約ギャップ計測 → 収束 |
+| **実装ループ** | `conver.js`（ACP クライアント・自動） | `/make-ticket` → `/plan-ticket` → `/start-ticket` → `/review-ticket` → `/resolve-ticket` → `/consolidate-stubs` → `/find-omissions` | チケット実装 → 品質検証 → 警告・犯罪・スタブ解決 → スタブのチケット単位束ね直し → 契約ギャップ計測 → 収束 |
 | **設計更新の分岐** | 人間（Claude Code 上で実行） | `/drill-rfc-down` | RFC に追加が必要なとき、RFC と GRAPH を矛盾なく更新して収束ループを再実行する |
 
 ---
@@ -160,16 +162,28 @@ conver は **「RFC設計書への収束」** に集中する二層ループ開�
 - スタブ一覧・犯罪一覧（ディレクトリスコープ）を取得し、全て解決するまで完了と宣言しない
 - 引数にチケットキーを指定すると、そのチケットの targetStubs/targetCrimes の列挙・検証も実行（Step 7.5）
 
+#### `/consolidate-stubs`
+
+既存の `[::STUB::]` マーカーを**解決キーの正規化によりチケット単位へ束ね直し**ます。`/find-omissions` の**必須前提**です。
+
+- マーカーを単一の成果物（unit）単位にグループ化し、unit ごとの resolve key を 1 つに正規化（マーカー行の編集のみ。チケットは作成しない）
+- グループ化結果を `./manifests/CONSOLIDATED-MANIFEST-<ts>.json` として出力（`/find-omissions` Step 1 が消費する成果物）
+- 完了ゲート `consolidate-stubs-gate.sh` が非ゼロなら次へ進めない（terminal excuse・不正キー・非消費マニフェストの検出）
+- `/find-omissions` はこのマニフェストが存在しないと pre-flight で失敗する（`require-consolidated-manifest.js`）
+
 #### `/find-omissions <GRAPHファイルパス>`
 
 reviewed チケットの**契約（Contracts）がテストコードへ正確に翻訳されているか**を全チケット検査し、ギャップを構造化された omission として記録します。実装ループの収束判定を担う計測器です。
 
+- **必須前提**: 実行前に `/consolidate-stubs` を完了し、`./manifests/CONSOLIDATED-MANIFEST-*.json` を生成しておく（pre-flight の `require-consolidated-manifest.js` が検証し、無ければ exit 2 で中止）
+- **Step 1（再チケット化）**: マニフェストを `batch-create-resolving-tickets.js` に渡し、`(sourceKey, unit)` 単位で resolving チケットを機械的に作成（人間への確認はしない）
 - **ABC 検査基準**:
   - **A（契約翻訳）**: Precondition→テスト入力、Postcondition→アサーション、Invariant→不変条件検証が存在するか
   - **B（違反検出）**: 契約違反が既存テストのアサーションで検出可能か（違反を入れたら必ず失敗するか）
   - **C（テスト精度）**: アサーションが曖昧でなく、負のテスト・境界テスト・循環論法の排除がされているか
 - 発見したギャップは `passed=false` の評価として**発見即記録**（証拠ファイル:行を添える）
 - 全チケット検査後、`phasify-omissions.js` が omission を `Tickets.json` に**機械的にマージ**（新規フェーズは `Omissions: ` プレフィックスで命名、round をインクリメント）
+- 成功時にマニフェストとロールバックバックアップを削除（`clean-consolidation-artifacts.js`）。再実行には新たな `/consolidate-stubs` が必要
 - マージされた omission チケットは実装ループに戻り、**収束するまで再実装が繰り返される**
 
 ### 設計更新（人間実行）
@@ -182,7 +196,7 @@ reviewed チケットの**契約（Contracts）がテストコードへ正確に
 
 ## conver.js — ACP ベースのチケット処理パイプライン
 
-`conver.js` はこのプロジェクトの中心的な成果物です。`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御し、`Tickets.json` に定義されたチケットに対して make → plan → start → review → resolve → find の一連の工程を自動実行します。
+`conver.js` はこのプロジェクトの中心的な成果物です。`@agentclientprotocol/claude-agent-acp` を通じて Claude Code のセッションをプログラムから制御し、`Tickets.json` に定義されたチケットに対して make → plan → start → review → resolve → consolidate-stubs → find の一連の工程を自動実行します。
 
 ### 使用方法
 
@@ -235,7 +249,7 @@ node .claude/scripts/conver/conver.js -k <api_key> -s <slack_url>
 
 - `-b 0` を指定すると review が別セッションで独立実行されます
 - `-p 1`（デフォルト）では resolve 後に `/jpush-branch` で日本語コミット＋プッシュします（`/epush-branch` は英語コミット版）
-- 全チケットが reviewed になったことを検知すると `/find-omissions` を自動実行します（`-n 1` でスキップ）
+- 全チケットが reviewed になったことを検知すると `/find-omissions` を自動実行します（`-n 1` でスキップ）。`/find-omissions` は実行前に `/consolidate-stubs` の完了（マニフェスト生成）が必須です
 
 ### チケットのステータス遷移
 
@@ -367,6 +381,7 @@ OMISSIONS-<timestamp>.json
 | 表示・検索 | `list-phases-and-tickets.js` / `all-tickets.js` / `search-tickets.js` / `get-ticket-as-markdown.js` |
 | フェーズ管理 | `add-phase.js` / `add-px-phase.js` / `write-tickets-json-template.js` / `rename-phases.js` |
 | make/plan/start/review | `show-ticket-context.js` / `ensure-ticket.js` / `insert-field-template.js` / `list-remaining-stubs.js` / `check-ticket-status.js` / `verify-make-contracts.js` / `verify-plan-contracts.js` / `verify-red-coverage.js` / `verify-final-contracts.js` / `validate-ticket-targets.js` / `annotate-ticket-context-by-git-diff.js` / `resolve-ambiguous-markers.js` |
+| consolidate | `batch-update-stub.js` / `batch-create-resolving-tickets.js` / `consolidate-stubs-gate.sh` / `require-consolidated-manifest.js` / `preflight-stub-cleanup.js` / `validate-no-external-excuses.js` / `clean-consolidation-artifacts.js` |
 | find | `get-next-check-target-ticket.js` / `add-omission-ticket.js` / `create-tmp-omissions.js` / `validate-graph-arg.js` / `phasify-omissions.js` |
 | 犯罪・スタブ | `scan-crimes.sh` / `malfeasance-create.js` / `malfeasance-update.js` / `insert-stub.js` / `scan-incomplete-implementations.js` / `ensure-malfeasance.js` |
 | 品質・検証 | `review/run-quality-checks.js` / `review/find-all-stubs.js` / `review/generate-report.js` / `lib/validate-tickets.js` / `lib/validate-omissions.js` |
@@ -448,8 +463,9 @@ install.js -y -t /path/to/target/.claude
 3. `/boundify-graph` で実装ディレクトリツリーを生成（`*-Dirs-Tree.json`）
 4. `/split-to-tickets` でフェーズ・チケットに分解（`Tickets.json`）
 5. `conver.js` が実装ループを自動実行（make → plan → start → review → resolve）
-6. `/find-omissions` がギャップを計測し、実装起因の omission を `Tickets.json` にマージ → 収束するまで再実装
-7. 設計起因の欠落が見つかったら `/drill-rfc-down` で RFC（と将来は GRAPH）を更新し、更新された RFC への収束ループを再実行
+6. `/consolidate-stubs` が `[::STUB::]` マーカーをチケット単位へ束ね直す（`/find-omissions` の必須前提）
+7. `/find-omissions` がギャップを計測し、実装起因の omission を `Tickets.json` にマージ → 収束するまで再実装
+8. 設計起因の欠落が見つかったら `/drill-rfc-down` で RFC（と将来は GRAPH）を更新し、更新された RFC への収束ループを再実行
 
 ### CLI 直接実行
 

@@ -19523,6 +19523,110 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-08-05"
+        },
+        {
+          "id": 140,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Fix Malfeasance path normalization in syncMalfeasance (PX-92 invariant) and migrate committed absolute-path records",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/specs/PX-140.md",
+          "background": "- **Goal**: syncMalfeasance must store project-root-relative file paths in Malfeasance records (matching the PX-92 normalizePath contract already used by malfeasance-create.js), and the 8 committed absolute-path records must be normalized so tests/px92-phase-schema.test.js passes.\n- **Purpose**: restore the PX-92 invariant \"no absolute paths in Malfeasance records\" that syncMalfeasance broke by storing crime.file verbatim.\n- **Motivation**: the PX-138 make produced Malfeasance records 2-9 with absolute paths because enumerate emits absolute targetCrime paths (path.resolve(dirPath) walk, enumerate-ticket-targets.js L244/L128/L188) and syncMalfeasance (lib/malfeasance-utils.js L191) copies crime.file as-is. malfeasance-create.js already normalizes via normalizePath (L40/L84), so syncMalfeasance is the only Malfeasance writer bypassing the PX-92 contract. This makes tests/px92-phase-schema.test.js fail at L158 ('no absolute paths in Malfeasance records').\n- **Constraints**: TDD Red-Green-Refactor mandatory; normalizePath must be reused (not reimplemented); the fix is root-cause (syncMalfeasance), not a test-side suppression; existing false_positive records 2-9 are normalized in place (history preserved, only path format changes); idempotent (normalizePath is idempotent; re-sync must not duplicate).",
+          "scope": [
+            "CHANGE-path: .claude/scripts/lib/malfeasance-utils.js — syncMalfeasance() record write",
+            "CHANGE-action: normalize crime.file via normalizePath(crime.file || '', malfeasanceDir) before both the dedup key and the stored file field",
+            "CHANGE-detail: in syncMalfeasance's loop, compute const normalizedFile = normalizePath(crime.file || '', malfeasanceDir); use normalizedFile for the dedup key (file+line) and for the record's file field; malfeasanceDir is the Tickets.json directory (project root for the pipeline)",
+            "CHANGE-before-after: before — records store crime.file verbatim (absolute when enumerate emits absolute paths); after — records store project-root-relative paths",
+            "CHANGE-api: no public function signature changes; syncMalfeasance behavior (record shape, return {added,skipped,total,saved}) unchanged; only the stored path is normalized",
+            "CHANGE-schema: none — Malfeasance.json record schema unchanged (file is still a string); the data migration changes record values, not the schema",
+            "CHANGE-config: none — no env vars or config files",
+            "CHANGE-dep: none — node:path only (normalizePath already uses it)",
+            "NON-CHANGE-item: malfeasance-create.js (already uses normalizePath); enumerate-ticket-targets.js (still emits absolute targetCrime paths — the Malfeasance writer owns normalization); normalizePath() itself (idempotent, unchanged)",
+            "NON-CHANGE-why: normalization responsibility stays in the Malfeasance writer (single choke point); enumerate's targetCrimes are also consumed by Tickets.json where relative/absolute is a separate concern (PX-137 cwd-relative precedent)",
+            "IMPACT-component: .claude/scripts/lib/malfeasance-utils.js + tests/px92-phase-schema.test.js + tools/conver/Malfeasance.json (data); downstream consumers of Malfeasance records (scan-crimes.sh, malfeasance-* scripts) see relative paths",
+            "IMPACT-nature: operational + data-format — px92 test goes green; future syncMalfeasance calls store relative paths; committed records 2-9 become machine-portable",
+            "IMPACT-response: no other subsystem needs a follow-up; re-running scan-crimes/malfeasance scripts requires no code change"
+          ],
+          "testUnit": [
+            "UT: [Normal] syncMalfeasance with an absolute-path targetCrime stores a project-root-relative record file — verifies C001 postcondition",
+            "UT: [Normal] syncMalfeasance with an already-relative targetCrime keeps the relative path (normalizePath idempotency) — verifies C001 invariant",
+            "UT: [Error] syncMalfeasance with an empty file string stores empty file without crashing — verifies C001 edge",
+            "UT: [Invariant] after sync, the Malfeasance.json contains no absolute-path records (assert every file value does not start with '/') — verifies C001 invariant + px92 L158",
+            "UT: [Invariant] re-sync with the same targetCrimes does not duplicate records (dedup uses the normalized key) — verifies C002",
+            "UT: [Boundary] normalizePath on a path already relative to malfeasanceDir returns the identical relative path — verifies C001 idempotency"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] enumerate (absolute targetCrimes) -> syncMalfeasance -> Malfeasance.json has only relative paths — end-to-end",
+            "IT: [Verification] tests/px92-phase-schema.test.js passes on the migrated Malfeasance.json",
+            "IT: [Prerequisites] tests/malfeasance-sync.test.js and other Malfeasance-consumer tests stay green",
+            "IT: [Related tickets] PX-92 (normalizePath origin), PX-138 (produced the polluted records), PX-139 (eliminated the test-fixture crimes that created records 2-9)"
+          ],
+          "testExceptions": [
+            "ITEM: full live /make-ticket ACP session run / REASON: the claude CLI session is not testable inside the unit-test sandbox (external binary + interactive ACP protocol) — an external-dependency limitation, not a design defect / ALTERNATIVE: unit tests + real-file verification on the migrated Malfeasance.json"
+          ],
+          "default_files": [
+            ".claude/scripts/lib/malfeasance-utils.js",
+            ".claude/scripts/tickets/tests/px92-phase-schema.test.js",
+            "tools/conver/Malfeasance.json"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: syncMalfeasance stores project-root-relative paths; tools/conver/Malfeasance.json has no absolute-path records; tests/px92-phase-schema.test.js passes",
+            "Error case: a targetCrime with an empty file still syncs without crash (empty file stored)",
+            "Edge case: already-relative paths are unchanged (idempotent); re-sync does not duplicate; migrated records 2-9 keep their id/status/description/detected_at"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "syncMalfeasance -> Malfeasance record.file",
+              "precondition": "a targetCrime has a file path (absolute or relative)",
+              "postcondition": "the stored record's file is project-root-relative (normalizePath applied with malfeasanceDir as root)",
+              "invariant": "normalizePath is idempotent; already-relative paths are unchanged; Malfeasance.json contains no absolute-path records after sync"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "syncMalfeasance -> dedup key",
+              "precondition": "syncMalfeasance is called twice with the same targetCrimes",
+              "postcondition": "no duplicate records are created (same normalized file+line)",
+              "invariant": "the dedup key is the normalized file + line, matching the stored record file"
+            }
+          ],
+          "notes": "Implementation steps: 1) RED — add syncMalfeasance normalization tests to px92-phase-schema.test.js (fail: absolute path stored verbatim); 2) GREEN — apply normalizePath in syncMalfeasance (dedup key + stored file); 3) migrate tools/conver/Malfeasance.json records 2-9 via normalizePath; 4) run px92 + malfeasance-sync tests; 5) verify no absolute paths remain.\nRisks: (a) normalizePath root must be malfeasanceDir (Tickets.json dir), not process.cwd() — a wrong root shifts relative paths; (b) existing open records with absolute paths (if any) would mismatch normalized dedup keys — current state has 0 open records, so no impact.\nCaveats: the data migration must preserve id/status/description/detected_at; no network; idempotent.\nOpen items: none.\nFuture improvements: optionally have enumerate emit relative targetCrimes at the source (broader change, out of scope).\nImplementation summary (PX-140):\n- Changed files: .claude/scripts/lib/malfeasance-utils.js, .claude/scripts/tickets/tests/px92-phase-schema.test.js, tools/conver/Malfeasance.json (data)\n- RED: added 5 PX-140 tests (C001 absolute->relative, idempotent relative, empty-file edge, C002 re-sync no-dup, normalized-key dedup); confirmed C001-Post + C002-Inv + pre-existing L158 failed.\n- GREEN: syncMalfeasance applies normalizePath(crime.file, malfeasanceDir) to the dedup key and stored record file; migrated Malfeasance records 2-9 (8 absolute -> relative).\n- REFACTOR: output() switched from console.log to process.stdout.write (stdout CLI contract), resolving the debug-output quality flag.\n- Tests: px92 23/23 (was 16/17, pre-existing failure now fixed), malfeasance-sync 14/14, enumerate 32/32, find-all-stubs 14/14, validate-stub-format 30/30, validate-ticket-targets 44/44; quality checks 0 issues.\n- Malfeasance.json: 9 records, 0 open, 0 absolute-path records.\nReview report (PX-140):\n- Static quality check: passed (0 issues across malfeasance-utils.js, px92-phase-schema.test.js)\n- Translatability: no blocking issues; function names are verb/predicate (syncMalfeasance, normalizePath, output); magic numbers are ticket-key references (140/82/83/92)\n- Tests: px92-phase-schema 23/23 (pre-existing 16/17 failure now fixed), malfeasance-sync 14/14, enumerate 32/32, validate-ticket-targets 44/44; syntax check passed\n- Annotation: PX-140 annotations on both changed source files (output() + syncMalfeasance + px92 test); no AMBIGUOUS markers\n- Issues found and fixed during review: (a) annotate re-run re-inserted an AMBIGUOUS marker and misplaced the annotation inside the test IIFE — relocated the script-generated annotation to before the PX-140 section and removed the AMBIGUOUS line; (b) output() console.log flagged as debug-output — switched to process.stdout.write (stdout CLI contract, behavior-preserving)\n- Data migration verified: Malfeasance records 2-9 normalized to relative paths; 0 absolute-path records remain",
+          "invariants": "- 【Normal establishment】Every Malfeasance record written by syncMalfeasance has a project-root-relative file path (normalizePath applied with malfeasanceDir as root).\n- 【Invariant on error】A targetCrime with an empty/missing file still syncs (empty string stored), never crashes, and never performs a partial write.\n- 【Internal state invariant】normalizePath is idempotent — already-relative paths are unchanged; re-sync with the same data does not duplicate records (dedup key = normalized file + line).\n- 【Boundary invariant】The normalization root is malfeasanceDir (the Tickets.json directory), not process.cwd(); absolute paths at any depth under that root become relative.",
+          "instrumentation": "- [Logging] No new logging framework; syncMalfeasance stays silent and returns {added, skipped, total, saved}.\n- [Metrics] The absolute-path record count is the metric; after the fix, syncMalfeasance-added records are project-root-relative and px92 reports green.\n- [Error tracking] No throw on an empty/missing crime.file; the empty string is stored as-is; exit/return behavior unchanged.\n- [Health check] n/a for a synchronous utility; the no-absolute-paths invariant is verified by tests/px92-phase-schema.test.js.\nStatic quality check: passed\nTranslatability: no blocking issues (test-fixture vars acceptable)\nTests: px92 23/23, malfeasance-sync 14/14, enumerate 32/32, validate-ticket-targets 44/44\nMalfeasance: 9 records, 0 open, 0 absolute-path records",
+          "investigation": "Evidence collected:\n- lib/malfeasance-utils.js syncMalfeasance (L181-196): the record push uses `file: crime.file || ''` verbatim (L191); the dedup key uses raw `crime.file + ':' + crime.line` (L183); normalizePath (L224-240) is exported (L240) and idempotent.\n- malfeasance-create.js (L40, L84): already applies `normalizePath(file)` before storing — the established PX-92 pattern that syncMalfeasance fails to follow.\n- enumerate-ticket-targets.js: enumerateTargets resolves the scan dir to absolute (L244), walk builds absolute filePath (L128), scanFile stores `file: filePath` (L188) — so targetCrimes carry absolute paths.\n- Observed: tools/conver/Malfeasance.json committed records 2-9 (8 false_positive) have absolute paths, e.g. /Users/kawata/shyme/zasso/tools/conver/tests/batch-create-resolving-tickets.test.cjs.\n- px92-phase-schema.test.js: L134 (malfeasance-create stores relative) passes; L158 (no absolute paths in Malfeasance records) fails because of records 2-9.",
+          "boyScoutPlan": "- Extract the record-build step inside syncMalfeasance into a verb-phrase helper (e.g. buildCrimeRecord(crime, projectRoot, id, detectedAt)) so normalization + dedup-key computation is one responsibility, readable top-to-bottom.\n- Name the normalization intent with a domain comment (project-root-relative, matching malfeasance-create.js PX-92) rather than an inline magic call.\n- Reuse the existing normalizePath — do not reimplement path resolution.",
+          "created_at": "2026-08-05",
+          "updated_at": "2026-08-05",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Pre] syncMalfeasance precondition — a targetCrime with an absolute file path\n  ```js\n  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'px140-c1-'));\n  const absFile = path.join(dir, 'tests', 'a.rs'); // absolute, under the malfeasance dir\n  const ticketsData = { phases: [{ phaseId: -1, tickets: [{ id: 140, phaseId: -1, status: 'todo', targetCrimes: [{ file: absFile, line: 7, markerText: '// [::STUB::] P3-2: x' }] }] }] };\n  const syncMalfeasance = require('../../lib/malfeasance-utils').syncMalfeasance;\n  syncMalfeasance(ticketsData, 'PX-140', dir);\n  ```",
+            "UT: [C001-Post] the stored record's file is project-root-relative\n  ```js\n  const records = JSON.parse(fs.readFileSync(path.join(dir, 'Malfeasance.json'), 'utf8')).records;\n  assert(!records[0].file.startsWith('/'), 'C001-post: stored file is relative');\n  assert.strictEqual(records[0].file, 'tests/a.rs', 'C001-post: file normalized to the malfeasance dir root');\n  ```",
+            "UT: [C001-Inv] normalizePath is idempotent — an already-relative path is unchanged\n  ```js\n  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'px140-c2-'));\n  const relData = { phases: [{ phaseId: -1, tickets: [{ id: 140, phaseId: -1, status: 'todo', targetCrimes: [{ file: 'tests/a.rs', line: 7, markerText: '// [::STUB::] P3-2: x' }] }] }] };\n  syncMalfeasance(relData, 'PX-140', dir2);\n  const rec2 = JSON.parse(fs.readFileSync(path.join(dir2, 'Malfeasance.json'), 'utf8')).records[0];\n  assert.strictEqual(rec2.file, 'tests/a.rs', 'C001-inv: already-relative path unchanged');\n  ```",
+            "UT: [C001-Err] a targetCrime with an empty file syncs without crashing (empty string stored)\n  ```js\n  const dir3 = fs.mkdtempSync(path.join(os.tmpdir(), 'px140-c3-'));\n  const emptyData = { phases: [{ phaseId: -1, tickets: [{ id: 140, phaseId: -1, status: 'todo', targetCrimes: [{ file: '', line: 1, markerText: 'x' }] }] }] };\n  const res = syncMalfeasance(emptyData, 'PX-140', dir3);\n  assert(res.added === 1, 'C001-err: empty-file crime still added');\n  ```",
+            "UT: [C001-Inv] after sync the Malfeasance.json contains no absolute-path records\n  ```js\n  const records = JSON.parse(fs.readFileSync(path.join(dir, 'Malfeasance.json'), 'utf8')).records;\n  assert(records.every(r => !r.file.startsWith('/')), 'C001-inv: no absolute paths in Malfeasance records');\n  ```",
+            "UT: [C002-Post] re-sync with the same targetCrimes creates no duplicate records\n  ```js\n  syncMalfeasance(ticketsData, 'PX-140', dir);\n  const records2 = JSON.parse(fs.readFileSync(path.join(dir, 'Malfeasance.json'), 'utf8')).records;\n  const keys = records2.map(r => r.file + ':' + r.line);\n  assert.strictEqual(new Set(keys).size, keys.length, 'C002-post: no duplicate file+line keys');\n  ```",
+            "UT: [C002-Inv] the dedup key is the normalized file + line (absolute and relative inputs collide)\n  ```js\n  const dir4 = fs.mkdtempSync(path.join(os.tmpdir(), 'px140-c4-'));\n  const abs = path.join(dir4, 'tests', 'b.rs');\n  syncMalfeasance({ phases: [{ phaseId: -1, tickets: [{ id: 140, phaseId: -1, status: 'todo', targetCrimes: [{ file: abs, line: 9, markerText: 'x' }] }] }] }, 'PX-140', dir4);\n  syncMalfeasance({ phases: [{ phaseId: -1, tickets: [{ id: 140, phaseId: -1, status: 'todo', targetCrimes: [{ file: 'tests/b.rs', line: 9, markerText: 'x' }] }] }] }, 'PX-140', dir4);\n  const recs4 = JSON.parse(fs.readFileSync(path.join(dir4, 'Malfeasance.json'), 'utf8')).records;\n  assert.strictEqual(recs4.length, 1, 'C002-inv: absolute + relative same record dedup to one');\n  ```"
+          ],
+          "startedAt": "2026-08-05",
+          "changes": [
+            {
+              "before": "syncMalfeasance stored crime.file verbatim (absolute paths when enumerate emits them)",
+              "after": "syncMalfeasance normalizes via normalizePath(crime.file, malfeasanceDir) for both the dedup key and the stored file field",
+              "description": "C001 root-cause fix: project-root-relative Malfeasance records"
+            },
+            {
+              "before": "committed Malfeasance records 2-9 carried absolute paths (px92 L158 failed)",
+              "after": "records 2-9 migrated to relative paths; tools/conver/Malfeasance.json has 0 absolute-path records",
+              "description": "Data migration of the PX-138 pollution"
+            },
+            {
+              "before": "output() used console.log(JSON.stringify(result))",
+              "after": "output() uses process.stdout.write(JSON.stringify(result) + \"\n\")",
+              "description": "Boy Scout: stdout contract without the debug-output quality flag"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-05"
         }
       ]
     },

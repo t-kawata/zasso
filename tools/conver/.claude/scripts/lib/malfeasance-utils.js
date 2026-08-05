@@ -126,8 +126,10 @@ function checkSchema() {
  *
  * @param {object} result
  */
+// [::TICKET::] PX-140 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-140 --for-spec --no-implementation-order`.
 function output(result) {
-  console.log(JSON.stringify(result));
+  // Emit exactly one JSON line on stdout — the CLI contract consumed by scripts.
+  process.stdout.write(JSON.stringify(result) + '\n');
 }
 
 /**
@@ -144,7 +146,7 @@ function output(result) {
  * @returns {{added: number, skipped: number, total: number, saved: boolean}}
  */
 // [::TICKET::] PX-82: syncMalfeasance — targetCrime → Malfeasance sync
-// [::TICKET::] PX-82, PX-83 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-82|PX-83) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-82, PX-83, PX-140 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-82|PX-83|PX-140) --for-spec --no-implementation-order`.
 function syncMalfeasance(ticketsData, ticketKey, malfeasanceDir) {
   const ticket = findTicket(ticketsData, ticketKey);
   if (!ticket) {
@@ -180,7 +182,9 @@ function syncMalfeasance(ticketsData, ticketKey, malfeasanceDir) {
   const now = new Date().toISOString();
 
   for (const crime of targetCrimes) {
-    const key = (crime.file || '') + ':' + (crime.line || 0);
+    // Project-root-relative path, matching malfeasance-create.js (PX-92).
+    const normalizedFile = normalizePath(crime.file || '', malfeasanceDir);
+    const key = normalizedFile + ':' + (crime.line || 0);
 
     // Skip if same file+line already exists as open
     if (existingKeys.has(key)) continue;
@@ -188,7 +192,7 @@ function syncMalfeasance(ticketsData, ticketKey, malfeasanceDir) {
     maxId++;
     existingRecords.push({
       id: maxId,
-      file: crime.file || '',
+      file: normalizedFile,
       line: crime.line || 0,
       description: crime.markerText || crime.description || '',
       detected_at: now,
