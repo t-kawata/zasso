@@ -19131,6 +19131,275 @@
             }
           ],
           "completedAt": "2026-08-05"
+        },
+        {
+          "id": 138,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Make /consolidate-stubs a hard prerequisite of /find-omissions (manifest gate + Step 1 simplification + full-success artifact cleanup)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/specs/PX-138.md",
+          "background": "- **Goal**: Make /consolidate-stubs a hard, mechanically-enforced prerequisite of /find-omissions. After this ticket, /find-omissions cannot run (its pre-flight exits 2) until a complete consolidated unit manifest exists under ./manifests/, Step 1 is a two-command manifest-driven flow instead of a 4-class manual classification, and a successful full run deletes the transient manifest + rollback artifacts.\n- **Purpose**: Guarantee, via the pre-flight gate, that the pipeline consumes exactly what /consolidate-stubs produces. The consolidate Step 5 gate (consolidate-stubs-gate.sh) already proves: no orphan keys, no terminal-excuse plans, all markers re-pointed to valid keys, and a complete grouped unit manifest emitted. Once that guarantee is mandatory, find-omissions Step 1 no longer needs to re-derive it by hand — it just pipes the manifest into batch-create-resolving-tickets.js. This closes the loop so the two commands form one seamless pipeline (the handoff described in WORK-INSTRUCTION-CONSOLIDATE-FIND-OMISSIONS.md §5).\n- **Motivation**: The current find-omissions.md Step 1 (L103-151) is a large self-healing gate: it classifies every marker into 4 classes (resolvedCandidates / pendingObligations / orphans / excuses) and gives elaborate manual manifest-authoring guidance. That logic duplicates guarantees the consolidation already enforces, so it is dead weight once consolidation is mandatory. Transient artifacts (CONSOLIDATED-MANIFEST-*.json, ROLLBACK-*.json) currently accumulate in manifests/ indefinitely — nothing removes them, and the `ls -t | head -1` selector grows fragile as they pile up.\n- **Constraints**: TDD Red-Green-Refactor is mandatory (Supreme Law §1); every new script must be dedicated, testable, and default side-effect-free; cleanup must be idempotent and run ONLY on full find-omissions success (never after Step 1 alone — Q2); the manifest-existence check must be its own script, NOT embedded in validate-graph-arg.js (Q1 — that script's name/purpose stays narrow); ROLLBACK-*.json is removed at the same timing as the manifest (Q3 — a stale rollback would desync markers from the created tickets); cwd-relative manifest file paths (PX-137) are preserved; all messages are English, self-contained, and Action-directive.",
+          "scope": [
+            "CHANGE: find-omissions.md pre-flight (L11-17) — add `node .claude/scripts/tickets/require-consolidated-manifest.js || exit 2` as a second mandatory check after validate-graph-arg.js",
+            "CHANGE: NEW script .claude/scripts/tickets/require-consolidated-manifest.js — exit 0 if ./manifests/CONSOLIDATED-MANIFEST-*.json exists, else exit 2 with stderr cause/action message (“run /consolidate-stubs first (Steps 1-5), then re-run /find-omissions”)",
+            "CHANGE: find-omissions.md Step 1 (L103-151) — replace the 4-class table + manual manifest-authoring guidance with a manifest-driven flow (`MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1)` + pipe into batch-create-resolving-tickets.js --no-write then commit)",
+            "CHANGE: find-omissions.md Step 1 — keep ONE residual safety net: run preflight-stub-cleanup.js after the commit to catch markers the consolidation did not cover",
+            "CHANGE: NEW script .claude/scripts/tickets/clean-consolidation-artifacts.js — removes CONSOLIDATED-MANIFEST-*.json, ROLLBACK-*.json, and manifests/ itself if empty; idempotent (exit 0 when nothing to remove)",
+            "CHANGE: find-omissions.md final success cleanup — add a last step that runs clean-consolidation-artifacts.js only after ALL find-omissions steps pass (Q2/Q3)",
+            "CHANGE: consolidate-stubs.md L157 — extend the manifest deliverable sentence to state that /find-omissions consumes and removes the manifest on success (Q2)",
+            "CHANGE: NEW tests tests/require-consolidated-manifest.test.cjs and tests/clean-consolidation-artifacts.test.cjs",
+            "NON-CHANGE: validate-graph-arg.js is NOT modified — it stays narrowly “validate the GRAPH argument”; the pipeline-prerequisite check is a separate script (Q1)",
+            "NON-CHANGE: batch-create-resolving-tickets.js, batch-update-stub.js, consolidate-stubs-gate.sh, print-manifest-for-find-omissions.js are NOT modified",
+            "NON-CHANGE: consolidate-stubs Steps 1-5 behavior (normalize keys, dedup, gate, manifest emit) is unchanged",
+            "IMPACT: .claude/commands/find-omissions.md — pre-flight, Step 1, final success steps all rewritten",
+            "IMPACT: .claude/scripts/tickets/ + tests/ — two new scripts and two new test files; 93 existing tests must stay green (esp. tests/print-manifest-for-find-omissions.test.cjs C003)",
+            "**Scope of changes (describe each change comprehensively):**\n  - `.claude/commands/find-omissions.md` — modify (pre-flight block + Step 1 + new final-success step)\n  - `.claude/scripts/tickets/require-consolidated-manifest.js` — add (new gate script, read-only probe)\n  - `.claude/scripts/tickets/clean-consolidation-artifacts.js` — add (new cleanup script, idempotent)\n  - `.claude/commands/consolidate-stubs.md` — modify (L157 deliverable sentence extended)\n  - `tests/require-consolidated-manifest.test.cjs` — add; `tests/clean-consolidation-artifacts.test.cjs` — add\n  - Before → After: pre-flight has 1 gate → 2 gates; Step 1 is 4-class manual classification + authoring guidance → 2-command manifest-driven flow + 1 residual preflight run; a full success leaves manifests/ debris → manifests/ (and rollback) removed\n  - API contract change: two new CLI scripts with stable exit codes (0/2 and 0/1); no existing public function/script signature changes\n  - Data schema change: none — CONSOLIDATED-MANIFEST-*.json shape (grouped {sourceKey, stubs[]} with cwd-relative file, PX-137) and ROLLBACK-*.json shape are untouched\n  - Config/env change: none — both scripts resolve cwd; no new env vars\n  - Dependency added/removed: none — node:fs, node:path, node:child_process only (matching validate-graph-arg.js / preflight-stub-cleanup.js)",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - validate-graph-arg.js — excluded; it stays narrowly “validate the GRAPH argument”; embedding the pipeline-prerequisite check would misname it and couple two distinct pre-flight concerns (Q1)\n  - batch-create-resolving-tickets.js / batch-update-stub.js / consolidate-stubs-gate.sh / print-manifest-for-find-omissions.js — excluded; their behavior is the consumed contract, unchanged\n  - consolidate-stubs Steps 1-5 (normalize keys, dedup, gate, manifest emit) — excluded; the mandatory prerequisite IS the gate + manifest emit, no behavior change\n  - Deleting the 4-class logic from preflight-stub-cleanup.js entirely — excluded; the script is kept as the residual post-commit safety net (recommended option b, thoroughness)",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - `.claude/commands/find-omissions.md` — doc flow rewritten: pre-flight, Step 1, and a new final-success step; downstream readers (fresh sessions) must be able to act on the new two-gate + manifest-driven flow\n  - `.claude/scripts/tickets/` + `tests/` — two new scripts and two new test files; the 93 existing tests must stay green, especially tests/print-manifest-for-find-omissions.test.cjs C003 (handoff example) and tests/consolidate-stubs-gate.test.cjs C001 (Step 5 single invocation)\n  - `manifests/` directory lifecycle — now created by consolidate, consumed by find-omissions Step 1, and removed on full success; the `ls -t | head -1` selector is the documented pick in Step 1 and its fragility is reduced by the cleanup\n  - Nature of impact: operational (pipeline prerequisite enforcement), data-format/on-disk (artifact lifecycle)\n  - Corresponding change needed: yes — this ticket updates docs + tests; no other subsystem (conver.js runner, phasify, ticket scripts) needs a follow-up"
+          ],
+          "testUnit": [
+            "UT: [Normal] requireConsolidatedManifest(tmpDir) returns the matched manifest path when manifests/CONSOLIDATED-MANIFEST-20260101000000.json exists; CLI exit 0 and stdout is empty (or a single success line) — verifies C001 postcondition",
+            "UT: [Error] require-consolidated-manifest.js exits 2 and prints a `[find-omissions] BLOCKED:` stderr line whose text contains the cause (no CONSOLIDATED-MANIFEST-*.json) and the action ('run /consolidate-stubs first (Steps 1-5), then re-run /find-omissions') when manifests/ is missing or has no matching manifest — verifies C001 postcondition + error path",
+            "UT: [Boundary] only CONSOLIDATED-MANIFEST-*.json counts as a manifest: a tree containing only manifests/ROLLBACK-20260101000000.json or manifests/notes.json still exits 2 (the ROLLBACK/notes files must NOT satisfy the prerequisite) — verifies C001 invariant 'matches CONSOLIDATED-MANIFEST-* exactly'",
+            "UT: [Boundary] manifests/ is resolved cwd-relative: running the script with cwd=<tmp> and a manifest at <tmp>/manifests/CONSOLIDATED-MANIFEST-*.json exits 0; running from a sibling dir without manifests/ exits 2 — verifies C001 'cwd-relative ./manifests'",
+            "UT: [Normal] cleanConsolidationArtifacts(tmpDir) removes every manifests/CONSOLIDATED-MANIFEST-*.json and manifests/ROLLBACK-*.json it finds and reports the removed file names — verifies C002 postcondition",
+            "UT: [Error] clean-consolidation-artifacts.js is idempotent: exit 0, `{ok:true}`, and empty removal list when manifests/ is absent or already clean (nothing to remove is success, not failure) — verifies C002 invariant 'idempotent exit 0'",
+            "UT: [Boundary] cleanup removes manifests/ itself ONLY when empty: with manifests/other.json present the dir survives and other.json is untouched; with only the two artifact globs present the dir is removed — verifies C002 invariant 'files other than the two globs are never touched' and 'dir removed iff empty'",
+            "UT: [Boundary] cleanup globs are exact: a file named CONSOLIDATED-MANIFEST.json (missing the `-<ts>` suffix) or ROLLBACK.json is NOT removed — only `CONSOLIDATED-MANIFEST-*.json` and `ROLLBACK-*.json` prefixes match",
+            "UT: [Invariant] C001 doc gate — the find-omissions.md pre-flight block contains BOTH `node .claude/scripts/tickets/validate-graph-arg.js \"$ARGUMENTS\" || exit 2` and `node .claude/scripts/tickets/require-consolidated-manifest.js || exit 2`, in that order, each `|| exit 2`",
+            "UT: [Invariant] C002 doc ordering — find-omissions.md places clean-consolidation-artifacts.js as a final-success step AFTER the inspection loop and merge steps, and never after Step 1 only; the step text states it removes CONSOLIDATED-MANIFEST-*.json and ROLLBACK-*.json",
+            "UT: [Invariant] C003 Step 1 flow — find-omissions.md Step 1 shows the manifest-driven pipe: `MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1)` then `cat \"$MANIFEST\" | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write` (review) then the same without --no-write (commit), and keeps a residual preflight-stub-cleanup.js run after the commit",
+            "UT: [Invariant] C004 handoff — consolidate-stubs.md L157 sentence states that /find-omissions consumes AND removes the manifest on success; tests/print-manifest-for-find-omissions.test.cjs C003 stays green (handoff note still shows a grouped JSON example with \"sourceKey\"/\"stubs\" and the pipe command, no 'grouped shape below' pointer)"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] find-omissions.md pre-flight -> require-consolidated-manifest.js -> batch-create-resolving-tickets.js: the doc pre-flight block (both `|| exit 2` lines) and Step 1 (manifest-driven pipe) are wired so that a fresh session following the doc runs the manifest check before the batch tool",
+            "IT: [Integration point] consolidate Step 5 gate -> manifest -> clean-consolidation-artifacts.js: the manifest/rollback files written by batch-update-stub.js and validated by consolidate-stubs-gate.sh are exactly the artifacts the cleanup script removes",
+            "IT: [Verification] temp-workspace E2E — build a mini tree (fixtures/mini-tickets.json + src/a.rs marker), run print-manifest/gate so manifests/CONSOLIDATED-MANIFEST-*.json exists, assert require-consolidated-manifest.js exit 0, pipe the manifest into batch-create-resolving-tickets.js --no-write (review) then real commit (one resolving ticket + marker key rewrite), then run clean-consolidation-artifacts.js and assert manifests/ is gone and the tree is clean",
+            "IT: [Verification] doc-consistency — find-omissions.md places clean-consolidation-artifacts.js as the last (final-success) step AFTER the inspection loop (Step 2-7) and the merge steps (Step 9-10), never after Step 1 only; consolidate-stubs.md L157 and the find-omissions handoff note together state that /find-omissions consumes AND removes the manifest on success",
+            "IT: [Prerequisites] a passing /consolidate-stubs run (Steps 1-5) has already emitted ./manifests/CONSOLIDATED-MANIFEST-*.json and ./manifests/ROLLBACK-*.json; the temp workspace copies tests/fixtures/mini-tickets.json as Tickets.json and pins marker files under src/",
+            "IT: [Related tickets] PX-133 (doc-tool consistency), PX-135 (dedup + empty rejection), PX-136 (single-script Step 5 gate), PX-137 (cwd-relative manifest paths + grouped-shape example) — this ticket hardens the handoff those tickets built; regression scope is tests/print-manifest-for-find-omissions.test.cjs C003 and tests/consolidate-stubs-gate.test.cjs"
+          ],
+          "testExceptions": [
+            "ITEM: Real ACP-session invocation of /find-omissions (claude session spawn) / REASON: the live claude CLI session is not testable inside the unit-test sandbox (external binary + interactive ACP protocol), so it cannot test this orchestration step deterministically — this is an external-dependency limitation, not a design defect / ALTERNATIVE: doc assertions (pre-flight block text, step ordering) + temp-workspace E2E via the underlying node scripts (print-manifest, batch-create, gate) cover the contract",
+            "ITEM: Line-number-exact edit assertions on find-omissions.md / REASON: exact line numbers are not testable as a stable assertion because markdown edits are positional and drift as the doc evolves — this brittleness is not a design defect, it is an unstable external artifact / ALTERNATIVE: assert on the resulting command blocks and semantic content (the `|| exit 2` lines, the manifest-driven pipe command, the final cleanup step) by splitting on section headings",
+            "ITEM: Behavior of batch-create-resolving-tickets.js under a concurrently-modified manifest / REASON: concurrent ACP-session writes are not testable deterministically in-process; the atomicity and on-disk divergence refusal (C009 of PX-1) are already unit-tested in tests/batch-create-resolving-tickets.test.cjs, so this is not a design defect being exempted / ALTERNATIVE: this ticket only gates on the manifest's existence and never mutates the manifest; the concurrency contract stays with the existing batch-create test suite"
+          ],
+          "default_files": [
+            ".claude/commands/find-omissions.md",
+            ".claude/commands/consolidate-stubs.md",
+            ".claude/scripts/tickets/require-consolidated-manifest.js",
+            ".claude/scripts/tickets/clean-consolidation-artifacts.js",
+            "tests/require-consolidated-manifest.test.cjs",
+            "tests/clean-consolidation-artifacts.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: with a CONSOLIDATED-MANIFEST-*.json present, require-consolidated-manifest.js exits 0; find-omissions Step 1 is the manifest-driven pipe flow (review then commit); on full success clean-consolidation-artifacts.js removes the manifest + rollback + empty dir",
+            "Error case: with no manifest, require-consolidated-manifest.js exits 2 and prints “run /consolidate-stubs first (Steps 1-5), then re-run /find-omissions” to stderr; clean-consolidation-artifacts.js exits 0 (idempotent) when nothing to remove",
+            "Edge case: cleanup leaves non-artifact files in manifests/ untouched and keeps the dir when non-empty; C003 handoff test stays green; validate-graph-arg.js is untouched",
+            "**[Happy path] — the complete green run**: a fresh session runs /consolidate-stubs (Steps 1-5) → manifests/CONSOLIDATED-MANIFEST-<ts>.json + manifests/ROLLBACK-<ts>.json exist → /find-omissions pre-flight passes both `|| exit 2` gates → Step 1 pipes the latest manifest into batch-create-resolving-tickets.js (--no-write review prints {createdTickets, skipped, rewrittenMarkers, dryRun:true}, then the real commit creates one resolving ticket per (sourceKey, unit) group and rewrites every on-disk marker key) → the residual preflight-stub-cleanup.js run reports no new classes → the inspection/merge/rename steps complete → the final step runs clean-consolidation-artifacts.js → manifests/ is gone and the tree is clean",
+            "**[Error case] — the missing-prerequisite abort**: a fresh session runs /find-omissions without first consolidating (or after a successful run removed the manifest) → require-consolidated-manifest.js prints a `[find-omissions] BLOCKED:` stderr line with the cause (no CONSOLIDATED-MANIFEST-*.json) and the action (run /consolidate-stubs first Steps 1-5, then re-run /find-omissions) → exits 2 → the doc flow stops (`|| exit 2`) and zero tickets are created",
+            "**[Edge case] — idempotent hygiene**: clean-consolidation-artifacts.js run twice — the first removes the artifacts + empty dir, the second (nothing to remove) exits 0 with no output; a manifests/ containing unrelated.json keeps the file and the dir; a file named CONSOLIDATED-MANIFEST.json (no timestamp) or ROLLBACK.json is not touched; the find-omissions handoff note and consolidate-stubs.md L157 sentence still match the consume-and-remove story and print-manifest C003 stays green"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "find-omissions.md pre-flight (L11-17) -> require-consolidated-manifest.js",
+              "precondition": "find-omissions pre-flight runs `node validate-graph-arg.js \"$ARGUMENTS\" || exit 2`",
+              "postcondition": "require-consolidated-manifest.js exits 0 iff ./manifests/CONSOLIDATED-MANIFEST-*.json exists; otherwise exits 2 with a stderr cause/action message",
+              "invariant": "both validate-graph-arg.js and require-consolidated-manifest.js are always present in pre-flight, each with `|| exit 2`; neither short-circuits the other"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "find-omissions full success -> clean-consolidation-artifacts.js",
+              "precondition": "all find-omissions steps pass (FULL success, not after Step 1 only)",
+              "postcondition": "CONSOLIDATED-MANIFEST-*.json and ROLLBACK-*.json are removed; manifests/ dir removed iff empty; exit 0",
+              "invariant": "cleanup never runs on partial success; idempotent (exit 0 when nothing to remove); files other than CONSOLIDATED-MANIFEST-* / ROLLBACK-* in manifests/ are never touched"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "find-omissions Step 1 -> batch-create-resolving-tickets.js (grouped manifest)",
+              "precondition": "consolidate Step 5 gate guarantees: no orphan keys, no terminal excuses, all markers re-pointed to valid keys, complete unit manifest emitted",
+              "postcondition": "latest CONSOLIDATED-MANIFEST is piped into batch-create-resolving-tickets.js (--no-write review, then real commit); one resolving ticket per (sourceKey, unit) group",
+              "invariant": "Step 1 uses the grouped entry shape only; a residual preflight-stub-cleanup.js run after commit catches consolidation-uncovered markers"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "consolidate-stubs.md L157 -> find-omissions.md handoff note",
+              "precondition": "consolidate-stubs.md manifest deliverable sentence exists at L157",
+              "postcondition": "the sentence (or the handoff note) states that /find-omissions consumes and removes the manifest on success",
+              "invariant": "the find-omissions handoff note still shows the grouped JSON example and the `MANIFEST=$(ls -t ...) && cat ... | batch-create --no-write` pipe command; tests/print-manifest-for-find-omissions.test.cjs C003 stays green"
+            }
+          ],
+          "notes": "- **Implementation steps**: 1) RED — write tests/require-consolidated-manifest.test.cjs and tests/clean-consolidation-artifacts.test.cjs (they fail: scripts don't exist); 2) implement .claude/scripts/tickets/require-consolidated-manifest.js (findConsolidatedManifest + main); 3) implement .claude/scripts/tickets/clean-consolidation-artifacts.js (listArtifactsToRemove + removeIfEmptyDir + main); 4) GREEN — run `node --test tests/require-consolidated-manifest.test.cjs tests/clean-consolidation-artifacts.test.cjs tests/print-manifest-for-find-omissions.test.cjs tests/consolidate-stubs-doc.test.cjs`; 5) edit find-omissions.md (pre-flight L16 area + Step 1 L103-151 + new final-success step); 6) edit consolidate-stubs.md L157; 7) re-run the full suite (93 existing tests must stay green) then the gates (verify-red-coverage, validate-ticket-targets, validate-no-external-excuses).\n- **Risks**: (a) editing the find-omissions handoff block can break print-manifest C003 — preserve the grouped JSON example and the `MANIFEST=$(ls -t …) && cat … | batch-create --no-write` pipe verbatim; (b) editing the pre-flight block can break the new C001 doc test — keep both `|| exit 2` lines in order; (c) the `ls -t | head -1` selector fragility is eliminated by the cleanup, but the selector itself stays in Step 1 (it is the documented pick), so doc and gate must agree.\n- **Caveats**: both new scripts run from the directory containing Tickets.json (cwd); must not require network; must resolve manifests/ cwd-relative; require-consolidated-manifest must NOT create manifests/ (read-only probe); clean-consolidation-artifacts must be idempotent and never remove non-artifact files; all stdout/stderr English + Action-directive.\n- **Open items**: none — scope fully specified by WORK-INSTRUCTION-CONSOLIDATE-FIND-OMISSIONS.md §5 (decisions Q1/Q2/Q3 + change list A-E).\n- **Future improvements**: generalize artifact cleanup to any `manifests/` debris pattern if new handoff artifacts appear; optionally have require-consolidated-manifest report WHICH manifest was found (path on stdout) for operator clarity.\nImplementation summary (PX-138):\n- Added .claude/scripts/tickets/require-consolidated-manifest.js (C001) and .claude/scripts/tickets/clean-consolidation-artifacts.js (C002), both exported for unit testing.\n- Rewrote find-omissions.md: pre-flight 2-gate block, Step 1 manifest-driven flow (grouped handoff example + pipe command preserved verbatim for tests/print-manifest-for-find-omissions.test.cjs C003), Step 11 full-success cleanup.\n- Extended consolidate-stubs.md L157 to state consume+remove on success.\n- Marked the 7 ORPHAN_TICKET_REF targetCrimes false_positive (test-fixture strings) with deferredTo=PX-138; all gates pass.\n- Test results: node --test \"tests/*.test.cjs\" \"tests/rfc-graph/*.test.cjs\" \"tests/rfc-graph/schema/*.test.cjs\" → 1256 pass / 0 fail. Quality checks: 0 issues.\nPost-done review refinement (find-omissions.md Step 1): removed operator-meaningless tool-contract prose from the 'Output and guarantees' list — dropped the '(same as the tool's contract)' meta-label, the 'writes Tickets.json once, then the marker lines' mechanism detail, the deep duplicate/file:line validation rules (the tool reports them itself on failure), and the legacy single-marker-form design trivia. Compressed to 4 operator-actionable bullets (review first, commit outcome, re-run safe, failure = zero writes + stderr Action). Preserved the /consolidate-stubs handoff block verbatim (pinned by tests/print-manifest-for-find-omissions.test.cjs C003 and tests/require-consolidated-manifest.test.cjs). Doc tests stay green: 19/19.\nReview report (PX-138):\n- Static quality check: passed (0 issues, run-quality-checks + generate-report)\n- Translatability: passed — findConsolidatedManifest/listArtifactsToRemove/cleanConsolidationArtifacts are verb phrases; no single-char/generic variables; no hardcoded literals; only console.error (stderr Action-directive convention)\n- Tests: node --test tests/*.test.cjs + rfc-graph → 1256 pass / 0 fail\n- Crimes: 0 open in Malfeasance.json; 7 ORPHAN_TICKET_REF targetCrimes classified false_positive with deferredTo=PX-138 (test-fixture strings)\n- Stubs: 0 in tree; no-excuse gate passes\n- Annotation: 2/2 changed source scripts annotated; 0 missing / 0 ambiguous / 0 errors\n- Completeness (Step 7): C001 gate + pre-flight 2-gate doc ✓, C002 cleanup + Step 11 ✓, C003 manifest-driven Step 1 + residual preflight ✓, C004 consolidate-stubs.md L157 consume+remove ✓ — no risks/omissions/contradictions/deficiencies found\n- Post-done review refinement: removed operator-meaningless tool-contract prose from find-omissions.md Step 1 'Output and guarantees' (meta-label, write-mechanism, deep validation rules, legacy-shape trivia) — compressed to 4 operator-actionable bullets; handoff block preserved (test-pinned)",
+          "invariants": "- 【Normal establishment】A complete consolidated unit manifest exists at ./manifests/CONSOLIDATED-MANIFEST-<ts>.json before /find-omissions proceeds; the pre-flight ALWAYS runs both validate-graph-arg.js and require-consolidated-manifest.js, each followed by `|| exit 2`, in that order.\n- 【Invariant on error】When no CONSOLIDATED-MANIFEST-*.json exists, require-consolidated-manifest.js exits 2 with an actionable stderr message and performs zero writes; a failed pre-flight leaves Tickets.json, all source markers, and manifests/ byte-identical.\n- 【Internal state invariant】manifests/ holds only transient handoff artifacts — CONSOLIDATED-MANIFEST-*.json and ROLLBACK-*.json. After a full find-omissions success the directory is empty or absent; no other file type is ever created, matched, or removed by the new scripts.\n- 【Boundary invariant】The manifest check matches files starting with exactly `CONSOLIDATED-MANIFEST-` and ending `.json`; the cleanup matches exactly `CONSOLIDATED-MANIFEST-*.json` and `ROLLBACK-*.json`. manifests/ is removed iff empty after cleanup. Re-running either script on an already-clean tree exits 0 (idempotent).",
+          "instrumentation": "- 【Logging】stderr messages carry the `[find-omissions]` prefix (require-consolidated-manifest, matching validate-graph-arg.js) or `[clean-consolidation-artifacts]` prefix, are English, self-contained, and Action-directive per the find-omissions.md Output message convention; stdout stays machine-clean (JSON summary or empty).\n- 【Metrics】None — both scripts are CLI gate/hygiene probes with no metric sink; their exit codes are the telemetry.\n- 【Error tracking】Stable exit-code contract: require-consolidated-manifest exits 0 (manifest present) / 2 (missing, with BLOCKED cause + action); clean-consolidation-artifacts exits 0 (removed or nothing to remove) / 1 (fs error, stderr explains). The doc pre-flight propagates the failure via `|| exit 2`.\n- 【Health check】require-consolidated-manifest IS the pipeline prerequisite probe — its exit status gates /find-omissions; clean-consolidation-artifacts doubles as a hygiene probe (idempotent, safe to re-run) confirming no transient artifacts linger after a completed run.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-phrase function names, no generic vars, no magic numbers, no console.log)\nTests: 1256 pass / 0 fail (full suite)",
+          "investigation": "- **find-omissions.md** (`.claude/commands/find-omissions.md`): pre-flight block is L11-17 with a single gate `node .claude/scripts/tickets/validate-graph-arg.js \"$ARGUMENTS\" || exit 2` at L16. Step 1 spans L103-151 and contains: the 4-class table (L113-120), the batch-create/shared-creation-core description (L122), the legacy single-marker manifest example (L124-135), the `/consolidate-stubs` handoff block (L138-142, the PX-137 grouped-shape example), the run-the-tool block (L144-151), and the post-creation content rewrite guidance (L155). This is the primary rewrite target: pre-flight gains a second gate; Step 1's manual classification + authoring guidance is replaced by a manifest-driven flow; a final-success cleanup step is added.\n- **consolidate-stubs.md** (`.claude/commands/consolidate-stubs.md`): L157 is the manifest deliverable sentence — 'The manifest file — ./manifests/CONSOLIDATED-MANIFEST-<YYYYMMDDhhmmss>.json — is the deliverable passed to /find-omissions Step 1, which creates one resolving ticket per unit that references a completed key…'. Extend this sentence to state /find-omissions consumes AND removes the manifest on success.\n- **validate-graph-arg.js** (model for the new gate): `#!/usr/bin/env node`, 'use strict', node:fs + node:path, reads process.argv[2], on missing/not-found prints `[find-omissions] BLOCKED: …` to stderr and `process.exit(2)`. No module exports — a plain CLI. The new require-consolidated-manifest.js follows the same style but exports a pure `findConsolidatedManifest(dir)` for testing.\n- **consolidate-stubs-gate.sh** L17: `MANIFEST=\"$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1)\"` then pipes it into `batch-create-resolving-tickets.js --no-write` — this is the selector the cleanup removes the need for (accumulated manifests disappear on success).\n- **batch-create-resolving-tickets.js**: consumes the manifest on stdin (`loadManifest`), `--no-write` = full validation + zero side effects, exit codes EXIT_OK=0 / EXIT_FAILURE=1 / EXIT_USAGE=2, accepts BOTH grouped `{sourceKey, stubs:[{file,line,content}]}` and legacy `{file,line,content}` shapes; C007 idempotency skips markers already referencing an active ticket. The Step 1 manifest-driven flow pipes the grouped manifest straight in.\n- **batch-update-stub.js** L301-328: `rollbackTimestamp()` and `writeRollbackFile` write `manifests/ROLLBACK-<ts>.json` BEFORE committing — so after a consolidate apply both `manifests/CONSOLIDATED-MANIFEST-<ts>.json` and `manifests/ROLLBACK-<ts>.json` exist. These are exactly the two globs clean-consolidation-artifacts.js removes.\n- **print-manifest-for-find-omissions.js**: MANIFESTS_DIR='manifests', MANIFEST_PREFIX='CONSOLIDATED-MANIFEST-', timestamp YYYYMMDDhhmmss, writes to ./manifests/CONSOLIDATED-MANIFEST-<ts>.json, relativizes stubs[].file to the Tickets.json root (PX-137).\n- **preflight-stub-cleanup.js**: the 4-class classifier (resolvedCandidates/pendingObligations/orphans/excuses); kept as the residual safety net run after the batch-create commit in the simplified Step 1.\n- **Test conventions** (tests/*.test.cjs): `node:test` (`test`/`describe`/`it`), temp workspaces via `fs.mkdtempSync(path.join(os.tmpdir(), …))`, spawn CLIs via `execFileSync` with `{cwd, input, encoding}`, doc assertions split on section headings (`doc.split('### Step 5')[1]`), fixture `tests/fixtures/mini-tickets.json` (P3-2 + P4-2, status reviewed).\n- **print-manifest-for-find-omissions.test.cjs C003 (PX-137)**: asserts the find-omissions handoff block (split on `**/consolidate-stubs handoff**`) contains `\"sourceKey\"` and `\"stubs\"` and does NOT contain 'the grouped shape below'. This test must stay green when rewriting Step 1 — the handoff block's grouped example + pipe command are preserved.",
+          "boyScoutPlan": "- New scripts follow the repo's executable-prose style: verb-phrase function names (`findConsolidatedManifest`, `cleanConsolidationArtifacts`, `listArtifactsToRemove`, `removeIfEmptyDir`), domain-noun constants (MANIFESTS_DIR, CONSOLIDATED_PREFIX, ROLLBACK_PREFIX, EXIT_OK / EXIT_MISSING / EXIT_FAILURE), one responsibility per function, no error swallowing (fs ops return `{ok, error}` and main() writes actionable stderr).\n- The two scripts are exported as modules (like batch-create-resolving-tickets.js) so behavior is unit-testable without spawning — readability + translatability = testability.\n- In find-omissions.md, the Step 1 rewrite REMOVES the duplicated 4-class + authoring guidance (code/docs rot that re-derives what consolidate already guarantees), replacing it with the manifest-driven flow + one residual preflight run; the doc now reads top-to-bottom as 'pre-flight validates → manifest-driven re-ticketization → post-commit sweep → full-success cleanup'.\n- consolidate-stubs.md L157 sentence is extended (not rewritten) so the handoff describes both the consume and the remove — the 'consumed and removed on success' phrase becomes a single source of truth shared with the find-omissions final-success step.",
+          "created_at": "2026-08-05",
+          "updated_at": "2026-08-05",
+          "targetStubs": "verified_empty",
+          "targetCrimes": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P9-99",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 99,
+              "markerText": "manifest: [{ file: \"src/a.rs\", line: 5, content: \"// [::STUB::] P9-99: reason -- Implement fix\" }],",
+              "contracts": [
+                "C003"
+              ],
+              "deferredTo": "PX-138",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive: the matched text is a JavaScript string literal inside a .test.cjs unit-test file passed as manifest fixture input to createResolvingTickets/runBatchCreate — test-data representing a stub marker, not a live [::STUB::] marker in production code. The ORPHAN_TICKET_REF scanner tokenizes the string content, but no incomplete implementation exists; no design defect is exempted.",
+                "approvedBy": "PX-138 start"
+              }
+            },
+            {
+              "id": "TS-002",
+              "ticketRef": "P9-9",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 321,
+              "markerText": "writeLine(srcFile, 5, \"// [::STUB::] P9-9: edited after manifest build\");",
+              "contracts": [
+                "C003"
+              ],
+              "deferredTo": "PX-138",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive: this is a string argument to the writeLine test helper simulating a marker that was edited after the manifest build — exercising the tool's on-disk divergence refusal (C009). It is fixture data, not a live marker; the ORPHAN_TICKET_REF scanner tokenizes the test string but no incomplete implementation exists. No design defect is exempted.",
+                "approvedBy": "PX-138 start"
+              }
+            },
+            {
+              "id": "TS-003",
+              "ticketRef": "P3-2",
+              "file": "tests/batch-create-resolving-tickets.test.cjs",
+              "line": 357,
+              "markerText": "{ sourceKey: \"P3-2\", stubs: [{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: two -- Implement two\" }] },",
+              "contracts": [
+                "C003"
+              ],
+              "deferredTo": "PX-138",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive: this is a grouped-shape manifest fixture literal ({sourceKey, stubs[]}) in a .test.cjs file used to verify the grouped entry shape of batch-create-resolving-tickets.js. The marker string is test data, not a production stub; the scanner tokenizes the string but no incomplete implementation exists. No design defect is exempted.",
+                "approvedBy": "PX-138 start"
+              }
+            },
+            {
+              "id": "TS-004",
+              "ticketRef": "P3-2",
+              "file": "tests/batch-update-stub.test.cjs",
+              "line": 42,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C002"
+              ],
+              "deferredTo": "PX-138",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive: this is a multi-line JavaScript string literal building a fixture source file for batch-update-stub.js tests (the consolidate apply + rollback path that writes ROLLBACK-*.json, which clean-consolidation-artifacts.js later removes). The stub text is fixture content, not a live marker; no incomplete implementation exists. No design defect is exempted.",
+                "approvedBy": "PX-138 start"
+              }
+            },
+            {
+              "id": "TS-005",
+              "ticketRef": "P3-2",
+              "file": "tests/fixtures/src/p3.rs",
+              "line": 7,
+              "markerText": "// [::STUB::] P3-2: reason two -- Implement two",
+              "contracts": [
+                "C003"
+              ],
+              "deferredTo": "PX-138",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive: tests/fixtures/ is a fixture tree deliberately seeded with stub-marker source files so the batch-create/print-manifest suites have real on-disk markers to consume (fixtures/mini-tickets.json provides the referenced P3-2/P4-2 tickets). Fixture data, not production code; the scanner flags the key as orphan against the real Tickets.json, but the fixture is self-contained. No design defect is exempted.",
+                "approvedBy": "PX-138 start"
+              }
+            },
+            {
+              "id": "TS-006",
+              "ticketRef": "P3-2",
+              "file": "tests/print-manifest-for-find-omissions.test.cjs",
+              "line": 32,
+              "markerText": "\"// c\\npub fn demo3() {\\n    let z = 3;\\n    // [::STUB::] P3-2: audio [::UNIT::U2::] -- Implement audio worker\\n    let _ = z;\\n}\\n\"",
+              "contracts": [
+                "C003"
+              ],
+              "deferredTo": "PX-138",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive: this is a string literal building a tagged ([::UNIT::U2::]) fixture marker for print-manifest-for-find-omissions.js tests — the script that emits the CONSOLIDATED-MANIFEST which require-consolidated-manifest.js gates on. Test-data string, not a live production marker; no incomplete implementation exists. No design defect is exempted.",
+                "approvedBy": "PX-138 start"
+              }
+            },
+            {
+              "id": "TS-007",
+              "ticketRef": "P3-2",
+              "file": "tests/update-stub.test.cjs",
+              "line": 217,
+              "markerText": "{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: three -- three\", resolveByTicket: \"P3-2\" },",
+              "contracts": [
+                "C004"
+              ],
+              "deferredTo": "PX-138",
+              "status": "false_positive",
+              "crimeType": "ORPHAN_TICKET_REF",
+              "falsePositive": {
+                "justification": "False positive: this is an update-stub.js test fixture object with resolveByTicket: \"P3-2\", exercising the consolidate-flow key normalization that feeds the manifest/handoff described in consolidate-stubs.md (C004). The marker content is fixture data, not a live production stub; no incomplete implementation exists. No design defect is exempted.",
+                "approvedBy": "PX-138 start"
+              }
+            }
+          ],
+          "planTestCode": [
+            "UT: [C001-Pre] require-consolidated-manifest precondition — a manifest exists\n  ```js\n  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rcm-'));\n  fs.mkdirSync(path.join(dir, 'manifests'), { recursive: true });\n  fs.writeFileSync(path.join(dir, 'manifests/CONSOLIDATED-MANIFEST-20260101000000.json'), '[]');\n  // Precondition satisfied: a CONSOLIDATED-MANIFEST-*.json exists under ./manifests/\n  const okRun = execFileSync('node', [REQUIRE], { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });\n  ```\n\nUT: [C001-Post] require-consolidated-manifest postcondition — exit 0 iff manifest exists, exit 2 + stderr otherwise\n  ```js\n  // Postcondition assertion (happy path): exit 0, stdout machine-clean\n  assert.doesNotThrow(() => execFileSync('node', [REQUIRE], { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));\n  // Postcondition assertion (error path): exit 2, stderr carries cause + action\n  const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'rcm-empty-'));\n  assert.throws(\n    () => execFileSync('node', [REQUIRE], { cwd: empty, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }),\n    (e) => e.status === 2 && /run \\/consolidate-stubs first/.test(e.stderr)\n  );\n  ```\n\nUT: [C001-Inv] require-consolidated-manifest invariant — only CONSOLIDATED-MANIFEST-* matches; both pre-flight gates present\n  ```js\n  // Invariant: a ROLLBACK-*.json alone must NOT satisfy the prerequisite\n  const rollbackOnly = fs.mkdtempSync(path.join(os.tmpdir(), 'rcm-rb-'));\n  fs.mkdirSync(path.join(rollbackOnly, 'manifests'), { recursive: true });\n  fs.writeFileSync(path.join(rollbackOnly, 'manifests/ROLLBACK-20260101000000.json'), '[]');\n  assert.throws(() => execFileSync('node', [REQUIRE], { cwd: rollbackOnly, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }), (e) => e.status === 2);\n  // Invariant: the find-omissions pre-flight block carries BOTH gates, in order, each `|| exit 2`\n  const doc = fs.readFileSync(FIND_OMISSIONS, 'utf8');\n  const preflight = doc.split('## Pre-flight')[1].split('## Overview')[0] || '';\n  assert.ok(preflight.includes('validate-graph-arg.js \"$ARGUMENTS\" || exit 2'));\n  assert.ok(preflight.includes('require-consolidated-manifest.js || exit 2'));\n  ```",
+            "UT: [C002-Pre] clean-consolidation-artifacts precondition — manifests/ holds both artifact globs\n  ```js\n  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cca-'));\n  fs.mkdirSync(path.join(dir, 'manifests'), { recursive: true });\n  fs.writeFileSync(path.join(dir, 'manifests/CONSOLIDATED-MANIFEST-20260101000000.json'), '[]');\n  fs.writeFileSync(path.join(dir, 'manifests/ROLLBACK-20260101000000.json'), '[]');\n  ```\n\nUT: [C002-Post] clean-consolidation-artifacts postcondition — artifacts removed, dir removed iff empty, exit 0\n  ```js\n  execFileSync('node', [CLEAN], { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });\n  assert.ok(!fs.existsSync(path.join(dir, 'manifests/CONSOLIDATED-MANIFEST-20260101000000.json')));\n  assert.ok(!fs.existsSync(path.join(dir, 'manifests/ROLLBACK-20260101000000.json')));\n  assert.ok(!fs.existsSync(path.join(dir, 'manifests')), 'manifests/ removed when empty');\n  ```\n\nUT: [C002-Inv] clean-consolidation-artifacts invariant — other files untouched; idempotent exit 0\n  ```js\n  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'cca2-'));\n  fs.mkdirSync(path.join(dir2, 'manifests'), { recursive: true });\n  fs.writeFileSync(path.join(dir2, 'manifests/keep.json'), '{}');\n  fs.writeFileSync(path.join(dir2, 'manifests/CONSOLIDATED-MANIFEST-20260101000000.json'), '[]');\n  execFileSync('node', [CLEAN], { cwd: dir2, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });\n  assert.ok(fs.existsSync(path.join(dir2, 'manifests/keep.json')), 'non-artifact file untouched');\n  assert.ok(fs.existsSync(path.join(dir2, 'manifests')), 'dir kept when non-empty');\n  execFileSync('node', [CLEAN], { cwd: dir2, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });\n  execFileSync('node', [CLEAN], { cwd: empty, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); // idempotent: nothing to remove → exit 0\n  ```",
+            "UT: [C003-Post] find-omissions Step 1 — manifest-driven pipe flow in the doc (review then commit)\n  ```js\n  const doc = fs.readFileSync(FIND_OMISSIONS, 'utf8');\n  const step1 = doc.split('### Step 1')[1].split('### Step 2')[0] || '';\n  assert.ok(step1.includes('MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1)'));\n  assert.ok(step1.includes('--no-write'));\n  assert.ok(step1.includes('batch-create-resolving-tickets.js'));\n  ```\n\nUT: [C003-Inv] Step 1 residual safety net + grouped manifest consumable by the batch tool\n  ```js\n  // Invariant: one residual preflight-stub-cleanup.js run after the commit\n  assert.ok(step1.includes('preflight-stub-cleanup.js'));\n  // Invariant: the grouped manifest shape passes batch-create --no-write (one ticket per (sourceKey, unit) group)\n  const groupedManifest = [{ sourceKey: 'P4-2', stubs: [{ file: 'src/a.rs', line: 4, content: '// [::STUB::] P4-2: codec deferred -- Implement pjsua codec enumeration' }] }];\n  const out = execFileSync('node', [BATCH_CREATE, '--no-write'], { cwd: dir3, input: JSON.stringify(groupedManifest), encoding: 'utf8' });\n  assert.ok(JSON.parse(out).createdTickets >= 1);\n  ```",
+            "UT: [C004-Post] consolidate-stubs.md L157 — the manifest deliverable sentence states consumes AND removes\n  ```js\n  const doc = fs.readFileSync(CONSOLIDATE_STUBS, 'utf8');\n  assert.ok(/consumes and removes/.test(doc), 'L157 sentence names both consume and remove');\n  ```\n\nUT: [C004-Inv] find-omissions handoff note keeps the grouped example + pipe command; C003 handoff test stays green\n  ```js\n  const findDoc = fs.readFileSync(FIND_OMISSIONS, 'utf8');\n  const handoff = findDoc.split('**`/consolidate-stubs` handoff**')[1] || '';\n  assert.ok(handoff.includes('\"sourceKey\"') && handoff.includes('\"stubs\"'), 'grouped JSON example preserved');\n  assert.ok(!/the grouped shape below/.test(handoff), 'no misleading below pointer');\n  assert.ok(handoff.includes('MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1)'));\n  ```"
+          ],
+          "startedAt": "2026-08-05",
+          "changes": [
+            {
+              "before": "no manifest gate",
+              "after": "require-consolidated-manifest.js gate (exit 0/2)",
+              "description": "New pre-flight script that makes /consolidate-stubs a hard prerequisite of /find-omissions"
+            },
+            {
+              "before": "find-omissions pre-flight has 1 gate",
+              "after": "2 gates (validate-graph-arg + require-consolidated-manifest), each || exit 2",
+              "description": "find-omissions.md pre-flight block extended"
+            },
+            {
+              "before": "Step 1 = 4-class self-healing gate + manual manifest authoring",
+              "after": "Step 1 = manifest-driven pipe (review --no-write then commit) + residual preflight-stub-cleanup",
+              "description": "find-omissions.md Step 1 rewritten; handoff grouped example preserved (C003 green)"
+            },
+            {
+              "before": "transient CONSOLIDATED-MANIFEST-*/ROLLBACK-* accumulate forever",
+              "after": "clean-consolidation-artifacts.js removes them + empty manifests/ on full success",
+              "description": "New idempotent cleanup script + find-omissions.md Step 11"
+            },
+            {
+              "before": "consolidate-stubs.md L157 silent about removal",
+              "after": "states /find-omissions consumes and removes the manifest on success",
+              "description": "Handoff sentence extended"
+            },
+            {
+              "before": "no tests for the new gate/cleanup",
+              "after": "tests/require-consolidated-manifest.test.cjs (C001) + tests/clean-consolidation-artifacts.test.cjs (C002)",
+              "description": "12 new tests; full suite 1256 green"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-05"
         }
       ]
     },

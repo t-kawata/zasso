@@ -154,4 +154,4 @@ The gate exits non-zero only on a **real** problem — a terminal-excuse plan, a
 3. **Re-run Step 4** — `--dry-run` to confirm the fix, then apply (this also rewrites the manifest).
 4. **Re-run this gate** — loop until all three commands exit 0.
 
-The manifest file — **`./manifests/CONSOLIDATED-MANIFEST-<YYYYMMDDhhmmss>.json`** — is the deliverable passed to `/find-omissions` Step 1, which creates one resolving ticket per unit.
+The manifest file — **`./manifests/CONSOLIDATED-MANIFEST-<YYYYMMDDhhmmss>.json`** — is the deliverable passed to `/find-omissions` Step 1, which creates one resolving ticket per unit that references a completed key (a unit whose resolve key is an active future todo is already tracked and is skipped). `/find-omissions` **consumes and removes** this manifest (and the `ROLLBACK-*.json` backup) on full success — re-running `/find-omissions` requires a fresh `/consolidate-stubs`.

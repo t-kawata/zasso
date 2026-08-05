@@ -8,13 +8,16 @@ disable-model-invocation: true
 
 Inspect every reviewed ticket to verify that its contracts are fully and accurately translated into test code. When gaps are found, record them as structured omission tickets for the subsequent implementation loop.
 
-## Pre-flight — argument validation (mandatory)
+## Pre-flight — argument + consolidation prerequisite validation (mandatory)
 
-Before any other step, validate the argument:
+Before any other step, validate the argument and the consolidation prerequisite. `/find-omissions` requires a completed `/consolidate-stubs` run so a complete grouped unit manifest exists:
 
 ```bash
 node .claude/scripts/tickets/validate-graph-arg.js "$ARGUMENTS" || exit 2
+node .claude/scripts/tickets/require-consolidated-manifest.js || exit 2
 ```
+
+`require-consolidated-manifest.js` exits 0 when `./manifests/CONSOLIDATED-MANIFEST-*.json` exists and exits 2 (with a cause/action message) otherwise — run `/consolidate-stubs` first, then re-run `/find-omissions`.
 
 ## Overview
 
@@ -100,40 +103,23 @@ Check for:
 
 ## Step-by-Step Inspection Procedure
 
-### Step 1 — Preflight self-healing gate (mandatory)
+### Step 1 — Re-ticketize the consolidated units (mandatory)
 
-Before inspecting any ticket, sweep and validate every `[::STUB::]` marker under the target directory. The preflight gate enforces the absolute rule: there is no "external" and no "awaiting approval" — every blocker is an AI-executable work item.
+The `/consolidate-stubs` Step 5 gate has already guaranteed the marker tree is clean: no orphan keys, no terminal excuses, every marker re-pointed to a valid key, and a complete grouped unit manifest emitted. Step 1 consumes that manifest: pipe it into `batch-create-resolving-tickets.js`, which creates **one resolving ticket per (sourceKey, unit) group** and atomically rewrites every on-disk marker key. **Never pause to ask the human** — this is the AI's work item, per the no-external-excuse rule.
 
-**Loop until zero failures — the command never aborts on failures.**
+Run from the directory containing Tickets.json (the source root is cwd):
 
 ```bash
-node .claude/scripts/tickets/preflight-stub-cleanup.js
+MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1)
+cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write   # review (zero side effects)
+cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js               # commit
 ```
 
-Classify the four classes and act on each:
-
-| Class | Meaning | Action |
-|-------|---------|--------|
-| `resolvedCandidates` | Marker key references a COMPLETED ticket (reviewed/done/R<round>) | Verify in code that the defect is resolved. **If resolved** → `remove-stub.js --file=<path> --line=<N>`. **If NOT resolved** → create a resolving ticket (below) and rewrite the marker key |
-| `pendingObligations` | Marker key references an ACTIVE ticket (todo/in_progress/planned/remanded) | Legitimate pending work — leave for the phasify key rewrite |
-| `orphans` | No key (MUST RESOLVE) or key references a non-existent ticket | Create a resolving ticket via `batch-create-resolving-tickets.js` (requires a valid source ticket to clone) and rewrite the marker key, or remove if dead |
-| `excuses` | Terminal-excuse language without a work item | Convert the resolution plan to an AI-executable work item, or remove |
-
-**Resolving-ticket creation (auto — never pause to ask the human)**: Any marker that needs a new resolving ticket — a NOT-resolved reference to a completed ticket, or any Check C failure where the marker references an existing ticket — is handled by `batch-create-resolving-tickets.js`. Like every ticket-adding flow in this repo, it routes through the **shared creation core** `generic-ticket-creation.js` — here with the **`resolving` seed**. The manifest below is the **batch form of the resolving seed**: `batch-create-resolving-tickets.js` accepts two entry shapes — a **grouped entry** `{ sourceKey, stubs: [{ file, line, content }, ...], seed? }` that creates ONE ticket per (sourceKey, unit) group with every marker embedded in `stubs[]`, or a **legacy single-marker entry** `{ file, line, content, sourceKey?, seed? }` (one ticket per entry). Either shape produces one resolving ticket per entry; the grouped shape prevents the per-marker ticket explosion. The tool deep-clones each referenced ticket, embeds `stubs[]` (for phasify's re-rewrite), appends a non-PX ticket in the max phase (status `todo`), and atomically rewrites every on-disk marker key. **Review first with `--no-write`** (zero side effects), then commit. **Keyless MUST-RESOLVE markers** need an explicit `sourceKey` in the manifest (the core cannot auto-derive a cloneable source); remove them if the defect is dead in code, or record them as a crime if the work is live. **Do not stop to ask the human** — this is the AI's work item, per the no-external-excuse rule.
-
-Resolving-seed manifest format — one entry per marker (pipe this JSON via stdin; do **not** save it to a fixed-named file such as `manifest.json`, which would collide with other work):
-```json
-[
-  {
-    "file": "src/example.rs",
-    "line": 42,
-    "content": "// [::STUB::] P4-2: reason -- Implement the work item",
-    "sourceKey": "P4-2",
-    "seed": { "title": "(work item title)", "scope": ["..."], "background": "..." }
-  }
-]
-```
-If you prefer to prepare the manifest as a file for a large batch, write it under `/tmp` with a collision-free name (e.g. `mktemp` / `$TMPDIR/manifest-<random>.json`) — never a fixed name inside the repo.
+**What to expect**:
+- **review first (`--no-write`)**: validates the whole manifest with zero side effects; stdout prints `{ createdTickets, skipped, rewrittenMarkers, dryRun: true }`.
+- **commit**: on success stdout prints `{ createdTickets, skipped, rewrittenMarkers, dryRun: false }` — Tickets.json gained one `todo` ticket per non-skipped entry, and every on-disk marker line now references its new key.
+- **re-run is safe**: markers already referencing an active ticket are skipped, so re-running never duplicates tickets.
+- **on failure nothing is written**: stderr lists each failure with its file:line and an Action-directive; fix the reported marker and re-run.
 
 > **`/consolidate-stubs` handoff**: `/consolidate-stubs` Step 5 writes the grouped manifest to `./manifests/CONSOLIDATED-MANIFEST-<ts>.json` — one `{ sourceKey, stubs: [{ file, line, content }] }` entry per unit, with `file` cwd-relative:
 > ```json
@@ -141,26 +127,12 @@ If you prefer to prepare the manifest as a file for a large batch, write it unde
 > ```
 > Pipe it straight into the tool with `MANIFEST=$(ls -t manifests/CONSOLIDATED-MANIFEST-*.json | head -1) && cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write` — one ticket per (sourceKey, unit) group.
 
-Run the tool (pipe the manifest JSON built per the format above; Tickets.json is always `./Tickets.json` and the source root is cwd):
-```bash
-# Review first (validates the whole manifest, writes nothing)
-echo '<manifest-json>' | node .claude/scripts/tickets/batch-create-resolving-tickets.js --no-write
-
-# Commit (writes Tickets.json once, then the marker lines)
-echo '<manifest-json>' | node .claude/scripts/tickets/batch-create-resolving-tickets.js
-```
-
-*On success (commit)*: stdout prints a JSON summary `{ createdTickets, skipped, rewrittenMarkers, dryRun: false }`; Tickets.json gained one `todo` ticket per non-skipped entry, and every on-disk marker line now references its new key.
-
 **Post-creation content rewrite (mandatory)**: each new resolving ticket carries the SOURCE ticket's **OLD content** (it is a deep-clone). Rewrite each one into the NEW work item **one field at a time (max 3 fields per `update-ticket.js` call)**, in this order: `title` → `background` → `scope` → `acceptanceCriteria` → `invariants` → `testUnit` → `testIntegration` → `testExceptions` → `contracts` → `investigation` → `boyScoutPlan` → `instrumentation` → `notes`. **PRESERVE** `nodeIds`/`relatedTicketIds`/`referenceSection`/`referenceUrls`/`sourcePaths`/`rfcDiscrepancies` — they are already correct from the clone; add to arrays, never overwrite.
 
-*On failure*: exit non-zero and **zero writes** — Tickets.json and all source files stay byte-identical (atomic all-or-nothing). stderr lists each failure with its file:line and an Action-directive; fix the manifest (or the marker) and re-run.
-
-Safety guarantees: all-or-nothing — any validation failure leaves Tickets.json and all source files untouched; idempotent re-run — markers already referencing an active ticket are skipped, so re-running never duplicates tickets; duplicate `file:line` entries are rejected; an on-disk marker that no longer carries the manifest's expected key is refused.
-
-Then run the validator as the loop condition:
+**Residual safety net (after the commit)** — sweep for markers the consolidation did not cover (added after consolidate, or left UNASSIGNED), then run the no-excuse validator as the loop condition:
 
 ```bash
+node .claude/scripts/tickets/preflight-stub-cleanup.js
 node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
 ```
 
@@ -384,3 +356,13 @@ Run the `rename-phases.js` commands printed in Step 9's stdout. Each re-implemen
 node .claude/scripts/tickets/rename-phases.js --phase=6 --name="Omissions: Storage & Connection Layer"
 node .claude/scripts/tickets/rename-phases.js --phase=7 --name="Omissions: Migration Runner"
 ```
+
+# Step 11 — Clean up transient consolidation artifacts (full success only)
+
+After ALL of the above steps pass (tickets created, markers rewritten, omissions merged and renamed), remove the transient consolidation artifacts the pipeline no longer needs:
+
+```bash
+node .claude/scripts/tickets/clean-consolidation-artifacts.js
+```
+
+This removes `manifests/CONSOLIDATED-MANIFEST-*.json` and `manifests/ROLLBACK-*.json`, and `manifests/` itself iff empty. Idempotent — exit 0 when nothing to remove. The rollback backup only exists to undo a *wrong* consolidation; once `/find-omissions` has consumed the manifest and created tickets, restoring the rollback would desync markers from the created tickets, so it is removed at the same time. Re-running `/find-omissions` requires a fresh `/consolidate-stubs` (the mandatory model).
