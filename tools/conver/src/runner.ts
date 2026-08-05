@@ -13,7 +13,7 @@
 //   3. [Session B] /review-ticket
 //   4. reviewedCount % resolveEvery === 0 → [Session C] /resolve-ticket
 //      → pushEnabled → /epush-branch
-//   5. 全件 reviewed → [Session D] /find-omissions
+//   5. 全件 reviewed → [Session D1] /consolidate-stubs → [Session D2] /find-omissions
 //   6. 次のチケットへ（ループ継続）
 //
 // 参照: RFC_ROOT.md §3（内部ループ制御）
@@ -86,6 +86,7 @@ function getCurrentPhase(error: unknown): string {
   if (message.includes("start-ticket")) return "start-ticket";
   if (message.includes("review-ticket")) return "review-ticket";
   if (message.includes("resolve-ticket")) return "resolve-ticket";
+  if (message.includes("consolidate-stubs")) return "consolidate-stubs";
   if (message.includes("find-omissions")) return "find-omissions";
   if (message.includes("epush-branch")) return "epush-branch";
   return "unknown";
@@ -322,9 +323,22 @@ export async function runLoop(options: LoopOptions): Promise<void> {
           sendSlackSuccess(options.slackWebhookUrl, successCtx).catch(() => {});
         }
 
-        // Step 4: 全チケット reviewed チェック → Session D: find-omissions
+        // Step 4: 全チケット reviewed チェック → Session D1: consolidate-stubs → Session D2: find-omissions
         // noFind が true の場合はスキップする
         if (!options.noFind && checkAllReviewed(options.ticketsPath)) {
+          // /find-omissions は /consolidate-stubs 完了を前提とするため、
+          // 必ず先に consolidate-stubs を実行してマニフェストを生成する
+          printCommandHeader("/consolidate-stubs");
+          await withSession(
+            cwd,
+            options.apiKey,
+            options.model,
+            async (session) => {
+              await runCommand(session, "/consolidate-stubs", runOptions);
+            },
+          );
+          console.log("\n>>> ✅ consolidate-stubs 完了");
+
           printCommandHeader("/find-omissions");
           const graphPath = getGraphPathFromTickets(options.ticketsPath);
           const before = countPhasesAndTickets(options.ticketsPath);

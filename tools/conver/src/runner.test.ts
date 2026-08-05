@@ -391,6 +391,44 @@ describe("runLoop", () => {
     exitMock.restore();
   });
 
+  it("checkAllReviewed=true かつ noFind=false → /consolidate-stubs が /find-omissions より先に実行される", async () => {
+    mockStepTimerState.deadlineResult = true;
+    const exitMock = mockProcessExit();
+    writeTickets([
+      { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
+    ]);
+
+    const commands: string[] = [];
+    mockState.allReviewed = true;
+    mockState.graphPath = "/abs/RFC-ROOT-GRAPH.json";
+    resetFindState();
+    mockState.countSnapshots = [
+      { phaseCount: 5, ticketCount: 10 },   // find 前
+      { phaseCount: 6, ticketCount: 12 },   // find 後
+    ];
+    mockState.runCommandImpl = async (cmd) => {
+      commands.push(cmd);
+      return "ok";
+    };
+    mockState.slackCalls = [];
+
+    const { runLoop } = await import("./runner.js");
+    await runLoop(baseOptions({ ticketsPath: ticketPath, noFind: false }));
+
+    const consolidateIndex = commands.findIndex((c) =>
+      c.startsWith("/consolidate-stubs"),
+    );
+    const findIndex = commands.findIndex((c) => c.startsWith("/find-omissions "));
+    assert.ok(consolidateIndex !== -1, "expected /consolidate-stubs command");
+    assert.ok(findIndex !== -1, "expected /find-omissions command");
+    assert.ok(
+      consolidateIndex < findIndex,
+      "/consolidate-stubs must run before /find-omissions",
+    );
+    mockState.allReviewed = false;
+    exitMock.restore();
+  });
+
   // @verifies C003
   it("find 後もフェーズ/チケット数が不変 → 統合なし/失敗として通知", async () => {
     mockStepTimerState.deadlineResult = true;
@@ -521,5 +559,20 @@ describe("runLoop", () => {
     );
     assert.strictEqual(slackPhase, "epush-branch");
     assert.strictEqual(exitCode, 1);
+  });
+
+  it("consolidate-stubs エラー時に sendSlackError + exit(1)", async () => {
+    mockState.allReviewed = true;
+    resetFindState();
+    const { slackPhase, exitCode } = await runErrorTest(
+      async (cmd) => {
+        if (cmd.startsWith("/consolidate-stubs")) throw new Error("/consolidate-stubs failed");
+        return "ok";
+      },
+      {},
+    );
+    assert.strictEqual(slackPhase, "consolidate-stubs");
+    assert.strictEqual(exitCode, 1);
+    mockState.allReviewed = false;
   });
 });
