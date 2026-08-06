@@ -13,7 +13,7 @@ use crate::api::audio_subscribe_bp::{
     tap_channel, validate_tap_capacity, AudioTapHandle, AudioTapMode, AudioTapSender,
 };
 use crate::api::event_model_payload_bus::{AccountId, EventMeta, SipEvent, SipEventPayload};
-use crate::api::eventbus_receiver::{DEFAULT_EVENT_BUS_CAPACITY, EventBus};
+use crate::api::eventbus_receiver::{EventBus, DEFAULT_EVENT_BUS_CAPACITY};
 use crate::config::observability_metrics::ClientCapabilities;
 use crate::config::ClientConfig;
 use crate::error::SipError;
@@ -836,7 +836,7 @@ mod tests {
 
     #[test]
     // @verifies C047
-    // [::TICKET::] P8-2, P9-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P9-2|P10-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-2, P9-2, P10-1, P11-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P9-2|P10-1|P11-4) --for-spec --no-implementation-order`.
     fn all_public_client_methods_are_instrumented() -> Result<(), std::io::Error> {
         // O-001 closure: C047 postcondition — tracing spans specified for all
         // public operations. This source-inspection test asserts every public
@@ -844,9 +844,13 @@ mod tests {
         // `#[instrument(...)]` attribute. The prior `tracing_and_metrics_specified`
         // only checked Cargo.toml for the substring 'tracing' — removing every
         // #[instrument] would have left all tests green.
+        // Complete public-surface inventory (re-inspection O-001 closure):
+        // SipClient — 14 public methods; SipAccountHandle — 9 public methods.
+        // The prior version enumerated only 10 + 6, so SipAccountHandle::new
+        // and ::id could lose #[instrument] without failing red.
         let checks: [(&str, &[&str]); 2] = [
             (
-                "src/client.rs",
+                "src/client.rs", // SipClient — 14 public methods
                 &[
                     "new",
                     "handle",
@@ -854,6 +858,10 @@ mod tests {
                     "subscribe_account",
                     "subscribe_raw_sip",
                     "accounts",
+                    "add_account",
+                    "remove_account",
+                    "account",
+                    "add_transport",
                     "call_state",
                     "subscribe_audio",
                     "is_terminated",
@@ -861,14 +869,17 @@ mod tests {
                 ],
             ),
             (
-                "src/api/public_api_design.rs",
+                "src/api/public_api_design.rs", // SipAccountHandle — 9 public methods
                 &[
+                    "new",
+                    "id",
                     "register",
                     "unregister",
                     "set_registration_enabled",
                     "registration_state",
                     "make_call",
                     "update_config",
+                    "remove",
                 ],
             ),
         ];

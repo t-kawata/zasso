@@ -37,14 +37,16 @@ pub struct SipAccountHandle {
     pub(crate) id: u64,
 }
 
-// [::TICKET::] P3-1, P4-1, P10-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1|P10-1|P10-3|P10-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1, P10-1, P10-3, P10-4, P11-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1|P10-1|P10-3|P10-4|P11-4) --for-spec --no-implementation-order`.
 impl SipAccountHandle {
     /// Create a new `SipAccountHandle`.
+    #[instrument(skip(client))]
     pub fn new(client: crate::client::SipClient, id: u64) -> Self {
         Self { client, id }
     }
 
     /// Return the account identifier.
+    #[instrument(skip(self))]
     pub fn id(&self) -> u64 {
         self.id
     }

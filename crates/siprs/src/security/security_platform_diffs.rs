@@ -196,24 +196,54 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-2, P11-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P11-4) --for-spec --no-implementation-order`.
     fn platform_docs_contain_os_notes() {
-        // O-006 closure: C048 postcondition — security measures and platform
-        // differences are documented. The module doc already carries the OS
-        // notes; this include_str! test makes the documentation a contract.
-        let doc = include_str!("security_platform_diffs.rs");
+        // O-006 + re-inspection O-002 closure: C048 postcondition — security
+        // measures and platform differences are documented. The C048 contract
+        // names the specific build notes (Windows/MSVC, macOS system
+        // frameworks, Linux system libraries), so the test asserts each keyword
+        // — not just the bare OS names. Stripping any single build note fails
+        // red (the prior version only checked "Windows"/"macOS"/"Linux").
+        //
+        // Only the module-level `//!` doc lines are the documented contract.
+        // Filtering out the rest of the file (including this test's own
+        // assertion-message strings) prevents a vacuous pass: without the
+        // filter, the literal keyword inside an assert message would satisfy
+        // doc.contains(...) even if the doc stopped naming it.
+        let module_doc = include_str!("security_platform_diffs.rs")
+            .lines()
+            .filter(|line| line.trim_start().starts_with("//!"))
+            .map(|line| line.trim_start().trim_start_matches("//!").trim_start())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let doc = module_doc.as_str();
         assert!(
             doc.contains("Windows"),
-            "docs must cover Windows/MSVC build notes"
+            "docs must cover Windows build notes"
+        );
+        assert!(
+            doc.contains("MSVC"),
+            "docs must name MSVC prebuilt binaries"
         );
         assert!(
             doc.contains("macOS"),
             "docs must cover macOS system frameworks"
         );
         assert!(
+            doc.contains("CoreAudio"),
+            "docs must name CoreAudio framework"
+        );
+        assert!(
+            doc.contains("CoreFoundation"),
+            "docs must name CoreFoundation framework"
+        );
+        assert!(
             doc.contains("Linux"),
             "docs must cover Linux system libraries"
         );
+        assert!(doc.contains("alsa"), "docs must name alsa library");
+        assert!(doc.contains("openssl"), "docs must name openssl library");
+        assert!(doc.contains("uuid"), "docs must name uuid library");
     }
 
     #[test]
