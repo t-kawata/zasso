@@ -1221,7 +1221,10 @@
       "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P11-11\" --phase=plan)",
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P11-11\" --for-spec --plan)",
       "Bash(echo \"=== CRIMES EXIT: $? ===\")",
-      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P11-11\" --tickets=\"Tickets.json\")"
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P11-11\" --tickets=\"Tickets.json\")",
+      "Bash(cd /Users/sh01/shyme/zasso && ls -la Makefile 2>/dev/null && echo \"---MAKEFILE TARGETS---\" && grep -E \"^[a-zA-Z_-]+:\" Makefile 2>/dev/null | head -50)",
+      "Bash(node -e \"const d=require\\('./Malfeasance.json'\\); console.log\\('records:', d.records.length\\); const byStatus={}; d.records.forEach\\(r=>{byStatus[r.status]=\\(byStatus[r.status]||0\\)+1}\\); console.log\\(byStatus\\);\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('count:',j.count\\);j.stubs.forEach\\(s=>console.log\\(s.file.split\\('/'\\).slice\\(-2\\).join\\('/'\\)+':'+s.line+' -> '+s.content.split\\('--'\\)[0].trim\\(\\)\\)\\);}\\)\")"
     ]
   }
 }
