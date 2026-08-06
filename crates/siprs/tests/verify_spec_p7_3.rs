@@ -17,11 +17,12 @@
 
 use std::fs;
 
+use siprs::api::http_ws_protocol::AudioFrameHeader;
 use siprs::api::standalone_server_config::DEFAULT_SIPRS_PORT;
 use siprs::config::{TlsCertInfo, VERSIONING_POLICY};
 use siprs::{
-    AuthConfig, AuthMode, ClientConfig, EventBus, NativeEvent, SecretString, ServerConfig,
-    SipClient, SipError, SipErrorKind, SipEvent, SipEventPayload,
+    AuthConfig, AuthMode, ClientConfig, EventBus, EventMeta, NativeEvent, SecretString,
+    ServerConfig, SipClient, SipError, SipErrorKind, SipEvent, SipEventPayload,
 };
 
 /// Path to the P7-3 specification document (crate-root relative, same convention
@@ -217,7 +218,7 @@ fn auth_types_re_exported_and_usable() -> Result<(), Box<dyn std::error::Error>>
 fn core_public_types_re_exported() {
     // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
     fn assert_send<T: Send>() {}
-    // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-3, P11-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-3|P11-1) --for-spec --no-implementation-order`.
     fn assert_sync<T: Sync>() {}
 
     assert_send::<SipClient>();
@@ -237,4 +238,78 @@ fn core_public_types_re_exported() {
         !VERSIONING_POLICY.is_empty(),
         "VERSIONING_POLICY must be publicly accessible and non-empty"
     );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// P11-1 new O-001 — event-audio correlation: both sequence spaces stay u64
+// ────────────────────────────────────────────────────────────────────────────
+
+/// [C063-Inv] AudioFrameHeader.sequence_number and EventMeta.event_id must both
+/// stay u64. A type change to either sequence space (e.g. u64 -> u32) fails this
+/// test at compile time — this is the regression lock for the ABC gap O-001.
+// @assert-invariant C063
+#[test]
+// [::TICKET::] P11-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-1 --for-spec --no-implementation-order`.
+fn sequence_spaces_are_u64() {
+    let header = AudioFrameHeader {
+        sequence_number: 1,
+        timestamp_ms: 1000,
+        frame_ms: 20,
+        sample_rate: 48000,
+        channels: 1,
+        bits_per_sample: 16,
+        call_id: 0,
+        reserved: [0u8; 4],
+    };
+    let _: u64 = header.sequence_number;
+
+    let meta = EventMeta::new(1, None, None);
+    let _: u64 = meta.event_id;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// P11-1 new O-002 — ServerConfig Clone/PartialEq/Eq compile-time assertions
+// ────────────────────────────────────────────────────────────────────────────
+
+/// [C062-Post] ServerConfig must implement Clone, PartialEq, and Eq so it can be
+/// stored and compared in config-loading and hot-reload flows. Removing any of
+/// these derives from standalone_server_config.rs fails this test at compile time.
+// @verifies C062
+#[test]
+// [::TICKET::] P11-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-1 --for-spec --no-implementation-order`.
+fn server_config_clone_partial_eq_eq() {
+    // [::TICKET::] P11-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-1 --for-spec --no-implementation-order`.
+    fn assert_clone<T: Clone>() {}
+    // [::TICKET::] P11-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-1 --for-spec --no-implementation-order`.
+    fn assert_partial_eq<T: PartialEq>() {}
+    // [::TICKET::] P11-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-1 --for-spec --no-implementation-order`.
+    fn assert_eq_trait<T: Eq>() {}
+
+    assert_clone::<ServerConfig>();
+    assert_partial_eq::<ServerConfig>();
+    assert_eq_trait::<ServerConfig>();
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// P11-1 new O-003 — rusqlite bundled feature manifest check
+// ────────────────────────────────────────────────────────────────────────────
+
+/// [C065-Inv] Cargo.toml must pin the rusqlite dependency with the `bundled`
+/// feature so the crate never silently falls back to a system SQLite library.
+/// Removing `bundled` (or the rusqlite dependency) fails this test.
+// @assert-invariant C065
+#[test]
+// [::TICKET::] P11-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-1 --for-spec --no-implementation-order`.
+fn cargo_toml_rusqlite_bundled() -> Result<(), std::io::Error> {
+    let manifest_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+    let manifest = fs::read_to_string(&manifest_path)?;
+    assert!(
+        manifest.contains("rusqlite"),
+        "Cargo.toml must declare the rusqlite dependency"
+    );
+    assert!(
+        manifest.contains("bundled"),
+        "rusqlite must carry the bundled feature (no system SQLite dependency)"
+    );
+    Ok(())
 }
