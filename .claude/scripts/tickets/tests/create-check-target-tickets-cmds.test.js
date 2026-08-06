@@ -96,18 +96,46 @@ try {
   assert(keys[0] === 'P0-1', 'key is P0-1');
 })();
 
+// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
 (function testC001Invariant() {
   console.log('  ── C001 Invariant ──');
   const mockTickets = { phases: [
+    { id: 0, tickets: [{ id: 1, status: 'reviewed', title: 'P0 ticket' }] },
     { id: -1, tickets: [
       { id: 1, status: 'reviewed', title: 'R1' },
       { id: 2, status: 'reviewed', title: 'R2' }
     ] }
   ] };
   const keys = collectReviewedTicketKeys(mockTickets);
-  assert(keys.length === 2, '2 reviewed tickets');
+  assert(keys.length === 1, 'non-PX reviewed ticket collected, PX excluded');
   assert(keys.every(k => typeof k === 'string'), 'all keys are strings');
-  assert(keys[0] === 'PX-1', 'key is PX-1 (phase X)');
+  assert(keys[0] === 'P0-1', 'non-PX key is P0-1');
+  assert(keys.every(k => !k.startsWith('PX-')), 'no PX-* keys (PX phase excluded)');
+})();
+
+// PX-141: PX phase (phaseId=-1) is excluded from the inspection queue.
+// The PX backlog is out of scope for /find-omissions; it must never be
+// re-inspected or round-marked. @verifies C001
+// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
+(function testC001PxExcluded() {
+  console.log('  ── C001 PX phase excluded ──');
+  const mockTickets = { phases: [
+    { id: -1, tickets: [
+      { id: 1, status: 'reviewed', title: 'R1' },
+      { id: 2, status: 'remanded', title: 'R2' }
+    ] }
+  ] };
+  const keys = collectReviewedTicketKeys(mockTickets);
+  assert(keys.length === 0, 'no PX tickets collected (reviewed or remanded)');
+})();
+
+// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
+(function testC001PxBoundaryPhaseIdSource() {
+  console.log('  ── C001 PX excluded via ticket.phaseId or phase.id ──');
+  const viaTicketField = { phases: [{ id: -1, tickets: [{ id: 1, phaseId: -1, status: 'reviewed' }] }] };
+  const viaPhaseId = { phases: [{ id: -1, tickets: [{ id: 2, status: 'reviewed' }] }] };
+  assert(collectReviewedTicketKeys(viaTicketField).length === 0, 'ticket.phaseId=-1 excluded');
+  assert(collectReviewedTicketKeys(viaPhaseId).length === 0, 'phase.id=-1 excluded');
 })();
 
 (function testC001Empty() {

@@ -494,6 +494,49 @@ assert(typeof phasifyOmissions.consolidatePhasesByTicketCount === 'function',
   console.log('✅ testRoundStatusInvariant passed');
 })();
 
+// PX-141: PX phase (id=-1) is excluded from R<round> marking. The PX backlog
+// keeps its existing status (reviewed/remanded); only non-PX pre-offset
+// tickets become R<round>. @verifies C004
+// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
+(function testPxPhaseNotRoundMarked() {
+  const mergedData = {
+    round: 1,
+    phases: [
+      { id: 0, name: 'P0', tickets: [{ id: 1, phaseId: 0, status: 'reviewed', title: 'A' }] },
+      { id: -1, name: 'PX', tickets: [{ id: 5, phaseId: -1, status: 'reviewed', title: 'PX' }] }
+    ]
+  };
+  const offset = 1; // max(0, -1) + 1
+  const result = phasifyOmissions.markPreMergeTicketsReviewed(
+    JSON.parse(JSON.stringify(mergedData)), offset, 1
+  );
+
+  const phase0 = result.phases.find((p) => p.id === 0);
+  const pxPhase = result.phases.find((p) => p.id === -1);
+  assert.strictEqual(phase0.tickets[0].status, 'R1', 'non-PX pre-offset ticket must be R1');
+  assert.strictEqual(pxPhase.tickets[0].status, 'reviewed', 'PX ticket must keep reviewed');
+
+  for (const p of result.phases) {
+    if (p.id === -1) {
+      for (const t of p.tickets) {
+        assert.ok(!/^R[1-9]\d*$/.test(t.status), 'PX must not be round-marked: ' + t.status);
+      }
+    }
+  }
+
+  // remanded PX status is also preserved
+  const withRemandedPx = {
+    round: 1,
+    phases: [{ id: -1, name: 'PX', tickets: [{ id: 9, phaseId: -1, status: 'remanded', title: 'PX' }] }]
+  };
+  const r = phasifyOmissions.markPreMergeTicketsReviewed(
+    JSON.parse(JSON.stringify(withRemandedPx)), 1, 1
+  );
+  assert.strictEqual(r.phases[0].tickets[0].status, 'remanded', 'remanded PX preserved');
+
+  console.log('✅ testPxPhaseNotRoundMarked passed');
+})();
+
 // ============================================================
 // PX-115: Snapshot-based --rollback (resolveSnapshotPath / rollbackFromSnapshot)
 // ============================================================

@@ -34,7 +34,7 @@ const SHOW_TICKET_CMD_TEMPLATE = 'node .claude/scripts/tickets/show-ticket-conte
  * @param {object} ticketsData — Parsed Tickets.json { phases[] }
  * @returns {string[]} — Reviewed/remanded ticket key strings
  */
-// [::TICKET::] PX-98, PX-102, PX-103, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-98|PX-102|PX-103|PX-114) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-98, PX-102, PX-103, PX-114, PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-98|PX-102|PX-103|PX-114|PX-141) --for-spec --no-implementation-order`.
 function collectReviewedTicketKeys(ticketsData) {
   if (!ticketsData || !Array.isArray(ticketsData.phases)) {
     return [];
@@ -43,12 +43,14 @@ function collectReviewedTicketKeys(ticketsData) {
   for (const phase of ticketsData.phases) {
     if (!phase || !Array.isArray(phase.tickets)) continue;
     for (const ticket of phase.tickets) {
+      const phaseId = ticket.phaseId !== undefined ? ticket.phaseId : phase.id;
+      // PX-141: the PX phase (phaseId=-1) is out of scope for /find-omissions
+      // and must never enter the inspection queue.
+      if (phaseId === -1) continue;
       // Inspection target = reviewed or remanded ONLY. R<round> is a past-round
       // completion record and must never be re-inspected (convergence).
       if (ticket.status === 'reviewed' || ticket.status === 'remanded') {
-        const phaseId = ticket.phaseId !== undefined ? ticket.phaseId : phase.id;
-        const phasePrefix = phaseId === -1 ? 'X' : phaseId;
-        keys.push('P' + phasePrefix + '-' + ticket.id);
+        keys.push('P' + phaseId + '-' + ticket.id);
       }
     }
   }

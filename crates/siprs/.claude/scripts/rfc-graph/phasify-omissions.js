@@ -993,7 +993,7 @@ function isRoundMarked(status) {
  */
 // [::TICKET::] PX-111: pre-merge snapshot + auto-review. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-111 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-111 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114, PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-114|PX-141) --for-spec --no-implementation-order`.
 function markPreMergeTicketsReviewed(mergedData, offset, round) {
   if (!mergedData || typeof mergedData !== 'object') {
     throw new Error('mergedData must be a non-null object');
@@ -1009,6 +1009,9 @@ function markPreMergeTicketsReviewed(mergedData, offset, round) {
 
   for (var pi = 0; pi < result.phases.length; pi++) {
     var phase = result.phases[pi];
+    // PX-141: the PX phase (id=-1) is out of scope for /find-omissions and
+    // keeps its existing status; it is never rewritten to R<round>.
+    if (phase.id === -1) continue;
     if (phase.id >= offset) continue; // skip new omission phases
 
     var tickets = phase.tickets || [];

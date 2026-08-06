@@ -209,6 +209,24 @@ try {
   assert(keys.includes('P0-3'), 'remanded included');
 })();
 
+// PX-141: PX phase (phaseId=-1) is excluded from the non-reviewed collection.
+// The PX backlog must never be re-queued into _tmp-omissions. @verifies C002
+// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
+(function testC002PxExcluded() {
+  console.log('  ── C002 PX phase excluded ──');
+  const mockTickets = { phases: [
+    { id: 0, tickets: [{ id: 1, status: 'todo', title: 'phased pending' }] },
+    { id: -1, tickets: [
+      { id: 5, status: 'todo', title: 'PX pending' },
+      { id: 6, status: 'remanded', title: 'PX remanded' }
+    ] }
+  ] };
+  const keys = collectNonReviewedTickets(mockTickets);
+  assert(keys.length === 1, 'only non-PX ticket collected');
+  assert(keys[0] === 'P0-1', 'non-PX key is P0-1');
+  assert(keys.every(k => !/^PX-/.test(k)), 'no PX-* keys');
+})();
+
 // ======================================================================
 // C003: Merge and Dedup
 // ======================================================================
@@ -225,25 +243,29 @@ try {
   assert(merged.length > 0, 'merged array is non-empty');
 })();
 
-// C003 postcondition: fromStub flags are correct
-// [::TICKET::] PX-97
+// C003 postcondition: fromStub flags are correct; PX keys are filtered out.
+// PX-141: PX keys (matching /^PX-\d+$/) must never enter the merged source set.
+// @verifies C003
+// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
 (function testC003Postcondition() {
   console.log('  ── C003 Postcondition ──');
-  const stubKeys = ['P3-2'];
-  const pendingKeys = ['PX-55'];
+  const stubKeys = ['P3-2', 'PX-53'];
+  const pendingKeys = ['PX-55', 'P5-1'];
   const stubsMap = { 'P3-2': [{ file: '/tmp/t.rs', line: 1, content: '// [::STUB::] P3-2' }] };
   const merged = mergeTicketSources(stubKeys, pendingKeys, stubsMap);
-  assert(merged.length === 2, 'merged count is 2');
+  assert(merged.length === 2, 'merged count is 2 (PX keys excluded)');
   const fromStub = merged.find(m => m.ticketKey === 'P3-2');
-  const fromPending = merged.find(m => m.ticketKey === 'PX-55');
+  const fromPending = merged.find(m => m.ticketKey === 'P5-1');
   assert(fromStub, 'P3-2 found in merged');
-  assert(fromPending, 'PX-55 found in merged');
+  assert(fromPending, 'P5-1 found in merged');
   assert(fromStub.fromStub === true, 'P3-2 fromStub is true');
-  assert(fromPending.fromStub === false, 'PX-55 fromStub is false');
+  assert(fromPending.fromStub === false, 'P5-1 fromStub is false');
+  assert(!merged.some(m => /^PX-/.test(m.ticketKey)), 'no PX-* ticketKey in merged');
 })();
 
-// C003 invariant: unique key count constraint
-// [::TICKET::] PX-97
+// C003 invariant: unique key count constraint; PX keys never survive the merge.
+// PX-141: @verifies C003
+// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
 (function testC003Invariant() {
   console.log('  ── C003 Invariant ──');
   const stubKeys = ['P3-2', 'PX-53'];
@@ -251,7 +273,9 @@ try {
   const merged = mergeTicketSources(stubKeys, pendingKeys, {});
   const uniqueKeys = new Set(merged.map(m => m.ticketKey));
   assert(uniqueKeys.size <= stubKeys.length + pendingKeys.length, 'unique <= total source keys');
-  assert(uniqueKeys.size === 3, '3 unique keys from 4 source keys');
+  assert(uniqueKeys.size === 1, 'only P3-2 survives PX filtering');
+  assert(uniqueKeys.has('P3-2'), 'P3-2 preserved');
+  assert(![...uniqueKeys].some(k => /^PX-/.test(k)), 'no PX-* ticketKey');
 })();
 
 // ======================================================================

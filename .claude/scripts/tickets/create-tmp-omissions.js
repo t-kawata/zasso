@@ -41,6 +41,10 @@ const STUB_TICKET_KEY_RE = /\[::STUB::\].*?([A-Z]+[A-Z\d]*-\d+)/;
 // round and must never be re-queued as new work (PX-119 divergence prevention).
 const ROUND_STATUS_RE = /^R[1-9]\d*$/;
 
+// PX-141: the PX phase (phaseId=-1) is out of scope for /find-omissions. PX-*
+// keys are filtered out of every source set (stub-derived and pending).
+const PX_KEY_RE = /^PX-\d+$/;
+
 // PX-106: Idempotent sentinel and helpers (inline fallback if add-omission-ticket.js unavailable)
 const INSPECTION_SENTINEL_FALLBACK = '[::INSPECTION_FLAGGED::]';
 
@@ -113,7 +117,7 @@ function extractTicketKeysFromStubs(findAllOutput) {
  * @returns {string[]} — Ticket keys in "P{phaseId}-{ticketId}" format
  */
 // [::TICKET::] PX-97, PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-97|PX-98) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119, PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-119|PX-141) --for-spec --no-implementation-order`.
 function collectNonReviewedTickets(ticketsData) {
   if (!ticketsData || !Array.isArray(ticketsData.phases)) {
     return [];
@@ -122,11 +126,13 @@ function collectNonReviewedTickets(ticketsData) {
   for (const phase of ticketsData.phases) {
     if (!phase || !Array.isArray(phase.tickets)) continue;
     for (const ticket of phase.tickets) {
+      const phaseId = ticket.phaseId !== undefined ? ticket.phaseId : phase.id;
+      // PX-141: the PX phase (phaseId=-1) is out of scope for /find-omissions
+      // and must never be re-queued into _tmp-omissions.
+      if (phaseId === -1) continue;
       // Re-queue non-reviewed tickets except R<round> past-round records.
       if (ticket.status !== 'reviewed' && !ROUND_STATUS_RE.test(ticket.status || '')) {
-        const phaseId = ticket.phaseId !== undefined ? ticket.phaseId : phase.id;
-        const phasePrefix = phaseId === -1 ? 'X' : phaseId;
-        keys.push('P' + phasePrefix + '-' + ticket.id);
+        keys.push('P' + phaseId + '-' + ticket.id);
       }
     }
   }
@@ -142,13 +148,15 @@ function collectNonReviewedTickets(ticketsData) {
  * @param {object} stubsMap — { ticketKey: [{ file, line, content }] }
  * @returns {Array<{ticketKey: string, fromStub: boolean, stubs: Array}>}
  */
-// [::TICKET::] PX-97, PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-97|PX-98) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-97, PX-98, PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-97|PX-98|PX-141) --for-spec --no-implementation-order`.
 function mergeTicketSources(stubKeys, pendingKeys, stubsMap) {
   const seen = new Set();
   const result = [];
 
   // Stub-derived entries first (fromStub: true)
   for (const key of stubKeys) {
+    // PX-141: PX keys must never enter the merged source set.
+    if (PX_KEY_RE.test(key)) continue;
     if (!seen.has(key)) {
       seen.add(key);
       result.push({
@@ -161,6 +169,8 @@ function mergeTicketSources(stubKeys, pendingKeys, stubsMap) {
 
   // Non-reviewed entries (fromStub: false)
   for (const key of pendingKeys) {
+    // PX-141: PX keys must never enter the merged source set.
+    if (PX_KEY_RE.test(key)) continue;
     if (!seen.has(key)) {
       seen.add(key);
       result.push({

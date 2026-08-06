@@ -5,7 +5,7 @@
  * add-omission-ticket.js — Append an omission ticket to _tmp-omissions-*.json
  *
  * Reads a ticket JSON object from stdin, validates that all required fields
- * are present and non-empty, and appends it to the PX phase (phaseId=-1)
+ * are present and non-empty, and appends it to the max non-PX phase (PX-119 C005)
  * of the specified _tmp-omissions-*.json file.
  *
  * If the target file does not exist, creates it from Tickets.json schema template.
@@ -32,6 +32,7 @@ const PX_PHASE_ID = -1;
 
 /** Count occurrences of INSPECTION_SENTINEL in a string */
 // [::TICKET::] PX-106, PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-106|PX-107) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-141 --for-spec --no-implementation-order`.
 function countInspectionSentinels(background) {
   if (!background || typeof background !== 'string') return 0;
   return (background.match(/\[::INSPECTION_FLAGGED::\]/g) || []).length;

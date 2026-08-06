@@ -15,7 +15,7 @@
         {
           "id": 1,
           "phaseId": -1,
-          "status": "remanded",
+          "status": "reviewed",
           "title": "conver.js 単一ファイルバンドル構築",
           "referenceSection": "tickets/specs/0015-converjs.md",
           "background": "現在のビルドは tsc によるトランスパイルのみで、dist/ に分割ファイルを出力。実行には node_modules/@agentclientprotocol/sdk が必要（外部依存はこの1パッケージのみ）。別マシンへの単一ファイル配布を可能にするため、esbuild でバンドルする。",
@@ -19627,6 +19627,295 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-08-05"
+        },
+        {
+          "id": 141,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "find-omissions: exclude PX phase (phaseId=-1) tickets from inspection queue, tmp-omissions, and R<round> marking",
+          "specPath": "specs/PX-141.md",
+          "background": "Goal: Exclude PX phase tickets (phaseId = -1) from the entire find-omissions pipeline so the PX backlog is never re-inspected, re-queued into _tmp files, or rewritten to R<round> status.\n\nPurpose: The PX phase (\"[X] Independent Phase\", phaseId=-1) holds backlog tickets (140 in tools/conver) that are not part of the phased make->plan->start->review lifecycle. /find-omissions currently inspects ALL reviewed/remanded tickets across all phases, so the PX backlog dominates the inspection queue (140 of 177 candidates in the current tools/conver Tickets.json) and gets consumed by round-marking, diverging from the user decision that PX is out of scope.\n\nMotivation: Audit of get-next-check-target-ticket.js (via create-check-target-tickets-cmds.js / create-tmp-omissions.js) and phasify-omissions.js found PX tickets processed in 4 code paths: (A1) collectReviewedTicketKeys queues PX reviewed/remanded tickets; (A2) collectNonReviewedTickets queues PX non-reviewed tickets; (A3) STUB-derived PX keys pass mergeTicketSources unfiltered; (A4) markPreMergeTicketsReviewed rewrites every pre-merge PX ticket to R<round>. User decision: PX is out of scope everywhere in find-omissions.\n\nConstraints: PX phase id is -1; detection via phase.id === -1 or ticket.phaseId === -1 (verified 0 mismatches in current Tickets.json). All 3 project roots (root, tools/conver, crates/siprs) carry byte-identical copies of the affected scripts (md5 verified) — identical changes must be applied to every copy. R<round> is written only by phasify-omissions; after exclusion PX tickets keep their existing status (reviewed/remanded). PX-1 remanded in tools/conver is normalized to reviewed by the user outside this ticket. STUB-derived PX keys must be filtered too (A3). add-omission-ticket.js appendFoundOmissions continues to stage NEW omission clones in the tmp-omissions PX phase — that is new work, not the PX backlog, and phasify re-phases it out; kept as-is.\n\n### Goal\nEvery find-omissions artifact (inspection queue, _tmp-omissions, round-marking) is free of PX backlog tickets, so the omission loop converges on the phased P0-P22 work only.\n\n### Purpose\nThe PX phase is the independent backlog. Inspecting/round-marking it is semantically wrong: PX tickets are not part of the phase-ordered lifecycle and their inclusion makes the queue diverge. Excluding PX makes /find-omissions inspect exactly the phased work that can be re-implemented.\n\n### Motivation\nThe audit (this ticket Background) demonstrated PX is processed in 4 places. The PX backlog (140 tickets) currently constitutes ~79% of the inspection queue, churning the loop without convergence benefit. The user explicitly decided PX is out of scope.\n\n### Constraints\n- phaseId detection: effective = ticket.phaseId !== undefined ? ticket.phaseId : phase.id; PX when === -1 (0 mismatches verified).\n- 3 roots (root, tools/conver, crates/siprs) must receive byte-identical changes (md5 verified identical today).\n- R<round> remains exclusive to phasify-omissions; exclusion leaves PX at reviewed/remanded.\n- tickets.ts loadPendingTickets/checkAllReviewed are unchanged (PX stays reviewed = processed).\n- add-omission-ticket staging in tmp-omissions PX phase is NEW work staging, not the backlog; kept.",
+          "scope": [
+            "CHANGE: create-check-target-tickets-cmds.js collectReviewedTicketKeys - 3 copies (root, tools/conver, crates/siprs). Skip tickets whose effective phaseId is -1 so PX reviewed/remanded tickets never enter the inspection queue.",
+            "CHANGE: create-tmp-omissions.js collectNonReviewedTickets - 3 copies. Skip tickets whose effective phaseId is -1 so PX non-reviewed tickets never enter _tmp-omissions.",
+            "CHANGE: create-tmp-omissions.js mergeTicketSources - 3 copies. Filter out ticket keys matching /^PX-\\d+$/ from BOTH stub-derived and pending sources so PX never enters _tmp-omissions via STUB markers.",
+            "CHANGE: phasify-omissions.js markPreMergeTicketsReviewed - 3 copies. Skip phases whose id is -1 so PX tickets are never rewritten to R<round>; non-PX pre-offset tickets keep the uniform R<round> marking.",
+            "CHANGE: add-omission-ticket.js header comment rot fix - 3 copies. The header says \"appends it to the PX phase\" but the code (PX-119 C005) appends to the max non-PX phase; fix the stale comment (Boy Scout).",
+            "NON-CHANGE: get-next-check-target-ticket.js setTicketRemanded keeps PX key support (defensive; PX never enters the queue after A1).",
+            "NON-CHANGE: show-ticket-context.js PX key parsing kept (display only; never invoked for PX after A1).",
+            "NON-CHANGE: add-omission-ticket.js appendFoundOmissions / findCloneByOriginalKey PX staging in _tmp-omissions is a staging bucket for NEW omission clones derived from inspected non-PX tickets, NOT the PX backlog; kept as-is.",
+            "NON-CHANGE: rename-phases.js already rejects PX phase rename (Cannot rename PX phase).",
+            "NON-CHANGE: tickets.ts loadPendingTickets / checkAllReviewed unchanged - PX tickets stay reviewed (a processed status); PX-1 remanded is normalized by the user.",
+            "IMPACT component: find-omissions pipeline (find-omissions.md Steps 2-9), _tmp-check-target-tickets-cmds generation, _tmp-omissions generation, phasify-omissions merge.",
+            "IMPACT nature: PX backlog excluded from inspection, tmp files, and round-marking; P0-P22 behavior unchanged.",
+            "IMPACT response: update 3 script test files per root, add new PX-exclusion tests; apply identical changes to 3 roots; delete stale _tmp-*.json files if present.",
+            "**Scope of changes**\n  - [path] .claude/scripts/tickets/create-check-target-tickets-cmds.js (3 roots)\n  - [action] modify — add PX skip in collectReviewedTicketKeys\n  - [detail] In the phase loop, `if (phaseId === -1) continue;` before the status filter; phaseId resolved as ticket.phaseId !== undefined ? ticket.phaseId : phase.id\n  - [before → after] before: PX reviewed/remanded -> \"PX-{id}\" key in cmds queue; after: PX skipped, only non-PX keys emitted\n  - [api] none — function signature and return type unchanged\n  - [schema] none — Tickets.json schema unchanged\n  - [config] none\n  - [dep] none\n\n  - [path] .claude/scripts/tickets/create-tmp-omissions.js (3 roots)\n  - [action] modify — add PX skip in collectNonReviewedTickets AND PX-key filter in mergeTicketSources\n  - [detail] collectNonReviewedTickets: same `if (phaseId === -1) continue;` guard. mergeTicketSources: skip any stubKey/pendingKey matching /^PX-\\d+$/ when building the result\n  - [before → after] before: PX non-reviewed and PX-* STUB keys enter _tmp-omissions; after: PX never appears on the rebuild path\n  - [api] none\n  - [schema] none\n  - [config] none\n  - [dep] none\n\n  - [path] .claude/scripts/rfc-graph/phasify-omissions.js (3 roots)\n  - [action] modify — add PX skip in markPreMergeTicketsReviewed\n  - [detail] In the phase loop, `if (phase.id === -1) continue;` so PX tickets keep their original status; non-PX pre-offset tickets still become R+round\n  - [before → after] before: all pre-offset tickets (incl. PX) -> R+round; after: PX excluded, non-PX unchanged behavior\n  - [api] none\n  - [schema] none\n  - [config] none\n  - [dep] none",
+            "**Out of scope (intentionally excluded)**\n  - [item] Changing tickets.ts loadPendingTickets / checkAllReviewed to ignore the PX phase\n  - [why] PX tickets stay reviewed (a processed status); loadPendingTickets already excludes reviewed/R-round. PX-1 remanded is normalized by the user outside this ticket. A PX-phase filter in tickets.ts would be a larger runner-behavior change tracked separately.\n  - [item] Moving add-omission-ticket.js omission-clone staging out of the tmp-omissions PX phase\n  - [why] The staged clones are NEW work derived from inspected non-PX tickets; phasify re-phases them out. Not the PX backlog. Left as-is.",
+            "**Affected areas**\n  - [component] find-omissions inspection loop (get-next-check-target-ticket.js + helpers), phasify-omissions merge, list-phases-and-tickets rendering\n  - [nature] behavior: PX tickets no longer inspected/round-marked; queue size drops (tools/conver 177 -> 37); no data-format or API change\n  - [response] Y — the 3 script test files are updated; list-phases-and-tickets already renders reviewed PX correctly, no change needed"
+          ],
+          "testUnit": [
+            "UT: [Normal] collectReviewedTicketKeys with P0 reviewed + PX(-1) reviewed returns only P0 keys (no PX-*)",
+            "UT: [Normal] collectReviewedTicketKeys still collects non-PX reviewed and remanded tickets",
+            "UT: [Error] collectReviewedTicketKeys with all-PX reviewed returns [] without crashing",
+            "UT: [Boundary] collectReviewedTicketKeys excludes PX whether effective phaseId comes from ticket.phaseId or phase.id",
+            "UT: [Normal] collectNonReviewedTickets with PX non-reviewed returns no PX-* keys",
+            "UT: [Normal] collectNonReviewedTickets still collects non-PX non-reviewed (todo, remanded, etc.)",
+            "UT: [Boundary] collectNonReviewedTickets excludes PX via phase.id === -1 and via ticket.phaseId === -1",
+            "UT: [Normal] mergeTicketSources filters /^PX-\\d+$/ keys from stubKeys",
+            "UT: [Normal] mergeTicketSources filters /^PX-\\d+$/ keys from pendingKeys and preserves non-PX keys exactly",
+            "UT: [Error] mergeTicketSources with only PX keys returns empty result",
+            "UT: [Normal] markPreMergeTicketsReviewed leaves PX(-1) phase tickets with their original status (reviewed/remanded)",
+            "UT: [Normal] markPreMergeTicketsReviewed still marks non-PX pre-offset tickets R<round>",
+            "UT: [Boundary] markPreMergeTicketsReviewed with offset and PX phase: PX tickets never match /^R[1-9]\\d*$/",
+            "UT: [Invariant C001] every key from collectReviewedTicketKeys has phaseId >= 0",
+            "UT: [Invariant C002] every key from collectNonReviewedTickets has phaseId >= 0",
+            "UT: [Invariant C003] merged result contains no ticketKey matching /^PX-\\d+$/",
+            "UT: [Invariant C004] PX phase tickets never receive status matching /^R[1-9]\\d*$/",
+            "**UT: [Normal] — concrete code for C001**\n  ```js\n  const data = { phases: [\n    { id: 0, tickets: [{ id: 1, status: \"reviewed\", title: \"A\" }] },\n    { id: -1, tickets: [{ id: 5, status: \"reviewed\", title: \"PX backlog\" }] }\n  ] };\n  const keys = collectReviewedTicketKeys(data);\n  assert.deepStrictEqual(keys, [\"P0-1\"], \"PX-5 must be excluded\");\n  ```",
+            "**UT: [Error] — concrete code for C001 all-PX**\n  ```js\n  const data = { phases: [{ id: -1, tickets: [{ id: 1, status: \"reviewed\" }] }] };\n  assert.deepStrictEqual(collectReviewedTicketKeys(data), []);\n  ```",
+            "**UT: [Boundary] — phaseId source ticket.phaseId vs phase.id**\n  ```js\n  const data = { phases: [{ id: -1, tickets: [{ id: 1, phaseId: -1, status: \"reviewed\" }] }] };\n  assert.deepStrictEqual(collectReviewedTicketKeys(data), []);\n  ```",
+            "**UT: [Invariant] — no PX key ever returned (C001/C002/C003/C004)**\n  ```js\n  const all = [\n    ...collectReviewedTicketKeys(data),\n    ...collectNonReviewedTickets(data),\n  ];\n  for (const k of all) assert.ok(!/^PX-\\d+$/.test(k), \"PX key leaked: \" + k);\n  ```"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] get-next-check-target-ticket end-to-end: Tickets.json with PX + non-PX reviewed tickets -> _tmp-check-target-tickets-cmds contains zero PX-* entries and get-next pops only non-PX",
+            "IT: [Integration point] create-tmp-omissions end-to-end: PX non-reviewed + non-PX non-reviewed + PX-* STUB markers -> _tmp-omissions output contains no PX-* tickets (except the add-omission-ticket staging phase which is NEW work, out of scope)",
+            "IT: [Integration point] phasify-omissions end-to-end: Tickets.json with PX phase + OMISSIONS input -> after merge, PX phase tickets keep reviewed/remanded (never R<round>), non-PX pre-merge tickets become R<round>",
+            "IT: [Verification] cross-root consistency: run the updated create-check-target / create-tmp-omissions / phasify-omissions tests in root, tools/conver, and crates/siprs — all pass identically",
+            "IT: [Prerequisites] Tickets.json is valid per validate-tickets; the 3 roots have byte-identical scripts before the change",
+            "IT: [Related tickets] PX-98 (create-check-target), PX-101 (get-next), PX-114 (round-aware status), PX-119 (PX ban for stubs) must still pass their existing test suites",
+            "**IT: [Integration point] — cmds file scan**\n  ```js\n  const out = createCheckTarget.main([\"--tickets=\" + tmpTickets]);\n  const entries = JSON.parse(fs.readFileSync(latestCmds(), \"utf8\"));\n  assert.ok(entries.every((e) => !/PX-/.test(e.cmd)), \"cmds file must have no PX entries\");\n  ```",
+            "**IT: [Verification] — phasify keeps PX reviewed**\n  ```js\n  const merged = mergePhasifyToTickets(ticketsWithPx, output);\n  const marked = markPreMergeTicketsReviewed(merged.data, offset, 1);\n  const pxPhase = marked.phases.find((p) => p.id === -1);\n  assert.ok(pxPhase.tickets.every((t) => !/^R[1-9]\\d*$/.test(t.status)), \"PX must stay reviewed\");\n  ```",
+            "**IT: [Prerequisites] — 3 roots byte-identical**\n  ```js\n  for (const root of [\"\", \"tools/conver\", \"crates/siprs\"]) {\n    const p = path.join(root, \".claude/scripts/tickets/create-check-target-tickets-cmds.js\");\n    assert.ok(fs.existsSync(p), \"copy exists at \" + p);\n  }\n  ```",
+            "**IT: [Related tickets] — existing suites stay green**\n  ```js\n  execFileSync(\"node\", [\".claude/scripts/tickets/tests/create-check-target-tickets-cmds.test.js\"]);\n  execFileSync(\"node\", [\".claude/scripts/tickets/tests/create-tmp-omissions.test.js\"]);\n  execFileSync(\"node\", [\".claude/scripts/rfc-graph/phasify-omissions.test.js\"]);\n  ```"
+          ],
+          "testExceptions": [
+            "Item: Real ACP session execution of the runner loop is not testable in a unit test. Reason: it requires a live Claude Code session. This is not a design defect — the runner behavior is a pure function of loadPendingTickets/checkAllReviewed which are unit-tested elsewhere (PX-114), and this ticket does not change tickets.ts. Alternative verification: phasify-omissions.test.js asserts PX tickets stay reviewed after markPreMergeTicketsReviewed.",
+            "Item: The stale _tmp-*.json cleanup is operational, not testable in a unit. Reason: get-next-check-target-ticket.js reuses an existing cmds file without rebuilding; whether a stale file exists is a filesystem state, not deterministic logic. This is not an architectural defect — the exclusion is enforced by A1 (rebuild path never emits PX). Alternative verification: a file-scan assertion in the integration test confirms no _tmp-*.json exists at run start, and the make doc notes deletion as a prerequisite.",
+            "**Exception — full-lifecycle slash-command orchestration**\n  - [Item] The end-to-end /find-omissions slash command flow (pre-flight + Step 1 re-ticketize + inspection loop + phasify merge) is not testable in a unit test. Reason: it spans command docs and the session loop, requiring a live Claude Code session and a completed /consolidate-stubs manifest. This is not a design defect — each step is a pure function or CLI tested independently. Alternative verification: the IT entries above invoke each script directly with fixture Tickets.json/OMISSIONS files and assert PX exclusion at every boundary."
+          ],
+          "default_files": [
+            ".claude/scripts/tickets/create-check-target-tickets-cmds.js",
+            ".claude/scripts/tickets/create-tmp-omissions.js",
+            ".claude/scripts/rfc-graph/phasify-omissions.js",
+            ".claude/scripts/tickets/add-omission-ticket.js",
+            ".claude/scripts/tickets/tests/create-check-target-tickets-cmds.test.js",
+            ".claude/scripts/tickets/tests/create-tmp-omissions.test.js",
+            ".claude/scripts/rfc-graph/phasify-omissions.test.js"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: PX reviewed/remanded tickets are absent from _tmp-check-target-tickets-cmds-*.json; PX non-reviewed tickets are absent from _tmp-omissions-*.json; PX-* STUB-derived keys are filtered; phasify-omissions leaves PX phase tickets at their existing status (never R<round>); non-PX pre-merge tickets still become R<round>.",
+            "Error case: scripts do not crash when Tickets.json has no PX phase, only PX tickets, or mixed phases; empty results are returned cleanly.",
+            "Edge case: phaseId detection works whether the source is ticket.phaseId === -1 or phase.id === -1 (0 mismatches verified in current data); stale _tmp-*.json files from before the change are deleted (operational prerequisite) so the exclusion takes effect on the rebuild path.",
+            "**[Happy path] — full verification**\n  ```bash\n  node .claude/scripts/tickets/create-check-target-tickets-cmds.js --tickets=Tickets.json\n  # _tmp-check-target-tickets-cmds-*.json contains zero /PX-/ entries\n  node .claude/scripts/tickets/create-tmp-omissions.js --tickets=Tickets.json\n  # _tmp-omissions-*.json has no PX-phase tickets on the rebuild path\n  node .claude/scripts/rfc-graph/phasify-omissions.js --graph=<GRAPH> --dry-run\n  # PX phase tickets keep reviewed/remanded; non-PX pre-merge become R<round>\n  ```",
+            "**[Error case] — no-crash matrix**\n  ```js\n  const noPx = { phases: [{ id: 0, tickets: [{ id: 1, status: \"reviewed\" }] }] };\n  const onlyPx = { phases: [{ id: -1, tickets: [{ id: 1, status: \"reviewed\" }] }] };\n  assert.deepStrictEqual(collectReviewedTicketKeys(noPx), [\"P0-1\"]);\n  assert.deepStrictEqual(collectReviewedTicketKeys(onlyPx), []);\n  ```",
+            "**[Edge case] — phaseId source and stale files**\n  ```js\n  const viaTicketField = { phases: [{ id: -1, tickets: [{ id: 1, phaseId: -1, status: \"reviewed\" }] }] };\n  const viaPhaseId = { phases: [{ id: -1, tickets: [{ id: 1, status: \"reviewed\" }] }] };\n  assert.deepStrictEqual(collectReviewedTicketKeys(viaTicketField), []);\n  assert.deepStrictEqual(collectReviewedTicketKeys(viaPhaseId), []);\n  // operational: delete any pre-change _tmp-*.json before running get-next-check-target-ticket.js\n  ```"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "find-omissions Step 2 -> create-check-target-tickets-cmds.js",
+              "precondition": "Tickets.json has phases[] including PX (id=-1) with reviewed/remanded tickets and at least one non-PX phase",
+              "postcondition": "collectReviewedTicketKeys returns no key with phaseId -1 (no PX-* keys); non-PX reviewed/remanded keys are preserved",
+              "invariant": "Every returned ticket key has phaseId >= 0"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "find-omissions Step 1 -> create-tmp-omissions.js",
+              "precondition": "Tickets.json has phases[] including PX (id=-1) with non-reviewed tickets",
+              "postcondition": "collectNonReviewedTickets returns no key with phaseId -1; non-PX non-reviewed keys are preserved",
+              "invariant": "Every returned ticket key has phaseId >= 0"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "find-omissions Step 1 -> create-tmp-omissions.js STUB path",
+              "precondition": "stubKeys and/or pendingKeys contain keys matching /^PX-\\d+$/ alongside non-PX keys",
+              "postcondition": "mergeTicketSources result contains no ticketKey matching /^PX-\\d+$/; non-PX keys are preserved exactly (order, fromStub, stubs)",
+              "invariant": "No PX-* ticketKey ever appears in the merged tmp-omissions source set"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "find-omissions Step 9 -> phasify-omissions.js markPreMergeTicketsReviewed",
+              "precondition": "mergedData.phases includes PX (id=-1) with tickets whose status is not R<round>, and offset = max(phase.id)+1",
+              "postcondition": "PX phase tickets keep their original status; non-PX pre-offset tickets become R+round; new omission phases (id >= offset) stay todo",
+              "invariant": "PX phase tickets never receive a status matching /^R[1-9]\\d*$/"
+            }
+          ],
+          "notes": "Implementation steps: 1) Red — update/create tests asserting PX exclusion in create-check-target-tickets-cmds.test.js, create-tmp-omissions.test.js, phasify-omissions.test.js (all 3 roots). 2) Green — apply A1-A4 to create-check-target-tickets-cmds.js, create-tmp-omissions.js, phasify-omissions.js (all 3 roots). 3) Refactor — fix add-omission-ticket.js header comment rot; verify no PX leaks via grep /^PX-/ in outputs. 4) Run all test suites per root. Risks: existing tests assert PX inclusion (create-check-target PX-1 collection, create-tmp-omissions PX-53/55/99) and must be updated to assert exclusion (Red first); cross-root drift if only one root is changed; stale _tmp-*.json files must be deleted for the exclusion to take effect. Caveats: add-omission-ticket.js appendFoundOmissions still stages NEW omission clones in the tmp-omissions PX phase — this is NEW work, not the PX backlog, and phasify re-phases it out; kept as-is. PX-1 remanded in tools/conver is normalized to reviewed by the user (outside this ticket). Open items: none. Future improvements: consider a shared isPxPhase(phaseId) helper to replace the scattered phaseId === -1 checks.\n\n- [Implementation steps] 1) Red: in each root, flip the PX-inclusion test assertions to PX-exclusion and add the concrete-code UTs above; run each test file -> must fail red (current code includes PX). 2) Green: implement A1 (collectReviewedTicketKeys skip), A2 (collectNonReviewedTickets skip), A3 (mergeTicketSources PX filter), A4 (markPreMergeTicketsReviewed skip). 3) Refactor: extract isPxPhase(phaseId) helper, fix add-omission-ticket.js:8 stale header, verify all suites green. 4) Cross-root: apply the identical diff to root, tools/conver, crates/siprs and run each root test suite.\n- [Risks] (1) Test drift: existing PX-inclusion assertions in create-check-target-tickets-cmds.test.js:102-110 (PX-1 collected) and create-tmp-omissions.test.js (PX-53/55/99) will fail Red until updated. (2) Cross-root drift: root has no PX phase so the change is a no-op there — must still apply to keep copies identical. (3) Stale _tmp-*.json from a pre-change run would still pop PX via get-next (it reuses an existing cmds file); delete them as an operational prerequisite.\n- [Caveats] appendFoundOmissions/findCloneByOriginalKey stage NEW omission clones in the tmp-omissions PX phase — this is the inspection OUTPUT staging, not the PX backlog input; phasify re-phases clones into new phases. Excluding it would require a parallel staging-phase refactor with no functional gain. PX-1 (remanded) normalization to reviewed is done by the user outside this ticket; until then checkAllReviewed stays false while a remanded PX ticket exists.\n- [Open items] None.\n- [Future improvements] Introduce a shared isPxPhase(phaseId) helper (or reuse add-omission-ticket.js PX_PHASE_ID constant) across create-check-target, create-tmp-omissions, phasify-omissions to replace scattered literal -1 checks; then extend the PX-exclusion pattern to the runner (tickets.ts) if the user later wants PX fully invisible to loadPendingTickets/checkAllReviewed.\nImplementation summary:\n- Changed files: create-check-target-tickets-cmds.js, create-tmp-omissions.js, phasify-omissions.js, add-omission-ticket.js + 3 test files (3 roots: root, tools/conver, crates/siprs)\n- Key changes: A1-A4 PX (phaseId=-1) exclusion in the find-omissions pipeline; PX backlog excluded from inspection queue, _tmp-omissions, and R<round> marking; PX-* STUB keys filtered in mergeTicketSources\n- Tests: TDD Red (5+6+1 failures) -> Green (56/63/all pass per root); make test-rfc-graph 932 pass; make test-conver 155 pass; all 3 roots byte-identical (md5 verified)\n- Quality: 0 new issues from PX-141 changes (68 pre-existing CLI console.log/separator findings in phasify-omissions.js, none on changed lines)\n- PX-141 annotations injected into 7 files; list-phases-and-tickets.js erroneous PX-141 annotations (from PX-114 uncommitted work) reverted\nReview report (PX-141):\n- Static quality check: passed — 0 new issues from PX-141 changes; 68 pre-existing CLI console.log/separator findings in phasify-omissions.js, none on changed lines (verified overlap NONE)\n- Translatability: no issues — no single-char/generic vars, no magic numbers, no debug output in changed lines; PX_KEY_RE named constant; phaseId/phase/key domain-named\n- Dependencies: 3 roots byte-identical (md5 verified after final sync); tests pass in all 3 roots\n- Tests: create-check-target 56 / create-tmp 63 / phasify all pass (3 roots); make test-rfc-graph 932 pass; make test-conver 155 pass\n- Contracts: C001-C004 all fulfilled (verify-final-contracts 100%, 1 contract, @verifies present)\n- Issues found and fixes applied: (1) AMBIGUOUS markers from annotation resolved via resolve-ambiguous-markers.js + leading-blank fix after AMBIGUOUS removal; (2) erroneous PX-141 annotations on list-phases-and-tickets.js (user PX-114 uncommitted work) reverted — annotation --verify reports 12 missing there, a cross-ticket git-diff artifact, PX-141 did not modify that file\n- Crimes: 0 open; Stubs: 0",
+          "invariants": "- [Normal condition] The exclusion predicate is phaseId === -1 uniformly across collectReviewedTicketKeys, collectNonReviewedTickets, and markPreMergeTicketsReviewed; a ticket is PX exactly when its effective phaseId (ticket.phaseId fallback phase.id) is -1. Verified 0 mismatches in the current tools/conver Tickets.json (all 22 non-PX phases have ticket.phaseId === phase.id).\n- [Error invariant] No script throws when Tickets.json has no PX phase, only PX tickets, or mixed phases — empty arrays are returned cleanly (collectReviewedTicketKeys -> [], collectNonReviewedTickets -> [], mergeTicketSources with only PX -> []).\n- [Internal state invariant] The _tmp-check-target-tickets-cmds-*.json and _tmp-omissions-*.json files never contain a ticket key matching /^PX-\\d+$/ on the rebuild path (A1/A2/A3); get-next-check-target-ticket.js therefore never pops a PX entry.\n- [Boundary invariant] R<round> is applied to non-PX pre-offset tickets only; PX phase tickets never receive a status matching /^R[1-9]\\d*$/. New omission phases (id >= offset) stay todo, unchanged from PX-114.",
+          "instrumentation": "- [Logging] All 3 scripts are CLI tools: stdout carries the machine-readable contract (file path, JSON), stderr carries human diagnostics. No new logging library. The PX-skip must not change stdout shape — empty PX results still print valid empty arrays.\n- [Metrics] None (one-shot CLIs). The get-next progress line \"Total N tickets to inspect\" is the operational metric; with A1 the N drops by the PX count (140 in tools/conver), observable in the loop output.\n- [Error tracking] Errors exit non-zero with [ERROR] prefix on stderr (create-tmp-omissions exit 1, phasify-omissions exit 1/2/3). The PX exclusion must not swallow errors — only filter PX keys, never catch-and-ignore real failures.\n- [Health check] validate-tickets.js runs after every Tickets.json write (update-ticket.js) and after phasify merge (validateMergedTickets). No runtime health endpoint. list-phases-and-tickets.js output is the state snapshot for inspection.",
+          "investigation": "Evidence gathered from the find-omissions pipeline audit:\n\n- get-next-check-target-ticket.js does not build the tmp files itself — it delegates to create-check-target-tickets-cmds.js and create-tmp-omissions.js. The PX entries originate in those helpers.\n- create-check-target-tickets-cmds.js:38-56 collectReviewedTicketKeys iterates EVERY phase and emits \"P{phaseId}-{id}\" (phaseId === -1 ? \"X\" : phaseId). Current tools/conver PX phase = 139 reviewed + 1 remanded = 140 of 177 queue candidates.\n- create-tmp-omissions.js:117-134 collectNonReviewedTickets iterates EVERY phase with the same PX key format; :146-175 mergeTicketSources passes PX-* stub keys and PX pending keys through unfiltered.\n- phasify-omissions.js:997-1023 markPreMergeTicketsReviewed marks every phase with id < offset to R+round — PX(-1) is included because offset = max(phase.id)+1 (computePhaseIdOffset :190-199).\n- add-omission-ticket.js:228 findCloneByOriginalKey searches only the PX phase of tmp-omissions; :261-270 appendFoundOmissions creates/ensures the PX phase and stages NEW clones there; :8 header comment says \"appends it to the PX phase\" — STALE (PX-119 C005 appends to max non-PX phase).\n- rename-phases.js:57-58 already throws Cannot rename PX phase (id=-1).\n- Tests asserting PX inclusion today: create-check-target-tickets-cmds.test.js:102-110 (PX-1 collected), :270-275 (R1 in PX excluded); create-tmp-omissions.test.js PX-53/55/99 stub/pending keys; phasify-omissions.test.js testRoundStatusInvariant has no PX in its fixture.\n- Cross-root: all 3 roots byte-identical (md5: create-check-target c1db7da1..., create-tmp-omissions 097c7ea2..., phasify-omissions b623a380...). root has NO PX phase; crates/siprs PX = 2 tickets both reviewed.\n- phaseId/phase.id mismatch count = 0 in tools/conver Tickets.json (22 non-PX phases clean).\n- No _tmp-*.json files exist in any root today (cleanup not required).",
+          "boyScoutPlan": "- Extract isPxPhase(phaseId) helper in each affected script (or reuse add-omission-ticket.js PX_PHASE_ID constant) to replace scattered literal `=== -1` checks in collectReviewedTicketKeys, collectNonReviewedTickets, markPreMergeTicketsReviewed — reads as \"if PX, skip\" instead of a bare magic -1.\n- Fix the stale header comment in add-omission-ticket.js:8 (\"appends it to the PX phase\") to match PX-119 C005 reality (appends to the max non-PX phase).\n- Rename generic loop variables (i, nid, etc.) where touched to domain concepts (phase, ticket, phaseId) per translatability; keep function names as verb phrases (collectReviewedTicketKeys, collectNonReviewedTickets, markPreMergeTicketsReviewed already comply).\n- Add the PX filter as a named predicate (e.g., isPxKey = (k) => /^PX-\\d+$/.test(k)) in create-tmp-omissions.js mergeTicketSources so the merge reads as \"skip PX stub/pending keys\" in prose.\n- Verify all tests green before and after each refactor step; roll back immediately if a refactor breaks green.",
+          "created_at": "2026-08-06",
+          "updated_at": "2026-08-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Pre] Precondition: Tickets.json has P0 reviewed + PX(-1) reviewed\n  ```js\n  const data = { phases: [\n    { id: 0, tickets: [{ id: 1, status: \"reviewed\", title: \"A\" }] },\n    { id: -1, tickets: [{ id: 5, status: \"reviewed\", title: \"PX backlog\" }] }\n  ] };\n  const keys = collectReviewedTicketKeys(data);\n  ```",
+            "UT: [C001-Post] Postcondition: only non-PX keys returned, PX-5 excluded\n  ```js\n  assert.deepStrictEqual(keys, [\"P0-1\"], \"PX-5 must be excluded\");\n  assert.ok(keys.every((k) => !k.startsWith(\"PX-\")), \"no PX-* key\");\n  ```",
+            "UT: [C001-Inv] Invariant: every returned key has phaseId >= 0\n  ```js\n  const phaseIdOf = (k) => /^P(\\d+)-/.exec(k) ? Number(/^P(\\d+)-/.exec(k)[1]) : -1;\n  for (const k of collectReviewedTicketKeys(data)) {\n    assert.ok(phaseIdOf(k) >= 0, \"key \" + k + \" must be non-PX\");\n  }\n  ```",
+            "UT: [C001-Err] all-PX input returns [] without crashing\n  ```js\n  const onlyPx = { phases: [{ id: -1, tickets: [{ id: 1, status: \"reviewed\" }] }] };\n  assert.deepStrictEqual(collectReviewedTicketKeys(onlyPx), []);\n  ```",
+            "UT: [C002-Pre] Precondition: PX non-reviewed + non-PX non-reviewed\n  ```js\n  const data = { phases: [\n    { id: 0, tickets: [{ id: 1, status: \"todo\", title: \"phased\" }] },\n    { id: -1, tickets: [{ id: 5, status: \"todo\", title: \"PX pending\" }] }\n  ] };\n  const keys = collectNonReviewedTickets(data);\n  ```",
+            "UT: [C002-Post] Postcondition: only non-PX keys returned\n  ```js\n  assert.deepStrictEqual(keys, [\"P0-1\"]);\n  assert.ok(keys.every((k) => !/^PX-/.test(k)), \"no PX-* key\");\n  ```",
+            "UT: [C002-Inv] Invariant: every returned key has phaseId >= 0\n  ```js\n  for (const k of collectNonReviewedTickets(data)) {\n    const m = /^P(\\d+)-/.exec(k);\n    assert.ok(m && Number(m[1]) >= 0, \"key \" + k + \" must be non-PX\");\n  }\n  ```",
+            "UT: [C003-Pre] Precondition: stubKeys + pendingKeys contain PX keys alongside non-PX\n  ```js\n  const stubKeys = [\"P0-1\", \"PX-53\"];\n  const pendingKeys = [\"PX-53\", \"PX-55\", \"P3-2\"];\n  const stubsMap = { \"P0-1\": [{ file: \"a.rs\", line: 1 }] };\n  const merged = mergeTicketSources(stubKeys, pendingKeys, stubsMap);\n  ```",
+            "UT: [C003-Post] Postcondition: result has no PX-* ticketKey; non-PX preserved\n  ```js\n  const ticketKeys = merged.map((m) => m.ticketKey);\n  assert.ok(ticketKeys.every((k) => !/^PX-/.test(k)), \"no PX-* ticketKey\");\n  assert.ok(ticketKeys.includes(\"P0-1\") && ticketKeys.includes(\"P3-2\"), \"non-PX preserved\");\n  ```",
+            "UT: [C003-Inv] Invariant: no PX-* ticketKey in merged result\n  ```js\n  for (const m of merged) assert.ok(!/^PX-/.test(m.ticketKey), \"PX leaked: \" + m.ticketKey);\n  ```",
+            "UT: [C003-Err] only-PX input returns empty result\n  ```js\n  const mergedOnlyPx = mergeTicketSources([\"PX-53\"], [\"PX-55\"], {});\n  assert.deepStrictEqual(mergedOnlyPx, []);\n  ```",
+            "UT: [C004-Pre] Precondition: mergedData has PX(-1) phase and offset = max(phase.id)+1\n  ```js\n  const mergedData = {\n    round: 1,\n    phases: [\n      { id: 0, tickets: [{ id: 1, phaseId: 0, status: \"reviewed\", title: \"A\" }] },\n      { id: -1, tickets: [{ id: 5, phaseId: -1, status: \"reviewed\", title: \"PX\" }] }\n    ]\n  };\n  const offset = 1; // max(0, -1) + 1 = 1\n  const result = markPreMergeTicketsReviewed(JSON.parse(JSON.stringify(mergedData)), offset, 1);\n  ```",
+            "UT: [C004-Post] Postcondition: non-PX pre-offset -> R1; PX keeps reviewed; new phase (id>=offset) stays todo\n  ```js\n  const phase0 = result.phases.find((p) => p.id === 0);\n  assert.strictEqual(phase0.tickets[0].status, \"R1\", \"non-PX pre-offset must be R1\");\n  const pxPhase = result.phases.find((p) => p.id === -1);\n  assert.strictEqual(pxPhase.tickets[0].status, \"reviewed\", \"PX must keep reviewed\");\n  ```",
+            "UT: [C004-Inv] Invariant: PX tickets never match /^R[1-9]\\d*$/\n  ```js\n  for (const p of result.phases) {\n    if (p.id === -1) {\n      for (const t of p.tickets) {\n        assert.ok(!/^R[1-9]\\d*$/.test(t.status), \"PX must not be round-marked: \" + t.status);\n      }\n    }\n  }\n  ```",
+            "UT: [C004-Boundary] PX status remanded also preserved\n  ```js\n  const withRemandedPx = { round: 1, phases: [{ id: -1, tickets: [{ id: 9, phaseId: -1, status: \"remanded\", title: \"PX\" }] }] };\n  const r = markPreMergeTicketsReviewed(JSON.parse(JSON.stringify(withRemandedPx)), 1, 1);\n  assert.strictEqual(r.phases[0].tickets[0].status, \"remanded\");\n  ```"
+          ],
+          "startedAt": "2026-08-06",
+          "changes": [
+            {
+              "before": "collectReviewedTicketKeys includes PX reviewed/remanded tickets in the inspection queue",
+              "after": "collectReviewedTicketKeys skips phaseId === -1 (PX phase)",
+              "description": "A1: PX exclusion in create-check-target-tickets-cmds.js (3 roots)"
+            },
+            {
+              "before": "collectNonReviewedTickets includes PX non-reviewed tickets in _tmp-omissions",
+              "after": "collectNonReviewedTickets skips phaseId === -1",
+              "description": "A2: PX exclusion in create-tmp-omissions.js (3 roots)"
+            },
+            {
+              "before": "mergeTicketSources passes PX-* stub/pending keys into the merged source set",
+              "after": "mergeTicketSources filters keys matching /^PX-\\d+$/",
+              "description": "A3: PX-key filter in create-tmp-omissions.js mergeTicketSources (3 roots)"
+            },
+            {
+              "before": "markPreMergeTicketsReviewed rewrites PX phase tickets to R<round>",
+              "after": "markPreMergeTicketsReviewed skips phase.id === -1 so PX keeps its status",
+              "description": "A4: PX exclusion in phasify-omissions.js (3 roots)"
+            },
+            {
+              "before": "add-omission-ticket.js header said appends to the PX phase (stale)",
+              "after": "header says appends to the max non-PX phase (PX-119 C005)",
+              "description": "Refactor: stale header comment fix (3 roots)"
+            }
+          ],
+          "completedAt": "2026-08-06"
+        },
+        {
+          "id": 142,
+          "phaseId": -1,
+          "status": "planned",
+          "title": "find-omissions script self-defense: fix 4 defects with regression-proof + integration tests",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/142-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nEliminate the 4 manual-bypass incidents in the /find-omissions pipeline so the pipeline runs unattended from Step 1 through Step 11.\n\n### Purpose\nEach script must refuse to create an invalid state, and when an invalid state is detected it must fail loudly (exit non-zero) instead of silently corrupting downstream artifacts.\n\n### Motivation\nReal runs forced manual intervention: (1) resolving tickets inherited foundOmissions/originalTicketKey/sentinel and were misclassified, (2) phasify silently skipped marker rewrite because stubs lost the line key, (3) tmp-omissions findings fragmented across two files, (4) add-omission-ticket created duplicate clones for the same key. Each bypass required a human to repair state by hand.\n\n### Constraints\nEdit only tools/conver/.claude; crates/siprs/.claude must remain byte-identical; successful-path behavior must not change; every fix follows TDD Red-Green-Refactor; run-all.js must converge to exactly the 14 pre-existing environmental failures.",
+          "scope": [
+            "PATH scripts/lib/create-ticket-from-source.js - ACTION modify - DETAIL extend STRIP_ON_CLONE with foundOmissions/originalTicketKey and strip the leading [::INSPECTION_FLAGGED::] block in stripCompletedResidue - BEFORE STRIP_ON_CLONE=[completedAt,startedAt] and background keeps sentinel AFTER STRIP_ON_CLONE=[completedAt,startedAt,foundOmissions,originalTicketKey] and background starts with original content - API no change - SCHEMA no change - CONFIG no change - DEP no change",
+            "PATH scripts/tickets/create-tmp-omissions.js - ACTION modify - DETAIL keep stub.line in stubsMap entries (line 392-396) and guard main() against an existing _tmp-omissions-*.json unless --force - BEFORE stubsMap drops line; a new timestamped file is always written AFTER stubsMap carries file+line+content; existing tmp file causes exit 2 without --force - API adds --force flag - SCHEMA stubs entries gain line (already the standard stub shape) - CONFIG no change - DEP no change",
+            "PATH scripts/rfc-graph/phasify-omissions.js - ACTION modify - DETAIL add plan-text fallback in rewriteSourceMarkerLines for line-less stubs and add post-rewrite self-verification in rewriteOutputStubKeys that fails the merge loudly - BEFORE line-less stubs are silently skipped AFTER line-less stubs are located via content plan text; leftover old-key markers cause an explicit failure - API rewriteOutputStubKeys may throw on verification failure - SCHEMA no change - CONFIG no change - DEP no change",
+            "PATH scripts/tickets/add-omission-ticket.js - ACTION modify - DETAIL remove the PX-phase-only filter in findCloneByOriginalKey so clones in real phases are found - BEFORE only phase.id === -1 is searched AFTER all phases are searched - API no change - SCHEMA no change - CONFIG no change - DEP no change",
+            "PATH tests/tickets/scripts.test.js - ACTION add - DETAIL Defect 3 exit-code-2/--force regression test and Defect 4 single-clone regression test - API no change - SCHEMA no change - CONFIG no change - DEP no change",
+            "PATH tests/tickets/create-resolving-ticket.test.js - ACTION add - DETAIL Defect 1 residue-strip regression test - API no change - SCHEMA no change - CONFIG no change - DEP no change",
+            "PATH tests/tickets/phasify-srcdir.test.js - ACTION add - DETAIL Defect 2 line-preservation + fallback regression tests - API no change - SCHEMA no change - CONFIG no change - DEP no change",
+            "PATH 6 past-work test files (phasify-srcdir, create-crime-deferral, create-deferral, create-resolving, ensure-tickets-json, batch-update-stub) - ACTION modify - DETAIL replace CWD-relative path.resolve(.claude/...) with __dirname-relative paths and update stale assertions (C005 wording, removed --tickets, CWD-dependent checks) - API no change - SCHEMA no change - CONFIG no change - DEP no change",
+            "ITEM crates/siprs/.claude edits - WHY the implementation target is tools/conver/.claude only; siprs is the investigation source and must stay byte-identical",
+            "ITEM behavior change on the success path of existing flows - WHY every fix is purely preventive; a success-path change would be a regression, not a fix",
+            "COMPONENT /find-omissions pipeline Steps 1/2/7/8/9 - NATURE correctness (residue, marker rewrite, tmp split, duplicate clones) - RESPONSE fixes + regression tests",
+            "COMPONENT create-resolving-ticket.js and create-deferral-ticket.js (consumers of createTicketFromSource) - NATURE API surface unchanged; behavior of new tickets changed to exclude residue - RESPONSE existing tests (create-resolving, create-deferral, create-crime-deferral) must stay green",
+            "COMPONENT test suite run-all.js - NATURE test count - RESPONSE converges to exactly 14 pre-existing environmental failures"
+          ],
+          "testUnit": [
+            "UT: [Normal][C004] findCloneByOriginalKey finds a clone placed in a REAL phase (e.g. id=8) by originalTicketKey",
+            "UT: [Normal][C004] repeated add-omission-ticket --ticket-key=K on the same tmp file appends to the existing clone leaving exactly 1 clone for K",
+            "UT: [Normal][C001] createTicketFromSource strips foundOmissions and originalTicketKey from the new ticket",
+            "UT: [Normal][C001] stripCompletedResidue removes the leading [::INSPECTION_FLAGGED::] block from background and forces status todo",
+            "UT: [Normal][C003] create-tmp-omissions exits 2 with an error message when a _tmp-omissions-*.json already exists (verified via spawnSync, no --force)",
+            "UT: [Normal][C003] create-tmp-omissions --force creates a new file despite an existing tmp file",
+            "UT: [Normal][C002] create-tmp-omissions stubsMap entries carry line so phasify can locate marker lines",
+            "UT: [Normal][C002] rewriteSourceMarkerLines rewrites a disk marker to the clone new key when line is present",
+            "UT: [Error][C002] rewriteOutputStubKeys fails loudly (throw / non-zero) when a marker still references an old key after rewrite",
+            "UT: [Boundary][C004] a clone in the PX phase (id=-1) is still found by findCloneByOriginalKey (backward compatibility)",
+            "UT: [Boundary][C001] background without a sentinel is unchanged by the strip regex (no-op)",
+            "UT: [Invariant][C001] PRESERVE fields (nodeIds, relatedTicketIds, referenceSection, referenceUrls, sourcePaths, rfcDiscrepancies) survive the strip unchanged and status is todo",
+            "UT: [Invariant][C002] for every stub in a phasified clone the rewritten content key equals the on-disk marker key"
+          ],
+          "testIntegration": [
+            "IT: [Point] pipeline-end-to-end across create-resolving-ticket (Step 1) -> create-tmp-omissions (Step 2) -> add-omission-ticket --ticket-key (loop) -> phasify-omissions (Step 9) with fixture source files in a temp dir",
+            "IT: [Verify] the 4 defects are jointly eliminated - no residue inheritance, stubs carry line, exactly one tmp file, no duplicate clones, disk markers rewritten to new keys; existing flows (create-deferral, create-crime-deferral) still produce status todo, correct stubs embedding, and no partial writes",
+            "IT: [Prereq] temp Tickets.json + synthetic source files with [::STUB::] markers; run each pipeline step via its CLI in order; assert intermediate file states after each step",
+            "IT: [Tickets] PX-142 integrates past-work regression fixes - node tests/run-all.js from .claude CWD converges to exactly 14 pre-existing environmental failures"
+          ],
+          "testExceptions": [
+            "ITEM: real /find-omissions run against the crates/siprs source tree - REASON: the tree must remain byte-identical (read-only target) and holds live state, so this item cannot test against it in CI; this is not a design defect - the exclusion is an external scope boundary, and every pipeline step is reproduced with synthetic fixture source files in integration tests",
+            "ITEM: Slack delivery of error notifications via the outer conver.js runner - REASON: it requires a real Slack webhook and the ACP session runner, so this item cannot test without external services; this is not a design defect - this ticket changes script-level behavior only, and the scripts exit codes that trigger the notification are asserted by integration tests",
+            "ITEM: full unattended pipeline including the interactive make-plan-start-review loop - REASON: the interactive ACP model loop cannot run headless, so this item cannot test it in CI; this is not a design defect - the loop orchestrates deterministic scripts, each covered by integration tests, and run-all.js is the no-regression oracle"
+          ],
+          "default_files": [
+            "scripts/lib/create-ticket-from-source.js",
+            "scripts/tickets/create-tmp-omissions.js",
+            "scripts/rfc-graph/phasify-omissions.js",
+            "scripts/tickets/add-omission-ticket.js",
+            "tests/tickets/scripts.test.js",
+            "tests/tickets/create-resolving-ticket.test.js",
+            "tests/tickets/phasify-srcdir.test.js",
+            "tests/tickets/create-deferral-ticket.test.js",
+            "tests/tickets/create-crime-deferral-ticket.test.js",
+            "tests/ensure-tickets-json.test.cjs",
+            "tests/batch-update-stub.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: all 4 defect fixes land with Red-Green experience; each defect has a regression test that fails on the pre-fix code and passes on the post-fix code; run-all.js from .claude CWD reports exactly 14 Failed (the 4 pre-existing environmental files); node --check passes for the 4 edited scripts",
+            "Error case: create-tmp-omissions exits 2 with a clear message when a tmp file already exists and --force is absent; phasify-omissions fails loudly (exit non-zero) when a stub marker still references an old key",
+            "Edge case: line-less stub fallback rewrites the marker via plan-text; sentinel-only and sentinel-free backgrounds both handled; a clone in the PX phase is still deduplicated"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "create-ticket-from-source deep clone -> new resolving/deferral ticket",
+              "precondition": "source ticket may carry foundOmissions[], originalTicketKey, and a background starting with [::INSPECTION_FLAGGED::]",
+              "postcondition": "new ticket has no foundOmissions, no originalTicketKey, background contains no [::INSPECTION_FLAGGED::], status=todo",
+              "invariant": "PRESERVE fields (nodeIds, relatedTicketIds, referenceSection, referenceUrls, sourcePaths, rfcDiscrepancies) survive the strip unchanged"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "find-all-stubs output -> create-tmp-omissions stubsMap -> phasify rewriteSourceMarkerLines",
+              "precondition": "stub objects from find-all-stubs carry file+line+content",
+              "postcondition": "every stubsMap entry carries line; rewriteSourceMarkerLines rewrites the disk marker to the clone new key via line (or plan-text fallback); a leftover old-key marker causes an explicit failure",
+              "invariant": "for every stub in a phasified clone, the rewritten content key and the on-disk marker key are identical"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "create-tmp-omissions main() -> _tmp-omissions-<ts>.json",
+              "precondition": "a _tmp-omissions-*.json already exists in CWD",
+              "postcondition": "create-tmp-omissions without --force exits 2 with an error naming the existing file; with --force a new file is created",
+              "invariant": "one pipeline run creates at most one _tmp-omissions-*.json"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "add-omission-ticket --ticket-key=K -> _tmp-omissions-*.json",
+              "precondition": "a clone with originalTicketKey=K exists in ANY phase (real or PX)",
+              "postcondition": "the new omissions append to the existing clone; no second clone with originalTicketKey=K is created",
+              "invariant": "for every originalTicketKey, at most one clone exists in the tmp-omissions file"
+            }
+          ],
+          "notes": "Implementation steps: (1) Defect 4 - remove PX-phase-only filter in findCloneByOriginalKey, add single-clone regression test; (2) Defect 1 - extend STRIP_ON_CLONE and strip sentinel block, add residue-strip regression test; (3) Defect 3 - guard main() with findLatestTmpOmissions + --force, add exit-code-2 regression test; (4) Defect 2 - keep line in stubsMap, add plan-text fallback + self-verification, add line-preservation/fallback regression tests; (5) fix 6 past-work test-file regressions. Risks: the Defect 2 self-verification must not call process.exit(1) inside the exported rewriteOutputStubKeys because tests call it in-process - extract a verifiable helper that throws. Caveats: the Defect 1 sentinel regex /^[::INSPECTION_FLAGGED::][\\s\\S]*?\\n\\n/ removes the marker block up to the first blank line; for the add-omission ABC prefix format some criteria text may remain, but the sentinel marker itself is always removed; line-based rewrite must also update the replacement loop index (stub.line - 1 -> idx). Open items: verify run-all failure count after fixes equals 14. Future improvements: centralize findLatestTmpOmissions into a shared lib to avoid the duplicate implementations.",
+          "invariants": "- [Normal establishment] All clone-created tickets carry status todo and never inherit inspection residue (foundOmissions, originalTicketKey, sentinel block).\n- [Invariant on error] When a script detects an invalid state (existing tmp file, leftover old-key marker) it exits non-zero and writes no partial artifact.\n- [Internal state invariant] Every stubsMap entry in _tmp-omissions-*.json carries file+line+content; for any originalTicketKey at most one clone exists in the tmp file.\n- [Boundary invariant] The strip regex is a no-op on sentinel-free backgrounds; the PX phase (id=-1) clone is still found by findCloneByOriginalKey.",
+          "instrumentation": "- [Logging] create-tmp-omissions error path logs the existing tmp file path and the --force hint; phasify self-verification logs each file still referencing an old key.\n- [Metrics] No new runtime metrics; test suite assertion on run-all Failed count == 14 is the regression signal.\n- [Error tracking] Scripts exit non-zero with [create-tmp-omissions] / [phasify-omissions] prefixed messages so the outer conver.js runner can notify Slack.\n- [Health check] node --check on the 4 edited scripts is part of the verification gate.",
+          "investigation": "Evidence gathered (tools/conver/.claude): (1) scripts/lib/create-ticket-from-source.js L36 STRIP_ON_CLONE = [completedAt, startedAt]; stripCompletedResidue (L76-83) deletes only those + status=todo - foundOmissions/originalTicketKey survive the deep clone. (2) scripts/tickets/create-tmp-omissions.js L392-396 stubsMap[key].push({file, content, codes}) drops line; phasify-omissions.js rewriteSourceMarkerLines L783 requires stub.line else continue - all rewrites silently skipped. (3) create-tmp-omissions.js main() L411-416 always writes a fresh _tmp-omissions-<ts>.json with no existence check; get-next-check-target-ticket.js ensureTmpOmissions already guards the normal path. (4) add-omission-ticket.js findCloneByOriginalKey L228 filters phase.id !== -1 (PX only) while appendTicket L110-114 places clones in the max real phase - search/placement mismatch. Helper modules: phasify-helpers.js rewriteStubKeys (L697) rewrites content only; validate-no-external-excuses.js extractTicketKey (L80). Baseline: tests/run-all.js from .claude CWD = 22 Failed = 14 pre-existing environmental (resolve-ecc-root.js path bug + hooks tests) + 8 past-work regressions (phasify-srcdir/create-crime-deferral CWD-relative paths, create-resolving C005 stale wording, create-deferral/create-crime-deferral parseArgs stale assertion, ensure-tickets-json/batch-update-stub CWD-dependence).",
+          "boyScoutPlan": "- Extract the sentinel-strip regex and the old-key verification into named functions/constants in create-ticket-from-source.js and phasify-omissions.js so the intent reads as prose.\n- In rewriteSourceMarkerLines rename the ambiguous idx to markerLineIndex and unify line-location so the replacement loop and the fallback share one index (fixes the stub.line - 1 -> idx gap).\n- Centralize findLatestTmpOmissions: create-tmp-omissions.js currently has no copy while add-omission-ticket.js and get-next-check-target-ticket.js duplicate it - extract to a shared lib function to remove the triple implementation.\n- Rename stripCompletedResidue helper to reflect it now also clears inspection residue (e.g. stripClonedTicketResidue) and update its JSDoc pre/post conditions.",
+          "created_at": "2026-08-06",
+          "updated_at": "2026-08-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "C001-precondition -> test input code\n  ```js\n  const sourceTicket = { id: 4, phaseId: 8, status: \"reviewed\", title: \"old\",\n    foundOmissions: [{ criterion: \"A\", evaluations: [] }],\n    originalTicketKey: \"P5-2\",\n    background: \"[::INSPECTION_FLAGGED::]\\nflagged\\n\\nreal content\",\n    nodeIds: [\"N0001\"] };\n  const ticketsData = { title: \"T\", phases: [{ id: 8, tickets: [sourceTicket] }] };\n  ```",
+            "C001-postcondition -> assertion code\n  ```js\n  const res = createTicketFromSource({ ticketsData, sourceKey: \"P8-4\", seed: { title: \"new\" } });\n  assert.strictEqual(res.ticket.foundOmissions, undefined);\n  assert.strictEqual(res.ticket.originalTicketKey, undefined);\n  assert.ok(!res.ticket.background.includes(\"[::INSPECTION_FLAGGED::]\"));\n  assert.strictEqual(res.ticket.status, \"todo\");\n  ```",
+            "C001-invariant -> predicate code\n  ```js\n  assert.deepStrictEqual(res.ticket.nodeIds, [\"N0001\"]);\n  assert.deepStrictEqual(res.ticket.relatedTicketIds, sourceTicket.relatedTicketIds);\n  ```",
+            "C002-precondition -> test input code\n  ```js\n  const stub = { file: \"src/a.rs\", line: 3, content: \"// [::STUB::] P0-1: -- Vendor lib\" };\n  const stubsMapEntry = { file: stub.file, line: stub.line, content: stub.content, codes: extractCodes(stub.file, stub.line + 1) };\n  assert.strictEqual(stubsMapEntry.line, 3);\n  ```",
+            "C002-postcondition -> assertion code\n  ```js\n  const output = { phases: [{ id: 6, tickets: [{ id: 1, phaseId: 6, stubs: [stub] }] }] };\n  rewriteOutputStubKeys(output);\n  const disk = fs.readFileSync(\"src/a.rs\", \"utf8\");\n  assert.ok(disk.includes(\"[::STUB::] P6-1\"));\n  assert.ok(!disk.includes(\"[::STUB::] P0-1\"));\n  ```",
+            "C002-invariant -> predicate code\n  ```js\n  const contentKey = (output.phases[0].tickets[0].stubs[0].content.match(/[A-Z]+[A-Z0-9]*-[0-9]+/) || [])[0];\n  const diskKey = (disk.match(/[::STUB::]\\s+([A-Z]+[A-Z0-9]*-[0-9]+)/) || [])[1];\n  assert.strictEqual(contentKey, diskKey);\n  ```",
+            "C003-precondition -> test input code\n  ```js\n  fs.writeFileSync(\"_tmp-omissions-20260806000000.json\", \"{}\", \"utf8\");\n  const createScript = path.join(SCRIPTS_DIR, \"create-tmp-omissions.js\");\n  ```",
+            "C003-postcondition -> assertion code\n  ```js\n  const blocked = spawnSync(\"node\", [createScript], { encoding: \"utf8\" });\n  assert.strictEqual(blocked.status, 2);\n  assert.ok(blocked.stderr.includes(\"already exists\"));\n  const forced = spawnSync(\"node\", [createScript, \"--force\"], { encoding: \"utf8\" });\n  assert.strictEqual(forced.status, 0);\n  ```",
+            "C003-invariant -> predicate code\n  ```js\n  const tmpFiles = fs.readdirSync(\".\").filter(f => /^_tmp-omissions-\\d{14}\\.json$/.test(f));\n  assert.ok(tmpFiles.length >= 1);\n  ```",
+            "C004-precondition -> test input code\n  ```js\n  const data = { phases: [{ id: 8, tickets: [{ id: 1, phaseId: 8, originalTicketKey: \"P6-1\", foundOmissions: [] }] }] };\n  const omission = { criterion: \"A\", evaluations: [{ criterion: \"A\", passed: false, reason: \"r\", evidence: [{ file: \"a.rs\", line: 1 }] }] };\n  ```",
+            "C004-postcondition -> assertion code\n  ```js\n  const clone = findCloneByOriginalKey(data, \"P6-1\");\n  assert.ok(clone, \"clone in real phase is found\");\n  const updated = appendFoundOmissions(data, \"P6-1\", [omission]);\n  const clones = updated.phases.flatMap(p => p.tickets).filter(t => t.originalTicketKey === \"P6-1\");\n  assert.strictEqual(clones.length, 1);\n  ```",
+            "C004-invariant -> predicate code\n  ```js\n  for (const phase of updated.phases) {\n    const keys = (phase.tickets || []).map(t => t.originalTicketKey).filter(Boolean);\n    assert.strictEqual(new Set(keys).size, keys.length, \"no duplicate originalTicketKey within a phase\");\n  }\n  ```"
+          ],
+          "startedAt": "2026-08-06"
         }
       ]
     },
