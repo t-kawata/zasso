@@ -140,12 +140,13 @@ mod tests {
     /// @verifies C030
     #[tokio::test]
     // [::TICKET::] P7-2: O-002 — deterministic timeout publishes DtmfSent{Err(Timeout)} after 500ms
-    async fn dtmf_sent_timeout_fallback_publishes_timeout() {
+    async fn dtmf_sent_timeout_fallback_publishes_timeout(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
-        let call_id = CallId::from_u64(1).unwrap();
-        let account_id = AccountId::from_u64(1).unwrap();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(1)?;
 
         spawn_dtmf_sent_timeout(DtmfSentTimeoutRequest {
             call_id,
@@ -157,7 +158,7 @@ mod tests {
         });
 
         tokio::time::advance(std::time::Duration::from_millis(500)).await;
-        let ev = rx.recv().await.unwrap();
+        let ev = rx.recv().await?;
         assert_eq!(ev.meta.call_id, Some(call_id), "EventMeta must carry the call_id");
         assert_eq!(
             ev.meta.account_id,
@@ -173,18 +174,19 @@ mod tests {
             }
             _ => panic!("expected DtmfSent, got {:?}", ev.payload),
         }
+        Ok(())
     }
 
     /// @verifies C030
     #[tokio::test]
     // [::TICKET::] P7-2: O-002 — timeout does not fire before the deadline elapses
-    async fn dtmf_sent_timeout_not_before_deadline() {
+    async fn dtmf_sent_timeout_not_before_deadline() -> Result<(), Box<dyn std::error::Error>> {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
 
         spawn_dtmf_sent_timeout(DtmfSentTimeoutRequest {
-            call_id: CallId::from_u64(1).unwrap(),
+            call_id: CallId::from_u64(1)?,
             account_id: None,
             method: DtmfMethod::Info,
             digit: '#',
@@ -203,6 +205,7 @@ mod tests {
             "DtmfSent must not fire before the deadline, got {:?}",
             result
         );
+        Ok(())
     }
 
     // ── DtmfSentInfo Normal ────────────────────────────────────────────
@@ -282,9 +285,9 @@ mod tests {
     // ── Clone + Debug invariants ───────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P11-6, P11-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-6|P11-13) --for-spec --no-implementation-order`.
     fn dtmf_sent_info_is_clone_and_debug() {
-// [::TICKET::] P0-5, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P11-6, P11-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-6|P11-13) --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<DtmfSentInfo>();
         assert_clone_debug::<SentDtmfError>();
@@ -310,12 +313,12 @@ mod tests {
     /// @verifies C029
     #[test]
     // [::TICKET::] P11-6: m20 DtmfMethod gains the Inband variant (C029 3-category set)
-// [::TICKET::] P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-6, P11-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13) --for-spec --no-implementation-order`.
     fn dtmf_method_inband_variant() {
         let inband = DtmfMethod::Inband;
         let info = DtmfMethod::Info;
         let rfc4733 = DtmfMethod::Rfc4733;
-// [::TICKET::] P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-6, P11-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13) --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<DtmfMethod>();
         assert_ne!(inband, rfc4733);
@@ -337,7 +340,8 @@ mod tests {
     /// @verifies C030
     #[tokio::test]
     // [::TICKET::] P11-6: at-most-once invariant — aborting the returned JoinHandle suppresses the Timeout event
-    async fn aborting_timeout_handle_suppresses_publication() {
+    async fn aborting_timeout_handle_suppresses_publication(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         // Keep a sender alive so `try_recv` reports `Empty` rather than `Closed`
@@ -345,8 +349,8 @@ mod tests {
         let _keep_alive = bus.clone();
 
         let timer = spawn_dtmf_sent_timeout(DtmfSentTimeoutRequest {
-            call_id: CallId::from_u64(1).unwrap(),
-            account_id: Some(AccountId::from_u64(1).unwrap()),
+            call_id: CallId::from_u64(1)?,
+            account_id: Some(AccountId::from_u64(1)?),
             method: DtmfMethod::Rfc4733,
             digit: '5',
             timeout_ms: DEFAULT_DTMF_SENT_TIMEOUT_MS,
@@ -364,17 +368,18 @@ mod tests {
             ),
             "aborted timer must not publish a DtmfSent Timeout event"
         );
+        Ok(())
     }
 
     /// @verifies C069
     #[tokio::test]
     // [::TICKET::] P11-6: the published DtmfSent event carries call_id/account_id and the exact method/digit
-    async fn dtmf_sent_timeout_event_carries_identifiers() {
+    async fn dtmf_sent_timeout_event_carries_identifiers() -> Result<(), Box<dyn std::error::Error>> {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
-        let call_id = CallId::from_u64(7).unwrap();
-        let account_id = AccountId::from_u64(3).unwrap();
+        let call_id = CallId::from_u64(7)?;
+        let account_id = AccountId::from_u64(3)?;
 
         let _timer = spawn_dtmf_sent_timeout(DtmfSentTimeoutRequest {
             call_id,
@@ -386,7 +391,7 @@ mod tests {
         });
 
         tokio::time::advance(std::time::Duration::from_millis(500)).await;
-        let ev = rx.recv().await.unwrap();
+        let ev = rx.recv().await?;
         assert_eq!(ev.meta.call_id, Some(call_id));
         assert_eq!(ev.meta.account_id, Some(account_id));
         if let SipEventPayload::DtmfSent(info) = ev.payload {
@@ -395,5 +400,6 @@ mod tests {
         } else {
             panic!("expected DtmfSent");
         }
+        Ok(())
     }
 }
