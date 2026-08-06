@@ -29,7 +29,7 @@ use crate::runtime::command::ReactorError;
 // PJSUA error code constants
 //
 // [::TICKET::] P3-2: FFI layer integrated — ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN
-// [::STUB::] P4-2: PJSIP status, inv-state, and media-status constants are hand-coded duplicates of pjsua.h defines (covers error_design_siperror.rs:32,302) -- Replace hand-coded PJSIP constants with the bindgen-generated constants from pjsua.h once the pjsua-native feature enables FFI
+// [::STUB::] P11-9: PJSIP status, inv-state, and media-status constants are hand-coded duplicates of pjsua.h defines (covers error_design_siperror.rs:32,302) -- Replace hand-coded PJSIP constants with the bindgen-generated constants from pjsua.h once the pjsua-native feature enables FFI
 // ---------------------------------------------------------------------------
 
 /// PJ_SUCCESS — no error.
@@ -201,7 +201,7 @@ pub struct SipError {
     /// `Some(status)` when the error originates from an FFI call.
     /// `None` for errors that do not involve the native stack.
     ///
-// [::STUB::] P5-1: Error fields use i32/u64 instead of AccountId/CallId newtypes pending caller migration -- Migrate native_status and AccountInfo to AccountId/CallId newtypes once the newtypes are stable across callers
+// [::STUB::] P9-5: Error fields use i32/u64 instead of AccountId/CallId newtypes pending caller migration -- Migrate native_status and AccountInfo to AccountId/CallId newtypes once the newtypes are stable across callers
     pub native_status: Option<i32>,
     /// Optional account ID associated with this error.
     pub account_id: Option<u64>,

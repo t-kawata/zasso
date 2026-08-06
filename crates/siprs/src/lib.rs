@@ -48,8 +48,8 @@ pub mod error;
 
 /// Account, Call, and Transport type stubs.
 ///
-// [::STUB::] P3-1: account/call/transport lifecycle methods are deferred -- Implement account and transport configuration lifecycle methods (make, answer, hangup) per the P3-1 specification
-// [::STUB::] P5-1: SipCall lifecycle and fields are placeholders; call API semantics are deferred -- Implement SipCall with private fields and accessors and call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (NODE_ID=N0027)
+// [::STUB::] P10-3: account/call/transport lifecycle methods are deferred -- Implement account and transport configuration lifecycle methods (make, answer, hangup) per the P3-1 specification
+// [::STUB::] P9-3: SipCall lifecycle and fields are placeholders; call API semantics are deferred -- Implement SipCall with private fields and accessors and call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (NODE_ID=N0027)
 pub mod account;
 pub mod call;
 pub mod transport;
@@ -61,7 +61,7 @@ pub mod event;
 pub mod state;
 
 // [::TICKET::] P3-2: Audio mixer (mix_i16_frame) implemented in runtime/audio_worker.rs.
-// [::STUB::] P4-2: audio/ module is commented out; format types exist in model/ -- Uncomment and implement higher-level audio orchestration in the audio module once model/ format types are stable
+// [::STUB::] P11-12: audio/ module is commented out; format types exist in model/ -- Uncomment and implement higher-level audio orchestration in the audio module once model/ format types are stable
 // The audio/ module remains commented out — reserved for future higher-level audio orchestration (P5+).
 // pub mod audio;
 

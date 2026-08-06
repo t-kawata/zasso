@@ -29,7 +29,7 @@ use crate::error::error_design_siperror::{SipError, SipErrorKind};
 // PJSUA error code constants (shared with error_design_siperror)
 //
 // [::TICKET::] P3-2: ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN via FFI type aliases.
-// [::STUB::] P4-2: PJSIP status, inv-state, and media-status constants are hand-coded duplicates of pjsua.h defines -- Replace hand-coded PJSIP constants with the bindgen-generated constants from pjsua.h once the pjsua-native feature enables FFI
+// [::STUB::] P11-9: PJSIP status, inv-state, and media-status constants are hand-coded duplicates of pjsua.h defines -- Replace hand-coded PJSIP constants with the bindgen-generated constants from pjsua.h once the pjsua-native feature enables FFI
 // ---------------------------------------------------------------------------
 
 /// PJ_SUCCESS — no error.
@@ -112,7 +112,7 @@ pub fn convert_conf_disconnect_error(pj_status: i32, call_id: u64) -> Result<(),
 
 /// Information about a SIP account, returned by `GetAccountInfo` on success.
 ///
-// [::STUB::] P5-1: Error fields use i32/u64 instead of AccountId/CallId newtypes pending caller migration -- Migrate native_status and AccountInfo to AccountId/CallId newtypes once the newtypes are stable across callers
+// [::STUB::] P9-5: Error fields use i32/u64 instead of AccountId/CallId newtypes pending caller migration -- Migrate native_status and AccountInfo to AccountId/CallId newtypes once the newtypes are stable across callers
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountInfo {
     /// The account's unique identifier.
@@ -156,7 +156,7 @@ pub fn convert_get_account_info_error(
             format!("GetAccountInfo failed: pjsua_acc_get_info returned {pj_status}"),
         ));
     }
-// [::STUB::] P3-1: Account info and registration state are placeholders pending the reactor account state machine -- Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented
+// [::STUB::] P10-1: Account info and registration state are placeholders pending the reactor account state machine -- Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented
     Err(SipError::new(
         SipErrorKind::NativeError,
         "GetAccountInfo: account state not yet available (P3-1)".to_string(),

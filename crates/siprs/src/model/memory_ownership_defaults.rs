@@ -20,4 +20,4 @@
 pub struct Model {}
 
 
-// [::STUB::] P3-2: Memory ownership model and default policies are not yet implemented -- Implement memory ownership and default policies per node N0056 (Sections 47 & 48)
+// [::STUB::] P12-3: Memory ownership model and default policies are not yet implemented -- Implement memory ownership and default policies per node N0056 (Sections 47 & 48)

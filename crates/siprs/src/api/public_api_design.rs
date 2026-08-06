@@ -114,7 +114,7 @@ impl SipAccountHandle {
     /// machine (P3-1) connects this method to the actual registration workflow.
     #[instrument(skip(self))]
     pub async fn registration_state(&self) -> Result<RegistrationState, SipError> {
-// [::STUB::] P3-1: Account info and registration state are placeholders pending the reactor account state machine -- Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented
+// [::STUB::] P10-1: Account info and registration state are placeholders pending the reactor account state machine -- Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented
         Ok(RegistrationState::Idle)
     }
 
@@ -139,13 +139,13 @@ impl SipAccountHandle {
             .map_err(|e| {
                 SipError::new(SipErrorKind::InviteFailed, format!("make_call failed: {e}"))
             })?;
-// [::STUB::] P3-2: CallId is hardcoded to 1 -- Wire the real CallId assigned by the backend reactor from the MakeCall reply into the public API
+// [::STUB::] P12-1: CallId is hardcoded to 1 -- Wire the real CallId assigned by the backend reactor from the MakeCall reply into the public API
         Ok(1)
     }
 
     /// Update the account configuration.
     ///
-// [::STUB::] P4-2: update_config is a no-op -- Implement update_config with an AccountConfigPatch type and RuntimeCommand::UpdateAccount dispatch
+// [::STUB::] P11-7: update_config is a no-op -- Implement update_config with an AccountConfigPatch type and RuntimeCommand::UpdateAccount dispatch
     #[instrument(skip(self, _patch))]
     pub async fn update_config(&self, _patch: AccountConfig) -> Result<(), SipError> {
         Ok(())

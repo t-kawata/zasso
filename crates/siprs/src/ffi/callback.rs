@@ -13,7 +13,7 @@
 // pre-allocated NativeEvent and enqueuing it on a lock-free queue
 // or MPSC channel.
 //
-// [::STUB::] P4-2: PJSIP is not yet linked; callbacks are no-ops and NativeEvent enqueue is deferred (covers callback.rs:16,30,51,74,91,97) -- Register all PJSIP callbacks via pjsua_config.cb and enqueue NativeEvents (IncomingCall, RegState, CallState, CallMediaState, plus reg_started/call_redirected/dtmf_digit/call_transfer_status) through the reactor channel once PJSIP is linked
+// [::STUB::] P11-11: PJSIP is not yet linked; callbacks are no-ops and NativeEvent enqueue is deferred (covers callback.rs:16,30,51,74,91,97) -- Register all PJSIP callbacks via pjsua_config.cb and enqueue NativeEvents (IncomingCall, RegState, CallState, CallMediaState, plus reg_started/call_redirected/dtmf_digit/call_transfer_status) through the reactor channel once PJSIP is linked
 
 use crate::ffi::bindings;
 

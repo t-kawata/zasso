@@ -1,7 +1,7 @@
 // [::TICKET::] P0-3: SipCall type placeholder.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 //
-// [::STUB::] P5-1: SipCall lifecycle and fields are placeholders; call API semantics are deferred (covers call.rs:4,12) -- Implement SipCall with private fields and accessors and call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (NODE_ID=N0027)
+// [::STUB::] P9-3: SipCall lifecycle and fields are placeholders; call API semantics are deferred (covers call.rs:4,12) -- Implement SipCall with private fields and accessors and call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (NODE_ID=N0027)
 
 /// Represents a single SIP call session.
 ///

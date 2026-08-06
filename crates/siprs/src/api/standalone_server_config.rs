@@ -379,7 +379,7 @@ pub async fn run_server(config: ServerConfig) -> Result<(), crate::error::SipErr
         Arc::new(pool)
     };
 
-// [::STUB::] P4-3: Saved accounts are not restored from the DatabasePool on startup -- Implement startup account restoration by loading accounts via db.load_accounts() and calling sip_client.add_account() for each
+// [::STUB::] P12-2: Saved accounts are not restored from the DatabasePool on startup -- Implement startup account restoration by loading accounts via db.load_accounts() and calling sip_client.add_account() for each
 
     #[cfg(feature = "sqlite-storage")]
     let app_state = AppState {
