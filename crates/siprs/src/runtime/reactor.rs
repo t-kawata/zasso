@@ -42,7 +42,7 @@ pub struct BootConfig {
 pub struct CoreReactor;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -122,7 +122,7 @@ impl CoreReactor {
                                     // [::TICKET::] P8-1: O-003 — the reactor owns the
                                     // AudioMixer; audio lifecycle commands mutate it here
                                     // on the reactor thread (single-writer rule).
-                                    let source_id = audio_mixer.add_source(source);
+                                    let source_id = audio_mixer.add_source(source.into_inner());
                                     let _ = reply.send(Ok(source_id));
                                 }
                                 DispatchCommand::RemoveAudioSource {
@@ -535,6 +535,7 @@ fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>)
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::command::Reply;
     use crate::runtime::state::CallEntry;
     use std::collections::{BTreeMap, HashMap};
 
@@ -929,7 +930,7 @@ mod tests {
                         backend.add_account(&acct)?;
                         Ok(())
                     }),
-                    reply: tx,
+                    reply: Reply::new(tx),
                 };
                 let _ = handle_clone.sender.send(cmd);
                 rx.await
@@ -954,7 +955,7 @@ mod tests {
         // Contract-C047: Shutdown stops the reactor cleanly.
         let (handle, join) = spawn_reactor();
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let cmd = DispatchCommand::Shutdown { reply: tx };
+        let cmd = DispatchCommand::Shutdown { reply: Reply::new(tx) };
         handle.sender.send(cmd).ok();
         assert!(rx.await.is_ok(), "shutdown must complete");
         join.join()
@@ -972,7 +973,7 @@ mod tests {
         let (tx, rx) = tokio::sync::oneshot::channel();
         handle
             .sender
-            .send(DispatchCommand::Shutdown { reply: tx })
+            .send(DispatchCommand::Shutdown { reply: Reply::new(tx) })
             .ok();
         let _ = rx.await;
         join.join().unwrap();
@@ -1005,7 +1006,7 @@ mod tests {
         handle
             .submit(crate::runtime::command::RuntimeCommand::RemoveAccount {
                 account_id: id,
-                reply: _tx,
+                reply: Reply::new(_tx),
             })
             .await?;
         let state = handle.query_state().await?;
@@ -1037,7 +1038,7 @@ mod tests {
             .submit(crate::runtime::command::RuntimeCommand::UpdateAccount {
                 account_id: id,
                 config: new_config.clone(),
-                reply: _tx,
+                reply: Reply::new(_tx),
             })
             .await?;
         let state = handle.query_state().await?;
@@ -1057,7 +1058,7 @@ mod tests {
         handle
             .submit(crate::runtime::command::RuntimeCommand::CreateTransport {
                 config: crate::config::transport_ice_spec::TransportConfig::udp(5070),
-                reply: _tx,
+                reply: Reply::new(_tx),
             })
             .await?;
         let state = handle.query_state().await?;

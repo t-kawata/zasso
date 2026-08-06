@@ -1,3 +1,4 @@
+
 // [::TICKET::] P8-1: Runtime Infrastructure — ABC closure integration tests.
 //
 // This integration test file closes the O-001 and O-003 ABC inspection gaps:
@@ -15,8 +16,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use siprs::runtime::reactor::BootConfig;
+// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
 use siprs::runtime::{
-    AudioMixer, AudioWorkerTask, CoreReactor, MockAsyncAudioSource, RuntimeCommand,
+    AudioMixer, AudioWorkerTask, CoreReactor, MockAsyncAudioSource, Reply, RuntimeCommand,
     RuntimeHandle,
 };
 
@@ -34,7 +36,7 @@ async fn conf_connect_flows_through_reactor_and_returns_ok() {
     let (tx, _rx) = tokio::sync::oneshot::channel();
     let cmd = RuntimeCommand::ConfConnect {
         call_id: 42,
-        reply: tx,
+        reply: Reply::new(tx),
     };
     let result = handle.submit(cmd).await;
 
@@ -56,7 +58,7 @@ async fn conf_disconnect_flows_through_reactor_and_returns_ok() {
     let (tx, _rx) = tokio::sync::oneshot::channel();
     let cmd = RuntimeCommand::ConfDisconnect {
         call_id: 7,
-        reply: tx,
+        reply: Reply::new(tx),
     };
     let result = handle.submit(cmd).await;
 

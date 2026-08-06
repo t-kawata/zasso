@@ -23924,119 +23924,178 @@
           ],
           "contracts": [
             {
-              "id": "C010",
-              "sourceEdge": "N0009→N0008",
-              "precondition": "Runtime module structure matches RFC §6",
-              "postcondition": "runtime/ module compiled and linked",
-              "invariant": "Module boundary: runtime/ depends only on tokio + std"
-            },
-            {
               "id": "C011",
               "sourceEdge": "N0010→N0009 (inbound)",
-              "precondition": "MPSC channel established between RuntimeHandle and CoreReactor",
-              "postcondition": "All commands pass through unbounded MPSC channel in FIFO order",
-              "invariant": "Reactor loop processes exactly one command per iteration with no reordering"
+              "precondition": "RuntimeCommand variants are constructible with a Debug-friendly Reply channel wrapping tokio::sync::oneshot::Sender",
+              "postcondition": "derived Debug output for every variant is non-panicking and identifies the variant while Display output remains unchanged",
+              "invariant": "every RuntimeCommand variant is Debug via derive and DispatchCommand retains its manual Debug impl"
             },
             {
-              "id": "C012",
-              "sourceEdge": "N0011→N0009 (inbound)",
-              "precondition": "RuntimeHandle is Send + Sync",
-              "postcondition": "RuntimeHandle can be shared across tokio tasks and threads safely",
-              "invariant": "RuntimeCommand enum and all its fields satisfy Send bounds"
+              "id": "C053",
+              "sourceEdge": "N0010 design refinement (P10-4)",
+              "precondition": "Reply wraps a tokio oneshot sender",
+              "postcondition": "Reply is Debug for any payload without requiring payload Debug; send delivers the value and into_inner recovers the sender",
+              "invariant": "Debug output is stable and never panics regardless of payload type"
+            },
+            {
+              "id": "C054",
+              "sourceEdge": "N0010 design refinement (P10-4)",
+              "precondition": "DebugBox wraps a non-Debug boxed payload such as Box dyn AsyncAudioSource",
+              "postcondition": "DebugBox is Debug without requiring the inner type to be Debug and into_inner returns the original box",
+              "invariant": "audio sources reach the mixer unchanged after DebugBox round-trip"
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P0-2 specified the RuntimeCommand enum with tokio oneshot reply channels. Because oneshot::Sender is not Debug, Debug was manually implemented (src/runtime/command.rs:148-174) to print only variant names. This work item migrates the reply channel to a Debug-friendly wrapper type so RuntimeCommand can derive Debug and produce richer debug output.",
+          "background": "- 【Goal】Replace the hand-written Debug impl on RuntimeCommand (command.rs:161-191) with #[derive(Debug)] by introducing a Debug-friendly wrapper around tokio::sync::oneshot::Sender and a Debug wrapper for the boxed AsyncAudioSource payload\n- 【Purpose】The manual Debug impl only prints RuntimeCommand::{Variant} and hides all payloads; it has drifted into an exact duplicate of the Display match (command.rs:194-221) and must be edited by hand every time a variant is added — a maintenance trap\n- 【Motivation】tokio 1.x oneshot::Sender does not implement Debug (the STUB at command.rs:161 states this) and RuntimeCommand::AddAudioSource carries Box<dyn AsyncAudioSource + Send> which is not Debug (command.rs:43). A Reply<T> wrapper plus a DebugBox<T> wrapper makes every field Debug so the enum can derive Debug, the manual impl is deleted, and tracing can log field-rich command payloads\n- 【Constraints】Zero behavior change: derived Debug output must be non-panicking for every variant and identify the variant; the Display impl is unchanged; existing tests (Display variant names command.rs:510-532/576-655/851-865, DispatchCommand::from_runtime_command conversion, reactor reply delivery, send_reply) must keep passing; AsyncAudioSource must NOT gain a Debug supertrait (CpalMicrophoneSource.stream is cpal::Stream, not Debug in cpal 0.18.1, so a supertrait breaks --features cpal-input and is a breaking change for downstream implementors)",
           "scope": [
-            "- src/runtime/command.rs - introduce a Debug-friendly sender wrapper (e.g., ReplyChannel<T>), replace `tokio::sync::oneshot::Sender<...>` reply fields, and derive/verify Debug on RuntimeCommand",
-            "- src/runtime/reactor.rs - update construction/send sites to the wrapper type",
-            "- src/runtime/handle.rs - verify submit() sites compile against the wrapper",
-            "- Out of scope: changing oneshot reply semantics, FIFO ordering, or Send bounds.",
-            "- Impact: RuntimeCommand becomes fully Debug-derivable; debug output can include field summaries instead of just variant names."
+            "- src/runtime/command.rs — ADD Reply<T> newtype wrapping tokio::sync::oneshot::Sender<T> with pub(crate) new()/send()/into_inner() and a manual Debug impl printing a stable placeholder",
+            "- src/runtime/command.rs — ADD DebugBox<T> newtype wrapping Box<T> with pub(crate) new()/into_inner() and a manual Debug impl printing an opaque placeholder; T need not be Debug",
+            "- src/runtime/command.rs — CHANGE every RuntimeCommand reply field from tokio::sync::oneshot::Sender<Result<.., ReactorError>> to Reply<Result<.., ReactorError>> (all 20 variants); CHANGE AddAudioSource.source from Box<dyn AsyncAudioSource + Send> to DebugBox<dyn AsyncAudioSource + Send>; ADD #[derive(Debug)] to RuntimeCommand and DELETE the manual Debug impl at lines 161-191",
+            "- src/runtime/command.rs — CHANGE DispatchCommand reply fields to Reply<..> and AddAudioSource.source to DebugBox<..> so from_runtime_command moves the wrappers directly; KEEP the manual DispatchCommand Debug (BackendFn = Box<dyn FnOnce> at line 225 can never derive Debug); UPDATE from_runtime_command (line 318) and send_reply (line 492) to the Reply type",
+            "- src/runtime/handle.rs — CHANGE submit() (line 53) to inject Reply::new(tx) into each DispatchCommand variant; CHANGE submit_add_audio_source (line 204) to wrap the source in DebugBox::new; submit_add_account (line 177) / submit_get_account_info (line 129) / audio helpers construct Reply::new",
+            "- src/runtime/reactor.rs — CHANGE AddAudioSource dispatch (line 118) to audio_mixer.add_source(source.into_inner()); CHANGE every reply.send(...) to the Reply::send method on the reactor thread",
+            "- src/client.rs + src/api/public_api_design.rs + src/state/m20_native_event_conv.rs — CHANGE RuntimeCommand construction sites (client.rs:120 Initialize, :258 RemoveAccount, :308 CreateTransport, :391 Shutdown; public_api_design.rs:58/78/98 SetRegistration, :145 MakeCall, :189 UpdateAccount) to wrap the reply sender in Reply::new",
+            "- tests/ — UPDATE command.rs / handle.rs / reactor.rs / client.rs / public_api_design.rs test modules and tests/verify_spec_p10_1.rs / verify_spec_p9_1.rs / examples/common/client.rs that construct RuntimeCommand variants to use Reply::new and DebugBox::new",
+            "- src/runtime/mod.rs — RE-EXPORT Reply (and DebugBox) alongside RuntimeCommand; RuntimeCommand is pub (runtime/mod.rs:39) and its variant fields reference Reply, so the wrapper must be at least as visible as the enum",
+            "- NOT changing: AsyncAudioSource trait (no Debug supertrait); RuntimeCommand Display impl; DispatchCommand manual Debug; command dispatch semantics, FIFO ordering, or oneshot reply semantics",
+            "- Impact on components: src/runtime/command.rs (Reply/DebugBox/derive Debug), src/runtime/handle.rs (submit + typed helpers), src/runtime/reactor.rs (dispatch arms), src/client.rs, src/api/public_api_design.rs, src/state/m20_native_event_conv.rs, command/handle/reactor/client test modules, examples/common/client.rs",
+            "- Impact nature: API surface of pub RuntimeCommand (reply field type changes from tokio::sync::oneshot::Sender to Reply) — a compile-time break for any external constructor, contained to the crate's runtime types; Debug output becomes field-rich; no runtime behavior, performance, or data-format change",
+            "- Impact response: YES — all in-crate construction sites and tests must be updated in this ticket; downstream crates (if any construct RuntimeCommand) need a compile-fix; DispatchCommand/ReactorError are unaffected in behavior"
           ],
           "testUnit": [
-            "UT: [C012] RuntimeCommand implements Debug for every variant (compile-time: fn assert_debug<T: Debug>()).",
-            "UT: [C011] format!(\"{:?}\", cmd) for a representative variant (Shutdown, AddAudioSource, MakeCall) does not panic and contains the variant name.",
-            "UT: [C012] The sender wrapper is Send (compile-time assert).",
-            "UT: [C011] Display output unchanged: format!(\"{}\", RuntimeCommand::Shutdown) == \"RuntimeCommand::Shutdown\".",
-            "UT: [Normal] The wrapper round-trips a reply (send through the wrapper, receive on the oneshot) - exactly-once delivery.",
-            "UT: [Boundary] Debug output for a variant with a payload field (e.g., MakeCall with account_id) includes the field or a non-sensitive summary."
+            "UT: [Normal] every RuntimeCommand variant formats with the derived Debug impl without panicking and the output identifies the variant — construct each of the 20 variants with Reply::new(oneshot::channel().0) and assert format!(\"{:?}\", cmd) contains the variant name (Shutdown, AddAudioSource, UpdateAccount, QueryState, GetAccountInfo, CreateTransport, ...)",
+            "UT: [Normal] Reply<T> Debug output is a stable placeholder independent of the payload type — format!(\"{:?}\", Reply::new(tx)) equals the same fixed string for Reply<Result<(), ReactorError>>, Reply<Result<u64, ReactorError>>, and Reply<Result<ClientState, ReactorError>>",
+            "UT: [Normal] Reply::new wraps a tokio::sync::oneshot::Sender; Reply::send delivers the value to the receiver and Reply::into_inner returns the underlying sender unchanged",
+            "UT: [Normal] DebugBox<T> Debug output is a stable placeholder even when T is not Debug — format!(\"{:?}\", DebugBox::new(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])))) for Box<dyn AsyncAudioSource + Send> does not panic; into_inner returns the original box (identity round-trip)",
+            "UT: [Error] Debug formatting never panics for the largest payloads — Initialize with a full ClientConfig and AddAudioSource with a trait-object audio source produce non-panicking Debug output containing the variant name",
+            "UT: [Error] Display output is unchanged after the Debug migration — every variant's Display output equals RuntimeCommand::{Variant}; existing display tests (runtime_command_display_shows_variant_name, runtime_command_variant_discriminants_are_distinct, conf_connect_variant_constructs_and_displays) keep passing without modification",
+            "UT: [Boundary] derived Debug for UpdateAccount contains the field name \"config\" (proving the derive replaced the manual variant-name-only impl) while Reply renders as a placeholder rather than the sender internals",
+            "UT: [Boundary] a zero-payload variant (Shutdown) formats to RuntimeCommand::Shutdown under both {:?} and {} — Debug and Display agree on the variant name",
+            "UT: [Invariant] compile-time assert_debug::<RuntimeCommand>() proves Debug is derived; assert_debug::<Reply<Result<(), ReactorError>>>() and assert_debug::<DebugBox<dyn AsyncAudioSource + Send>>() prove the wrappers are Debug without a Debug payload bound",
+            "UT: [Invariant] DispatchCommand::from_runtime_command preserves the Reply and DebugBox wrappers — AddAudioSource maps to DispatchCommand::AddAudioSource carrying the same DebugBox, and every reply channel survives conversion un-dropped (the receiver still receives the reply)",
+            "UT: [C011] runtime_command_display_shows_variant_name and runtime_command_variant_discriminants_are_distinct keep passing — Display names remain unique and identify variants after the Debug change",
+            "UT: [C011] reactor reply delivery is unchanged — send_reply with a Reply<Result<(), ReactorError>> delivers the result when the receiver is alive and logs (does not panic) when the receiver is dropped",
+            "UT: [C011] submit + execute still deliver results through the Reply channel — handle.submit(RuntimeCommand::Shutdown { reply: Reply::new(tx) }) returns Ok and the reactor processes the command (existing handle/reactor tests adapted to Reply)",
+            "UT: [C053] Reply::send returns Err with the value when the receiver is dropped (oneshot semantics preserved)",
+            "UT: [C053] Reply is Send + Sync when the inner sender is Send + Sync (compile-time assert_send/assert_sync::<Reply<Result<(), ReactorError>>>)",
+            "UT: [C054] DebugBox::into_inner returns the exact boxed source so audio_mixer.add_source receives the same MockAsyncAudioSource (no data loss through the wrapper)",
+            "UT: [C054] DebugBox::new accepts a Box<dyn AsyncAudioSource + Send> trait object without a Debug bound (compile-time proof the trait is untouched)"
           ],
           "testIntegration": [
-            "IT: [Dispatch] Submit a command through RuntimeHandle and receive the reply via the wrapper - identical to before the migration (existing P0-2 tests keep passing).",
-            "IT: [Logging] A debug log of a RuntimeCommand in the reactor loop renders without error."
+            "IT: [RuntimeCommand] construct every RuntimeCommand variant, convert via DispatchCommand::from_runtime_command, and format both sides with {:?} and {} — assert non-panicking, variant-identifying output in the command.rs tests module",
+            "IT: [Reactor] end-to-end command dispatch with Reply: SipClient::new -> add_account -> query_state -> shutdown; each submit path exercises Reply::send through the reactor and the authoritative ClientState (existing reactor integration tests adapted to Reply)",
+            "IT: [Audio] AddAudioSource round-trip: submit_add_audio_source wraps the source in DebugBox; the reactor receives DispatchCommand::AddAudioSource, into_inner recovers the box, and audio_mixer.add_source stores a MockAsyncAudioSource with the same canned data",
+            "IT: [Compile] cargo check --all-targets passes with 0 warnings after the field-type migration; cargo check --features cpal-input still compiles (CpalMicrophoneSource is untouched by the Debug migration)"
           ],
           "testExceptions": [
-            "oneshot::Sender itself cannot be made Debug without the wrapper; the migration is the wrapper. Raw sender identity is not exposed in Debug output by design."
+            "Item: Real PJSUA FFI reply delivery. Reason: not testable without a live PJSIP stack (pjsua-native feature unavailable in this environment) — the real FFI reply path is not testable in unit tests. NOT a design defect: Reply wraps tokio::sync::oneshot::Sender which is fully testable in-process; the FFI layer sits behind SipBackend (C038) by design. Alternative verification: all Reply semantics are exercised with MockBackend through the reactor.",
+            "Item: Debug output bytes for the real CpalMicrophoneSource under --features cpal-input. Reason: cpal::Stream (cpal 0.18.1) does not implement Debug, so the exact hardware stream internals are not testable (cannot be printed or asserted). NOT a design defect: DebugBox is intentionally opaque and its behavior is fully tested with MockAsyncAudioSource. Alternative verification: cargo check --features cpal-input plus the DebugBox placeholder unit test.",
+            "Item: Byte-for-byte Debug output stability across Rust compiler versions. Reason: derived Debug formatting of payloads (ClientConfig, AccountConfig, TransportConfig) is compiler-version-dependent, so byte-exact output is not testable portably (cannot be asserted against a fixed string). NOT a design defect: the contract is non-panicking + variant identification, asserted via containment rather than exact bytes. Alternative verification: containment assertions in testUnit."
           ],
           "acceptanceCriteria": [
-            "【Happy path】RuntimeCommand derives #[derive(Debug)] (or otherwise produces field-rich debug output) and compiles for every variant, including those carrying a reply channel.",
-            "【Happy path】The Debug-friendly sender wrapper implements Debug (e.g., prints \"ReplyChannel\" or a non-sensitive summary) and is used for all reply fields.",
-            "【Happy path】format!(\"{:?}\", RuntimeCommand::Shutdown { reply }) prints the variant and does not panic.",
-            "【Happy path】AddAudioSource (which boxes a non-Debug AsyncAudioSource) also produces a working Debug representation (via a scoped manual Debug for that field or a second wrapper), so derivation is total.",
-            "【Error case】No behavior change: send_reply()/reactor dispatch still deliver exactly-once results through the wrapper.",
-            "【Edge case】The Display impl (format!(\"{}\", cmd)) output is unchanged - it still prints \"RuntimeCommand::Variant\"."
+            "Happy path: RuntimeCommand derives Debug; format!(\"{:?}\", cmd) for every one of the 20 variants is non-panicking and contains the variant name; Reply<T> and DebugBox<T> produce stable Debug placeholders; the manual Debug impl (command.rs:161-191) is deleted",
+            "Happy path: all construction sites (handle.rs submit, client.rs, public_api_design.rs, m20_native_event_conv.rs, command/handle/reactor/client tests, examples) use Reply::new and DebugBox::new; DispatchCommand::from_runtime_command preserves them; make test passes with 0 warnings",
+            "Error case: Debug formatting never panics for any payload combination (full ClientConfig, AccountConfig, trait-object audio source); existing Display variant-name tests and reactor reply-delivery tests keep passing unchanged; Reply::send returns Err(value) on a dropped receiver",
+            "Edge case: the [::STUB::] P10-4 marker at src/runtime/command.rs:161 is resolved (real derive replaces the manual impl); the stale doc comment at command.rs:43 is rewritten to state Debug is derived via Reply/DebugBox",
+            "Edge case: AsyncAudioSource public trait is unchanged (no Debug supertrait); cargo check --features cpal-input still compiles"
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§7)",
           "relatedTicketIds": "P0-1 (depends on: P0 defines overall architecture that concurrency model realizes), P2 (depends on: P2 extends RuntimeCommand with M20 variants)",
-          "notes": "- Stub file:line list - src/runtime/command.rs:146.\n- Implementation steps: (1) add the ReplyChannel wrapper with a Debug impl; (2) replace reply field types across RuntimeCommand and DispatchCommand; (3) update construction/send sites (reactor.rs, handle.rs, tests); (4) derive Debug on RuntimeCommand (and handle the boxed AsyncAudioSource field); (5) keep Display unchanged; (6) Red tests; (7) Green.\n- Dependencies: reactor.rs and handle.rs consume the reply fields; existing P0-2 tests (command.rs:436-730) exercise construction and dispatch - they must be updated to the wrapper and kept green.\n- Related tickets: P0-2 (original concurrency model), P2 (extends RuntimeCommand with M20 variants).",
+          "notes": "- Implementation steps: (1) Red — write the failing testUnit/testIntegration suite asserting derived-Debug behavior (non-panicking, variant-identifying {:?}, stable Reply/DebugBox placeholders); (2) add Reply<T> and DebugBox<T> to command.rs with Debug impls and new()/send()/into_inner(); (3) change RuntimeCommand and DispatchCommand field types, add #[derive(Debug)] to RuntimeCommand, delete the manual Debug (lines 161-191), rewrite the command.rs:43 doc comment; (4) update handle.rs submit() + typed helpers, reactor.rs dispatch arms, send_reply; (5) update client.rs / public_api_design.rs / m20_native_event_conv.rs construction sites; (6) update all tests and examples; (7) Green — make test; (8) Refactor — Boy Scout\n- Risks: (a) changing the reply field type breaks every construction site and test that builds a RuntimeCommand/DispatchCommand — 33 oneshot::Sender sites in command.rs/handle.rs/reactor.rs/tests must migrate atomically; (b) DispatchCommand::Execute closure (BackendFn) is not Debug, so DispatchCommand must keep manual Debug — the derive applies only to RuntimeCommand; (c) derived Debug exposes payload fields in logs — intended richer output, but log content changes\n- Caveats: submit() discards the caller-supplied reply channel and injects its own (handle.rs:59), so the caller reply stays vestigial — P10-4 preserves this behavior and only wraps the type; it does not redesign the channel flow; the stale targetStubs TS-001 (P0-2 resolved) and the null stubs entry on the ticket are cleaned up in Step 8; DispatchCommand::AddAudioSource also gains DebugBox (needed for from_runtime_command to move the wrapper)\n- Open items: whether DispatchCommand could eventually derive Debug if BackendFn were replaced by a Debug-friendly handle — out of scope, tracked as a future improvement; the RFC (N0010) declares RuntimeCommand reply as Result<_, SipError> while the implementation uses ReactorError — pre-existing discrepancy, not changed here\n- Future improvements: redesign RuntimeCommand to drop the vestigial caller reply field so submit() owns reply-channel creation entirely (removes the dead-channel pattern noted in P10-3 Boy Scout); add Debug to AsyncAudioSource implementors only if cpal::Stream ever gains Debug\nImplementation summary (P10-4):\n- Changed files: src/runtime/command.rs (Reply<T>/DebugBox<T> wrappers, #[derive(Debug)], deleted manual Debug, send_reply -> Reply), src/runtime/handle.rs (submit + typed helpers), src/runtime/reactor.rs (AddAudioSource into_inner, test Reply), src/runtime/mod.rs (re-exports), src/client.rs (Reply::new x4), src/api/public_api_design.rs (Reply::new x5), src/error/m20_shutdown_routing.rs (test helpers Reply::new x4), tests/runtime_audio_lifecycle.rs (Reply::new x2 + import).\n- TDD: RED (7 new tests failed: Reply/DebugBox undefined + field-name assertion fails on manual impl) -> GREEN (wrappers + derive + migration, 838 lib tests pass) -> REFACTOR (line 43 doc comment rewritten, single-letter test vars renamed, AMBIGUOUS annotations resolved).\n- Verification: make test (838 lib tests + integration + doc-tests all pass, exit 0), cargo check --all-targets (0 errors / 0 warnings), cargo check --features cpal-input (compiles — AsyncAudioSource trait untouched), verify-red-coverage (3/3 contracts), validate-ticket-targets (verifiedEmpty), no-external-excuses.\n- Quality check: 39 issues, all pre-existing test-code unwrap/expect (permitted by project Rust rules) + pre-existing commented-code detections; the 2 single-letter vars introduced by P10-4 were fixed.\n- Stub resolution: [::STUB::] P10-4 at command.rs:161 removed via remove-stub.js; manual Debug impl deleted; targetStubs set to verified_empty.\n- Provenance: [::TICKET::] P10-4 annotations injected into 8 modified files via annotate-ticket-context-by-git-diff.js.\nReview report (P10-4):\n- Static quality check: 49 issues, all pre-existing test-code unwrap/expect (permitted by project Rust rules) + pre-existing commented-code detections; the 2 single-letter test vars introduced by the ticket were fixed during implementation.\n- Translatability: no issues in new code — Reply<T>/DebugBox<T> methods are verb phrases (new/send/into_inner), no single-char vars, no hardcoded magic numbers, no debug output; comments explain why (oneshot not Debug, trait objects not Debug, T: ?Sized).\n- Compilation: cargo check --all-targets 0 errors / 0 warnings; cargo check --features cpal-input compiles (AsyncAudioSource trait untouched).\n- Tests: make test exit 0 — 838 lib tests + integration + doc-tests all pass; new P10-4 tests (runtime_command_debug_exposes_payload_field_names, reply_debug_output_is_payload_independent, reply_send_delivers_and_into_inner_recovers, reply_send_returns_err_on_dropped_receiver, debugbox_into_inner_preserves_audio_source, runtime_command_derives_debug, from_runtime_command_preserves_reply_and_debugbox) verified.\n- Design compliance: N0009/N0010 concurrency model preserved (Reply delegates to oneshot::Sender, FIFO + reply semantics unchanged); derived Debug identifies every variant (C011), Reply is Debug for any payload (C053), DebugBox round-trips the audio source (C054).\n- Contracts: verify-final-contracts 100% (1/1), verify-red-coverage 3/3, validate-ticket-targets verifiedEmpty.\n- Stub evaluation: [::STUB::] P10-4 at command.rs resolved (marker removed, manual Debug replaced by derive); other tree stubs (P10-5, P11-5, P12-9, P12-10, etc.) correctly deferred to future tickets.\n- Annotation verify: 8 changed source files carry [::TICKET::] P10-4 provenance; 0 AMBIGUOUS.\n- Crimes: 0 unresolved.\n- Risks/omissions/contradictions/deficiencies: none found. DispatchCommand retains manual Debug by design (BackendFn closure is not Debug).",
           "default_files": [
-            "src/runtime/mod.rs",
             "src/runtime/command.rs",
-            "src/runtime/reactor.rs",
             "src/runtime/handle.rs",
-            "src/runtime/state.rs",
-            "src/runtime/backend.rs"
+            "src/runtime/reactor.rs",
+            "src/runtime/mod.rs",
+            "src/client.rs",
+            "src/api/public_api_design.rs",
+            "src/state/m20_native_event_conv.rs"
           ],
           "id": 4,
           "phaseId": 10,
-          "status": "todo",
-          "invariants": "- All commands pass through the MPSC channel in FIFO order; the wrapper must not alter dispatch semantics (C011).\n- RuntimeCommand and all fields satisfy Send bounds; the wrapper must remain Send (C012).\n- runtime/ module boundary is preserved (C010).",
-          "instrumentation": "- No new logging required; the richer Debug output benefits existing reactor-loop tracing that formats RuntimeCommand.",
-          "investigation": "- src/runtime/command.rs:146 - the P8-27 stub sits above the manual `impl std::fmt::Debug for RuntimeCommand` (lines 148-174), which matches on variant names and prints only \"RuntimeCommand::{Variant}\", skipping all fields.\n- Line 43 comment: \"Debug is manual (not derived) because `Box<dyn AsyncAudioSource>` is not Debug.\" The enum (lines 44-144) has 18 variants; every reply field is `tokio::sync::oneshot::Sender<Result<...>>` (not Debug). AddAudioSource (lines 120-123) additionally boxes `dyn AsyncAudioSource` (not Debug). DispatchCommand (lines 217-269) has the same pattern and a manual Debug (lines 392-423).\n- What a real implementation must provide: a Debug-friendly wrapper (e.g., `pub(crate) struct ReplyChannel<T>(oneshot::Sender<T>)` with a manual Debug impl), swap all reply fields to the wrapper, handle the non-Debug boxed source (scoped manual Debug for AddAudioSource or a second wrapper), then derive/confirm Debug on RuntimeCommand. send_reply() (lines 426-434) and the reactor must construct the wrapper.",
-          "boyScoutPlan": "- Replace the two near-identical manual match blocks (Debug lines 148-174 and Display lines 177-202) with derive + a single Display helper to avoid drift.\n- Add a doc comment on the wrapper explaining why the manual Debug is required (oneshot::Sender not Debug) and that the raw sender is never printed.",
+          "status": "reviewed",
+          "invariants": "- 【Normal establishment】RuntimeCommand derives Debug; every variant's {:?} output is non-panicking and identifies the variant; Reply<T> and DebugBox<T> Debug outputs are stable placeholders independent of the payload type\n- 【Invariant on error】Debug/Display formatting never panics for any payload combination (full ClientConfig/AccountConfig, trait-object audio source); Reply::send still returns Err(value) when the oneshot receiver is dropped\n- 【Internal state invariant】Reply and DebugBox are value-transparent: into_inner/send preserve the underlying oneshot channel and boxed source exactly; DispatchCommand::from_runtime_command transfers the wrappers without dropping the reply channel\n- 【Boundary invariant】AsyncAudioSource public trait is unchanged (no Debug supertrait — CpalMicrophoneSource.stream is cpal::Stream which is not Debug in cpal 0.18.1); cpal-input and tls builds still compile; DispatchCommand retains manual Debug because BackendFn (Box<dyn FnOnce>) is not Debug",
+          "instrumentation": "- Logging: RuntimeCommand is traced by the reactor loop / handle submit paths; the derived Debug now renders field payloads (config, account_id, source_id) instead of variant-name-only, making logs deterministic and richer; Reply and DebugBox render stable placeholders\n- Metrics: none added — this is a type-level refactor with no runtime instrumentation change\n- Error tracking: Debug/Display never panic; Reply::send retains oneshot Err(value) on a dropped receiver so reply failures remain observable via the existing send_reply tracing (command.rs:492-500)\n- Health check: cargo check --all-targets and cargo check --features cpal-input compile; make test is green",
+          "investigation": "Material evidence — (1) RuntimeCommand (command.rs:44-159) has 20 variants each with reply: tokio::sync::oneshot::Sender<Result<T, ReactorError>>; manual Debug at 161-191 prints only RuntimeCommand::{Variant} and exactly duplicates the Display match at 194-221; doc comment at 43 states Debug is manual because Box<dyn AsyncAudioSource> is not Debug. (2) DispatchCommand (236-313) carries BackendFn = Box<dyn FnOnce(&mut dyn SipBackend) -> Result<(), ReactorError> + Send> (line 225) plus Box<dyn AsyncAudioSource> in AddAudioSource — it can never derive Debug and keeps manual Debug (449-489). (3) from_runtime_command (318-446) moves fields; send_reply (492-500) takes a raw oneshot::Sender. (4) handle.rs submit() (53-93) converts RuntimeCommand to DispatchCommand then injects a FRESH (tx, rx) (line 59), discarding the caller reply; submit_add_account (177-185), submit_add_audio_source (204-212), submit_get_account_info (129-140) follow the same pattern. (5) reactor.rs AddAudioSource dispatch (118-127) calls audio_mixer.add_source(source) and reply.send(Ok(source_id)); reply.send is used throughout the dispatch arms. (6) tokio 1.x oneshot::Sender has no Debug impl (STUB at command.rs:161 states this; confirmed against the tokio crate in the cargo registry). (7) AsyncAudioSource (audio_worker.rs:25-31) is trait AsyncAudioSource: Send; implementors MockAsyncAudioSource (derive-able: data/position), CpalMicrophoneSource { stream: Option<cpal::Stream> } (asyncaudiosrc_adapter.rs:312; cpal::Stream = Stream(StreamInner) in cpal 0.18.1, NOT Debug), TtsStreamSource (test code, verify_spec_p9_1.rs) — a Debug supertrait would break --features cpal-input. (8) All config payloads are Debug: ClientConfig (client_config_spec.rs:136), AccountConfig (account_config_spec.rs:52), TransportConfig (transport_ice_spec.rs:70), OutgoingCallRequest (call_types.rs:48). (9) No test asserts on {:?} of RuntimeCommand; Display is tested at command.rs:510-532/576-655/851-865. (10) Construction sites: client.rs:120/258/308/391, public_api_design.rs:58/78/98/145/189, m20_native_event_conv.rs (GetAccountInfo flow handled by the reactor). (11) cpal-input is a non-default feature (Cargo.toml default = serde, tls). (12) Design: Reply<T> wraps the sender and DebugBox<T> wraps the boxed source so #[derive(Debug)] compiles for RuntimeCommand without touching the AsyncAudioSource trait",
+          "boyScoutPlan": "Translatability plan: (1) replace the duplicated manual Debug match (command.rs:161-191) — which drifted into an exact copy of the Display match — with #[derive(Debug)]; the Display impl remains the single manual match; (2) name the wrappers as domain nouns — Reply<T> (a debuggable reply channel) and DebugBox<T> (an opaque debuggable box) — so RuntimeCommand reads 'variant { payload, reply }'; (3) rewrite the stale doc comment at command.rs:43 ('Debug is manual...') to state Debug is derived via Reply/DebugBox and why (oneshot::Sender and trait objects are not Debug); (4) remove the vestigial dead-channel construction in touched files where trivially possible (client.rs:391 Shutdown passes _dummy_tx) by using RuntimeHandle::submit's internal channel creation; (5) clean the stale targetStubs TS-001 (P0-2) and null stubs entry on the ticket so provenance points only at the real command.rs:161 stub; (6) keep DispatchCommand's manual Debug but deduplicate its per-variant debug_struct arms with a small finish_non_exhaustive helper if the touch is natural",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28",
-          "targetStubs": [
-            {
-              "id": "TS-001",
-              "ticketRef": "P0-2",
-              "file": "src/lib.rs",
-              "line": 70,
-              "markerText": "// [::TICKET::] P0-2: runtime/ — Reactor, Command, Handle",
-              "contracts": [
-                "C002",
-                "C010",
-                "C011"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Uncomment `pub mod runtime;` in lib.rs when P0-2 runtime module is implemented, replacing the STUB marker with the actual module declaration.",
-              "resolvedAt": "2026-07-28"
-            }
-          ],
-          "targetCrimes": [],
+          "updated_at": "2026-08-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
           "planTestCode": [
-            "UT: [Contract-C002-precondition] CoreReactor struct exists with expected fields\n  ```rust\n  #[test]\n  fn core_reactor_struct_exists() {\n      // Precondition: Concurrency model is defined as a concrete type\n      // The mere existence of CoreReactor with spawn() satisfies this\n      let _ = CoreReactor::spawn(Default::default());\n  }\n  ```",
-            "UT: [Contract-C002-postcondition] RuntimeHandle usable from async context\n  ```rust\n  #[tokio::test]\n  async fn runtime_handle_async_usage() {\n      // Postcondition: Purpose implementable via async model\n      // RuntimeHandle::submit() is awaitable via oneshot\n      let (handle, _thread) = CoreReactor::spawn(BootConfig::default()).unwrap();\n      handle.submit(DummyCommand(42)).await.unwrap();\n  }\n  ```",
-            "UT: [Contract-C002-invariant] Only one reactor thread per spawn\n  ```rust\n  #[test]\n  fn single_reactor_thread() {\n      // Invariant: Reactor thread model is single-threaded\n      let (handle, join) = CoreReactor::spawn(BootConfig::default()).unwrap();\n      assert!(!handle.is_terminated());\n      handle.submit(Shutdown).unwrap();\n      join.join().unwrap();\n  }\n  ```",
-            "UT: [Contract-C010-precondition] runtime module structure compiles\n  ```rust\n  #[test]\n  fn runtime_module_declared() {\n      // Precondition: Module structure matches RFC section 6\n      // Verified at compile time: `pub mod runtime;` in lib.rs\n      assert!(true, \"runtime module is declared in lib.rs\");\n  }\n  ```",
-            "UT: [Contract-C010-postcondition] runtime module compiled and linked\n  ```rust\n  #[test]\n  fn runtime_module_compiles() {\n      // Postcondition: runtime/ module compiles\n      // Verified by `cargo build` — this test confirms linkage\n      let _ = CoreReactor::spawn(BootConfig::default());\n  }\n  ```",
-            "UT: [Contract-C010-invariant] runtime depends only on tokio + std\n  ```rust\n  #[test]\n  fn runtime_depends_only_on_tokio_std() {\n      // Invariant: No crossbeam, no pjsua ffi in runtime module\n      // Verified by Cargo.toml dependency list\n      // Also verifiable by checking that runtime module doesn't import ffi types\n      assert!(true, \"verified via Cargo.toml dep analysis\");\n  }\n  ```",
-            "UT: [Contract-C011-precondition] UnboundedSender connected to reactor\n  ```rust\n  #[test]\n  fn mpsc_channel_established() {\n      // Precondition: MPSC channel is created between handle and reactor\n      let (handle, _join) = CoreReactor::spawn(BootConfig::default()).unwrap();\n      // handle holds an UnboundedSender — this confirms channel creation\n      assert!(!handle.is_terminated());\n  }\n  ```",
-            "UT: [Contract-C011-postcondition] Commands pass through MPSC in FIFO order\n  ```rust\n  #[tokio::test]\n  async fn commands_fifo_order() {\n      // Postcondition: All commands go through MPSC in order\n      let (handle, _join) = CoreReactor::spawn(BootConfig::default()).unwrap();\n      let results: Vec<u64> = futures::future::join_all(\n          (0..5u64).map(|i| handle.submit(DummyCommand(i)))\n      ).await.into_iter().collect::<Result<Vec<_>, _>>().unwrap();\n      // Results arrive in submission order because reactor processes FIFO\n      assert_eq!(results, vec![0, 1, 2, 3, 4]);\n  }\n  ```",
-            "UT: [Contract-C011-invariant] One command per iteration\n  ```rust\n  #[tokio::test]\n  async fn one_command_per_iteration() {\n      // Invariant: Reactor processes one command per loop iteration\n      // Verified by submitting N commands and confirming N replies\n      let (handle, _join) = CoreReactor::spawn(BootConfig::default()).unwrap();\n      for i in 0..100u64 {\n          let result = handle.submit(DummyCommand(i)).await.unwrap();\n          assert_eq!(result, i); // echo back\n      }\n  }\n  ```",
-            "UT: [Contract-C046-precondition] ClientState owned by reactor thread\n  ```rust\n  #[tokio::test]\n  async fn client_state_owned_by_reactor() {\n      // Precondition: ClientState is reactor thread-local\n      // Verify by taking snapshot before and after Initialize\n      let (handle, _join) = CoreReactor::spawn(BootConfig::default()).unwrap();\n      // Before Initialize: client_state is not initialized\n      // After Initialize: client_state is initialized\n      let _snapshot = handle.snapshot().await;\n      // Snapshot is a Clone — confirms read-only access pattern\n  }\n  ```",
-            "UT: [Contract-C046-postcondition] Queries via read().await, updates via write().await\n  ```rust\n  #[tokio::test]\n  async fn query_uses_read_await() {\n      // Postcondition: Query uses read().await (non-blocking)\n      let (handle, _join) = CoreReactor::spawn(BootConfig::default()).unwrap();\n      // snapshot() internally calls state.read().await\n      let snapshot = handle.snapshot().await;\n      assert!(!snapshot.initialized);\n  }\n  ```",
-            "UT: [Contract-C046-invariant] blocking_read() never used\n  ```rust\n  #[test]\n  fn no_blocking_read_in_runtime() {\n      // Invariant: blocking_read() is never called on RuntimeState RwLock\n      // Verified at compile-time: all RwLock access is via .read().await or .write().await\n      // This is enforced by the async API shape — blocking_read would require &self\n      assert!(true, \"verified via code review: no blocking_read calls in runtime/*.rs\");\n  }\n  ```",
-            "UT: [Contract-C012-precondition] RuntimeHandle is Send + Sync\n  ```rust\n  // Compile-time check\n  const _: () = {\n      fn assert_send<T: Send>() {}\n      fn assert_sync<T: Sync>() {}\n      assert_send::<RuntimeHandle>();\n      assert_sync::<RuntimeHandle>();\n  };\n  ```",
-            "UT: [Contract-C012-postcondition] Shared across tokio tasks\n  ```rust\n  #[tokio::test]\n  async fn handle_shared_across_tasks() {\n      // Postcondition: RuntimeHandle can be cloned and shared across tasks\n      let (handle, _join) = CoreReactor::spawn(BootConfig::default()).unwrap();\n      let h2 = handle.clone();\n      let task = tokio::spawn(async move {\n          h2.submit(DummyCommand(99)).await.unwrap();\n      });\n      task.await.unwrap();\n  }\n  ```",
-            "UT: [Contract-C012-invariant] Command enum fields satisfy Send\n  ```rust\n  // Compile-time check for RuntimeCommand\n  const _: () = {\n      fn assert_send<T: Send>() {}\n      // All RuntimeCommand variants must be Send\n      // Verified by the enum itself being used in mpsc::UnboundedSender<RuntimeCommand>\n      assert_send::<RuntimeCommand>();\n  };\n  ```",
-            "UT: [Contract-C047-precondition] Reactor holds shutdown flag\n  ```rust\n  #[tokio::test]\n  async fn reactor_has_shutdown_flag() {\n      // Precondition: Reactor owns an atomic shutdown flag\n      let (handle, join) = CoreReactor::spawn(BootConfig::default()).unwrap();\n      assert!(!handle.is_terminated());\n      handle.submit(ShutdownCmd).await.unwrap();\n      join.join().unwrap();\n      assert!(handle.is_terminated());\n  }\n  ```",
-            "UT: [Contract-C047-postcondition] Shutdown sets flag atomically, submit returns Err\n  ```rust\n  #[tokio::test]\n  async fn shutdown_sets_flag_submit_returns_err() {\n      // Postcondition: After shutdown ack, submit returns Err\n      let (handle, join) = CoreReactor::spawn(BootConfig::default()).unwrap();\n      handle.submit(ShutdownCmd).await.unwrap();\n      join.join().unwrap();\n      let result = handle.submit(DummyCommand(0)).await;\n      assert!(result.is_err());\n  }\n  ```",
-            "UT: [Contract-C047-invariant] No commands dispatched after shutdown\n  ```rust\n  #[tokio::test]\n  async fn no_commands_after_shutdown_flag() {\n      // Invariant: Once shutdown flag is set, all submit calls return Err\n      let (handle, join) = CoreReactor::spawn(BootConfig::default()).unwrap();\n      handle.submit(ShutdownCmd).await.unwrap();\n      join.join().unwrap();\n      for _ in 0..5 {\n          assert!(handle.submit(DummyCommand(0)).await.is_err());\n      }\n  }\n  ```",
-            "UT: [Contract-C048-precondition] CallEntry struct defined\n  ```rust\n  #[test]\n  fn call_entry_struct_defined() {\n      // Precondition: CallEntry is a defined struct for tracking calls\n      // CallEntry has: id, native_id, account_id, state, media\n      let _entry = CallEntry {\n          id: 0,\n          native_id: 0,\n          account_id: 0,\n          state: CallState::Idle,\n          media: MediaRuntime::default(),\n      };\n  }\n  ```",
-            "UT: [Contract-C048-postcondition] conf_port_id in backend trait, not CallEntry\n  ```rust\n  #[test]\n  fn conf_port_id_in_backend_not_callentry() {\n      // Postcondition: Backend trait has resolve_conf_port, CallEntry has no conf_port_id\n      // Verify CallEntry field list does NOT contain conf_port_id\n      let _entry = CallEntry {\n          id: 0,\n          native_id: 0,\n          account_id: 0,\n          state: CallState::Idle,\n          media: MediaRuntime::default(),\n      };\n      // Compile-error if conf_port_id were a field — this test confirms its absence\n  }\n  ```",
-            "UT: [Contract-C048-invariant] CallEntry has no conf_port_id field\n  ```rust\n  #[test]\n  fn callentry_no_conf_port_id() {\n      // Invariant: CallEntry struct definition contains no conf_port_id field\n      // Verified at compile time by inspecting struct definition\n      // Runtime verification: construct CallEntry without conf_port_id\n      assert!(true, \"CallEntry struct inspected: no conf_port_id field present\");\n  }\n  ```"
+            "UT: [Contract C011] Precondition — RuntimeCommand variants are constructible with a Debug-friendly Reply channel",
+            "```rust",
+            "let (tx, _rx) = tokio::sync::oneshot::channel::<Result<(), ReactorError>>();",
+            "let cmd = RuntimeCommand::Shutdown { reply: Reply::new(tx) };",
+            "fn assert_debug<T: std::fmt::Debug>() {}",
+            "assert_debug::<RuntimeCommand>(); // compile-time: derive replaced the manual impl",
+            "```",
+            "Postcondition — derived Debug output identifies the variant and never panics",
+            "```rust",
+            "let (tx, _rx) = tokio::sync::oneshot::channel::<Result<(), ReactorError>>();",
+            "let cmd = RuntimeCommand::Shutdown { reply: Reply::new(tx) };",
+            "let dbg = format!(\"{:?}\", cmd);",
+            "assert!(dbg.contains(\"Shutdown\"), \"derived Debug must identify the variant\");",
+            "assert_eq!(format!(\"{}\", cmd), \"RuntimeCommand::Shutdown\", \"Display unchanged\");",
+            "// Red-proof: the manual impl prints only the variant name — this assertion fails on it",
+            "let (tx2, _rx2) = tokio::sync::oneshot::channel::<Result<(), ReactorError>>();",
+            "let up = RuntimeCommand::UpdateAccount { account_id: 1, config: AccountConfig::default(), reply: Reply::new(tx2) };",
+            "assert!(format!(\"{:?}\", up).contains(\"config\"), \"derived Debug must expose payload fields\");",
+            "```",
+            "Invariant — every variant is Debug; DispatchCommand keeps manual Debug",
+            "```rust",
+            "assert_debug::<RuntimeCommand>();",
+            "assert_debug::<Reply<Result<(), ReactorError>>>();",
+            "assert_debug::<DebugBox<dyn AsyncAudioSource + Send>>();",
+            "assert_debug::<DispatchCommand>(); // manual impl still holds",
+            "```",
+            "UT: [Contract C053] Precondition — Reply wraps a tokio oneshot sender",
+            "```rust",
+            "let (tx, rx) = tokio::sync::oneshot::channel::<u64>();",
+            "let reply = Reply::new(tx);",
+            "```",
+            "Postcondition — Reply is Debug for any payload; send delivers; into_inner recovers",
+            "```rust",
+            "let (tx, rx) = tokio::sync::oneshot::channel::<u64>();",
+            "let reply = Reply::new(tx);",
+            "let dbg = format!(\"{:?}\", reply);",
+            "assert!(!dbg.is_empty(), \"Reply Debug must be stable\");",
+            "reply.send(42).ok();",
+            "assert_eq!(rx.await, Ok(42));",
+            "let (tx2, _rx2) = tokio::sync::oneshot::channel::<u64>();",
+            "let inner: tokio::sync::oneshot::Sender<u64> = Reply::new(tx2).into_inner();",
+            "assert_eq!(inner.send(7).map_err(|v| v), Ok(()));",
+            "```",
+            "Invariant — Debug output is stable and never panics",
+            "```rust",
+            "let (tx, _rx) = tokio::sync::oneshot::channel::<Result<(), ReactorError>>();",
+            "let a = format!(\"{:?}\", Reply::new(tx));",
+            "let (tx2, _rx2) = tokio::sync::oneshot::channel::<Result<u64, ReactorError>>();",
+            "let b = format!(\"{:?}\", Reply::new(tx2));",
+            "assert_eq!(a, b, \"Reply Debug is payload-independent\");",
+            "// dropped receiver path",
+            "let (tx3, rx3) = tokio::sync::oneshot::channel::<u64>();",
+            "drop(rx3);",
+            "assert!(Reply::new(tx3).send(1).is_err());",
+            "```",
+            "UT: [Contract C054] Precondition — DebugBox wraps a non-Debug boxed payload",
+            "```rust",
+            "let source: Box<dyn AsyncAudioSource + Send> = Box::new(MockAsyncAudioSource::new(vec![0i16; 160]));",
+            "let boxed = DebugBox::new(source);",
+            "```",
+            "Postcondition — DebugBox is Debug without a Debug bound; into_inner returns the box",
+            "```rust",
+            "let dbg = format!(\"{:?}\", DebugBox::new(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])) as Box<dyn AsyncAudioSource + Send>));",
+            "assert!(!dbg.is_empty());",
+            "let boxed = DebugBox::new(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])) as Box<dyn AsyncAudioSource + Send>);",
+            "let _recovered: Box<dyn AsyncAudioSource + Send> = boxed.into_inner();",
+            "```",
+            "Invariant — audio sources reach the mixer unchanged",
+            "```rust",
+            "let boxed = DebugBox::new(Box::new(MockAsyncAudioSource::new(vec![7i16; 160])) as Box<dyn AsyncAudioSource + Send>);",
+            "let mut source = boxed.into_inner();",
+            "let mut buf = vec![0i16; 160];",
+            "assert_eq!(source.next_chunk(&mut buf), 160);",
+            "```"
           ],
           "changes": [
             {
@@ -24078,6 +24137,41 @@
               "before": "pub trait Service {} + TODO: MUST implement N0010",
               "after": "[::STUB::] P0-2 DEPRECATED + TODO RESOLVED",
               "description": "Added STUB deprecation marker to concurrency_contexts/command_serialization.rs"
+            },
+            {
+              "before": "Manual impl std::fmt::Debug for RuntimeCommand (command.rs:161-191) printing only variant names; doc comment claimed Debug could not be derived because Box<dyn AsyncAudioSource> is not Debug",
+              "after": "#[derive(Debug)] on RuntimeCommand; Reply<T> and DebugBox<T> wrappers make every field Debug",
+              "description": "Replaced the hand-written Debug impl with a derived one via Debug-friendly wrappers"
+            },
+            {
+              "before": "RuntimeCommand/DispatchCommand reply fields were tokio::sync::oneshot::Sender<Result<.., ReactorError>>",
+              "after": "reply fields are Reply<Result<.., ReactorError>>; AddAudioSource.source is DebugBox<dyn AsyncAudioSource + Send>",
+              "description": "Introduced Reply<T> (Debug-friendly oneshot wrapper) and DebugBox<T> (Debug-friendly boxed-payload wrapper) in src/runtime/command.rs"
+            },
+            {
+              "before": "handle.rs submit()/typed helpers constructed DispatchCommand with raw tx; submit_add_audio_source passed Box<dyn AsyncAudioSource> directly",
+              "after": "submit() and typed helpers inject Reply::new(tx); submit_add_audio_source wraps source in DebugBox::new",
+              "description": "Updated RuntimeHandle to construct the new wrapper types"
+            },
+            {
+              "before": "reactor.rs AddAudioSource arm called audio_mixer.add_source(source) on a raw Box",
+              "after": "calls audio_mixer.add_source(source.into_inner())",
+              "description": "Unwrap DebugBox at the reactor AudioMixer boundary"
+            },
+            {
+              "before": "client.rs/public_api_design.rs/m20_shutdown_routing.rs/tests constructed RuntimeCommand with raw oneshot::Sender reply fields",
+              "after": "all construction sites wrap the sender in Reply::new(_tx)",
+              "description": "Migrated every RuntimeCommand construction site to Reply::new"
+            },
+            {
+              "before": "runtime/mod.rs re-exported only RuntimeCommand",
+              "after": "re-exports DebugBox, Reply, RuntimeCommand",
+              "description": "Public re-exports for the new wrapper types (RuntimeCommand's pub variant fields reference them)"
+            },
+            {
+              "before": "tests used raw tx/source in ~25 construction sites; no Debug-format assertions",
+              "after": "tests use Reply::new/DebugBox::new; 7 new P10-4 tests assert derived-Debug behavior (field names, payload-independent Reply Debug, DebugBox round-trip, compile-time assert_debug)",
+              "description": "Migrated existing tests and added the Red-suite for C011/C053/C054"
             }
           ],
           "rfcDiscrepancies": [],
@@ -24088,7 +24182,9 @@
               "codes": "// [::TICKET::] P0-2, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-6) --for-spec --no-implementation-order`.\nimpl std::fmt::Debug for RuntimeCommand {\n// [::TICKET::] P0-6, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P7-2) --for-spec --no-implementation-order`."
             }
           ],
-          "fromStub": true
+          "fromStub": true,
+          "startedAt": "2026-08-06",
+          "completedAt": "2026-08-06"
         },
         {
           "title": "Remove the TransportType re-export once all callers migrate to TransportConfig directly",

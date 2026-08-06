@@ -1,3 +1,4 @@
+
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
@@ -36,7 +37,8 @@ pub mod state;
 
 pub use audio_worker::{AsyncAudioSource, AudioMixer, AudioWorkerTask, MockAsyncAudioSource};
 pub use backend::SipBackend;
-pub use command::RuntimeCommand;
+// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+pub use command::{DebugBox, Reply, RuntimeCommand};
 pub use handle::RuntimeHandle;
 pub use reactor::CoreReactor;
 pub use state::ClientState;

@@ -93,44 +93,45 @@ impl ShutdownCommandRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::command::Reply;
 
     /// Helper to build a `RuntimeCommand::GetAccountInfo` for testing.
-    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P10-4) --for-spec --no-implementation-order`.
     fn make_get_account_info() -> RuntimeCommand {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         RuntimeCommand::GetAccountInfo {
             native_acc_id: 1,
-            reply: tx,
+            reply: Reply::new(tx),
         }
     }
 
     /// Helper to build a `RuntimeCommand::ConfConnect` for testing.
-    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P10-4) --for-spec --no-implementation-order`.
     fn make_conf_connect() -> RuntimeCommand {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         RuntimeCommand::ConfConnect {
             call_id: 42,
-            reply: tx,
+            reply: Reply::new(tx),
         }
     }
 
     /// Helper to build a `RuntimeCommand::ConfDisconnect` for testing.
-    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P10-4) --for-spec --no-implementation-order`.
     fn make_conf_disconnect() -> RuntimeCommand {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         RuntimeCommand::ConfDisconnect {
             call_id: 7,
-            reply: tx,
+            reply: Reply::new(tx),
         }
     }
 
     /// Helper to build a non-M20 command (e.g., Hangup) for testing.
-    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P10-4) --for-spec --no-implementation-order`.
     fn make_other_command() -> RuntimeCommand {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         RuntimeCommand::Hangup {
             call_id: 1,
-            reply: tx,
+            reply: Reply::new(tx),
         }
     }
 

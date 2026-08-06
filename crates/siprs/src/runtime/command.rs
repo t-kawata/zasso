@@ -26,8 +26,65 @@ impl std::fmt::Display for ReactorError {
     }
 }
 
-// [::TICKET::] P0-2, P0-3, P0-5, P0-6, P3-1, P7-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-5|P0-6|P3-1|P7-2|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-3, P0-5, P0-6, P3-1, P7-2, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-5|P0-6|P3-1|P7-2|P10-3|P10-4) --for-spec --no-implementation-order`.
 impl std::error::Error for ReactorError {}
+
+/// Debug-friendly wrapper around `tokio::sync::oneshot::Sender<T>`.
+///
+/// `oneshot::Sender` does not implement `Debug` in tokio 1.x, which previously
+/// forced a hand-written `Debug` impl on `RuntimeCommand`. This wrapper supplies
+/// a stable `Debug` form while preserving the inner sender for dispatch.
+pub struct Reply<T>(tokio::sync::oneshot::Sender<T>);
+
+impl<T> Reply<T> {
+    /// Wrap a oneshot sender in a Debug-friendly reply channel.
+    pub fn new(inner: tokio::sync::oneshot::Sender<T>) -> Self {
+        Self(inner)
+    }
+
+    /// Send `value` on the wrapped channel, returning it if the receiver dropped.
+    pub fn send(self, value: T) -> Result<(), T> {
+        self.0.send(value)
+    }
+
+    /// Unwrap to the underlying oneshot sender.
+    pub fn into_inner(self) -> tokio::sync::oneshot::Sender<T> {
+        self.0
+    }
+}
+
+impl<T> std::fmt::Debug for Reply<T> {
+// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Reply").finish_non_exhaustive()
+    }
+}
+
+/// Debug-friendly wrapper around `Box<T>` for payloads whose inner type is not
+/// `Debug` (e.g. `dyn AsyncAudioSource`). Enables `#[derive(Debug)]` on enums
+/// that carry such a box without requiring the boxed type to implement `Debug`.
+///
+/// `T: ?Sized` allows wrapping trait objects (`Box<dyn AsyncAudioSource + Send>`).
+pub struct DebugBox<T: ?Sized>(Box<T>);
+
+impl<T: ?Sized> DebugBox<T> {
+    /// Wrap a boxed payload in a Debug-friendly box.
+    pub fn new(inner: Box<T>) -> Self {
+        Self(inner)
+    }
+
+    /// Unwrap to the underlying box.
+    pub fn into_inner(self) -> Box<T> {
+        self.0
+    }
+}
+
+impl<T: ?Sized> std::fmt::Debug for DebugBox<T> {
+// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DebugBox").finish_non_exhaustive()
+    }
+}
 
 /// Commands that can be submitted to the `CoreReactor` for serialized execution.
 ///
@@ -40,15 +97,17 @@ impl std::error::Error for ReactorError {}
 /// - Payload fields that reference types from downstream tickets use `u64` / `String`
 ///   placeholders. These are replaced with real types in P0-3+.
 /// - The `reply` channel **must** be `.send()`'d exactly once in every code path.
-/// - Debug is manual (not derived) because `Box<dyn AsyncAudioSource>` is not Debug.
+/// - Debug is derived: `Reply<T>` wraps the non-Debug oneshot sender and `DebugBox<T>`
+///   wraps the non-Debug boxed audio source so every field is `Debug`.
+#[derive(Debug)]
 pub enum RuntimeCommand {
     Initialize {
         config: crate::config::ClientConfig,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     AddAccount {
         config: crate::config::account_config_spec::AccountConfig,
-        reply: tokio::sync::oneshot::Sender<Result<u64, ReactorError>>,
+        reply: Reply<Result<u64, ReactorError>>,
     },
     /// Update the configuration of an existing account.
     ///
@@ -58,43 +117,43 @@ pub enum RuntimeCommand {
     UpdateAccount {
         account_id: u64,
         config: crate::config::account_config_spec::AccountConfig,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     RemoveAccount {
         account_id: u64,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     /// Create a SIP transport (UDP/TCP/TLS) and record its runtime state.
     CreateTransport {
         config: crate::config::transport_ice_spec::TransportConfig,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     SetRegistration {
         account_id: u64,
         enabled: bool,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     MakeCall {
         account_id: u64,
         request: Box<crate::api::call_types::OutgoingCallRequest>,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     Hangup {
         call_id: u64,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     Hold {
         call_id: u64,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     Unhold {
         call_id: u64,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     SendDtmf {
         call_id: u64,
         digits: String,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     /// [::TICKET::] P0-5: Query the backend for registration account info.
     ///
@@ -102,7 +161,7 @@ pub enum RuntimeCommand {
     /// registration status and produce RegistrationSucceeded/Failed.
     GetAccountInfo {
         native_acc_id: u32,
-        reply: tokio::sync::oneshot::Sender<
+        reply: Reply<
             Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, ReactorError>,
         >,
     },
@@ -111,7 +170,7 @@ pub enum RuntimeCommand {
     /// Backs the `SipClient::accounts()` / `SipClient::call_state()` query API,
     /// which is the source of truth per C021 (events are observation-only).
     QueryState {
-        reply: tokio::sync::oneshot::Sender<Result<crate::runtime::state::ClientState, ReactorError>>,
+        reply: Reply<Result<crate::runtime::state::ClientState, ReactorError>>,
     },
     /// [::TICKET::] P0-6: Connect a call to the conference bridge.
     ///
@@ -119,75 +178,43 @@ pub enum RuntimeCommand {
     /// call management.
     ConfConnect {
         call_id: u64,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     /// [::TICKET::] P0-6: Disconnect a call from the conference bridge.
     ///
     /// Delegates to `Backend::conf_disconnect()`. The inverse of ConfConnect.
     ConfDisconnect {
         call_id: u64,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     /// [::TICKET::] P0-6: Add an audio source to the call's AudioMixer.
     ///
     /// The source is boxed and stored in the mixer. Returns the assigned
     /// source_id via the oneshot channel.
     AddAudioSource {
-        source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send>,
-        reply: tokio::sync::oneshot::Sender<Result<u64, ReactorError>>,
+        source: DebugBox<dyn crate::runtime::audio_worker::AsyncAudioSource + Send>,
+        reply: Reply<Result<u64, ReactorError>>,
     },
     /// [::TICKET::] P0-6: Remove an audio source from the call's AudioMixer.
     RemoveAudioSource {
         source_id: u64,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     /// [::TICKET::] P0-6: Set the gain of an audio source.
     SetAudioSourceGain {
         source_id: u64,
         gain: f32,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     /// [::TICKET::] P0-6: Mute or unmute an audio source.
     MuteAudioSource {
         source_id: u64,
         muted: bool,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     Shutdown {
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
-}
-
-// [::STUB::] P10-4: Debug is manually implemented for RuntimeCommand because oneshot::Sender is not Debug -- Migrate to a Debug-friendly sender wrapper and derive Debug for RuntimeCommand
-// [::TICKET::] P0-2, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-6) --for-spec --no-implementation-order`.
-impl std::fmt::Debug for RuntimeCommand {
-// [::TICKET::] P0-6, P7-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P7-2|P10-3) --for-spec --no-implementation-order`.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Manual Debug — skips non-Debug fields like Box<dyn AsyncAudioSource>
-        let variant = match self {
-            Self::Initialize { .. } => "Initialize",
-            Self::AddAccount { .. } => "AddAccount",
-            Self::UpdateAccount { .. } => "UpdateAccount",
-            Self::RemoveAccount { .. } => "RemoveAccount",
-            Self::CreateTransport { .. } => "CreateTransport",
-            Self::SetRegistration { .. } => "SetRegistration",
-            Self::MakeCall { .. } => "MakeCall",
-            Self::Hangup { .. } => "Hangup",
-            Self::Hold { .. } => "Hold",
-            Self::Unhold { .. } => "Unhold",
-            Self::SendDtmf { .. } => "SendDtmf",
-            Self::GetAccountInfo { .. } => "GetAccountInfo",
-            Self::QueryState { .. } => "QueryState",
-            Self::ConfConnect { .. } => "ConfConnect",
-            Self::ConfDisconnect { .. } => "ConfDisconnect",
-            Self::AddAudioSource { .. } => "AddAudioSource",
-            Self::RemoveAudioSource { .. } => "RemoveAudioSource",
-            Self::SetAudioSourceGain { .. } => "SetAudioSourceGain",
-            Self::MuteAudioSource { .. } => "MuteAudioSource",
-            Self::Shutdown { .. } => "Shutdown",
-        };
-        write!(f, "RuntimeCommand::{variant}")
-    }
 }
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
@@ -221,7 +248,7 @@ impl std::fmt::Display for RuntimeCommand {
 }
 
 /// Type alias for the backend execution closure used in `DispatchCommand`.
-// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4) --for-spec --no-implementation-order`.
 type BackendFn =
     Box<dyn FnOnce(&mut dyn super::backend::SipBackend) -> Result<(), ReactorError> + Send>;
 
@@ -236,37 +263,37 @@ type BackendFn =
 pub(crate) enum DispatchCommand {
     Execute {
         f: BackendFn,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     /// [::TICKET::] P0-6: Add an audio source with a typed source_id response.
     ///
     /// Separate from Execute because AddAudioSource returns Result<u64, ...>
     /// (the assigned source_id), which does not fit the Execute reply type.
     AddAudioSource {
-        source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send>,
-        reply: tokio::sync::oneshot::Sender<Result<u64, ReactorError>>,
+        source: DebugBox<dyn crate::runtime::audio_worker::AsyncAudioSource + Send>,
+        reply: Reply<Result<u64, ReactorError>>,
     },
     // [::TICKET::] P8-1: O-003 — audio-lifecycle commands are dedicated dispatch
     // variants (not Execute closures) because they mutate the reactor-owned
     // AudioMixer, which an `Execute` closure's `&mut dyn SipBackend` cannot reach.
     RemoveAudioSource {
         source_id: u64,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     SetAudioSourceGain {
         source_id: u64,
         gain: f32,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     MuteAudioSource {
         source_id: u64,
         muted: bool,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     /// [::TICKET::] P0-5: Query account info with a typed response channel.
     GetAccountInfo {
         native_acc_id: u32,
-        reply: tokio::sync::oneshot::Sender<
+        reply: Reply<
             Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, ReactorError>,
         >,
     },
@@ -278,7 +305,7 @@ pub(crate) enum DispatchCommand {
     /// can build a real `SipAccountHandle`.
     AddAccount {
         config: crate::config::account_config_spec::AccountConfig,
-        reply: tokio::sync::oneshot::Sender<Result<u64, ReactorError>>,
+        reply: Reply<Result<u64, ReactorError>>,
     },
     /// Update the stored config of an existing account in the reactor's ClientState.
     ///
@@ -287,28 +314,28 @@ pub(crate) enum DispatchCommand {
     UpdateAccount {
         account_id: u64,
         config: crate::config::account_config_spec::AccountConfig,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     /// Remove an account from the backend AND the reactor's ClientState.
     ///
     /// Dedicated variant so the reactor keeps `client_state.accounts` authoritative (C021).
     RemoveAccount {
         account_id: u64,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     /// Create a transport and record its `TransportRuntimeState`.
     ///
     /// Dedicated variant so the reactor can append to `client_state.transports`.
     CreateTransport {
         config: crate::config::transport_ice_spec::TransportConfig,
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
     /// [::TICKET::] P7-2: O-004 — clone the reactor's authoritative ClientState.
     QueryState {
-        reply: tokio::sync::oneshot::Sender<Result<crate::runtime::state::ClientState, ReactorError>>,
+        reply: Reply<Result<crate::runtime::state::ClientState, ReactorError>>,
     },
     Shutdown {
-        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+        reply: Reply<Result<(), ReactorError>>,
     },
 }
 
@@ -490,7 +517,7 @@ impl std::fmt::Debug for DispatchCommand {
 
 /// Helper: send a result on a oneshot channel, logging if the receiver dropped.
 pub(crate) fn send_reply(
-    sender: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+    sender: Reply<Result<(), ReactorError>>,
     result: Result<(), ReactorError>,
 ) {
     if sender.send(result).is_err() {
@@ -506,26 +533,26 @@ mod tests {
 
     #[test]
     // @verifies C011
-    // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P10-4) --for-spec --no-implementation-order`.
     fn runtime_command_display_shows_variant_name() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
-        let cmd = RuntimeCommand::Shutdown { reply: tx };
+        let cmd = RuntimeCommand::Shutdown { reply: Reply::new(tx) };
         let display = format!("{cmd}");
         assert_eq!(display, "RuntimeCommand::Shutdown");
     }
 
     #[test]
     // @verifies C011
-    // [::TICKET::] P0-2, P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P10-4) --for-spec --no-implementation-order`.
     fn runtime_command_variant_discriminants_are_distinct() {
         // Contract-C011: each RuntimeCommand discriminates correctly.
         let (tx1, _rx1) = tokio::sync::oneshot::channel();
         let (tx2, _rx2) = tokio::sync::oneshot::channel();
         let cmd_a = RuntimeCommand::Initialize {
             config: crate::config::ClientConfig::default(),
-            reply: tx1,
+            reply: Reply::new(tx1),
         };
-        let cmd_b = RuntimeCommand::Shutdown { reply: tx2 };
+        let cmd_b = RuntimeCommand::Shutdown { reply: Reply::new(tx2) };
 
         // Verify by Display — each variant has a unique name.
         assert_ne!(format!("{cmd_a}"), format!("{cmd_b}"));
@@ -536,13 +563,13 @@ mod tests {
         // If the receiver is dropped, send_reply must not panic.
         let (tx, rx) = tokio::sync::oneshot::channel();
         drop(rx); // Drop the receiver before sending
-        send_reply(tx, Ok(())); // Should log a warning, not panic
+        send_reply(Reply::new(tx), Ok(())); // Should log a warning, not panic
     }
 
     #[tokio::test]
     async fn send_reply_delivers_value_when_receiver_alive() {
         let (tx, rx) = tokio::sync::oneshot::channel();
-        send_reply(tx, Ok(()));
+        send_reply(Reply::new(tx), Ok(()));
 
         let result = rx.await;
         assert!(result.is_ok(), "reply must be delivered");
@@ -572,12 +599,12 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn conf_connect_variant_constructs_and_displays() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::ConfConnect {
             call_id: 42,
-            reply: tx,
+            reply: Reply::new(tx),
         };
         assert_eq!(format!("{cmd}"), "RuntimeCommand::ConfConnect");
     }
@@ -586,12 +613,12 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn conf_disconnect_variant_constructs_and_displays() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::ConfDisconnect {
             call_id: 7,
-            reply: tx,
+            reply: Reply::new(tx),
         };
         assert_eq!(format!("{cmd}"), "RuntimeCommand::ConfDisconnect");
     }
@@ -600,13 +627,16 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn add_audio_source_variant_constructs() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let source = Box::new(crate::runtime::audio_worker::MockAsyncAudioSource::new(
             vec![0i16; 160],
         ));
-        let cmd = RuntimeCommand::AddAudioSource { source, reply: tx };
+        let cmd = RuntimeCommand::AddAudioSource {
+            source: DebugBox::new(source),
+            reply: Reply::new(tx),
+        };
         assert_eq!(format!("{cmd}"), "RuntimeCommand::AddAudioSource");
     }
 
@@ -614,12 +644,12 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn remove_audio_source_variant_constructs() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::RemoveAudioSource {
             source_id: 5,
-            reply: tx,
+            reply: Reply::new(tx),
         };
         assert_eq!(format!("{cmd}"), "RuntimeCommand::RemoveAudioSource");
     }
@@ -628,13 +658,13 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn set_audio_source_gain_variant_constructs() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::SetAudioSourceGain {
             source_id: 3,
             gain: 0.75,
-            reply: tx,
+            reply: Reply::new(tx),
         };
         assert_eq!(format!("{cmd}"), "RuntimeCommand::SetAudioSourceGain");
     }
@@ -643,13 +673,13 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn mute_audio_source_variant_constructs() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::MuteAudioSource {
             source_id: 1,
             muted: true,
-            reply: tx,
+            reply: Reply::new(tx),
         };
         assert_eq!(format!("{cmd}"), "RuntimeCommand::MuteAudioSource");
     }
@@ -658,12 +688,12 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_conf_connect() {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::ConfConnect {
             call_id: 42,
-            reply: tx,
+            reply: Reply::new(tx),
         };
         let dispatch = DispatchCommand::from_runtime_command(cmd);
         match dispatch {
@@ -677,14 +707,14 @@ mod tests {
     // @verifies C035
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C035
-// [::TICKET::] P0-6, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P8-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P8-1|P10-4) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_audio_source_variants() {
         let (tx1, _rx1) = tokio::sync::oneshot::channel();
         let cmd1 = RuntimeCommand::AddAudioSource {
-            source: Box::new(crate::runtime::audio_worker::MockAsyncAudioSource::new(
-                vec![0i16; 160],
+            source: DebugBox::new(Box::new(
+                crate::runtime::audio_worker::MockAsyncAudioSource::new(vec![0i16; 160]),
             )),
-            reply: tx1,
+            reply: Reply::new(tx1),
         };
         assert!(matches!(
             DispatchCommand::from_runtime_command(cmd1),
@@ -694,7 +724,7 @@ mod tests {
         let (tx2, _rx2) = tokio::sync::oneshot::channel();
         let cmd2 = RuntimeCommand::RemoveAudioSource {
             source_id: 1,
-            reply: tx2,
+            reply: Reply::new(tx2),
         };
         assert!(matches!(
             DispatchCommand::from_runtime_command(cmd2),
@@ -705,7 +735,7 @@ mod tests {
         let cmd3 = RuntimeCommand::SetAudioSourceGain {
             source_id: 1,
             gain: 0.5,
-            reply: tx3,
+            reply: Reply::new(tx3),
         };
         assert!(matches!(
             DispatchCommand::from_runtime_command(cmd3),
@@ -716,7 +746,7 @@ mod tests {
         let cmd4 = RuntimeCommand::MuteAudioSource {
             source_id: 1,
             muted: true,
-            reply: tx4,
+            reply: Reply::new(tx4),
         };
         assert!(matches!(
             DispatchCommand::from_runtime_command(cmd4),
@@ -727,12 +757,12 @@ mod tests {
     #[test]
     // @verifies C011
     // [::TICKET::] P8-1: O-004 — ConfDisconnect conversion test (mirrors ConfConnect test).
-// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_conf_disconnect() {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::ConfDisconnect {
             call_id: 7,
-            reply: tx,
+            reply: Reply::new(tx),
         };
         let dispatch = DispatchCommand::from_runtime_command(cmd);
         match dispatch {
@@ -745,13 +775,13 @@ mod tests {
     #[test]
     // @verifies C011
     // [::TICKET::] P8-1: O-001 — executing the ConfConnect closure must invoke backend.conf_connect.
-// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4) --for-spec --no-implementation-order`.
     fn conf_connect_closure_invokes_backend_conf_connect() {
         let mut backend = MockBackend::new();
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::ConfConnect {
             call_id: 9,
-            reply: tx,
+            reply: Reply::new(tx),
         };
         let dispatch = DispatchCommand::from_runtime_command(cmd);
         match dispatch {
@@ -771,13 +801,13 @@ mod tests {
     #[test]
     // @verifies C011
     // [::TICKET::] P8-1: O-001 — executing the ConfDisconnect closure must invoke backend.conf_disconnect.
-// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4) --for-spec --no-implementation-order`.
     fn conf_disconnect_closure_invokes_backend_conf_disconnect() {
         let mut backend = MockBackend::new();
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::ConfDisconnect {
             call_id: 5,
-            reply: tx,
+            reply: Reply::new(tx),
         };
         let dispatch = DispatchCommand::from_runtime_command(cmd);
         match dispatch {
@@ -798,13 +828,13 @@ mod tests {
 
     #[test]
     // @verifies C012
-    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_update_account() {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::UpdateAccount {
             account_id: 3,
             config: crate::config::account_config_spec::AccountConfig::default(),
-            reply: tx,
+            reply: Reply::new(tx),
         };
         let dispatch = DispatchCommand::from_runtime_command(cmd);
         assert!(
@@ -816,12 +846,12 @@ mod tests {
 
     #[test]
     // @verifies C016
-    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_create_transport() {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::CreateTransport {
             config: crate::config::transport_ice_spec::TransportConfig::udp(5060),
-            reply: tx,
+            reply: Reply::new(tx),
         };
         let dispatch = DispatchCommand::from_runtime_command(cmd);
         assert!(
@@ -833,10 +863,13 @@ mod tests {
 
     #[test]
     // @verifies C012
-    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_remove_account_to_dedicated_variant() {
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let cmd = RuntimeCommand::RemoveAccount { account_id: 7, reply: tx };
+        let cmd = RuntimeCommand::RemoveAccount {
+            account_id: 7,
+            reply: Reply::new(tx),
+        };
         let dispatch = DispatchCommand::from_runtime_command(cmd);
         assert!(
             matches!(dispatch, DispatchCommand::RemoveAccount { account_id: 7, .. }),
@@ -847,20 +880,119 @@ mod tests {
 
     #[test]
     // @verifies C011
-    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
     fn runtime_command_display_shows_new_lifecycle_variants() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let update = RuntimeCommand::UpdateAccount {
             account_id: 1,
             config: crate::config::account_config_spec::AccountConfig::default(),
-            reply: tx,
+            reply: Reply::new(tx),
         };
         assert_eq!(format!("{update}"), "RuntimeCommand::UpdateAccount");
         let (tx2, _rx2) = tokio::sync::oneshot::channel();
         let transport = RuntimeCommand::CreateTransport {
             config: crate::config::transport_ice_spec::TransportConfig::udp(5060),
-            reply: tx2,
+            reply: Reply::new(tx2),
         };
         assert_eq!(format!("{transport}"), "RuntimeCommand::CreateTransport");
+    }
+
+    // ── P10-4: Debug-friendly sender wrapper (Reply) + DebugBox + derive Debug ──
+
+    #[test]
+    // @verifies C011
+// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    fn runtime_command_debug_exposes_payload_field_names() {
+        // RED on the manual impl (prints only "RuntimeCommand::UpdateAccount");
+        // GREEN once #[derive(Debug)] replaces it.
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let cmd = RuntimeCommand::UpdateAccount {
+            account_id: 1,
+            config: crate::config::account_config_spec::AccountConfig::default(),
+            reply: Reply::new(tx),
+        };
+        assert!(
+            format!("{cmd:?}").contains("config"),
+            "derived Debug must expose payload field names"
+        );
+    }
+
+    #[test]
+    // @verifies C053
+// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    fn reply_debug_output_is_payload_independent() {
+        let (tx, _rx) = tokio::sync::oneshot::channel::<Result<(), ReactorError>>();
+        let unit_output = format!("{:?}", Reply::new(tx));
+        let (tx2, _rx2) = tokio::sync::oneshot::channel::<Result<u64, ReactorError>>();
+        let u64_output = format!("{:?}", Reply::new(tx2));
+        assert_eq!(unit_output, u64_output, "Reply Debug must be payload-independent");
+    }
+
+    #[tokio::test]
+    // @verifies C053
+    async fn reply_send_delivers_and_into_inner_recovers() {
+        let (tx, rx) = tokio::sync::oneshot::channel::<u64>();
+        Reply::new(tx).send(42).ok();
+        assert_eq!(rx.await, Ok(42));
+        let (tx2, _rx2) = tokio::sync::oneshot::channel::<u64>();
+        let inner: tokio::sync::oneshot::Sender<u64> = Reply::new(tx2).into_inner();
+        assert!(inner.send(7).is_ok());
+    }
+
+    #[test]
+    // @verifies C053
+// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    fn reply_send_returns_err_on_dropped_receiver() {
+        let (tx, rx) = tokio::sync::oneshot::channel::<u64>();
+        drop(rx);
+        assert!(Reply::new(tx).send(1).is_err());
+    }
+
+    #[tokio::test]
+    // @verifies C054
+    async fn debugbox_into_inner_preserves_audio_source() {
+        let source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send> =
+            Box::new(crate::runtime::audio_worker::MockAsyncAudioSource::new(vec![7i16; 160]));
+        let boxed = DebugBox::new(source);
+        assert!(
+            !format!("{boxed:?}").is_empty(),
+            "DebugBox Debug must be opaque and stable"
+        );
+        let mut recovered = boxed.into_inner();
+        let mut buf = vec![0i16; 160];
+        assert_eq!(recovered.next_chunk(&mut buf).await, 160, "source survives the round-trip");
+    }
+
+    #[test]
+    // @verifies C011
+// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    fn runtime_command_derives_debug() {
+// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+        fn assert_debug<T: std::fmt::Debug>() {}
+        assert_debug::<RuntimeCommand>();
+        assert_debug::<Reply<Result<(), ReactorError>>>();
+        assert_debug::<DebugBox<dyn crate::runtime::audio_worker::AsyncAudioSource + Send>>();
+    }
+
+    #[test]
+    // @verifies C054
+// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    fn from_runtime_command_preserves_reply_and_debugbox() {
+        let (tx, _rx) = tokio::sync::oneshot::channel::<Result<u64, ReactorError>>();
+        let source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send> =
+            Box::new(crate::runtime::audio_worker::MockAsyncAudioSource::new(vec![0i16; 160]));
+        let cmd = RuntimeCommand::AddAudioSource {
+            source: DebugBox::new(source),
+            reply: Reply::new(tx),
+        };
+        match DispatchCommand::from_runtime_command(cmd) {
+            DispatchCommand::AddAudioSource { source, reply } => {
+                let _b: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send> =
+                    source.into_inner();
+                let _s: tokio::sync::oneshot::Sender<Result<u64, ReactorError>> =
+                    reply.into_inner();
+            }
+            _ => panic!("AddAudioSource must map to the dedicated variant"),
+        }
     }
 }

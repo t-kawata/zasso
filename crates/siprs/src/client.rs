@@ -19,7 +19,7 @@ use crate::config::ClientConfig;
 use crate::error::SipError;
 use crate::error::SipErrorKind;
 use crate::model::{AudioFormat, CallId};
-use crate::runtime::command::RuntimeCommand;
+use crate::runtime::command::{Reply, RuntimeCommand};
 use crate::runtime::handle::RuntimeHandle;
 use crate::runtime::reactor::{BootConfig, CoreReactor};
 use crate::state::registr_state_machine::RegistrationState;
@@ -76,7 +76,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -119,7 +119,7 @@ impl SipClient {
         handle
             .submit(RuntimeCommand::Initialize {
                 config: config.clone(),
-                reply: _dummy_tx,
+                reply: Reply::new(_dummy_tx),
             })
             .await
             .map_err(|e| {
@@ -257,7 +257,7 @@ impl SipClient {
         self.runtime
             .submit(RuntimeCommand::RemoveAccount {
                 account_id,
-                reply: _tx,
+                reply: Reply::new(_tx),
             })
             .await
             .map_err(|e| {
@@ -307,7 +307,7 @@ impl SipClient {
         self.runtime
             .submit(RuntimeCommand::CreateTransport {
                 config,
-                reply: _tx,
+                reply: Reply::new(_tx),
             })
             .await
             .map_err(|e| {
@@ -388,7 +388,7 @@ impl SipClient {
         let (_dummy_tx, _dummy_rx) = tokio::sync::oneshot::channel();
         match self
             .runtime
-            .submit(RuntimeCommand::Shutdown { reply: _dummy_tx })
+            .submit(RuntimeCommand::Shutdown { reply: Reply::new(_dummy_tx) })
             .await
         {
             Ok(()) => Ok(()),

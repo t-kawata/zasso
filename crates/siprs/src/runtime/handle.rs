@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::sync::Weak;
 use std::thread::JoinHandle;
 
-use crate::runtime::command::{DispatchCommand, ReactorError, RuntimeCommand};
+use crate::runtime::command::{DebugBox, DispatchCommand, ReactorError, Reply, RuntimeCommand};
 
 /// A `Send + Sync` handle for submitting commands to the `CoreReactor`.
 ///
@@ -29,7 +29,7 @@ pub struct RuntimeHandle {
     join_handle: Weak<JoinHandle<()>>,
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
@@ -60,8 +60,8 @@ impl RuntimeHandle {
 
         // Inject our reply channel
         let dispatch = match dispatch {
-            DispatchCommand::Execute { f, .. } => DispatchCommand::Execute { f, reply: tx },
-            DispatchCommand::Shutdown { .. } => DispatchCommand::Shutdown { reply: tx },
+            DispatchCommand::Execute { f, .. } => DispatchCommand::Execute { f, reply: Reply::new(tx) },
+            DispatchCommand::Shutdown { .. } => DispatchCommand::Shutdown { reply: Reply::new(tx) },
             // AddAccount has a typed Result<u64> reply — handled via submit_add_account.
             DispatchCommand::AddAccount { .. } => {
                 unreachable!("use submit_add_account instead")
@@ -70,35 +70,35 @@ impl RuntimeHandle {
                 DispatchCommand::UpdateAccount {
                     account_id,
                     config,
-                    reply: tx,
+                    reply: Reply::new(tx),
                 }
             }
             DispatchCommand::RemoveAccount { account_id, .. } => {
-                DispatchCommand::RemoveAccount { account_id, reply: tx }
+                DispatchCommand::RemoveAccount { account_id, reply: Reply::new(tx) }
             }
             DispatchCommand::CreateTransport { config, .. } => {
-                DispatchCommand::CreateTransport { config, reply: tx }
+                DispatchCommand::CreateTransport { config, reply: Reply::new(tx) }
             }
             // Audio-lifecycle commands with a Result<()> reply are handled directly;
             // the dedicated submit_*_audio_* methods are typed conveniences.
             DispatchCommand::RemoveAudioSource { source_id, .. } => {
                 DispatchCommand::RemoveAudioSource {
                     source_id,
-                    reply: tx,
+                    reply: Reply::new(tx),
                 }
             }
             DispatchCommand::SetAudioSourceGain { source_id, gain, .. } => {
                 DispatchCommand::SetAudioSourceGain {
                     source_id,
                     gain,
-                    reply: tx,
+                    reply: Reply::new(tx),
                 }
             }
             DispatchCommand::MuteAudioSource { source_id, muted, .. } => {
                 DispatchCommand::MuteAudioSource {
                     source_id,
                     muted,
-                    reply: tx,
+                    reply: Reply::new(tx),
                 }
             }
             // GetAccountInfo handled via separate method
@@ -137,7 +137,7 @@ impl RuntimeHandle {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let dispatch = DispatchCommand::GetAccountInfo {
             native_acc_id,
-            reply: tx,
+            reply: Reply::new(tx),
         };
 
         self.sender
@@ -160,7 +160,7 @@ impl RuntimeHandle {
         }
 
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let dispatch = DispatchCommand::QueryState { reply: tx };
+        let dispatch = DispatchCommand::QueryState { reply: Reply::new(tx) };
 
         self.sender
             .send(dispatch)
@@ -183,7 +183,7 @@ impl RuntimeHandle {
         }
 
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let dispatch = DispatchCommand::AddAccount { config, reply: tx };
+        let dispatch = DispatchCommand::AddAccount { config, reply: Reply::new(tx) };
 
         self.sender
             .send(dispatch)
@@ -210,7 +210,10 @@ impl RuntimeHandle {
         }
 
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let dispatch = DispatchCommand::AddAudioSource { source, reply: tx };
+        let dispatch = DispatchCommand::AddAudioSource {
+            source: DebugBox::new(source),
+            reply: Reply::new(tx),
+        };
 
         self.sender
             .send(dispatch)
@@ -228,7 +231,7 @@ impl RuntimeHandle {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let dispatch = DispatchCommand::RemoveAudioSource {
             source_id,
-            reply: tx,
+            reply: Reply::new(tx),
         };
 
         self.sender
@@ -252,7 +255,7 @@ impl RuntimeHandle {
         let dispatch = DispatchCommand::SetAudioSourceGain {
             source_id,
             gain,
-            reply: tx,
+            reply: Reply::new(tx),
         };
 
         self.sender
@@ -276,7 +279,7 @@ impl RuntimeHandle {
         let dispatch = DispatchCommand::MuteAudioSource {
             source_id,
             muted,
-            reply: tx,
+            reply: Reply::new(tx),
         };
 
         self.sender
@@ -333,7 +336,7 @@ mod tests {
         let handle = RuntimeHandle::new(tx, terminated, Weak::new());
 
         let (_tx, _rx) = tokio::sync::oneshot::channel();
-        let cmd = RuntimeCommand::Shutdown { reply: _tx };
+        let cmd = RuntimeCommand::Shutdown { reply: Reply::new(_tx) };
         let result = handle.submit(cmd).await;
         assert!(result.is_err(), "submit must return Err when terminated");
     }

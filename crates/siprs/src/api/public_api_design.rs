@@ -21,7 +21,7 @@ use crate::api::call_types::CallMediaConstraints;
 use crate::config::account_config_spec::AccountConfigPatch;
 use crate::error::{SipError, SipErrorKind};
 use crate::model::AccountId;
-use crate::runtime::command::RuntimeCommand;
+use crate::runtime::command::{Reply, RuntimeCommand};
 use crate::state::registr_state_machine::RegistrationState;
 use tracing::instrument;
 
@@ -37,7 +37,7 @@ pub struct SipAccountHandle {
     pub(crate) id: u64,
 }
 
-// [::TICKET::] P3-1, P4-1, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1|P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1, P10-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1|P10-1|P10-3|P10-4) --for-spec --no-implementation-order`.
 impl SipAccountHandle {
     /// Create a new `SipAccountHandle`.
     pub fn new(client: crate::client::SipClient, id: u64) -> Self {
@@ -58,7 +58,7 @@ impl SipAccountHandle {
             .submit(RuntimeCommand::SetRegistration {
                 account_id: self.id,
                 enabled: true,
-                reply: _tx,
+                reply: Reply::new(_tx),
             })
             .await
             .map_err(|e| {
@@ -78,7 +78,7 @@ impl SipAccountHandle {
             .submit(RuntimeCommand::SetRegistration {
                 account_id: self.id,
                 enabled: false,
-                reply: _tx,
+                reply: Reply::new(_tx),
             })
             .await
             .map_err(|e| {
@@ -98,7 +98,7 @@ impl SipAccountHandle {
             .submit(RuntimeCommand::SetRegistration {
                 account_id: self.id,
                 enabled,
-                reply: _tx,
+                reply: Reply::new(_tx),
             })
             .await
             .map_err(|e| {
@@ -145,7 +145,7 @@ impl SipAccountHandle {
             .submit(RuntimeCommand::MakeCall {
                 account_id: self.id,
                 request: Box::new(request),
-                reply: _tx,
+                reply: Reply::new(_tx),
             })
             .await
             .map_err(|e| {
@@ -189,7 +189,7 @@ impl SipAccountHandle {
             .submit(RuntimeCommand::UpdateAccount {
                 account_id: self.id,
                 config: merged,
-                reply: _tx,
+                reply: Reply::new(_tx),
             })
             .await
             .map_err(|e| {
