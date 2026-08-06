@@ -1357,7 +1357,20 @@
       "Bash(node -e 'let d=\"\";process.stdin.on\\(\"data\",c=>d+=c\\);process.stdin.on\\(\"end\",\\(\\)=>{try{const r=JSON.parse\\(d\\);console.log\\(JSON.stringify\\(r,null,1\\).slice\\(0,2500\\)\\);}catch\\(e\\){console.log\\(d.slice\\(0,2500\\)\\);}}\\);')",
       "Bash(node -e 'let d=\"\";process.stdin.on\\(\"data\",c=>d+=c\\);process.stdin.on\\(\"end\",\\(\\)=>{try{const r=JSON.parse\\(d\\);const target=[\"error_design_siperror.rs\",\"m20_runtime_command_error.rs\",\"src/client.rs\"];const hits=\\(r.findings||[]\\).filter\\(f=>target.some\\(t=>f.file.includes\\(t\\)\\)\\);console.log\\(\"total:\",r.total,\"| hits in P11-15 target files:\",hits.length\\);hits.forEach\\(h=>console.log\\(h.file.split\\(\"/\"\\).slice\\(-1\\)[0]+\":\"+h.line,\"[\"+h.pattern+\"]\",h.content.slice\\(0,80\\)\\)\\);}catch\\(e\\){console.log\\(\"parse fail:\",d.slice\\(0,300\\)\\);}}\\);')",
       "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P11-15\" --tickets=\"Tickets.json\")",
-      "Bash(grep -n \"findCommentedCode\" .claude/scripts/tickets/review/run-quality-checks.js | head -3; sed -n '/function findCommentedCode/,/^}/p' .claude/scripts/tickets/review/run-quality-checks.js | head -40)"
+      "Bash(grep -n \"findCommentedCode\" .claude/scripts/tickets/review/run-quality-checks.js | head -3; sed -n '/function findCommentedCode/,/^}/p' .claude/scripts/tickets/review/run-quality-checks.js | head -40)",
+      "Bash(pwd && ls -la && echo \"---\" && ls -la .claude/scripts/tickets/ 2>/dev/null || echo \"NOT in cwd\" && echo \"---\" && ls -la /Users/sh01/shyme/zasso/.claude/scripts/tickets/ 2>/dev/null || echo \"NOT in repo root\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-16)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P11-16\")",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P11-16\")",
+      "Bash(node /tmp/update-p11-16-phase1.js)",
+      "Bash(node /tmp/update-p11-16-phase2.js)",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P11-16\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"P11-16\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=\"P11-16\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P11-16\" --for-spec)",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P11-16\")",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P11-16\" --phase=plan)",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P11-16\" --for-spec --plan)"
     ]
   }
 }
