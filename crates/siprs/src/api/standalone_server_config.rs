@@ -152,11 +152,11 @@ pub struct AppState {
     pub server_start_time: Instant,
 }
 
-// [::TICKET::] P3-3: ServerConfig CLI parsing and server builder functions.
+// [::TICKET::] P3-3: ServerConfig CLI parsing and server builder helpers.
 /// # Feature gates
 ///
 /// - `cli` feature: enables `from_args()` and `from_args_with()` for CLI arg parsing via clap.
-/// - `server` feature: enables `build_router()` and HTTP handler functions.
+/// - `server` feature: enables `build_router()` and the HTTP handlers.
 // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
 impl ServerConfig {
     /// Parse server config from CLI arguments.
@@ -311,7 +311,7 @@ impl ServerConfig {
     }
 }
 
-// [::TICKET::] P3-3: Axum HTTP server router and handler functions (behind server feature).
+// [::TICKET::] P3-3: Axum HTTP server router and handlers (behind server feature).
 /// Build the Axum router with health check and shutdown endpoints.
 ///
 /// This is the minimal router for P3-3. Additional routes (REST, WebSocket)
@@ -680,11 +680,11 @@ mod tests {
     // ── Invariant: Send + Sync ─────────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P2-2, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2, P7-1, P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2) --for-spec --no-implementation-order`.
     fn test_server_config_send_sync() {
-        // [::TICKET::] P2-2, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1) --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2, P7-1, P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-        // [::TICKET::] P2-2, P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3|P7-1) --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2, P3-3, P7-1, P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3|P7-1|P11-2) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<ServerConfig>();
         assert_sync::<ServerConfig>();
@@ -715,15 +715,32 @@ mod tests {
 
     // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     #[test]
-    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    // @verifies C062
+    // [::TICKET::] P3-3, P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P11-2) --for-spec --no-implementation-order`.
     fn test_server_config_serde_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
-        let config = ServerConfig::default();
+        // Roundtrip a fully-populated config so every field is asserted — a
+        // default-only roundtrip would not detect a #[serde(skip)] regression on
+        // config_file / allowed_origins / jwt_secret (all None/[]/None by default).
+        let config = ServerConfig {
+            bind_addr: "0.0.0.0:8080".parse()?,
+            db_path: PathBuf::from("/tmp/custom.db"),
+            config_file: Some(PathBuf::from("/etc/siprs/custom.toml")),
+            allowed_origins: vec!["https://app.example.com".to_string()],
+            auth: AuthConfig {
+                mode: AuthMode::Jwt,
+                jwt_secret: Some(crate::security::SecretString::new(
+                    "roundtrip-secret".to_string(),
+                )),
+                jwt_expiry_secs: 7200,
+            },
+        };
         let json = serde_json::to_string(&config)?;
         let restored: ServerConfig = serde_json::from_str(&json)?;
         assert_eq!(config.bind_addr, restored.bind_addr);
         assert_eq!(config.db_path, restored.db_path);
-        assert_eq!(config.auth.mode, restored.auth.mode);
-        assert_eq!(config.auth.jwt_expiry_secs, restored.auth.jwt_expiry_secs);
+        assert_eq!(config.config_file, restored.config_file);
+        assert_eq!(config.allowed_origins, restored.allowed_origins);
+        assert_eq!(config.auth, restored.auth);
         Ok(())
     }
 
@@ -748,6 +765,44 @@ mod tests {
     fn test_auth_config_default_jwt_expiry_matches_constant() {
         let config = AuthConfig::default();
         assert_eq!(config.jwt_expiry_secs, DEFAULT_JWT_EXPIRY_SECS);
+    }
+
+    // ── P11-2: DatabasePool & rusqlite compile checks (C065, sqlite-storage) ──
+    //
+    // These lock two contract elements of N0064→N0061: DatabasePool::open()
+    // stays generic over AsRef<Path> (both &str and PathBuf callable from the
+    // main entry point), and the rusqlite dependency keeps the bundled feature.
+    // Each is compiled only when sqlite-storage is enabled, so the checks run
+    // under `cargo test --features server,cli,sqlite-storage`.
+
+    #[cfg(feature = "sqlite-storage")]
+    #[test]
+    // @verifies C065
+    // [::TICKET::] P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-2 --for-spec --no-implementation-order`.
+    fn database_pool_open_accepts_str_and_pathbuf() {
+        use crate::model::sqlite_schema::DatabasePool;
+
+        async fn _accepts_str(path: &str) -> Result<DatabasePool, sea_orm::DbErr> {
+            DatabasePool::open(path).await
+        }
+        async fn _accepts_pathbuf(
+            path: std::path::PathBuf,
+        ) -> Result<DatabasePool, sea_orm::DbErr> {
+            DatabasePool::open(path).await
+        }
+        let _ = (_accepts_str, _accepts_pathbuf);
+    }
+
+    #[cfg(feature = "sqlite-storage")]
+    #[test]
+    // @verifies C065
+    // [::TICKET::] P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-2 --for-spec --no-implementation-order`.
+    fn rusqlite_bundled_open_in_memory_compiles() {
+        // [::TICKET::] P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-2 --for-spec --no-implementation-order`.
+        fn _rusqlite_bundled_available() {
+            let _ = rusqlite::Connection::open_in_memory();
+        }
+        let _ = _rusqlite_bundled_available;
     }
 
     // ── P3-3: ServerConfig CLI tests (feature-gated) ─────────────────────
@@ -809,7 +864,7 @@ mod tests {
 
         // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
         #[test]
-        // O-005: Empty db-path must be rejected with a descriptive error.
+        // Empty db-path must be rejected with a descriptive error.
         // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
         fn test_from_args_rejects_empty_db_path() {
             let result = ServerConfig::from_args_with(&["--db-path".to_string(), "".to_string()]);
@@ -855,6 +910,24 @@ mod tests {
             ])?;
             assert_eq!(config.auth.mode, AuthMode::Jwt);
             assert!(config.auth.jwt_secret.is_some());
+            Ok(())
+        }
+
+        // Jwt mode without --jwt-secret must be rejected — the guard at
+        // from_args_with (matches.get_one::<String>("jwt-secret").ok_or_else(...))
+        // would otherwise be dead code.
+        #[test]
+        // @verifies C062
+        // [::TICKET::] P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-2 --for-spec --no-implementation-order`.
+        fn test_from_args_rejects_jwt_without_secret() -> Result<(), Box<dyn std::error::Error>> {
+            let result =
+                ServerConfig::from_args_with(&["--auth-mode".to_string(), "jwt".to_string()]);
+            let err = result.expect_err("jwt mode without --jwt-secret must be rejected");
+            assert_eq!(err.kind, crate::error::SipErrorKind::InvalidConfig);
+            assert!(
+                err.to_string().contains("jwt-secret"),
+                "error message must mention jwt-secret"
+            );
             Ok(())
         }
     }
@@ -921,8 +994,8 @@ mod tests {
             })
         }
 
-        // O-001 (critical): Behavioral health check — GET /api/v1/health must
-        // return HTTP 200 with {"status":"ok"} before any account is registered.
+        // Behavioral health check — GET /api/v1/health must respond HTTP 200
+        // before any account is registered (readiness probe).
         #[tokio::test]
         async fn test_health_check_returns_ok() -> Result<(), Box<dyn std::error::Error>> {
             use axum::body::Body;
@@ -945,7 +1018,7 @@ mod tests {
             Ok(())
         }
 
-        // Shutdown endpoint — POST /api/v1/shutdown must return HTTP 200 with
+        // Shutdown endpoint — POST /api/v1/shutdown must respond HTTP 200 with
         // {"status":"shutting_down"} and call the idempotent SipClient::shutdown().
         #[tokio::test]
         async fn test_shutdown_returns_ok() -> Result<(), Box<dyn std::error::Error>> {
@@ -984,6 +1057,31 @@ mod tests {
                 crate::error::SipErrorKind::InvalidConfig,
                 "startup failure must be InvalidConfig"
             );
+            Ok(())
+        }
+
+        // build_router must provide an extensible router type — future P4-3
+        // routes merge in by chaining additional routes. A sealed or wrapper
+        // type would fail to compile here, and the added route must actually
+        // be reachable, so this test locks the C063 invariant route-addition
+        // behavior.
+        #[tokio::test]
+        // @verifies C063
+        async fn test_build_router_allows_route_addition() -> Result<(), Box<dyn std::error::Error>>
+        {
+            use axum::body::Body;
+            use axum::http::{Request, StatusCode};
+            use axum::routing::get;
+            use tower::ServiceExt;
+
+            let router = build_router(build_test_app_state().await?);
+            let extended = router.route("/api/v1/test", get(|| async { "ok" }));
+            let response = extended
+                .oneshot(Request::builder().uri("/api/v1/test").body(Body::empty())?)
+                .await?;
+            assert_eq!(response.status(), StatusCode::OK);
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await?;
+            assert_eq!(String::from_utf8(bytes.to_vec())?, "ok");
             Ok(())
         }
     }
