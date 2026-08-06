@@ -866,7 +866,14 @@
       "Bash(node .claude/scripts/tickets/remove-stub.js --file=src/transport.rs --line=12)",
       "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P10-5\" --verbose)",
       "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P10-5\" --check-ambiguous)",
-      "Bash(node .claude/scripts/tickets/verify-red-coverage.js --ticket-key=\"P10-5\")"
+      "Bash(node .claude/scripts/tickets/verify-red-coverage.js --ticket-key=\"P10-5\")",
+      "Bash(cd /Users/sh01/shyme/zasso && ls -la && echo \"---MAKEFILE---\" && ls -la Makefile 2>/dev/null && echo \"---CRATES/SIPRS---\" && ls -la crates/siprs)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('count:',j.count\\);for\\(const s of j.stubs\\){console.log\\(s.file+':'+s.line\\);}}\\)\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('crime count:',j.count\\)}\\)\")",
+      "Bash(node .claude/scripts/tickets/review/run-quality-checks.js src)",
+      "Bash(awk '{p+=$4; f+=$6} END {print \"total passed:\", p, \"failed:\", f}')",
+      "Bash(git fetch *)",
+      "Bash(git commit -m 'chore: extend local Claude allowed-command allowlist for quality checks *)"
     ]
   }
 }
