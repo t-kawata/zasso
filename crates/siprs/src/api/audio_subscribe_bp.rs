@@ -20,4 +20,4 @@
 pub trait Service {}
 
 
-// [::STUB::] P5-1: Audio Subscribe API and backpressure policy are not yet implemented -- Implement the Audio Subscribe API and backpressure policy per node N0031 (Section 22)
+// [::STUB::] P9-2: Audio Subscribe API and backpressure policy are not yet implemented -- Implement the Audio Subscribe API and backpressure policy per node N0031 (Section 22)

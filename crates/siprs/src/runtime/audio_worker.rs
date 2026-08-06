@@ -263,7 +263,7 @@ impl Default for AudioMixer {
 /// Periodically calls `process_frame` on each active source and produces
 /// a mixed output buffer. Controlled via `shutdown_signal` atomic flag.
 pub struct AudioWorkerTask {
-// [::STUB::] P3-2: AudioWorker state fields are stored but not yet exposed (covers audio_worker.rs:266,270,274,335) -- Expose AudioWorker state (mixer, call_id, frame_duration) via inspection/query accessors and wire call_id into logging and metrics correlation once call lifecycle is active
+// [::STUB::] P12-4: AudioWorker state fields are stored but not yet exposed (covers audio_worker.rs:266,270,274,335) -- Expose AudioWorker state (mixer, call_id, frame_duration) via inspection/query accessors and wire call_id into logging and metrics correlation once call lifecycle is active
     // [::TICKET::] P3-2: mixer stored for state inspection API (used by AudioWorkerInner at spawn).
     #[allow(dead_code)]
     mixer: Arc<AudioMixer>,
@@ -274,7 +274,7 @@ pub struct AudioWorkerTask {
     #[allow(dead_code)]
     frame_duration: Duration,
     shutdown_signal: Arc<AtomicBool>,
-// [::STUB::] P3-2: AudioWorker handle is an unused Option<JoinHandle> -- Replace the unused Option<JoinHandle> with an active JoinHandle and integrate FFI audio capture and playback once FFI audio integration is available
+// [::STUB::] P12-5: AudioWorker handle is an unused Option<JoinHandle> -- Replace the unused Option<JoinHandle> with an active JoinHandle and integrate FFI audio capture and playback once FFI audio integration is available
     #[allow(dead_code)]
     handle: Option<tokio::task::JoinHandle<()>>,
 }

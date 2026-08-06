@@ -74,7 +74,7 @@ pub const DEFAULT_DTMF_SENT_TIMEOUT_MS: u64 = 500;
 /// The returned `JoinHandle` lets the caller cancel the timer if the real
 /// callback fires first.
 // [::TICKET::] P7-2: O-002 — 500ms timeout fallback for the DtmfSent two-phase design
-// [::STUB::] P5-2: spawn_dtmf_sent_timeout is not yet invoked; the reactor does not yet own an EventBus -- Wire spawn_dtmf_sent_timeout into the reactor SendDtmf handler and implement the two-phase DTMF-sent timeout once the reactor owns an EventBus
+// [::STUB::] P11-6: spawn_dtmf_sent_timeout is not yet invoked; the reactor does not yet own an EventBus -- Wire spawn_dtmf_sent_timeout into the reactor SendDtmf handler and implement the two-phase DTMF-sent timeout once the reactor owns an EventBus
 #[allow(dead_code)]
 pub(crate) fn spawn_dtmf_sent_timeout(
     call_id: CallId,

@@ -20,4 +20,4 @@
 pub trait Service {}
 
 
-// [::STUB::] P5-1: SipCall lifecycle and fields are placeholders; call API semantics are deferred -- Implement SipCall with private fields and accessors and call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (NODE_ID=N0027)
+// [::STUB::] P9-3: SipCall lifecycle and fields are placeholders; call API semantics are deferred -- Implement SipCall with private fields and accessors and call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (NODE_ID=N0027)

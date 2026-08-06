@@ -417,7 +417,7 @@ impl SipEvent {
 /// to untrusted consumers.
 ///
 /// The `data` field contains the raw bytes of the SIP message.
-// [::STUB::] P5-1: RawSipMessage is a minimal wrapper with public Vec<u8> data; the raw SIP message spec is not yet implemented -- Implement full SIP message parsing per the Raw SIP Message Specification (NODE_ID=N0024) with header/sdp extraction and parsed-field accessors
+// [::STUB::] P9-4: RawSipMessage is a minimal wrapper with public Vec<u8> data; the raw SIP message spec is not yet implemented -- Implement full SIP message parsing per the Raw SIP Message Specification (NODE_ID=N0024) with header/sdp extraction and parsed-field accessors
 #[derive(Debug, Clone)]
 pub struct RawSipMessage {
     pub data: Vec<u8>,

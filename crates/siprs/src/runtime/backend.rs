@@ -241,7 +241,7 @@ impl SipBackend for MockBackend {
         match &self.get_account_info_result {
             Some(result) => result.clone(),
             None => {
-// [::STUB::] P3-1: Account info and registration state are placeholders pending the reactor account state machine -- Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented
+// [::STUB::] P10-1: Account info and registration state are placeholders pending the reactor account state machine -- Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented
                 Ok(AccountInfoSnapshot {
                     acc_id: crate::api::event_model_payload_bus::AccountId::from_u64(
                         native_acc_id as u64,
@@ -284,7 +284,7 @@ impl SipBackend for MockBackend {
 /// All methods return `Err(ReactorError::BackendError("unimplemented"))`.
 /// The real implementation requires PJSIP library linkage (P4+).
 ///
-// [::STUB::] P4-2: Real PJSIP FFI calls are not yet wired; canned or unimplemented values are returned -- Replace canned or unimplemented PJSIP FFI call sites (pjsua_call_get_info and other backend calls) with real bindgen-generated calls and obtain actual media_status once the pjsua-native feature and library linkage are ready
+// [::STUB::] P11-10: Real PJSIP FFI calls are not yet wired; canned or unimplemented values are returned -- Replace canned or unimplemented PJSIP FFI call sites (pjsua_call_get_info and other backend calls) with real bindgen-generated calls and obtain actual media_status once the pjsua-native feature and library linkage are ready
 #[derive(Default)]
 pub struct PjsuaBackend;
 

@@ -257,7 +257,7 @@ impl CoreReactor {
 /// This is the production dual-client dispatch: the Reactor calls it whenever a
 /// NativeEvent has been converted to a `SipEvent` (O-003).
 // [::TICKET::] P7-2: O-003 — production account_id-based EventBus dispatch
-// [::STUB::] P3-2: NativeEvent dispatch and processing are not yet wired into the reactor loop (covers reactor.rs:260,294,335) -- Wire dispatch_event and process_native_event (with its extract_event_ids helper) into the reactor loop so NativeEvents delivered by the FFI callback bridge are processed
+// [::STUB::] P12-7: NativeEvent dispatch and processing are not yet wired into the reactor loop (covers reactor.rs:260,294,335) -- Wire dispatch_event and process_native_event (with its extract_event_ids helper) into the reactor loop so NativeEvents delivered by the FFI callback bridge are processed
 #[allow(dead_code)]
 pub(crate) fn dispatch_event(
     client_event_buses: &std::collections::HashMap<AccountId, EventBus>,
