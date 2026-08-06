@@ -26960,463 +26960,111 @@
             {
               "id": "C031",
               "sourceEdge": "N0030→N0011",
-              "precondition": "Audio delivery part of API",
-              "postcondition": "Audio format model and AudioChunkPair defined",
-              "invariant": "IN/OUT paired by timestamp"
+              "precondition": "Audio delivery is part of the public API. AudioFormat is constructible with validated fields via AudioFormat::new(sample_rate: SampleRate, bit_depth: BitDepth, channel_layout: ChannelLayout, frame_ms: u16) and returns Ok for valid inputs.",
+              "postcondition": "The audio format model and AudioChunkPair are defined: AudioFormat { sample_rate, bit_depth, channel_layout, frame_ms }, AudioChunk::I16(Vec<i16>) | F32(Vec<f32>), AudioChunkPair { call_id: CallId, account_id: AccountId, timestamp: SystemTime, in_chunk: AudioChunk, out_chunk: AudioChunk }.",
+              "invariant": "IN/OUT chunks are paired by a single shared timestamp in AudioChunkPair — there is no separate IN/OUT timestamp field."
             },
             {
               "id": "C041",
               "sourceEdge": "N0040→N0014",
-              "precondition": "AccountConfig defines codec policy",
-              "postcondition": "Codec enforcement and fallback rules specified",
-              "invariant": "PCMU and Opus only"
+              "precondition": "AccountConfig defines a codec policy through CallMediaPreferences::preferred_codecs (empty vec = auto mode, one or more entries = explicit mode).",
+              "postcondition": "Codec enforcement and fallback rules are specified: NegotiatedCodec (Pcmu | Opus(OpusConfig)) and CodecSelectionPolicy (Ordered | PreferOpusFallbackPcmu, Default = PreferOpusFallbackPcmu). Opus is tried first and PCMU is the fallback.",
+              "invariant": "Only PCMU and Opus are accepted — no other codec is negotiable."
             },
             {
               "id": "C042",
               "sourceEdge": "N0041→N0040 (inbound)",
-              "precondition": "Codec policy defined",
-              "postcondition": "Explicit vs auto mode specified",
-              "invariant": "Opus=255, PCMU=254 in auto mode"
+              "precondition": "A codec policy (CodecSelectionPolicy) is defined; the auto-mode path has an empty CallMediaPreferences::preferred_codecs.",
+              "postcondition": "Explicit vs auto mode is specified: explicit mode (non-empty preferred_codecs) bypasses auto priorities; auto mode (empty preferred_codecs) enumerates native codecs and assigns each a priority.",
+              "invariant": "In auto mode Opus=255 and PCMU=254 are assigned invariantly; all other codecs are disabled (priority 0)."
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P4-2 (Audio Format, IN/OUT PairAligner, Resampler & Codec Policy) introduced PJSIP-native state mapping, but the PJSUA/PJSIP numeric constants were hand-copied from pjsua.h. These markers were left as stubs because the bindgen-generated constants from pjsua.h are not available until the pjsua-native feature enables FFI. This work item resolves them by replacing the hand-coded constants with the bindgen-generated constants.",
+          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P4-2 (Audio Format, IN/OUT PairAligner, Resampler & Codec Policy) introduced PJSIP-native state mapping, but the PJSUA/PJSIP numeric constants were hand-copied from pjsua.h. These markers were left as stubs because the bindgen-generated constants from pjsua.h are not available until the pjsua-native feature enables FFI. This work item resolves them by replacing the hand-coded constants with the bindgen-generated constants.\n\n### Goal\nReplace every hand-coded PJSIP/PJSUA numeric constant in src/error (error_design_siperror.rs:37-43, m20_runtime_command_error.rs:39-41) and src/state (m20_callstate_mapping.rs:60-76) with the constants exposed by src/ffi/bindings — bindgen-generated from pjsua.h under the pjsua-native feature, stub aliases otherwise — so ffi::bindings is the single source of truth and all three P11-9 STUB markers are fully resolved.\n\n### Purpose\nThe hand-copied constants (PJ_SUCCESS=0, PJ_ENOMEM=-2, PJ_EINVALIDOP=150002, PJ_EBUSY=150003, pjsip_inv_state 0-4, pjsua_call_media_status 0-4) are duplicates of pjsua.h defines that can silently drift from the real values. Routing every consumer through ffi::bindings gives one authoritative source: under pjsua-native the true pjsua.h values are used via bindgen, and the mapping behavior (status → SipErrorKind / SipEventPayload) is preserved exactly.\n\n### Motivation\nP4-2 left the constants as hand-coded stubs pending the bindgen pipeline. P11-5 (bindgen FFI generation in build.rs), P8-5 (bindgen output) and P8-16 (pjsua-native feature) are complete, so the FFI constants are now available to replace them. The ticket was additionally flagged for rejection with unresolved STUB markers, so this final round must resolve all three markers and delete the duplicate constant blocks.\n\n### Constraints\n- The default build (no pjsua-native) must keep compiling without a system PJSIP install — the ffi::bindings stub aliases remain the non-feature source.\n- The exact numeric values are owned by pjsua.h/bindgen; this ticket asserts mapping behavior, not the numeric values.\n- Enabling pjsua-native requires a system PJSIP install per RFC §28.1/§28.4; that environment is not available in the default dev/CI build, so the bindgen path is validated by the IT gate, not the default `make test`.\n- No public API change: convert_pj_status, convert_call_state, convert_call_state_with_previous, convert_call_media_state, convert_conf_connect_error, convert_conf_disconnect_error, convert_get_account_info_error signatures are unchanged.",
           "scope": [
-            "- src/error/error_design_siperror.rs:32 — replace hand-coded PJ_SUCCESS/PJ_ENOMEM/PJ_EINVALIDOP/PJ_EBUSY consts consumed by convert_pj_status",
-            "- src/error/m20_runtime_command_error.rs:32 — replace hand-coded PJ_SUCCESS/PJ_EINVALIDOP consumed by the M20 error converters",
-            "- src/state/m20_callstate_mapping.rs:59,70 — replace hand-coded pjsip_inv_state and pjsua_call_media_status modules",
-            "- src/ffi/bindings.rs — expose the bindgen-generated constants under pjsua-native; keep stub aliases otherwise",
-            "- Out of scope: SipErrorKind semantics; call-state conversion logic beyond the constant source.",
-            "- Impact: convert_pj_status, convert_call_state, convert_call_media_state, and every M20 native_error_with_status caller."
+            "- **Scope of changes:**\n  - [Path] src/error/error_design_siperror.rs:32-43 (const block) and convert_pj_status at :334-342\n  - [Action] remove the hand-coded const block; route convert_pj_status through ffi::bindings constants\n  - [Detail] Delete `const PJ_SUCCESS: i32 = 0; const PJ_ENOMEM: i32 = -2; const PJ_EINVALIDOP: i32 = 150002; const PJ_EBUSY: i32 = 150003;` and the [::STUB::] P11-9 marker. Import `use crate::ffi::bindings::{PJ_SUCCESS, PJ_ENOMEM, PJ_EINVALIDOP, PJ_EBUSY};` at the top of the module. convert_pj_status's match arms keep their shape but now reference the imported constants. Update the test module to import the constants from crate::ffi::bindings instead of `use super::*`.",
+            "- **Scope of changes:**\n  - [Path] src/error/m20_runtime_command_error.rs:32-41 (const block) and the converters\n  - [Action] remove the hand-coded const block; route the M20 converters through ffi::bindings constants\n  - [Detail] Delete `const PJ_SUCCESS: i32 = 0; const PJ_EINVALIDOP: i32 = 150002;` and the [::STUB::] P11-9 marker. Import `use crate::ffi::bindings::{PJ_SUCCESS, PJ_EINVALIDOP};` at the top. convert_conf_connect_error / convert_conf_disconnect_error / convert_get_account_info_error reference the imported constants. The test-module `const PJ_EBUSY: i32 = 150003;` at :202 is replaced by `use crate::ffi::bindings::PJ_EBUSY;` (or the test asserts via the bindings constant).",
+            "- **Scope of changes:**\n  - [Path] src/state/m20_callstate_mapping.rs:59-76 (pjsip_inv_state and pjsua_call_media_status pub mod blocks) and the converters\n  - [Action] delete the locally-defined constant modules; re-export them from ffi::bindings\n  - [Detail] Delete both `pub mod pjsip_inv_state { ... }` and `pub mod pjsua_call_media_status { ... }` and the [::STUB::] P11-9 marker. Add `pub use crate::ffi::bindings::{pjsip_inv_state, pjsua_call_media_status};` so every existing call site and test that references `pjsip_inv_state::*` / `pjsua_call_media_status::*` keeps compiling unchanged.",
+            "- **Scope of changes:**\n  - [Path] src/ffi/bindings.rs — stub_aliases submodule (non-pjsua-native body)\n  - [Action] extend the stub aliases with the constants the error/state modules consume\n  - [Detail] Add `pub const PJ_ENOMEM: i32 = -2; pub const PJ_EINVALIDOP: i32 = 150002; pub const PJ_EBUSY: i32 = 150003;` and `pub mod pjsip_inv_state { pub const NULL: u32 = 0; ... pub const DISCONNECTED: u32 = 4; }` and `pub mod pjsua_call_media_status { pub const NONE: u32 = 0; ... pub const ERROR: u32 = 4; }`, mirroring the bindgen-generated surface so both feature paths expose identical names.",
+            "- **Scope of changes:**\n  - [Path] src/build/build_script_bindgen.rs — BINDGEN_ALLOWLIST_VARS / BINDGEN_ALLOWLIST_TYPES\n  - [Action] extend the bindgen allowlist so pjsua.h emits the constants this ticket consumes\n  - [Detail] BINDGEN_ALLOWLIST_VARS += [\"PJ_ENOMEM\", \"PJ_EINVALIDOP\", \"PJ_EBUSY\", \"PJSIP_INV_STATE_NULL\", \"PJSIP_INV_STATE_CALLING\", \"PJSIP_INV_STATE_CONNECTING\", \"PJSIP_INV_STATE_CONFIRMED\", \"PJSIP_INV_STATE_DISCONNECTED\", \"PJSUA_CALL_MEDIA_NONE\", \"PJSUA_CALL_MEDIA_ACTIVE\", \"PJSUA_CALL_MEDIA_LOCAL_HOLD\", \"PJSUA_CALL_MEDIA_REMOTE_HOLD\", \"PJSUA_CALL_MEDIA_ERROR\"]. BINDGEN_ALLOWLIST_TYPES += [\"pjsip_inv_state\", \"pjsua_call_media_status\"]. Extend the `allowlist_covers_stub_surface` test to pin the new entries.",
+            "- **Scope of changes:**\n  - [Path] API contract\n  - [Action] none — signatures are unchanged\n  - [Detail] convert_pj_status(status: i32) -> Option<SipErrorKind>, convert_call_state(call_id: CallId, account_id: Option<AccountId>, state: u32) -> Option<SipEventPayload>, convert_call_media_state(call_id: CallId, media_status: u32) -> Option<SipEventPayload>, convert_conf_connect_error / convert_conf_disconnect_error (pj_status: i32, call_id: u64) -> Result<(), SipError>, convert_get_account_info_error(account: Option<&AccountEntry>, pj_status: i32) -> Result<AccountInfo, SipError> all keep their signatures. pjsip_inv_state / pjsua_call_media_status remain public modules (re-exported) so existing consumers are unaffected.",
+            "- **Scope of changes:**\n  - [Path] Data schema\n  - [Action] none\n  - [Detail] No serialized data, DB schema, or event-payload shape changes; SipEventPayload / SipError / AccountInfo fields are untouched.",
+            "- **Scope of changes:**\n  - [Path] Config / env / dependencies\n  - [Action] none\n  - [Detail] No Cargo.toml dependency is added or removed (bindgen is already pinned by P11-5). No env var or config file changes. The pjsua-native feature is already declared.",
+            "- **Out of scope:**\n  - [Item] SipErrorKind semantics (24 variants, retryable flags, Display strings)\n  - [Why] Only the constant SOURCE changes; the status→kind semantic mapping is owned by P0-4/P9-3 and is untouched by this ticket.",
+            "- **Out of scope:**\n  - [Item] call-state conversion logic (which pjsip_inv_state maps to which SipEventPayload, CallDirection discrimination)\n  - [Why] Established by P0-5/P4-1; P11-9 only swaps the constant source. The pjsua_call_state constants (PJSUA_CALL_*) consumed by pjsua_call_info.state belong to P11-10 (real FFI call sites), not to the error/state mapping modules.",
+            "- **Affected areas:**\n  - [Component] src/error/error_design_siperror.rs (convert_pj_status) and its tests\n  - [Nature] behavior-identical refactor; risk of compile drift if bindings namespacing mismatches\n  - [Response] No corresponding change elsewhere; tests updated to import from ffi::bindings prove the source.",
+            "- **Affected areas:**\n  - [Component] src/error/m20_runtime_command_error.rs (convert_conf_connect_error / convert_conf_disconnect_error / convert_get_account_info_error) and its tests\n  - [Nature] behavior-identical refactor; native_status preservation must stay intact\n  - [Response] No corresponding change elsewhere; existing native_status/retryable tests stay green.",
+            "- **Affected areas:**\n  - [Component] src/state/m20_callstate_mapping.rs (convert_call_state / convert_call_state_with_previous / convert_call_media_state) and its tests; src/ffi/bindings.rs; src/build/build_script_bindgen.rs\n  - [Nature] re-export + allowlist change; the bindgen output shape must match the stub_aliases namespacing\n  - [Response] The pjsua-native IT gate validates the bindgen path; the allowlist test pins the constant names."
           ],
           "testUnit": [
-            "UT: [Normal] convert_pj_status maps PJ_SUCCESS to None and PJ_EINVALIDOP to NativeError using the bindgen constants",
-            "UT: [Normal] convert_call_state maps pjsip_inv_state::CONFIRMED to CallConnected and DISCONNECTED to CallDisconnected",
-            "UT: [Normal] convert_call_media_state maps pjsua_call_media_status values (ACTIVE, LOCAL_HOLD, REMOTE_HOLD, ERROR) to CallMediaState",
-            "UT: [Boundary] pjsip_inv_state::NULL yields None (no event published)",
-            "UT: [Error] an unknown state value falls through to None without panicking"
+            "UT: [Normal] P11-9 source-routing: error_design_siperror tests import PJ_SUCCESS/PJ_ENOMEM/PJ_EINVALIDOP/PJ_EBUSY from crate::ffi::bindings — compile-time proof the error module consumes the ffi::bindings constants (RED until bindings exposes them; the local const block in error_design_siperror.rs:37-43 is deleted)",
+            "UT: [Normal] P11-9 source-routing: m20_runtime_command_error tests import PJ_SUCCESS/PJ_EINVALIDOP/PJ_EBUSY from crate::ffi::bindings — compile-time proof the M20 converters consume the ffi::bindings constants (RED until bindings exposes them; the local const block in m20_runtime_command_error.rs:39-41 is deleted)",
+            "UT: [Normal] P11-9 source-routing: m20_callstate_mapping tests import pjsip_inv_state and pjsua_call_media_status from crate::ffi::bindings — compile-time proof the state mapping consumes the ffi::bindings modules (RED until bindings exposes them; the local pub mod blocks in m20_callstate_mapping.rs:60-76 are deleted and re-exported from bindings)",
+            "UT: [Normal] convert_pj_status maps ffi::bindings::PJ_SUCCESS to None and PJ_ENOMEM / PJ_EINVALIDOP / PJ_EBUSY to SipErrorKind::NativeError",
+            "UT: [Normal] convert_conf_connect_error maps ffi::bindings::PJ_SUCCESS to Ok(()), PJ_EINVALIDOP to Err(InvalidState with 'conf_port not resolved' and call_id in the message), and any other non-zero status to Err(NativeError) with native_status preserved",
+            "UT: [Normal] convert_conf_disconnect_error maps ffi::bindings::PJ_SUCCESS to Ok(()), PJ_EINVALIDOP to Err(InvalidState), and any other non-zero status to Err(NativeError) with native_status preserved",
+            "UT: [Normal] convert_get_account_info_error maps Some(registered_entry) + ffi::bindings::PJ_SUCCESS to Ok(AccountInfo) and any non-success status to Err(NativeError) with native_status preserved",
+            "UT: [Normal] convert_call_state maps ffi::bindings::pjsip_inv_state::CALLING to OutgoingCallStarted, CONNECTING to OutgoingCallTrying, CONFIRMED to CallConnected{call_id, account_id}, DISCONNECTED to CallDisconnected",
+            "UT: [Normal] convert_call_state_with_previous maps CONNECTING + CallDirection::Outgoing to OutgoingCallTrying and CONNECTING + CallDirection::Incoming to OutgoingCallRinging; non-CONNECTING delegates to convert_call_state forwarding account_id",
+            "UT: [Normal] convert_call_media_state maps ffi::bindings::pjsua_call_media_status::ACTIVE to MediaActive, LOCAL_HOLD | REMOTE_HOLD to CallHeld, ERROR to MediaError",
+            "UT: [Boundary] ffi::bindings::pjsip_inv_state::NULL yields None (no event published)",
+            "UT: [Boundary] ffi::bindings::pjsua_call_media_status::NONE yields None",
+            "UT: [Boundary] unknown pjsip_inv_state / pjsua_call_media_status values (99) fall through to None without panicking — conversion is total over the raw u32 domain (existing all_five_inv_state_values_covered / inv_state_conversion_is_total tests stay green)",
+            "UT: [Boundary] CONFIRMED with account_id=None yields None (event dropped) — never a fabricated AccountId, never a panic (inv_state_confirmed_none_account_returns_none stays green)",
+            "UT: [Error] M20 converters distinguish a state error (PJ_EINVALIDOP → InvalidState, native_status=None, retryable=false) from an FFI error (other code → NativeError, native_status=Some(code), retryable=true) — m20_converter_distinguishes_state_error_from_ffi_error stays green",
+            "UT: [Error] convert_get_account_info_error with None account returns AccountNotFound (retryable=false) regardless of pj_status",
+            "UT: [Invariant] build_script_bindgen.rs allowlist tests assert BINDGEN_ALLOWLIST_VARS contains PJ_ENOMEM, PJ_EINVALIDOP, PJ_EBUSY, PJSIP_INV_STATE_NULL..PJSIP_INV_STATE_DISCONNECTED, PJSUA_CALL_MEDIA_NONE..PJSUA_CALL_MEDIA_ERROR and BINDGEN_ALLOWLIST_TYPES contains pjsip_inv_state/pjsua_call_media_status — a constant missing from the allowlist fails this test, so a missing bindgen constant surfaces as a compile error, never a silent fallback",
+            "UT: [C031-Pre] AudioFormat::new constructs with valid fields and returns the same sample_rate / bit_depth / channel_layout / frame_ms",
+            "UT: [C031-Post] AudioChunk::I16(Vec<i16>) and AudioChunk::F32(Vec<f32>) wrap data of the expected length",
+            "UT: [C031-Inv] AudioChunkPair shares a single timestamp — IN/OUT inherently paired by one SystemTime",
+            "UT: [C041-Pre] NegotiatedCodec::Pcmu and NegotiatedCodec::Opus(OpusConfig::default()) construct and report default ptime_ms=20",
+            "UT: [C041-Post] CodecSelectionPolicy variants (Ordered / PreferOpusFallbackPcmu) exist and Default = PreferOpusFallbackPcmu",
+            "UT: [C041-Inv] NegotiatedCodec has exactly 2 variants (Pcmu / Opus) — discriminant test pins the count",
+            "UT: [C042-Pre] CodecAutoMode::apply with empty preferred_codecs returns a priority map (PCMU/8000/1 → 254, opus/48000/2 → 255)",
+            "UT: [C042-Post] CodecAutoMode::apply with non-empty preferred_codecs returns an empty map (explicit mode bypasses auto priorities)",
+            "UT: [C042-Inv] auto mode assigns Opus=255 and PCMU=254 invariantly across codec lists; all other codecs get priority 0"
           ],
           "testIntegration": [
-            "IT: A full build with pjsua-native enabled compiles, and the call/error mapping tests pass against the bindgen-generated constants."
+            "IT: [Integration point] src/error + src/state ↔ src/ffi/bindings — the error converters (convert_pj_status, convert_conf_connect_error, convert_conf_disconnect_error, convert_get_account_info_error) and the call-state mapping (convert_call_state, convert_call_state_with_previous, convert_call_media_state) consume the ffi::bindings constants; the default build (no pjsua-native) runs the full mapping test suite against the stub aliases and must stay green (regression gate)",
+            "IT: [Integration point] build.rs ↔ src/ffi/bindings — with --features pjsua-native and a system PJSIP install (RFC §28.1 header root: vendor/prebuilt/{target}/include or vendor/pjsip/include), build.rs runs bindgen against wrapper.h, the include!d bindings.rs exposes PJ_SUCCESS/PJ_ENOMEM/PJ_EINVALIDOP/PJ_EBUSY + pjsip_inv_state + pjsua_call_media_status, and the same mapping test suite runs against the bindgen-generated constants and must stay green",
+            "IT: [Verification] behavior regression: convert_pj_status / convert_call_state / convert_call_media_state / convert_conf_connect_error / convert_conf_disconnect_error / convert_get_account_info_error produce identical outputs for the same inputs under both the stub-aliases build and the pjsua-native build",
+            "IT: [Verification] the pjsua-native build compiles with no hand-coded constant blocks remaining in src/error and src/state — the local const declarations are gone and every reference resolves to ffi::bindings (compile-time proof via the deleted const blocks)",
+            "IT: [Prerequisites] default build: none (stub aliases, no system PJSIP needed); pjsua-native build: PJSIP headers + prebuilt lib under vendor/prebuilt/{target} or vendor/pjsip (RFC §28.1), bindgen pipeline pinned by P11-5",
+            "IT: [Related tickets] P8-5 (bindgen output), P8-16 (pjsua-native feature flag), P11-5 (bindgen FFI generation in build.rs), P11-10 (real FFI call sites consuming PJSUA_CALL_*), P12-8 (CallDirection wiring)"
           ],
           "testExceptions": [
-            "The bindgen-generated constants only exist under pjsua-native with a real PJSIP install; unit tests assert behavior through the mapping functions, which is identical under both constant sources. The exact numeric values are owned by pjsua.h/bindgen — this ticket asserts mapping behavior, not the numeric values."
+            "- Item: The exact bindgen-generated numeric values under pjsua-native (e.g. PJ_EINVALIDOP == 150002, pjsip_inv_state values) are impossible to test in the default CI build.\n  - Reason: bindgen output exists only when the pjsua-native feature is enabled AND a system PJSIP install is present (RFC §28.1/§28.4); the default build compiles the stub aliases, not bindgen. The numeric values are owned by pjsua.h/bindgen.\n  - Why this is not a design defect and not an architectural defect: the mapping BEHAVIOR (which SipErrorKind / SipEventPayload each status produces) is fully testable under both constant sources because the stub aliases mirror the bindgen surface exactly. This ticket asserts mapping behavior, not the numeric values; asserting the exact numeric values is impossible to test only because the bindgen input (PJSIP headers) is an external dependency, not because the feature is deterministic yet untestable.\n  - Alternative verification: the pjsua-native IT compiles and runs the mapping suite against the real bindgen constants; BINDGEN_ALLOWLIST_VARS/TYPES tests pin the constant NAMES; the mapping tests pin the BEHAVIOR.",
+            "- Item: Bindgen's exact enum namespacing (module name, prefix stripping, constant type width) for pjsip_inv_state / pjsua_call_media_status under the pinned bindgen version is not testable without running bindgen.\n  - Reason: the default build has no PJSIP headers, so the generated output shape is not reproducible in CI; bindgen output varies by version and header content.\n  - Why this is not a design defect and not an architectural defect: the stub_aliases are required to mirror the bindgen surface, and the implementation verifies the namespacing by (a) the pjsua-native IT gate and (b) the source-routing UT entries that import the exact paths from crate::ffi::bindings — a mismatched path fails compilation, forcing the stub_aliases to be corrected to match. The item is not testable in the default environment only because the bindgen input is an external dependency, not because the design is deterministic yet untestable.\n  - Alternative verification: the source-routing UT entries act as compile-fail probes for the expected paths; the pjsua-native IT is the authoritative namespacing check."
           ],
           "acceptanceCriteria": [
-            "【Happy path】With pjsua-native enabled, error_design_siperror.rs, m20_runtime_command_error.rs, and m20_callstate_mapping.rs reference the bindgen-generated constants (PJ_SUCCESS, PJ_EINVALIDOP, PJSUA_CALL_* / pjsua_call_media_status) with no hand-coded duplicate values.",
-            "【Happy path】convert_pj_status / convert_call_state / convert_call_media_state produce identical outputs to the previous hand-coded values for the same inputs (behavior regression preserved).",
-            "【Error case】A constant missing from the bindgen output causes a compile error — there is no silent fallback to a hardcoded value.",
-            "【Edge case】Without pjsua-native, the ffi::bindings stub aliases keep the crate compiling and the mapping functions still work against the stub constants."
+            "- 【Happy path】With pjsua-native enabled, error_design_siperror.rs, m20_runtime_command_error.rs, and m20_callstate_mapping.rs reference the bindgen-generated constants (PJ_SUCCESS, PJ_ENOMEM, PJ_EINVALIDOP, PJ_EBUSY, pjsip_inv_state, pjsua_call_media_status) with no hand-coded duplicate values, and `make test` passes on the default (stub-aliases) path.",
+            "- 【Error case】A constant missing from the bindgen output causes a compile error — there is no silent fallback to a hardcoded value. Verified by the extended BINDGEN_ALLOWLIST test and the compile-fail source-routing UTs that import the exact paths from crate::ffi::bindings.",
+            "- 【Edge case】Without pjsua-native, the ffi::bindings stub aliases keep the crate compiling and the mapping functions still work against the stub constants — the existing convert_pj_status / convert_call_state / convert_call_media_state / M20 converter tests stay green unchanged in behavior."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§21, §25, §26, §29)",
           "relatedTicketIds": "P5-2 (depends on: AudioMixer uses audio format types), P2-3 (depends on: event system uses AudioChunk), P7 (depends on: audio subscribe uses AudioChunkPair)",
-          "notes": "Stub sites: src/error/error_design_siperror.rs:32, src/error/m20_runtime_command_error.rs:32, src/state/m20_callstate_mapping.rs:59,70. Depends on P8-5 (bindgen output) and P8-16 (pjsua-native feature). Implementation: (1) expose the bindgen constants from ffi::bindings under pjsua-native; (2) replace the local consts with ffi::bindings references; (3) keep stub aliases for the non-feature path; (4) keep the mapping tests green. Related: P8-17 (codec enumeration), P8-20 (FFI call sites).",
+          "notes": "- 【Implementation steps】1) Extend BINDGEN_ALLOWLIST_VARS/TYPES in src/build/build_script_bindgen.rs and extend the allowlist test. 2) Add PJ_ENOMEM / PJ_EINVALIDOP / PJ_EBUSY and the pjsip_inv_state / pjsua_call_media_status modules to the stub_aliases in src/ffi/bindings.rs (mirroring the bindgen surface). 3) error_design_siperror.rs: delete the const block + STUB marker, import the constants from ffi::bindings, update tests to import from ffi::bindings. 4) m20_runtime_command_error.rs: same treatment; replace the test-module PJ_EBUSY const with the ffi::bindings import. 5) m20_callstate_mapping.rs: delete both pub mod blocks + STUB marker, add `pub use crate::ffi::bindings::{pjsip_inv_state, pjsua_call_media_status};`. 6) Run `make test` (default path) — all mapping tests must stay green. 7) If a PJSIP environment is available, run `cargo build --features pjsua-native` / the IT gate to validate the bindgen path.\n- 【Risks】Bindgen's enum namespacing for pjsip_inv_state / pjsua_call_media_status (module name, prefix stripping, const type width) under the pinned bindgen version may differ from the stub_aliases — the pjsua-native IT gate and the compile-fail source-routing UTs surface this. PJ_ENOMEM/PJ_EINVALIDOP/PJ_EBUSY are expression macros in pj/errno.h; bindgen may expose them as literal consts or skip them — the allowlist test pins the names, and the pjsua-native build is the authoritative check.\n- 【Caveats】The default dev environment has no PJSIP headers, so `make test` exercises only the stub-aliases path. The stub_aliases and the bindgen output must expose identical names — the source-routing UTs (which import the exact paths) are the guard against namespacing drift.\n- 【Open items】Confirm the actual bindgen output shape (consts-style module vs top-level consts) for pjsip_inv_state / pjsua_call_media_status when the feature is first enabled; if bindgen strips the PJSIP_INV_STATE_/PJSUA_CALL_MEDIA_ prefix, the current `pub mod pjsip_inv_state { pub const NULL ... }` naming is already aligned.\n- 【Future】P11-10 wires the remaining real FFI call sites; the pjsua_call_state constants (PJSUA_CALL_*) in ffi::bindings.rs stub_aliases may need similar mirroring once consumed by real callbacks.\nImplementation summary:\n- Changed files: src/build/build_script_bindgen.rs, src/ffi/bindings.rs, src/error/error_design_siperror.rs, src/error/m20_runtime_command_error.rs, src/state/m20_callstate_mapping.rs, src/state/m20_native_event_conv.rs, src/runtime/reactor.rs\n- Key changes: deleted the three hand-coded constant blocks + P11-9 STUB markers; routed convert_pj_status / M20 converters / convert_call_state / convert_call_media_state through crate::ffi::bindings; extended the bindgen allowlist; corrected the stub values to the vendored pjsua.h (PJ_ENOMEM=70007, PJ_EINVALIDOP=70013, PJ_EBUSY=70011, PJ_EUNKNOWN=70001; pjsip_inv_state CONNECTING=4/CONFIRMED=5/DISCONNECTED=6; pjsua_call_media_status NONE=0..ERROR=4 unchanged).\n- Material finding: the hand-coded pjsip_inv_state values (CONNECTING=2, CONFIRMED=3, DISCONNECTED=4) and the PJ_* error codes were WRONG vs the vendored headers; the pjsua.h enum has 7 states (INCOMING=2, EARLY=3). Mapping behavior is unchanged at the symbolic level; the pjsip_inv_state_constants_match_rfc test was corrected to the authoritative header values.\n- Test results: make test — all lib + integration tests passed (881 lib tests, plus integration binaries, 0 failed); cargo check --all-targets — 0 warnings/errors.\n- Verified: verify-red-coverage (3/3 contracts), validate-ticket-targets (verifiedEmpty), annotate-ticket-context (all [::AMBIGUOUS::] resolved), scan-crimes (0 open).\nReview report:\n- Static quality check: passed — the 18 reported items are pre-existing (reactor test assertions, FFI unsafe blocks with SAFETY comments); P11-9 added none.\n- Translatability: no issues — changed code uses descriptive names; the corrected test names (pjsip_inv_state_constants_match_pjsua_header) and symbolic-constant test references improve translatability over the previous raw-number literals.\n- Dependencies: consistency verified — all 3 P11-9 STUB markers resolved; the 4 remaining STUB markers in changed files are correctly deferred to existing tickets (P11-10 FFI calls, P12-7 NativeEvent dispatch, P12-8 CallDirection wiring).\n- Annotation check: verified all 7 changed source files carry P11-9 provenance; fixed one misplaced [::TICKET::] annotation in error_design_siperror.rs (merged P11-9 into the existing P0-4/P9-3 annotation on impl SipErrorKind); no [::AMBIGUOUS::] markers remain.\n- Incomplete-implementation scan: no new findings — the 5 #[allow(dead_code)] items in changed files are all tracked by P12-7/P12-8 STUB markers; test-module panic!() assertions are legitimate test idioms.\n- Invariant verification: no PJSIP/PJSUA numeric constant is hand-coded in src/error or src/state; every value resolves to crate::ffi::bindings (bindgen under pjsua-native, stub aliases otherwise). The vendored pjsua.h values are mirrored in the stub aliases.\n- Issues found and fixes applied: (1) corrected the hand-coded pjsip_inv_state / PJ_* error values to the authoritative vendored pjsua.h values (material drift found); (2) updated raw-number test call sites in m20_native_event_conv.rs and reactor.rs to symbolic pjsip_inv_state constants; (3) merged the misplaced P11-9 annotation into the existing impl annotation.",
           "default_files": [
             "src/config/codec_policy_fallback.rs",
             "src/model/audio_format_chunkpair.rs"
           ],
           "id": 9,
           "phaseId": 11,
-          "status": "todo",
-          "invariants": "No PJSIP/PJSUA numeric constant is hand-coded in src/error or src/state — every value comes from ffi::bindings (bindgen under pjsua-native, stub aliases otherwise). Codec auto mode must assign Opus=255 and PCMU=254 invariantly (C042). Codec policy only accepts PCMU and Opus (C041).",
-          "instrumentation": "No new runtime metrics required. Add a compile-time assertion that the mapping functions still compile when the constant source switches to bindgen.",
-          "investigation": "Three files hand-code PJSUA constants. error_design_siperror.rs:32 defines const PJ_SUCCESS: i32 = 0, PJ_ENOMEM: i32 = -2, PJ_EINVALIDOP: i32 = 150002, PJ_EBUSY, consumed by convert_pj_status (lines 300-306). m20_runtime_command_error.rs:32 defines PJ_SUCCESS = 0 and PJ_EINVALIDOP = 150002, consumed by convert_conf_disconnect_error and native_error_with_status (lines 40-50). m20_callstate_mapping.rs:59-70 defines pjsip_inv_state { NULL=0, CALLING=1, CONNECTING=2, CONFIRMED=3, DISCONNECTED=4 } and pjsua_call_media_status { NONE=0, ACTIVE=1, LOCAL_HOLD=2, REMOTE_HOLD=3, ERROR=4 }, used by convert_call_state and convert_call_media_state. ffi/bindings.rs currently carries stub aliases (PJ_SUCCESS=0, PJ_EUNKNOWN=-1, PJSUA_CALL_NULL..PJSUA_CALL_DISCONNECTED=0..6, PJSUA_REG_STATE_*) and will be replaced by bindgen output under pjsua-native. The real implementation must route the three files through ffi::bindings constants and delete the local duplicate const blocks.",
-          "boyScoutPlan": "Delete the duplicated const blocks and route every reference through ffi::bindings so there is a single source of truth. Remove the 'hand-coded duplicates of pjsua.h' comments. Consolidate the PJ_SUCCESS/PJ_EINVALIDOP imports shared by error_design_siperror.rs and m20_runtime_command_error.rs onto one source.",
+          "status": "reviewed",
+          "invariants": "- 【Normal establishment】No PJSIP/PJSUA numeric constant is hand-coded in src/error or src/state — every value (PJ_SUCCESS, PJ_ENOMEM, PJ_EINVALIDOP, PJ_EBUSY, pjsip_inv_state, pjsua_call_media_status) resolves to crate::ffi::bindings: bindgen-generated from pjsua.h under pjsua-native, stub aliases otherwise.\n- 【Invariant on error】A constant missing from the bindgen output causes a compile error — there is no silent fallback to a hardcoded value.\n- 【Internal state invariant】Codec auto mode must assign Opus=255 and PCMU=254 invariantly (C042). Codec policy only accepts PCMU and Opus (C041).\n- 【Boundary invariant】Without pjsua-native, the ffi::bindings stub aliases keep the crate compiling and the mapping functions still work against the stub constants; the two constant sources produce identical mapping outputs.",
+          "instrumentation": "- 【Logging】No new logging. The existing diagnostic messages in convert_conf_connect_error / convert_conf_disconnect_error / convert_get_account_info_error already embed the pj_status code; the constant-source swap does not alter them.\n- 【Metrics】No metrics added or removed. The constant-source change is a compile-time refactor with no runtime observable metric impact.\n- 【Error tracking】SipError.native_status continues to carry the exact FFI status code (P9-5 invariant); the native_error_with_status constructor is unchanged. A constant missing from the bindgen output surfaces as a compile error, which CI reports — no runtime error path is added.\n- 【Health check】None. The mapping functions have no health-check surface; the pjsua-native build success itself acts as the health gate for the bindgen constants.\nStatic quality check: passed (18 pre-existing findings — 9 test-module unwrap/expect in reactor.rs, 9 FFI unsafe with SAFETY comments in bindings.rs; no new issues introduced by P11-9)\nTranslatability: no issues — no single-char/generic variable names, no debug output, no hardcoded magic numbers added (stub constant values are documented pjsua.h values)\nTests: make test — all lib + integration tests passed (exit 0); cargo check --all-targets — 0 warnings/errors",
+          "investigation": "- Evidence gathered from source investigation:\n  - src/error/error_design_siperror.rs:37-43 defines hand-coded `const PJ_SUCCESS: i32 = 0; PJ_ENOMEM: i32 = -2; PJ_EINVALIDOP: i32 = 150002; PJ_EBUSY: i32 = 150003;` with a [::STUB::] P11-9 marker at :33. They are consumed by `convert_pj_status(status: i32) -> Option<SipErrorKind>` (:334-342), whose match maps PJ_SUCCESS→None and the three error codes→SipErrorKind::NativeError (all non-zero fall to the `_` arm → NativeError). Tests at :567-588 reference the local consts via `use super::*`.\n  - src/error/m20_runtime_command_error.rs:39-41 defines hand-coded `const PJ_SUCCESS: i32 = 0; PJ_EINVALIDOP: i32 = 150002;` with a [::STUB::] P11-9 marker at :35. Consumed by convert_conf_connect_error (:75-89), convert_conf_disconnect_error (:101-114) and convert_get_account_info_error (:168-190). The test module re-declares `const PJ_EBUSY: i32 = 150003;` at :202.\n  - src/state/m20_callstate_mapping.rs:60-76 defines hand-coded `pub mod pjsip_inv_state { NULL=0..DISCONNECTED=4 }` and `pub mod pjsua_call_media_status { NONE=0..ERROR=4 }` with a [::STUB::] P11-9 marker at :59. Consumed by convert_call_state (:89-111), convert_call_state_with_previous (:122-135) and convert_call_media_state (:138-155). Tests reference the modules throughout (:185-472).\n  - src/ffi/bindings.rs: stub_aliases submodule (non-pjsua-native body, :26-179) currently exposes PJ_SUCCESS (i32=0), PJ_EUNKNOWN (i32=-1), PJSUA_CALL_NULL..DISCONNECTED (u32), PJSUA_REG_STATE_NULL..FAILED (u32), pjsua_call_info, pjsua_codec_info and the stub calls. It does NOT yet expose PJ_ENOMEM / PJ_EINVALIDOP / PJ_EBUSY / pjsip_inv_state / pjsua_call_media_status. Under pjsua-native the module is replaced by `include!(concat!(env!(\"OUT_DIR\"), \"/bindings.rs\"))` (:22-23).\n  - src/build/build_script_bindgen.rs: BINDGEN_ALLOWLIST_VARS (:45-59) lists PJ_SUCCESS, PJ_EUNKNOWN, PJSUA_CALL_*, PJSUA_REG_STATE_*; BINDGEN_ALLOWLIST_TYPES (:25-32) lists pjsua_acc_id/pjsua_call_id/pjsua_conf_port_id/pjsua_transport_id/pj_str_t/pjsua_call_info. Its doc comment (:42-44) explicitly says \"P11-9 replaces the hand-coded duplicates in error/state modules from this generated set\" — the allowlist must be extended with PJ_ENOMEM/PJ_EINVALIDOP/PJ_EBUSY and the pjsip_inv_state / pjsua_call_media_status enum types.\n  - The bindgen pipeline (P11-5, build.rs + wrapper.h) is complete and feature-gated; wrapper.h includes <pjsua.h>, <pjmedia.h>, <pjmedia-codec/opus.h>. The pjsua-native feature exists in Cargo.toml.\n  - Existing tests that must stay green: error_design_siperror tests (convert_pj_status_success_returns_none, convert_pj_status_known_errors_map_to_native, convert_pj_status_unknown_error_falls_back_to_native), m20_runtime_command_error tests (conf_connect/disconnect_*, get_account_info_*, native_error_with_status_sets_native_status_and_newtype_none_ids, m20_converter_distinguishes_state_error_from_ffi_error), m20_callstate_mapping tests (inv_state_*, media_state_*, all_five_inv_state_values_covered, pjsip_inv_state_constants_match_rfc, pjsua_call_media_status_constants_match_rfc). src/tests/m20_test_dual_client.rs:64 references \"CallStateChanged (pjsip_inv_state full coverage)\" — a feature test that must not regress.",
+          "boyScoutPlan": "- Translatability improvements planned for the code touched by this ticket:\n  - Delete the three duplicated constant blocks (error_design_siperror.rs:37-43, m20_runtime_command_error.rs:39-41, m20_callstate_mapping.rs:60-76) and route every reference through ffi::bindings so there is a single source of truth — the code then reads as \"convert this PJ status using the FFI-layer constant\" instead of \"convert using this locally re-defined number\".\n  - Remove the now-false \"hand-coded duplicates of pjsua.h defines\" comments and the [::STUB::] P11-9 markers once resolved.\n  - Consolidate the PJ_SUCCESS / PJ_EINVALIDOP imports shared by error_design_siperror.rs and m20_runtime_command_error.rs onto one source (crate::ffi::bindings), removing the duplicate const declarations that the two modules currently carry independently.\n  - Update the test modules to import the constants from crate::ffi::bindings (instead of `use super::*` reaching a local const), so the tests themselves express the source-of-truth invariant.\n  - Rewrite the doc comments on pjsip_inv_state / pjsua_call_media_status in m20_callstate_mapping.rs to state they are re-exported from ffi::bindings (bindgen under pjsua-native, stub aliases otherwise), not locally defined.\n  - Extend the bindgen allowlist test (allowlist_covers_stub_surface) in build_script_bindgen.rs to pin the new constant names — the test then documents the exact generated surface.",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28",
-          "targetStubs": [
-            {
-              "id": "TS-001",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/build.rs",
-              "line": 8,
-              "markerText": "// [::STUB::] P4-2: Enable bindgen generation when `pjsua-native` feature",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-002",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/build.rs",
-              "line": 13,
-              "markerText": "// [::STUB::] P4-2: Uncomment when PJSIP library headers are available",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-003",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
-              "line": 134,
-              "markerText": "/// [::STUB::] P4-2: Implement with AccountConfigPatch when defined.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-004",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
-              "line": 137,
-              "markerText": "// [::STUB::] P4-2: Need AccountConfigPatch type and RuntimeCommand::UpdateAccount.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-005",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/codec_policy_fallback.rs",
-              "line": 23,
-              "markerText": "// [::TICKET::] P4-2 changes. Details:",
-              "contracts": [
-                "C041",
-                "C042"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Replaced stub file with full implementation"
-            },
-            {
-              "id": "TS-006",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
-              "line": 68,
-              "markerText": "/// [::STUB::] P4-2: Replace with actual codec list from bindgen-generated FFI.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-007",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 32,
-              "markerText": "// [::STUB::] P4-2: Replace with actual pj_status_t values from pjsua.h bindgen output.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-008",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 304,
-              "markerText": "/// [::STUB::] P4-2: Update to use real pj_status_t constants from bindgen output.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-009",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 32,
-              "markerText": "// [::STUB::] P4-2: Replace with actual pj_status_t constants from bindgen output.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-010",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/bindings.rs",
-              "line": 117,
-              "markerText": "/// [::STUB::] P4-2: Replace with actual bindgen-generated FFI call when",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-011",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 16,
-              "markerText": "// [::STUB::] P4-2: Full callback implementations require:",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-012",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 34,
-              "markerText": "/// [::STUB::] P4-2: Implement NativeEvent::IncomingCall enqueue.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-013",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 43,
-              "markerText": "// [::STUB::] P4-2: Enqueue NativeEvent::IncomingCall { acc_id, call_id }",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-014",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 51,
-              "markerText": "/// [::STUB::] P4-2: Implement NativeEvent::RegState enqueue.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-015",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 60,
-              "markerText": "// [::STUB::] P4-2: Enqueue NativeEvent::RegState { acc_id, is_registering, code, reason }",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-016",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 69,
-              "markerText": "/// [::STUB::] P4-2: Implement NativeEvent::CallState enqueue.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-017",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 76,
-              "markerText": "// [::STUB::] P4-2: Enqueue NativeEvent::CallState { call_id, state }",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-018",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 85,
-              "markerText": "/// [::STUB::] P4-2: Implement NativeEvent::CallMediaState enqueue.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-019",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 91,
-              "markerText": "// [::STUB::] P4-2: Enqueue NativeEvent::CallMediaState { call_id }",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-020",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 95,
-              "markerText": "// [::STUB::] P4-2: Additional callbacks as needed:",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-021",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/mod.rs",
-              "line": 27,
-              "markerText": "/// [::STUB::] P4-2: Full callback implementations require real PJSUA",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-022",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 72,
-              "markerText": "// [::STUB::] P4-2: Audio format types implemented under model/",
-              "contracts": [
-                "C031",
-                "C036",
-                "C037",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Comment updated to reflect model/ placement, types implemented"
-            },
-            {
-              "id": "TS-023",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/model/audio_format_chunkpair.rs",
-              "line": 23,
-              "markerText": "// [::TICKET::] P4-2 changes. Details:",
-              "contracts": [
-                "C031"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Replaced stub file with full implementation"
-            },
-            {
-              "id": "TS-024",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
-              "line": 256,
-              "markerText": "/// [::STUB::] P4-2: Replace each method body with actual PJSIP FFI calls.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-025",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 118,
-              "markerText": "// [::STUB::] P4-2: Route AddAudioSource to ClientState AudioMixer.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-026",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 59,
-              "markerText": "/// [::STUB::] P4-2: Replace with bindgen-generated constants from pjsua.h.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-027",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 70,
-              "markerText": "/// [::STUB::] P4-2: Replace with bindgen-generated media status constants.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-028",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-              "line": 109,
-              "markerText": "// [::STUB::] P4-2: Replace with real FFI call when PJSIP library linked.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-029",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/wrapper.h",
-              "line": 6,
-              "markerText": "// [::STUB::] P4-2: Uncomment when PJSIP library is installed:",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            }
-          ],
-          "targetCrimes": [],
+          "updated_at": "2026-08-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
           "planTestCode": [
+            "UT: [P11-9 source-routing] error_design_siperror consumes the ffi::bindings constants (compile-time RED probe)\n  ```rust\n  // In error_design_siperror.rs tests — RED: fails to compile until\n  // ffi::bindings exposes PJ_ENOMEM/PJ_EINVALIDOP/PJ_EBUSY and the local\n  // const block at error_design_siperror.rs:37-43 is deleted.\n  use crate::ffi::bindings::{PJ_SUCCESS, PJ_ENOMEM, PJ_EINVALIDOP, PJ_EBUSY};\n  assert!(convert_pj_status(PJ_SUCCESS).is_none());\n  assert_eq!(convert_pj_status(PJ_ENOMEM), Some(SipErrorKind::NativeError));\n  assert_eq!(convert_pj_status(PJ_EINVALIDOP), Some(SipErrorKind::NativeError));\n  assert_eq!(convert_pj_status(PJ_EBUSY), Some(SipErrorKind::NativeError));\n  ```",
+            "UT: [P11-9 source-routing] m20_runtime_command_error consumes the ffi::bindings constants (compile-time RED probe)\n  ```rust\n  // In m20_runtime_command_error.rs tests — RED until ffi::bindings exposes\n  // PJ_EINVALIDOP/PJ_EBUSY and the local const block at :39-41 is deleted.\n  use crate::ffi::bindings::{PJ_SUCCESS, PJ_EINVALIDOP, PJ_EBUSY};\n  assert!(convert_conf_connect_error(PJ_SUCCESS, 42).is_ok());\n  let state_err = convert_conf_connect_error(PJ_EINVALIDOP, 42).unwrap_err();\n  assert_eq!(state_err.kind, SipErrorKind::InvalidState);\n  assert_eq!(state_err.native_status, None);\n  let ffi_err = convert_conf_connect_error(PJ_EBUSY, 42).unwrap_err();\n  assert_eq!(ffi_err.kind, SipErrorKind::NativeError);\n  assert_eq!(ffi_err.native_status, Some(PJ_EBUSY));\n  ```",
+            "UT: [P11-9 source-routing] m20_callstate_mapping consumes the ffi::bindings modules (compile-time RED probe)\n  ```rust\n  // In m20_callstate_mapping.rs tests — RED until ffi::bindings exposes the\n  // pjsip_inv_state / pjsua_call_media_status modules and the local pub mod\n  // blocks at :60-76 are deleted + re-exported from bindings.\n  use crate::ffi::bindings::{pjsip_inv_state, pjsua_call_media_status};\n  assert!(convert_call_state(test_call_id(1), Some(test_account_id()), pjsip_inv_state::NULL).is_none());\n  assert!(matches!(\n      convert_call_state(test_call_id(1), Some(test_account_id()), pjsip_inv_state::CONFIRMED),\n      Some(SipEventPayload::CallConnected(_))\n  ));\n  assert!(matches!(\n      convert_call_media_state(test_call_id(1), pjsua_call_media_status::ACTIVE),\n      Some(SipEventPayload::MediaActive(_))\n  ));\n  ```",
+            "UT: [P11-9 behavior] convert_pj_status preserves mapping through the ffi::bindings constant values\n  ```rust\n  // Behavior regression: identical outputs whether the constants come from the\n  // stub aliases (default build) or bindgen (pjsua-native).\n  assert!(convert_pj_status(crate::ffi::bindings::PJ_SUCCESS).is_none());\n  assert_eq!(convert_pj_status(-9999), Some(SipErrorKind::NativeError)); // unknown falls through\n  ```",
+            "UT: [P11-9 allowlist] build_script_bindgen allowlist covers the constants this ticket consumes\n  ```rust\n  // Extend allowlist_covers_stub_surface in build_script_bindgen.rs so a missing\n  // bindgen constant surfaces as a compile error, never a silent hardcoded value.\n  assert!(BINDGEN_ALLOWLIST_VARS.contains(&\"PJ_ENOMEM\"));\n  assert!(BINDGEN_ALLOWLIST_VARS.contains(&\"PJ_EINVALIDOP\"));\n  assert!(BINDGEN_ALLOWLIST_VARS.contains(&\"PJ_EBUSY\"));\n  assert!(BINDGEN_ALLOWLIST_VARS.contains(&\"PJSIP_INV_STATE_CONFIRMED\"));\n  assert!(BINDGEN_ALLOWLIST_VARS.contains(&\"PJSUA_CALL_MEDIA_ACTIVE\"));\n  assert!(BINDGEN_ALLOWLIST_TYPES.contains(&\"pjsip_inv_state\"));\n  assert!(BINDGEN_ALLOWLIST_TYPES.contains(&\"pjsua_call_media_status\"));\n  ```",
+            "UT: [P11-9 re-export] pjsip_inv_state / pjsua_call_media_status resolve through the ffi::bindings re-export\n  ```rust\n  // m20_callstate_mapping re-exports these modules from ffi::bindings; the\n  // existing pjsip_inv_state_constants_match_rfc / pjsua_call_media_status_constants_match_rfc\n  // tests keep compiling unchanged (values are sequential in pjsua.h).\n  assert_eq!(pjsip_inv_state::NULL, 0);\n  assert_eq!(pjsip_inv_state::CONFIRMED, 3);\n  assert_eq!(pjsip_inv_state::DISCONNECTED, 4);\n  assert_eq!(pjsua_call_media_status::ACTIVE, 1);\n  assert_eq!(pjsua_call_media_status::ERROR, 4);\n  ```",
             "UT: [C031-Pre] AudioFormat constructs with valid fields\n  ```rust\n  let fmt = AudioFormat::new(SampleRate::Hz16000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();\n  assert_eq!(fmt.sample_rate, SampleRate::Hz16000);\n  assert_eq!(fmt.bit_depth, BitDepth::I16);\n  assert_eq!(fmt.channel_layout, ChannelLayout::Mono);\n  assert_eq!(fmt.frame_ms, 20);\n  ```",
             "UT: [C031-Post] AudioChunk wraps Vec data\n  ```rust\n  let i16_data = vec![0i16; 160];\n  let chunk_i16 = AudioChunk::I16(i16_data.clone());\n  if let AudioChunk::I16(data) = &chunk_i16 { assert_eq!(data.len(), 160); }\n  let f32_data = vec![0.0f32; 160];\n  let chunk_f32 = AudioChunk::F32(f32_data.clone());\n  if let AudioChunk::F32(data) = &chunk_f32 { assert_eq!(data.len(), 160); }\n  ```",
             "UT: [C031-Inv] AudioChunkPair shares single timestamp\n  ```rust\n  let ts = SystemTime::now();\n  let pair = AudioChunkPair {\n      call_id: CallId::from_u64(1).unwrap(),\n      account_id: AccountId::from_u64(1).unwrap(),\n      timestamp: ts,\n      in_chunk: AudioChunk::I16(vec![0; 160]),\n      out_chunk: AudioChunk::I16(vec![1; 160]),\n  };\n  // Single timestamp -> IN/OUT inherently paired\n  assert_eq!(pair.timestamp, ts);\n  assert!(pair.in_chunk.len() > 0);\n  assert!(pair.out_chunk.len() > 0);\n  ```",
@@ -27464,6 +27112,36 @@
               "before": "config.rs: no codec_policy_fallback module",
               "after": "config.rs: pub mod codec_policy_fallback added",
               "description": "Wired new codec policy module into crate"
+            },
+            {
+              "before": "src/build/build_script_bindgen.rs: BINDGEN_ALLOWLIST_VARS listed PJ_SUCCESS/PJ_EUNKNOWN/PJSUA_CALL_*/PJSUA_REG_STATE_*; TYPES listed the ABI types only.",
+              "after": "BINDGEN_ALLOWLIST_VARS += PJ_ENOMEM/PJ_EINVALIDOP/PJ_EBUSY/PJSIP_INV_STATE_*/PJSUA_CALL_MEDIA_*; BINDGEN_ALLOWLIST_TYPES += pjsip_inv_state/pjsua_call_media_status; new allowlist_covers_p11_9_constant_surface test pins them.",
+              "description": "Extended the bindgen allowlist so pjsua.h emits the constants the error/state mapping consumes; a missing constant now surfaces as a compile error."
+            },
+            {
+              "before": "src/ffi/bindings.rs stub_aliases exposed only PJ_SUCCESS=0, PJ_EUNKNOWN=-1, PJSUA_CALL_*, PJSUA_REG_STATE_*.",
+              "after": "stub_aliases additionally expose PJ_ENOMEM=70007, PJ_EINVALIDOP=70013, PJ_EBUSY=70011 (PJ_EUNKNOWN corrected -1→70001), pjsip_inv_state {NULL=0,CALLING=1,CONNECTING=4,CONFIRMED=5,DISCONNECTED=6}, pjsua_call_media_status {NONE=0,ACTIVE=1,LOCAL_HOLD=2,REMOTE_HOLD=3,ERROR=4}; new stub_surface_exposes_p11_9_constants test.",
+              "description": "Stub aliases now mirror the vendored pjsua.h values (pj/errno.h and sip_inv.h) so the default build behaves identically to the pjsua-native bindgen path."
+            },
+            {
+              "before": "src/error/error_design_siperror.rs hand-coded const PJ_SUCCESS=0/PJ_ENOMEM=-2/PJ_EINVALIDOP=150002/PJ_EBUSY=150003 with a [::STUB::] P11-9 marker.",
+              "after": "Local const block and STUB marker deleted; constants imported from crate::ffi::bindings; convert_pj_status behavior unchanged; tests import from ffi::bindings.",
+              "description": "TS-001 resolved — single FFI source of truth for the PJ status codes."
+            },
+            {
+              "before": "src/error/m20_runtime_command_error.rs hand-coded const PJ_SUCCESS=0/PJ_EINVALIDOP=150002 with a [::STUB::] P11-9 marker; test module defined its own const PJ_EBUSY=150003.",
+              "after": "Local const block and STUB marker deleted; constants imported from crate::ffi::bindings; test PJ_EBUSY const and literal 150003 replaced by the ffi::bindings import; converters behavior unchanged.",
+              "description": "TS-002 resolved — M20 converters consume the FFI constants."
+            },
+            {
+              "before": "src/state/m20_callstate_mapping.rs hand-coded pub mod pjsip_inv_state (NULL=0..DISCONNECTED=4) and pjsua_call_media_status (NONE=0..ERROR=4) with a [::STUB::] P11-9 marker.",
+              "after": "Local modules and STUB marker deleted; re-exported from crate::ffi::bindings; pjsip_inv_state_constants_match_rfc corrected to the real pjsua.h values (CONNECTING=4, CONFIRMED=5, DISCONNECTED=6) and renamed ..._match_pjsua_header.",
+              "description": "TS-003 resolved — call-state mapping consumes the FFI constants. Material finding: the hand-coded inv_state values were wrong vs the vendored sip_inv.h enum."
+            },
+            {
+              "before": "src/state/m20_native_event_conv.rs and src/runtime/reactor.rs tests passed raw state values (3=CONFIRMED, 4=DISCONNECTED) based on the hand-coded enum.",
+              "after": "Tests now pass the symbolic pjsip_inv_state::CONFIRMED/DISCONNECTED/CALLING constants, making them value-independent of the constant source.",
+              "description": "Adjusted consumers that encoded the old (wrong) numeric enum values; the CONFIRMED reactor tests previously hung because raw 3 (now INCOMING) produced no event."
             }
           ],
           "rfcDiscrepancies": [],
@@ -27484,7 +27162,9 @@
               "codes": "pub mod pjsip_inv_state {\n    pub const NULL: u32 = 0;\n    pub const CALLING: u32 = 1;"
             }
           ],
-          "fromStub": true
+          "fromStub": true,
+          "startedAt": "2026-08-07",
+          "completedAt": "2026-08-07"
         },
         {
           "title": "Replace canned or unimplemented PJSIP FFI call sites (pjsua_call_get_info and other backend calls) with real bindgen-generated calls and obtain actual media_status once the pjsua-native feature and library linkage are ready",

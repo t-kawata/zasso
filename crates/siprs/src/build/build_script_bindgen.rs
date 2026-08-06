@@ -29,6 +29,10 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     "pjsua_transport_id",
     "pj_str_t",
     "pjsua_call_info",
+    // P11-9: the call-state mapping modules consume these enum types; bindgen
+    // emits them (consts style) as modules of constants.
+    "pjsip_inv_state",
+    "pjsua_call_media_status",
 ];
 
 /// Fixed allowlist of PJSIP calls siprs references.
@@ -45,6 +49,22 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &["pjsua_call_get_info"];
 pub const BINDGEN_ALLOWLIST_VARS: &[&str] = &[
     "PJ_SUCCESS",
     "PJ_EUNKNOWN",
+    // P11-9: pj_status_t error codes consumed by the error/state mapping.
+    "PJ_ENOMEM",
+    "PJ_EINVALIDOP",
+    "PJ_EBUSY",
+    // P11-9: pjsip_inv_state enumerators (bindgen consts-style strips the prefix).
+    "PJSIP_INV_STATE_NULL",
+    "PJSIP_INV_STATE_CALLING",
+    "PJSIP_INV_STATE_CONNECTING",
+    "PJSIP_INV_STATE_CONFIRMED",
+    "PJSIP_INV_STATE_DISCONNECTED",
+    // P11-9: pjsua_call_media_status enumerators.
+    "PJSUA_CALL_MEDIA_NONE",
+    "PJSUA_CALL_MEDIA_ACTIVE",
+    "PJSUA_CALL_MEDIA_LOCAL_HOLD",
+    "PJSUA_CALL_MEDIA_REMOTE_HOLD",
+    "PJSUA_CALL_MEDIA_ERROR",
     "PJSUA_CALL_NULL",
     "PJSUA_CALL_CALLING",
     "PJSUA_CALL_INCOMING",
@@ -175,6 +195,31 @@ mod tests {
         assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsua_call_info"));
         assert!(BINDGEN_ALLOWLIST_FUNCTIONS.contains(&"pjsua_call_get_info"));
         assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_CONFIRMED"));
+    }
+
+    // [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.
+    #[test]
+// [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.
+    fn allowlist_covers_p11_9_constant_surface() {
+        // P11-9: the error/state mapping modules consume these constants from
+        // ffi::bindings. A constant missing from the allowlist fails this test,
+        // so a missing bindgen constant surfaces as a compile error, never a
+        // silent fallback to a hardcoded value.
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJ_ENOMEM"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJ_EINVALIDOP"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJ_EBUSY"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_INV_STATE_NULL"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_INV_STATE_CALLING"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_INV_STATE_CONNECTING"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_INV_STATE_CONFIRMED"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_INV_STATE_DISCONNECTED"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_MEDIA_NONE"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_MEDIA_ACTIVE"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_MEDIA_LOCAL_HOLD"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_MEDIA_REMOTE_HOLD"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_MEDIA_ERROR"));
+        assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsip_inv_state"));
+        assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsua_call_media_status"));
     }
 
     #[test]

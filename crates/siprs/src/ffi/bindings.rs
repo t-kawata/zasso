@@ -43,8 +43,60 @@ mod stub_aliases {
     /// PJSUA success result code (maps to `PJ_SUCCESS` = 0).
     pub const PJ_SUCCESS: i32 = 0;
 
-    /// Generic PJSUA error indicator.
-    pub const PJ_EUNKNOWN: i32 = -1;
+    /// Generic PJSUA error indicator (`PJ_ERRNO_START_STATUS + 1` = 70001).
+    pub const PJ_EUNKNOWN: i32 = 70001;
+
+    /// Not enough memory (`PJ_ERRNO_START_STATUS + 7` = 70007).
+    ///
+    /// [::TICKET::] P11-9: the stub mirrors the pjsua.h values (vendored
+    /// `pj/errno.h`) so the error/state mapping compiles identically under both
+    /// constant sources.
+    pub const PJ_ENOMEM: i32 = 70007;
+    /// Invalid operation (`PJ_ERRNO_START_STATUS + 13` = 70013).
+    pub const PJ_EINVALIDOP: i32 = 70013;
+    /// Object is busy (`PJ_ERRNO_START_STATUS + 11` = 70011).
+    pub const PJ_EBUSY: i32 = 70011;
+
+    // ---------------------------------------------------------------------------
+    // pjsip_inv_state — invite-session state constants (bindgen consts-style:
+    // the PJSIP_INV_STATE_ prefix is stripped, so `CONFIRMED` == PJSIP_INV_STATE_CONFIRMED).
+    // ---------------------------------------------------------------------------
+
+    /// Initial state.
+    ///
+    /// Values match `enum pjsip_inv_state` in `pjsip-ua/sip_inv.h`; the full enum
+    /// also has INCOMING=2 and EARLY=3, which no mapping consumes yet.
+    pub mod pjsip_inv_state {
+        /// Before INVITE is sent or received.
+        pub const NULL: u32 = 0;
+        /// After INVITE is sent (outgoing).
+        pub const CALLING: u32 = 1;
+        /// After a 2xx is sent/received.
+        pub const CONNECTING: u32 = 4;
+        /// After ACK is sent/received.
+        pub const CONFIRMED: u32 = 5;
+        /// Session is terminated.
+        pub const DISCONNECTED: u32 = 6;
+    }
+
+    // ---------------------------------------------------------------------------
+    // pjsua_call_media_status — call media status constants (bindgen consts-style:
+    // the PJSUA_CALL_MEDIA_ prefix is stripped).
+    // ---------------------------------------------------------------------------
+
+    /// Call media state, mapped from PJSIP's `pjsua_call_media_status`.
+    pub mod pjsua_call_media_status {
+        /// No media / initial state.
+        pub const NONE: u32 = 0;
+        /// Media is active (send/receive).
+        pub const ACTIVE: u32 = 1;
+        /// Media is locally held.
+        pub const LOCAL_HOLD: u32 = 2;
+        /// Media is remotely held.
+        pub const REMOTE_HOLD: u32 = 3;
+        /// Media error occurred.
+        pub const ERROR: u32 = 4;
+    }
 
     // ---------------------------------------------------------------------------
     // PJSUA call state constants (pjsua_call_state)
@@ -329,6 +381,22 @@ mod tests {
         let status = unsafe { pjsua_call_get_info(7, &mut info) };
         assert_eq!(status, PJ_SUCCESS);
         assert_eq!(info.conf_slot, 7);
+    }
+
+    // [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.
+    #[test]
+// [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.
+    fn stub_surface_exposes_p11_9_constants() {
+        // P11-9: the error/state mapping modules consume these constants from
+        // ffi::bindings. RED until the stub_aliases expose them; the type
+        // annotations pin the ABI widths (i32 status, u32 enum values).
+        let _success: i32 = PJ_SUCCESS;
+        let _enomem: i32 = PJ_ENOMEM;
+        let _einval: i32 = PJ_EINVALIDOP;
+        let _ebusy: i32 = PJ_EBUSY;
+        let _inv_state: u32 = pjsip_inv_state::CONFIRMED;
+        let _media_state: u32 = pjsua_call_media_status::ACTIVE;
+        let _ = (_success, _enomem, _einval, _ebusy, _inv_state, _media_state);
     }
 
     // ── P11-8: codec-enumeration FFI surface ───────────────────────────

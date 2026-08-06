@@ -155,6 +155,9 @@ pub fn convert_native_event_to_payload(
 #[cfg(test)]
 mod tests {
     use super::*;
+    // P11-9: assert through the symbolic constants (real pjsua.h values), not raw
+    // numbers that drift when the constant source changes.
+    use crate::state::m20_callstate_mapping::pjsip_inv_state;
 
     /// Construct a test `CallId` from a non-zero value.
     // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
@@ -237,12 +240,12 @@ mod tests {
 
     /// @verifies C022
     #[test]
-    // [::TICKET::] P0-5, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P9-6, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9) --for-spec --no-implementation-order`.
     fn native_event_call_state_changed_calling() {
         let result = convert_native_event_to_payload(
             NativeEvent::CallStateChanged {
                 call_id: 10,
-                state: 1, // CALLING
+                state: pjsip_inv_state::CALLING,
             },
             None,
         );
@@ -251,12 +254,12 @@ mod tests {
 
     /// @verifies C022
     #[test]
-    // [::TICKET::] P0-5, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P9-6, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9) --for-spec --no-implementation-order`.
     fn native_event_call_state_changed_confirmed() {
         let result = convert_native_event_to_payload(
             NativeEvent::CallStateChanged {
                 call_id: 10,
-                state: 3, // CONFIRMED
+                state: pjsip_inv_state::CONFIRMED,
             },
             test_call_account_id(),
         );
@@ -271,12 +274,12 @@ mod tests {
 
     /// @verifies C022
     #[test]
-    // [::TICKET::] P0-5, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P9-6, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9) --for-spec --no-implementation-order`.
     fn native_event_call_state_changed_disconnected() {
         let result = convert_native_event_to_payload(
             NativeEvent::CallStateChanged {
                 call_id: 10,
-                state: 4, // DISCONNECTED
+                state: pjsip_inv_state::DISCONNECTED,
             },
             None,
         );

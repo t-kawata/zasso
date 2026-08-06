@@ -1,4 +1,5 @@
 
+
 // [::TICKET::] P0-2: CoreReactor — dedicated thread for serialized PJSUA command execution
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -641,6 +642,7 @@ mod tests {
     use super::*;
     use crate::runtime::command::Reply;
     use crate::runtime::state::CallEntry;
+    use crate::state::m20_callstate_mapping::pjsip_inv_state;
     use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
     use std::collections::{BTreeMap, HashMap};
 
@@ -662,6 +664,7 @@ mod tests {
 
     /// Build a calls table with a single confirmed call (CallId 10 → account 1).
     // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.
     fn confirmed_calls() -> CallTable {
         BTreeMap::from([(
             test_call_id(10),
@@ -919,7 +922,7 @@ mod tests {
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 10,
-                state: 3,
+                state: pjsip_inv_state::CONFIRMED,
             },
             &calls,
         );
@@ -974,7 +977,7 @@ mod tests {
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 10,
-                state: 3,
+                state: pjsip_inv_state::CONFIRMED,
             },
             &calls,
         );
@@ -984,7 +987,7 @@ mod tests {
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 11,
-                state: 3,
+                state: pjsip_inv_state::CONFIRMED,
             },
             &calls,
         );

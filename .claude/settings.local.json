@@ -1183,7 +1183,23 @@
       "Bash(git commit -m 'feat\\(P11-8\\): replace placeholder codec list with runtime pjsua codec enumeration *)",
       "Bash(awk '{passed+=$4; failed+=$6} END {print \"TOTAL passed:\", passed, \"failed:\", failed}')",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('stub count:', j.count\\); const keys={}; j.stubs.forEach\\(s=>{const m=s.content.match\\(/\\\\[::STUB::\\\\]\\\\s+\\([P0-9-]+\\)/\\); const k=m?m[1]:'\\(none\\)'; keys[k]=\\(keys[k]||0\\)+1}\\); console.log\\('by key:', JSON.stringify\\(keys\\)\\)}\\)\")",
-      "Bash(git commit -m 'chore: add P11-8 commit and test-parse commands to local Claude allowlist *)"
+      "Bash(git commit -m 'chore: add P11-8 commit and test-parse commands to local Claude allowlist *)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9)",
+      "Bash(find /Users/sh01/shyme/zasso -name \"Tickets.json\" -not -path \"*/node_modules/*\" 2>/dev/null)",
+      "Bash(node .claude/scripts/tickets/insert-field-template.js \"Tickets.json\" \"P11-9\")",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0030 --hops=1)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0040 --hops=1)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0035 --hops=1)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0036 --hops=1)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0041 --hops=1)",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P11-9\")",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P11-9\")",
+      "Bash(echo \"contracts update exit: $?\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P11-9\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"P11-9\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=\"P11-9\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec)",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\);const p=Object.values\\(t.phases\\).find\\(p=>p&&p.tickets&&p.tickets.some\\(x=>x.id===9&&String\\(x.title\\).includes\\('hand-coded PJSIP'\\)\\)\\);const tk=p.tickets.find\\(x=>x.id===9&&String\\(x.title\\).includes\\('hand-coded PJSIP'\\)\\);console.log\\('status:',tk.status\\);\")"
     ]
   }
 }

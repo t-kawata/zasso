@@ -53,27 +53,12 @@ pub(crate) enum CallDirection {
 }
 
 // ── PJSIP native state constants ────────────────────────────────────────
+//
+// P11-9: pjsip_inv_state / pjsua_call_media_status are re-exported from
+// ffi::bindings — bindgen-generated under pjsua-native, stub aliases otherwise —
+// so there is a single source of truth for the PJSIP state values.
 
-/// Raw pjsip_inv_state values (0-4).
-/// [::TICKET::] P3-2: ffi::bindings provides PJSUA_CALL_NULL..PJSUA_CALL_DISCONNECTED.
-// [::STUB::] P11-9: PJSIP status, inv-state, and media-status constants are hand-coded duplicates of pjsua.h defines (covers m20_callstate_mapping.rs:59,70) -- Replace hand-coded PJSIP constants with the bindgen-generated constants from pjsua.h once the pjsua-native feature enables FFI
-pub mod pjsip_inv_state {
-    pub const NULL: u32 = 0;
-    pub const CALLING: u32 = 1;
-    pub const CONNECTING: u32 = 2;
-    pub const CONFIRMED: u32 = 3;
-    pub const DISCONNECTED: u32 = 4;
-}
-
-/// Raw pjsua_call_media_status values.
-/// [::TICKET::] P3-2: ffi::bindings provides PJSUA call state constants.
-pub mod pjsua_call_media_status {
-    pub const NONE: u32 = 0;
-    pub const ACTIVE: u32 = 1;
-    pub const LOCAL_HOLD: u32 = 2;
-    pub const REMOTE_HOLD: u32 = 3;
-    pub const ERROR: u32 = 4;
-}
+pub use crate::ffi::bindings::{pjsip_inv_state, pjsua_call_media_status};
 
 // ── Conversion ──────────────────────────────────────────────────────────
 
@@ -452,13 +437,16 @@ mod tests {
     // ── Constant values ────────────────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
-    fn pjsip_inv_state_constants_match_rfc() {
+    // [::TICKET::] P0-5, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-9) --for-spec --no-implementation-order`.
+    fn pjsip_inv_state_constants_match_pjsua_header() {
+        // P11-9: values come from the vendored pjsua.h (`enum pjsip_inv_state` in
+        // pjsip-ua/sip_inv.h) via ffi::bindings. The full enum also has
+        // INCOMING=2 and EARLY=3, which no mapping consumes yet.
         assert_eq!(pjsip_inv_state::NULL, 0);
         assert_eq!(pjsip_inv_state::CALLING, 1);
-        assert_eq!(pjsip_inv_state::CONNECTING, 2);
-        assert_eq!(pjsip_inv_state::CONFIRMED, 3);
-        assert_eq!(pjsip_inv_state::DISCONNECTED, 4);
+        assert_eq!(pjsip_inv_state::CONNECTING, 4);
+        assert_eq!(pjsip_inv_state::CONFIRMED, 5);
+        assert_eq!(pjsip_inv_state::DISCONNECTED, 6);
     }
 
     #[test]

@@ -28,17 +28,9 @@ use crate::model::AccountId;
 use crate::runtime::state::AccountEntry;
 use crate::state::registr_state_machine::RegistrationState;
 
-// ---------------------------------------------------------------------------
-// PJSUA error code constants (shared with error_design_siperror)
-//
-// [::TICKET::] P3-2: ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN via FFI type aliases.
-// [::STUB::] P11-9: PJSIP status, inv-state, and media-status constants are hand-coded duplicates of pjsua.h defines -- Replace hand-coded PJSIP constants with the bindgen-generated constants from pjsua.h once the pjsua-native feature enables FFI
-// ---------------------------------------------------------------------------
-
-/// PJ_SUCCESS — no error.
-const PJ_SUCCESS: i32 = 0;
-/// PJ_EINVALIDOP — invalid operation.
-const PJ_EINVALIDOP: i32 = 150002;
+// PJSUA status constants come from the single FFI source of truth (ffi::bindings),
+// shared with error_design_siperror. No local duplicates.
+use crate::ffi::bindings::{PJ_SUCCESS, PJ_EINVALIDOP};
 
 // ---------------------------------------------------------------------------
 // M20 RuntimeCommand error converters
@@ -192,14 +184,10 @@ pub fn convert_get_account_info_error(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ffi::bindings::{PJ_SUCCESS, PJ_EINVALIDOP, PJ_EBUSY};
     use crate::model::{AccountId, CallId};
     use crate::runtime::state::AccountEntry;
     use crate::state::registr_state_machine::RegistrationState;
-
-    // PJ_EBUSY is a test-only constant here: the production converters branch on
-    // PJ_SUCCESS / PJ_EINVALIDOP only, so the busy sentinel lives in the test module
-    // (this removes the production dead-code suppression that used to accompany it).
-    const PJ_EBUSY: i32 = 150003;
 
     // A registered account entry as stored by MockBackend::add_account.
     // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
@@ -316,15 +304,15 @@ mod tests {
     // ── P9-5: native_error_with_status preserves the i32 diagnostic ──
 
     #[test]
-    // [::TICKET::] P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-5, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-5|P11-9) --for-spec --no-implementation-order`.
     fn native_error_with_status_sets_native_status_and_newtype_none_ids() {
         // P9-5: the M20 native-error constructor keeps the PJSUA i32 diagnostic
         // but leaves the id fields None of the newtype types — a u64 must never leak.
-        let err = native_error_with_status(150003, "ConfConnect failed");
+        let err = native_error_with_status(PJ_EBUSY, "ConfConnect failed");
         let _: Option<AccountId> = err.account_id; // compile-time: Option<AccountId>
         let _: Option<CallId> = err.call_id; // compile-time: Option<CallId>
         assert_eq!(err.kind, SipErrorKind::NativeError);
-        assert_eq!(err.native_status, Some(150003));
+        assert_eq!(err.native_status, Some(PJ_EBUSY));
         assert_eq!(err.account_id, None);
         assert_eq!(err.call_id, None);
         assert!(err.retryable);

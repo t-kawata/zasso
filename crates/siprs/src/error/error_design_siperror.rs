@@ -1,3 +1,4 @@
+
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -26,21 +27,9 @@
 use crate::model::{AccountId, CallId};
 use crate::runtime::command::ReactorError;
 
-// ---------------------------------------------------------------------------
-// PJSUA error code constants
-//
-// [::TICKET::] P3-2: FFI layer integrated — ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN
-// [::STUB::] P11-9: PJSIP status, inv-state, and media-status constants are hand-coded duplicates of pjsua.h defines (covers error_design_siperror.rs:32,302) -- Replace hand-coded PJSIP constants with the bindgen-generated constants from pjsua.h once the pjsua-native feature enables FFI
-// ---------------------------------------------------------------------------
-
-/// PJ_SUCCESS — no error.
-const PJ_SUCCESS: i32 = 0;
-/// PJ_ENOMEM — out of memory.
-const PJ_ENOMEM: i32 = -2;
-/// PJ_EINVALIDOP — invalid operation.
-const PJ_EINVALIDOP: i32 = 150002;
-/// PJ_EBUSY — resource busy.
-const PJ_EBUSY: i32 = 150003;
+// PJSUA status constants come from the single FFI source of truth (ffi::bindings —
+// bindgen under pjsua-native, stub aliases otherwise). No local duplicates.
+use crate::ffi::bindings::{PJ_SUCCESS, PJ_ENOMEM, PJ_EINVALIDOP, PJ_EBUSY};
 
 // ---------------------------------------------------------------------------
 // SipErrorKind — 24 semantically-named error variants
@@ -144,7 +133,7 @@ impl std::fmt::Display for SipErrorKind {
     }
 }
 
-// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P9-3, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3|P11-9) --for-spec --no-implementation-order`.
 impl SipErrorKind {
     /// Returns `true` if operations producing this error are typically retryable.
     ///
@@ -344,6 +333,7 @@ pub fn convert_pj_status(status: i32) -> Option<SipErrorKind> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ffi::bindings::{PJ_SUCCESS, PJ_ENOMEM, PJ_EINVALIDOP, PJ_EBUSY};
     use crate::model::id_design_newtype::IdError;
     use crate::model::{AccountId, CallId};
 
