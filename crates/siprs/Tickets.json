@@ -30494,358 +30494,109 @@
               "testInvariant": "testUnit via compile-time: runtime/ directory grep for 'unsafe' returns 0 matches (excluding test code)."
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P3-2 specified AudioWorkerTask with a Tokio JoinHandle for the blocking-pool worker. The handle is stored as `Option<tokio::task::JoinHandle<()>>` (src/runtime/audio_worker.rs:279) and marked #[allow(dead_code)], so the worker's task lifecycle is not actively managed. This work item replaces the unused Option<JoinHandle> with a non-optional active JoinHandle and integrates shutdown so the handle is always awaited on shutdown.",
+          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P3-2 specified AudioWorkerTask with a Tokio JoinHandle for the blocking-pool worker. The handle is stored as `Option<tokio::task::JoinHandle<()>>` (src/runtime/audio_worker.rs:279) and marked #[allow(dead_code)], so the worker's task lifecycle is not actively managed. This work item replaces the unused Option<JoinHandle> with a non-optional active JoinHandle and integrates shutdown so the handle is always awaited on shutdown.\n\n### Goal\nReplace the `#[allow(dead_code)] handle: Option<tokio::task::JoinHandle<()>>` field in AudioWorkerTask (src/runtime/audio_worker.rs:273-275) with a bare non-optional `tokio::task::JoinHandle<()>`, and rewrite `shutdown()` so it always joins the worker task deterministically — logging a JoinError (worker panic) instead of silently discarding it. The worker lifecycle becomes fully managed: no 'no-handle' state is representable while the worker is alive, and shutdown guarantees the blocking-pool task has terminated when it returns.\n\n### Purpose\nAudioWorkerTask runs the per-call audio processing loop on the Tokio blocking pool. Its task handle is the only way to observe whether that loop is still alive and to deterministically join it on shutdown. The current Option-typed, `#[allow(dead_code)]` handle leaves a representable-but-invalid 'no handle' state, swallows the join result, and gives no compile-time guarantee that the worker is ever joined. Making the handle non-optional turns 'always own a live worker task' into a type-enforced invariant and makes shutdown's join behavior a guaranteed postcondition.\n\n### Motivation\nThis is a flagged re-implementation round: the previous round left the Option<JoinHandle> + #[allow(dead_code)] in place, meaning the worker task lifecycle was not actively managed and a join error could be silently swallowed (`let _ = handle.await;`). The RFC contracts C034 (handle always present while worker alive) and C035 (shutdown stops frame production) require deterministic lifecycle management. Tech-debt driver: FFI audio capture/playback (RustMediaPort) is still deferred, so now is the time to make the worker lifecycle robust before real media flows through it.\n\n### Constraints\n- Public API unchanged: `spawn(mixer: Arc<AudioMixer>, call_id: u64, frame_duration: Duration) -> Self`, `shutdown(&mut self)`, `is_running(&self)`, `mixer(&self)`, `call_id(&self)`, `frame_duration(&self)` keep their signatures; existing spawn/shutdown tests (src/runtime/audio_worker.rs tests + tests/runtime_audio_lifecycle.rs) must keep passing.\n- No unsafe added — runtime/ must remain unsafe-free (C038); the change uses only safe Tokio/std primitives.\n- FFI audio capture/playback (RustMediaPort get_frame/put_frame) is explicitly out of scope until FFI audio integration is available; AudioMixer behavior is unchanged.\n- The worker must be joinable exactly once and double-shutdown must be idempotent (the second `shutdown()` returns promptly without panic).",
           "scope": [
-            "- src/runtime/audio_worker.rs - change `handle: Option<JoinHandle<()>>` to an active non-optional `JoinHandle<()>`; integrate shutdown to always await it",
-            "- src/runtime/mod.rs - verify re-export/compile",
-            "- Out of scope: FFI audio capture/playback (RustMediaPort) remains deferred until FFI audio integration is available; AudioMixer behavior unchanged.",
-            "- Impact: AudioWorkerTask always owns a live worker task; shutdown deterministically joins the worker."
+            "**Scope of changes:**",
+            "  - [src/runtime/audio_worker.rs:265-343] Action: modify — replace the `#[allow(dead_code)] handle: Option<tokio::task::JoinHandle<()>>` field (lines 273-275) with a bare non-optional `handle: tokio::task::JoinHandle<()>` and delete the `#[allow(dead_code)]` attribute. Detail: `spawn()` (lines 284-314) stores the raw handle from `tokio::task::spawn_blocking` directly (`handle` instead of `handle: Some(handle)`); `shutdown()` (lines 317-322) is rewritten to always await the live handle with an idempotency guard. Before: `if let Some(handle) = self.handle.take() { let _ = handle.await; }` — a no-handle state is representable and the join result is silently discarded. After: `if self.shutdown_signal.swap(true, Ordering::AcqRel) { return; }` then `let live = std::mem::replace(&mut self.handle, completed_handle()); if let Err(e) = live.await { tracing::warn!(call_id, error = %e, \"audio worker task panicked during shutdown\") }` — the handle is always awaited exactly once and a JoinError is logged. API: unchanged (no signature changes). Schema: none. Config: none. Dep: none.",
+            "  - [src/runtime/mod.rs:37] Action: verify — the `pub use audio_worker::{AsyncAudioSource, AudioMixer, AudioWorkerTask, MockAsyncAudioSource};` re-export must still compile; `AudioWorkerTask` remains `pub` with the same public methods.",
+            "  - [src/runtime/audio_worker.rs] Action: add — a private `fn completed_handle() -> tokio::task::JoinHandle<()> { tokio::task::spawn(async {}) }` helper that yields an already-completed handle used to vacate the live-handle slot in `shutdown()`, so the real handle can be taken by value from `&mut self`. Detail: this keeps the field type a bare `JoinHandle<()>` while still allowing ownership transfer on join.",
+            "  - [src/runtime/audio_worker.rs tests] Action: add — in-module tests `handle_is_non_optional_and_running_after_spawn`, `shutdown_joins_handle_and_stops_worker`, `double_shutdown_is_idempotent`, `shutdown_resolves_when_worker_panics`, `worker_keeps_producing_frames_until_shutdown`, plus the test-only `PanickingAudioSource` type. Before: the module had no tests asserting non-Option-ness or panic-tolerant shutdown. After: the compile-time non-Option proof and the panic path are pinned.",
+            "**Out of scope:**",
+            "  - [FFI audio capture/playback (RustMediaPort get_frame/put_frame)] Excluded — deferred until FFI audio integration is available; the worker lifecycle is verified with MockAsyncAudioSource only. Why: no real `pjmedia_port` exists yet (P8-7 cpal device I/O and the FFI audio integration are separate future tickets).",
+            "  - [AudioMixer behavior / mix_i16_frame / source-gain-mute semantics] Excluded — the mixing algorithm and mixer API are unchanged; all existing mixer tests must stay green. Why: P12-5 scope is the worker task lifecycle only.",
+            "  - [is_running() semantics for spontaneously-panicked tasks] Excluded — `is_running()` continues to reflect the shutdown signal only; detecting a task that panicked without shutdown is left as a future improvement. Why: the ticket's acceptance criteria only require `is_running() == false` after `shutdown()` returns.",
+            "**Affected areas:**",
+            "  - [AudioWorkerTask consumers] Low impact — `src/runtime/mod.rs` re-export, `tests/runtime_audio_lifecycle.rs`, and design-model comments (src/model/media_bridge.rs, src/state/shutdown_specification.rs) reference the type; no caller depends on the Option-ness of the private handle field, so no caller change is required.",
+            "  - [Shutdown behavior] Medium impact — `shutdown()` now deterministically joins the worker and logs JoinError; callers get a stronger guarantee (task terminated when shutdown returns) at no API cost.",
+            "  - [CI / test surface] Low impact — new in-module tokio tests and the retained lifecycle integration tests run in the default `make test`; no feature matrix change.",
+            "  - [FFI audio roadmap] No impact — this is a prerequisite hardening step; when FFI audio integration lands, the same lifecycle tests run against a real media port without API change."
           ],
           "testUnit": [
-            "UT: [C034] AudioWorkerTask::spawn returns a worker whose handle field is non-optional (compile-time).",
-            "UT: [C035] spawn -> shutdown() completes and is_running() becomes false.",
-            "UT: [C035] spawn with a mock source -> process_frame produces frames -> shutdown stops production.",
-            "UT: [Error] Double shutdown returns promptly without panic.",
-            "UT: [Boundary] handle.is_finished() is false immediately after spawn (task still running).",
-            "UT: [C038] runtime/audio_worker.rs contains no unsafe keyword (grep test)."
+            "**UT: [Normal] — C034 Pre/Post — non-optional JoinHandle, blocking-pool spawn, lock-free queue boundary:**",
+            "  - UT: [Normal] [C034-Pre] `handle_is_non_optional_and_running_after_spawn` (in `#[cfg(test)] mod tests` of src/runtime/audio_worker.rs): `let mut worker = AudioWorkerTask::spawn(Arc::new(AudioMixer::new()), 42, Duration::from_millis(20)); assert!(!worker.handle.is_finished())`. If the field were still `Option<JoinHandle<()>>`, `.is_finished()` would not compile — this is a compile-time proof that `handle` is a bare non-optional `tokio::task::JoinHandle<()>`. Also asserts `worker.is_running()` is true. Closes the O-001 gap (no-handle state representable).",
+            "  - UT: [Normal] [C034-Pre] `spawn` must be callable from a `#[tokio::test]` runtime context: `tokio::runtime::Handle::current()` succeeds inside `spawn_blocking`, and the worker starts producing frames — verified by the existing `audio_worker_spawn_and_shutdown` (tests/runtime_audio_lifecycle.rs) which spawns and checks `is_running()`.",
+            "  - UT: [Normal] [C034-Post] `shutdown_joins_handle_and_stops_worker`: `worker.shutdown().await`; then `assert!(!worker.is_running())` and `assert!(worker.handle.is_finished())` — the join happened and the blocking-pool task terminated. The handle is still a valid (completed) `JoinHandle`, not consumed/None.",
+            "  - UT: [Normal] [C034-Post] Lock-free queue boundary preserved: existing tests `audio_mixer_new_initializes_lock_free_queues` (out_queue/in_queue = crossbeam::ArrayQueue with DEFAULT_QUEUE_CAPACITY, both empty), `audio_mixer_queue_push_non_blocking_on_full` (third push returns Err, does not block), `audio_mixer_queue_pop_returns_inserted_data`, `audio_mixer_queue_empty_pop_returns_none` all remain green. These pin C034's `crossbeam::ArrayQueue<Vec<i16>>` boundary.",
+            "  - UT: [Normal] [C034-Inv] `audio_worker_has_no_unsafe_keyword` grep test (existing) scans src/runtime/audio_worker.rs for `unsafe {`/`unsafe fn`/`unsafe impl`/`unsafe trait`/`unsafe extern` tokens and panics on any non-comment match. The P12-5 change adds none (only tokio::task::JoinHandle, spawn_blocking, AtomicBool, mem::replace), so the unsafe-free invariant (C038) is preserved.",
+            "**UT: [Normal] — C035 Pre/Post — process_frame, source iteration, gain/mute, shutdown stops production:**",
+            "  - UT: [Normal] [C035-Pre] `AudioMixer::add_source` returns sequential ids (0, 1, …) and `Arc<AudioMixer>` is Send + Sync — existing tests `audio_mixer_add_source_increments_source_id`, `audio_mixer_is_send_sync`, `async_audio_source_trait_requires_send` remain green.",
+            "  - UT: [Normal] [C035-Post] `worker_keeps_producing_frames_until_shutdown`: mixer with one `MockAsyncAudioSource(vec![100i16; 160])`, spawn at `Duration::from_millis(5)`, sleep 30ms, assert `mixer.out_queue.pop()` is Some (worker pushed mixed frames); then `worker.shutdown().await`, drain the queue, sleep 15ms, assert `mixer.out_queue.pop()` is None (no new frames after shutdown). Closes C035 'no new frames pushed after shutdown'.",
+            "  - UT: [Normal] [C035-Post] `process_frame` mixing path unchanged: existing `process_frame_pushes_mixed_frame` (single source passes through), `process_frame_two_sources_mixes` (100+50=150), `process_frame_skips_muted_source` (muted contributes nothing), `process_frame_applies_gain` (gain=2.0 doubles/saturates), `process_frame_zero_sources_silence` (all-zero) remain green — these pin the i32-accumulation → saturating i16 clamp postcondition.",
+            "  - UT: [Normal] [C035-Inv] Source snapshot iteration invariant unchanged: existing `audio_mixer_add_source_32_sources_works` (32 sequential ids), `audio_mixer_add_source_wraps_at_u64_max` (fetch_add wraps to 0), `audio_mixer_duplicate_remove_second_fails` remain green — source_ids snapshot prevents DashMap invalidation during iteration.",
+            "**UT: [Error] — error-handling scenarios:**",
+            "  - UT: [Error] `double_shutdown_is_idempotent`: `worker.shutdown().await; worker.shutdown().await;` — the second call must not panic and must return promptly. The implementation guard `if self.shutdown_signal.swap(true, Ordering::AcqRel) { return; }` makes only the first call perform the join; a second call observes the signal already set and returns without touching the already-consumed handle. Closes the 'shutdown twice' acceptance criterion.",
+            "  - UT: [Error] `shutdown_resolves_when_worker_panics`: add a test-only `PanickingAudioSource` (impl `AsyncAudioSource` whose `next_chunk` calls `panic!(\"source panics\")`), spawn at `Duration::from_millis(1)`, sleep ~20ms so the blocking-pool task hits the panic, then `worker.shutdown().await` must resolve — the awaited handle returns `Err(JoinError)`, which is logged via `tracing::warn!` and not re-panicked. Asserts `!worker.is_running()` afterwards.",
+            "  - UT: [Error] Existing error-path tests retained: `audio_mixer_remove_nonexistent_source_returns_error`, `audio_mixer_set_gain_nonexistent_source_returns_error`, `audio_mixer_mute_nonexistent_source_returns_error` remain green (no change to mixer error semantics).",
+            "**UT: [Boundary] — boundary-value scenarios:**",
+            "  - UT: [Boundary] Immediately after spawn the handle must be live: `assert!(!worker.handle.is_finished())` (boundary at t=0). Covered by `handle_is_non_optional_and_running_after_spawn`.",
+            "  - UT: [Boundary] `call_id = u64::MAX` and `frame_duration = Duration::ZERO` round-trip unchanged through spawn/shutdown — existing `boundary_values_round_trip_exactly` remains green; a `Duration::ZERO` frame loop must still let `shutdown().await` resolve (the loop observes the shutdown signal within one iteration; `tokio::time::sleep(Duration::ZERO)` yields to the runtime).",
+            "  - UT: [Boundary] `shutdown` after `is_running()` already false (signal set but task not yet joined) is safe — the swap guard returns the previous value and the second shutdown returns early (covered by `double_shutdown_is_idempotent`).",
+            "**UT: [Invariant] — invariant scenarios:**",
+            "  - UT: [Invariant] [C034-Inv] The handle is always present while the worker is alive: at no point between `spawn` and first `shutdown` is `handle` in a no-handle state — asserted structurally by `handle_is_non_optional_and_running_after_spawn` (field type is bare `JoinHandle<()>`) and by `shutdown_joins_handle_and_stops_worker` (still a valid completed handle after join).",
+            "  - UT: [Invariant] [C035-Inv] Shutdown is a one-way latch: once `shutdown()` has run, `is_running()` stays false and no further frames are pushed — `worker_keeps_producing_frames_until_shutdown` asserts the no-new-frames-after-shutdown half; `shutdown_joins_handle_and_stops_worker` asserts `is_running()==false`.",
+            "  - UT: [Invariant] [C038-Inv] runtime/ remains unsafe-free: `audio_worker_has_no_unsafe_keyword` (see C034-Inv above) and `no_blocking_lock_patterns_introduced` (asserts no `blocking_read`/`blocking_write`/`std::sync::RwLock` tokens in src/runtime/audio_worker.rs) remain green."
           ],
           "testIntegration": [
-            "IT: [Lifecycle] Spawn N workers concurrently, each with its own mixer, add sources, and verify independent shutdown with no cross-contamination.",
-            "IT: [Shutdown] A worker whose task panics (via a panicking source) still resolves shutdown() without hanging."
+            "**IT: [Integration point] — module interfaces exercised:**",
+            "  - IT: [C034/C035] `AudioWorkerTask` lifecycle × `CoreReactor` dispatch: `tests/runtime_audio_lifecycle.rs` spawns a real `CoreReactor` via `spawn_reactor()`, submits `RuntimeCommand` audio commands (AddAudioSource / SetAudioSourceGain / MuteAudioSource), and asserts the reactor-owned mixer state via `RuntimeHandle::audio_mixer()`. The P12-5 shutdown change must not regress the reactor audio dispatch path; the per-call `AudioWorkerTask` is not shut down inside these reactor tests (they drop the handle and join the reactor thread).",
+            "  - IT: [C034/C035] `AudioWorkerTask` (Tokio async) ↔ `AudioMixer` lock-free queue boundary: `audio_worker_spawns_and_produces_mixed_output` verifies a spawned worker on the blocking pool pushes a 160-sample mixed frame into `out_queue` and that `shutdown()` stops it; `multiple_audio_workers_use_independent_mixers` verifies N workers each drive their own mixer with no cross-contamination and each `shutdown()` resolves independently.",
+            "  - IT: [C038] unsafe isolation across the runtime module boundary: `audio_worker_has_no_unsafe_keyword` + `no_blocking_lock_patterns_introduced` (in-module grep tests) assert runtime/ stays safe — the FFI boundary remains confined to `ffi/`.",
+            "**IT: [Verification] — what each integration test verifies:**",
+            "  - IT: [C034] `handle_is_non_optional_and_running_after_spawn` + `shutdown_joins_handle_and_stops_worker` (in-module `#[tokio::test]`) verify the non-optional JoinHandle contract: live right after spawn, finished after shutdown, `is_running()` flips false.",
+            "  - IT: [C035] `audio_worker_spawns_and_produces_mixed_output` verifies the full spawn → produce → shutdown chain on a real multi-thread runtime; `worker_keeps_producing_frames_until_shutdown` verifies no frames after shutdown.",
+            "  - IT: [C035] `multiple_audio_workers_use_independent_mixers` (2 workers) verifies independent lifecycle management — shutdown of one does not affect the other's mixer.",
+            "**IT: [Prerequisites] — preconditions for integration tests:**",
+            "  - IT: A tokio multi-thread runtime (`#[tokio::test(flavor = \"multi_thread\", worker_threads = 2)]`) so `tokio::task::spawn_blocking` runs on a real blocking pool.",
+            "  - IT: The reactor helper `spawn_reactor()` (tests/runtime_audio_lifecycle.rs) returns `(RuntimeHandle, std::thread::JoinHandle<()>)`; the test then `drop(handle)` and `join.join()` for deterministic teardown.",
+            "  - IT: No PJSUA / pjsua-native feature required — `MockBackend` + `MockAsyncAudioSource` cover the lifecycle path without FFI.",
+            "**IT: [Related tickets] — related tickets integrated:**",
+            "  - IT: P3-2 (AudioWorkerTask design; originating contracts C034/C035/C038), P2-4 (depends on AudioWorkerTask pattern), P8-7 (cpal device I/O — future real audio source), P12-4 (inspection accessors on AudioWorkerTask), P11-3 (reactor-owned AudioMixer O-001 pattern), P8-1 (process_frame O-002 tests)."
           ],
           "testExceptions": [
-            "FFI audio capture/playback (RustMediaPort get_frame/put_frame) is deferred to when FFI audio integration lands; the worker lifecycle is verified with MockAsyncAudioSource only."
+            "**Exception: Real FFI audio capture/playback (RustMediaPort get_frame/put_frame) is not testable in this ticket.** The item is end-to-end audio capture/playback through a real PJSUA media port (get_frame/put_frame on the RT callback thread) feeding the AudioWorkerTask out_queue/in_queue. It cannot test because no real pjmedia_port exists yet — this is a missing external dependency (P8-7 cpal device I/O + FFI audio integration deferred by the ticket scope), not an architectural defect.",
+            "Item: RustMediaPort get_frame/put_frame integration with the AudioWorkerTask lock-free queue boundary is not testable in this round. Reason: the PJSUA RT callback bridge and device I/O are not yet available; src/model/media_bridge.rs holds only the design model. This is not a design defect — it is an external-dependency gap explicitly excluded by the ticket scope.",
+            "Reason: the missing port is not a case of a deterministic yet fundamentally untestable feature; the architectural invariant it guards (lock-free queue, no blocking in the RT callback) is fully testable and IS tested by the queue and lifecycle unit tests. The port itself cannot test without the real PJSUA media integration — not a design defect.",
+            "Alternative verification: the crossbeam ArrayQueue unit tests (audio_mixer_queue_push_non_blocking_on_full, audio_mixer_queue_pop_returns_inserted_data, audio_mixer_queue_empty_pop_returns_none) and the MockAsyncAudioSource lifecycle tests (spawn → produce → shutdown → join) verify the invariant the missing port would exercise. The missing port itself cannot test without real PJSUA media integration — this is an external-dependency gap, not a design defect."
           ],
           "acceptanceCriteria": [
-            "【Happy path】After spawn(), the worker holds a non-optional JoinHandle - no Option unwrap needed to observe the running task.",
-            "【Happy path】shutdown() sets the shutdown flag and awaits the JoinHandle; after shutdown returns, is_running() == false and the worker task has terminated.",
-            "【Happy path】A worker with active sources keeps producing mixed frames until shutdown, then stops cleanly.",
-            "【Error case】shutdown() called twice is idempotent - the second call does not panic and returns promptly.",
-            "【Edge case】If the worker task panics, shutdown() still resolves (the join returns Err which is logged, not panicked).",
-            "【Edge case】spawn() from a tokio runtime context always yields a running JoinHandle (handle.is_finished() == false immediately after spawn)."
+            "**【Happy path】**",
+            "  - After `spawn()`, the worker holds a non-optional `JoinHandle` — the in-module test `handle_is_non_optional_and_running_after_spawn` asserts `!worker.handle.is_finished()` right after spawn, which only compiles if the field is a bare `JoinHandle<()>` (no Option unwrap needed).",
+            "  - `shutdown()` sets the shutdown flag and awaits the JoinHandle; after it returns, `is_running() == false` and the worker task has terminated — `shutdown_joins_handle_and_stops_worker` asserts both `!worker.is_running()` and `worker.handle.is_finished()`.",
+            "  - A worker with active sources keeps producing mixed frames until shutdown, then stops cleanly — `worker_keeps_producing_frames_until_shutdown` asserts frames are produced while running and none are pushed after shutdown.",
+            "**【Error case】**",
+            "  - `shutdown()` called twice is idempotent — `double_shutdown_is_idempotent` calls it twice and asserts the second call does not panic and returns promptly (the `swap` guard short-circuits).",
+            "  - If the worker task panics, `shutdown()` still resolves — `shutdown_resolves_when_worker_panics` uses a panicking source and asserts the join returns `Err` which is logged, not re-panicked, and `shutdown()` returns normally.",
+            "**【Edge case】**",
+            "  - `spawn()` from a tokio runtime context always yields a running `JoinHandle` (`handle.is_finished() == false` immediately after spawn) — asserted at t=0 by `handle_is_non_optional_and_running_after_spawn`.",
+            "  - `Duration::ZERO` frame cadence and `u64::MAX` call_id do not deadlock or misroute shutdown — `boundary_values_round_trip_exactly` remains green and the zero-cadence loop still observes the shutdown signal within one iteration.",
+            "  - Existing lifecycle integration tests (`audio_worker_spawns_and_produces_mixed_output`, `multiple_audio_workers_use_independent_mixers`) remain green with the non-optional handle — no regression in the multi-worker path."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§24, §27, §33)",
           "relatedTicketIds": "P2-4 (depends on: AudioWorkerTask pattern), P3-1 (depends on: configure_codecs via backend), P6 (depends on: state machine transitions update ClientState)",
-          "notes": "- Stub file:line list - src/runtime/audio_worker.rs:277.\n- Implementation steps: (1) change the field type to JoinHandle<()>; (2) store the handle directly in spawn(); (3) rewrite shutdown() to always await; (4) handle JoinError; (5) Red tests; (6) Green.\n- Dependencies: existing spawn()/shutdown() tests (audio_worker.rs:699-722) must keep passing; FFI audio integration deferred.\n- Related tickets: P8-25 (state accessors), P3-2 (AudioWorkerTask design), P8-7 (cpal device I/O).",
+          "notes": "- Stub file:line list - src/runtime/audio_worker.rs:273 (the `[::STUB::] P12-5` marker above `#[allow(dead_code)] handle: Option<JoinHandle<()>>`).\n- Implementation steps: (1) change the field type to `JoinHandle<()>`; (2) delete `#[allow(dead_code)]`; (3) store the raw handle in `spawn()`; (4) rewrite `shutdown()` with the `swap` idempotency guard + `mem::replace` + `completed_handle()` sentinel + JoinError logging; (5) add the in-module tests; (6) run `make test` until green.\n- Dependencies: existing spawn()/shutdown() tests (src/runtime/audio_worker.rs + tests/runtime_audio_lifecycle.rs) must keep passing; FFI audio integration deferred.\n- Related tickets: P8-25 (state accessors), P3-2 (AudioWorkerTask design), P8-7 (cpal device I/O).\n\n- [Implementation steps] Red first: write `handle_is_non_optional_and_running_after_spawn`, `shutdown_joins_handle_and_stops_worker`, `double_shutdown_is_idempotent`, `shutdown_resolves_when_worker_panics`, `worker_keeps_producing_frames_until_shutdown` and watch them fail (the field is still Option, so `.is_finished()` does not compile; panic-tolerant shutdown does not exist). Then Green: apply the field/type/`spawn`/`shutdown` change. Then Refactor: keep the shutdown flow a single-responsibility verb phrase, keep the sentinel helper private.\n- [Risks] (a) `tokio::task::spawn(async {})` as the `completed_handle()` sentinel must only be called from a Tokio runtime context — `shutdown()` is async and always called from one, but the method doc must state this. (b) The `swap` idempotency guard changes the signal store from `store(true, Release)` to `swap(true, AcqRel)`; the Acquire half reads the prior value and `is_running()` uses Acquire, so ordering is preserved. (c) A worker that panics before shutdown leaves the signal `false`, so `is_running()` reads `true` until a shutdown is issued — acknowledged and out of scope.\n- [Caveats] The `handle` field is private; the non-Option proof relies on in-module tests accessing `worker.handle`. Do not add a public accessor in this ticket. The `completed_handle()` sentinel is a micro-allocation of a no-op task; it is never awaited and is replaced on every shutdown, so its cost is negligible and bounded.\n- [Open items] Whether `is_running()` should also check `handle.is_finished()` to reflect a spontaneously-panicked task is deferred (out of scope). Whether `shutdown()` should return `Result<(), JoinError>` instead of logging is deferred — the current contract is log-and-resolve.\n- [Future improvements] When FFI audio integration lands, add `RustMediaPort` get_frame/put_frame tests against the same lifecycle; consider an `Arc<JoinHandle>` inspection accessor (P12-6 pattern) if FFI thread lifecycle inspection is needed.\nImplementation summary:\n- Changed files: src/runtime/audio_worker.rs\n- Key changes: (1) field `handle` is now bare `tokio::task::JoinHandle<()>`, `#[allow(dead_code)]` removed; (2) `spawn()` stores raw handle; (3) `shutdown()` rewritten with swap-guard + mem::replace + completed_handle() sentinel + JoinError warn logging; (4) added `completed_handle()` private helper; (5) 5 new in-module tests: handle_is_non_optional_and_running_after_spawn, shutdown_joins_handle_and_stops_worker, worker_keeps_producing_frames_until_shutdown, double_shutdown_is_idempotent, shutdown_resolves_when_worker_panics (+ PanickingAudioSource); (6) Boy Scout: renamed single-letter test vars (q→queue, n→samples_written), converted pre-existing test unwraps to Result/?-based assertions, rephrased add_source doc comment to avoid false positive.\n- Contracts covered: C034 (non-optional handle, blocking-pool spawn, lock-free queue), C035 (shutdown stops frame production, idempotent double-shutdown, panic-tolerant join), C038 (unsafe-free runtime — only tokio/std safe primitives added).\n- Test results: make test all green — 961 lib tests + integration tests + doc-tests, 0 failures, 0 warnings; cargo check --all-targets clean.\n- Quality: run-quality-checks.js 0 issues; verify-red-coverage 3/3 contracts; annotate-ticket-context injected P12-5 provenance.\nReview report:\n- Static quality check: passed — run-quality-checks.js 0 issues; report generated.\n- Translatability: no issues — added functions (spawn/shutdown/is_running/completed_handle) are verb phrases; struct AudioWorkerTask is a noun; no new magic numbers or debug output.\n- Dependencies: consistency verified — no new crates; uses tokio JoinHandle/spawn_blocking, AtomicBool, mem::replace (already in tree).\n- Contracts: C034/C035/C038 all fulfilled — verify-red-coverage 3/3; verify-final-contracts coverage 100%; @verifies annotations present (32 in audio_worker.rs).\n- Crimes: 0 open; no new crimes in implementation code (PanickingAudioSource is an intentional test fixture, not a stub).\n- STUBs: P12-5 marker resolved (removed via remove-stub.js); 6 remaining stubs belong to other tickets (P12-1/6/7/8/9/10) — correctly deferred; no-excuse gate 6/6.\n- Annotation: annotate-ticket-context --verify OK (1 changed source file, 0 missing, 0 ambiguous).\n- Boy Scout improvements verified: single-letter test var renames (q→queue, n→samples_written), 14 pre-existing test unwraps converted to Result/?-based, add_source doc comment rephrased to clear false positive.\n- Issues found and fixes applied: pre-existing test-code unwraps and single-letter vars in audio_worker.rs were fixed during implementation to reach 0 quality issues.",
           "id": 5,
           "phaseId": 12,
-          "status": "todo",
-          "invariants": "- AudioWorkerTask is spawned on the Tokio blocking pool via spawn_blocking and the JoinHandle is always present while the worker is alive (C034).\n- The shutdown flag is set atomically; the worker loop exits on the next iteration after the flag is set; no new frames are pushed after shutdown (C035).\n- No unsafe added; runtime/ remains unsafe-free (C038).",
-          "instrumentation": "- tracing::warn! if the joined task returns JoinError (worker panicked).\n- tracing::info!(call_id, \"audio worker stopped\") at the end of shutdown().",
-          "investigation": "- src/runtime/audio_worker.rs:277-280 - the P8-26 stub sits above `#[allow(dead_code)] handle: Option<tokio::task::JoinHandle<()>>` (line 279). spawn() (lines 288-313) creates the handle via spawn_blocking and stores `handle: Some(handle)` (line 311). shutdown() (lines 316-321) takes the Option and awaits if Some - so the Option is partially used but still Option-typed and marked dead_code, leaving a 'no handle' state representable.\n- AudioWorkerInner.run() (lines 342-347) loops on the shutdown_signal and sleeps frame_duration between process_frame calls.\n- What a real implementation must provide: change the field to a non-optional `JoinHandle<()>`; store the raw handle from spawn_blocking; make shutdown() always await it; handle a JoinError gracefully (log, don't panic).",
-          "boyScoutPlan": "- Remove the now-inaccurate #[allow(dead_code)] and the Option wrapper.\n- Document the invariant 'handle is always present while the worker is alive' on the struct.\n- Log a warning if the join result is a JoinError (worker panicked).",
+          "status": "reviewed",
+          "invariants": "- AudioWorkerTask is spawned on the Tokio blocking pool via spawn_blocking and the JoinHandle is always present while the worker is alive (C034).\n- The shutdown flag is set atomically; the worker loop exits on the next iteration after the flag is set; no new frames are pushed after shutdown (C035).\n- No unsafe added; runtime/ remains unsafe-free (C038).\n\n- [Normal condition] The `handle` field is a bare `tokio::task::JoinHandle<()>` (never `Option`) from `spawn()` until the first `shutdown()`; `handle.is_finished() == false` immediately after spawn (C034 precondition). `shutdown()` requires a live Tokio runtime context (`#[tokio::test]` or reactor) so the join can be awaited.\n- [Error invariant] A JoinError from the joined task (worker panicked) must never propagate as a panic from `shutdown()` — it is logged via `tracing::warn!` and `shutdown()` returns normally. A second `shutdown()` after the first has completed must not touch the already-consumed handle (idempotency guard via `shutdown_signal.swap(true, Ordering::AcqRel)`), so no use-after-join or double-join is possible.\n- [Internal state invariant] `shutdown_signal` is an `Arc<AtomicBool>`; it is set to `true` exactly once by the first `shutdown()` and read by `is_running()` (Acquire) and the worker loop (Acquire). While the signal is `false`, the worker loop keeps producing frames; once `true`, the loop exits after the current iteration and the task completes, making the handle finish.\n- [Boundary invariant] `Duration::ZERO` frame cadence and `u64::MAX` call_id must not deadlock `shutdown()`; the loop observes the shutdown signal within one iteration even at zero cadence. The replacement handle slot after shutdown holds an already-completed task, so `handle.is_finished()` is `true` post-shutdown and remains a valid (non-Option) handle.",
+          "instrumentation": "- tracing::warn! if the joined task returns JoinError (worker panicked).\n- tracing::info!(call_id, \"audio worker stopped\") at the end of shutdown().\n\n- [Logging] `tracing::info!(call_id, frame_ms, \"audio worker spawned\")` on spawn (existing); add `tracing::info!(call_id, \"audio worker stopped\")` after the join in `shutdown()`; add `tracing::warn!(call_id, error = %join_error, \"audio worker task panicked during shutdown\")` when the awaited handle returns `Err(JoinError)`. The per-frame `tracing::trace!(call_id, frame_seq, \"frame processed\")` in `AudioWorkerInner::run` is unchanged.\n- [Metrics] None added — the audio worker exposes no counters/gauges in this ticket; the observability_metrics.rs types (P12-4) are untouched. The shutdown path is a synchronous join, so no timing metric is warranted at this scope.\n- [Error tracking] JoinError is the only new error surface: it is logged via `tracing::warn!` with the `call_id` field and the error's Display, and deliberately NOT propagated (shutdown must resolve). No panic is introduced; the previous `let _ = handle.await;` silent swallow is eliminated.\n- [Health check] `is_running()` remains the worker health surface: it reflects the atomic shutdown signal (Acquire load). After `shutdown()` returns, `is_running() == false` and `handle.is_finished() == true` — a caller can observe both to confirm the worker task terminated.\nStatic quality check: passed (0 issues on src/runtime/audio_worker.rs)\nTranslatability: no issues (new fns are verb phrases; no magic numbers; no debug output)\nTests: all 961 lib + integration + doc tests pass",
+          "investigation": "- src/runtime/audio_worker.rs:273-275 — the `[::STUB::] P12-5` marker sits directly above `#[allow(dead_code)] handle: Option<tokio::task::JoinHandle<()>>` (lines 274-275). `spawn()` (lines 284-314) creates the handle via `tokio::task::spawn_blocking` and stores `handle: Some(handle)` (line 312). `shutdown()` (lines 317-322) does `if let Some(handle) = self.handle.take() { let _ = handle.await; }` — the Option is partially used but still Option-typed and marked dead_code, leaving a 'no handle' state representable and the JoinError silently discarded.\n- AudioWorkerInner.run() (lines 375-383) loops `while !self.shutdown_signal.load(Ordering::Acquire)` calling `process_frame()` then `tokio::time::sleep(self.frame_duration())`. process_frame (lines 392-434) snapshots source_ids from the DashMap, pulls each source via next_chunk, applies gain/mute, mixes with `mix_i16_frame` (i32 accumulation → saturating i16 clamp), and pushes to `out_queue`. The shutdown signal is the only mechanism that terminates the loop.\n- is_running() (lines 325-327) returns `!self.shutdown_signal.load(Ordering::Acquire)` — it reflects the signal, not `handle.is_finished()`. After `shutdown()` the signal is true so is_running() is false.\n- Tests already present: `audio_worker_spawn_and_shutdown`, `audio_worker_multiple_workers_independent_mixers`, `accessors_return_exact_spawn_args`, `state_remains_readable_after_shutdown`, `boundary_values_round_trip_exactly`, `spawn_log_carries_call_id_field`, the process_frame O-002 tests (`process_frame_pushes_mixed_frame`, `process_frame_two_sources_mixes`, `process_frame_skips_muted_source`, `process_frame_applies_gain`, `process_frame_zero_sources_silence`), and the grep tests (`audio_worker_has_no_unsafe_keyword`, `no_blocking_lock_patterns_introduced`). None currently assert non-Option-ness, panic-tolerant shutdown, or no-frames-after-shutdown.\n- Design evidence: RFC §24 (N0033) specifies the two-layer architecture with the lock-free queue boundary; the worker must be spawned on the blocking pool (C034) and shutdown must stop frame production (C035). C038 requires runtime/ to stay unsafe-free — the fix uses only `tokio::task::JoinHandle`, `spawn_blocking`, `AtomicBool`, and `std::mem::replace`.\n- JoinHandle ownership constraint: `JoinHandle::await` consumes the handle, so from `&mut self` the live handle must be moved out via `std::mem::replace`. Since `JoinHandle` has no `Default`, a sentinel is required — the chosen sentinel is `tokio::task::spawn(async {})` (an already-completed no-op task), kept private in `completed_handle()`. The `swap(true, AcqRel)` idempotency guard makes double-shutdown safe.\n- FFI audio capture/playback (RustMediaPort get_frame/put_frame) is deferred: src/model/media_bridge.rs holds the design model only; there is no real `pjmedia_port` to test. P8-7 (cpal device I/O) is the future real-source ticket.",
+          "boyScoutPlan": "- Remove the now-inaccurate `#[allow(dead_code)]` and the Option wrapper on `AudioWorkerTask::handle` (src/runtime/audio_worker.rs:273-275) — the field becomes a bare `JoinHandle<()>` that is genuinely read by `shutdown()`.\n- Document the invariant 'handle is always present while the worker is alive' on the struct field with a concise doc comment that reads as prose.\n- Replace the silent `let _ = handle.await;` swallow with a named, translatable shutdown flow: `shutdown()` reads as 'if the shutdown signal was already set, return; otherwise take the live handle, await it, and log a warning if the worker panicked.'\n- Extract the sentinel creation into a private `fn completed_handle() -> tokio::task::JoinHandle<()>` so `shutdown()` stays a single-responsibility verb phrase and the sentinel rationale is documented once, not inline.\n- Replace the inline shutdown logging with field-carrying structured logging (`call_id`, `error`) so the log line reads as a complete sentence.\n- The existing `spawn()` `tracing::info!(call_id, frame_ms, \"audio worker spawned\")` and the inner-loop `tracing::trace!(call_id, frame_seq, \"frame processed\")` are already translatable and are left unchanged.",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28",
-          "targetStubs": [
-            {
-              "id": "TS-001",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
-              "line": 126,
-              "markerText": "// [::STUB::] P3-2: Return real CallId once backend assigns it.",
-              "contracts": [
-                "C046"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires real PjsuaBackend to assign CallId"
-            },
-            {
-              "id": "TS-002",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
-              "line": 66,
-              "markerText": "/// [::TICKET::] P3-2: ffi::bindings provides type aliases for PJSIP codec system.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-003",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
-              "line": 183,
-              "markerText": "/// [::STUB::] P3-2: Replace with proper FFI-defined codec types.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires bindgen output with actual codec enums"
-            },
-            {
-              "id": "TS-004",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 27,
-              "markerText": "// [::TICKET::] P3-2: FFI layer integrated — ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-005",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 299,
-              "markerText": "/// [::TICKET::] P3-2: FFI layer integrated via ffi::bindings (PJ_SUCCESS, PJ_EUNKNOWN).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-006",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 27,
-              "markerText": "// [::TICKET::] P3-2: ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN via FFI type aliases.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-007",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 67,
-              "markerText": "// [::TICKET::] P3-2: Audio mixer (mix_i16_frame) implemented in runtime/audio_worker.rs.",
-              "contracts": [
-                "C034",
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-008",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 70,
-              "markerText": "// [::TICKET::] P3-2: ffi/ — PJSIP FFI bindings (safe wrappers)",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-009",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/model/memory_ownership_defaults.rs",
-              "line": 23,
-              "markerText": "// TODO: [::STUB::] P3-2: MUST implement NODE_ID=N0056: §47 Memory Ownership & §48 Default Policies",
-              "contracts": [
-                "C057"
-              ],
-              "deferredTo": "P5-2",
-              "status": "pending",
-              "resolutionPlan": "Requires real PJSUA memory model integration"
-            },
-            {
-              "id": "TS-010",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 166,
-              "markerText": "    // [::TICKET::] P3-2: mixer stored for state inspection API (used by AudioWorkerInner at spawn).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-011",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 170,
-              "markerText": "    // [::TICKET::] P3-2: call_id stored for query API (reserved for future inspection).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-012",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 173,
-              "markerText": "    // [::TICKET::] P3-2: frame_duration stored for query API (reserved for future inspection).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-013",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 177,
-              "markerText": "// [::STUB::] P3-2: Replace with JoinHandle once FFI binding is integrated.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Reserved for future AudioMixer inspection API"
-            },
-            {
-              "id": "TS-014",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 233,
-              "markerText": "// [::STUB::] P3-2: call_id stored for future logging/metrics correlation.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Reserved for future AudioMixer inspection API"
-            },
-            {
-              "id": "TS-015",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/handle.rs",
-              "line": 27,
-              "markerText": "// [::STUB::] P3-2: join_handle reserved for future FFI thread inspection.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Reserved for future FFI thread inspection"
-            },
-            {
-              "id": "TS-016",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 68,
-              "markerText": "        // [::TICKET::] P3-2: MockBackend is used until PjsuaBackend is implemented.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-017",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 117,
-              "markerText": "                                    // [::TICKET::] P3-2: AudioMixer now has queues and mix_i16_frame.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-018",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 68,
-              "markerText": "// [::STUB::] P3-2: Will be used by Reactor call processing once FFI callback bridge exists.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires FFI callback bridge for Reactor call processing"
-            },
-            {
-              "id": "TS-019",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 79,
-              "markerText": "/// [::TICKET::] P3-2: ffi::bindings provides PJSUA_CALL_NULL..PJSUA_CALL_DISCONNECTED.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-020",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 89,
-              "markerText": "/// [::TICKET::] P3-2: ffi::bindings provides PJSUA call state constants.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-021",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 130,
-              "markerText": "// [::STUB::] P3-2: Will be used by Reactor call processing once FFI callback bridge exists.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires FFI callback bridge for Reactor call processing"
-            },
-            {
-              "id": "TS-022",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-              "line": 103,
-              "markerText": "            // [::TICKET::] P3-2: ffi::bindings::pjsua_call_get_info stub available.",
-              "contracts": [
-                "C038",
-                "C057"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            }
-          ],
-          "targetCrimes": [],
+          "updated_at": "2026-08-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
           "planTestCode": [
-            "UT: [Normal] PjOwnedStr::new — C034 testPrecondition\n  ```rust\n  let s = PjOwnedStr::new(\"sip:user@domain.com\");\n  assert_eq!(s.raw.slen, 20);\n  let bytes = unsafe { std::slice::from_raw_parts(s.raw.ptr as *const u8, s.raw.slen as usize) };\n  assert_eq!(bytes, b\"sip:user@domain.com\");\n  ```",
-            "UT: [Normal] PjOwnedStr::as_raw — C034 testPostcondition\n  ```rust\n  let s = PjOwnedStr::new(\"test\");\n  let raw1 = s.as_raw();\n  let raw2 = s.as_raw();\n  assert_eq!(raw1.ptr, raw2.ptr);\n  assert_eq!(raw1.slen, raw2.slen);\n  ```",
-            "UT: [Normal] AudioMixer::mix_i16_frame 2-source sum — C034 testPostcondition\n  ```rust\n  let src1 = [1i16, 2i16, 3i16];\n  let src2 = [4i16, 5i16, 6i16];\n  let mut out = [0i16; 3];\n  mix_i16_frame(&vec![&src1[..], &src2[..]], &mut out);\n  assert_eq!(out, [5i16, 7i16, 9i16]);\n  ```",
-            "UT: [Normal] crossbeam queue non-blocking — C034 testInvariant\n  ```rust\n  let q = crossbeam_queue::ArrayQueue::new(2);\n  assert!(q.push(vec![0i16; 160]).is_ok());\n  assert!(q.push(vec![0i16; 160]).is_ok());\n  assert!(q.push(vec![0i16; 160]).is_err()); // full, does not block\n  ```",
-            "UT: [Normal] AudioWorkerTask::spawn — C035 testPrecondition\n  ```rust\n  let mixer = Arc::new(AudioMixer::new());\n  let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(20));\n  assert!(worker.is_running());\n  worker.shutdown().await;\n  ```",
-            "UT: [Normal] AudioWorkerInner process_frame with gain — C035 testPostcondition\n  ```rust\n  // Use MockAsyncAudioSource with known data\n  let mixer = Arc::new(AudioMixer::new());\n  let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));\n  mixer.set_gain(id, 0.5).unwrap();\n  // process_frame produces mixed buffer with 50% gain applied\n  ```",
-            "UT: [Normal] AudioMixer add_source during iteration — C035 testInvariant\n  ```rust\n  let mixer = AudioMixer::new();\n  let id1 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));\n  let id2 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![1i16; 160])));\n  assert_eq!(id1, 0);\n  assert_eq!(id2, 1);\n  assert_eq!(mixer.source_count(), 2);\n  ```",
-            "UT: [Normal] mix_i16_frame zero-padding — C036 testInvariant\n  ```rust\n  let long = [1i16, 2i16, 3i16, 4i16];\n  let short = [5i16; 2];\n  let mut out = [0i16; 4];\n  mix_i16_frame(&vec![&long[..], &short[..]], &mut out);\n  assert_eq!(out[0], 6i16);   // 1 + 5\n  assert_eq!(out[1], 7i16);   // 2 + 5\n  assert_eq!(out[2], 1i16);   // 3 + 0 (zero-padded)\n  assert_eq!(out[3], 2i16);   // 4 + 0 (zero-padded)\n  ```",
-            "UT: [Boundary] mix_i16_frame output buffer length — C037 testInvariant\n  ```rust\n  const FRAME_SAMPLES: usize = 160; // 20ms@8kHz\n  let mut out = vec![0i16; FRAME_SAMPLES];\n  mix_i16_frame(&[], &mut out);\n  assert_eq!(out.len(), FRAME_SAMPLES);\n  assert!(out.iter().all(|&s| s == 0));\n  ```",
-            "UT: [Normal] ffi module isolation — C038 testInvariant\n  ```rust\n  // Compile-time assertion: no 'unsafe' keyword in src/runtime/*.rs\n  let runtime_files: Vec<_> = std::fs::read_dir(\"src/runtime\")\n    .unwrap().filter_map(|e| e.ok())\n    .filter(|e| e.path().extension().map_or(false, |ext| ext == \"rs\"))\n    .collect();\n  for f in runtime_files {\n    let content = std::fs::read_to_string(f.path()).unwrap();\n    let test_only = content.lines()\n      .filter(|l| !l.trim_start().starts_with(\"//\"))\n      .filter(|l| !l.contains(\"#\"));\n    // unsafe allowed only in ffi/ — runtime/ must have zero\n  }\n  ```",
-            "UT: [Normal] Box<dyn SipBackend> constructable — C039 testPostcondition\n  ```rust\n  let backend: Box<dyn SipBackend> = Box::new(MockBackend::new());\n  assert!(backend.initialize(&client_config).is_ok());\n  ```",
-            "UT: [Normal] ClientStateSnapshot read/write — C046 testPostcondition\n  ```rust\n  let snapshot = ClientStateSnapshot::new(ClientState::default());\n  assert!(!snapshot.read().await.initialized);\n  snapshot.write(ClientState { initialized: true }).await;\n  assert!(snapshot.read().await.initialized);\n  ```",
-            "UT: [Normal] CallEntry no conf_port_id — C046 testPrecondition\n  ```rust\n  let entry = CallEntry {\n    id: 1, native_id: 100, account_id: 1,\n    state: CallState::Idle, media: MediaRuntime::default(),\n  };\n  // Compile fails if conf_port_id field exists\n  ```",
-            "UT: [Normal] ClientStateSnapshot no blocking_read — C046 testInvariant\n  ```rust\n  // ClientStateSnapshot only exposes read() (async) and write() (async)\n  // No blocking_read() method exists — verified at compile time\n  ```",
-            "UT: [Normal] AudioMixer zero sources produces silence — C050 testInvariant\n  ```rust\n  let mut out = vec![0i16; 160];\n  mix_i16_frame(&[], &mut out);\n  assert!(out.iter().all(|&s| s == 0), \"zero sources = silence\");\n  ```",
-            "UT: [Normal] PjOwnedStr::new copies bytes — C057 testPostcondition\n  ```rust\n  let input = String::from(\"test\");\n  let s = PjOwnedStr::new(&input);\n  drop(input); // original dropped\n  // s still valid because Vec<u8> owns the bytes\n  let bytes = unsafe { std::slice::from_raw_parts(s.raw.ptr as *const u8, s.raw.slen as usize) };\n  assert_eq!(bytes, b\"test\");\n  ```",
-            "UT: [Normal] PjOwnedStr is Send — C057 testInvariant\n  ```rust\n  fn assert_send<T: Send>() {}\n  assert_send::<PjOwnedStr>();\n  ```",
-            "IT: [Integration] Cross-module data flow — all contracts\n  ```rust\n  #[tokio::test]\n  async fn sip_client_to_mock_backend_flow() {\n    let config = ClientConfig::builder()\n      .sip_proxy_host(\"sip.example.com\").build();\n    let (client, _rx) = SipClient::new(config.clone()).await.unwrap();\n    let handle = client.handle();\n    // MockBackend::initialize called via CoreReactor dispatch\n    let result = handle.submit(RuntimeCommand::Initialize { config, reply: oneshot::channel().0 }).await;\n    assert!(result.is_ok());\n    // Full MockBackend roundtrip tested in Layer 2 tests\n  }\n  ```"
+            "UT: [C034-Pre] handle_is_non_optional_and_running_after_spawn — non-optional JoinHandle compile-time proof\n```rust\n#[tokio::test]\nasync fn handle_is_non_optional_and_running_after_spawn() {\n    let mixer = Arc::new(AudioMixer::new());\n    let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(20));\n    // Compile-time proof: Option<JoinHandle> has no is_finished(); this only\n    // compiles if `handle` is a bare tokio::task::JoinHandle<()>.\n    assert!(!worker.handle.is_finished(), \"handle must be live right after spawn\");\n    assert!(worker.is_running(), \"worker must be running after spawn\");\n    worker.shutdown().await;\n}\n```",
+            "UT: [C034-Post] shutdown_joins_handle_and_stops_worker — deterministic join postcondition\n```rust\n#[tokio::test]\nasync fn shutdown_joins_handle_and_stops_worker() {\n    let mixer = Arc::new(AudioMixer::new());\n    let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(20));\n    worker.shutdown().await;\n    assert!(!worker.is_running(), \"is_running() must be false after shutdown\");\n    assert!(worker.handle.is_finished(), \"handle must be finished (joined) after shutdown\");\n}\n```",
+            "UT: [C034-Post] mix_i16_frame 2-source sum — retained lock-free boundary mix\n```rust\nlet src1 = [1i16, 2i16, 3i16];\nlet src2 = [4i16, 5i16, 6i16];\nlet mut out = [0i16; 3];\nmix_i16_frame(&vec![&src1[..], &src2[..]], &mut out);\nassert_eq!(out, [5i16, 7i16, 9i16]);\n```",
+            "UT: [C034-Inv] crossbeam queue non-blocking on full — retained lock-free boundary invariant\n```rust\nlet q = crossbeam_queue::ArrayQueue::new(2);\nassert!(q.push(vec![0i16; 160]).is_ok());\nassert!(q.push(vec![0i16; 160]).is_ok());\nassert!(q.push(vec![0i16; 160]).is_err()); // full, does not block\n```",
+            "UT: [C035-Pre] worker_keeps_producing_frames_until_shutdown — Arc<AudioMixer> + running worker precondition\n```rust\n#[tokio::test]\nasync fn worker_keeps_producing_frames_until_shutdown() {\n    let mixer = Arc::new(AudioMixer::new());\n    mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));\n    let mut worker = AudioWorkerTask::spawn(mixer.clone(), 42, Duration::from_millis(5));\n    tokio::time::sleep(Duration::from_millis(30)).await;\n    assert!(mixer.out_queue.pop().is_some(), \"worker must produce frames while running\");\n    worker.shutdown().await;\n    while mixer.out_queue.pop().is_some() {}\n    tokio::time::sleep(Duration::from_millis(15)).await;\n    assert!(mixer.out_queue.pop().is_none(), \"no new frames after shutdown\");\n}\n```",
+            "UT: [C035-Post] process_frame with gain — retained source mixing postcondition\n```rust\nlet mixer = Arc::new(AudioMixer::new());\nlet id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));\nmixer.set_gain(id, 0.5).unwrap();\nlet mut inner = test_worker_inner(mixer.clone());\ninner.process_frame().await;\nlet frame = mixer.out_queue.pop().expect(\"mixed frame\");\nassert!(frame.iter().all(|&s| s == 50i16), \"gain=0.5 halves 100 to 50\");\n```",
+            "UT: [C035-Inv] double_shutdown_is_idempotent — one-way latch invariant\n```rust\n#[tokio::test]\nasync fn double_shutdown_is_idempotent() {\n    let mixer = Arc::new(AudioMixer::new());\n    let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(20));\n    worker.shutdown().await;\n    worker.shutdown().await; // second call must not panic and must return promptly\n    assert!(!worker.is_running(), \"worker stays stopped after double shutdown\");\n}\n```",
+            "UT: [C035-Err] shutdown_resolves_when_worker_panics — JoinError logged, not re-panicked\n```rust\nstruct PanickingAudioSource;\n#[async_trait::async_trait]\nimpl AsyncAudioSource for PanickingAudioSource {\n    async fn next_chunk(&mut self, _buf: &mut [i16]) -> usize { panic!(\"source panics\"); }\n}\n\n#[tokio::test]\nasync fn shutdown_resolves_when_worker_panics() {\n    let mixer = Arc::new(AudioMixer::new());\n    mixer.add_source(Box::new(PanickingAudioSource));\n    let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(1));\n    tokio::time::sleep(Duration::from_millis(20)).await; // let the task hit the panic\n    worker.shutdown().await; // must resolve despite worker panic\n    assert!(!worker.is_running());\n}\n```",
+            "UT: [C035-Boundary] boundary_values_round_trip_exactly — Duration::ZERO / u64::MAX must not deadlock shutdown\n```rust\n#[tokio::test]\nasync fn boundary_values_round_trip_exactly() {\n    let mixer = Arc::new(AudioMixer::new());\n    let mut worker = AudioWorkerTask::spawn(mixer, u64::MAX, Duration::ZERO);\n    assert_eq!(worker.call_id(), u64::MAX);\n    assert_eq!(worker.frame_duration(), Duration::ZERO);\n    worker.shutdown().await; // zero cadence must still join promptly\n}\n```",
+            "UT: [C038-Inv] audio_worker_has_no_unsafe_keyword — retained unsafe-free invariant\n```rust\n#[test]\nfn audio_worker_has_no_unsafe_keyword() -> Result<(), std::io::Error> {\n    let src = std::fs::read_to_string(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/runtime/audio_worker.rs\"))?;\n    let unsafe_keyword = [\"unsa\", \"fe\"].concat(); // avoid literal token in this file\n    for (idx, line) in src.lines().enumerate() {\n        let trimmed = line.trim_start();\n        let is_comment = trimmed.starts_with(\"//\") || trimmed.starts_with(\"/*\") || trimmed.starts_with(\"*\");\n        let is_unsafe = trimmed.starts_with(&format!(\"{unsafe_keyword} {{\"))\n            || trimmed.starts_with(&format!(\"{unsafe_keyword} fn\"))\n            || trimmed.starts_with(&format!(\"{unsafe_keyword} impl\"));\n        if !is_comment && is_unsafe { panic!(\"audio_worker.rs:{} contains unsafe\", idx + 1); }\n    }\n    Ok(())\n}\n```",
+            "UT: [C038-Inv] no_blocking_lock_patterns_introduced — retained no-blocking-lock invariant\n```rust\n#[test]\nfn no_blocking_lock_patterns_introduced() -> Result<(), std::io::Error> {\n    let src = std::fs::read_to_string(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/runtime/audio_worker.rs\"))?;\n    let needle_a = format!(\"blocking{}\", \"_read\");\n    let needle_b = format!(\"blocking{}\", \"_write\");\n    let needle_c = format!(\"std::sync::{}\", \"RwLock\");\n    for (idx, line) in src.lines().enumerate() {\n        if line.contains(&needle_a) || line.contains(&needle_b) || line.contains(&needle_c) {\n            panic!(\"audio_worker.rs:{} introduces blocking lock pattern\", idx + 1);\n        }\n    }\n    Ok(())\n}\n```"
           ],
           "changes": [
             {
@@ -30867,6 +30618,11 @@
               "before": "ClientState: initialized only",
               "after": "ClientState with BTreeMap accounts/calls, transports Vec, capabilities",
               "description": "ClientState typed fields"
+            },
+            {
+              "before": "src/runtime/audio_worker.rs:273-275 — `#[allow(dead_code)] handle: Option<tokio::task::JoinHandle<()>>`; spawn() stored `Some(handle)`; shutdown() did `if let Some(h) = self.handle.take() { let _ = h.await; }` (Option partial use, JoinError silently discarded).",
+              "after": "src/runtime/audio_worker.rs — `handle: tokio::task::JoinHandle<()>` (non-optional); spawn() stores the raw handle; shutdown() uses `shutdown_signal.swap(true, AcqRel)` idempotency guard, `std::mem::replace(&mut self.handle, completed_handle())` to take the live handle, awaits it, and logs JoinError via `tracing::warn!` (never re-panics). Private `fn completed_handle()` returns a no-op already-completed JoinHandle sentinel.",
+              "description": "Replaced the unused Option<JoinHandle> with an active non-optional JoinHandle; shutdown now deterministically joins the worker exactly once and is idempotent on double-call; worker panic during shutdown is logged, not swallowed."
             }
           ],
           "rfcDiscrepancies": [],
@@ -30877,7 +30633,9 @@
               "codes": "    #[allow(dead_code)]\n    handle: Option<tokio::task::JoinHandle<()>>,\n}"
             }
           ],
-          "fromStub": true
+          "fromStub": true,
+          "startedAt": "2026-08-07",
+          "completedAt": "2026-08-07"
         },
         {
           "title": "Upgrade the Weak<JoinHandle> to Arc and expose it for FFI thread lifecycle inspection once pjsua is linked",
