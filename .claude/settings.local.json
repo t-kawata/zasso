@@ -1077,7 +1077,28 @@
       "Bash(awk '{s+=$4; f+=$6} END {print \"zeroize: passed\", s, \"failed\", f}')",
       "Bash(awk '{s+=$4; f+=$6} END {print \"all-features: passed\", s, \"failed\", f}')",
       "Bash(grep -nE \"= [0-9]{2,};\" src/api/public_api_design.rs src/security/security_platform_diffs.rs)",
-      "Bash(node -e 'const d=JSON.parse\\(require\\(\"fs\"\\).readFileSync\\(0,\"utf8\"\\)\\);console.log\\(\"status:\", d.updated.status, \"| completedAt:\", d.updated.completedAt\\);')"
+      "Bash(node -e 'const d=JSON.parse\\(require\\(\"fs\"\\).readFileSync\\(0,\"utf8\"\\)\\);console.log\\(\"status:\", d.updated.status, \"| completedAt:\", d.updated.completedAt\\);')",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-5)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P11-5\")",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P11-5\")",
+      "Bash(node /tmp/p11-5/gen-phase1.js)",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P11-5\")",
+      "Bash(node /tmp/p11-5/gen-phase15.js)",
+      "Bash(node -e 'const r=require\\(\"/tmp/p11-5/phase15-result.txt\"\\); console.log\\(JSON.stringify\\(r\\).slice\\(0,200\\)\\)')",
+      "Bash(node /tmp/p11-5/gen-phase2.js)",
+      "Bash(node -e 'const r=require\\(\"/tmp/p11-5/phase2-result.txt\"\\); console.log\\(\"phase2 ok:\", r.success, \"| fields:\", Object.keys\\(r.updated||{}\\).filter\\(f=>[\"invariants\",\"background\",\"scope\",\"instrumentation\",\"notes\",\"acceptanceCriteria\",\"investigation\",\"boyScoutPlan\"].includes\\(f\\)\\).join\\(\",\"\\)\\)')",
+      "Bash(node /tmp/p11-5/gen-plantest.js)",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P11-5\" --append)",
+      "Bash(node -e 'const r=require\\(\"/tmp/p11-5/plantest-result.txt\"\\); console.log\\(\"plantest append ok:\", r.success, \"| planTestCode len:\", \\(r.updated&&r.updated.planTestCode\\)?r.updated.planTestCode.length:\"n/a\"\\)')",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P11-5\" --tickets=\"Tickets.json\")",
+      "Bash(node /tmp/p11-5/gen-exceptions-fix.js)",
+      "Bash(node -e 'const r=require\\(\"/tmp/p11-5/exfix-result.txt\"\\); console.log\\(\"ok:\", r.success\\)')",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"P11-5\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=\"P11-5\" --tickets=\"Tickets.json\")",
+      "Bash(node -e 'const r=require\\(\"/tmp/p11-5/targetstubs-result.txt\"\\); console.log\\(\"targetStubs update ok:\", r.success\\)')",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P11-5\" --for-spec)",
+      "Bash(node -e 'const r=require\\(\"/tmp/p11-5/notes-fix.txt\"\\); console.log\\(\"notes fix ok:\", r.success\\)')",
+      "Bash(node -e 'const r=require\\(\"/tmp/p11-5/reltix.txt\"\\); console.log\\(\"relatedTicketIds update ok:\", r.success\\)')"
     ]
   }
 }

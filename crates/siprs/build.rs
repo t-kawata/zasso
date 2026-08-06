@@ -5,32 +5,108 @@
 // keeping compile times low and preventing accidental exposure of internal
 // PJSIP symbols.
 //
-// [::STUB::] P11-5: PJSIP headers are not yet available in the build environment; bindgen generation is disabled (covers build.rs:8,11) -- Generate PJSIP bindings via bindgen behind the pjsua-native feature once PJSIP headers are available in the build environment, and uncomment the wrapper.h includes
-// [::TICKET::] P3-2, P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-2) --for-spec --no-implementation-order`.
+// The deterministic pipeline logic (allowlist, header-root resolution, feature
+// predicate) lives in src/build/build_script_bindgen.rs, which is included here
+// verbatim and also compiled by the crate so `cargo test` covers it — build
+// scripts themselves are not test targets.
+// [::TICKET::] P3-2, P10-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-2|P11-5) --for-spec --no-implementation-order`.
+#[path = "src/build/build_script_bindgen.rs"]
+mod build_script_bindgen;
+
+// [::TICKET::] P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-5 --for-spec --no-implementation-order`.
 fn main() {
+    emit_cargo_directive("cargo:rerun-if-env-changed=CARGO_FEATURE_PJSUA_NATIVE");
+    emit_cargo_directive("cargo:rerun-if-changed=wrapper.h");
+    emit_cargo_directive("cargo:rerun-if-env-changed=TARGET");
+
+    if !pjsua_native_enabled() {
+        // Default stub path: no bindgen, no external C library. The hand-written
+        // aliases in src/ffi/bindings.rs keep the crate compiling.
+        return;
+    }
+
     // P10-2: coordinate PJSIP detection with the pjsua-native feature flag.
     // When the feature is on, resolve the prebuilt library dir and emit link
     // directives so the bindgen-generated bindings (P11-5) can link.
-    if pjsua_native_enabled() {
-        if let Some(prebuilt_lib_dir) = resolve_prebuilt_lib_dir() {
-            emit_link_directives(&prebuilt_lib_dir);
-        } else {
-            emit_cargo_directive(
-                "cargo:warning=PJSIP not found — install pjsua2 or use the prebuilt pipeline",
-            );
-        }
+    if let Some(prebuilt_lib_dir) = resolve_prebuilt_lib_dir() {
+        emit_link_directives(&prebuilt_lib_dir);
+    } else {
+        emit_cargo_directive(
+            "cargo:warning=PJSIP not found — install pjsua2 or use the prebuilt pipeline",
+        );
     }
-    // P11-5: bindgen generation remains disabled until PJSIP headers are available.
-    // The stub aliases in src/ffi/bindings.rs keep the crate compiling.
+
+    // P11-5: resolve the header root per RFC §28.1 and generate bindings.
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
+        .unwrap_or_else(|e| panic!("CARGO_MANIFEST_DIR not set by Cargo: {e}"));
+    let target = std::env::var("TARGET").unwrap_or_default();
+    let header_root =
+        build_script_bindgen::resolve_header_root(std::path::Path::new(&manifest_dir), &target);
+    match header_root {
+        Some(root) => generate_bindings(&root),
+        None => panic!(
+            "pjsua-native enabled but no PJSIP headers found under \
+             vendor/prebuilt/{target}/include or vendor/pjsip/include.\n\
+             Install PJSIP per RFC §28.4 — Ubuntu: build-essential cmake \
+             libasound2-dev libssl-dev libcrypto-dev libuuid-dev; macOS: \
+             brew install pkg-config cmake; Windows: MSVC Build Tools + \
+             vcpkg install libsrtp:x64-windows."
+        ),
+    }
 }
 
 /// Whether the `pjsua-native` Cargo feature is enabled.
 ///
 /// Cargo sets `CARGO_FEATURE_<NAME>` for every enabled feature; the env var
-/// name is the feature name upper-cased with `-` → `_`.
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+/// name is the feature name upper-cased with `-` → `_`. The predicate is
+/// extracted into `build_script_bindgen::feature_env_present` for testability.
+// [::TICKET::] P10-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-2|P11-5) --for-spec --no-implementation-order`.
 fn pjsua_native_enabled() -> bool {
-    std::env::var("CARGO_FEATURE_PJSUA_NATIVE").is_ok()
+    build_script_bindgen::feature_env_present(std::env::var("CARGO_FEATURE_PJSUA_NATIVE"))
+}
+
+/// Runs bindgen against wrapper.h with the fixed allowlist and writes the
+/// generated declarations to `OUT_DIR/bindings.rs`.
+///
+/// The include dir is passed as a clang arg so `#include <pjsua.h>` in
+/// wrapper.h resolves against the RFC §28.1 header root. Failures panic with a
+/// message naming the RFC §28.4 package list — never a raw clang/bindgen dump.
+// [::TICKET::] P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-5 --for-spec --no-implementation-order`.
+fn generate_bindings(header_root: &std::path::Path) {
+    let target = std::env::var("TARGET").unwrap_or_default();
+    let mut builder = bindgen::Builder::default()
+        .header("wrapper.h")
+        .clang_arg(format!("-I{}", header_root.display()));
+    for define in build_script_bindgen::platform_clang_defines(&target) {
+        builder = builder.clang_arg(format!("-D{define}"));
+    }
+    let bindings = builder
+        .allowlist_type(&build_script_bindgen::BINDGEN_ALLOWLIST_TYPES.join("|"))
+        .allowlist_function(&build_script_bindgen::BINDGEN_ALLOWLIST_FUNCTIONS.join("|"))
+        .allowlist_var(&build_script_bindgen::BINDGEN_ALLOWLIST_VARS.join("|"))
+        .generate()
+        .unwrap_or_else(|e| {
+            panic!(
+                "bindgen failed against wrapper.h with include dir {}: {e}. \
+                 Check the PJSIP install per RFC §28.4.",
+                header_root.display()
+            )
+        });
+    let out_dir = std::path::PathBuf::from(
+        std::env::var("OUT_DIR").unwrap_or_else(|e| panic!("OUT_DIR not set by Cargo: {e}")),
+    );
+    bindings
+        .write_to_file(out_dir.join(build_script_bindgen::BINDINGS_OUTPUT))
+        .unwrap_or_else(|e| {
+            panic!(
+                "failed to write {}: {e}",
+                build_script_bindgen::BINDINGS_OUTPUT
+            )
+        });
+    emit_cargo_directive(&format!(
+        "cargo:warning=P11-5: generated bindings from {}",
+        header_root.display()
+    ));
 }
 
 /// Resolves the prebuilt PJSIP `lib/` directory for the current target triple.

@@ -72,6 +72,12 @@ tower-http = { version = "0.5", features = ["cors"], optional = true }
 # [::TICKET::] P8-7: cpal for the optional device-backed microphone source (cpal-input feature).
 cpal = { version = "0.18", optional = true }
 
+[build-dependencies]
+# [::TICKET::] P11-5: bindgen generates the PJSIP FFI layer in build.rs when the
+# `pjsua-native` feature is enabled. Pinned — bindgen output varies by version,
+# so a fixed version keeps the generated bindings deterministic and reviewable.
+bindgen = "0.69"
+
 [dev-dependencies]
 # [::TICKET::] P1-2: serde_json for serde roundtrip tests
 serde_json = "1"

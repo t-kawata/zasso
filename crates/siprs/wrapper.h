@@ -3,8 +3,10 @@
 // This file is the single entry point for bindgen. Only the headers
 // listed here are scanned for FFI declarations.
 //
-// [::STUB::] P11-5: PJSIP headers are not yet available in the build environment; bindgen generation is disabled -- Generate PJSIP bindings via bindgen behind the pjsua-native feature once PJSIP headers are available in the build environment, and uncomment the wrapper.h includes
-//
-// #include <pjsua.h>
-// #include <pjmedia.h>
-// #include <pjmedia-codec/opus.h>
+// The includes are active (P11-5): bindgen scans this file only when the
+// `pjsua-native` feature is enabled, so the default build never requires a
+// system PJSIP install.
+// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+#include <pjsua.h>
+#include <pjmedia.h>
+#include <pjmedia-codec/opus.h>
