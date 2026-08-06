@@ -23318,7 +23318,7 @@
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§8, §11, §12, §42)",
           "relatedTicketIds": "P2-1 (depends on: purpose for API shape), P2-2 (depends on: SipError return types), P1-1 (depends on: concurrency model for runtime handle), P4-1 (depends on: ClientConfig for constructor)",
-          "notes": "- Implementation steps: (1) add RegistrationState::from_storage_str + unit tests; (2) MockBackend account registry + account_entry_to_snapshot helper + tests; (3) change convert_get_account_info_error signature to (Option<&AccountEntry>, i32) + add AccountInfo::from_entry + update its tests; (4) implement registration_state() via query_state() + tests; (5) update client.rs account_snapshot_from_entry to use from_storage_str; (6) update state.rs AccountEntry tests to canonical strings; (7) add integration tests in tests/verify_spec_p10_1.rs; (8) run make test and cargo clippy -- -D warnings.\n- Risks: convert_get_account_info_error signature change is a public API change — all call sites (currently only its own test module) must be updated in the same commit; the MockBackend registry must stay in lockstep with ClientState.accounts (both are populated from the same add_account result).\n- Caveats: AccountEntry.registration remains a String — canonical strings must be maintained by the N0025 transition writer; MockBackend::add_account currently hardcodes id/native_id=1, so the incrementing-id change must keep the first account at id=1 to avoid breaking existing tests (client.rs sip_client_query_api_is_authoritative expects exactly 1 account after one add).\n- Open items: whether to consolidate AccountInfo and AccountInfoSnapshot into one type (deferred — flagged in Boy Scout); whether registration_state() should return Err(AccountNotFound) for a missing account instead of Ok(Disabled) — the acceptance criteria chooses Ok(Disabled).\n- Future improvements: wire convert_get_account_info_error into the FFI GetAccountInfo path (P8-20); type AccountEntry.registration as RegistrationState once the N0025 transition wiring lands.",
+          "notes": "- Implementation steps: (1) add RegistrationState::from_storage_str + unit tests; (2) MockBackend account registry + account_entry_to_snapshot helper + tests; (3) change convert_get_account_info_error signature to (Option<&AccountEntry>, i32) + add AccountInfo::from_entry + update its tests; (4) implement registration_state() via query_state() + tests; (5) update client.rs account_snapshot_from_entry to use from_storage_str; (6) update state.rs AccountEntry tests to canonical strings; (7) add integration tests in tests/verify_spec_p10_1.rs; (8) run make test and cargo clippy -- -D warnings.\n- Risks: convert_get_account_info_error signature change is a public API change — all call sites (currently only its own test module) must be updated in the same commit; the MockBackend registry must stay in lockstep with ClientState.accounts (both are populated from the same add_account result).\n- Caveats: AccountEntry.registration remains a String — canonical strings must be maintained by the N0025 transition writer; MockBackend::add_account currently hardcodes id/native_id=1, so the incrementing-id change must keep the first account at id=1 to avoid breaking existing tests (client.rs sip_client_query_api_is_authoritative expects exactly 1 account after one add).\n- Open items: whether to consolidate AccountInfo and AccountInfoSnapshot into one type (deferred — flagged in Boy Scout); whether registration_state() should return Err(AccountNotFound) for a missing account instead of Ok(Disabled) — the acceptance criteria chooses Ok(Disabled).\n- Future improvements: wire convert_get_account_info_error into the FFI GetAccountInfo path (P8-20); type AccountEntry.registration as RegistrationState once the N0025 transition wiring lands.\nImplementation summary for P10-1:\n- Changed files: src/api/public_api_design.rs, src/client.rs, src/error/m20_runtime_command_error.rs, src/runtime/backend.rs, src/runtime/reactor.rs, src/runtime/state.rs, src/state/registr_state_machine.rs, tests/verify_spec_p9_5.rs, tests/verify_spec_p10_1.rs (new)\n- Key changes: (1) RegistrationState::from_storage_str added; (2) MockBackend account registry with account_entry_to_snapshot; (3) convert_get_account_info_error signature changed to (Option<&AccountEntry>, i32) with AccountInfo::from_entry; (4) registration_state() queries reactor ClientState; (5) account_snapshot_from_entry uses from_storage_str.\n- Three [::STUB::] P10-1 markers resolved and removed.\n- Test results: make test — all pass (786 lib + integration suites; 21 new tests added; total ~884).\n- clippy: no new warnings from this change (4 pre-existing errors in untouched files: audio_subscribe_bp.rs derivable_impls/await_holding_lock, command.rs large_enum_variant, raw_sip_message_spec.rs manual_strip).\n- Quality checks: 34 pre-existing findings remain in touched files (test-code unwrap/expect, single-letter var, commented-code heuristics); 0 new findings introduced.\nReview report P10-1:\n- Static quality check: passed — 0 new findings introduced; 34 pre-existing findings (test-code unwrap/expect, single-letter var, commented-code heuristics) remain in files touched, all on lines outside this ticket's changes.\n- Translatability: no issues — new functions use verb/descriptive names; no debug output; account_entry_to_snapshot 200/3600 are the mock contract values defined in the spec test plan.\n- Tests: all 884 passed (make test); Test Plan items all implemented (18 UT + 5 IT).\n- Dependencies: MockBackend registry stays in lockstep with ClientState.accounts (both populated from the same add_account result); convert_get_account_info_error call sites updated (only its test module + verify_spec_p9_5.rs).\n- clippy: 0 new warnings from this ticket; 4 pre-existing errors in files P10-1 did not touch.\n- STUBs: 3 P10-1 stubs resolved and markers removed; 0 P10-1 stubs remain; no-excuse gate 28/28.\n- Issues found and fixes applied during review: none — the start phase completed all obligations; AMBIGUOUS markers resolved (reactor.rs test fn).",
           "default_files": [
             "src/api/public_api_design.rs",
             "src/config/account_config_spec.rs",
@@ -23326,9 +23326,9 @@
           ],
           "id": 1,
           "phaseId": 10,
-          "status": "planned",
+          "status": "reviewed",
           "invariants": "- 【Normal establishment】ClientState.accounts holds the authoritative AccountEntry for every added account (reactor.rs:195-199); AccountEntry.registration uses a canonical storage string equal to a RegistrationState Display form (or the legacy \"Unregistered\").\n- 【Invariant on error】query_state/registration_state failures map to SipError (never swallowed); a missing/invalid account id maps to Ok(Disabled) without panicking; the reactor loop is never blocked by a query (read-only clone via DispatchCommand::QueryState).\n- 【Internal state】AccountEntry.registration is constrained to the 7 canonical strings plus legacy \"Unregistered\"; RegistrationState::from_storage_str maps every other value to Disabled — no panic path exists in account-info retrieval.\n- 【Boundary】AccountId::from_u64(0) is Err (NonZeroU64 invariant); registration_state() and AccountInfo::from_entry handle zero/invalid ids without panicking; MockBackend::get_account_info for an unknown native_acc_id returns Err (no canned fallback).",
-          "instrumentation": "- Logging: #[instrument(skip(self))] on registration_state() (already present); trace the resolved account_id and the mapped RegistrationState; log query_state failures with the ReactorError message.\n- Metrics: none new — registration_state() is a user-facing query; the existing tracing span carries the account id for correlation.\n- Error tracking: map ReactorError → SipError(NativeError) with the reactor message; preserve native_status on the convert_get_account_info_error NativeError path via native_error_with_status.\n- Health check: registration_state() doubles as a per-account registration health query — a Registered result indicates the account is registered; reactor-down surfaces as Err(SipError::NativeError).",
+          "instrumentation": "- Logging: #[instrument(skip(self))] on registration_state() (already present); trace the resolved account_id and the mapped RegistrationState; log query_state failures with the ReactorError message.\n- Metrics: none new — registration_state() is a user-facing query; the existing tracing span carries the account id for correlation.\n- Error tracking: map ReactorError → SipError(NativeError) with the reactor message; preserve native_status on the convert_get_account_info_error NativeError path via native_error_with_status.\n- Health check: registration_state() doubles as a per-account registration health query — a Registered result indicates the account is registered; reactor-down surfaces as Err(SipError::NativeError).\nStatic quality check: passed (0 new findings; 34 pre-existing in untouched test lines)\nTranslatability: no issues (verb-phrase names, no debug output, no magic numbers beyond mock contract)\nTests: all 884 tests passed (make test)\nclippy: 0 new warnings; 4 pre-existing errors in untouched files (audio_subscribe_bp.rs x2, command.rs, raw_sip_message_spec.rs)",
           "investigation": "Material evidence from source investigation:\n1. Three [::STUB::] P10-1 markers remain in source: (a) src/api/public_api_design.rs:117 — SipAccountHandle::registration_state() returns Ok(RegistrationState::Idle) unconditionally; its doc comment (lines 111-114) admits it is a placeholder pending the reactor account state machine. (b) src/error/m20_runtime_command_error.rs:161-165 — convert_get_account_info_error(account_exists: bool, pj_status: i32) validates account_exists (→ Err(AccountNotFound, retryable=false)) and pj_status (→ Err(native_error_with_status)), then falls through to Err(SipError::new(NativeError, \"account state not yet available (P3-1)\")) — the Ok(AccountInfo) path is unreachable. (c) src/runtime/backend.rs:244-255 — MockBackend::get_account_info returns a canned AccountInfoSnapshot { registration_status: 200, registration_expires: Some(3600), online_status: true, uri: format!(\"sip:user{native_acc_id}@mock.example.com\") } when get_account_info_result is None; it is not connected to any account state.\n2. The authoritative reactor state exists: ClientState.accounts: BTreeMap<AccountId, AccountEntry> (src/runtime/state.rs:42-52) is populated by the AddAccount handler (src/runtime/reactor.rs:195-199). AccountEntry (state.rs:58-67) carries id: u64, native_id: i32, config: String, registration: String (placeholder types). RuntimeHandle::query_state() (handle.rs:141-156) submits DispatchCommand::QueryState and returns a ClientState clone — the sanctioned non-blocking query mechanism (reactor.rs:225-228).\n3. RegistrationState (7 variants) with a full transition table and Display impl producing canonical strings is implemented in src/state/registr_state_machine.rs:76-163. No storage-string parser exists yet.\n4. The GetAccountInfo flow: RuntimeCommand::GetAccountInfo { native_acc_id: u32, reply: oneshot<Result<AccountInfoSnapshot, ReactorError>> } (command.rs:88-93) → DispatchCommand::GetAccountInfo (command.rs:342-348) → reactor handler calls backend.get_account_info(native_acc_id) inside catch_unwind and replies (reactor.rs:151-185). RuntimeHandle::submit_get_account_info (handle.rs:115-134) is the typed caller.\n5. SipBackend::get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError> (backend.rs:89). AccountInfoSnapshot (m20_registr_cmd_pat.rs:31-43): acc_id: AccountId, registration_status: u32, registration_expires: Option<u32>, online_status: bool, uri: String. It feeds registration_status_to_payload (m20_registr_cmd_pat.rs:50-67) used by process_native_event (reactor.rs:310-330).\n6. SipClient::accounts() (client.rs:197-210) already maps AccountEntry → public AccountSnapshot via account_snapshot_from_entry (client.rs:307-316), which computes registered: entry.registration == \"Registered\" — the only existing consumption of AccountEntry.registration.\n7. Duplicate account-info types flagged by Boy Scout: AccountInfo (m20_runtime_command_error.rs:116-128) vs AccountInfoSnapshot (m20_registr_cmd_pat.rs:31-43). The public AccountInfo has no production caller today; convert_get_account_info_error is only invoked from its own test module.\n8. MockBackend::add_account (backend.rs:152-164) hardcodes id: 1, native_id: 1 and registration: \"Registered\"; it returns the entry to the reactor, which stores it keyed by AccountId::from_u64(entry.id). A registry keyed by native_acc_id does not exist today, so get_account_info cannot derive from account state.\n9. make test == cargo test (Makefile); unit tests live in #[cfg(test)] mod tests blocks, integration tests in tests/verify_spec_*.rs (e.g. tests/verify_spec_p8_3.rs asserts the C026 make_call/RegistrationState independence by reading the source signature).",
           "boyScoutPlan": "Translatability improvements, inside and outside this ticket's scope:\n- Inside: registration_state() reads as prose — 'query reactor state, resolve account entry, map registration string, default to Disabled' — with one responsibility per step; replace the misleading doc comment (public_api_design.rs:111-114) with one that states the real behavior.\n- Inside: extract account_entry_to_snapshot (a verb-phrase function 'derive snapshot from stored entry') in backend.rs instead of an inline struct literal, and name the mock's registry field accounts (a domain noun) instead of an anonymous map.\n- Inside: convert_get_account_info_error reads as 'if no account return AccountNotFound; if the FFI status failed return NativeError; otherwise return AccountInfo' — one responsibility per branch, no fall-through placeholder Err.\n- Inside: RegistrationState::from_storage_str is a single named verb with a fully matched domain vocabulary; no catch-all except the documented Disabled fallback for unknown storage strings.\n- Outside (Boy Scout): the duplicate AccountInfo (m20_runtime_command_error.rs:116) and AccountInfoSnapshot (m20_registr_cmd_pat.rs:31) types are flagged but NOT consolidated in this ticket (the ripple touches command.rs/handle.rs/reactor.rs and process_native_event) — recorded as an open item with a consolidation plan for a future ticket.\n- No error swallowing: query_state failures are mapped to SipError; MockBackend::get_account_info for an unknown native_acc_id returns Err rather than a canned Ok.",
           "created_at": "2026-07-28",
@@ -23339,14 +23339,14 @@
               "ticketRef": "P10-1",
               "file": "src/api/public_api_design.rs",
               "line": 117,
-              "markerText": "// [::STUB::] P10-1: Account info and registration state are placeholders pending the reactor account state machine -- Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented",
+              "markerText": "// [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.",
               "contracts": [
                 "C012",
                 "C017",
                 "C026"
               ],
               "deferredTo": null,
-              "status": "pending",
+              "status": "resolved",
               "resolutionPlan": "Implement real account info retrieval and real RegistrationState per specs/P10-1.md; remove the [::STUB::] marker."
             },
             {
@@ -23354,12 +23354,12 @@
               "ticketRef": "P10-1",
               "file": "src/error/m20_runtime_command_error.rs",
               "line": 161,
-              "markerText": "// [::STUB::] P10-1: Account info and registration state are placeholders pending the reactor account state machine -- Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented",
+              "markerText": "// [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.",
               "contracts": [
                 "C017"
               ],
               "deferredTo": null,
-              "status": "pending",
+              "status": "resolved",
               "resolutionPlan": "Implement real account info retrieval and real RegistrationState per specs/P10-1.md; remove the [::STUB::] marker."
             },
             {
@@ -23367,13 +23367,13 @@
               "ticketRef": "P10-1",
               "file": "src/runtime/backend.rs",
               "line": 244,
-              "markerText": "// [::STUB::] P10-1: Account info and registration state are placeholders pending the reactor account state machine -- Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented",
+              "markerText": "// [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.",
               "contracts": [
                 "C012",
                 "C017"
               ],
               "deferredTo": null,
-              "status": "pending",
+              "status": "resolved",
               "resolutionPlan": "Implement real account info retrieval and real RegistrationState per specs/P10-1.md; remove the [::STUB::] marker."
             }
           ],
@@ -23447,6 +23447,36 @@
               "before": "[::STUB::] P3-1 marker in build_strategy_os_deps.rs without crime record",
               "after": "[::STUB::] marker added and crime #66 recorded then resolved.",
               "description": "Boy Scout: Resolved missing STUB marker violation"
+            },
+            {
+              "before": "Ok(RegistrationState::Idle) unconditionally",
+              "after": "Real reactor state via query_state() + RegistrationState::from_storage_str",
+              "description": "SipAccountHandle::registration_state() reads the authoritative ClientState; missing/invalid ids map to Ok(Disabled)"
+            },
+            {
+              "before": "convert_get_account_info_error(account_exists: bool, pj_status: i32) with unreachable Ok path (STUB)",
+              "after": "convert_get_account_info_error(account: Option<&AccountEntry>, pj_status: i32) -> Result<AccountInfo, SipError>; None -> AccountNotFound, non-PJ_SUCCESS -> NativeError, success -> AccountInfo::from_entry",
+              "description": "Real account info retrieval; added AccountInfo::from_entry"
+            },
+            {
+              "before": "MockBackend::get_account_info returned canned sip:user{native}@mock.example.com",
+              "after": "MockBackend has accounts: BTreeMap<i32, AccountEntry> registry; add_account assigns incrementing ids (first=1); get_account_info derives snapshot via account_entry_to_snapshot; unknown native id -> Err",
+              "description": "MockBackend account registry"
+            },
+            {
+              "before": "No storage-string parser for AccountEntry.registration",
+              "after": "RegistrationState::from_storage_str(&str) maps 7 canonical Display strings + legacy Unregistered->Idle + unknown->Disabled",
+              "description": "Added RegistrationState::from_storage_str"
+            },
+            {
+              "before": "registered: entry.registration == \"Registered\"",
+              "after": "registered: RegistrationState::from_storage_str(&entry.registration) == Registered",
+              "description": "client.rs account_snapshot_from_entry uses the canonical mapping"
+            },
+            {
+              "before": "AccountEntry tests used legacy \"Unregistered\"",
+              "after": "AccountEntry tests use canonical storage strings + canonical-storage contract test",
+              "description": "state.rs AccountEntry test updates"
             }
           ],
           "rfcDiscrepancies": [
@@ -23470,7 +23500,8 @@
             }
           ],
           "fromStub": true,
-          "startedAt": "2026-08-06"
+          "startedAt": "2026-08-06",
+          "completedAt": "2026-08-06"
         },
         {
           "title": "Implement PJSIP build detection, feature flag configuration, and CI workflow setup per the Build Strategy & OS Dependencies spec (NODE_ID=N0039)",

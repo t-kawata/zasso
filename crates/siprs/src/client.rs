@@ -22,6 +22,7 @@ use crate::model::{AudioFormat, CallId};
 use crate::runtime::command::RuntimeCommand;
 use crate::runtime::handle::RuntimeHandle;
 use crate::runtime::reactor::{BootConfig, CoreReactor};
+use crate::state::registr_state_machine::RegistrationState;
 
 /// The top-level facade for the siprs SIP client.
 ///
@@ -75,7 +76,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -197,11 +198,10 @@ impl SipClient {
     pub async fn accounts(
         &self,
     ) -> Result<Vec<crate::api::event_model_payload_bus::AccountSnapshot>, SipError> {
-        let state = self
-            .runtime
-            .query_state()
-            .await
-            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("query failed: {e}")))?;
+        let state =
+            self.runtime.query_state().await.map_err(|e| {
+                SipError::new(SipErrorKind::NativeError, format!("query failed: {e}"))
+            })?;
         Ok(state
             .accounts
             .values()
@@ -213,14 +213,11 @@ impl SipClient {
     ///
     /// Reads the reactor's `ClientState` — never the event stream (O-004).
     #[instrument(skip(self))]
-    pub async fn call_state(
-        &self,
-    ) -> Result<Vec<crate::runtime::state::CallEntry>, SipError> {
-        let state = self
-            .runtime
-            .query_state()
-            .await
-            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("query failed: {e}")))?;
+    pub async fn call_state(&self) -> Result<Vec<crate::runtime::state::CallEntry>, SipError> {
+        let state =
+            self.runtime.query_state().await.map_err(|e| {
+                SipError::new(SipErrorKind::NativeError, format!("query failed: {e}"))
+            })?;
         Ok(state.calls.into_values().collect())
     }
 
@@ -303,7 +300,7 @@ impl SipClient {
 /// (zero value), skipping such entries. `display_name` is not tracked yet
 /// (P3-1 replaces the `AccountEntry` placeholder fields via the reactor account state machine).
 // [::TICKET::] P7-2: O-004 — authoritative query API mapping
-// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P7-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P10-1) --for-spec --no-implementation-order`.
 fn account_snapshot_from_entry(
     entry: &crate::runtime::state::AccountEntry,
 ) -> Option<crate::api::event_model_payload_bus::AccountSnapshot> {
@@ -311,7 +308,8 @@ fn account_snapshot_from_entry(
         account_id: crate::model::AccountId::from_u64(entry.id).ok()?,
         display_name: None,
         uri: entry.config.clone(),
-        registered: entry.registration == "Registered",
+        registered: RegistrationState::from_storage_str(&entry.registration)
+            == RegistrationState::Registered,
     })
 }
 
@@ -405,14 +403,14 @@ mod tests {
 
     #[test]
     // @verifies C002
-// [::TICKET::] P0-3, P6-1, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1|P7-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P6-1, P7-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1|P7-2|P10-1) --for-spec --no-implementation-order`.
     fn sip_client_is_send_and_sync() {
         // C002 invariant: SipClient must be Send + Sync for use with tokio tasks.
         // ABC O-001 closure: the Sync half was previously unenforced — a non-Sync
         // field (e.g. RefCell) would have passed every test.
-// [::TICKET::] P6-1, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P6-1, P7-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P10-1) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P6-1, P6-2, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2|P7-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P6-1, P6-2, P7-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2|P7-2|P10-1) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<SipClient>();
         assert_sync::<SipClient>();
@@ -484,7 +482,11 @@ mod tests {
             .accounts()
             .await
             .expect("accounts() query must succeed");
-        assert_eq!(accounts.len(), 1, "query API must reflect the registered account");
+        assert_eq!(
+            accounts.len(),
+            1,
+            "query API must reflect the registered account"
+        );
 
         // Drop every event receiver (simulate event loss / Lagged): the query
         // API must still return the same authoritative state (C021 invariant).
@@ -529,7 +531,7 @@ mod tests {
         // ABC O-001 closure: without these type-annotations, changing shutdown() to
         // Result<(), String> or new() to Result<_, OtherError> would pass the whole
         // suite (existing tests only call .is_ok() or read err.kind).
-// [::TICKET::] P6-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P8-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P6-2, P8-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P8-2|P10-1) --for-spec --no-implementation-order`.
         fn assert_new_result(_: &Result<(SipClient, broadcast::Receiver<SipEvent>), SipError>) {}
         // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
         fn assert_shutdown_result(_: &Result<(), SipError>) {}
@@ -719,7 +721,7 @@ mod tests {
 
     #[test]
     // @verifies C047
-// [::TICKET::] P8-2, P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P9-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-2, P9-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P9-2|P10-1) --for-spec --no-implementation-order`.
     fn all_public_client_methods_are_instrumented() -> Result<(), std::io::Error> {
         // O-001 closure: C047 postcondition — tracing spans specified for all
         // public operations. This source-inspection test asserts every public
@@ -770,11 +772,7 @@ mod tests {
                     })
                     .unwrap_or_else(|| panic!("{path} must define a public fn {method}("));
                 // Scan the up-to-6 lines before the method for the attribute.
-                let context: Vec<&str> = src
-                    .lines()
-                    .skip(idx.saturating_sub(6))
-                    .take(6)
-                    .collect();
+                let context: Vec<&str> = src.lines().skip(idx.saturating_sub(6)).take(6).collect();
                 assert!(
                     context.iter().any(|l| l.contains("#[instrument")),
                     "{path}: pub fn {method} must be preceded by #[instrument]; context: {context:?}"

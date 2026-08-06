@@ -20,6 +20,7 @@
 use crate::api::call_types::CallMediaConstraints;
 use crate::config::account_config_spec::AccountConfig;
 use crate::error::{SipError, SipErrorKind};
+use crate::model::AccountId;
 use crate::runtime::command::RuntimeCommand;
 use crate::state::registr_state_machine::RegistrationState;
 use tracing::instrument;
@@ -36,7 +37,7 @@ pub struct SipAccountHandle {
     pub(crate) id: u64,
 }
 
-// [::TICKET::] P3-1, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1|P10-1) --for-spec --no-implementation-order`.
 impl SipAccountHandle {
     /// Create a new `SipAccountHandle`.
     pub fn new(client: crate::client::SipClient, id: u64) -> Self {
@@ -110,12 +111,23 @@ impl SipAccountHandle {
 
     /// Get the current registration state.
     ///
-    /// Returns `RegistrationState::Idle` as a default until the real state
-    /// machine (P3-1) connects this method to the actual registration workflow.
+    /// Queries the reactor's authoritative `ClientState` and maps the stored
+    /// `AccountEntry.registration` storage string via `RegistrationState::from_storage_str`.
+    /// A missing or invalid account id maps to `Ok(Disabled)` — never panics.
     #[instrument(skip(self))]
     pub async fn registration_state(&self) -> Result<RegistrationState, SipError> {
-// [::STUB::] P10-1: Account info and registration state are placeholders pending the reactor account state machine -- Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented
-        Ok(RegistrationState::Idle)
+        let state = self.client.handle().query_state().await.map_err(|e| {
+            SipError::new(
+                SipErrorKind::NativeError,
+                format!("registration_state query failed: {e}"),
+            )
+        })?;
+        let account_id = AccountId::from_u64(self.id).ok();
+        let entry = account_id.and_then(|id| state.accounts.get(&id));
+        match entry {
+            Some(entry) => Ok(RegistrationState::from_storage_str(&entry.registration)),
+            None => Ok(RegistrationState::Disabled),
+        }
     }
 
     /// Place an outgoing SIP call through this account.
@@ -139,13 +151,13 @@ impl SipAccountHandle {
             .map_err(|e| {
                 SipError::new(SipErrorKind::InviteFailed, format!("make_call failed: {e}"))
             })?;
-// [::STUB::] P12-1: CallId is hardcoded to 1 -- Wire the real CallId assigned by the backend reactor from the MakeCall reply into the public API
+        // [::STUB::] P12-1: CallId is hardcoded to 1 -- Wire the real CallId assigned by the backend reactor from the MakeCall reply into the public API
         Ok(1)
     }
 
     /// Update the account configuration.
     ///
-// [::STUB::] P11-7: update_config is a no-op -- Implement update_config with an AccountConfigPatch type and RuntimeCommand::UpdateAccount dispatch
+    // [::STUB::] P11-7: update_config is a no-op -- Implement update_config with an AccountConfigPatch type and RuntimeCommand::UpdateAccount dispatch
     #[instrument(skip(self, _patch))]
     pub async fn update_config(&self, _patch: AccountConfig) -> Result<(), SipError> {
         Ok(())
@@ -155,6 +167,8 @@ impl SipAccountHandle {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::client::SipClient;
+    use crate::config::ClientConfig;
 
     #[test]
     // @verifies C012, C026
@@ -169,16 +183,16 @@ mod tests {
     // @verifies C012
     // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn sip_account_handle_is_debug() {
-        // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-1, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1) --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
         assert_debug::<SipAccountHandle>();
     }
 
     #[test]
     // @verifies C012, C026
-    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1) --for-spec --no-implementation-order`.
     fn sip_account_handle_is_send() {
-        // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-1, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<SipAccountHandle>();
     }
@@ -190,5 +204,130 @@ mod tests {
         // Structural verification: new() constructor exists and returns SipAccountHandle
         // Full test requires a running SipClient + runtime
         let _ = SipAccountHandle::new;
+    }
+
+    // ── P10-1: registration_state() reads the reactor ClientState ──────
+
+    #[tokio::test]
+    // @verifies C017
+    async fn registration_state_queries_reactor_and_returns_registered(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await?;
+        let account_config = AccountConfig {
+            username: "alice".into(),
+            ..Default::default()
+        };
+        let (_dummy_tx, _dummy_rx) = tokio::sync::oneshot::channel();
+        client
+            .handle()
+            .submit(RuntimeCommand::AddAccount {
+                config: account_config,
+                reply: _dummy_tx,
+            })
+            .await?;
+        let handle = SipAccountHandle::new(client.clone(), 1);
+        assert_eq!(
+            handle.registration_state().await?,
+            RegistrationState::Registered,
+            "registration_state must read the reactor ClientState populated by AddAccount"
+        );
+        client.shutdown().await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C013
+    async fn registration_state_returns_disabled_for_missing_account(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await?;
+        let handle = SipAccountHandle::new(client.clone(), 99);
+        assert_eq!(
+            handle.registration_state().await?,
+            RegistrationState::Disabled,
+            "a missing account must map to the safe Disabled default"
+        );
+        client.shutdown().await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C013
+    async fn registration_state_returns_disabled_for_zero_id(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await?;
+        let handle = SipAccountHandle::new(client.clone(), 0);
+        assert_eq!(
+            handle.registration_state().await?,
+            RegistrationState::Disabled,
+            "AccountId::from_u64(0) is Err — the query must fall back to Disabled without panicking"
+        );
+        client.shutdown().await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C017
+    async fn registration_state_maps_reactor_down_to_native_error(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await?;
+        client.shutdown().await?;
+        let handle = SipAccountHandle::new(client, 1);
+        let err = handle
+            .registration_state()
+            .await
+            .expect_err("a reactor-down query_state must fail");
+        assert_eq!(
+            err.kind,
+            SipErrorKind::NativeError,
+            "query_state failures must map to SipError, never be swallowed"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C012
+    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+    fn sip_client_and_handle_are_send_and_sync() {
+        // C012 invariant: the public API is Send + Sync (complements the
+        // existing assert_clone/assert_debug tests above).
+        // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+        fn assert_send<T: Send>() {}
+        // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+        fn assert_sync<T: Sync>() {}
+        assert_send::<SipClient>();
+        assert_sync::<SipClient>();
+        assert_send::<SipAccountHandle>();
+        assert_sync::<SipAccountHandle>();
+    }
+
+    #[tokio::test]
+    // @verifies C017
+    async fn registration_state_signature_returns_result_sip_error(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // C017 invariant: every public account-info query yields Result<T, SipError>.
+        // registration_state is async, so its result is an opaque Future;
+        // awaiting it must produce Result<RegistrationState, SipError>.
+        // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+        fn assert_result_type(_: &Result<RegistrationState, SipError>) {}
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await?;
+        let handle = SipAccountHandle::new(client, 1);
+        let result = handle.registration_state().await;
+        assert_result_type(&result);
+        Ok(())
     }
 }

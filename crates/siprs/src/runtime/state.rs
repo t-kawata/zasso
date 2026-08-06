@@ -188,17 +188,49 @@ mod tests {
 
     #[test]
     // @verifies C046
-    // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P10-1) --for-spec --no-implementation-order`.
     fn account_entry_links_id_to_native_id() {
         // Contract-C046 invariant: AccountEntry maps logical id to native id.
+        // P10-1: registration stores a canonical RegistrationState Display string.
         let entry = AccountEntry {
             id: 42,
             native_id: 7,
             config: "stub".into(),
-            registration: "Unregistered".into(),
+            registration: "Idle".into(),
         };
         assert_eq!(entry.id, 42);
         assert_eq!(entry.native_id, 7);
+    }
+
+    #[test]
+    // @verifies C046, C026
+    // P10-1: AccountEntry.registration stores a canonical RegistrationState
+    // Display string (or the legacy "Unregistered") — the storage contract that
+    // RegistrationState::from_storage_str inverts.
+    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+    fn account_entry_registration_uses_canonical_storage_strings() {
+        let canonical = [
+            "Disabled",
+            "Idle",
+            "Registering",
+            "Registered",
+            "Unregistering",
+            "Failed",
+            "Expired",
+            // Legacy storage string accepted for backwards compatibility.
+            "Unregistered",
+        ];
+        for registration in canonical {
+            let entry = AccountEntry {
+                id: 1,
+                native_id: 1,
+                config: "sip:alice@example.com".into(),
+                registration: registration.into(),
+            };
+            let _state = crate::state::registr_state_machine::RegistrationState::from_storage_str(
+                &entry.registration,
+            );
+        }
     }
 
     // Contract-C046 invariant: no blocking_read() calls in runtime module.

@@ -25,6 +25,8 @@
 
 use crate::error::error_design_siperror::{SipError, SipErrorKind};
 use crate::model::AccountId;
+use crate::runtime::state::AccountEntry;
+use crate::state::registr_state_machine::RegistrationState;
 
 // ---------------------------------------------------------------------------
 // PJSUA error code constants (shared with error_design_siperror)
@@ -127,6 +129,32 @@ pub struct AccountInfo {
     pub registered: bool,
 }
 
+// [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+impl AccountInfo {
+    /// Build an `AccountInfo` from the reactor's authoritative `AccountEntry`.
+    ///
+    /// `display_name` is not tracked on `AccountEntry` yet (the P3-1 placeholder
+    /// migration keeps it empty); `sip_uri` is the stored config. A zero
+    /// `entry.id` maps to `AccountNotFound` — `AccountId::from_u64(0)` is Err.
+    pub fn from_entry(entry: &AccountEntry) -> Result<AccountInfo, SipError> {
+        let account_id = AccountId::from_u64(entry.id).map_err(|_| SipError {
+            kind: SipErrorKind::AccountNotFound,
+            message: format!("GetAccountInfo: account entry has invalid id {}", entry.id),
+            native_status: None,
+            account_id: None,
+            call_id: None,
+            retryable: false,
+        })?;
+        Ok(AccountInfo {
+            account_id,
+            display_name: String::new(),
+            sip_uri: entry.config.clone(),
+            registered: RegistrationState::from_storage_str(&entry.registration)
+                == RegistrationState::Registered,
+        })
+    }
+}
+
 /// Convert the result of a `GetAccountInfo` PJSIP operation into a typed result.
 ///
 /// Failure conditions (per RFC §14 N0017):
@@ -138,10 +166,10 @@ pub struct AccountInfo {
 /// - `Ok(AccountInfo)` if the account exists and PJSIP succeeds
 /// - `Err(SipError)` with appropriate kind otherwise
 pub fn convert_get_account_info_error(
-    account_exists: bool,
+    account: Option<&AccountEntry>,
     pj_status: i32,
 ) -> Result<AccountInfo, SipError> {
-    if !account_exists {
+    let Some(entry) = account else {
         // Account deletion is permanent — not retryable.
         return Err(SipError {
             kind: SipErrorKind::AccountNotFound,
@@ -151,29 +179,38 @@ pub fn convert_get_account_info_error(
             call_id: None,
             retryable: false,
         });
-    }
+    };
     if pj_status != PJ_SUCCESS {
         return Err(native_error_with_status(
             pj_status,
             format!("GetAccountInfo failed: pjsua_acc_get_info returned {pj_status}"),
         ));
     }
-// [::STUB::] P10-1: Account info and registration state are placeholders pending the reactor account state machine -- Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented
-    Err(SipError::new(
-        SipErrorKind::NativeError,
-        "GetAccountInfo: account state not yet available (P3-1)".to_string(),
-    ))
+    AccountInfo::from_entry(entry)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::model::{AccountId, CallId};
+    use crate::runtime::state::AccountEntry;
+    use crate::state::registr_state_machine::RegistrationState;
 
     // PJ_EBUSY is a test-only constant here: the production converters branch on
     // PJ_SUCCESS / PJ_EINVALIDOP only, so the busy sentinel lives in the test module
     // (this removes the production dead-code suppression that used to accompany it).
     const PJ_EBUSY: i32 = 150003;
+
+    // A registered account entry as stored by MockBackend::add_account.
+    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+    fn registered_entry() -> AccountEntry {
+        AccountEntry {
+            id: 1,
+            native_id: 1,
+            config: "sip:alice@example.com".into(),
+            registration: "Registered".into(),
+        }
+    }
 
     // ── ConfConnect: Normal ──────────────────────────────────────────
 
@@ -248,9 +285,10 @@ mod tests {
     // ── GetAccountInfo: Normal ────────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-5, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5|P10-1) --for-spec --no-implementation-order`.
     fn get_account_info_account_not_found_returns_account_not_found() {
-        let err = convert_get_account_info_error(false, PJ_SUCCESS).expect_err("not-found must fail");
+        let err =
+            convert_get_account_info_error(None, PJ_SUCCESS).expect_err("not-found must fail");
         // P9-5: the not-found error carries the newtype id fields — never a u64.
         let _: Option<AccountId> = err.account_id; // compile-time: Option<AccountId>
         let _: Option<CallId> = err.call_id; // compile-time: Option<CallId>
@@ -264,9 +302,9 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P10-1) --for-spec --no-implementation-order`.
     fn get_account_info_pjsip_error_returns_native() {
-        let result = convert_get_account_info_error(true, PJ_EBUSY);
+        let result = convert_get_account_info_error(Some(&registered_entry()), PJ_EBUSY);
         let err = result.unwrap_err();
         assert_eq!(err.kind, SipErrorKind::NativeError);
     }
@@ -316,9 +354,9 @@ mod tests {
 
     #[test]
     // @verifies C018
-    // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P6-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P10-1) --for-spec --no-implementation-order`.
     fn get_account_info_pjsip_error_keeps_native_status_and_retryable() {
-        let err = convert_get_account_info_error(true, PJ_EBUSY).unwrap_err();
+        let err = convert_get_account_info_error(Some(&registered_entry()), PJ_EBUSY).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::NativeError);
         assert_eq!(err.native_status, Some(PJ_EBUSY));
         assert!(err.retryable);
@@ -380,19 +418,20 @@ mod tests {
     #[test]
     // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     // @verifies C018
-    // [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P6-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2|P10-1) --for-spec --no-implementation-order`.
     fn m20_converters_return_sip_error_type() {
         // Type assertion: all three converters must yield Result<T, SipError>
         // ABC O-004 closure: convert_get_account_info_error (Result<AccountInfo, SipError>)
         // was previously unasserted — only its error kind was checked indirectly.
         let r1: Result<(), SipError> = convert_conf_connect_error(PJ_SUCCESS, 0);
         let r2: Result<(), SipError> = convert_conf_disconnect_error(PJ_SUCCESS, 0);
-        let r3: Result<AccountInfo, SipError> = convert_get_account_info_error(true, PJ_SUCCESS);
+        let r3: Result<AccountInfo, SipError> =
+            convert_get_account_info_error(Some(&registered_entry()), PJ_SUCCESS);
         let _ = (r1, r2, r3);
     }
 
     #[test]
-// [::TICKET::] P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-5, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-5|P10-1) --for-spec --no-implementation-order`.
     fn account_info_account_id_is_newtype() -> Result<(), Box<dyn std::error::Error>> {
         // P9-5: AccountInfo.account_id is AccountId — no u64 ID field remains.
         let info = AccountInfo {
@@ -404,5 +443,58 @@ mod tests {
         let _: AccountId = info.account_id; // compile-time: field is AccountId, not u64
         assert_eq!(info.account_id, AccountId::from_u64(1)?);
         Ok(())
+    }
+
+    // ── P10-1: real AccountInfo from a stored AccountEntry ───────────────
+
+    #[test]
+    // @verifies C017
+    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+    fn get_account_info_success_returns_ok_account_info() -> Result<(), Box<dyn std::error::Error>>
+    {
+        // The Ok(AccountInfo) path must be reachable: Some(entry) + PJ_SUCCESS.
+        let info =
+            convert_get_account_info_error(Some(&registered_entry()), PJ_SUCCESS).map_err(|e| {
+                format!("registered entry + PJ_SUCCESS must yield Ok(AccountInfo): {e}")
+            })?;
+        assert_eq!(info.account_id, AccountId::from_u64(1)?);
+        assert_eq!(info.sip_uri, "sip:alice@example.com");
+        assert!(
+            info.registered,
+            "registered must be true for a Registered entry"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C013
+    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+    fn account_info_from_entry_maps_id_and_registered() -> Result<(), Box<dyn std::error::Error>> {
+        let info = AccountInfo::from_entry(&registered_entry())?;
+        let _: AccountId = info.account_id; // compile-time: field is AccountId, not u64
+        assert_eq!(info.account_id, AccountId::from_u64(1)?);
+        assert_eq!(
+            info.registered,
+            RegistrationState::from_storage_str(&registered_entry().registration)
+                == RegistrationState::Registered
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C013
+    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+    fn account_info_from_entry_zero_id_returns_account_not_found() {
+        // C013 invariant: AccountId::from_u64(0) is Err (NonZeroU64) — a zero
+        // entry.id must map to Err(AccountNotFound), never a stored 0 sentinel.
+        let zero_entry = AccountEntry {
+            id: 0,
+            native_id: 0,
+            config: "sip:zero@example.com".into(),
+            registration: "Registered".into(),
+        };
+        let err = AccountInfo::from_entry(&zero_entry).expect_err("zero id must fail");
+        assert_eq!(err.kind, SipErrorKind::AccountNotFound);
+        assert!(!err.retryable, "invalid account reference is permanent");
     }
 }

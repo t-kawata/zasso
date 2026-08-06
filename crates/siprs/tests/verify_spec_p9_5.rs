@@ -33,10 +33,11 @@ fn account_info_account_id_type_propagates_across_module_boundary(
 // ── Error propagation: the not-found path carries newtype-None ids ─────
 
 #[test]
-// [::TICKET::] P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-5, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-5|P10-1) --for-spec --no-implementation-order`.
 fn account_not_found_error_carries_newtype_none_ids() -> Result<(), Box<dyn std::error::Error>> {
     // P9-5: convert_get_account_info_error's not-found path must not leak a u64 id.
-    let err = convert_get_account_info_error(false, 0).expect_err("not-found must fail");
+    // P10-1: the account parameter is Option<&AccountEntry> — None is the not-found case.
+    let err = convert_get_account_info_error(None, 0).expect_err("not-found must fail");
     let _: Option<AccountId> = err.account_id; // compile-time: Option<AccountId>
     let _: Option<CallId> = err.call_id; // compile-time: Option<CallId>
     assert_eq!(err.kind, SipErrorKind::AccountNotFound);

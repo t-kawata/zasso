@@ -527,8 +527,17 @@ mod tests {
     /// @verifies C024
     #[tokio::test]
     // [::TICKET::] P7-2: O-001 — status 200 publishes RegistrationSucceeded via dispatch_event
-    async fn process_native_event_registration_200_publishes_succeeded() {
-        let backend = MockBackend::new(); // get_account_info() -> Ok(200)
+    async fn process_native_event_registration_200_publishes_succeeded(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+        // P10-1: the snapshot is registry-derived — register an account first so
+        // get_account_info(1) yields the Ok(200) success shape.
+        let mut backend = MockBackend::new();
+        let config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            ..crate::config::account_config_spec::AccountConfig::default()
+        };
+        backend.add_account(&config)?;
         let bus = EventBus::new(16, None);
         let buses = HashMap::new();
         let calls = BTreeMap::new();
@@ -552,6 +561,7 @@ mod tests {
             ev.payload
         );
         assert_eq!(ev.meta.account_id, Some(test_account(1)));
+        Ok(())
     }
 
     /// @verifies C024
