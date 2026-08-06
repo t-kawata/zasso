@@ -1370,7 +1370,18 @@
       "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P11-16\" --for-spec)",
       "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P11-16\")",
       "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P11-16\" --phase=plan)",
-      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P11-16\" --for-spec --plan)"
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P11-16\" --for-spec --plan)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1)",
+      "Bash(ls -la /Users/sh01/.claude/projects/-Users-sh01-shyme-zasso/memory/ 2>/dev/null && cat /Users/sh01/.claude/projects/-Users-sh01-shyme-zasso/memory/MEMORY.md 2>/dev/null)",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P12-1\" --phase=plan)",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P12-1\" --phase=start)",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P12-1\" --phase=review)",
+      "Bash(node .claude/scripts/tickets/review/run-quality-checks.js --help)",
+      "Bash(node -e \"const {CFG}=require\\('./.claude/scripts/tickets/lib/tickets.js'\\); console.log\\(JSON.stringify\\(CFG.review.targetExtensions\\)\\)\")",
+      "Bash(node -e \"const c=require\\('./.claude/scripts/lib/ticket-config.js'\\); const cfg=c.CFG||c; console.log\\(JSON.stringify\\(cfg.review?cfg.review.targetExtensions:cfg.targetExtensions\\)\\)\")",
+      "Bash(node .claude/scripts/tickets/review/run-quality-checks.js src/client.rs)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('totalIssues:',j.totalIssues\\);console.log\\('checks:',Object.keys\\(j.checks\\)\\);if\\(j.checks.findUnwrap\\)console.log\\('unwrap findings sample:',j.checks.findUnwrap.findings.slice\\(0,3\\)\\);}\\)\")",
+      "Bash(git commit -m 'chore: add P12-1 ticket tooling commands to Claude allowlist *)"
     ]
   }
 }
