@@ -168,7 +168,7 @@ pub fn convert_get_account_info_error(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::AccountId;
+    use crate::model::{AccountId, CallId};
 
     // PJ_EBUSY is a test-only constant here: the production converters branch on
     // PJ_SUCCESS / PJ_EINVALIDOP only, so the busy sentinel lives in the test module
@@ -248,11 +248,15 @@ mod tests {
     // ── GetAccountInfo: Normal ────────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
     fn get_account_info_account_not_found_returns_account_not_found() {
-        let result = convert_get_account_info_error(false, PJ_SUCCESS);
-        let err = result.unwrap_err();
+        let err = convert_get_account_info_error(false, PJ_SUCCESS).expect_err("not-found must fail");
+        // P9-5: the not-found error carries the newtype id fields — never a u64.
+        let _: Option<AccountId> = err.account_id; // compile-time: Option<AccountId>
+        let _: Option<CallId> = err.call_id; // compile-time: Option<CallId>
         assert_eq!(err.kind, SipErrorKind::AccountNotFound);
+        assert_eq!(err.account_id, None);
+        assert_eq!(err.call_id, None);
         assert!(
             !err.retryable,
             "Account deletion is permanent — not retryable"
@@ -265,6 +269,23 @@ mod tests {
         let result = convert_get_account_info_error(true, PJ_EBUSY);
         let err = result.unwrap_err();
         assert_eq!(err.kind, SipErrorKind::NativeError);
+    }
+
+    // ── P9-5: native_error_with_status preserves the i32 diagnostic ──
+
+    #[test]
+    // [::TICKET::] P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-5 --for-spec --no-implementation-order`.
+    fn native_error_with_status_sets_native_status_and_newtype_none_ids() {
+        // P9-5: the M20 native-error constructor keeps the PJSUA i32 diagnostic
+        // but leaves the id fields None of the newtype types — a u64 must never leak.
+        let err = native_error_with_status(150003, "ConfConnect failed");
+        let _: Option<AccountId> = err.account_id; // compile-time: Option<AccountId>
+        let _: Option<CallId> = err.call_id; // compile-time: Option<CallId>
+        assert_eq!(err.kind, SipErrorKind::NativeError);
+        assert_eq!(err.native_status, Some(150003));
+        assert_eq!(err.account_id, None);
+        assert_eq!(err.call_id, None);
+        assert!(err.retryable);
     }
 
     // ── Error: native_status / retryable preservation (O-003) ────────

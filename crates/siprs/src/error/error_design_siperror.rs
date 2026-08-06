@@ -344,6 +344,7 @@ pub fn convert_pj_status(status: i32) -> Option<SipErrorKind> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::id_design_newtype::IdError;
     use crate::model::{AccountId, CallId};
 
     // ── Normal: SipError construction ──────────────────────────────────
@@ -632,7 +633,7 @@ mod tests {
     fn sip_error_account_id_zero_sentinel_is_none() {
         // P9-5: PJSUA's 0 invalid-sentinel is unrepresentable as an AccountId (NonZeroU64).
         // The 0 sentinel must map to None at the FFI boundary — never a stored 0.
-        assert!(AccountId::from_u64(0).is_err());
+        assert_eq!(AccountId::from_u64(0), Err(IdError::ZeroValue));
         assert_eq!(AccountId::from_u64(0).ok(), None);
     }
 
@@ -640,8 +641,20 @@ mod tests {
 // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
     fn sip_error_call_id_zero_sentinel_is_none() {
         // P9-5: same 0-sentinel rule for CallId — 0 maps to None, never a stored 0.
-        assert!(CallId::from_u64(0).is_err());
+        assert_eq!(CallId::from_u64(0), Err(IdError::ZeroValue));
         assert_eq!(CallId::from_u64(0).ok(), None);
+    }
+
+    #[test]
+// [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    fn sip_error_newtype_ids_round_trip_nonzero() -> Result<(), Box<dyn std::error::Error>> {
+        // P9-5: non-zero native ids round-trip through from_u64 without loss, so the
+        // FFI boundary can convert any valid PJSUA id to the newtype representation.
+        let account_id = AccountId::from_u64(42)?;
+        let call_id = CallId::from_u64(7)?;
+        assert_eq!(account_id.get().get(), 42);
+        assert_eq!(call_id.get().get(), 7);
+        Ok(())
     }
 
     // ── Invariant: Send + Sync ────────────────────────────────────────
