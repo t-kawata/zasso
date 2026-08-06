@@ -3,17 +3,22 @@
 // [::TICKET::] P0-3: SipClient — facade for the siprs SIP client.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use tokio::sync::broadcast;
 use tracing::instrument;
 
+use crate::api::audio_subscribe_bp::{
+    tap_channel, validate_tap_capacity, AudioTapHandle, AudioTapMode, AudioTapSender,
+};
 use crate::api::event_model_payload_bus::{AccountId, EventMeta, SipEvent, SipEventPayload};
 use crate::api::eventbus_receiver::EventBus;
 use crate::config::observability_metrics::ClientCapabilities;
 use crate::config::ClientConfig;
 use crate::error::SipError;
 use crate::error::SipErrorKind;
+use crate::model::{AudioFormat, CallId};
 use crate::runtime::command::RuntimeCommand;
 use crate::runtime::handle::RuntimeHandle;
 use crate::runtime::reactor::{BootConfig, CoreReactor};
@@ -50,6 +55,11 @@ pub struct SipClient {
     events: crate::api::eventbus_receiver::EventBus,
     /// The client configuration used at construction.
     config: ClientConfig,
+    /// Active audio tap producers keyed by call_id (RFC §22 subscribe_audio).
+    ///
+    /// Keeps each subscribed tap's producer alive so the consumer handle stays
+    /// open until the backend media path attaches (N0033/N0050).
+    tap_senders: Arc<Mutex<HashMap<CallId, AudioTapSender>>>,
 }
 
 use std::fmt;
@@ -65,7 +75,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -131,6 +141,7 @@ impl SipClient {
                 runtime: Arc::new(handle),
                 events: event_bus,
                 config,
+                tap_senders: Arc::new(Mutex::new(HashMap::new())),
             },
             event_rx,
         ))
@@ -211,6 +222,35 @@ impl SipClient {
             .await
             .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("query failed: {e}")))?;
         Ok(state.calls.into_values().collect())
+    }
+
+    /// Subscribe to a call's paired IN/OUT audio (RFC §22 N0031).
+    ///
+    /// Validates the target call against the reactor call registry, then creates
+    /// a single-consumer [`AudioTapHandle`]. The `Realtime`/`Lossless`
+    /// backpressure policy is applied by the producer-side [`AudioTapSender`]
+    /// (RFC §22.1). The producer is retained in the client registry so the handle
+    /// stays open until the backend media path attaches.
+    #[instrument(skip(self))]
+    pub async fn subscribe_audio(
+        &self,
+        call_id: CallId,
+        format: AudioFormat,
+        capacity: usize,
+        mode: AudioTapMode,
+    ) -> Result<AudioTapHandle, SipError> {
+        validate_tap_capacity(capacity)?;
+        let calls = self.call_state().await?;
+        if !calls.iter().any(|entry| entry.id == call_id.get().get()) {
+            return Err(SipError::not_found("call not found"));
+        }
+        let (sender, handle) = tap_channel(capacity, mode);
+        self.tap_senders
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(call_id, sender);
+        tracing::info!(%call_id, %capacity, ?mode, ?format, "subscribe_audio: tap created");
+        Ok(handle)
     }
 
     /// Check whether the reactor thread has terminated.
@@ -679,7 +719,7 @@ mod tests {
 
     #[test]
     // @verifies C047
-    // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P8-2, P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P9-2) --for-spec --no-implementation-order`.
     fn all_public_client_methods_are_instrumented() -> Result<(), std::io::Error> {
         // O-001 closure: C047 postcondition — tracing spans specified for all
         // public operations. This source-inspection test asserts every public
@@ -698,6 +738,7 @@ mod tests {
                     "subscribe_raw_sip",
                     "accounts",
                     "call_state",
+                    "subscribe_audio",
                     "is_terminated",
                     "shutdown",
                 ],

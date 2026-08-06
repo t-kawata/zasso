@@ -169,7 +169,7 @@ impl std::fmt::Display for AudioFormatError {
     }
 }
 
-// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P8-2, P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P9-2) --for-spec --no-implementation-order`.
 impl std::error::Error for AudioFormatError {}
 
 // ---------------------------------------------------------------------------
@@ -177,7 +177,7 @@ impl std::error::Error for AudioFormatError {}
 // ---------------------------------------------------------------------------
 
 /// A single chunk of audio data in either I16 or F32 format.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AudioChunk {
     /// Signed 16-bit PCM samples.
     I16(Vec<i16>),
@@ -211,7 +211,7 @@ impl AudioChunk {
 ///
 /// Both IN and OUT share a single `timestamp` field, guaranteeing that they
 /// are always paired at the same time offset (C031 invariant).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AudioChunkPair {
     /// The call this pair belongs to.
     pub call_id: CallId,

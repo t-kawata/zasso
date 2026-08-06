@@ -1,3 +1,5 @@
+
+
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -115,6 +117,10 @@ pub use event::{
 // [::TICKET::] P3-1: Public API surface re-exports — account, call, transport config types
 pub use account::SipAccountHandle;
 pub use api::call_types::{AuthOverride, CallMediaPreferences, Codec, OutgoingCallRequest};
+// [::TICKET::] P9-2: Audio Subscribe API re-exports
+pub use api::audio_subscribe_bp::{AudioTapHandle, AudioTapMode, AudioTapSender};
+// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 pub use config::account_config_spec::{
     AccountCodecPolicy, AccountConfig, AccountMediaConfig, AccountTransportPolicy, DtmfMethod,
     DtmfPolicy, OpusConfig, SrtpPolicy,

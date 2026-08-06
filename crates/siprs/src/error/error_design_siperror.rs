@@ -214,7 +214,7 @@ pub struct SipError {
     pub retryable: bool,
 }
 
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-2) --for-spec --no-implementation-order`.
 impl SipError {
     /// Create a new `SipError` with the given `kind` and `message`.
     ///
@@ -248,6 +248,14 @@ impl SipError {
     /// network issues, temporary FFI failures).
     pub fn internal_error(message: impl Into<String>) -> Self {
         Self::new(SipErrorKind::NativeError, message)
+    }
+
+    /// Create a convenience `SipError` with `kind = CallNotFound`.
+    ///
+    /// Used by call-scoped APIs (e.g. `subscribe_audio`, RFC §22 M20 追補) when
+    /// the target call is not present in the reactor's call registry.
+    pub fn not_found(message: impl Into<String>) -> Self {
+        Self::new(SipErrorKind::CallNotFound, message)
     }
 
     /// Return a new `SipError` with the `account_id` field set.
