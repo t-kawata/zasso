@@ -29,7 +29,7 @@ pub struct RuntimeHandle {
     join_handle: Weak<JoinHandle<()>>,
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
@@ -62,8 +62,22 @@ impl RuntimeHandle {
         let dispatch = match dispatch {
             DispatchCommand::Execute { f, .. } => DispatchCommand::Execute { f, reply: tx },
             DispatchCommand::Shutdown { .. } => DispatchCommand::Shutdown { reply: tx },
-            DispatchCommand::AddAccount { config, .. } => {
-                DispatchCommand::AddAccount { config, reply: tx }
+            // AddAccount has a typed Result<u64> reply — handled via submit_add_account.
+            DispatchCommand::AddAccount { .. } => {
+                unreachable!("use submit_add_account instead")
+            }
+            DispatchCommand::UpdateAccount { account_id, config, .. } => {
+                DispatchCommand::UpdateAccount {
+                    account_id,
+                    config,
+                    reply: tx,
+                }
+            }
+            DispatchCommand::RemoveAccount { account_id, .. } => {
+                DispatchCommand::RemoveAccount { account_id, reply: tx }
+            }
+            DispatchCommand::CreateTransport { config, .. } => {
+                DispatchCommand::CreateTransport { config, reply: tx }
             }
             // Audio-lifecycle commands with a Result<()> reply are handled directly;
             // the dedicated submit_*_audio_* methods are typed conveniences.
@@ -147,6 +161,29 @@ impl RuntimeHandle {
 
         let (tx, rx) = tokio::sync::oneshot::channel();
         let dispatch = DispatchCommand::QueryState { reply: tx };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// [::TICKET::] P10-3: add an account and await the assigned logical id.
+    ///
+    /// Separate from `submit()` because the response type is `u64` (the
+    /// backend-assigned account id) rather than `()`. Follows the
+    /// `submit_get_account_info` / `submit_add_audio_source` typed-reply pattern.
+    pub async fn submit_add_account(
+        &self,
+        config: crate::config::account_config_spec::AccountConfig,
+    ) -> Result<u64, ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::AddAccount { config, reply: tx };
 
         self.sender
             .send(dispatch)
@@ -417,5 +454,49 @@ mod tests {
         let result = handle.submit_mute_audio_source(5, true).await;
         assert!(result.is_ok(), "mute must complete with Ok");
         consumer.await.unwrap();
+    }
+
+    // ── P10-3: submit_add_account (typed u64 reply) ────────────────────
+
+    #[tokio::test]
+    // @verifies C012
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    async fn submit_add_account_returns_assigned_id() -> Result<(), Box<dyn std::error::Error>> {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let terminated = Arc::new(AtomicBool::new(false));
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+
+        let consumer = tokio::spawn(async move {
+            match rx.recv().await {
+                Some(DispatchCommand::AddAccount { config: _, reply }) => {
+                    // The reactor replies with the backend-assigned id (first = 1).
+                    reply.send(Ok(1u64)).unwrap();
+                }
+                other => panic!("expected AddAccount, got {other:?}"),
+            }
+        });
+
+        let id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        assert_eq!(id, 1, "the reply id must be surfaced to the caller");
+        consumer.await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C017
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    async fn submit_add_account_reactor_down_returns_err() {
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        let terminated = Arc::new(AtomicBool::new(true));
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+        let result = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await;
+        assert!(
+            matches!(result, Err(ReactorError::ReactorDown)),
+            "a terminated reactor must map to ReactorDown"
+        );
     }
 }

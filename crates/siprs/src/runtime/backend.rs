@@ -37,8 +37,19 @@ pub trait SipBackend: Send {
     ) -> Result<(i32, AccountEntry), ReactorError>;
 
     /// Remove a previously registered account.
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
     fn remove_account(&mut self, native_acc_id: i32) -> Result<(), ReactorError>;
+
+    /// Update the configuration of a previously registered account.
+    ///
+    /// The `config` is the merged, validated result of `AccountConfigPatch::apply`
+    /// (P10-3) — the backend replaces its stored config, never a partial patch.
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn update_account(
+        &mut self,
+        native_acc_id: i32,
+        config: &crate::config::account_config_spec::AccountConfig,
+    ) -> Result<(), ReactorError>;
 
     /// Enable or disable SIP registration for an account.
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -140,7 +151,7 @@ impl MockBackend {
     }
 }
 
-// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-3) --for-spec --no-implementation-order`.
 impl SipBackend for MockBackend {
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
@@ -156,7 +167,7 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-    // [::TICKET::] P3-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3) --for-spec --no-implementation-order`.
     fn add_account(
         &mut self,
         config: &crate::config::account_config_spec::AccountConfig,
@@ -168,7 +179,7 @@ impl SipBackend for MockBackend {
         let entry = AccountEntry {
             id: id as u64,
             native_id: id,
-            config: config.username.clone(),
+            config: config.clone(),
             registration: "Registered".into(),
         };
         self.accounts.insert(id, entry.clone());
@@ -178,6 +189,19 @@ impl SipBackend for MockBackend {
     // [::TICKET::] P3-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1) --for-spec --no-implementation-order`.
     fn remove_account(&mut self, native_acc_id: i32) -> Result<(), ReactorError> {
         self.accounts.remove(&native_acc_id);
+        Ok(())
+    }
+
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn update_account(
+        &mut self,
+        native_acc_id: i32,
+        config: &crate::config::account_config_spec::AccountConfig,
+    ) -> Result<(), ReactorError> {
+        let entry = self.accounts.get_mut(&native_acc_id).ok_or_else(|| {
+            ReactorError::BackendError(format!("unknown native account id: {native_acc_id}"))
+        })?;
+        entry.config = config.clone();
         Ok(())
     }
 
@@ -289,7 +313,7 @@ impl SipBackend for MockBackend {
 /// "Registered" maps to the PJSIP success shape (status 200, 1h expiry, online);
 /// every other registration string maps to the unregistered shape (0, None, offline).
 /// The `uri` is the entry's config (the mock stores the account username there).
-// [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
 fn account_entry_to_snapshot(entry: &AccountEntry) -> Result<AccountInfoSnapshot, ReactorError> {
     let account_id = AccountId::from_u64(entry.id).map_err(|_| {
         ReactorError::BackendError(format!(
@@ -303,7 +327,7 @@ fn account_entry_to_snapshot(entry: &AccountEntry) -> Result<AccountInfoSnapshot
         registration_status: if registered { 200 } else { 0 },
         registration_expires: if registered { Some(3600) } else { None },
         online_status: registered,
-        uri: entry.config.clone(),
+        uri: format!("sip:{}@{}", entry.config.username, entry.config.domain),
     })
 }
 
@@ -327,7 +351,7 @@ impl PjsuaBackend {
     }
 }
 
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 impl SipBackend for PjsuaBackend {
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
@@ -371,6 +395,17 @@ impl SipBackend for PjsuaBackend {
     ) -> Result<(), ReactorError> {
         Err(ReactorError::BackendError(
             "PjsuaBackend::set_registration: not yet implemented (P4-2)".into(),
+        ))
+    }
+
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn update_account(
+        &mut self,
+        _native_acc_id: i32,
+        _config: &crate::config::account_config_spec::AccountConfig,
+    ) -> Result<(), ReactorError> {
+        Err(ReactorError::BackendError(
+            "PjsuaBackend::update_account: not yet implemented (P4-2)".into(),
         ))
     }
 
@@ -581,12 +616,13 @@ mod tests {
     #[test]
     // [::TICKET::] P7-2: O-001 — MockBackend::get_account_info returns the controllable snapshot shape
     // [::TICKET::] P10-1: the snapshot is now derived from the stored AccountEntry
-    // [::TICKET::] P7-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P10-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P7-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P10-1|P10-3) --for-spec --no-implementation-order`.
     fn mock_backend_get_account_info_derives_registered_snapshot(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = MockBackend::new();
         let config = crate::config::account_config_spec::AccountConfig {
             username: "alice".into(),
+            domain: "sip.example.com".into(),
             ..crate::config::account_config_spec::AccountConfig::default()
         };
         backend.add_account(&config)?;
@@ -596,8 +632,8 @@ mod tests {
         assert_eq!(snapshot.registration_expires, Some(3600));
         assert!(snapshot.online_status);
         assert_eq!(
-            snapshot.uri, "alice",
-            "uri must be derived from the stored entry.config (the mock stores username)"
+            snapshot.uri, "sip:alice@sip.example.com",
+            "uri must be derived from the stored AccountConfig (P10-3 stores the full config)"
         );
         Ok(())
     }
@@ -685,7 +721,7 @@ mod tests {
     // @verifies C038, C039
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn mock_backend_is_send() {
-        // [::TICKET::] P3-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<MockBackend>();
         assert_send::<PjsuaBackend>();
@@ -693,17 +729,18 @@ mod tests {
 
     // ── P10-1: account registry derives account-info snapshots ──────────
 
-    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
     fn account_config(username: &str) -> crate::config::account_config_spec::AccountConfig {
         crate::config::account_config_spec::AccountConfig {
             username: username.into(),
+            domain: "example.com".into(),
             ..crate::config::account_config_spec::AccountConfig::default()
         }
     }
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
     fn mock_backend_get_account_info_derives_idle_snapshot(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = MockBackend::new();
@@ -719,7 +756,10 @@ mod tests {
         assert_eq!(snapshot.registration_status, 0);
         assert_eq!(snapshot.registration_expires, None);
         assert!(!snapshot.online_status);
-        assert_eq!(snapshot.uri, "bob");
+        assert_eq!(
+            snapshot.uri, "sip:bob@example.com",
+            "uri must be derived from the stored AccountConfig AOR"
+        );
         Ok(())
     }
 
@@ -768,5 +808,61 @@ mod tests {
             "after remove_account, get_account_info must be Err"
         );
         Ok(())
+    }
+
+    // ── P10-3: MockBackend::update_account + full-config storage ───────
+
+    #[test]
+    // @verifies C015
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn mock_backend_add_account_stores_full_config() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = MockBackend::new();
+        let mut config = account_config("alice");
+        config.domain = "pbx.example.com".into();
+        backend.add_account(&config)?;
+        let entry = backend.accounts.get(&1).ok_or("entry must be stored")?;
+        assert_eq!(entry.config.username, "alice");
+        assert_eq!(
+            entry.config.domain, "pbx.example.com",
+            "the full AccountConfig must be retained, not just the username"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C015
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn mock_backend_update_account_updates_stored_config() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = MockBackend::new();
+        backend.add_account(&account_config("alice"))?;
+        let mut new_config = account_config("bob");
+        new_config.domain = "pbx.example.com".into();
+        backend.update_account(1, &new_config)?;
+        let entry = backend.accounts.get(&1).ok_or("entry must exist")?;
+        assert_eq!(entry.config.username, "bob");
+        assert_eq!(entry.config.domain, "pbx.example.com");
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C017
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn mock_backend_update_account_unknown_id_returns_err() {
+        let mut backend = MockBackend::new();
+        assert!(
+            backend.update_account(99, &account_config("x")).is_err(),
+            "update_account on an unknown native id must return Err"
+        );
+    }
+
+    #[test]
+    // @verifies C015
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn pjsua_backend_update_account_returns_unimplemented() {
+        let mut backend = PjsuaBackend::new();
+        assert!(
+            backend.update_account(1, &account_config("alice")).is_err(),
+            "PjsuaBackend::update_account must return Err until FFI lands (P3-2)"
+        );
     }
 }

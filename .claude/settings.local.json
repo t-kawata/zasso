@@ -813,7 +813,27 @@
       "Read(//Users/sh01/shyme/zasso/.claude/scripts/tickets/**)",
       "Bash(git rev-parse *)",
       "Bash(node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json)",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('stub count:', d['count']\\)\")"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('stub count:', d['count']\\)\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P10-3\")",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"P10-3\" --tickets=\"Tickets.json\")",
+      "Bash(echo \"---EXIT:$?---\")",
+      "Bash(node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=\"P10-3\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/list-remaining-stubs.js \"Tickets.json\" \"P10-3\")",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P10-3\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P10-3\" --for-spec)",
+      "Bash(echo \"SPEC_EXIT:$?\")",
+      "Bash(node .claude/scripts/tickets/update-ticket.js \"Tickets.json\" \"P10-3\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('success:',j.success,'| status:',j.updated&&j.updated.status||'\\(see full\\)'\\)}\\)\")",
+      "Bash(node .claude/scripts/tickets/scan-crimes.sh)",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P10-3\" --phase=plan)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P10-3\" --for-spec --plan)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);for\\(const s of j.stubs\\){console.log\\(s.file.split\\('/src/'\\)[1]||s.file.split\\('/'\\).slice\\(-2\\).join\\('/'\\)+':'+s.line, '->', s.content.slice\\(0,90\\).replace\\(/\\\\n/g,' '\\)\\)}}\\)\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);const targets=['src/client.rs','src/api/public_api_design.rs','src/runtime/command.rs','src/runtime/handle.rs','src/runtime/reactor.rs','src/runtime/backend.rs','src/runtime/state.rs','src/config/account_config_spec.rs','src/lib.rs'];const t=j.findings.filter\\(f=>targets.some\\(x=>f.file.includes\\(x\\)\\)\\);console.log\\('findings in target files:',t.length\\);for\\(const f of t.slice\\(0,40\\)\\){console.log\\(f.file.split\\('/src/'\\)[1],f.line,f.pattern,'|',f.content.slice\\(0,80\\)\\)}}\\)\")",
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P10-3\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P10-3\" --phase=start)",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P10-3\")"
     ]
   }
 }

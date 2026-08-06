@@ -1,6 +1,7 @@
 
 
 
+
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -49,10 +50,12 @@ pub mod client;
 pub mod config;
 pub mod error;
 
-/// Account and Transport type stubs; Call is implemented (P9-3).
+/// Account and Transport lifecycle types; Call is implemented (P9-3).
 ///
-// [::STUB::] P10-3: account/call/transport lifecycle methods are deferred -- Implement account and transport configuration lifecycle methods (make, answer, hangup) per the P3-1 specification
+/// Account lifecycle (add_account/remove_account/account/update_config/remove)
+/// and transport lifecycle (add_transport) are implemented in P10-3.
 pub mod account;
+// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
 pub mod call;
 pub mod transport;
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
@@ -131,9 +134,12 @@ pub use config::account_config_spec::{
 };
 pub use config::client_config_spec::{ClientAudioConfig, RawSipEventConfig, TimeoutConfig};
 pub use config::transport_ice_spec::{
-    IceConfig, TcpTransportConfig, TlsConfig, TransportConfig, TurnServerConfig, TurnTransport,
+    IceConfig, TcpTransportConfig, TransportConfig, TurnServerConfig, TurnTransport,
     UdpTransportConfig,
 };
+#[cfg(feature = "tls")]
+pub use config::transport_ice_spec::TlsConfig;
+// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
 // StunServerConfig is NOT re-exported from transport_ice_spec to avoid name collision
 // with the existing config::StunServerConfig. Use the transport_ice_spec version
 // via `siprs::config::transport_ice_spec::StunServerConfig` for the RFC definition.

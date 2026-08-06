@@ -294,10 +294,104 @@ impl Default for AccountConfig {
     }
 }
 
+/// Partial update for an `AccountConfig`.
+///
+/// Each `Some(field)` overrides the corresponding field of the stored config
+/// when applied via [`AccountConfigPatch::apply`]; `None` leaves it unchanged.
+/// `Option<T>` fields of the config are represented as `Option<Option<T>>` so a
+/// caller can distinguish "leave unchanged" (`None`) from "clear" (`Some(None)`).
+/// Applying a patch yields a full config that must pass [`AccountConfig::validate`]
+/// (C052 fail-fast — the merged config is never dispatched unvalidated).
+// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AccountConfigPatch {
+    pub display_name: Option<Option<String>>,
+    pub username: Option<String>,
+    pub auth_username: Option<Option<String>>,
+    pub password: Option<SecretString>,
+    pub domain: Option<String>,
+    pub registrar_uri: Option<Option<String>>,
+    pub outbound_proxy: Option<Vec<String>>,
+    pub contact_params: Option<Vec<(String, String)>>,
+    pub transport: Option<AccountTransportPolicy>,
+    pub register_on_start: Option<bool>,
+    pub allow_outbound_without_register: Option<bool>,
+    pub registration_expires: Option<Duration>,
+    pub codecs: Option<AccountCodecPolicy>,
+    pub dtmf: Option<DtmfPolicy>,
+    pub media: Option<AccountMediaConfig>,
+    pub auto_reject_timer: Option<Option<IncomingCallConfig>>,
+    pub headers: Option<Vec<(String, String)>>,
+}
+
+// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+impl AccountConfigPatch {
+    /// Merge this patch into `base`, then validate the merged result.
+    ///
+    /// Returns `Err(SipErrorKind::InvalidConfig)` with a rule-specific message when
+    /// the merged config violates any `AccountConfig::validate()` rule (C015/C052).
+    pub fn apply(&self, base: &AccountConfig) -> Result<AccountConfig, crate::error::SipError> {
+        let mut merged = base.clone();
+        if let Some(v) = &self.display_name {
+            merged.display_name = v.clone();
+        }
+        if let Some(v) = &self.username {
+            merged.username = v.clone();
+        }
+        if let Some(v) = &self.auth_username {
+            merged.auth_username = v.clone();
+        }
+        if let Some(v) = &self.password {
+            merged.password = v.clone();
+        }
+        if let Some(v) = &self.domain {
+            merged.domain = v.clone();
+        }
+        if let Some(v) = &self.registrar_uri {
+            merged.registrar_uri = v.clone();
+        }
+        if let Some(v) = &self.outbound_proxy {
+            merged.outbound_proxy = v.clone();
+        }
+        if let Some(v) = &self.contact_params {
+            merged.contact_params = v.clone();
+        }
+        if let Some(v) = &self.transport {
+            merged.transport = *v;
+        }
+        if let Some(v) = &self.register_on_start {
+            merged.register_on_start = *v;
+        }
+        if let Some(v) = &self.allow_outbound_without_register {
+            merged.allow_outbound_without_register = *v;
+        }
+        if let Some(v) = &self.registration_expires {
+            merged.registration_expires = *v;
+        }
+        if let Some(v) = &self.codecs {
+            merged.codecs = v.clone();
+        }
+        if let Some(v) = &self.dtmf {
+            merged.dtmf = v.clone();
+        }
+        if let Some(v) = &self.media {
+            merged.media = v.clone();
+        }
+        if let Some(v) = &self.auto_reject_timer {
+            merged.auto_reject_timer = v.clone();
+        }
+        if let Some(v) = &self.headers {
+            merged.headers = v.clone();
+        }
+        merged.validate()?;
+        Ok(merged)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::SipErrorKind;
+    use crate::error::{SipError, SipErrorKind};
 
     // ── Normal: AccountConfig construction ─────────────────────────
 
@@ -767,10 +861,138 @@ mod tests {
         fn assert_clone<T: Clone>() {}
         // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
         fn assert_copy<T: Copy>() {}
-        // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
         assert_clone::<DtmfMethod>();
         assert_copy::<DtmfMethod>();
         assert_debug::<DtmfMethod>();
+    }
+
+    // ── P10-3: AccountConfigPatch (partial update for update_config) ───
+
+    #[test]
+    // @verifies C015
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn account_config_patch_default_is_empty() {
+        let patch = AccountConfigPatch::default();
+        assert!(patch.display_name.is_none());
+        assert!(patch.username.is_none());
+        assert!(patch.auth_username.is_none());
+        assert!(patch.password.is_none());
+        assert!(patch.domain.is_none());
+        assert!(patch.registrar_uri.is_none());
+        assert!(patch.outbound_proxy.is_none());
+        assert!(patch.contact_params.is_none());
+        assert!(patch.transport.is_none());
+        assert!(patch.register_on_start.is_none());
+        assert!(patch.allow_outbound_without_register.is_none());
+        assert!(patch.registration_expires.is_none());
+        assert!(patch.codecs.is_none());
+        assert!(patch.dtmf.is_none());
+        assert!(patch.media.is_none());
+        assert!(patch.auto_reject_timer.is_none());
+        assert!(patch.headers.is_none());
+    }
+
+    #[test]
+    // @verifies C015
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn account_config_patch_apply_overrides_only_some_fields() -> Result<(), SipError> {
+        let base = AccountConfig {
+            username: "alice".into(),
+            domain: "sip.example.com".into(),
+            password: SecretString::new("pass123"),
+            registrar_uri: Some("sip:sip.example.com".into()),
+            ..Default::default()
+        };
+        let patch = AccountConfigPatch {
+            username: Some("bob".into()),
+            ..Default::default()
+        };
+        let merged = patch.apply(&base)?;
+        assert_eq!(merged.username, "bob");
+        assert_eq!(merged.domain, "sip.example.com", "unpatched field must be preserved");
+        assert_eq!(merged.registrar_uri, Some("sip:sip.example.com".into()));
+        assert_eq!(merged.password.as_str(), "pass123");
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C052
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn account_config_patch_apply_validates_merged_config() -> Result<(), SipError> {
+        let base = AccountConfig {
+            username: "alice".into(),
+            domain: "sip.example.com".into(),
+            password: SecretString::new("pass123"),
+            ..Default::default()
+        };
+        let patch = AccountConfigPatch {
+            username: Some(String::new()),
+            ..Default::default()
+        };
+        let err = match patch.apply(&base) {
+            Err(e) => e,
+            Ok(_) => {
+                return Err(SipError::new(
+                    SipErrorKind::InvalidConfig,
+                    "empty username must fail merged validation",
+                ))
+            }
+        };
+        assert_eq!(err.kind, SipErrorKind::InvalidConfig);
+        assert!(err.message.contains("username"));
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C015
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn account_config_patch_apply_handles_option_fields() -> Result<(), SipError> {
+        let base = AccountConfig {
+            username: "alice".into(),
+            domain: "sip.example.com".into(),
+            password: SecretString::new("pass123"),
+            ..Default::default()
+        };
+        let set = AccountConfigPatch {
+            display_name: Some(Some("Alice".into())),
+            ..Default::default()
+        };
+        assert_eq!(
+            set.apply(&base)?.display_name,
+            Some("Alice".into())
+        );
+        let clear = AccountConfigPatch {
+            display_name: Some(None),
+            ..Default::default()
+        };
+        assert_eq!(clear.apply(&base)?.display_name, None);
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C015
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn account_config_patch_apply_updates_scalar_fields() -> Result<(), SipError> {
+        let base = AccountConfig {
+            username: "alice".into(),
+            domain: "sip.example.com".into(),
+            password: SecretString::new("pass123"),
+            ..Default::default()
+        };
+        let patch = AccountConfigPatch {
+            register_on_start: Some(false),
+            allow_outbound_without_register: Some(true),
+            registration_expires: Some(Duration::from_secs(1800)),
+            transport: Some(AccountTransportPolicy::Tcp),
+            ..Default::default()
+        };
+        let merged = patch.apply(&base)?;
+        assert!(!merged.register_on_start);
+        assert!(merged.allow_outbound_without_register);
+        assert_eq!(merged.registration_expires, Duration::from_secs(1800));
+        assert_eq!(merged.transport, AccountTransportPolicy::Tcp);
+        Ok(())
     }
 }

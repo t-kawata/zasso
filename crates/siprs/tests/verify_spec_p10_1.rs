@@ -1,3 +1,4 @@
+
 // Layer 5 integration tests for the P10-1 account-info retrieval.
 //
 // These tests verify at the crate boundary that the public account-info surface
@@ -14,7 +15,6 @@
 use siprs::config::account_config_spec::AccountConfig;
 use siprs::config::ClientConfig;
 use siprs::model::AccountId;
-use siprs::runtime::command::RuntimeCommand;
 use siprs::state::RegistrationState;
 use siprs::SipAccountHandle;
 use siprs::SipClient;
@@ -27,25 +27,21 @@ fn test_config() -> ClientConfig {
         .build()
 }
 
-/// Register an account with the given username and hand back the client.
+/// Register an account with the given username and hand back the client plus
+/// the backend-assigned logical account id.
 async fn client_with_registered_account(
+// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     username: &str,
-) -> Result<SipClient, Box<dyn std::error::Error>> {
+) -> Result<(SipClient, u64), Box<dyn std::error::Error>> {
     let config = test_config();
     let (client, _rx) = SipClient::new(config).await?;
     let account_config = AccountConfig {
         username: username.into(),
+        domain: "example.com".into(),
         ..Default::default()
     };
-    let (_dummy_tx, _dummy_rx) = tokio::sync::oneshot::channel();
-    client
-        .handle()
-        .submit(RuntimeCommand::AddAccount {
-            config: account_config,
-            reply: _dummy_tx,
-        })
-        .await?;
-    Ok(client)
+    let account_id = client.handle().submit_add_account(account_config).await?;
+    Ok((client, account_id))
 }
 
 // ── Reactor round-trip: registration_state reads the AddAccount entry ──
@@ -55,8 +51,8 @@ async fn client_with_registered_account(
 async fn registration_state_round_trips_added_account() -> Result<(), Box<dyn std::error::Error>> {
     // The AddAccount handler stores the entry in ClientState.accounts
     // (reactor.rs AddAccount arm) — registration_state() must observe it.
-    let client = client_with_registered_account("alice").await?;
-    let handle = SipAccountHandle::new(client.clone(), 1);
+    let (client, account_id) = client_with_registered_account("alice").await?;
+    let handle = SipAccountHandle::new(client.clone(), account_id);
     assert_eq!(
         handle.registration_state().await?,
         RegistrationState::Registered,
@@ -73,7 +69,7 @@ async fn registration_state_round_trips_added_account() -> Result<(), Box<dyn st
 async fn registration_state_and_accounts_query_agree() -> Result<(), Box<dyn std::error::Error>> {
     // Both SipClient::accounts() (query_state → account_snapshot_from_entry)
     // and SipAccountHandle::registration_state() read the same ClientState clone.
-    let client = client_with_registered_account("alice").await?;
+    let (client, account_id) = client_with_registered_account("alice").await?;
     let accounts = client.accounts().await?;
     assert_eq!(
         accounts.len(),
@@ -85,7 +81,7 @@ async fn registration_state_and_accounts_query_agree() -> Result<(), Box<dyn std
         "the stored Registered entry must be registered"
     );
 
-    let handle = SipAccountHandle::new(client.clone(), 1);
+    let handle = SipAccountHandle::new(client.clone(), account_id);
     assert_eq!(
         handle.registration_state().await?,
         RegistrationState::Registered
@@ -102,8 +98,8 @@ async fn registration_state_and_accounts_query_agree() -> Result<(), Box<dyn std
 async fn registration_state_does_not_block_the_reactor() -> Result<(), Box<dyn std::error::Error>> {
     // registration_state() → RuntimeHandle::query_state() → DispatchCommand::QueryState
     // → reactor client_state.clone(). The query completes while the reactor stays alive.
-    let client = client_with_registered_account("alice").await?;
-    let handle = SipAccountHandle::new(client.clone(), 1);
+    let (client, account_id) = client_with_registered_account("alice").await?;
+    let handle = SipAccountHandle::new(client.clone(), account_id);
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(2),
         handle.registration_state(),
@@ -127,8 +123,8 @@ async fn registration_state_does_not_block_the_reactor() -> Result<(), Box<dyn s
 // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
 async fn get_account_info_dispatch_derives_snapshot_from_registry(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let client = client_with_registered_account("alice").await?;
-    let snapshot = client.handle().submit_get_account_info(1).await?;
+    let (client, account_id) = client_with_registered_account("alice").await?;
+    let snapshot = client.handle().submit_get_account_info(account_id as u32).await?;
     assert_eq!(snapshot.acc_id, AccountId::from_u64(1)?);
     assert_eq!(
         snapshot.registration_status, 200,
@@ -137,7 +133,7 @@ async fn get_account_info_dispatch_derives_snapshot_from_registry(
     assert_eq!(snapshot.registration_expires, Some(3600));
     assert!(snapshot.online_status);
     assert_eq!(
-        snapshot.uri, "alice",
+        snapshot.uri, "sip:alice@example.com",
         "uri must be derived from the stored entry.config (the mock stores username)"
     );
     client.shutdown().await?;
@@ -148,7 +144,7 @@ async fn get_account_info_dispatch_derives_snapshot_from_registry(
 // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
 async fn get_account_info_unknown_native_id_returns_error() -> Result<(), Box<dyn std::error::Error>>
 {
-    let client = client_with_registered_account("alice").await?;
+    let (client, _account_id) = client_with_registered_account("alice").await?;
     let result = client.handle().submit_get_account_info(99).await;
     assert!(
         result.is_err(),

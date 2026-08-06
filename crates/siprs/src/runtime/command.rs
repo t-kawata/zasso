@@ -26,7 +26,7 @@ impl std::fmt::Display for ReactorError {
     }
 }
 
-// [::TICKET::] P0-2, P0-3, P0-5, P0-6, P3-1, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-5|P0-6|P3-1|P7-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-3, P0-5, P0-6, P3-1, P7-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P0-5|P0-6|P3-1|P7-2|P10-3) --for-spec --no-implementation-order`.
 impl std::error::Error for ReactorError {}
 
 /// Commands that can be submitted to the `CoreReactor` for serialized execution.
@@ -48,10 +48,25 @@ pub enum RuntimeCommand {
     },
     AddAccount {
         config: crate::config::account_config_spec::AccountConfig,
+        reply: tokio::sync::oneshot::Sender<Result<u64, ReactorError>>,
+    },
+    /// Update the configuration of an existing account.
+    ///
+    /// The `config` payload is the **merged, validated** `AccountConfig` produced
+    /// by `AccountConfigPatch::apply` at the facade (C052 fail-fast), so the
+    /// reactor never dispatches an unvalidated config.
+    UpdateAccount {
+        account_id: u64,
+        config: crate::config::account_config_spec::AccountConfig,
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
     RemoveAccount {
         account_id: u64,
+        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+    },
+    /// Create a SIP transport (UDP/TCP/TLS) and record its runtime state.
+    CreateTransport {
+        config: crate::config::transport_ice_spec::TransportConfig,
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
     SetRegistration {
@@ -146,13 +161,15 @@ pub enum RuntimeCommand {
 // [::STUB::] P10-4: Debug is manually implemented for RuntimeCommand because oneshot::Sender is not Debug -- Migrate to a Debug-friendly sender wrapper and derive Debug for RuntimeCommand
 // [::TICKET::] P0-2, P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-6) --for-spec --no-implementation-order`.
 impl std::fmt::Debug for RuntimeCommand {
-// [::TICKET::] P0-6, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P7-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P7-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P7-2|P10-3) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // Manual Debug — skips non-Debug fields like Box<dyn AsyncAudioSource>
         let variant = match self {
             Self::Initialize { .. } => "Initialize",
             Self::AddAccount { .. } => "AddAccount",
+            Self::UpdateAccount { .. } => "UpdateAccount",
             Self::RemoveAccount { .. } => "RemoveAccount",
+            Self::CreateTransport { .. } => "CreateTransport",
             Self::SetRegistration { .. } => "SetRegistration",
             Self::MakeCall { .. } => "MakeCall",
             Self::Hangup { .. } => "Hangup",
@@ -175,12 +192,14 @@ impl std::fmt::Debug for RuntimeCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Display for RuntimeCommand {
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P10-3) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let variant = match self {
             Self::Initialize { .. } => "Initialize",
             Self::AddAccount { .. } => "AddAccount",
+            Self::UpdateAccount { .. } => "UpdateAccount",
             Self::RemoveAccount { .. } => "RemoveAccount",
+            Self::CreateTransport { .. } => "CreateTransport",
             Self::SetRegistration { .. } => "SetRegistration",
             Self::MakeCall { .. } => "MakeCall",
             Self::Hangup { .. } => "Hangup",
@@ -202,7 +221,7 @@ impl std::fmt::Display for RuntimeCommand {
 }
 
 /// Type alias for the backend execution closure used in `DispatchCommand`.
-// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3) --for-spec --no-implementation-order`.
 type BackendFn =
     Box<dyn FnOnce(&mut dyn super::backend::SipBackend) -> Result<(), ReactorError> + Send>;
 
@@ -255,8 +274,33 @@ pub(crate) enum DispatchCommand {
     ///
     /// Dedicated variant so the reactor loop can insert the returned `AccountEntry`
     /// into its authoritative `client_state.accounts` (backing the query API).
+    /// The reply carries the assigned logical account id (P10-3) so `add_account`
+    /// can build a real `SipAccountHandle`.
     AddAccount {
         config: crate::config::account_config_spec::AccountConfig,
+        reply: tokio::sync::oneshot::Sender<Result<u64, ReactorError>>,
+    },
+    /// Update the stored config of an existing account in the reactor's ClientState.
+    ///
+    /// Dedicated variant (not an `Execute` closure) so the reactor loop can also
+    /// mutate `client_state.accounts` — an `Execute` closure only sees `&mut dyn SipBackend`.
+    UpdateAccount {
+        account_id: u64,
+        config: crate::config::account_config_spec::AccountConfig,
+        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+    },
+    /// Remove an account from the backend AND the reactor's ClientState.
+    ///
+    /// Dedicated variant so the reactor keeps `client_state.accounts` authoritative (C021).
+    RemoveAccount {
+        account_id: u64,
+        reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
+    },
+    /// Create a transport and record its `TransportRuntimeState`.
+    ///
+    /// Dedicated variant so the reactor can append to `client_state.transports`.
+    CreateTransport {
+        config: crate::config::transport_ice_spec::TransportConfig,
         reply: tokio::sync::oneshot::Sender<Result<(), ReactorError>>,
     },
     /// [::TICKET::] P7-2: O-004 — clone the reactor's authoritative ClientState.
@@ -268,7 +312,7 @@ pub(crate) enum DispatchCommand {
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
@@ -281,8 +325,21 @@ impl DispatchCommand {
                 reply,
             },
             RuntimeCommand::AddAccount { config, reply } => Self::AddAccount { config, reply },
-            RuntimeCommand::RemoveAccount { account_id, reply } => Self::Execute {
-                f: Box::new(move |backend| backend.remove_account(account_id as i32)),
+            RuntimeCommand::UpdateAccount {
+                account_id,
+                config,
+                reply,
+            } => Self::UpdateAccount {
+                account_id,
+                config,
+                reply,
+            },
+            RuntimeCommand::RemoveAccount { account_id, reply } => Self::RemoveAccount {
+                account_id,
+                reply,
+            },
+            RuntimeCommand::CreateTransport { config, reply } => Self::CreateTransport {
+                config,
                 reply,
             },
             RuntimeCommand::SetRegistration {
@@ -390,7 +447,7 @@ impl DispatchCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for DispatchCommand {
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Execute { .. } => f
@@ -413,6 +470,15 @@ impl std::fmt::Debug for DispatchCommand {
                 .finish_non_exhaustive(),
             Self::AddAccount { .. } => f
                 .debug_struct("DispatchCommand::AddAccount")
+                .finish_non_exhaustive(),
+            Self::UpdateAccount { .. } => f
+                .debug_struct("DispatchCommand::UpdateAccount")
+                .finish_non_exhaustive(),
+            Self::RemoveAccount { .. } => f
+                .debug_struct("DispatchCommand::RemoveAccount")
+                .finish_non_exhaustive(),
+            Self::CreateTransport { .. } => f
+                .debug_struct("DispatchCommand::CreateTransport")
                 .finish_non_exhaustive(),
             Self::QueryState { .. } => f
                 .debug_struct("DispatchCommand::QueryState")
@@ -726,5 +792,75 @@ mod tests {
             vec![(5i32, 5i32)],
             "backend.conf_disconnect must be invoked with (call_id, call_id)"
         );
+    }
+
+    // ── P10-3: UpdateAccount / CreateTransport / dedicated RemoveAccount ─
+
+    #[test]
+    // @verifies C012
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn from_runtime_command_converts_update_account() {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let cmd = RuntimeCommand::UpdateAccount {
+            account_id: 3,
+            config: crate::config::account_config_spec::AccountConfig::default(),
+            reply: tx,
+        };
+        let dispatch = DispatchCommand::from_runtime_command(cmd);
+        assert!(
+            matches!(dispatch, DispatchCommand::UpdateAccount { account_id: 3, .. }),
+            "UpdateAccount must map to the dedicated UpdateAccount variant"
+        );
+        drop(rx);
+    }
+
+    #[test]
+    // @verifies C016
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn from_runtime_command_converts_create_transport() {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let cmd = RuntimeCommand::CreateTransport {
+            config: crate::config::transport_ice_spec::TransportConfig::udp(5060),
+            reply: tx,
+        };
+        let dispatch = DispatchCommand::from_runtime_command(cmd);
+        assert!(
+            matches!(dispatch, DispatchCommand::CreateTransport { .. }),
+            "CreateTransport must map to the dedicated CreateTransport variant"
+        );
+        drop(rx);
+    }
+
+    #[test]
+    // @verifies C012
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn from_runtime_command_converts_remove_account_to_dedicated_variant() {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let cmd = RuntimeCommand::RemoveAccount { account_id: 7, reply: tx };
+        let dispatch = DispatchCommand::from_runtime_command(cmd);
+        assert!(
+            matches!(dispatch, DispatchCommand::RemoveAccount { account_id: 7, .. }),
+            "RemoveAccount must map to a dedicated variant so the reactor can update ClientState"
+        );
+        drop(rx);
+    }
+
+    #[test]
+    // @verifies C011
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    fn runtime_command_display_shows_new_lifecycle_variants() {
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let update = RuntimeCommand::UpdateAccount {
+            account_id: 1,
+            config: crate::config::account_config_spec::AccountConfig::default(),
+            reply: tx,
+        };
+        assert_eq!(format!("{update}"), "RuntimeCommand::UpdateAccount");
+        let (tx2, _rx2) = tokio::sync::oneshot::channel();
+        let transport = RuntimeCommand::CreateTransport {
+            config: crate::config::transport_ice_spec::TransportConfig::udp(5060),
+            reply: tx2,
+        };
+        assert_eq!(format!("{transport}"), "RuntimeCommand::CreateTransport");
     }
 }

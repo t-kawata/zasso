@@ -129,13 +129,13 @@ pub struct AccountInfo {
     pub registered: bool,
 }
 
-// [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
 impl AccountInfo {
     /// Build an `AccountInfo` from the reactor's authoritative `AccountEntry`.
     ///
-    /// `display_name` is not tracked on `AccountEntry` yet (the P3-1 placeholder
-    /// migration keeps it empty); `sip_uri` is the stored config. A zero
-    /// `entry.id` maps to `AccountNotFound` — `AccountId::from_u64(0)` is Err.
+    /// `display_name` is derived from the stored `AccountConfig`; `sip_uri` is
+    /// the AOR built from `username@domain`. A zero `entry.id` maps to
+    /// `AccountNotFound` — `AccountId::from_u64(0)` is Err.
     pub fn from_entry(entry: &AccountEntry) -> Result<AccountInfo, SipError> {
         let account_id = AccountId::from_u64(entry.id).map_err(|_| SipError {
             kind: SipErrorKind::AccountNotFound,
@@ -147,8 +147,8 @@ impl AccountInfo {
         })?;
         Ok(AccountInfo {
             account_id,
-            display_name: String::new(),
-            sip_uri: entry.config.clone(),
+            display_name: entry.config.display_name.clone().unwrap_or_default(),
+            sip_uri: format!("sip:{}@{}", entry.config.username, entry.config.domain),
             registered: RegistrationState::from_storage_str(&entry.registration)
                 == RegistrationState::Registered,
         })
@@ -202,12 +202,16 @@ mod tests {
     const PJ_EBUSY: i32 = 150003;
 
     // A registered account entry as stored by MockBackend::add_account.
-    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
     fn registered_entry() -> AccountEntry {
         AccountEntry {
             id: 1,
             native_id: 1,
-            config: "sip:alice@example.com".into(),
+            config: crate::config::account_config_spec::AccountConfig {
+                username: "alice".into(),
+                domain: "example.com".into(),
+                ..Default::default()
+            },
             registration: "Registered".into(),
         }
     }
@@ -483,14 +487,14 @@ mod tests {
 
     #[test]
     // @verifies C013
-    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
     fn account_info_from_entry_zero_id_returns_account_not_found() {
         // C013 invariant: AccountId::from_u64(0) is Err (NonZeroU64) — a zero
         // entry.id must map to Err(AccountNotFound), never a stored 0 sentinel.
         let zero_entry = AccountEntry {
             id: 0,
             native_id: 0,
-            config: "sip:zero@example.com".into(),
+            config: crate::config::account_config_spec::AccountConfig::default(),
             registration: "Registered".into(),
         };
         let err = AccountInfo::from_entry(&zero_entry).expect_err("zero id must fail");

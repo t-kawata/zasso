@@ -23653,107 +23653,129 @@
             {
               "id": "C012",
               "sourceEdge": "N0011→N0009",
-              "precondition": "Command serialization established",
-              "postcondition": "Public API designed around RuntimeCommand pattern",
-              "invariant": "API is Send+Sync"
+              "precondition": "Command serialization established — RuntimeCommand variants (AddAccount/RemoveAccount/UpdateAccount/CreateTransport) are constructible with a tokio::sync::oneshot::Sender reply channel and enqueue on the reactor's UnboundedSender MPSC channel (RuntimeHandle::submit / submit_add_account, handle.rs).",
+              "postcondition": "Public API designed around RuntimeCommand pattern — SipClient::add_account/remove_account/add_transport and SipAccountHandle::update_config/remove submit the corresponding RuntimeCommand variants; verified via MockBackend call records and the reactor's ClientState.",
+              "invariant": "API is Send+Sync — assert_send/assert_sync::<SipClient> and SipAccountHandle compile-time assertions (public_api_design.rs:302)."
             },
             {
               "id": "C015",
               "sourceEdge": "N0014→N0013",
-              "precondition": "ClientConfig defined",
-              "postcondition": "AccountConfig specified with validation",
-              "invariant": "Validation rules enforced"
+              "precondition": "ClientConfig defined — ClientConfig::builder() constructs a valid config (client_config_spec.rs) that passes validate(); AccountConfig has 16 fields including codecs/dtmf/media.",
+              "postcondition": "AccountConfig specified with validation — AccountConfig::validate() returns Ok for a valid config and Err(InvalidConfig) for empty username/domain/password, both codecs disabled, empty DTMF send/receive, zero registration_expires, invalid opus bitrate/complexity/ptime (account_config_spec.rs:198-263).",
+              "invariant": "Validation rules enforced — every violated rule yields a distinct InvalidConfig message; validation is reused in add_account and the update_config merge path."
             },
             {
               "id": "C016",
               "sourceEdge": "N0015→N0013",
-              "precondition": "ClientConfig includes transport/ICE",
-              "postcondition": "TransportConfig and ICE config specified",
-              "invariant": "Full ICE support, trickle ICE optional"
+              "precondition": "ClientConfig includes transport/ICE — ClientConfig.transports accepts Vec<TransportConfig>; IceConfig/StunServerConfig/TurnServerConfig/TurnTransport are available (transport_ice_spec.rs).",
+              "postcondition": "TransportConfig and ICE config specified — Udp/Tcp construct with bind_addr; IceConfig supports full ICE (enabled/aggressive_nomination/renomination/max_host_candidates); SipClient::add_transport dispatches CreateTransport and the reactor records TransportRuntimeState in client_state.transports.",
+              "invariant": "Full ICE support, trickle ICE optional — IceConfig default has trickle_ice=false; a full-ICE config with aggressive_nomination is supported (transport_ice_spec.rs tests)."
             },
             {
               "id": "C017",
               "sourceEdge": "N0016→N0011 (inbound)",
-              "precondition": "Public API design in progress",
-              "postcondition": "Error design constrains API return types",
-              "invariant": "All APIs return Result<T, SipError>"
+              "precondition": "Public API design in progress — all lifecycle method signatures are defined (SipClient::add_account/remove_account/account/add_transport, SipAccountHandle::update_config/remove).",
+              "postcondition": "Error design constrains API return types — every lifecycle method returns Result<T, SipError>; ReactorError is mapped to SipError (NativeError for reactor-down/backend errors, AccountNotFound for missing accounts, InvalidConfig for validation failures).",
+              "invariant": "All APIs return Result<T, SipError> — compile-time fn-pointer signature assertions for every lifecycle method."
             },
             {
               "id": "C026",
               "sourceEdge": "N0025→N0011 (inbound)",
-              "precondition": "Account API needs state",
-              "postcondition": "Registration state machine defined",
-              "invariant": "Registration independent of call ability"
+              "precondition": "Account API needs state — an account must exist (add_account succeeded) before registration_state()/update_config() operate; SipAccountHandle carries the client + account id.",
+              "postcondition": "Registration state machine defined — registration_state() maps AccountEntry.registration via RegistrationState::from_storage_str (P10-1); MockBackend stores \"Registered\" on add_account; register()/unregister() submit SetRegistration.",
+              "invariant": "Registration independent of call ability — update_config does not change registration state; register/unregister operate regardless of config changes."
             },
             {
               "id": "C041",
               "sourceEdge": "N0040→N0014 (inbound)",
-              "precondition": "AccountConfig defines codec policy",
-              "postcondition": "Codec enforcement and fallback rules specified",
-              "invariant": "PCMU and Opus only"
+              "precondition": "AccountConfig defines codec policy — AccountCodecPolicy { enable_pcmu, enable_opus, opus: OpusConfig } is a field of AccountConfig (account_config_spec.rs:85).",
+              "postcondition": "Codec enforcement and fallback rules specified — AccountConfig::validate rejects enable_pcmu=false && enable_opus=false; opus ranges enforced (bitrate 500-512000, complexity 0-10, ptime 10/20/40/60).",
+              "invariant": "PCMU and Opus only — at least one of enable_pcmu/enable_opus must be true for any account config accepted by add_account/update_config."
             },
             {
               "id": "C043",
               "sourceEdge": "N0042→N0015 (inbound)",
-              "precondition": "Transport config defined",
-              "postcondition": "SRTP spec and reconnection policy specified",
-              "invariant": "SRTP feature-gated"
+              "precondition": "Transport config defined — TransportConfig enum with Udp/Tcp and #[cfg(feature=\"tls\")] Tls(TlsTransportConfig) (transport_ice_spec.rs).",
+              "postcondition": "SRTP spec and reconnection policy specified — AccountMediaConfig.srtp accepts SrtpPolicy::{Disabled,Optional,Mandatory}; the transport lifecycle records TransportRuntimeState for created transports.",
+              "invariant": "SRTP feature-gated — the Tls variant and TlsConfig only compile under #[cfg(feature=\"tls\")]; at runtime without the feature the variant is absent at the type level."
             },
             {
               "id": "C052",
               "sourceEdge": "N0051→N0013",
-              "precondition": "ClientConfig defined",
-              "postcondition": "Validation phase with fail-fast rules",
-              "invariant": "All validation rules enumerated"
+              "precondition": "ClientConfig defined — ClientConfig::validate() exists (client_config_spec.rs) and enforces event_bus_capacity>=16, raw_sip bounds, max_calls>0, transports non-empty.",
+              "postcondition": "Validation phase with fail-fast rules — the first violation is returned as Err(InvalidConfig) with a rule-specific message; no RuntimeCommand is submitted on validation failure (no partial state mutation).",
+              "invariant": "All validation rules enumerated — every AccountConfig validation rule (empty username/domain/password, no codec, empty DTMF send/receive, zero registration_expires, opus ranges) has a dedicated test entry."
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P3-1 specified the public API surface for account and transport configuration (AccountConfig validation, TransportConfig/ICE). The src/lib.rs:51 stub deferred the account/call/transport lifecycle methods because the configuration types (AccountConfig, TransportConfig, OutgoingCallRequest) were not yet stable enough to wire through RuntimeCommand dispatch. This work item resolves the deferred lifecycle by implementing the account and transport configuration lifecycle methods - creating (add), modifying (update_config), and deleting (remove) accounts, plus transport configuration methods.",
+          "background": "### Goal\nMake the account and transport configuration lifecycle fully functional on the public API and through the runtime: SipClient::add_account/remove_account/account/add_transport facades that validate then dispatch, a real SipAccountHandle::update_config (replacing the no-op), and reactor dispatch that keeps the authoritative ClientState in lockstep with backend operations.\n\n### Purpose\nP3-1 specified the configuration types (AccountConfig, TransportConfig, ClientConfig) but deferred the lifecycle methods behind the src/lib.rs:54 stub. Without these methods the crate cannot add, modify, or remove accounts at runtime — the core of any SIP client. This ticket turns the deferred stub into real, tested behavior.\n\n### Motivation\nSource ticket P3-1 explicitly deferred account/call/transport lifecycle methods because AccountConfig/TransportConfig/OutgoingCallRequest were not yet stable. Those types are now stable (P3-1, P4-1, P10-1 landed). The prior no-op update_config (P11-7, previously P8-14) and the reactor AddAccount reply that discards the assigned account_id make the facade unable to return a real handle. This ticket removes the deferred stub and the no-op.\n\n### Constraints\n- All lifecycle methods are async fn returning Result<T, SipError> (C017); SipClient/SipAccountHandle stay Clone + Send + Sync (C012).\n- Validation must occur before dispatch (fail-fast, C052): invalid config/patch returns Err(InvalidConfig) with zero state mutation.\n- SipCall lifecycle (make/answer/hangup/hold/transfer/send_dtmf) is OUT of scope (P8-9); real CallId wiring is P8-13; startup account restoration is P8-15; real PJSUA FFI is P3-2/P4-2.",
           "scope": [
-            "- src/lib.rs - replace the P8-22 stub at line 51; keep account/call/transport module declarations",
-            "- src/client.rs - SipClient::add_account / remove_account facade methods",
-            "- src/api/public_api_design.rs - SipAccountHandle lifecycle: real update_config (replaces the P8-14 no-op), remove, and transport methods",
-            "- src/runtime/command.rs - RuntimeCommand variants for account modify/delete and transport configuration",
-            "- src/runtime/reactor.rs - dispatch the new account/transport lifecycle commands",
-            "- src/config/account_config_spec.rs - AccountConfig validation reused for the modify path",
-            "- src/config/transport_ice_spec.rs - TransportConfig types wired into the transport lifecycle",
-            "- src/transport.rs - re-export/verify transport config types",
-            "- Out of scope: SipCall lifecycle (make/answer/hangup/hold/transfer/send_dtmf) is covered by P8-9; Audio Subscribe by P8-8; registration-state retrieval by P8-12; startup account restoration by P8-15.",
-            "- Impact: public API surface for account/transport lifecycle; RuntimeCommand gains new variants; SipClient/SipAccountHandle stay Clone + Send + Sync."
+            "- src/lib.rs:54 — Replace the `[::STUB::] P10-3` marker (\"account/call/transport lifecycle methods are deferred\") with a real doc comment; KEEP `pub mod account; pub mod call; pub mod transport;` declarations. The module declarations stay; only the stub-gating comment is removed. Also update the line-52 doc comment \"Account and Transport type stubs\" which becomes a lie once lifecycle methods are real.",
+            "- src/client.rs — Add `SipClient::add_account(&self, config: AccountConfig) -> Result<SipAccountHandle, SipError>`: validate config first (fail-fast, Err(InvalidConfig) with zero dispatch), then submit via `RuntimeHandle::submit_add_account`, return `SipAccountHandle::new(self.clone(), account_id)` with the backend-assigned id.",
+            "- src/client.rs — Add `SipClient::remove_account(&self, account_id: u64) -> Result<(), SipError>`: submit RuntimeCommand::RemoveAccount. The reactor must ALSO remove the entry from client_state.accounts — today the Execute closure only calls backend.remove_account and leaves ClientState stale.",
+            "- src/client.rs — Add `SipClient::account(&self, account_id: u64) -> Result<SipAccountHandle, SipError>`: query_state; Err(AccountNotFound) if the id is missing, else return a handle.",
+            "- src/client.rs — Add `SipClient::add_transport(&self, config: TransportConfig) -> Result<(), SipError>`: submit RuntimeCommand::CreateTransport; the reactor records a TransportRuntimeState in client_state.transports.",
+            "- src/api/public_api_design.rs — Implement real `SipAccountHandle::update_config(&self, patch: AccountConfigPatch) -> Result<(), SipError>`: query_state -> find AccountEntry -> `patch.apply(&entry.config)` (merge + AccountConfig::validate) -> submit RuntimeCommand::UpdateAccount with the merged config. Replaces the `[::STUB::] P11-7` no-op.",
+            "- src/api/public_api_design.rs — Add `SipAccountHandle::remove(&self) -> Result<(), SipError>`: convenience that delegates to `self.client.remove_account(self.id)`.",
+            "- src/runtime/command.rs — Change `RuntimeCommand::AddAccount.reply` from `Result<(), ReactorError>` to `Result<u64, ReactorError>` so the reactor returns the assigned logical account_id; update the manual Debug/Display impls and `DispatchCommand::from_runtime_command`.",
+            "- src/runtime/command.rs — Add `RuntimeCommand::UpdateAccount { account_id: u64, config: AccountConfig, reply }` and `RuntimeCommand::CreateTransport { config: TransportConfig, reply }`; update Debug/Display impls and DispatchCommand conversion.",
+            "- src/runtime/handle.rs — Add `RuntimeHandle::submit_add_account(&self, config: AccountConfig) -> Result<u64, ReactorError>` (pattern: submit_get_account_info / submit_add_audio_source); in `submit()`, route DispatchCommand::AddAccount to `unreachable!(\"use submit_add_account\")` and add the UpdateAccount/CreateTransport match arms.",
+            "- src/runtime/reactor.rs — Dispatch new commands: UpdateAccount (backend.update_account + update client_state.accounts[id].config), CreateTransport (backend.create_transport + push TransportRuntimeState); make AddAccount reply Ok(entry.id); convert RemoveAccount to a dedicated dispatch arm that also removes from client_state.accounts.",
+            "- src/runtime/backend.rs + src/runtime/state.rs — Add `SipBackend::update_account(&mut self, native_acc_id: i32, config: &AccountConfig) -> Result<(), ReactorError>` (MockBackend implements; PjsuaBackend returns Err with a `[::STUB::] P3-2` marker). Change `AccountEntry.config: String -> AccountConfig` so ClientState holds the full config; MockBackend::add_account stores the full config (not just username).",
+            "- src/config/account_config_spec.rs — Define `AccountConfigPatch` (Option fields mirroring AccountConfig, nested Option for Option<T> config fields such as display_name/registrar_uri) with `validate()` and `apply(&self, base: &AccountConfig) -> Result<AccountConfig, SipError>` that merges and reuses AccountConfig::validate()."
           ],
           "testUnit": [
-            "UT: [C012] SipClient::add_account submits RuntimeCommand::AddAccount (asserted via MockBackend call records).",
-            "UT: [C012] SipClient::remove_account submits RuntimeCommand::RemoveAccount with the correct account_id.",
-            "UT: [C015] add_account rejects AccountConfig with empty username with Err(InvalidConfig) before dispatch.",
-            "UT: [C052] add_account rejects AccountCodecPolicy with both enable_pcmu=false and enable_opus=false.",
-            "UT: [C052] update_config with an invalid patch returns Err(InvalidConfig) and leaves the stored account unchanged.",
-            "UT: [C016] TransportConfig UDP/TCP variants construct and round-trip; the TLS variant compiles only with the tls feature.",
-            "UT: [C017] All lifecycle methods return Result<T, SipError> (compile-time signature assertions).",
-            "UT: [Normal] add_account with all-Optional-fields-None AccountConfig succeeds (display_name=None, auth_username=None, registrar_uri=None, outbound_proxy=[], contact_params=[]).",
-            "UT: [Boundary] remove_account of the same account twice: the second call returns Err (not found), no panic.",
-            "UT: [Error] update_config/remove_account on a non-existent account_id returns Err."
+            "UT: [Normal] add_account(valid AccountConfig) returns Ok(SipAccountHandle) with a non-zero account_id and the account is immediately visible: SipClient::new(ClientConfig::builder().sip_proxy_host(\"sip.example.com\").build()).await.unwrap(); let handle = client.add_account(valid_account_config()).await.unwrap(); assert!(handle.id() > 0); let snapshots = client.accounts().await.unwrap(); assert!(snapshots.iter().any(|a| a.account_id.get().get() == handle.id())); (MockBackend reactor; AccountId newtype unwrap via .get().get()).",
+            "UT: [Normal] add_account with all-Optional-fields-None AccountConfig succeeds: username/domain/password set; display_name=None, auth_username=None, registrar_uri=None, outbound_proxy=[], contact_params=[], headers=[] — AccountConfig::validate() (account_config_spec.rs:198) passes and the account is added without error.",
+            "UT: [Normal] update_config with a valid patch applies the change without dropping or recreating the account: add_account -> let id = handle.id(); handle.update_config(AccountConfigPatch { username: Some(\"alice2\".into()), ..Default::default() }).await.unwrap(); let state = client.handle().query_state().await.unwrap(); let entry = state.accounts.get(&AccountId::from_u64(id).unwrap()).unwrap(); assert_eq!(entry.config.username, \"alice2\"); assert_eq!(entry.id, id, \"account must not be recreated\").",
+            "UT: [Normal] SipAccountHandle::remove() removes the account: add_account -> handle.remove().await.unwrap(); assert!(client.accounts().await.unwrap().is_empty(), \"accounts() must be empty after remove\").",
+            "UT: [Normal] add_transport(TransportConfig::udp(5070)) submits RuntimeCommand::CreateTransport and the reactor records a TransportRuntimeState: after add_transport, query_state().transports contains one entry with transport_type \"udp\" and port 5070.",
+            "UT: [Error] add_account with an invalid AccountConfig (empty username) returns Err(SipErrorKind::InvalidConfig) BEFORE any dispatch: let err = client.add_account(bad_config).await.err().unwrap(); assert_eq!(err.kind, InvalidConfig); assert!(backend.accounts.is_empty(), \"zero add_account calls on validation failure\").",
+            "UT: [Error] add_account with both codecs disabled (AccountCodecPolicy { enable_pcmu:false, enable_opus:false }) returns Err(InvalidConfig) via AccountConfig::validate (account_config_spec.rs:217), no dispatch.",
+            "UT: [Error] update_config with an invalid patch (e.g. username: Some(\"\")) returns Err(InvalidConfig) and leaves the stored account unchanged: query_state before/after update shows identical entry.config.",
+            "UT: [Error] update_config on a non-existent account_id returns Err (SipErrorKind::AccountNotFound), never panics.",
+            "UT: [Error] remove_account on a non-existent account_id returns Err (AccountNotFound), never panics.",
+            "UT: [Boundary] remove_account of the same account twice: the first call succeeds and accounts() is empty; the second call returns Err (not found), no panic.",
+            "UT: [Boundary] add_account twice creates two distinct accounts with incrementing ids (MockBackend first=1, second=2); both appear in accounts() with distinct account_ids.",
+            "UT: [Boundary] AccountConfig with register_on_start=false and allow_outbound_without_register=true validates successfully and can be added (RFC §11.1: false+true is a valid combination).",
+            "UT: [Invariant] All lifecycle methods return Result<T, SipError>: compile-time signature assertions via fn-pointer type checks — add_account: fn(&SipClient, AccountConfig) -> Result<SipAccountHandle, SipError>; remove_account: fn(&SipClient, u64) -> Result<(), SipError>; account: fn(&SipClient, u64) -> Result<SipAccountHandle, SipError>; add_transport: fn(&SipClient, TransportConfig) -> Result<(), SipError>; update_config: fn(&SipAccountHandle, AccountConfigPatch) -> Result<(), SipError>; remove: fn(&SipAccountHandle) -> Result<(), SipError>.",
+            "UT: [Invariant] SipClient and SipAccountHandle remain Clone + Send + Sync (assert_clone/assert_send/assert_sync generic assertions, matching public_api_design.rs:302).",
+            "UT: [Invariant] Validation failure never mutates state: after a failed add_account (invalid config) and a failed update_config (invalid patch), query_state() shows the reactor state identical to before (no partial mutation).",
+            "UT: [C012] SipClient::add_account submits RuntimeCommand::AddAccount via RuntimeHandle::submit_add_account and the returned account_id equals the backend-assigned id (MockBackend::add_account returns incrementing id 1; the reactor replies Ok(entry.id)).",
+            "UT: [C012] SipClient::remove_account submits RuntimeCommand::RemoveAccount with the correct account_id (MockBackend records the native_acc_id; assert the reactor dispatch reached backend.remove_account).",
+            "UT: [C012] SipClient::add_transport submits RuntimeCommand::CreateTransport (MockBackend.create_transport call recorded) and the reactor appends a TransportRuntimeState.",
+            "UT: [C015] add_account rejects empty username/domain/password with Err(InvalidConfig) before dispatch, reusing AccountConfig::validate (account_config_spec.rs:198-215).",
+            "UT: [C015] update_config reuses AccountConfig::validate on the merged config: a patch that yields an invalid merged config (empty password) returns Err(InvalidConfig) before dispatch.",
+            "UT: [C016] TransportConfig::Udp/UdpTransportConfig and Tcp/TcpTransportConfig construct and round-trip (bind_addr preserved); the Tls variant compiles only under #[cfg(feature=\"tls\")] (cfg-gated test in transport_ice_spec.rs).",
+            "UT: [C017] All lifecycle methods return Result<T, SipError> (compile-time signature assertions); error mapping from ReactorError to SipError is exercised by the reactor-down path: a downed reactor makes add_account/update_config return Err(NativeError).",
+            "UT: [C026] update_config does not alter the account's registration state: add_account (MockBackend stores \"Registered\") -> update_config(username) -> registration_state() still Registered; register()/unregister() remain independent of config changes.",
+            "UT: [C041] AccountCodecPolicy with both codecs disabled fails validation (reused by add_account and the update_config merge path); PCMU/Opus-only policy passes.",
+            "UT: [C043] SrtpPolicy::Mandatory configures AccountMediaConfig.srtp; the TLS transport variant is feature-gated so it does not appear without the tls feature (verified via cargo check, not runtime).",
+            "UT: [C052] Fail-fast validation: each violated rule produces a distinct InvalidConfig message (empty username, empty domain, empty password, no codec, empty DTMF send, empty DTMF receive, zero registration_expires, invalid opus bitrate/ptime) — enumerated in account_config_spec.rs:198-263."
           ],
           "testIntegration": [
-            "IT: [Lifecycle] add_account -> accounts() shows the account -> update_config changes stored config -> remove_account removes it, verified via the reactor's authoritative ClientState (read().await).",
-            "IT: [Validation-before-dispatch] MockBackend records zero add_account calls when an invalid AccountConfig is submitted.",
-            "IT: [Concurrency] Add and remove accounts from multiple tokio tasks; FIFO order preserved through the MPSC channel (C011)."
+            "IT: [Lifecycle] End-to-end account lifecycle via the reactor: SipClient::new -> add_account(valid) -> accounts() contains the account with matching uri -> update_config(valid patch) changes entry.config in query_state (authoritative ClientState) -> SipAccountHandle::remove() / remove_account(id) -> accounts() no longer contains the account. Each step is verified by reading client.handle().query_state().await.accounts, not the event stream (C021 O-004).",
+            "IT: [Validation-before-dispatch] MockBackend records zero add_account calls when an invalid AccountConfig is submitted: add_account(empty-username config) returns Err(InvalidConfig) and backend.accounts stays empty (no side effect, no partial state mutation).",
+            "IT: [Concurrency] Add and remove accounts from multiple tokio tasks concurrently; FIFO order through the unbounded MPSC channel (C011) guarantees unique incrementing ids and no lost accounts: spawn 5 tasks each adding one account, join, assert accounts() has 5 distinct ids; then spawn 5 removal tasks, join, assert accounts() is empty.",
+            "IT: [Transport] add_transport(CreateTransport) -> reactor's authoritative ClientState transports reflects TransportRuntimeState (transport_id, transport_type, port): add_transport(TransportConfig::udp(5070)) -> query_state().transports has one entry with port 5070."
           ],
           "testExceptions": [
-            "Actual PJSUA registration/transport binding requires a running PJSIP stack (pjsua-native feature), which is not available in unit tests; MockBackend/PjsuaBackend stubs are used instead.",
-            "TLS compile-time gating is verified via cargo check with/without the tls feature, not by runtime unit tests."
+            "Item: Real PJSUA registration/transport FFI binding. Reason: the real PJSUA registration/transport behavior is NOT TESTABLE in unit tests because it requires a running PJSIP stack linked via the pjsua-native feature, which is not available in this environment; we cannot test it without the FFI dependency. This is NOT a design defect — the SipBackend abstraction (backend.rs:20, C038) intentionally isolates FFI behind MockBackend/PjsuaBackend, which provide a deterministic in-process stand-in for every lifecycle command; the real FFI binding is a P3-2/P4-2 dependency by design, not an untested behavior gap.",
+            "Item: TLS compile-time feature gating. Reason: the absence of the TransportConfig::Tls variant when the tls feature is disabled is NOT TESTABLE at runtime because the variant is removed at the type level (RFC §12) — we cannot test a type that does not compile into the test binary. This is NOT an architectural defect — the feature gate is an explicit, deterministic compile-time contract. Alternative verification: `cargo check --no-default-features` (variant absent) vs `cargo check --features tls` (variant present), plus a cfg-gated #[test] that only compiles under the feature.",
+            "Item: Actual socket binding of TransportConfig.bind_addr. Reason: the real socket bind is NOT TESTABLE because PjsuaBackend::create_transport is unimplemented until P3-2/P4-2 wires pjsua_transport_create, and a real bind requires a live network stack; we cannot test it without those dependencies. This is NOT a design defect — the reactor's TransportRuntimeState recording and CreateTransport dispatch are deterministic and fully unit-tested with MockBackend (which returns Ok(()) for create_transport); only the FFI layer is deferred, by design (C038)."
           ],
           "acceptanceCriteria": [
-            "【Happy path】SipClient::add_account(AccountConfig) validates the config, submits RuntimeCommand::AddAccount, and returns a SipAccountHandle with a non-zero account_id on success.",
-            "【Happy path】SipAccountHandle::update_config(patch) submits an account-modify command and applies validated changes without dropping or recreating the account.",
-            "【Happy path】SipClient::remove_account(account_id) submits RuntimeCommand::RemoveAccount; the account no longer appears in accounts().",
-            "【Happy path】Transport configuration (UDP/TCP/ICE via TransportConfig) is accepted and reflected in the reactor's transport runtime state.",
-            "【Error case】add_account with an invalid AccountConfig returns Err(SipErrorKind::InvalidConfig) before any RuntimeCommand is submitted - no state mutation on validation failure.",
-            "【Error case】update_config/remove_account on a non-existent account_id returns Err (InvalidConfig or NotInitialized), never panics.",
+            "【Happy path】SipClient::add_account(AccountConfig) validates the config, submits RuntimeCommand::AddAccount (via submit_add_account), and returns a SipAccountHandle with a non-zero account_id on success; the account is immediately visible in accounts() and query_state.",
+            "【Happy path】SipAccountHandle::update_config(patch) merges the patch with the stored AccountConfig, validates the merged result, and submits RuntimeCommand::UpdateAccount; the changed config is reflected in the reactor's authoritative ClientState without dropping or recreating the account (same account_id).",
+            "【Happy path】SipClient::remove_account(account_id) submits RuntimeCommand::RemoveAccount and the reactor removes the account from client_state.accounts; the account no longer appears in accounts().",
+            "【Happy path】Transport configuration (TransportConfig UDP/TCP via SipClient::add_transport) is accepted and reflected in the reactor's client_state.transports as TransportRuntimeState (transport_id/type/port).",
+            "【Error case】add_account with an invalid AccountConfig returns Err(SipErrorKind::InvalidConfig) before any RuntimeCommand is submitted — no state mutation on validation failure (MockBackend records zero calls).",
+            "【Error case】update_config/remove_account on a non-existent account_id returns Err (AccountNotFound), never panics.",
             "【Edge case】AccountConfig with register_on_start=false and allow_outbound_without_register=true validates successfully and can be added.",
             "【Edge case】All lifecycle methods are async fn returning Result<T, SipError>; SipClient/SipAccountHandle remain Clone + Send + Sync."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§8, §11, §12, §42)",
           "relatedTicketIds": "P2-1 (depends on: purpose for API shape), P2-2 (depends on: SipError return types), P1-1 (depends on: concurrency model for runtime handle), P4-1 (depends on: ClientConfig for constructor)",
-          "notes": "- Stub file:line list - src/lib.rs:51.\n- Implementation steps: (1) add SipClient::add_account/remove_account facades; (2) implement real update_config and transport methods; (3) add RuntimeCommand::UpdateAccount and transport variants; (4) wire reactor dispatch; (5) Red tests, then Green.\n- Dependencies: RuntimeCommand already has AddAccount/RemoveAccount/SetRegistration (command.rs:49-56) backed by SipBackend trait methods (backend.rs:31-38); reuse AccountConfig validation from account_config_spec.rs.\n- Related tickets: P8-9 (SipCall lifecycle), P8-13 (real CallId), P8-14 (update_config), P8-12 (account info), P8-15 (startup account restoration).",
+          "notes": "- Stub file:line list — src/lib.rs:54 ([::STUB::] P10-3), src/api/public_api_design.rs:160 ([::STUB::] P11-7 update_config no-op), src/api/public_api_design.rs:154 ([::STUB::] P12-1 hardcoded CallId — owned by P8-13, NOT resolved here).\n- Implementation steps: (1) Red: write the failing testUnit/testIntegration suite; (2) define AccountConfigPatch and change AccountEntry.config to AccountConfig; (3) change AddAccount reply to Result<u64, ReactorError> and add RuntimeHandle::submit_add_account; (4) add UpdateAccount/CreateTransport variants + DispatchCommand conversion + reactor dispatch; (5) fix the RemoveAccount stale-state path; (6) add SipClient::add_account/remove_account/account/add_transport facades and real SipAccountHandle::update_config/remove; (7) remove the lib.rs:54 stub; (8) Green: make all tests pass; (9) Refactor (Boy Scout).\n- Risks: (a) changing RuntimeCommand::AddAccount's reply type breaks existing tests that submit AddAccount via handle.submit() — public_api_design.rs:224 registration_state_queries_reactor_and_returns_registered must migrate to submit_add_account; (b) changing AccountEntry.config to AccountConfig touches state.rs test constructions (lines 195-285), error/m20_runtime_command_error.rs (206,490), backend.rs:168/600, and account_snapshot_from_entry (client.rs:310 uri derivation); (c) TransportConfig has no validate() in RFC §12, so add_transport validates only that the config constructs.\n- Caveats: update_config applies the patch at the facade from a query_state snapshot — concurrent config updates are last-writer-wins (the reactor serializes commands, so the merged config is always validated against a committed state). The PjsuaBackend returns Err(unimplemented) for update_account until P3-2/P4-2.\n- Open items: RFC §8.3 declares accounts() -> Vec<SipAccountHandle> but the code returns Vec<AccountSnapshot> (P7-2 O-004) — a pre-existing RFC discrepancy left for a dedicated ticket, not changed here. AccountId newtype migration (P9-5/P4-1) is separate; this ticket keeps the u64 handle-id convention.\n- Future improvements: derive a real AOR uri in account_snapshot_from_entry once AccountEntry.config holds the full config; migrate SipAccountHandle.id to the AccountId newtype; add SipClient::account() and the transport lifecycle to the RFC public API discrepancy list.\nImplementation summary for P10-3 (append):\n- Changed files: src/config/account_config_spec.rs (AccountConfigPatch), src/runtime/state.rs (AccountEntry.config type), src/runtime/command.rs (AddAccount u64 reply, UpdateAccount/CreateTransport variants, dedicated RemoveAccount), src/runtime/handle.rs (submit_add_account), src/runtime/backend.rs (SipBackend::update_account + MockBackend/PjsuaBackend), src/runtime/reactor.rs (new dispatch arms + stale-state fix), src/client.rs (facades + account_snapshot_from_entry AOR), src/api/public_api_design.rs (real update_config + remove), src/lib.rs (stub removed, TlsConfig gate), examples/common/client.rs + tests/verify_spec_p10_1.rs (submit_add_account migration).\n- TDD: RED (new tests across 7 files) → GREEN (implementation) → REFACTOR (Result-returning tests, uri derivation, dead-channel cleanup).\n- Verification: make test (831+ lib tests + integration all pass, 0 warnings), cargo check --all-targets (0 errors/warnings), cargo check with/without tls feature both compile.\n- Quality check: reduced from 95 to 54 issues; remaining are pre-existing test-code unwrap/expect in touched files (permitted by project Rust rules) and spawned-closure unwrap that is technically constrained.\n- Gates: verify-red-coverage (8/8 contracts), validate-ticket-targets (verifiedEmpty), scan-crimes (0), no-external-excuses (25/25).\nReview report for P10-3 (append):\n- Static quality check: 52 issues (down from 95 during implementation); remaining are pre-existing test-code unwrap/expect in touched files (permitted by project Rust rules) and 1 pre-existing single-letter test var + 9 pre-existing commented-code detections.\n- Translatability: no debug output in new code; function names are verb phrases (add_account/remove_account/update_config/add_transport/submit_add_account); no new single-char vars or magic numbers; comments explain why only.\n- Compilation: cargo check --all-targets 0 errors / 0 warnings; make test all 14 binaries pass.\n- Stub evaluation: P10-3 target stubs (lib.rs:54, update_config P11-7) resolved; 7 stubs in changed files are owned by future tickets (P12-1, P11-9, P11-12, P11-10, P10-4, P12-6, P12-7) and correctly deferred.\n- Annotation verify: all 12 changed source files carry P10-3 provenance; 1 annotation gap fixed during review (client.rs sip_client_is_send_and_sync).\n- Contracts: verify-final-contracts coverage 100%; validate-ticket-targets verifiedEmpty.\n- RFC §8.3/§8.4 API surface fully implemented; known pre-existing discrepancy (accounts() returns Vec<AccountSnapshot> vs RFC Vec<SipAccountHandle>) left for a dedicated ticket.",
           "default_files": [
             "src/api/public_api_design.rs",
             "src/config/account_config_spec.rs",
@@ -23761,200 +23783,28 @@
           ],
           "id": 3,
           "phaseId": 10,
-          "status": "todo",
-          "invariants": "- All account/transport lifecycle API functions return Result<T, SipError> (C017). Validation failures return Err(SipErrorKind::InvalidConfig) before any RuntimeCommand submission - no partial state mutation.\n- AccountConfig validation enforces non-empty username/domain/password, at least one enabled codec, and non-empty send/receive method lists (C015, C052).\n- TransportConfig TLS variant is gated by #[cfg(feature = \"tls\")] and never present at runtime without the feature (C016, C043).\n- Registration lifecycle (register/unregister) remains independent of call ability (C026).\n- Codec policy only accepts PCMU and Opus (C041).\n- SipClient is Clone, Send, Sync; RuntimeHandle is never leaked outside the crate.",
-          "instrumentation": "- #[instrument(skip(self))] on SipClient::add_account/remove_account and SipAccountHandle lifecycle methods, logging account_id and a config summary.\n- tracing::info! for successful add/remove/transport lifecycle transitions; tracing::warn! on validation rejection with the violated rule.",
-          "investigation": "- src/lib.rs:49-55 declares `pub mod account; pub mod call; pub mod transport;` under the P8-22 stub at line 51 (\"account/call/transport lifecycle methods are deferred\"). account.rs (lines 1-8) and transport.rs (lines 1-21) are pure re-export modules; call.rs:13-22 holds the SipCall placeholder covered by P8-9.\n- src/api/public_api_design.rs:31-37 defines SipAccountHandle. It has register/unregister/set_registration_enabled (submit RuntimeCommand::SetRegistration), registration_state (line 116 returns Idle - P8-12's stub), make_call (line 123 returns hardcoded 1 - P8-13's stub), and update_config (line 150 returns Ok(()) - P8-14's no-op stub).\n- src/client.rs exposes new/subscribe/accounts/call_state/is_terminated/shutdown but has NO add_account/remove_account facade methods yet; account add/remove exist only on the SipBackend trait (src/runtime/backend.rs:31,38) and RuntimeCommand::AddAccount/RemoveAccount (src/runtime/command.rs:49-56).\n- What a real implementation must provide: SipClient::add_account/remove_account facades that validate AccountConfig then submit RuntimeCommand; a real SipAccountHandle::update_config dispatch; transport configuration lifecycle methods; RuntimeCommand update-account/transport variants and their reactor dispatch; all returning Result<T, SipError> and never mutating state on validation failure.",
-          "boyScoutPlan": "- Replace the manual oneshot plumbing in SipAccountHandle (public_api_design.rs lines 55, 75, 95, 131 create (_tx,_rx) and immediately drop) with the crate's send_reply-style helper or a shared submit helper to eliminate dead channels.\n- Remove #[allow(dead_code)] from any field that becomes read by the new lifecycle methods.\n- Add #[instrument] on every new public method, matching the existing pattern enforced at client.rs:720.",
+          "status": "reviewed",
+          "invariants": "- 【Normal establishment】All account/transport lifecycle API functions return Result<T, SipError> (C017); add_account/update_config succeed only after AccountConfig::validate() passes (C015); a successful add_account yields a SipAccountHandle with a non-zero account_id and the account is visible in the reactor's authoritative ClientState (C021).\n- 【Invariant on error】Validation failures return Err(SipErrorKind::InvalidConfig) BEFORE any RuntimeCommand submission — no partial state mutation (C052 fail-fast); a downed reactor maps to Err(NativeError); missing accounts map to Err(AccountNotFound), never panic.\n- 【Internal state invariant】The reactor's ClientState is the single source of truth (O-004): AccountEntry.config holds the full AccountConfig, entry.id is the logical account id, and remove_account must remove the entry from client_state.accounts (not just the backend registry). Registration state is independent of config updates (C026).\n- 【Boundary invariant】AccountConfig with register_on_start=false + allow_outbound_without_register=true is valid (RFC §11.1); TransportConfig TLS variant is feature-gated and never present at runtime without the tls feature (C016/C043); codec policy accepts only PCMU and Opus (C041).",
+          "instrumentation": "- Logging: #[instrument(skip(self))] on every new public method (matching the client.rs:720 pattern): add_account logs the account_id on success and a config summary (username@domain, with the SecretString password redacted); update_config logs the account_id and the patch field list; remove_account/add_transport log the target.\n- Metrics: no new metric sinks exist; the reactor's existing tracing covers command dispatch. On each lifecycle transition emit tracing::info!(account_id, event = \"account_added\" | \"account_updated\" | \"account_removed\" | \"transport_created\").\n- Error tracking: validation rejections emit tracing::warn!(rule = \"username_empty\" | \"domain_empty\" | \"no_codec\" | \"dtmf_empty\" | \"registration_expires_zero\", account_id, \"config validation rejected\") BEFORE returning Err, so the fail-fast path is observable; reactor-down/backend errors emit tracing::error!(error = %e).\n- Health check: is_terminated() remains the liveness signal; every lifecycle method must surface ReactorDown as Err(SipErrorKind::NativeError) so callers can detect a dead reactor and retry after re-construction.",
+          "investigation": "- src/lib.rs:52-57 declares `pub mod account; pub mod call; pub mod transport;` under the `[::STUB::] P10-3` marker at line 54. account.rs is a pure re-export of SipAccountHandle (public_api_design); transport.rs re-exports TransportConfig/IceConfig/StunServerConfig/TurnServerConfig/TurnTransport/UdpTransportConfig plus a legacy TransportType enum (P10-5 stub).\n- src/client.rs (impl SipClient lines 80-295) has new/handle/subscribe/subscribe_account/subscribe_raw_sip/accounts/call_state/subscribe_audio/is_terminated/shutdown but NO add_account/remove_account/account facades. accounts() (line 198) queries the reactor and maps AccountEntry -> AccountSnapshot via account_snapshot_from_entry (line 310) which sets `uri: entry.config.clone()` (the username String placeholder).\n- src/api/public_api_design.rs SipAccountHandle (lines 33-165) has register/unregister/set_registration_enabled (each submits RuntimeCommand::SetRegistration with a dead `(_tx,_rx)` oneshot), a real registration_state() (P10-1, reads ClientState), make_call (submits MakeCall, returns hardcoded Ok(1) under [::STUB::] P12-1), and update_config which is a [::STUB::] P11-7 no-op returning Ok(()).\n- src/runtime/command.rs RuntimeCommand::AddAccount.reply is Result<(), ReactorError> (the assigned id is discarded); RemoveAccount/SetRegistration map to DispatchCommand::Execute closures (backend.remove_account / backend.set_registration); no UpdateAccount/CreateTransport variants exist. Debug (line 148) and Display (line 177) are manual and must be extended for new variants.\n- src/runtime/handle.rs submit() (line 53) injects the reply channel and special-cases AddAccount/Shutdown/audio variants; query_state() (line 141) and submit_get_account_info() (line 115) show the typed-reply pattern that submit_add_account must follow.\n- src/runtime/reactor.rs DispatchCommand::AddAccount handler (line 186) calls backend.add_account, inserts the entry into client_state.accounts keyed by AccountId::from_u64(entry.id), and replies Ok(()) — the assigned entry.id is never returned to the caller. The Execute path for RemoveAccount (from_runtime_command command.rs) does NOT remove from client_state.accounts (stale-state bug, C021). client_state.transports (Vec<TransportRuntimeState>) is never populated.\n- src/runtime/backend.rs SipBackend (lines 20-101) has initialize/create_transport/add_account/remove_account/set_registration/make_call/answer_call/hangup/send_dtmf/configure_codecs/transfer_call/shutdown/resolve_conf_port/get_account_info/conf_connect/conf_disconnect but NO update_account. MockBackend::add_account (line 160) assigns incrementing ids and stores AccountEntry { config: config.username.clone() } — the full AccountConfig is not retained. PjsuaBackend methods return Err(unimplemented) (P3-2).\n- src/runtime/state.rs AccountEntry.config is String (username placeholder, state.rs:64); ClientState (line 42) has accounts: BTreeMap<AccountId, AccountEntry> and transports: Vec<TransportRuntimeState> (line 49, transport_id/transport_type/port). Tests in state.rs (195-285) and error/m20_runtime_command_error.rs (206,490) construct AccountEntry with String configs — they must be updated when config becomes AccountConfig.\n- src/config/account_config_spec.rs AccountConfig has 16 fields and validate() (line 198) checks 9 rules (username/domain/password non-empty, at least one codec, DTMF send/receive non-empty, registration_expires>0, opus bitrate/complexity/ptime when opus enabled). No AccountConfigPatch type exists yet.",
+          "boyScoutPlan": "- Eliminate the dead oneshot channels in SipAccountHandle (public_api_design.rs:56,76,96,143 create `(_tx,_rx)` and immediately drop): extract a private `submit(&self, command: RuntimeCommand) -> Result<(), SipError>` helper so register/unregister/set_registration_enabled/update_config share one code path — the same helper the new lifecycle methods use.\n- Fix the stale-state bug: the RemoveAccount Execute closure calls backend.remove_account but never removes from client_state.accounts; the new dedicated RemoveAccount dispatch arm must keep ClientState authoritative (C021).\n- Replace the `config: String` placeholder in AccountEntry with the full AccountConfig and derive a real AOR uri in account_snapshot_from_entry (client.rs:310), removing the \"display_name is not tracked yet\" doc lie.\n- Remove the manual `let (_tx, _rx) = tokio::sync::oneshot::channel()` dead-channel pattern in client.rs:118/278 and public_api_design.rs by using RuntimeHandle::submit's internal channel creation.\n- Add #[instrument] to every new public method and keep the client.rs:720 instrumentation test passing; remove any #[allow(dead_code)] that the new lifecycle methods make reachable.",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28",
-          "targetStubs": [
-            {
-              "id": "TS-001",
-              "ticketRef": "P3-1",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
-              "line": 4,
-              "markerText": "// [::STUB::] P3-1: Full SIP account management implementation (N0025, N0026).",
-              "contracts": [
-                "C026",
-                "C027"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Implemented in P3-1: replaced STUB with real implementation"
-            },
-            {
-              "id": "TS-002",
-              "ticketRef": "P3-1",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/account.rs",
-              "line": 16,
-              "markerText": "/// [::STUB::] P3-1: Replace `pub` fields with proper `get_*` accessors",
-              "contracts": [
-                "C026",
-                "C027"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Implemented in P3-1: replaced STUB with real implementation"
-            },
-            {
-              "id": "TS-003",
-              "ticketRef": "P3-1",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
-              "line": 23,
-              "markerText": "// TODO: [::STUB::] P3-1: MUST implement NODE_ID=N0011: §8 Public API Design",
-              "contracts": [
-                "C012",
-                "C017",
-                "C019",
-                "C026",
-                "C027",
-                "C031"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Implemented in P3-1: replaced STUB with real implementation"
-            },
-            {
-              "id": "TS-004",
-              "ticketRef": "P3-1",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/account_config_spec.rs",
-              "line": 23,
-              "markerText": "// TODO: [::STUB::] P3-1: MUST implement NODE_ID=N0014: §11 AccountConfig Full Specification",
-              "contracts": [
-                "C015",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Implemented in P3-1: replaced STUB with real implementation"
-            },
-            {
-              "id": "TS-005",
-              "ticketRef": "P3-1",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/client_config_spec.rs",
-              "line": 33,
-              "markerText": "// TODO: [::STUB::] P3-1: MUST implement NODE_ID=N0013: §10 ClientConfig Full Specification",
-              "contracts": [
-                "C015",
-                "C016",
-                "C052"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Implemented in P3-1: replaced STUB with real implementation"
-            },
-            {
-              "id": "TS-006",
-              "ticketRef": "P3-1",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/transport_ice_spec.rs",
-              "line": 23,
-              "markerText": "// TODO: [::STUB::] P3-1: MUST implement NODE_ID=N0015: §12 TransportConfig & §13 ICE/STUN/TURN Spec",
-              "contracts": [
-                "C016",
-                "C043"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Implemented in P3-1: replaced STUB with real implementation"
-            },
-            {
-              "id": "TS-007",
-              "ticketRef": "P3-1",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 138,
-              "markerText": "// [::STUB::] P3-1: Return real account information once the account state",
-              "contracts": [
-                "C017"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Implemented in P3-1: replaced STUB with real implementation"
-            },
-            {
-              "id": "TS-008",
-              "ticketRef": "P3-1",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 54,
-              "markerText": "/// [::STUB::] P3-1/P5-1: Full implementations with lifecycle methods (account/call/transport in P3-1, call API semantics in P5-1).",
-              "contracts": [
-                "C012",
-                "C015",
-                "C016",
-                "C017"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Implemented in P3-1: replaced STUB with real implementation"
-            },
-            {
-              "id": "TS-009",
-              "ticketRef": "P3-1",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
-              "line": 180,
-              "markerText": "// [::STUB::] P3-1: Return real account information once the account state",
-              "contracts": [
-                "C012"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Implemented in P3-1: replaced STUB with real implementation"
-            },
-            {
-              "id": "TS-010",
-              "ticketRef": "P3-1",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
-              "line": 4,
-              "markerText": "// [::STUB::] P3-1: Full transport management (N0015: §12 TransportConfig & §13 ICE/STUN/TURN).",
-              "contracts": [
-                "C016",
-                "C043"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Implemented in P3-1: replaced STUB with real implementation"
-            },
-            {
-              "id": "TS-011",
-              "ticketRef": "P3-1",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
-              "line": 10,
-              "markerText": "/// [::STUB::] P3-1: Replace string with proper enum (Udp, Tcp, Tls).",
-              "contracts": [
-                "C016"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Implemented in P3-1: replaced STUB with real implementation"
-            },
-            {
-              "id": "TS-012",
-              "ticketRef": "P3-1",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/transport.rs",
-              "line": 22,
-              "markerText": "/// [::STUB::] P3-1: Add transport lifecycle (create, destroy, enumerate)",
-              "contracts": [
-                "C016"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Implemented in P3-1: replaced STUB with real implementation"
-            }
-          ],
-          "targetCrimes": [],
+          "updated_at": "2026-08-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
           "planTestCode": [
-            "UT: [Contract C012] Precondition — Command serialization established\n  ```rust\n  // Verify RuntimeCommand is dispatched via UnboundedSender and processed in FIFO order\n  let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();\n  let (reply1, ack1) = tokio::sync::oneshot::channel();\n  let (reply2, ack2) = tokio::sync::oneshot::channel();\n  \n  tx.send(DispatchCommand::Execute { f: Box::new(|_| Ok(())) , reply: reply1 }).unwrap();\n  tx.send(DispatchCommand::Execute { f: Box::new(|_| Ok(())) , reply: reply2 }).unwrap();\n  \n  // Verify FIFO: first sent = first received\n  match rx.try_recv() { Ok(DispatchCommand::Execute { .. }) => {}, _ => panic!(\"expected Execute\") }\n  match rx.try_recv() { Ok(DispatchCommand::Execute { .. }) => {}, _ => panic!(\"expected Execute\") }\n  ```\n  Postcondition — Public API designed around RuntimeCommand pattern\n  ```rust\n  // Verify SipClient uses RuntimeCommand under the hood\n  let config = ClientConfig::default();\n  let (client, _rx) = SipClient::new(config).await.unwrap();\n  client.add_account(valid_account_config()).await.unwrap();\n  // Internally, this submits RuntimeCommand::AddAccount via RuntimeHandle\n  // Verified by MockBackend recording the call\n  ```\n  Invariant — API is Send+Sync\n  ```rust\n  fn assert_send<T: Send>() {}\n  fn assert_sync<T: Sync>() {}\n  assert_send::<SipClient>();\n  assert_sync::<SipClient>();\n  ```",
-            "UT: [Contract C013] Precondition — Public API needs identifiers\n  ```rust\n  // AccountId used in all public API method signatures\n  let account_id: u64 = 42; // placeholder until P4-1\n  let _handle = SipAccountHandle { client: client.clone(), id: account_id };\n  assert_eq!(account_id, _handle.id());\n  ```\n  Postcondition — Newtype IDs with BiMap mapping defined\n  ```rust\n  // Verify u64 -> AccountId conversion (will become NonZeroU64 in P4-1)\n  let raw: u64 = 1;\n  let _id: u64 = raw;\n  ```\n  Invariant — IDs are NonZeroU64\n  ```rust\n  // Deferred to P4-1. P3-1 uses raw u64 with 0 allowed as sentinel.\n  // The NonZeroU64 invariant will be enforced when P4-1 implements newtype IDs.\n  let id: u64 = 0; // 0 is valid as raw u64; P4-1 will reject 0 via NonZeroU64\n  // P4-1: assert!(AccountId::try_from(0u64).is_err());\n  ```",
-            "UT: [Contract C015] Precondition — ClientConfig defined\n  ```rust\n  let cfg = ClientConfig {\n      user_agent: \"test/1.0\".into(),\n      log_level: LogLevel::Debug,\n      max_calls: 10,\n      event_bus_capacity: 2048,\n      raw_sip_event_capacity: 4096,\n      transports: vec![TransportConfig::udp(5060)],\n      ..Default::default()\n  };\n  ```\n  Postcondition — AccountConfig specified with validation\n  ```rust\n  let account = AccountConfig {\n      username: \"alice\".into(),\n      domain: \"sip.example.com\".into(),\n      password: SecretString::new(\"pass123\"),\n      ..Default::default()\n  };\n  assert!(account.validate().is_ok());\n  ```\n  Invariant — Validation rules enforced\n  ```rust\n  let mut bad = AccountConfig { username: String::new(), ..Default::default() };\n  assert!(bad.validate().is_err()); // empty username\n  bad = AccountConfig { domain: String::new(), ..Default::default() };\n  assert!(bad.validate().is_err()); // empty domain\n  ```",
-            "UT: [Contract C016] Precondition — ClientConfig includes transport/ICE\n  ```rust\n  let cfg = ClientConfig {\n      transports: vec![\n          TransportConfig::Udp(UdpTransportConfig { bind_addr: \"0.0.0.0:5060\".parse().unwrap() }),\n          TransportConfig::Tcp(TcpTransportConfig { bind_addr: \"0.0.0.0:5061\".parse().unwrap() }),\n      ],\n      ice: IceConfig::default(),\n      stun_servers: vec![StunServerConfig { host: \"stun.example.com\".into(), port: 3478 }],\n      ..Default::default()\n  };\n  assert_eq!(cfg.transports.len(), 2);\n  ```\n  Postcondition — TransportConfig and ICE config specified\n  ```rust\n  let udp = TransportConfig::Udp(UdpTransportConfig { bind_addr: \"0.0.0.0:5060\".parse().unwrap() });\n  match &udp { TransportConfig::Udp(c) => assert_eq!(c.bind_addr.port(), 5060), _ => panic!() }\n  let ice = IceConfig { enabled: true, aggressive_nomination: false, trickle_ice: true, ..Default::default() };\n  assert!(ice.enabled);\n  ```\n  Invariant — Full ICE support, trickle ICE optional\n  ```rust\n  let ice_full = IceConfig { enabled: true, aggressive_nomination: true, trickle_ice: false, ..Default::default() };\n  let ice_trickle = IceConfig { enabled: true, trickle_ice: true, ..Default::default() };\n  assert!(!ice_full.trickle_ice);\n  assert!(ice_trickle.trickle_ice);\n  ```",
-            "UT: [Contract C017] Precondition — Public API design in progress\n  ```rust\n  // All public API signatures are defined\n  fn _check_signatures() {\n      let _: fn(ClientConfig) -> Result<SipClient, SipError> = |c| todo!();\n      let _: fn(&SipClient, AccountConfig) -> Result<SipAccountHandle, SipError> = |_, _| todo!();\n  }\n  ```\n  Postcondition — Error design constrains API return types\n  ```rust\n  let config = ClientConfig { event_bus_capacity: 1, ..Default::default() };\n  let result = SipClient::new(config).await;\n  assert!(matches!(result, Err(SipError { kind: SipErrorKind::InvalidConfig, .. })));\n  // All errors go through SipError\n  let err = SipError::new(SipErrorKind::InvalidConfig, \"test\");\n  assert_eq!(err.kind, SipErrorKind::InvalidConfig);\n  ```\n  Invariant — All APIs return Result<T, SipError>\n  ```rust\n  fn _check_result_types() {\n      fn _new(_: ClientConfig) -> Result<SipClient, SipError> { todo!() }\n      fn _add_account(_: &SipClient, _: AccountConfig) -> Result<SipAccountHandle, SipError> { todo!() }\n      fn _remove_account(_: &SipClient, _: u64) -> Result<(), SipError> { todo!() }\n      fn _shutdown(_: &SipClient) -> Result<(), SipError> { todo!() }\n  }\n  ```",
-            "UT: [Contract C019] Precondition — Public API needs event types\n  ```rust\n  let (client, mut rx) = SipClient::new(ClientConfig::default()).await.unwrap();\n  let _receiver: &mut tokio::sync::broadcast::Receiver<SipEvent> = &mut rx;\n  let _account_receiver = client.subscribe_account(42);\n  ```\n  Postcondition — SipEventPayload and EventBus defined\n  ```rust\n  let event_bus = EventBus::new(16, None);\n  let mut rx = event_bus.subscribe_control();\n  event_bus.publish(SipEvent { meta: EventMeta::default(), payload: SipEventPayload::ClientInitialized(Default::default()) });\n  let received = rx.try_recv().unwrap();\n  assert!(matches!(received.payload, SipEventPayload::ClientInitialized(_)));\n  ```\n  Invariant — Events are loss-tolerant broadcast\n  ```rust\n  let event_bus = EventBus::new(2, None); // capacity=2\n  let _rx = event_bus.subscribe_control(); // consumer exists\n  for i in 0..10 { event_bus.publish(SipEvent { meta: EventMeta { event_id: i, ..Default::default() }, payload: SipEventPayload::ClientInitialized(Default::default()) }); }\n  // After capacity=2, the receiver may lag — this is expected behavior\n  ```",
-            "UT: [Contract C026] Precondition — Account API needs state\n  ```rust\n  let handle = client.add_account(valid_account_config()).await.unwrap();\n  // Account has initial state (Unregistered)\n  ```\n  Postcondition — Registration state machine defined\n  ```rust\n  let state = handle.registration_state().await.unwrap();\n  assert_eq!(state, RegistrationState::Unregistered);\n  handle.register().await.unwrap();\n  ```\n  Invariant — Registration independent of call ability\n  ```rust\n  let handle = client.add_account(valid_account_config()).await.unwrap();\n  // Can call even without registration (allow_outbound_without_register=true)\n  let request = OutgoingCallRequest { target_uri: \"sip:bob@example.com\".into(), ..Default::default() };\n  let call_id = handle.make_call(request).await.unwrap();\n  assert!(call_id > 0);\n  ```",
-            "UT: [Contract C027] Precondition — Call API needs state\n  ```rust\n  let handle = client.add_account(valid_account_config()).await.unwrap();\n  let request = OutgoingCallRequest { target_uri: \"sip:bob@example.com\".into(), ..Default::default() };\n  let call_id = handle.make_call(request).await.unwrap();\n  assert!(call_id > 0, \"make_call must return a valid CallId\");\n  ```\n  Postcondition — Call state machine defined\n  ```rust\n  // make_call enqueues RuntimeCommand::MakeCall\n  // MockBackend records the call and returns a CallId\n  // Full state machine tested in P5-1 (Call lifecycle)\n  ```\n  Invariant — max_calls enforced\n  ```rust\n  let cfg = ClientConfig { max_calls: 1, ..Default::default() };\n  let (client, _) = SipClient::new(cfg).await.unwrap();\n  let handle = client.add_account(valid_account_config()).await.unwrap();\n  let _call1 = handle.make_call(OutgoingCallRequest { target_uri: \"sip:a@x.com\".into(), ..Default::default() }).await.unwrap();\n  let result2 = handle.make_call(OutgoingCallRequest { target_uri: \"sip:b@x.com\".into(), ..Default::default() }).await;\n  assert!(result2.is_err(), \"max_calls=1 must reject second call\");\n  ```",
-            "UT: [Contract C031] Precondition — Audio delivery part of API\n  ```rust\n  let media = CallMediaPreferences { enable_early_media: true, enable_srtp: None, preferred_codecs: vec![Codec::Pcmu] };\n  let request = OutgoingCallRequest { media: media.clone(), ..Default::default() };\n  assert_eq!(request.media.preferred_codecs[0], Codec::Pcmu);\n  ```\n  Postcondition — Audio format model and AudioChunkPair defined\n  ```rust\n  let invalid_codecs = vec![Codec::G722];\n  assert!(CallMediaConstraints::validate(&invalid_codecs).is_err());\n  let valid_codecs = vec![Codec::Pcmu, Codec::Opus];\n  assert!(CallMediaConstraints::validate(&valid_codecs).is_ok());\n  ```\n  Invariant — IN/OUT paired by timestamp\n  ```rust\n  // AudioChunkPair implementation in P4-2; P3-1 ensures the API surface\n  // exposes this concept through CallMediaPreferences.\n  ```",
-            "UT: [Contract C041] Precondition — AccountConfig defines codec policy\n  ```rust\n  let codecs = AccountCodecPolicy {\n      enable_pcmu: true,\n      enable_opus: false,\n      opus: OpusConfig::default(),\n  };\n  assert!(codecs.validate().is_ok());\n  ```\n  Postcondition — Codec enforcement and fallback rules specified\n  ```rust\n  let no_codecs = AccountCodecPolicy { enable_pcmu: false, enable_opus: false, opus: OpusConfig::default() };\n  assert!(no_codecs.validate().is_err()); // at least one codec required\n  ```\n  Invariant — PCMU and Opus only\n  ```rust\n  let media = CallMediaPreferences { preferred_codecs: vec![Codec::Pcmu, Codec::Opus], ..Default::default() };\n  assert!(CallMediaConstraints::validate(&media.preferred_codecs).is_ok());\n  let bad_media = CallMediaPreferences { preferred_codecs: vec![Codec::G722], ..Default::default() };\n  assert!(CallMediaConstraints::validate(&bad_media.preferred_codecs).is_err());\n  ```",
-            "UT: [Contract C043] Precondition — Transport config defined\n  ```rust\n  #[cfg(feature = \"tls\")]\n  {\n      let tls_config = TlsConfig {\n          verify_server: true,\n          ca_cert_path: Some(\"/etc/ssl/certs/ca.pem\".into()),\n          client_cert_path: None,\n          client_key_path: None,\n          server_name: Some(\"sip.example.com\".into()),\n          allow_insecure_cipher_legacy: false,\n      };\n      let tls = TransportConfig::Tls(TlsTransportConfig { bind_addr: \"0.0.0.0:5062\".parse().unwrap(), tls: tls_config });\n      assert!(matches!(tls, TransportConfig::Tls(_)));\n  }\n  ```\n  Postcondition — SRTP spec and reconnection policy specified\n  ```rust\n  let media = AccountMediaConfig { srtp: SrtpPolicy::Mandatory, ..Default::default() };\n  assert_eq!(media.srtp, SrtpPolicy::Mandatory);\n  ```\n  Invariant — SRTP feature-gated\n  ```rust\n  #[cfg(not(feature = \"srtp\"))]\n  // When srtp feature is disabled, SrtpPolicy falls back to \"optional\" behavior\n  ```",
-            "UT: [Contract C052] Precondition — ClientConfig defined\n  ```rust\n  let cfg = ClientConfig::default();\n  assert!(cfg.validate().is_ok());\n  ```\n  Postcondition — Validation phase with fail-fast rules\n  ```rust\n  let mut cfg = ClientConfig { event_bus_capacity: 8, ..Default::default() };\n  let err = cfg.validate().unwrap_err();\n  assert_eq!(err.kind, SipErrorKind::InvalidConfig);\n  assert!(err.message.contains(\"event_bus_capacity\"));\n  ```\n  Invariant — All validation rules enumerated\n  ```rust\n  // Each rule produces a distinct error message\n  let cfg = ClientConfig { event_bus_capacity: 8, ..Default::default() };\n  assert!(cfg.validate().unwrap_err().message.contains(\"event_bus_capacity\"));\n  let cfg = ClientConfig { raw_sip_event_capacity: 8, event_bus_capacity: 16, raw_sip_events: RawSipEventConfig { enabled: true, ..Default::default() }, ..Default::default() };\n  assert!(cfg.validate().unwrap_err().message.contains(\"raw_sip_event_capacity\"));\n  ```"
+            "UT: [Contract C012] Precondition — Command serialization established\n```rust\n// Verify RuntimeCommand::AddAccount is dispatched via UnboundedSender and processed in FIFO order.\nlet (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();\nlet (reply, _ack) = tokio::sync::oneshot::channel::<Result<u64, ReactorError>>();\ntx.send(DispatchCommand::AddAccount { config: AccountConfig::default(), reply }).unwrap();\n// FIFO: first sent = first received\nmatch rx.try_recv().unwrap() { DispatchCommand::AddAccount { .. } => {}, _ => panic!(\"expected AddAccount\") }\n```\nPostcondition — Public API designed around RuntimeCommand pattern\n```rust\n// add_account internally submits RuntimeCommand::AddAccount via RuntimeHandle::submit_add_account.\nlet (client, _rx) = SipClient::new(config).await.unwrap();\nlet handle = client.add_account(valid_account_config()).await.unwrap();\nassert!(handle.id() > 0, \"add_account must return a handle with a non-zero id\");\n```\nInvariant — API is Send+Sync\n```rust\nfn assert_send<T: Send>() {} fn assert_sync<T: Sync>() {}\nassert_send::<SipClient>(); assert_sync::<SipClient>();\nassert_send::<SipAccountHandle>(); assert_sync::<SipAccountHandle>();\n```",
+            "UT: [Contract C015] Precondition — ClientConfig defined\n```rust\nlet cfg = ClientConfig::builder().sip_proxy_host(\"sip.example.com\").build();\nassert!(cfg.validate().is_ok());\n```\nPostcondition — AccountConfig specified with validation\n```rust\nlet account = AccountConfig {\n    username: \"alice\".into(),\n    domain: \"sip.example.com\".into(),\n    password: SecretString::new(\"pass123\"),\n    ..Default::default()\n};\nassert!(account.validate().is_ok());\n```\nInvariant — Validation rules enforced\n```rust\n// add_account rejects an invalid config BEFORE dispatch (no state mutation).\nlet bad = AccountConfig { username: String::new(), ..Default::default() };\nlet err = client.add_account(bad).await.err().unwrap();\nassert_eq!(err.kind, SipErrorKind::InvalidConfig);\nassert!(backend.accounts.is_empty(), \"zero add_account calls on validation failure\");\n```",
+            "UT: [Contract C016] Precondition — ClientConfig includes transport/ICE\n```rust\nlet cfg = ClientConfig { transports: vec![TransportConfig::udp(5060)], ..Default::default() };\nassert_eq!(cfg.transports.len(), 1);\n```\nPostcondition — TransportConfig and ICE config specified\n```rust\nlet udp = TransportConfig::udp(5060);\nmatch &udp { TransportConfig::Udp(c) => assert_eq!(c.bind_addr.port(), 5060), _ => panic!(\"expected Udp\") }\nlet ice = IceConfig { enabled: true, aggressive_nomination: true, trickle_ice: false, ..Default::default() };\nassert!(ice.aggressive_nomination);\n```\nInvariant — Full ICE support, trickle ICE optional\n```rust\nlet ice_full = IceConfig { enabled: true, aggressive_nomination: true, trickle_ice: false, ..Default::default() };\nlet ice_trickle = IceConfig { enabled: true, trickle_ice: true, ..Default::default() };\nassert!(!ice_full.trickle_ice);\nassert!(ice_trickle.trickle_ice);\n```",
+            "UT: [Contract C017] Precondition — Public API design in progress\n```rust\n// All lifecycle method signatures are defined.\nfn _check(_: fn(&SipClient, AccountConfig) -> Result<SipAccountHandle, SipError>) {}\n```\nPostcondition — Error design constrains API return types\n```rust\n// Every lifecycle error flows through SipError.\nlet err = SipError::new(SipErrorKind::AccountNotFound, \"account not found\");\nassert_eq!(err.kind, SipErrorKind::AccountNotFound);\n```\nInvariant — All APIs return Result<T, SipError>\n```rust\nfn _check_result_types() {\n    fn _add(_: &SipClient, _: AccountConfig) -> Result<SipAccountHandle, SipError> { todo!() }\n    fn _remove(_: &SipClient, _: u64) -> Result<(), SipError> { todo!() }\n    fn _account(_: &SipClient, _: u64) -> Result<SipAccountHandle, SipError> { todo!() }\n    fn _transport(_: &SipClient, _: TransportConfig) -> Result<(), SipError> { todo!() }\n    fn _update(_: &SipAccountHandle, _: AccountConfigPatch) -> Result<(), SipError> { todo!() }\n    fn _remove_handle(_: &SipAccountHandle) -> Result<(), SipError> { todo!() }\n}\n```",
+            "UT: [Contract C026] Precondition — Account API needs state\n```rust\nlet handle = client.add_account(valid_account_config()).await.unwrap();\nassert_eq!(handle.registration_state().await.unwrap(), RegistrationState::Registered);\n```\nPostcondition — Registration state machine defined\n```rust\n// registration_state() maps AccountEntry.registration via RegistrationState::from_storage_str (P10-1).\n// MockBackend::add_account stores \"Registered\".\n```\nInvariant — Registration independent of call ability\n```rust\n// update_config must not change registration state.\nhandle.update_config(AccountConfigPatch { username: Some(\"alice2\".into()), ..Default::default() }).await.unwrap();\nassert_eq!(handle.registration_state().await.unwrap(), RegistrationState::Registered);\n```",
+            "UT: [Contract C041] Precondition — AccountConfig defines codec policy\n```rust\nlet codecs = AccountCodecPolicy { enable_pcmu: true, enable_opus: false, opus: OpusConfig::default() };\nassert!(AccountConfig { codecs, ..Default::default() }.validate().is_ok());\n```\nPostcondition — Codec enforcement and fallback rules specified\n```rust\nlet no_codecs = AccountCodecPolicy { enable_pcmu: false, enable_opus: false, opus: OpusConfig::default() };\nassert!(AccountConfig { codecs: no_codecs, ..Default::default() }.validate().is_err()); // at least one codec\n```\nInvariant — PCMU and Opus only\n```rust\nlet cfg = AccountConfig { username: \"u\".into(), domain: \"d\".into(), password: SecretString::new(\"p\"), ..Default::default() };\nassert!(cfg.validate().is_ok());\n```",
+            "UT: [Contract C043] Precondition — Transport config defined\n```rust\n#[cfg(feature = \"tls\")]\n{ let tls = TransportConfig::Tls(TlsTransportConfig { bind_addr: \"0.0.0.0:5062\".parse().unwrap(), tls: TlsConfig { verify_server: true, ..Default::default() } }); }\n```\nPostcondition — SRTP spec and reconnection policy specified\n```rust\nlet media = AccountMediaConfig { srtp: SrtpPolicy::Mandatory, ..Default::default() };\nassert_eq!(media.srtp, SrtpPolicy::Mandatory);\n```\nInvariant — SRTP feature-gated\n```rust\n// The Tls variant compiles only under #[cfg(feature = \"tls\")]; verified via cargo check with/without the feature.\n```",
+            "UT: [Contract C052] Precondition — ClientConfig defined\n```rust\nlet cfg = ClientConfig::default();\nassert!(cfg.validate().is_ok());\n```\nPostcondition — Validation phase with fail-fast rules\n```rust\n// The first violation returns Err(InvalidConfig) with a rule-specific message; no dispatch.\nlet err = client.add_account(AccountConfig { username: String::new(), ..Default::default() }).await.err().unwrap();\nassert_eq!(err.kind, SipErrorKind::InvalidConfig);\nassert!(err.message.contains(\"username\"));\n```\nInvariant — All validation rules enumerated\n```rust\n// Each rule produces a distinct message: empty username / empty domain / empty password /\n// no codec / empty DTMF send / empty DTMF receive / zero registration_expires /\n// invalid opus bitrate / complexity / ptime (account_config_spec.rs:198-263).\n```",
+            "UT: [Lifecycle Normal] add_account returns a handle whose id equals the backend-assigned id\n```rust\nlet handle = client.add_account(valid_account_config()).await.unwrap();\nassert_eq!(handle.id(), 1, \"MockBackend assigns the first account id 1; add_account must surface it\");\nlet snapshots = client.accounts().await.unwrap();\nassert!(snapshots.iter().any(|a| a.account_id.get().get() == handle.id()));\n```",
+            "UT: [Lifecycle Normal] update_config merges the patch with the stored config and dispatches the merged result\n```rust\nlet handle = client.add_account(valid_account_config()).await.unwrap();\nlet patch = AccountConfigPatch { registrar_uri: Some(\"sip:new-registrar.example.com\".into()), ..Default::default() };\nhandle.update_config(patch).await.unwrap();\nlet state = client.handle().query_state().await.unwrap();\nlet entry = state.accounts.get(&AccountId::from_u64(handle.id()).unwrap()).unwrap();\nassert_eq!(entry.config.registrar_uri.as_deref(), Some(\"sip:new-registrar.example.com\"));\nassert_eq!(entry.id, handle.id(), \"update must not recreate the account\");\n```",
+            "UT: [Lifecycle Transport] CreateTransport records a TransportRuntimeState in the authoritative ClientState\n```rust\nclient.add_transport(TransportConfig::udp(5070)).await.unwrap();\nlet state = client.handle().query_state().await.unwrap();\nassert_eq!(state.transports.len(), 1);\nassert_eq!(state.transports[0].port, 5070);\nassert_eq!(state.transports[0].transport_type, \"udp\");\n```",
+            "UT: [Lifecycle Error] remove_account of a missing id returns Err(AccountNotFound), never panics\n```rust\nlet result = client.remove_account(999).await;\nassert!(matches!(result, Err(ref e) if e.kind == SipErrorKind::AccountNotFound));\n```"
           ],
           "changes": [
             {
@@ -24011,6 +23861,46 @@
               "before": "[::STUB::] P3-1 marker in build_strategy_os_deps.rs without crime record",
               "after": "[::STUB::] marker added and crime #66 recorded then resolved.",
               "description": "Boy Scout: Resolved missing STUB marker violation"
+            },
+            {
+              "before": "RuntimeCommand::AddAccount.reply was Result<(), ReactorError> (assigned id discarded)",
+              "after": "reply is Result<u64, ReactorError>; RuntimeHandle::submit_add_account returns the backend-assigned id",
+              "description": "add_account facade can now build a real SipAccountHandle"
+            },
+            {
+              "before": "AccountEntry.config was String (username placeholder)",
+              "after": "AccountEntry.config is the full AccountConfig",
+              "description": "ClientState is the source of truth for account config; uri/display_name derived from it"
+            },
+            {
+              "before": "SipAccountHandle::update_config was a [::STUB::] P11-7 no-op returning Ok(())",
+              "after": "update_config merges AccountConfigPatch with the stored config, validates (C052), and submits RuntimeCommand::UpdateAccount",
+              "description": "real update_config with fail-fast validation before dispatch"
+            },
+            {
+              "before": "RuntimeCommand had no UpdateAccount/CreateTransport; RemoveAccount mapped to an Execute closure that left ClientState stale",
+              "after": "dedicated DispatchCommand variants UpdateAccount/RemoveAccount/CreateTransport keep client_state.accounts/transports authoritative (C021)",
+              "description": "reactor lifecycle dispatch"
+            },
+            {
+              "before": "SipClient had no account/transport lifecycle facades",
+              "after": "SipClient::add_account/remove_account/account/add_transport implemented",
+              "description": "RFC §8.3 public API surface"
+            },
+            {
+              "before": "SipAccountHandle had no remove()",
+              "after": "SipAccountHandle::remove() delegates to client.remove_account",
+              "description": "account-level removal convenience"
+            },
+            {
+              "before": "src/lib.rs:54 carried the [::STUB::] P10-3 marker",
+              "after": "marker replaced with a real doc comment; pub mod account/call/transport kept",
+              "description": "target stub TS-001 resolved"
+            },
+            {
+              "before": "lib.rs re-exported TlsConfig unconditionally (broke --no-default-features --features serde build)",
+              "after": "TlsConfig re-export gated behind #[cfg(feature = \"tls\")]",
+              "description": "pre-existing tls-off build break fixed (Boy Scout)"
             }
           ],
           "rfcDiscrepancies": [
@@ -24023,7 +23913,9 @@
               "codes": "// [::STUB::] P8-9: SipCall lifecycle and fields are placeholders; call API semantics are deferred -- Implement SipCall with private fields and accessors and call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (NODE_ID=N0027)\npub mod account;\npub mod call;"
             }
           ],
-          "fromStub": true
+          "fromStub": true,
+          "startedAt": "2026-08-06",
+          "completedAt": "2026-08-06"
         },
         {
           "title": "Migrate to a Debug-friendly sender wrapper and derive Debug for RuntimeCommand",

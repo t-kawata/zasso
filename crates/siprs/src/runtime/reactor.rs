@@ -42,7 +42,7 @@ pub struct BootConfig {
 pub struct CoreReactor;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -190,15 +190,15 @@ impl CoreReactor {
                                         }),
                                     );
                                     match result {
-                                        Ok(Ok((native_id, entry))) => {
+                                        Ok(Ok((_native_id, entry))) => {
+                                            let entry_id = entry.id;
                                             // Track the account in authoritative ClientState (O-004).
-                                            if let Ok(account_id) = AccountId::from_u64(entry.id) {
-                                                client_state
-                                                    .accounts
-                                                    .insert(account_id, entry);
+                                            if let Ok(account_id) = AccountId::from_u64(entry_id) {
+                                                client_state.accounts.insert(account_id, entry);
                                             }
-                                            let _ = reply.send(Ok(()));
-                                            let _ = native_id;
+                                            // Reply with the assigned logical id so the facade
+                                            // can build a real SipAccountHandle (P10-3).
+                                            let _ = reply.send(Ok(entry_id));
                                         }
                                         Ok(Err(e)) => {
                                             let _ = reply.send(Err(e));
@@ -217,6 +217,163 @@ impl CoreReactor {
                                                 ReactorError::BackendError(
                                                     format!("reactor panic: {msg}")
                                                 )
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                DispatchCommand::UpdateAccount {
+                                    account_id,
+                                    config,
+                                    reply,
+                                } => {
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            let aid = AccountId::from_u64(account_id).map_err(|_| {
+                                                ReactorError::NotInitialized(
+                                                    "invalid account id".into(),
+                                                )
+                                            })?;
+                                            let native_id = client_state
+                                                .accounts
+                                                .get(&aid)
+                                                .ok_or_else(|| {
+                                                    ReactorError::NotInitialized(
+                                                        "account not found".into(),
+                                                    )
+                                                })?
+                                                .native_id;
+                                            backend.update_account(native_id, &config)
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(())) => {
+                                            if let Ok(aid) = AccountId::from_u64(account_id) {
+                                                if let Some(entry) =
+                                                    client_state.accounts.get_mut(&aid)
+                                                {
+                                                    entry.config = config;
+                                                }
+                                            }
+                                            let _ = reply.send(Ok(()));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = if let Some(s) =
+                                                panic_payload.downcast_ref::<&str>()
+                                            {
+                                                s.to_string()
+                                            } else if let Some(s) =
+                                                panic_payload.downcast_ref::<String>()
+                                            {
+                                                s.clone()
+                                            } else {
+                                                "unknown panic".to_string()
+                                            };
+                                            tracing::error!(panic_msg = %msg, "reactor update_account panicked");
+                                            let _ = reply.send(Err(
+                                                ReactorError::BackendError(format!(
+                                                    "reactor panic: {msg}"
+                                                ))
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                DispatchCommand::RemoveAccount { account_id, reply } => {
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            backend.remove_account(account_id as i32)
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(())) => {
+                                            // Keep the authoritative ClientState in lockstep (C021).
+                                            if let Ok(aid) = AccountId::from_u64(account_id) {
+                                                client_state.accounts.remove(&aid);
+                                            }
+                                            let _ = reply.send(Ok(()));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = if let Some(s) =
+                                                panic_payload.downcast_ref::<&str>()
+                                            {
+                                                s.to_string()
+                                            } else if let Some(s) =
+                                                panic_payload.downcast_ref::<String>()
+                                            {
+                                                s.clone()
+                                            } else {
+                                                "unknown panic".to_string()
+                                            };
+                                            tracing::error!(panic_msg = %msg, "reactor remove_account panicked");
+                                            let _ = reply.send(Err(
+                                                ReactorError::BackendError(format!(
+                                                    "reactor panic: {msg}"
+                                                ))
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                DispatchCommand::CreateTransport { config, reply } => {
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            backend.create_transport(&config)
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(())) => {
+                                            let (transport_type, port) = match &config {
+                                                crate::config::transport_ice_spec::TransportConfig::Udp(c) => {
+                                                    ("udp", c.bind_addr.port())
+                                                }
+                                                crate::config::transport_ice_spec::TransportConfig::Tcp(c) => {
+                                                    ("tcp", c.bind_addr.port())
+                                                }
+                                                #[cfg(feature = "tls")]
+                                                crate::config::transport_ice_spec::TransportConfig::Tls(c) => {
+                                                    ("tls", c.bind_addr.port())
+                                                }
+                                            };
+                                            client_state.transports.push(
+                                                crate::runtime::state::TransportRuntimeState {
+                                                    transport_id: (client_state.transports.len() + 1)
+                                                        as i32,
+                                                    transport_type: transport_type.to_string(),
+                                                    port,
+                                                },
+                                            );
+                                            let _ = reply.send(Ok(()));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = if let Some(s) =
+                                                panic_payload.downcast_ref::<&str>()
+                                            {
+                                                s.to_string()
+                                            } else if let Some(s) =
+                                                panic_payload.downcast_ref::<String>()
+                                            {
+                                                s.clone()
+                                            } else {
+                                                "unknown panic".to_string()
+                                            };
+                                            tracing::error!(panic_msg = %msg, "reactor create_transport panicked");
+                                            let _ = reply.send(Err(
+                                                ReactorError::BackendError(format!(
+                                                    "reactor panic: {msg}"
+                                                ))
                                             ));
                                             break;
                                         }
@@ -806,5 +963,108 @@ mod tests {
             handle.is_terminated(),
             "reactor must be terminated after shutdown"
         );
+    }
+
+    // ── P10-3: account/transport lifecycle dispatch keeps ClientState authoritative ──
+
+    /// Shut the reactor down cleanly (used by the lifecycle tests below).
+    async fn shutdown_reactor(handle: &RuntimeHandle, join: std::thread::JoinHandle<()>) {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        handle
+            .sender
+            .send(DispatchCommand::Shutdown { reply: tx })
+            .ok();
+        let _ = rx.await;
+        join.join().unwrap();
+    }
+
+    #[tokio::test]
+    // @verifies C012
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    async fn reactor_add_account_replies_with_account_id() -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        assert_eq!(id, 1, "MockBackend assigns the first account id 1");
+        let state = handle.query_state().await?;
+        assert_eq!(state.accounts.len(), 1, "ClientState must reflect the added account");
+        shutdown_reactor(&handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C021
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    async fn reactor_remove_account_removes_from_client_state() -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        let (_tx, _rx) = tokio::sync::oneshot::channel();
+        handle
+            .submit(crate::runtime::command::RuntimeCommand::RemoveAccount {
+                account_id: id,
+                reply: _tx,
+            })
+            .await?;
+        let state = handle.query_state().await?;
+        assert!(
+            state.accounts.is_empty(),
+            "RemoveAccount must remove the entry from the authoritative ClientState"
+        );
+        shutdown_reactor(&handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C015
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    async fn reactor_update_account_updates_client_state_config() -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        let mut new_config = crate::config::account_config_spec::AccountConfig {
+            username: "bob".into(),
+            domain: "pbx.example.com".into(),
+            password: crate::security::SecretString::new("pass123"),
+            ..Default::default()
+        };
+        new_config.registrar_uri = Some("sip:pbx.example.com".into());
+        let (_tx, _rx) = tokio::sync::oneshot::channel();
+        handle
+            .submit(crate::runtime::command::RuntimeCommand::UpdateAccount {
+                account_id: id,
+                config: new_config.clone(),
+                reply: _tx,
+            })
+            .await?;
+        let state = handle.query_state().await?;
+        let entry = state.accounts.get(&test_account(id)).ok_or("account must exist")?;
+        assert_eq!(entry.config.username, "bob");
+        assert_eq!(entry.config.registrar_uri, Some("sip:pbx.example.com".into()));
+        shutdown_reactor(&handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C016
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    async fn reactor_create_transport_records_transport_runtime_state() -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let (_tx, _rx) = tokio::sync::oneshot::channel();
+        handle
+            .submit(crate::runtime::command::RuntimeCommand::CreateTransport {
+                config: crate::config::transport_ice_spec::TransportConfig::udp(5070),
+                reply: _tx,
+            })
+            .await?;
+        let state = handle.query_state().await?;
+        assert_eq!(state.transports.len(), 1, "one transport must be recorded");
+        assert_eq!(state.transports[0].port, 5070);
+        assert_eq!(state.transports[0].transport_type, "udp");
+        shutdown_reactor(&handle, join).await;
+        Ok(())
     }
 }

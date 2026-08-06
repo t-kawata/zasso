@@ -1,3 +1,4 @@
+
 // Account-management helpers for the siprs example binaries.
 //
 // account_register and make_call include this module via `#[path]` to add an
@@ -5,7 +6,6 @@
 // authoritative handle via the O-004 query API (a facade `SipClient::add_account`
 // lands in P10-3).
 
-use siprs::runtime::command::RuntimeCommand;
 use siprs::{AccountConfig, SecretString, SipAccountHandle, SipClient};
 
 use crate::cli::{self, CliArgs};
@@ -42,9 +42,10 @@ pub fn require(args: &CliArgs, required: &[&str]) -> Result<(), cli::CliError> {
 
 /// Add an account from the CLI arguments and resolve its `SipAccountHandle`.
 ///
-/// Uses the documented `RuntimeHandle::submit(RuntimeCommand::AddAccount)` path
-/// and then queries the authoritative account list (O-004) for the assigned id.
+/// Uses the typed `RuntimeHandle::submit_add_account` path, which returns the
+/// backend-assigned logical account id directly.
 pub async fn add_account_and_resolve(
+// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     client: &SipClient,
     args: &CliArgs,
 ) -> Result<SipAccountHandle, Box<dyn std::error::Error>> {
@@ -54,21 +55,8 @@ pub async fn add_account_and_resolve(
         password: SecretString::new(required_field(args.password.as_deref(), "--password")?),
         ..AccountConfig::default()
     };
-    let (_tx, _rx) = tokio::sync::oneshot::channel();
-    client
-        .handle()
-        .submit(RuntimeCommand::AddAccount { config, reply: _tx })
-        .await?;
-    let snapshot = client
-        .accounts()
-        .await?
-        .into_iter()
-        .next()
-        .ok_or_else(|| "no account resolved after AddAccount".to_string())?;
-    Ok(SipAccountHandle::new(
-        client.clone(),
-        snapshot.account_id.get().get(),
-    ))
+    let account_id = client.handle().submit_add_account(config).await?;
+    Ok(SipAccountHandle::new(client.clone(), account_id))
 }
 
 /// Return the field value, or a CLI error naming the missing flag.
