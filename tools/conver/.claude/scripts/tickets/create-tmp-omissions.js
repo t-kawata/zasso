@@ -352,7 +352,22 @@ function formatTimestamp() {
 // -- CLI entry point --
 
 // [::TICKET::] PX-97, PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-97|PX-98) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142: create-tmp-omissions rejects a second tmp file. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
 function main() {
+  // PX-142 Defect 3: a pipeline run is pinned to ONE _tmp-omissions-*.json file.
+  // Refuse to create a second one unless --force explicitly starts a fresh run.
+  const force = process.argv.includes('--force');
+  const existingTmp = addOmissionModule && addOmissionModule.findLatestTmpOmissions
+    ? addOmissionModule.findLatestTmpOmissions()
+    : null;
+  if (existingTmp && !force) {
+    console.error('[create-tmp-omissions] Error: tmp-omissions already exists: ' + existingTmp);
+    console.error('[create-tmp-omissions] A run is pinned to ONE _tmp-omissions-*.json file.');
+    console.error('[create-tmp-omissions] Delete it, or use --force only to start a truly fresh run.');
+    process.exit(2);
+  }
+
   // Parse CLI args
   const args = process.argv.slice(2);
   let ticketsPath = 'Tickets.json';
@@ -401,6 +416,9 @@ function main() {
         if (!stubsMap[key]) stubsMap[key] = [];
         stubsMap[key].push({
           file: stub.file,
+          // PX-142 Defect 2: keep the 1-indexed marker line so phasify's
+          // rewriteSourceMarkerLines can locate and rewrite the on-disk marker.
+          line: stub.line,
           content: stub.content,
           codes: extractCodes(stub.file, stub.line + 1)
         });

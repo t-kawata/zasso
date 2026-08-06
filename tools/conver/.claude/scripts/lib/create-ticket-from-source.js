@@ -33,7 +33,22 @@ const PRESERVE_FIELDS = [
 ];
 
 /** Completed-ticket residue removed on clone so the new ticket is an active obligation. */
-const STRIP_ON_CLONE = ['completedAt', 'startedAt'];
+const STRIP_ON_CLONE = [
+  'completedAt',
+  'startedAt',
+  // PX-142 Defect 1: a new ticket must not inherit the source's inspection
+  // failure record (foundOmissions) nor the omission-clone provenance marker
+  // (originalTicketKey) — either would misclassify the new ticket downstream.
+  'foundOmissions',
+  'originalTicketKey'
+];
+
+/**
+ * Leading [::INSPECTION_FLAGGED::] sentinel block (up to the first blank line)
+ * that add-omission-ticket.js / create-tmp-omissions.js prepend to a flagged
+ * ticket's background. A cloned ticket must not carry the inspection stigma.
+ */
+const LEADING_SENTINEL_BLOCK_RE = /^\[::INSPECTION_FLAGGED::\][\s\S]*?\n\n/;
 
 /** The independent (PX) phase id. New tickets are never appended here. */
 const PX_PHASE_ID = -1;
@@ -66,18 +81,28 @@ function findTicket(ticketsData, ticketKey) {
 }
 
 /**
- * Strip completed-ticket residue: force status 'todo' and remove startedAt/completedAt.
+ * Strip completed-ticket residue: force status 'todo', remove startedAt/completedAt,
+ * remove the inspection record (foundOmissions / originalTicketKey), and drop the
+ * leading [::INSPECTION_FLAGGED::] sentinel block from the background.
  * Pure — returns a new object, never mutates the input.
  * @param {object} ticket — Source ticket (clone)
  * @returns {object} — New ticket with residue stripped
  */
 // [::TICKET::] PX-122: stripCompletedResidue. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-122 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142: strip inspection residue on clone. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
 function stripCompletedResidue(ticket) {
   const next = { ...ticket };
   next.status = 'todo';
   for (const field of STRIP_ON_CLONE) {
     delete next[field];
+  }
+  // A new ticket must not inherit the inspection-failed stigma that a flagged
+  // source carries in its background. Only the leading sentinel block is removed;
+  // backgrounds without a sentinel are untouched (the regex is a no-op).
+  if (typeof next.background === 'string') {
+    next.background = next.background.replace(LEADING_SENTINEL_BLOCK_RE, '');
   }
   return next;
 }
@@ -207,6 +232,7 @@ module.exports = {
   createTicketFromSource,
   findTicket,
   stripCompletedResidue,
+  LEADING_SENTINEL_BLOCK_RE,
   applySeedEdits,
   resolveMaxRealPhase,
   appendTicketToPhase,

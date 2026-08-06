@@ -216,17 +216,20 @@ function extractCodes(filePath, line) {
 
 /**
  * Find a clone ticket in _tmp-omissions data by originalTicketKey.
- * Searches the PX phase (phaseId=-1) for a ticket with matching originalTicketKey.
+ * Searches EVERY phase (PX and real) because appendTicket places omission
+ * clones in the max real phase — a PX-phase-only search would miss them and
+ * create duplicate clones for the same original key (PX-142 Defect 4).
  *
  * @param {object} data — Parsed _tmp-omissions-*.json { phases[] }
  * @param {string} originalKey — Original ticket key, e.g. "P0-4"
  * @returns {object|null} — Clone ticket object, or null
  */
 // [::TICKET::] PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-103 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142: findCloneByOriginalKey searches all phases. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
 function findCloneByOriginalKey(data, originalKey) {
   if (!data || !Array.isArray(data.phases)) return null;
   for (const phase of data.phases) {
-    if (phase.id !== -1) continue;
     for (const ticket of (phase.tickets || [])) {
       if (ticket.originalTicketKey === originalKey) {
         return ticket;

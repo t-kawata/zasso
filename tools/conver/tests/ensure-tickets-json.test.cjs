@@ -34,6 +34,8 @@ describe('ensure-tickets-json', () => {
 
   it('normal: returns CWD when no arguments given', () => {
     const result = parseArguments([]);
-    assert.ok(result.endsWith('tools/conver'));
+    // PX-142: the assertion must track the actual CWD, not hardcode the project
+    // root — the suite is also run from .claude via tests/run-all.js.
+    assert.strictEqual(result, process.cwd());
   });
 });

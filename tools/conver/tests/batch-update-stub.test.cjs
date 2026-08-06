@@ -17,7 +17,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
-const BATCH_SCRIPT = path.resolve(".claude/scripts/tickets/batch-update-stub.js");
+const BATCH_SCRIPT = path.resolve(__dirname, "../.claude/scripts/tickets/batch-update-stub.js");
 
 const { runBatchUpdate, runRollback, validateDecisionUnits, resolveMarkerLines, prepareAllEdits } = require("../.claude/scripts/tickets/batch-update-stub.js");
 const { scanTaggedMarkers, scanStubs } = require("../.claude/scripts/tickets/print-manifest-for-find-omissions.js");

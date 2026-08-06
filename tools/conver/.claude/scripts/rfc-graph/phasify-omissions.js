@@ -742,7 +742,7 @@ function formatTicketKey(phaseId, ticketId) {
  * @returns {object} — Same output object, mutated with rewritten stub contents
  */
 // [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-125, PX-126, PX-127, PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-125|PX-126|PX-127|PX-142) --for-spec --no-implementation-order`.
 function rewriteOutputStubKeys(output) {
   const helpers = require('./phasify-helpers.js');
   const validator = require('../tickets/validate-no-external-excuses.js');
@@ -764,7 +764,48 @@ function rewriteOutputStubKeys(output) {
     }
   }
   helpers.guardExcuseMerge(allTickets);
+  // PX-142 Defect 2: verify every on-disk marker was rewritten to the clone's
+  // new key; a leftover old-key marker means the merge must fail loudly rather
+  // than silently ship a stale provenance chain.
+  const verification = verifyMarkerRewrites(output);
+  if (!verification.ok) {
+    const err = new Error('[phasify-omissions] Marker rewrite verification FAILED:\n  ' + verification.failures.join('\n  '));
+    err.code = 'MARKER_REWRITE_VERIFICATION_FAILED';
+    throw err;
+  }
   return output;
+}
+
+/**
+ * Verify that every phasified clone's on-disk stub marker carries the clone's
+ * new key after rewriteOutputStubKeys ran. Pure — returns a result, never
+ * throws or exits, so the caller decides how to fail loudly.
+ *
+ * @param {object} output — buildOutput() result { phases[] }
+ * @returns {{ ok: boolean, failures: string[] }}
+ */
+// [::TICKET::] PX-142: marker rewrite self-verification. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+function verifyMarkerRewrites(output) {
+  const failures = [];
+  for (const phase of output.phases || []) {
+    for (const ticket of phase.tickets || []) {
+      if (!Array.isArray(ticket.stubs) || ticket.stubs.length === 0) continue;
+      const newKey = formatTicketKey(ticket.phaseId, ticket.id);
+      for (const stub of ticket.stubs) {
+        if (!stub.file) continue;
+        const filePath = path.isAbsolute(stub.file) ? stub.file : path.resolve(process.cwd(), stub.file);
+        if (!fs.existsSync(filePath)) continue;
+        const lines = fs.readFileSync(filePath, 'utf8').split('\n');
+        const targetIdx = stub.line ? stub.line - 1 : -1;
+        const lineText = targetIdx >= 0 && targetIdx < lines.length ? lines[targetIdx] : null;
+        if (lineText && lineText.includes('[::STUB::]') && !lineText.includes(newKey)) {
+          failures.push((stub.file || 'unknown') + (stub.line ? ':' + stub.line : '') + ' still references an old key');
+        }
+      }
+    }
+  }
+  return { ok: failures.length === 0, failures };
 }
 
 /**
@@ -776,18 +817,30 @@ function rewriteOutputStubKeys(output) {
  * @param {object} oldToNew — { oldKey: newKey }
  */
 // [::TICKET::] PX-120, PX-121 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-120|PX-121) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-125, PX-126, PX-127, PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-125|PX-126|PX-127|PX-142) --for-spec --no-implementation-order`.
 function rewriteSourceMarkerLines(stubs, oldToNew) {
   const fs = require('fs');
   for (const stub of stubs) {
-    if (!stub.file || !stub.line) continue;
+    if (!stub.file) continue;
     const filePath = path.isAbsolute(stub.file) ? stub.file : path.resolve(process.cwd(), stub.file);
     if (!fs.existsSync(filePath)) continue;
     const lines = fs.readFileSync(filePath, 'utf8').split('\n');
-    const line = lines[stub.line - 1];
+    // PX-142 Defect 2: locate the marker line by its 1-indexed `line`, or fall
+    // back to the plan text (the stub content after ' -- ') for line-less stubs
+    // produced by older tmp-omissions files. Without `line` the rewrite used to
+    // be silently skipped, leaving stale keys on disk.
+    let markerLineIndex = -1;
+    if (stub.line) {
+      markerLineIndex = stub.line - 1;
+    } else {
+      const planText = stub.content.split(' -- ').slice(1).join(' -- ').trim();
+      if (planText) markerLineIndex = lines.findIndex(l => l.includes('[::STUB::]') && l.includes(planText));
+    }
+    if (markerLineIndex < 0 || markerLineIndex >= lines.length) continue;
+    const line = lines[markerLineIndex];
     if (!line || !line.includes('[::STUB::]')) continue;
     for (const oldKey of Object.keys(oldToNew)) {
-      lines[stub.line - 1] = line.replace(
+      lines[markerLineIndex] = line.replace(
         new RegExp('\\[::STUB::\\]\\s+' + oldKey + '\\b'),
         '[::STUB::] ' + oldToNew[oldKey]
       );
@@ -1762,6 +1815,7 @@ module.exports = {
   formatTicketKey,
   rewriteOutputStubKeys,
   rewriteSourceMarkerLines,
+  verifyMarkerRewrites,
   // PX-108: auto-merge pipeline
   backupTickets,
   mergePhasifyToTickets,

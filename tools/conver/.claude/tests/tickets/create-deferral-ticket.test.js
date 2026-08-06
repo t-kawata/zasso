@@ -181,11 +181,14 @@ function makeDataWithStubs() {
 // parseArgs
 
 (function testParseArgs() {
-  const args = ['--source-key=P0-1', '--deferred-to=P0-1', '--tickets=Tickets.json'];
+// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+  const args = ['--source-key=P0-1', '--deferred-to=P0-1'];
   const parsed = parseArgs(args);
   assertStrictEqual(parsed.sourceKey, 'P0-1', 'parseArgs: sourceKey parsed');
   assertStrictEqual(parsed.deferredTo, 'P0-1', 'parseArgs: deferredTo parsed');
-  assertStrictEqual(parsed.tickets, 'Tickets.json', 'parseArgs: tickets path parsed');
+  // PX-142: --tickets was intentionally removed (Tickets.json is always ./Tickets.json
+  // from the CWD), so parseArgs no longer carries a tickets field.
+  assertStrictEqual(parsed.tickets, undefined, 'parseArgs: tickets field removed');
 })();
 
 // ======================================================================
