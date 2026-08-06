@@ -1,3 +1,4 @@
+
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2: FFI module — PJSIP unsafe binding isolation.
@@ -20,9 +21,17 @@ pub mod pj_str;
 
 /// Extern "C" callback bridge — PJSIP events → NativeEvent enqueue.
 ///
-/// Each extern C function is minimal (no locks, no allocation, no .await):
+/// Each extern C callback is minimal (no locks, no allocation, no .await):
 /// it copies the event parameters into a `NativeEvent` and pushes it
 /// onto the reactor's event queue.
 ///
 // [::STUB::] P11-11: PJSIP is not yet linked; callbacks are no-ops and NativeEvent enqueue is deferred -- Register all PJSIP callbacks via pjsua_config.cb and enqueue NativeEvents (IncomingCall, RegState, CallState, CallMediaState, plus reg_started/call_redirected/dtmf_digit/call_transfer_status) through the reactor channel once PJSIP is linked
 pub mod callback;
+
+/// Codec-enumeration surface — safe wrapper over the `pjsua_enum_codecs` path.
+///
+/// Exposed here so the domain layer can enumerate native codecs without
+/// depending on the raw bindings module shape. Backed by the bindgen output
+/// under `pjsua-native` and by the stub (zero codecs) otherwise.
+pub use bindings::{enumerate_codecs, pjsua_codec_info};
+// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.

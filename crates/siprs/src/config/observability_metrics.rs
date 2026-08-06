@@ -28,6 +28,8 @@
 #[cfg(feature = "metrics")]
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 
+use crate::ffi::bindings;
+
 // ── ClientCapabilities ──────────────────────────────────────────────────
 
 /// Capability matrix advertised at client initialization.
@@ -63,10 +65,11 @@ pub struct ClientCapabilities {
     pub srtp_types: Vec<SrtpImplementation>,
 
     // ── Media ──
-    /// Available audio codecs.
+    /// Available audio codecs, populated from runtime PJSIP enumeration.
+    ///
+    /// Empty when the `pjsua-native` feature is disabled or enumeration fails.
     ///
     /// [::TICKET::] P3-2: ffi::bindings provides type aliases for PJSIP codec system.
-    // [::STUB::] P11-8: available_codecs and the Codec type are placeholders pending FFI-defined codec types (covers observability_metrics.rs:69,187) -- Replace the placeholder codec list and Codec type with runtime codec enumeration via the pjsua codec API using FFI-defined pjsua_codec_info types once bindgen generates them
     #[serde(default)]
     pub available_codecs: Vec<Codec>,
     /// Whether Opus codec is available.
@@ -105,13 +108,15 @@ pub struct ClientCapabilities {
     pub mixer_max_sources: usize,
 }
 
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P11-8) --for-spec --no-implementation-order`.
 impl ClientCapabilities {
     /// Create a new `ClientCapabilities` with default values.
     ///
     /// All optional features default to `false` or empty.
     /// Compile-time features (`tls`, `srtp`) are set from `cfg!()`.
     pub fn new() -> Self {
+        let available_codecs = enumerate_available_codecs();
+        let opus_available = has_opus_codec(&available_codecs);
         Self {
             // Instance limits: MAX means "no artificial limit"
             max_calls: u32::MAX,
@@ -126,9 +131,9 @@ impl ClientCapabilities {
             srtp_available: cfg!(feature = "srtp"),
             srtp_types: Vec::new(),
 
-            // Media
-            available_codecs: Vec::new(),
-            opus_available: false,
+            // Media — codec capability is derived from runtime enumeration.
+            available_codecs,
+            opus_available,
             audio_devices: AudioDeviceCaps::default(),
 
             // NAT/ICE
@@ -183,7 +188,6 @@ pub enum SrtpImplementation {
 }
 
 /// Audio codec descriptor.
-///
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Codec {
     /// Codec identifier (e.g., "PCMU", "opus", "G722").
@@ -192,6 +196,53 @@ pub struct Codec {
     pub name: String,
     /// Clock rate in Hz.
     pub clock_rate: u32,
+}
+
+// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+impl Codec {
+    /// Convert a native `pjsua_codec_info` into a `Codec`.
+    ///
+    /// Maps `codec_id` → `id`, `encoding_name` → `name`, and `clock_rate` →
+    /// `clock_rate`, reading the `pj_str_t` fields through the safe
+    /// `ffi::bindings::pj_str_to_string` helper.
+    pub fn from_pjsua_codec_info(info: &bindings::pjsua_codec_info) -> Self {
+        Self {
+            id: bindings::pj_str_to_string(&info.codec_id),
+            name: bindings::pj_str_to_string(&info.encoding_name),
+            clock_rate: info.clock_rate,
+        }
+    }
+}
+
+/// Convert native codec infos into `Codec`s, dropping invalid entries.
+///
+/// An entry is invalid when its id is empty or its clock rate is zero —
+/// every enumerated `Codec` must have a non-empty id and `clock_rate > 0`.
+// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+fn codecs_from_native_infos(infos: &[bindings::pjsua_codec_info]) -> Vec<Codec> {
+    infos
+        .iter()
+        .map(Codec::from_pjsua_codec_info)
+        .filter(|codec| !codec.id.is_empty() && codec.clock_rate > 0)
+        .collect()
+}
+
+/// Whether the given codec list contains an Opus codec.
+// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+fn has_opus_codec(codecs: &[Codec]) -> bool {
+    codecs
+        .iter()
+        .any(|codec| codec.id.to_lowercase().contains("opus"))
+}
+
+/// Enumerate available codecs from the PJSUA stack.
+///
+/// Returns an empty list when the `pjsua-native` feature is disabled or when
+/// the FFI enumeration fails — never panics.
+// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+fn enumerate_available_codecs() -> Vec<Codec> {
+    let native = bindings::enumerate_codecs();
+    codecs_from_native_infos(&native)
 }
 
 /// DTMF signaling method.
@@ -568,6 +619,97 @@ mod tests {
             clock_rate: 8000,
         };
         assert_eq!(codec.id, "PCMU");
+    }
+
+    // ── P11-8: codec enumeration → Codec mapping ─────────────────────
+
+    /// @verifies C041
+    #[test]
+// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+    fn codec_from_pjsua_codec_info_maps_fields() {
+        use crate::ffi::bindings::pjsua_codec_info;
+        use crate::ffi::pj_str::PjOwnedStr;
+        // The PjOwnedStr backing must outlive the raw pj_str_t copies read
+        // by Codec::from_pjsua_codec_info.
+        let codec_id = PjOwnedStr::new("opus");
+        let encoding_name = PjOwnedStr::new("Opus");
+        let info = pjsua_codec_info {
+            codec_id: codec_id.as_raw(),
+            encoding_name: encoding_name.as_raw(),
+            clock_rate: 48000,
+            channel_cnt: 2,
+        };
+        let codec = Codec::from_pjsua_codec_info(&info);
+        assert_eq!(codec.id, "opus");
+        assert_eq!(codec.name, "Opus");
+        assert_eq!(codec.clock_rate, 48000);
+    }
+
+    /// @verifies C041
+    #[test]
+// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+    fn opus_available_reflects_enumerated_codecs() {
+        let opus_list = vec![Codec {
+            id: "opus/48000/2".into(),
+            name: "Opus".into(),
+            clock_rate: 48000,
+        }];
+        let pcmu_list = vec![Codec {
+            id: "PCMU/8000/1".into(),
+            name: "G.711".into(),
+            clock_rate: 8000,
+        }];
+        assert!(has_opus_codec(&opus_list));
+        assert!(!has_opus_codec(&pcmu_list));
+    }
+
+    /// @verifies C041
+    #[test]
+// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+    fn client_capabilities_new_empty_codecs_without_feature() {
+        let caps = ClientCapabilities::new();
+        assert!(caps.available_codecs.is_empty());
+        assert!(!caps.opus_available);
+    }
+
+    /// @verifies C041
+    #[test]
+// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+    fn enumerate_available_codecs_filters_invalid_entries() {
+        use crate::ffi::bindings::pjsua_codec_info;
+        use crate::ffi::pj_str::PjOwnedStr;
+        // The PjOwnedStr backings must outlive the raw pj_str_t copies read
+        // by codecs_from_native_infos.
+        let opus_id = PjOwnedStr::new("opus");
+        let opus_name = PjOwnedStr::new("Opus");
+        let empty_id = PjOwnedStr::new("");
+        let empty_name = PjOwnedStr::new("Empty");
+        let pcmu_id = PjOwnedStr::new("PCMU");
+        let pcmu_name = PjOwnedStr::new("G.711");
+        let infos = vec![
+            pjsua_codec_info {
+                codec_id: opus_id.as_raw(),
+                encoding_name: opus_name.as_raw(),
+                clock_rate: 48000,
+                channel_cnt: 2,
+            },
+            pjsua_codec_info {
+                codec_id: empty_id.as_raw(),
+                encoding_name: empty_name.as_raw(),
+                clock_rate: 48000,
+                channel_cnt: 1,
+            },
+            pjsua_codec_info {
+                codec_id: pcmu_id.as_raw(),
+                encoding_name: pcmu_name.as_raw(),
+                clock_rate: 0,
+                channel_cnt: 1,
+            },
+        ];
+        let codecs = codecs_from_native_infos(&infos);
+        assert_eq!(codecs.len(), 1);
+        assert!(codecs.iter().all(|c| !c.id.is_empty() && c.clock_rate > 0));
+        assert_eq!(codecs[0].id, "opus");
     }
 
     // ── DtmfMethod ────────────────────────────────────────────────────
