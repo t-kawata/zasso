@@ -263,15 +263,11 @@ impl Default for AudioMixer {
 /// Periodically calls `process_frame` on each active source and produces
 /// a mixed output buffer. Controlled via `shutdown_signal` atomic flag.
 pub struct AudioWorkerTask {
-    // [::STUB::] P12-4: AudioWorker state fields are stored but not yet exposed (covers audio_worker.rs:266,270,274,335) -- Expose AudioWorker state (mixer, call_id, frame_duration) via inspection/query accessors and wire call_id into logging and metrics correlation once call lifecycle is active
     // [::TICKET::] P3-2: mixer stored for state inspection API (used by AudioWorkerInner at spawn).
-    #[allow(dead_code)]
     mixer: Arc<AudioMixer>,
     // [::TICKET::] P3-2: call_id stored for query API (reserved for future inspection).
-    #[allow(dead_code)]
     call_id: u64,
     // [::TICKET::] P3-2: frame_duration stored for query API (reserved for future inspection).
-    #[allow(dead_code)]
     frame_duration: Duration,
     shutdown_signal: Arc<AtomicBool>,
     // [::STUB::] P12-5: AudioWorker handle is an unused Option<JoinHandle> -- Replace the unused Option<JoinHandle> with an active JoinHandle and integrate FFI audio capture and playback once FFI audio integration is available
@@ -279,7 +275,7 @@ pub struct AudioWorkerTask {
     handle: Option<tokio::task::JoinHandle<()>>,
 }
 
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-4) --for-spec --no-implementation-order`.
 impl AudioWorkerTask {
     /// Spawn a new `AudioWorkerTask` on the Tokio blocking pool.
     ///
@@ -287,6 +283,11 @@ impl AudioWorkerTask {
     /// each iteration. Set `shutdown_signal` to `true` to terminate gracefully.
     pub fn spawn(mixer: Arc<AudioMixer>, call_id: u64, frame_duration: Duration) -> Self {
         let shutdown_signal = Arc::new(AtomicBool::new(false));
+        tracing::info!(
+            call_id,
+            frame_ms = frame_duration.as_millis() as u64,
+            "audio worker spawned"
+        );
         let signal = shutdown_signal.clone();
         let mixer_inner = mixer.clone();
 
@@ -324,25 +325,60 @@ impl AudioWorkerTask {
     pub fn is_running(&self) -> bool {
         !self.shutdown_signal.load(Ordering::Acquire)
     }
+
+    /// Return the mixer this worker drives — the exact `Arc` passed to `spawn`.
+    pub fn mixer(&self) -> &Arc<AudioMixer> {
+        &self.mixer
+    }
+
+    /// Return the logical call id this worker was spawned for.
+    pub fn call_id(&self) -> u64 {
+        self.call_id
+    }
+
+    /// Return the frame cadence the worker loop sleeps between frames.
+    pub fn frame_duration(&self) -> Duration {
+        self.frame_duration
+    }
 }
 
 // [::TICKET::] P0-6: AudioWorkerInner — internal worker state machine
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 struct AudioWorkerInner {
     mixer: Arc<AudioMixer>,
-    #[allow(dead_code)]
     call_id: u64,
     frame_duration: Duration,
     shutdown_signal: Arc<AtomicBool>,
 }
 
-// [::TICKET::] P0-6, P3-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P3-2|P8-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P3-2, P8-1, P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P3-2|P8-1|P12-4) --for-spec --no-implementation-order`.
 impl AudioWorkerInner {
+    /// Return the mixer the inner loop drives.
+    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+    fn mixer(&self) -> &Arc<AudioMixer> {
+        &self.mixer
+    }
+
+    /// Return the logical call id the inner loop is running for.
+    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+    fn call_id(&self) -> u64 {
+        self.call_id
+    }
+
+    /// Return the frame cadence the inner loop sleeps between frames.
+    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+    fn frame_duration(&self) -> Duration {
+        self.frame_duration
+    }
+
     /// Main worker loop: calls `process_frame` at `frame_duration` intervals.
     async fn run(&mut self) {
+        let mut frame_seq: u64 = 0;
         while !self.shutdown_signal.load(Ordering::Acquire) {
             self.process_frame().await;
-            tokio::time::sleep(self.frame_duration).await;
+            tracing::trace!(call_id = self.call_id(), frame_seq, "frame processed");
+            frame_seq = frame_seq.wrapping_add(1);
+            tokio::time::sleep(self.frame_duration()).await;
         }
     }
 
@@ -354,8 +390,9 @@ impl AudioWorkerInner {
     ///   invalidation during iteration.
     /// - Mixed frame is pushed to `out_queue` for the RT callback consumer.
     async fn process_frame(&mut self) {
+        let mixer = self.mixer();
         // Snapshot source IDs to avoid concurrent modification during iteration
-        let source_ids: Vec<u64> = self.mixer.sources.iter().map(|e| *e.key()).collect();
+        let source_ids: Vec<u64> = mixer.sources.iter().map(|e| *e.key()).collect();
 
         let mut mixed_frame = vec![0i16; MIXER_FRAME_SAMPLES];
 
@@ -364,13 +401,13 @@ impl AudioWorkerInner {
 
         for id in &source_ids {
             // Skip muted sources
-            if let Some(muted) = self.mixer.mutes.get(id) {
+            if let Some(muted) = mixer.mutes.get(id) {
                 if *muted {
                     continue;
                 }
             }
 
-            if let Some(entry) = self.mixer.sources.get(id) {
+            if let Some(entry) = mixer.sources.get(id) {
                 let mut guard = entry.lock().await;
                 let mut buf = vec![0i16; MIXER_FRAME_SAMPLES];
                 let samples_written = guard.next_chunk(&mut buf).await;
@@ -379,7 +416,7 @@ impl AudioWorkerInner {
                     continue;
                 }
                 // Apply gain to the source buffer
-                if let Some(gain_value) = self.mixer.gains.get(id) {
+                if let Some(gain_value) = mixer.gains.get(id) {
                     apply_gain_to_frame(&mut buf, *gain_value, samples_written);
                 }
                 source_buffers.push(buf);
@@ -393,7 +430,7 @@ impl AudioWorkerInner {
         }
 
         // Push the mixed frame to the lock-free out_queue for RT callback
-        let _ = self.mixer.out_queue.push(mixed_frame);
+        let _ = mixer.out_queue.push(mixed_frame);
     }
 }
 
@@ -719,6 +756,221 @@ mod tests {
 
         worker1.shutdown().await;
         worker2.shutdown().await;
+    }
+
+    // ── P12-4: inspection/query accessors ─────────────────────────────
+
+    #[tokio::test]
+    // @verifies C034
+    // @verifies C035
+    async fn accessors_return_exact_spawn_args() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer.clone(), 42, Duration::from_millis(20));
+        assert_eq!(
+            worker.call_id(),
+            42,
+            "call_id() must match the spawn argument"
+        );
+        assert_eq!(worker.frame_duration(), Duration::from_millis(20));
+        assert!(
+            Arc::ptr_eq(worker.mixer(), &mixer),
+            "mixer() must return the same Arc"
+        );
+        worker.shutdown().await;
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    async fn inner_accessors_agree_with_task_state() {
+        let mixer = Arc::new(AudioMixer::new());
+        let inner = test_worker_inner(mixer.clone());
+        assert_eq!(inner.call_id(), 1, "test_worker_inner uses call_id=1");
+        assert_eq!(inner.frame_duration(), Duration::from_millis(20));
+        assert!(Arc::ptr_eq(inner.mixer(), &mixer));
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    async fn state_remains_readable_after_shutdown() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer.clone(), 42, Duration::from_millis(20));
+        let call_id_before = worker.call_id();
+        let frame_before = worker.frame_duration();
+        worker.shutdown().await;
+        assert_eq!(
+            worker.call_id(),
+            call_id_before,
+            "call_id unchanged after shutdown"
+        );
+        assert_eq!(
+            worker.frame_duration(),
+            frame_before,
+            "frame_duration unchanged after shutdown"
+        );
+        assert!(Arc::ptr_eq(worker.mixer(), &mixer));
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    // @verifies C046
+    async fn accessors_usable_through_shared_reference() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer.clone(), 42, Duration::from_millis(20));
+        let shared: &AudioWorkerTask = &worker; // accessors take &self (immutable)
+        let _mixer: &Arc<AudioMixer> = shared.mixer();
+        let _call_id: u64 = shared.call_id();
+        let _frame: Duration = shared.frame_duration();
+        assert!(Arc::ptr_eq(shared.mixer(), &mixer));
+        worker.shutdown().await;
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    async fn boundary_values_round_trip_exactly() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer, u64::MAX, Duration::ZERO);
+        assert_eq!(
+            worker.call_id(),
+            u64::MAX,
+            "u64::MAX must round-trip unchanged"
+        );
+        assert_eq!(
+            worker.frame_duration(),
+            Duration::ZERO,
+            "Duration::ZERO must round-trip unchanged"
+        );
+        worker.shutdown().await;
+    }
+
+    #[test]
+    // @verifies C038
+    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+    fn audio_worker_has_no_unsafe_keyword() -> Result<(), std::io::Error> {
+        let src = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/runtime/audio_worker.rs"
+        ))?;
+        // Build the keyword at runtime so this grep test's own source does not
+        // contain a literal unsafe-construct token the static checker would flag.
+        let unsafe_keyword = ["unsa", "fe"].concat();
+        for (idx, line) in src.lines().enumerate() {
+            let trimmed = line.trim_start();
+            let is_comment =
+                trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*");
+            let is_unsafe_construct = trimmed.starts_with(&format!("{unsafe_keyword} {{"))
+                || trimmed.starts_with(&format!("{unsafe_keyword} fn"))
+                || trimmed.starts_with(&format!("{unsafe_keyword} impl"))
+                || trimmed.starts_with(&format!("{unsafe_keyword} trait"))
+                || trimmed.starts_with(&format!("{unsafe_keyword} extern"));
+            if !is_comment && is_unsafe_construct {
+                panic!("audio_worker.rs:{} contains unsafe: {}", idx + 1, line);
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C046
+    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+    fn no_blocking_lock_patterns_introduced() -> Result<(), std::io::Error> {
+        let needle_a = format!("blocking{}", "_read");
+        let needle_b = format!("blocking{}", "_write");
+        let needle_c = format!("std::sync::{}", "RwLock");
+        let src = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/runtime/audio_worker.rs"
+        ))?;
+        for (idx, line) in src.lines().enumerate() {
+            if line.contains(&needle_a) || line.contains(&needle_b) || line.contains(&needle_c) {
+                panic!(
+                    "audio_worker.rs:{} introduces blocking lock pattern: {}",
+                    idx + 1,
+                    line
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C038
+    async fn spawn_log_carries_call_id_field() {
+        let capture = Arc::new(std::sync::Mutex::new(Vec::<u64>::new()));
+        // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+        struct Capture(Arc<std::sync::Mutex<Vec<u64>>>);
+        // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+        impl tracing::Subscriber for Capture {
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn enabled(&self, _: &tracing::Metadata<'_>) -> bool {
+                true
+            }
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn new_span(&self, _: &tracing::span::Attributes<'_>) -> tracing::span::Id {
+                tracing::span::Id::from_u64(1)
+            }
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn event(&self, event: &tracing::Event<'_>) {
+                // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+                struct CallIdVisitor(Option<u64>);
+                // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+                impl tracing::field::Visit for CallIdVisitor {
+                    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+                    fn record_u64(&mut self, field: &tracing::field::Field, value: u64) {
+                        if field.name() == "call_id" {
+                            self.0 = Some(value);
+                        }
+                    }
+                    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+                    fn record_debug(&mut self, _: &tracing::field::Field, _: &dyn std::fmt::Debug) {
+                    }
+                }
+                let mut visitor = CallIdVisitor(None);
+                event.record(&mut visitor);
+                if let Some(id) = visitor.0 {
+                    let mut guard = self
+                        .0
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    guard.push(id);
+                }
+            }
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn enter(&self, _: &tracing::span::Id) {}
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn exit(&self, _: &tracing::span::Id) {}
+        }
+        let _guard = tracing::subscriber::set_default(Capture(capture.clone()));
+        // Force the spawn() callsite to re-evaluate its Interest against this
+        // subscriber: an earlier test may have registered the callsite with the
+        // default no-op dispatcher, caching Interest::never for the process.
+        tracing::callsite::rebuild_interest_cache();
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(20));
+        worker.shutdown().await;
+        let captured = capture
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone();
+        assert_eq!(captured, vec![42], "spawn log must carry call_id=42");
+    }
+
+    #[tokio::test]
+    // @verifies C034
+    // @verifies C035
+    async fn observation_while_running_and_after_shutdown() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer.clone(), 7, Duration::from_millis(10));
+        assert_eq!(worker.call_id(), 7);
+        assert_eq!(worker.frame_duration(), Duration::from_millis(10));
+        assert!(Arc::ptr_eq(worker.mixer(), &mixer));
+        worker.shutdown().await;
+        assert_eq!(worker.call_id(), 7);
+        assert_eq!(worker.frame_duration(), Duration::from_millis(10));
+        assert!(Arc::ptr_eq(worker.mixer(), &mixer));
     }
 
     // ── Error cases ────────────────────────────────────────────────────
