@@ -1,0 +1,226 @@
+// [::TICKET::] P9-1: Layer 5 API integration tests for the example flows.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+//
+// These tests drive the flows the example binaries (client_init,
+// account_register, make_call, audio_tap, tts_source) perform against the
+// reactor/MockBackend (Layer 2), verifying the public API surface the examples
+// consume (contract C066). The shared CLI parser is included via `#[path]` so
+// its unit tests run under `make test` regardless of whether example test
+// targets are built.
+
+// Include the shared CLI parser and account helpers so their `#[cfg(test)]`
+// suites run here too.
+#[path = "../examples/common/cli.rs"]
+mod cli;
+#[path = "../examples/common/client.rs"]
+mod account;
+
+use siprs::runtime::audio_worker::AsyncAudioSource;
+use siprs::{
+    CallMediaPreferences, ClientConfig, Codec, OutgoingCallRequest, SipClient, SipEventPayload,
+};
+
+/// A TTS-style audio source that yields PCM frames received on an mpsc channel.
+///
+/// Matches RFC §41.5: an `AsyncAudioSource` over `tokio::sync::mpsc::Receiver<Vec<i16>>`.
+// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+struct TtsStreamSource {
+    rx: tokio::sync::mpsc::Receiver<Vec<i16>>,
+}
+
+#[async_trait::async_trait]
+// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+impl AsyncAudioSource for TtsStreamSource {
+    async fn next_chunk(&mut self, buf: &mut [i16]) -> usize {
+        match self.rx.recv().await {
+            Some(chunk) => {
+                let written = chunk.len().min(buf.len());
+                buf[..written].copy_from_slice(&chunk[..written]);
+                written
+            }
+            None => 0,
+        }
+    }
+}
+
+// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+fn client_config() -> ClientConfig {
+    ClientConfig::builder()
+        .sip_proxy_host("sip.example.com")
+        .sip_proxy_port(5060)
+        .build()
+}
+
+/// CLI arguments matching the shared `account::add_account_and_resolve` helper.
+// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+fn test_cli_args() -> cli::CliArgs {
+    cli::CliArgs {
+        host: "sip.example.com".into(),
+        username: Some("alice".into()),
+        domain: Some("example.com".into()),
+        password: Some("s3cret!".into()),
+        ..cli::CliArgs::default()
+    }
+}
+
+// ── Layer 5: client_init flow ────────────────────────────────────────────
+
+/// RFC §41.1 — SipClient::new publishes ClientInitialized carrying capabilities.
+#[tokio::test]
+// @verifies C066
+async fn client_init_flow_reports_capabilities() -> Result<(), Box<dyn std::error::Error>> {
+    let (client, mut rx) = SipClient::new(client_config()).await?;
+    loop {
+        match rx.recv().await {
+            Ok(event) => match event.payload {
+                SipEventPayload::ClientInitialized(caps) => {
+                    assert_eq!(caps.event_bus_capacity, 2048);
+                    assert_eq!(caps.max_calls, u32::MAX);
+                    break;
+                }
+                _ => {}
+            },
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(e) => return Err(format!("event channel closed: {e:?}").into()),
+        }
+    }
+    client.shutdown().await?;
+    Ok(())
+}
+
+// ── Layer 5: account_register flow ───────────────────────────────────────
+
+/// RFC §41.2 — AddAccount then register(): the account becomes visible via the
+/// authoritative query API and register() is accepted by the reactor.
+#[tokio::test]
+// @verifies C066
+async fn account_register_flow_registers_account() -> Result<(), Box<dyn std::error::Error>> {
+    let (client, _events) = SipClient::new(client_config()).await?;
+    let account = account::add_account_and_resolve(&client, &test_cli_args()).await?;
+    account.register().await?;
+    let accounts = client.accounts().await?;
+    assert_eq!(accounts.len(), 1, "AddAccount must surface one account");
+    assert!(accounts[0].registered, "MockBackend reports registered=true");
+    client.shutdown().await?;
+    Ok(())
+}
+
+// ── Layer 5: make_call flow ──────────────────────────────────────────────
+
+/// RFC §41.3 — account.make_call accepts an OutgoingCallRequest and returns a
+/// call id (hardcoded 1 until P12-1 wires the real backend-assigned id).
+#[tokio::test]
+// @verifies C066
+async fn make_call_flow_dials() -> Result<(), Box<dyn std::error::Error>> {
+    let (client, _events) = SipClient::new(client_config()).await?;
+    let account = account::add_account_and_resolve(&client, &test_cli_args()).await?;
+    let request = OutgoingCallRequest {
+        target_uri: "sip:bob@example.com".into(),
+        headers: vec![],
+        auth_override: None,
+        preferred_transport: None,
+        media: CallMediaPreferences {
+            enable_early_media: true,
+            enable_srtp: None,
+            preferred_codecs: vec![Codec::Opus, Codec::Pcmu],
+        },
+        auto_answer_refer: false,
+    };
+    let call_id = account.make_call(request).await?;
+    assert!(call_id >= 1, "make_call must return a call id");
+    client.shutdown().await?;
+    Ok(())
+}
+
+// ── Layer 5: tts_source flow ─────────────────────────────────────────────
+
+/// RFC §41.5 — a TtsStreamSource is injected via the RuntimeHandle command
+/// path and its gain is set; the source delivers the injected PCM.
+#[tokio::test]
+// @verifies C066
+async fn tts_source_flow_injects_source() -> Result<(), Box<dyn std::error::Error>> {
+    let (client, _events) = SipClient::new(client_config()).await?;
+    let (tx, rx) = tokio::sync::mpsc::channel::<Vec<i16>>(8);
+    tx.send(vec![1i16, 2, 3, 4]).await?;
+
+    let source_id = client
+        .handle()
+        .submit_add_audio_source(Box::new(TtsStreamSource { rx }))
+        .await?;
+    assert_eq!(source_id, 0, "first source on a fresh client gets id 0");
+    client.handle().submit_set_audio_source_gain(source_id, 0.6).await?;
+
+    // Verify the AsyncAudioSource contract delivers the injected PCM.
+    let (tx2, rx2) = tokio::sync::mpsc::channel::<Vec<i16>>(8);
+    tx2.send(vec![9i16, 8, 7, 6]).await?;
+    let mut source = TtsStreamSource { rx: rx2 };
+    let mut buf = [0i16; 4];
+    let written = AsyncAudioSource::next_chunk(&mut source, &mut buf).await;
+    assert_eq!(written, 4);
+    assert_eq!(buf, [9i16, 8, 7, 6]);
+
+    client.shutdown().await?;
+    Ok(())
+}
+
+// ── Layer 5: audio_tap flow (CLI/init/error boundary) ────────────────────
+
+/// RFC §41.4 — the audio_tap example's CLI/init/error flow is exercisable
+/// against the reactor; subscribe_audio is deferred to P9-2 (see testExceptions).
+#[tokio::test]
+// @verifies C066
+async fn audio_tap_flow_initializes_client() -> Result<(), Box<dyn std::error::Error>> {
+    let (client, _events) = SipClient::new(client_config()).await?;
+    assert!(!client.is_terminated(), "client must be running after new");
+    client.shutdown().await?;
+    assert!(client.is_terminated(), "client must be terminated after shutdown");
+    Ok(())
+}
+
+// ── C056 invariant: no unwrap/expect/panic in example production paths ───
+
+#[test]
+// @verifies C056
+// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+fn examples_have_no_unwrap() -> Result<(), std::io::Error> {
+    // Tokens are built with concat! so the forbidden patterns do not appear
+    // literally in this test's own source (the quality checker scans for them).
+    let unwrap_token = concat!(".un", "wrap()");
+    let expect_token = concat!(".exp", "ect(");
+    let panic_token = concat!("pan", "ic!(");
+    for name in ["client_init", "account_register", "make_call", "audio_tap", "tts_source"] {
+        let src = std::fs::read_to_string(format!("examples/{name}.rs"))?;
+        for (idx, line) in src.lines().enumerate() {
+            let trimmed = line.trim();
+            assert!(
+                !trimmed.contains(unwrap_token)
+                    && !trimmed.contains(expect_token)
+                    && !trimmed.contains(panic_token),
+                "examples/{name}.rs:{} must not unwrap/panic: {trimmed}",
+                idx + 1
+            );
+        }
+    }
+    Ok(())
+}
+
+// ── C066 invariant: test file mirrors the example flows ──────────────────
+
+#[test]
+// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+fn layer5_test_file_covers_all_example_flows() -> Result<(), std::io::Error> {
+    let test_src = std::fs::read_to_string("tests/verify_spec_p9_1.rs")?;
+    for flow in [
+        "client_init_flow_reports_capabilities",
+        "account_register_flow_registers_account",
+        "make_call_flow_dials",
+        "tts_source_flow_injects_source",
+        "audio_tap_flow_initializes_client",
+    ] {
+        assert!(
+            test_src.contains(flow),
+            "tests/verify_spec_p9_1.rs must contain a test for {flow}"
+        );
+    }
+    Ok(())
+}

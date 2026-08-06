@@ -1,19 +1,51 @@
-// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 
-// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 
-// [::STUB::] P9-1: Example binaries document the API surface; full CLI/PJSIP runtime is deferred -- Implement full example binaries (account_register, audio_tap, client_init, make_call, tts_source) with PJSIP backend, CLI args, and integration tests
-// [::TICKET::] P0-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P8-2) --for-spec --no-implementation-order`.
-use siprs::{ClientConfig, SipClient};
+// Client initialization (RFC §41.1): configure the SIP proxy/STUN from CLI
+// args, construct the client, report its capabilities, then shut down.
+//
+// Run: cargo run --example client_init -- --host sip.example.com [--port 5060] [--stun stun:host:19302]
 
-/// Client initialization (RFC §41.1): configure transports/stun, then construct the client.
+#[path = "common/cli.rs"]
+mod cli;
+// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+
+use std::io::Write;
+// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+
+use siprs::SipEventPayload;
+use siprs::SipClient;
+
+use cli::build_client_config;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = ClientConfig::builder()
-        .sip_proxy_host("sip.example.com")
-        .sip_proxy_port(5060)
-        .build();
-    let (client, _events) = SipClient::new(config).await?;
+    let args = cli::parse(std::env::args().skip(1))?;
+    let config = build_client_config(&args);
+    let (client, mut events) = SipClient::new(config).await?;
+    report_capabilities(&mut events).await?;
     client.shutdown().await?;
     Ok(())
+}
+
+/// Await the ClientInitialized event and print the advertised capabilities.
+async fn report_capabilities(
+    events: &mut tokio::sync::broadcast::Receiver<siprs::SipEvent>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    loop {
+        match events.recv().await {
+            Ok(event) => match event.payload {
+                SipEventPayload::ClientInitialized(caps) => {
+                    writeln!(
+                        std::io::stdout(),
+                        "client initialized: event_bus_capacity={} max_calls={}",
+                        caps.event_bus_capacity, caps.max_calls
+                    )?;
+                    return Ok(());
+                }
+                _ => {}
+            },
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(e) => return Err(format!("event channel closed: {e:?}").into()),
+        }
+    }
 }

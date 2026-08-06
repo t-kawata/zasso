@@ -6,11 +6,6 @@ authors = ["Toshimi Kawata"]
 edition = "2021"
 rust-version = "1.95"
 license = "MIT OR Apache-2.0"
-# [::STUB::] P1-3: autoexamples = false gates spec examples behind
-# spec-examples feature. Remove this and the [[example]] sections once
-# all referenced types (SipClient, ClientConfig, AccountConfig, etc.) are
-# implemented in subsequent tickets (P0-7/P0-8+).
-autoexamples = false
 
 [features]
 default = ["serde", "tls"]
@@ -25,11 +20,10 @@ server = ["dep:axum", "dep:tower-http"]
 # [::TICKET::] P8-7: cpal-input feature now pulls the cpal optional dependency.
 cpal-input = ["dep:cpal"]
 zeroize = ["dep:zeroize"]
-# [::STUB::] P1-3: spec-examples feature gates examples that reference types
-# from future tickets (SipClient, ClientConfig, AccountConfig, etc.).
-# These examples are spec artifacts — they describe the intended public API
-# but cannot compile until their dependency types are implemented (P0-7/P0-8+).
-# Resolve by removing this feature gate once all referenced types exist.
+# [::STUB::] P9-1: spec-examples gates only audio_tap, which awaits
+# SipClient::subscribe_audio/AudioTapHandle (P9-2, Audio Subscribe API).
+# Resolve by removing the gate and the required-features on audio_tap once
+# P9-2 lands; the other four examples are ungated and build by default.
 spec-examples = []
 # [::TICKET::] P2-3: sqlite-storage feature gates SeaORM/rusqlite dependencies.
 # This keeps the default crate light — SQLite deps only enabled when needed.
@@ -87,22 +81,18 @@ tower-http = { version = "0.5", features = ["cors"] }
 # [::TICKET::] P7-1: tower for axum::test oneshot requests (ServiceExt::oneshot on Router).
 tower = { version = "0.5", features = ["util"] }
 
-# [::STUB::] P1-3: Example declarations. These examples reference types from
-# future tickets. They are gated behind the `spec-examples` feature so the
-# crate compiles without them. Remove the feature gate and required-features
-# once all dependency types (SipClient, ClientConfig, etc.) are implemented.
+# Example declarations. client_init, account_register, make_call, and
+# tts_source build by default; audio_tap stays behind `spec-examples` until
+# P9-2 provides subscribe_audio/AudioTapHandle.
 
 [[example]]
 name = "client_init"
-required-features = ["spec-examples"]
 
 [[example]]
 name = "account_register"
-required-features = ["spec-examples"]
 
 [[example]]
 name = "make_call"
-required-features = ["spec-examples"]
 
 [[example]]
 name = "audio_tap"
@@ -110,4 +100,3 @@ required-features = ["spec-examples"]
 
 [[example]]
 name = "tts_source"
-required-features = ["spec-examples"]
