@@ -1179,7 +1179,11 @@
       "Bash(echo \"=== scan exit: $? \\(empty means clean\\) ===\")",
       "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P11-8\" --verify)",
       "Bash(node .claude/scripts/tickets/verify-final-contracts.js --ticket-key=P11-8 --tickets=Tickets.json)",
-      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P11-8\" --no-implementation-order)"
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P11-8\" --no-implementation-order)",
+      "Bash(git commit -m 'feat\\(P11-8\\): replace placeholder codec list with runtime pjsua codec enumeration *)",
+      "Bash(awk '{passed+=$4; failed+=$6} END {print \"TOTAL passed:\", passed, \"failed:\", failed}')",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('stub count:', j.count\\); const keys={}; j.stubs.forEach\\(s=>{const m=s.content.match\\(/\\\\[::STUB::\\\\]\\\\s+\\([P0-9-]+\\)/\\); const k=m?m[1]:'\\(none\\)'; keys[k]=\\(keys[k]||0\\)+1}\\); console.log\\('by key:', JSON.stringify\\(keys\\)\\)}\\)\")",
+      "Bash(git commit -m 'chore: add P11-8 commit and test-parse commands to local Claude allowlist *)"
     ]
   }
 }
