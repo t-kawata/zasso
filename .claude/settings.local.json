@@ -1098,7 +1098,9 @@
       "Bash(node -e 'const r=require\\(\"/tmp/p11-5/targetstubs-result.txt\"\\); console.log\\(\"targetStubs update ok:\", r.success\\)')",
       "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P11-5\" --for-spec)",
       "Bash(node -e 'const r=require\\(\"/tmp/p11-5/notes-fix.txt\"\\); console.log\\(\"notes fix ok:\", r.success\\)')",
-      "Bash(node -e 'const r=require\\(\"/tmp/p11-5/reltix.txt\"\\); console.log\\(\"relatedTicketIds update ok:\", r.success\\)')"
+      "Bash(node -e 'const r=require\\(\"/tmp/p11-5/reltix.txt\"\\); console.log\\(\"relatedTicketIds update ok:\", r.success\\)')",
+      "Bash(ls -la /Users/sh01/shyme/zasso/crates/siprs/ && echo \"---ROOT---\" && ls -la /Users/sh01/shyme/zasso/ | head -40)",
+      "Bash(git commit -m 'chore: add directory inspection command to local Claude allowlist *)"
     ]
   }
 }
