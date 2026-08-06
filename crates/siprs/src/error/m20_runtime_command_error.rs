@@ -24,6 +24,7 @@
 // ============================================================================
 
 use crate::error::error_design_siperror::{SipError, SipErrorKind};
+use crate::model::AccountId;
 
 // ---------------------------------------------------------------------------
 // PJSUA error code constants (shared with error_design_siperror)
@@ -111,12 +112,13 @@ pub fn convert_conf_disconnect_error(pj_status: i32, call_id: u64) -> Result<(),
 }
 
 /// Information about a SIP account, returned by `GetAccountInfo` on success.
-///
-// [::STUB::] P9-5: Error fields use i32/u64 instead of AccountId/CallId newtypes pending caller migration -- Migrate native_status and AccountInfo to AccountId/CallId newtypes once the newtypes are stable across callers
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountInfo {
     /// The account's unique identifier.
-    pub account_id: u64,
+    ///
+    /// `AccountId` is a NonZeroU64-backed newtype — a native `0` (PJSUA invalid
+    /// sentinel) can never be stored.
+    pub account_id: AccountId,
     /// The display name associated with the account.
     pub display_name: String,
     /// The SIP URI of the account (e.g., "sip:alice@example.com").
@@ -166,6 +168,7 @@ pub fn convert_get_account_info_error(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::AccountId;
 
     // PJ_EBUSY is a test-only constant here: the production converters branch on
     // PJ_SUCCESS / PJ_EINVALIDOP only, so the busy sentinel lives in the test module
@@ -351,19 +354,34 @@ mod tests {
         );
     }
 
-    // ── Invariant: all converters return SipError ─────────────────────
+    // ── Invariant: all converters produce SipError ────────────────────
 
     #[test]
     // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     // @verifies C018
     // [::TICKET::] P0-4, P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P6-2) --for-spec --no-implementation-order`.
     fn m20_converters_return_sip_error_type() {
-        // Type assertion: all three converters must return Result<T, SipError>
+        // Type assertion: all three converters must yield Result<T, SipError>
         // ABC O-004 closure: convert_get_account_info_error (Result<AccountInfo, SipError>)
         // was previously unasserted — only its error kind was checked indirectly.
         let r1: Result<(), SipError> = convert_conf_connect_error(PJ_SUCCESS, 0);
         let r2: Result<(), SipError> = convert_conf_disconnect_error(PJ_SUCCESS, 0);
         let r3: Result<AccountInfo, SipError> = convert_get_account_info_error(true, PJ_SUCCESS);
         let _ = (r1, r2, r3);
+    }
+
+    #[test]
+// [::TICKET::] P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-5 --for-spec --no-implementation-order`.
+    fn account_info_account_id_is_newtype() -> Result<(), Box<dyn std::error::Error>> {
+        // P9-5: AccountInfo.account_id is AccountId — no u64 ID field remains.
+        let info = AccountInfo {
+            account_id: AccountId::from_u64(1)?,
+            display_name: "alice".into(),
+            sip_uri: "sip:alice@example.com".into(),
+            registered: true,
+        };
+        let _: AccountId = info.account_id; // compile-time: field is AccountId, not u64
+        assert_eq!(info.account_id, AccountId::from_u64(1)?);
+        Ok(())
     }
 }
