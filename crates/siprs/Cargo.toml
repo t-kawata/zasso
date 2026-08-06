@@ -22,9 +22,8 @@ metrics = []
 cli = ["dep:clap"]
 # [::TICKET::] P3-3: server feature gates Axum HTTP server deps for standalone server mode.
 server = ["dep:axum", "dep:tower-http"]
-# [::STUB::] P1-3 (N0050): cpal-input feature declared for microphone source
-# Full implementation requires the `cpal` crate (P8-4).
-cpal-input = []
+# [::TICKET::] P8-7: cpal-input feature now pulls the cpal optional dependency.
+cpal-input = ["dep:cpal"]
 zeroize = ["dep:zeroize"]
 # [::STUB::] P1-3: spec-examples feature gates examples that reference types
 # from future tickets (SipClient, ClientConfig, AccountConfig, etc.).
@@ -76,6 +75,8 @@ clap = { version = "4", optional = true }
 axum = { version = "0.7", optional = true }
 # [::TICKET::] P3-3: tower-http for CORS middleware (behind 'server' feature).
 tower-http = { version = "0.5", features = ["cors"], optional = true }
+# [::TICKET::] P8-7: cpal for the optional device-backed microphone source (cpal-input feature).
+cpal = { version = "0.18", optional = true }
 
 [dev-dependencies]
 # [::TICKET::] P1-2: serde_json for serde roundtrip tests
