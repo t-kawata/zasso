@@ -949,7 +949,11 @@
       "Bash(git -C /Users/sh01/shyme/zasso diff HEAD -- .claude/settings.local.json)",
       "Bash(git -C /Users/sh01/shyme/zasso log -3 --format=\"%B---\")",
       "Bash(git -C /Users/sh01/shyme/zasso add .claude/settings.local.json)",
-      "Bash(git -C /Users/sh01/shyme/zasso commit -m 'chore: extend local Claude allowed-command allowlist for P11-1 workflow *)"
+      "Bash(git -C /Users/sh01/shyme/zasso commit -m 'chore: extend local Claude allowed-command allowlist for P11-1 workflow *)",
+      "Bash(git -C /Users/sh01/shyme/zasso add crates/siprs/Tickets.json crates/siprs/tests/verify_spec_p7_3.rs crates/siprs/specs/P11-1.md)",
+      "Bash(git -C /Users/sh01/shyme/zasso commit -m 'feat\\(P11-1\\): close 3 ABC inspection gaps with regression-lock tests *)",
+      "Bash(git -C /Users/sh01/shyme/zasso log -2 --oneline)",
+      "Bash(git -C /Users/sh01/shyme/zasso commit -m 'chore: extend local Claude allowed-command allowlist for P11-1 commit step *)"
     ]
   }
 }
