@@ -267,11 +267,18 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P11-15) --for-spec --no-implementation-order`.
     fn conf_disconnect_other_error_returns_native() {
         let result = convert_conf_disconnect_error(PJ_EBUSY, 42);
         let err = result.unwrap_err();
         assert_eq!(err.kind, SipErrorKind::NativeError);
+        // ABC O-002 closure: the FFI-error message must keep the operation context so a
+        // future reword that drops it (e.g. a bare "pjsua error 150003") fails this test.
+        assert!(
+            err.message.contains("ConfDisconnect failed"),
+            "Message should mention ConfDisconnect: {}",
+            err.message
+        );
     }
 
     // ── GetAccountInfo: Normal ────────────────────────────────────────
@@ -294,11 +301,18 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P0-4, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P10-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P10-1, P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P10-1|P11-15) --for-spec --no-implementation-order`.
     fn get_account_info_pjsip_error_returns_native() {
         let result = convert_get_account_info_error(Some(&registered_entry()), PJ_EBUSY);
         let err = result.unwrap_err();
         assert_eq!(err.kind, SipErrorKind::NativeError);
+        // ABC O-002 closure: the FFI-error message must keep the operation context so a
+        // future reword that drops it (e.g. a bare "pjsua error 150003") fails this test.
+        assert!(
+            err.message.contains("GetAccountInfo failed"),
+            "Message should mention GetAccountInfo: {}",
+            err.message
+        );
     }
 
     // ── P9-5: native_error_with_status preserves the i32 diagnostic ──
