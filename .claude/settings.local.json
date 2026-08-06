@@ -528,7 +528,14 @@
       "Bash(grep -nE \"\\\\b[0-9]{2,}\\\\b\" src/api/audio_subscribe_bp.rs tests/verify_spec_p9_2.rs)",
       "Bash(node .claude/scripts/tickets/verify-final-contracts.js --ticket-key=\"P9-2\" --tickets=\"Tickets.json\")",
       "Bash(node -e 'let d=\"\";process.stdin.on\\(\"data\",c=>d+=c\\);process.stdin.on\\(\"end\",\\(\\)=>{const r=JSON.parse\\(d\\);console.log\\(\"success:\",r.success,\"| status:\",r.updated&&r.updated.status,\"| completedAt:\",r.updated&&r.updated.completedAt\\)}\\)')",
-      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P9-2\" --no-implementation-order)"
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P9-2\" --no-implementation-order)",
+      "Bash(git commit -m ' *)",
+      "Bash(ls -la /Users/sh01/shyme/zasso/crates/siprs && echo \"---ROOT---\" && ls -la /Users/sh01/shyme/zasso | head -40)",
+      "Bash(node .claude/scripts/tickets/review/find-all-stubs.js \".\")",
+      "Bash(.claude/scripts/tickets/scan-crimes.sh \".\")",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"/Users/sh01/shyme/zasso/crates/siprs\" --tickets=\"Tickets.json\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('stub count:',j.count\\)}\\)\")",
+      "Bash(git commit -m 'chore: extend local Claude allowed-command allowlist *)"
     ]
   }
 }
