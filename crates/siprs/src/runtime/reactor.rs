@@ -1,5 +1,3 @@
-
-
 // [::TICKET::] P0-2: CoreReactor — dedicated thread for serialized PJSUA command execution
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -44,7 +42,7 @@ pub struct BootConfig {
 pub struct CoreReactor;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -79,7 +77,10 @@ impl CoreReactor {
         // target for reactor-initiated events such as the DtmfSent timeout) and the
         // per-account client bus map. Client buses are registered later (P9-6); for
         // this round the default bus is the only publish target.
-        let default_event_bus = EventBus::new(crate::api::eventbus_receiver::DEFAULT_EVENT_BUS_CAPACITY, None);
+        let default_event_bus = EventBus::new(
+            crate::api::eventbus_receiver::DEFAULT_EVENT_BUS_CAPACITY,
+            None,
+        );
         let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
         // [::TICKET::] P11-6: sent_timeout_ms drives the DtmfSent fallback timer (C030).
         let dtmf_sent_timeout_ms = boot_config.config.dtmf.sent_timeout_ms;
@@ -566,12 +567,16 @@ pub(crate) fn process_native_event(
 /// from the reactor's call-state table by `process_native_event`. Registration
 /// events carry the `acc_id`.
 #[allow(dead_code)]
-// [::TICKET::] P7-2, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P7-2, P9-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P11-11) --for-spec --no-implementation-order`.
 fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>) {
     match event {
         NativeEvent::RegistrationStarted { acc_id, .. } => {
             (AccountId::from_u64(*acc_id as u64).ok(), None)
         }
+        NativeEvent::IncomingCall { acc_id, call_id } => (
+            AccountId::from_u64(*acc_id as u64).ok(),
+            CallId::from_u64(*call_id as u64).ok(),
+        ),
         NativeEvent::CallStateChanged { call_id, .. }
         | NativeEvent::CallMediaStateChanged { call_id }
         | NativeEvent::DtmfDigit { call_id, .. }
@@ -664,7 +669,7 @@ mod tests {
 
     /// Build a calls table with a single confirmed call (CallId 10 → account 1).
     // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
-// [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11) --for-spec --no-implementation-order`.
     fn confirmed_calls() -> CallTable {
         BTreeMap::from([(
             test_call_id(10),
@@ -867,7 +872,7 @@ mod tests {
     /// @verifies C024
     #[tokio::test]
     // [::TICKET::] P10-6: O-001 — non-200 Ok snapshot (403) publishes RegistrationFailed via the production flow
-// [::TICKET::] P10-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-6 --for-spec --no-implementation-order`.
     async fn process_native_event_registration_403_publishes_failed() {
         // C024: a non-200 registration status must be published as RegistrationFailed
         // through the production path, not just the isolated status mapping
@@ -1041,6 +1046,30 @@ mod tests {
             "P1 events must not be published, got {:?}",
             result
         );
+    }
+
+    #[test]
+    // @verifies C051
+    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    fn extract_event_ids_incoming_call_carries_both_ids() {
+        let (account_id, call_id) = extract_event_ids(&NativeEvent::IncomingCall {
+            acc_id: 42,
+            call_id: 7,
+        });
+        assert_eq!(account_id, Some(test_account(42)));
+        assert_eq!(call_id, Some(test_call_id(7)));
+    }
+
+    #[test]
+    // @verifies C051
+    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    fn extract_event_ids_incoming_call_zero_acc_id_yields_none() {
+        let (account_id, call_id) = extract_event_ids(&NativeEvent::IncomingCall {
+            acc_id: 0,
+            call_id: 7,
+        });
+        assert_eq!(account_id, None, "acc_id 0 is the invalid sentinel");
+        assert_eq!(call_id, Some(test_call_id(7)));
     }
 
     #[tokio::test]
@@ -1291,10 +1320,9 @@ mod tests {
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut backend = MockBackend::new();
-        backend.send_dtmf_result =
-            Some(Err(crate::runtime::command::ReactorError::BackendError(
-                "send failed".into(),
-            )));
+        backend.send_dtmf_result = Some(Err(crate::runtime::command::ReactorError::BackendError(
+            "send failed".into(),
+        )));
         let client_state = ClientState::default();
         let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
 

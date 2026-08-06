@@ -24,7 +24,7 @@
 // [::TICKET::] P0-5: NativeEvent enum + conversion to SipEventPayload
 
 use crate::api::event_model_payload_bus::{
-    AccountId, CallId, DtmfReceivedInfo, RegistrationInfo, SipEventPayload,
+    AccountId, CallId, DtmfReceivedInfo, IncomingCallInfo, RegistrationInfo, SipEventPayload,
 };
 use crate::config::account_config_spec::DtmfMethod;
 
@@ -45,25 +45,59 @@ use crate::config::account_config_spec::DtmfMethod;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum NativeEvent {
     // ── P0: Registration ──
-    RegistrationStateChanged { acc_id: u32 },
-    RegistrationStarted { acc_id: u32, renew: bool },
+    RegistrationStateChanged {
+        acc_id: u32,
+    },
+    RegistrationStarted {
+        acc_id: u32,
+        renew: bool,
+    },
 
     // ── P0: Call ──
-    CallStateChanged { call_id: u32, state: u32 },
-    CallMediaStateChanged { call_id: u32 },
+    /// A new incoming INVITE arrived (RFC §27.3).
+    ///
+    /// Carries the owning `acc_id` because an incoming call is not yet in the
+    /// reactor's CallTable — the account cannot be resolved from `call_id` alone.
+    IncomingCall {
+        acc_id: u32,
+        call_id: u32,
+    },
+    CallStateChanged {
+        call_id: u32,
+        state: u32,
+    },
+    CallMediaStateChanged {
+        call_id: u32,
+    },
 
     // ── P0: DTMF ──
-    DtmfDigit { call_id: u32, digit: char },
+    DtmfDigit {
+        call_id: u32,
+        digit: char,
+    },
 
     // ── P1: Transport/ICE (deferred) ──
-    TransportStateChanged { transport_id: u32, state: u32 },
-    IceTransportError { call_id: u32 },
+    TransportStateChanged {
+        transport_id: u32,
+        state: u32,
+    },
+    IceTransportError {
+        call_id: u32,
+    },
 
     // ── P2: Supplemental (deferred) ──
-    CallTsxStateChanged { call_id: u32 },
-    CallRedirected { call_id: u32 },
-    CallTransferStatus { call_id: u32 },
-    CallReplaced { call_id: u32 },
+    CallTsxStateChanged {
+        call_id: u32,
+    },
+    CallRedirected {
+        call_id: u32,
+    },
+    CallTransferStatus {
+        call_id: u32,
+    },
+    CallReplaced {
+        call_id: u32,
+    },
     NatDetected,
 }
 
@@ -105,6 +139,19 @@ pub fn convert_native_event_to_payload(
         }
 
         // ── P0: Call ──
+        NativeEvent::IncomingCall { acc_id, call_id } => {
+            // acc_id=0 is PJSUA's invalid sentinel — skip silently. caller_uri is
+            // not extracted by the FFI callback (no allocation on the RT thread),
+            // so the payload carries an empty URI for now (P12-8 refinement).
+            let account_id = AccountId::from_u64(acc_id as u64).ok()?;
+            let cid = CallId::from_u64(call_id as u64).ok()?;
+            Some(SipEventPayload::IncomingCall(IncomingCallInfo {
+                call_id: cid,
+                account_id,
+                caller_uri: String::new(),
+                caller_name: None,
+            }))
+        }
         NativeEvent::CallStateChanged { call_id, state } => {
             let cid = CallId::from_u64(call_id as u64).ok()?;
             crate::state::m20_callstate_mapping::convert_call_state(cid, call_account_id, state)
@@ -115,9 +162,8 @@ pub fn convert_native_event_to_payload(
             // stub build reports NONE, the pjsua-native build reports the real
             // call media status. On an FFI failure fall back to ERROR so the
             // event bus surfaces MediaError rather than a canned success.
-            let media_status =
-                crate::ffi::bindings::resolve_call_media_status(call_id as i32)
-                    .unwrap_or(crate::ffi::bindings::pjsua_call_media_status::ERROR);
+            let media_status = crate::ffi::bindings::resolve_call_media_status(call_id as i32)
+                .unwrap_or(crate::ffi::bindings::pjsua_call_media_status::ERROR);
             crate::state::m20_callstate_mapping::convert_call_media_state(cid, media_status)
             // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         }
@@ -244,7 +290,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5, P9-6, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P9-6, P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9|P11-11) --for-spec --no-implementation-order`.
     fn native_event_call_state_changed_calling() {
         let result = convert_native_event_to_payload(
             NativeEvent::CallStateChanged {
@@ -258,7 +304,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5, P9-6, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P9-6, P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9|P11-11) --for-spec --no-implementation-order`.
     fn native_event_call_state_changed_confirmed() {
         let result = convert_native_event_to_payload(
             NativeEvent::CallStateChanged {
@@ -278,7 +324,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5, P9-6, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P9-6, P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9|P11-11) --for-spec --no-implementation-order`.
     fn native_event_call_state_changed_disconnected() {
         let result = convert_native_event_to_payload(
             NativeEvent::CallStateChanged {
@@ -288,6 +334,58 @@ mod tests {
             None,
         );
         assert!(matches!(result, Some(SipEventPayload::CallDisconnected)));
+    }
+
+    /// @verifies C051
+    #[test]
+    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    fn native_event_incoming_call_maps_to_payload() {
+        let result = convert_native_event_to_payload(
+            NativeEvent::IncomingCall {
+                acc_id: 42,
+                call_id: 7,
+            },
+            None,
+        );
+        match result {
+            Some(SipEventPayload::IncomingCall(info)) => {
+                assert_eq!(info.call_id, test_call_id(7));
+                assert_eq!(info.account_id, test_account(42));
+                assert!(info.caller_uri.is_empty());
+                assert!(info.caller_name.is_none());
+            }
+            _ => panic!("expected IncomingCall, got {result:?}"),
+        }
+    }
+
+    /// @verifies C051
+    #[test]
+    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    fn native_event_incoming_call_zero_acc_id_skipped() {
+        // acc_id=0 is PJSUA's invalid sentinel — conversion returns None.
+        let result = convert_native_event_to_payload(
+            NativeEvent::IncomingCall {
+                acc_id: 0,
+                call_id: 7,
+            },
+            None,
+        );
+        assert!(result.is_none(), "zero acc_id should be skipped");
+    }
+
+    /// @verifies C051
+    #[test]
+    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    fn native_event_incoming_call_zero_call_id_skipped() {
+        // CallId::from_u64 rejects 0 — the newtype contract surfaces as None.
+        let result = convert_native_event_to_payload(
+            NativeEvent::IncomingCall {
+                acc_id: 42,
+                call_id: 0,
+            },
+            None,
+        );
+        assert!(result.is_none(), "zero call_id should be skipped");
     }
 
     /// @verifies C022, C110

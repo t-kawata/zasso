@@ -18,21 +18,24 @@ use crate::ffi::pj_str::PjOwnedStr;
 
 /// Initialize the PJSUA stack: `pjsua_create` → `pjsua_init` → `pjsua_start`.
 ///
-/// Returns the first non-success status, or `PJ_SUCCESS`.
+/// Reads as prose: create the stack, install the pre-allocated NativeEvent queue
+/// and register every PJSIP callback into `pjsua_config.cb`, initialize with the
+/// callback-enabled config, then start. Returns the first non-success status, or
+/// `PJ_SUCCESS`.
 #[cfg(feature = "pjsua-native")]
 pub fn initialize() -> i32 {
+// [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
     let create = unsafe { bindings::pjsua_create() };
     if create != bindings::PJ_SUCCESS {
         return create;
     }
-    // SAFETY: all three config pointers are null — PJSIP applies defaults.
-    let init = unsafe {
-        bindings::pjsua_init(
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-            std::ptr::null_mut(),
-        )
-    };
+    let queue = crossbeam_queue::ArrayQueue::new(crate::ffi::callback::NATIVE_EVENT_QUEUE_CAPACITY);
+    let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
+    crate::ffi::callback::register_callbacks(&mut config, queue);
+    // SAFETY: config is a valid, initialized pjsua_config carrying the callback
+    // registry; null log/media configs select PJSIP defaults.
+    let init =
+        unsafe { bindings::pjsua_init(&mut config, std::ptr::null_mut(), std::ptr::null_mut()) };
     if init != bindings::PJ_SUCCESS {
         return init;
     }
@@ -54,7 +57,8 @@ pub fn create_transport() -> (i32, i32) {
     let mut transport_id: bindings::pjsua_transport_id = 0;
     // SAFETY: a null transport config selects PJSIP defaults; transport_id is a
     // valid out-pointer written by the call.
-    let status = unsafe { bindings::pjsua_transport_create(std::ptr::null_mut(), &mut transport_id) };
+    let status =
+        unsafe { bindings::pjsua_transport_create(std::ptr::null_mut(), &mut transport_id) };
     (status, transport_id)
 }
 
@@ -204,6 +208,27 @@ pub fn transfer_call(native_call_id: i32, target: &str) -> i32 {
     unsafe { bindings::pjsua_call_xfer(native_call_id, &raw, std::ptr::null()) }
 }
 
+/// Put a call on hold via `pjsua_call_set_hold`.
+#[cfg(feature = "pjsua-native")]
+pub fn hold_call(native_call_id: i32) -> i32 {
+// [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    // SAFETY: native_call_id is a valid pjsua_call_id; null msg_data selects
+    // PJSIP defaults for the re-INVITE that puts the call on hold.
+    unsafe { bindings::pjsua_call_set_hold(native_call_id, std::ptr::null()) }
+}
+
+/// Resume a held call via `pjsua_call_reinvite` with default options.
+///
+/// The vendored `pjsua.h` has no `pjsua_call_set_inactive`; a re-INVITE with
+/// options = 0 and null msg_data resumes the media direction on the call.
+#[cfg(feature = "pjsua-native")]
+pub fn unhold_call(native_call_id: i32) -> i32 {
+// [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    // SAFETY: native_call_id is a valid pjsua_call_id; options=0 + null msg_data
+    // send a default re-INVITE that resumes the call media.
+    unsafe { bindings::pjsua_call_reinvite(native_call_id, 0, std::ptr::null()) }
+}
+
 /// Apply the auto-mode codec policy (Opus=255, PCMU=254, others=0).
 ///
 /// Returns the first non-success status, or `PJ_SUCCESS`.
@@ -213,9 +238,9 @@ pub fn configure_codecs() -> i32 {
     let codec_infos: Vec<crate::config::m20_codec_auto_mode::CodecInfo> = codecs
         .iter()
         .map(|c| {
-            crate::config::m20_codec_auto_mode::CodecInfo::new(
-                bindings::pj_str_to_string(&c.codec_id),
-            )
+            crate::config::m20_codec_auto_mode::CodecInfo::new(bindings::pj_str_to_string(
+                &c.codec_id,
+            ))
         })
         .collect();
     let priorities =
@@ -258,9 +283,8 @@ pub fn get_account_info(native_acc_id: u32) -> (i32, u32, bool, String) {
     let mut info: bindings::pjsua_acc_info = unsafe { std::mem::zeroed() };
     // SAFETY: info is a valid, aligned, initialized pjsua_acc_info written by the
     // FFI in place.
-    let status = unsafe {
-        bindings::pjsua_acc_get_info(native_acc_id as bindings::pjsua_acc_id, &mut info)
-    };
+    let status =
+        unsafe { bindings::pjsua_acc_get_info(native_acc_id as bindings::pjsua_acc_id, &mut info) };
     (
         status,
         info.reg_last_err as u32,

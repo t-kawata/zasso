@@ -348,7 +348,7 @@ pub(crate) enum DispatchCommand {
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10|P11-11) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
@@ -399,21 +399,12 @@ impl DispatchCommand {
                 f: Box::new(move |backend| backend.hangup(call_id as i32)),
                 reply,
             },
-// [::STUB::] P11-11: Hold/Unhold require SipBackend hold/unhold methods backed by pjsua_call_set_hold FFI; deferred from P11-10 because adding trait methods is a public API change owned by the callback/FFI completion ticket -- Add hold/unhold to the SipBackend trait and MockBackend, wire pjsua_call_set_hold/pjsua_call_set_inactive in PjsuaBackend, and replace these Execute closures with backend.hold/unhold calls once P11-11 enables FFI
-            RuntimeCommand::Hold { call_id: _, reply } => Self::Execute {
-                f: Box::new(move |_backend| {
-                    Err(ReactorError::BackendError(
-                        "hold is not wired in SipBackend (deferred to P11-11)".into(),
-                    ))
-                }),
+            RuntimeCommand::Hold { call_id, reply } => Self::Execute {
+                f: Box::new(move |backend| backend.hold(call_id as i32)),
                 reply,
             },
-            RuntimeCommand::Unhold { call_id: _, reply } => Self::Execute {
-                f: Box::new(move |_backend| {
-                    Err(ReactorError::BackendError(
-                        "unhold is not wired in SipBackend (deferred to P11-11)".into(),
-                    ))
-                }),
+            RuntimeCommand::Unhold { call_id, reply } => Self::Execute {
+                f: Box::new(move |backend| backend.unhold(call_id as i32)),
                 reply,
             },
             RuntimeCommand::SendDtmf {
@@ -478,7 +469,7 @@ impl DispatchCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for DispatchCommand {
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P11-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P11-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P11-6|P11-11) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Execute { .. } => f
@@ -576,7 +567,7 @@ mod tests {
     #[test]
     // @verifies C069
     // [::TICKET::] P11-6: RuntimeCommand::SendDtmf carries the method into DispatchCommand::SendDtmf
-// [::TICKET::] P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-11) --for-spec --no-implementation-order`.
     fn runtime_command_send_dtmf_carries_method() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::SendDtmf {
@@ -867,6 +858,58 @@ mod tests {
             backend.conf_disconnect_calls,
             vec![(5i32, 5i32)],
             "backend.conf_disconnect must be invoked with (call_id, call_id)"
+        );
+    }
+
+    // ── P11-11: Hold/Unhold dispatch (resolves command.rs:402 stub) ─────
+
+    #[test]
+    // @verifies C054
+    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    fn hold_closure_invokes_backend_hold() {
+        let mut backend = MockBackend::new();
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let cmd = RuntimeCommand::Hold {
+            call_id: 9,
+            reply: Reply::new(tx),
+        };
+        let dispatch = DispatchCommand::from_runtime_command(cmd);
+        match dispatch {
+            DispatchCommand::Execute { f, .. } => {
+                let result = f(&mut backend);
+                assert!(result.is_ok(), "hold closure must succeed");
+            }
+            _ => panic!("Hold must map to DispatchCommand::Execute"),
+        }
+        assert_eq!(
+            backend.hold_calls,
+            vec![9],
+            "backend.hold must be invoked with call_id"
+        );
+    }
+
+    #[test]
+    // @verifies C054
+    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    fn unhold_closure_invokes_backend_unhold() {
+        let mut backend = MockBackend::new();
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let cmd = RuntimeCommand::Unhold {
+            call_id: 12,
+            reply: Reply::new(tx),
+        };
+        let dispatch = DispatchCommand::from_runtime_command(cmd);
+        match dispatch {
+            DispatchCommand::Execute { f, .. } => {
+                let result = f(&mut backend);
+                assert!(result.is_ok(), "unhold closure must succeed");
+            }
+            _ => panic!("Unhold must map to DispatchCommand::Execute"),
+        }
+        assert_eq!(
+            backend.unhold_calls,
+            vec![12],
+            "backend.unhold must be invoked with call_id"
         );
     }
 

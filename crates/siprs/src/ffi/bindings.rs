@@ -193,6 +193,128 @@ mod stub_aliases {
     }
 
     // ---------------------------------------------------------------------------
+    // pjsua_config / pjsua_callback — callback-bridge ABI (P11-11)
+    // ---------------------------------------------------------------------------
+
+    /// PJSIP boolean — maps to `pj_bool_t` (int).
+    pub type pj_bool_t = i32;
+
+    /// Opaque incoming SIP message (`pjsip_rx_data`) — only ever a pointer
+    /// passthrough; `on_incoming_call` never dereferences it.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjsip_rx_data {
+        _private: [u8; 0],
+    }
+
+    /// Opaque SIP URI (`pjsip_uri`) — only ever a pointer passthrough.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjsip_uri {
+        _private: [u8; 0],
+    }
+
+    /// Opaque SIP transaction (`pjsip_transaction`) — only ever a pointer
+    /// passthrough; no callback in the P11-11 set reads it.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjsip_transaction {
+        _private: [u8; 0],
+    }
+
+    /// Opaque registration info (`pjsua_reg_info`) — the `on_reg_state2`
+    /// argument; P11-11 uses the legacy `on_reg_state(pjsua_acc_id)` instead.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjsua_reg_info {
+        _private: [u8; 0],
+    }
+
+    /// Minimal mirror of `pjsip_event` exposing the call-state field path the
+    /// `on_call_state` callback reads. Under `pjsua-native` the real struct is a
+    /// bindgen union; the shared `pjsip_event::call_state()` accessor reads the
+    /// same `.body.call_state_info.state` path in both modes.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjsip_event {
+        /// Event payload body — only the `call_state_info` member is modelled.
+        pub body: pjsip_event_body,
+    }
+
+    /// Mirror of the `pjsip_event_body` union — only the call-state member.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjsip_event_body {
+        /// Call-state event info (`pjsip_event_body_call_state_info`).
+        pub call_state_info: pjsip_event_call_state_info,
+    }
+
+    /// Call-state event info carrying the `pjsip_inv_state`.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjsip_event_call_state_info {
+        /// Invite-session state (`pjsip_inv_state`), e.g. CONFIRMED = 5.
+        pub state: u32,
+    }
+
+    /// Redirect decision returned by `on_call_redirected` (`pjsip_redirect_op`).
+    ///
+    /// Mirrors the bindgen consts-style surface: the enum type is an unsigned int
+    /// and the enumerators are module-level constants. P11-11 only ever returns
+    /// `PJSIP_REDIRECT_STOP` — the no-follow default that matches PJSIP's own
+    /// behavior when the callback is absent.
+    pub mod pjsip_redirect_op {
+        /// Reject the redirection to the current target.
+        pub const PJSIP_REDIRECT_REJECT: u32 = 0;
+        /// Accept the redirection to the current target.
+        pub const PJSIP_REDIRECT_ACCEPT: u32 = 1;
+        /// Accept the redirection and replace the To header with the target.
+        pub const PJSIP_REDIRECT_ACCEPT_REPLACE: u32 = 2;
+        /// Defer the redirection decision (requires `pjsua_call_process_redirect`).
+        pub const PJSIP_REDIRECT_PENDING: u32 = 3;
+        /// Stop the whole redirection process and disconnect the call.
+        pub const PJSIP_REDIRECT_STOP: u32 = 4;
+    }
+
+    /// Application callback registry (`pjsua_callback`) — the fields P11-11 wires.
+    ///
+    /// Field names and their pointer types mirror the vendored `pjsua.h`
+    /// declarations so `register_callbacks` compiles against both this stub and
+    /// the bindgen output under `pjsua-native`.
+    #[repr(C)]
+    #[derive(Debug, Clone)]
+    pub struct pjsua_callback {
+        /// `on_call_state` — call invite-session state changed.
+        pub on_call_state: Option<unsafe extern "C" fn(pjsua_call_id, *mut pjsip_event)>,
+        /// `on_incoming_call` — new incoming INVITE.
+        pub on_incoming_call:
+            Option<unsafe extern "C" fn(pjsua_acc_id, pjsua_call_id, *mut pjsip_rx_data)>,
+        /// `on_call_media_state` — call media state changed.
+        pub on_call_media_state: Option<unsafe extern "C" fn(pjsua_call_id)>,
+        /// `on_dtmf_digit` — RFC 2833 DTMF digit received.
+        pub on_dtmf_digit: Option<unsafe extern "C" fn(pjsua_call_id, i32)>,
+        /// `on_call_transfer_status` — transfer progress report.
+        pub on_call_transfer_status:
+            Option<unsafe extern "C" fn(pjsua_call_id, i32, *const pj_str_t, i32, *mut i32)>,
+        /// `on_reg_started` — registration/unregistration initiated.
+        pub on_reg_started: Option<unsafe extern "C" fn(pjsua_acc_id, i32)>,
+        /// `on_reg_state` — registration status changed (legacy single-arg form).
+        pub on_reg_state: Option<unsafe extern "C" fn(pjsua_acc_id)>,
+        /// `on_call_redirected` — INVITE about to be resent to a redirect target.
+        pub on_call_redirected: Option<
+            unsafe extern "C" fn(pjsua_call_id, *const pjsip_uri, *const pjsip_event) -> u32,
+        >,
+    }
+
+    /// PJSUA global configuration — only the `cb` callback registry is modelled.
+    #[repr(C)]
+    #[derive(Debug)]
+    pub struct pjsua_config {
+        /// Application callback registry (`pjsua_callback`).
+        pub cb: pjsua_callback,
+    }
+
+    // ---------------------------------------------------------------------------
     // Stub FFI calls (compile-time only — no link symbol needed yet)
     // ---------------------------------------------------------------------------
 
@@ -251,6 +373,29 @@ impl pj_str_t {
         Self {
             ptr: std::ptr::null_mut(),
             slen: 0,
+        }
+    }
+}
+
+/// Shared call-state accessor for `pjsip_event` — available in both modes.
+///
+/// Under `pjsua-native` the event body is a C union and reading the active
+/// `call_state_info` member is the documented `on_call_state` path. Under the
+/// stub build the mirror struct exposes the same field path so `on_call_state`
+/// and its tests share one code path.
+// [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+impl pjsip_event {
+    /// Read the invite-session state (`pjsip_inv_state`) carried by the event.
+    pub fn call_state(&self) -> u32 {
+        #[cfg(feature = "pjsua-native")]
+        {
+            // SAFETY: PJSIP activates the call_state_info member before invoking
+            // on_call_state; reading it is the documented callback path.
+            unsafe { self.body.call_state_info.state as u32 }
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            self.body.call_state_info.state
         }
     }
 }
@@ -314,9 +459,15 @@ pub fn enumerate_codecs() -> Vec<pjsua_codec_info> {
     // All-zero is a valid pjsua_codec_info (null ptr / slen 0 / rates 0).
     let status = unsafe { pjsua_enum_codecs(raw.as_mut_ptr(), &mut count) };
     if status != PJ_SUCCESS {
-        tracing::warn!(status, "codec enumeration failed; degrading to empty available_codecs");
+        tracing::warn!(
+            status,
+            "codec enumeration failed; degrading to empty available_codecs"
+        );
     } else if count as usize > raw.len() {
-        tracing::warn!(count, "codec enumeration count exceeds buffer capacity; degrading to empty available_codecs");
+        tracing::warn!(
+            count,
+            "codec enumeration count exceeds buffer capacity; degrading to empty available_codecs"
+        );
     }
     decode_enumeration_result(status, count, raw)
 }
@@ -330,7 +481,7 @@ pub fn enumerate_codecs() -> Vec<pjsua_codec_info> {
 /// Pure decoder — unit-testable with a fixture struct; the FFI boundary is
 /// confined to `resolve_call_media_status`.
 pub fn media_status_from_call_info(info: &pjsua_call_info) -> u32 {
-    info.media_status as u32
+    info.media_status
 }
 
 /// Resolve the actual media status for a call via `pjsua_call_get_info`.
@@ -359,7 +510,7 @@ mod tests {
     use crate::ffi::pj_str::PjOwnedStr;
 
     #[test]
-// [::TICKET::] P3-2, P11-5, P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P11-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-5, P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P11-8|P11-11) --for-spec --no-implementation-order`.
     fn pj_str_t_null_creates_zero_length() {
         let owned = pj_str_t::null();
         assert_eq!(owned.slen, 0, "null pj_str_t must have slen=0");
@@ -367,7 +518,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn pjsua_call_get_info_stub_returns_success() {
         let mut info = pjsua_call_info {
             conf_slot: 0,
@@ -377,7 +528,7 @@ mod tests {
         assert_eq!(status, PJ_SUCCESS, "stub must return success");
         assert_eq!(info.conf_slot, 42, "conf_slot must match call_id");
         assert_eq!(
-            info.media_status as u32,
+            info.media_status,
             pjsua_call_media_status::NONE,
             "stub media_status must be NONE (no real media without pjsua-native)"
         );
@@ -451,7 +602,7 @@ mod tests {
 
     #[test]
     // @verifies C038
-// [::TICKET::] P11-5, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-10) --for-spec --no-implementation-order`.
+// [::TICKET::] P11-5, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn stub_surface_is_callable_without_pjsua() {
         // C038-Pre: the FFI surface must be callable with no system PJSIP install.
         let mut info = pjsua_call_info {
@@ -462,7 +613,7 @@ mod tests {
         assert_eq!(status, PJ_SUCCESS);
         assert_eq!(info.conf_slot, 7);
         assert_eq!(
-            info.media_status as u32,
+            info.media_status,
             pjsua_call_media_status::NONE,
             "stub media_status must be NONE"
         );
@@ -470,7 +621,7 @@ mod tests {
 
     // [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.
     #[test]
-// [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11) --for-spec --no-implementation-order`.
     fn stub_surface_exposes_p11_9_constants() {
         // P11-9: the error/state mapping modules consume these constants from
         // ffi::bindings. RED until the stub_aliases expose them; the type
@@ -488,7 +639,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
     fn pj_str_to_string_reads_valid_str() {
         let owned = PjOwnedStr::new("opus/48000/2");
         let raw = owned.as_raw();
@@ -497,7 +648,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
     fn pj_str_to_string_null_returns_empty() {
         let raw = pj_str_t::null();
         assert_eq!(pj_str_to_string(&raw), "");
@@ -505,7 +656,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
     fn decode_enumeration_result_error_returns_empty() {
         let raw: Vec<pjsua_codec_info> = Vec::new();
         let result = decode_enumeration_result(PJ_EUNKNOWN, 3, raw);
@@ -514,7 +665,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
     fn decode_enumeration_result_truncates_to_count() {
         let zero = pjsua_codec_info {
             codec_id: pj_str_t::null(),
@@ -529,7 +680,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
     fn decode_enumeration_result_count_exceeding_buffer_returns_empty() {
         let zero = pjsua_codec_info {
             codec_id: pj_str_t::null(),
@@ -545,7 +696,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
     fn enumerate_codecs_empty_without_native() {
         // The stub pjsua_enum_codecs reports count=0, so the safe wrapper
         // returns an empty list on the non-pjsua-native path.
@@ -554,7 +705,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
     fn pjsua_enum_codecs_null_count_returns_error() {
         let status = unsafe { pjsua_enum_codecs(std::ptr::null_mut(), std::ptr::null_mut()) };
         assert_eq!(status, PJ_EUNKNOWN);

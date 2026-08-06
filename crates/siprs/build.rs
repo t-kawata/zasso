@@ -71,7 +71,7 @@ fn pjsua_native_enabled() -> bool {
 /// The include dir is passed as a clang arg so `#include <pjsua.h>` in
 /// wrapper.h resolves against the RFC §28.1 header root. Failures panic with a
 /// message naming the RFC §28.4 package list — never a raw clang/bindgen dump.
-// [::TICKET::] P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-5, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11) --for-spec --no-implementation-order`.
 fn generate_bindings(header_root: &std::path::Path) {
     let target = std::env::var("TARGET").unwrap_or_default();
     let mut builder = bindgen::Builder::default()
@@ -81,9 +81,9 @@ fn generate_bindings(header_root: &std::path::Path) {
         builder = builder.clang_arg(format!("-D{define}"));
     }
     let bindings = builder
-        .allowlist_type(&build_script_bindgen::BINDGEN_ALLOWLIST_TYPES.join("|"))
-        .allowlist_function(&build_script_bindgen::BINDGEN_ALLOWLIST_FUNCTIONS.join("|"))
-        .allowlist_var(&build_script_bindgen::BINDGEN_ALLOWLIST_VARS.join("|"))
+        .allowlist_type(build_script_bindgen::BINDGEN_ALLOWLIST_TYPES.join("|"))
+        .allowlist_function(build_script_bindgen::BINDGEN_ALLOWLIST_FUNCTIONS.join("|"))
+        .allowlist_var(build_script_bindgen::BINDGEN_ALLOWLIST_VARS.join("|"))
         .generate()
         .unwrap_or_else(|e| {
             panic!(
