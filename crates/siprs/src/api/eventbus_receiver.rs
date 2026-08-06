@@ -1,3 +1,4 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -22,6 +23,11 @@
 use tokio::sync::broadcast;
 
 use crate::api::event_model_payload_bus::{AccountId, RawSipMessage, SipEvent};
+
+/// Default capacity of the control event bus when the caller provides no explicit
+/// control capacity (SipClient::new creates the client bus with this capacity).
+// [::TICKET::] P10-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-6 --for-spec --no-implementation-order`.
+pub const DEFAULT_EVENT_BUS_CAPACITY: usize = 2048;
 
 /// Event bus providing split broadcast channels for control events and raw SIP messages.
 ///

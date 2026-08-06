@@ -1,3 +1,4 @@
+
 // [::TICKET::] P0-2: CoreReactor — dedicated thread for serialized PJSUA command execution
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -537,6 +538,7 @@ mod tests {
     use super::*;
     use crate::runtime::command::Reply;
     use crate::runtime::state::CallEntry;
+    use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
     use std::collections::{BTreeMap, HashMap};
 
     /// Construct a test `CallId` from a non-zero value.
@@ -754,6 +756,48 @@ mod tests {
             "expected RegistrationFailed or Error, got {:?}",
             ev.payload
         );
+    }
+
+    /// @verifies C024
+    #[tokio::test]
+    // [::TICKET::] P10-6: O-001 — non-200 Ok snapshot (403) publishes RegistrationFailed via the production flow
+// [::TICKET::] P10-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-6 --for-spec --no-implementation-order`.
+    async fn process_native_event_registration_403_publishes_failed() {
+        // C024: a non-200 registration status must be published as RegistrationFailed
+        // through the production path, not just the isolated status mapping
+        // exercised by the registration_status_to_payload unit tests (ABC O-001).
+        let mut backend = MockBackend::new();
+        backend.get_account_info_result = Some(Ok(AccountInfoSnapshot {
+            acc_id: test_account(1),
+            registration_status: 403,
+            registration_expires: None,
+            online_status: false,
+            uri: "sip:alice@example.com".into(),
+        }));
+        let bus = EventBus::new(16, None);
+        let buses = HashMap::new();
+        let calls = BTreeMap::new();
+        let mut rx = bus.subscribe_control();
+
+        process_native_event(
+            &backend,
+            &buses,
+            &bus,
+            NativeEvent::RegistrationStateChanged { acc_id: 1 },
+            &calls,
+        );
+
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+        match &ev.payload {
+            SipEventPayload::RegistrationFailed(failure) => {
+                assert_eq!(failure.status_code, 403);
+                assert_eq!(ev.meta.account_id, Some(test_account(1)));
+            }
+            other => panic!("expected RegistrationFailed, got {other:?}"),
+        }
     }
 
     /// @verifies C022

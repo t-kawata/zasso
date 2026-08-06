@@ -13,7 +13,7 @@ use crate::api::audio_subscribe_bp::{
     tap_channel, validate_tap_capacity, AudioTapHandle, AudioTapMode, AudioTapSender,
 };
 use crate::api::event_model_payload_bus::{AccountId, EventMeta, SipEvent, SipEventPayload};
-use crate::api::eventbus_receiver::EventBus;
+use crate::api::eventbus_receiver::{DEFAULT_EVENT_BUS_CAPACITY, EventBus};
 use crate::config::observability_metrics::ClientCapabilities;
 use crate::config::ClientConfig;
 use crate::error::SipError;
@@ -76,7 +76,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -108,7 +108,7 @@ impl SipClient {
         })?;
 
         // Create EventBus for client lifecycle and SIP events.
-        let event_bus = EventBus::new(2048, None);
+        let event_bus = EventBus::new(DEFAULT_EVENT_BUS_CAPACITY, None);
         let event_rx = event_bus.subscribe_control();
 
         // Send Initialize command to the reactor.
