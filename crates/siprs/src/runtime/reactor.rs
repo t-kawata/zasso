@@ -9,9 +9,11 @@ use crate::runtime::audio_worker::AudioMixer;
 use crate::runtime::backend::{MockBackend, SipBackend};
 use crate::runtime::command::{send_reply, DispatchCommand, ReactorError};
 use crate::runtime::handle::{self, RuntimeHandle};
-use crate::runtime::state::ClientState;
+use crate::runtime::state::{CallEntry, ClientState};
 
-use crate::api::event_model_payload_bus::{AccountId, CallId, EventMeta, SipEvent, SipEventPayload};
+use crate::api::event_model_payload_bus::{
+    AccountId, CallId, EventMeta, SipEvent, SipEventPayload,
+};
 use crate::api::eventbus_receiver::EventBus;
 use crate::state::m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
 use crate::state::m20_registr_cmd_pat::registration_status_to_payload;
@@ -248,6 +250,14 @@ impl CoreReactor {
     }
 }
 
+/// Client buses keyed by logical account ID.
+// [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
+type ClientEventBuses = std::collections::HashMap<AccountId, EventBus>;
+
+/// Active calls keyed by logical call ID (`ClientState.calls`).
+// [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
+type CallTable = std::collections::BTreeMap<CallId, CallEntry>;
+
 /// Route a `SipEvent` to the correct `EventBus` based on its `account_id` (N0038).
 ///
 /// - `Some(account_id)` matching a registered client bus → that bus only.
@@ -260,7 +270,7 @@ impl CoreReactor {
 // [::STUB::] P12-7: NativeEvent dispatch and processing are not yet wired into the reactor loop (covers reactor.rs:260,294,335) -- Wire dispatch_event and process_native_event (with its extract_event_ids helper) into the reactor loop so NativeEvents delivered by the FFI callback bridge are processed
 #[allow(dead_code)]
 pub(crate) fn dispatch_event(
-    client_event_buses: &std::collections::HashMap<AccountId, EventBus>,
+    client_event_buses: &ClientEventBuses,
     default_event_bus: &EventBus,
     event: SipEvent,
 ) {
@@ -290,13 +300,19 @@ pub(crate) fn dispatch_event(
 ///
 /// Other P0 events flow through `convert_native_event_to_payload`; P1/P2 events
 /// convert to `None` and are silently not published (documented rationale).
+///
+/// `calls` is the reactor's call-state table (`ClientState.calls`). Call-scoped
+/// events carry no `acc_id`, so the owning account is resolved from
+/// `calls[call_id].account_id` before conversion — this is what lets a
+/// `CONFIRMED` call publish a `CallConnected` payload with the real account.
 // [::TICKET::] P7-2: O-001 — production NativeEvent → SipEvent publication flow
 #[allow(dead_code)]
 pub(crate) fn process_native_event(
     backend: &dyn SipBackend,
-    client_event_buses: &std::collections::HashMap<AccountId, EventBus>,
+    client_event_buses: &ClientEventBuses,
     default_event_bus: &EventBus,
     event: NativeEvent,
+    calls: &CallTable,
 ) {
     match event {
         NativeEvent::RegistrationStateChanged { acc_id } => {
@@ -314,8 +330,15 @@ pub(crate) fn process_native_event(
             }
         }
         other_event => {
-            let (account_id, call_id) = extract_event_ids(&other_event);
-            if let Some(payload) = convert_native_event_to_payload(other_event) {
+            let (mut account_id, call_id) = extract_event_ids(&other_event);
+            // Call-scoped events have no acc_id in the event data: resolve the
+            // owning account from the call table before conversion.
+            if account_id.is_none() {
+                if let Some(cid) = call_id {
+                    account_id = calls.get(&cid).map(|entry| entry.account_id);
+                }
+            }
+            if let Some(payload) = convert_native_event_to_payload(other_event, account_id) {
                 let sip_event = SipEvent {
                     meta: EventMeta::new(0, account_id, call_id),
                     payload,
@@ -328,11 +351,11 @@ pub(crate) fn process_native_event(
 
 /// Extract the `EventMeta` id fields carried by a `NativeEvent`.
 ///
-/// Call/DTMF events carry only a `call_id`; the `account_id` is resolved from
-/// the reactor's call-state table once call tracking lands (P4-1). Registration
+/// Call/DTMF events carry only a `call_id`; the owning `account_id` is resolved
+/// from the reactor's call-state table by `process_native_event`. Registration
 /// events carry the `acc_id`.
 #[allow(dead_code)]
-// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P7-2, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6) --for-spec --no-implementation-order`.
 fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>) {
     match event {
         NativeEvent::RegistrationStarted { acc_id, .. } => {
@@ -345,9 +368,7 @@ fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>)
         | NativeEvent::CallTsxStateChanged { call_id }
         | NativeEvent::CallRedirected { call_id }
         | NativeEvent::CallTransferStatus { call_id }
-        | NativeEvent::CallReplaced { call_id } => {
-            (None, CallId::from_u64(*call_id as u64).ok())
-        }
+        | NativeEvent::CallReplaced { call_id } => (None, CallId::from_u64(*call_id as u64).ok()),
         NativeEvent::TransportStateChanged { .. }
         | NativeEvent::NatDetected
         | NativeEvent::RegistrationStateChanged { .. } => (None, None),
@@ -357,13 +378,52 @@ fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>)
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
+    use crate::runtime::state::CallEntry;
+    use std::collections::{BTreeMap, HashMap};
+
+    /// Construct a test `CallId` from a non-zero value.
+    // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
+    fn test_call_id(value: u64) -> CallId {
+        CallId::from_u64(value).unwrap_or_else(|error| {
+            panic!("test CallId requires a non-zero value, got {value}: {error}")
+        })
+    }
+
+    /// Construct a test `AccountId` from a non-zero value.
+    // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
+    fn test_account(value: u64) -> AccountId {
+        AccountId::from_u64(value).unwrap_or_else(|error| {
+            panic!("test AccountId requires a non-zero value, got {value}: {error}")
+        })
+    }
+
+    /// Build a calls table with a single confirmed call (CallId 10 → account 1).
+    // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
+    fn confirmed_calls() -> CallTable {
+        BTreeMap::from([(
+            test_call_id(10),
+            CallEntry {
+                id: 10,
+                native_id: 1,
+                account_id: test_account(1),
+                state: "Confirmed".into(),
+                media: "none".into(),
+            },
+        )])
+    }
+
+    /// Spawn the reactor for a test; panics with the error on failure.
+    // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
+    fn spawn_reactor() -> (RuntimeHandle, std::thread::JoinHandle<()>) {
+        CoreReactor::spawn(BootConfig::default())
+            .unwrap_or_else(|error| panic!("reactor spawn failed: {error}"))
+    }
 
     // [::TICKET::] P7-2: O-003 — test helper shared by dispatch/process_native_event tests
-// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-2, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6) --for-spec --no-implementation-order`.
     fn make_event(account_id: Option<AccountId>) -> SipEvent {
         SipEvent {
-            meta: EventMeta::new(1, account_id, Some(CallId::from_u64(1).unwrap())),
+            meta: EventMeta::new(1, account_id, Some(test_call_id(1))),
             payload: SipEventPayload::CallDisconnected,
         }
     }
@@ -373,23 +433,19 @@ mod tests {
     /// @verifies C039
     #[test]
     // [::TICKET::] P7-2: O-003 — production dispatch routes to the matching client bus only
-// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-2, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6) --for-spec --no-implementation-order`.
     fn dispatch_event_routes_to_matching_bus_only() {
         let bus_a = EventBus::new(16, None);
         let bus_b = EventBus::new(16, None);
         let default_bus = EventBus::new(16, None);
         let mut buses = HashMap::new();
-        buses.insert(AccountId::from_u64(1).unwrap(), bus_a.clone());
-        buses.insert(AccountId::from_u64(2).unwrap(), bus_b.clone());
+        buses.insert(test_account(1), bus_a.clone());
+        buses.insert(test_account(2), bus_b.clone());
 
         let mut rx_a = bus_a.subscribe_control();
         let mut rx_b = bus_b.subscribe_control();
 
-        dispatch_event(
-            &buses,
-            &default_bus,
-            make_event(Some(AccountId::from_u64(1).unwrap())),
-        );
+        dispatch_event(&buses, &default_bus, make_event(Some(test_account(1))));
 
         assert!(
             rx_a.try_recv().is_ok(),
@@ -407,14 +463,14 @@ mod tests {
     /// @verifies C039
     #[test]
     // [::TICKET::] P7-2: O-003 — production dispatch broadcasts account_id=None to every bus
-// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-2, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6) --for-spec --no-implementation-order`.
     fn dispatch_event_none_account_broadcasts_to_all() {
         let bus_a = EventBus::new(16, None);
         let bus_b = EventBus::new(16, None);
         let default_bus = EventBus::new(16, None);
         let mut buses = HashMap::new();
-        buses.insert(AccountId::from_u64(1).unwrap(), bus_a.clone());
-        buses.insert(AccountId::from_u64(2).unwrap(), bus_b.clone());
+        buses.insert(test_account(1), bus_a.clone());
+        buses.insert(test_account(2), bus_b.clone());
 
         let mut rx_a = bus_a.subscribe_control();
         let mut rx_b = bus_b.subscribe_control();
@@ -424,8 +480,14 @@ mod tests {
         event.meta.account_id = None;
         dispatch_event(&buses, &default_bus, event);
 
-        assert!(rx_a.try_recv().is_ok(), "client A must receive lifecycle event");
-        assert!(rx_b.try_recv().is_ok(), "client B must receive lifecycle event");
+        assert!(
+            rx_a.try_recv().is_ok(),
+            "client A must receive lifecycle event"
+        );
+        assert!(
+            rx_b.try_recv().is_ok(),
+            "client B must receive lifecycle event"
+        );
         assert!(
             rx_default.try_recv().is_ok(),
             "default bus must receive lifecycle event"
@@ -435,21 +497,17 @@ mod tests {
     /// @verifies C039
     #[test]
     // [::TICKET::] P7-2: O-003 — production dispatch falls back to default_event_bus for unmatched account
-// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-2, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6) --for-spec --no-implementation-order`.
     fn dispatch_event_unmatched_account_falls_back_to_default() {
         let bus_a = EventBus::new(16, None);
         let default_bus = EventBus::new(16, None);
         let mut buses = HashMap::new();
-        buses.insert(AccountId::from_u64(1).unwrap(), bus_a.clone());
+        buses.insert(test_account(1), bus_a.clone());
 
         let mut rx_a = bus_a.subscribe_control();
         let mut rx_default = default_bus.subscribe_control();
 
-        dispatch_event(
-            &buses,
-            &default_bus,
-            make_event(Some(AccountId::from_u64(99).unwrap())),
-        );
+        dispatch_event(&buses, &default_bus, make_event(Some(test_account(99))));
 
         assert!(
             rx_default.try_recv().is_ok(),
@@ -473,6 +531,7 @@ mod tests {
         let backend = MockBackend::new(); // get_account_info() -> Ok(200)
         let bus = EventBus::new(16, None);
         let buses = HashMap::new();
+        let calls = BTreeMap::new();
         let mut rx = bus.subscribe_control();
 
         process_native_event(
@@ -480,15 +539,19 @@ mod tests {
             &buses,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
+            &calls,
         );
 
-        let ev = rx.recv().await.unwrap();
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
         assert!(
             matches!(ev.payload, SipEventPayload::RegistrationSucceeded(_)),
             "expected RegistrationSucceeded, got {:?}",
             ev.payload
         );
-        assert_eq!(ev.meta.account_id, Some(AccountId::from_u64(1).unwrap()));
+        assert_eq!(ev.meta.account_id, Some(test_account(1)));
     }
 
     /// @verifies C024
@@ -500,6 +563,7 @@ mod tests {
             Some(Err(ReactorError::BackendError("mock backend down".into())));
         let bus = EventBus::new(16, None);
         let buses = HashMap::new();
+        let calls = BTreeMap::new();
         let mut rx = bus.subscribe_control();
 
         process_native_event(
@@ -507,9 +571,13 @@ mod tests {
             &buses,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
+            &calls,
         );
 
-        let ev = rx.recv().await.unwrap();
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
         assert!(
             matches!(
                 ev.payload,
@@ -527,21 +595,102 @@ mod tests {
         let backend = MockBackend::new();
         let bus = EventBus::new(16, None);
         let buses = HashMap::new();
+        let calls = confirmed_calls();
         let mut rx = bus.subscribe_control();
 
         process_native_event(
             &backend,
             &buses,
             &bus,
-            NativeEvent::CallStateChanged { call_id: 10, state: 3 },
+            NativeEvent::CallStateChanged {
+                call_id: 10,
+                state: 3,
+            },
+            &calls,
         );
 
-        let ev = rx.recv().await.unwrap();
-        assert!(
-            matches!(ev.payload, SipEventPayload::CallConnected(_)),
-            "expected CallConnected, got {:?}",
-            ev.payload
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+        match ev.payload {
+            SipEventPayload::CallConnected(info) => {
+                assert_eq!(info.account_id, test_account(1));
+            }
+            other => panic!("expected CallConnected, got {:?}", other),
+        }
+    }
+
+    /// @verifies C029, C031
+    #[tokio::test]
+    async fn process_native_event_multi_account_call_connected() {
+        // Two calls, one per account: each CallConnected payload must carry the
+        // owning CallEntry.account_id — never the hardcoded account 1.
+        let backend = MockBackend::new();
+        let bus = EventBus::new(16, None);
+        let buses = HashMap::new();
+        let calls = BTreeMap::from([
+            (
+                test_call_id(10),
+                CallEntry {
+                    id: 10,
+                    native_id: 1,
+                    account_id: test_account(1),
+                    state: "Confirmed".into(),
+                    media: "none".into(),
+                },
+            ),
+            (
+                test_call_id(11),
+                CallEntry {
+                    id: 11,
+                    native_id: 2,
+                    account_id: test_account(2),
+                    state: "Confirmed".into(),
+                    media: "none".into(),
+                },
+            ),
+        ]);
+        let mut rx = bus.subscribe_control();
+
+        process_native_event(
+            &backend,
+            &buses,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 10,
+                state: 3,
+            },
+            &calls,
         );
+        process_native_event(
+            &backend,
+            &buses,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 11,
+                state: 3,
+            },
+            &calls,
+        );
+
+        let first = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+        let second = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+        // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
+        match (first.payload, second.payload) {
+            (SipEventPayload::CallConnected(a), SipEventPayload::CallConnected(b)) => {
+                assert_eq!(a.account_id, test_account(1));
+                assert_eq!(b.account_id, test_account(2));
+                assert_ne!(a.account_id, b.account_id, "accounts must be distinct");
+            }
+            other => panic!("expected two CallConnected payloads, got {:?}", other),
+        }
     }
 
     #[tokio::test]
@@ -550,13 +699,18 @@ mod tests {
         let backend = MockBackend::new();
         let bus = EventBus::new(16, None);
         let buses = HashMap::new();
+        let calls = BTreeMap::new();
         let mut rx = bus.subscribe_control();
 
         process_native_event(
             &backend,
             &buses,
             &bus,
-            NativeEvent::TransportStateChanged { transport_id: 1, state: 0 },
+            NativeEvent::TransportStateChanged {
+                transport_id: 1,
+                state: 0,
+            },
+            &calls,
         );
 
         // P1/P2 convert to None — no event must be published on the bus.
@@ -575,7 +729,7 @@ mod tests {
     // @verifies C002
     async fn reactor_spawn_creates_thread() {
         // Contract-C002: CoreReactor::spawn() creates a std::thread.
-        let (handle, join) = CoreReactor::spawn(BootConfig::default()).unwrap();
+        let (handle, join) = spawn_reactor();
         assert!(
             !handle.is_terminated(),
             "reactor must be running after spawn"
@@ -591,7 +745,7 @@ mod tests {
     // @verifies C011
     async fn reactor_spawn_multiple_concurrent_submits() {
         // Contract-C011: 10 concurrent submit() calls are serialized.
-        let (handle, join) = CoreReactor::spawn(BootConfig::default()).unwrap();
+        let (handle, join) = spawn_reactor();
 
         // Use raw DispatchCommand with oneshot channels
         let mut tasks = Vec::new();
@@ -617,7 +771,9 @@ mod tests {
         }
 
         for task in tasks {
-            let result = task.await.unwrap();
+            let result = task
+                .await
+                .unwrap_or_else(|error| panic!("submit task failed: {error}"));
             assert!(result.is_ok(), "concurrent submit must succeed");
         }
 
@@ -629,12 +785,13 @@ mod tests {
     // @verifies C047
     async fn reactor_shutdown_cleanly() {
         // Contract-C047: Shutdown stops the reactor cleanly.
-        let (handle, join) = CoreReactor::spawn(BootConfig::default()).unwrap();
+        let (handle, join) = spawn_reactor();
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = DispatchCommand::Shutdown { reply: tx };
         handle.sender.send(cmd).ok();
         assert!(rx.await.is_ok(), "shutdown must complete");
-        join.join().unwrap();
+        join.join()
+            .unwrap_or_else(|_| panic!("reactor thread panicked"));
         assert!(
             handle.is_terminated(),
             "reactor must be terminated after shutdown"
