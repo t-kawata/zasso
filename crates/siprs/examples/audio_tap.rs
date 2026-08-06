@@ -1,5 +1,3 @@
-
-
 // [::TICKET::] P9-1, P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-1|P9-2) --for-spec --no-implementation-order`.
 
 // Audio tap (RFC §41.4 / §22): subscribe to a call's audio and stream
@@ -26,7 +24,7 @@ const TAP_CAPACITY: usize = 16;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     let args = cli::parse(std::env::args().skip(1))?;
     let config = build_client_config(&args);
     let (client, _events) = SipClient::new(config).await?;

@@ -70,7 +70,7 @@ impl RawSipMessage {
         )
     }
 
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn parse_impl(
         bytes: &[u8],
         include_bodies: bool,
@@ -319,7 +319,7 @@ mod tests {
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_post_parse_invite_asserts_all_fields() {
         let bytes = b"INVITE sip:alice@example.com SIP/2.0\r\nVia: SIP/2.0/UDP 192.0.2.1\r\nFrom: <sip:alice@example.com>\r\nTo: <sip:bob@example.com>\r\nCall-ID: abc123\r\nContent-Length: 5\r\n\r\nhello";
         let msg = RawSipMessage::parse(bytes).expect("valid INVITE parses");
@@ -337,10 +337,11 @@ mod tests {
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_post_parse_response_200_ok() {
-        let msg = RawSipMessage::parse(b"SIP/2.0 200 OK\r\nCall-ID: abc\r\nContent-Length: 0\r\n\r\n")
-            .expect("valid 200 OK parses");
+        let msg =
+            RawSipMessage::parse(b"SIP/2.0 200 OK\r\nCall-ID: abc\r\nContent-Length: 0\r\n\r\n")
+                .expect("valid 200 OK parses");
         assert_eq!(msg.direction, SipMessageDirection::Response);
         assert_eq!(msg.start_line, "SIP/2.0 200 OK");
         assert_eq!(msg.body(), None);
@@ -349,10 +350,12 @@ mod tests {
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_post_header_lookup_is_case_insensitive() {
-        let msg = RawSipMessage::parse(b"INVITE sip:alice@example.com SIP/2.0\r\nFrom: <sip:alice@example.com>\r\n\r\n")
-            .expect("parses");
+        let msg = RawSipMessage::parse(
+            b"INVITE sip:alice@example.com SIP/2.0\r\nFrom: <sip:alice@example.com>\r\n\r\n",
+        )
+        .expect("parses");
         assert_eq!(msg.header("from"), Some("<sip:alice@example.com>"));
         assert_eq!(msg.header("FROM"), Some("<sip:alice@example.com>"));
         assert_eq!(msg.header("Missing"), None);
@@ -360,7 +363,7 @@ mod tests {
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_post_body_present_yields_some() {
         let msg = RawSipMessage::parse(b"INVITE sip:x SIP/2.0\r\nContent-Length: 3\r\n\r\nabc")
             .expect("parses");
@@ -372,7 +375,7 @@ mod tests {
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_error_empty_input_returns_invalid_argument() {
         let err = RawSipMessage::parse(b"").expect_err("empty input must fail");
         assert_eq!(err.kind, SipErrorKind::InvalidArgument);
@@ -380,23 +383,24 @@ mod tests {
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_error_non_sip_start_line_returns_err() {
         assert!(RawSipMessage::parse(b"HELLO\r\n\r\n").is_err());
     }
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_error_response_missing_status_code_returns_err() {
         assert!(RawSipMessage::parse(b"SIP/2.0\r\n\r\n").is_err());
     }
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_error_truncated_request_still_parses() {
-        let msg = RawSipMessage::parse(b"INVITE sip:x SIP/2.0").expect("truncated but valid start line parses");
+        let msg = RawSipMessage::parse(b"INVITE sip:x SIP/2.0")
+            .expect("truncated but valid start line parses");
         assert_eq!(msg.direction, SipMessageDirection::Request);
         assert_eq!(msg.body(), None);
         assert!(msg.headers().is_empty());
@@ -406,17 +410,18 @@ mod tests {
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_boundary_no_body_yields_none() {
-        let msg = RawSipMessage::parse(b"INVITE sip:x SIP/2.0\r\nVia: SIP/2.0/UDP 192.0.2.1\r\n\r\n")
-            .expect("parses");
+        let msg =
+            RawSipMessage::parse(b"INVITE sip:x SIP/2.0\r\nVia: SIP/2.0/UDP 192.0.2.1\r\n\r\n")
+                .expect("parses");
         assert_eq!(msg.body(), None);
         assert_eq!(msg.content_length, 0);
     }
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_boundary_empty_header_block() {
         let msg = RawSipMessage::parse(b"INVITE sip:x SIP/2.0\r\n\r\n").expect("parses");
         assert!(msg.headers().is_empty());
@@ -424,57 +429,69 @@ mod tests {
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_boundary_content_length_absent_derives_from_body() {
-        let msg = RawSipMessage::parse(b"INVITE sip:x SIP/2.0\r\nVia: SIP/2.0/UDP 192.0.2.1\r\n\r\nhello")
-            .expect("parses");
+        let msg = RawSipMessage::parse(
+            b"INVITE sip:x SIP/2.0\r\nVia: SIP/2.0/UDP 192.0.2.1\r\n\r\nhello",
+        )
+        .expect("parses");
         assert_eq!(msg.content_length, 5);
         assert_eq!(msg.body(), Some(&b"hello"[..]));
     }
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_boundary_content_length_header_larger_than_body() {
         let msg = RawSipMessage::parse(b"INVITE sip:x SIP/2.0\r\nContent-Length: 999\r\n\r\nhi")
             .expect("parses");
-        assert_eq!(msg.content_length, 2, "actual body length wins over header hint");
+        assert_eq!(
+            msg.content_length, 2,
+            "actual body length wins over header hint"
+        );
     }
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_boundary_max_body_bytes_truncates() {
         let config = RawSipEventConfig {
             max_body_bytes: 2,
             ..RawSipEventConfig::default()
         };
-        let msg = RawSipMessage::parse_with_config(b"INVITE sip:x SIP/2.0\r\nContent-Length: 5\r\n\r\nhello", &config)
-            .expect("parses");
+        let msg = RawSipMessage::parse_with_config(
+            b"INVITE sip:x SIP/2.0\r\nContent-Length: 5\r\n\r\nhello",
+            &config,
+        )
+        .expect("parses");
         assert_eq!(msg.body(), Some(&b"he"[..]));
         assert_eq!(msg.content_length, 2);
     }
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_boundary_include_bodies_false_drops_body() {
         let config = RawSipEventConfig {
             include_bodies: false,
             ..RawSipEventConfig::default()
         };
-        let msg = RawSipMessage::parse_with_config(b"INVITE sip:x SIP/2.0\r\nContent-Length: 5\r\n\r\nhello", &config)
-            .expect("parses");
+        let msg = RawSipMessage::parse_with_config(
+            b"INVITE sip:x SIP/2.0\r\nContent-Length: 5\r\n\r\nhello",
+            &config,
+        )
+        .expect("parses");
         assert_eq!(msg.body(), None);
         assert_eq!(msg.content_length, 0);
     }
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_boundary_lf_only_separator_accepted() {
-        let msg = RawSipMessage::parse(b"INVITE sip:x SIP/2.0\nVia: SIP/2.0/UDP 192.0.2.1\n\nhello")
-            .expect("LF-only separator accepted as best-effort");
+        let msg =
+            RawSipMessage::parse(b"INVITE sip:x SIP/2.0\nVia: SIP/2.0/UDP 192.0.2.1\n\nhello")
+                .expect("LF-only separator accepted as best-effort");
         assert_eq!(msg.start_line, "INVITE sip:x SIP/2.0");
         assert_eq!(msg.headers.len(), 1);
         assert_eq!(msg.body(), Some(&b"hello"[..]));
@@ -484,16 +501,16 @@ mod tests {
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_inv_clone_and_debug_compile_time() {
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<RawSipMessage>();
     }
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_inv_content_length_matches_body() {
         let fixtures: [&[u8]; 3] = [
             b"INVITE sip:x SIP/2.0\r\n\r\n",
@@ -508,7 +525,7 @@ mod tests {
 
     /// @verifies C025
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_inv_parse_is_total_never_panics() {
         let inputs: [&[u8]; 6] = [
             b"",
@@ -526,7 +543,7 @@ mod tests {
 
     /// @verifies C025, C048
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_inv_redaction_immutable_covers_both_headers() {
         let bytes = b"INVITE sip:alice@example.com SIP/2.0\r\nAuthorization: Digest password=\"s3cret!\"\r\nProxy-Authorization: Digest password=\"p4ss\"\r\nContent-Length: 0\r\n\r\n";
         let original = RawSipMessage::parse(bytes).expect("parses");
@@ -537,15 +554,27 @@ mod tests {
             "Digest password=\"s3cret!\""
         );
         // Redacted output hides both passwords.
-        assert!(!redacted.text().contains("s3cret!"), "Authorization password redacted");
-        assert!(!redacted.text().contains("p4ss"), "Proxy-Authorization password redacted");
-        assert!(redacted.text().contains("[REDACTED]"), "redaction placeholder present");
-        assert_eq!(redacted.content_length, redacted.body().map(|b| b.len()).unwrap_or(0));
+        assert!(
+            !redacted.text().contains("s3cret!"),
+            "Authorization password redacted"
+        );
+        assert!(
+            !redacted.text().contains("p4ss"),
+            "Proxy-Authorization password redacted"
+        );
+        assert!(
+            redacted.text().contains("[REDACTED]"),
+            "redaction placeholder present"
+        );
+        assert_eq!(
+            redacted.content_length,
+            redacted.body().map(|b| b.len()).unwrap_or(0)
+        );
     }
 
     /// @verifies C025, C048
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_inv_redaction_is_idempotent() {
         let bytes = b"INVITE sip:alice@example.com SIP/2.0\r\nAuthorization: Digest password=\"s3cret!\"\r\n\r\n";
         let msg = RawSipMessage::parse(bytes).expect("parses");
@@ -556,7 +585,7 @@ mod tests {
 
     /// @verifies C025, C048
     #[test]
-// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
     fn c025_inv_redaction_preserves_other_fields() {
         let bytes = b"INVITE sip:alice@example.com SIP/2.0\r\nAuthorization: Digest password=\"s3cret!\"\r\nContent-Length: 5\r\n\r\nhello";
         let msg = RawSipMessage::parse(bytes).expect("parses");

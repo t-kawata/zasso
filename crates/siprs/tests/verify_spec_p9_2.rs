@@ -123,12 +123,12 @@ async fn lossless_backpressures_without_dropping() -> Result<(), Box<dyn std::er
         "second push must await channel space (backpressure)"
     );
     assert_eq!(handle.recv().await, Some(pair_a), "drain the first frame");
+    assert_eq!(push_b.await?, None, "no drop is reported in Lossless mode");
     assert_eq!(
-        push_b.await?,
-        None,
-        "no drop is reported in Lossless mode"
+        handle.recv().await,
+        Some(pair_b),
+        "pair_b is delivered intact"
     );
-    assert_eq!(handle.recv().await, Some(pair_b), "pair_b is delivered intact");
     Ok(())
 }
 
@@ -147,9 +147,9 @@ async fn recv_returns_none_after_producer_closes() -> Result<(), Box<dyn std::er
 // @verifies C032
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 fn audio_tap_mode_traits_and_default() {
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn assert_traits<T: Clone + Copy + std::fmt::Debug + PartialEq + Eq>() {}
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn assert_send<T: Send>() {}
     assert_traits::<AudioTapMode>();
     assert_send::<AudioTapHandle>();
@@ -163,7 +163,7 @@ fn audio_tap_mode_traits_and_default() {
 // @verifies C033
 async fn erased_audio_source_frames_flow_into_tap() -> Result<(), Box<dyn std::error::Error>> {
     // C033 Invariant: ErasedAudioSource is auto-derived for AsyncAudioSource + Send.
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn assert_erased<T: ErasedAudioSource>() {}
     assert_erased::<MockAsyncAudioSource>();
 

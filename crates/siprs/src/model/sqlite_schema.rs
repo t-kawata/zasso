@@ -397,9 +397,9 @@ mod tests {
     #[test]
     // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_entities_are_send_sync() {
-// [::TICKET::] P2-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P7-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P7-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P2-3, P4-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3|P7-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-3, P4-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3|P7-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<AccountEntity>();
         assert_sync::<AccountEntity>();
@@ -500,12 +500,14 @@ mod tests {
     async fn init_schema_creates_4_tables() -> Result<(), DbErr> {
         let pool = DatabasePool::open(":memory:").await?;
         pool.init_schema().await?;
-        let tables: std::collections::HashSet<String> = pool
-            .query_tables()
-            .await?
-            .into_iter()
-            .collect();
-        for want in ["accounts", "transport_configs", "client_settings", "tls_configs"] {
+        let tables: std::collections::HashSet<String> =
+            pool.query_tables().await?.into_iter().collect();
+        for want in [
+            "accounts",
+            "transport_configs",
+            "client_settings",
+            "tls_configs",
+        ] {
             assert!(
                 tables.contains(want),
                 "table {} must exist after init_schema()",
@@ -531,7 +533,7 @@ mod tests {
 
     /// Normalize SQL whitespace so column-type assertions are robust to the
     /// aligned formatting used in the CREATE TABLE constants.
-// [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
     fn normalize_sql_whitespace(sql: &str) -> String {
         sql.split_whitespace().collect::<Vec<_>>().join(" ")
     }

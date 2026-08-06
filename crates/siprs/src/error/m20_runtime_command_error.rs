@@ -202,7 +202,7 @@ mod tests {
     const PJ_EBUSY: i32 = 150003;
 
     // A registered account entry as stored by MockBackend::add_account.
-// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
     fn registered_entry() -> AccountEntry {
         AccountEntry {
             id: 1,
@@ -487,7 +487,7 @@ mod tests {
 
     #[test]
     // @verifies C013
-// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
     fn account_info_from_entry_zero_id_returns_account_not_found() {
         // C013 invariant: AccountId::from_u64(0) is Err (NonZeroU64) — a zero
         // entry.id must map to Err(AccountNotFound), never a stored 0 sentinel.

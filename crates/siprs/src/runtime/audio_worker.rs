@@ -263,7 +263,7 @@ impl Default for AudioMixer {
 /// Periodically calls `process_frame` on each active source and produces
 /// a mixed output buffer. Controlled via `shutdown_signal` atomic flag.
 pub struct AudioWorkerTask {
-// [::STUB::] P12-4: AudioWorker state fields are stored but not yet exposed (covers audio_worker.rs:266,270,274,335) -- Expose AudioWorker state (mixer, call_id, frame_duration) via inspection/query accessors and wire call_id into logging and metrics correlation once call lifecycle is active
+    // [::STUB::] P12-4: AudioWorker state fields are stored but not yet exposed (covers audio_worker.rs:266,270,274,335) -- Expose AudioWorker state (mixer, call_id, frame_duration) via inspection/query accessors and wire call_id into logging and metrics correlation once call lifecycle is active
     // [::TICKET::] P3-2: mixer stored for state inspection API (used by AudioWorkerInner at spawn).
     #[allow(dead_code)]
     mixer: Arc<AudioMixer>,
@@ -274,7 +274,7 @@ pub struct AudioWorkerTask {
     #[allow(dead_code)]
     frame_duration: Duration,
     shutdown_signal: Arc<AtomicBool>,
-// [::STUB::] P12-5: AudioWorker handle is an unused Option<JoinHandle> -- Replace the unused Option<JoinHandle> with an active JoinHandle and integrate FFI audio capture and playback once FFI audio integration is available
+    // [::STUB::] P12-5: AudioWorker handle is an unused Option<JoinHandle> -- Replace the unused Option<JoinHandle> with an active JoinHandle and integrate FFI audio capture and playback once FFI audio integration is available
     #[allow(dead_code)]
     handle: Option<tokio::task::JoinHandle<()>>,
 }
@@ -824,7 +824,7 @@ mod tests {
     #[test]
     // @verifies C035
     // [::TICKET::] P8-1: O-005 — add_source must wrap at u64::MAX (fetch_add wraps to 0).
-// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
     fn audio_mixer_add_source_wraps_at_u64_max() {
         let mixer = AudioMixer::new();
         // #[cfg(test)] hook lets the boundary invariant be exercised.
@@ -841,7 +841,7 @@ mod tests {
     #[test]
     // @verifies C035
     // [::TICKET::] P8-1: O-006 — negative gain must clamp to 0.0 (lower bound).
-// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
     fn audio_mixer_set_gain_clamps_below_zero() {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -856,7 +856,7 @@ mod tests {
     // ── O-002: process_frame end-to-end mix → out_queue ────────────────
 
     /// Build an AudioWorkerInner bound to the given mixer for direct process_frame tests.
-// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
     fn test_worker_inner(mixer: Arc<AudioMixer>) -> AudioWorkerInner {
         AudioWorkerInner {
             mixer,

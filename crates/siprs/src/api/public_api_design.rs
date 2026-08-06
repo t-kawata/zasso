@@ -228,16 +228,16 @@ mod tests {
     // @verifies C012
     // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn sip_account_handle_is_debug() {
-// [::TICKET::] P3-1, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-1, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
         assert_debug::<SipAccountHandle>();
     }
 
     #[test]
     // @verifies C012, C026
-// [::TICKET::] P3-1, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3) --for-spec --no-implementation-order`.
     fn sip_account_handle_is_send() {
-// [::TICKET::] P3-1, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-1, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<SipAccountHandle>();
     }
@@ -336,13 +336,13 @@ mod tests {
 
     #[test]
     // @verifies C012
-// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
     fn sip_client_and_handle_are_send_and_sync() {
         // C012 invariant: the public API is Send + Sync (complements the
         // existing assert_clone/assert_debug tests above).
-// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<SipClient>();
         assert_sync::<SipClient>();
@@ -357,7 +357,7 @@ mod tests {
         // C017 invariant: every public account-info query yields Result<T, SipError>.
         // registration_state is async, so its result is an opaque Future;
         // awaiting it must produce Result<RegistrationState, SipError>.
-// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_result_type(_: &Result<RegistrationState, SipError>) {}
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
@@ -371,7 +371,7 @@ mod tests {
 
     // ── P10-3: update_config / remove lifecycle ────────────────────────
 
-// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     fn valid_account_config() -> crate::config::account_config_spec::AccountConfig {
         crate::config::account_config_spec::AccountConfig {
             username: "alice".into(),
@@ -384,8 +384,8 @@ mod tests {
     #[tokio::test]
     // @verifies C015
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    async fn update_config_applies_patch_to_stored_config(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn update_config_applies_patch_to_stored_config() -> Result<(), Box<dyn std::error::Error>>
+    {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
             .build();
@@ -399,8 +399,15 @@ mod tests {
         let state = client.handle().query_state().await?;
         let account_id = AccountId::from_u64(handle.id()).map_err(|_| "invalid account id")?;
         let entry = state.accounts.get(&account_id).ok_or("account missing")?;
-        assert_eq!(entry.config.registrar_uri.as_deref(), Some("sip:new.example.com"));
-        assert_eq!(entry.id, handle.id(), "update must not recreate the account");
+        assert_eq!(
+            entry.config.registrar_uri.as_deref(),
+            Some("sip:new.example.com")
+        );
+        assert_eq!(
+            entry.id,
+            handle.id(),
+            "update must not recreate the account"
+        );
         client.shutdown().await?;
         Ok(())
     }
@@ -427,7 +434,10 @@ mod tests {
         let state = client.handle().query_state().await?;
         let account_id = AccountId::from_u64(handle.id()).map_err(|_| "invalid account id")?;
         let entry = state.accounts.get(&account_id).ok_or("account missing")?;
-        assert_eq!(entry.config.username, "alice", "stored config must be unchanged");
+        assert_eq!(
+            entry.config.username, "alice",
+            "stored config must be unchanged"
+        );
         client.shutdown().await?;
         Ok(())
     }
@@ -456,7 +466,8 @@ mod tests {
     #[tokio::test]
     // @verifies C026
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    async fn update_config_preserves_registration_state() -> Result<(), Box<dyn std::error::Error>> {
+    async fn update_config_preserves_registration_state() -> Result<(), Box<dyn std::error::Error>>
+    {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
             .build();
@@ -484,8 +495,8 @@ mod tests {
     #[tokio::test]
     // @verifies C012
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    async fn sip_account_handle_remove_delegates_to_client() -> Result<(), Box<dyn std::error::Error>>
-    {
+    async fn sip_account_handle_remove_delegates_to_client(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
             .build();

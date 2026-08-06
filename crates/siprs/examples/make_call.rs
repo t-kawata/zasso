@@ -33,12 +33,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     writeln!(std::io::stdout(), "call placed: call_id={call_id}")?;
 
     let mut account_events = client.subscribe_account(resolve_account_id(&account)?);
-    let outcome = tokio::time::timeout(
-        CALL_EVENT_TIMEOUT,
-        await_call_events(&mut account_events),
-    )
-    .await
-    .map_err(|_| "timed out waiting for call events (reactor NativeEvent dispatch pending P12-7)".to_string())??;
+    let outcome = tokio::time::timeout(CALL_EVENT_TIMEOUT, await_call_events(&mut account_events))
+        .await
+        .map_err(|_| {
+            "timed out waiting for call events (reactor NativeEvent dispatch pending P12-7)"
+                .to_string()
+        })??;
 
     match outcome {
         CallOutcome::Connected => {
@@ -65,9 +65,10 @@ fn resolve_account_id(account: &SipAccountHandle) -> Result<AccountId, Box<dyn s
 fn build_call_request(
     args: &cli::CliArgs,
 ) -> Result<OutgoingCallRequest, Box<dyn std::error::Error>> {
-    let target_uri = args.target_uri.clone().ok_or_else(|| {
-        format!("--target is required\n{}", cli::USAGE_TEMPLATE)
-    })?;
+    let target_uri = args
+        .target_uri
+        .clone()
+        .ok_or_else(|| format!("--target is required\n{}", cli::USAGE_TEMPLATE))?;
     Ok(OutgoingCallRequest {
         target_uri,
         headers: vec![],
@@ -102,7 +103,10 @@ async fn await_call_events(
                 }
                 SipEventPayload::CallConnected(_) => return Ok(CallOutcome::Connected),
                 SipEventPayload::CallRejected(rejection) => {
-                    return Ok(CallOutcome::Rejected(rejection.status_code, rejection.reason));
+                    return Ok(CallOutcome::Rejected(
+                        rejection.status_code,
+                        rejection.reason,
+                    ));
                 }
                 _ => {}
             },

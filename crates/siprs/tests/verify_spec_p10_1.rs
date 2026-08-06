@@ -1,4 +1,3 @@
-
 // Layer 5 integration tests for the P10-1 account-info retrieval.
 //
 // These tests verify at the crate boundary that the public account-info surface
@@ -30,7 +29,7 @@ fn test_config() -> ClientConfig {
 /// Register an account with the given username and hand back the client plus
 /// the backend-assigned logical account id.
 async fn client_with_registered_account(
-// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     username: &str,
 ) -> Result<(SipClient, u64), Box<dyn std::error::Error>> {
     let config = test_config();
@@ -124,7 +123,10 @@ async fn registration_state_does_not_block_the_reactor() -> Result<(), Box<dyn s
 async fn get_account_info_dispatch_derives_snapshot_from_registry(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let (client, account_id) = client_with_registered_account("alice").await?;
-    let snapshot = client.handle().submit_get_account_info(account_id as u32).await?;
+    let snapshot = client
+        .handle()
+        .submit_get_account_info(account_id as u32)
+        .await?;
     assert_eq!(snapshot.acc_id, AccountId::from_u64(1)?);
     assert_eq!(
         snapshot.registration_status, 200,

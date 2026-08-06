@@ -24,7 +24,7 @@ use crate::runtime::command::{DebugBox, DispatchCommand, ReactorError, Reply, Ru
 pub struct RuntimeHandle {
     pub(crate) sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
     terminated: Arc<AtomicBool>,
-// [::STUB::] P12-6: join_handle is a Weak<JoinHandle> and unused -- Upgrade the Weak<JoinHandle> to Arc and expose it for FFI thread lifecycle inspection once pjsua is linked
+    // [::STUB::] P12-6: join_handle is a Weak<JoinHandle> and unused -- Upgrade the Weak<JoinHandle> to Arc and expose it for FFI thread lifecycle inspection once pjsua is linked
     #[allow(dead_code)]
     join_handle: Weak<JoinHandle<()>>,
 }
@@ -60,25 +60,32 @@ impl RuntimeHandle {
 
         // Inject our reply channel
         let dispatch = match dispatch {
-            DispatchCommand::Execute { f, .. } => DispatchCommand::Execute { f, reply: Reply::new(tx) },
-            DispatchCommand::Shutdown { .. } => DispatchCommand::Shutdown { reply: Reply::new(tx) },
+            DispatchCommand::Execute { f, .. } => DispatchCommand::Execute {
+                f,
+                reply: Reply::new(tx),
+            },
+            DispatchCommand::Shutdown { .. } => DispatchCommand::Shutdown {
+                reply: Reply::new(tx),
+            },
             // AddAccount has a typed Result<u64> reply — handled via submit_add_account.
             DispatchCommand::AddAccount { .. } => {
                 unreachable!("use submit_add_account instead")
             }
-            DispatchCommand::UpdateAccount { account_id, config, .. } => {
-                DispatchCommand::UpdateAccount {
-                    account_id,
-                    config,
-                    reply: Reply::new(tx),
-                }
-            }
-            DispatchCommand::RemoveAccount { account_id, .. } => {
-                DispatchCommand::RemoveAccount { account_id, reply: Reply::new(tx) }
-            }
-            DispatchCommand::CreateTransport { config, .. } => {
-                DispatchCommand::CreateTransport { config, reply: Reply::new(tx) }
-            }
+            DispatchCommand::UpdateAccount {
+                account_id, config, ..
+            } => DispatchCommand::UpdateAccount {
+                account_id,
+                config,
+                reply: Reply::new(tx),
+            },
+            DispatchCommand::RemoveAccount { account_id, .. } => DispatchCommand::RemoveAccount {
+                account_id,
+                reply: Reply::new(tx),
+            },
+            DispatchCommand::CreateTransport { config, .. } => DispatchCommand::CreateTransport {
+                config,
+                reply: Reply::new(tx),
+            },
             // Audio-lifecycle commands with a Result<()> reply are handled directly;
             // the dedicated submit_*_audio_* methods are typed conveniences.
             DispatchCommand::RemoveAudioSource { source_id, .. } => {
@@ -87,20 +94,20 @@ impl RuntimeHandle {
                     reply: Reply::new(tx),
                 }
             }
-            DispatchCommand::SetAudioSourceGain { source_id, gain, .. } => {
-                DispatchCommand::SetAudioSourceGain {
-                    source_id,
-                    gain,
-                    reply: Reply::new(tx),
-                }
-            }
-            DispatchCommand::MuteAudioSource { source_id, muted, .. } => {
-                DispatchCommand::MuteAudioSource {
-                    source_id,
-                    muted,
-                    reply: Reply::new(tx),
-                }
-            }
+            DispatchCommand::SetAudioSourceGain {
+                source_id, gain, ..
+            } => DispatchCommand::SetAudioSourceGain {
+                source_id,
+                gain,
+                reply: Reply::new(tx),
+            },
+            DispatchCommand::MuteAudioSource {
+                source_id, muted, ..
+            } => DispatchCommand::MuteAudioSource {
+                source_id,
+                muted,
+                reply: Reply::new(tx),
+            },
             // GetAccountInfo handled via separate method
             DispatchCommand::GetAccountInfo { .. } => {
                 unreachable!("use submit_get_account_info instead")
@@ -152,15 +159,15 @@ impl RuntimeHandle {
     /// Backs `SipClient::accounts()` / `SipClient::call_state()`. The query reads
     /// the reactor's local state clone — it never blocks the reactor thread and
     /// is independent of the event stream (C021 source-of-truth invariant).
-    pub async fn query_state(
-        &self,
-    ) -> Result<crate::runtime::state::ClientState, ReactorError> {
+    pub async fn query_state(&self) -> Result<crate::runtime::state::ClientState, ReactorError> {
         if self.is_terminated() {
             return Err(ReactorError::ReactorDown);
         }
 
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let dispatch = DispatchCommand::QueryState { reply: Reply::new(tx) };
+        let dispatch = DispatchCommand::QueryState {
+            reply: Reply::new(tx),
+        };
 
         self.sender
             .send(dispatch)
@@ -183,7 +190,10 @@ impl RuntimeHandle {
         }
 
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let dispatch = DispatchCommand::AddAccount { config, reply: Reply::new(tx) };
+        let dispatch = DispatchCommand::AddAccount {
+            config,
+            reply: Reply::new(tx),
+        };
 
         self.sender
             .send(dispatch)
@@ -336,7 +346,9 @@ mod tests {
         let handle = RuntimeHandle::new(tx, terminated, Weak::new());
 
         let (_tx, _rx) = tokio::sync::oneshot::channel();
-        let cmd = RuntimeCommand::Shutdown { reply: Reply::new(_tx) };
+        let cmd = RuntimeCommand::Shutdown {
+            reply: Reply::new(_tx),
+        };
         let result = handle.submit(cmd).await;
         assert!(result.is_err(), "submit must return Err when terminated");
     }
@@ -376,7 +388,11 @@ mod tests {
 
         let source = Box::new(MockAsyncAudioSource::new(vec![0i16; 160]));
         let result = handle.submit_add_audio_source(source).await;
-        assert_eq!(result.unwrap(), 42, "source_id must be delivered via oneshot");
+        assert_eq!(
+            result.unwrap(),
+            42,
+            "source_id must be delivered via oneshot"
+        );
         consumer.await.unwrap();
     }
 

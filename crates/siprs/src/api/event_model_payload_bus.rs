@@ -1,6 +1,4 @@
-
 // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
-
 
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
@@ -422,7 +420,7 @@ mod tests {
     // ── AccountId / CallId ────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn account_id_wraps_u64() -> Result<(), &'static str> {
         let id = AccountId::from_u64(42).map_err(|_| "invalid account id")?;
         assert_eq!(id.get().get(), 42);
@@ -430,7 +428,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn account_id_equality() -> Result<(), &'static str> {
         let one = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let two = AccountId::from_u64(2).map_err(|_| "invalid account id")?;
@@ -440,7 +438,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn account_id_is_hashable() -> Result<(), &'static str> {
         use std::collections::HashSet;
         let one = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
@@ -453,7 +451,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn call_id_wraps_u64() -> Result<(), &'static str> {
         let id = CallId::from_u64(99).map_err(|_| "invalid call id")?;
         assert_eq!(id.get().get(), 99);
@@ -483,7 +481,7 @@ mod tests {
     // ── EventMeta ──────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn event_meta_new_sets_required_fields() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
@@ -520,7 +518,7 @@ mod tests {
     // ── SipEventPayload ────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn payload_registration_started() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let info = RegistrationInfo {
@@ -539,7 +537,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn payload_registration_succeeded() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let info = RegistrationInfo {
@@ -558,7 +556,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn payload_registration_failed() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let failure = RegistrationFailure {
@@ -578,7 +576,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn payload_call_connected() -> Result<(), &'static str> {
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
@@ -608,7 +606,7 @@ mod tests {
     #[test]
     // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     // @verifies C029
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
     fn payload_dtmf_received() {
         let info = DtmfReceivedInfo {
             method: DtmfMethod::Rfc4733,
@@ -631,7 +629,7 @@ mod tests {
     // ── SipEvent ───────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn sip_event_new_combines_meta_and_payload() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let meta = EventMeta::new(1, Some(account_id), None);
@@ -643,7 +641,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn sip_event_meta_access() -> Result<(), &'static str> {
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
         let meta = EventMeta::new(5, None, Some(call_id));
@@ -654,7 +652,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn sip_event_clone_preserves_all_fields() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
@@ -673,7 +671,7 @@ mod tests {
     // ── Media info ────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn media_active_info() -> Result<(), &'static str> {
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
         let info = MediaActiveInfo { call_id };
@@ -686,7 +684,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn media_error_info_with_reason() -> Result<(), &'static str> {
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
         let info = MediaErrorInfo {
@@ -705,7 +703,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn media_error_info_without_reason() -> Result<(), &'static str> {
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
         let info = MediaErrorInfo {
@@ -726,7 +724,7 @@ mod tests {
     // ── RegistrationInfo / RegistrationFailure ────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn registration_info_fields() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let info = RegistrationInfo {
@@ -739,7 +737,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn registration_failure_fields() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let failure = RegistrationFailure {
@@ -789,7 +787,7 @@ mod tests {
     fn sip_event_payload_is_non_exhaustive() {
         // Compile-time check: SipEventPayload derives Clone.
         // non_exhaustive is verified by separate crate compilation.
-// [::TICKET::] P0-5, P1-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P1-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5, P1-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P1-2|P8-4) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_clone::<SipEventPayload>();
     }
@@ -805,7 +803,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P8-4) --for-spec --no-implementation-order`.
     fn event_meta_populated_containers() -> Result<(), &'static str> {
         let mut meta = EventMeta::new(1, None, None);
         meta.headers = Some(vec![("X-Custom".into(), "value".into())]);
@@ -823,7 +821,7 @@ mod tests {
     // ── ConnectedCallInfo ─────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn connected_call_info_all_fields() -> Result<(), &'static str> {
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
@@ -953,10 +951,7 @@ mod tests {
             referred_by: Some("sip:bob@example.com".into()),
             replaces: Some("sip:oldcall@example.com".into()),
         };
-        assert_eq!(
-            attended.referred_by.as_deref(),
-            Some("sip:bob@example.com")
-        );
+        assert_eq!(attended.referred_by.as_deref(), Some("sip:bob@example.com"));
         assert_eq!(
             attended.replaces.as_deref(),
             Some("sip:oldcall@example.com")
@@ -1030,7 +1025,7 @@ mod tests {
     // [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
     fn refer_and_transfer_info_are_clone_debug() {
         // O-001 closure: compile-time Clone + Debug bounds for transfer types.
-// [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<ReferRequest>();
         assert_clone_debug::<TransferInfo>();

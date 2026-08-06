@@ -56,7 +56,7 @@ pub struct CliError {
 
 // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
 impl fmt::Display for CliError {
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.message)
     }
@@ -147,21 +147,17 @@ fn parse_port(value: &str) -> Result<u16, CliError> {
 /// Parse an integer flag value.
 // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
 fn parse_u64_flag(flag: &str, value: &str) -> Result<u64, CliError> {
-    value
-        .parse()
-        .map_err(|_| CliError {
-            message: format!("{flag} must be an integer: {value}\n{USAGE_TEMPLATE}"),
-        })
+    value.parse().map_err(|_| CliError {
+        message: format!("{flag} must be an integer: {value}\n{USAGE_TEMPLATE}"),
+    })
 }
 
 /// Parse a float flag value.
 // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
 fn parse_f32_flag(flag: &str, value: &str) -> Result<f32, CliError> {
-    value
-        .parse()
-        .map_err(|_| CliError {
-            message: format!("{flag} must be a number: {value}\n{USAGE_TEMPLATE}"),
-        })
+    value.parse().map_err(|_| CliError {
+        message: format!("{flag} must be a number: {value}\n{USAGE_TEMPLATE}"),
+    })
 }
 
 // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
@@ -199,12 +195,27 @@ mod tests {
     // ── Normal ──────────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn cli_parser_accepts_documented_flags() -> Result<(), CliError> {
         let args = [
-            "--host", "sip.example.com", "--port", "5060", "--username", "alice",
-            "--domain", "example.com", "--password", "s3cret!", "--target", "sip:bob@example.com",
-            "--call-id", "7", "--gain", "0.6", "--stun", "stun:stun.l.google.com:19302",
+            "--host",
+            "sip.example.com",
+            "--port",
+            "5060",
+            "--username",
+            "alice",
+            "--domain",
+            "example.com",
+            "--password",
+            "s3cret!",
+            "--target",
+            "sip:bob@example.com",
+            "--call-id",
+            "7",
+            "--gain",
+            "0.6",
+            "--stun",
+            "stun:stun.l.google.com:19302",
         ];
         let cli = parse(args)?;
         assert_eq!(cli.host, "sip.example.com");
@@ -219,7 +230,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn cli_parser_defaults_port_to_5060() -> Result<(), CliError> {
         let cli = parse(["--host", "sip.example.com"])?;
         assert_eq!(cli.host, "sip.example.com");
@@ -229,7 +240,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn build_client_config_maps_host_port_stun() {
         let cli = CliArgs {
             host: "sip.example.com".into(),
@@ -240,37 +251,56 @@ mod tests {
         let config = build_client_config(&cli);
         assert_eq!(config.sip_proxy_host, "sip.example.com");
         assert_eq!(config.sip_proxy_port, 5060);
-        assert_eq!(config.stun_server.as_deref(), Some("stun:stun.l.google.com:19302"));
+        assert_eq!(
+            config.stun_server.as_deref(),
+            Some("stun:stun.l.google.com:19302")
+        );
     }
 
     // ── Error ───────────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn cli_parser_rejects_missing_host() {
         let err = parse(std::iter::empty::<String>()).unwrap_err();
-        assert!(err.message.contains("Usage:"), "must include usage: {}", err.message);
-        assert!(err.message.contains("--host"), "must name --host: {}", err.message);
+        assert!(
+            err.message.contains("Usage:"),
+            "must include usage: {}",
+            err.message
+        );
+        assert!(
+            err.message.contains("--host"),
+            "must name --host: {}",
+            err.message
+        );
     }
 
     #[test]
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn cli_parser_rejects_unknown_flag() {
         let err = parse(["--host", "h", "--bogus", "x"]).unwrap_err();
-        assert!(err.message.contains("--bogus"), "must name the unknown flag: {}", err.message);
+        assert!(
+            err.message.contains("--bogus"),
+            "must name the unknown flag: {}",
+            err.message
+        );
     }
 
     #[test]
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn cli_parser_rejects_missing_value() {
         let err = parse(["--host"]).unwrap_err();
-        assert!(err.message.contains("Usage:"), "must include usage: {}", err.message);
+        assert!(
+            err.message.contains("Usage:"),
+            "must include usage: {}",
+            err.message
+        );
     }
 
     // ── Boundary ────────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn cli_parser_rejects_empty_values() {
         for flag in ["--host", "--target", "--username"] {
             let err = parse([flag, ""]).unwrap_err();
@@ -283,7 +313,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn cli_parser_port_range() {
         assert!(parse(["--host", "h", "--port", "0"]).is_err());
         assert!(parse(["--host", "h", "--port", "65536"]).is_err());
@@ -292,9 +322,13 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn cli_parser_rejects_non_numeric_port() {
         let err = parse(["--host", "h", "--port", "abc"]).unwrap_err();
-        assert!(err.message.contains("--port"), "must name --port: {}", err.message);
+        assert!(
+            err.message.contains("--port"),
+            "must name --port: {}",
+            err.message
+        );
     }
 }

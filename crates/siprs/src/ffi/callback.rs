@@ -89,4 +89,3 @@ pub unsafe extern "C" fn on_call_state(_call_id: bindings::pjsua_call_id, _state
 pub unsafe extern "C" fn on_call_media_state(_call_id: bindings::pjsua_call_id) {
     let _ = _call_id;
 }
-

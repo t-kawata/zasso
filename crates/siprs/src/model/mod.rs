@@ -1,4 +1,3 @@
-
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P2-3: model module — SQLite persistence schema & DatabasePool.

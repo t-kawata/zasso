@@ -60,14 +60,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .submit_add_audio_source(Box::new(TtsStreamSource { rx }))
         .await?;
     let gain = args.gain.unwrap_or(DEFAULT_GAIN);
-    client.handle().submit_set_audio_source_gain(source_id, gain).await?;
+    client
+        .handle()
+        .submit_set_audio_source_gain(source_id, gain)
+        .await?;
 
     // Feed one demo frame so the source has data to deliver to the mixer, then
     // close the channel to mark end-of-stream.
     tx.send(vec![0i16; DEMO_FRAME_SAMPLES]).await?;
     drop(tx);
 
-    writeln!(std::io::stdout(), "tts source added: source_id={source_id} gain={gain}")?;
+    writeln!(
+        std::io::stdout(),
+        "tts source added: source_id={source_id} gain={gain}"
+    )?;
     client.shutdown().await?;
     Ok(())
 }

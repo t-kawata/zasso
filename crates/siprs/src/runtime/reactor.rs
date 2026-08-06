@@ -955,7 +955,9 @@ mod tests {
         // Contract-C047: Shutdown stops the reactor cleanly.
         let (handle, join) = spawn_reactor();
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let cmd = DispatchCommand::Shutdown { reply: Reply::new(tx) };
+        let cmd = DispatchCommand::Shutdown {
+            reply: Reply::new(tx),
+        };
         handle.sender.send(cmd).ok();
         assert!(rx.await.is_ok(), "shutdown must complete");
         join.join()
@@ -973,7 +975,9 @@ mod tests {
         let (tx, rx) = tokio::sync::oneshot::channel();
         handle
             .sender
-            .send(DispatchCommand::Shutdown { reply: Reply::new(tx) })
+            .send(DispatchCommand::Shutdown {
+                reply: Reply::new(tx),
+            })
             .ok();
         let _ = rx.await;
         join.join().unwrap();
@@ -982,14 +986,19 @@ mod tests {
     #[tokio::test]
     // @verifies C012
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    async fn reactor_add_account_replies_with_account_id() -> Result<(), Box<dyn std::error::Error>> {
+    async fn reactor_add_account_replies_with_account_id() -> Result<(), Box<dyn std::error::Error>>
+    {
         let (handle, join) = spawn_reactor();
         let id = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
             .await?;
         assert_eq!(id, 1, "MockBackend assigns the first account id 1");
         let state = handle.query_state().await?;
-        assert_eq!(state.accounts.len(), 1, "ClientState must reflect the added account");
+        assert_eq!(
+            state.accounts.len(),
+            1,
+            "ClientState must reflect the added account"
+        );
         shutdown_reactor(&handle, join).await;
         Ok(())
     }
@@ -997,7 +1006,8 @@ mod tests {
     #[tokio::test]
     // @verifies C021
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    async fn reactor_remove_account_removes_from_client_state() -> Result<(), Box<dyn std::error::Error>> {
+    async fn reactor_remove_account_removes_from_client_state(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let (handle, join) = spawn_reactor();
         let id = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
@@ -1021,7 +1031,8 @@ mod tests {
     #[tokio::test]
     // @verifies C015
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    async fn reactor_update_account_updates_client_state_config() -> Result<(), Box<dyn std::error::Error>> {
+    async fn reactor_update_account_updates_client_state_config(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let (handle, join) = spawn_reactor();
         let id = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
@@ -1042,9 +1053,15 @@ mod tests {
             })
             .await?;
         let state = handle.query_state().await?;
-        let entry = state.accounts.get(&test_account(id)).ok_or("account must exist")?;
+        let entry = state
+            .accounts
+            .get(&test_account(id))
+            .ok_or("account must exist")?;
         assert_eq!(entry.config.username, "bob");
-        assert_eq!(entry.config.registrar_uri, Some("sip:pbx.example.com".into()));
+        assert_eq!(
+            entry.config.registrar_uri,
+            Some("sip:pbx.example.com".into())
+        );
         shutdown_reactor(&handle, join).await;
         Ok(())
     }
@@ -1052,7 +1069,8 @@ mod tests {
     #[tokio::test]
     // @verifies C016
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    async fn reactor_create_transport_records_transport_runtime_state() -> Result<(), Box<dyn std::error::Error>> {
+    async fn reactor_create_transport_records_transport_runtime_state(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let (handle, join) = spawn_reactor();
         let (_tx, _rx) = tokio::sync::oneshot::channel();
         handle

@@ -1,4 +1,3 @@
-
 // [::TICKET::] P8-1: Runtime Infrastructure — ABC closure integration tests.
 //
 // This integration test file closes the O-001 and O-003 ABC inspection gaps:

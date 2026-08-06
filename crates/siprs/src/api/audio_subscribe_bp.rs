@@ -43,7 +43,7 @@ pub enum AudioTapMode {
 
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 impl Default for AudioTapMode {
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self::Realtime
     }
@@ -66,7 +66,7 @@ struct TapQueue {
 
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 impl TapQueue {
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn new(capacity: usize) -> Self {
         Self {
             capacity,
@@ -83,7 +83,10 @@ impl TapQueue {
 /// contents remain valid, so recovering the guard is safe.
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 fn lock_queue(queue: &TapQueue) -> std::sync::MutexGuard<'_, VecDeque<AudioChunkPair>> {
-    queue.frames.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    queue
+        .frames
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// Single-consumer handle to a call's audio stream (RFC §22).
@@ -94,7 +97,7 @@ pub struct AudioTapHandle {
 
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 impl AudioTapHandle {
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn new(rx: mpsc::Receiver<AudioChunkPair>, queue: Arc<TapQueue>) -> Self {
         Self { rx, queue }
     }
@@ -118,7 +121,7 @@ impl AudioTapHandle {
 
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for AudioTapHandle {
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AudioTapHandle").finish_non_exhaustive()
     }
@@ -137,7 +140,7 @@ pub struct AudioTapSender {
 
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 impl Drop for AudioTapSender {
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn drop(&mut self) {
         // Dropping this sender closes the mpsc channel once the last sender is
         // gone. Wake a still-listening consumer so it re-checks `rx.is_closed()`
@@ -151,7 +154,7 @@ impl Drop for AudioTapSender {
 
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 impl AudioTapSender {
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn new(tx: mpsc::Sender<AudioChunkPair>, queue: Arc<TapQueue>, mode: AudioTapMode) -> Self {
         Self { tx, queue, mode }
     }
@@ -218,7 +221,10 @@ pub fn tap_channel(capacity: usize, mode: AudioTapMode) -> (AudioTapSender, Audi
     );
     let (tx, rx) = mpsc::channel::<AudioChunkPair>(capacity);
     let queue = Arc::new(TapQueue::new(capacity));
-    (AudioTapSender::new(tx, queue.clone(), mode), AudioTapHandle::new(rx, queue))
+    (
+        AudioTapSender::new(tx, queue.clone(), mode),
+        AudioTapHandle::new(rx, queue),
+    )
 }
 
 /// Validate the tap capacity bound (RFC §22.1: capacity must be at least 1).
@@ -240,7 +246,7 @@ mod tests {
     use std::time::SystemTime;
 
     /// A synthetic `AudioChunkPair` whose in/out samples encode `seed`.
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn synthetic_pair(seed: u16) -> Result<AudioChunkPair, IdError> {
         Ok(AudioChunkPair {
             call_id: CallId::from_u64(1)?,
@@ -253,18 +259,18 @@ mod tests {
 
     #[test]
     // @verifies C032
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn audio_tap_mode_defaults_to_realtime() {
         assert_eq!(AudioTapMode::default(), AudioTapMode::Realtime);
     }
 
     #[test]
     // @verifies C032
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn audio_tap_mode_is_copyable_and_comparable() {
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
         fn assert_traits<T: Clone + Copy + std::fmt::Debug + PartialEq + Eq>() {}
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_traits::<AudioTapMode>();
         assert_send::<AudioTapHandle>();
@@ -273,7 +279,7 @@ mod tests {
 
     #[test]
     // @verifies C032
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn validate_capacity_accepts_one_and_rejects_zero() {
         assert!(validate_tap_capacity(1).is_ok());
         assert!(validate_tap_capacity(16).is_ok());
@@ -284,7 +290,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "tap capacity must be at least 1")]
     // @verifies C032
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn tap_channel_panics_on_zero_capacity() {
         let _ = tap_channel(0, AudioTapMode::Realtime);
     }
@@ -322,7 +328,8 @@ mod tests {
 
     #[tokio::test]
     // @verifies C032
-    async fn lossless_backpressures_instead_of_dropping() -> Result<(), Box<dyn std::error::Error>> {
+    async fn lossless_backpressures_instead_of_dropping() -> Result<(), Box<dyn std::error::Error>>
+    {
         let (sender, mut handle) = tap_channel(1, AudioTapMode::Lossless);
         let pair_a = synthetic_pair(1)?;
         let pair_b = synthetic_pair(2)?;
@@ -330,7 +337,10 @@ mod tests {
         let pair_b_for_push = pair_b.clone();
         let push_b = tokio::spawn(async move { sender.push(pair_b_for_push).await });
         tokio::task::yield_now().await;
-        assert!(!push_b.is_finished(), "push(pair_b) must await channel space");
+        assert!(
+            !push_b.is_finished(),
+            "push(pair_b) must await channel space"
+        );
         assert_eq!(handle.recv().await, Some(pair_a));
         assert_eq!(push_b.await?, None);
         assert_eq!(handle.recv().await, Some(pair_b));

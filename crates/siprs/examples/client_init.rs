@@ -1,5 +1,3 @@
-
-
 // Client initialization (RFC §41.1): configure the SIP proxy/STUN from CLI
 // args, construct the client, report its capabilities, then shut down.
 //
@@ -12,8 +10,8 @@ mod cli;
 use std::io::Write;
 // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
 
-use siprs::SipEventPayload;
 use siprs::SipClient;
+use siprs::SipEventPayload;
 
 use cli::build_client_config;
 
@@ -38,7 +36,8 @@ async fn report_capabilities(
                     writeln!(
                         std::io::stdout(),
                         "client initialized: event_bus_capacity={} max_calls={}",
-                        caps.event_bus_capacity, caps.max_calls
+                        caps.event_bus_capacity,
+                        caps.max_calls
                     )?;
                     return Ok(());
                 }

@@ -1,7 +1,3 @@
-
-
-
-
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -133,12 +129,12 @@ pub use config::account_config_spec::{
     DtmfPolicy, OpusConfig, SrtpPolicy,
 };
 pub use config::client_config_spec::{ClientAudioConfig, RawSipEventConfig, TimeoutConfig};
+#[cfg(feature = "tls")]
+pub use config::transport_ice_spec::TlsConfig;
 pub use config::transport_ice_spec::{
     IceConfig, TcpTransportConfig, TransportConfig, TurnServerConfig, TurnTransport,
     UdpTransportConfig,
 };
-#[cfg(feature = "tls")]
-pub use config::transport_ice_spec::TlsConfig;
 // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
 // StunServerConfig is NOT re-exported from transport_ice_spec to avoid name collision
 // with the existing config::StunServerConfig. Use the transport_ice_spec version

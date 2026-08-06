@@ -133,7 +133,7 @@ impl zeroize::Zeroize for SecretString {
 #[cfg(feature = "zeroize")]
 // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 impl Drop for SecretString {
-// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
     fn drop(&mut self) {
         use zeroize::Zeroize;
         self.0.zeroize();
@@ -202,9 +202,18 @@ mod tests {
         // differences are documented. The module doc already carries the OS
         // notes; this include_str! test makes the documentation a contract.
         let doc = include_str!("security_platform_diffs.rs");
-        assert!(doc.contains("Windows"), "docs must cover Windows/MSVC build notes");
-        assert!(doc.contains("macOS"), "docs must cover macOS system frameworks");
-        assert!(doc.contains("Linux"), "docs must cover Linux system libraries");
+        assert!(
+            doc.contains("Windows"),
+            "docs must cover Windows/MSVC build notes"
+        );
+        assert!(
+            doc.contains("macOS"),
+            "docs must cover macOS system frameworks"
+        );
+        assert!(
+            doc.contains("Linux"),
+            "docs must cover Linux system libraries"
+        );
     }
 
     #[test]

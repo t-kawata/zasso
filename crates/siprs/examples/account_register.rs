@@ -10,10 +10,10 @@ mod client;
 
 use std::io::Write;
 
-use siprs::SipAccountHandle;
-use siprs::SipEventPayload;
-use siprs::SipClient;
 use siprs::model::AccountId;
+use siprs::SipAccountHandle;
+use siprs::SipClient;
+use siprs::SipEventPayload;
 
 use cli::build_client_config;
 use client::add_account_and_resolve;
@@ -36,7 +36,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         await_registration(&mut account_events),
     )
     .await
-    .map_err(|_| "timed out waiting for registration (reactor NativeEvent dispatch pending P12-7)".to_string())??;
+    .map_err(|_| {
+        "timed out waiting for registration (reactor NativeEvent dispatch pending P12-7)"
+            .to_string()
+    })??;
 
     match outcome {
         RegistrationOutcome::Succeeded => {
@@ -77,7 +80,10 @@ async fn await_registration(
                     return Ok(RegistrationOutcome::Succeeded);
                 }
                 SipEventPayload::RegistrationFailed(failure) => {
-                    return Ok(RegistrationOutcome::Failed(failure.status_code, failure.reason));
+                    return Ok(RegistrationOutcome::Failed(
+                        failure.status_code,
+                        failure.reason,
+                    ));
                 }
                 _ => {}
             },

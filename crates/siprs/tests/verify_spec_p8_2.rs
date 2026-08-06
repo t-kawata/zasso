@@ -17,9 +17,7 @@
 //
 // See specs/P8-2.md §Contracts C047 for the contract mapping.
 
-use siprs::{
-    ClientConfig, SipClient, SipEventPayload,
-};
+use siprs::{ClientConfig, SipClient, SipEventPayload};
 
 /// O-002 — after SipClient::new succeeds, the returned receiver yields a
 /// ClientInitialized event carrying ClientCapabilities defaults.

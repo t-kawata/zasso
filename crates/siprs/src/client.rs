@@ -221,14 +221,16 @@ impl SipClient {
         config: crate::config::account_config_spec::AccountConfig,
     ) -> Result<crate::account::SipAccountHandle, SipError> {
         config.validate()?;
-        let account_id = self
-            .runtime
-            .submit_add_account(config)
-            .await
-            .map_err(|e| {
-                SipError::new(SipErrorKind::NativeError, format!("add_account failed: {e}"))
-            })?;
-        Ok(crate::account::SipAccountHandle::new(self.clone(), account_id))
+        let account_id = self.runtime.submit_add_account(config).await.map_err(|e| {
+            SipError::new(
+                SipErrorKind::NativeError,
+                format!("add_account failed: {e}"),
+            )
+        })?;
+        Ok(crate::account::SipAccountHandle::new(
+            self.clone(),
+            account_id,
+        ))
     }
 
     /// Remove a SIP account by its logical id.
@@ -238,9 +240,10 @@ impl SipClient {
     /// reactor applies to both the backend and the authoritative `ClientState`.
     #[instrument(skip(self), fields(account_id = account_id))]
     pub async fn remove_account(&self, account_id: u64) -> Result<(), SipError> {
-        let state = self.runtime.query_state().await.map_err(|e| {
-            SipError::new(SipErrorKind::NativeError, format!("query failed: {e}"))
-        })?;
+        let state =
+            self.runtime.query_state().await.map_err(|e| {
+                SipError::new(SipErrorKind::NativeError, format!("query failed: {e}"))
+            })?;
         let aid = AccountId::from_u64(account_id).map_err(|_| {
             SipError::new(
                 SipErrorKind::AccountNotFound,
@@ -275,9 +278,10 @@ impl SipClient {
         &self,
         account_id: u64,
     ) -> Result<crate::account::SipAccountHandle, SipError> {
-        let state = self.runtime.query_state().await.map_err(|e| {
-            SipError::new(SipErrorKind::NativeError, format!("query failed: {e}"))
-        })?;
+        let state =
+            self.runtime.query_state().await.map_err(|e| {
+                SipError::new(SipErrorKind::NativeError, format!("query failed: {e}"))
+            })?;
         let aid = AccountId::from_u64(account_id).map_err(|_| {
             SipError::new(
                 SipErrorKind::AccountNotFound,
@@ -285,7 +289,10 @@ impl SipClient {
             )
         })?;
         if state.accounts.contains_key(&aid) {
-            Ok(crate::account::SipAccountHandle::new(self.clone(), account_id))
+            Ok(crate::account::SipAccountHandle::new(
+                self.clone(),
+                account_id,
+            ))
         } else {
             Err(SipError::new(
                 SipErrorKind::AccountNotFound,
@@ -388,7 +395,9 @@ impl SipClient {
         let (_dummy_tx, _dummy_rx) = tokio::sync::oneshot::channel();
         match self
             .runtime
-            .submit(RuntimeCommand::Shutdown { reply: Reply::new(_dummy_tx) })
+            .submit(RuntimeCommand::Shutdown {
+                reply: Reply::new(_dummy_tx),
+            })
             .await
         {
             Ok(()) => Ok(()),
@@ -518,7 +527,7 @@ mod tests {
         // C002 invariant: SipClient must be Send + Sync for use with tokio tasks.
         // ABC O-001 closure: the Sync half was previously unenforced — a non-Sync
         // field (e.g. RefCell) would have passed every test.
-// [::TICKET::] P6-1, P7-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P10-1|P10-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P6-1, P7-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P10-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         // [::TICKET::] P6-1, P6-2, P7-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2|P7-2|P10-1) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
@@ -637,7 +646,7 @@ mod tests {
         // ABC O-001 closure: without these type-annotations, changing shutdown() to
         // Result<(), String> or new() to Result<_, OtherError> would pass the whole
         // suite (existing tests only call .is_ok() or read err.kind).
-// [::TICKET::] P6-2, P8-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P8-2|P10-1|P10-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P6-2, P8-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P8-2|P10-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_new_result(_: &Result<(SipClient, broadcast::Receiver<SipEvent>), SipError>) {}
         // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
         fn assert_shutdown_result(_: &Result<(), SipError>) {}
@@ -923,7 +932,7 @@ mod tests {
     // ── P10-3: account/transport lifecycle facades ─────────────────────
 
     /// Build a minimal valid account config for facade tests.
-// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     fn valid_account_config() -> crate::config::account_config_spec::AccountConfig {
         crate::config::account_config_spec::AccountConfig {
             username: "alice".into(),
@@ -933,7 +942,8 @@ mod tests {
         }
     }
 
-    async fn test_client() -> Result<(SipClient, broadcast::Receiver<SipEvent>), Box<dyn std::error::Error>> {
+    async fn test_client(
+    ) -> Result<(SipClient, broadcast::Receiver<SipEvent>), Box<dyn std::error::Error>> {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
             .build();
@@ -943,10 +953,14 @@ mod tests {
     #[tokio::test]
     // @verifies C012, C015
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    async fn sip_client_add_account_returns_handle_with_nonzero_id() -> Result<(), Box<dyn std::error::Error>> {
+    async fn sip_client_add_account_returns_handle_with_nonzero_id(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let (client, _rx) = test_client().await?;
         let handle = client.add_account(valid_account_config()).await?;
-        assert!(handle.id() > 0, "add_account must return a non-zero account id");
+        assert!(
+            handle.id() > 0,
+            "add_account must return a non-zero account id"
+        );
         let accounts = client.accounts().await?;
         assert_eq!(accounts.len(), 1, "the added account must be queryable");
         client.shutdown().await?;
@@ -956,7 +970,8 @@ mod tests {
     #[tokio::test]
     // @verifies C015, C052
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    async fn sip_client_add_account_rejects_invalid_before_dispatch() -> Result<(), Box<dyn std::error::Error>> {
+    async fn sip_client_add_account_rejects_invalid_before_dispatch(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let (client, _rx) = test_client().await?;
         let bad = crate::config::account_config_spec::AccountConfig {
             username: String::new(),
@@ -978,7 +993,8 @@ mod tests {
     #[tokio::test]
     // @verifies C012
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    async fn sip_client_remove_account_removes_from_accounts() -> Result<(), Box<dyn std::error::Error>> {
+    async fn sip_client_remove_account_removes_from_accounts(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let (client, _rx) = test_client().await?;
         let handle = client.add_account(valid_account_config()).await?;
         client.remove_account(handle.id()).await?;
@@ -993,7 +1009,8 @@ mod tests {
     #[tokio::test]
     // @verifies C017
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    async fn sip_client_remove_account_missing_returns_err() -> Result<(), Box<dyn std::error::Error>> {
+    async fn sip_client_remove_account_missing_returns_err(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let (client, _rx) = test_client().await?;
         let err = match client.remove_account(999).await {
             Err(e) => e,
@@ -1007,7 +1024,8 @@ mod tests {
     #[tokio::test]
     // @verifies C012
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    async fn sip_client_account_returns_handle_when_exists() -> Result<(), Box<dyn std::error::Error>> {
+    async fn sip_client_account_returns_handle_when_exists(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let (client, _rx) = test_client().await?;
         let handle = client.add_account(valid_account_config()).await?;
         let fetched = client.account(handle.id()).await?;
@@ -1036,7 +1054,9 @@ mod tests {
     async fn sip_client_add_transport_records_state() -> Result<(), Box<dyn std::error::Error>> {
         let (client, _rx) = test_client().await?;
         client
-            .add_transport(crate::config::transport_ice_spec::TransportConfig::udp(5070))
+            .add_transport(crate::config::transport_ice_spec::TransportConfig::udp(
+                5070,
+            ))
             .await
             .unwrap();
         let state = client.handle().query_state().await?;

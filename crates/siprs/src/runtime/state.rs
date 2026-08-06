@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     // @verifies C046
-// [::TICKET::] P0-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P10-1|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P10-1|P10-3) --for-spec --no-implementation-order`.
     fn account_entry_links_id_to_native_id() {
         // Contract-C046 invariant: AccountEntry maps logical id to native id.
         // P10-1: registration stores a canonical RegistrationState Display string.
@@ -209,7 +209,7 @@ mod tests {
     // P10-1: AccountEntry.registration stores a canonical RegistrationState
     // Display string (or the legacy "Unregistered") — the storage contract that
     // RegistrationState::from_storage_str inverts.
-// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
     fn account_entry_registration_uses_canonical_storage_strings() {
         let canonical = [
             "Disabled",
@@ -260,7 +260,7 @@ mod tests {
 
     #[test]
     // @verifies C046
-// [::TICKET::] P3-2, P4-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P4-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P10-3) --for-spec --no-implementation-order`.
     fn client_state_after_account_add_accounts_populated() {
         let mut state = ClientState::default();
         let acc1 = create_account_id(1);

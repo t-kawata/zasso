@@ -42,9 +42,9 @@ async fn opens_default_microphone_and_captures_a_frame() -> Result<(), &'static 
 
     let format = AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20)
         .map_err(|_| "48000/I16/Mono/20ms is a valid AudioFormat")?;
-    let mut source = open_default_microphone_source(format)
-        .await
-        .map_err(|_| "open_default_microphone_source must succeed on a host with a default input device")?;
+    let mut source = open_default_microphone_source(format).await.map_err(|_| {
+        "open_default_microphone_source must succeed on a host with a default input device"
+    })?;
 
     let mut buf = [0i16; 960];
     // Fully-qualified on the deref: Box<dyn AsyncAudioSource> has no blanket

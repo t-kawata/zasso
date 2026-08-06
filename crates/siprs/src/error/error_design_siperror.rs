@@ -112,7 +112,7 @@ pub enum SipErrorKind {
 
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 impl std::fmt::Display for SipErrorKind {
-// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             Self::InvalidConfig => "InvalidConfig",
@@ -350,7 +350,7 @@ mod tests {
     // ── Normal: SipError construction ──────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
     fn sip_error_new_creates_with_correct_kind_and_message() {
         let err = SipError::new(SipErrorKind::InvalidConfig, "bad host");
         assert_eq!(err.kind, SipErrorKind::InvalidConfig);
@@ -380,17 +380,18 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
     fn sip_error_with_account_id_sets_field() -> Result<(), Box<dyn std::error::Error>> {
         let account_id = AccountId::from_u64(42)?;
-        let err = SipError::new(SipErrorKind::AccountNotFound, "not found").with_account_id(account_id);
+        let err =
+            SipError::new(SipErrorKind::AccountNotFound, "not found").with_account_id(account_id);
         assert_eq!(err.account_id, Some(account_id));
         assert_eq!(err.kind, SipErrorKind::AccountNotFound);
         Ok(())
     }
 
     #[test]
-// [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
     fn sip_error_with_call_id_sets_field() -> Result<(), Box<dyn std::error::Error>> {
         let call_id = CallId::from_u64(99)?;
         let err = SipError::new(SipErrorKind::CallNotFound, "not found").with_call_id(call_id);
@@ -399,8 +400,9 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
-    fn sip_error_with_account_id_preserves_existing_account_id() -> Result<(), Box<dyn std::error::Error>> {
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    fn sip_error_with_account_id_preserves_existing_account_id(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // Calling with_account_id twice should keep the second value
         let first = AccountId::from_u64(1)?;
         let second = AccountId::from_u64(2)?;
@@ -422,7 +424,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
     fn sip_error_debug_includes_all_fields() -> Result<(), Box<dyn std::error::Error>> {
         let err = SipError {
             kind: SipErrorKind::InvalidConfig,
@@ -457,7 +459,7 @@ mod tests {
 
     #[test]
     // @verifies C017
-// [::TICKET::] P6-2, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P9-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P6-2, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P9-3) --for-spec --no-implementation-order`.
     fn sip_error_kind_display_shows_variant_name_for_all_24() {
         // ABC O-002 closure: previously only 3 kinds (InvalidConfig, NativeError,
         // ShutdownInProgress) were pinned by SipError-level Display tests. The other
@@ -513,7 +515,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
     fn sip_error_invalid_argument_uses_correct_kind() {
         let err = SipError::invalid_argument("bad digit");
         assert_eq!(err.kind, SipErrorKind::InvalidArgument);
@@ -588,7 +590,7 @@ mod tests {
     // ── Error: SipError with all context fields ───────────────────────
 
     #[test]
-// [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
     fn sip_error_with_all_fields_round_trips_correctly() -> Result<(), Box<dyn std::error::Error>> {
         let account_id = AccountId::from_u64(456)?;
         let call_id = CallId::from_u64(789)?;
@@ -629,7 +631,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
     fn sip_error_account_id_zero_sentinel_is_none() {
         // P9-5: PJSUA's 0 invalid-sentinel is unrepresentable as an AccountId (NonZeroU64).
         // The 0 sentinel must map to None at the FFI boundary — never a stored 0.
@@ -638,7 +640,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
     fn sip_error_call_id_zero_sentinel_is_none() {
         // P9-5: same 0-sentinel rule for CallId — 0 maps to None, never a stored 0.
         assert_eq!(CallId::from_u64(0), Err(IdError::ZeroValue));
@@ -646,7 +648,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
     fn sip_error_newtype_ids_round_trip_nonzero() -> Result<(), Box<dyn std::error::Error>> {
         // P9-5: non-zero native ids round-trip through from_u64 without loss, so the
         // FFI boundary can convert any valid PJSUA id to the newtype representation.
@@ -698,7 +700,7 @@ mod tests {
     // ── Invariant: SipErrorKind variant count = 23 ────────────────────
 
     #[test]
-// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
     fn sip_error_kind_variant_count_is_24() {
         // @verifies C018
 
@@ -740,7 +742,7 @@ mod tests {
     // ── Invariant: SipErrorKind::retryable() consistency ──────────────
 
     #[test]
-// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
     fn sip_error_kind_retryable_is_consistent_with_new() {
         // SipError::new() must set retryable to the same value as kind.retryable()
         let all = [
@@ -788,11 +790,11 @@ mod tests {
     #[test]
     // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     // @verifies C017
-// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
     fn exhaustive_match_over_sip_error_kind_has_24_branches() {
         // If a variant is added without updating this match, the test
         // fails to compile — guaranteeing exhaustive coverage.
-// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
         fn classify(kind: SipErrorKind) -> &'static str {
             match kind {
                 SipErrorKind::InvalidConfig => "config",

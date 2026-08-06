@@ -379,7 +379,7 @@ pub async fn run_server(config: ServerConfig) -> Result<(), crate::error::SipErr
         Arc::new(pool)
     };
 
-// [::STUB::] P12-2: Saved accounts are not restored from the DatabasePool on startup -- Implement startup account restoration by loading accounts via db.load_accounts() and calling sip_client.add_account() for each
+    // [::STUB::] P12-2: Saved accounts are not restored from the DatabasePool on startup -- Implement startup account restoration by loading accounts via db.load_accounts() and calling sip_client.add_account() for each
 
     #[cfg(feature = "sqlite-storage")]
     let app_state = AppState {
@@ -652,8 +652,7 @@ mod tests {
             jwt_secret: None,
             jwt_expiry_secs: 3600,
         };
-        let bind: std::net::SocketAddr =
-            format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse()?;
+        let bind: std::net::SocketAddr = format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse()?;
         assert_eq!(
             config.validate(&bind),
             Err(ConfigError::JwtRequiresSecret),

@@ -39,31 +39,31 @@ pub trait CallApiSemantics {
     ///
     /// Only valid while the call is `CallState::Incoming` (C028); the call
     /// transitions to `CallState::Connecting`.
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn answer(&mut self, code: u16) -> Result<(), SipError>;
     /// Hang up the call with the given reason.
     ///
     /// Valid from any non-terminal state; the call transitions to
     /// `CallState::Disconnecting`.
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn hangup(&mut self, reason: HangupReason) -> Result<(), SipError>;
     /// Place the call on hold. Valid only from `CallState::Active`.
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn hold(&mut self) -> Result<(), SipError>;
     /// Resume a held call. Valid only from `CallState::Held`.
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn unhold(&mut self) -> Result<(), SipError>;
     /// Blind-transfer the call to the given target URI.
     ///
     /// Valid only from `CallState::Active`; the call transitions to
     /// `CallState::Transferring` and records the target (C049).
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn transfer(&mut self, target: String) -> Result<(), SipError>;
     /// Send DTMF digits out-of-band. Valid only from `CallState::Active`.
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn send_dtmf(&mut self, digits: &str, method: DtmfMethod) -> Result<(), SipError>;
     /// Return the current signalling state.
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn call_state(&self) -> CallState;
 }
 
@@ -107,7 +107,7 @@ mod tests {
     use crate::state::m20_callstate_mapping::CallMediaState;
 
     /// Build a minimal `SipCall` fixture in the given signalling state.
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn sip_call(state: CallState) -> Result<SipCall, Box<dyn std::error::Error>> {
         Ok(SipCall::new(
             AccountId::from_u64(1)?,
@@ -119,9 +119,9 @@ mod tests {
 
     /// @verifies C028
     #[test]
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn sip_call_implements_call_api_semantics() -> Result<(), Box<dyn std::error::Error>> {
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
         fn assert_trait<T: CallApiSemantics>() {}
         assert_trait::<SipCall>();
         let mut call = sip_call(CallState::Incoming)?;
@@ -132,7 +132,7 @@ mod tests {
 
     /// @verifies C028
     #[test]
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn validate_dtmf_digits_accepts_valid_alphabet() {
         assert!(validate_dtmf_digits("123#*ABCD").is_ok());
         assert!(validate_dtmf_digits("1").is_ok());
@@ -141,7 +141,7 @@ mod tests {
 
     /// @verifies C028
     #[test]
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn validate_dtmf_digits_rejects_empty_and_invalid() {
         assert_eq!(
             validate_dtmf_digits("")
@@ -159,7 +159,7 @@ mod tests {
 
     /// @verifies C028
     #[test]
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn validate_dtmf_send_method_rejects_disallowed_method() {
         let policy = DtmfPolicy {
             send_methods: vec![DtmfMethod::Info],
@@ -177,7 +177,7 @@ mod tests {
 
     /// @verifies C028
     #[test]
-// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn hangup_reason_flows_through_trait() -> Result<(), Box<dyn std::error::Error>> {
         let mut call = sip_call(CallState::Active)?;
         assert!(call.hangup(HangupReason::RemoteHangup).is_ok());

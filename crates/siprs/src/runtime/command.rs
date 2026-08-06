@@ -54,7 +54,7 @@ impl<T> Reply<T> {
 }
 
 impl<T> std::fmt::Debug for Reply<T> {
-// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Reply").finish_non_exhaustive()
     }
@@ -80,7 +80,7 @@ impl<T: ?Sized> DebugBox<T> {
 }
 
 impl<T: ?Sized> std::fmt::Debug for DebugBox<T> {
-// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DebugBox").finish_non_exhaustive()
     }
@@ -161,9 +161,7 @@ pub enum RuntimeCommand {
     /// registration status and produce RegistrationSucceeded/Failed.
     GetAccountInfo {
         native_acc_id: u32,
-        reply: Reply<
-            Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, ReactorError>,
-        >,
+        reply: Reply<Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, ReactorError>>,
     },
     /// [::TICKET::] P7-2: O-004 — query the reactor's authoritative `ClientState`.
     ///
@@ -219,7 +217,7 @@ pub enum RuntimeCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Display for RuntimeCommand {
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-5, P0-6, P7-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P10-3) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let variant = match self {
             Self::Initialize { .. } => "Initialize",
@@ -293,9 +291,7 @@ pub(crate) enum DispatchCommand {
     /// [::TICKET::] P0-5: Query account info with a typed response channel.
     GetAccountInfo {
         native_acc_id: u32,
-        reply: Reply<
-            Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, ReactorError>,
-        >,
+        reply: Reply<Result<crate::state::m20_registr_cmd_pat::AccountInfoSnapshot, ReactorError>>,
     },
     /// [::TICKET::] P7-2: O-004 — add an account and update the reactor's ClientState.
     ///
@@ -361,14 +357,12 @@ impl DispatchCommand {
                 config,
                 reply,
             },
-            RuntimeCommand::RemoveAccount { account_id, reply } => Self::RemoveAccount {
-                account_id,
-                reply,
-            },
-            RuntimeCommand::CreateTransport { config, reply } => Self::CreateTransport {
-                config,
-                reply,
-            },
+            RuntimeCommand::RemoveAccount { account_id, reply } => {
+                Self::RemoveAccount { account_id, reply }
+            }
+            RuntimeCommand::CreateTransport { config, reply } => {
+                Self::CreateTransport { config, reply }
+            }
             RuntimeCommand::SetRegistration {
                 account_id,
                 enabled,
@@ -474,7 +468,7 @@ impl DispatchCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for DispatchCommand {
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Execute { .. } => f
@@ -533,17 +527,19 @@ mod tests {
 
     #[test]
     // @verifies C011
-// [::TICKET::] P0-2, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P10-4) --for-spec --no-implementation-order`.
     fn runtime_command_display_shows_variant_name() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
-        let cmd = RuntimeCommand::Shutdown { reply: Reply::new(tx) };
+        let cmd = RuntimeCommand::Shutdown {
+            reply: Reply::new(tx),
+        };
         let display = format!("{cmd}");
         assert_eq!(display, "RuntimeCommand::Shutdown");
     }
 
     #[test]
     // @verifies C011
-// [::TICKET::] P0-2, P0-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-3|P10-4) --for-spec --no-implementation-order`.
     fn runtime_command_variant_discriminants_are_distinct() {
         // Contract-C011: each RuntimeCommand discriminates correctly.
         let (tx1, _rx1) = tokio::sync::oneshot::channel();
@@ -552,7 +548,9 @@ mod tests {
             config: crate::config::ClientConfig::default(),
             reply: Reply::new(tx1),
         };
-        let cmd_b = RuntimeCommand::Shutdown { reply: Reply::new(tx2) };
+        let cmd_b = RuntimeCommand::Shutdown {
+            reply: Reply::new(tx2),
+        };
 
         // Verify by Display — each variant has a unique name.
         assert_ne!(format!("{cmd_a}"), format!("{cmd_b}"));
@@ -599,7 +597,7 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn conf_connect_variant_constructs_and_displays() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::ConfConnect {
@@ -613,7 +611,7 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn conf_disconnect_variant_constructs_and_displays() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::ConfDisconnect {
@@ -627,7 +625,7 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn add_audio_source_variant_constructs() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let source = Box::new(crate::runtime::audio_worker::MockAsyncAudioSource::new(
@@ -644,7 +642,7 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn remove_audio_source_variant_constructs() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::RemoveAudioSource {
@@ -658,7 +656,7 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn set_audio_source_gain_variant_constructs() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::SetAudioSourceGain {
@@ -673,7 +671,7 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn mute_audio_source_variant_constructs() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::MuteAudioSource {
@@ -688,7 +686,7 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-// [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_conf_connect() {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::ConfConnect {
@@ -707,7 +705,7 @@ mod tests {
     // @verifies C035
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C035
-// [::TICKET::] P0-6, P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P8-1|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6, P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P8-1|P10-4) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_audio_source_variants() {
         let (tx1, _rx1) = tokio::sync::oneshot::channel();
         let cmd1 = RuntimeCommand::AddAudioSource {
@@ -757,7 +755,7 @@ mod tests {
     #[test]
     // @verifies C011
     // [::TICKET::] P8-1: O-004 — ConfDisconnect conversion test (mirrors ConfConnect test).
-// [::TICKET::] P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_conf_disconnect() {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::ConfDisconnect {
@@ -775,7 +773,7 @@ mod tests {
     #[test]
     // @verifies C011
     // [::TICKET::] P8-1: O-001 — executing the ConfConnect closure must invoke backend.conf_connect.
-// [::TICKET::] P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4) --for-spec --no-implementation-order`.
     fn conf_connect_closure_invokes_backend_conf_connect() {
         let mut backend = MockBackend::new();
         let (tx, _rx) = tokio::sync::oneshot::channel();
@@ -801,7 +799,7 @@ mod tests {
     #[test]
     // @verifies C011
     // [::TICKET::] P8-1: O-001 — executing the ConfDisconnect closure must invoke backend.conf_disconnect.
-// [::TICKET::] P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4) --for-spec --no-implementation-order`.
     fn conf_disconnect_closure_invokes_backend_conf_disconnect() {
         let mut backend = MockBackend::new();
         let (tx, _rx) = tokio::sync::oneshot::channel();
@@ -828,7 +826,7 @@ mod tests {
 
     #[test]
     // @verifies C012
-// [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_update_account() {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::UpdateAccount {
@@ -838,7 +836,10 @@ mod tests {
         };
         let dispatch = DispatchCommand::from_runtime_command(cmd);
         assert!(
-            matches!(dispatch, DispatchCommand::UpdateAccount { account_id: 3, .. }),
+            matches!(
+                dispatch,
+                DispatchCommand::UpdateAccount { account_id: 3, .. }
+            ),
             "UpdateAccount must map to the dedicated UpdateAccount variant"
         );
         drop(rx);
@@ -846,7 +847,7 @@ mod tests {
 
     #[test]
     // @verifies C016
-// [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_create_transport() {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::CreateTransport {
@@ -863,7 +864,7 @@ mod tests {
 
     #[test]
     // @verifies C012
-// [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_remove_account_to_dedicated_variant() {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::RemoveAccount {
@@ -872,7 +873,10 @@ mod tests {
         };
         let dispatch = DispatchCommand::from_runtime_command(cmd);
         assert!(
-            matches!(dispatch, DispatchCommand::RemoveAccount { account_id: 7, .. }),
+            matches!(
+                dispatch,
+                DispatchCommand::RemoveAccount { account_id: 7, .. }
+            ),
             "RemoveAccount must map to a dedicated variant so the reactor can update ClientState"
         );
         drop(rx);
@@ -880,7 +884,7 @@ mod tests {
 
     #[test]
     // @verifies C011
-// [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
     fn runtime_command_display_shows_new_lifecycle_variants() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let update = RuntimeCommand::UpdateAccount {
@@ -901,7 +905,7 @@ mod tests {
 
     #[test]
     // @verifies C011
-// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
     fn runtime_command_debug_exposes_payload_field_names() {
         // RED on the manual impl (prints only "RuntimeCommand::UpdateAccount");
         // GREEN once #[derive(Debug)] replaces it.
@@ -919,13 +923,16 @@ mod tests {
 
     #[test]
     // @verifies C053
-// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
     fn reply_debug_output_is_payload_independent() {
         let (tx, _rx) = tokio::sync::oneshot::channel::<Result<(), ReactorError>>();
         let unit_output = format!("{:?}", Reply::new(tx));
         let (tx2, _rx2) = tokio::sync::oneshot::channel::<Result<u64, ReactorError>>();
         let u64_output = format!("{:?}", Reply::new(tx2));
-        assert_eq!(unit_output, u64_output, "Reply Debug must be payload-independent");
+        assert_eq!(
+            unit_output, u64_output,
+            "Reply Debug must be payload-independent"
+        );
     }
 
     #[tokio::test]
@@ -941,7 +948,7 @@ mod tests {
 
     #[test]
     // @verifies C053
-// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
     fn reply_send_returns_err_on_dropped_receiver() {
         let (tx, rx) = tokio::sync::oneshot::channel::<u64>();
         drop(rx);
@@ -951,8 +958,9 @@ mod tests {
     #[tokio::test]
     // @verifies C054
     async fn debugbox_into_inner_preserves_audio_source() {
-        let source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send> =
-            Box::new(crate::runtime::audio_worker::MockAsyncAudioSource::new(vec![7i16; 160]));
+        let source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send> = Box::new(
+            crate::runtime::audio_worker::MockAsyncAudioSource::new(vec![7i16; 160]),
+        );
         let boxed = DebugBox::new(source);
         assert!(
             !format!("{boxed:?}").is_empty(),
@@ -960,14 +968,18 @@ mod tests {
         );
         let mut recovered = boxed.into_inner();
         let mut buf = vec![0i16; 160];
-        assert_eq!(recovered.next_chunk(&mut buf).await, 160, "source survives the round-trip");
+        assert_eq!(
+            recovered.next_chunk(&mut buf).await,
+            160,
+            "source survives the round-trip"
+        );
     }
 
     #[test]
     // @verifies C011
-// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
     fn runtime_command_derives_debug() {
-// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
         assert_debug::<RuntimeCommand>();
         assert_debug::<Reply<Result<(), ReactorError>>>();
@@ -976,11 +988,12 @@ mod tests {
 
     #[test]
     // @verifies C054
-// [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
     fn from_runtime_command_preserves_reply_and_debugbox() {
         let (tx, _rx) = tokio::sync::oneshot::channel::<Result<u64, ReactorError>>();
-        let source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send> =
-            Box::new(crate::runtime::audio_worker::MockAsyncAudioSource::new(vec![0i16; 160]));
+        let source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send> = Box::new(
+            crate::runtime::audio_worker::MockAsyncAudioSource::new(vec![0i16; 160]),
+        );
         let cmd = RuntimeCommand::AddAudioSource {
             source: DebugBox::new(source),
             reply: Reply::new(tx),

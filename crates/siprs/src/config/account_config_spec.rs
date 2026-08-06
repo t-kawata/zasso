@@ -861,7 +861,7 @@ mod tests {
         fn assert_clone<T: Clone>() {}
         // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
         fn assert_copy<T: Copy>() {}
-// [::TICKET::] P3-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
         assert_clone::<DtmfMethod>();
         assert_copy::<DtmfMethod>();
@@ -911,7 +911,10 @@ mod tests {
         };
         let merged = patch.apply(&base)?;
         assert_eq!(merged.username, "bob");
-        assert_eq!(merged.domain, "sip.example.com", "unpatched field must be preserved");
+        assert_eq!(
+            merged.domain, "sip.example.com",
+            "unpatched field must be preserved"
+        );
         assert_eq!(merged.registrar_uri, Some("sip:sip.example.com".into()));
         assert_eq!(merged.password.as_str(), "pass123");
         Ok(())
@@ -959,10 +962,7 @@ mod tests {
             display_name: Some(Some("Alice".into())),
             ..Default::default()
         };
-        assert_eq!(
-            set.apply(&base)?.display_name,
-            Some("Alice".into())
-        );
+        assert_eq!(set.apply(&base)?.display_name, Some("Alice".into()));
         let clear = AccountConfigPatch {
             display_name: Some(None),
             ..Default::default()

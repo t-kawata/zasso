@@ -64,7 +64,7 @@ pub trait ErasedAudioSource: Send {
     ///
     /// Returns the number of samples written. `0` indicates the source is
     /// exhausted and will produce no further data.
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
     fn next_chunk<'a>(
         &'a mut self,
         buf: &'a mut [i16],
@@ -197,13 +197,13 @@ struct SampleQueue {
 #[cfg(feature = "cpal-input")]
 // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
 impl SampleQueue {
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn new() -> Self {
         Self::default()
     }
 
     /// Append samples from the cpal callback thread.
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn push_i16(&self, samples: &[i16]) {
         self.samples
             .lock()
@@ -212,7 +212,7 @@ impl SampleQueue {
     }
 
     /// Drain queued samples into `buf` in FIFO order; returns the number written.
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn drain_to(&self, buf: &mut [i16]) -> usize {
         let mut guard = self
             .samples
@@ -339,14 +339,17 @@ impl CpalMicrophoneSource {
 
     /// Test-only constructor that bypasses the real cpal stream.
     #[cfg(test)]
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn from_queue(queue: SampleQueue) -> Self {
-        Self { stream: None, queue }
+        Self {
+            stream: None,
+            queue,
+        }
     }
 
     /// Borrow the shared sample queue (used by unit tests to seed samples).
     #[cfg(test)]
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn queue(&self) -> &SampleQueue {
         &self.queue
     }
@@ -355,7 +358,7 @@ impl CpalMicrophoneSource {
 #[cfg(feature = "cpal-input")]
 // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
 impl Drop for CpalMicrophoneSource {
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn drop(&mut self) {
         // Dropping the cpal::Stream stops capture and releases the device; the
         // explicit take() also marks the field as read (kept solely for its
@@ -485,7 +488,7 @@ mod tests {
     #[test]
     // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_audio_source_fills_buffer() {
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
         struct TestSource(Vec<i16>, usize);
         // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for TestSource {
@@ -514,7 +517,7 @@ mod tests {
     #[test]
     // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_audio_source_empty_returns_zero() {
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
         struct EmptySource;
         // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for EmptySource {
@@ -540,7 +543,7 @@ mod tests {
         struct TestData(Vec<i16>);
         // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for TestData {
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+            // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
             fn next_chunk(&mut self, buf: &mut [i16]) -> usize {
                 let written = self.0.len().min(buf.len());
                 buf[..written].copy_from_slice(&self.0[..written]);
@@ -558,7 +561,7 @@ mod tests {
     #[tokio::test]
     /// @verifies C033
     async fn sync_source_adapter_delegates_next_chunk() {
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
         struct FixedSource([i16; 3], usize);
         // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for FixedSource {
@@ -588,7 +591,7 @@ mod tests {
     /// @verifies C033
     #[tokio::test]
     async fn sync_source_adapter_exhausted_returns_zero() {
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
         struct Done;
         // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for Done {
@@ -629,7 +632,7 @@ mod tests {
     #[test]
     // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_source_adapter_empty_buffer_returns_zero() {
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
         struct OneShot;
         // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for OneShot {
@@ -717,7 +720,7 @@ mod tests {
                 0
             }
         }
-// [::TICKET::] P5-2, P8-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2, P8-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-2|P8-4) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<SyncSourceAdapter<TestSource>>();
     }
@@ -725,7 +728,7 @@ mod tests {
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P8-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P8-4) --for-spec --no-implementation-order`.
     fn open_default_microphone_source_has_correct_signature() -> Result<(), &'static str> {
         // O-007 closure: C051 precondition — the RFC §40 signature
         // `open_default_microphone_source(format: AudioFormat) ->
@@ -743,9 +746,9 @@ mod tests {
 
         let format = AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20)
             .map_err(|_| "48000/I16/Mono/20ms is a valid AudioFormat")?;
-        assert_microphone_future(crate::api::asyncaudiosrc_adapter::open_default_microphone_source(
-            format,
-        ));
+        assert_microphone_future(
+            crate::api::asyncaudiosrc_adapter::open_default_microphone_source(format),
+        );
         Ok(())
     }
 
@@ -757,11 +760,11 @@ mod tests {
     async fn sync_source_adapter_65536_buffer() {
         // O-004 closure: the upper extreme of the boundary invariant — a
         // 65536-sample buffer must be filled without overflow or truncation.
-// [::TICKET::] P8-4, P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-4|P8-7) --for-spec --no-implementation-order`.
+        // [::TICKET::] P8-4, P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-4|P8-7) --for-spec --no-implementation-order`.
         struct BigSource(Vec<i16>);
-// [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
         impl SyncAudioSource for BigSource {
-// [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
+            // [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
             fn next_chunk(&mut self, buf: &mut [i16]) -> usize {
                 let written = self.0.len().min(buf.len());
                 buf[..written].copy_from_slice(&self.0[..written]);
@@ -784,7 +787,7 @@ mod tests {
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn sample_queue_drains_in_fifo_order() {
         // C051-Post: SampleQueue::drain_to fills an i16 buffer in FIFO order.
         let queue = SampleQueue::new();
@@ -800,7 +803,7 @@ mod tests {
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn sample_queue_empty_returns_zero() {
         // C051-Post: an empty queue reports end-of-stream (0 samples).
         let queue = SampleQueue::new();
@@ -811,20 +814,24 @@ mod tests {
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn convert_f32_sample_clamps_at_i16_boundaries() {
         // C051-Post/C051-Inv: f32 in [-1.0, 1.0] maps linearly; out-of-range clamps, never wraps.
         assert_eq!(convert_f32_sample_to_i16(1.0), i16::MAX);
         assert_eq!(convert_f32_sample_to_i16(-1.0), i16::MIN);
         assert_eq!(convert_f32_sample_to_i16(0.0), 0);
-        assert_eq!(convert_f32_sample_to_i16(2.0), i16::MAX, "out-of-range clamps, never wraps");
+        assert_eq!(
+            convert_f32_sample_to_i16(2.0),
+            i16::MAX,
+            "out-of-range clamps, never wraps"
+        );
         assert_eq!(convert_f32_sample_to_i16(-2.0), i16::MIN);
     }
 
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn convert_u16_sample_is_bijective_at_extremes() {
         // C051-Inv: u16 -> i16 mapping is bijective at the extremes and preserves DC offset.
         assert_eq!(convert_u16_sample_to_i16(u16::MAX), i16::MAX);
@@ -860,10 +867,10 @@ mod tests {
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn microphone_source_is_send() {
         // C051-Inv: the source can live in AudioMixer's DashMap as Box<dyn AsyncAudioSource + Send>.
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+        // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<CpalMicrophoneSource>();
         assert_send::<Box<dyn AsyncAudioSource>>();
@@ -878,6 +885,9 @@ mod tests {
             Box::new(CpalMicrophoneSource::from_queue(SampleQueue::new()));
         let mut buf = vec![0i16; 4];
         let written = erased.next_chunk(&mut buf).await;
-        assert_eq!(written, 0, "empty source reports end-of-stream through the erased wrapper");
+        assert_eq!(
+            written, 0,
+            "empty source reports end-of-stream through the erased wrapper"
+        );
     }
 }

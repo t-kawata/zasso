@@ -260,11 +260,16 @@ mod tests {
     async fn eventbus_publish_raw_sip_delivers_when_enabled() {
         let bus = EventBus::new(16, Some(16));
         let mut rx = bus.subscribe_raw_sip().unwrap();
-        let msg = RawSipMessage::parse(b"INVITE sip:alice@example.com SIP/2.0\r\nVia: SIP/2.0/UDP 192.0.2.1\r\n\r\n")
-            .expect("valid INVITE parses");
+        let msg = RawSipMessage::parse(
+            b"INVITE sip:alice@example.com SIP/2.0\r\nVia: SIP/2.0/UDP 192.0.2.1\r\n\r\n",
+        )
+        .expect("valid INVITE parses");
         bus.publish_raw_sip(msg);
         let received = rx.recv().await.unwrap();
-        assert_eq!(received.start_line(), "INVITE sip:alice@example.com SIP/2.0");
+        assert_eq!(
+            received.start_line(),
+            "INVITE sip:alice@example.com SIP/2.0"
+        );
         assert_eq!(received.header("Via"), Some("SIP/2.0/UDP 192.0.2.1"));
     }
 
@@ -284,13 +289,19 @@ mod tests {
         .expect("parses and redacts");
         bus.publish_raw_sip(msg);
         let received = rx.recv().await.unwrap();
-        assert!(received.text().contains("[REDACTED]"), "redacted value travels the bus");
-        assert!(!received.text().contains("s3cret!"), "password never leaks through the bus");
+        assert!(
+            received.text().contains("[REDACTED]"),
+            "redacted value travels the bus"
+        );
+        assert!(
+            !received.text().contains("s3cret!"),
+            "password never leaks through the bus"
+        );
     }
 
     /// @verifies C020
     #[test]
-// [::TICKET::] P0-5, P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-4) --for-spec --no-implementation-order`.
     fn eventbus_publish_raw_sip_noop_when_disabled() {
         let bus = EventBus::new(16, None);
         let msg = RawSipMessage::parse(b"INVITE sip:x SIP/2.0\r\n\r\n").expect("parses");
@@ -302,7 +313,7 @@ mod tests {
     /// @verifies C020, C021
     #[test]
     // [::TICKET::] P7-2: O-005 — assert exact Lagged count n (2) instead of a wildcard
-// [::TICKET::] P0-5, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P7-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P7-2) --for-spec --no-implementation-order`.
     fn eventbus_lagged_detection() {
         let bus = EventBus::new(2, None); // very small capacity
         let mut rx = bus.subscribe_control();
@@ -316,10 +327,7 @@ mod tests {
         bus.publish(make_event(None)); // drops B
         let result = rx.try_recv();
         assert!(
-            matches!(
-                result,
-                Err(broadcast::error::TryRecvError::Lagged(2))
-            ),
+            matches!(result, Err(broadcast::error::TryRecvError::Lagged(2))),
             "expected Lagged(2) but got {:?}",
             result
         );

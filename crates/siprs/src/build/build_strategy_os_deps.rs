@@ -51,7 +51,11 @@ pub struct PjsipVersion {
 impl PjsipVersion {
     /// Builds a version tuple.
     pub const fn new(major: u16, minor: u16, patch: u16) -> Self {
-        Self { major, minor, patch }
+        Self {
+            major,
+            minor,
+            patch,
+        }
     }
 }
 
@@ -89,7 +93,7 @@ pub enum PjsipDetectionError {
 /// Abstraction over the environment probe — real filesystem probe in
 /// production, deterministic fake in unit tests.
 pub trait DetectionBackend {
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn probe(&self) -> Result<PjsipDetection, PjsipDetectionError>;
 }
 
@@ -196,13 +200,13 @@ impl EnvDetectionBackend {
         &self.target_triple
     }
 
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn prebuilt_libs_complete(&self) -> bool {
         let lib_dir = self.prebuilt_root.join("lib");
         lib_dir.is_dir() && contains_pjsua_library(&lib_dir)
     }
 
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn vendor_source_available(&self) -> bool {
         self.vendor_pjsip_root.join("CMakeLists.txt").is_file()
     }
@@ -210,13 +214,17 @@ impl EnvDetectionBackend {
 
 // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
 impl DetectionBackend for EnvDetectionBackend {
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn probe(&self) -> Result<PjsipDetection, PjsipDetectionError> {
         if !self.is_supported_target() {
-            return Err(PjsipDetectionError::UnsupportedOs(self.target_triple.clone()));
+            return Err(PjsipDetectionError::UnsupportedOs(
+                self.target_triple.clone(),
+            ));
         }
         if self.prebuilt_libs_complete() || self.vendor_source_available() {
-            Ok(PjsipDetection::Present { version: PJSIP_CANONICAL_VERSION })
+            Ok(PjsipDetection::Present {
+                version: PJSIP_CANONICAL_VERSION,
+            })
         } else {
             Ok(PjsipDetection::Absent)
         }
@@ -245,26 +253,32 @@ mod tests {
         pub result: Result<PjsipDetection, PjsipDetectionError>,
     }
 
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     impl DetectionBackend for MockDetectionBackend {
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
         fn probe(&self) -> Result<PjsipDetection, PjsipDetectionError> {
             self.result.clone()
         }
     }
 
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     impl MockDetectionBackend {
         pub fn present(version: PjsipVersion) -> Self {
-            Self { result: Ok(PjsipDetection::Present { version }) }
+            Self {
+                result: Ok(PjsipDetection::Present { version }),
+            }
         }
 
         pub fn absent() -> Self {
-            Self { result: Ok(PjsipDetection::Absent) }
+            Self {
+                result: Ok(PjsipDetection::Absent),
+            }
         }
 
         pub fn unsupported_os(triple: &str) -> Self {
-            Self { result: Err(PjsipDetectionError::UnsupportedOs(triple.to_string())) }
+            Self {
+                result: Err(PjsipDetectionError::UnsupportedOs(triple.to_string())),
+            }
         }
 
         pub fn prebuilt_complete(triple: &str) -> Self {
@@ -281,7 +295,7 @@ mod tests {
     // ── C040-Precondition: Build requirements defined ──────────
     /// @verifies C040
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn detect_pjsip_returns_present_with_version() -> Result<(), PjsipDetectionError> {
         let backend = MockDetectionBackend::present(PjsipVersion::new(2, 17, 0));
         let detection = detect_pjsip(&backend)?;
@@ -295,12 +309,15 @@ mod tests {
     // ── C040-Postcondition: build.rs strategy and OS dependencies ──
     /// @verifies C040
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn resolve_flags_present_maps_to_pjsua_native() {
         let flags = resolve_feature_flags(&PjsipDetection::Present {
             version: PjsipVersion::new(2, 17, 0),
         });
-        assert!(flags.pjsua_native, "Present detection must enable pjsua-native");
+        assert!(
+            flags.pjsua_native,
+            "Present detection must enable pjsua-native"
+        );
         assert_eq!(flags.tls, cfg!(feature = "tls"));
         assert_eq!(flags.srtp, cfg!(feature = "srtp"));
     }
@@ -308,26 +325,32 @@ mod tests {
     // ── C040-Postcondition: Absent maps to stub-alias fallback ──
     /// @verifies C040
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn resolve_flags_absent_disables_pjsua_native() {
         let flags = resolve_feature_flags(&PjsipDetection::Absent);
-        assert!(!flags.pjsua_native, "Absent detection must keep the stub-alias path");
+        assert!(
+            !flags.pjsua_native,
+            "Absent detection must keep the stub-alias path"
+        );
     }
 
     // ── C040-Invariant: Prebuilt-first, source fallback ─────────
     /// @verifies C040
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn prebuilt_complete_yields_present_without_source_build() -> Result<(), PjsipDetectionError> {
         let prebuilt = MockDetectionBackend::prebuilt_complete("aarch64-apple-darwin");
-        assert!(matches!(detect_pjsip(&prebuilt)?, PjsipDetection::Present { .. }));
+        assert!(matches!(
+            detect_pjsip(&prebuilt)?,
+            PjsipDetection::Present { .. }
+        ));
         Ok(())
     }
 
     // ── C040-Invariant: Prebuilt absent selects source fallback ──
     /// @verifies C040
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn prebuilt_absent_requires_source_build() -> Result<(), PjsipDetectionError> {
         let no_prebuilt = MockDetectionBackend::prebuilt_absent("aarch64-apple-darwin");
         assert!(detect_pjsip(&no_prebuilt)?.requires_source_build());
@@ -337,7 +360,7 @@ mod tests {
     // ── Error: unsupported OS ──────────────────────────────────
     /// @verifies C040
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn unsupported_os_returns_structured_error() {
         let backend = MockDetectionBackend::unsupported_os("solaris");
         let err = detect_pjsip(&backend).unwrap_err();
@@ -347,17 +370,20 @@ mod tests {
     // ── C055-Precondition: Build strategy defined ──────────────
     /// @verifies C055
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn ci_matrix_jobs_covers_all_combinations() {
         let jobs = ci_matrix_jobs();
         assert_eq!(jobs.len(), TOTAL_CI_JOBS);
-        assert_eq!(jobs.len(), CiOsTarget::all().len() * FeatureCombination::all().len());
+        assert_eq!(
+            jobs.len(),
+            CiOsTarget::all().len() * FeatureCombination::all().len()
+        );
         // Every OS target must be paired with every feature combination.
         for os in CiOsTarget::all() {
             for features in FeatureCombination::all() {
-                let paired = jobs.iter().any(|(job_os, job_features)| {
-                    job_os == os && job_features == features
-                });
+                let paired = jobs
+                    .iter()
+                    .any(|(job_os, job_features)| job_os == os && job_features == features);
                 assert!(paired, "missing job for {:?} × {:?}", os, features);
             }
         }
@@ -366,9 +392,11 @@ mod tests {
     // ── C055-Postcondition: CI/CD pipeline and Docker tests ────
     /// @verifies C055
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn run_ci_matrix_reports_per_combination_status() {
-        let detection = PjsipDetection::Present { version: PjsipVersion::new(2, 17, 0) };
+        let detection = PjsipDetection::Present {
+            version: PjsipVersion::new(2, 17, 0),
+        };
         let statuses = run_ci_matrix(&detection);
         assert_eq!(statuses.len(), TOTAL_CI_JOBS);
         assert!(statuses.iter().all(|s| s.pjsip_available));
@@ -381,7 +409,7 @@ mod tests {
     // ── C055-Postcondition: Absent PJSIP marks every job unavailable ──
     /// @verifies C055
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn run_ci_matrix_reports_absent_for_all_jobs() {
         let statuses = run_ci_matrix(&PjsipDetection::Absent);
         assert_eq!(statuses.len(), TOTAL_CI_JOBS);
@@ -391,7 +419,7 @@ mod tests {
     // ── C055-Invariant: Matrix covers 3 OSes ───────────────────
     /// @verifies C055
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn matrix_covers_three_os_targets() {
         let oses: Vec<&str> = CiOsTarget::all().iter().map(|o| o.runner_label()).collect();
         assert_eq!(oses, vec!["windows-latest", "macos-14", "ubuntu-22.04"]);
@@ -400,26 +428,33 @@ mod tests {
     // ── C055-Invariant: Matrix covers 4 feature combos ─────────
     /// @verifies C055
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn matrix_covers_four_feature_combinations() {
-        let combos: Vec<&str> =
-            FeatureCombination::all().iter().map(|c| c.cargo_features()).collect();
+        let combos: Vec<&str> = FeatureCombination::all()
+            .iter()
+            .map(|c| c.cargo_features())
+            .collect();
         assert_eq!(combos, vec!["default", "tls", "srtp", "tls,srtp"]);
     }
 
     // ── Invariant: deterministic flag resolution ──────────────
     /// @verifies C040
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn flag_resolution_is_deterministic() {
-        let detection = PjsipDetection::Present { version: PjsipVersion::new(2, 17, 0) };
-        assert_eq!(resolve_feature_flags(&detection), resolve_feature_flags(&detection));
+        let detection = PjsipDetection::Present {
+            version: PjsipVersion::new(2, 17, 0),
+        };
+        assert_eq!(
+            resolve_feature_flags(&detection),
+            resolve_feature_flags(&detection)
+        );
     }
 
     // ── EnvDetectionBackend: supported-target classification ──
     /// @verifies C040
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn env_backend_classifies_supported_targets() {
         assert!(EnvDetectionBackend::new("x86_64-pc-windows-msvc").is_supported_target());
         assert!(EnvDetectionBackend::new("aarch64-apple-darwin").is_supported_target());
@@ -428,7 +463,7 @@ mod tests {
 
     /// @verifies C040
     #[test]
-// [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     fn env_backend_rejects_unsupported_target() {
         let backend = EnvDetectionBackend::new("solaris-unknown");
         assert!(!backend.is_supported_target());

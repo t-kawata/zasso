@@ -40,7 +40,9 @@ fn pjsua_native_enabled() -> bool {
 // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
 fn resolve_prebuilt_lib_dir() -> Option<std::path::PathBuf> {
     let target_triple = std::env::var("TARGET").ok()?;
-    let lib_dir = std::path::PathBuf::from("vendor/prebuilt").join(&target_triple).join("lib");
+    let lib_dir = std::path::PathBuf::from("vendor/prebuilt")
+        .join(&target_triple)
+        .join("lib");
     if lib_dir.is_dir() && contains_pjsua_library(&lib_dir) {
         Some(lib_dir)
     } else {
@@ -64,7 +66,10 @@ fn contains_pjsua_library(lib_dir: &std::path::Path) -> bool {
 /// Emits the `cargo:rustc-link-*` directives for a resolved prebuilt `lib/` dir.
 // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
 fn emit_link_directives(lib_dir: &std::path::Path) {
-    emit_cargo_directive(&format!("cargo:rustc-link-search=native={}", lib_dir.display()));
+    emit_cargo_directive(&format!(
+        "cargo:rustc-link-search=native={}",
+        lib_dir.display()
+    ));
     emit_cargo_directive("cargo:rustc-link-lib=static=pjsua2");
 }
 

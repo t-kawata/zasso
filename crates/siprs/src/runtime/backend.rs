@@ -37,7 +37,7 @@ pub trait SipBackend: Send {
     ) -> Result<(i32, AccountEntry), ReactorError>;
 
     /// Remove a previously registered account.
-// [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
     fn remove_account(&mut self, native_acc_id: i32) -> Result<(), ReactorError>;
 
     /// Update the configuration of a previously registered account.
@@ -167,7 +167,7 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-// [::TICKET::] P3-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3) --for-spec --no-implementation-order`.
     fn add_account(
         &mut self,
         config: &crate::config::account_config_spec::AccountConfig,
@@ -616,7 +616,7 @@ mod tests {
     #[test]
     // [::TICKET::] P7-2: O-001 — MockBackend::get_account_info returns the controllable snapshot shape
     // [::TICKET::] P10-1: the snapshot is now derived from the stored AccountEntry
-// [::TICKET::] P7-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P10-1|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P10-1|P10-3) --for-spec --no-implementation-order`.
     fn mock_backend_get_account_info_derives_registered_snapshot(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = MockBackend::new();
@@ -721,7 +721,7 @@ mod tests {
     // @verifies C038, C039
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn mock_backend_is_send() {
-// [::TICKET::] P3-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<MockBackend>();
         assert_send::<PjsuaBackend>();
@@ -729,7 +729,7 @@ mod tests {
 
     // ── P10-1: account registry derives account-info snapshots ──────────
 
-// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
     fn account_config(username: &str) -> crate::config::account_config_spec::AccountConfig {
         crate::config::account_config_spec::AccountConfig {
             username: username.into(),
@@ -740,7 +740,7 @@ mod tests {
 
     /// @verifies C024
     #[test]
-// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
     fn mock_backend_get_account_info_derives_idle_snapshot(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = MockBackend::new();
@@ -832,7 +832,8 @@ mod tests {
     #[test]
     // @verifies C015
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-    fn mock_backend_update_account_updates_stored_config() -> Result<(), Box<dyn std::error::Error>> {
+    fn mock_backend_update_account_updates_stored_config() -> Result<(), Box<dyn std::error::Error>>
+    {
         let mut backend = MockBackend::new();
         backend.add_account(&account_config("alice"))?;
         let mut new_config = account_config("bob");

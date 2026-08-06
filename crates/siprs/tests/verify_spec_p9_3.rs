@@ -34,7 +34,9 @@ fn lifecycle_transitions_match_callstate_table() -> Result<(), Box<dyn std::erro
     call.answer(200)?;
     // RFC §18: Incoming → Connecting is the only legal edge from Incoming.
     assert_eq!(call.call_state(), CallState::Connecting);
-    assert!(CallState::Incoming.transition(CallState::Connecting).is_ok());
+    assert!(CallState::Incoming
+        .transition(CallState::Connecting)
+        .is_ok());
     Ok(())
 }
 
@@ -88,7 +90,9 @@ fn hangup_active_lands_in_disconnecting() -> Result<(), Box<dyn std::error::Erro
     call.hangup(HangupReason::LocalUser)?;
     assert_eq!(call.state(), CallState::Disconnecting);
     // Active → Disconnecting is a valid RFC §18 edge.
-    assert!(CallState::Active.transition(CallState::Disconnecting).is_ok());
+    assert!(CallState::Active
+        .transition(CallState::Disconnecting)
+        .is_ok());
     Ok(())
 }
 

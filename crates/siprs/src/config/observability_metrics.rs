@@ -66,7 +66,7 @@ pub struct ClientCapabilities {
     /// Available audio codecs.
     ///
     /// [::TICKET::] P3-2: ffi::bindings provides type aliases for PJSIP codec system.
-// [::STUB::] P11-8: available_codecs and the Codec type are placeholders pending FFI-defined codec types (covers observability_metrics.rs:69,187) -- Replace the placeholder codec list and Codec type with runtime codec enumeration via the pjsua codec API using FFI-defined pjsua_codec_info types once bindgen generates them
+    // [::STUB::] P11-8: available_codecs and the Codec type are placeholders pending FFI-defined codec types (covers observability_metrics.rs:69,187) -- Replace the placeholder codec list and Codec type with runtime codec enumeration via the pjsua codec API using FFI-defined pjsua_codec_info types once bindgen generates them
     #[serde(default)]
     pub available_codecs: Vec<Codec>,
     /// Whether Opus codec is available.

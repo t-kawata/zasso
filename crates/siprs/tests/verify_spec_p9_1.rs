@@ -10,10 +10,10 @@
 
 // Include the shared CLI parser and account helpers so their `#[cfg(test)]`
 // suites run here too.
-#[path = "../examples/common/cli.rs"]
-mod cli;
 #[path = "../examples/common/client.rs"]
 mod account;
+#[path = "../examples/common/cli.rs"]
+mod cli;
 
 use siprs::runtime::audio_worker::AsyncAudioSource;
 use siprs::{
@@ -100,7 +100,10 @@ async fn account_register_flow_registers_account() -> Result<(), Box<dyn std::er
     account.register().await?;
     let accounts = client.accounts().await?;
     assert_eq!(accounts.len(), 1, "AddAccount must surface one account");
-    assert!(accounts[0].registered, "MockBackend reports registered=true");
+    assert!(
+        accounts[0].registered,
+        "MockBackend reports registered=true"
+    );
     client.shutdown().await?;
     Ok(())
 }
@@ -148,7 +151,10 @@ async fn tts_source_flow_injects_source() -> Result<(), Box<dyn std::error::Erro
         .submit_add_audio_source(Box::new(TtsStreamSource { rx }))
         .await?;
     assert_eq!(source_id, 0, "first source on a fresh client gets id 0");
-    client.handle().submit_set_audio_source_gain(source_id, 0.6).await?;
+    client
+        .handle()
+        .submit_set_audio_source_gain(source_id, 0.6)
+        .await?;
 
     // Verify the AsyncAudioSource contract delivers the injected PCM.
     let (tx2, rx2) = tokio::sync::mpsc::channel::<Vec<i16>>(8);
@@ -173,7 +179,10 @@ async fn audio_tap_flow_initializes_client() -> Result<(), Box<dyn std::error::E
     let (client, _events) = SipClient::new(client_config()).await?;
     assert!(!client.is_terminated(), "client must be running after new");
     client.shutdown().await?;
-    assert!(client.is_terminated(), "client must be terminated after shutdown");
+    assert!(
+        client.is_terminated(),
+        "client must be terminated after shutdown"
+    );
     Ok(())
 }
 
@@ -188,7 +197,13 @@ fn examples_have_no_unwrap() -> Result<(), std::io::Error> {
     let unwrap_token = concat!(".un", "wrap()");
     let expect_token = concat!(".exp", "ect(");
     let panic_token = concat!("pan", "ic!(");
-    for name in ["client_init", "account_register", "make_call", "audio_tap", "tts_source"] {
+    for name in [
+        "client_init",
+        "account_register",
+        "make_call",
+        "audio_tap",
+        "tts_source",
+    ] {
         let src = std::fs::read_to_string(format!("examples/{name}.rs"))?;
         for (idx, line) in src.lines().enumerate() {
             let trimmed = line.trim();

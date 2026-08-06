@@ -33,7 +33,8 @@ fn make_call_signature() -> Result<String, Box<dyn std::error::Error>> {
 /// API to registration state, this test fails red.
 #[test]
 // [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
-fn make_call_signature_independent_of_registration_state() -> Result<(), Box<dyn std::error::Error>> {
+fn make_call_signature_independent_of_registration_state() -> Result<(), Box<dyn std::error::Error>>
+{
     let signature = make_call_signature()?;
 
     assert!(

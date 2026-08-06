@@ -1,4 +1,3 @@
-
 // Account-management helpers for the siprs example binaries.
 //
 // account_register and make_call include this module via `#[path]` to add an
@@ -45,7 +44,7 @@ pub fn require(args: &CliArgs, required: &[&str]) -> Result<(), cli::CliError> {
 /// Uses the typed `RuntimeHandle::submit_add_account` path, which returns the
 /// backend-assigned logical account id directly.
 pub async fn add_account_and_resolve(
-// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     client: &SipClient,
     args: &CliArgs,
 ) -> Result<SipAccountHandle, Box<dyn std::error::Error>> {
@@ -75,7 +74,7 @@ mod tests {
     use super::*;
 
     #[test]
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn require_passes_when_all_flags_present() -> Result<(), cli::CliError> {
         let args = CliArgs {
             host: "sip.example.com".into(),
@@ -89,7 +88,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn require_reports_first_missing_flag() {
         let args = CliArgs {
             host: "sip.example.com".into(),
@@ -97,18 +96,30 @@ mod tests {
             ..CliArgs::default()
         };
         let err = require(&args, &["--domain"]).unwrap_err();
-        assert!(err.message.contains("--domain"), "must name the missing flag: {}", err.message);
-        assert!(err.message.contains("Usage:"), "must include usage: {}", err.message);
+        assert!(
+            err.message.contains("--domain"),
+            "must name the missing flag: {}",
+            err.message
+        );
+        assert!(
+            err.message.contains("Usage:"),
+            "must include usage: {}",
+            err.message
+        );
     }
 
     #[test]
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
     fn require_rejects_unknown_flag() {
         let args = CliArgs {
             host: "sip.example.com".into(),
             ..CliArgs::default()
         };
         let err = require(&args, &["--bogus"]).unwrap_err();
-        assert!(err.message.contains("--bogus"), "must name the unknown flag: {}", err.message);
+        assert!(
+            err.message.contains("--bogus"),
+            "must name the unknown flag: {}",
+            err.message
+        );
     }
 }
