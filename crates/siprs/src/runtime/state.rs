@@ -332,12 +332,12 @@ mod tests {
 
     #[test]
     // @verifies C046
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-7) --for-spec --no-implementation-order`.
     fn transport_runtime_state_default() {
-        let t = TransportRuntimeState::default();
-        assert_eq!(t.transport_id, 0);
-        assert!(t.transport_type.is_empty());
-        assert_eq!(t.port, 0);
+        let transport_state = TransportRuntimeState::default();
+        assert_eq!(transport_state.transport_id, 0);
+        assert!(transport_state.transport_type.is_empty());
+        assert_eq!(transport_state.port, 0);
     }
 
     #[test]

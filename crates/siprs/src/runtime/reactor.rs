@@ -1404,6 +1404,41 @@ mod tests {
     }
 
     #[tokio::test]
+    // @verifies C052
+    // Error path: an UpdateAccount for an account absent from ClientState must
+    // reply Err (never silently Ok) — the error is surfaced via submit()'s
+    // awaited reply channel, which the update_config facade maps to SipError.
+    // [::TICKET::] P11-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-7 --for-spec --no-implementation-order`.
+    async fn reactor_update_account_missing_account_replies_err(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            domain: "sip.example.com".into(),
+            password: crate::security::SecretString::new("pass123"),
+            ..Default::default()
+        };
+        let (_tx, _rx) = tokio::sync::oneshot::channel();
+        let result = handle
+            .submit(crate::runtime::command::RuntimeCommand::UpdateAccount {
+                account_id: 999, // not registered in ClientState
+                config,
+                reply: Reply::new(_tx),
+            })
+            .await;
+        assert!(
+            result.is_err(),
+            "UpdateAccount for an account absent from ClientState must reply Err"
+        );
+        assert!(
+            matches!(result.unwrap_err(), ReactorError::NotInitialized(_)),
+            "the reply must be a ReactorError describing the missing account"
+        );
+        shutdown_reactor(&handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
     // @verifies C016
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     async fn reactor_create_transport_records_transport_runtime_state(

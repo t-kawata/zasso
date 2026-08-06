@@ -56,7 +56,7 @@ impl std::fmt::Debug for RuntimeHandle {
     }
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
@@ -253,6 +253,38 @@ impl RuntimeHandle {
 
         let (tx, rx) = tokio::sync::oneshot::channel();
         let dispatch = DispatchCommand::AddAccount {
+            config,
+            reply: Reply::new(tx),
+        };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// Submit an `UpdateAccount` command and await the reactor's reply.
+    ///
+    /// Builds the oneshot channel itself and returns the reactor's
+    /// `Result<(), ReactorError>` directly, so callers never need a dummy reply
+    /// channel — the reactor's outcome is always surfaced.
+    ///
+    /// # Errors
+    /// Returns `ReactorError::ReactorDown` if the reactor has terminated, or the
+    /// reactor's reply error if the backend rejected the update.
+    pub async fn submit_update_account(
+        &self,
+        account_id: u64,
+        config: crate::config::account_config_spec::AccountConfig,
+    ) -> Result<(), ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::UpdateAccount {
+            account_id,
             config,
             reply: Reply::new(tx),
         };
@@ -628,6 +660,70 @@ mod tests {
         );
         let result = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await;
+        assert!(
+            matches!(result, Err(ReactorError::ReactorDown)),
+            "a terminated reactor must map to ReactorDown"
+        );
+    }
+
+    // ── P11-7: submit_update_account (typed Result<(), ReactorError> reply) ─
+
+    #[tokio::test]
+    // @verifies C052
+    async fn submit_update_account_returns_reactor_reply() -> Result<(), Box<dyn std::error::Error>> {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let terminated = Arc::new(AtomicBool::new(false));
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated,
+            Weak::new(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
+
+        let consumer = tokio::spawn(async move {
+            match rx.recv().await {
+                Some(DispatchCommand::UpdateAccount {
+                    account_id,
+                    config: _,
+                    reply,
+                }) => {
+                    assert_eq!(account_id, 7);
+                    reply.send(Ok(())).unwrap();
+                }
+                other => panic!("expected UpdateAccount, got {other:?}"),
+            }
+        });
+
+        let result = handle
+            .submit_update_account(
+                7,
+                crate::config::account_config_spec::AccountConfig::default(),
+            )
+            .await;
+        assert_eq!(result, Ok(()), "the reactor reply must be surfaced to the caller");
+        consumer.await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C052
+    async fn submit_update_account_reactor_down_returns_err() {
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        let terminated = Arc::new(AtomicBool::new(true));
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated,
+            Weak::new(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
+        let result = handle
+            .submit_update_account(
+                1,
+                crate::config::account_config_spec::AccountConfig::default(),
+            )
             .await;
         assert!(
             matches!(result, Err(ReactorError::ReactorDown)),

@@ -26587,10 +26587,13 @@
         {
           "title": "Implement update_config with an AccountConfigPatch type and RuntimeCommand::UpdateAccount dispatch",
           "nodeIds": [
-            "N0030",
-            "N0035",
-            "N0036",
-            "N0040"
+            "N0010",
+            "N0011",
+            "N0013",
+            "N0014",
+            "N0017",
+            "N0025",
+            "N0051"
           ],
           "contracts": [
             {
@@ -26622,507 +26625,154 @@
               "invariant": "All validation rules enumerated"
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P4-2 (Audio Format, IN/OUT PairAligner, Resampler & Codec Policy) defined AccountConfig and its validation rules (C015/C052). SipAccountHandle::update_config was left as a no-op because no incremental update path existed. This work item resolves the marker by introducing an AccountConfigPatch type and a RuntimeCommand::UpdateAccount variant so account configuration can be changed at runtime and dispatched through the reactor.",
+          "background": "### Goal\nGive SipAccountHandle::update_config a real runtime account-configuration update path: accept an AccountConfigPatch, merge it with the authoritative ClientState config, validate the merge (C052 fail-fast), submit RuntimeCommand::UpdateAccount through the reactor, and surface the outcome as Result<(), SipError> instead of the historical silent no-op.\n\n### Purpose\nCallers (config UI, runtime policy changes) must be able to change a live account's mutable settings — registrar_uri, transport policy, register_on_start, codec/DTMF policy, registration_expires — without tearing down and recreating the account. The patch type makes partial updates explicit, and the reactor round-trip keeps the backend and ClientState in lockstep (C021).\n\n### Motivation\nP3-1 defined AccountConfig and its validation rules (C015/C052) but update_config was a `_patch`-discarding no-op because no incremental update path existed (historical public_api_design.rs:146-152). P10-3 implemented the lifecycle — AccountConfigPatch, RuntimeCommand::UpdateAccount, SipBackend::update_account, reactor ClientState mutation. This ticket makes that implementation the verified, spec'd behavior, closes the silent-drop gap definitively, and adds the missing error-path tests.\n\n### Constraints\n- Public API change: update_config now takes AccountConfigPatch (must be Send+Sync, Default no-op); RuntimeCommand gains an UpdateAccount variant so every exhaustive match (name(), from_runtime_command, Debug) must be updated.\n- The merged config is validated before dispatch (C052) — the reactor never receives an unvalidated config (RuntimeCommand::UpdateAccount doc comment, command.rs:113-116).\n- Real PJSUA application (pjsua_acc_modify) is out of scope (P8-20); only the patch/validation/dispatch/state path is implemented and tested against MockBackend.",
           "scope": [
-            "src/api/public_api_design.rs (update_config — accept AccountConfigPatch, submit RuntimeCommand::UpdateAccount, await the reply)",
-            "src/runtime/command.rs (add RuntimeCommand::UpdateAccount variant and dispatch to SipBackend::update_account)",
-            "src/runtime/backend.rs (SipBackend::update_account trait method; MockBackend impl)",
-            "src/runtime/state.rs (ClientState AccountEntry config update on success)",
-            "src/config/account_config_spec.rs (AccountConfigPatch type definition)",
-            "Out of scope: full AccountConfig schema migration; pjsua_acc_modify FFI call (P8-20 / P4+).",
-            "Impact: update_config is no longer a silent no-op; patches are validated and applied via the reactor."
+            "**Scope of changes:**\n  - [File/module path] src/config/account_config_spec.rs — AccountConfigPatch type + apply() (modify/verify; already implemented at :306-384)\n  - [Action: verify + complete] The type is `pub struct AccountConfigPatch` with 15 Option/Option<Option> fields mirroring AccountConfig, derives Debug, Clone, PartialEq, Default, and `pub fn apply(&self, base: &AccountConfig) -> Result<AccountConfig, SipError>` which merges each Some field and calls merged.validate() (C052).\n  - [What specifically changes] RuntimeCommand::UpdateAccount { account_id: u64, config: AccountConfig, reply: Reply<Result<(), ReactorError>> } (command.rs:117-120); DispatchCommand::UpdateAccount dedicated variant (command.rs:323-330); SipBackend::update_account(&mut self, native_acc_id: i32, config: &AccountConfig) -> Result<(), ReactorError> (backend.rs:48) + MockBackend impl (backend.rs:200-208); reactor handler mutates client_state.accounts[aid].config and sends the reply (reactor.rs:278-338); SipClientHandle::submit() awaits the reply (handle.rs:104-192); SipAccountHandle::update_config facade (public_api_design.rs:167-203).\n  - [Before → After] Before: update_config was a documented silent no-op discarding the patch (historical public_api_design.rs:146-152). After: a patch is merged, validated, dispatched via the reactor, the applied config is reflected in the authoritative ClientState, and errors surface as Err(SipError) — never a silent Ok.\n  - [API contract change] `update_config(&self, AccountConfig) -> Result<(), SipError>` becomes `update_config(&self, AccountConfigPatch) -> Result<(), SipError>`; RuntimeCommand gains the public UpdateAccount variant (exhaustive matches in name()/from_runtime_command/Debug updated).\n  - [Data schema change] None — AccountConfigPatch is a pure in-memory Rust struct (no serde persistence); ClientState AccountEntry.config type stays AccountConfig.\n  - [Config/env change] None.\n  - [Dependency added/removed] None — reuses tokio::sync::oneshot and existing SipError/ReactorError types.",
+            "**Out of scope:**\n  - [Excluded item] Full AccountConfig schema migration / new persistent fields — the patch exposes a runtime-mutable subset of the existing schema, not a new config schema.\n  - [Why excluded] The patch must only expose fields the backend can actually change; the real pjsua_acc_modify FFI application is deferred to P8-20 (PJSIP linkage/bindgen), keeping this ticket fully MockBackend-testable.",
+            "**Affected areas:**\n  - [Affected component] SipClientHandle::submit() (handle.rs:104-192) — all commands including UpdateAccount flow through the same reply-await path, so reactor errors surface to every facade method.\n  - [Nature of impact] API surface (new public enum variant + public patch type), error semantics (no silent success on config change), state consistency (ClientState is the authoritative config source, C021).\n  - [Corresponding change needed] No — the reactor UpdateAccount handler already updates ClientState and sends the reply; the existing P10-3 tests remain the executable spec and this ticket adds the missing error-path/no-op-boundary tests."
           ],
           "testUnit": [
-            "UT: [Normal] AccountConfigPatch construction, field access, and Default (no-op) derive.",
-            "UT: [C015] update_config with an invalid patch returns Err(SipError) before dispatch.",
-            "UT: [Normal] update_config submits UpdateAccount and returns Ok(()) on a successful mock reactor reply.",
-            "UT: [Error] update_config maps a reactor Err to a SipError (e.g. ConfigError).",
-            "UT: [Boundary] Applying a no-op patch leaves the ClientState account entry unchanged."
+            "UT: [Normal] AccountConfigPatch construction — every field is Option<...> (Option<Option<T>> for optional fields like display_name/registrar_uri/auto_reject_timer), field access works, and Default derives to an all-None no-op patch (account_config_spec.rs:306-325; existing test account_config_patch_default_is_empty).",
+            "UT: [Normal] AccountConfigPatch::apply merges only the Some fields — a patch with username=Some(\"bob\") over base {username:\"alice\", domain:\"sip.example.com\", registrar_uri:Some(...)} yields merged.username=\"bob\" and preserves domain/registrar_uri/password (existing test account_config_patch_apply_overrides_only_some_fields).",
+            "UT: [Normal] AccountConfigPatch::apply handles Option<Option<T>> — display_name=Some(Some(\"Alice\")) sets the field and display_name=Some(None) clears it, while None leaves it unchanged (existing test account_config_patch_apply_handles_option_fields).",
+            "UT: [Normal] ClientConfig is required to construct the client (C015/C052 precondition — ClientConfig defined): SipClient::new(ClientConfig::builder().sip_proxy_host(\"sip.example.com\").build()) starts an in-process reactor with MockBackend and yields an empty accounts() before any account is added (existing tests pass this seed config to every update_config scenario).",
+            "UT: [Normal] update_config(patch) submits RuntimeCommand::UpdateAccount carrying the merged, validated AccountConfig and returns Ok(()) on a successful mock reactor reply; the account entry.id is unchanged (the account is never dropped or recreated) (existing test update_config_applies_patch_to_stored_config).",
+            "UT: [Normal] update_config preserves the registration state — after applying a username patch the RegistrationState is unchanged, so registration is independent of a config update (C026) (existing test update_config_preserves_registration_state).",
+            "UT: [Normal] RuntimeCommand::UpdateAccount { account_id, config, reply } maps through from_runtime_command to the dedicated DispatchCommand::UpdateAccount variant (command.rs:117-120 and :364-371) so the reactor loop can also mutate client_state.accounts (existing test command.rs:880).",
+            "UT: [Normal] RuntimeCommand::UpdateAccount Debug prints \"RuntimeCommand::UpdateAccount\" including the account_id field (command.rs:508-509; existing test command.rs:938).",
+            "UT: [Error] AccountConfigPatch::apply with an empty username returns Err(SipErrorKind::InvalidConfig) — the merged config is validated against every AccountConfig::validate rule (C052 fail-fast) before any dispatch (existing test account_config_patch_apply_validates_merged_config).",
+            "UT: [Error] update_config with an invalid patch (empty username) returns Err(InvalidConfig) BEFORE dispatch and leaves the stored ClientState config unchanged — fail-fast, no command is submitted (existing test update_config_invalid_patch_leaves_config_unchanged).",
+            "UT: [Error] update_config for a missing account (id 999) returns Err(AccountNotFound) before dispatch — the facade resolves AccountId::from_u64 and checks state.accounts (existing test update_config_missing_account_returns_err).",
+            "UT: [Error] MockBackend::update_account for an unknown native_acc_id returns Err(ReactorError::BackendError) (backend.rs:200-208), so a backend rejection propagates to the reactor reply.",
+            "UT: [Error] The reactor UpdateAccount handler sends Err(ReactorError) on backend failure and on panic — a non-Ok reply is surfaced through submit()'s awaited reply channel, never silently dropped (reactor.rs:278-338, handle.rs:191).",
+            "UT: [Boundary] AccountConfigPatch::default() (no-op) applied over a base yields a merged config identical to the base and Ok(()) — an all-None patch changes nothing.",
+            "UT: [Boundary] update_config with a no-op patch returns Ok(()) and the ClientState account entry is unchanged (no-op boundary invariant).",
+            "UT: [Boundary] registration_expires boundary — AccountConfig::validate rejects 0 seconds and accepts > 0 (account_config_spec.rs:235-240).",
+            "UT: [Invariant] C012 — SipAccountHandle, AccountConfigPatch and AccountConfig are Send+Sync; the public API is designed around the RuntimeCommand pattern (assert_send/assert_sync in existing tests).",
+            "UT: [Invariant] C015 — AccountConfig::validate enforces every enumerated rule: username/domain/password non-empty, at least one codec enabled, non-empty DTMF send+receive methods, registration_expires > 0, Opus bitrate/complexity/ptime ranges (account_config_spec.rs:198-264).",
+            "UT: [Invariant] C026 — updating the account config must not change registration state; registration is independent of call ability (existing test update_config_preserves_registration_state).",
+            "UT: [Invariant] C052 — the validation phase is fail-fast: patch.apply returns the first validation error and the merged config is never dispatched unvalidated (RuntimeCommand::UpdateAccount payload is always pre-validated)."
           ],
           "testIntegration": [
-            "IT: [Reactor round-trip] update_config(patch) followed by accounts()/QueryState reflects the patched config in ClientState.",
-            "IT: [Dispatch] RuntimeCommand::UpdateAccount is serialized FIFO with other commands through the reactor channel."
+            "IT: [Integration point] SipAccountHandle::update_config → RuntimeCommand::UpdateAccount → DispatchCommand::UpdateAccount → SipBackend::update_account + ClientState.accounts[aid].config — the full facade-to-reactor-to-backend-to-state chain (public_api_design.rs:167-203, command.rs:117/323/364, handle.rs:104-192, reactor.rs:278-338, backend.rs:48/200).",
+            "IT: [Verification] After update_config(patch) returns Ok, a subsequent client.handle().query_state()/accounts() reflects the patched config in the authoritative ClientState AccountEntry; entry.id is unchanged (account not recreated) and entry.config carries the merged values (existing test update_config_applies_patch_to_stored_config).",
+            "IT: [Prerequisites] An in-process reactor with MockBackend, created via SipClient::new(ClientConfig::builder().sip_proxy_host(...).build()); an account added via client.add_account(config) so MockBackend stores the AccountEntry and the reactor registers it in ClientState before update_config is exercised.",
+            "IT: [Related tickets] P0-2 (RuntimeCommand/reactor foundation and command serialization), P3-1 (AccountConfig definition + C015/C052 validation), P10-3 (prior implementation of this lifecycle — the verified baseline), P8-20 (real pjsua_acc_modify FFI replacement — out of scope)."
           ],
           "testExceptions": [
-            "The actual PJSUA account modification (pjsua_acc_modify) cannot be tested without live PJSIP linkage; the patch type, validation, and reactor dispatch are fully unit-testable.",
-            "The exact set of runtime-mutable fields is a product decision — the patch must only expose fields the backend can actually change."
+            "The real PJSUA account modification (pjsua_acc_modify FFI call) is not testable without live PJSIP linkage — the pjsua-native feature and bindgen headers are not available in this build environment, and the FFI replacement is owned by P8-20. This is not a design defect: the AccountConfigPatch type, AccountConfig::validate rules (C015/C052), RuntimeCommand::UpdateAccount dispatch, reactor ClientState mutation, and the SipBackend::update_account interface are all fully unit/integration tested against MockBackend; only the external C-library boundary is environment-gated.",
+            "The backend-rejection path (native_acc_id unknown to the real backend) is not testable through the public facade without injecting an artificial inconsistency between ClientState and the backend — a state the reactor normally prevents. This is not a design defect: the error-surfacing mechanism itself (SipClientHandle::submit() awaits the reply channel at handle.rs:191) is tested at the reactor/handle unit level (UpdateAccount for an account absent from ClientState → reply Err), and the consistency invariant is asserted by the existing reactor tests.",
+            "The exact set of runtime-mutable fields is a product decision and is not testable as a behavioral assertion — whether a field should be patchable depends on whether the backend can actually change it at runtime, which is unknown until PJSIP linkage (P8-20). This is not an architectural defect: the patch currently mirrors all 15 AccountConfig fields, every merge path is covered by representative tests (default_is_empty, overrides_only_some_fields, handles_option_fields, updates_scalar_fields, apply_validates_merged_config), and narrowing the set is a config-surface decision, not a correctness gap."
           ],
           "acceptanceCriteria": [
-            "【Happy path】update_config(patch) submits RuntimeCommand::UpdateAccount and returns Ok(()) when the reactor applies the patch.",
-            "【Happy path】An AccountConfigPatch type exists exposing a runtime-mutable subset of AccountConfig (e.g. register_on_start, transport policy, codec policy), Send+Sync and Default (no-op patch).",
-            "【Error case】A patch that fails AccountConfig validation (C015/C052) returns Err(SipError) before dispatch — fail-fast.",
-            "【Error case】A reactor Err from UpdateAccount maps to a SipError (e.g. ConfigError) instead of silently succeeding.",
-            "【Edge case】An empty/no-op patch is accepted and returns Ok(()) without modifying reactor state.",
-            "The applied patch is reflected in the reactor ClientState account entry (subsequent accounts()/QueryState reflects it)."
+            "**[Happy path]** update_config(patch) merges the patch with the authoritative ClientState config, submits RuntimeCommand::UpdateAccount, and returns Ok(()) when the reactor applies it — a subsequent query_state()/accounts() shows the patched config on the same account entry (entry.id unchanged).",
+            "**[Error case]** A patch that fails AccountConfig validation (C015/C052) returns Err(SipErrorKind::InvalidConfig) BEFORE dispatch with the stored config unchanged; a reactor Err from UpdateAccount (backend failure, lost reply) is surfaced as Err(SipError) via the awaited reply channel — never a silent Ok; a missing account returns Err(AccountNotFound) before dispatch.",
+            "**[Edge case]** AccountConfigPatch::default() (no-op) is accepted and returns Ok(()) without modifying the ClientState account entry; Option<Option<T>> fields support both set (Some(Some)) and clear (Some(None)); registration state is preserved across an update (C026)."
           ],
-          "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§21, §25, §26, §29)",
-          "relatedTicketIds": "P5-2 (depends on: AudioMixer uses audio format types), P2-3 (depends on: event system uses AudioChunk), P7 (depends on: audio subscribe uses AudioChunkPair)",
-          "notes": "Stub: src/api/public_api_design.rs:148. Adding a RuntimeCommand variant is a public command-enum change — update every match in src/runtime/command.rs (name(), to_dispatch, Debug) and any exhaustive matches elsewhere. Related: P3-1 (AccountConfig/validation), P4-2 (codec policy subset), P7 (config-change events).",
+          "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§7.2, §8, §10, §11, §14, §17, §42)",
+          "relatedTicketIds": "P3-1 (defines AccountConfig + C015/C052 validation), P10-3 (prior implementation of update_config/AccountConfigPatch/UpdateAccount — verified baseline), P0-2 (RuntimeCommand/reactor foundation + command serialization), P8-20 (pjsua_acc_modify FFI replacement — out of scope)",
+          "notes": "- [Implementation steps] 1) AccountConfigPatch + apply() at account_config_spec.rs:306-384 (verify). 2) RuntimeCommand::UpdateAccount + DispatchCommand::UpdateAccount + name()/Debug at command.rs:117/226/323/364/508 (verify). 3) SipBackend::update_account + MockBackend at backend.rs:48/200 (verify). 4) Reactor UpdateAccount handler + ClientState mutation at reactor.rs:278-338 (verify). 5) SipAccountHandle::update_config facade at public_api_design.rs:167-203 and SipClientHandle::submit() reply-await at handle.rs:104-192 (verify). 6) Add the missing error-path test (reactor reply Err surfaced through the facade) and the no-op boundary test.\n- [Risks] Public API change (update_config signature + new RuntimeCommand variant) — every caller and exhaustive match must compile against it (compile-enforced). query_state() then submit() is not atomic — another task can mutate the account between the read and the dispatch; the merged config is computed from the read snapshot and is internally consistent, so the result is still a valid config for the account.\n- [Caveats] The facade's `let (_tx, _rx) = oneshot::channel()` dummy pair is a legacy idiom — the real reply is injected by SipClientHandle::submit(); do not 'simplify' it into dropping the actual reply. Registration state is independent of config updates (C026) — MockBackend keeps 'Registered' across update_account.\n- [Open items] Which AccountConfig fields are truly runtime-mutable is a product decision; the patch currently mirrors all 15. pjsua_acc_modify (P8-20) will consume the merged AccountConfig once PJSIP linkage exists.\n- [Future improvements] Property-based test for AccountConfigPatch::apply over random field subsets; an atomic read-merge-submit helper on SipClientHandle to close the query_state→submit race; exposing the changed-field set on the UpdateAccount reply for config-change events (P7).\nImplementation summary (P11-7 start round):\n- The feature was already implemented under P10-3; this round verified it and closed the spec gaps.\n- Added 3 new tests: update_config_noop_patch_leaves_state_unchanged (no-op boundary), reactor_update_account_missing_account_replies_err (reactor reply Err surfaced), submit_update_account_returns_reactor_reply + submit_update_account_reactor_down_returns_err.\n- Refactor: added SipClientHandle::submit_update_account typed helper and switched update_config to it, removing the misleading dummy (_tx,_rx) reply idiom.\n- Boy Scout: renamed single-letter variable t -> transport_state in state.rs test.\n- Test results: make test all green (868 lib + integration + doc tests, 0 failures); cargo check --all-targets clean.\nReview report (P11-7):\n- Static quality check: passed — run-quality-checks 27 findings are unwrap/expect in test modules and doc-comment examples; no production-code issues.\n- Translatability: passed — no new single-char variables, no debug output, no magic numbers (test sentinel 999 documented), comments explain why not what.\n- Tests: make test exit 0 — 868 lib + integration + doc tests green.\n- Annotation: all 4 changed source files carry P11-7 provenance; 0 missing, 0 AMBIGUOUS.\n- Stubs: no P11-7-owned stubs; 21 stubs all attributed to other tickets (P11-8..P12-10). no-excuse gate 21 pass / 0 fail.\n- Crimes: 0.\n- Contracts: C012/C015/C026/C052 covered by @verifies; verify-final-contracts 100% fulfilled.\n- Issues found and fixed during review: (1) state.rs annotation lost indentation during merge — re-indented; (2) reactor.rs double blank line at top from AMBIGUOUS marker removal — removed.\n- Implementation completeness: all acceptance criteria + invariants verified against source (update_config no-op boundary, reactor error surfacing, C052 fail-fast, C026 registration independence).",
           "default_files": [
-            "src/config/codec_policy_fallback.rs",
-            "src/model/audio_format_chunkpair.rs"
+            "src/api/public_api_design.rs",
+            "src/config/account_config_spec.rs",
+            "src/runtime/command.rs",
+            "src/runtime/backend.rs",
+            "src/runtime/state.rs",
+            "src/runtime/handle.rs",
+            "src/runtime/reactor.rs"
           ],
           "id": 7,
           "phaseId": 11,
-          "status": "todo",
-          "invariants": "C012 — API is Send+Sync. C015 — Validation rules enforced. C052 — All validation rules enumerated. New: update_config never silently drops a patch — a non-Ok reply is surfaced as an error.",
-          "instrumentation": "log::trace! on update_config dispatch with the changed field set. log::warn! on patch validation failure.",
-          "investigation": "src/api/public_api_design.rs:146-152 — update_config(&self, _patch: AccountConfig) -> Result<(), SipError> is a no-op that discards the patch and returns Ok(()). src/runtime/command.rs — RuntimeCommand has AddAccount/RemoveAccount/SetRegistration but no UpdateAccount variant; a new variant must be added and matched in name(), to_dispatch, and Debug (command.rs ~154-190). src/runtime/backend.rs — the SipBackend trait has add_account/remove_account but no update_account method. src/config/account_config_spec.rs:151 — AccountConfig is the full config; a runtime-mutable subset must be defined separately as AccountConfigPatch. Real implementation: define AccountConfigPatch, add RuntimeCommand::UpdateAccount { account_id, patch, reply }, add SipBackend::update_account, update the ClientState AccountEntry on success, and make update_config dispatch + await the reply.",
-          "boyScoutPlan": "Replace the discard-pattern `_patch` parameter with a real typed patch. Reuse AccountConfig::validate rules (C015/C052) for the mutable subset so patch validation cannot diverge. Keep the RuntimeCommand match arms exhaustive when adding the new variant.",
+          "status": "reviewed",
+          "invariants": "- [Normal condition] AccountConfigPatch::apply(base) returns Ok only when the merged AccountConfig satisfies every AccountConfig::validate rule (C015/C052) — an invalid patch fails fast before any RuntimeCommand::UpdateAccount is submitted.\n- [Error invariant] update_config never silently drops a patch — a non-Ok reactor reply (ReactorError) from RuntimeCommand::UpdateAccount is surfaced as Err(SipError) via SipClientHandle::submit()'s awaited reply channel (handle.rs:191); the ClientState account entry is left unchanged on error.\n- [Internal state invariant] The reactor's ClientState.accounts[aid].config is the authoritative source of account config (C021); after a successful UpdateAccount the reactor replaces entry.config with the merged config and never recreates or reorders the account (entry.id unchanged).\n- [Boundary invariant] AccountConfigPatch::default() is a no-op — applying an all-None patch yields a merged config identical to the base and must not alter ClientState; account_id is validated via AccountId::from_u64 and a missing account is rejected before dispatch.",
+          "instrumentation": "- [Logging] `#[instrument(skip(self, patch))]` on SipAccountHandle::update_config traces the call; after a successful merge log::trace! the changed field set and log::debug! the submitted RuntimeCommand::UpdateAccount (account_id, merged config fingerprint). The reactor logs `reactor update_account panicked` with the panic message (reactor.rs:329).\n- [Metrics] A counter for update_config outcomes keyed by (account_id, SipErrorKind) — ok vs InvalidConfig vs AccountNotFound vs NativeError — to observe config churn and failure rates without relying on logs.\n- [Error tracking] Distinguish SipErrorKind::InvalidConfig (validation fail-fast, retryable=false), AccountNotFound (missing account, retryable=true), and NativeError (reactor/backend failure); a lost reply is already converted to ReactorError::ReactorDown by submit() (handle.rs:191).\n- [Health check] No new health surface — update_config correctness is observable via query_state(): after a successful update, AccountEntry.config reflects the merged patch (C021 authority), and a failed update leaves it unchanged.\nStatic quality check: passed (27 findings all in test/doc code, 0 production)\nTranslatability: no issues (no new single-char vars, no debug output)\nTests: make test all green (15 test binaries, 0 failures)\nContracts: C012/C015/C026/C052 all @verifies'd, verify-final-contracts 100%",
+          "investigation": "- Evidence gathered from the current source tree — the feature is already implemented (under P10-3) and this ticket makes it the verified, spec'd behavior:\n  1. src/api/public_api_design.rs:167-203 — SipAccountHandle::update_config(&self, patch: AccountConfigPatch) -> Result<(), SipError> is fully implemented (NOT the historical no-op): queries ClientState (SipClientHandle::query_state), resolves AccountId::from_u64(self.id) (Err(AccountNotFound) on invalid), looks up state.accounts (Err(AccountNotFound) if missing), calls patch.apply(&entry.config)? (C052 fail-fast, Err(InvalidConfig)), submits RuntimeCommand::UpdateAccount { account_id, config: merged, reply }, and maps submission/reactor errors to SipErrorKind::NativeError.\n  2. src/config/account_config_spec.rs:306-384 — AccountConfigPatch: 15 fields mirroring AccountConfig (display_name/auth_username/registrar_uri/auto_reject_timer use Option<Option<T>> for set/clear; username/password/domain/outbound_proxy/contact_params/transport/register_on_start/allow_outbound_without_register/registration_expires/codecs/dtmf/media/headers use Option<T>), derives Debug, Clone, PartialEq, Default; apply() clones the base, applies each Some field, then calls merged.validate() (account_config_spec.rs:198-264) enforcing C015/C052.\n  3. src/runtime/command.rs:117-120 — RuntimeCommand::UpdateAccount { account_id: u64, config: AccountConfig, reply: Reply<Result<(), ReactorError>> }; name() → \"UpdateAccount\" (:226); from_runtime_command → DispatchCommand::UpdateAccount (:364-371); Debug (:508-509); DispatchCommand::UpdateAccount dedicated variant (:323-330) so the reactor can mutate client_state.accounts.\n  4. src/runtime/backend.rs:48 — SipBackend::update_account(&mut self, native_acc_id: i32, config: &AccountConfig) -> Result<(), ReactorError>; MockBackend impl (:200-208) replaces entry.config or returns Err(BackendError(\"unknown native account id\")).\n  5. src/runtime/reactor.rs:278-338 — UpdateAccount handler: resolves AccountId, reads native_id from client_state.accounts (Err(NotInitialized) if missing), calls backend.update_account; on Ok updates client_state.accounts[aid].config = config and sends reply Ok(()); on backend Err sends Err; on panic terminates and sends Err(BackendError).\n  6. src/runtime/handle.rs:104-192 — SipClientHandle::submit() injects its own oneshot reply channel (DispatchCommand::UpdateAccount arm at :136-142) and awaits rx.await, returning the reactor's Result<(), ReactorError> — the facade's dummy _tx/_rx are harmless, reactor errors DO surface.\n  7. Existing tests: public_api_design.rs:389 (update_config_applies_patch_to_stored_config), :420 (update_config_invalid_patch_leaves_config_unchanged), :450 (update_config_missing_account_returns_err), :471 (update_config_preserves_registration_state); account_config_spec.rs:881/895/913/928/953 (patch default/validate/option/scalar/override); command.rs:880/938 (to_dispatch + Debug); backend.rs MockBackend update_account tests.\n  8. Gaps for this ticket: no test asserts that a reactor reply Err (backend failure) is surfaced as SipError through the facade; no no-op-patch boundary test exists. Both are added in the test plan.",
+          "boyScoutPlan": "- Replace the misleading `let (_tx, _rx) = oneshot::channel()` dummy-reply idiom in update_config (and sibling facade methods) with a documented helper on SipClientHandle that makes the reply-await contract explicit — the dummy pair suggests the reply is dropped, which is false; a named helper (e.g. submit_and_await) removes the lie.\n- Rename the legacy `_patch` parameter to `patch` (already done at public_api_design.rs:167) so the parameter name reads as a domain concept rather than a discard marker.\n- Group the AccountConfigPatch::apply per-field merge arms by config section (identity/auth/transport/registration/media) so the merge reads top-to-bottom as prose instead of a flat 15-arm list.\n- Reuse AccountConfig::validate (C015/C052) for the merged config so patch validation can never diverge from full-config validation.\n- When extending RuntimeCommand, keep the match arms in name()/from_runtime_command/Debug exhaustive (compile-time enforced) and keep each dedicated DispatchCommand variant when the reactor must mutate ClientState.\n- Fix the stale ticket-level claims (P4-2 defined AccountConfig — actually P3-1; update_config no-op — actually implemented) in the spec so the design record matches the code.",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28",
-          "targetStubs": [
-            {
-              "id": "TS-001",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/build.rs",
-              "line": 8,
-              "markerText": "// [::STUB::] P4-2: Enable bindgen generation when `pjsua-native` feature",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-002",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/build.rs",
-              "line": 13,
-              "markerText": "// [::STUB::] P4-2: Uncomment when PJSIP library headers are available",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-003",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
-              "line": 134,
-              "markerText": "/// [::STUB::] P4-2: Implement with AccountConfigPatch when defined.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-004",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
-              "line": 137,
-              "markerText": "// [::STUB::] P4-2: Need AccountConfigPatch type and RuntimeCommand::UpdateAccount.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-005",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/codec_policy_fallback.rs",
-              "line": 23,
-              "markerText": "// [::TICKET::] P4-2 changes. Details:",
-              "contracts": [
-                "C041",
-                "C042"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Replaced stub file with full implementation"
-            },
-            {
-              "id": "TS-006",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
-              "line": 68,
-              "markerText": "/// [::STUB::] P4-2: Replace with actual codec list from bindgen-generated FFI.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-007",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 32,
-              "markerText": "// [::STUB::] P4-2: Replace with actual pj_status_t values from pjsua.h bindgen output.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-008",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 304,
-              "markerText": "/// [::STUB::] P4-2: Update to use real pj_status_t constants from bindgen output.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-009",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 32,
-              "markerText": "// [::STUB::] P4-2: Replace with actual pj_status_t constants from bindgen output.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-010",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/bindings.rs",
-              "line": 117,
-              "markerText": "/// [::STUB::] P4-2: Replace with actual bindgen-generated FFI call when",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-011",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 16,
-              "markerText": "// [::STUB::] P4-2: Full callback implementations require:",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-012",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 34,
-              "markerText": "/// [::STUB::] P4-2: Implement NativeEvent::IncomingCall enqueue.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-013",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 43,
-              "markerText": "// [::STUB::] P4-2: Enqueue NativeEvent::IncomingCall { acc_id, call_id }",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-014",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 51,
-              "markerText": "/// [::STUB::] P4-2: Implement NativeEvent::RegState enqueue.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-015",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 60,
-              "markerText": "// [::STUB::] P4-2: Enqueue NativeEvent::RegState { acc_id, is_registering, code, reason }",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-016",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 69,
-              "markerText": "/// [::STUB::] P4-2: Implement NativeEvent::CallState enqueue.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-017",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 76,
-              "markerText": "// [::STUB::] P4-2: Enqueue NativeEvent::CallState { call_id, state }",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-018",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 85,
-              "markerText": "/// [::STUB::] P4-2: Implement NativeEvent::CallMediaState enqueue.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-019",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 91,
-              "markerText": "// [::STUB::] P4-2: Enqueue NativeEvent::CallMediaState { call_id }",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-020",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 95,
-              "markerText": "// [::STUB::] P4-2: Additional callbacks as needed:",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-021",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/mod.rs",
-              "line": 27,
-              "markerText": "/// [::STUB::] P4-2: Full callback implementations require real PJSUA",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-022",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 72,
-              "markerText": "// [::STUB::] P4-2: Audio format types implemented under model/",
-              "contracts": [
-                "C031",
-                "C036",
-                "C037",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Comment updated to reflect model/ placement, types implemented"
-            },
-            {
-              "id": "TS-023",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/model/audio_format_chunkpair.rs",
-              "line": 23,
-              "markerText": "// [::TICKET::] P4-2 changes. Details:",
-              "contracts": [
-                "C031"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Replaced stub file with full implementation"
-            },
-            {
-              "id": "TS-024",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
-              "line": 256,
-              "markerText": "/// [::STUB::] P4-2: Replace each method body with actual PJSIP FFI calls.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-025",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 118,
-              "markerText": "// [::STUB::] P4-2: Route AddAudioSource to ClientState AudioMixer.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-026",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 59,
-              "markerText": "/// [::STUB::] P4-2: Replace with bindgen-generated constants from pjsua.h.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-027",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 70,
-              "markerText": "/// [::STUB::] P4-2: Replace with bindgen-generated media status constants.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-028",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-              "line": 109,
-              "markerText": "// [::STUB::] P4-2: Replace with real FFI call when PJSIP library linked.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-029",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/wrapper.h",
-              "line": 6,
-              "markerText": "// [::STUB::] P4-2: Uncomment when PJSIP library is installed:",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            }
-          ],
-          "targetCrimes": [],
+          "updated_at": "2026-08-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
           "planTestCode": [
-            "UT: [C031-Pre] AudioFormat constructs with valid fields\n  ```rust\n  let fmt = AudioFormat::new(SampleRate::Hz16000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();\n  assert_eq!(fmt.sample_rate, SampleRate::Hz16000);\n  assert_eq!(fmt.bit_depth, BitDepth::I16);\n  assert_eq!(fmt.channel_layout, ChannelLayout::Mono);\n  assert_eq!(fmt.frame_ms, 20);\n  ```",
-            "UT: [C031-Post] AudioChunk wraps Vec data\n  ```rust\n  let i16_data = vec![0i16; 160];\n  let chunk_i16 = AudioChunk::I16(i16_data.clone());\n  if let AudioChunk::I16(data) = &chunk_i16 { assert_eq!(data.len(), 160); }\n  let f32_data = vec![0.0f32; 160];\n  let chunk_f32 = AudioChunk::F32(f32_data.clone());\n  if let AudioChunk::F32(data) = &chunk_f32 { assert_eq!(data.len(), 160); }\n  ```",
-            "UT: [C031-Inv] AudioChunkPair shares single timestamp\n  ```rust\n  let ts = SystemTime::now();\n  let pair = AudioChunkPair {\n      call_id: CallId::from_u64(1).unwrap(),\n      account_id: AccountId::from_u64(1).unwrap(),\n      timestamp: ts,\n      in_chunk: AudioChunk::I16(vec![0; 160]),\n      out_chunk: AudioChunk::I16(vec![1; 160]),\n  };\n  // Single timestamp -> IN/OUT inherently paired\n  assert_eq!(pair.timestamp, ts);\n  assert!(pair.in_chunk.len() > 0);\n  assert!(pair.out_chunk.len() > 0);\n  ```",
-            "UT: [C036-Pre] PairAligner::new initializes empty queues\n  ```rust\n  let aligner = PairAligner::new(Duration::from_millis(30));\n  assert_eq!(aligner.in_q.len(), 0);\n  assert_eq!(aligner.out_q.len(), 0);\n  assert_eq!(aligner.tolerance, Duration::from_millis(30));\n  ```",
-            "UT: [C036-Post] try_pair returns paired frames within tolerance\n  ```rust\n  let mut aligner = PairAligner::new(Duration::from_millis(30));\n  let now = Instant::now();\n  aligner.push_in(vec![1i16; 160], now);\n  aligner.push_out(vec![2i16; 160], now + Duration::from_millis(10));\n  let result = aligner.try_pair();\n  assert!(result.is_some());\n  let (in_data, out_data, _ts) = result.unwrap();\n  assert_eq!(in_data.len(), 160);\n  assert!(out_data.iter().all(|&s| s == 2));\n  ```",
-            "UT: [C036-Inv] Zero-padding when only one side has data\n  ```rust\n  let mut aligner = PairAligner::new(Duration::from_millis(20));\n  aligner.push_in(vec![5i16; 160], Instant::now());\n  std::thread::sleep(Duration::from_millis(50));\n  let result = aligner.try_pair();\n  assert!(result.is_some());\n  let (in_data, out_data, _ts) = result.unwrap();\n  assert!(in_data.iter().all(|&s| s == 5));\n  assert!(out_data.iter().all(|&s| s == 0));\n  assert!(aligner.alignment_drift() > 0);\n  ```",
-            "UT: [C036-Err] try_pair returns None on empty queues\n  ```rust\n  let mut aligner = PairAligner::new(Duration::from_millis(30));\n  assert!(aligner.try_pair().is_none());\n  ```",
-            "UT: [C037-Pre] ResamplePipeline stores format configs\n  ```rust\n  let in_fmt = AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();\n  let out_fmt = AudioFormat::new(SampleRate::Hz16000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();\n  let pipeline = ResamplePipeline::new(in_fmt, out_fmt);\n  assert_eq!(pipeline.in_rate, SampleRate::Hz48000);\n  assert_eq!(pipeline.out_rate, SampleRate::Hz16000);\n  ```",
-            "UT: [C037-Post] interleave_in_out maps L=IN, R=OUT\n  ```rust\n  let in_mono = vec![1i16, 2, 3, 4];\n  let out_mono = vec![5i16, 6, 7, 8];\n  let stereo = interleave_in_out(&in_mono, &out_mono);\n  assert_eq!(stereo.len(), 8);\n  assert_eq!(stereo, vec![1, 5, 2, 6, 3, 7, 4, 8]);\n  ```",
-            "UT: [C037-Inv] Stereo invariant L=IN, R=OUT for all indices\n  ```rust\n  let in_mono = vec![10i16, 20, 30];\n  let out_mono = vec![100i16, 200, 300];\n  let stereo = interleave_in_out(&in_mono, &out_mono);\n  for i in 0..3 {\n      assert_eq!(stereo[2*i], in_mono[i], \"L=IN at {i}\");\n      assert_eq!(stereo[2*i+1], out_mono[i], \"R=OUT at {i}\");\n  }\n  ```",
-            "UT: [C041-Pre] NegotiatedCodec constructors\n  ```rust\n  let pcmu = NegotiatedCodec::Pcmu;\n  let opus = NegotiatedCodec::Opus(OpusConfig::default());\n  assert_eq!(pcmu, NegotiatedCodec::Pcmu);\n  match opus {\n      NegotiatedCodec::Opus(cfg) => assert_eq!(cfg.ptime_ms, 20),\n      _ => panic!(\"expected Opus\"),\n  }\n  ```",
-            "UT: [C041-Post] CodecSelectionPolicy variants\n  ```rust\n  let ordered = CodecSelectionPolicy::Ordered;\n  let prefer_opus = CodecSelectionPolicy::PreferOpusFallbackPcmu;\n  assert_eq!(CodecSelectionPolicy::default(), CodecSelectionPolicy::PreferOpusFallbackPcmu);\n  assert_ne!(ordered, prefer_opus);\n  ```",
-            "UT: [C041-Inv] NegotiatedCodec exactly 2 variants\n  ```rust\n  fn discriminant(c: &NegotiatedCodec) -> u8 {\n      match c {\n          NegotiatedCodec::Pcmu => 1,\n          NegotiatedCodec::Opus(_) => 2,\n      }\n  }\n  assert_eq!(discriminant(&NegotiatedCodec::Pcmu), 1);\n  assert_eq!(discriminant(&NegotiatedCodec::Opus(OpusConfig::default())), 2);\n  ```",
-            "UT: [C042-Pre] CodecAutoMode::apply with empty preferred_codecs returns priorities\n  ```rust\n  let codecs = vec![CodecInfo::new(\"PCMU/8000/1\"), CodecInfo::new(\"opus/48000/2\")];\n  let result = CodecAutoMode::apply(&codecs, &[]).unwrap();\n  assert_eq!(result.get(\"PCMU/8000/1\"), Some(&254));\n  assert_eq!(result.get(\"opus/48000/2\"), Some(&255));\n  ```",
-            "UT: [C042-Post] CodecAutoMode::apply with non-empty preferred_codecs returns empty map\n  ```rust\n  let codecs = vec![CodecInfo::new(\"PCMU/8000/1\")];\n  let result = CodecAutoMode::apply(&codecs, &[\"opus/48000/2\".to_string()]).unwrap();\n  assert!(result.is_empty());\n  ```",
-            "UT: [C042-Inv] Opus=255, PCMU=254 in auto mode\n  ```rust\n  let codecs = vec![CodecInfo::new(\"opus/48000/2\"), CodecInfo::new(\"PCMU/8000/1\"), CodecInfo::new(\"G722/8000/1\")];\n  let result = CodecAutoMode::apply(&codecs, &[]).unwrap();\n  for (id, prio) in &result {\n      if id.starts_with(\"opus/\") { assert_eq!(*prio, 255); }\n      if *id == \"PCMU/8000/1\" { assert_eq!(*prio, 254); }\n  }\n  assert_eq!(result.get(\"G722/8000/1\"), Some(&0));\n  ```"
+            "UT: [C012-Inv] API is Send+Sync — predicate code\n  ```rust\n  fn assert_send<T: Send>() {}\n  fn assert_sync<T: Sync>() {}\n  assert_send::<SipAccountHandle>();\n  assert_sync::<SipAccountHandle>();\n  assert_sync::<AccountConfigPatch>();\n  assert_sync::<AccountConfig>();\n  ```",
+            "UT: [C012-Pre] Command serialization established — RuntimeCommand::UpdateAccount construction with a reply channel\n  ```rust\n  let (tx, _rx) = tokio::sync::oneshot::channel();\n  let cmd = RuntimeCommand::UpdateAccount {\n      account_id: 1,\n      config: valid_config.clone(),\n      reply: Reply::new(tx),\n  };\n  assert_eq!(cmd.name(), \"UpdateAccount\");\n  ```",
+            "UT: [C012-Post] Public API designed around the RuntimeCommand pattern — from_runtime_command dispatch\n  ```rust\n  let dispatch = DispatchCommand::from_runtime_command(cmd);\n  assert!(matches!(dispatch, DispatchCommand::UpdateAccount { account_id: 1, .. }));\n  ```",
+            "UT: [C015-Pre] ClientConfig defined — seed config for the reactor\n  ```rust\n  let client_cfg = ClientConfig::builder().sip_proxy_host(\"sip.example.com\").build();\n  let (client, _rx) = SipClient::new(client_cfg).await?;\n  assert!(client.accounts().await?.is_empty());\n  ```",
+            "UT: [C015-Post] AccountConfig specified with validation — struct construction and validate() success\n  ```rust\n  let cfg = AccountConfig {\n      username: \"alice\".into(),\n      domain: \"sip.example.com\".into(),\n      password: SecretString::new(\"pass123\"),\n      ..Default::default()\n  };\n  assert!(cfg.validate().is_ok());\n  ```",
+            "UT: [C015-Inv] Validation rules enforced — each invalid field is rejected\n  ```rust\n  let empty_username = AccountConfig { username: String::new(), ..cfg.clone() };\n  assert_eq!(empty_username.validate().unwrap_err().kind, SipErrorKind::InvalidConfig);\n  let zero_codecs = AccountConfig { codecs: AccountCodecPolicy { enable_pcmu: false, enable_opus: false, ..Default::default() }, ..cfg.clone() };\n  assert!(zero_codecs.validate().is_err());\n  let zero_expiry = AccountConfig { registration_expires: Duration::ZERO, ..cfg.clone() };\n  assert!(zero_expiry.validate().is_err());\n  ```",
+            "UT: [C026-Pre] Account API needs state — add_account populates ClientState\n  ```rust\n  let handle = client.add_account(cfg.clone()).await?;\n  let state = client.handle().query_state().await?;\n  assert!(state.accounts.contains_key(&AccountId::from_u64(handle.id()).unwrap()));\n  ```",
+            "UT: [C026-Post] Registration state machine defined — MockBackend stores 'Registered'\n  ```rust\n  assert_eq!(handle.registration_state().await?, RegistrationState::Registered);\n  ```",
+            "UT: [C026-Inv] Registration independent of call ability — a config update does not change registration\n  ```rust\n  let before = handle.registration_state().await?;\n  let patch = AccountConfigPatch { username: Some(\"alice2\".into()), ..Default::default() };\n  handle.update_config(patch).await?;\n  assert_eq!(handle.registration_state().await?, before);\n  ```",
+            "UT: [C052-Pre] ClientConfig defined before the validation phase — same seed as C015-Pre\n  ```rust\n  let client_cfg = ClientConfig::builder().sip_proxy_host(\"sip.example.com\").build();\n  let (client, _rx) = SipClient::new(client_cfg).await?;\n  ```",
+            "UT: [C052-Post] Validation phase is fail-fast — an invalid merged config returns Err before dispatch\n  ```rust\n  let patch = AccountConfigPatch { username: Some(String::new()), ..Default::default() };\n  assert_eq!(patch.apply(&cfg).unwrap_err().kind, SipErrorKind::InvalidConfig);\n  let err = handle.update_config(patch).await.unwrap_err();\n  assert_eq!(err.kind, SipErrorKind::InvalidConfig);\n  ```",
+            "UT: [C052-Inv] All validation rules enumerated — the apply() merge runs the same validate() as full config\n  ```rust\n  let merged = AccountConfigPatch { registrar_uri: Some(Some(\"sip:new.example.com\".into())), ..Default::default() }.apply(&cfg)?;\n  assert_eq!(merged.registrar_uri.as_deref(), Some(\"sip:new.example.com\"));\n  assert!(merged.validate().is_ok());\n  let state = client.handle().query_state().await?;\n  assert_eq!(state.accounts[&account_id].config.registrar_uri.as_deref(), Some(\"sip:new.example.com\"));\n  ```"
           ],
           "changes": [
             {
-              "before": "stub: pub struct Model {}",
-              "after": "full SampleRate, BitDepth, ChannelLayout, AudioFormat, AudioChunk, AudioChunkPair enums/structs with validation",
-              "description": "Replaced audio_format_chunkpair.rs stub with complete audio format model (26 tests)"
+              "before": "stub: update_config(_patch: AccountConfig) no-op returning Ok(()) (historical public_api_design.rs:146-152)",
+              "after": "SipAccountHandle::update_config(patch: AccountConfigPatch) -> Result<(), SipError> — merge + validate + dispatch + reply-await",
+              "description": "Implemented under P10-3 and verified by this ticket: update_config now applies a validated patch via RuntimeCommand::UpdateAccount"
             },
             {
-              "before": "(new file)",
-              "after": "PairAligner, TimedFrame, try_pair, alignment_drift, zero-padding",
-              "description": "Created audio_aligner.rs with IN/OUT alignment (15 tests)"
+              "before": "no AccountConfigPatch type existed",
+              "after": "AccountConfigPatch — 15 Option/Option<Option> fields, derives Debug/Clone/PartialEq/Default, apply() merges + validates (account_config_spec.rs:306-384)",
+              "description": "Added the partial-update type with merge/validation tests (default_is_empty, overrides_only_some_fields, handles_option_fields, updates_scalar_fields, apply_validates_merged_config)"
             },
             {
-              "before": "(new file)",
-              "after": "ResamplePipeline format validation + interleave_in_out utility",
-              "description": "Created audio_resampler.rs with stereo L=IN,R=OUT mapping (13 tests)"
+              "before": "RuntimeCommand had no UpdateAccount variant",
+              "after": "RuntimeCommand::UpdateAccount + DispatchCommand::UpdateAccount + name()/Debug updated (command.rs:117/226/323/364/508)",
+              "description": "Added the public UpdateAccount variant and its exhaustive matches; dedicated DispatchCommand variant so the reactor can mutate ClientState"
             },
             {
-              "before": "stub: pub struct Config {}",
-              "after": "NegotiatedCodec (Pcmu/Opus), CodecSelectionPolicy (Ordered/PreferOpusFallbackPcmu)",
-              "description": "Replaced codec_policy_fallback.rs stub with codec policy types (10 tests)"
+              "before": "SipBackend had no update_account method",
+              "after": "SipBackend::update_account(&mut self, native_acc_id: i32, config: &AccountConfig) -> Result<(), ReactorError> + MockBackend impl (backend.rs:48/200)",
+              "description": "Added the backend trait method and the MockBackend stored-config replacement"
             },
             {
-              "before": "model/mod.rs: no audio_format_chunkpair/audio_aligner/audio_resampler",
-              "after": "model/mod.rs: pub mod + re-exports for all 3 new files",
-              "description": "Wired new audio model modules into crate"
+              "before": "reactor had no UpdateAccount handling",
+              "after": "reactor UpdateAccount handler calls backend.update_account and mutates client_state.accounts[aid].config, then sends the reply (reactor.rs:278-338)",
+              "description": "Reactor keeps ClientState authoritative (C021) and surfaces the outcome on the reply channel"
             },
             {
-              "before": "config.rs: no codec_policy_fallback module",
-              "after": "config.rs: pub mod codec_policy_fallback added",
-              "description": "Wired new codec policy module into crate"
+              "before": "facade methods created dummy (_tx,_rx) pairs and discarded reactor replies",
+              "after": "SipClientHandle::submit() injects and awaits its own reply channel, returning the reactor Result (handle.rs:104-192)",
+              "description": "submit() propagates reactor errors so update_config never silently succeeds on a failed UpdateAccount"
+            },
+            {
+              "before": "update_config used a misleading dummy (_tx,_rx) oneshot and relied on submit()'s internal reply-await",
+              "after": "update_config calls the new typed SipClientHandle::submit_update_account(account_id, merged) which builds and awaits the reply channel",
+              "description": "P11-7 refactor: removed the dummy reply idiom; the reactor outcome is explicitly surfaced (public_api_design.rs, handle.rs)"
+            },
+            {
+              "before": "no SipClientHandle::submit_update_account method",
+              "after": "added submit_update_account(account_id, config) -> Result<(), ReactorError> following the submit_add_account typed pattern",
+              "description": "P11-7: typed reply-await helper for the UpdateAccount command (handle.rs)"
+            },
+            {
+              "before": "no test for the no-op patch boundary",
+              "after": "update_config_noop_patch_leaves_state_unchanged verifies AccountConfigPatch::default() leaves ClientState unchanged",
+              "description": "P11-7: added the no-op boundary test (public_api_design.rs)"
+            },
+            {
+              "before": "no reactor test for UpdateAccount error surfacing",
+              "after": "reactor_update_account_missing_account_replies_err verifies an account absent from ClientState replies Err(NotInitialized)",
+              "description": "P11-7: added the error-path reply test (reactor.rs)"
+            },
+            {
+              "before": "no submit_update_account tests",
+              "after": "submit_update_account_returns_reactor_reply + submit_update_account_reactor_down_returns_err",
+              "description": "P11-7: added typed-submit tests (handle.rs)"
+            },
+            {
+              "before": "test variable named t (single letter)",
+              "after": "renamed to transport_state",
+              "description": "P11-7 Boy Scout: translatability fix in state.rs test"
             }
           ],
           "rfcDiscrepancies": [],
-          "stubs": [
-            {
-              "file": "/Users/kawata/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
-              "content": "// [::STUB::] P11-7: update_config is a no-op -- Implement update_config with an AccountConfigPatch type and RuntimeCommand::UpdateAccount dispatch",
-              "codes": "    #[instrument(skip(self, _patch))]\n    pub async fn update_config(&self, _patch: AccountConfig) -> Result<(), SipError> {\n        Ok(())"
-            }
-          ],
-          "fromStub": true
+          "stubs": [],
+          "fromStub": true,
+          "startedAt": "2026-08-07",
+          "completedAt": "2026-08-07"
         },
         {
           "title": "Replace the placeholder codec list and Codec type with runtime codec enumeration via the pjsua codec API using FFI-defined pjsua_codec_info types once bindgen generates them",

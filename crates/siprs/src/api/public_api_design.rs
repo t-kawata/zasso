@@ -37,7 +37,7 @@ pub struct SipAccountHandle {
     pub(crate) id: u64,
 }
 
-// [::TICKET::] P3-1, P4-1, P10-1, P10-3, P10-4, P11-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1|P10-1|P10-3|P10-4|P11-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1, P10-1, P10-3, P10-4, P11-4, P11-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1|P10-1|P10-3|P10-4|P11-4|P11-7) --for-spec --no-implementation-order`.
 impl SipAccountHandle {
     /// Create a new `SipAccountHandle`.
     #[instrument(skip(client))]
@@ -185,14 +185,11 @@ impl SipAccountHandle {
         })?;
         let merged = patch.apply(&entry.config)?;
 
-        let handle = self.client.handle();
-        let (_tx, _rx) = tokio::sync::oneshot::channel();
-        handle
-            .submit(RuntimeCommand::UpdateAccount {
-                account_id: self.id,
-                config: merged,
-                reply: Reply::new(_tx),
-            })
+        // The typed submit_update_account builds and awaits the reply channel, so
+        // a reactor rejection is surfaced as Err here — never silently dropped.
+        self.client
+            .handle()
+            .submit_update_account(self.id, merged)
             .await
             .map_err(|e| {
                 SipError::new(
@@ -508,6 +505,41 @@ mod tests {
         assert!(
             client.accounts().await?.is_empty(),
             "remove() must remove the account from the client"
+        );
+        client.shutdown().await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C052
+    // Boundary: AccountConfigPatch::default() is a no-op — applying it must
+    // leave the authoritative ClientState account entry untouched (C052).
+    async fn update_config_noop_patch_leaves_state_unchanged(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await?;
+        let handle = client.add_account(valid_account_config()).await?;
+        let account_id = AccountId::from_u64(handle.id()).map_err(|_| "invalid account id")?;
+
+        let state_before = client.handle().query_state().await?;
+        let entry_before = state_before
+            .accounts
+            .get(&account_id)
+            .ok_or("account missing")?
+            .config
+            .clone();
+
+        handle
+            .update_config(crate::config::account_config_spec::AccountConfigPatch::default())
+            .await?;
+
+        let state_after = client.handle().query_state().await?;
+        let entry_after = state_after.accounts.get(&account_id).ok_or("account missing")?;
+        assert_eq!(
+            entry_after.config, entry_before,
+            "a no-op patch must leave the ClientState account config unchanged"
         );
         client.shutdown().await?;
         Ok(())
