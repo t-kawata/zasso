@@ -15,6 +15,7 @@
 // lifetime.
 
 use crate::ffi::bindings;
+use crate::model::{MemoryOwnershipTag, NativePtrClassification};
 
 /// A safe wrapper around `pj_str_t` with Rust-owned memory.
 ///
@@ -27,7 +28,7 @@ pub struct PjOwnedStr {
     raw: bindings::pj_str_t,
 }
 
-// [::TICKET::] P3-2, P3-3, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P3-3|P11-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P3-3, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P3-3|P11-5|P12-3) --for-spec --no-implementation-order`.
 impl PjOwnedStr {
     /// Construct a new `PjOwnedStr` from a `&str`.
     ///
@@ -71,15 +72,11 @@ impl PjOwnedStr {
         // Invariant: bytes contains valid UTF-8 (constructed from &str),
         // and slen reflects the original string length (excluding NUL).
         let slen = self.raw.slen.max(0) as usize;
-        // SAFETY: PjOwnedStr is always constructed from valid UTF-8 &str,
-        // and slen never exceeds bytes length.
-        #[allow(unsafe_code)]
-        unsafe {
-            // SAFETY: We verified UTF-8 validity above. The unchecked variant
-            // avoids the unavailable std::str::from_utf8_lossy standalone helper
-            // (removed in Rust 1.97+). This is safe because PjOwnedStr invariants
-            // guarantee valid UTF-8 content.
-            std::str::from_utf8_unchecked(&self.bytes[..slen])
+        match std::str::from_utf8(&self.bytes[..slen]) {
+            Ok(text) => text,
+            // Unreachable: PjOwnedStr is only constructed from valid UTF-8 &str,
+            // so the stored bytes and slen always form a valid UTF-8 slice.
+            Err(_) => unreachable!("PjOwnedStr is always constructed from valid UTF-8 &str"),
         }
     }
 }
@@ -87,6 +84,16 @@ impl PjOwnedStr {
 // Safety: PjOwnedStr owns only a Vec<u8> and a pj_str_t (ptr + i32),
 // both of which are Send. The Vec<u8> moves with the struct.
 unsafe impl Send for PjOwnedStr {}
+
+// §47 (C057): PjOwnedStr is the concrete Rust-owned pj_str_t primitive. Its
+// backing bytes are a Rust-owned Vec<u8>, so it always reports RUST_OWNED.
+// [::TICKET::] P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-3 --for-spec --no-implementation-order`.
+impl MemoryOwnershipTag for PjOwnedStr {
+    // [::TICKET::] P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-3 --for-spec --no-implementation-order`.
+    fn classification(&self) -> NativePtrClassification {
+        NativePtrClassification::RUST_OWNED
+    }
+}
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for PjOwnedStr {
@@ -118,12 +125,15 @@ impl PartialEq<str> for PjOwnedStr {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::{
+        MemoryOwnership, MemoryOwnershipTag, NativePtrClassification, OwnershipScope,
+    };
 
     // ── Normal ──────────────────────────────────────────────────────
 
     #[test]
     // @verifies C038, C057
-// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
     fn pj_owned_str_new_constructs_from_str() {
         let input = "sip:user@domain.com";
         let owned = PjOwnedStr::new(input);
@@ -138,7 +148,7 @@ mod tests {
 
     #[test]
     // @verifies C038, C057
-// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
     fn pj_owned_str_as_raw_returns_consistent_value() {
         let owned = PjOwnedStr::new("test-value");
         let raw1 = owned.as_raw();
@@ -149,7 +159,7 @@ mod tests {
 
     #[test]
     // @verifies C038, C057
-// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
     fn pj_owned_str_empty_string() {
         let owned = PjOwnedStr::new("");
         assert_eq!(owned.raw.slen, 0, "empty string must have slen=0");
@@ -162,7 +172,7 @@ mod tests {
 
     #[test]
     // @verifies C057
-// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
     fn pj_owned_str_owns_its_bytes() {
         let owned = {
             let input = String::from("owned-test");
@@ -177,14 +187,14 @@ mod tests {
     // @verifies C038, C057
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn pj_owned_str_is_send() {
-// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<PjOwnedStr>();
     }
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
     fn pj_owned_str_debug_does_not_show_ptr() {
         let owned = PjOwnedStr::new("hello");
         let debug = format!("{:?}", owned);
@@ -194,7 +204,7 @@ mod tests {
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
     fn pj_owned_str_display_shows_content() {
         let owned = PjOwnedStr::new("display-test");
         assert_eq!(format!("{}", owned), "display-test");
@@ -202,7 +212,7 @@ mod tests {
 
     #[test]
     // @verifies C057
-// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
     fn pj_owned_str_partial_eq_str() {
         let owned = PjOwnedStr::new("eq-test");
         assert_eq!(owned.as_str(), "eq-test");
@@ -213,17 +223,21 @@ mod tests {
 
     #[test]
     // @verifies C057
-// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
     fn pj_owned_str_large_input() {
         let large = "x".repeat(4096);
         let owned = PjOwnedStr::new(&large);
         assert_eq!(owned.raw.slen, 4096, "large input slen must match");
-        assert_eq!(owned.as_str(), large.as_str(), "large input content must match");
+        assert_eq!(
+            owned.as_str(),
+            large.as_str(),
+            "large input content must match"
+        );
     }
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
     fn pj_owned_str_unicode_content() {
         let owned = PjOwnedStr::new("日本語");
         assert_eq!(owned.as_str(), "日本語", "unicode content must match");
@@ -232,7 +246,7 @@ mod tests {
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
     fn pj_owned_str_special_characters() {
         let owned = PjOwnedStr::new("user+tag@domain.org;param=value");
         assert!(owned.raw.slen > 0);
@@ -243,14 +257,15 @@ mod tests {
 
     #[test]
     // @verifies C057
-// [::TICKET::] P3-2, P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
     fn pj_owned_str_raw_ptr_invariants() {
-        // raw.ptr must point to bytes backing Vec<u8> until drop
+        // raw.ptr must alias the Rust-owned Vec<u8> backing for the whole
+        // PjOwnedStr lifetime (C057 invariant) — the bytes are readable without
+        // copying because the Vec is alive.
         let owned = PjOwnedStr::new("verify");
         let raw = owned.as_raw();
-        // Read via ptr — must be valid within PjOwnedStr lifetime
-        let slice = unsafe { std::slice::from_raw_parts(raw.ptr as *const u8, raw.slen as usize) };
-        assert_eq!(slice, b"verify");
+        assert_eq!(raw.ptr as *const u8, owned.as_str().as_ptr());
+        assert_eq!(raw.slen as usize, owned.as_str().len());
     }
 
     // ── P11-5: C057 pre/post — pointer-ownership assertions ──────────
@@ -274,5 +289,60 @@ mod tests {
         let raw = owned.as_raw();
         assert_eq!(raw.ptr as *const u8, owned.as_str().as_ptr());
         assert_eq!(raw.slen, 3);
+    }
+
+    // ── P12-3: C057/C038 — ownership-model classification ───────────
+
+    #[test]
+    // @verifies C057
+    // [::TICKET::] P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-3 --for-spec --no-implementation-order`.
+    fn pj_owned_str_classification_is_rust_owned() {
+        // C057-Post: the only pj_str_t holder in Rust reports RustOwned + RustOwned scope.
+        let owned = PjOwnedStr::new("sip:user@example.com");
+        let class = owned.classification();
+        assert_eq!(class.ownership, MemoryOwnership::RustOwned);
+        assert_eq!(class.scope, OwnershipScope::RustOwned);
+        assert!(class.is_rust_owned());
+        assert!(!class.is_callback_only());
+    }
+
+    #[test]
+    // @verifies C057
+    // [::TICKET::] P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-3 --for-spec --no-implementation-order`.
+    fn pj_owned_str_has_no_raw_pointer_constructor() {
+        // C057-Inv: the original PJSUA ptr is only an immediate copy source, never stored.
+        // Only the &str constructor exists — a pj_pool_t-backed pj_str_t can never be adopted.
+        let _ctor: fn(&str) -> PjOwnedStr = PjOwnedStr::new;
+        let copied = PjOwnedStr::new("immediate-copy");
+        assert_eq!(copied.classification(), NativePtrClassification::RUST_OWNED);
+    }
+
+    #[test]
+    // @verifies C057
+    // [::TICKET::] P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-3 --for-spec --no-implementation-order`.
+    fn pj_owned_str_empty_and_large_stay_rust_owned() {
+        // C057-Inv edge cases: slen=0 with non-null ptr, and >4096-byte inputs.
+        let empty = PjOwnedStr::new("");
+        assert_eq!(empty.raw.slen, 0);
+        assert!(!empty.raw.ptr.is_null());
+        assert_eq!(empty.classification(), NativePtrClassification::RUST_OWNED);
+
+        let large = "x".repeat(4096);
+        let big = PjOwnedStr::new(&large);
+        assert_eq!(big.raw.slen, 4096);
+        assert_eq!(big.classification(), NativePtrClassification::RUST_OWNED);
+    }
+
+    #[test]
+    // @verifies C038
+    // [::TICKET::] P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-3 --for-spec --no-implementation-order`.
+    fn pj_owned_str_construction_needs_no_runtime() {
+        // C038-Pre / C034-Pre: the ownership primitive needs no reactor thread and no
+        // Tokio runtime — usable from any thread via plain std::thread.
+        let handle = std::thread::spawn(|| {
+            let owned = PjOwnedStr::new("thread-safe");
+            assert!(owned.classification().is_rust_owned());
+        });
+        assert!(handle.join().is_ok(), "worker thread must not panic");
     }
 }

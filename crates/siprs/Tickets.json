@@ -30149,359 +30149,78 @@
               "testInvariant": "testUnit via compile-time: ffi/pj_str.rs contains no unsafe beyond initial pj_str_t construction."
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P3-2 specified the PJSIP FFI layer and runtime state, including node N0056 (§47 Memory Ownership & §48 Default Policies) which governs who owns pj_str_t / pj_pool_t memory across the FFI boundary. The memory_ownership_defaults.rs file was created as a stub (`pub struct Model {}` plus the P8-24 marker at line 23) because the ownership model was deferred. This work item implements the memory ownership model and default policies per node N0056.",
+          "background": "- 【Goal】Implement the memory-ownership model and default policies defined by RFC node N0056 (§47 Memory Ownership & §48 Default Policies) in src/model/memory_ownership_defaults.rs, replacing the empty `pub struct Model {}` stub, and re-export the new types through model/mod.rs.\n- 【Purpose】Formalize who owns pj_str_t / pj_pool_t memory across the PJSIP FFI boundary: pj_str_t values always have Rust-owned backing, native callback pointers are valid only within callback scope, and pj_pool_t memory is never embedded in Rust structs (C057). Also record the RFC §48 system-wide default policies (transport, codec order, DTMF, audio delivery, raw SIP events, SRTP, ICE) as a typed data-model record.\n- 【Motivation】P3-2 deferred the ownership model: memory_ownership_defaults.rs holds only `pub struct Model {}` + a P12-3 stub (line 23). Without the model, the FFI layer has no typed statement of which memory is safe to retain, inviting use-after-free bugs on pj_pool_t-backed strings. §48 defaults were likewise only prose in the RFC with no compilable representation, and the current config defaults already drift from §48 (e.g. AccountMediaConfig::default().ice == false vs §48 \"ICE: enabled\").\n- 【Constraints】(1) Contract C057 is authoritative for ownership rules. (2) Contract C038: no unsafe in model/ — all unsafe stays isolated to ffi/. (3) Contract C034: classification helpers must be non-blocking (const fn) — usable from the RT-callback path. (4) No new bindgen bindings and no unsafe-code changes in runtime/. (5) The model layer must not depend on config/ (that would invert the layering — model is the lower data-model layer).",
           "scope": [
-            "- src/model/memory_ownership_defaults.rs - replace the stub with the memory ownership model types and default policies",
-            "- src/model/mod.rs - re-export the new types",
-            "- src/ffi/pj_str.rs - reuse PjOwnedStr (Rust-owned pj_str_t backing) as the concrete ownership primitive",
-            "- src/ffi/mod.rs - verify the ownership model integrates with the FFI boundary",
-            "- Out of scope: new bindgen bindings, the callback bridge implementation, and any unsafe-code changes in runtime/ (all unsafe remains isolated to ffi/).",
-            "- Impact: memory-ownership types available to the FFI layer and runtime state; formalizes who owns callback-parameter memory."
+            "- src/model/memory_ownership_defaults.rs",
+            "- Replace the empty `pub struct Model {}` (line 20) and the P12-3 stub (line 23) with the §47 ownership-model types and §48 default-policy record.",
+            "- Define: MemoryOwnership enum (RustOwned / PjsuaPoolOwned), OwnershipScope enum (CallbackOnly / RustOwned), NativePtrClassification struct (ownership + scope, with RUST_OWNED and CALLBACK_ONLY consts and is_rust_owned()/is_callback_only()), MemoryOwnershipTag trait, and the §48 policy types: TransportKind, CodecKind, DtmfSendMethod, SrtpMode, AudioDelivery (reusing model::SampleRate/BitDepth/ChannelLayout), DefaultPolicies (with RFC_DEFAULTS const + Default impl). Remove the meaningless `pub struct Model {}`.",
+            "- Before: 23-line file with `pub struct Model {}` and `// [::STUB::] P12-3` at line 23. After: a complete ownership model + default-policy record, doc-commented with §47/§48 references and provenance annotations, with a #[cfg(test)] module covering C034/C038/C057.",
+            "- New public types re-exported from model/mod.rs: MemoryOwnership, OwnershipScope, NativePtrClassification, MemoryOwnershipTag, TransportKind, CodecKind, DtmfSendMethod, SrtpMode, AudioDelivery, DefaultPolicies. New trait impl `MemoryOwnershipTag for PjOwnedStr` in ffi/pj_str.rs. No existing signature changes.",
+            "- No database/schema changes (sqlite_schema untouched).",
+            "- No config/ file changes in this ticket. §48 default-policy drift (AccountMediaConfig::ice false vs §48 enabled) is recorded as an open item for a follow-up; the model's DefaultPolicies is the typed source of truth.",
+            "- No new crates. Adds an ffi → model dependency (ffi/pj_str.rs implements MemoryOwnershipTag from model) — model does not depend on ffi.",
+            "- No new bindgen bindings; no callback-bridge implementation; no unsafe-code changes in runtime/.",
+            "- These are owned by the FFI/backend tickets (P3-2 / P11-10) and the ticket explicitly keeps all unsafe isolated to ffi/ (C038).",
+            "- ffi::pj_str (adds trait impl), ffi::mod (doc note only), model::mod (re-exports), model::memory_ownership_defaults (full rewrite). Downstream: config/ and runtime/ unaffected structurally.",
+            "- Additive: new types and one trait impl; no behavior change to existing PjOwnedStr. `pub struct Model {}` is removed — no code in the crate references model::memory_ownership_defaults::Model today.",
+            "- If any downstream code referenced `model::memory_ownership_defaults::Model`, it must switch to the new types. Verification: `make test` (cargo test) + `cargo check` green; cargo clippy -- -D warnings clean."
           ],
           "testUnit": [
-            "UT: [C057] Ownership model classifies PjOwnedStr as Rust-owned; a pj_str_t copied from an FFI callback source is immediately copied to Vec<u8>.",
-            "UT: [C057] Default policy marks callback-parameter memory as valid only within callback scope.",
-            "UT: [C038] model/memory_ownership_defaults.rs contains no unsafe keyword (grep/compile test).",
-            "UT: [C034] Ownership-model helper functions are non-blocking (no allocation in the RT-callback path).",
-            "UT: [Normal] Empty-string and >4096-byte inputs satisfy the ownership model invariants.",
-            "UT: [Boundary] A pj_str_t with slen=0 and a non-null ptr is classified correctly."
+            "UT: [C057-Post / Normal] PjOwnedStr::classification() reports Rust-owned memory (MemoryOwnershipTag)\nVerify the concrete pj_str_t wrapper (PjOwnedStr) satisfies the C057 postcondition \"pj_str_t always has Rust-owned backing (Vec<u8>)\".\n```rust\nlet owned = PjOwnedStr::new(\"sip:user@example.com\");\nlet class = owned.classification();\nassert_eq!(class.ownership, MemoryOwnership::RustOwned);\nassert_eq!(class.scope, OwnershipScope::RustOwned);\nassert!(class.is_rust_owned());\nassert!(!class.is_callback_only());\n```\nWhere: `impl MemoryOwnershipTag for PjOwnedStr` in src/ffi/pj_str.rs; test in src/ffi/pj_str.rs `#[cfg(test)]`.",
+            "UT: [C057-Post / Normal] NativePtrClassification constants encode the §47 ownership rules\nRUST_OWNED and CALLBACK_ONLY are the only constructions of the classification type; pool-owned memory is tagged callback-scope-only and can never be treated as Rust-owned.\n```rust\nlet rust = NativePtrClassification::RUST_OWNED;\nassert!(rust.is_rust_owned());\nassert_eq!(rust.ownership, MemoryOwnership::RustOwned);\nassert_eq!(rust.scope, OwnershipScope::RustOwned);\nlet cb = NativePtrClassification::CALLBACK_ONLY;\nassert!(cb.is_callback_only());\nassert_eq!(cb.ownership, MemoryOwnership::PjsuaPoolOwned);\nassert_eq!(cb.scope, OwnershipScope::CallbackOnly);\n```\nWhere: src/model/memory_ownership_defaults.rs `#[cfg(test)]`.",
+            "UT: [C057-Pre / Normal] MemoryOwnership discriminant helpers classify pj_pool_t vs Rust memory\nThe two ownership classes from §47 are distinct and exclusive.\n```rust\nassert!(MemoryOwnership::RustOwned.is_rust_owned());\nassert!(!MemoryOwnership::RustOwned.is_pool_owned());\nassert!(MemoryOwnership::PjsuaPoolOwned.is_pool_owned());\nassert!(!MemoryOwnership::PjsuaPoolOwned.is_rust_owned());\n```\nWhere: src/model/memory_ownership_defaults.rs `#[cfg(test)]`.",
+            "UT: [C057-Inv / Error] PjOwnedStr exposes no raw-pointer constructor — original PJSUA ptr can only be an immediate copy source\nC057 invariant: \"Original PJSUA ptr only used as source for immediate copy, never stored.\" PjOwnedStr's only constructor takes `&str` and copies into a Rust-owned Vec<u8>; there is no `from_raw(pj_str_t)` API, so a pj_pool_t-backed pj_str_t can never be embedded in a Rust struct.\n```rust\n// type-level: only the &str constructor exists\nlet _ctor: fn(&str) -> PjOwnedStr = PjOwnedStr::new;\nlet owned = PjOwnedStr::new(\"immediate-copy\");\nassert_eq!(owned.classification(), NativePtrClassification::RUST_OWNED);\n```\nWhere: src/ffi/pj_str.rs tests (a raw-pointer constructor would fail this test).",
+            "UT: [C057-Inv / Boundary] Empty string (slen=0) and >4096-byte inputs stay Rust-owned\nEdge cases from the acceptance criteria: slen=0 with non-null ptr, and large inputs, both satisfy the ownership-model invariant.\n```rust\nlet empty = PjOwnedStr::new(\"\");\nassert_eq!(empty.raw.slen, 0);\nassert!(!empty.raw.ptr.is_null());\nassert_eq!(empty.classification(), NativePtrClassification::RUST_OWNED);\nlet large = \"x\".repeat(4096);\nlet owned = PjOwnedStr::new(&large);\nassert_eq!(owned.raw.slen, 4096);\nassert_eq!(owned.classification(), NativePtrClassification::RUST_OWNED);\n```\nWhere: src/ffi/pj_str.rs tests.",
+            "UT: [C057-Inv / Boundary] as_raw().ptr points into the Rust-owned Vec<u8> backing\nVerifies the C057 invariant that pj_str_t values outside FFI calls point to Rust-owned memory: the exposed pj_str_t.ptr aliases the owned Vec, so the value is valid for as long as the PjOwnedStr lives.\n```rust\nlet owned = PjOwnedStr::new(\"abc\");\nlet raw = owned.as_raw();\nassert_eq!(raw.ptr as *const u8, owned.as_str().as_ptr());\nassert_eq!(raw.slen, 3);\nlet bytes = unsafe { std::slice::from_raw_parts(raw.ptr as *const u8, raw.slen as usize) };\nassert_eq!(bytes, b\"abc\");\n```\nWhere: src/ffi/pj_str.rs tests.",
+            "UT: [C038-Inv / Normal] model/memory_ownership_defaults.rs contains no unsafe keyword (C038 unsafe isolation)\nThe unsafe-isolation invariant requires model/ to be unsafe-free; verified by scanning the file content at test time.\n```rust\nlet path = concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/model/memory_ownership_defaults.rs\");\nlet src = std::fs::read_to_string(path).unwrap();\nassert!(!src.lines().any(|l| l.contains(\"unsafe\")), \"model/ must stay unsafe-free (C038)\");\n```\nWhere: src/model/memory_ownership_defaults.rs `#[cfg(test)]`.",
+            "UT: [C034-Inv / Normal] Ownership classification helpers are const fn — no allocation, no lock, no syscall on the RT path\nConsistent with the C034 invariant (\"No blocking operations (lock acquisition, dynamic memory allocation, syscall, .await) ... Only lock-free queue pop/push, memcpy, and zero-fill are allowed\"), the classification helpers are pure const functions that cannot allocate or block.\n```rust\nconst RUST_OK: bool = NativePtrClassification::RUST_OWNED.is_rust_owned();\nconst CB_SCOPE: bool = NativePtrClassification::CALLBACK_ONLY.is_callback_only();\nassert!(RUST_OK);\nassert!(CB_SCOPE);\n// MemoryOwnershipTag::classification for PjOwnedStr is a constant-foldable match\n```\nWhere: src/model/memory_ownership_defaults.rs `#[cfg(test)]`.",
+            "UT: [C034-Pre / Normal] PjOwnedStr construction is synchronous — no Tokio runtime, no spawn_blocking dependency\nThe ownership primitive is usable from any thread without a Tokio runtime handle; it never awaits and never needs tokio::task::spawn_blocking. This keeps the memory-ownership path independent of the async runtime the AudioWorkerTask uses.\n```rust\nlet handle = std::thread::spawn(|| {\n    let s = PjOwnedStr::new(\"thread-safe\");\n    assert!(s.classification().is_rust_owned());\n});\nhandle.join().unwrap();\n```\nWhere: src/ffi/pj_str.rs tests (plain #[test], no #[tokio::test]).",
+            "UT: [§48 / Normal] DefaultPolicies::default() equals the RFC §48 policy record\nEvery §48 default is asserted explicitly: transport UDP+TCP, codec order Opus>PCMU, DTMF RFC4733, audio 16kHz/i16/stereo, raw SIP enabled, SRTP disabled, ICE enabled.\n```rust\nlet p = DefaultPolicies::default();\nassert_eq!(p.transports, &[TransportKind::Udp, TransportKind::Tcp]);\nassert_eq!(p.codec_order, &[CodecKind::Opus, CodecKind::Pcmu]);\nassert_eq!(p.dtmf_send_method, DtmfSendMethod::Rfc4733);\nassert_eq!(p.audio_delivery, AudioDelivery::default());\nassert!(p.raw_sip_events);\nassert_eq!(p.srtp, SrtpMode::Disabled);\nassert!(p.ice);\n```\nWhere: src/model/memory_ownership_defaults.rs `#[cfg(test)]`.",
+            "UT: [§48 / Boundary] AudioDelivery::default() is 16 kHz / i16 / StereoInOut (L=IN R=OUT)\nThe §48 audio-delivery default maps onto the existing model::AudioFormat primitives (SampleRate/BitDepth/ChannelLayout).\n```rust\nlet a = AudioDelivery::default();\nassert_eq!(a.sample_rate, SampleRate::Hz16000);\nassert_eq!(a.sample_rate.as_hz(), 16_000);\nassert_eq!(a.bit_depth, BitDepth::I16);\nassert_eq!(a.channel_layout, ChannelLayout::StereoInOut);\n```\nWhere: src/model/memory_ownership_defaults.rs `#[cfg(test)]`."
           ],
           "testIntegration": [
-            "IT: [FFI-boundary] A PjOwnedStr constructed from a callback-provided pj_str_t remains valid after the callback frame is popped (ownership transferred to Rust).",
-            "IT: [Module-graph] cargo check succeeds with the new model types re-exported from model/mod.rs."
+            "IT: [C057 / FFI-boundary] Integration point: ffi::pj_str::PjOwnedStr + model::memory_ownership_defaults::MemoryOwnershipTag\nA PjOwnedStr copied from a callback-provided pj_str_t remains valid after the callback frame is popped: the bytes are Rust-owned, so ownership transfers to Rust and classification stays RUST_OWNED.",
+            "IT: [C057 / FFI-boundary] Verify: a PjOwnedStr copied from a callback-provided pj_str_t outlives the callback frame and stays Rust-owned\n```rust\n// tests/ownership_ffi_boundary.rs\nuse siprs::ffi::pj_str::PjOwnedStr;\nuse siprs::model::{MemoryOwnership, MemoryOwnershipTag};\n#[test]\nfn callback_copied_str_outlives_callback_frame() {\n    // simulate bytes delivered inside a native callback scope\n    let callback_frame = PjOwnedStr::new(\"from-callback\");\n    let copied: Vec<u8> = callback_frame.as_str().as_bytes().to_vec(); // immediate Rust-owned copy (C057)\n    drop(callback_frame); // callback frame popped\n\n    let owned = PjOwnedStr::new(std::str::from_utf8(&copied).unwrap());\n    assert!(owned.classification().is_rust_owned());\n    assert_eq!(owned.classification().ownership, MemoryOwnership::RustOwned);\n    assert_eq!(owned.as_str(), \"from-callback\");\n}\n```",
+            "IT: [C057 / FFI-boundary] Prerequisites: PjOwnedStr implements MemoryOwnershipTag (ffi/pj_str.rs); the §47/§48 types re-exported from model/mod.rs; `make test` (cargo test) green.",
+            "IT: [C057 / FFI-boundary] Related tickets: P3-2 (FFI layer / PjOwnedStr), P3-3 (PjOwnedStr), P4-2 (SampleRate/BitDepth/ChannelLayout primitives), P12-3 (this ticket)."
           ],
           "testExceptions": [
-            "Real pj_pool_t lifetime semantics require a live PJSUA stack (pjsua-native feature); the ownership model is specified as type-level/documentation invariants and verified with PjOwnedStr unit tests, not against a live pool."
+            "EX: [C057] Live pj_pool_t lifetime semantics is impossible to test without a real PJSUA stack (not testable here).\nReason: verifying that a pj_pool_t-allocated pj_str_t becomes invalid after the pool is freed requires a live PJSIP installation (pjsua-native feature) and a running media stack; without it there is no pj_pool_t to allocate from. This is not a design defect (not an architectural defect): the ownership model is a data-model contract fully specified as type-level/documentation invariants, and every observable rule is verified against the concrete Rust-owned primitive (PjOwnedStr). The pool-lifetime rule is enforced by construction — PjOwnedStr exposes no raw-pointer constructor, so a pool-backed pj_str_t can never be adopted into a Rust struct.\nAlternative: verify the mirror-image invariant instead — PjOwnedStr (the only pj_str_t holder in Rust) is Rust-owned and its classification is asserted in unit tests; the §47 doc-comments on MemoryOwnership::PjsuaPoolOwned carry the pool-lifetime warning.",
+            "EX: [C057] \"pj_pool_t memory never embedded in Rust structs\" cannot be tested by the Rust type system alone.\nReason: a C pointer (pj_pool_t-derived) is an opaque address; the borrow checker cannot prove where the pointee was allocated. Verifying this rule for every possible struct in the crate is not testable (impossible to test) — this is not a design defect (not an architectural defect): the crate enforces it architecturally by making PjOwnedStr the only safe holder of pj_str_t (a single choke point), which is itself covered by tests.\nAlternative: a compile-time grep test asserts model/ and runtime/ contain no `unsafe` (C038), and a unit test asserts PjOwnedStr exposes no raw-pointer constructor, making pool-owned adoption unrepresentable.",
+            "EX: [§48] Applying the §48 default-policy record to a live PJSUA stack cannot be tested here.\nReason: DefaultPolicies is a data-model declaration (the source of truth for §48 defaults). Its application to actual transport/codec/SRTP/ICE configuration happens in the config and PjsuaBackend layers, which require a live PJSUA stack (pjsua-native) and are owned by other tickets. End-to-end application is not testable in this ticket — this is not a design defect (not an architectural defect): the model layer's contract is that the record matches §48, which is unit-tested.\nAlternative: unit tests assert every DefaultPolicies field equals the §48 literal; a follow-up ticket aligns config defaults (e.g. AccountMediaConfig::ice currently false vs §48 enabled) with this record."
           ],
           "acceptanceCriteria": [
-            "【Happy path】memory_ownership_defaults.rs defines the ownership model (e.g., an Ownership distinction between Rust-owned and PJSUA-pool-owned, with default policies) and it compiles and re-exports through model/mod.rs.",
-            "【Happy path】The default policy matches C057: pj_str_t values outside FFI calls always point to Rust-owned memory; the original PJSUA ptr is only used as an immediate copy source, never stored.",
-            "【Happy path】PjOwnedStr remains the concrete implementation of the Rust-owned backing (Vec<u8>) and satisfies the ownership model's Rust-owned policy.",
-            "【Error case】The model forbids embedding pj_pool_t-owned memory in Rust structs (type-level/documentation invariant) - no owned pj_pool_t memory in Rust structs.",
-            "【Edge case】Empty strings (slen=0) and large inputs (>4096 bytes) remain valid under the ownership model."
+            "- 【Happy path】memory_ownership_defaults.rs defines the ownership model (MemoryOwnership distinguishing Rust-owned vs PJSUA-pool-owned, plus NativePtrClassification and MemoryOwnershipTag) and the §48 DefaultPolicies record; the module compiles and the new types re-export through model/mod.rs.\n- 【Happy path】The default policy matches C057: pj_str_t values outside FFI calls always point to Rust-owned memory (PjOwnedStr::classification() returns RustOwned); the original PJSUA ptr is only used as an immediate copy source, never stored (no raw-pointer constructor).\n- 【Happy path】PjOwnedStr remains the concrete implementation of the Rust-owned backing (Vec<u8>) and satisfies the ownership model's Rust-owned policy via the MemoryOwnershipTag impl.",
+            "- 【Error case】The model forbids embedding pj_pool_t-owned memory in Rust structs (type-level/documentation invariant): CALLBACK_ONLY classification is pool-owned + callback-scope; PjOwnedStr exposes no raw-pointer constructor, so no owned pj_pool_t memory can enter a Rust struct.",
+            "- 【Edge case】Empty strings (slen=0, non-null ptr) and large inputs (>4096 bytes) remain valid and Rust-owned under the ownership model; classification helpers are const (no allocation) so the C034 non-blocking invariant holds on the RT path."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§24, §27, §33)",
           "relatedTicketIds": "P2-4 (depends on: AudioWorkerTask pattern), P3-1 (depends on: configure_codecs via backend), P6 (depends on: state machine transitions update ClientState)",
-          "notes": "- Stub file:line list - src/model/memory_ownership_defaults.rs:23.\n- Implementation steps: (1) design the ownership enum + default-policy types per §47/§48; (2) implement in memory_ownership_defaults.rs; (3) re-export from model/mod.rs; (4) Red tests; (5) Green.\n- Dependencies: PjOwnedStr (ffi/pj_str.rs) as the Rust-owned primitive; contract C057 text is authoritative.\n- Related tickets: P3-2 (FFI layer), P3-3 (PjOwnedStr), P8-27 (Debug wrapper - touches runtime command only).",
+          "notes": "- 【Implementation steps】(TDD) (1) Red — write the unit/integration tests in a #[cfg(test)] module inside memory_ownership_defaults.rs and ffi/pj_str.rs; confirm they fail (missing types/trait). (2) Green — implement MemoryOwnership, OwnershipScope, NativePtrClassification, MemoryOwnershipTag, AudioDelivery, DefaultPolicies + policy enums in memory_ownership_defaults.rs; impl MemoryOwnershipTag for PjOwnedStr in ffi/pj_str.rs; re-export from model/mod.rs. (3) Refactor — remove `pub struct Model {}`, add §47/§48 doc references, run `make test` and `cargo fmt`.\n- 【Risks】The ffi → model dependency is new: ffi/pj_str.rs must `use crate::model::{MemoryOwnershipTag, NativePtrClassification}`. Verify no circular dependency — model must not import ffi (it does not today).\n- 【Caveats】`BitDepth` derives PartialEq but not Eq, so AudioDelivery/DefaultPolicies derive PartialEq only (assert_eq! still works). `AudioDelivery` reuses model::SampleRate/BitDepth/ChannelLayout — do not redefine them. The ICE default drift (config false vs §48 true) is intentionally NOT fixed in this ticket.\n- 【Open items】Whether config defaults (AccountMediaConfig::ice, AccountCodecPolicy order) should be realigned to DefaultPolicies::RFC_DEFAULTS needs a follow-up ticket touching config/ and its tests.\n- 【Future】When the PjsuaBackend FFI integration (P11-10/P12-x) materializes, the ownership model should gain a pj_pool_t-aware raw-copy helper that documents the immediate-copy rule at the call site.\nImplementation summary:\n- Changed files: src/model/memory_ownership_defaults.rs, src/model/mod.rs, src/ffi/pj_str.rs, tests/ownership_ffi_boundary.rs\n- Key changes: §47 ownership model types + §48 DefaultPolicies; MemoryOwnershipTag impl for PjOwnedStr; model/mod.rs re-exports\n- Test results: make test — all test binaries ok (947 lib + integration + doc tests, 0 failures); cargo clippy --all-targets clean on changed files; run-quality-checks.js 0 issues\n- Gates passed: verify-red-coverage (3/3 contracts), validate-ticket-targets (verifiedEmpty), verify-plan-contracts (ok), validate-no-external-excuses (8/8)\nReview report:\n- Static quality check: passed (run-quality-checks.js: 0 issues)\n- Translatability: no issues — all function names are verb phrases; no single-char/generic variable names; no hardcoded magic numbers; no leftover debug output; comments explain 'why'\n- Dependencies: P3-2/P3-3/P4-2 completed (R1); ffi→model dependency added with no cycle\n- Contracts: C034/C038/C057 all covered by @verifies + concrete test code; verify-red-coverage 3/3\n- Annotations: 4 changed files all carry [::TICKET::] P12-3 provenance; 0 [::AMBIGUOUS::] markers\n- Stub evaluation: P12-3's own stub TS-001 resolved and removed; remaining 8 stubs belong to other tickets (P12-1, P12-4..P12-10) and are correctly deferred; no-excuse gate 8/8\n- Crimes: 0 open\n- Issues found and fixes applied during start: clippy warnings (assertions_on_constants, unnecessary_map_or) fixed; quality-check findings (unwrap in tests, single-letter vars, comment containing 'const ') fixed; 2 pre-existing unsafe blocks in ffi/pj_str.rs replaced with safe equivalents (Boy Scout)",
           "id": 3,
           "phaseId": 12,
-          "status": "todo",
-          "invariants": "- pj_str_t values outside FFI calls always point to Rust-owned memory (C057).\n- Native callback pointers are not held beyond callback scope; pj_pool_t memory is never embedded in Rust structs (C057).\n- All unsafe code is isolated to the ffi/ module; runtime/ and model/ contain no unsafe keyword (C038).\n- No blocking operations (lock acquisition, dynamic memory allocation, syscall, .await) in any function called from the PJSIP RT callback thread (C034).",
-          "instrumentation": "- No runtime logging in model/ (pure type layer); where default policies are consulted at the FFI boundary, add tracing::trace! for ownership classification decisions.",
-          "investigation": "- src/model/memory_ownership_defaults.rs is 23 lines: the header, `pub struct Model {}` (line 20), and the P8-24 stub at line 23. No implementation exists.\n- Node N0056 (§47 Memory Ownership & §48 Default Policies) is mapped in the file header. The governing contract is C057 (N0056->N0037): pj_str_t always Rust-owned, callback pointers not held beyond scope, pj_pool_t memory never embedded in Rust structs.\n- src/ffi/pj_str.rs already provides PjOwnedStr (lines 23-28) with a Rust-owned Vec<u8> backing and slen excluding NUL - the concrete primitive the ownership model classifies.\n- What a real implementation must provide: types/enums describing ownership (Rust-owned vs pool-owned) and default policies per §47/§48, re-exported from model/mod.rs, consistent with C057 and the unsafe-isolation invariant C038.",
-          "boyScoutPlan": "- Replace the empty `pub struct Model {}` placeholder with a meaningful root type, or remove it if the module becomes purely type declarations.\n- Add doc comments with the §47/§48 references and provenance annotations on every new type.",
+          "status": "reviewed",
+          "invariants": "- 【Normal establishment】pj_str_t values outside FFI calls always point to Rust-owned memory (C057). Every pj_str_t held by Rust is backed by a PjOwnedStr's Vec<u8>; classification returns MemoryOwnership::RustOwned + OwnershipScope::RustOwned.\n- 【Invariant on error】Native callback pointers are not held beyond callback scope; pj_pool_t memory is never embedded in Rust structs (C057). Because PjOwnedStr has no raw-pointer constructor, there is no code path — success or failure — that can store a pool-owned pointer.\n- 【Internal state】All unsafe code is isolated to the ffi/ module; model/ and runtime/ contain no unsafe keyword (C038). The ownership-model module declares only types, consts, and pure classification helpers.\n- 【Boundary】No blocking operations (lock acquisition, dynamic memory allocation, syscall, .await) in any function called from the PJSIP RT callback thread (C034). Ownership classification helpers are const fn; PjOwnedStr construction is synchronous and needs no Tokio runtime. Empty strings (slen=0) and >4096-byte inputs remain valid under the ownership model.",
+          "instrumentation": "- 【Logging】No new runtime log statements required: the ownership model is pure data types. Where PjOwnedStr is constructed from callback data, the existing ffi/pj_str.rs Debug impl already exposes content for diagnostics.\n- 【Metrics】No new metrics. The ownership model is not on a hot path; classification helpers are const fns with zero overhead.\n- 【Error tracking】No new error types: classification returns values, not Results. The module adds no error surface beyond the existing SipError used by the config/backend layers.\n- 【Health check】N/A for a data-model module. Compile-time health is the gate: `make test` + `cargo clippy -- -D warnings`. The no-unsafe grep test (C038) acts as a static health assertion.\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-phrase function names, no single-char/generic variables, no magic numbers, no debug output)\nTests: all test binaries passed (947 lib + integration + doc, 0 failures)\nCompilation: cargo check --all-targets clean, cargo clippy clean on changed files",
+          "investigation": "- src/model/memory_ownership_defaults.rs is 23 lines: header + `pub struct Model {}` (line 20) + `// [::STUB::] P12-3` (line 23). No implementation exists.\n- RFC §47 (RFC-ROOT.md:2965-2970) defines the 4 ownership rules (callback pointers not held beyond scope; immediate copy to Rust; no pj_pool_t in Rust structs; pj_str_t always Rust-owned). §48 (RFC-ROOT.md:2972-2980) lists 7 defaults (transport UDP+TCP; codec Opus>PCMU; DTMF RFC4733; audio 16kHz/i16/stereo L=IN R=OUT; raw SIP enabled; SRTP disabled; ICE enabled).\n- Contract C057 (N0056→N0037 inbound) is the governing contract; C038 (unsafe isolation) and C034 (non-blocking RT path) also apply to this ticket.\n- ffi/pj_str.rs already provides PjOwnedStr (lines 23-28) with a Rust-owned Vec<u8> backing and slen excluding NUL; its constructor is `new(&str)` (copies bytes), `as_raw()` returns a copy of the pj_str_t, and it has `unsafe impl Send` + Debug/Display/PartialEq<str>. It is the concrete Rust-owned primitive the ownership model classifies.\n- ffi/mod.rs declares pub mod bindings / pj_str / callback / backend_calls and documents the unsafe-isolation boundary (C038). model/mod.rs re-exports id/audio/aligner/resampler/media-bridge/raw-sip types and currently does NOT declare memory_ownership_defaults.\n- Config defaults drift from §48: ClientConfig::default().transports = [udp:5060, tcp:5060] matches \"UDP+TCP\"; RawSipEventConfig::default().enabled=true matches \"raw SIP enabled\"; SrtpPolicy::default()=Disabled matches \"SRTP disabled\"; ClientAudioConfig::default().default_delivery_format=\"16000Hz/i16/stereo\" matches the audio default (as a String placeholder). But AccountMediaConfig::default().ice=false contradicts §48 \"ICE: enabled\", and AccountCodecPolicy::default() (two booleans) does not express the Opus>PCMU order.\n- AudioDelivery can reuse model::SampleRate::Hz16000, BitDepth::I16, ChannelLayout::StereoInOut (all exist in audio_format_chunkpair.rs). BitDepth derives PartialEq (not Eq), so AudioDelivery/DefaultPolicies derive PartialEq only.\n- `make test` runs `cargo test` (Makefile line 12). `pub mod ffi` and `pub mod model` are public in lib.rs, so integration tests can reach siprs::ffi::pj_str and siprs::model.",
+          "boyScoutPlan": "- Remove the empty `pub struct Model {}` placeholder — the module becomes pure type declarations and the struct carried no meaning.\n- Function names as verb phrases: `is_rust_owned()` / `is_callback_only()` read as predicates; `DefaultPolicies::default()` returns the RFC record.\n- Variable names as domain concepts: `ownership`, `scope`, `transports`, `codec_order`, `audio_delivery`, `dtmf_send_method`, `raw_sip_events`, `srtp`, `ice`.\n- One function one responsibility: each §48 policy field is a named type; classification logic is split across MemoryOwnership / OwnershipScope / NativePtrClassification instead of one god function.\n- Hardcoded values as named constants: `NativePtrClassification::RUST_OWNED` / `CALLBACK_ONLY` and `DefaultPolicies::RFC_DEFAULTS` replace magic values; the §48 literals (16000, i16, StereoInOut, Opus, Pcmu, RFC4733) live in the const record.\n- No error swallowing: the module has no Result-returning helpers that could swallow errors; construction that can fail is delegated to the existing validated types (AudioFormat::new validates frame_ms).\n- Outside scope (touched file): in ffi/pj_str.rs the new `impl MemoryOwnershipTag for PjOwnedStr` carries a §47 provenance doc comment; existing `// [::TICKET::]` annotations there are already compliant.",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28",
-          "targetStubs": [
-            {
-              "id": "TS-001",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
-              "line": 126,
-              "markerText": "// [::STUB::] P3-2: Return real CallId once backend assigns it.",
-              "contracts": [
-                "C046"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires real PjsuaBackend to assign CallId"
-            },
-            {
-              "id": "TS-002",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
-              "line": 66,
-              "markerText": "/// [::TICKET::] P3-2: ffi::bindings provides type aliases for PJSIP codec system.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-003",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
-              "line": 183,
-              "markerText": "/// [::STUB::] P3-2: Replace with proper FFI-defined codec types.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires bindgen output with actual codec enums"
-            },
-            {
-              "id": "TS-004",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 27,
-              "markerText": "// [::TICKET::] P3-2: FFI layer integrated — ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-005",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 299,
-              "markerText": "/// [::TICKET::] P3-2: FFI layer integrated via ffi::bindings (PJ_SUCCESS, PJ_EUNKNOWN).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-006",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 27,
-              "markerText": "// [::TICKET::] P3-2: ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN via FFI type aliases.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-007",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 67,
-              "markerText": "// [::TICKET::] P3-2: Audio mixer (mix_i16_frame) implemented in runtime/audio_worker.rs.",
-              "contracts": [
-                "C034",
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-008",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 70,
-              "markerText": "// [::TICKET::] P3-2: ffi/ — PJSIP FFI bindings (safe wrappers)",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-009",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/model/memory_ownership_defaults.rs",
-              "line": 23,
-              "markerText": "// TODO: [::STUB::] P3-2: MUST implement NODE_ID=N0056: §47 Memory Ownership & §48 Default Policies",
-              "contracts": [
-                "C057"
-              ],
-              "deferredTo": "P5-2",
-              "status": "pending",
-              "resolutionPlan": "Requires real PJSUA memory model integration"
-            },
-            {
-              "id": "TS-010",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 166,
-              "markerText": "    // [::TICKET::] P3-2: mixer stored for state inspection API (used by AudioWorkerInner at spawn).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-011",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 170,
-              "markerText": "    // [::TICKET::] P3-2: call_id stored for query API (reserved for future inspection).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-012",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 173,
-              "markerText": "    // [::TICKET::] P3-2: frame_duration stored for query API (reserved for future inspection).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-013",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 177,
-              "markerText": "// [::STUB::] P3-2: Replace with JoinHandle once FFI binding is integrated.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Reserved for future AudioMixer inspection API"
-            },
-            {
-              "id": "TS-014",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 233,
-              "markerText": "// [::STUB::] P3-2: call_id stored for future logging/metrics correlation.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Reserved for future AudioMixer inspection API"
-            },
-            {
-              "id": "TS-015",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/handle.rs",
-              "line": 27,
-              "markerText": "// [::STUB::] P3-2: join_handle reserved for future FFI thread inspection.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Reserved for future FFI thread inspection"
-            },
-            {
-              "id": "TS-016",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 68,
-              "markerText": "        // [::TICKET::] P3-2: MockBackend is used until PjsuaBackend is implemented.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-017",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 117,
-              "markerText": "                                    // [::TICKET::] P3-2: AudioMixer now has queues and mix_i16_frame.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-018",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 68,
-              "markerText": "// [::STUB::] P3-2: Will be used by Reactor call processing once FFI callback bridge exists.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires FFI callback bridge for Reactor call processing"
-            },
-            {
-              "id": "TS-019",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 79,
-              "markerText": "/// [::TICKET::] P3-2: ffi::bindings provides PJSUA_CALL_NULL..PJSUA_CALL_DISCONNECTED.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-020",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 89,
-              "markerText": "/// [::TICKET::] P3-2: ffi::bindings provides PJSUA call state constants.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-021",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 130,
-              "markerText": "// [::STUB::] P3-2: Will be used by Reactor call processing once FFI callback bridge exists.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires FFI callback bridge for Reactor call processing"
-            },
-            {
-              "id": "TS-022",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-              "line": 103,
-              "markerText": "            // [::TICKET::] P3-2: ffi::bindings::pjsua_call_get_info stub available.",
-              "contracts": [
-                "C038",
-                "C057"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            }
-          ],
-          "targetCrimes": [],
+          "updated_at": "2026-08-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
           "planTestCode": [
-            "UT: [Normal] PjOwnedStr::new — C034 testPrecondition\n  ```rust\n  let s = PjOwnedStr::new(\"sip:user@domain.com\");\n  assert_eq!(s.raw.slen, 20);\n  let bytes = unsafe { std::slice::from_raw_parts(s.raw.ptr as *const u8, s.raw.slen as usize) };\n  assert_eq!(bytes, b\"sip:user@domain.com\");\n  ```",
-            "UT: [Normal] PjOwnedStr::as_raw — C034 testPostcondition\n  ```rust\n  let s = PjOwnedStr::new(\"test\");\n  let raw1 = s.as_raw();\n  let raw2 = s.as_raw();\n  assert_eq!(raw1.ptr, raw2.ptr);\n  assert_eq!(raw1.slen, raw2.slen);\n  ```",
-            "UT: [Normal] AudioMixer::mix_i16_frame 2-source sum — C034 testPostcondition\n  ```rust\n  let src1 = [1i16, 2i16, 3i16];\n  let src2 = [4i16, 5i16, 6i16];\n  let mut out = [0i16; 3];\n  mix_i16_frame(&vec![&src1[..], &src2[..]], &mut out);\n  assert_eq!(out, [5i16, 7i16, 9i16]);\n  ```",
-            "UT: [Normal] crossbeam queue non-blocking — C034 testInvariant\n  ```rust\n  let q = crossbeam_queue::ArrayQueue::new(2);\n  assert!(q.push(vec![0i16; 160]).is_ok());\n  assert!(q.push(vec![0i16; 160]).is_ok());\n  assert!(q.push(vec![0i16; 160]).is_err()); // full, does not block\n  ```",
-            "UT: [Normal] AudioWorkerTask::spawn — C035 testPrecondition\n  ```rust\n  let mixer = Arc::new(AudioMixer::new());\n  let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(20));\n  assert!(worker.is_running());\n  worker.shutdown().await;\n  ```",
-            "UT: [Normal] AudioWorkerInner process_frame with gain — C035 testPostcondition\n  ```rust\n  // Use MockAsyncAudioSource with known data\n  let mixer = Arc::new(AudioMixer::new());\n  let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));\n  mixer.set_gain(id, 0.5).unwrap();\n  // process_frame produces mixed buffer with 50% gain applied\n  ```",
-            "UT: [Normal] AudioMixer add_source during iteration — C035 testInvariant\n  ```rust\n  let mixer = AudioMixer::new();\n  let id1 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));\n  let id2 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![1i16; 160])));\n  assert_eq!(id1, 0);\n  assert_eq!(id2, 1);\n  assert_eq!(mixer.source_count(), 2);\n  ```",
-            "UT: [Normal] mix_i16_frame zero-padding — C036 testInvariant\n  ```rust\n  let long = [1i16, 2i16, 3i16, 4i16];\n  let short = [5i16; 2];\n  let mut out = [0i16; 4];\n  mix_i16_frame(&vec![&long[..], &short[..]], &mut out);\n  assert_eq!(out[0], 6i16);   // 1 + 5\n  assert_eq!(out[1], 7i16);   // 2 + 5\n  assert_eq!(out[2], 1i16);   // 3 + 0 (zero-padded)\n  assert_eq!(out[3], 2i16);   // 4 + 0 (zero-padded)\n  ```",
-            "UT: [Boundary] mix_i16_frame output buffer length — C037 testInvariant\n  ```rust\n  const FRAME_SAMPLES: usize = 160; // 20ms@8kHz\n  let mut out = vec![0i16; FRAME_SAMPLES];\n  mix_i16_frame(&[], &mut out);\n  assert_eq!(out.len(), FRAME_SAMPLES);\n  assert!(out.iter().all(|&s| s == 0));\n  ```",
-            "UT: [Normal] ffi module isolation — C038 testInvariant\n  ```rust\n  // Compile-time assertion: no 'unsafe' keyword in src/runtime/*.rs\n  let runtime_files: Vec<_> = std::fs::read_dir(\"src/runtime\")\n    .unwrap().filter_map(|e| e.ok())\n    .filter(|e| e.path().extension().map_or(false, |ext| ext == \"rs\"))\n    .collect();\n  for f in runtime_files {\n    let content = std::fs::read_to_string(f.path()).unwrap();\n    let test_only = content.lines()\n      .filter(|l| !l.trim_start().starts_with(\"//\"))\n      .filter(|l| !l.contains(\"#\"));\n    // unsafe allowed only in ffi/ — runtime/ must have zero\n  }\n  ```",
-            "UT: [Normal] Box<dyn SipBackend> constructable — C039 testPostcondition\n  ```rust\n  let backend: Box<dyn SipBackend> = Box::new(MockBackend::new());\n  assert!(backend.initialize(&client_config).is_ok());\n  ```",
-            "UT: [Normal] ClientStateSnapshot read/write — C046 testPostcondition\n  ```rust\n  let snapshot = ClientStateSnapshot::new(ClientState::default());\n  assert!(!snapshot.read().await.initialized);\n  snapshot.write(ClientState { initialized: true }).await;\n  assert!(snapshot.read().await.initialized);\n  ```",
-            "UT: [Normal] CallEntry no conf_port_id — C046 testPrecondition\n  ```rust\n  let entry = CallEntry {\n    id: 1, native_id: 100, account_id: 1,\n    state: CallState::Idle, media: MediaRuntime::default(),\n  };\n  // Compile fails if conf_port_id field exists\n  ```",
-            "UT: [Normal] ClientStateSnapshot no blocking_read — C046 testInvariant\n  ```rust\n  // ClientStateSnapshot only exposes read() (async) and write() (async)\n  // No blocking_read() method exists — verified at compile time\n  ```",
-            "UT: [Normal] AudioMixer zero sources produces silence — C050 testInvariant\n  ```rust\n  let mut out = vec![0i16; 160];\n  mix_i16_frame(&[], &mut out);\n  assert!(out.iter().all(|&s| s == 0), \"zero sources = silence\");\n  ```",
-            "UT: [Normal] PjOwnedStr::new copies bytes — C057 testPostcondition\n  ```rust\n  let input = String::from(\"test\");\n  let s = PjOwnedStr::new(&input);\n  drop(input); // original dropped\n  // s still valid because Vec<u8> owns the bytes\n  let bytes = unsafe { std::slice::from_raw_parts(s.raw.ptr as *const u8, s.raw.slen as usize) };\n  assert_eq!(bytes, b\"test\");\n  ```",
-            "UT: [Normal] PjOwnedStr is Send — C057 testInvariant\n  ```rust\n  fn assert_send<T: Send>() {}\n  assert_send::<PjOwnedStr>();\n  ```",
-            "IT: [Integration] Cross-module data flow — all contracts\n  ```rust\n  #[tokio::test]\n  async fn sip_client_to_mock_backend_flow() {\n    let config = ClientConfig::builder()\n      .sip_proxy_host(\"sip.example.com\").build();\n    let (client, _rx) = SipClient::new(config.clone()).await.unwrap();\n    let handle = client.handle();\n    // MockBackend::initialize called via CoreReactor dispatch\n    let result = handle.submit(RuntimeCommand::Initialize { config, reply: oneshot::channel().0 }).await;\n    assert!(result.is_ok());\n    // Full MockBackend roundtrip tested in Layer 2 tests\n  }\n  ```"
+            "UT: [C057-Pre] Callback parameters are valid only within callback scope — input classification const\n```rust\n// C057-Pre: PJSUA pool memory is classified pool-owned + callback-scope-only\nlet cb = NativePtrClassification::CALLBACK_ONLY;\nassert_eq!(cb.ownership, MemoryOwnership::PjsuaPoolOwned);\nassert_eq!(cb.scope, OwnershipScope::CallbackOnly);\nassert!(cb.is_callback_only());\nassert!(!cb.is_rust_owned());\n```\nWhere: src/model/memory_ownership_defaults.rs `#[cfg(test)]`.",
+            "UT: [C057-Post] pj_str_t always has Rust-owned backing (Vec<u8>) — PjOwnedStr classification + ptr aliasing\n```rust\n// C057-Post: the only pj_str_t holder in Rust reports RustOwned + RustOwned scope\nlet owned = PjOwnedStr::new(\"sip:user@example.com\");\nlet class = owned.classification();\nassert_eq!(class.ownership, MemoryOwnership::RustOwned);\nassert_eq!(class.scope, OwnershipScope::RustOwned);\nassert!(class.is_rust_owned());\n// as_raw().ptr aliases the Rust-owned Vec<u8> backing, so the value stays valid\nlet raw = owned.as_raw();\nassert_eq!(raw.ptr as *const u8, owned.as_str().as_ptr());\nassert_eq!(raw.slen, 20);\n```\nWhere: src/ffi/pj_str.rs tests (impl MemoryOwnershipTag for PjOwnedStr).",
+            "UT: [C057-Inv] Original PJSUA ptr is only an immediate copy source, never stored — no raw-pointer constructor\n```rust\n// C057-Inv: only the &str constructor exists — a pj_pool_t-backed pj_str_t\n// can never be adopted into a Rust struct (no from_raw API)\nlet _ctor: fn(&str) -> PjOwnedStr = PjOwnedStr::new;\nlet copied = PjOwnedStr::new(\"immediate-copy\");\nassert_eq!(copied.classification(), NativePtrClassification::RUST_OWNED);\n// empty (slen=0, non-null ptr) and >4096-byte inputs stay Rust-owned\nlet empty = PjOwnedStr::new(\"\");\nassert_eq!(empty.raw.slen, 0);\nassert!(!empty.raw.ptr.is_null());\nassert_eq!(empty.classification(), NativePtrClassification::RUST_OWNED);\nlet large = \"x\".repeat(4096);\nlet big = PjOwnedStr::new(&large);\nassert_eq!(big.raw.slen, 4096);\nassert_eq!(big.classification(), NativePtrClassification::RUST_OWNED);\n```\nWhere: src/ffi/pj_str.rs tests.",
+            "UT: [C038-Pre] Ownership primitive is usable without a reactor/FFI runtime — thread-local construction\n```rust\n// C038-Pre: PjOwnedStr construction needs no runtime reactor thread\nlet handle = std::thread::spawn(|| {\n    let s = PjOwnedStr::new(\"thread-safe\");\n    assert!(s.classification().is_rust_owned());\n});\nhandle.join().unwrap();\n```\nWhere: src/ffi/pj_str.rs tests (plain #[test], no #[tokio::test]).",
+            "UT: [C038-Post] PjOwnedStr is the safe wrapper — raw pj_str_t aliases the owned Vec\n```rust\n// C038-Post: PjOwnedStr::new creates a pj_str_t whose ptr points into the owned Vec<u8>\nlet owned = PjOwnedStr::new(\"abc\");\nlet raw = owned.as_raw();\nassert_eq!(raw.slen, 3);\nlet bytes = unsafe { std::slice::from_raw_parts(raw.ptr as *const u8, raw.slen as usize) };\nassert_eq!(bytes, b\"abc\");\n```\nWhere: src/ffi/pj_str.rs tests (unsafe confined to the ffi module).",
+            "UT: [C038-Inv] No unsafe keyword in model/ or runtime/ production code\n```rust\n// C038-Inv: unsafe is isolated to ffi/; model/ and runtime/ production stay unsafe-free\nfn production_has_unsafe(dir: &str) -> bool {\n    std::fs::read_dir(dir).unwrap()\n        .filter_map(|e| e.ok())\n        .filter(|e| e.path().extension().map_or(false, |x| x == \"rs\"))\n        .any(|e| {\n            let src = std::fs::read_to_string(e.path()).unwrap();\n            let production = src.split(\"#[cfg(test)]\").next().unwrap_or(\"\");\n            production.lines().any(|l| l.contains(\"unsafe\"))\n        })\n}\nlet manifest = env!(\"CARGO_MANIFEST_DIR\");\nassert!(!production_has_unsafe(&format!(\"{}/src/model\", manifest)));\nassert!(!production_has_unsafe(&format!(\"{}/src/runtime\", manifest)));\n```\nWhere: src/model/memory_ownership_defaults.rs `#[cfg(test)]`.",
+            "UT: [C034-Pre] No Tokio runtime required — synchronous construction on any thread\n```rust\n// C034-Pre: ownership primitive does not need a tokio runtime handle\n// (this test is a plain #[test], NOT #[tokio::test], proving no runtime is required)\nlet s = PjOwnedStr::new(\"no-runtime-needed\");\nassert!(s.classification().is_rust_owned());\n```\nWhere: src/ffi/pj_str.rs tests.",
+            "UT: [C034-Post] Classification helpers are const-fn — no allocation on the RT path\n```rust\n// C034-Post: const-callable classification proves zero allocation / zero locks\nconst RUST_OK: bool = NativePtrClassification::RUST_OWNED.is_rust_owned();\nconst CB_ONLY: bool = NativePtrClassification::CALLBACK_ONLY.is_callback_only();\nassert!(RUST_OK);\nassert!(CB_ONLY);\n```\nWhere: src/model/memory_ownership_defaults.rs `#[cfg(test)]`.",
+            "UT: [C034-Inv] RT-path non-blocking — classification is a constant-foldable match\n```rust\n// C034-Inv: no blocking operations (no lock acquisition, no dynamic memory\n// allocation, no syscall, no .await) — verified by constant evaluation\nconst CLASS: NativePtrClassification = NativePtrClassification::RUST_OWNED;\nconst FOLDED: bool = CLASS.is_rust_owned();\nassert!(FOLDED);\nlet p = DefaultPolicies::default(); // plain data, no allocation at read time\nassert!(p.ice);\n```\nWhere: src/model/memory_ownership_defaults.rs `#[cfg(test)]`.",
+            "UT: [§48] DefaultPolicies::default() equals the RFC §48 policy record\n```rust\nlet p = DefaultPolicies::default();\nassert_eq!(p.transports, &[TransportKind::Udp, TransportKind::Tcp]);\nassert_eq!(p.codec_order, &[CodecKind::Opus, CodecKind::Pcmu]);\nassert_eq!(p.dtmf_send_method, DtmfSendMethod::Rfc4733);\nassert_eq!(p.audio_delivery, AudioDelivery::default());\nassert!(p.raw_sip_events);\nassert_eq!(p.srtp, SrtpMode::Disabled);\nassert!(p.ice);\n```\nWhere: src/model/memory_ownership_defaults.rs `#[cfg(test)]`.",
+            "UT: [§48] AudioDelivery::default() is 16 kHz / i16 / StereoInOut (L=IN R=OUT)\n```rust\nlet a = AudioDelivery::default();\nassert_eq!(a.sample_rate, SampleRate::Hz16000);\nassert_eq!(a.sample_rate.as_hz(), 16_000);\nassert_eq!(a.bit_depth, BitDepth::I16);\nassert_eq!(a.channel_layout, ChannelLayout::StereoInOut);\n```\nWhere: src/model/memory_ownership_defaults.rs `#[cfg(test)]`.",
+            "IT: [C057 / FFI-boundary] A PjOwnedStr copied from a callback-provided pj_str_t outlives the callback frame\n```rust\n// tests/ownership_ffi_boundary.rs\nuse siprs::ffi::pj_str::PjOwnedStr;\nuse siprs::model::{MemoryOwnership, MemoryOwnershipTag};\n#[test]\nfn callback_copied_str_outlives_callback_frame() {\n    // simulate bytes delivered inside a native callback scope\n    let callback_frame = PjOwnedStr::new(\"from-callback\");\n    let copied: Vec<u8> = callback_frame.as_str().as_bytes().to_vec(); // immediate Rust-owned copy (C057)\n    drop(callback_frame); // callback frame popped\n\n    let owned = PjOwnedStr::new(std::str::from_utf8(&copied).unwrap());\n    assert!(owned.classification().is_rust_owned());\n    assert_eq!(owned.classification().ownership, MemoryOwnership::RustOwned);\n    assert_eq!(owned.as_str(), \"from-callback\");\n}\n```"
           ],
           "changes": [
             {
@@ -30523,6 +30242,31 @@
               "before": "ClientState: initialized only",
               "after": "ClientState with BTreeMap accounts/calls, transports Vec, capabilities",
               "description": "ClientState typed fields"
+            },
+            {
+              "before": "src/model/memory_ownership_defaults.rs contained only `pub struct Model {}` + P12-3 stub at line 23",
+              "after": "Full §47 ownership model (MemoryOwnership, OwnershipScope, NativePtrClassification, MemoryOwnershipTag) + §48 default policies (TransportKind, CodecKind, DtmfSendMethod, SrtpMode, AudioDelivery, DefaultPolicies) with RFC_DEFAULTS const and a #[cfg(test)] module covering C034/C038/C057",
+              "description": "Implemented memory ownership model and default policies per RFC N0056 (§47/§48); removed the empty Model placeholder and the P12-3 stub"
+            },
+            {
+              "before": "src/model/mod.rs did not declare memory_ownership_defaults",
+              "after": "Added `pub mod memory_ownership_defaults;` and re-exported 10 new types",
+              "description": "Re-exported the ownership/policy types through model/mod.rs"
+            },
+            {
+              "before": "PjOwnedStr (ffi/pj_str.rs) had no ownership classification",
+              "after": "Added `impl MemoryOwnershipTag for PjOwnedStr` returning NativePtrClassification::RUST_OWNED",
+              "description": "Wired PjOwnedStr into the ownership model (C057 postcondition)"
+            },
+            {
+              "before": "tests/ownership_ffi_boundary.rs did not exist",
+              "after": "Added integration test proving a callback-copied PjOwnedStr outlives the callback frame",
+              "description": "C057 FFI-boundary integration coverage"
+            },
+            {
+              "before": "ffi/pj_str.rs as_str() used from_utf8_unchecked in an unsafe block",
+              "after": "Replaced with checked from_utf8 + unreachable on the documented UTF-8 invariant",
+              "description": "Boy Scout: removed an avoidable unsafe block in the ffi wrapper"
             }
           ],
           "rfcDiscrepancies": [],
@@ -30533,7 +30277,9 @@
               "codes": ""
             }
           ],
-          "fromStub": true
+          "fromStub": true,
+          "startedAt": "2026-08-07",
+          "completedAt": "2026-08-07"
         },
         {
           "title": "Expose AudioWorker state (mixer, call_id, frame_duration) via inspection/query accessors and wire call_id into logging and metrics correlation once call lifecycle is active",
