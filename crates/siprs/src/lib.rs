@@ -1,3 +1,4 @@
+
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -62,9 +63,8 @@ pub mod event;
 pub mod state;
 
 // [::TICKET::] P3-2: Audio mixer (mix_i16_frame) implemented in runtime/audio_worker.rs.
-// [::STUB::] P11-12: audio/ module is commented out; format types exist in model/ -- Uncomment and implement higher-level audio orchestration in the audio module once model/ format types are stable
-// The audio/ module remains commented out — reserved for future higher-level audio orchestration (P5+).
-// pub mod audio;
+// [::TICKET::] P11-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-12 --for-spec --no-implementation-order`.
+pub mod audio;
 
 // [::TICKET::] P3-2: ffi/ — PJSIP FFI bindings (safe wrappers)
 pub mod ffi;
@@ -122,6 +122,8 @@ pub use api::call_api_semantics::CallApiSemantics;
 pub use call::{HangupReason, SipCall};
 // [::TICKET::] P9-2: Audio Subscribe API re-exports
 pub use api::audio_subscribe_bp::{AudioTapHandle, AudioTapMode, AudioTapSender};
+// [::TICKET::] P11-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-12 --for-spec --no-implementation-order`.
+pub use audio::{AudioOrchestrationError, AudioPipeline, AudioPipelineConfig, ProcessedFrame};
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 pub use config::account_config_spec::{

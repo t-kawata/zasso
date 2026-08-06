@@ -27668,502 +27668,163 @@
             {
               "id": "C031",
               "sourceEdge": "N0030→N0011",
-              "precondition": "Audio delivery part of API",
-              "postcondition": "Audio format model and AudioChunkPair defined",
-              "invariant": "IN/OUT paired by timestamp"
+              "precondition": "Audio delivery is part of the public API surface; callers supply a (sample_rate, bit_depth, channel_layout, frame_ms) tuple with frame_ms ∈ {10,20,40,60} (Rust struct: AudioFormat::new(SampleRate, BitDepth, ChannelLayout, u16) -> Result<AudioFormat, AudioFormatError>).",
+              "postcondition": "AudioFormat validates the tuple and constructs only valid values; AudioChunk::I16(Vec<i16>)/F32(Vec<f32>) wraps raw samples with len()/is_empty(); AudioChunkPair { call_id: CallId, account_id: AccountId, timestamp: SystemTime, in_chunk, out_chunk } pairs IN and OUT under one shared SystemTime.",
+              "invariant": "IN/OUT are paired by a single shared timestamp (no per-side timestamp field); every constructed AudioFormat satisfies sample_rate∈{Hz8000,Hz16000,Hz24000,Hz48000}, bit_depth∈{I16,F32}, channel_layout∈{Mono,StereoInOut}, frame_ms∈{10,20,40,60}."
             },
             {
               "id": "C036",
               "sourceEdge": "N0035→N0033",
-              "precondition": "Audio pipeline needs alignment",
-              "postcondition": "PairAligner with tolerance-based matching",
-              "invariant": "Zero-padding on missing data"
+              "precondition": "Audio pipeline needs alignment; callers push IN (network-origin) and OUT (mixer-origin) frames as (Vec<i16>, Instant) via PairAligner::push_in/push_out with tolerance ≥ 20ms.",
+              "postcondition": "PairAligner::try_pair() returns Some((in_data, out_data, ts)) when |ts_in − ts_out| ≤ tolerance, drops the earlier frame when over tolerance, and zero-pads the missing side when only one queue has data past tolerance; alignment_drift() counts zero-padding events.",
+              "invariant": "Zero-padding fills the missing side with zeros of matching length; drift is reported as a counter metric (MediaActiveInfo::alignment_drift), not a hard MediaError, until sustained loss."
             },
             {
               "id": "C037",
               "sourceEdge": "N0036→N0033",
-              "precondition": "Audio pipeline needs resampling",
-              "postcondition": "ResamplePipeline with rubato",
-              "invariant": "Stereo L=IN, R=OUT mapping"
+              "precondition": "Audio pipeline needs resampling; callers provide distinct in/out AudioFormat values with matching bit_depth and channel_layout (ResamplePipeline::new(in_fmt, out_fmt) -> Result<ResamplePipeline, &'static str>).",
+              "postcondition": "ResamplePipeline::new validates the format combination (distinct sample rates, same bit_depth, same channel_layout); interleave_in_out(in_mono: &[i16], out_mono: &[i16]) -> Vec<i16> maps stereo L=IN, R=OUT deterministically, truncating to min length.",
+              "invariant": "Stereo output preserves L=IN, R=OUT for every index i in 0..min(len): output[2i]==in[i] and output[2i+1]==out[i]; interleave_in_out is pure and deterministic."
             },
             {
               "id": "C041",
               "sourceEdge": "N0040→N0014",
-              "precondition": "AccountConfig defines codec policy",
-              "postcondition": "Codec enforcement and fallback rules specified",
-              "invariant": "PCMU and Opus only"
+              "precondition": "AccountConfig defines a codec policy; negotiation receives a remote codec list (&[CodecInfo]) and a CodecSelectionPolicy (Ordered | PreferOpusFallbackPcmu).",
+              "postcondition": "Codec selection resolves the negotiated codec: PreferOpusFallbackPcmu tries Opus then PCMU; Ordered uses CodecAutoMode priority order; no mutually supported codec → Err(MediaNegotiationFailed); NegotiatedCodec::{Pcmu, Opus(OpusConfig)} is produced.",
+              "invariant": "Only PCMU and Opus are accepted codecs; NegotiatedCodec has exactly 2 variants (adding a third requires updating AccountCodecPolicy and CodecAutoMode)."
             },
             {
               "id": "C042",
               "sourceEdge": "N0041→N0040 (inbound)",
-              "precondition": "Codec policy defined",
-              "postcondition": "Explicit vs auto mode specified",
-              "invariant": "Opus=255, PCMU=254 in auto mode"
+              "precondition": "Codec policy is defined; caller passes an enumerated &[CodecInfo] list and a preferred_codecs &[String] selector to CodecAutoMode::apply.",
+              "postcondition": "CodecAutoMode::apply returns HashMap<String,u8> of {codec_id → priority}: auto mode assigns opus/*=255, PCMU/8000/1=254, others=0; non-empty preferred_codecs returns an empty map (explicit mode bypasses auto mode).",
+              "invariant": "Auto mode always assigns Opus=255, PCMU=254, all other codecs=0; a non-empty preferred_codecs list always yields an empty result map (explicit mode)."
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P4-2 specified the foundational audio primitives: AudioFormat/AudioChunkPair (model/audio_format_chunkpair.rs), PairAligner (model/audio_aligner.rs), ResamplePipeline (model/audio_resampler.rs), and NegotiatedCodec/CodecSelectionPolicy (config/codec_policy_fallback.rs). The audio/ module was commented out in src/lib.rs:64-66 because those format types were not yet stable. This work item uncomments the audio/ module and implements higher-level audio orchestration that composes the model/ primitives into a usable pipeline.",
+          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P4-2 specified the foundational audio primitives: AudioFormat/AudioChunkPair (model/audio_format_chunkpair.rs), PairAligner (model/audio_aligner.rs), ResamplePipeline (model/audio_resampler.rs), and NegotiatedCodec/CodecSelectionPolicy (config/codec_policy_fallback.rs). The audio/ module was commented out in src/lib.rs:64-66 because those format types were not yet stable. This work item uncomments the audio/ module and implements higher-level audio orchestration that composes the model/ primitives into a usable pipeline.\n\n### Goal\nUncomment `pub mod audio;` in src/lib.rs and deliver a compiled, fully tested `src/audio/` orchestration module (src/audio/mod.rs + src/audio/pipeline.rs) that composes the P4-2 model/ primitives — AudioFormat, AudioChunkPair, PairAligner, ResamplePipeline/interleave_in_out — and the config/ codec types — NegotiatedCodec, CodecSelectionPolicy, CodecAutoMode — into a usable align → resample → codec-policy pipeline, re-exported from the crate root.\n\n### Purpose\nThe model/ layer defines formats, alignment, and resampling as isolated primitives but no higher-level API connects them. P11-12 provides the first composition point: a caller feeds an AudioChunkPair and receives a processed stereo frame (L=IN, R=OUT) with a negotiated codec. This resolves the `[::STUB::] P11-12` marker at src/lib.rs:64 and removes the dead commented-out module block that has blocked the module graph since P4-2.\n\n### Motivation\nP4-2 delivered the primitives but left audio/ commented out because the format types were not yet stable. Those types are now implemented, tested (P4-2: 26 tests in audio_format_chunkpair.rs, 15 in audio_aligner.rs, 13 in audio_resampler.rs, 10 in codec_policy_fallback.rs) and re-exported from model/ and config/. This INSPECTION_FLAGGED re-implementation round requires a complete, STUB-free delivery: closing the module-graph gap lets dependent tickets (P5-2 AudioMixer, P2-3 event AudioChunk, P7 audio subscribe) bind to the orchestrated API.\n\n### Constraints\n- Reuse model/ and config/ types read-only — do not modify audio_format_chunkpair.rs, audio_aligner.rs, audio_resampler.rs, codec_policy_fallback.rs, or m20_codec_auto_mode.rs.\n- No new dependencies: rubato is NOT in Cargo.toml and ResamplePipeline currently validates format combinations only (distinct rates + matching bit_depth/layout); do not add rubato or cpal in this ticket.\n- Out of scope: FFI audio capture/playback (P8-26 / P3-2 FFI), AudioMixer/process_frame internals (P3-2), cpal device I/O (P8-7).\n- Mandatory process: TDD Red → Green → Refactor; all new code must be translatable (Readability is Translatability) and [::STUB::]-free.",
           "scope": [
-            "- src/lib.rs - uncomment `pub mod audio;` (line 66) and remove the P8-23 stub at line 64",
-            "- src/audio/ (new) - higher-level audio orchestration module: mod.rs plus orchestration submodules",
-            "- src/model/audio_format_chunkpair.rs - reuse AudioFormat, AudioChunk, AudioChunkPair, SampleRate, BitDepth, ChannelLayout (read-only)",
-            "- src/model/audio_aligner.rs - reuse PairAligner/TimedFrame",
-            "- src/model/audio_resampler.rs - reuse ResamplePipeline, interleave_in_out",
-            "- src/config/codec_policy_fallback.rs - reuse NegotiatedCodec, CodecSelectionPolicy",
-            "- Out of scope: FFI audio capture/playback (P8-26 / P3-2 FFI), AudioMixer/process_frame internals (P3-2), cpal device I/O (P8-7).",
-            "- Impact: new audio/ module compiled and linked; lib.rs module graph gains the audio submodule."
+            "**Scope of changes:**\n- [File] src/lib.rs — modify: uncomment `pub mod audio;` (currently line 66, commented) and remove the `[::STUB::] P11-12` marker line plus the stale comment \"The audio/ module remains commented out — reserved for future higher-level audio orchestration (P5+)\" at lines 63-65; add `pub use audio::{AudioPipeline, AudioPipelineConfig, AudioOrchestrationError, ProcessedFrame};` near the crate-root re-export block.",
+            "- [File] src/audio/mod.rs (new) — add: declares `pub mod pipeline;` and re-exports the orchestration API; carries the Initial Design Artifact header mapped to N0030/N0035/N0036/N0040.",
+            "- [File] src/audio/pipeline.rs (new) — add: AudioOrchestrationError, AudioPipelineConfig, AudioPipeline, ProcessedFrame, negotiate_codec; composes PairAligner (align), ResamplePipeline::new + interleave_in_out (resample/stereo map), and CodecAutoMode::apply + CodecSelectionPolicy (codec policy).",
+            "- [Behavior] Before → After: no audio module compiled (audio/ commented out, src/audio/ absent) → `cargo check` compiles src/audio/ and crate root exposes siprs::audio::{AudioPipeline, AudioPipelineConfig, AudioOrchestrationError, ProcessedFrame}.",
+            "- [API contract] New public API: AudioPipeline::new(config) -> Result<Self, AudioOrchestrationError>, push_pair(&mut self, AudioChunkPair) -> Result<(), AudioOrchestrationError>, poll_processed_frame(&mut self) -> Option<Result<ProcessedFrame, AudioOrchestrationError>>, alignment_drift(&self) -> u64, negotiate_codec(&self, &[CodecInfo]) -> Result<NegotiatedCodec, AudioOrchestrationError>.",
+            "- [Data schema] None — reuses existing AudioChunkPair/AudioChunk/AudioFormat/OpusConfig; no new serialized types.",
+            "- [Config] None — CodecSelectionPolicy and tolerance are passed via AudioPipelineConfig; no env/config-file changes.",
+            "- [Dependency] None added — rubato, cpal, FFI remain out of scope; reuse existing Cargo.toml dependencies.",
+            "**Out of scope (intentionally excluded, with justification):**\n- [Excluded item] Actual audio rate conversion via rubato — ResamplePipeline has no resample() method and rubato is not in Cargo.toml; covered by P5-2/P8-26, not this ticket.",
+            "- [Excluded item] FFI audio capture/playback (RustMediaPort get_frame/put_frame) and cpal device I/O — covered by P8-26 / P8-7; the orchestration is tested with in-memory AudioChunk buffers.",
+            "- [Excluded item] AudioMixer/process_frame internals and runtime/audio_worker integration — covered by P3-2.",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n- [Affected component] src/lib.rs module graph — gains the `audio` submodule; the stale commented-out block is removed.",
+            "- [Affected component] Crate public API surface — new `siprs::audio` namespace and 4 re-exported types; existing model/config/event types are untouched (read-only reuse).",
+            "- [Nature of impact] Compile-time and API-surface expansion only — no runtime behavior of existing modules changes; dependent tickets (P5-2, P2-3, P7) gain a concrete orchestration API to bind against.",
+            "- [Corresponding change needed] No — dependent tickets require no signature changes to model/ or config/; they may adopt the new audio/ API in their own tickets."
           ],
           "testUnit": [
-            "UT: [C031] AudioFormat all 64 valid combinations construct; invalid frame_ms returns Err.",
-            "UT: [C036] PairAligner within-tolerance pairing returns (in,out); over-tolerance drops the earlier frame and zero-pads.",
-            "UT: [C037] ResamplePipeline 48kHz->16kHz resample yields correct output dimensions; stereo L=IN, R=OUT.",
-            "UT: [C041] CodecSelectionPolicy::PreferOpusFallbackPcmu resolves Opus first, falls back to PCMU.",
-            "UT: [C042] Auto-mode codec id assignment: Opus=255, PCMU=254, others=0.",
-            "UT: [Normal] Orchestration module re-exports exist (compile-time).",
-            "UT: [Edge] Empty AudioChunk::I16 flows through the pipeline.",
-            "UT: [Error] Invalid AudioFormat is rejected by the orchestration entry point with AudioFormatError."
+            "UT: [C031-Normal] AudioFormat::new(sample_rate, bit_depth, channel_layout, frame_ms) accepts all 64 valid combinations (4 SampleRate x 2 BitDepth x 2 ChannelLayout x 4 frame_ms in {10,20,40,60}) and returns Ok with every field echoed exactly.",
+            "UT: [C031-Error] AudioFormat::new(..., 5) returns Err(AudioFormatError::InvalidFrameMs(5)); boundary rejections at frame_ms=0, 9, 61 and u16::MAX also return Err — no partial AudioFormat value is ever observable.",
+            "UT: [C031-Boundary] frame_ms=10 (MIN_FRAME_MS) and frame_ms=60 (MAX_FRAME_MS) construct successfully; frame_ms=9 and 61 are rejected.",
+            "UT: [C031-Invariant] AudioChunkPair { call_id: CallId, account_id: AccountId, timestamp: SystemTime, in_chunk: AudioChunk, out_chunk: AudioChunk } carries a single SystemTime shared by IN and OUT — IN/OUT are inherently paired with no per-side timestamp field (C031 invariant).",
+            "UT: [C036-Normal] PairAligner::new(Duration::from_millis(30)).push_in(data, ts) + push_out(data, ts+10ms) then try_pair() returns Some((in_data, out_data, ts_max)) with |delta| <= tolerance and ts == max(ts_in, ts_out).",
+            "UT: [C036-Error] PairAligner::try_pair() on empty queues returns None; when only one side is queued and the frame has not yet exceeded tolerance, try_pair() returns None.",
+            "UT: [C036-Boundary] delta == tolerance pairs successfully; delta == tolerance + 1ms drops the earlier frame (returns None) and leaves the later frame queued.",
+            "UT: [C036-Invariant] Zero-padding: only IN queued and wait > tolerance -> try_pair() returns Some((in_data, zeros, ts)) with zeros.len() == in_data.len() and alignment_drift() incremented by exactly 1.",
+            "UT: [C037-Normal] ResamplePipeline::new(AudioFormat{Hz48000,I16,Mono,20}, AudioFormat{Hz16000,I16,Mono,20}) returns Ok with in_rate == Hz48000, out_rate == Hz16000.",
+            "UT: [C037-Error] ResamplePipeline::new with identical in/out rates returns Err(\"in_rate and out_rate are identical — no resampling needed\"); differing bit_depth and differing channel_layout each return Err.",
+            "UT: [C037-Boundary] interleave_in_out with unequal input lengths truncates to min(len): interleave_in_out(&[1,2,3], &[4,5]) == [1,4,2,5].",
+            "UT: [C037-Invariant] interleave_in_out is pure and deterministic; for all i in 0..min(len): output[2i] == in[i] (L=IN) and output[2i+1] == out[i] (R=OUT), verified across multiple lengths.",
+            "UT: [C041-Normal] NegotiatedCodec::Pcmu and NegotiatedCodec::Opus(OpusConfig::default()) construct; OpusConfig defaults are bitrate=32000, complexity=5, cbr=false, inband_fec=true, dtx=false, ptime_ms=20.",
+            "UT: [C041-Error] Under CodecSelectionPolicy::PreferOpusFallbackPcmu, negotiate_codec(&[CodecInfo::new(\"G722/8000/1\"), CodecInfo::new(\"GSM/8000/1\")]) returns Err(AudioOrchestrationError::MediaNegotiationFailed) — no panic.",
+            "UT: [C041-Boundary] negotiate_codec(&[]) with an empty remote codec list returns Err(MediaNegotiationFailed) under both policies.",
+            "UT: [C041-Invariant] NegotiatedCodec has exactly 2 variants (Pcmu, Opus) — an exhaustive-match discriminant helper returning 1/2 proves no hidden third variant (C041 invariant).",
+            "UT: [C042-Normal] CodecAutoMode::apply(&[CodecInfo::new(\"PCMU/8000/1\"), CodecInfo::new(\"opus/48000/2\")], &[]) == {opus/48000/2: 255, PCMU/8000/1: 254}.",
+            "UT: [C042-Error] CodecAutoMode::apply with a duplicated codec_id in the input list returns Err(SipError) (internal-consistency guard).",
+            "UT: [C042-Boundary] CodecAutoMode::apply(&[CodecInfo::new(\"G722/8000/1\")], &[]) == {G722/8000/1: 0} — unknown codecs are disabled at priority 0.",
+            "UT: [C042-Invariant] Non-empty preferred_codecs bypasses auto mode: apply(codecs, &[\"opus/48000/2\"]) returns an empty HashMap (explicit mode, C042 invariant).",
+            "UT: [Normal-orch] AudioPipeline::new(AudioPipelineConfig{48k I16 StereoInOut 20ms -> 16k I16 StereoInOut 20ms, tolerance 30ms, PreferOpusFallbackPcmu}) returns Ok; in_format/out_format stored.",
+            "UT: [Normal-orch] push_pair(AudioChunkPair with I16 IN=1..160, OUT=101..260) then poll_processed_frame() returns Some(Ok(frame)); for all i: frame.stereo_interleaved[2i]==IN[i] and [2i+1]==OUT[i] (L=IN, R=OUT).",
+            "UT: [Normal-orch] AudioPipeline::negotiate_codec(&[CodecInfo::new(\"opus/48000/2\"), CodecInfo::new(\"PCMU/8000/1\")]) under PreferOpusFallbackPcmu returns NegotiatedCodec::Opus.",
+            "UT: [Error-orch] AudioPipeline::new with in_format frame_ms=5 returns Err(AudioOrchestrationError::InvalidFormat(AudioFormatError::InvalidFrameMs(5))).",
+            "UT: [Error-orch] push_pair with an AudioChunk::F32 chunk returns Err(AudioOrchestrationError::UnsupportedChunkKind) — native pipeline format is i16 PCM (C036 uses Vec<i16>).",
+            "UT: [Boundary-orch] push_pair(AudioChunkPair with empty I16 IN=vec![]) -> poll_processed_frame() returns Some(Ok(frame)) with stereo_interleaved == vec![] (len 0) — empty chunks flow through without panic.",
+            "UT: [Invariant-orch] After N push_pair/poll_processed_frame cycles, AudioPipeline::alignment_drift() equals the number of zero-padding events observed; identical inputs produce identical outputs (determinism)."
           ],
           "testIntegration": [
-            "IT: [Pipeline] Feed a stereo 48kHz frame through the audio/ orchestration API end-to-end (align -> resample -> policy) and verify the OUT buffer length and channel mapping.",
-            "IT: [Module-graph] cargo check succeeds with `pub mod audio;` uncommented and all re-exports resolving."
+            "IT: [Integration point] audio/ orchestration module ↔ model/ primitives: AudioPipeline calls PairAligner::try_pair, interleave_in_out, and CodecAutoMode::apply through their public APIs; verify the crate module graph compiles with `pub mod audio;` uncommented in src/lib.rs.",
+            "IT: [Verification] `make check-be` (cargo check for the siprs crate) succeeds with the audio module wired; crate-root re-exports siprs::audio::{AudioPipeline, AudioPipelineConfig, AudioOrchestrationError, ProcessedFrame} resolve.",
+            "IT: [Pipeline end-to-end] Feed a 48kHz StereoInOut I16 AudioChunkPair (IN=1..160, OUT=101..260) through push_pair → poll_processed_frame; assert stereo output length == 2×min and L=IN/R=OUT mapping holds for every index; assert negotiated_codec == Opus under PreferOpusFallbackPcmu with an Opus-capable remote list.",
+            "IT: [Zero-padding propagation] Push only IN frames for > tolerance without pushing OUT, poll_processed_frame; assert the OUT side is zero-filled with length equal to IN and alignment_drift() > 0 — the orchestration layer propagates PairAligner zero-padding without panicking.",
+            "IT: [Prerequisites] model/ primitives (P4-2) already compiled with passing tests (audio_format_chunkpair, audio_aligner, audio_resampler); config/codec_policy_fallback.rs and config/m20_codec_auto_mode.rs compiled; no rubato/cpal/FFI at runtime.",
+            "IT: [Related tickets] P5-2 (AudioMixer uses audio format types), P2-3 (event system uses AudioChunk), P7 (audio subscribe uses AudioChunkPair), P8-7 (cpal device I/O — out of scope)."
           ],
           "testExceptions": [
-            "Actual rubato resampling fidelity/performance requires the rubato native crate, which is verified by dependency build, not unit assertions.",
-            "FFI capture/playback (RustMediaPort get_frame/put_frame) is out of scope; the orchestration layer is tested with in-memory AudioChunk buffers."
+            "Exception 1 — Item: Actual rubato resampling fidelity/performance (real rate conversion of arbitrary sample buffers).\nReason: The actual rate-conversion path is not testable in this ticket because rubato is not a dependency of this crate (Cargo.toml has no rubato entry) and ResamplePipeline exposes only format validation (ResamplePipeline::new) plus interleave_in_out — there is no resample() method to invoke, so we cannot test real resampling without adding the rubato crate, which is out of P11-12 scope. This is not a design defect — it is a genuine external-dependency gap tracked by P5-2/P8-26, and the orchestration is explicitly designed to reuse the currently implemented validation API.\nAlternative verification: distinct-rate format validation and stereo L=IN/R=OUT mapping are covered by UT [C037-Normal/Error/Boundary/Invariant] and the IT pipeline end-to-end test; the orchestration compiles and runs with in_format != out_format without attempting actual rate conversion.",
+            "Exception 2 — Item: FFI audio capture/playback (RustMediaPort get_frame/put_frame, cpal device I/O).\nReason: This FFI/cpal path is not testable in unit tests because FFI callbacks and cpal device binding require the PJSIP native library and audio hardware, which are not available in unit-test execution environments and are explicitly out of scope (P8-26 / P8-7); we cannot test it without the native stack. This is not an architectural defect — the FFI/cpal paths have their own tickets (P8-26, P8-7) with dedicated test plans.\nAlternative verification: the orchestration layer is exercised with in-memory AudioChunk buffers (UT [Normal-orch], IT pipeline end-to-end).",
+            "Exception 3 — Item: Real-time deadline behavior of the orchestration loop under a live PJSUA call.\nReason: This is not testable in a unit test because real-time scheduling under a live call requires runtime/audio_worker integration (P3-2/P8-26) and physical audio hardware, which are non-deterministic and unavailable in the test environment. This is not a design defect — the audio/ orchestration itself is pure and deterministic (verified by UT [Invariant-orch]); only the live-call scheduling wrapper is excluded.\nAlternative verification: AudioPipeline methods are pure and deterministic — determinism is asserted directly in UT [Invariant-orch] (same inputs → same outputs), and zero-padding/drift metrics are asserted numerically in UT [C036-Invariant] and IT [Zero-padding propagation]."
           ],
           "acceptanceCriteria": [
-            "【Happy path】src/audio/ compiles with `pub mod audio;` uncommented; the module re-exports the orchestration API and composes AudioFormat, AudioChunkPair, PairAligner, ResamplePipeline, and CodecSelectionPolicy.",
-            "【Happy path】A full IN/OUT pipeline run (align -> resample -> codec policy) on a valid 48kHz stereo frame produces output matching the source invariants (stereo L=IN, R=OUT; IN/OUT paired by timestamp).",
-            "【Happy path】The orchestration layer propagates zero-padding from PairAligner when a pair exceeds tolerance, without panicking.",
-            "【Error case】Orchestration with an invalid AudioFormat (e.g., frame_ms outside {10,20,40,60}) returns a typed error (AudioFormatError); no partial/inconsistent AudioFormat is constructed.",
-            "【Error case】Codec policy fallback with no mutually supported codec returns an error (e.g., MediaNegotiationFailed), never panics.",
-            "【Edge case】AudioChunk::I16 with an empty Vec<i16> flows through the orchestration pipeline (valid edge state, len=0)."
+            "【Happy path】`make check-be` (cargo check) succeeds with `pub mod audio;` uncommented in src/lib.rs and the `[::STUB::] P11-12` marker removed; src/audio/pipeline.rs compiles; crate root re-exports siprs::audio::{AudioPipeline, AudioPipelineConfig, AudioOrchestrationError, ProcessedFrame}.",
+            "【Happy path】A full pipeline run on a valid 48kHz StereoInOut I16 AudioChunkPair (IN=1..160, OUT=101..260): push_pair → poll_processed_frame → Some(Ok(frame)) where frame.stereo_interleaved has length 320 and satisfies stereo[2i]==IN[i] and stereo[2i+1]==OUT[i] for all i (L=IN, R=OUT); frame.negotiated_codec == Opus under PreferOpusFallbackPcmu with an Opus-capable remote list.",
+            "【Happy path】Zero-padding propagation: when only IN is fed and its wait exceeds tolerance, poll_processed_frame returns a frame whose OUT side is zero-filled (length equal to IN) and alignment_drift() increments — no panic.",
+            "【Error case】AudioPipeline::new with in_format frame_ms=5 returns Err(AudioOrchestrationError::InvalidFormat(AudioFormatError::InvalidFrameMs(5))); no partial AudioFormat is constructed.",
+            "【Error case】negotiate_codec with no mutually supported codec (remote=[G722/8000/1, GSM/8000/1]) returns Err(AudioOrchestrationError::MediaNegotiationFailed) — never panics.",
+            "【Edge case】AudioChunk::I16(vec![]) flows through push_pair → poll_processed_frame producing stereo_interleaved == vec![] (len 0) without panic.",
+            "【Edge case】push_pair with an AudioChunk::F32 chunk returns Err(AudioOrchestrationError::UnsupportedChunkKind) and leaves the PairAligner queues untouched.",
+            "【Edge case】AudioPipeline::new with identical in/out sample rates returns Err(AudioOrchestrationError::ResampleUnsupported(...)) — same-rate passthrough is rejected at construction.",
+            "【Verification】`make test` passes with all UT/IT green; zero new [::STUB::] markers introduced in src/audio/ and the lib.rs stub resolved."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§21, §25, §26, §29)",
           "relatedTicketIds": "P5-2 (depends on: AudioMixer uses audio format types), P2-3 (depends on: event system uses AudioChunk), P7 (depends on: audio subscribe uses AudioChunkPair)",
-          "notes": "- Stub file:line list - src/lib.rs:64.\n- Implementation steps: (1) create src/audio/mod.rs with the orchestration API; (2) uncomment `pub mod audio;` in lib.rs; (3) remove the P8-23 stub; (4) Red tests for the pipeline; (5) Green implementation composing the model/ types.\n- Dependencies: model/ audio primitives (P4-2) are already compiled; the rubato dependency is pinned in Cargo.toml.\n- Related tickets: P8-8 (Audio Subscribe), P8-7 (cpal device I/O), P3-2 (AudioMixer/process_frame).",
+          "notes": "- Stub file:line to resolve — src/lib.rs:64 (`[::STUB::] P11-12: audio/ module is commented out; format types exist in model/`) plus the stale comment and `// pub mod audio;` at lines 63-66.\n- Implementation steps: (1) RED — write testUnit/testIntegration from this spec against the new src/audio/pipeline.rs API and the lib.rs uncomment; (2) create src/audio/mod.rs + src/audio/pipeline.rs with the Initial Design Artifact header; (3) GREEN — implement AudioOrchestrationError, AudioPipelineConfig, AudioPipeline, ProcessedFrame, negotiate_codec composing PairAligner/interleave_in_out/CodecAutoMode; (4) uncomment `pub mod audio;`, remove the P11-12 STUB marker and stale comment, add crate-root re-exports; (5) Refactor — Boy Scout cleanup, verify `make check-be` and `make test` green.\n- Risks: ResamplePipeline has NO real resample() method (rubato not wired in Cargo.toml) — the orchestration must only reuse ResamplePipeline::new for format validation and interleave_in_out for stereo mapping; promising actual rate conversion would be a disguised green. interleave_in_out truncates to min(IN.len(), OUT.len()), so mismatched lengths silently drop trailing samples — accepted per C037 but callers must feed matched frames.\n- Caveats: AudioChunkPair.timestamp is SystemTime while PairAligner operates on Instant — push_pair must snapshot Instant::now() once per pair and use it for both IN and OUT so the C031 single-timestamp pairing is preserved; AudioChunk::F32 is rejected (UnsupportedChunkKind) because the native pipeline format is i16 PCM (C036 uses Vec<i16>); poll_processed_frame returning None is a normal state (pair not yet possible), not an error.\n- Open items: whether the Ordered policy should honour an explicit user priority list from CallMediaPreferences rather than reusing CodecAutoMode::apply priorities — decided for this ticket: reuse CodecAutoMode::apply, revisit when CallMediaPreferences codec ordering lands.\n- Future improvements: wire rubato for actual rate conversion (P5-2/P8-26); connect the orchestration into runtime/audio_worker (P3-2) and AudioTap subscribe (P9-2/P8-8); add F32 chunk support once a float PCM codec path exists.\n--- Plan refinement (P11-12 /plan-ticket) ---\n- AudioPipelineConfig::new(SampleRate, BitDepth, ChannelLayout, u16 /*frame_ms*/, SampleRate, BitDepth, ChannelLayout, u16 /*out_frame_ms*/, Duration, CodecSelectionPolicy, Vec<CodecInfo>) -> Result<Self, AudioOrchestrationError> validates formats at the boundary (maps AudioFormatError::InvalidFrameMs into AudioOrchestrationError::InvalidFormat) so the acceptance criterion 'AudioPipeline::new with frame_ms=5 returns InvalidFormat' is testable.\n- AudioPipelineConfig gains remote_codecs: Vec<CodecInfo> so poll_processed_frame resolves ProcessedFrame.negotiated_codec under the configured policy.\n- AudioPipeline adds push_in_frame(Vec<i16>) / push_out_frame(Vec<i16>) single-side feed methods (Instant::now() captured internally) so zero-padding propagation is deterministically testable; push_pair(AudioChunkPair) feeds both sides at one shared Instant (C031).\n- negotiate_codec(policy, &[CodecInfo]) is a free function; Ordered maps CodecAutoMode::apply Err to MediaNegotiationFailed (SipError is not Eq, so it is not wrapped in AudioOrchestrationError).\n- AudioOrchestrationError variants finalized: InvalidFormat(AudioFormatError), ResampleUnsupported(&str), MediaNegotiationFailed, UnsupportedChunkKind.\nImplementation summary (P11-12 /start-ticket):\n- TDD: wrote 17 failing tests first (RED, compile error from missing types), then implemented to GREEN (all 1038 crate tests pass, 0 failures).\n- New API refined during implementation: AudioFormatSpec bundles the 4 format dimensions for boundary validation (resolves clippy too_many_arguments); push_in_frame/push_out_frame added for single-side feed; AudioOrchestrationError implements std::error::Error via thiserror.\n- Quality: rustfmt applied to touched files; clippy clean for audio/; run-quality-checks.js reports 0 issues on src/lib.rs, src/audio/mod.rs, src/audio/pipeline.rs (test code converted to Result<()> + ? — no unwrap/expect).\n- Provenance: annotate-ticket-context-by-git-diff.js injected [::TICKET::] P11-12 annotations; all [::AMBIGUOUS::] markers resolved; verify-red-coverage 5/5 contracts covered.\n- Test results: make test → TOTAL passed 1038, failed 0 (17 audio::pipeline tests).\nReview report (P11-12 /review-ticket):\n- Static quality check: 0 issues (run-quality-checks.js on lib.rs + audio/*).\n- Translatability: function names are verb phrases (push_pair, poll_processed_frame, negotiate_codec, alignment_drift); no single-char/generic variables after renaming `data` -> `samples` in push_in_frame/push_out_frame/to_i16_samples; codec ids/priorities live in named constants (OPUS_CODEC_ID, OPUS_CODEC_PREFIX, PCMU_CODEC_ID); no debug output.\n- Compilation: cargo check --all-targets clean (0 warnings/errors).\n- Tests: make test -> 1038 passed / 0 failed; audio::pipeline 17/17 pass.\n- Clippy: 0 findings on audio files.\n- Contracts: C031/C036/C037/C041/C042 all covered by @verifies-annotated tests (14 annotations).\n- Stubs: 0 P11-12 stubs remaining (TS-001 resolved); no-excuse gate 10/10 pass.\n- Crimes: 0 open.\n- Annotation: 3 files verified, 0 missing, 0 AMBIGUOUS.\n- Issues found and fixed during review: renamed generic `data` parameter names to `samples` (translatability).",
           "default_files": [
             "src/config/codec_policy_fallback.rs",
             "src/model/audio_format_chunkpair.rs"
           ],
           "id": 12,
           "phaseId": 11,
-          "status": "todo",
-          "invariants": "- AudioFormat fields always valid: sample_rate in {Hz8000,Hz16000,Hz24000,Hz48000}, bit_depth in {I16,F32}, channel_layout in {Mono,StereoInOut}, frame_ms in {10,20,40,60} (C031).\n- AudioChunkPair always pairs IN and OUT under the same timestamp; PairAligner produces paired output only when |ts_in - ts_out| <= tolerance, zero-padding on missing data (C036).\n- ResamplePipeline output is stereo with L=IN and R=OUT mapping and is deterministic (C037).\n- Codec policy accepts only PCMU and Opus; auto mode assigns Opus=255, PCMU=254 (C041, C042).",
-          "instrumentation": "- tracing::debug! on alignment drift counter increments and resample buffer lengths.\n- tracing::warn! when PairAligner exceeds tolerance (sustained loss), mirroring the 'drift reported as a counter metric' invariant rather than a hard error.",
-          "investigation": "- src/lib.rs:63-66: the P3-2 audio-mixer comment, the P8-23 stub at line 64, and `// pub mod audio;` at line 66 - the audio/ module is commented out. No src/audio/ directory exists (confirmed: 'ls: src/audio: No such file or directory').\n- model/audio_format_chunkpair.rs exports AudioFormat, AudioChunk, AudioChunkPair, SampleRate, BitDepth, ChannelLayout, AudioFormatError, MIN_FRAME_MS=10, MAX_FRAME_MS=60.\n- model/audio_aligner.rs exports TimedFrame<T> (line 33) and PairAligner (line 63); model/audio_resampler.rs exports ResamplePipeline (line 39) and interleave_in_out (line 97). model/media_bridge.rs exports AudioBridge, MediaFrame, PortDirection.\n- config/codec_policy_fallback.rs exports NegotiatedCodec (Pcmu, Opus(OpusConfig)) and CodecSelectionPolicy (Ordered, PreferOpusFallbackPcmu default).\n- What a real implementation must provide: create src/audio/ with a mod.rs and orchestration functions/structs that accept these model/ types, drive align -> resample -> codec-policy, and re-export the composed API from lib.rs.",
-          "boyScoutPlan": "- Remove the stale comment at lib.rs:65 (\"The audio/ module remains commented out - reserved for future higher-level audio orchestration (P5+)\") once the module is live.\n- Keep all new audio/ code translatable: functions as verb phrases (align_frames, resample_frame, negotiate_codec).",
+          "status": "reviewed",
+          "invariants": "- 【Normal condition】AudioFormat fields always satisfy sample_rate∈{Hz8000,Hz16000,Hz24000,Hz48000}, bit_depth∈{I16,F32}, channel_layout∈{Mono,StereoInOut}, frame_ms∈{10,20,40,60} (C031); AudioPipeline in/out formats must have distinct sample rates and matching bit_depth/channel_layout for ResamplePipeline::new to succeed (C037); AudioChunkPair always pairs IN and OUT under one shared timestamp (C036).\n- 【Invariant on error】No partial/inconsistent AudioFormat is ever observable — AudioFormat::new returns Result, never a half-constructed value; all orchestration failures surface as typed AudioOrchestrationError (InvalidFormat/ResampleUnsupported/MediaNegotiationFailed/UnsupportedChunkKind) and never panic; codec negotiation with no mutual codec yields MediaNegotiationFailed; a rejected F32 push leaves PairAligner queues untouched.\n- 【Internal state invariant】AudioPipeline owns exactly one PairAligner; in_q/out_q start empty; alignment_drift() counts zero-padding events monotonically; poll_processed_frame returns None (not an error) when pairing is not yet possible; the pipeline holds in_format/out_format/codec_policy as immutable configuration.\n- 【Boundary invariant】frame_ms boundaries {10,20,40,60} are valid; everything outside (0, 9, 61, u16::MAX) is rejected with InvalidFrameMs; PairAligner pairs at delta == tolerance and drops at delta > tolerance; empty AudioChunk::I16(vec![]) flows through the pipeline producing len-0 stereo output without panic.",
+          "instrumentation": "- Logging: tracing::debug! on each push_pair (IN/OUT sample lengths) and poll_processed_frame (stereo output length, negotiated codec); tracing::warn! when PairAligner exceeds tolerance and zero-pads — drift is reported as a counter metric, not a hard error (C036).\n- Metrics: AudioPipeline::alignment_drift() exposes the zero-padding counter (delegates to PairAligner::alignment_drift()); ProcessedFrame.stereo_interleaved.len() as a per-frame size observation; negotiate_codec outcome counted (Opus / PCMU / MediaNegotiationFailed) for codec-usage telemetry.\n- Error tracking: AudioOrchestrationError variants logged with context — InvalidFormat carries AudioFormatError, ResampleUnsupported carries the &'static str reason, MediaNegotiationFailed carries the remote codec list length; F32 push rejection logged as UnsupportedChunkKind with the chunk kind.\n- Health check: AudioPipeline exposes alignment_drift() and (via PairAligner) in_q_len()/out_q_len() so an observer can detect sustained misalignment; poll_processed_frame returning None indicates the pipeline is caught up (no pending pair).\nStatic quality check: passed (0 issues on src/lib.rs, src/audio/mod.rs, src/audio/pipeline.rs)\nTranslatability: no issues after renaming generic `data` params to `samples`\nTests: all 1038 tests passed (17 audio::pipeline tests)\nAnnotation: 3 source files verified with [::TICKET::] P11-12 provenance, 0 AMBIGUOUS markers",
+          "investigation": "- src/lib.rs:63-66 — the `[::STUB::] P11-12: audio/ module is commented out; format types exist in model/` marker, the stale comment \"The audio/ module remains commented out — reserved for future higher-level audio orchestration (P5+)\", and `// pub mod audio;`. No src/audio/ directory exists (confirmed: 'ls: src/audio: No such file or directory'). `pub mod model;` is at lib.rs:88; crate-root re-exports (lines 97-135) use `pub use ...` and must gain the audio/ types.\n- model/audio_format_chunkpair.rs (23.7KB, P4-2): MIN_FRAME_MS=10, MAX_FRAME_MS=60; SampleRate{Hz8000,Hz16000,Hz24000,Hz48000} with as_hz(); BitDepth{I16,F32}; ChannelLayout{Mono,StereoInOut}; AudioFormat::new(SampleRate, BitDepth, ChannelLayout, u16)->Result<Self,AudioFormatError> (validates frame_ms ∈ {10,20,40,60}); sample_rate_hz(); samples_per_frame(); AudioFormatError::InvalidFrameMs(u16); AudioChunk{I16(Vec<i16>),F32(Vec<f32>)} with len()/is_empty(); AudioChunkPair{call_id:CallId, account_id:AccountId, timestamp:SystemTime, in_chunk:AudioChunk, out_chunk:AudioChunk}.\n- model/audio_aligner.rs (19.7KB, P4-2): TimedFrame<T>{ts_mono:Instant, data:T}; PairAligner::new(Duration)->Self; push_in(Vec<i16>,Instant); push_out(Vec<i16>,Instant); try_pair()->Option<(Vec<i16>,Vec<i16>,Instant)> (within-tolerance pairing, over-tolerance frame drop, zero-padding with drift_counter increment); alignment_drift()->u64; in_q_len()/out_q_len().\n- model/audio_resampler.rs (12.5KB, P4-2/P5-2): ResamplePipeline{in_rate:SampleRate, out_rate:SampleRate}; new(_in_fmt,_out_fmt)->Result<Self,&'static str> validating distinct rates + matching bit_depth + matching channel_layout; free fn interleave_in_out(in_mono:&[i16], out_mono:&[i16])->Vec<i16> (L=IN,R=OUT, truncates to min len). NO resample() method — rubato is NOT in Cargo.toml (verified).\n- config/codec_policy_fallback.rs (N0040): NegotiatedCodec{Pcmu, Opus(OpusConfig)} (exactly 2 variants — C041); CodecSelectionPolicy{Ordered, PreferOpusFallbackPcmu(#default)}; OpusConfig defined at account_config_spec.rs:53 with bitrate, complexity, cbr, inband_fec, dtx, ptime_ms (defaults 32000/5/false/true/false/20).\n- config/m20_codec_auto_mode.rs (N0041): CodecInfo{codec_id:String} + CodecInfo::new(impl Into<String>); CodecAutoMode::apply(&[CodecInfo], &[String])->Result<HashMap<String,u8>,SipError> — auto mode assigns opus/*=255 (OPUS_PRIORITY), PCMU/8000/1=254 (PCMU_PRIORITY), others=0; non-empty preferred_codecs returns empty map. Both wired in config.rs (pub mod m20_codec_auto_mode; pub mod codec_policy_fallback;).\n- Errors: SipError::new(SipErrorKind::MediaNegotiationFailed, msg) exists; SipErrorKind::MediaNegotiationFailed confirmed at error_design_siperror.rs:77; SipError::internal_error(msg) at line 260.\n- Orchestration design for src/audio/pipeline.rs: AudioOrchestrationError{InvalidFormat(AudioFormatError), ResampleUnsupported(&'static str), MediaNegotiationFailed, UnsupportedChunkKind}; AudioPipelineConfig{in_format:AudioFormat, out_format:AudioFormat, tolerance:Duration, codec_policy:CodecSelectionPolicy}; AudioPipeline{new, push_pair, poll_processed_frame, alignment_drift, negotiate_codec}; ProcessedFrame{stereo_interleaved:Vec<i16>, negotiated_codec:NegotiatedCodec, timestamp:Instant}. push_pair must snapshot Instant::now() once per pair so IN/OUT share one timestamp (C031 SystemTime→Instant).",
+          "boyScoutPlan": "- Remove the stale comment \"The audio/ module remains commented out — reserved for future higher-level audio orchestration (P5+)\" and the `[::STUB::] P11-12` marker at src/lib.rs:63-66 once the module is live; leave only a concise `pub mod audio;` preceded by a [::TICKET::] P11-12 provenance annotation (Everything-as-Code rule 5).\n- Keep all new audio/ code translatable: structs as nouns (AudioPipeline, ProcessedFrame, AudioOrchestrationError, AudioPipelineConfig), functions as verb phrases (push_pair, poll_processed_frame, negotiate_codec, alignment_drift), one responsibility per method, no magic numbers — reuse m20_codec_auto_mode constants (OPUS_PRIORITY/PCMU_PRIORITY/OPUS_CODEC_PREFIX/PCMU_CODEC_ID) rather than restating literals 255/254.\n- Extract the AudioChunk→Vec<i16> conversion into a private `fn to_i16_samples(chunk: &AudioChunk) -> Result<Vec<i16>, AudioOrchestrationError>` so F32 rejection and empty-chunk handling are single, testable paths — no inline match sprawl inside push_pair.\n- Boy Scout while touching lib.rs: verify the audio module declaration carries a correct [::TICKET::] P11-12 provenance annotation; do not alter unrelated module declarations or re-exports.\n- Refactor only after Green: if any existing code in the touched files is untranslatable, extract it into named functions/constants within reasonable scope.",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28",
+          "updated_at": "2026-08-06",
           "targetStubs": [
             {
               "id": "TS-001",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/build.rs",
-              "line": 8,
-              "markerText": "// [::STUB::] P4-2: Enable bindgen generation when `pjsua-native` feature",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-002",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/build.rs",
-              "line": 13,
-              "markerText": "// [::STUB::] P4-2: Uncomment when PJSIP library headers are available",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-003",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
-              "line": 134,
-              "markerText": "/// [::STUB::] P4-2: Implement with AccountConfigPatch when defined.",
+              "ticketRef": "P11-12",
+              "file": "src/lib.rs",
+              "line": 66,
+              "markerText": "// [::TICKET::] P11-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-12 --for-spec --no-implementation-order`.",
               "contracts": [
                 "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-004",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
-              "line": 137,
-              "markerText": "// [::STUB::] P4-2: Need AccountConfigPatch type and RuntimeCommand::UpdateAccount.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-005",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/codec_policy_fallback.rs",
-              "line": 23,
-              "markerText": "// [::TICKET::] P4-2 changes. Details:",
-              "contracts": [
+                "C036",
+                "C037",
                 "C041",
                 "C042"
               ],
               "deferredTo": null,
               "status": "resolved",
-              "resolutionPlan": "Replaced stub file with full implementation"
-            },
-            {
-              "id": "TS-006",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
-              "line": 68,
-              "markerText": "/// [::STUB::] P4-2: Replace with actual codec list from bindgen-generated FFI.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-007",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 32,
-              "markerText": "// [::STUB::] P4-2: Replace with actual pj_status_t values from pjsua.h bindgen output.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-008",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 304,
-              "markerText": "/// [::STUB::] P4-2: Update to use real pj_status_t constants from bindgen output.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-009",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 32,
-              "markerText": "// [::STUB::] P4-2: Replace with actual pj_status_t constants from bindgen output.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-010",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/bindings.rs",
-              "line": 117,
-              "markerText": "/// [::STUB::] P4-2: Replace with actual bindgen-generated FFI call when",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-011",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 16,
-              "markerText": "// [::STUB::] P4-2: Full callback implementations require:",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-012",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 34,
-              "markerText": "/// [::STUB::] P4-2: Implement NativeEvent::IncomingCall enqueue.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-013",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 43,
-              "markerText": "// [::STUB::] P4-2: Enqueue NativeEvent::IncomingCall { acc_id, call_id }",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-014",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 51,
-              "markerText": "/// [::STUB::] P4-2: Implement NativeEvent::RegState enqueue.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-015",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 60,
-              "markerText": "// [::STUB::] P4-2: Enqueue NativeEvent::RegState { acc_id, is_registering, code, reason }",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-016",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 69,
-              "markerText": "/// [::STUB::] P4-2: Implement NativeEvent::CallState enqueue.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-017",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 76,
-              "markerText": "// [::STUB::] P4-2: Enqueue NativeEvent::CallState { call_id, state }",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-018",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 85,
-              "markerText": "/// [::STUB::] P4-2: Implement NativeEvent::CallMediaState enqueue.",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-019",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 91,
-              "markerText": "// [::STUB::] P4-2: Enqueue NativeEvent::CallMediaState { call_id }",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-020",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/callback.rs",
-              "line": 95,
-              "markerText": "// [::STUB::] P4-2: Additional callbacks as needed:",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-021",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/ffi/mod.rs",
-              "line": 27,
-              "markerText": "/// [::STUB::] P4-2: Full callback implementations require real PJSUA",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-022",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 72,
-              "markerText": "// [::STUB::] P4-2: Audio format types implemented under model/",
-              "contracts": [
-                "C031",
-                "C036",
-                "C037",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Comment updated to reflect model/ placement, types implemented"
-            },
-            {
-              "id": "TS-023",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/model/audio_format_chunkpair.rs",
-              "line": 23,
-              "markerText": "// [::TICKET::] P4-2 changes. Details:",
-              "contracts": [
-                "C031"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Replaced stub file with full implementation"
-            },
-            {
-              "id": "TS-024",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/backend.rs",
-              "line": 256,
-              "markerText": "/// [::STUB::] P4-2: Replace each method body with actual PJSIP FFI calls.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-025",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 118,
-              "markerText": "// [::STUB::] P4-2: Route AddAudioSource to ClientState AudioMixer.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-026",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 59,
-              "markerText": "/// [::STUB::] P4-2: Replace with bindgen-generated constants from pjsua.h.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-027",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 70,
-              "markerText": "/// [::STUB::] P4-2: Replace with bindgen-generated media status constants.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-028",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-              "line": 109,
-              "markerText": "// [::STUB::] P4-2: Replace with real FFI call when PJSIP library linked.",
-              "contracts": [
-                "C031",
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
-            },
-            {
-              "id": "TS-029",
-              "ticketRef": "P4-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/wrapper.h",
-              "line": 6,
-              "markerText": "// [::STUB::] P4-2: Uncomment when PJSIP library is installed:",
-              "contracts": [
-                "C041"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Deferred: requires PJSIP library/bindgen integration (P5+ tickets, currently blocked on build environment having PJSIP headers)"
+              "resolutionPlan": "Uncommented `pub mod audio;` at src/lib.rs (removed the [::STUB::] P11-12 marker and stale comment via remove-stub.js); created src/audio/mod.rs + src/audio/pipeline.rs implementing AudioPipeline/AudioPipelineConfig/AudioOrchestrationError/ProcessedFrame/negotiate_codec composing PairAligner, ResamplePipeline::new + interleave_in_out, and CodecAutoMode::apply; added crate-root re-exports; 17 pipeline tests + full suite (1038) green."
             }
           ],
-          "targetCrimes": [],
+          "targetCrimes": "verified_empty",
           "planTestCode": [
-            "UT: [C031-Pre] AudioFormat constructs with valid fields\n  ```rust\n  let fmt = AudioFormat::new(SampleRate::Hz16000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();\n  assert_eq!(fmt.sample_rate, SampleRate::Hz16000);\n  assert_eq!(fmt.bit_depth, BitDepth::I16);\n  assert_eq!(fmt.channel_layout, ChannelLayout::Mono);\n  assert_eq!(fmt.frame_ms, 20);\n  ```",
-            "UT: [C031-Post] AudioChunk wraps Vec data\n  ```rust\n  let i16_data = vec![0i16; 160];\n  let chunk_i16 = AudioChunk::I16(i16_data.clone());\n  if let AudioChunk::I16(data) = &chunk_i16 { assert_eq!(data.len(), 160); }\n  let f32_data = vec![0.0f32; 160];\n  let chunk_f32 = AudioChunk::F32(f32_data.clone());\n  if let AudioChunk::F32(data) = &chunk_f32 { assert_eq!(data.len(), 160); }\n  ```",
-            "UT: [C031-Inv] AudioChunkPair shares single timestamp\n  ```rust\n  let ts = SystemTime::now();\n  let pair = AudioChunkPair {\n      call_id: CallId::from_u64(1).unwrap(),\n      account_id: AccountId::from_u64(1).unwrap(),\n      timestamp: ts,\n      in_chunk: AudioChunk::I16(vec![0; 160]),\n      out_chunk: AudioChunk::I16(vec![1; 160]),\n  };\n  // Single timestamp -> IN/OUT inherently paired\n  assert_eq!(pair.timestamp, ts);\n  assert!(pair.in_chunk.len() > 0);\n  assert!(pair.out_chunk.len() > 0);\n  ```",
-            "UT: [C036-Pre] PairAligner::new initializes empty queues\n  ```rust\n  let aligner = PairAligner::new(Duration::from_millis(30));\n  assert_eq!(aligner.in_q.len(), 0);\n  assert_eq!(aligner.out_q.len(), 0);\n  assert_eq!(aligner.tolerance, Duration::from_millis(30));\n  ```",
-            "UT: [C036-Post] try_pair returns paired frames within tolerance\n  ```rust\n  let mut aligner = PairAligner::new(Duration::from_millis(30));\n  let now = Instant::now();\n  aligner.push_in(vec![1i16; 160], now);\n  aligner.push_out(vec![2i16; 160], now + Duration::from_millis(10));\n  let result = aligner.try_pair();\n  assert!(result.is_some());\n  let (in_data, out_data, _ts) = result.unwrap();\n  assert_eq!(in_data.len(), 160);\n  assert!(out_data.iter().all(|&s| s == 2));\n  ```",
-            "UT: [C036-Inv] Zero-padding when only one side has data\n  ```rust\n  let mut aligner = PairAligner::new(Duration::from_millis(20));\n  aligner.push_in(vec![5i16; 160], Instant::now());\n  std::thread::sleep(Duration::from_millis(50));\n  let result = aligner.try_pair();\n  assert!(result.is_some());\n  let (in_data, out_data, _ts) = result.unwrap();\n  assert!(in_data.iter().all(|&s| s == 5));\n  assert!(out_data.iter().all(|&s| s == 0));\n  assert!(aligner.alignment_drift() > 0);\n  ```",
-            "UT: [C036-Err] try_pair returns None on empty queues\n  ```rust\n  let mut aligner = PairAligner::new(Duration::from_millis(30));\n  assert!(aligner.try_pair().is_none());\n  ```",
-            "UT: [C037-Pre] ResamplePipeline stores format configs\n  ```rust\n  let in_fmt = AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();\n  let out_fmt = AudioFormat::new(SampleRate::Hz16000, BitDepth::I16, ChannelLayout::Mono, 20).unwrap();\n  let pipeline = ResamplePipeline::new(in_fmt, out_fmt);\n  assert_eq!(pipeline.in_rate, SampleRate::Hz48000);\n  assert_eq!(pipeline.out_rate, SampleRate::Hz16000);\n  ```",
-            "UT: [C037-Post] interleave_in_out maps L=IN, R=OUT\n  ```rust\n  let in_mono = vec![1i16, 2, 3, 4];\n  let out_mono = vec![5i16, 6, 7, 8];\n  let stereo = interleave_in_out(&in_mono, &out_mono);\n  assert_eq!(stereo.len(), 8);\n  assert_eq!(stereo, vec![1, 5, 2, 6, 3, 7, 4, 8]);\n  ```",
-            "UT: [C037-Inv] Stereo invariant L=IN, R=OUT for all indices\n  ```rust\n  let in_mono = vec![10i16, 20, 30];\n  let out_mono = vec![100i16, 200, 300];\n  let stereo = interleave_in_out(&in_mono, &out_mono);\n  for i in 0..3 {\n      assert_eq!(stereo[2*i], in_mono[i], \"L=IN at {i}\");\n      assert_eq!(stereo[2*i+1], out_mono[i], \"R=OUT at {i}\");\n  }\n  ```",
-            "UT: [C041-Pre] NegotiatedCodec constructors\n  ```rust\n  let pcmu = NegotiatedCodec::Pcmu;\n  let opus = NegotiatedCodec::Opus(OpusConfig::default());\n  assert_eq!(pcmu, NegotiatedCodec::Pcmu);\n  match opus {\n      NegotiatedCodec::Opus(cfg) => assert_eq!(cfg.ptime_ms, 20),\n      _ => panic!(\"expected Opus\"),\n  }\n  ```",
-            "UT: [C041-Post] CodecSelectionPolicy variants\n  ```rust\n  let ordered = CodecSelectionPolicy::Ordered;\n  let prefer_opus = CodecSelectionPolicy::PreferOpusFallbackPcmu;\n  assert_eq!(CodecSelectionPolicy::default(), CodecSelectionPolicy::PreferOpusFallbackPcmu);\n  assert_ne!(ordered, prefer_opus);\n  ```",
-            "UT: [C041-Inv] NegotiatedCodec exactly 2 variants\n  ```rust\n  fn discriminant(c: &NegotiatedCodec) -> u8 {\n      match c {\n          NegotiatedCodec::Pcmu => 1,\n          NegotiatedCodec::Opus(_) => 2,\n      }\n  }\n  assert_eq!(discriminant(&NegotiatedCodec::Pcmu), 1);\n  assert_eq!(discriminant(&NegotiatedCodec::Opus(OpusConfig::default())), 2);\n  ```",
-            "UT: [C042-Pre] CodecAutoMode::apply with empty preferred_codecs returns priorities\n  ```rust\n  let codecs = vec![CodecInfo::new(\"PCMU/8000/1\"), CodecInfo::new(\"opus/48000/2\")];\n  let result = CodecAutoMode::apply(&codecs, &[]).unwrap();\n  assert_eq!(result.get(\"PCMU/8000/1\"), Some(&254));\n  assert_eq!(result.get(\"opus/48000/2\"), Some(&255));\n  ```",
-            "UT: [C042-Post] CodecAutoMode::apply with non-empty preferred_codecs returns empty map\n  ```rust\n  let codecs = vec![CodecInfo::new(\"PCMU/8000/1\")];\n  let result = CodecAutoMode::apply(&codecs, &[\"opus/48000/2\".to_string()]).unwrap();\n  assert!(result.is_empty());\n  ```",
-            "UT: [C042-Inv] Opus=255, PCMU=254 in auto mode\n  ```rust\n  let codecs = vec![CodecInfo::new(\"opus/48000/2\"), CodecInfo::new(\"PCMU/8000/1\"), CodecInfo::new(\"G722/8000/1\")];\n  let result = CodecAutoMode::apply(&codecs, &[]).unwrap();\n  for (id, prio) in &result {\n      if id.starts_with(\"opus/\") { assert_eq!(*prio, 255); }\n      if *id == \"PCMU/8000/1\" { assert_eq!(*prio, 254); }\n  }\n  assert_eq!(result.get(\"G722/8000/1\"), Some(&0));\n  ```"
+            "// C031-Pre — AudioFormat boundary validation drives the orchestration config boundary\n#[test]\nfn pipeline_config_rejects_invalid_frame_ms() {\n    let err = AudioPipelineConfig::new(\n        SampleRate::Hz48000, BitDepth::I16, ChannelLayout::StereoInOut, 5, // invalid frame_ms\n        SampleRate::Hz16000, BitDepth::I16, ChannelLayout::StereoInOut, 20,\n        Duration::from_millis(30), CodecSelectionPolicy::default(), vec![],\n    );\n    assert!(matches!(err, Err(AudioOrchestrationError::InvalidFormat(AudioFormatError::InvalidFrameMs(5)))));\n}",
+            "// C031-Inv — AudioChunkPair shares a single SystemTime for IN and OUT\n#[test]\nfn audio_chunk_pair_pairs_in_out_by_single_timestamp() {\n    let ts = SystemTime::now();\n    let pair = AudioChunkPair {\n        call_id: CallId::from_u64(1).unwrap(),\n        account_id: AccountId::from_u64(1).unwrap(),\n        timestamp: ts,\n        in_chunk: AudioChunk::I16(vec![0i16; 160]),\n        out_chunk: AudioChunk::I16(vec![1i16; 160]),\n    };\n    assert_eq!(pair.timestamp, ts);\n    assert_eq!(pair.in_chunk.len(), 160);\n    assert_eq!(pair.out_chunk.len(), 160);\n}",
+            "// C031-Boundary — all 64 valid AudioFormat combinations construct; invalid frame_ms rejects\n#[test]\nfn audio_format_all_valid_combinations_construct() {\n    for &rate in &[SampleRate::Hz8000, SampleRate::Hz16000, SampleRate::Hz24000, SampleRate::Hz48000] {\n        for &depth in &[BitDepth::I16, BitDepth::F32] {\n            for &layout in &[ChannelLayout::Mono, ChannelLayout::StereoInOut] {\n                for &ms in &[10u16, 20, 40, 60] {\n                    assert!(AudioFormat::new(rate, depth, layout, ms).is_ok(), \"failed for {ms}ms\");\n                }\n            }\n        }\n    }\n    assert!(AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 9).is_err());\n    assert!(AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 61).is_err());\n}",
+            "// C036-Post — pushed pair produces a paired stereo frame (L=IN, R=OUT)\n#[test]\nfn pipeline_produces_paired_stereo_frame() {\n    let mut pipeline = valid_pipeline();\n    let in_data: Vec<i16> = (1..=160).collect();\n    let out_data: Vec<i16> = (101..=260).collect();\n    let pair = AudioChunkPair {\n        call_id: CallId::from_u64(1).unwrap(),\n        account_id: AccountId::from_u64(1).unwrap(),\n        timestamp: SystemTime::now(),\n        in_chunk: AudioChunk::I16(in_data.clone()),\n        out_chunk: AudioChunk::I16(out_data.clone()),\n    };\n    pipeline.push_pair(pair).unwrap();\n    let frame = pipeline.poll_processed_frame().unwrap().unwrap();\n    assert_eq!(frame.stereo_interleaved.len(), 320);\n    for i in 0..160 {\n        assert_eq!(frame.stereo_interleaved[2 * i], in_data[i], \"L=IN at {i}\");\n        assert_eq!(frame.stereo_interleaved[2 * i + 1], out_data[i], \"R=OUT at {i}\");\n    }\n    assert_eq!(frame.negotiated_codec, NegotiatedCodec::Opus(OpusConfig::default()));\n}",
+            "// C036-Inv — only IN fed past tolerance -> OUT zero-filled, drift incremented\n#[test]\nfn pipeline_zero_pads_missing_out_side() {\n    let mut pipeline = valid_pipeline(); // tolerance = 20ms\n    let in_data: Vec<i16> = (1..=160).collect();\n    pipeline.push_in_frame(in_data.clone()).unwrap();\n    std::thread::sleep(Duration::from_millis(50)); // 50ms > 20ms tolerance\n    let frame = pipeline.poll_processed_frame().unwrap().unwrap();\n    assert_eq!(frame.stereo_interleaved.len(), 320);\n    for i in 0..160 {\n        assert_eq!(frame.stereo_interleaved[2 * i], in_data[i], \"L=IN preserved at {i}\");\n        assert_eq!(frame.stereo_interleaved[2 * i + 1], 0, \"R=zero-padded at {i}\");\n    }\n    assert!(pipeline.alignment_drift() > 0);\n}",
+            "// C037-Post — interleave_in_out maps stereo L=IN, R=OUT deterministically\n#[test]\nfn interleave_maps_l_in_r_out() {\n    let in_mono = vec![1i16, 2, 3, 4];\n    let out_mono = vec![5i16, 6, 7, 8];\n    let stereo = interleave_in_out(&in_mono, &out_mono);\n    assert_eq!(stereo, vec![1, 5, 2, 6, 3, 7, 4, 8]);\n}",
+            "// C037-Boundary — interleave truncates to the shorter input\n#[test]\nfn interleave_truncates_to_shortest_input() {\n    let stereo = interleave_in_out(&[1i16, 2, 3], &[4i16, 5]);\n    assert_eq!(stereo, vec![1, 4, 2, 5]);\n}",
+            "// C037-Err — AudioPipeline requires distinct in/out sample rates\n#[test]\nfn pipeline_rejects_identical_rates() {\n    let config = AudioPipelineConfig::new(\n        SampleRate::Hz48000, BitDepth::I16, ChannelLayout::StereoInOut, 20,\n        SampleRate::Hz48000, BitDepth::I16, ChannelLayout::StereoInOut, 20,\n        Duration::from_millis(30), CodecSelectionPolicy::default(), vec![],\n    ).unwrap();\n    let err = AudioPipeline::new(config);\n    assert!(matches!(err, Err(AudioOrchestrationError::ResampleUnsupported(_))));\n}",
+            "// C041-Post — PreferOpusFallbackPcmu resolves Opus first\n#[test]\nfn negotiate_codec_prefers_opus_over_pcmu() {\n    let remote = vec![CodecInfo::new(\"opus/48000/2\"), CodecInfo::new(\"PCMU/8000/1\")];\n    let codec = negotiate_codec(CodecSelectionPolicy::PreferOpusFallbackPcmu, &remote).unwrap();\n    assert_eq!(codec, NegotiatedCodec::Opus(OpusConfig::default()));\n}",
+            "// C041-Err — no mutually supported codec -> MediaNegotiationFailed, never panics\n#[test]\nfn negotiate_codec_fails_with_no_mutual_codec() {\n    let remote = vec![CodecInfo::new(\"G722/8000/1\"), CodecInfo::new(\"GSM/8000/1\")];\n    let err = negotiate_codec(CodecSelectionPolicy::PreferOpusFallbackPcmu, &remote);\n    assert!(matches!(err, Err(AudioOrchestrationError::MediaNegotiationFailed)));\n}",
+            "// C041-Boundary — empty remote list fails under both policies\n#[test]\nfn negotiate_codec_empty_remote_fails() {\n    let err = negotiate_codec(CodecSelectionPolicy::Ordered, &[]);\n    assert!(matches!(err, Err(AudioOrchestrationError::MediaNegotiationFailed)));\n}",
+            "// C042-Inv — Ordered policy resolves via auto-mode priorities (Opus=255 > PCMU=254)\n#[test]\nfn ordered_policy_uses_auto_mode_priorities() {\n    let remote = vec![CodecInfo::new(\"PCMU/8000/1\"), CodecInfo::new(\"opus/48000/2\")];\n    let codec = negotiate_codec(CodecSelectionPolicy::Ordered, &remote).unwrap();\n    assert_eq!(codec, NegotiatedCodec::Opus(OpusConfig::default()));\n}",
+            "// C042-Post — CodecAutoMode::apply explicit-mode bypass returns an empty map\n#[test]\nfn codec_auto_mode_explicit_mode_returns_empty_map() {\n    let codecs = vec![CodecInfo::new(\"PCMU/8000/1\")];\n    let map = CodecAutoMode::apply(&codecs, &[\"opus/48000/2\".to_string()]).unwrap();\n    assert!(map.is_empty());\n}",
+            "// [Normal-orch] — F32 chunk rejected at the boundary; queues untouched\n#[test]\nfn push_pair_rejects_f32_chunk_without_touching_queues() {\n    let mut pipeline = valid_pipeline();\n    let pair = AudioChunkPair {\n        call_id: CallId::from_u64(1).unwrap(),\n        account_id: AccountId::from_u64(1).unwrap(),\n        timestamp: SystemTime::now(),\n        in_chunk: AudioChunk::F32(vec![0.0f32; 160]),\n        out_chunk: AudioChunk::I16(vec![0i16; 160]),\n    };\n    let err = pipeline.push_pair(pair);\n    assert!(matches!(err, Err(AudioOrchestrationError::UnsupportedChunkKind)));\n    assert_eq!(pipeline.alignment_drift(), 0);\n}",
+            "// [Boundary-orch] — empty I16 chunk flows through producing len-0 stereo output\n#[test]\nfn empty_i16_chunk_flows_through_pipeline() {\n    let mut pipeline = valid_pipeline();\n    let pair = AudioChunkPair {\n        call_id: CallId::from_u64(1).unwrap(),\n        account_id: AccountId::from_u64(1).unwrap(),\n        timestamp: SystemTime::now(),\n        in_chunk: AudioChunk::I16(vec![]),\n        out_chunk: AudioChunk::I16(vec![7i16; 160]),\n    };\n    pipeline.push_pair(pair).unwrap();\n    let frame = pipeline.poll_processed_frame().unwrap().unwrap();\n    assert!(frame.stereo_interleaved.is_empty());\n}",
+            "// [Invariant-orch] — pipeline determinism: identical inputs yield identical outputs\n#[test]\nfn pipeline_is_deterministic() {\n    let pair = || AudioChunkPair {\n        call_id: CallId::from_u64(1).unwrap(),\n        account_id: AccountId::from_u64(1).unwrap(),\n        timestamp: SystemTime::now(),\n        in_chunk: AudioChunk::I16((1..=160).collect()),\n        out_chunk: AudioChunk::I16((101..=260).collect()),\n    };\n    let mut p1 = valid_pipeline();\n    let mut p2 = valid_pipeline();\n    p1.push_pair(pair()).unwrap();\n    p2.push_pair(pair()).unwrap();\n    let f1 = p1.poll_processed_frame().unwrap().unwrap();\n    let f2 = p2.poll_processed_frame().unwrap().unwrap();\n    assert_eq!(f1.stereo_interleaved, f2.stereo_interleaved);\n}"
           ],
           "changes": [
             {
@@ -28195,6 +27856,21 @@
               "before": "config.rs: no codec_policy_fallback module",
               "after": "config.rs: pub mod codec_policy_fallback added",
               "description": "Wired new codec policy module into crate"
+            },
+            {
+              "before": "src/lib.rs: `pub mod audio;` commented out with a [::STUB::] P11-12 marker and stale comment",
+              "after": "`pub mod audio;` uncommented; [::STUB::] P11-12 removed via remove-stub.js; stale comment removed; crate-root re-exports `siprs::audio::{AudioPipeline, AudioPipelineConfig, AudioOrchestrationError, ProcessedFrame}` added with [::TICKET::] P11-12 provenance",
+              "description": "Uncommented the audio module and wired the orchestration API into the crate root"
+            },
+            {
+              "before": "(no src/audio/ module)",
+              "after": "src/audio/mod.rs declares `pub mod pipeline;` and re-exports the orchestration types; carries the Initial Design Artifact header mapped to N0030/N0035/N0036/N0040",
+              "description": "Created the higher-level audio orchestration module"
+            },
+            {
+              "before": "(no orchestration implementation)",
+              "after": "src/audio/pipeline.rs implements AudioOrchestrationError (thiserror), AudioFormatSpec (boundary-validated format spec with TryFrom<AudioFormat>), AudioPipelineConfig::new, AudioPipeline (new/push_pair/push_in_frame/push_out_frame/poll_processed_frame/negotiate_codec/alignment_drift/in_format/out_format), ProcessedFrame, and the negotiate_codec free function composing PairAligner → ResamplePipeline::new + interleave_in_out → CodecAutoMode/CodecSelectionPolicy",
+              "description": "Implemented the align → resample → codec-policy orchestration pipeline"
             }
           ],
           "rfcDiscrepancies": [],
@@ -28205,7 +27881,9 @@
               "codes": "// The audio/ module remains commented out — reserved for future higher-level audio orchestration (P5+).\n// pub mod audio;\n"
             }
           ],
-          "fromStub": true
+          "fromStub": true,
+          "startedAt": "2026-08-07",
+          "completedAt": "2026-08-07"
         },
         {
           "title": "DTMF Specification, AsyncAudioSource & Incoming Call/Transfer",
