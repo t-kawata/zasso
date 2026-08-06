@@ -55,7 +55,7 @@ pub struct DatabasePool {
     conn: DatabaseConnection,
 }
 
-// [::TICKET::] P2-3, P4-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3|P7-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P2-3, P4-3, P7-3, P12-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3|P7-3|P12-2) --for-spec --no-implementation-order`.
 impl DatabasePool {
     /// Open or create a SQLite database at the given path.
     ///
@@ -142,6 +142,61 @@ impl DatabasePool {
             .filter_map(|row| row.try_get_by_index::<String>(0).ok())
             .collect())
     }
+
+    /// Load all persisted accounts from the `accounts` table, ordered by id.
+    ///
+    /// Returns an empty `Vec` when the table is empty. The caller must ensure
+    /// the table exists — `run_server` calls `init_schema()` before
+    /// `load_accounts()` so a fresh database starts with zero accounts instead
+    /// of a missing-table error (C065 postcondition).
+    ///
+    /// # Errors
+    ///
+    /// Returns `DbErr` if the query fails or any row cannot be decoded (e.g.
+    /// the `accounts` table is missing because `init_schema()` was never called).
+    pub async fn load_accounts(&self) -> Result<Vec<AccountEntity>, DbErr> {
+        use sea_orm::ConnectionTrait;
+
+        let rows = self
+            .conn
+            .query_all(Statement::from_string(
+                sea_orm::DatabaseBackend::Sqlite,
+                String::from(
+                    "SELECT id, display_name, username, auth_username, password, domain, \
+                     registrar_uri, transport, register_on_start, \
+                     allow_outbound_without_register, created_at, updated_at \
+                     FROM accounts ORDER BY id",
+                ),
+            ))
+            .await?;
+
+        rows.iter().map(row_to_account_entity).collect()
+    }
+}
+
+/// Map one SeaORM `QueryResult` row into an `AccountEntity`.
+///
+/// NULL columns (`display_name`, `auth_username`, `registrar_uri`) decode to
+/// `None`; INTEGER columns (`register_on_start`, `allow_outbound_without_register`)
+/// decode to `bool`; the password BLOB decodes to `Vec<u8>`.
+///
+/// The positional index mirrors the SELECT column order in `load_accounts`.
+// [::TICKET::] P12-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-2 --for-spec --no-implementation-order`.
+fn row_to_account_entity(row: &sea_orm::QueryResult) -> Result<AccountEntity, DbErr> {
+    Ok(AccountEntity {
+        id: row.try_get_by_index(0)?,
+        display_name: row.try_get_by_index(1)?,
+        username: row.try_get_by_index(2)?,
+        auth_username: row.try_get_by_index(3)?,
+        password: row.try_get_by_index(4)?,
+        domain: row.try_get_by_index(5)?,
+        registrar_uri: row.try_get_by_index(6)?,
+        transport: row.try_get_by_index(7)?,
+        register_on_start: row.try_get_by_index(8)?,
+        allow_outbound_without_register: row.try_get_by_index(9)?,
+        created_at: row.try_get_by_index(10)?,
+        updated_at: row.try_get_by_index(11)?,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -397,7 +452,7 @@ mod tests {
     #[test]
     // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_entities_are_send_sync() {
-        // [::TICKET::] P2-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P7-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P2-3, P7-3, P12-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P7-3|P12-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         // [::TICKET::] P2-3, P4-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3|P7-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
@@ -583,5 +638,105 @@ mod tests {
             tls.contains("verify_server INTEGER NOT NULL DEFAULT 1"),
             "tls_configs.verify_server must be INTEGER NOT NULL DEFAULT 1"
         );
+    }
+
+    // ── P12-2: DatabasePool::load_accounts (startup account restoration) ──
+
+    #[tokio::test]
+    // @verifies C065
+    // [::TICKET::] P12-2: load_accounts yields persisted rows in id order.
+    async fn load_accounts_returns_inserted_entities() -> Result<(), DbErr> {
+        use sea_orm::{ConnectionTrait, DatabaseBackend};
+
+        let pool = DatabasePool::open(":memory:").await?;
+        pool.init_schema().await?;
+        pool.connection()
+            .execute(Statement::from_string(
+                DatabaseBackend::Sqlite,
+                "INSERT INTO accounts (username, password, domain) \
+                 VALUES ('alice', X'70617373', 'sip.example.com')"
+                    .to_string(),
+            ))
+            .await?;
+        pool.connection()
+            .execute(Statement::from_string(
+                DatabaseBackend::Sqlite,
+                "INSERT INTO accounts (username, password, domain) \
+                 VALUES ('bob', X'70617373', 'sip.example.net')"
+                    .to_string(),
+            ))
+            .await?;
+
+        let accounts = pool.load_accounts().await?;
+        assert_eq!(accounts.len(), 2, "both inserted accounts must be loaded");
+        assert_eq!(accounts[0].id, 1);
+        assert_eq!(accounts[0].username, "alice");
+        assert_eq!(accounts[0].domain, "sip.example.com");
+        assert_eq!(accounts[0].password, b"pass");
+        assert_eq!(accounts[1].username, "bob");
+        assert_eq!(accounts[1].domain, "sip.example.net");
+        assert!(accounts[0].id < accounts[1].id, "rows are ordered by id");
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C065
+    // [::TICKET::] P12-2: an empty accounts table yields an empty Vec, not an error.
+    async fn load_accounts_empty_table_returns_empty() -> Result<(), DbErr> {
+        let pool = DatabasePool::open(":memory:").await?;
+        pool.init_schema().await?;
+        let accounts = pool.load_accounts().await?;
+        assert!(
+            accounts.is_empty(),
+            "empty accounts table must yield an empty Vec"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C065
+    // [::TICKET::] P12-2: a missing accounts table surfaces as Err(DbErr), never a silent empty Vec.
+    async fn load_accounts_missing_table_returns_err() -> Result<(), DbErr> {
+        let pool = DatabasePool::open(":memory:").await?;
+        // init_schema() is intentionally NOT called — the accounts table is absent.
+        let result = pool.load_accounts().await;
+        assert!(
+            result.is_err(),
+            "load_accounts on a missing table must return Err(DbErr)"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C065
+    // [::TICKET::] P12-2: NULL Option columns and INTEGER-as-bool flags map correctly.
+    async fn load_accounts_maps_null_and_bool_columns() -> Result<(), DbErr> {
+        use sea_orm::{ConnectionTrait, DatabaseBackend};
+
+        let pool = DatabasePool::open(":memory:").await?;
+        pool.init_schema().await?;
+        pool.connection()
+            .execute(Statement::from_string(
+                DatabaseBackend::Sqlite,
+                "INSERT INTO accounts (display_name, username, auth_username, password, domain, \
+                 registrar_uri, transport, register_on_start, allow_outbound_without_register) \
+                 VALUES (NULL, 'carol', NULL, X'70617373', 'sip.example.org', NULL, 'tcp', 0, 1)"
+                    .to_string(),
+            ))
+            .await?;
+
+        let accounts = pool.load_accounts().await?;
+        assert_eq!(accounts.len(), 1);
+        let entity = &accounts[0];
+        assert_eq!(entity.display_name, None);
+        assert_eq!(entity.auth_username, None);
+        assert_eq!(entity.registrar_uri, None);
+        assert_eq!(entity.transport, "tcp");
+        assert!(!entity.register_on_start, "register_on_start=0 decodes to false");
+        assert!(
+            entity.allow_outbound_without_register,
+            "allow_outbound_without_register=1 decodes to true"
+        );
+        Ok(())
     }
 }

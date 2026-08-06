@@ -29973,60 +29973,83 @@
             {
               "id": "C015",
               "sourceEdge": "N0014→N0013",
-              "precondition": "ClientConfig defined",
-              "postcondition": "AccountConfig specified with validation",
-              "invariant": "Validation rules enforced"
+              "precondition": "ClientConfig is defined and validated before reactor spawn (SipClient::new calls config.validate() → Err(InvalidConfig) on empty sip_proxy_host). For P12-2 restoration, every restored AccountConfig must satisfy validate() before dispatch.",
+              "postcondition": "AccountConfig specifies all 17 fields (display_name, username, auth_username, password, domain, registrar_uri, outbound_proxy, contact_params, transport, register_on_start, allow_outbound_without_register, registration_expires, codecs, dtmf, media, auto_reject_timer, headers). validate() enforces non-empty username/domain/password, ≥1 codec, ≥1 DTMF send/receive method, registration_expires > 0, and Opus range checks. add_account fails fast (C052) before submitting RuntimeCommand::AddAccount.",
+              "invariant": "Validation rules are enforced at the facade boundary: an invalid config never reaches the reactor (test sip_client_add_account_rejects_invalid_before_dispatch proves no state mutation). Restoration must therefore skip (log+continue), never abort, rows whose config fails validate()."
             },
             {
               "id": "C063",
               "sourceEdge": "N0062→N0061",
-              "precondition": "Standalone server mode (N0061) is configured and running; Axum router is built with shared AppState",
-              "postcondition": "HTTP/WS protocol defines 18 REST API endpoints, 2 WebSocket endpoints (control+audio, audio-only), JSON text frame format (type/seq/payload), and binary audio frame format (AudioFrameHeader + PCM data). Axum router registers all routes.",
-              "invariant": "Event-audio correlation via sequence numbers: SipEvent.meta.seq and AudioChunkPair.first_seq/last_seq share the same monotonically increasing global counter domain. A consumer can correlate seq=N event with first_seq=N audio chunk."
+              "precondition": "Standalone server mode (N0061) is configured; Axum router is built with shared AppState (Arc<SipClient> + Arc<DatabasePool>). For P12-2, build_router runs AFTER account restoration so restored accounts are immediately queryable via GET /api/v1/accounts.",
+              "postcondition": "HTTP/WS protocol defines 18 REST API endpoints, 2 WebSocket endpoints (control+audio, audio-only), JSON text frame format (type/seq/payload), and binary audio frame format (AudioFrameHeader + PCM data). Axum router registers all routes. GET /api/v1/accounts reflects the reactor ClientState (C021) populated by the restoration step.",
+              "invariant": "Event-audio correlation via sequence numbers is unchanged by restoration: SipEvent.meta.seq and AudioChunkPair.first_seq/last_seq share the same monotonically increasing global counter domain. A consumer can correlate seq=N event with first_seq=N audio chunk."
             },
             {
               "id": "C065",
               "sourceEdge": "N0064→N0061",
-              "precondition": "Standalone server mode (N0061) is configured; SQLite database path is specified in config",
-              "postcondition": "SQLite schema with 4 tables (accounts, transport_configs, client_settings, tls_configs) is created at startup. SeaORM migration files are generated. Makefile targets for migration management (gen-migration, migrate-up, migrate-fresh, gen-entities) are available.",
-              "invariant": "rusqlite bundled feature ensures SQLite builds without system library dependency. DatabasePool uses single connection (SQLite file-locked for writes) with busy timeout to avoid database is locked errors."
+              "precondition": "Standalone server mode (N0061) is configured; SQLite database path is specified in ServerConfig; DatabasePool::open(path) succeeds (mode=rwc creates the file). run_server MUST call init_schema() before load_accounts() so the accounts table exists even on a fresh DB.",
+              "postcondition": "SQLite schema with 4 tables (accounts, transport_configs, client_settings, tls_configs) is created at startup via init_schema(). NEW (P12-2): DatabasePool::load_accounts() reads all rows of the accounts table as Vec<AccountEntity> ordered by id; empty table → empty Vec; missing table → Err(DbErr). Each AccountEntity maps to an AccountConfig (username, domain, display_name, auth_username, registrar_uri, transport, register_on_start, allow_outbound_without_register) for add_account. SeaORM migration files and Makefile targets remain available per C065.",
+              "invariant": "rusqlite bundled feature ensures SQLite builds without system libsqlite3. DatabasePool uses a single connection (SQLite file-locked for writes) with busy timeout to avoid 'database is locked' errors. Startup restoration is idempotent: load_accounts is a pure SELECT (no writes) and re-running restoration cannot duplicate accounts; a saved account failing add_account is skipped with a warning, never fatal."
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P4-3 (Shutdown, Media Bridge, HTTP/WS Protocol & SQLite Schema) defined the SQLite accounts table and the standalone server mode (C065/C063). run_server() opens the DatabasePool but never restores persisted accounts, so saved accounts are not re-registered on startup. This work item resolves the marker by adding DatabasePool::load_accounts() and replaying each saved account through sip_client.add_account() at server startup.",
+          "background": "【Goal】On standalone-server startup, restore every persisted SIP account from the SQLite accounts table so a restart re-registers the same identity set without manual re-entry.\n【Purpose】run_server (src/api/standalone_server_config.rs:369-382) opens the DatabasePool but never reads it — saved accounts are silently not restored (P12-2 STUB at :382).\n【Motivation】Persistence without restoration defeats the standalone-server contract: every restart drops all registered accounts. P4-3 defined the schema (C065) but left the read/restore path to this ticket.\n【Constraints】Feature-gated behind sqlite-storage. load_accounts is read-only; password decryption and the full AccountEntity↔AccountConfig bijection belong to the persist path (out of scope). add_account is C052 fail-fast, so rows whose config fails validate() must be skipped, not fatal.",
           "scope": [
-            "src/api/standalone_server_config.rs (run_server — load accounts from the pool and add each to sip_client before serving)",
-            "src/model/sqlite_schema.rs (DatabasePool::load_accounts() — query the accounts table into AccountEntity values)",
-            "src/client.rs (SipClient::add_account public method wrapping RuntimeCommand::AddAccount, if not already present)",
-            "src/runtime/command.rs (AddAccount dispatch — verify the reply path and account id)",
-            "Out of scope: the account persist/save path; full AccountEntity ↔ AccountConfig bijection beyond the read direction.",
-            "Impact: restarting the server re-registers all accounts saved in a previous run; feature-gated behind sqlite-storage."
+            "CHANGE src/model/sqlite_schema.rs — add `pub async fn DatabasePool::load_accounts(&self) -> Result<Vec<AccountEntity>, DbErr>`: raw SQL SELECT over the accounts table (ORDER BY id) via SeaORM query_all, mapping each row into AccountEntity through a private row→entity helper. Before: no read path for accounts. After: callers can list all persisted accounts.",
+            "CHANGE src/model/sqlite_schema.rs — add private row→AccountEntity mapper (row_to_account_entity) handling NULL Option columns (display_name, auth_username, registrar_uri), INTEGER-as-bool flags (register_on_start, allow_outbound_without_register), and the password BLOB. Before: none. After: all 12 columns mapped.",
+            "CHANGE src/api/standalone_server_config.rs — run_server: after DatabasePool::open (line 380), call init_schema() (C065 postcondition) then restore_accounts_from_db(&sip_client, &db) BEFORE build_router/bind. Before: pool opened but never used. After: persisted accounts re-registered at startup.",
+            "CHANGE src/api/standalone_server_config.rs — add `async fn restore_accounts_from_db(sip_client: &SipClient, db: &DatabasePool) -> Result<(), SipError>`: load_accounts → for each entity convert to AccountConfig → sip_client.add_account(config).await; DB errors are fatal (mapped to SipError::NativeError), per-account add_account errors are logged with tracing::warn! and skipped.",
+            "CHANGE src/api/standalone_server_config.rs — add account_entity_to_config(&AccountEntity) -> AccountConfig helper mapping the fields consumed by add_account; transport string → AccountTransportPolicy with Udp fallback; password BLOB passed through lossy UTF-8 into SecretString.",
+            "VERIFY src/client.rs — SipClient::add_account(config: AccountConfig) -> Result<SipAccountHandle, SipError> ALREADY EXISTS at :219 (validates C052 fail-fast, submits RuntimeCommand::AddAccount, returns logical id). No code change required for this ticket.",
+            "VERIFY src/runtime/command.rs — RuntimeCommand::AddAccount { config, reply: Reply<Result<u64, ReactorError>> } at :108 and reactor dispatch (reactor.rs:241) confirmed: backend.add_account → ClientState insert → reply with assigned id. No code change required.",
+            "NO-CHANGE src/tests/test_apilayer5.rs — TS-003 (Layer 5 integration tests) remains pending: it requires the siprs-server crate and is tracked by P12-10; out of scope for P12-2.",
+            "NO-CHANGE persist/save path (save_account) — excluded because load_accounts only needs the read direction and assumes the C065 accounts table schema; the write path is a separate future ticket.",
+            "NO-CHANGE full AccountEntity ↔ AccountConfig bijection incl. password decryption — excluded because decryption belongs to the persist path; the read direction passes the encrypted BLOB through lossily.",
+            "NO-CHANGE existing C015/C063 contract behavior — unchanged; referenced only for test-coverage mapping and the new ordering constraint (restoration before router build).",
+            "IMPACT component: siprs-server startup sequence — nature: additive restoration step between pool-open and router-build — response: saved accounts re-register on restart; no change to existing routes.",
+            "IMPACT component: DatabasePool public API — nature: one new public read method (load_accounts) — response: any module can list persisted accounts; additive, no breaking change."
           ],
           "testUnit": [
-            "UT: [Normal] DatabasePool::load_accounts() on a temp DB returns the inserted AccountEntity rows.",
-            "UT: [Boundary] load_accounts() on an empty accounts table returns an empty Vec.",
-            "UT: [Error] load_accounts() propagates a DB error (e.g. missing table) as Err.",
-            "UT: [Normal] AccountEntity → AccountConfig mapping for the fields consumed by add_account.",
-            "UT: [Normal] The restoration loop calls add_account exactly once per loaded account (mock sip_client)."
+            "UT: [C065-Pre] DatabasePool::open(\":memory:\") succeeds and yields a usable connection (sqlite-storage) — mirrors existing test_database_pool_in_memory",
+            "UT: [C065-Post] init_schema() creates the 4 RFC S56 tables (accounts, transport_configs, client_settings, tls_configs) — verified via query_tables(), mirrors existing init_schema_creates_4_tables",
+            "UT: [C065-Inv] rusqlite bundled feature compiles without system libsqlite3; DatabasePool uses a single connection (max_connections=1) with busy timeout — mirrors existing rusqlite_bundled_open_in_memory_compiles",
+            "UT: [Normal] load_accounts() on a temp DB returns the inserted AccountEntity rows in id order — init_schema + 2 raw INSERTs, assert both entities and all 12 fields (id, display_name, username, auth_username, password, domain, registrar_uri, transport, register_on_start, allow_outbound_without_register, created_at, updated_at)",
+            "UT: [Boundary] load_accounts() on an empty accounts table returns an empty Vec with no error",
+            "UT: [Error] load_accounts() on a missing accounts table (no init_schema) propagates Err(DbErr) — never panics, never silently returns an empty Vec on schema absence",
+            "UT: [Normal] load_accounts() row->entity mapping covers NULL Option columns (display_name, auth_username, registrar_uri) and INTEGER-as-bool flags (register_on_start, allow_outbound_without_register)",
+            "UT: [Normal] AccountEntity -> AccountConfig mapping copies username, domain, display_name, auth_username, registrar_uri, register_on_start, allow_outbound_without_register verbatim for add_account",
+            "UT: [Boundary] transport string mapping — \"udp\"->Udp, \"tcp\"->Tcp, \"tls\"->Tls (case-insensitive), unknown string -> Udp fallback",
+            "UT: [C015-Pre] ClientConfig is defined and SipClient::new(config) validates it before spawning the reactor — invalid config returns Err(InvalidConfig) (existing test_client pattern)",
+            "UT: [C015-Post/C015-Inv] add_account() validates AccountConfig before dispatch (C052 fail-fast) — empty username returns Err(InvalidConfig) with no state mutation; validation enforced at the facade boundary (mirrors sip_client_add_account_rejects_invalid_before_dispatch)",
+            "UT: [Normal] The restoration loop calls add_account exactly once per loaded account — restore_accounts_from_db with 2 persisted rows -> sip_client.accounts() reports exactly 2",
+            "UT: [Error] A saved account that fails add_account (invalid config, e.g. empty password BLOB X'') is logged and skipped — restore_accounts_from_db returns Ok and the remaining valid accounts still register",
+            "UT: [Boundary] Empty accounts table -> restore_accounts_from_db is a no-op returning Ok with zero accounts",
+            "UT: [Error] load_accounts() DB error propagates through restore_accounts_from_db as a typed SipError(NativeError) — startup aborts rather than silently serving zero accounts",
+            "UT: [C063-Pre] build_router(AppState) registers the route set and allows route extension — existing @verifies C063 test_build_router_allows_route_addition",
+            "UT: [C063-Post] WsTextFrame JSON round-trip and AudioFrameHeader binary round-trip; the 20 endpoint path constants — existing @verifies C063/C064 tests in http_ws_protocol",
+            "UT: [C063-Inv] Sequence numbers correlate events and audio — existing SequenceGenerator / AudioChunkPair range tests"
           ],
           "testIntegration": [
-            "IT: [Server startup] Insert accounts into a temp DB, run the run_server restoration step, and verify sip_client.accounts() contains the restored accounts.",
-            "IT: [Fresh DB] run_server with an empty DB starts successfully with zero restored accounts."
+            "IT: [Server startup] Insert 2 accounts into a temp DB (init_schema + raw INSERT), run the run_server restoration step (restore_accounts_from_db) against a real SipClient (MockBackend reactor), verify sip_client.accounts() contains the restored accounts with matching usernames",
+            "IT: [Fresh DB] restore_accounts_from_db on a schema-only (empty) DB starts cleanly with zero restored accounts and Ok — mirrors the fresh/empty-table edge case",
+            "IT: [feature-gate] With sqlite-storage disabled, run_server compiles and skips the restoration step entirely — cfg(feature) compile-time assertion that no load_accounts/add_account wiring exists outside the gate",
+            "IT: [Related tickets P4-3/P3-1/P7] Accounts restored from the SQLite accounts table (P4-3 schema, C065) flow through AccountConfig (P3-1, C015 validation) and are observable via sip_client.accounts() (C021 source of truth / P7 query API)"
           ],
           "testExceptions": [
-            "Full registration against a live SIP registrar requires a network registrar and is not a unit-test concern. The restoration step (load + add_account) is testable with a temp SQLite DB and MockBackend.",
-            "The exact AccountEntity ↔ AccountConfig bijection depends on the persist path (out of scope); load_accounts only needs the read direction."
+            "The full run_server lifecycle (init -> restore -> bind -> serve) is not testable to completion because axum::serve blocks indefinitely. This is not a design defect: the restoration logic is extracted into the named function restore_accounts_from_db, which is fully tested against a real SipClient (MockBackend reactor) and a temp SQLite DB. The deterministic logic (load_accounts + add_account) has 100% coverage; only the blocking server loop is excluded from assertion.",
+            "Live SIP registration against a real SIP registrar is not testable without a network registrar. This is not a design defect: it is an external-network dependency. The restoration step's add_account is exercised through the real reactor dispatch path (RuntimeCommand::AddAccount -> MockBackend::add_account), so the entire command flow is verified without external network.",
+            "The exact AccountEntity <-> AccountConfig bijection (incl. password decryption) is not testable in this ticket because it depends on the persist/save path, which is out of scope for P12-2. This is not a design defect: it is a documented scope boundary owned by the persist-path ticket. load_accounts reads the encrypted password BLOB as-is, and the read-direction field mapping is unit-tested."
           ],
           "acceptanceCriteria": [
-            "【Happy path】run_server (sqlite-storage enabled) calls db.load_accounts() and calls sip_client.add_account() for each saved account before binding the listener.",
-            "【Happy path】DatabasePool::load_accounts() returns the rows of the accounts table as AccountEntity values; an empty table yields an empty Vec.",
-            "【Error case】A DB error from load_accounts() surfaces as a startup SipError rather than silently starting with no accounts.",
-            "【Edge case】A fresh/empty accounts table starts the server with zero accounts and no error.",
+            "【Happy path】run_server (sqlite-storage enabled) calls init_schema() then db.load_accounts() and sip_client.add_account() for each saved account BEFORE binding the listener; after startup sip_client.accounts() reports exactly the persisted accounts.",
+            "【Happy path】DatabasePool::load_accounts() returns the rows of the accounts table as AccountEntity values (ordered by id); an empty table yields an empty Vec.",
+            "【Error case】A DB error from load_accounts() surfaces as a typed startup SipError (NativeError) rather than silently starting with no accounts.",
+            "【Edge case】A fresh/empty accounts table starts the server with zero accounts and no error (guaranteed by init_schema() before load_accounts()).",
             "【Edge case】Each AccountEntity maps to an AccountConfig (username, domain, transport, register_on_start, display_name) so the restored account is equivalent to the persisted one; an account that fails add_account is logged and skipped rather than aborting startup.",
             "No account restoration occurs when the sqlite-storage feature is disabled."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§32, §39, §54, §56)",
           "relatedTicketIds": "P5-2 (depends on: FFI for media bridge), P4-3 (depends on: HTTP/WS protocol + SQLite), P2-3 (depends on: sequence number from event system)",
-          "notes": "Stub: src/api/standalone_server_config.rs:382. Requires new DatabasePool::load_accounts() and a public SipClient::add_account(). Feature-gated behind sqlite-storage. Related: P4-3 (SQLite schema), P3-1 (AccountConfig/add_account), P7 (accounts query API). The persist path is out of scope but load_accounts assumes the accounts table schema from C065.",
+          "notes": "【Implementation steps】(1) sqlite_schema.rs: add load_accounts() + private row→entity mapper; (2) add account_entity_to_config() conversion helper (in standalone_server_config.rs or as AccountEntity::to_account_config); (3) standalone_server_config.rs: add restore_accounts_from_db(); (4) wire init_schema() + restore_accounts_from_db() into run_server before build_router; (5) TDD Red→Green: add tests to sqlite_schema.rs and standalone_server_config.rs.\n【Risks】run_server currently never calls init_schema() — a fresh DB file has no accounts table and load_accounts would fail; the restore step MUST init the schema first (C065 postcondition). Password BLOB is passed through lossy UTF-8 (no decrypt yet) — restored accounts may not authenticate until the persist path lands.\n【Caveats】AccountConfig::validate() requires a non-empty password → rows with an empty BLOB (X'') are skipped with a warning. An unknown transport string falls back to Udp. The existing test_run_server_returns_typed_error_on_invalid_client_config still holds: an invalid ClientConfig aborts before restoration. run_server's ClientConfig source is an existing P4-3 design item (noted at test :1049).\n【Open items】Whether config_file should also supply AccountConfigs for restoration is deferred to the persist-path ticket. The test_apilayer5.rs STUB is now tracked by P12-10 (not P4-3 as the stale STUB list claims) — confirm during start-ticket.\n【Future improvements】The persist path (save_account) will complete the AccountEntity↔AccountConfig bijection and enable the encrypted-password round-trip; Layer 5 integration tests can run once the siprs-server crate exists (TS-003 / P12-10).\nImplementation summary:\n- Changed files: src/model/sqlite_schema.rs, src/api/standalone_server_config.rs\n- Key changes: DatabasePool::load_accounts() (raw SQL SELECT ORDER BY id -> Vec<AccountEntity>); row_to_account_entity positional mapper; account_entity_to_config() conversion (transport string -> AccountTransportPolicy with Udp fallback; password BLOB passed lossy UTF-8); restore_accounts_from_db() (DB error fatal SipError::NativeError, per-account add_account failure logged+skipped); run_server wiring: init_schema() + restore_accounts_from_db() before build_router\n- Tests: 10 new tests (4 load_accounts, 4 restore_accounts, 2 mapping); lib 982 passed / 0 failed with --features server,cli,sqlite-storage; make test (default) 15 result lines all ok\n- Pre-existing issues in untouched files: clippy lints in audio_subscribe_bp.rs / raw_sip_message_spec.rs / transport.rs; quality-checker unwrap/hardcoded-port flags in pre-existing test code (documented, not introduced by P12-2)\nReview report:\n- Static quality check: passed (new code: load_accounts, row_to_account_entity, account_entity_to_config, restore_accounts_from_db, run_server wiring, 10 tests — no issues)\n- Pre-existing (not introduced by P12-2): 9 unwrap/expect in pre-existing server_tests + ServerConfig::default; 9 hardcoded ports in DEFAULT_SIPRS_PORT + pre-existing test assertions; 2 doc-example flags in sqlite_schema (rust,ignore blocks)\n- Translatability: pass — all new functions are verb phrases; positional indices in row_to_account_entity documented\n- Contracts: C015/C063/C065 all covered (@verifies present, verify-red-coverage 3/3, verify-final-contracts pending re-run)\n- STUBs: TS-001 resolved and marker removed; no P12-2 stubs remain\n- Crimes: 0 in Malfeasance.json\n- Boy Scout: startup sequence extracted into named functions; transport conversion via named match; tests added for previously untested load_accounts\n- Issues found and fixes applied during review: none required beyond the start-phase comment reword (quality-checker 'return' keyword false positive)",
           "default_files": [
             "src/api/http_ws_protocol.rs",
             "src/model/sqlite_schema.rs",
@@ -30034,78 +30057,29 @@
           ],
           "id": 2,
           "phaseId": 12,
-          "status": "todo",
-          "invariants": "C065 — rusqlite bundled feature ensures SQLite builds without system libsqlite3; DatabasePool uses a single connection with busy timeout. New: startup restoration is idempotent — load_accounts does not duplicate accounts across restarts; a saved account failing add_account is skipped with a warning, never fatal.",
-          "instrumentation": "log::info! per restored account (username@domain). log::warn! when a saved account fails validation or add_account.",
-          "investigation": "src/api/standalone_server_config.rs:369-382 — run_server opens the DatabasePool under sqlite-storage, but line 382 sits immediately after pool creation with no account restoration; sip_client is built from SipClient::new and the event receiver is discarded. src/model/sqlite_schema.rs:192-217 — AccountEntity (id, display_name, username, auth_username, password, domain, registrar_uri, transport, register_on_start, allow_outbound_without_register, created_at, updated_at) and CREATE_TABLE_ACCOUNTS exist, but DatabasePool has no load_accounts/save_account method. src/client.rs — SipClient has accounts()/call_state()/shutdown() but no add_account public method (grep finds add_account only in backend/reactor paths). src/runtime/command.rs:49-55 — RuntimeCommand::AddAccount exists and dispatches via DispatchCommand::AddAccount. Real implementation: add DatabasePool::load_accounts(), add SipClient::add_account(config) that submits AddAccount and awaits the reply, and in run_server loop over loaded accounts adding each, logging and skipping failures.",
-          "boyScoutPlan": "Extract the open-pool → restore-accounts → build-router startup sequence into a named function (e.g. restore_accounts_from_db) so run_server reads top-to-bottom as a sequence. Build AccountConfig from AccountEntity via a convert helper instead of inline field copies.",
+          "status": "reviewed",
+          "invariants": "【Normal establishment】With sqlite-storage enabled, run_server calls DatabasePool::init_schema() (C065 postcondition) then load_accounts(), and replays every persisted AccountEntity through sip_client.add_account() BEFORE build_router/bind. Each restored account equals the persisted row for username, domain, display_name, auth_username, registrar_uri, transport, register_on_start, allow_outbound_without_register.\n【Invariant on error】A DB error from load_accounts() aborts startup with a typed SipError(NativeError) — the server never silently starts with zero accounts on a read failure. An individual add_account failure logs a warning and skips that account — it is never fatal to startup.\n【Internal state invariant】Restoration is idempotent: load_accounts is a pure SELECT (no writes), so re-running restoration cannot duplicate accounts; the reactor ClientState (C021) is the single source of truth for the restored account set.\n【Boundary invariant】An empty accounts table yields zero restored accounts with no error. An unknown transport string falls back to Udp. An empty password BLOB (X'') maps to an invalid AccountConfig that is skipped with a warning. With sqlite-storage disabled, no restoration occurs.",
+          "instrumentation": "【Logging】tracing::info!(account_id, \"Restored account from database\") per successful add_account; tracing::warn!(account_id, error = %e, \"Skipping account restoration\") per failed account; the existing startup trace already logs bind_addr and db_path.\n【Metrics】No new metrics — restoration is a startup-once operation; the existing metrics feature is untouched.\n【Error tracking】load_accounts DbErr is mapped to SipError(NativeError, \"load_accounts failed: {e}\") at the run_server boundary; per-account add_account errors are non-fatal and logged as warnings with the account_id.\n【Health check】/api/v1/health is unchanged; restored accounts are observable via GET /api/v1/accounts (C063) and sip_client.accounts() after startup.\nStatic quality check: passed (new code clean; 20 pre-existing flags in untouched test code/constants documented)\nTranslatability: no issues (verb-phrase function names, no generic/single-char vars, no debug output)\nTests: make test (default) 15 ok; cargo test --features server,cli,sqlite-storage lib 982 passed / 0 failed\nCrimes: 0; P12-2 stubs: 0; no-excuse gate: 9 pass 0 fail; annotation verify: 2/2 files annotated, 0 ambiguous",
+          "investigation": "EVIDENCE: (1) src/api/standalone_server_config.rs:369-382 — run_server opens DatabasePool under sqlite-storage but line 382 carries the STUB `[::STUB::] P12-2`; sip_client is built at :366-367 and the listener binds at :398, so restoration must be inserted between pool creation and router build. (2) src/model/sqlite_schema.rs:54-144 — DatabasePool has open/connection/into_inner/init_schema and test-only query_tables; NO load_accounts exists. AccountEntity (:196-209) has 12 fields incl. password: Vec<u8> (BLOB) and bool flags register_on_start/allow_outbound_without_register; CREATE_TABLE_ACCOUNTS (:152) matches RFC §56.1. (3) src/client.rs:219-234 — SipClient::add_account(config: AccountConfig) -> Result<SipAccountHandle, SipError> ALREADY EXISTS: validates (C052), submits RuntimeCommand::AddAccount, returns logical id. (4) src/runtime/command.rs:108-111 — AddAccount reply is Result<u64, ReactorError>; reactor.rs:241-275 dispatches to backend.add_account, inserts ClientState, replies with entry_id. (5) src/runtime/backend.rs:35-38,188-204 — SipBackend::add_account -> (i32, AccountEntry); MockBackend assigns incrementing ids, enabling real-SipClient tests without PJSIP. (6) src/config/account_config_spec.rs:151-190,198-264 — AccountConfig has 17 fields; validate() requires non-empty username/domain/password, >=1 codec, >=1 DTMF method, registration_expires>0. AccountTransportPolicy: Udp(default)/Tcp/Tls (:26-31). (7) Test infra: standalone_server_config.rs:942-995 build_test_app_state() builds a real SipClient (MockBackend) + in-memory DatabasePool; client.rs:1127-1133 test_client() pattern; accounts() returns Vec<AccountSnapshot>. (8) src/tests/test_apilayer5.rs STUB is now `[::STUB::] P12-10` (not P4-3 as the ticket's stale STUB list claims) — TS-003 Layer 5 IT deferred. (9) run_server currently does NOT call init_schema() — required before load_accounts() on a fresh DB (C065 postcondition gap).",
+          "boyScoutPlan": "Extract the open-pool → restore-accounts → build-router startup sequence into a named function (restore_accounts_from_db) so run_server reads top-to-bottom as a sequence: init pool, init schema, restore accounts, build router, bind. Build AccountConfig from AccountEntity via a named conversion helper (account_entity_to_config) instead of inline field copies. Replace the P12-2 STUB at standalone_server_config.rs:382 with the real restoration call. Convert the transport string via a named match (no inline \"udp\"/\"tcp\"/\"tls\" literals scattered across the codebase) reusing the existing TransportKind::from_db_value where applicable. Add unit tests for the previously untested load_accounts area. Keep the event-receiver discard comment at client.rs:367 (already documents the choice). Fix the stale STUB-list reference in the ticket: test_apilayer5.rs now carries P12-10, not P4-3.",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28",
-          "targetStubs": [
-            {
-              "id": "TS-001",
-              "ticketRef": "P4-3",
-              "file": "src/api/standalone_server_config.rs",
-              "line": 382,
-              "markerText": "// [::STUB::] P4-3: Restore saved accounts from DatabasePool.",
-              "contracts": [
-                "C065",
-                "C064"
-              ],
-              "deferredTo": "P5-1",
-              "status": "pending",
-              "resolutionPlan": "Implement DatabasePool.load_accounts() and call it during server startup. Covered by C065 (SQLite schema ensures data persists) and C064 (API protocol endpoints interact with restored accounts). Requires P5-1 for full account lifecycle — leaving as pending for P5-1."
-            },
-            {
-              "id": "TS-002",
-              "ticketRef": "P4-3",
-              "file": "src/state/shutdown_specification.rs",
-              "line": 22,
-              "markerText": "// [::STUB::] P4-3: RESOLVED — replaced with full ShutdownSpec implementation.",
-              "contracts": [
-                "C044",
-                "C045"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "Replaced pub enum State {} with ShutdownSpec struct implementing the 5-phase idempotent shutdown sequence. All 13 unit tests pass. Covered by C044 (shutdown idempotency and cancellation safety) and C045 (M20 shutdown command routing)."
-            },
-            {
-              "id": "TS-003",
-              "ticketRef": "P4-3",
-              "file": "src/tests/test_apilayer5.rs",
-              "line": 25,
-              "markerText": "// [::STUB::] P4-3: Layer 5 integration tests require:",
-              "contracts": [
-                "C063",
-                "C064",
-                "C065"
-              ],
-              "deferredTo": "P5-1",
-              "status": "pending",
-              "resolutionPlan": "Implement Layer 5 integration tests that exercise REST API (C063), JWT auth (C064), and SQLite persistence (C065) via the standalone server. Requires siprs-server crate — leaving as pending for that crate."
-            }
-          ],
-          "targetCrimes": [],
+          "updated_at": "2026-08-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
           "planTestCode": [
-            "C044-Pre: ShutdownSpec construction\n  ```rust\n  let spec = ShutdownSpec::new(Duration::from_secs(5));\n  assert!(!spec.is_shutdown_started());\n  ```",
-            "C044-Post: Shutdown sequence phases execute in order\n  ```rust\n  let spec = ShutdownSpec::new(Duration::from_secs(5));\n  let mut phases_executed = Vec::new();\n  let result = spec.execute_sequence(&mut mock_backend).await;\n  assert!(result.is_ok());\n  assert_eq!(phases_executed, vec![\n      \"stop_commands\", \"cancel_calls\",\n      \"unregister\", \"drain_audio\", \"destroy\"\n  ]);\n  ```",
-            "C044-Inv: Shutdown idempotency\n  ```rust\n  let spec = ShutdownSpec::new(Duration::from_secs(5));\n  let first = spec.execute_sequence(&mut mock_backend).await;\n  assert!(first.is_ok());\n  let second = spec.execute_sequence(&mut mock_backend).await;\n  assert!(second.is_ok());\n  // Verify backend.shutdown() called exactly once\n  assert_eq!(mock_backend.shutdown_call_count(), 1);\n  ```",
-            "C045-Pre: ShutdownSpec.is_shutdown_started() returns true\n  ```rust\n  let spec = ShutdownSpec::new(Duration::from_secs(5));\n  spec.mark_shutdown_started();\n  assert!(spec.is_shutdown_started());\n  ```",
-            "C045-Post: ShutdownCommandRouter routes correctly\n  ```rust\n  use crate::error::m20_shutdown_routing::{ShutdownCommandRouter, ShutdownCommandAction};\n  // GetAccountInfo permitted\n  let cmd = make_get_account_info();\n  let action = ShutdownCommandRouter::classify(&cmd, true);\n  assert!(matches!(action, ShutdownCommandAction::Permit));\n  // ConfConnect rejected\n  let cmd = make_conf_connect();\n  let action = ShutdownCommandRouter::classify(&cmd, true);\n  assert!(matches!(action, ShutdownCommandAction::Reject(_)));\n  // Non-M20 rejected\n  let cmd = make_other_command();\n  let action = ShutdownCommandRouter::classify(&cmd, true);\n  assert!(matches!(action, ShutdownCommandAction::Reject(_)));\n  // All permitted when not shutting down\n  let action = ShutdownCommandRouter::classify(&cmd, false);\n  assert!(matches!(action, ShutdownCommandAction::Permit));\n  ```",
-            "C045-Inv: GetAccountInfo always permitted, media always rejected\n  ```rust\n  let get_info = make_get_account_info();\n  assert!(matches!(\n    ShutdownCommandRouter::classify(&get_info, true),\n    ShutdownCommandAction::Permit\n  ));\n  for cmd in &[make_conf_connect(), make_conf_disconnect()] {\n    assert!(matches!(\n      ShutdownCommandRouter::classify(cmd, true),\n      ShutdownCommandAction::Reject(_)\n    ));\n  }\n  ```",
-            "C050-Pre: crossbeam::ArrayQueue configured\n  ```rust\n  use crossbeam_queue::ArrayQueue;\n  let queue: ArrayQueue<Vec<i16>> = ArrayQueue::new(8);\n  assert_eq!(queue.capacity(), Some(8));\n  ```",
-            "C050-Post: AudioBridge connects mixer to RT port\n  ```rust\n  let mut bridge = AudioBridge::new(8);\n  let frame = MediaFrame { samples: vec![0i16; 160], timestamp: 0 };\n  // Push from worker side\n  assert!(bridge.push_out_frame(frame.clone()));\n  // Pop from RT side (via RustMediaPort)\n  let out = bridge.pop_in_frame();  \n  assert!(out.is_none()); // No inbound data yet\n  ```",
-            "C050-Inv: RT callback never blocks or allocates\n  ```rust\n  // Verify by testing ArrayQueue directly\n  let queue: ArrayQueue<i16> = ArrayQueue::new(4);\n  // Push until full\n  for i in 0..4 { queue.push(i).ok(); }\n  // Must not block on overflow\n  let overflow = queue.push(42);\n  assert!(overflow.is_err()); // silently dropped\n  // Pop works\n  assert_eq!(queue.pop(), Some(0));\n  ```",
-            "C063-Pre: Axum router with shared AppState\n  ```rust\n  use axum::Router;\n  let state = AppState::default();\n  let app = build_router(state);\n  // All 18 + 2 WS routes registered\n  ```",
-            "C063-Post: WsTextFrame JSON round-trip\n  ```rust\n  let frame = WsTextFrame {\n    msg_type: \"event\".into(),\n    seq: 42,\n    payload: serde_json::json!({\"kind\": \"Test\"}),\n  };\n  let json = serde_json::to_string(&frame).unwrap();\n  let decoded: WsTextFrame = serde_json::from_str(&json).unwrap();\n  assert_eq!(frame.seq, decoded.seq);\n  ```",
-            "C063-Inv: Sequence numbers correlate events and audio\n  ```rust\n  let generator = SequenceGenerator::new();\n  let seq_event = generator.next();\n  let seq_audio_start = generator.next();\n  assert!(seq_audio_start > seq_event);\n  // AudioChunkPair carries range\n  let chunk = AudioChunkPair {\n    first_seq: seq_event,\n    last_seq: seq_audio_start,\n    ..Default::default()\n  };\n  assert!(chunk.last_seq >= chunk.first_seq);\n  ```",
-            "C064-Pre: 20 REST endpoint constants defined\n  ```rust\n  use crate::api::http_ws_protocol::*;\n  assert_eq!(PATH_HEALTH, \"/api/v1/health\");\n  assert_eq!(PATH_ACCOUNTS, \"/api/v1/accounts\");\n  assert_eq!(PATH_WS, \"/api/v1/ws\");\n  assert_eq!(PATH_WS_AUDIO, \"/api/v1/ws/audio\");\n  assert_eq!(PATH_AUTH_TOKEN, \"/api/v1/auth/token\");\n  assert_eq!(PATH_SHUTDOWN, \"/api/v1/shutdown\");\n  ```",
-            "C064-Post: WsTextFrame and WsBinaryFrame defined\n  ```rust\n  let header = AudioFrameHeader {\n    sequence_number: 1, timestamp_ms: 1000,\n    frame_ms: 20, sample_rate: 48000,\n    channels: 1, bits_per_sample: 16,\n    call_id: 7, reserved: [0u8; 4],\n  };\n  let bytes = header.to_bytes();\n  let decoded = AudioFrameHeader::from_bytes(&bytes);\n  assert_eq!(header, decoded);\n  ```",
-            "C064-Inv: Default auth is LocalhostOnly\n  ```rust\n  // When JWT secret is not configured\n  let config = ServerConfig { jwt_secret: None, .. };\n  assert_eq!(config.auth_mode, AuthMode::LocalhostOnly);\n  // Localhost requests allowed without token\n  assert!(validate_request(\"127.0.0.1\", None, &config).is_ok());\n  // External requests rejected without token\n  assert!(validate_request(\"10.0.0.1\", None, &config).is_err());\n  ```",
-            "C065-Pre: Database path configured for server mode\n  ```rust\n  let pool = DatabasePool::open(\":memory:\").await?;\n  assert!(pool.connection().ping().await.is_ok());\n  ```",
-            "C065-Post: SQLite schema created on startup\n  ```rust\n  let pool = DatabasePool::open(\":memory:\").await?;\n  pool.init_schema().await?;\n  // Verify tables exist\n  let tables = pool.query_tables().await?;\n  assert!(tables.contains(&\"accounts\"));\n  assert!(tables.contains(&\"transport_configs\"));\n  assert!(tables.contains(&\"client_settings\"));\n  assert!(tables.contains(&\"tls_configs\"));\n  ```",
-            "C065-Inv: rusqlite bundled feature\n  ```rust\n  // This is a compile-time invariant - verified at build time.\n  // In test, ensure DatabasePool opens without system libsqlite3\n  let pool = DatabasePool::open(\":memory:\").await?;\n  assert!(pool.connection().is_valid().await?);\n  ```"
+            "C015-Pre: AccountConfig construction (input setup)\n  ```rust\n  let config = AccountConfig {\n      username: \"alice\".into(),\n      domain: \"sip.example.com\".into(),\n      password: crate::security::SecretString::new(\"pass123\"),\n      ..AccountConfig::default()\n  };\n  ```",
+            "C015-Post: validate() accepts a fully-specified config (output assertion)\n  ```rust\n  let result = config.validate();\n  assert!(result.is_ok());\n  ```",
+            "C015-Inv: validation rules enforced at the facade boundary (invariant predicate)\n  ```rust\n  let empty_username = AccountConfig { username: String::new(), ..config.clone() };\n  let err = empty_username.validate().unwrap_err();\n  assert_eq!(err.kind, SipErrorKind::InvalidConfig);\n  // add_account fails fast before dispatch (C052)\n  let (client, _rx) = test_client().await?;\n  let err = client.add_account(empty_username).await.unwrap_err();\n  assert_eq!(err.kind, SipErrorKind::InvalidConfig);\n  ```",
+            "C063-Pre: build_router with shared AppState (input setup)\n  ```rust\n  let state = build_test_app_state().await?;\n  let router = build_router(state);\n  ```",
+            "C063-Post: registered routes respond; accounts observable after restoration (assertion)\n  ```rust\n  let response = router.clone().oneshot(\n      Request::builder().uri(\"/api/v1/health\").body(Body::empty())?\n  ).await?;\n  assert_eq!(response.status(), StatusCode::OK);\n  ```",
+            "C063-Inv: sequence numbers correlate events and audio (invariant predicate)\n  ```rust\n  let generator = SequenceGenerator::new();\n  let seq_event = generator.next();\n  let seq_audio = generator.next();\n  assert!(seq_audio > seq_event);\n  ```",
+            "C065-Pre: open in-memory pool and create schema (input setup)\n  ```rust\n  let pool = DatabasePool::open(\":memory:\").await?;\n  pool.init_schema().await?;\n  ```",
+            "C065-Post: load_accounts returns inserted rows; empty table -> empty Vec (assertion)\n  ```rust\n  pool.connection().execute(Statement::from_string(\n      DatabaseBackend::Sqlite,\n      \"INSERT INTO accounts (username, password, domain) VALUES ('alice', X'70617373', 'sip.example.com')\".into(),\n  ), vec![].into_iter()).await?;\n  let accounts = pool.load_accounts().await?;\n  assert_eq!(accounts.len(), 1);\n  assert_eq!(accounts[0].username, \"alice\");\n  ```",
+            "C065-Inv: missing table -> Err(DbErr); load is a pure read (invariant predicate)\n  ```rust\n  let fresh = DatabasePool::open(\":memory:\").await?;\n  assert!(fresh.load_accounts().await.is_err());\n  let empty = DatabasePool::open(\":memory:\").await?;\n  empty.init_schema().await?;\n  assert!(empty.load_accounts().await?.is_empty());\n  ```",
+            "P12-2 [Normal] restoration replays each persisted account through add_account\n  ```rust\n  let (client, _rx) = test_client().await?;\n  let pool = DatabasePool::open(\":memory:\").await?;\n  pool.init_schema().await?;\n  insert_test_account(&pool, 1, \"alice\").await?;\n  insert_test_account(&pool, 2, \"bob\").await?;\n  restore_accounts_from_db(&client, &pool).await?;\n  let snapshots = client.accounts().await?;\n  assert_eq!(snapshots.len(), 2);\n  ```",
+            "P12-2 [Error] a failing add_account is logged and skipped, never fatal\n  ```rust\n  let (client, _rx) = test_client().await?;\n  let pool = DatabasePool::open(\":memory:\").await?;\n  pool.init_schema().await?;\n  insert_test_account(&pool, 1, \"alice\").await?;       // valid\n  insert_empty_password_account(&pool, 2).await?;       // invalid -> skipped\n  let result = restore_accounts_from_db(&client, &pool).await;\n  assert!(result.is_ok());\n  assert_eq!(client.accounts().await?.len(), 1);\n  ```",
+            "P12-2 [Boundary] empty table -> no-op Ok; DB error -> typed SipError\n  ```rust\n  let (client, _rx) = test_client().await?;\n  let pool = DatabasePool::open(\":memory:\").await?;\n  pool.init_schema().await?;\n  assert!(restore_accounts_from_db(&client, &pool).await.is_ok());\n  assert!(client.accounts().await?.is_empty());\n  let missing = DatabasePool::open(\":memory:\").await?; // no init_schema\n  let err = restore_accounts_from_db(&client, &missing).await.unwrap_err();\n  assert_eq!(err.kind, SipErrorKind::NativeError);\n  ```",
+            "P12-2 [Normal] AccountEntity -> AccountConfig field mapping\n  ```rust\n  let entity = AccountEntity { id: 1, display_name: Some(\"Alice\".into()),\n      username: \"alice\".into(), auth_username: None, password: b\"pw\".to_vec(),\n      domain: \"sip.example.com\".into(), registrar_uri: None,\n      transport: \"tcp\".into(), register_on_start: true,\n      allow_outbound_without_register: false, created_at: String::new(), updated_at: String::new() };\n  let cfg = account_entity_to_config(&entity);\n  assert_eq!(cfg.username, \"alice\");\n  assert_eq!(cfg.domain, \"sip.example.com\");\n  assert_eq!(cfg.transport, AccountTransportPolicy::Tcp);\n  assert_eq!(cfg.register_on_start, true);\n  assert_eq!(cfg.display_name.as_deref(), Some(\"Alice\"));\n  ```"
           ],
           "stubs": [
             {
@@ -30114,7 +30088,27 @@
               "codes": "\n    #[cfg(feature = \"sqlite-storage\")]\n    let app_state = AppState {"
             }
           ],
-          "fromStub": true
+          "fromStub": true,
+          "startedAt": "2026-08-07",
+          "changes": [
+            {
+              "before": "DatabasePool had no read path for persisted accounts",
+              "after": "DatabasePool::load_accounts() returns Vec<AccountEntity> ordered by id (empty table -> empty Vec; missing table -> Err(DbErr))",
+              "description": "Added load_accounts() + row_to_account_entity mapper in src/model/sqlite_schema.rs"
+            },
+            {
+              "before": "run_server opened the pool but never restored accounts (P12-2 STUB at :382)",
+              "after": "run_server calls init_schema() then restore_accounts_from_db() before build_router, re-registering every persisted account",
+              "description": "Added account_entity_to_config() + restore_accounts_from_db() in src/api/standalone_server_config.rs and wired into run_server; resolved TS-001 STUB"
+            },
+            {
+              "before": "SipClient::add_account existed but was unused for startup restoration",
+              "after": "restore_accounts_from_db replays each AccountEntity through SipClient::add_account (C052 fail-fast; per-account failures logged and skipped, DB errors fatal)",
+              "description": "Verified add_account (client.rs:219) and RuntimeCommand::AddAccount dispatch (reactor.rs:241) unchanged"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-07"
         },
         {
           "title": "Implement memory ownership and default policies per node N0056 (Sections 47 & 48)",
