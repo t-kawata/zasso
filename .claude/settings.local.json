@@ -833,7 +833,13 @@
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);const targets=['src/client.rs','src/api/public_api_design.rs','src/runtime/command.rs','src/runtime/handle.rs','src/runtime/reactor.rs','src/runtime/backend.rs','src/runtime/state.rs','src/config/account_config_spec.rs','src/lib.rs'];const t=j.findings.filter\\(f=>targets.some\\(x=>f.file.includes\\(x\\)\\)\\);console.log\\('findings in target files:',t.length\\);for\\(const f of t.slice\\(0,40\\)\\){console.log\\(f.file.split\\('/src/'\\)[1],f.line,f.pattern,'|',f.content.slice\\(0,80\\)\\)}}\\)\")",
       "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P10-3\" --tickets=\"Tickets.json\")",
       "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P10-3\" --phase=start)",
-      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P10-3\")"
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P10-3\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4)",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); const arr = Array.isArray\\(t\\) ? t : \\(t.tickets||Object.values\\(t\\)\\); const p10 = arr.filter\\(x=>String\\(x.ticketKey||x.key||''\\).startsWith\\('P10'\\)\\); p10.forEach\\(x=>console.log\\(JSON.stringify\\({key:x.ticketKey||x.key, title:x.title, status:x.status},null,0\\)\\)\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const s=fs.readFileSync\\('Tickets.json','utf8'\\); console.log\\('file length:', s.length\\); console.log\\('first 300 chars:', s.slice\\(0,300\\)\\)\")",
+      "Bash(echo \"=== SampleQueue ===\"; grep -n \"struct SampleQueue\" -B 5 -A 8 src/api/asyncaudiosrc_adapter.rs; echo \"\"; echo \"=== cpal Stream Debug? \\(docs via cargo registry\\) ===\"; find ~/.cargo/registry/src -maxdepth 2 -name \"cpal-*\" -type d 2>/dev/null | head -3; echo \"\"; echo \"=== cpal-input feature default? ===\"; grep -n \"cpal-input\\\\|default = \" Cargo.toml | head -20)",
+      "Bash(echo \"=== *)",
+      "Bash(node /Users/sh01/shyme/zasso/.claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0010 --hops=2)"
     ]
   }
 }
