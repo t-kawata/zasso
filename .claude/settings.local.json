@@ -990,7 +990,10 @@
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('startedAt ok:', j.success, '| startedAt:', j.updated && j.updated.startedAt\\)}\\)\")",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);\\(j.stubs||[]\\).forEach\\(s=>{if\\(s.content.includes\\('P11-2'\\)\\) console.log\\(s.file.split\\('/'\\).slice\\(-2\\).join\\('/'\\)+':'+s.line, s.content.slice\\(0,80\\)\\)}\\); console.log\\('total stubs:', \\(j.stubs||[]\\).length\\)}\\)\")",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('ticket update ok:', j.success\\)}\\)\")",
-      "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P11-2\" --verbose)"
+      "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P11-2\" --verbose)",
+      "Bash(cd /Users/sh01/shyme/zasso && grep -n \"^check\\\\|^test\\\\|^build\\\\|^quality\\\\|^lint\" Makefile 2>/dev/null | head -40)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('STUBS:',j.count\\)}\\)\")",
+      "Bash(git commit -m 'chore: extend local Claude allowed-command allowlist with Makefile inspection commands *)"
     ]
   }
 }
