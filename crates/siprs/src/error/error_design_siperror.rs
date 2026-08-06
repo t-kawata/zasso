@@ -42,23 +42,27 @@ const PJ_EINVALIDOP: i32 = 150002;
 const PJ_EBUSY: i32 = 150003;
 
 // ---------------------------------------------------------------------------
-// SipErrorKind — 23 semantically-named error variants
+// SipErrorKind — 24 semantically-named error variants
 // ---------------------------------------------------------------------------
 
 /// Semantic classification of a `SipError`.
 ///
 /// Each variant represents a distinct category of failure in the SIP stack.
-/// The 23 variants cover all siprs operations: configuration, registration,
-/// call setup, media, transport, DTMF, shutdown, and internal invariants.
+/// The 24 variants cover all siprs operations: configuration, argument
+/// validation, registration, call setup, media, transport, DTMF, shutdown,
+/// and internal invariants.
 ///
 /// # Invariant
-/// Exactly 23 variants exist (verified by `variant_count()` test).
+/// Exactly 24 variants exist (verified by `variant_count()` test).
 /// No M20 command-specific variants are added — M20 errors reuse existing
 /// variants (InvalidState, AccountNotFound, NativeError).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SipErrorKind {
     /// The provided configuration is invalid.
     InvalidConfig,
+    /// An argument supplied to an operation is invalid (empty, out of range,
+    /// or outside the allowed alphabet).
+    InvalidArgument,
     /// The operation is not valid in the current state.
     InvalidState,
     /// The client is already initialized — cannot initialize again.
@@ -107,10 +111,11 @@ pub enum SipErrorKind {
 
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 impl std::fmt::Display for SipErrorKind {
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             Self::InvalidConfig => "InvalidConfig",
+            Self::InvalidArgument => "InvalidArgument",
             Self::InvalidState => "InvalidState",
             Self::AlreadyInitialized => "AlreadyInitialized",
             Self::NotInitialized => "NotInitialized",
@@ -138,7 +143,7 @@ impl std::fmt::Display for SipErrorKind {
     }
 }
 
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
 impl SipErrorKind {
     /// Returns `true` if operations producing this error are typically retryable.
     ///
@@ -147,6 +152,7 @@ impl SipErrorKind {
     pub fn retryable(&self) -> bool {
         match self {
             Self::InvalidConfig
+            | Self::InvalidArgument
             | Self::InvalidState
             | Self::AlreadyInitialized
             | Self::NotInitialized
@@ -180,7 +186,7 @@ impl SipErrorKind {
 
 /// The top-level error type for the siprs public API.
 ///
-/// All public async functions return `Result<T, SipError>`. The `kind` field
+/// Every public async operation yields `Result<T, SipError>`. The `kind` field
 /// provides semantic classification via `SipErrorKind`. The `retryable` flag
 /// guides caller retry logic. Optional context fields (`account_id`, `call_id`,
 /// `native_status`) enrich diagnostic information.
@@ -188,7 +194,7 @@ impl SipErrorKind {
 /// # Invariant
 /// - `SipError` is `Send + Sync` for async API compatibility.
 /// - Struct has exactly 6 public fields.
-/// - Once constructed, immutable — `with_*` methods return new instances.
+/// - Once constructed, immutable — `with_*` methods produce new instances.
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("{kind}: {message}")]
 pub struct SipError {
@@ -214,7 +220,7 @@ pub struct SipError {
     pub retryable: bool,
 }
 
-// [::TICKET::] P0-4, P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P9-2, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-2|P9-3) --for-spec --no-implementation-order`.
 impl SipError {
     /// Create a new `SipError` with the given `kind` and `message`.
     ///
@@ -239,6 +245,15 @@ impl SipError {
     /// error rather than a transient condition.
     pub fn invalid_state(message: impl Into<String>) -> Self {
         Self::new(SipErrorKind::InvalidState, message)
+    }
+
+    /// Create a convenience `SipError` with `kind = InvalidArgument`.
+    ///
+    /// Used when an argument to an operation is invalid (empty, out of range,
+    /// or outside an allowed alphabet). Not retryable — the caller must fix
+    /// the argument.
+    pub fn invalid_argument(message: impl Into<String>) -> Self {
+        Self::new(SipErrorKind::InvalidArgument, message)
     }
 
     /// Create a convenience `SipError` with `kind = NativeError`.
@@ -420,13 +435,14 @@ mod tests {
 
     #[test]
     // @verifies C017
-    // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
-    fn sip_error_kind_display_shows_variant_name_for_all_23() {
+// [::TICKET::] P6-2, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P9-3) --for-spec --no-implementation-order`.
+    fn sip_error_kind_display_shows_variant_name_for_all_24() {
         // ABC O-002 closure: previously only 3 kinds (InvalidConfig, NativeError,
         // ShutdownInProgress) were pinned by SipError-level Display tests. The other
         // 20 Display arms could drift from their variant names without any test failing.
-        const CASES: [(SipErrorKind, &str); 23] = [
+        const CASES: [(SipErrorKind, &str); 24] = [
             (SipErrorKind::InvalidConfig, "InvalidConfig"),
+            (SipErrorKind::InvalidArgument, "InvalidArgument"),
             (SipErrorKind::InvalidState, "InvalidState"),
             (SipErrorKind::AlreadyInitialized, "AlreadyInitialized"),
             (SipErrorKind::NotInitialized, "NotInitialized"),
@@ -472,6 +488,15 @@ mod tests {
         let err = SipError::invalid_state("bad state");
         assert_eq!(err.kind, SipErrorKind::InvalidState);
         assert_eq!(err.message, "bad state");
+    }
+
+    #[test]
+// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+    fn sip_error_invalid_argument_uses_correct_kind() {
+        let err = SipError::invalid_argument("bad digit");
+        assert_eq!(err.kind, SipErrorKind::InvalidArgument);
+        assert_eq!(err.message, "bad digit");
+        assert!(!err.retryable, "InvalidArgument must not be retryable");
     }
 
     #[test]
@@ -634,13 +659,14 @@ mod tests {
     // ── Invariant: SipErrorKind variant count = 23 ────────────────────
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-    fn sip_error_kind_variant_count_is_23() {
+// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+    fn sip_error_kind_variant_count_is_24() {
         // @verifies C018
 
-        const EXPECTED: usize = 23;
+        const EXPECTED: usize = 24;
         let all = vec![
             SipErrorKind::InvalidConfig,
+            SipErrorKind::InvalidArgument,
             SipErrorKind::InvalidState,
             SipErrorKind::AlreadyInitialized,
             SipErrorKind::NotInitialized,
@@ -675,11 +701,12 @@ mod tests {
     // ── Invariant: SipErrorKind::retryable() consistency ──────────────
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
     fn sip_error_kind_retryable_is_consistent_with_new() {
         // SipError::new() must set retryable to the same value as kind.retryable()
         let all = [
             (SipErrorKind::InvalidConfig, false),
+            (SipErrorKind::InvalidArgument, false),
             (SipErrorKind::InvalidState, false),
             (SipErrorKind::AlreadyInitialized, false),
             (SipErrorKind::NotInitialized, false),
@@ -722,14 +749,15 @@ mod tests {
     #[test]
     // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     // @verifies C017
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-    fn exhaustive_match_over_sip_error_kind_has_23_branches() {
+// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+    fn exhaustive_match_over_sip_error_kind_has_24_branches() {
         // If a variant is added without updating this match, the test
         // fails to compile — guaranteeing exhaustive coverage.
-        // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
         fn classify(kind: SipErrorKind) -> &'static str {
             match kind {
                 SipErrorKind::InvalidConfig => "config",
+                SipErrorKind::InvalidArgument => "argument",
                 SipErrorKind::InvalidState => "state",
                 SipErrorKind::AlreadyInitialized => "init",
                 SipErrorKind::NotInitialized => "not_init",

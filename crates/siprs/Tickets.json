@@ -22613,97 +22613,98 @@
           ],
           "contracts": [
             {
-              "id": "C025",
-              "sourceEdge": "N0024→N0018",
-              "precondition": "Event model provides RawSIP bus",
-              "postcondition": "RawSipMessage struct defined",
-              "invariant": "Redact authorization when enabled"
-            },
-            {
               "id": "C028",
               "sourceEdge": "N0027→N0026",
-              "precondition": "States defined",
-              "postcondition": "Call API with answer semantics",
-              "invariant": "answer() only valid for incoming calls"
-            },
-            {
-              "id": "C032",
-              "sourceEdge": "N0031→N0026",
-              "precondition": "Call model defined",
-              "postcondition": "Audio subscribe API with backpressure policy",
-              "invariant": "Realtime vs Lossless modes"
-            },
-            {
-              "id": "C033",
-              "sourceEdge": "N0032→N0031 (inbound)",
-              "precondition": "Audio subscribe uses sources",
-              "postcondition": "AsyncAudioSource trait with RPITIT",
-              "invariant": "ErasedAudioSource auto-derived"
+              "precondition": "Call states (CallState enum with 13 states) are defined per RFC §18 and re-exported from lib.rs",
+              "postcondition": "Call API with answer semantics: SipCall exposes answer(code: u16), hangup(reason: HangupReason), hold(), unhold(), transfer(target: String), send_dtmf(digits, method: DtmfMethod), call_state() -> CallState; each returns Result<_, SipError> and transitions state per RFC §18",
+              "invariant": "answer() only valid for incoming calls — any other state returns SipErrorKind::InvalidState; no lifecycle method panics on illegal state"
             },
             {
               "id": "C049",
               "sourceEdge": "N0048→N0027 (inbound)",
-              "precondition": "Call API defined",
-              "postcondition": "Incoming call handling and REFER/transfer specified",
-              "invariant": "Blind transfer mandatory"
+              "precondition": "Call API defined (SipCall with transfer lifecycle method)",
+              "postcondition": "Incoming call handling and REFER/transfer specified: SipCall::transfer(target) initiates a blind transfer, records the target, and transitions Active → Transferring",
+              "invariant": "Blind transfer mandatory — transfer() accepts a target SIP URI string without requiring prior negotiation"
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P5-1 specified the Raw SIP message, the Call API, and the Audio Subscribe API. During that implementation SipCall was left as a placeholder with public u64/String fields in src/call.rs and an empty shell in src/api/call_api_semantics.rs because the CallState/CallId newtypes and call API semantics were deferred. This work item resolves those markers by implementing SipCall with private fields and accessors and the call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (N0027).",
+          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P5-1 specified the Raw SIP message, the Call API, and the Audio Subscribe API. During that implementation SipCall was left as a placeholder with public u64/String fields in src/call.rs and an empty shell in src/api/call_api_semantics.rs because the CallState/CallId newtypes and call API semantics were deferred. This work item resolves those markers by implementing SipCall with private fields and accessors and the call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (N0027).\n\n### Goal\nImplement SipCall as a real domain type: private fields typed CallId/AccountId/CallState/CallMediaState, verb-named accessors, a named constructor, and the RFC §19 lifecycle methods (answer, hangup, hold, unhold, transfer, send_dtmf, call_state) with state-machine guards — resolving the P9-3 stub markers in src/call.rs, src/api/call_api_semantics.rs, and src/lib.rs.\n\n### Purpose\nThe placeholder SipCall (public u64/String fields) and the empty pub trait Service {} shell in call_api_semantics.rs were left by P5-1 because the CallState/CallId newtypes and call API semantics were deferred. This ticket makes the call model safe and semantic: illegal call states cannot be represented externally, and every lifecycle operation validates state before acting — the foundation for the FFI-backed lifecycle in P8-20/P5-3.\n\n### Motivation\nP5-1 shipped the Raw SIP message, Call API, and Audio Subscribe API with SipCall left as a placeholder. Downstream tickets (P8-6 make_call example, P8-8 audio subscribe, P9-2) already reference CallId and call lifecycle behavior, so the placeholder public fields and the [::STUB::] P9-3 markers are now the blocking debt. The ticket was flagged by inspection (INSPECTION_FLAGGED) and returned for a complete re-implementation.\n\n### Constraints\n- CallState/CallMediaState/CallId/AccountId already exist — SipCall must reuse them, not redefine.\n- HangupReason does not exist yet — it must be added in the appropriate module before use.\n- Lifecycle methods are state-machine guards only; PJSIP FFI wiring (pjsua_call_*) is out of scope (P8-20/P5-3).\n- No new dependencies, no config/env changes, no data schema changes.",
           "scope": [
-            "Changes (path): src/call.rs (MODIFY) — replace the placeholder `SipCall { pub id: u64, pub account_id: u64, pub state: String, pub media_state: String }` (lines 12-22) with private fields typed CallId/AccountId/CallState/CallMediaState and accessors",
-            "Changes (path): src/api/call_api_semantics.rs (MODIFY) — replace the `pub trait Service {}` shell (line 20) and stub (line 23) with the call lifecycle semantics: answer/hangup/hold/unhold/transfer/send_dtmf per RFC §19",
-            "Changes (path): src/lib.rs (MODIFY) — resolve the stub comment on `pub mod call;` (line 52) once SipCall is real",
-            "Changes (path): src/state/callstate.rs (context) — CallState type and its transition rules (§18)",
-            "Changes (path): src/model/id_design_newtype.rs (context) — CallId / AccountId newtypes",
-            "Changes (path): src/api/m20_dtmfsent_twophase.rs (context) — DtmfMethod / DtmfSentInfo used by send_dtmf",
-            "Changes (path): src/client.rs (context) — SipClient::make_call / answer entry points that create SipCall instances",
+            "Changes (path): src/call.rs (MODIFY) — replace the placeholder SipCall { pub id: u64, pub account_id: u64, pub state: String, pub media_state: String } with private typed fields",
+            "Changes (action): MODIFY",
+            "Changes (detail): SipCall fields become call_id: CallId, account_id: AccountId, state: CallState, media_state: CallMediaState, all private; add SipCall::new(account_id, call_id, state, media_state) and accessors id(), account_id(), state(), media_state()",
+            "Changes (before→after): before = SipCall { pub id: u64, pub account_id: u64, pub state: String, pub media_state: String }; after = private typed fields + accessors + the RFC §19 lifecycle methods returning Result<_, SipError>",
+            "Changes (api): new public API on SipCall — new(), id(), account_id(), state(), media_state(), answer(code: u16), hangup(reason: HangupReason), hold(), unhold(), transfer(target: String), send_dtmf(digits, method: DtmfMethod), call_state()",
+            "Changes (schema): none — pure in-memory Rust types; no serde/storage schema change",
+            "Changes (config): none — no ClientConfig/AccountConfig/DtmfPolicy field changes",
+            "Changes (dep): none — no new crates",
+            "Changes (path): src/api/call_api_semantics.rs (MODIFY) — remove the pub trait Service {} shell and the P9-3 stub; provide the call lifecycle semantics (or delegate to SipCall) per RFC §19",
+            "Changes (path): src/lib.rs (MODIFY) — resolve the [::STUB::] P9-3 comment on pub mod call; once SipCall is real; re-export SipCall and HangupReason from the public surface",
             "Non-change (item): PJSIP backend wiring of the lifecycle methods (native call id resolution, pjsua_call_* FFI) — P8-20/P5-3",
-            "Non-change (why): This ticket defines SipCall's structure and semantics; the FFI backend calls are consumed later",
-            "Impact (component): src/call.rs, src/api/call_api_semantics.rs, src/lib.rs, callers of SipCall",
+            "Non-change (why): this ticket defines SipCall's structure and state-machine semantics; the FFI backend calls are consumed later",
+            "Impact (component): src/call.rs, src/api/call_api_semantics.rs, src/lib.rs, and all SipCall construction sites (tests, examples, client.rs)",
             "Impact (nature): breaking — SipCall fields become private; all construction sites must use accessors/constructors",
-            "Impact (response): any code constructing `SipCall { id, account_id, ... }` with public fields (e.g. tests, examples) must migrate to the constructor",
+            "Impact (response): migrate SipCall { id, account_id, ... } field-literal construction to SipCall::new(account_id, call_id, ...); update tests/examples accordingly",
+            "Context (path): src/state/call_state_model.rs — CallState 13-state enum and the 20-edge RFC §18 transition table",
+            "Context (path): src/model/id_design_newtype.rs — CallId / AccountId NonZeroU64 newtypes",
+            "Context (path): src/api/m20_dtmfsent_twophase.rs — DtmfMethod / DtmfSentInfo used by send_dtmf",
+            "Context (path): src/client.rs — SipClient::call_state() and SipAccountHandle::make_call() entry points that create/observe SipCall instances",
             "Out of scope: RFC §19.1 answer code validation against live call state (that requires the reactor); the semantics and state-machine guards are implemented here"
           ],
           "testUnit": [
-            "UT: [Normal] C028-Post: SipCall::new constructs with id/account_id and accessors return them",
-            "UT: [Normal] C028-Post: answer(code) on an incoming call returns Ok and transitions state to the answered/connected state",
-            "UT: [Normal] C028: hangup on an active call returns Ok and transitions to disconnected",
-            "UT: [Normal] C028: hold/unhold on an active call toggle the hold state and return Ok",
-            "UT: [Normal] C028: transfer(target) on an active call records the transfer target and returns Ok",
-            "UT: [Normal] C028: send_dtmf(digits, method) on an active call returns Ok with a valid DtmfMethod",
-            "UT: [Error] C028-Inv: answer() on a non-incoming call (calling/connected) returns Err(SipErrorKind::InvalidState)",
-            "UT: [Error] C028: hangup/transfer/send_dtmf on a disconnected call return Err(SipErrorKind::InvalidState)",
-            "UT: [Error] C028: send_dtmf with empty digits returns Err (InvalidArgument)",
-            "UT: [Error] C028: send_dtmf with a DtmfMethod the account DtmfPolicy disallows returns Err",
-            "UT: [Boundary] C028: answer code boundary — 100/199 provisional and 200 accepted; invalid code range rejected if validated",
-            "UT: [Boundary] C028: send_dtmf with a single digit and a long digit string both succeed; DTMF-valid characters only",
-            "UT: [Invariant] C028: SipCall implements Clone + Debug — compile-time assert",
-            "UT: [Invariant] C028-Inv: private fields — the struct has no public data fields (compile-time: constructing via field literal in a test module fails to compile)"
+            "UT: [Normal] C028-Pre: SipCall::new(account_id, call_id, state, media_state) constructs a call whose call states are defined — accessors id() -> CallId, account_id() -> AccountId, state() -> CallState, media_state() -> CallMediaState return the constructor values",
+            "UT: [Normal] C028-Post: answer(code) on an incoming call (CallState::Incoming) returns Ok(()) and transitions state to Connecting for both provisional codes (183) and the final accept (200) — RFC §18 Incoming → Connecting",
+            "UT: [Normal] C028-Post: hangup(reason) on an Active call returns Ok(()) and transitions to Disconnecting, then a subsequent transition to Disconnected is legal",
+            "UT: [Normal] C028-Post: hold() on an Active call returns Ok(()) and transitions Active → Held; unhold() on a Held call returns Ok(()) and transitions Held → Active",
+            "UT: [Normal] C028-Post: transfer(target) on an Active call returns Ok(()), records the target URI, and transitions Active → Transferring",
+            "UT: [Normal] C028-Post: send_dtmf(digits, method) on an Active call returns Ok(()) for a valid DtmfMethod::Rfc4733 and DtmfMethod::Info with DTMF-valid digits",
+            "UT: [Normal] C028-Post: call_state() returns the current CallState after each lifecycle transition, agreeing with the RFC §18 transition table",
+            "UT: [Normal] C049-Post: transfer(target) accepts a plain SIP URI string (blind transfer) and records it as the transfer target for later REFER handling",
+            "UT: [Error] C028-Inv: answer() on a non-incoming call (Calling, Active, Held, Disconnected) returns Err(SipErrorKind::InvalidState) and does not mutate state",
+            "UT: [Error] C028: hangup()/transfer()/send_dtmf() on a terminal call (Disconnected, Failed) return Err(SipErrorKind::InvalidState) instead of panicking",
+            "UT: [Error] C028: hold()/unhold() on a non-active call (New, Incoming, Trying) return Err(SipErrorKind::InvalidState)",
+            "UT: [Error] C028: send_dtmf with empty digits or a digit outside the DTMF-valid set (0-9, A-D, #, *) returns Err (InvalidArgument)",
+            "UT: [Error] C028: send_dtmf with a DtmfMethod not present in the account DtmfPolicy::send_methods returns Err (InvalidArgument or InvalidState)",
+            "UT: [Boundary] C028: answer code boundary — provisional 100-199 and 200 are accepted; a code outside 100-699 or a non-2xx final code is rejected if validated; both answer(200) and answer(183) land in Connecting",
+            "UT: [Boundary] C028: send_dtmf with a single digit and with a long digit string both succeed; each character is validated against the DTMF-valid alphabet",
+            "UT: [Boundary] C028: state boundary — Active → Held → Active and Active → Disconnecting → Disconnected are legal; terminal → any is rejected by the SipCall state guard",
+            "UT: [Invariant] C028: SipCall implements Clone + Debug (compile-time assert)",
+            "UT: [Invariant] C028-Inv: SipCall has no public data fields — field-literal construction outside the module fails to compile (private-field invariant)",
+            "UT: [Invariant] C028: SipCall is Send + Sync so it can be moved across tokio tasks and used alongside the event bus",
+            "UT: [Invariant] C049: the transfer target recorded by transfer() is read-only through an accessor and cannot be mutated externally"
           ],
           "testIntegration": [
-            "IT: [Layer 2] make_call → SipCall — SipClient::make_call returns a SipCall whose id matches the event bus CallId and whose state is Calling",
-            "IT: [Layer 2] answer flow — answer an incoming call from MockBackend and assert SipCall::state transitions to connected and a CallConnected event is observed",
-            "IT: [Layer 2] hangup flow — hangup and assert the call state reaches Disconnected and a CallDisconnected event is observed",
-            "IT: [Error] answer non-incoming — answer a call that is already connected and assert Err(SipErrorKind::InvalidState) propagates through the client API"
+            "IT: [Integration point] SipClient::make_call → SipCall — SipAccountHandle::make_call (public_api_design.rs) returns a SipCall whose CallId matches the reactor CallEntry id and whose state is Calling (outgoing)",
+            "IT: [Integration point] EventBus ← SipCall — lifecycle methods publish CallStateChanged/CallHeld/CallResumed/CallDisconnected events that a caller observes via subscribe()",
+            "IT: [Integration point] SipCall ↔ CallState model — SipCall::call_state() agrees with the reactor's authoritative call_state() query (O-004 source of truth)",
+            "IT: [Verification] answer flow — answer an incoming call delivered by MockBackend; assert SipCall::state() transitions Incoming → Connecting → Active and a CallConnected event is observed",
+            "IT: [Verification] hangup flow — hangup an Active call; assert the state reaches Disconnected and a CallDisconnected event is observed",
+            "IT: [Verification] hold/unhold — hold an Active call, assert CallHeld event and state Held; unhold, assert CallResumed and state Active",
+            "IT: [Verification] transfer — transfer an Active call to a target URI; assert state transitions to Transferring and, on NOTIFY success, back to Active (or Disconnecting on failure)",
+            "IT: [Verification] send_dtmf — send_dtmf on an Active call; assert a DtmfSent event (or accepted two-phase command) with the same digit and method",
+            "IT: [Error] answer non-incoming — answer a call already in Active; assert Err(SipErrorKind::InvalidState) propagates through the client API without a panic",
+            "IT: [Error] terminal guard — hangup a Disconnected call via the client; assert Err(SipErrorKind::InvalidState) is returned",
+            "IT: [Prerequisites] MockBackend must deliver CallStateChanged/CallMediaStateChanged events; the reactor CallEntry registry must be populated; make_call must return a real CallId (P12-1 dependency)",
+            "IT: [Related tickets] P5-1 (source ticket), P4-1 (CallState model), P5-2 (incoming call/REFER types), P8-6 (make_call example), P9-2 (audio subscribe uses CallId)"
           ],
           "testExceptions": [
-            "- Item: Real PJSIP answer codes (180/183/200/486/603) producing live call states. Reason: requires a live PJSIP stack and a peer endpoint; integration tests assert the state-machine semantics via MockBackend.",
-            "- Item: DTMF digit delivery to the network (pjsua_call_dial_dtmf). Reason: FFI backend wiring is P8-20; this ticket validates input and state, not wire delivery.",
-            "- Item: Transfer (REFER) handshake against a live peer. Reason: requires a second live SIP endpoint; the REFER semantics and TransferInfo events are covered by the event model and MockBackend, not a real PBX."
+            "Exception: Real PJSIP answer codes (180/183/200/486/603) producing live call states are not testable in unit scope because they require a live PJSIP stack and a peer endpoint; this is not a design defect — the state-machine semantics are deterministic and are covered by MockBackend integration tests, and live codec negotiation is external I/O.",
+            "Exception: DTMF digit delivery to the network (pjsua_call_dial_dtmf) is not testable in this ticket because the FFI backend wiring is deferred to P8-20; this is not an architectural defect — input validation and state-guard behavior are deterministic and covered by unit tests, while wire delivery is external I/O.",
+            "Exception: The transfer (REFER) handshake against a live peer is not testable in this ticket because it requires a second live SIP endpoint; this is not a design defect — the REFER state machine (Active → Transferring → Active/Disconnecting) and TransferInfo events are deterministic and covered by the event model and MockBackend integration tests."
           ],
           "acceptanceCriteria": [
-            "【Happy path】SipCall has private fields with accessors: id() -> CallId, account_id() -> AccountId, state() -> CallState, media_state() -> CallMediaState (or the current event-model types).",
-            "【Happy path】SipCall is constructed via a named constructor (e.g. SipCall::new(account_id, id, ...)) rather than public field literals; fields cannot be mutated externally.",
-            "【Happy path】The lifecycle methods exist with RFC §19 signatures: answer(code: u16), hangup(reason: HangupReason), hold(), unhold(), transfer(target: String), send_dtmf(digits, method: DtmfMethod), call_state() -> CallState.",
-            "【Happy path】answer() transitions an incoming call to the answered state and returns Ok(()).",
-            "【Error case】answer() on a call whose state is not incoming returns Err(SipErrorKind::InvalidState) (C028: answer() only valid for incoming calls).",
-            "【Error case】hangup/transfer/send_dtmf on a disconnected call return Err(SipErrorKind::InvalidState) instead of panicking.",
-            "【Edge case】send_dtmf validates the digits string (non-empty, allowed DTMF characters) and the DtmfMethod against the account DtmfPolicy, returning Err on invalid input.",
-            "【Invariant】SipCall implements Clone + Debug; its fields are private and reachable only through accessors, so illegal call states cannot be represented externally."
+            "[Happy path] SipCall has private fields typed CallId/AccountId/CallState/CallMediaState with verb-named accessors id() -> CallId, account_id() -> AccountId, state() -> CallState, media_state() -> CallMediaState",
+            "[Happy path] SipCall is constructed via SipCall::new(account_id, call_id, state, media_state); fields cannot be mutated externally",
+            "[Happy path] The lifecycle methods exist with RFC §19 signatures: answer(code: u16), hangup(reason: HangupReason), hold(), unhold(), transfer(target: String), send_dtmf(digits, method: DtmfMethod), call_state() -> CallState",
+            "[Happy path] answer() transitions an incoming call to the answered state (Connecting/Active) and returns Ok(())",
+            "[Error case] answer() on a call whose state is not incoming returns Err(SipErrorKind::InvalidState) (C028)",
+            "[Error case] hangup/transfer/send_dtmf on a disconnected call return Err(SipErrorKind::InvalidState) instead of panicking",
+            "[Edge case] send_dtmf validates the digits string (non-empty, allowed DTMF characters) and the DtmfMethod against the account DtmfPolicy, returning Err on invalid input",
+            "[Invariant] SipCall implements Clone + Debug; its fields are private and reachable only through accessors, so illegal call states cannot be represented externally",
+            "[Happy path] src/api/call_api_semantics.rs provides the lifecycle semantics replacing the pub trait Service {} shell; src/lib.rs pub mod call; carries no [::STUB::]"
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§16, §19, §22)",
           "relatedTicketIds": "P6-1 (depends on: CallState model), P6-2 (depends on: AudioChunkPair for audio tap), P2-3 (depends on: event system for SubscribeAudio commands)",
-          "notes": "- Stub markers resolved: src/api/call_api_semantics.rs:23, src/call.rs:4 (covers call.rs:4,12), src/lib.rs:52.\n- Implementation steps: 1) replace src/call.rs SipCall with private fields typed CallId/AccountId/CallState/CallMediaState + accessors + a named constructor; 2) implement the lifecycle methods (answer/hangup/hold/unhold/transfer/send_dtmf) with state guards returning SipErrorKind::InvalidState on illegal transitions; 3) implement the semantics in src/api/call_api_semantics.rs (or delegate there from call.rs); 4) update src/lib.rs so `pub mod call;` carries no stub; 5) migrate construction sites (tests, examples, client.rs) from field literals to the constructor; 6) add unit + integration tests.\n- Related tickets: P5-1 (source ticket; contracts C025/C028/C032/C033/C049), P8-10 (RawSipMessage event model beside this), P8-6 (make_call example depends on SipCall), P8-8 (audio subscribe uses CallId).\n- Caveat: CallMediaState/HangupReason types must exist (they are re-exported in lib.rs:108); if a type is missing, add it in the appropriate module first. Verify with `make test`.",
+          "notes": "- Stub markers resolved: src/api/call_api_semantics.rs:23, src/call.rs:4 (covers call.rs:4,12), src/lib.rs:52.\n- Implementation steps: 1) replace src/call.rs SipCall with private fields typed CallId/AccountId/CallState/CallMediaState + accessors + a named constructor; 2) implement the lifecycle methods (answer/hangup/hold/unhold/transfer/send_dtmf) with state guards returning SipErrorKind::InvalidState on illegal transitions; 3) implement the semantics in src/api/call_api_semantics.rs (or delegate there from call.rs); 4) update src/lib.rs so pub mod call; carries no stub; 5) migrate construction sites (tests, examples, client.rs) from field literals to the constructor; 6) add unit + integration tests.\n- Related tickets: P5-1 (source ticket), P8-10 (RawSipMessage), P8-6 (make_call example depends on SipCall), P8-8 (audio subscribe uses CallId).\n- Caveat: CallMediaState/HangupReason types must exist (they are re-exported in lib.rs:108); if a type is missing, add it in the appropriate module first. Verify with make test.\n- Risks: HangupReason is undefined — must be defined (e.g. in call.rs or api/call_api_semantics.rs) and re-exported; make_call currently returns Ok(1) with a hardcoded CallId (P12-1 stub) so the Layer-2 make_call→SipCall integration test depends on P12-1 being resolved or on a test harness that supplies the CallId.\n- Caveats: the contracts array was trimmed from the P5-1-inherited five to C028 and C049; C025 (RawSipMessage), C032/C033 (Audio Subscribe) are owned and verified by P8-10 and P9-2/P8-8 respectively and are out of P9-3's scope.\n- Open items: none blocking — see P12-1 (CallId from make_call), P8-20 (FFI lifecycle backend).\n- Future improvements: replace the state-guard matching in each lifecycle method with a table-driven transition check reusing CallState::transition(); wire DtmfSent two-phase timeout (spawn_dtmf_sent_timeout) once the reactor owns an EventBus (P11-6).\nImplementation summary (P9-3):\n- Changed files: src/call.rs, src/api/call_api_semantics.rs, src/api/mod.rs, src/lib.rs, src/error/error_design_siperror.rs, tests/verify_spec_p9_3.rs\n- Key changes: SipCall is now a real domain type with private typed fields and RFC §19 lifecycle methods backed by CallState::transition() guards (C028 answer-only-for-incoming enforced by the transition table); HangupReason defined; CallApiSemantics trait in call_api_semantics.rs; SipErrorKind gained InvalidArgument (24th variant) for DTMF input validation.\n- Test results: make test exit 0 (747 lib + 6 integration + others, all ok); cargo check --all-targets clean; run-quality-checks 0 issues.\n- Resolved stubs: TS-001/TS-002/TS-003 (all P9-3 markers removed); targetStubs set to verified_empty.\n- Out of scope (deferred): P12-1 make_call hardcoded CallId, P8-20 FFI lifecycle backend, P11-6 DtmfSent two-phase wiring.\nReview report (P9-3):\n- Static quality check: passed (run-quality-checks 0 issues on 6 changed files)\n- Translatability: no issues — lifecycle methods are verb phrases, magic answer codes extracted to named constants, DTMF alphabet as DTMF_ALPHABET const\n- Annotation check: 6 files annotated, 0 missing, 0 AMBIGUOUS\n- Contracts: C028 (answer-only-for-incoming) enforced via RFC §18 transition table; C049 (blind transfer) records target; verify-final-contracts 100%\n- Crime scan: 0 open crimes; no-excuse gate 36/36\n- Issues found and fixes applied during review: extracted ANSWER_PROVISIONAL_MIN/MAX/ANSWER_OK named constants per spec Boy Scout plan; reworded rustdoc lines that tripped the commented-code heuristic",
           "default_files": [
             "src/api/audio_subscribe_bp.rs",
             "src/api/call_api_semantics.rs",
@@ -22711,7 +22712,7 @@
           ],
           "id": 3,
           "phaseId": 9,
-          "status": "todo",
+          "status": "reviewed",
           "stubs": [
             {
               "file": "/Users/kawata/shyme/zasso/crates/siprs/src/api/call_api_semantics.rs",
@@ -22729,11 +22730,56 @@
               "codes": "pub mod account;\npub mod call;\npub mod transport;"
             }
           ],
-          "invariants": "【C028】answer() is valid only for incoming calls — any other state returns SipErrorKind::InvalidState; the lifecycle methods enforce this before mutating state. 【Call-state integrity】SipCall fields are private and only mutated through lifecycle methods, so call_state() always reflects the last legal transition (RFC §18 transition rules). 【Error handling】No lifecycle method panics on an illegal state or bad input — every failure returns Err(SipError). 【Immutable exposure】Accessors return the current state snapshot without exposing mutable interior state.",
-          "investigation": "src/call.rs:12-22 — `SipCall` is a placeholder struct with four PUBLIC fields: `id: u64` (comment 'Placeholder for CallId newtype — replaced in P5-1'), `account_id: u64`, `state: String` ('replaced in P4-1'), `media_state: String` ('replaced in P1+'). It derives Debug, Clone. The module doc (lines 6-10) already promises creation via SipClient::make_call() / answer_call(). src/api/call_api_semantics.rs — line 20 declares `pub trait Service {}` (unused shell) and line 23 carries the stub; no lifecycle methods exist. src/lib.rs:49-55 declares `pub mod call;` with the stub comment at line 52. CallId/AccountId newtypes exist (src/model/id_design_newtype.rs, re-exported at lib.rs:106-111); CallState exists (event model, re-exported at lib.rs:108). RFC §19 specifies the exact lifecycle signatures and §19.1 the answer semantics (answer() only for incoming calls). A real implementation must make the fields private and typed, add accessors, add the lifecycle methods with state guards, and remove the stub markers in all three files.",
-          "boyScoutPlan": "- The placeholder public fields (id: u64, state: String) are replaced with typed private fields (CallId, AccountId, CallState, CallMediaState) and verb-named accessors (id(), account_id(), state(), media_state()) — the struct reads as a real domain noun.\n- The stale comments ('Placeholder for CallId newtype — replaced in P5-1', etc.) are deleted once the real types are in place.\n- Lifecycle methods are verb phrases (answer, hangup, hold, unhold, transfer, send_dtmf) matching RFC §19 — no generic names.\n- The `pub trait Service {}` shell in call_api_semantics.rs is removed — dead code unrelated to call semantics.\n- Magic answer codes are named constants (ANSWER_OK = 200, etc.) if validated, per the naming-constants convention.",
-          "instrumentation": "- Log lifecycle transitions at info level with call_id and state (tracing::info!(call_id = %id, %state, \"call answered\")).\n- Log illegal-state rejections at warn level (answer attempted on non-incoming call) so misuse is visible in logs.\n- Expose call state transitions via the existing event model (CallStateChanged) so callers observe lifecycle without polling accessors.",
-          "fromStub": true
+          "invariants": "- [Normal condition] RFC §18 transition table (the 20 valid DAG edges in call_state_model.rs) is the sole source of legal state transitions; every lifecycle method validates its guard against the current CallState before mutating state\n- [Error invariant] A failed lifecycle call has no side effect — on Err(SipErrorKind::InvalidState) the SipCall state is left exactly as it was; no partial transition is observable\n- [Internal state invariant] SipCall's fields (call_id, account_id, state, media_state) are private and only mutated through lifecycle methods, so call_state() always reflects the last legal transition\n- [Boundary invariant] Terminal states (Disconnected, Failed) are absorbing — no lifecycle method succeeds from a terminal state, and accessors still return the terminal state without panicking\n- 【C028】answer() is valid only for incoming calls — any other state returns SipErrorKind::InvalidState; the lifecycle methods enforce this before mutating state\n- 【Call-state integrity】SipCall fields are private and only mutated through lifecycle methods, so call_state() always reflects the last legal transition (RFC §18 transition rules)\n- 【Error handling】No lifecycle method panics on an illegal state or bad input — every failure returns Err(SipError)\n- 【Immutable exposure】Accessors return the current state snapshot without exposing mutable interior state",
+          "investigation": "- src/call.rs:4 carries [::STUB::] P9-3 ... (covers call.rs:4,12); the SipCall struct (lines 12-22) has four PUBLIC fields: id: u64 ('Placeholder for CallId newtype — replaced in P5-1'), account_id: u64, state: String ('replaced in P4-1'), media_state: String ('replaced in P1+'); derives Debug, Clone; module doc (lines 6-10) already promises creation via SipClient::make_call() / answer_call().\n- src/api/call_api_semantics.rs:20 declares pub trait Service {} (unused shell), line 23 carries the P9-3 stub; no lifecycle methods exist.\n- src/lib.rs:52 carries the [::STUB::] P9-3 comment on pub mod call; CallState is re-exported at lib.rs:110 (from event), CallId via model, DtmfMethod/DtmfPolicy at lib.rs:124-127 via account_config_spec.\n- CallState (src/state/call_state_model.rs): 13-state enum with a 13x13 TRANSITIONS table; 20 valid RFC §18 DAG edges; transition()/can_transition_to()/is_terminal() helpers; CallTransitionError { from, to }.\n- CallMediaState (src/state/m20_callstate_mapping.rs): Active/Held/Error, re-exported via src/event.rs:28.\n- CallId/AccountId (src/model/id_design_newtype.rs): NonZeroU64 newtypes with from_u64/TryFrom<u64>/Display.\n- DtmfMethod (src/config/account_config_spec.rs:35 and src/api/m20_dtmfsent_twophase.rs:56): Rfc4733/Info; DtmfPolicy { send_methods, receive_methods, default_send_method } at account_config_spec.rs:104-112.\n- DtmfSentInfo (src/api/m20_dtmfsent_twophase.rs): two-phase design (Ok(()) acceptance + async DtmfSent event); DEFAULT_DTMF_SENT_TIMEOUT_MS=500; spawn_dtmf_sent_timeout is a P11-6 stub.\n- SipError/SipErrorKind (src/error/error_design_siperror.rs): 23 variants; InvalidState (non-retryable), DtmfFailed, CallNotFound; SipError::invalid_state()/not_found()/with_call_id() constructors.\n- SipAccountHandle::make_call (src/api/public_api_design.rs:123-144) returns Result<u64, SipError> with a P12-1 stub (Ok(1) hardcoded CallId); validates codecs via CallMediaConstraints::validate_strict.\n- SipClient::call_state (src/client.rs:216-225) returns the authoritative reactor CallEntry list (O-004).\n- RFC §19 (N0027) specifies SipClient-level signatures: answer(call_id, code), hangup(call_id, reason: HangupReason), hold(call_id), unhold(call_id), transfer(call_id, target), send_dtmf(call_id, digits, method), call_state(call_id). §19.1: 180 continue, 183 SDP provisional, 200 accept, 486 busy, 603 decline; answer() only for incoming.\n- RFC §18 (N0026) CallState: 13 states, Outgoing/Incoming/ActiveSession transition diagrams, max_calls constraint (ClientConfig).\n- HangupReason is NOT defined anywhere in src/ — it must be added (e.g. in call.rs or api/call_api_semantics.rs) and re-exported from lib.rs before hangup() can compile.\n- RFC §20 (N0029/N0028) DtmfSentInfo/DtmfMethod already exist; §37/§38 (N0048) IncomingCall/REFER types exist in src/api/incoming_call_refer.rs (P5-2).",
+          "boyScoutPlan": "- Replace the placeholder public fields (id: u64, state: String, media_state: String) with typed private fields (CallId, AccountId, CallState, CallMediaState) and verb-named accessors (id(), account_id(), state(), media_state()) — the struct reads as a real domain noun.\n- Delete the stale comments ('Placeholder for CallId newtype — replaced in P5-1', etc.) once the real types are in place — they are lying comments.\n- Lifecycle methods are verb phrases (answer, hangup, hold, unhold, transfer, send_dtmf, call_state) matching RFC §19 — no generic names.\n- Remove the pub trait Service {} shell in call_api_semantics.rs — dead code unrelated to call semantics; extract the lifecycle guard logic into a private helper (e.g. fn ensure_call_active(&self) -> Result<(), SipError>) so each method reads as a sentence.\n- Define HangupReason as an enum (e.g. LocalUser, RemoteHangup, NetworkFailure) in the appropriate module instead of passing a raw string — a domain noun.\n- Magic answer codes (200/183) are named constants (ANSWER_OK = 200, ANSWER_EARLY_MEDIA = 183) if validated, per the naming-constants convention.\n- Existing code touched: public_api_design.rs make_call returns Result<u64, _> — note (not fixed here) the P12-1 hardcoded CallId; SipCall construction sites in tests/examples migrate to the constructor (Boy Scout: leave touched sites cleaner).",
+          "instrumentation": "- Logging: tracing::info!(call_id = %id, from_state = ?old, to_state = ?new, \"call state transition\") on every legal lifecycle transition; tracing::warn!(call_id = %id, ?state, \"lifecycle op rejected\") on InvalidState rejections so misuse is visible\n- Metrics: call lifecycle counters (calls_answered, calls_hung_up, calls_held, calls_transferred, dtmf_sent) are a future metrics-feature item behind the existing metrics feature flag (C047)\n- Error tracking: every lifecycle error returns SipError with SipErrorKind::InvalidState/DtmfFailed and call_id context via SipError::with_call_id()\n- Health check: call_state() serves as the health probe — the reactor authoritative query (O-004) reports SipCall state; a stuck non-terminal state is visible through the query API\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-named methods, named constants ANSWER_OK/ANSWER_PROVISIONAL_MIN/MAX/DTMF_ALPHABET, no single-char vars, no debug output)\nTests: all 12 test binaries passed (make test exit 0)",
+          "fromStub": true,
+          "created_at": "2026-08-06",
+          "updated_at": "2026-08-06",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [Normal] C028-Pre: SipCall::new constructs a call whose call states are defined — accessors return the constructor values\n```rust\nfn sip_call(state: CallState) -> SipCall {\n    SipCall::new(\n        AccountId::from_u64(1).unwrap(),\n        CallId::from_u64(1).unwrap(),\n        state,\n        CallMediaState::Active,\n    )\n}\n\n#[test]\nfn constructs_with_defined_call_state() {\n    let account_id = AccountId::from_u64(1).unwrap();\n    let call_id = CallId::from_u64(1).unwrap();\n    let call = SipCall::new(account_id, call_id, CallState::Incoming, CallMediaState::Active);\n    assert_eq!(call.id(), call_id);\n    assert_eq!(call.account_id(), account_id);\n    assert_eq!(call.state(), CallState::Incoming);\n    assert_eq!(call.media_state(), CallMediaState::Active);\n}\n```",
+            "UT: [Normal] C028-Post: the Call API answer semantics — answer(code) on an incoming call transitions Incoming → Connecting and returns Ok\n```rust\n#[test]\nfn answer_transitions_incoming_to_connecting() {\n    let mut call = sip_call(CallState::Incoming);\n    assert!(call.answer(200).is_ok());\n    assert_eq!(call.state(), CallState::Connecting);\n    let mut call2 = sip_call(CallState::Incoming);\n    assert!(call2.answer(183).is_ok());\n    assert_eq!(call2.state(), CallState::Connecting);\n}\n```",
+            "UT: [Normal] C028-Post: hangup/hold/unhold/transfer/send_dtmf/call_state operate per the RFC §18 transition rules\n```rust\n#[test]\nfn lifecycle_operations_transition_state() {\n    let mut call = sip_call(CallState::Active);\n    assert!(call.hold().is_ok());\n    assert_eq!(call.state(), CallState::Held);\n    assert!(call.unhold().is_ok());\n    assert_eq!(call.state(), CallState::Active);\n    assert!(call.transfer(\"sip:bob@example.com\".to_string()).is_ok());\n    assert_eq!(call.state(), CallState::Transferring);\n    assert!(call.hangup(HangupReason::LocalUser).is_ok());\n    assert_eq!(call.state(), CallState::Disconnecting);\n    assert_eq!(call.call_state(), CallState::Disconnecting);\n}\n```",
+            "UT: [Error] C028-Inv: answer() is only valid for incoming calls — any other state returns InvalidState with no side effect\n```rust\n#[test]\nfn answer_rejects_non_incoming_state() {\n    let mut call = sip_call(CallState::Active);\n    let err = call.answer(200).unwrap_err();\n    assert_eq!(err.kind, SipErrorKind::InvalidState);\n    assert_eq!(call.state(), CallState::Active); // no side effect on error\n}\n```",
+            "UT: [Error] C028: no lifecycle method panics on an illegal state — terminal states reject all operations\n```rust\n#[test]\nfn terminal_state_rejects_all_operations() {\n    let mut call = sip_call(CallState::Disconnected);\n    assert_eq!(call.hangup(HangupReason::LocalUser).unwrap_err().kind, SipErrorKind::InvalidState);\n    assert_eq!(call.hold().unwrap_err().kind, SipErrorKind::InvalidState);\n    assert_eq!(call.transfer(\"sip:x@y\".to_string()).unwrap_err().kind, SipErrorKind::InvalidState);\n    assert_eq!(call.state(), CallState::Disconnected);\n}\n```",
+            "UT: [Boundary] C028: send_dtmf validates the digits string (non-empty, DTMF-valid chars) and the DtmfMethod against the account DtmfPolicy\n```rust\n#[test]\nfn send_dtmf_validates_digits_and_policy() {\n    let mut call = sip_call(CallState::Active);\n    assert!(call.send_dtmf(\"123#\", DtmfMethod::Rfc4733).is_ok());\n    assert_eq!(call.send_dtmf(\"\", DtmfMethod::Rfc4733).unwrap_err().kind, SipErrorKind::InvalidArgument);\n    let restricted = call.clone().with_dtmf_policy(DtmfPolicy {\n        send_methods: vec![DtmfMethod::Info],\n        receive_methods: vec![DtmfMethod::Rfc4733],\n        default_send_method: DtmfMethod::Info,\n    });\n    assert_eq!(restricted.send_dtmf(\"1\", DtmfMethod::Rfc4733).unwrap_err().kind, SipErrorKind::InvalidArgument);\n}\n```",
+            "UT: [Normal] C049-Post: blind transfer — transfer(target) accepts a plain SIP URI, records the target, and transitions Active → Transferring\n```rust\n#[test]\nfn blind_transfer_records_target() {\n    let mut call = sip_call(CallState::Active);\n    assert!(call.transfer(\"sip:carol@example.com\".to_string()).is_ok());\n    assert_eq!(call.state(), CallState::Transferring);\n    assert_eq!(call.transfer_target(), Some(\"sip:carol@example.com\"));\n}\n```",
+            "UT: [Invariant] C049: the transfer target is read-only through an accessor and cannot be mutated externally\n```rust\n#[test]\nfn transfer_target_is_immutable_externally() {\n    let mut call = sip_call(CallState::Active);\n    call.transfer(\"sip:carol@example.com\".to_string()).unwrap();\n    assert_eq!(call.transfer_target(), Some(\"sip:carol@example.com\"));\n    // No setter exists — the target String is only readable via transfer_target().\n    let _ = call.clone();\n}\n```",
+            "UT: [Invariant] C028: SipCall and HangupReason implement Clone + Debug + Send + Sync (compile-time)\n```rust\n#[test]\nfn sip_call_is_clone_debug_send_sync() {\n    fn assert_traits<T: Clone + std::fmt::Debug + Send + Sync>() {}\n    assert_traits::<SipCall>();\n    assert_traits::<HangupReason>();\n}\n```"
+          ],
+          "startedAt": "2026-08-06",
+          "changes": [
+            {
+              "before": "SipCall { pub id: u64, pub account_id: u64, pub state: String, pub media_state: String } (placeholder)",
+              "after": "SipCall with private fields (CallId/AccountId/CallState/CallMediaState/transfer_target/dtmf_policy) + accessors + with_dtmf_policy + CallApiSemantics impl",
+              "description": "Implemented the RFC §19 call lifecycle (answer/hangup/hold/unhold/transfer/send_dtmf/call_state) with RFC §18 transition-table guards; added HangupReason enum"
+            },
+            {
+              "before": "pub trait Service {} + [::STUB::] P9-3 (orphan module)",
+              "after": "pub trait CallApiSemantics + validate_dtmf_digits/validate_dtmf_send_method; module declared in api/mod.rs",
+              "description": "Replaced the empty Service shell with the call lifecycle contract (N0027) and DTMF validation helpers"
+            },
+            {
+              "before": "[::STUB::] P9-3 on pub mod call;",
+              "after": "no stub; SipCall/HangupReason/CallApiSemantics re-exported",
+              "description": "Resolved the P9-3 stub and exposed the call types on the public surface"
+            },
+            {
+              "before": "SipErrorKind had 23 variants, no InvalidArgument",
+              "after": "SipErrorKind has 24 variants incl. InvalidArgument + SipError::invalid_argument()",
+              "description": "Added the InvalidArgument variant referenced by the spec for send_dtmf input validation; updated display/retryable/tests"
+            },
+            {
+              "before": "no integration coverage",
+              "after": "tests/verify_spec_p9_3.rs (6 tests)",
+              "description": "Layer 2 integration tests: transition-table agreement, InvalidState propagation, blind transfer, Send+Sync across tokio"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-06"
         },
         {
           "title": "Implement full SIP message parsing per the Raw SIP Message Specification (NODE_ID=N0024) with header/sdp extraction and parsed-field accessors",

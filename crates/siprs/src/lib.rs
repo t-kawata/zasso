@@ -1,5 +1,6 @@
 
 
+
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -48,10 +49,9 @@ pub mod client;
 pub mod config;
 pub mod error;
 
-/// Account, Call, and Transport type stubs.
+/// Account and Transport type stubs; Call is implemented (P9-3).
 ///
 // [::STUB::] P10-3: account/call/transport lifecycle methods are deferred -- Implement account and transport configuration lifecycle methods (make, answer, hangup) per the P3-1 specification
-// [::STUB::] P9-3: SipCall lifecycle and fields are placeholders; call API semantics are deferred -- Implement SipCall with private fields and accessors and call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (NODE_ID=N0027)
 pub mod account;
 pub mod call;
 pub mod transport;
@@ -117,6 +117,10 @@ pub use event::{
 // [::TICKET::] P3-1: Public API surface re-exports — account, call, transport config types
 pub use account::SipAccountHandle;
 pub use api::call_types::{AuthOverride, CallMediaPreferences, Codec, OutgoingCallRequest};
+// [::TICKET::] P9-3: SipCall and the call lifecycle contract re-exports
+pub use api::call_api_semantics::CallApiSemantics;
+// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+pub use call::{HangupReason, SipCall};
 // [::TICKET::] P9-2: Audio Subscribe API re-exports
 pub use api::audio_subscribe_bp::{AudioTapHandle, AudioTapMode, AudioTapSender};
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.

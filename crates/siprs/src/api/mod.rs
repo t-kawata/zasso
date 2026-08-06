@@ -1,5 +1,6 @@
 
 
+
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
@@ -31,6 +32,9 @@ pub mod incoming_call_refer;
 // [::TICKET::] P9-2: Audio Subscribe API — AudioTapMode, AudioTapHandle, AudioTapSender
 pub mod audio_subscribe_bp;
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-3: Call API & Answer Semantics — CallApiSemantics trait (RFC N0027)
+pub mod call_api_semantics;
+// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 
 // Re-export public types at the api level
