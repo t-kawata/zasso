@@ -33,13 +33,45 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     // emits them (consts style) as modules of constants.
     "pjsip_inv_state",
     "pjsua_call_media_status",
+    // P11-10: codec enumeration (PjsuaBackend::configure_codecs) and the
+    // account-config structs the backend marshals.
+    "pjsua_codec_info",
+    "pjsua_acc_config",
+    "pjsua_cred_info",
+    "pjsua_acc_info",
+    "pjsua_transport_config",
+    "pjsua_call_setting",
+    "pjsua_msg_data",
+    "pjsip_media_type",
+    "pjsip_dialog",
 ];
 
 /// Fixed allowlist of PJSIP calls siprs references.
 ///
-/// `pjsua_call_get_info` is the only FFI entry the current stub surface
-/// declares; the real call sites are wired by P11-10 and may extend this list.
-pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &["pjsua_call_get_info"];
+/// `pjsua_call_get_info` anchors the call-info surface; P11-10 adds the
+/// PjsuaBackend FFI symbols it drives.
+pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
+    "pjsua_call_get_info",
+    "pjsua_enum_codecs",
+    "pjsua_create",
+    "pjsua_init",
+    "pjsua_start",
+    "pjsua_destroy",
+    "pjsua_transport_create",
+    "pjsua_acc_add",
+    "pjsua_acc_del",
+    "pjsua_acc_modify",
+    "pjsua_acc_set_registration",
+    "pjsua_acc_get_info",
+    "pjsua_call_make_call",
+    "pjsua_call_answer",
+    "pjsua_call_hangup",
+    "pjsua_call_send_dtmf",
+    "pjsua_call_xfer",
+    "pjsua_codec_set_priority",
+    "pjsua_conf_connect",
+    "pjsua_conf_disconnect",
+];
 
 /// Fixed allowlist of PJSIP constants siprs references.
 ///
@@ -76,6 +108,8 @@ pub const BINDGEN_ALLOWLIST_VARS: &[&str] = &[
     "PJSUA_REG_STATE_REGISTERING",
     "PJSUA_REG_STATE_ACTIVE",
     "PJSUA_REG_STATE_FAILED",
+    // P11-10: plain-password credential data type used by add_account/update_account.
+    "PJ_CRED_DATA_PLAIN_PASSWD",
 ];
 
 /// Resolves the PJSIP header root per RFC §28.1 search order:
@@ -148,6 +182,40 @@ mod tests {
     fn feature_env_present_reflects_cargo_env() {
         assert!(feature_env_present(Ok(String::from("1"))));
         assert!(!feature_env_present(Err(std::env::VarError::NotPresent)));
+    }
+
+    #[test]
+    // @verifies C111
+    // [::TICKET::] P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-10 --for-spec --no-implementation-order`.
+    fn allowlist_includes_pjsua_backend_ffi() {
+        // Every FFI symbol PjsuaBackend drives must be bindgen-allowlisted so the
+        // generated bindings expose it under pjsua-native (C111).
+        let required = [
+            "pjsua_call_get_info",
+            "pjsua_create",
+            "pjsua_init",
+            "pjsua_start",
+            "pjsua_destroy",
+            "pjsua_transport_create",
+            "pjsua_acc_add",
+            "pjsua_acc_del",
+            "pjsua_acc_modify",
+            "pjsua_acc_set_registration",
+            "pjsua_call_make_call",
+            "pjsua_call_answer",
+            "pjsua_call_hangup",
+            "pjsua_call_send_dtmf",
+            "pjsua_call_xfer",
+            "pjsua_codec_set_priority",
+            "pjsua_conf_connect",
+            "pjsua_conf_disconnect",
+        ];
+        for sym in required {
+            assert!(
+                BINDGEN_ALLOWLIST_FUNCTIONS.contains(&sym),
+                "BINDGEN_ALLOWLIST_FUNCTIONS must include {sym}"
+            );
+        }
     }
 
     #[test]

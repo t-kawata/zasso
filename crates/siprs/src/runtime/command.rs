@@ -348,7 +348,7 @@ pub(crate) enum DispatchCommand {
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
@@ -399,11 +399,11 @@ impl DispatchCommand {
                 f: Box::new(move |backend| backend.hangup(call_id as i32)),
                 reply,
             },
-// [::STUB::] P11-10: Hold/Unhold backend calls are not wired in SipBackend; the Execute closure returns a hardcoded error and the P4-2 reference is stale (P4-2 is Audio Format). Real hold/unhold requires SipBackend hold/unhold methods backed by pjsua_call_set_hold FFI -- Add hold/unhold to the SipBackend trait and MockBackend, wire pjsua_call_set_hold/pjsua_call_set_inactive in PjsuaBackend, and replace these Execute closures with backend.hold/unhold calls once the pjsua-native feature enables FFI
+// [::STUB::] P11-11: Hold/Unhold require SipBackend hold/unhold methods backed by pjsua_call_set_hold FFI; deferred from P11-10 because adding trait methods is a public API change owned by the callback/FFI completion ticket -- Add hold/unhold to the SipBackend trait and MockBackend, wire pjsua_call_set_hold/pjsua_call_set_inactive in PjsuaBackend, and replace these Execute closures with backend.hold/unhold calls once P11-11 enables FFI
             RuntimeCommand::Hold { call_id: _, reply } => Self::Execute {
                 f: Box::new(move |_backend| {
                     Err(ReactorError::BackendError(
-                        "hold is not yet implemented in SipBackend (P4-2)".into(),
+                        "hold is not wired in SipBackend (deferred to P11-11)".into(),
                     ))
                 }),
                 reply,
@@ -411,7 +411,7 @@ impl DispatchCommand {
             RuntimeCommand::Unhold { call_id: _, reply } => Self::Execute {
                 f: Box::new(move |_backend| {
                     Err(ReactorError::BackendError(
-                        "unhold is not yet implemented in SipBackend (P4-2)".into(),
+                        "unhold is not wired in SipBackend (deferred to P11-11)".into(),
                     ))
                 }),
                 reply,

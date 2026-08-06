@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::ffi::bindings;
 use crate::model::AccountId;
 use crate::runtime::command::ReactorError;
 use crate::runtime::state::{AccountEntry, CallEntry};
@@ -103,11 +104,11 @@ pub trait SipBackend: Send {
     fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError>;
 
     /// Connect a call's media to the conference bridge.
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 }
 
@@ -117,7 +118,7 @@ pub trait SipBackend: Send {
 
 /// Mock implementation of `SipBackend` for testing reactor command dispatch.
 ///
-/// All methods return deterministic canned responses without side effects.
+/// All methods yield deterministic canned responses without side effects.
 /// The `initialized` flag tracks whether `initialize()` was called.
 ///
 /// [::TICKET::] P7-2: O-001 — `get_account_info_result` lets tests configure the
@@ -336,15 +337,32 @@ fn account_entry_to_snapshot(entry: &AccountEntry) -> Result<AccountInfoSnapshot
 }
 
 // ---------------------------------------------------------------------------
-// PjsuaBackend — real PJSUA FFI-backed implementation (stub for P3-2)
+// ---------------------------------------------------------------------------
+// PjsuaBackend — real PJSUA FFI-backed implementation
 // ---------------------------------------------------------------------------
 
-/// Placeholder for the real PJSUA-backed SipBackend implementation.
+/// Map a PJSUA `pj_status_t` to a `ReactorError`, preserving the diagnostic.
 ///
-/// All methods return `Err(ReactorError::BackendError("unimplemented"))`.
-/// The real implementation requires PJSIP library linkage (P4+).
+/// `PJ_SUCCESS` (0) maps to `Ok`; any non-zero status produces
+/// `Err(ReactorError::BackendError)` naming the failed operation. A canned
+/// `Ok(())` for an unexecuted FFI call is prohibited (C111).
+pub(crate) fn map_pjsua_status(status: i32, operation: &str) -> Result<(), ReactorError> {
+    if status == bindings::PJ_SUCCESS {
+        Ok(())
+    } else {
+        Err(ReactorError::BackendError(format!(
+            "PjsuaBackend::{operation} failed with pj_status {status}"
+        )))
+    }
+}
+
+/// Real PJSUA-backed SipBackend implementation.
 ///
-// [::STUB::] P11-10: Real PJSIP FFI calls are not yet wired; canned or unimplemented values are returned -- Replace canned or unimplemented PJSIP FFI call sites (pjsua_call_get_info and other backend calls) with real bindgen-generated calls and obtain actual media_status once the pjsua-native feature and library linkage are ready
+/// Every method invokes the corresponding bindgen FFI symbol under
+/// `#[cfg(feature = "pjsua-native")]` and maps the `pj_status_t` through
+/// [`map_pjsua_status`]. Without the feature the backend cannot drive PJSUA and
+/// each method returns a clear precondition error — the crate still compiles
+/// (RFC §28, C058) and the reactor uses `MockBackend` for tests.
 #[derive(Default)]
 pub struct PjsuaBackend;
 
@@ -356,150 +374,325 @@ impl PjsuaBackend {
 }
 
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 impl SipBackend for PjsuaBackend {
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::initialize: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(crate::ffi::backend_calls::initialize(), "initialize")
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::initialize requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn create_transport(
         &mut self,
         _config: &crate::config::transport_ice_spec::TransportConfig,
     ) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::create_transport: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            let (status, _transport_id) = crate::ffi::backend_calls::create_transport();
+            map_pjsua_status(status, "create_transport")
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::create_transport requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-1, P10-3, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P11-10) --for-spec --no-implementation-order`.
     fn add_account(
         &mut self,
         _config: &crate::config::account_config_spec::AccountConfig,
     ) -> Result<(i32, AccountEntry), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::add_account: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            let (status, _native_acc_id) = crate::ffi::backend_calls::add_account(_config);
+            map_pjsua_status(status, "add_account")?;
+            let entry = AccountEntry {
+                id: _native_acc_id as u64,
+                native_id: _native_acc_id,
+                config: _config.clone(),
+                registration: String::new(),
+            };
+            Ok((_native_acc_id, entry))
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::add_account requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-3, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-10) --for-spec --no-implementation-order`.
     fn remove_account(&mut self, _native_acc_id: i32) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::remove_account: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::remove_account(_native_acc_id),
+                "remove_account",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::remove_account requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
-    fn set_registration(
-        &mut self,
-        _native_acc_id: i32,
-        _enabled: bool,
-    ) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::set_registration: not yet implemented (P4-2)".into(),
-        ))
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
+    fn set_registration(&mut self, _native_acc_id: i32, _enabled: bool) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::set_registration(_native_acc_id, _enabled),
+                "set_registration",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::set_registration requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-3, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P11-10) --for-spec --no-implementation-order`.
     fn update_account(
         &mut self,
         _native_acc_id: i32,
         _config: &crate::config::account_config_spec::AccountConfig,
     ) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::update_account: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::update_account(_native_acc_id, _config),
+                "update_account",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::update_account requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn make_call(
         &mut self,
         _native_acc_id: i32,
         _request: &crate::api::call_types::OutgoingCallRequest,
     ) -> Result<(i32, CallEntry), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::make_call: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            let (status, call_id) = crate::ffi::backend_calls::make_call(_native_acc_id, &_request.target_uri);
+            map_pjsua_status(status, "make_call")?;
+            let account_id = AccountId::from_u64(_native_acc_id as u64).map_err(|e| {
+                ReactorError::BackendError(format!("make_call: invalid account id: {e}"))
+            })?;
+            let entry = CallEntry {
+                id: call_id as u64,
+                native_id: call_id,
+                account_id,
+                state: "Calling".into(),
+                media: "none".into(),
+            };
+            Ok((call_id, entry))
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::make_call requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn answer_call(&mut self, _native_call_id: i32, _code: u16) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::answer_call: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::answer_call(_native_call_id, _code),
+                "answer_call",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::answer_call requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn hangup(&mut self, _native_call_id: i32) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::hangup: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::hangup_call(_native_call_id),
+                "hangup",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::hangup requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn send_dtmf(
         &mut self,
         _native_call_id: i32,
         _method: &crate::config::account_config_spec::DtmfMethod,
         _digits: &str,
     ) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::send_dtmf: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::send_dtmf(_native_call_id, _digits),
+                "send_dtmf",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::send_dtmf requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn configure_codecs(&mut self) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::configure_codecs: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::configure_codecs(),
+                "configure_codecs",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::configure_codecs requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn transfer_call(&mut self, _native_call_id: i32, _target: &str) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::transfer_call: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::transfer_call(_native_call_id, _target),
+                "transfer_call",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::transfer_call requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn shutdown(&mut self) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::shutdown: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(crate::ffi::backend_calls::shutdown(), "shutdown")
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::shutdown requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn resolve_conf_port(&self, _native_call_id: i32) -> Result<i32, ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::resolve_conf_port: not yet implemented (P4-2)".into(),
-        ))
+        // backend_calls::resolve_conf_port is available in both modes (the stub
+        // pjsua_call_get_info under the default build, the real symbol under
+        // pjsua-native), so this needs no cfg gate.
+        let (status, conf_slot) = crate::ffi::backend_calls::resolve_conf_port(_native_call_id);
+        map_pjsua_status(status, "resolve_conf_port")?;
+        Ok(conf_slot)
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn get_account_info(&self, _native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::get_account_info: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            let (status, reg_last_err, online, uri) =
+                crate::ffi::backend_calls::get_account_info(_native_acc_id);
+            map_pjsua_status(status, "get_account_info")?;
+            let acc_id = AccountId::from_u64(_native_acc_id as u64).map_err(|e| {
+                ReactorError::BackendError(format!("get_account_info: invalid account id: {e}"))
+            })?;
+            Ok(AccountInfoSnapshot {
+                acc_id,
+                registration_status: if reg_last_err == 0 { 200 } else { reg_last_err },
+                registration_expires: None,
+                online_status: online,
+                uri,
+            })
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::get_account_info requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn conf_connect(&mut self, _source: i32, _sink: i32) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::conf_connect: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::conf_connect(_source, _sink),
+                "conf_connect",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::conf_connect requires the pjsua-native feature".into(),
+            ))
+        }
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, _source: i32, _sink: i32) -> Result<(), ReactorError> {
-        Err(ReactorError::BackendError(
-            "PjsuaBackend::conf_disconnect: not yet implemented (P4-2)".into(),
-        ))
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::conf_disconnect(_source, _sink),
+                "conf_disconnect",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::conf_disconnect requires the pjsua-native feature".into(),
+            ))
+        }
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -513,6 +706,41 @@ mod tests {
         // Box<dyn SipBackend> must be constructable (object-safe).
         let _backend: Box<dyn SipBackend> = Box::new(MockBackend::new());
         // Compile-time verification: Box<dyn SipBackend> is constructable.
+    }
+
+    // ── map_pjsua_status (C111) ───────────────────────────────────
+
+    #[test]
+    // @verifies C111
+    // [::TICKET::] P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-10 --for-spec --no-implementation-order`.
+    fn map_pjsua_status_success_is_ok() {
+        let result = map_pjsua_status(crate::ffi::bindings::PJ_SUCCESS, "hangup");
+        assert!(result.is_ok(), "PJ_SUCCESS must map to Ok(())");
+    }
+
+    #[test]
+    // @verifies C111
+    // [::TICKET::] P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-10 --for-spec --no-implementation-order`.
+    fn map_pjsua_status_error_preserves_diagnostic() {
+        let err = map_pjsua_status(70001, "hangup").unwrap_err();
+        match err {
+            ReactorError::BackendError(msg) => {
+                assert!(msg.contains("hangup"), "message must name the operation: {msg}");
+                assert!(msg.contains("70001"), "message must preserve the status: {msg}");
+            }
+            _ => panic!("expected BackendError, got {err:?}"),
+        }
+    }
+
+    #[test]
+    // @verifies C111
+    // [::TICKET::] P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-10 --for-spec --no-implementation-order`.
+    fn map_pjsua_status_non_zero_never_ok() {
+        // A canned Ok for an unexecuted FFI call is prohibited (C111 invariant):
+        // every non-zero pj_status_t must yield Err.
+        assert!(map_pjsua_status(70001, "answer_call").is_err());
+        assert!(map_pjsua_status(70013, "conf_connect").is_err());
+        assert!(map_pjsua_status(70007, "make_call").is_err());
     }
 
     // ── MockBackend ──────────────────────────────────────────────
@@ -671,19 +899,19 @@ mod tests {
 
     #[test]
     // @verifies C038
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn pjsua_backend_returns_error_for_all_operations() {
         let mut backend = PjsuaBackend::new();
         let config = crate::config::ClientConfig::default();
         let result = backend.initialize(&config);
         assert!(
             result.is_err(),
-            "PjsuaBackend stub must return error for initialize"
+            "PjsuaBackend must return error when the pjsua-native feature is off"
         );
         let err_msg = format!("{}", result.unwrap_err());
         assert!(
-            err_msg.contains("not yet implemented"),
-            "error must indicate pending implementation, got: {err_msg}"
+            err_msg.contains("pjsua-native"),
+            "error must name the pjsua-native prerequisite, got: {err_msg}"
         );
     }
 

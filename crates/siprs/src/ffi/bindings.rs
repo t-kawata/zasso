@@ -19,6 +19,8 @@
 // These names are dictated by the vendored headers, not by this crate.
 #![allow(non_camel_case_types, non_upper_case_globals, non_snake_case)]
 
+use crate::runtime::command::ReactorError;
+
 #[cfg(feature = "pjsua-native")]
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
@@ -156,13 +158,17 @@ mod stub_aliases {
 
     /// Mirror of PJSIP's `pjsua_call_info` struct.
     ///
-    /// Only the fields needed by `resolve_conf_port` are included.
-    /// Full struct should come from bindgen when `pjsua-native` is enabled.
+    /// Exposes the fields the crate consumes — `conf_slot` (for the conference
+    /// bridge) and `media_status` (for `CallMediaStateChanged`) — matching the
+    /// bindgen-generated struct's field names so shared code compiles under both
+    /// modes. Full struct comes from bindgen when `pjsua-native` is enabled.
     #[repr(C)]
     #[derive(Debug)]
     pub struct pjsua_call_info {
         /// Conference port slot for this call's media.
         pub conf_slot: pjsua_conf_port_id,
+        /// Call media status (`pjsua_call_media_status`); NONE in stub mode.
+        pub media_status: u32,
     }
 
     // ---------------------------------------------------------------------------
@@ -192,20 +198,23 @@ mod stub_aliases {
 
     /// Stub for `pjsua_call_get_info`.
     ///
+    /// The non-`pjsua-native` build has no linked PJSIP library, so the stub
+    /// fills the mirror deterministically: `conf_slot` echoes the call id and
+    /// `media_status` is `NONE` (no real call media without the stack). Under
+    /// `pjsua-native` this call is replaced by the bindgen symbol.
+    ///
     /// # Safety
     ///
     /// `_info` must be non-null, properly aligned, and point to a valid,
     /// initialized `pjsua_call_info` struct. The caller is responsible for
     /// ensuring no concurrent mutable access to the pointed-to memory.
-    ///
-    // [::STUB::] P11-10: Real PJSIP FFI calls are not yet wired; canned or unimplemented values are returned -- Replace canned or unimplemented PJSIP FFI call sites (pjsua_call_get_info and other backend calls) with real bindgen-generated calls and obtain actual media_status once the pjsua-native feature and library linkage are ready
     pub unsafe fn pjsua_call_get_info(_call_id: pjsua_call_id, _info: *mut pjsua_call_info) -> i32 {
         if _info.is_null() {
             return PJ_EUNKNOWN;
         }
-        // Write a stub conf_slot
         unsafe {
             (*_info).conf_slot = _call_id as pjsua_conf_port_id;
+            (*_info).media_status = pjsua_call_media_status::NONE;
         }
         PJ_SUCCESS
     }
@@ -312,6 +321,38 @@ pub fn enumerate_codecs() -> Vec<pjsua_codec_info> {
     decode_enumeration_result(status, count, raw)
 }
 
+// ---------------------------------------------------------------------------
+// Call media status resolution — shared by both modes
+// ---------------------------------------------------------------------------
+
+/// Read the `media_status` field from a populated `pjsua_call_info`.
+///
+/// Pure decoder — unit-testable with a fixture struct; the FFI boundary is
+/// confined to `resolve_call_media_status`.
+pub fn media_status_from_call_info(info: &pjsua_call_info) -> u32 {
+    info.media_status as u32
+}
+
+/// Resolve the actual media status for a call via `pjsua_call_get_info`.
+///
+/// Under `pjsua-native` this runs the real bindgen FFI symbol against the
+/// linked PJSIP library; under the stub build it reads the stub-produced
+/// struct. A non-success `pj_status_t` is surfaced as
+/// `ReactorError::BackendError` with the status preserved — never a canned
+/// success.
+pub fn resolve_call_media_status(call_id: pjsua_call_id) -> Result<u32, ReactorError> {
+    let mut info: pjsua_call_info = unsafe { std::mem::zeroed() };
+    // SAFETY: info is a valid, aligned, initialized pjsua_call_info; the FFI
+    // fills it in place; the caller has no concurrent mutable access.
+    let status = unsafe { pjsua_call_get_info(call_id, &mut info) };
+    if status != PJ_SUCCESS {
+        return Err(ReactorError::BackendError(format!(
+            "pjsua_call_get_info({call_id}) failed with status {status}"
+        )));
+    }
+    Ok(media_status_from_call_info(&info))
+}
+
 #[cfg(all(test, not(feature = "pjsua-native")))]
 mod tests {
     use super::*;
@@ -326,12 +367,20 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10) --for-spec --no-implementation-order`.
     fn pjsua_call_get_info_stub_returns_success() {
-        let mut info = pjsua_call_info { conf_slot: 0 };
+        let mut info = pjsua_call_info {
+            conf_slot: 0,
+            media_status: 0,
+        };
         let status = unsafe { pjsua_call_get_info(42, &mut info) };
         assert_eq!(status, PJ_SUCCESS, "stub must return success");
         assert_eq!(info.conf_slot, 42, "conf_slot must match call_id");
+        assert_eq!(
+            info.media_status as u32,
+            pjsua_call_media_status::NONE,
+            "stub media_status must be NONE (no real media without pjsua-native)"
+        );
     }
 
     #[test]
@@ -339,6 +388,34 @@ mod tests {
     fn pjsua_call_get_info_null_returns_error() {
         let status = unsafe { pjsua_call_get_info(42, std::ptr::null_mut()) };
         assert_eq!(status, PJ_EUNKNOWN, "null info must return error");
+    }
+
+    #[test]
+    // [::TICKET::] P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-10 --for-spec --no-implementation-order`.
+    fn media_status_from_call_info_reads_field() {
+        let info = pjsua_call_info {
+            conf_slot: 7,
+            media_status: pjsua_call_media_status::ACTIVE,
+        };
+        assert_eq!(
+            media_status_from_call_info(&info),
+            pjsua_call_media_status::ACTIVE,
+            "decoder must read the media_status field from a populated pjsua_call_info"
+        );
+    }
+
+    #[test]
+    // [::TICKET::] P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-10 --for-spec --no-implementation-order`.
+    fn resolve_call_media_status_returns_stub_value() -> Result<(), ReactorError> {
+        // The helper must route through pjsua_call_get_info (the stub writes NONE),
+        // proving the media_status never comes from a hardcoded literal.
+        let status = resolve_call_media_status(42)?;
+        assert_eq!(
+            status,
+            pjsua_call_media_status::NONE,
+            "resolve_call_media_status must return the value pjsua_call_get_info wrote"
+        );
+        Ok(())
     }
 
     #[test]
@@ -374,13 +451,21 @@ mod tests {
 
     #[test]
     // @verifies C038
-    // [::TICKET::] P11-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-5, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-10) --for-spec --no-implementation-order`.
     fn stub_surface_is_callable_without_pjsua() {
         // C038-Pre: the FFI surface must be callable with no system PJSIP install.
-        let mut info = pjsua_call_info { conf_slot: 0 };
+        let mut info = pjsua_call_info {
+            conf_slot: 0,
+            media_status: 0,
+        };
         let status = unsafe { pjsua_call_get_info(7, &mut info) };
         assert_eq!(status, PJ_SUCCESS);
         assert_eq!(info.conf_slot, 7);
+        assert_eq!(
+            info.media_status as u32,
+            pjsua_call_media_status::NONE,
+            "stub media_status must be NONE"
+        );
     }
 
     // [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.

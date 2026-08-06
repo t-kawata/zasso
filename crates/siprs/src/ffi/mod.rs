@@ -1,4 +1,3 @@
-
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2: FFI module — PJSIP unsafe binding isolation.
@@ -35,3 +34,12 @@ pub mod callback;
 /// under `pjsua-native` and by the stub (zero codecs) otherwise.
 pub use bindings::{enumerate_codecs, pjsua_codec_info};
 // [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+
+/// Safe PJSUA backend-call wrappers used by `PjsuaBackend` (P11-10).
+///
+/// Each wrapper encapsulates one `unsafe` FFI invocation and returns the raw
+/// `pj_status_t` plus any out-values, so the runtime layer never touches
+/// `unsafe` (C038). Feature-gated wrappers compile only under `pjsua-native`;
+/// `resolve_conf_port` works in both modes via the stub alias.
+// [::TICKET::] P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-10 --for-spec --no-implementation-order`.
+pub mod backend_calls;

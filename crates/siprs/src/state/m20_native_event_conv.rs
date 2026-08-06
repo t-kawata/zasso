@@ -110,11 +110,15 @@ pub fn convert_native_event_to_payload(
             crate::state::m20_callstate_mapping::convert_call_state(cid, call_account_id, state)
         }
         NativeEvent::CallMediaStateChanged { call_id } => {
-            // Without the actual pjsua_call_get_info result, default to media_status=1 (ACTIVE).
-            // [::TICKET::] P3-2: ffi::bindings::pjsua_call_get_info stub available.
-            // [::STUB::] P11-10: Real PJSIP FFI calls are not yet wired; canned or unimplemented values are returned -- Replace canned or unimplemented PJSIP FFI call sites (pjsua_call_get_info and other backend calls) with real bindgen-generated calls and obtain actual media_status once the pjsua-native feature and library linkage are ready
             let cid = CallId::from_u64(call_id as u64).ok()?;
-            crate::state::m20_callstate_mapping::convert_call_media_state(cid, 1)
+            // media_status always comes from pjsua_call_get_info (C110) — the
+            // stub build reports NONE, the pjsua-native build reports the real
+            // call media status. On an FFI failure fall back to ERROR so the
+            // event bus surfaces MediaError rather than a canned success.
+            let media_status =
+                crate::ffi::bindings::resolve_call_media_status(call_id as i32)
+                    .unwrap_or(crate::ffi::bindings::pjsua_call_media_status::ERROR);
+            crate::state::m20_callstate_mapping::convert_call_media_state(cid, media_status)
             // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         }
 
@@ -286,18 +290,20 @@ mod tests {
         assert!(matches!(result, Some(SipEventPayload::CallDisconnected)));
     }
 
-    /// @verifies C022
+    /// @verifies C022, C110
     #[test]
-    // [::TICKET::] P0-5, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P9-6, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-10) --for-spec --no-implementation-order`.
     fn native_event_call_media_state_changed() {
         let result = convert_native_event_to_payload(
             NativeEvent::CallMediaStateChanged { call_id: 10 },
             None,
         );
-        // Currently defaults to ACTIVE (1) — stub until P0-6
+        // The handler must read media_status from pjsua_call_get_info (C110). In
+        // stub mode pjsua_call_get_info writes NONE, so a correctly-wired handler
+        // yields no event — never a hardcoded ACTIVE(1).
         assert!(
-            matches!(result, Some(SipEventPayload::MediaActive(_))),
-            "expected MediaActive, got {result:?}"
+            result.is_none(),
+            "stub media_status=NONE must yield no event, got {result:?}"
         );
     }
 
