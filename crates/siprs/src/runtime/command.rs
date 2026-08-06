@@ -152,6 +152,7 @@ pub enum RuntimeCommand {
     },
     SendDtmf {
         call_id: u64,
+        method: crate::config::account_config_spec::DtmfMethod,
         digits: String,
         reply: Reply<Result<(), ReactorError>>,
     },
@@ -246,7 +247,7 @@ impl std::fmt::Display for RuntimeCommand {
 }
 
 /// Type alias for the backend execution closure used in `DispatchCommand`.
-// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6) --for-spec --no-implementation-order`.
 type BackendFn =
     Box<dyn FnOnce(&mut dyn super::backend::SipBackend) -> Result<(), ReactorError> + Send>;
 
@@ -261,6 +262,18 @@ type BackendFn =
 pub(crate) enum DispatchCommand {
     Execute {
         f: BackendFn,
+        reply: Reply<Result<(), ReactorError>>,
+    },
+    /// [::TICKET::] P11-6: Send DTMF digits on a call with the two-phase timeout.
+    ///
+    /// Dedicated variant (not an `Execute` closure) so the reactor loop can spawn
+    /// `spawn_dtmf_sent_timeout` against the reactor-owned `default_event_bus`
+    /// after `backend.send_dtmf` succeeds — an `Execute` closure only receives
+    /// `&mut dyn SipBackend` and cannot reach the EventBus.
+    SendDtmf {
+        call_id: u64,
+        method: crate::config::account_config_spec::DtmfMethod,
+        digits: String,
         reply: Reply<Result<(), ReactorError>>,
     },
     /// [::TICKET::] P0-6: Add an audio source with a typed source_id response.
@@ -335,7 +348,7 @@ pub(crate) enum DispatchCommand {
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
@@ -405,17 +418,13 @@ impl DispatchCommand {
             },
             RuntimeCommand::SendDtmf {
                 call_id,
+                method,
                 digits,
                 reply,
-            } => Self::Execute {
-                f: Box::new(move |backend| {
-                    backend.send_dtmf(
-                        call_id as i32,
-                        &crate::config::account_config_spec::DtmfMethod::Rfc2833,
-                        &digits,
-                    )?;
-                    Ok(())
-                }),
+            } => Self::SendDtmf {
+                call_id,
+                method,
+                digits,
                 reply,
             },
             RuntimeCommand::GetAccountInfo {
@@ -469,11 +478,14 @@ impl DispatchCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for DispatchCommand {
-    // [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P11-6) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Execute { .. } => f
                 .debug_struct("DispatchCommand::Execute")
+                .finish_non_exhaustive(),
+            Self::SendDtmf { .. } => f
+                .debug_struct("DispatchCommand::SendDtmf")
                 .finish_non_exhaustive(),
             Self::AddAudioSource { .. } => f
                 .debug_struct("DispatchCommand::AddAudioSource")
@@ -559,6 +571,37 @@ mod tests {
 
         // Verify by Display — each variant has a unique name.
         assert_ne!(format!("{cmd_a}"), format!("{cmd_b}"));
+    }
+
+    #[test]
+    // @verifies C069
+    // [::TICKET::] P11-6: RuntimeCommand::SendDtmf carries the method into DispatchCommand::SendDtmf
+// [::TICKET::] P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-6 --for-spec --no-implementation-order`.
+    fn runtime_command_send_dtmf_carries_method() {
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let cmd = RuntimeCommand::SendDtmf {
+            call_id: 1,
+            method: crate::config::account_config_spec::DtmfMethod::Rfc2833,
+            digits: "5".into(),
+            reply: Reply::new(tx),
+        };
+        let dispatch = DispatchCommand::from_runtime_command(cmd);
+        match dispatch {
+            DispatchCommand::SendDtmf {
+                call_id,
+                method,
+                digits,
+                reply: _,
+            } => {
+                assert_eq!(call_id, 1);
+                assert_eq!(
+                    method,
+                    crate::config::account_config_spec::DtmfMethod::Rfc2833
+                );
+                assert_eq!(digits, "5");
+            }
+            other => panic!("expected DispatchCommand::SendDtmf, got {:?}", other),
+        }
     }
 
     #[tokio::test]

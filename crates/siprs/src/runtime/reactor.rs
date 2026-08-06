@@ -43,7 +43,7 @@ pub struct BootConfig {
 pub struct CoreReactor;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -57,7 +57,7 @@ impl CoreReactor {
     /// - `Ok((RuntimeHandle, JoinHandle<()>))` on successful thread spawn
     /// - `Err` if the thread could not be spawned
     pub fn spawn(
-        _boot_config: BootConfig,
+        boot_config: BootConfig,
     ) -> Result<(RuntimeHandle, JoinHandle<()>), Box<dyn std::error::Error + Send + Sync>> {
         let (tx, mut rx) = handle::create_channel();
         let terminated = Arc::new(AtomicBool::new(false));
@@ -74,11 +74,31 @@ impl CoreReactor {
         // a round-trip command. The thread keeps its own Arc (single-writer rule).
         let mixer_for_handle = audio_mixer.clone();
 
+        // [::TICKET::] P11-6: the reactor owns the default EventBus (the publish
+        // target for reactor-initiated events such as the DtmfSent timeout) and the
+        // per-account client bus map. Client buses are registered later (P9-6); for
+        // this round the default bus is the only publish target.
+        let default_event_bus = EventBus::new(crate::api::eventbus_receiver::DEFAULT_EVENT_BUS_CAPACITY, None);
+        let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
+        // [::TICKET::] P11-6: sent_timeout_ms drives the DtmfSent fallback timer (C030).
+        let dtmf_sent_timeout_ms = boot_config.config.dtmf.sent_timeout_ms;
+
+        // [::TICKET::] P11-6: the reactor owns a small tokio runtime that drives
+        // the DtmfSent timeout fallback timers. It is built here (outside the
+        // thread) so a build failure propagates as an Err instead of panicking
+        // inside the reactor thread.
+        let timer_runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .enable_all()
+            .build()
+            .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?;
+
         let handle = RuntimeHandle::new(
             tx,
             terminated_clone,
             std::sync::Weak::new(),
             mixer_for_handle,
+            default_event_bus.clone(),
         );
 
         let thread_join = thread::Builder::new()
@@ -88,6 +108,12 @@ impl CoreReactor {
                 // [::TICKET::] P7-2: O-004 — the query API (accounts()/call_state())
                 // reads this state, which is authoritative (events are observation-only).
                 let mut client_state = ClientState::default();
+
+                // [::TICKET::] P11-6: `enter()` installs the reactor-owned timer
+                // runtime as the current context on this std thread so
+                // `spawn_dtmf_sent_timeout` (which uses `tokio::spawn`) works
+                // without restructuring the loop.
+                let _timer_enter = timer_runtime.enter();
 
                 loop {
                     match rx.blocking_recv() {
@@ -124,6 +150,23 @@ impl CoreReactor {
                                             break;
                                         }
                                     }
+                                }
+                                DispatchCommand::SendDtmf {
+                                    call_id,
+                                    method,
+                                    digits,
+                                    reply,
+                                } => {
+                                    let mut ctx = SendDtmfContext {
+                                        backend: &mut *backend,
+                                        client_state: &client_state,
+                                        client_event_buses: &client_event_buses,
+                                        default_event_bus: &default_event_bus,
+                                        sent_timeout_ms: dtmf_sent_timeout_ms,
+                                    };
+                                    let result =
+                                        handle_send_dtmf(&mut ctx, call_id, method, &digits);
+                                    send_reply(reply, result);
                                 }
                                 DispatchCommand::AddAudioSource {
                                     source,
@@ -540,6 +583,57 @@ fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>)
         | NativeEvent::NatDetected
         | NativeEvent::RegistrationStateChanged { .. } => (None, None),
     }
+}
+
+/// Reactor-owned dependencies a command handler needs to publish events.
+///
+/// Bundling them keeps `handle_send_dtmf` under the clippy argument-count limit
+/// and reads as "handle the command with the reactor context" (translatability).
+pub(crate) struct SendDtmfContext<'a> {
+    backend: &'a mut dyn SipBackend,
+    client_state: &'a ClientState,
+    client_event_buses: &'a ClientEventBuses,
+    default_event_bus: &'a EventBus,
+    sent_timeout_ms: u64,
+}
+
+/// Handle a `RuntimeCommand::SendDtmf` on the reactor thread.
+///
+/// Reads as prose: send via the backend; on success resolve the owning account,
+/// convert the method, and spawn one `spawn_dtmf_sent_timeout` per digit that
+/// publishes `DtmfSent { Err(Timeout) }` to the reactor-owned bus; on backend
+/// error propagate and spawn nothing (two-phase C030 preserved).
+pub(crate) fn handle_send_dtmf(
+    ctx: &mut SendDtmfContext<'_>,
+    call_id: u64,
+    method: crate::config::account_config_spec::DtmfMethod,
+    digits: &str,
+) -> Result<(), ReactorError> {
+    let call_id_typed = CallId::from_u64(call_id)
+        .map_err(|_| ReactorError::BackendError("invalid call id 0".into()))?;
+    ctx.backend.send_dtmf(call_id as i32, &method, digits)?;
+    let account_id = ctx
+        .client_state
+        .calls
+        .get(&call_id_typed)
+        .map(|entry| entry.account_id);
+    let target_bus = account_id
+        .and_then(|aid| ctx.client_event_buses.get(&aid).cloned())
+        .unwrap_or_else(|| ctx.default_event_bus.clone());
+    let m20_method = crate::api::m20_dtmfsent_twophase::DtmfMethod::from(method);
+    for digit in digits.chars() {
+        let _timer = crate::api::m20_dtmfsent_twophase::spawn_dtmf_sent_timeout(
+            crate::api::m20_dtmfsent_twophase::DtmfSentTimeoutRequest {
+                call_id: call_id_typed,
+                account_id,
+                method: m20_method,
+                digit,
+                timeout_ms: ctx.sent_timeout_ms,
+                event_bus: target_bus.clone(),
+            },
+        );
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1034,6 +1128,196 @@ mod tests {
             .ok();
         let _ = rx.await;
         join.join().unwrap();
+    }
+
+    // ── P11-6: reactor-owned default_event_bus + SendDtmf two-phase wiring ──
+
+    #[tokio::test]
+    // @verifies C069
+    // [::TICKET::] P11-6: reactor exposes the owned default_event_bus on the RuntimeHandle
+    async fn reactor_exposes_default_event_bus() {
+        let (handle, join) = spawn_reactor();
+        let bus = handle.default_event_bus();
+        let mut rx = bus.subscribe_control();
+        bus.publish(SipEvent {
+            meta: EventMeta::new(0, None, Some(test_call_id(1))),
+            payload: SipEventPayload::CallDisconnected,
+        });
+        assert!(
+            matches!(
+                rx.try_recv().unwrap().payload,
+                SipEventPayload::CallDisconnected
+            ),
+            "publishing on the reactor-owned bus must reach a subscriber"
+        );
+        shutdown_reactor(&handle, join).await;
+    }
+
+    #[tokio::test]
+    // @verifies C030
+    // [::TICKET::] P11-6: SendDtmf dispatch spawns the timeout after backend success
+    async fn send_dtmf_dispatch_spawns_timeout_after_backend_ok() {
+        let mut config = ClientConfig::default();
+        config.dtmf.sent_timeout_ms = 50;
+        let (handle, join) = CoreReactor::spawn(BootConfig { config }).unwrap();
+        let mut rx = handle.default_event_bus().subscribe_control();
+
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let result = handle
+            .submit(crate::runtime::command::RuntimeCommand::SendDtmf {
+                call_id: 1,
+                method: crate::config::account_config_spec::DtmfMethod::Rfc2833,
+                digits: "5".into(),
+                reply: crate::runtime::command::Reply::new(tx),
+            })
+            .await;
+        assert!(
+            result.is_ok(),
+            "send_dtmf() returns Ok(()) for command acceptance"
+        );
+
+        let ev = tokio::time::timeout(std::time::Duration::from_millis(1000), rx.recv())
+            .await
+            .expect("DtmfSent Timeout must arrive on the reactor bus")
+            .unwrap();
+        match ev.payload {
+            SipEventPayload::DtmfSent(info) => {
+                assert!(matches!(
+                    info.status,
+                    Err(crate::api::m20_dtmfsent_twophase::SentDtmfError::Timeout)
+                ));
+                assert_eq!(info.digit, '5');
+            }
+            _ => panic!("expected DtmfSent, got {:?}", ev.payload),
+        }
+        shutdown_reactor(&handle, join).await;
+    }
+
+    #[tokio::test]
+    // @verifies C030
+    // [::TICKET::] P11-6: handle_send_dtmf spawns the timeout on backend success (deterministic)
+    async fn handle_send_dtmf_spawns_timeout_on_backend_ok() {
+        tokio::time::pause();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut backend = MockBackend::new();
+        let client_state = ClientState::default();
+        let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
+
+        let mut ctx = SendDtmfContext {
+            backend: &mut backend,
+            client_state: &client_state,
+            client_event_buses: &client_event_buses,
+            default_event_bus: &bus,
+            sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
+        };
+        let result = handle_send_dtmf(
+            &mut ctx,
+            1,
+            crate::config::account_config_spec::DtmfMethod::Rfc2833,
+            "5",
+        );
+        assert!(result.is_ok(), "backend success must return Ok(())");
+
+        tokio::time::advance(std::time::Duration::from_millis(500)).await;
+        let ev = rx.recv().await.unwrap();
+        if let SipEventPayload::DtmfSent(info) = ev.payload {
+            assert!(matches!(
+                info.status,
+                Err(crate::api::m20_dtmfsent_twophase::SentDtmfError::Timeout)
+            ));
+            assert_eq!(info.digit, '5');
+        } else {
+            panic!("expected DtmfSent, got {:?}", ev.payload);
+        }
+    }
+
+    #[tokio::test]
+    // @verifies C069
+    // [::TICKET::] P11-6: handle_send_dtmf resolves the owning account_id from the call table
+    async fn handle_send_dtmf_resolves_account_id_from_call_table() {
+        tokio::time::pause();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut backend = MockBackend::new();
+        let call_id = CallId::from_u64(1).unwrap();
+        let account_id = AccountId::from_u64(5).unwrap();
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: "Active".into(),
+                media: "none".into(),
+            },
+        );
+        let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
+        let mut ctx = SendDtmfContext {
+            backend: &mut backend,
+            client_state: &client_state,
+            client_event_buses: &client_event_buses,
+            default_event_bus: &bus,
+            sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
+        };
+
+        let result = handle_send_dtmf(
+            &mut ctx,
+            1,
+            crate::config::account_config_spec::DtmfMethod::Rfc2833,
+            "5",
+        );
+        assert!(result.is_ok());
+
+        tokio::time::advance(std::time::Duration::from_millis(500)).await;
+        let ev = rx.recv().await.unwrap();
+        assert_eq!(
+            ev.meta.account_id,
+            Some(account_id),
+            "the owning account must be resolved from client_state.calls"
+        );
+        assert_eq!(ev.meta.call_id, Some(call_id));
+    }
+
+    #[tokio::test]
+    // @verifies C030
+    // [::TICKET::] P11-6: handle_send_dtmf propagates backend error and spawns no timer
+    async fn handle_send_dtmf_returns_err_without_timer_on_backend_err() {
+        tokio::time::pause();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut backend = MockBackend::new();
+        backend.send_dtmf_result =
+            Some(Err(crate::runtime::command::ReactorError::BackendError(
+                "send failed".into(),
+            )));
+        let client_state = ClientState::default();
+        let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
+
+        let mut ctx = SendDtmfContext {
+            backend: &mut backend,
+            client_state: &client_state,
+            client_event_buses: &client_event_buses,
+            default_event_bus: &bus,
+            sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
+        };
+        let result = handle_send_dtmf(
+            &mut ctx,
+            1,
+            crate::config::account_config_spec::DtmfMethod::Rfc2833,
+            "5",
+        );
+        assert!(result.is_err(), "backend error must propagate");
+
+        tokio::time::advance(std::time::Duration::from_millis(500)).await;
+        assert!(
+            matches!(
+                rx.try_recv(),
+                Err(tokio::sync::broadcast::error::TryRecvError::Empty)
+            ),
+            "a failed backend.send_dtmf must never spawn a DtmfSent Timeout"
+        );
     }
 
     #[tokio::test]

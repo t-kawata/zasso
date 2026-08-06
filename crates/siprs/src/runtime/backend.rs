@@ -107,7 +107,7 @@ pub trait SipBackend: Send {
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-    // [::TICKET::] P3-2, P7-2, P8-1, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 }
 
@@ -134,6 +134,10 @@ pub struct MockBackend {
     /// Configurable result for `get_account_info`. `Some` short-circuits the
     /// registry lookup so tests can inject failures or canned snapshots.
     pub get_account_info_result: Option<Result<AccountInfoSnapshot, ReactorError>>,
+    /// Configurable result for `send_dtmf` (P11-6). `Some` short-circuits the
+    /// default `Ok(())` so tests can inject a backend failure and prove the
+    /// reactor SendDtmf handler spawns no timeout timer on error.
+    pub send_dtmf_result: Option<Result<(), ReactorError>>,
     /// Account registry keyed by native_acc_id — the source from which
     /// `get_account_info` derives its snapshot (P10-1).
     pub accounts: BTreeMap<i32, AccountEntry>,
@@ -242,14 +246,14 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-6) --for-spec --no-implementation-order`.
     fn send_dtmf(
         &mut self,
         _native_call_id: i32,
         _method: &crate::config::account_config_spec::DtmfMethod,
         _digits: &str,
     ) -> Result<(), ReactorError> {
-        Ok(())
+        self.send_dtmf_result.take().unwrap_or(Ok(()))
     }
 
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.

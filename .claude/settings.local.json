@@ -1100,7 +1100,11 @@
       "Bash(node -e 'const r=require\\(\"/tmp/p11-5/notes-fix.txt\"\\); console.log\\(\"notes fix ok:\", r.success\\)')",
       "Bash(node -e 'const r=require\\(\"/tmp/p11-5/reltix.txt\"\\); console.log\\(\"relatedTicketIds update ok:\", r.success\\)')",
       "Bash(ls -la /Users/sh01/shyme/zasso/crates/siprs/ && echo \"---ROOT---\" && ls -la /Users/sh01/shyme/zasso/ | head -40)",
-      "Bash(git commit -m 'chore: add directory inspection command to local Claude allowlist *)"
+      "Bash(git commit -m 'chore: add directory inspection command to local Claude allowlist *)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-6)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P11-6\")",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); const tkt=t.tickets?.find\\(x=>x.key==='P11-6'\\)||Object.values\\(t\\).flat\\(\\).find\\(x=>x&&x.key==='P11-6'\\)||Object.values\\(t\\).find\\(x=>x&&Array.isArray\\(x\\)&&x.some\\(y=>y&&y.key==='P11-6'\\)\\)?.find\\(y=>y&&y.key==='P11-6'\\); console.log\\(JSON.stringify\\({keys:Object.keys\\(t\\), topLevel:Array.isArray\\(t\\)?'array':typeof t},null,1\\)\\);\")",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P11-6\")"
     ]
   }
 }

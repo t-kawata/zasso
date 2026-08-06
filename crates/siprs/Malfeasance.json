@@ -1201,6 +1201,15 @@
       "detected_at": "2026-08-06T14:12:43.080Z",
       "status": "resolved",
       "resolved_at": "2026-08-06T14:12:47.191Z"
+    },
+    {
+      "id": 130,
+      "file": "src/config/versioning_policy.rs",
+      "line": 36,
+      "description": "// [::STUB::] P5-3: MUST implement NODE_ID=N0006: §4.1 Versioning Policy",
+      "detected_at": "2026-08-06T15:46:27.283Z",
+      "status": "resolved",
+      "resolved_at": "2026-08-06T15:48:16.433Z"
     }
   ]
 }

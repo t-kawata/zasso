@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::sync::Weak;
 use std::thread::JoinHandle;
 
+use crate::api::eventbus_receiver::EventBus;
 use crate::runtime::audio_worker::AudioMixer;
 use crate::runtime::command::{DebugBox, DispatchCommand, ReactorError, Reply, RuntimeCommand};
 
@@ -34,6 +35,10 @@ pub struct RuntimeHandle {
     // a round-trip command. The single-writer rule still holds: only the reactor
     // thread mutates the mixer; callers must treat this as read-only.
     audio_mixer: Arc<AudioMixer>,
+    // [::TICKET::] P11-6: the reactor-owned default EventBus (O-001 pattern).
+    // This clone lets tests/observability subscribe to reactor-initiated events
+    // (e.g. the DtmfSent timeout) without a round-trip command.
+    default_event_bus: EventBus,
 }
 
 // [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4) --for-spec --no-implementation-order`.
@@ -51,19 +56,21 @@ impl std::fmt::Debug for RuntimeHandle {
     }
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
         terminated: Arc<AtomicBool>,
         join_handle: Weak<JoinHandle<()>>,
         audio_mixer: Arc<AudioMixer>,
+        default_event_bus: EventBus,
     ) -> Self {
         Self {
             sender,
             terminated,
             join_handle,
             audio_mixer,
+            default_event_bus,
         }
     }
 
@@ -76,6 +83,15 @@ impl RuntimeHandle {
     /// mutators directly.
     pub fn audio_mixer(&self) -> Arc<AudioMixer> {
         self.audio_mixer.clone()
+    }
+
+    /// Return a clone of the reactor-owned default `EventBus`.
+    ///
+    /// This is an observability/test accessor (O-001): it lets callers subscribe
+    /// to reactor-initiated events (e.g. the DtmfSent timeout fallback) without
+    /// a round-trip command. Publishing on any clone reaches all subscribers.
+    pub fn default_event_bus(&self) -> EventBus {
+        self.default_event_bus.clone()
     }
 
     /// Submit a runtime command and await its completion.
@@ -100,6 +116,17 @@ impl RuntimeHandle {
                 reply: Reply::new(tx),
             },
             DispatchCommand::Shutdown { .. } => DispatchCommand::Shutdown {
+                reply: Reply::new(tx),
+            },
+            DispatchCommand::SendDtmf {
+                call_id,
+                method,
+                digits,
+                ..
+            } => DispatchCommand::SendDtmf {
+                call_id,
+                method,
+                digits,
                 reply: Reply::new(tx),
             },
             // AddAccount has a typed Result<u64> reply — handled via submit_add_account.
@@ -363,11 +390,17 @@ mod tests {
 
     #[test]
     // @verifies C012
-// [::TICKET::] P0-2, P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P11-3, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6) --for-spec --no-implementation-order`.
     fn runtime_handle_is_clonable() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated,
+            Weak::new(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
 
         let cloned = handle.clone();
         assert!(!cloned.is_terminated());
@@ -378,7 +411,13 @@ mod tests {
     async fn submit_returns_err_when_terminated() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(true));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated,
+            Weak::new(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
 
         let (_tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::Shutdown {
@@ -389,11 +428,17 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-2, P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P11-3, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6) --for-spec --no-implementation-order`.
     fn is_terminated_reflects_atomic_flag() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated.clone(), Weak::new(), Arc::new(AudioMixer::new()));
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated.clone(),
+            Weak::new(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
 
         assert!(!handle.is_terminated());
         terminated.store(true, Ordering::Release);
@@ -409,7 +454,13 @@ mod tests {
     async fn submit_add_audio_source_returns_source_id() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated,
+            Weak::new(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
 
         let consumer = tokio::spawn(async move {
             match rx.recv().await {
@@ -437,7 +488,13 @@ mod tests {
     async fn submit_remove_audio_source_sends_typed_command() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated,
+            Weak::new(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
 
         let consumer = tokio::spawn(async move {
             match rx.recv().await {
@@ -460,7 +517,13 @@ mod tests {
     async fn submit_set_audio_source_gain_sends_typed_command() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated,
+            Weak::new(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
 
         let consumer = tokio::spawn(async move {
             match rx.recv().await {
@@ -488,7 +551,13 @@ mod tests {
     async fn submit_mute_audio_source_sends_typed_command() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated,
+            Weak::new(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
 
         let consumer = tokio::spawn(async move {
             match rx.recv().await {
@@ -518,7 +587,13 @@ mod tests {
     async fn submit_add_account_returns_assigned_id() -> Result<(), Box<dyn std::error::Error>> {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated,
+            Weak::new(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
 
         let consumer = tokio::spawn(async move {
             match rx.recv().await {
@@ -544,13 +619,52 @@ mod tests {
     async fn submit_add_account_reactor_down_returns_err() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(true));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated,
+            Weak::new(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
         let result = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
             .await;
         assert!(
             matches!(result, Err(ReactorError::ReactorDown)),
             "a terminated reactor must map to ReactorDown"
+        );
+    }
+
+    // ── P11-6: reactor-owned default EventBus exposure (O-001 pattern) ──
+
+    #[tokio::test]
+    // @verifies C069
+    // [::TICKET::] P11-6: RuntimeHandle exposes the reactor-owned default_event_bus
+    async fn runtime_handle_exposes_default_event_bus() {
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        let terminated = Arc::new(AtomicBool::new(false));
+        let default_event_bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated,
+            Weak::new(),
+            Arc::new(AudioMixer::new()),
+            default_event_bus.clone(),
+        );
+
+        let bus = handle.default_event_bus();
+        let mut rx = bus.subscribe_control();
+        bus.publish(crate::api::event_model_payload_bus::SipEvent {
+            meta: crate::api::event_model_payload_bus::EventMeta::new(0, None, None),
+            payload: crate::api::event_model_payload_bus::SipEventPayload::ClientShutdown,
+        });
+        let ev = rx.try_recv().unwrap();
+        assert!(
+            matches!(
+                ev.payload,
+                crate::api::event_model_payload_bus::SipEventPayload::ClientShutdown
+            ),
+            "publishing on the exposed bus must reach a subscriber"
         );
     }
 }
