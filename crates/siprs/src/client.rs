@@ -646,7 +646,7 @@ mod tests {
         // ABC O-001 closure: without these type-annotations, changing shutdown() to
         // Result<(), String> or new() to Result<_, OtherError> would pass the whole
         // suite (existing tests only call .is_ok() or read err.kind).
-        // [::TICKET::] P6-2, P8-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P8-2|P10-1|P10-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P6-2, P8-2, P10-1, P10-3, P11-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P8-2|P10-1|P10-3|P11-14) --for-spec --no-implementation-order`.
         fn assert_new_result(_: &Result<(SipClient, broadcast::Receiver<SipEvent>), SipError>) {}
         // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
         fn assert_shutdown_result(_: &Result<(), SipError>) {}
@@ -824,14 +824,138 @@ mod tests {
 
     #[test]
     // @verifies C068
-    // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
-    fn io_boundaries_documented_as_reference() {
+    // [::TICKET::] P0-3, P11-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P11-14) --for-spec --no-implementation-order`.
+    fn io_boundaries_documented_as_reference() -> Result<(), std::io::Error> {
         // C068 invariant: I/O boundaries are reference, not prescriptive.
-        let rfc = std::fs::read_to_string("RFC-ROOT.md").unwrap();
+        // ABC O-006 closure: the prior broad assertion (contains("I/O") || contains("IO")
+        // || contains("入出力")) passed even if §61 lost its 参考情報 marking. The marker
+        // is pinned on the §61 HEADING LINE specifically — prose containing the word
+        // elsewhere in the document must not satisfy the invariant.
+        let rfc = std::fs::read_to_string("RFC-ROOT.md")?;
+        let heading_61 = rfc
+            .lines()
+            .find(|line| line.starts_with("## 61."))
+            .unwrap_or("");
         assert!(
-            rfc.contains("I/O") || rfc.contains("IO") || rfc.contains("入出力"),
-            "RFC must document I/O boundaries"
+            heading_61.contains("参考情報"),
+            "§61 heading must be marked as 参考情報 (reference info)"
         );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C047
+    // [::TICKET::] P11-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-14 --for-spec --no-implementation-order`.
+    fn observability_section_documented_in_rfc() -> Result<(), std::io::Error> {
+        // C047 precondition: Observability needed for operations — RFC §34 present.
+        // ABC O-001 closure: the §34 marker was never asserted; removing it from
+        // RFC-ROOT.md used to leave the suite green.
+        let rfc = std::fs::read_to_string("RFC-ROOT.md")?;
+        assert!(rfc.contains("## 34. 観測性"), "RFC §34 観測性 must exist");
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C048
+    // [::TICKET::] P11-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-14 --for-spec --no-implementation-order`.
+    fn security_and_platform_sections_documented_in_rfc() -> Result<(), std::io::Error> {
+        // C048 precondition: Security requirements known — RFC §35-36 present.
+        // ABC O-002 closure: BOTH markers must be asserted; a doc with only §35 fails.
+        let rfc = std::fs::read_to_string("RFC-ROOT.md")?;
+        assert!(
+            rfc.contains("## 35. セキュリティ"),
+            "RFC §35 セキュリティ must exist"
+        );
+        assert!(
+            rfc.contains("## 36. プラットフォーム差異"),
+            "RFC §36 プラットフォーム差異 must exist"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C051
+    // [::TICKET::] P11-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-14 --for-spec --no-implementation-order`.
+    fn audio_device_policy_and_usage_examples_documented_in_rfc() -> Result<(), std::io::Error> {
+        // C051-Pre: RFC §41 usage examples present; C051-Post: RFC §40 device policy present.
+        // ABC O-003 closure: both markers asserted together; a doc keeping only §40 fails.
+        let rfc = std::fs::read_to_string("RFC-ROOT.md")?;
+        assert!(
+            rfc.contains("## 40. audio device policy"),
+            "RFC §40 audio device policy must exist"
+        );
+        assert!(
+            rfc.contains("## 41. 具体的使用例"),
+            "RFC §41 具体的使用例 must exist"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C056
+    // [::TICKET::] P11-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-14 --for-spec --no-implementation-order`.
+    fn challenges_and_panic_policy_documented_in_rfc() -> Result<(), std::io::Error> {
+        // C056-Pre: RFC §45 challenges present; C056-Post: RFC §46 panic policy present.
+        // ABC O-004 closure: both markers asserted together.
+        let rfc = std::fs::read_to_string("RFC-ROOT.md")?;
+        assert!(
+            rfc.contains("## 45. 既知の実装上の難所"),
+            "RFC §45 challenges must exist"
+        );
+        assert!(
+            rfc.contains("## 46. panic policy"),
+            "RFC §46 panic policy must exist"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C059
+    // [::TICKET::] P11-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-14 --for-spec --no-implementation-order`.
+    fn rfc_contains_all_sections_through_61() -> Result<(), std::io::Error> {
+        // C059 precondition: RFC complete through §61.
+        // ABC O-005 closure: assert the §1..§61 heading sequence, not just §51.
+        let rfc = std::fs::read_to_string("RFC-ROOT.md")?;
+        for heading in [
+            "## 1. 目的",
+            "## 34. 観測性",
+            "## 35. セキュリティ",
+            "## 36. プラットフォーム差異",
+            "## 40. audio device policy",
+            "## 41. 具体的使用例",
+            "## 45. 既知の実装上の難所",
+            "## 46. panic policy",
+            "## 51. 結論",
+            "## 61.",
+        ] {
+            assert!(rfc.contains(heading), "RFC must contain {heading}");
+        }
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C009
+    // [::TICKET::] P11-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-14 --for-spec --no-implementation-order`.
+    fn crate_architecture_defined() -> Result<(), std::io::Error> {
+        // C009 postcondition: module structure documented via src/lib.rs pub mod declarations.
+        // ABC O-007 closure: module_tree_documented (tests/verify_spec_p0_1.rs) reads only the
+        // spec text; this source-level test pins the actual declarations named by the contract.
+        let lib = std::fs::read_to_string("src/lib.rs")?;
+        for module in [
+            "client",
+            "config",
+            "account",
+            "call",
+            "transport",
+            "error",
+            "runtime",
+        ] {
+            assert!(
+                lib.contains(&format!("pub mod {module};")),
+                "src/lib.rs must declare pub mod {module};"
+            );
+        }
+        Ok(())
     }
 
     #[test]
