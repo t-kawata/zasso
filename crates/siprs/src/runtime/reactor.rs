@@ -43,7 +43,7 @@ pub struct BootConfig {
 pub struct CoreReactor;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -63,14 +63,23 @@ impl CoreReactor {
         let terminated = Arc::new(AtomicBool::new(false));
         let terminated_clone = terminated.clone();
 
-        let handle = RuntimeHandle::new(tx, terminated_clone, std::sync::Weak::new());
-
         // [::TICKET::] P3-2: MockBackend is used until PjsuaBackend is implemented.
         let mut backend: Box<dyn SipBackend> = Box::new(MockBackend::new());
         // [::TICKET::] P8-1: O-003 — the reactor owns a default-call AudioMixer. Audio
         // lifecycle commands (AddAudioSource / RemoveAudioSource / SetAudioSourceGain /
         // MuteAudioSource) mutate this mixer on the reactor thread (single-writer rule).
         let audio_mixer: Arc<AudioMixer> = Arc::new(AudioMixer::new());
+        // [::TICKET::] P11-3: O-001 — expose a clone of the reactor mixer to the
+        // handle so tests/observability can assert post-dispatch mixer state without
+        // a round-trip command. The thread keeps its own Arc (single-writer rule).
+        let mixer_for_handle = audio_mixer.clone();
+
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated_clone,
+            std::sync::Weak::new(),
+            mixer_for_handle,
+        );
 
         let thread_join = thread::Builder::new()
             .name("siprs-reactor".into())
@@ -124,14 +133,14 @@ impl CoreReactor {
                                     // AudioMixer; audio lifecycle commands mutate it here
                                     // on the reactor thread (single-writer rule).
                                     let source_id = audio_mixer.add_source(source.into_inner());
-                                    let _ = reply.send(Ok(source_id));
+                                    send_reply(reply, Ok(source_id));
                                 }
                                 DispatchCommand::RemoveAudioSource {
                                     source_id,
                                     reply,
                                 } => {
                                     let result = audio_mixer.remove_source(source_id);
-                                    let _ = reply.send(result);
+                                    send_reply(reply, result);
                                 }
                                 DispatchCommand::SetAudioSourceGain {
                                     source_id,
@@ -139,7 +148,7 @@ impl CoreReactor {
                                     reply,
                                 } => {
                                     let result = audio_mixer.set_gain(source_id, gain);
-                                    let _ = reply.send(result);
+                                    send_reply(reply, result);
                                 }
                                 DispatchCommand::MuteAudioSource {
                                     source_id,
@@ -147,7 +156,7 @@ impl CoreReactor {
                                     reply,
                                 } => {
                                     let result = audio_mixer.mute(source_id, muted);
-                                    let _ = reply.send(result);
+                                    send_reply(reply, result);
                                 }
                                 DispatchCommand::GetAccountInfo {
                                     native_acc_id,

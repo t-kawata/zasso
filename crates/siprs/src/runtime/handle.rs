@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::sync::Weak;
 use std::thread::JoinHandle;
 
+use crate::runtime::audio_worker::AudioMixer;
 use crate::runtime::command::{DebugBox, DispatchCommand, ReactorError, Reply, RuntimeCommand};
 
 /// A `Send + Sync` handle for submitting commands to the `CoreReactor`.
@@ -13,6 +14,7 @@ use crate::runtime::command::{DebugBox, DispatchCommand, ReactorError, Reply, Ru
 /// - `UnboundedSender<DispatchCommand>`: `Send + Sync`.
 /// - `Arc<AtomicBool>`: `Send + Sync`.
 /// - `Weak<JoinHandle<()>>`: `Send + Sync`.
+/// - `Arc<AudioMixer>`: `Send + Sync` (DashMap + crossbeam ArrayQueue).
 ///
 /// # Usage
 /// ```rust,ignore
@@ -20,27 +22,60 @@ use crate::runtime::command::{DebugBox, DispatchCommand, ReactorError, Reply, Ru
 /// let result = handle.submit(RuntimeCommand::Shutdown { reply: ... }).await;
 /// join.join().unwrap();
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct RuntimeHandle {
     pub(crate) sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
     terminated: Arc<AtomicBool>,
     // [::STUB::] P12-6: join_handle is a Weak<JoinHandle> and unused -- Upgrade the Weak<JoinHandle> to Arc and expose it for FFI thread lifecycle inspection once pjsua is linked
     #[allow(dead_code)]
     join_handle: Weak<JoinHandle<()>>,
+    // [::TICKET::] P11-3: O-001 — the reactor owns the default-call AudioMixer.
+    // This clone lets tests/observability read the reactor mixer state without
+    // a round-trip command. The single-writer rule still holds: only the reactor
+    // thread mutates the mixer; callers must treat this as read-only.
+    audio_mixer: Arc<AudioMixer>,
 }
 
 // [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P11-3: AudioMixer does not implement Debug, so the Debug impl is
+// hand-written to format only the Debug-able fields (sender/terminated) and omit
+// the mixer (same finish_non_exhaustive pattern as Reply/DebugBox).
+// [::TICKET::] P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-3 --for-spec --no-implementation-order`.
+impl std::fmt::Debug for RuntimeHandle {
+// [::TICKET::] P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-3 --for-spec --no-implementation-order`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RuntimeHandle")
+            .field("sender", &self.sender)
+            .field("terminated", &self.terminated)
+            .finish_non_exhaustive()
+    }
+}
+
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
         terminated: Arc<AtomicBool>,
         join_handle: Weak<JoinHandle<()>>,
+        audio_mixer: Arc<AudioMixer>,
     ) -> Self {
         Self {
             sender,
             terminated,
             join_handle,
+            audio_mixer,
         }
+    }
+
+    /// Return a clone of the reactor-owned `AudioMixer` Arc.
+    ///
+    /// This is an observability/test accessor (O-001): it lets callers read the
+    /// reactor mixer state (`source_count()`, `gains`, `mutes`) without a
+    /// round-trip command. The single-writer rule still applies — only the
+    /// reactor thread mutates the mixer; callers must not call the `*_source`
+    /// mutators directly.
+    pub fn audio_mixer(&self) -> Arc<AudioMixer> {
+        self.audio_mixer.clone()
     }
 
     /// Submit a runtime command and await its completion.
@@ -328,11 +363,11 @@ mod tests {
 
     #[test]
     // @verifies C012
-    // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3) --for-spec --no-implementation-order`.
     fn runtime_handle_is_clonable() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
 
         let cloned = handle.clone();
         assert!(!cloned.is_terminated());
@@ -343,7 +378,7 @@ mod tests {
     async fn submit_returns_err_when_terminated() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(true));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
 
         let (_tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::Shutdown {
@@ -354,11 +389,11 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3) --for-spec --no-implementation-order`.
     fn is_terminated_reflects_atomic_flag() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated.clone(), Weak::new());
+        let handle = RuntimeHandle::new(tx, terminated.clone(), Weak::new(), Arc::new(AudioMixer::new()));
 
         assert!(!handle.is_terminated());
         terminated.store(true, Ordering::Release);
@@ -374,7 +409,7 @@ mod tests {
     async fn submit_add_audio_source_returns_source_id() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
 
         let consumer = tokio::spawn(async move {
             match rx.recv().await {
@@ -402,7 +437,7 @@ mod tests {
     async fn submit_remove_audio_source_sends_typed_command() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
 
         let consumer = tokio::spawn(async move {
             match rx.recv().await {
@@ -425,7 +460,7 @@ mod tests {
     async fn submit_set_audio_source_gain_sends_typed_command() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
 
         let consumer = tokio::spawn(async move {
             match rx.recv().await {
@@ -453,7 +488,7 @@ mod tests {
     async fn submit_mute_audio_source_sends_typed_command() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
 
         let consumer = tokio::spawn(async move {
             match rx.recv().await {
@@ -483,7 +518,7 @@ mod tests {
     async fn submit_add_account_returns_assigned_id() -> Result<(), Box<dyn std::error::Error>> {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
 
         let consumer = tokio::spawn(async move {
             match rx.recv().await {
@@ -509,7 +544,7 @@ mod tests {
     async fn submit_add_account_reactor_down_returns_err() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(true));
-        let handle = RuntimeHandle::new(tx, terminated, Weak::new());
+        let handle = RuntimeHandle::new(tx, terminated, Weak::new(), Arc::new(AudioMixer::new()));
         let result = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
             .await;

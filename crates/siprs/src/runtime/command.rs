@@ -335,7 +335,7 @@ pub(crate) enum DispatchCommand {
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
@@ -386,6 +386,7 @@ impl DispatchCommand {
                 f: Box::new(move |backend| backend.hangup(call_id as i32)),
                 reply,
             },
+// [::STUB::] P11-10: Hold/Unhold backend calls are not wired in SipBackend; the Execute closure returns a hardcoded error and the P4-2 reference is stale (P4-2 is Audio Format). Real hold/unhold requires SipBackend hold/unhold methods backed by pjsua_call_set_hold FFI -- Add hold/unhold to the SipBackend trait and MockBackend, wire pjsua_call_set_hold/pjsua_call_set_inactive in PjsuaBackend, and replace these Execute closures with backend.hold/unhold calls once the pjsua-native feature enables FFI
             RuntimeCommand::Hold { call_id: _, reply } => Self::Execute {
                 f: Box::new(move |_backend| {
                     Err(ReactorError::BackendError(
@@ -510,9 +511,13 @@ impl std::fmt::Debug for DispatchCommand {
 }
 
 /// Helper: send a result on a oneshot channel, logging if the receiver dropped.
-pub(crate) fn send_reply(
-    sender: Reply<Result<(), ReactorError>>,
-    result: Result<(), ReactorError>,
+///
+/// Generic over `T` so both `Result<(), _>` replies (Execute/Shutdown) and typed
+/// replies (`Result<u64, _>` for AddAudioSource) share the same receiver-drop
+/// observability.
+pub(crate) fn send_reply<T>(
+    sender: Reply<Result<T, ReactorError>>,
+    result: Result<T, ReactorError>,
 ) {
     if sender.send(result).is_err() {
         // Receiver dropped — this is expected if the caller cancelled their task.
