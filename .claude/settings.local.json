@@ -518,7 +518,15 @@
       "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P13-4\" --check-ambiguous)",
       "Bash(echo \"AMBIGUOUS_EXIT=$?\")",
       "Bash(node .claude/scripts/tickets/verify-red-coverage.js --ticket-key=\"P13-4\")",
-      "Bash(echo \"REDCOV_EXIT=$?\")"
+      "Bash(echo \"REDCOV_EXIT=$?\")",
+      "Read(//Users/sh01/shyme/zasso/crates/**)",
+      "Read(//Users/sh01/shyme/zasso/**)",
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(node .claude/scripts/tickets/review/run-quality-checks.js --help)",
+      "Bash(git -C /Users/sh01/shyme/zasso status --short)",
+      "Bash(git -C /Users/sh01/shyme/zasso branch --show-current)",
+      "Bash(git -C /Users/sh01/shyme/zasso diff .claude/settings.local.json)",
+      "Bash(git commit -m 'chore: append tool permission allowlist entries to local settings *)"
     ]
   }
 }
