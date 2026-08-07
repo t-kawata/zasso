@@ -44,9 +44,11 @@ pub enum CallMediaState {
 }
 
 /// Previous call direction, used to discriminate CONNECTING → Trying vs Ringing.
-// [::STUB::] P12-8: CallDirection and previous-state conversion are not yet consumed by the Reactor (covers m20_callstate_mapping.rs:47,113) -- Wire CallDirection into the on_incoming_call FFI callback and call convert_call_state_with_previous from Reactor call processing to discriminate Trying vs Ringing once the FFI callback bridge delivers CallDirection
-#[allow(dead_code)]
+///
+/// Derived from the call's origin — `on_incoming_call` implies `Incoming`;
+/// `make_call` implies `Outgoing`. Never read from the event payload.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
 pub(crate) enum CallDirection {
     Outgoing,
     Incoming,
@@ -103,7 +105,7 @@ pub fn convert_call_state(
 ///
 /// Non-CONNECTING states delegate to `convert_call_state`, forwarding the
 /// owning `account_id` so `CONFIRMED` emits the real per-account payload.
-#[allow(dead_code)]
+// [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
 pub(crate) fn convert_call_state_with_previous(
     call_id: CallId,
     account_id: Option<AccountId>,

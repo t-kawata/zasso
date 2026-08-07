@@ -1611,7 +1611,28 @@
       "Bash(echo \"=== CHECK EXIT: $? ===\")",
       "Bash(echo \"=== TEST EXIT: $? ===\")",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('stub count:',j.count\\);}\\)\")",
-      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('crime count:',j.count\\);}\\)\")"
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('crime count:',j.count\\);}\\)\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P12-8\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-29 --for-spec --no-implementation-order)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-20 --for-spec --no-implementation-order)",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P12-8\")",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P12-8\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P12-8\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"P12-8\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=\"P12-8\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec)",
+      "Bash(echo \"verify-make-contracts exit: $?\")",
+      "Bash(node .claude/scripts/tickets/list-remaining-stubs.js \"Tickets.json\" \"P12-8\")",
+      "Bash(echo \"list-remaining-stubs exit: $?\")",
+      "Bash(echo \"validate-ticket-targets exit: $?\")",
+      "Bash(echo \"validate-no-external-excuses exit: $?\")",
+      "Bash(echo \"REAL exit: $?\")",
+      "Bash(node .claude/scripts/tickets/validate-no-external-excuses.js)",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P12-8\" --phase=plan)",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P12-8\" --for-spec --plan)",
+      "Bash(grep -n \"DEFINITION_PATTERN_METAS\\\\|raw:\" .claude/scripts/tickets/resolve-ambiguous-markers.js | head -20; echo \"===\"; sed -n '/const DEFINITION_PATTERN_METAS/,/];/p' .claude/scripts/tickets/resolve-ambiguous-markers.js | head -50)"
     ]
   }
 }

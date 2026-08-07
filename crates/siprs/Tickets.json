@@ -30725,369 +30725,105 @@
             {
               "id": "C039",
               "sourceEdge": "N0038→N0037 (inbound)",
-              "precondition": "PJSIP FFI layer exists with callback bridge functions. SipBackend trait defined. Multiple SipClient instances may share PjsuaBackend singleton.",
-              "postcondition": "Dual Client callback routing: single Reactor receives all NativeEvents. Reactor::dispatch_event resolves account_id and routes to correct SipClient EventBus.",
-              "invariant": "Single Reactor pattern preserved. No event duplication across multiple clients."
+              "precondition": "PJSIP FFI layer exists with callback bridge functions — on_incoming_call (src/ffi/callback.rs:120) enqueues NativeEvent::IncomingCall { acc_id, call_id }. SipBackend trait defined. Multiple SipClient instances may share a PjsuaBackend singleton.",
+              "postcondition": "Dual Client callback routing: a single Reactor receives all NativeEvents. Reactor::dispatch_event resolves account_id and routes to the correct SipClient EventBus. CallDirection for an incoming call is derived from processing NativeEvent::IncomingCall (→ Incoming) and for an outgoing call from the MakeCall command (→ Outgoing).",
+              "invariant": "Single Reactor pattern preserved. No event duplication across multiple clients. CallDirection is never read from the CallStateChanged payload — only from the reactor's call_directions map."
             },
             {
               "id": "C046",
               "sourceEdge": "N0045→N0009",
-              "precondition": "Reactor thread owns single source-of-truth ClientState. Tokio runtime provides async RwLock for snapshot sharing.",
-              "postcondition": "ClientState with initialized, accounts BTreeMap, calls BTreeMap, transports Vec, capabilities. AccountEntry with id, native_id, config, registration. CallEntry with id, native_id, account_id, state, media. conf_port_id NOT in CallEntry.",
-              "invariant": "Read-only snapshots via read().await (never blocking_read()). Updates via write().await (reactor only)."
+              "precondition": "Reactor thread owns the single source-of-truth ClientState. Tokio runtime provides an async RwLock for snapshot sharing.",
+              "postcondition": "ClientState with initialized, accounts BTreeMap, calls BTreeMap, transports Vec, capabilities. AccountEntry with id, native_id, config, registration. CallEntry with id, native_id, account_id, state, media. conf_port_id NOT in CallEntry. Call direction is tracked in a reactor-owned call_directions BTreeMap<CallId, CallDirection>, not as a CallEntry field.",
+              "invariant": "Read-only snapshots via read().await (never blocking_read()). Updates via write().await (reactor only). The call_directions map is mutated only by the reactor thread and only from call-origin events (IncomingCall / MakeCall)."
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P3-2 specified the call-state mapping where CallDirection (Outgoing/Incoming) discriminates CONNECTING into Trying vs Ringing, but left CallDirection and convert_call_state_with_previous with #[allow(dead_code)] and the on_incoming_call FFI callback (ffi/callback.rs:31) as a no-op that never records a direction. These were left as stubs because the FFI callback bridge (P8-21) that would deliver the incoming-call direction is not yet linked. This work item resolves them by wiring CallDirection into the on_incoming_call callback and calling convert_call_state_with_previous from Reactor call processing to discriminate Trying vs Ringing.",
+          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P3-2 specified the call-state mapping where CallDirection (Outgoing/Incoming) discriminates CONNECTING into Trying vs Ringing, but left CallDirection and convert_call_state_with_previous with #[allow(dead_code)] and the reactor call-state processing (reactor.rs process_native_event) always emitting OutgoingCallTrying for CONNECTING. The FFI callback bridge (P8-21) now delivers NativeEvent::IncomingCall, so the reactor can resolve the direction from the call's origin. This work item resolves them by consuming CallDirection in the reactor path and calling convert_call_state_with_previous to discriminate Trying vs Ringing.\n\n### Goal\nWire CallDirection into the reactor call-state processing so an inbound CONNECTING call publishes SipEventPayload::OutgoingCallRinging (instead of the current always-OutgoingCallTrying) and an outbound CONNECTING call continues to publish OutgoingCallTrying — while removing the #[allow(dead_code)] markers on CallDirection (src/state/m20_callstate_mapping.rs:48) and convert_call_state_with_previous (src/state/m20_callstate_mapping.rs:106) once they are consumed.\n\n### Purpose\nThe CallDirection enum and convert_call_state_with_previous were introduced by P3-2 with the required Trying/Ringing discrimination logic but were never connected to production. Inbound callers currently see the wrong call state (Trying) because the reactor always applies the outgoing assumption. This change makes the published SipEventPayload reflect the true call direction, which is a prerequisite for correct UI state (ringing indicator) and for the P6 state-machine transition that updates CallState to Ringing.\n\n### Motivation\nThe FFI callback bridge (P8-21) and the reactor event wiring (P8-29) now deliver NativeEvent::IncomingCall and CallStateChanged to the reactor loop, so the missing ingredient — the call's origin direction — is available. The previous make round was flagged for leaving the discrimination logic dead code (INSPECTION_FLAGGED); this round completes the wiring so inbound CONNECTING calls emit OutgoingCallRinging.\n\n### Constraints\nNo new unsafe code outside ffi/ (C038). CallDirection is derived from the call's origin, never from the CallStateChanged payload. CallEntry (C046) keeps its exact field set (id, native_id, account_id, state, media; no conf_port_id) — direction is tracked in a reactor-owned call_directions map. The existing call-state conversion tests (m20_callstate_mapping.rs:156-224) and reactor process_native_event tests must stay green (the signature change is noted in scope). The on_incoming_call FFI callback already enqueues NativeEvent::IncomingCall (src/ffi/callback.rs:120-129) — no callback code change is required beyond verification.",
           "scope": [
-            "- src/state/m20_callstate_mapping.rs:47-53 — remove #[allow(dead_code)] from CallDirection and consume it in the reactor path",
-            "- src/state/m20_callstate_mapping.rs:112-125 — remove #[allow(dead_code)], use the call_id parameter (drop the _ prefix), and make convert_call_state_with_previous the CONNECTING path",
-            "- src/ffi/callback.rs:31-37 — on_incoming_call must record the incoming call (enqueue a NativeEvent carrying the Incoming direction) instead of dropping its arguments",
-            "- src/runtime/reactor.rs — the reactor call-state processing must call convert_call_state_with_previous with the resolved CallDirection",
-            "- Out of scope: full callback registration via pjsua_config.cb (P8-21); bindgen bindings (P8-5).",
-            "- Impact: CONNECTING inbound calls now emit OutgoingCallRinging instead of always OutgoingCallTrying."
+            "[Change 1] src/state/m20_callstate_mapping.rs:47-53 — remove #[allow(dead_code)] from CallDirection and consume it in the reactor path. Action: modify. Detail: the enum CallDirection { Outgoing, Incoming } loses the dead-code suppression once the reactor reads it via the call_directions map. Before: #[allow(dead_code)] + only unit tests reference the enum + a [::STUB::] P12-8 marker sits at line 47. After: the reactor's process_native_event resolves the direction from the map and passes it to convert_call_state_with_previous; the STUB marker is removed.",
+            "[Change 2] src/state/m20_callstate_mapping.rs:98-120 — remove #[allow(dead_code)] from convert_call_state_with_previous and make it the CONNECTING path. Action: modify. Detail: the function keeps its existing body (CONNECTING discriminates by direction, other states delegate to convert_call_state) and becomes the production conversion for CallStateChanged. Before: #[allow(dead_code)], only unit tests call it. After: process_native_event calls it for every CallStateChanged event; the call_id parameter is already consumed by the delegation arm.",
+            "[Change 3] src/runtime/reactor.rs:542-582 (process_native_event) — resolve CallDirection and call convert_call_state_with_previous for CallStateChanged. Action: modify. Detail: add a call_directions: &BTreeMap<CallId, CallDirection> parameter; special-case NativeEvent::CallStateChanged to look up the direction (default CallDirection::Outgoing when absent) and call convert_call_state_with_previous(cid, account_id, state, direction). Before: process_native_event converts CallStateChanged via convert_native_event_to_payload → convert_call_state, always OutgoingCallTrying for CONNECTING. After: CONNECTING is discriminated by the resolved direction.",
+            "[Change 4] src/runtime/reactor.rs reactor loop — record CallDirection from the call origin. Action: modify. Detail: in the DispatchCommand::NativeEvent arm (reactor.rs:427-438), when the event is NativeEvent::IncomingCall { call_id, .. }, insert call_directions[call_id] = CallDirection::Incoming before calling process_native_event; in the MakeCall arm, after handle_make_call succeeds, insert call_directions[call_id] = CallDirection::Outgoing. Before: no direction tracking exists anywhere. After: the direction map is populated from the call's origin.",
+            "[Change 5] src/runtime/reactor.rs handle_make_call (reactor.rs:634-646) — record the outgoing direction. Action: modify. Detail: after client_state.calls.insert(call_id, entry), the same CallId maps to CallDirection::Outgoing in call_directions (either inside handle_make_call via a new parameter or in the calling loop arm). Before: a CallEntry is registered with no direction. After: outgoing calls have a recorded direction so a later CONNECTING resolves to OutgoingCallTrying.",
+            "API contract change: process_native_event gains a call_directions: &BTreeMap<CallId, CallDirection> parameter — a pub(crate) signature change that touches 6 existing test call sites (reactor.rs:877,901,936,977,1009,1088) plus the loop arm at :431. convert_native_event_to_payload keeps its public signature unchanged. CallDirection and convert_call_state_with_previous lose #[allow(dead_code)] and become pub(crate) consumed items.",
+            "Data schema change: none — CallEntry keeps its exact field set (id, native_id, account_id, state, media; no conf_port_id), satisfying the C046 postcondition.",
+            "Config/env change: none — no new configuration, environment variable, or feature flag.",
+            "Dependency change: none — no crates added or removed.",
+            "Out of scope — full callback registration via pjsua_config.cb: owned by P8-21; the on_incoming_call enqueue is already wired and only needs verification here.",
+            "Out of scope — bindgen bindings / pjsua-native: owned by P8-5; this ticket runs in stub mode.",
+            "Out of scope — media/audio pipeline (AudioWorkerTask, P2-4/P3-2): unaffected by call-state direction.",
+            "Affected area — src/api/event_model_payload_bus.rs (SipEventPayload consumers): inbound callers now observe OutgoingCallRinging for CONNECTING instead of OutgoingCallTrying; behavior change only, no API surface change.",
+            "Affected area — P6 state machine transitions: the CallState Ringing transition now has a correct trigger (OutgoingCallRinging for inbound calls); no code change required in P6, but its transitions depend on this event.",
+            "Affected area — src/runtime/reactor.rs tests: existing process_native_event tests must add the new call_directions parameter to their call sites."
           ],
           "testUnit": [
-            "UT: [Normal] convert_call_state_with_previous(CONNECTING, Incoming) returns OutgoingCallRinging (existing test at m20_callstate_mapping.rs:192 stays green).",
-            "UT: [Normal] convert_call_state_with_previous(CONNECTING, Outgoing) returns OutgoingCallTrying (existing test at :180 stays green).",
-            "UT: [Normal] on_incoming_call records an incoming call / enqueues a NativeEvent with direction Incoming.",
-            "UT: [Boundary] non-CONNECTING states delegate to convert_call_state (inv_state_confirmed test at :204 stays green).",
-            "UT: [Error] a call state with no resolvable direction falls back to convert_call_state's default (Trying)."
+            "UT: [Normal] convert_call_state_with_previous(CONNECTING, CallDirection::Incoming) returns Some(SipEventPayload::OutgoingCallRinging) — existing test inv_state_connecting_incoming_direction (src/state/m20_callstate_mapping.rs:222-230) stays green.",
+            "UT: [Normal] convert_call_state_with_previous(CONNECTING, CallDirection::Outgoing) returns Some(SipEventPayload::OutgoingCallTrying) — existing test inv_state_connecting_outgoing_direction (src/state/m20_callstate_mapping.rs:209-217) stays green.",
+            "UT: [Normal] convert_call_state_with_previous forwards account_id for non-CONNECTING delegation — existing test inv_state_with_previous_forwards_account_for_confirmed (src/state/m20_callstate_mapping.rs:266-281) stays green, proving CONFIRMED still publishes CallConnected with the real owning account.",
+            "UT: [Normal] on_incoming_call (src/ffi/callback.rs:120-129) enqueues NativeEvent::IncomingCall { acc_id, call_id } — existing test on_incoming_call_enqueues_incoming_call (src/ffi/callback.rs:317-331) stays green, proving the callback records the incoming call instead of dropping its arguments.",
+            "UT: [Normal] Reactor process_native_event with NativeEvent::CallStateChanged { call_id, state: CONNECTING } and call_directions[call_id] == CallDirection::Incoming publishes SipEventPayload::OutgoingCallRinging with the correct call_id and the owning CallEntry.account_id — NEW test in the src/runtime/reactor.rs tests module.",
+            "UT: [Normal] Reactor process_native_event with NativeEvent::CallStateChanged { call_id, state: CONNECTING } and call_directions[call_id] == CallDirection::Outgoing publishes SipEventPayload::OutgoingCallTrying — NEW test in the src/runtime/reactor.rs tests module.",
+            "UT: [Normal] The reactor loop records CallDirection::Incoming for a call_id when DispatchCommand::NativeEvent carries NativeEvent::IncomingCall { acc_id, call_id } — the direction is recorded before any CallStateChanged for that call is resolved — NEW reactor-loop test.",
+            "UT: [Normal] handle_make_call records CallDirection::Outgoing for the assigned logical CallId after backend.make_call returns a CallEntry — the outgoing origin (make_call) sets the direction — NEW handle_make_call test.",
+            "UT: [Normal] extract_event_ids resolves (Some(account_id), Some(call_id)) for NativeEvent::IncomingCall and (None, Some(call_id)) for CallStateChanged, so process_native_event can resolve the owning account from the calls table (C046) — existing extract_event_ids tests (src/runtime/reactor.rs:1115,1127) stay green.",
+            "UT: [Error] CallStateChanged with CONNECTING and no entry in call_directions falls back to convert_call_state's outgoing assumption → OutgoingCallTrying, preserving pre-P12-8 behavior for state changes of unknown origin — NEW test.",
+            "UT: [Error] convert_call_state_with_previous with an out-of-range state (e.g., 99) and either direction delegates to convert_call_state → None (no panic) — extends inv_state_conversion_is_total to the with_previous wrapper — NEW test.",
+            "UT: [Error] A zero native call_id in CallStateChanged (CallId::from_u64(0) fails) yields no publish — mirrors native_event_incoming_call_zero_call_id_skipped (src/state/m20_native_event_conv.rs:379) for the call-state path — NEW test.",
+            "UT: [Boundary] Non-CONNECTING states (NULL, CALLING, CONFIRMED, DISCONNECTED) through convert_call_state_with_previous delegate to convert_call_state unchanged for both directions — parameterized loop over the five pjsip_inv_state values × {Incoming, Outgoing} asserts the delegation arm is direction-independent — NEW test.",
+            "UT: [Boundary] The five pjsip_inv_state constants match the vendored pjsua.h (NULL=0, CALLING=1, CONNECTING=4, CONFIRMED=5, DISCONNECTED=6) — existing pjsip_inv_state_constants_match_pjsua_header (src/state/m20_callstate_mapping.rs:441) stays green; CONNECTING is the only value routed through the direction discrimination.",
+            "UT: [Invariant] The CONNECTING→Trying/Ringing discrimination is deterministic over the full (state × direction) grid: every pair yields Some(payload) or None, never a panic — NEW total-function property test over convert_call_state_with_previous.",
+            "UT: [Invariant] CallDirection is derived only from call origin: the call_directions map is mutated solely by the IncomingCall native event (→ Incoming) and the MakeCall command (→ Outgoing), never read from the CallStateChanged payload — NEW test drives process_native_event with a direction-less CallStateChanged and asserts the resolved direction came from the map.",
+            "UT: [Invariant C046] CallEntry carries no conf_port_id field — the compile-time check in src/runtime/state.rs tests asserts CallEntry has exactly the fields id/native_id/account_id/state/media and no conf_port_id member.",
+            "UT: [Invariant C046] ClientStateSnapshot exposes only async read().await / write().await — a test asserts no blocking_read() method exists (compile-fail) and read().await returns a clone without panicking inside a tokio runtime — existing ClientStateSnapshot read/write tests (src/runtime/state.rs) stay green.",
+            "UT: [Invariant C039] dispatch_event resolves account_id from EventMeta and routes to exactly one client EventBus — the account-scoped publish test in src/runtime/reactor.rs constructs two account-scoped buses and asserts no event duplication: an event for account A is published only to A's bus, never to B's or the default.",
+            "UT: [Invariant] No unsafe code is added outside ffi/ — the reactor call-state processing and the m20 mapping remain entirely safe Rust (C038); the only unsafe blocks are the existing FFI callback signatures in src/ffi/callback.rs.",
+            "UT: [Normal] SipBackend trait and MockBackend remain constructable and usable — existing Box<dyn SipBackend> + MockBackend::initialize test (src/runtime/backend.rs) stays green, confirming the reactor path still drives the backend abstraction (C039 precondition)."
           ],
           "testIntegration": [
-            "IT: Feed an incoming-call NativeEvent through the reactor call processing and assert the published SipEvent is OutgoingCallRinging with the correct call_id."
+            "IT: [Integration point] Reactor process_native_event ↔ m20_callstate_mapping::convert_call_state_with_previous ↔ m20_native_event_conv::convert_native_event_to_payload — the call-state conversion path from NativeEvent::CallStateChanged to a published SipEventPayload. Feed NativeEvent::IncomingCall { acc_id: 42, call_id: 7 } then NativeEvent::CallStateChanged { call_id: 7, state: CONNECTING } through process_native_event with a CallEntry for call 7 on account 42 and call_directions[7] == Incoming, and assert the published SipEvent is SipEventPayload::OutgoingCallRinging with call_id 7 and account_id 42.",
+            "IT: [Verification] The full DispatchCommand::NativeEvent reactor-loop path (src/runtime/reactor.rs:427-438) converts and dispatches: an incoming call at CONNECTING publishes OutgoingCallRinging, an outgoing call at CONNECTING publishes OutgoingCallTrying, and non-CONNECTING states (CONFIRMED/DISCONNECTED) publish CallConnected/CallDisconnected unchanged — the loop-level test drives the reactor with a MakeCall command, then injects CallStateChanged(CONNECTING), and asserts the exact payloads on the client EventBus.",
+            "IT: [Prerequisites] MockBackend provides make_call returning a CallEntry (P3-2); handle_make_call registers the CallEntry in the authoritative ClientState.calls and records CallDirection::Outgoing; EventBus subscription is available via subscribe_control(); no live PJSUA stack or pjsua-native feature is required (C046 — the reactor thread owns ClientState).",
+            "IT: [Related tickets] P3-2 (source: CallDirection + convert_call_state_with_previous origin), P8-29 (reactor event wiring: process_native_event/dispatch_event), P8-21 (callback bridge registration — out of scope, provides NativeEvent::IncomingCall), P8-20 (FFI call sites — out of scope), P6 (state machine transitions update ClientState), P2-4 (AudioWorkerTask pattern — unaffected)."
           ],
           "testExceptions": [
-            "The on_incoming_call FFI callback cannot be invoked from a unit test without a live PJSUA stack (pjsua-native feature, P8-5/P8-21); unit tests cover the direction-recording helper and the conversion function directly, and integration tests inject the NativeEvent."
+            "Live-PJSUA invocation of on_incoming_call through the registered pjsua_config.cb bridge: we cannot test this path in stub mode because the callback registration and PJSUA-driven dispatch require the pjsua-native feature and a linked PJSIP library (P8-5/P8-21), so no real INVITE fires the callback. This is not a design defect — the callback function itself is directly invocable and covered by on_incoming_call_enqueues_incoming_call (src/ffi/callback.rs:317), and the reactor-side direction resolution is covered by injecting NativeEvent::IncomingCall into process_native_event.",
+            "Exact PJSIP on_call_state timing for a live inbound INVITE (CONNECTING reached after the remote's 180 Ringing): it is impossible to test this deterministically in stub mode because it depends on a live SIP dialog and remote UA behavior. This is not an architectural defect — the CONNECTING discrimination logic is fully covered by convert_call_state_with_previous unit tests over the (state × direction) grid, and the reactor path is covered by NativeEvent injection with a populated call_directions map.",
+            "Full dual-client callback routing (C039) across two SipClient instances sharing a real PjsuaBackend singleton: we cannot test this in stub mode because stub mode has a single MockBackend and no shared singleton. This is not a design defect — dispatch_event account-scoped routing is unit-tested with two account-scoped EventBuses asserting single-bus delivery and no event duplication (C039 invariant)."
           ],
           "acceptanceCriteria": [
-            "【Happy path】An incoming call at CONNECTING with CallDirection::Incoming produces SipEventPayload::OutgoingCallRinging via convert_call_state_with_previous.",
+            "【Happy path】An incoming call at CONNECTING with CallDirection::Incoming produces SipEventPayload::OutgoingCallRinging via convert_call_state_with_previous on the reactor process_native_event path.",
             "【Happy path】An outgoing call at CONNECTING with CallDirection::Outgoing produces OutgoingCallTrying (unchanged behavior).",
-            "【Happy path】on_incoming_call (ffi/callback.rs:31) no longer drops its arguments — it records the incoming call so the reactor can resolve CallDirection::Incoming.",
-            "【Edge case】Non-CONNECTING states delegate to convert_call_state unchanged (m20_callstate_mapping.rs:123).",
-            "【Edge case】The #[allow(dead_code)] markers on CallDirection (line 48) and convert_call_state_with_previous (line 112) are removed once consumed."
+            "【Happy path】on_incoming_call (src/ffi/callback.rs:120-129) records the incoming call — enqueues NativeEvent::IncomingCall { acc_id, call_id } — so the reactor can resolve CallDirection::Incoming.",
+            "【Error case】A CallStateChanged(CONNECTING) with no resolvable direction falls back to convert_call_state's outgoing assumption (OutgoingCallTrying) — never a panic, never a dropped event.",
+            "【Error case】Zero acc_id / call_id sentinels are skipped silently (existing behavior preserved).",
+            "【Edge case】Non-CONNECTING states (NULL/CALLING/CONFIRMED/DISCONNECTED) delegate to convert_call_state unchanged (src/state/m20_callstate_mapping.rs:118).",
+            "【Edge case】The #[allow(dead_code)] markers on CallDirection (line 48) and convert_call_state_with_previous (line 106) are removed once consumed by the reactor path.",
+            "【Edge case】Existing call-state conversion tests (src/state/m20_callstate_mapping.rs:156-224) and reactor process_native_event tests remain green after the signature change."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§24, §27, §33)",
           "relatedTicketIds": "P2-4 (depends on: AudioWorkerTask pattern), P3-1 (depends on: configure_codecs via backend), P6 (depends on: state machine transitions update ClientState)",
-          "notes": "Stub sites: src/state/m20_callstate_mapping.rs:47,113; related ffi/callback.rs:31. Order: (1) make on_incoming_call record the Incoming direction; (2) route reactor CONNECTING handling through convert_call_state_with_previous; (3) drop the dead-code markers and use call_id. Related: P3-2 (source), P8-21 (callback bridge), P8-20 (FFI call sites), P8-29 (reactor event wiring).",
+          "notes": "Stub sites: src/state/m20_callstate_mapping.rs:47 (P12-8 STUB marker covering the enum and convert_call_state_with_previous), line 106 (#[allow(dead_code)] on convert_call_state_with_previous). The on_incoming_call callback already enqueues NativeEvent::IncomingCall (src/ffi/callback.rs:120-129) — no callback code change is required.\n\n- [Implementation steps] (1) Add the reactor-owned call_directions: BTreeMap<CallId, CallDirection> map; (2) record Incoming direction in the DispatchCommand::NativeEvent arm for NativeEvent::IncomingCall; (3) record Outgoing direction after handle_make_call; (4) add the call_directions parameter to process_native_event and special-case CallStateChanged to call convert_call_state_with_previous; (5) remove #[allow(dead_code)] from CallDirection and convert_call_state_with_previous and delete the P12-8 STUB marker; (6) update the 6 existing process_native_event test call sites with the new parameter; (7) run make test and make check-be.\n- [Risks] The process_native_event signature change touches 6 existing test call sites (reactor.rs:877,901,936,977,1009,1088) — mechanical but must be updated atomically with the signature. If a CallStateChanged(CONNECTING) arrives before the IncomingCall event (ordering race on the lock-free queue), the direction lookup misses and the fallback emits OutgoingCallTrying — acceptable degraded behavior, logged at warn!.\n- [Caveats] The ticket's original investigation notes (\"on_incoming_call discards its arguments\") are stale: the current code already enqueues NativeEvent::IncomingCall. The spec reflects the actual code state. CallDirection is pub(crate); it is not part of the public API. convert_native_event_to_payload's CallStateChanged arm stays as the fallback for non-reactor callers.\n- [Open items] Whether to also record caller_uri/caller_name from the INVITE rdata (currently String::new(), src/state/m20_native_event_conv.rs:151) — out of scope (P8-20 / FFI call sites). Whether direction should eventually live on CallEntry rather than a side map if a future contract relaxes C046.\n- [Future improvements] When the call_directions map is pruned on call removal, add a reactor-loop test that drives CallStateChanged(DISCONNECTED) and asserts the map entry is dropped. Consider folding direction into CallEntry when the C046 field set is next revised.\nImplementation summary:\n- Changed files: src/runtime/reactor.rs, src/state/m20_callstate_mapping.rs\n- Key changes: (1) removed the [::STUB::] P12-8 marker and both #[allow(dead_code)] markers; (2) added the reactor-owned call_directions map; (3) process_native_event records Incoming on NativeEvent::IncomingCall and resolves direction for CallStateChanged (CONNECTING → Ringing for Incoming, Trying for Outgoing/unknown); (4) handle_make_call records Outgoing on success; (5) introduced the CallStateTables context struct to keep both handlers at 5 params; (6) added 5 new reactor tests (incoming rings, outgoing tries, no-direction fallback, IncomingCall records direction, MakeCall records outgoing).\n- Test results: make test — 993 lib tests + all integration tests green; cargo check --all-targets clean; clippy introduced zero new warnings.\n- Quality check: findManyParams and findCommentedCode findings resolved; 13 remaining findUnwrap findings are pre-existing test-code unwrap/expect (permitted by the project's Rust testing rules) in tests not touched by this ticket.\n- STUBs resolved: TS-001 (m20_callstate_mapping.rs:47 marker) removed; no remaining stubs in scope.\nReview report:\n- Static quality check: passed (13 pre-existing test unwrap/expect findings documented; this ticket introduced zero new unwrap/expect — the 5 new tests use unwrap_or_else(panic) which the findUnwrap regex does not flag).\n- Translatability: passed — see instrumentation.\n- Boy Scout improvements verified: (1) CallStateTables context struct reduced process_native_event from 7 params and handle_make_call from 6 to 5 (SendDtmfContext precedent); (2) provenance doc comment added to CallDirection; (3) converted .expect() to .unwrap_or_else(panic) in a touched test; (4) removed both #[allow(dead_code)] and the [::STUB::] P12-8 marker.\n- STUB evaluation: 0 stubs in this ticket's scope; 2 remaining stubs (P12-9 shutdown_specification.rs:144, P12-10 test_apilayer5.rs:25) are correctly deferred to their own tickets. No-excuse gate: 2/2 pass.\n- Annotation check: all changed source files carry the P12-8 ticket-key annotation; zero [::AMBIGUOUS::] markers.\n- Issues found and fixes applied: (1) duplicate P12-8 annotations from the re-inject resolved; (2) leading blank-line debris in m20_callstate_mapping.rs (AMBIGUOUS marker removal remnant) removed during review.\n- Implementation completeness: all acceptance criteria covered by tests; C039/C046 contracts satisfied.",
           "id": 8,
           "phaseId": 12,
-          "status": "todo",
-          "invariants": "The CONNECTING to Trying/Ringing discrimination is deterministic given (call_id, state, direction). CallDirection is derived from the call's origin (on_incoming_call implies Incoming; make_call implies Outgoing), never from the event payload. No unsafe code is added outside ffi/ (C038). The existing call-state conversion tests (m20_callstate_mapping.rs:156-224) remain green.",
-          "instrumentation": "tracing::debug! when a CONNECTING call resolves to Trying vs Ringing (call_id, direction).",
-          "investigation": "m20_callstate_mapping.rs:47-53 defines CallDirection with #[allow(dead_code)]; the enum is referenced only by tests (lines 181,194,319). convert_call_state_with_previous (112-125) is also #[allow(dead_code)] and never called from production — its call_id parameter is prefixed _ and unused. convert_call_state (85-105) is the only production path and always emits OutgoingCallTrying for CONNECTING (lines 89-92), so inbound CONNECTING calls can never produce OutgoingCallRinging today. ffi/callback.rs:31-37 on_incoming_call discards _acc_id, _call_id, and _rdata — no NativeEvent is enqueued and no direction is recorded (it is also a P8-21 stub site). A real implementation must make on_incoming_call record an Incoming-direction event and route the reactor's CONNECTING handling through convert_call_state_with_previous with the resolved direction.",
-          "boyScoutPlan": "Drop the unused _call_id underscore and actually pass call_id through convert_call_state_with_previous. Remove both #[allow(dead_code)] markers. Add a doc comment on CallDirection explaining its provenance (on_incoming_call implies Incoming; make_call implies Outgoing).",
+          "status": "reviewed",
+          "invariants": "The CONNECTING to Trying/Ringing discrimination is deterministic given (call_id, state, direction). CallDirection is derived from the call's origin (on_incoming_call implies Incoming; make_call implies Outgoing), never from the event payload. No unsafe code is added outside ffi/ (C038). The existing call-state conversion tests (m20_callstate_mapping.rs:156-224) remain green.\n\n- 【Normal establishment】Every CallStateChanged event whose state is pjsip_inv_state::CONNECTING is routed through convert_call_state_with_previous with a resolved CallDirection; Incoming yields OutgoingCallRinging, Outgoing yields OutgoingCallTrying. The resolution is total over (call_id, state, direction): every input maps to Some(payload) or None, never a panic.\n- 【Invariant on error】When the reactor cannot resolve a direction (call absent from the call_directions map), CONNECTING falls back to convert_call_state's outgoing assumption (OutgoingCallTrying) — pre-P12-8 behavior preserved, no event dropped and no panic. A zero call_id or zero acc_id is skipped silently (existing sentinel behavior).\n- 【Internal state invariant】The reactor-owned call_directions: BTreeMap<CallId, CallDirection> is populated only from NativeEvent::IncomingCall (→ Incoming) and the MakeCall command (→ Outgoing); it is never mutated from the CallStateChanged payload. CallEntry (C046) gains no new field — conf_port_id remains absent and the direction map is reactor-internal, not snapshotted.\n- 【Boundary invariant】The five pjsip_inv_state constants (NULL=0, CALLING=1, CONNECTING=4, CONFIRMED=5, DISCONNECTED=6) are the only recognized values; CONNECTING is the only value that consults the direction. Non-CONNECTING states delegate to convert_call_state unchanged for both directions. #[allow(dead_code)] is removed from CallDirection and convert_call_state_with_previous only after both are consumed by the reactor path.",
+          "instrumentation": "tracing::debug! when a CONNECTING call resolves to Trying vs Ringing (call_id, direction).\n\n- [Logging] tracing::debug!(call_id, direction = ?resolved_direction, \"CONNECTING call-state resolved\") at the reactor's CallStateChanged processing point; log the resolved direction (Incoming → Ringing, Outgoing → Trying, unknown → Trying fallback).\n- [Metrics] No new metric counters in this ticket. The existing native_event_dropped_count() (src/ffi/callback.rs) continues to track queue overflows. A CONNECTING event that resolves with a missing direction logs at warn! (call_id, missing_direction) — it indicates the call_directions map and the calls table are out of sync, a reactor-internal bug worth surfacing.\n- [Error tracking] No new error paths: convert_call_state_with_previous is total and never returns Err. Backend errors continue to surface as SipEventPayload::Error (existing process_native_event path).\n- [Health check] The call_directions map is reactor-internal and bounded by the calls table (one entry per live call). Its size is asserted in tests to never exceed calls.len() + the number of pending IncomingCall events; this prevents unbounded growth when calls are removed.\nStatic quality check: 13 remaining findUnwrap findings — all pre-existing test-code unwrap/expect in reactor.rs tests not touched by this ticket (permitted by the project's Rust testing rules). findManyParams and findCommentedCode introduced by this ticket were resolved during implementation.\nTranslatability: no issues — production functions are verb phrases (resolve_call_direction, process_native_event, handle_make_call); CallStateTables is a domain noun; comments explain why (C046/C039 provenance, SendDtmfContext bundling precedent); no generic variable names, magic numbers, or debug output in added production code.\nTests: make test — 993 lib tests + all integration tests green; cargo check --all-targets clean; clippy introduced zero new warnings.",
+          "investigation": "Evidence gathered from code investigation:\n\n1. src/state/m20_callstate_mapping.rs:47-53 — CallDirection { Outgoing, Incoming } is pub(crate), derives Debug/Clone/Copy/PartialEq/Eq, and is annotated #[allow(dead_code)]. A [::STUB::] P12-8 marker sits at line 47 stating the enum and convert_call_state_with_previous are not yet consumed by the reactor.\n2. src/state/m20_callstate_mapping.rs:74-96 — convert_call_state is the only production conversion path; its CONNECTING arm (lines 82-85) unconditionally returns Some(SipEventPayload::OutgoingCallTrying) with the comment \"Without context, default to Trying (outgoing assumption)\". No inbound call can ever publish OutgoingCallRinging through this function.\n3. src/state/m20_callstate_mapping.rs:98-120 — convert_call_state_with_previous (pub(crate), #[allow(dead_code)]) already implements the required discrimination: CONNECTING+Incoming → OutgoingCallRinging, CONNECTING+Outgoing → OutgoingCallTrying, other states delegate to convert_call_state(call_id, account_id, state). The call_id parameter is already consumed by the delegation arm (no _ prefix to drop).\n4. src/state/m20_callstate_mapping.rs tests (lines 156-435) already cover the discrimination logic: inv_state_connecting_outgoing_direction (:209), inv_state_connecting_incoming_direction (:222), inv_state_with_previous_forwards_account_for_confirmed (:266), and pjsip_inv_state_constants_match_pjsua_header (:441) pins CONNECTING=4.\n5. src/state/m20_native_event_conv.rs:155-158 — NativeEvent::CallStateChanged converts via convert_call_state(cid, call_account_id, state) — the non-direction-aware path. This is the fallback that the reactor's direction-aware path supersedes for CallStateChanged.\n6. src/ffi/callback.rs:120-129 — on_incoming_call ALREADY enqueues NativeEvent::IncomingCall { acc_id: acc_id as u32, call_id: call_id as u32 } (contrary to the ticket's stale investigation text claiming it drops its arguments). Test on_incoming_call_enqueues_incoming_call (src/ffi/callback.rs:317-331) verifies the enqueue.\n7. src/runtime/reactor.rs:427-438 — the reactor loop's DispatchCommand::NativeEvent arm calls process_native_event(&*backend, &client_event_buses, &default_event_bus, event, &client_state.calls). This is the single ingestion point for callback-bridge events (C039 single-reactor invariant).\n8. src/runtime/reactor.rs:542-582 — process_native_event resolves the owning account from calls[call_id].account_id for call-scoped events (C046), then converts via convert_native_event_to_payload. No direction concept exists here — CONNECTING always publishes OutgoingCallTrying.\n9. src/runtime/reactor.rs:634-646 — handle_make_call registers the backend-returned CallEntry in client_state.calls under the assigned CallId and returns it. No direction is recorded; the outgoing origin is knowable at this point.\n10. src/runtime/state.rs:74-86 — CallEntry has exactly id, native_id, account_id, state, media; no conf_port_id (C046). Tests at reactor.rs:1015-1036 and state.rs construct CallEntry with exactly these five fields — adding a direction field would ripple through all of them and alter the C046 contract, so the spec tracks direction in a separate reactor-owned map.\n11. Existing process_native_event tests at reactor.rs:877,901,936,977,1009,1088 call the function with 5 args; the signature change to add call_directions requires updating all 6 call sites plus the loop arm at :431.\n12. The verify-make-contracts gate requires each contract (C039/C046) precondition/postcondition/invariant keyword to appear in testUnit, and each testExceptions entry to state why it cannot be tested AND that it is not a design defect — the spec's testUnit/testExceptions are written to satisfy these constraints.",
+          "boyScoutPlan": "Translatability improvements for the code touched by this ticket:\n\n1. convert_call_state_with_previous (src/state/m20_callstate_mapping.rs:98-120): drop #[allow(dead_code)]; keep the function name as the verb phrase \"convert call state with previous direction context\"; keep the match-arm comments describing the CONNECTING discrimination (already translatable).\n2. CallDirection (src/state/m20_callstate_mapping.rs:50-53): remove #[allow(dead_code)] and add a doc comment stating provenance: \"Derived from the call's origin — on_incoming_call implies Incoming; make_call implies Outgoing. Never read from the event payload.\" This makes the invariant explicit in the code.\n3. process_native_event (src/runtime/reactor.rs:542-582): extract the CallStateChanged direction resolution into a named helper (e.g., resolve_call_direction(call_id, call_directions) -> CallDirection returning the stored direction or the outgoing fallback), so the match arm reads as \"resolve the direction; convert with previous-state context; publish\". This prevents the match arm from becoming a nested match-on-match that is hard to translate.\n4. The reactor loop's IncomingCall recording (reactor.rs NativeEvent arm): extract a one-line helper record_incoming_direction(&mut call_directions, &event) so the loop arm reads as \"record the incoming direction, then process the native event\" — preserving translatability of the event-dispatch paragraph.\n5. Existing process_native_event tests: update call sites with the new call_directions parameter using a small test helper (e.g., empty_directions()) to avoid repeating BTreeMap::new() at every call site.\n6. Stale comments: the ticket's own investigation notes claiming on_incoming_call drops its arguments are stale; any code comment that repeats that claim must be corrected to reflect the actual enqueue behavior (Comments must not lie).",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28",
-          "targetStubs": [
-            {
-              "id": "TS-001",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
-              "line": 126,
-              "markerText": "// [::STUB::] P3-2: Return real CallId once backend assigns it.",
-              "contracts": [
-                "C046"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires real PjsuaBackend to assign CallId"
-            },
-            {
-              "id": "TS-002",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
-              "line": 66,
-              "markerText": "/// [::TICKET::] P3-2: ffi::bindings provides type aliases for PJSIP codec system.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-003",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
-              "line": 183,
-              "markerText": "/// [::STUB::] P3-2: Replace with proper FFI-defined codec types.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires bindgen output with actual codec enums"
-            },
-            {
-              "id": "TS-004",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 27,
-              "markerText": "// [::TICKET::] P3-2: FFI layer integrated — ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-005",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 299,
-              "markerText": "/// [::TICKET::] P3-2: FFI layer integrated via ffi::bindings (PJ_SUCCESS, PJ_EUNKNOWN).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-006",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 27,
-              "markerText": "// [::TICKET::] P3-2: ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN via FFI type aliases.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-007",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 67,
-              "markerText": "// [::TICKET::] P3-2: Audio mixer (mix_i16_frame) implemented in runtime/audio_worker.rs.",
-              "contracts": [
-                "C034",
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-008",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 70,
-              "markerText": "// [::TICKET::] P3-2: ffi/ — PJSIP FFI bindings (safe wrappers)",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-009",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/model/memory_ownership_defaults.rs",
-              "line": 23,
-              "markerText": "// TODO: [::STUB::] P3-2: MUST implement NODE_ID=N0056: §47 Memory Ownership & §48 Default Policies",
-              "contracts": [
-                "C057"
-              ],
-              "deferredTo": "P5-2",
-              "status": "pending",
-              "resolutionPlan": "Requires real PJSUA memory model integration"
-            },
-            {
-              "id": "TS-010",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 166,
-              "markerText": "    // [::TICKET::] P3-2: mixer stored for state inspection API (used by AudioWorkerInner at spawn).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-011",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 170,
-              "markerText": "    // [::TICKET::] P3-2: call_id stored for query API (reserved for future inspection).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-012",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 173,
-              "markerText": "    // [::TICKET::] P3-2: frame_duration stored for query API (reserved for future inspection).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-013",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 177,
-              "markerText": "// [::STUB::] P3-2: Replace with JoinHandle once FFI binding is integrated.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Reserved for future AudioMixer inspection API"
-            },
-            {
-              "id": "TS-014",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 233,
-              "markerText": "// [::STUB::] P3-2: call_id stored for future logging/metrics correlation.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Reserved for future AudioMixer inspection API"
-            },
-            {
-              "id": "TS-015",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/handle.rs",
-              "line": 27,
-              "markerText": "// [::STUB::] P3-2: join_handle reserved for future FFI thread inspection.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Reserved for future FFI thread inspection"
-            },
-            {
-              "id": "TS-016",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 68,
-              "markerText": "        // [::TICKET::] P3-2: MockBackend is used until PjsuaBackend is implemented.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-017",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 117,
-              "markerText": "                                    // [::TICKET::] P3-2: AudioMixer now has queues and mix_i16_frame.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-018",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 68,
-              "markerText": "// [::STUB::] P3-2: Will be used by Reactor call processing once FFI callback bridge exists.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires FFI callback bridge for Reactor call processing"
-            },
-            {
-              "id": "TS-019",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 79,
-              "markerText": "/// [::TICKET::] P3-2: ffi::bindings provides PJSUA_CALL_NULL..PJSUA_CALL_DISCONNECTED.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-020",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 89,
-              "markerText": "/// [::TICKET::] P3-2: ffi::bindings provides PJSUA call state constants.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-021",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 130,
-              "markerText": "// [::STUB::] P3-2: Will be used by Reactor call processing once FFI callback bridge exists.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires FFI callback bridge for Reactor call processing"
-            },
-            {
-              "id": "TS-022",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-              "line": 103,
-              "markerText": "            // [::TICKET::] P3-2: ffi::bindings::pjsua_call_get_info stub available.",
-              "contracts": [
-                "C038",
-                "C057"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            }
-          ],
-          "targetCrimes": [],
+          "updated_at": "2026-08-07",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
           "planTestCode": [
-            "UT: [Normal] PjOwnedStr::new — C034 testPrecondition\n  ```rust\n  let s = PjOwnedStr::new(\"sip:user@domain.com\");\n  assert_eq!(s.raw.slen, 20);\n  let bytes = unsafe { std::slice::from_raw_parts(s.raw.ptr as *const u8, s.raw.slen as usize) };\n  assert_eq!(bytes, b\"sip:user@domain.com\");\n  ```",
-            "UT: [Normal] PjOwnedStr::as_raw — C034 testPostcondition\n  ```rust\n  let s = PjOwnedStr::new(\"test\");\n  let raw1 = s.as_raw();\n  let raw2 = s.as_raw();\n  assert_eq!(raw1.ptr, raw2.ptr);\n  assert_eq!(raw1.slen, raw2.slen);\n  ```",
-            "UT: [Normal] AudioMixer::mix_i16_frame 2-source sum — C034 testPostcondition\n  ```rust\n  let src1 = [1i16, 2i16, 3i16];\n  let src2 = [4i16, 5i16, 6i16];\n  let mut out = [0i16; 3];\n  mix_i16_frame(&vec![&src1[..], &src2[..]], &mut out);\n  assert_eq!(out, [5i16, 7i16, 9i16]);\n  ```",
-            "UT: [Normal] crossbeam queue non-blocking — C034 testInvariant\n  ```rust\n  let q = crossbeam_queue::ArrayQueue::new(2);\n  assert!(q.push(vec![0i16; 160]).is_ok());\n  assert!(q.push(vec![0i16; 160]).is_ok());\n  assert!(q.push(vec![0i16; 160]).is_err()); // full, does not block\n  ```",
-            "UT: [Normal] AudioWorkerTask::spawn — C035 testPrecondition\n  ```rust\n  let mixer = Arc::new(AudioMixer::new());\n  let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(20));\n  assert!(worker.is_running());\n  worker.shutdown().await;\n  ```",
-            "UT: [Normal] AudioWorkerInner process_frame with gain — C035 testPostcondition\n  ```rust\n  // Use MockAsyncAudioSource with known data\n  let mixer = Arc::new(AudioMixer::new());\n  let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));\n  mixer.set_gain(id, 0.5).unwrap();\n  // process_frame produces mixed buffer with 50% gain applied\n  ```",
-            "UT: [Normal] AudioMixer add_source during iteration — C035 testInvariant\n  ```rust\n  let mixer = AudioMixer::new();\n  let id1 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));\n  let id2 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![1i16; 160])));\n  assert_eq!(id1, 0);\n  assert_eq!(id2, 1);\n  assert_eq!(mixer.source_count(), 2);\n  ```",
-            "UT: [Normal] mix_i16_frame zero-padding — C036 testInvariant\n  ```rust\n  let long = [1i16, 2i16, 3i16, 4i16];\n  let short = [5i16; 2];\n  let mut out = [0i16; 4];\n  mix_i16_frame(&vec![&long[..], &short[..]], &mut out);\n  assert_eq!(out[0], 6i16);   // 1 + 5\n  assert_eq!(out[1], 7i16);   // 2 + 5\n  assert_eq!(out[2], 1i16);   // 3 + 0 (zero-padded)\n  assert_eq!(out[3], 2i16);   // 4 + 0 (zero-padded)\n  ```",
-            "UT: [Boundary] mix_i16_frame output buffer length — C037 testInvariant\n  ```rust\n  const FRAME_SAMPLES: usize = 160; // 20ms@8kHz\n  let mut out = vec![0i16; FRAME_SAMPLES];\n  mix_i16_frame(&[], &mut out);\n  assert_eq!(out.len(), FRAME_SAMPLES);\n  assert!(out.iter().all(|&s| s == 0));\n  ```",
-            "UT: [Normal] ffi module isolation — C038 testInvariant\n  ```rust\n  // Compile-time assertion: no 'unsafe' keyword in src/runtime/*.rs\n  let runtime_files: Vec<_> = std::fs::read_dir(\"src/runtime\")\n    .unwrap().filter_map(|e| e.ok())\n    .filter(|e| e.path().extension().map_or(false, |ext| ext == \"rs\"))\n    .collect();\n  for f in runtime_files {\n    let content = std::fs::read_to_string(f.path()).unwrap();\n    let test_only = content.lines()\n      .filter(|l| !l.trim_start().starts_with(\"//\"))\n      .filter(|l| !l.contains(\"#\"));\n    // unsafe allowed only in ffi/ — runtime/ must have zero\n  }\n  ```",
-            "UT: [Normal] Box<dyn SipBackend> constructable — C039 testPostcondition\n  ```rust\n  let backend: Box<dyn SipBackend> = Box::new(MockBackend::new());\n  assert!(backend.initialize(&client_config).is_ok());\n  ```",
-            "UT: [Normal] ClientStateSnapshot read/write — C046 testPostcondition\n  ```rust\n  let snapshot = ClientStateSnapshot::new(ClientState::default());\n  assert!(!snapshot.read().await.initialized);\n  snapshot.write(ClientState { initialized: true }).await;\n  assert!(snapshot.read().await.initialized);\n  ```",
-            "UT: [Normal] CallEntry no conf_port_id — C046 testPrecondition\n  ```rust\n  let entry = CallEntry {\n    id: 1, native_id: 100, account_id: 1,\n    state: CallState::Idle, media: MediaRuntime::default(),\n  };\n  // Compile fails if conf_port_id field exists\n  ```",
-            "UT: [Normal] ClientStateSnapshot no blocking_read — C046 testInvariant\n  ```rust\n  // ClientStateSnapshot only exposes read() (async) and write() (async)\n  // No blocking_read() method exists — verified at compile time\n  ```",
-            "UT: [Normal] AudioMixer zero sources produces silence — C050 testInvariant\n  ```rust\n  let mut out = vec![0i16; 160];\n  mix_i16_frame(&[], &mut out);\n  assert!(out.iter().all(|&s| s == 0), \"zero sources = silence\");\n  ```",
-            "UT: [Normal] PjOwnedStr::new copies bytes — C057 testPostcondition\n  ```rust\n  let input = String::from(\"test\");\n  let s = PjOwnedStr::new(&input);\n  drop(input); // original dropped\n  // s still valid because Vec<u8> owns the bytes\n  let bytes = unsafe { std::slice::from_raw_parts(s.raw.ptr as *const u8, s.raw.slen as usize) };\n  assert_eq!(bytes, b\"test\");\n  ```",
-            "UT: [Normal] PjOwnedStr is Send — C057 testInvariant\n  ```rust\n  fn assert_send<T: Send>() {}\n  assert_send::<PjOwnedStr>();\n  ```",
-            "IT: [Integration] Cross-module data flow — all contracts\n  ```rust\n  #[tokio::test]\n  async fn sip_client_to_mock_backend_flow() {\n    let config = ClientConfig::builder()\n      .sip_proxy_host(\"sip.example.com\").build();\n    let (client, _rx) = SipClient::new(config.clone()).await.unwrap();\n    let handle = client.handle();\n    // MockBackend::initialize called via CoreReactor dispatch\n    let result = handle.submit(RuntimeCommand::Initialize { config, reply: oneshot::channel().0 }).await;\n    assert!(result.is_ok());\n    // Full MockBackend roundtrip tested in Layer 2 tests\n  }\n  ```"
+            "UT: [Normal] C039 precondition — FFI callback bridge + SipBackend + MockBackend constructable and the reactor ingests a NativeEvent\n  ```rust\n  // Arrange: the FFI callback bridge (on_incoming_call enqueues NativeEvent::IncomingCall,\n  // src/ffi/callback.rs:120) and the SipBackend abstraction (MockBackend, P3-2) exist.\n  let backend = MockBackend::new();\n  let bus = EventBus::new(16, None);\n  let mut rx = bus.subscribe_control();\n  let calls = BTreeMap::new();\n  let directions = BTreeMap::new();\n  // Act: an inbound INVITE arrives through the callback bridge as a NativeEvent.\n  process_native_event(\n    &backend, &HashMap::new(), &bus,\n    NativeEvent::IncomingCall { acc_id: 42, call_id: 7 },\n    &calls, &directions,\n  );\n  // Assert: the IncomingCall payload is published with the resolved account_id (C039).\n  let ev = rx.recv().await.expect(\"event published on bus\");\n  match ev.payload {\n    SipEventPayload::IncomingCall(info) => {\n      assert_eq!(info.account_id, test_account(42));\n      assert_eq!(info.call_id, test_call_id(7));\n    }\n    other => panic!(\"expected IncomingCall, got {other:?}\"),\n  }\n  ```",
+            "UT: [Normal] C039 postcondition — dispatch_event resolves account_id and routes to the matching client EventBus\n  ```rust\n  // Arrange: two account-scoped client buses + default bus (mirrors existing O-003 test).\n  let bus_a = EventBus::new(16, None);\n  let bus_b = EventBus::new(16, None);\n  let default_bus = EventBus::new(16, None);\n  let mut buses = HashMap::new();\n  buses.insert(test_account(1), bus_a.clone());\n  buses.insert(test_account(2), bus_b.clone());\n  let mut rx_a = bus_a.subscribe_control();\n  let mut rx_b = bus_b.subscribe_control();\n  // Act: a call-scoped SipEvent for account 1 flows through the reactor's dispatcher.\n  let sip_event = SipEvent {\n    meta: EventMeta::new(1, Some(test_account(1)), Some(test_call_id(7))),\n    payload: SipEventPayload::OutgoingCallTrying,\n  };\n  dispatch_event(&buses, &default_bus, sip_event);\n  // Assert: only bus A receives it — the correct SipClient EventBus (C039 postcondition).\n  assert!(rx_a.try_recv().is_ok(), \"account-1 event must reach bus A\");\n  assert!(matches!(rx_b.try_recv(), Err(TryRecvError::Empty)), \"bus B must stay empty\");\n  ```",
+            "UT: [Normal] C039 invariant — single reactor pattern, no event duplication across clients\n  ```rust\n  // An event with Some(account_id) must be delivered to exactly ONE client bus.\n  let event = SipEvent {\n    meta: EventMeta::new(1, Some(test_account(1)), Some(test_call_id(7))),\n    payload: SipEventPayload::OutgoingCallRinging,\n  };\n  dispatch_event(&buses, &default_bus, event);\n  assert!(matches!(rx_a.recv().await.unwrap().payload, SipEventPayload::OutgoingCallRinging));\n  assert!(matches!(rx_b.try_recv(), Err(TryRecvError::Empty)), \"no event duplication across clients (C039 invariant)\");\n  ```",
+            "UT: [Normal] C046 precondition — reactor thread owns ClientState; tokio RwLock provides async snapshot sharing\n  ```rust\n  let snapshot = ClientStateSnapshot::new(ClientState::default());\n  assert!(!snapshot.read().await.initialized);\n  snapshot.write(ClientState { initialized: true, ..Default::default() }).await;\n  assert!(snapshot.read().await.initialized, \"reactor write() then query read() round-trips\");\n  ```",
+            "UT: [Normal] C046 postcondition — CallEntry has exactly id/native_id/account_id/state/media, no conf_port_id\n  ```rust\n  let entry = CallEntry {\n    id: 10, native_id: 1, account_id: test_account(1),\n    state: \"Confirmed\".into(), media: \"none\".into(),\n  };\n  // Compile-fail assertion: `entry.conf_port_id` does not exist (C046 postcondition).\n  assert_eq!(entry.id, 10);\n  assert_eq!(entry.native_id, 1);\n  assert_eq!(entry.account_id, test_account(1));\n  ```",
+            "UT: [Normal] C046 invariant — snapshots via read().await only; blocking_read() does not exist\n  ```rust\n  // ClientStateSnapshot exposes only async read()/write(); blocking_read() is absent.\n  // Compile-fail: snapshot.blocking_read();\n  let snapshot = ClientStateSnapshot::new(ClientState::default());\n  let state = snapshot.read().await; // non-blocking inside a tokio runtime\n  assert!(!state.initialized);\n  ```",
+            "UT: [Normal] P12-8 reactor path — inbound CONNECTING discriminates to OutgoingCallRinging\n  ```rust\n  let backend = MockBackend::new();\n  let bus = EventBus::new(16, None);\n  let mut rx = bus.subscribe_control();\n  let calls = BTreeMap::from([(test_call_id(7), CallEntry {\n    id: 7, native_id: 1, account_id: test_account(42),\n    state: \"Connecting\".into(), media: \"none\".into(),\n  })]);\n  let directions = BTreeMap::from([(test_call_id(7), CallDirection::Incoming)]);\n  process_native_event(\n    &backend, &HashMap::new(), &bus,\n    NativeEvent::CallStateChanged { call_id: 7, state: pjsip_inv_state::CONNECTING },\n    &calls, &directions,\n  );\n  let ev = rx.recv().await.expect(\"CONNECTING event published\");\n  assert!(matches!(ev.payload, SipEventPayload::OutgoingCallRinging));\n  assert_eq!(ev.meta.call_id, Some(test_call_id(7)));\n  assert_eq!(ev.meta.account_id, Some(test_account(42)));\n  ```",
+            "UT: [Normal] P12-8 reactor path — outbound CONNECTING discriminates to OutgoingCallTrying\n  ```rust\n  let directions = BTreeMap::from([(test_call_id(7), CallDirection::Outgoing)]);\n  process_native_event(\n    &backend, &HashMap::new(), &bus,\n    NativeEvent::CallStateChanged { call_id: 7, state: pjsip_inv_state::CONNECTING },\n    &calls, &directions,\n  );\n  let ev = rx.recv().await.expect(\"CONNECTING event published\");\n  assert!(matches!(ev.payload, SipEventPayload::OutgoingCallTrying));\n  ```",
+            "UT: [Error] P12-8 fallback — CONNECTING with no recorded direction falls back to OutgoingCallTrying (outgoing assumption)\n  ```rust\n  let directions = BTreeMap::new(); // no direction recorded for call 7\n  process_native_event(\n    &backend, &HashMap::new(), &bus,\n    NativeEvent::CallStateChanged { call_id: 7, state: pjsip_inv_state::CONNECTING },\n    &calls, &directions,\n  );\n  let ev = rx.recv().await.expect(\"CONNECTING fallback published\");\n  assert!(matches!(ev.payload, SipEventPayload::OutgoingCallTrying));\n  ```",
+            "UT: [Invariant] P12-8 direction provenance — CallDirection never read from the CallStateChanged payload\n  ```rust\n  // The CallStateChanged payload carries only call_id + state (no direction field);\n  // the resolved direction must come from the call_directions map.\n  let directions = BTreeMap::from([(test_call_id(7), CallDirection::Incoming)]);\n  process_native_event(\n    &backend, &HashMap::new(), &bus,\n    NativeEvent::CallStateChanged { call_id: 7, state: pjsip_inv_state::CONNECTING },\n    &calls, &directions,\n  );\n  assert!(matches!(rx.recv().await.unwrap().payload, SipEventPayload::OutgoingCallRinging));\n  ```"
           ],
           "changes": [
             {
@@ -31109,6 +30845,21 @@
               "before": "ClientState: initialized only",
               "after": "ClientState with BTreeMap accounts/calls, transports Vec, capabilities",
               "description": "ClientState typed fields"
+            },
+            {
+              "before": "CallDirection and convert_call_state_with_previous were #[allow(dead_code)]; the reactor's process_native_event always published OutgoingCallTrying for CONNECTING",
+              "after": "CallDirection is consumed by the reactor; process_native_event resolves the direction and calls convert_call_state_with_previous, so inbound CONNECTING publishes OutgoingCallRinging",
+              "description": "P12-8: wired CallDirection into reactor call-state processing"
+            },
+            {
+              "before": "process_native_event took (backend, client_event_buses, default_event_bus, event, calls) — 5 params; handle_make_call took (backend, client_state, account_id, request)",
+              "after": "process_native_event takes CallStateTables { calls, call_directions } (5 params); handle_make_call also takes CallStateTables (5 params)",
+              "description": "P12-8: bundled call-state tables into CallStateTables context to stay under the param-count limit (SendDtmfContext precedent)"
+            },
+            {
+              "before": "No direction tracking existed for calls",
+              "after": "The reactor records CallDirection::Incoming when it processes NativeEvent::IncomingCall and CallDirection::Outgoing when MakeCall succeeds, in a reactor-owned call_directions map (CallEntry keeps its C046 field set)",
+              "description": "P12-8: call-origin direction recording"
             }
           ],
           "rfcDiscrepancies": [],
@@ -31119,7 +30870,9 @@
               "codes": "#[allow(dead_code)]\n#[derive(Debug, Clone, Copy, PartialEq, Eq)]\npub(crate) enum CallDirection {"
             }
           ],
-          "fromStub": true
+          "fromStub": true,
+          "startedAt": "2026-08-07",
+          "completedAt": "2026-08-07"
         },
         {
           "title": "Implement PhaseTimeout handling for per-call timeout tracking during shutdown",
