@@ -526,7 +526,20 @@
       "Bash(git -C /Users/sh01/shyme/zasso status --short)",
       "Bash(git -C /Users/sh01/shyme/zasso branch --show-current)",
       "Bash(git -C /Users/sh01/shyme/zasso diff .claude/settings.local.json)",
-      "Bash(git commit -m 'chore: append tool permission allowlist entries to local settings *)"
+      "Bash(git commit -m 'chore: append tool permission allowlist entries to local settings *)",
+      "Bash(node .claude/scripts/tickets/validate-graph-arg.js \"/Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json\")",
+      "Bash(exit 2)",
+      "Bash(node .claude/scripts/tickets/require-consolidated-manifest.js)",
+      "Bash(node .claude/scripts/tickets/get-next-check-target-ticket.js)",
+      "Bash(node .claude/scripts/tickets/add-omission-ticket.js --ticket-key=P13-1)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-2 --for-spec --no-implementation-order)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-3 --for-spec --no-implementation-order)",
+      "Bash(node .claude/scripts/tickets/add-omission-ticket.js --ticket-key=P13-3)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-4 --for-spec --no-implementation-order)",
+      "Bash(node .claude/scripts/tickets/get-next-check-target-ticket.js --with-clean-trash)",
+      "Bash(node .claude/scripts/rfc-graph/phasify-omissions.js --graph=\"/Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json\")",
+      "Bash(node .claude/scripts/tickets/rename-phases.js --phase=14 --name=\"Omissions: Audio Source Error Paths & Panic Guard Coverage\")",
+      "Bash(node .claude/scripts/tickets/clean-consolidation-artifacts.js)"
     ]
   }
 }
