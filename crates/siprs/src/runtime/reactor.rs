@@ -18,6 +18,10 @@ use crate::api::eventbus_receiver::EventBus;
 use crate::state::m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
 use crate::state::m20_registr_cmd_pat::registration_status_to_payload;
 
+/// Name of the reactor OS thread. Used for diagnostics and by the FFI
+/// thread-lifecycle observer (P8-21) to correlate thread ids with the reactor.
+const REACTOR_THREAD_NAME: &str = "siprs-reactor";
+
 /// Configuration passed to `CoreReactor::spawn()`.
 ///
 /// This is now the real `ClientConfig` type defined in `src/config.rs`.
@@ -42,7 +46,7 @@ pub struct BootConfig {
 pub struct CoreReactor;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -53,11 +57,12 @@ impl CoreReactor {
     /// 4. Exits cleanly on `Shutdown` or when the sender is dropped
     ///
     /// # Returns
-    /// - `Ok((RuntimeHandle, JoinHandle<()>))` on successful thread spawn
+    /// - `Ok((RuntimeHandle, Arc<JoinHandle<()>>))` on successful thread spawn
     /// - `Err` if the thread could not be spawned
     pub fn spawn(
         boot_config: BootConfig,
-    ) -> Result<(RuntimeHandle, JoinHandle<()>), Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>
+    {
         let (tx, mut rx) = handle::create_channel();
         let terminated = Arc::new(AtomicBool::new(false));
         let terminated_clone = terminated.clone();
@@ -81,6 +86,9 @@ impl CoreReactor {
             crate::api::eventbus_receiver::DEFAULT_EVENT_BUS_CAPACITY,
             None,
         );
+        // [::TICKET::] P12-6: the thread closure takes ownership of the bus; the
+        // handle needs its own clone, taken BEFORE the thread spawn (thread-first).
+        let default_event_bus_for_handle = default_event_bus.clone();
         let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
         // [::TICKET::] P11-6: sent_timeout_ms drives the DtmfSent fallback timer (C030).
         let dtmf_sent_timeout_ms = boot_config.config.dtmf.sent_timeout_ms;
@@ -95,16 +103,8 @@ impl CoreReactor {
             .build()
             .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> { Box::new(e) })?;
 
-        let handle = RuntimeHandle::new(
-            tx,
-            terminated_clone,
-            std::sync::Weak::new(),
-            mixer_for_handle,
-            default_event_bus.clone(),
-        );
-
         let thread_join = thread::Builder::new()
-            .name("siprs-reactor".into())
+            .name(REACTOR_THREAD_NAME.into())
             .spawn(move || {
                 // Initialize ClientState — source of truth owned by this thread.
                 // [::TICKET::] P7-2: O-004 — the query API (accounts()/call_state())
@@ -268,6 +268,46 @@ impl CoreReactor {
                                                 "unknown panic".to_string()
                                             };
                                             tracing::error!(panic_msg = %msg, "reactor add_account panicked");
+                                            let _ = reply.send(Err(
+                                                ReactorError::BackendError(
+                                                    format!("reactor panic: {msg}")
+                                                )
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                DispatchCommand::MakeCall {
+                                    account_id,
+                                    request,
+                                    reply,
+                                } => {
+                                    // [::TICKET::] P12-1: place the call, register the
+                                    // CallEntry in the authoritative ClientState.calls, and
+                                    // reply with the assigned CallId (C070). The reply is
+                                    // sent exactly once on every outcome.
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            handle_make_call(&mut *backend, &mut client_state, account_id, &request)
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(entry_id)) => {
+                                            let _ = reply.send(Ok(entry_id));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = if let Some(s) = panic_payload.downcast_ref::<&str>() {
+                                                s.to_string()
+                                            } else if let Some(s) = panic_payload.downcast_ref::<String>() {
+                                                s.clone()
+                                            } else {
+                                                "unknown panic".to_string()
+                                            };
+                                            tracing::error!(panic_msg = %msg, "reactor make_call panicked");
                                             let _ = reply.send(Err(
                                                 ReactorError::BackendError(
                                                     format!("reactor panic: {msg}")
@@ -457,8 +497,17 @@ impl CoreReactor {
                     }
                 }
             })?;
+        let reactor_join = Arc::new(thread_join);
 
-        Ok((handle, thread_join))
+        let handle = RuntimeHandle::new(
+            tx,
+            terminated_clone,
+            reactor_join.clone(),
+            mixer_for_handle,
+            default_event_bus_for_handle,
+        );
+
+        Ok((handle, reactor_join))
     }
 }
 
@@ -603,6 +652,29 @@ pub(crate) struct SendDtmfContext<'a> {
     sent_timeout_ms: u64,
 }
 
+/// Handle a `MakeCall` command on the reactor thread.
+///
+/// Delegates to the backend, registers the returned `CallEntry` in the reactor's
+/// authoritative `ClientState.calls` (C046), and returns the assigned logical
+/// CallId. Extracted as a helper so the error path is unit-testable with a
+/// failing MockBackend (mirrors `handle_send_dtmf`).
+///
+/// Reads as prose: place the call via the backend; on success register the call
+/// entry under its CallId and return that id; on backend error propagate.
+pub(crate) fn handle_make_call(
+    backend: &mut dyn SipBackend,
+    client_state: &mut ClientState,
+    account_id: u64,
+    request: &crate::api::call_types::OutgoingCallRequest,
+) -> Result<u64, ReactorError> {
+    let (_native_id, entry) = backend.make_call(account_id as i32, request)?;
+    let entry_id = entry.id;
+    if let Ok(call_id) = CallId::from_u64(entry_id) {
+        client_state.calls.insert(call_id, entry);
+    }
+    Ok(entry_id)
+}
+
 /// Handle a `RuntimeCommand::SendDtmf` on the reactor thread.
 ///
 /// Reads as prose: send via the backend; on success resolve the owning account,
@@ -669,7 +741,7 @@ mod tests {
 
     /// Build a calls table with a single confirmed call (CallId 10 → account 1).
     // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
-// [::TICKET::] P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11) --for-spec --no-implementation-order`.
     fn confirmed_calls() -> CallTable {
         BTreeMap::from([(
             test_call_id(10),
@@ -684,10 +756,20 @@ mod tests {
     }
 
     /// Spawn the reactor for a test; panics with the error on failure.
-    // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
-    fn spawn_reactor() -> (RuntimeHandle, std::thread::JoinHandle<()>) {
+    // [::TICKET::] P9-6, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-6|P12-6|P12-1) --for-spec --no-implementation-order`.
+    fn spawn_reactor() -> (RuntimeHandle, Arc<std::thread::JoinHandle<()>>) {
         CoreReactor::spawn(BootConfig::default())
             .unwrap_or_else(|error| panic!("reactor spawn failed: {error}"))
+    }
+
+    /// Join the reactor thread, releasing the handle's strong ref to the shared
+    /// Arc first. `handle` must be the LAST live RuntimeHandle — its ref is
+    /// dropped here so `Arc::try_unwrap` can recover the inner JoinHandle.
+    // [::TICKET::] P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1) --for-spec --no-implementation-order`.
+    fn join_reactor(handle: RuntimeHandle, join: Arc<std::thread::JoinHandle<()>>) {
+        drop(handle);
+        let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
+        join.join().unwrap();
     }
 
     // [::TICKET::] P7-2: O-003 — test helper shared by dispatch/process_native_event tests
@@ -1081,11 +1163,34 @@ mod tests {
             !handle.is_terminated(),
             "reactor must be running after spawn"
         );
+        assert!(
+            handle.is_thread_alive(),
+            "reactor thread must be alive right after spawn"
+        );
         drop(handle);
         // ABC O-004 closure: type-assert the std::thread model (not tokio::task)
         // so a reactor refactor to tokio::spawn fails compilation.
-        let join: std::thread::JoinHandle<()> = join;
+        let join: Arc<std::thread::JoinHandle<()>> = join;
+        let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
         let _ = join.join();
+    }
+
+    #[tokio::test]
+    // @verifies C112
+    // [::TICKET::] P12-6: spawn returns an Arc sharing the reactor thread with the handle.
+    async fn reactor_spawn_returns_arc_sharing_reactor_thread() {
+        let (handle, join) = spawn_reactor();
+        assert!(
+            Arc::ptr_eq(handle.thread_handle(), &join),
+            "handle and caller must share the identical Arc<JoinHandle> allocation"
+        );
+        assert_eq!(
+            handle.thread_handle().thread().id(),
+            join.thread().id(),
+            "handle and caller must refer to the same OS thread"
+        );
+        assert!(handle.is_thread_alive());
+        shutdown_reactor(handle, join).await;
     }
 
     #[tokio::test]
@@ -1125,6 +1230,7 @@ mod tests {
         }
 
         drop(handle);
+        let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
         let _ = join.join();
     }
 
@@ -1139,18 +1245,24 @@ mod tests {
         };
         handle.sender.send(cmd).ok();
         assert!(rx.await.is_ok(), "shutdown must complete");
-        join.join()
-            .unwrap_or_else(|_| panic!("reactor thread panicked"));
+        // The terminated flag is set while the reactor processes Shutdown, so it
+        // is true before the thread exits; assert it here because join_reactor
+        // consumes the handle.
         assert!(
             handle.is_terminated(),
             "reactor must be terminated after shutdown"
         );
+        join_reactor(handle, join);
     }
 
     // ── P10-3: account/transport lifecycle dispatch keeps ClientState authoritative ──
 
     /// Shut the reactor down cleanly (used by the lifecycle tests below).
-    async fn shutdown_reactor(handle: &RuntimeHandle, join: std::thread::JoinHandle<()>) {
+    ///
+    /// Takes the handle by value so its strong ref to the JoinHandle Arc is
+    /// released, letting `Arc::try_unwrap` recover the inner handle to join.
+    // [::TICKET::] P12-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-6 --for-spec --no-implementation-order`.
+    async fn shutdown_reactor(handle: RuntimeHandle, join: Arc<std::thread::JoinHandle<()>>) {
         let (tx, rx) = tokio::sync::oneshot::channel();
         handle
             .sender
@@ -1159,7 +1271,7 @@ mod tests {
             })
             .ok();
         let _ = rx.await;
-        join.join().unwrap();
+        join_reactor(handle, join);
     }
 
     // ── P11-6: reactor-owned default_event_bus + SendDtmf two-phase wiring ──
@@ -1182,7 +1294,7 @@ mod tests {
             ),
             "publishing on the reactor-owned bus must reach a subscriber"
         );
-        shutdown_reactor(&handle, join).await;
+        shutdown_reactor(handle, join).await;
     }
 
     #[tokio::test]
@@ -1222,7 +1334,7 @@ mod tests {
             }
             _ => panic!("expected DtmfSent, got {:?}", ev.payload),
         }
-        shutdown_reactor(&handle, join).await;
+        shutdown_reactor(handle, join).await;
     }
 
     #[tokio::test]
@@ -1367,7 +1479,86 @@ mod tests {
             1,
             "ClientState must reflect the added account"
         );
-        shutdown_reactor(&handle, join).await;
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    // ── P12-1: MakeCall dispatch ───────────────────────────────────
+
+    /// Shared test request for the MakeCall tests.
+    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+    fn test_call_request() -> crate::api::call_types::OutgoingCallRequest {
+        crate::api::call_types::OutgoingCallRequest {
+            target_uri: "sip:bob@example.com".into(),
+            headers: vec![],
+            auth_override: None,
+            preferred_transport: None,
+            media: crate::api::call_types::CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        }
+    }
+
+    #[test]
+    // @verifies C070, C046
+    // [::TICKET::] P12-1: handle_make_call delegates to the backend, registers the
+    // returned CallEntry in the authoritative ClientState, and returns the CallId.
+    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+    fn handle_make_call_registers_entry_and_returns_id() {
+        let mut backend = MockBackend::new();
+        let mut client_state = ClientState::default();
+        let id = handle_make_call(&mut backend, &mut client_state, 1, &test_call_request())
+            .expect("make_call must succeed");
+        assert_eq!(id, 1, "MockBackend assigns the first call id 1");
+        let entry = client_state
+            .calls
+            .get(&test_call_id(1))
+            .expect("CallEntry must be registered under the returned CallId");
+        assert_eq!(entry.id, 1);
+        assert_eq!(entry.account_id, test_account(1));
+        assert_eq!(entry.state, "Calling");
+    }
+
+    #[test]
+    // @verifies C070
+    // [::TICKET::] P12-1: a failing backend.make_call must propagate Err and
+    // register no CallEntry — never a fabricated id.
+    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+    fn handle_make_call_error_registers_nothing() {
+        let mut backend = MockBackend::new();
+        backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));
+        let mut client_state = ClientState::default();
+        let result = handle_make_call(&mut backend, &mut client_state, 1, &test_call_request());
+        assert!(
+            matches!(result, Err(ReactorError::BackendError(_))),
+            "backend error must propagate"
+        );
+        assert!(
+            client_state.calls.is_empty(),
+            "no CallEntry may be registered on a failed MakeCall"
+        );
+    }
+
+    #[tokio::test]
+    // @verifies C070, C046, C027
+    // [::TICKET::] P12-1: the reactor round-trip — submit_make_call returns the
+    // assigned CallId and the authoritative ClientState reflects the call.
+    async fn reactor_make_call_registers_entry_and_replies_id(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let account_id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        let call_id = handle
+            .submit_make_call(account_id, test_call_request())
+            .await?;
+        assert_eq!(call_id, 1, "MockBackend assigns the first call id 1");
+        let state = handle.query_state().await?;
+        assert_eq!(state.calls.len(), 1, "ClientState must reflect the call");
+        assert!(
+            state.calls.contains_key(&test_call_id(call_id)),
+            "the returned CallId must be a key in client_state.calls"
+        );
+        shutdown_reactor(handle, join).await;
         Ok(())
     }
 
@@ -1392,7 +1583,7 @@ mod tests {
             state.accounts.is_empty(),
             "RemoveAccount must remove the entry from the authoritative ClientState"
         );
-        shutdown_reactor(&handle, join).await;
+        shutdown_reactor(handle, join).await;
         Ok(())
     }
 
@@ -1430,7 +1621,7 @@ mod tests {
             entry.config.registrar_uri,
             Some("sip:pbx.example.com".into())
         );
-        shutdown_reactor(&handle, join).await;
+        shutdown_reactor(handle, join).await;
         Ok(())
     }
 
@@ -1465,7 +1656,7 @@ mod tests {
             matches!(result.unwrap_err(), ReactorError::NotInitialized(_)),
             "the reply must be a ReactorError describing the missing account"
         );
-        shutdown_reactor(&handle, join).await;
+        shutdown_reactor(handle, join).await;
         Ok(())
     }
 
@@ -1486,7 +1677,7 @@ mod tests {
         assert_eq!(state.transports.len(), 1, "one transport must be recorded");
         assert_eq!(state.transports[0].port, 5070);
         assert_eq!(state.transports[0].transport_type, "udp");
-        shutdown_reactor(&handle, join).await;
+        shutdown_reactor(handle, join).await;
         Ok(())
     }
 }

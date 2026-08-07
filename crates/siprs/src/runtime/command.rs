@@ -136,7 +136,7 @@ pub enum RuntimeCommand {
     MakeCall {
         account_id: u64,
         request: Box<crate::api::call_types::OutgoingCallRequest>,
-        reply: Reply<Result<(), ReactorError>>,
+        reply: Reply<Result<u64, ReactorError>>,
     },
     Hangup {
         call_id: u64,
@@ -247,7 +247,7 @@ impl std::fmt::Display for RuntimeCommand {
 }
 
 /// Type alias for the backend execution closure used in `DispatchCommand`.
-// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6|P12-1) --for-spec --no-implementation-order`.
 type BackendFn =
     Box<dyn FnOnce(&mut dyn super::backend::SipBackend) -> Result<(), ReactorError> + Send>;
 
@@ -316,6 +316,18 @@ pub(crate) enum DispatchCommand {
         config: crate::config::account_config_spec::AccountConfig,
         reply: Reply<Result<u64, ReactorError>>,
     },
+    /// [::TICKET::] P12-1: place an outgoing call and reply with the assigned CallId.
+    ///
+    /// Dedicated variant (not an `Execute` closure) so the reactor loop can insert
+    /// the returned `CallEntry` into its authoritative `client_state.calls` (C046)
+    /// — an `Execute` closure only receives `&mut dyn SipBackend`. The reply
+    /// carries the backend-assigned logical CallId so `make_call` returns the real
+    /// id instead of a fabricated value. The reply must be sent exactly once.
+    MakeCall {
+        account_id: u64,
+        request: Box<crate::api::call_types::OutgoingCallRequest>,
+        reply: Reply<Result<u64, ReactorError>>,
+    },
     /// Update the stored config of an existing account in the reactor's ClientState.
     ///
     /// Dedicated variant (not an `Execute` closure) so the reactor loop can also
@@ -348,7 +360,7 @@ pub(crate) enum DispatchCommand {
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10, P11-11, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10|P11-11|P12-1) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
@@ -388,11 +400,9 @@ impl DispatchCommand {
                 account_id,
                 request,
                 reply,
-            } => Self::Execute {
-                f: Box::new(move |backend| {
-                    backend.make_call(account_id as i32, &request)?;
-                    Ok(())
-                }),
+            } => Self::MakeCall {
+                account_id,
+                request,
                 reply,
             },
             RuntimeCommand::Hangup { call_id, reply } => Self::Execute {
@@ -469,7 +479,7 @@ impl DispatchCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for DispatchCommand {
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P11-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P11-6|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P11-6, P11-11, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P11-6|P11-11|P12-1) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Execute { .. } => f
@@ -495,6 +505,9 @@ impl std::fmt::Debug for DispatchCommand {
                 .finish_non_exhaustive(),
             Self::AddAccount { .. } => f
                 .debug_struct("DispatchCommand::AddAccount")
+                .finish_non_exhaustive(),
+            Self::MakeCall { .. } => f
+                .debug_struct("DispatchCommand::MakeCall")
                 .finish_non_exhaustive(),
             Self::UpdateAccount { .. } => f
                 .debug_struct("DispatchCommand::UpdateAccount")
@@ -567,7 +580,7 @@ mod tests {
     #[test]
     // @verifies C069
     // [::TICKET::] P11-6: RuntimeCommand::SendDtmf carries the method into DispatchCommand::SendDtmf
-// [::TICKET::] P11-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-11) --for-spec --no-implementation-order`.
     fn runtime_command_send_dtmf_carries_method() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::SendDtmf {
@@ -738,6 +751,42 @@ mod tests {
             _ => panic!("ConfConnect must map to DispatchCommand::Execute"),
         }
         drop(rx);
+    }
+
+    #[test]
+    // @verifies C012, C070
+    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+    fn from_runtime_command_converts_make_call_to_dedicated_variant() {
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let request = crate::api::call_types::OutgoingCallRequest {
+            target_uri: "sip:bob@example.com".into(),
+            headers: vec![],
+            auth_override: None,
+            preferred_transport: None,
+            media: crate::api::call_types::CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        };
+        let cmd = RuntimeCommand::MakeCall {
+            account_id: 7,
+            request: Box::new(request.clone()),
+            reply: Reply::new(tx),
+        };
+        let dispatch = DispatchCommand::from_runtime_command(cmd);
+        match dispatch {
+            DispatchCommand::MakeCall {
+                account_id,
+                request,
+                reply,
+            } => {
+                assert_eq!(account_id, 7, "account_id must be preserved");
+                assert_eq!(
+                    request.target_uri, "sip:bob@example.com",
+                    "request payload must be preserved"
+                );
+                let _ = reply;
+            }
+            other => panic!("expected DispatchCommand::MakeCall, got {other:?}"),
+        }
     }
 
     #[test]

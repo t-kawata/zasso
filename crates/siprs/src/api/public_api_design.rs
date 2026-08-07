@@ -37,7 +37,7 @@ pub struct SipAccountHandle {
     pub(crate) id: u64,
 }
 
-// [::TICKET::] P3-1, P4-1, P10-1, P10-3, P10-4, P11-4, P11-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1|P10-1|P10-3|P10-4|P11-4|P11-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1, P10-1, P10-3, P10-4, P11-4, P11-7, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1|P10-1|P10-3|P10-4|P11-4|P11-7|P12-1) --for-spec --no-implementation-order`.
 impl SipAccountHandle {
     /// Create a new `SipAccountHandle`.
     #[instrument(skip(client))]
@@ -133,6 +133,11 @@ impl SipAccountHandle {
     }
 
     /// Place an outgoing SIP call through this account.
+    ///
+    /// Validates the media constraints, submits `RuntimeCommand::MakeCall` via the
+    /// reactor, awaits the reply, and returns the backend-assigned `CallId` that
+    /// the reactor registered in `ClientState.calls` (C046/C070). A failed call
+    /// maps to `SipErrorKind::InviteFailed` — never a fabricated id.
     #[instrument(skip(self, request))]
     pub async fn make_call(
         &self,
@@ -141,20 +146,13 @@ impl SipAccountHandle {
         // Validate codec constraints before dispatching
         CallMediaConstraints::validate_strict(&request.media.preferred_codecs)?;
 
-        let handle = self.client.handle();
-        let (_tx, _rx) = tokio::sync::oneshot::channel();
-        handle
-            .submit(RuntimeCommand::MakeCall {
-                account_id: self.id,
-                request: Box::new(request),
-                reply: Reply::new(_tx),
-            })
+        self.client
+            .handle()
+            .submit_make_call(self.id, request)
             .await
             .map_err(|e| {
                 SipError::new(SipErrorKind::InviteFailed, format!("make_call failed: {e}"))
-            })?;
-        // [::STUB::] P12-1: CallId is hardcoded to 1 -- Wire the real CallId assigned by the backend reactor from the MakeCall reply into the public API
-        Ok(1)
+            })
     }
 
     /// Update the account configuration.
@@ -213,6 +211,7 @@ mod tests {
     use super::*;
     use crate::client::SipClient;
     use crate::config::ClientConfig;
+    use crate::model::id_design_newtype::CallId;
 
     #[test]
     // @verifies C012, C026
@@ -536,12 +535,182 @@ mod tests {
             .await?;
 
         let state_after = client.handle().query_state().await?;
-        let entry_after = state_after.accounts.get(&account_id).ok_or("account missing")?;
+        let entry_after = state_after
+            .accounts
+            .get(&account_id)
+            .ok_or("account missing")?;
         assert_eq!(
             entry_after.config, entry_before,
             "a no-op patch must leave the ClientState account config unchanged"
         );
         client.shutdown().await?;
         Ok(())
+    }
+
+    // ── P12-1: make_call returns the backend-assigned CallId ──────
+
+    /// Shared test request for the make_call tests.
+    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+    fn test_call_request() -> crate::api::call_types::OutgoingCallRequest {
+        crate::api::call_types::OutgoingCallRequest {
+            target_uri: "sip:bob@example.com".into(),
+            headers: vec![],
+            auth_override: None,
+            preferred_transport: None,
+            media: crate::api::call_types::CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        }
+    }
+
+    #[tokio::test]
+    // @verifies C070, C046
+    // [::TICKET::] P12-1: make_call awaits the MakeCall reply and returns the
+    // CallId the reactor registered in client_state.calls (no hardcoded Ok(1)).
+    async fn make_call_returns_backend_assigned_id() -> Result<(), Box<dyn std::error::Error>> {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await?;
+        let account_config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            ..Default::default()
+        };
+        let account_id = client.handle().submit_add_account(account_config).await?;
+        let handle = SipAccountHandle::new(client.clone(), account_id);
+        let call_id = handle.make_call(test_call_request()).await?;
+        assert_eq!(call_id, 1, "MockBackend assigns the first call id 1");
+        let state = client.handle().query_state().await?;
+        let cid = CallId::from_u64(call_id)?;
+        assert_eq!(
+            state.calls[&cid].id, call_id,
+            "the registered CallEntry.id must equal the returned CallId"
+        );
+        client.shutdown().await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C070
+    // [::TICKET::] P12-1: a dropped reply channel (reactor down) must surface an
+    // Err mapped to SipErrorKind::InviteFailed — never a hardcoded value.
+    async fn make_call_after_shutdown_returns_invite_failed(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await?;
+        let account_config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            ..Default::default()
+        };
+        let account_id = client.handle().submit_add_account(account_config).await?;
+        client.shutdown().await?;
+        let handle = SipAccountHandle::new(client, account_id);
+        let err = handle
+            .make_call(test_call_request())
+            .await
+            .expect_err("a reactor-down make_call must fail");
+        assert_eq!(
+            err.kind,
+            SipErrorKind::InviteFailed,
+            "reactor-down must map to InviteFailed, never fabricate an id"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C070
+    // [::TICKET::] P12-1: consecutive make_calls return distinct backend-assigned
+    // CallIds and grow the calls map by exactly one entry each.
+    async fn consecutive_make_calls_return_distinct_ids() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await?;
+        let account_config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            ..Default::default()
+        };
+        let account_id = client.handle().submit_add_account(account_config).await?;
+        let handle = SipAccountHandle::new(client.clone(), account_id);
+        let id1 = handle.make_call(test_call_request()).await?;
+        let id2 = handle.make_call(test_call_request()).await?;
+        assert_ne!(id1, id2, "two calls must never share a CallId");
+        assert_eq!(id1, 1);
+        assert_eq!(id2, 2);
+        let state = client.handle().query_state().await?;
+        assert_eq!(
+            state.calls.len(),
+            2,
+            "one CallEntry per successful MakeCall"
+        );
+        client.shutdown().await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C027, C046
+    // [::TICKET::] P12-1: make_call registers a CallEntry with the initial call
+    // state and the owning account id under the returned CallId.
+    async fn make_call_registers_call_entry_state_calling() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let config = ClientConfig::builder()
+            .sip_proxy_host("sip.example.com")
+            .build();
+        let (client, _rx) = SipClient::new(config).await?;
+        let account_config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            ..Default::default()
+        };
+        let account_id = client.handle().submit_add_account(account_config).await?;
+        let handle = SipAccountHandle::new(client.clone(), account_id);
+        let call_id = handle.make_call(test_call_request()).await?;
+        let state = client.handle().query_state().await?;
+        let entry = &state.calls[&CallId::from_u64(call_id)?];
+        assert_eq!(entry.state, "Calling", "initial call state is Calling");
+        assert_eq!(entry.account_id, AccountId::from_u64(account_id)?);
+        client.shutdown().await?;
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C012
+    // [::TICKET::] P12-1: the make_call API surface and its payload are Send+Sync.
+    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+    fn make_call_api_is_send_sync() {
+        // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<SipAccountHandle>();
+        assert_send_sync::<Result<u64, SipError>>();
+        // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+        fn assert_send<T: Send>() {}
+        assert_send::<Box<crate::api::call_types::OutgoingCallRequest>>();
+    }
+
+    #[test]
+    // @verifies C012, C070
+    // [::TICKET::] P12-1: RuntimeCommand::MakeCall's reply channel carries the
+    // assigned u64 CallId — the widened public command-enum shape.
+    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+    fn runtime_command_makecall_reply_carries_u64() {
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let cmd = RuntimeCommand::MakeCall {
+            account_id: 1,
+            request: Box::new(test_call_request()),
+            reply: Reply::new(tx),
+        };
+        match cmd {
+            RuntimeCommand::MakeCall {
+                account_id,
+                request,
+                reply,
+            } => {
+                assert_eq!(account_id, 1);
+                let _ = request;
+                let _ = reply;
+            }
+            _ => panic!("variant must be MakeCall"),
+        }
     }
 }

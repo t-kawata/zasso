@@ -86,7 +86,7 @@ pub trait SipBackend: Send {
     fn configure_codecs(&mut self) -> Result<(), ReactorError>;
 
     /// Transfer an active call to a target URI.
-// [::TICKET::] P3-2, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-11) --for-spec --no-implementation-order`.
     fn transfer_call(&mut self, native_call_id: i32, target: &str) -> Result<(), ReactorError>;
 
     /// Put an active call on hold (`pjsua_call_set_hold`).
@@ -112,11 +112,11 @@ pub trait SipBackend: Send {
     fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError>;
 
     /// Connect a call's media to the conference bridge.
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 }
 
@@ -147,11 +147,17 @@ pub struct MockBackend {
     /// default `Ok(())` so tests can inject a backend failure and prove the
     /// reactor SendDtmf handler spawns no timeout timer on error.
     pub send_dtmf_result: Option<Result<(), ReactorError>>,
+    /// Configurable result for `make_call` (P12-1). `Some` short-circuits the
+    /// default incrementing-id path so tests can inject a canned
+    /// `(native_call_id, CallEntry)` pair or a backend failure.
+    pub make_call_result: Option<Result<(i32, CallEntry), ReactorError>>,
     /// Account registry keyed by native_acc_id — the source from which
     /// `get_account_info` derives its snapshot (P10-1).
     pub accounts: BTreeMap<i32, AccountEntry>,
     /// Next logical/native id assigned by `add_account` (first = 1).
     next_id: i32,
+    /// Next logical/native call id assigned by `make_call` (first = 1).
+    next_call_id: i32,
     /// Recorded `(source, sink)` pairs from every `conf_connect` invocation.
     pub conf_connect_calls: Vec<(i32, i32)>,
     /// Recorded `(source, sink)` pairs from every `conf_disconnect` invocation.
@@ -231,22 +237,31 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-    // [::TICKET::] P3-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P4-1, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P12-1) --for-spec --no-implementation-order`.
     fn make_call(
         &mut self,
-        _native_acc_id: i32,
+        native_acc_id: i32,
         _request: &crate::api::call_types::OutgoingCallRequest,
     ) -> Result<(i32, CallEntry), ReactorError> {
-        // Returns native_call_id=1, CallEntry with placeholder values
+        // Test injection path (P12-1): a canned result short-circuits the
+        // default incrementing-id assignment so tests can exercise the reactor's
+        // error/panic handling without a real PJSUA call.
+        if let Some(result) = self.make_call_result.take() {
+            return result;
+        }
+        let id = self.next_call_id + 1;
+        self.next_call_id = id;
+        let account_id = crate::model::AccountId::from_u64(native_acc_id as u64).map_err(|e| {
+            ReactorError::BackendError(format!("make_call: invalid account id: {e}"))
+        })?;
         let entry = CallEntry {
-            id: 1,
-            native_id: 1,
-            account_id: crate::model::AccountId::from_u64(_native_acc_id as u64)
-                .expect("mock AccountId from non-zero native acc_id"),
+            id: id as u64,
+            native_id: id,
+            account_id,
             state: "Calling".into(),
             media: "none".into(),
         };
-        Ok((1, entry))
+        Ok((id, entry))
     }
 
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -259,7 +274,7 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-// [::TICKET::] P3-2, P11-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-6|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-6|P11-11) --for-spec --no-implementation-order`.
     fn send_dtmf(
         &mut self,
         _native_call_id: i32,
@@ -291,7 +306,7 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-// [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
     fn shutdown(&mut self) -> Result<(), ReactorError> {
         self.initialized = false;
         Ok(())
@@ -402,7 +417,7 @@ impl PjsuaBackend {
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 // [::TICKET::] P3-2, P10-3, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-11) --for-spec --no-implementation-order`.
 impl SipBackend for PjsuaBackend {
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
@@ -416,7 +431,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn create_transport(
         &mut self,
         _config: &crate::config::transport_ice_spec::TransportConfig,
@@ -434,7 +449,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P10-1, P10-3, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P10-1, P10-3, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn add_account(
         &mut self,
         _config: &crate::config::account_config_spec::AccountConfig,
@@ -459,7 +474,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P10-3, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P10-3, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn remove_account(&mut self, _native_acc_id: i32) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
@@ -476,7 +491,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn set_registration(
         &mut self,
         _native_acc_id: i32,
@@ -497,7 +512,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P10-3, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P10-3, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn update_account(
         &mut self,
         _native_acc_id: i32,
@@ -518,7 +533,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn make_call(
         &mut self,
         _native_acc_id: i32,
@@ -549,7 +564,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn answer_call(&mut self, _native_call_id: i32, _code: u16) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
@@ -566,7 +581,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn hangup(&mut self, _native_call_id: i32) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
@@ -583,7 +598,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn send_dtmf(
         &mut self,
         _native_call_id: i32,
@@ -605,7 +620,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn configure_codecs(&mut self) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
@@ -622,7 +637,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn transfer_call(&mut self, _native_call_id: i32, _target: &str) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
@@ -673,7 +688,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn shutdown(&mut self) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
@@ -687,7 +702,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn resolve_conf_port(&self, _native_call_id: i32) -> Result<i32, ReactorError> {
         // backend_calls::resolve_conf_port is available in both modes (the stub
         // pjsua_call_get_info under the default build, the real symbol under
@@ -697,7 +712,7 @@ impl SipBackend for PjsuaBackend {
         Ok(conf_slot)
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn get_account_info(&self, _native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
@@ -723,7 +738,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn conf_connect(&mut self, _source: i32, _sink: i32) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
@@ -740,7 +755,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, _source: i32, _sink: i32) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
@@ -784,7 +799,7 @@ mod tests {
 
     #[test]
     // @verifies C111
-// [::TICKET::] P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-10|P11-11) --for-spec --no-implementation-order`.
     fn map_pjsua_status_error_preserves_diagnostic() {
         let err = map_pjsua_status(70001, "hangup").unwrap_err();
         match err {
@@ -1017,7 +1032,7 @@ mod tests {
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn pjsua_backend_returns_error_for_all_operations() {
         let mut backend = PjsuaBackend::new();
         let config = crate::config::ClientConfig::default();
@@ -1071,7 +1086,7 @@ mod tests {
     // @verifies C038, C039
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn mock_backend_is_send() {
-        // [::TICKET::] P3-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-2, P10-1, P10-3, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P12-1) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<MockBackend>();
         assert_send::<PjsuaBackend>();
@@ -1214,6 +1229,84 @@ mod tests {
         assert!(
             backend.update_account(1, &account_config("alice")).is_err(),
             "PjsuaBackend::update_account must return Err until FFI lands (P3-2)"
+        );
+    }
+
+    // ── P12-1: MockBackend::make_call assigns deterministic incrementing ids ─
+
+    // [::TICKET::] P12-1: test helper shared by the make_call tests.
+    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+    fn test_call_request() -> crate::api::call_types::OutgoingCallRequest {
+        crate::api::call_types::OutgoingCallRequest {
+            target_uri: "sip:bob@example.com".into(),
+            headers: vec![],
+            auth_override: None,
+            preferred_transport: None,
+            media: crate::api::call_types::CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        }
+    }
+
+    #[test]
+    // @verifies C070
+    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+    fn mock_make_call_increments_call_ids() {
+        let mut backend = MockBackend::new();
+        let (native_id1, entry1) = backend.make_call(1, &test_call_request()).unwrap();
+        let (native_id2, entry2) = backend.make_call(1, &test_call_request()).unwrap();
+        assert_eq!(native_id1, 1, "first make_call native id is 1");
+        assert_eq!(entry1.id, 1, "first CallEntry.id is 1");
+        assert_eq!(entry1.native_id, 1);
+        assert_eq!(native_id2, 2, "second make_call native id is 2");
+        assert_eq!(entry2.id, 2, "second CallEntry.id is 2");
+        assert_eq!(
+            entry2.account_id,
+            crate::model::AccountId::from_u64(1).unwrap(),
+            "CallEntry.account_id derives from the native acc id"
+        );
+        assert_eq!(entry2.state, "Calling", "initial call state is Calling");
+    }
+
+    #[test]
+    // @verifies C070
+    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+    fn mock_make_call_result_injection_ok() {
+        let mut backend = MockBackend::new();
+        let entry = CallEntry {
+            id: 42,
+            native_id: 42,
+            account_id: crate::model::AccountId::from_u64(1).unwrap(),
+            state: "Calling".into(),
+            media: "none".into(),
+        };
+        backend.make_call_result = Some(Ok((42, entry.clone())));
+        let (native_id, got) = backend.make_call(1, &test_call_request()).unwrap();
+        assert_eq!(native_id, 42, "injected native id is surfaced");
+        assert_eq!(got.id, 42, "injected CallEntry.id is surfaced");
+    }
+
+    #[test]
+    // @verifies C070
+    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+    fn mock_make_call_result_injection_err() {
+        let mut backend = MockBackend::new();
+        backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));
+        let result = backend.make_call(1, &test_call_request());
+        assert!(
+            matches!(result, Err(ReactorError::BackendError(_))),
+            "injected backend error must propagate"
+        );
+    }
+
+    #[test]
+    // @verifies C070
+    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+    fn mock_make_call_zero_native_id_returns_err() {
+        let mut backend = MockBackend::new();
+        let result = backend.make_call(0, &test_call_request());
+        assert!(
+            result.is_err(),
+            "AccountId::from_u64(0) is Err — make_call must map it, never expect()"
         );
     }
 }
