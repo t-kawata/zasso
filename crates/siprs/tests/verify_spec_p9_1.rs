@@ -17,7 +17,8 @@ mod cli;
 
 use siprs::runtime::audio_worker::AsyncAudioSource;
 use siprs::{
-    CallMediaPreferences, ClientConfig, Codec, OutgoingCallRequest, SipClient, SipEventPayload,
+    AccountConfig, CallMediaPreferences, ClientConfig, Codec, OutgoingCallRequest, SecretString,
+    SipClient, SipEventPayload,
 };
 
 /// A TTS-style audio source that yields PCM frames received on an mpsc channel.
@@ -103,6 +104,53 @@ async fn account_register_flow_registers_account() -> Result<(), Box<dyn std::er
     assert!(
         accounts[0].registered,
         "MockBackend reports registered=true"
+    );
+    client.shutdown().await?;
+    Ok(())
+}
+
+/// C066 Layer 5 (O-001): the account_register flow through the public facade —
+/// `SipClient::add_account` → `register()` → `accounts()` authoritative query
+/// (O-004). Mirrors RFC §41.2 exactly.
+#[tokio::test]
+// @verifies C066
+// [::TICKET::] P13-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-3 --for-spec --no-implementation-order`.
+async fn account_register_flow_via_public_facade() -> Result<(), Box<dyn std::error::Error>> {
+    let (client, _events) = SipClient::new(client_config()).await?;
+    let config = AccountConfig {
+        username: "alice".into(),
+        domain: "example.com".into(),
+        password: SecretString::new("s3cret!"),
+        ..AccountConfig::default()
+    };
+    let account = client.add_account(config).await?;
+    account.register().await?;
+    let accounts = client.accounts().await?;
+    assert_eq!(accounts.len(), 1, "AddAccount must surface one account");
+    assert!(
+        accounts[0].registered,
+        "MockBackend reports registered=true"
+    );
+    client.shutdown().await?;
+    Ok(())
+}
+
+/// C053 boundary: `SipClient::add_account` runs `config.validate()` (fail-fast)
+/// before any RuntimeCommand is submitted, so an invalid AccountConfig (empty
+/// username) returns Err(SipError) with no network I/O.
+#[tokio::test]
+// @verifies C053
+// [::TICKET::] P13-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-3 --for-spec --no-implementation-order`.
+async fn add_account_rejects_invalid_config_before_network() -> Result<(), Box<dyn std::error::Error>> {
+    let (client, _events) = SipClient::new(client_config()).await?;
+    let invalid = AccountConfig {
+        username: String::new(),
+        ..AccountConfig::default()
+    };
+    let result = client.add_account(invalid).await;
+    assert!(
+        result.is_err(),
+        "empty username must fail config.validate() before any network I/O"
     );
     client.shutdown().await?;
     Ok(())
@@ -216,6 +264,55 @@ fn examples_have_no_unwrap() -> Result<(), std::io::Error> {
             );
         }
     }
+    Ok(())
+}
+
+// ── O-001: every example main returns Result (C056-Post) ────────────────
+
+/// C056-Post pins the example entry-point contract: every example main returns
+/// `Result<(), Box<dyn std::error::Error>>` so errors propagate to the top
+/// level with a user-facing message and never panic. A regression to a
+/// `()`-returning main that swallows errors fails this source-inspection test.
+#[test]
+// @verifies C056
+// [::TICKET::] P13-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-3 --for-spec --no-implementation-order`.
+fn examples_have_result_returning_main() -> Result<(), std::io::Error> {
+    let expected = "async fn main() -> Result<(), Box<dyn std::error::Error>>";
+    for name in [
+        "client_init",
+        "account_register",
+        "make_call",
+        "audio_tap",
+        "tts_source",
+    ] {
+        let src = std::fs::read_to_string(format!("examples/{name}.rs"))?;
+        let normalized = src.lines().map(str::trim).collect::<Vec<_>>().join(" ");
+        assert!(
+            normalized.contains(expected),
+            "examples/{name}.rs main must return Result<(), Box<dyn std::error::Error>>"
+        );
+    }
+    Ok(())
+}
+
+/// P10-3 landed the public `SipClient::add_account` facade; the example
+/// account helper must delegate to it (RFC §41.2) rather than reaching through
+/// the RuntimeHandle command path. Guards against reintroducing the deferred
+/// workaround.
+#[test]
+// @verifies C056
+// [::TICKET::] P13-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-3 --for-spec --no-implementation-order`.
+fn examples_use_public_add_account_facade() -> Result<(), std::io::Error> {
+    let client_src = std::fs::read_to_string("src/client.rs")?;
+    assert!(
+        client_src.contains("pub async fn add_account"),
+        "SipClient::add_account must exist (P10-3 landed)"
+    );
+    let helper_src = std::fs::read_to_string("examples/common/client.rs")?;
+    assert!(
+        helper_src.contains("client.add_account"),
+        "examples/common/client.rs must delegate to the public SipClient::add_account facade"
+    );
     Ok(())
 }
 

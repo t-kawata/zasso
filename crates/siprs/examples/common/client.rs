@@ -1,9 +1,9 @@
 // Account-management helpers for the siprs example binaries.
 //
 // account_register and make_call include this module via `#[path]` to add an
-// account through the documented `RuntimeHandle` command path and resolve the
-// authoritative handle via the O-004 query API (a facade `SipClient::add_account`
-// lands in P10-3).
+// account through the public `SipClient::add_account` facade (RFC §41.2, P10-3)
+// and resolve the authoritative handle for the subsequent register()/make_call()
+// flow.
 
 use siprs::{AccountConfig, SecretString, SipAccountHandle, SipClient};
 
@@ -41,10 +41,10 @@ pub fn require(args: &CliArgs, required: &[&str]) -> Result<(), cli::CliError> {
 
 /// Add an account from the CLI arguments and resolve its `SipAccountHandle`.
 ///
-/// Uses the typed `RuntimeHandle::submit_add_account` path, which returns the
-/// backend-assigned logical account id directly.
+/// Delegates to the public `SipClient::add_account` facade (RFC §41.2), which
+/// validates the config fail-fast and returns the authoritative handle.
 pub async fn add_account_and_resolve(
-    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P13-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-3 --for-spec --no-implementation-order`.
     client: &SipClient,
     args: &CliArgs,
 ) -> Result<SipAccountHandle, Box<dyn std::error::Error>> {
@@ -54,8 +54,8 @@ pub async fn add_account_and_resolve(
         password: SecretString::new(required_field(args.password.as_deref(), "--password")?),
         ..AccountConfig::default()
     };
-    let account_id = client.handle().submit_add_account(config).await?;
-    Ok(SipAccountHandle::new(client.clone(), account_id))
+    let account = client.add_account(config).await?;
+    Ok(account)
 }
 
 /// Return the field value, or a CLI error naming the missing flag.
