@@ -411,7 +411,9 @@
       "Bash(make -qp)",
       "Bash(git add *)",
       "Bash(git commit -m 'feat: 全headingRefs一括解決検証 test-query-all.js + query-fix-hints.js を新設し Step 4 を機械的ゲート化 *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P13-1\")"
     ]
   }
 }
