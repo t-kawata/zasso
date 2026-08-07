@@ -5,19 +5,19 @@ disable-model-invocation: true
 
 # /consolidate-stubs
 
-**Role**: Re-organize existing `[::STUB::]` markers so each maps to one coherent ticket-sized unit. The consolidation is achieved by **editing marker lines** (normalizing each unit's resolve key), never by creating tickets — new-ticket creation stays with `/find-omissions`.
+**Role**: Re-organize existing `[::STUB::]` markers so each maps to one coherent ticket-sized unit. The consolidation is achieved by **editing marker lines** (normalizing each unit's resolve key), never by creating tickets — new-ticket creation stays with find-omissions.
 
 **First-Class Rule — [::STUB::] Marker is an Absolute Obligation**: every marker must keep a resolvable, non-PX, non-MUST key. No marker is ever deleted without its location being preserved (true duplicates only, survivor enumerates covered lines).
 
 ## Why
 
-STUB markers often accumulate as sub-ticket fragments — wiring hooks, accessor exposure, mechanical constant/type swaps, hardcode replacements, and duplicates — that split one ticket's work into many slivers. Consolidating them into coherent units by normalizing resolve keys lets `/find-omissions` create **one ticket per unit** instead of one per marker.
+STUB markers often accumulate as sub-ticket fragments — wiring hooks, accessor exposure, mechanical constant/type swaps, hardcode replacements, and duplicates — that split one ticket's work into many slivers. Consolidating them into coherent units by normalizing resolve keys lets find-omissions create **one ticket per unit** instead of one per marker.
 
 ## Design Principles
 
 - **Markers stay at their sites** — file:line provenance is preserved; consolidation is a key/content edit, not a deletion.
 - **One key per unit** — every marker in a unit references exactly one resolve key.
-- **Completed-key re-pointing is allowed** — a marker re-pointed to a completed ticket becomes a `resolvedCandidates` entry that `/find-omissions` re-tickets (the referenced ticket is the clone source).
+- **Completed-key re-pointing is allowed** — a marker re-pointed to a completed ticket becomes a `resolvedCandidates` entry that find-omissions re-tickets (the referenced ticket is the clone source).
 - **No ticket creation** — a unit with no existing covering ticket is emitted as a find-omissions candidate, never created here.
 - **True-duplicate removal only** — markers sharing the same defect in the same region merge; the survivor enumerates the covered lines so no location is lost.
 
@@ -70,7 +70,7 @@ For each unit, decide one resolve key:
 |---|---|---|
 | `MUST RESOLVE` | An unspecified target cannot be cloned or tracked; the marker would become an orphan. | Re-point to the original completed ticket (or an active future todo). |
 | `PX-*` (e.g. `PX-5`) | PX-phase tickets have ambiguous ordering and are rejected by the tooling. | Use a normal `P{phase}-{id}` ticket key. |
-| A key not in `Tickets.json` | A non-existent ticket cannot be cloned by `/find-omissions`. | Choose a ticket that already exists in `Tickets.json`. |
+| A key not in `Tickets.json` | A non-existent ticket cannot be cloned by find-omissions. | Choose a ticket that already exists in `Tickets.json`. |
 | A terminal-excuse plan (e.g. "awaiting approval") | A resolution plan must be an **AI-executable work item** or the no-excuse gate fails. | Rewrite the plan as an imperative deliverable. |
 
 Write your decision once to a JSON file — the batch tool does all the mechanical work from here:
@@ -142,7 +142,7 @@ The batch tool has already emitted the manifest. Run the blocking gate:
 bash .claude/scripts/tickets/consolidate-stubs-gate.sh
 ```
 
-The gate exits non-zero only on a **real** problem — a terminal-excuse plan, a malformed marker, a non-existent key, or a manifest that is not consumable by `/find-omissions`. Markers re-pointed to a completed key are the intended output and do **not** fail.
+The gate exits non-zero only on a **real** problem — a terminal-excuse plan, a malformed marker, a non-existent key, or a manifest that is not consumable by find-omissions. Markers re-pointed to a completed key are the intended output and do **not** fail.
 
 **This is a blocking gate — if the gate exits non-zero, you must NOT proceed.** A failure means a real defect slipped through Step 4 (or the tree changed after the apply). Recover in this exact order:
 
@@ -154,4 +154,4 @@ The gate exits non-zero only on a **real** problem — a terminal-excuse plan, a
 3. **Re-run Step 4** — `--dry-run` to confirm the fix, then apply (this also rewrites the manifest).
 4. **Re-run this gate** — loop until all three commands exit 0.
 
-The manifest file — **`./manifests/CONSOLIDATED-MANIFEST-<YYYYMMDDhhmmss>.json`** — is the deliverable passed to `/find-omissions` Step 1, which creates one resolving ticket per unit that references a completed key (a unit whose resolve key is an active future todo is already tracked and is skipped). `/find-omissions` **consumes and removes** this manifest (and the `ROLLBACK-*.json` backup) on full success — re-running `/find-omissions` requires a fresh `/consolidate-stubs`.
+The manifest file — **`./manifests/CONSOLIDATED-MANIFEST-<YYYYMMDDhhmmss>.json`** — is the deliverable passed to find-omissions Step 1, which creates one resolving ticket per unit that references a completed key (a unit whose resolve key is an active future todo is already tracked and is skipped). find-omissions **consumes and removes** this manifest (and the `ROLLBACK-*.json` backup) on full success — re-running requires a fresh consolidation.
