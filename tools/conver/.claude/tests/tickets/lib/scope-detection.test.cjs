@@ -67,7 +67,7 @@ describe("findContainingDefinition — Normal", () => {
       "class Foo {",              // 0
       "  bar() {",                // 1
       "    if (true) {",          // 2
-      "      console.log(1);",    // 3
+      "      let v = 1;",         // 3
       "    }",                    // 4
       "  }",                      // 5
       "}",                        // 6
@@ -242,5 +242,32 @@ describe("findContainingDefinition — Invariant", () => {
       "",                         // 2
     ];
     assert.strictEqual(findContainingDefinition(lines, 2), null);
+  });
+});
+
+// =============================================================================
+// findContainingDefinition — IIFE (PX-147 C005)
+// =============================================================================
+
+describe("findContainingDefinition — IIFE (PX-147)", () => {
+  // @verifies C005
+  test("C005: line inside a named IIFE maps to the IIFE start", () => {
+    const lines = [
+      "(function testX() {",      // 0
+      "  const v = 1;",           // 1
+      "})();",                    // 2
+    ];
+    const result = findContainingDefinition(lines, 1, ".js");
+    assert.deepStrictEqual(result, { startLine: 0, name: "testX", kind: "function" });
+  });
+
+  test("C005: line inside an anonymous IIFE maps to IIFE start with name 'anonymous'", () => {
+    const lines = [
+      "(function() {",            // 0
+      "  const v = 1;",           // 1
+      "})();",                    // 2
+    ];
+    const result = findContainingDefinition(lines, 1, ".js");
+    assert.deepStrictEqual(result, { startLine: 0, name: "anonymous", kind: "function" });
   });
 });

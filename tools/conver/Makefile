@@ -1,9 +1,12 @@
 # list-tickets: チケット一覧を表示する（私用ヘルパー）
 list-tickets:
-		node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json
+	node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json
+
+list-px-tickets:
+	node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json | grep PX
 
 list-active-tickets:
-		node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json | grep -v "\[x\]"
+	node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json | grep -v "\[x\]"  | grep -v "\[R\d*\]"
 
 # build-conver: TypeScript ソースを esbuild で単一ファイルにバンドルする
 build-conver:

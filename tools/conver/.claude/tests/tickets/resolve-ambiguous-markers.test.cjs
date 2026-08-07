@@ -26,7 +26,7 @@ before(() => {
 });
 
 // =============================================================================
-// listAllDefinitions (pure function — unchanged)
+// listAllDefinitions (pure helper — unchanged)
 // =============================================================================
 
 describe("listAllDefinitions", () => {
@@ -82,11 +82,11 @@ describe("listDefinitions output format (PX-65: Markdown)", () => {
 
     const { filePath, tmpDir } = createTempFile(content);
     try {
-      // listDefinitions now prints Markdown to stdout (no return value)
+      // listDefinitions now prints Markdown to stdout (no result value)
       // It also returns void/null — we test the injected behavior
-      // by checking the function executes without error
+      // by checking the helper executes without error
       listDefinitions(filePath, "PX-65");
-      // If we reach here without error, the function works
+      // If we reach here without error, the helper works
       assert.ok(true);
     } finally {
       cleanupTempDir(tmpDir);
@@ -178,13 +178,13 @@ describe("injectAt (single line, backward compat)", () => {
       const ticketMatches = updated.match(/\[::TICKET::\]/g);
       assert.strictEqual(ticketMatches.length, 2, "exactly 2 TICKET annotations");
 
-      // 3. Both original function names still present and in correct order
+      // 3. Both original names still present and in correct order
       const fooIdx = updated.indexOf("fn foo()");
       const barIdx = updated.indexOf("fn bar()");
       assert.ok(fooIdx > 0, "fn foo() must exist");
       assert.ok(barIdx > fooIdx, "fn bar() must come after fn foo()");
 
-      // 4. Original content preserved: let x = 1 and let y = 2
+      // 4. Original content preserved: x = 1 and y = 2
       assert.ok(updated.includes("let x = 1"), "original foo body preserved");
       assert.ok(updated.includes("let y = 2"), "original bar body preserved");
 
@@ -259,6 +259,57 @@ describe("injectAt (single line, backward compat)", () => {
       const updated = fs.readFileSync(filePath, "utf8");
       const tickets = updated.match(/\[::TICKET::\]/g);
       assert.strictEqual(tickets.length, 1, "only 1 annotation despite 3 identical inputs");
+    } finally {
+      cleanupTempDir(tmpDir);
+    }
+  });
+});
+
+// =============================================================================
+// injectAt — shebang preservation and blank-line artifact cleanup (PX-147 C004)
+// =============================================================================
+
+describe("injectAt — shebang + blank artifact cleanup (PX-147)", () => {
+  // @verifies C004
+  test("C004: removes AMBIGUOUS and the artifact blank line, shebang stays line 1", () => {
+    const content = [
+      '// [::AMBIGUOUS::] Could not locate containing definition for changed line(s) in ticket PX-144.',
+      '',
+      '#!/usr/bin/env node',
+      'function f() {}',
+    ].join("\n");
+
+    const { filePath, tmpDir } = createTempFile(content);
+    try {
+      const result = injectAt(filePath, "PX-147", [3]); // 0-indexed line 3 = 'function f() {}'
+      assert.ok(result.success);
+      const lines = fs.readFileSync(filePath, "utf8").split("\n");
+      assert.ok(!lines.join("\n").includes("[::AMBIGUOUS::]"), "AMBIGUOUS must be removed");
+      assert.strictEqual(lines[0], "#!/usr/bin/env node", "shebang must be line 1");
+      assert.notStrictEqual(lines[0], "", "no blank-line artifact at top");
+    } finally {
+      cleanupTempDir(tmpDir);
+    }
+  });
+
+  test("C004 boundary: multiple AMBIGUOUS markers all removed with no leading blank lines", () => {
+    const content = [
+      '// [::AMBIGUOUS::] first',
+      '',
+      '// [::AMBIGUOUS::] second',
+      '',
+      '#!/usr/bin/env node',
+      'function f() {}',
+    ].join("\n");
+
+    const { filePath, tmpDir } = createTempFile(content);
+    try {
+      const result = injectAt(filePath, "PX-147", [5]); // 0-indexed line 5 = 'function f() {}'
+      assert.ok(result.success);
+      const lines = fs.readFileSync(filePath, "utf8").split("\n");
+      assert.ok(!lines.join("\n").includes("[::AMBIGUOUS::]"), "all AMBIGUOUS removed");
+      assert.strictEqual(lines[0], "#!/usr/bin/env node", "shebang must be line 1 after cleanup");
+      assert.strictEqual(lines.filter(l => l === "").length, 0, "no leading blank lines");
     } finally {
       cleanupTempDir(tmpDir);
     }
