@@ -10,14 +10,14 @@ Inspect every reviewed ticket to verify that its contracts are fully and accurat
 
 ## Pre-flight — argument + consolidation prerequisite validation (mandatory)
 
-Before any other step, validate the argument and the consolidation prerequisite. `/find-omissions` requires a completed `/consolidate-stubs` run so a complete grouped unit manifest exists:
+Before any other step, validate the argument and the consolidation prerequisite. The consolidation prerequisite is satisfied when a complete grouped unit manifest exists:
 
 ```bash
 node .claude/scripts/tickets/validate-graph-arg.js "$ARGUMENTS" || exit 2
 node .claude/scripts/tickets/require-consolidated-manifest.js || exit 2
 ```
 
-`require-consolidated-manifest.js` exits 0 when `./manifests/CONSOLIDATED-MANIFEST-*.json` exists and exits 2 (with a cause/action message) otherwise — run `/consolidate-stubs` first, then re-run `/find-omissions`.
+`require-consolidated-manifest.js` exits 0 when `./manifests/CONSOLIDATED-MANIFEST-*.json` exists, **or** when the stub scan finds 0 stubs (a 0-stub tree legitimately has no manifest — the printer only writes it when markers exist). In the 0-stub case it prints a PASS explanation on stdout instructing to **SKIP Step 1** (re-ticketize consumes the manifest and has nothing to do) and proceed to **Step 2**. It exits 2 (with a cause/action message) only when stubs exist without a manifest — the consolidation prerequisite is unmet, so stop here.
 
 ## Overview
 
@@ -105,7 +105,7 @@ Check for:
 
 ### Step 1 — Re-ticketize the consolidated units (mandatory)
 
-The `/consolidate-stubs` Step 5 gate has already guaranteed the marker tree is clean: no orphan keys, no terminal excuses, every marker re-pointed to a valid key, and a complete grouped unit manifest emitted. Step 1 consumes that manifest: pipe it into `batch-create-resolving-tickets.js`, which creates **one resolving ticket per (sourceKey, unit) group** and atomically rewrites every on-disk marker key. **Never pause to ask the human** — this is the AI's work item, per the no-external-excuse rule.
+The consolidation Step 5 gate (`consolidate-stubs-gate.sh`) has already guaranteed the marker tree is clean: no orphan keys, no terminal excuses, every marker re-pointed to a valid key, and a complete grouped unit manifest emitted. Step 1 consumes that manifest: pipe it into `batch-create-resolving-tickets.js`, which creates **one resolving ticket per (sourceKey, unit) group** and atomically rewrites every on-disk marker key. **Never pause to ask the human** — this is the AI's work item, per the no-external-excuse rule.
 
 Run from the directory containing Tickets.json (the source root is cwd):
 
@@ -121,7 +121,7 @@ cat "$MANIFEST" | node .claude/scripts/tickets/batch-create-resolving-tickets.js
 - **re-run is safe**: markers already referencing an active ticket are skipped, so re-running never duplicates tickets.
 - **on failure nothing is written**: stderr lists each failure with its file:line and an Action-directive; fix the reported marker and re-run.
 
-> **`/consolidate-stubs` handoff**: `/consolidate-stubs` Step 5 writes the grouped manifest to `./manifests/CONSOLIDATED-MANIFEST-<ts>.json` — one `{ sourceKey, stubs: [{ file, line, content }] }` entry per unit, with `file` cwd-relative:
+> **Manifest handoff**: consolidation Step 5 writes the grouped manifest to `./manifests/CONSOLIDATED-MANIFEST-<ts>.json` — one `{ sourceKey, stubs: [{ file, line, content }] }` entry per unit, with `file` cwd-relative:
 > ```json
 > [{ "sourceKey": "P4-2", "stubs": [{ "file": "src/a.rs", "line": 4, "content": "// [::STUB::] P4-2: reason -- Implement" }] }]
 > ```
@@ -139,7 +139,7 @@ node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
 - **exit 0** → zero failures, proceed to Step 2.
 - **exit 1** → read each `[validate-no-external-excuses] FAIL <file>:<line> -- <check> -- Action:` line, fix the marker (remove / rewrite the plan / rewrite the key), and re-run the gate. **Loop until exit 0.** A round that makes no progress is a hard-stop diagnostic — do not proceed with unresolved excuses.
 
-> **Why a completed-key marker can fail here**: this validator runs in normal mode (`--fail-on-excuse`), where Check C rejects a marker referencing a **completed** ticket — unlike `/consolidate-stubs`'s Step 5 gate, which accepts completed keys via `--for-consolidate`. That gate covers only the *grouped* markers; completed-key leftovers (left `UNASSIGNED`, or added after the consolidate apply) are this safety net's job. `preflight-stub-cleanup.js` classifies them and prints the `remove-stub.js` / `create-resolving-ticket.js` commands — resolve each, then re-run the validator.
+> **Why a completed-key marker can fail here**: this validator runs in normal mode (`--fail-on-excuse`), where Check C rejects a marker referencing a **completed** ticket — unlike the consolidation Step 5 gate, which accepts completed keys via `--for-consolidate`. That gate covers only the *grouped* markers; completed-key leftovers (left `UNASSIGNED`, or added after the consolidate apply) are this safety net's job. `preflight-stub-cleanup.js` classifies them and prints the `remove-stub.js` / `create-resolving-ticket.js` commands — resolve each, then re-run the validator.
 
 **Output message convention**: every stdout/stderr line from these scripts is English, self-contained, and Action-directive. A fresh session must be able to act on a message alone.
 
@@ -338,7 +338,7 @@ node .claude/scripts/tickets/get-next-check-target-ticket.js --with-clean-trash
 ```
 
 Removes both `_tmp-omissions-*.json` and `_tmp-check-target-tickets-cmds-*.json`.  
-Before deleting, the script copies `_tmp-omissions-*.json` to `OMISSIONS-<timestamp>.json` as the deliverable of `/find-omissions`.
+Before deleting, the script copies `_tmp-omissions-*.json` to `OMISSIONS-<timestamp>.json` as the deliverable of this command.
 
 # Step 9 — Merge into Tickets.json
 
@@ -367,4 +367,4 @@ After ALL of the above steps pass (tickets created, markers rewritten, omissions
 node .claude/scripts/tickets/clean-consolidation-artifacts.js
 ```
 
-This removes `manifests/CONSOLIDATED-MANIFEST-*.json` and `manifests/ROLLBACK-*.json`, and `manifests/` itself iff empty. Idempotent — exit 0 when nothing to remove. The rollback backup only exists to undo a *wrong* consolidation; once `/find-omissions` has consumed the manifest and created tickets, restoring the rollback would desync markers from the created tickets, so it is removed at the same time. Re-running `/find-omissions` requires a fresh `/consolidate-stubs` (the mandatory model).
+This removes `manifests/CONSOLIDATED-MANIFEST-*.json` and `manifests/ROLLBACK-*.json`, and `manifests/` itself iff empty. Idempotent — exit 0 when nothing to remove. The rollback backup only exists to undo a *wrong* consolidation; once the manifest has been consumed and tickets created, restoring the rollback would desync markers from the created tickets, so it is removed at the same time. Re-running requires a fresh consolidation (the mandatory model).
