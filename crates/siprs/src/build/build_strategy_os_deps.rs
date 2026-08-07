@@ -472,4 +472,44 @@ mod tests {
             Err(PjsipDetectionError::UnsupportedOs(_))
         ));
     }
+
+    // ── C040-Postcondition O-001: RFC §28.4 OS dependency hints ──
+    /// @verifies C040
+    #[test]
+    // [::TICKET::] P13-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-4 --for-spec --no-implementation-order`.
+    fn os_dependency_hint_covers_windows_libsrtp() {
+        assert_eq!(
+            os_dependency_hint(CiOsTarget::WindowsLatest),
+            "MSVC Build Tools; vcpkg install libsrtp:x64-windows"
+        );
+    }
+
+    /// @verifies C040
+    #[test]
+    // [::TICKET::] P13-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-4 --for-spec --no-implementation-order`.
+    fn os_dependency_hint_covers_macos_brew() {
+        assert_eq!(
+            os_dependency_hint(CiOsTarget::MacOs14),
+            "brew install pkg-config cmake (CoreAudio/CoreFoundation/Security via Xcode CLI)"
+        );
+    }
+
+    /// @verifies C040
+    #[test]
+    // [::TICKET::] P13-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-4 --for-spec --no-implementation-order`.
+    fn os_dependency_hint_covers_ubuntu_audio_ssl_srtp() {
+        let hint = os_dependency_hint(CiOsTarget::Ubuntu2204);
+        assert!(
+            hint.contains("libasound2-dev"),
+            "Ubuntu hint must include ALSA dev package"
+        );
+        assert!(
+            hint.contains("libssl-dev"),
+            "Ubuntu hint must include OpenSSL dev package"
+        );
+        assert!(
+            hint.contains("libsrtp2-dev"),
+            "Ubuntu hint must include SRTP dev package"
+        );
+    }
 }
