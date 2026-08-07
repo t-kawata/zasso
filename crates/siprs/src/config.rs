@@ -1,4 +1,3 @@
-
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
@@ -121,7 +120,7 @@ fn default_dtmf_sent_timeout_ms() -> u64 {
 
 // [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
 impl Default for DtmfConfig {
-// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             sent_timeout_ms: default_dtmf_sent_timeout_ms(),
@@ -213,7 +212,7 @@ impl ClientConfig {
 
 // [::TICKET::] P0-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-3 --for-spec --no-implementation-order`.
 impl Default for ClientConfig {
-// [::TICKET::] P0-3, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P7-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P7-2) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             sip_proxy_host: String::new(),
@@ -365,7 +364,7 @@ mod tests {
 
     #[test]
     // @verifies C001
-// [::TICKET::] P0-3, P1-2, P2-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P1-2|P2-2|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P1-2, P2-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P1-2|P2-2|P8-4) --for-spec --no-implementation-order`.
     fn client_config_builder_sets_optional_fields() -> Result<(), &'static str> {
         let creds = AuthCredentials {
             username: "alice".into(),
@@ -517,7 +516,7 @@ mod tests {
     /// @verifies C030
     #[test]
     // [::TICKET::] P7-2: O-002 — default DtmfConfig::sent_timeout_ms is 500ms
-// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
     fn client_config_dtmf_sent_timeout_default_500() {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
@@ -531,7 +530,7 @@ mod tests {
     /// @verifies C030
     #[test]
     // [::TICKET::] P7-2: O-002 — dtmf_sent_timeout_ms builder overrides the default
-// [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-2 --for-spec --no-implementation-order`.
     fn client_config_dtmf_sent_timeout_configurable() {
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")

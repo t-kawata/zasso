@@ -1,20 +1,59 @@
-// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-1, P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-1|P9-2) --for-spec --no-implementation-order`.
 
-// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+// Audio tap (RFC §41.4 / §22): subscribe to a call's audio and stream
+// AudioChunkPair frames. With a live call and the backend media path attached,
+// `recv()` yields each paired IN/OUT frame; without a call the reactor reports
+// the unknown call, which the example prints and exits cleanly.
+//
+// Run: cargo run --example audio_tap -- --host sip.example.com [--call-id 1]
 
-// [::STUB::] P9-1: Example binaries document the API surface; full CLI/PJSIP runtime is deferred -- Implement full example binaries (account_register, audio_tap, client_init, make_call, tts_source) with PJSIP backend, CLI args, and integration tests
-// [::TICKET::] P0-2, P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P8-2) --for-spec --no-implementation-order`.
-use siprs::runtime::audio_worker::{AsyncAudioSource, MockAsyncAudioSource};
+#[path = "common/cli.rs"]
+mod cli;
+// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
 
-/// Audio tap (RFC §41.4): an `AsyncAudioSource` feeds the mixer; a mock source
-/// stands in until a real device source is wired (cpal, P1-4).
+use std::io::Write;
+// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+
+use siprs::model::{AudioFormat, BitDepth, CallId, ChannelLayout, SampleRate};
+use siprs::{AudioTapMode, SipClient};
+
+use cli::build_client_config;
+
+/// Tap channel capacity in frames (16 × 20 ms ≈ 320 ms of buffered audio).
+const TAP_CAPACITY: usize = 16;
+
 #[tokio::main]
-async fn main() {
-    // A WAV-backed tap would wrap a file reader; the mock demonstrates the
-    // `AsyncAudioSource::next_chunk` contract through the erased trait object.
-    let mut source: Box<dyn AsyncAudioSource> =
-        Box::new(MockAsyncAudioSource::new(vec![0i16; 160]));
-    let mut buf = [0i16; 160];
-    let written = source.next_chunk(&mut buf).await;
-    let _ = written;
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+    let args = cli::parse(std::env::args().skip(1))?;
+    let config = build_client_config(&args);
+    let (client, _events) = SipClient::new(config).await?;
+
+    // Subscribe to the call's paired IN/OUT audio and stream AudioChunkPair
+    // frames. The tap handle stays open while the call is active.
+    let call_id = CallId::from_u64(args.call_id.unwrap_or(1))?;
+    let format = AudioFormat::new(SampleRate::Hz8000, BitDepth::I16, ChannelLayout::Mono, 20)?;
+    match client
+        .subscribe_audio(call_id, format, TAP_CAPACITY, AudioTapMode::Realtime)
+        .await
+    {
+        Ok(mut tap) => {
+            while let Some(pair) = tap.recv().await {
+                writeln!(
+                    std::io::stdout(),
+                    "audio tap: call {} in_samples={} out_samples={}",
+                    pair.call_id,
+                    pair.in_chunk.len(),
+                    pair.out_chunk.len()
+                )?;
+            }
+            writeln!(std::io::stdout(), "audio tap: producer closed")?;
+        }
+        Err(e) => {
+            writeln!(std::io::stdout(), "audio tap: subscribe_audio failed: {e}")?;
+        }
+    }
+
+    client.shutdown().await?;
+    Ok(())
 }

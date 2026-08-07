@@ -603,7 +603,7 @@ mod tests {
     fn test_sequence_generator_send_sync() {
         // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P4-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P7-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P7-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<SequenceGenerator>();
         assert_sync::<SequenceGenerator>();
@@ -675,10 +675,7 @@ mod tests {
             (PATH_WS_AUDIO, "/api/v1/ws/audio"),
         ];
         for (actual, want) in expected {
-            assert_eq!(
-                actual, want,
-                "path constant must match RFC S54 value"
-            );
+            assert_eq!(actual, want, "path constant must match RFC S54 value");
         }
     }
 
@@ -695,11 +692,7 @@ mod tests {
         seen.insert(prev);
         for _ in 0..1_000_000 {
             let next = gen.next();
-            assert!(
-                seen.insert(next),
-                "duplicate sequence number {}",
-                next
-            );
+            assert!(seen.insert(next), "duplicate sequence number {}", next);
             assert!(
                 next > prev,
                 "sequence must be strictly increasing: {} then {}",

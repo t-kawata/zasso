@@ -3,6 +3,9 @@
 list-tickets:
 	node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json
 
+list-px-tickets:
+	node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json | grep PX
+
 list-active-tickets:
 	node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json | grep -v "\[x\]"  | grep -v "\[R\d*\]"
 

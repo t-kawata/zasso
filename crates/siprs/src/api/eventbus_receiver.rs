@@ -1,3 +1,4 @@
+
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -22,6 +23,11 @@
 use tokio::sync::broadcast;
 
 use crate::api::event_model_payload_bus::{AccountId, RawSipMessage, SipEvent};
+
+/// Default capacity of the control event bus when the caller provides no explicit
+/// control capacity (SipClient::new creates the client bus with this capacity).
+// [::TICKET::] P10-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-6 --for-spec --no-implementation-order`.
+pub const DEFAULT_EVENT_BUS_CAPACITY: usize = 2048;
 
 /// Event bus providing split broadcast channels for control events and raw SIP messages.
 ///
@@ -169,6 +175,7 @@ impl std::fmt::Debug for AccountEventReceiver {
 mod tests {
     use super::*;
     use crate::api::event_model_payload_bus::{CallId, EventMeta, SipEventPayload};
+    use crate::config::client_config_spec::RawSipEventConfig;
     use tokio::sync::broadcast;
 
     // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
@@ -254,27 +261,56 @@ mod tests {
 
     // ── EventBus::publish_raw_sip ──────────────────────────────────────
 
-    /// @verifies C020
+    /// @verifies C020, C025
     #[tokio::test]
     async fn eventbus_publish_raw_sip_delivers_when_enabled() {
         let bus = EventBus::new(16, Some(16));
         let mut rx = bus.subscribe_raw_sip().unwrap();
-        let msg = RawSipMessage {
-            data: b"INVITE sip:alice@example.com SIP/2.0".to_vec(),
-        };
+        let msg = RawSipMessage::parse(
+            b"INVITE sip:alice@example.com SIP/2.0\r\nVia: SIP/2.0/UDP 192.0.2.1\r\n\r\n",
+        )
+        .expect("valid INVITE parses");
         bus.publish_raw_sip(msg);
         let received = rx.recv().await.unwrap();
-        assert!(!received.data.is_empty());
+        assert_eq!(
+            received.start_line(),
+            "INVITE sip:alice@example.com SIP/2.0"
+        );
+        assert_eq!(received.header("Via"), Some("SIP/2.0/UDP 192.0.2.1"));
+    }
+
+    /// @verifies C025, C048
+    #[tokio::test]
+    async fn eventbus_raw_sip_redact_round_trip() {
+        let bus = EventBus::new(16, Some(16));
+        let mut rx = bus.subscribe_raw_sip().unwrap();
+        let config = RawSipEventConfig {
+            redact_authorization: true,
+            ..RawSipEventConfig::default()
+        };
+        let msg = RawSipMessage::parse_with_config(
+            b"INVITE sip:alice@example.com SIP/2.0\r\nAuthorization: Digest password=\"s3cret!\"\r\n\r\n",
+            &config,
+        )
+        .expect("parses and redacts");
+        bus.publish_raw_sip(msg);
+        let received = rx.recv().await.unwrap();
+        assert!(
+            received.text().contains("[REDACTED]"),
+            "redacted value travels the bus"
+        );
+        assert!(
+            !received.text().contains("s3cret!"),
+            "password never leaks through the bus"
+        );
     }
 
     /// @verifies C020
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-4) --for-spec --no-implementation-order`.
     fn eventbus_publish_raw_sip_noop_when_disabled() {
         let bus = EventBus::new(16, None);
-        let msg = RawSipMessage {
-            data: vec![0x53, 0x49, 0x50],
-        };
+        let msg = RawSipMessage::parse(b"INVITE sip:x SIP/2.0\r\n\r\n").expect("parses");
         bus.publish_raw_sip(msg); // must not panic
     }
 
@@ -283,7 +319,7 @@ mod tests {
     /// @verifies C020, C021
     #[test]
     // [::TICKET::] P7-2: O-005 — assert exact Lagged count n (2) instead of a wildcard
-// [::TICKET::] P0-5, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P7-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P7-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P7-2) --for-spec --no-implementation-order`.
     fn eventbus_lagged_detection() {
         let bus = EventBus::new(2, None); // very small capacity
         let mut rx = bus.subscribe_control();
@@ -297,10 +333,7 @@ mod tests {
         bus.publish(make_event(None)); // drops B
         let result = rx.try_recv();
         assert!(
-            matches!(
-                result,
-                Err(broadcast::error::TryRecvError::Lagged(2))
-            ),
+            matches!(result, Err(broadcast::error::TryRecvError::Lagged(2))),
             "expected Lagged(2) but got {:?}",
             result
         );

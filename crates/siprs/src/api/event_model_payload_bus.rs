@@ -1,6 +1,5 @@
 // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 
-
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -408,99 +407,10 @@ impl SipEvent {
     }
 }
 
-// ── RawSipMessage ──────────────────────────────────────────────────────
+// ── RawSipMessage (re-exported from model/raw_sip_message_spec — RFC §16) ──
 
-/// A raw SIP message captured by the PJSIP callback bridge.
-///
-/// Provides `redact_authorization()` to replace password values in
-/// `Authorization:` headers with `[REDACTED]` before logging or forwarding
-/// to untrusted consumers.
-///
-/// The `data` field contains the raw bytes of the SIP message.
-// [::STUB::] P9-4: RawSipMessage is a minimal wrapper with public Vec<u8> data; the raw SIP message spec is not yet implemented -- Implement full SIP message parsing per the Raw SIP Message Specification (NODE_ID=N0024) with header/sdp extraction and parsed-field accessors
-#[derive(Debug, Clone)]
-pub struct RawSipMessage {
-    pub data: Vec<u8>,
-}
-
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
-impl RawSipMessage {
-    /// Redact password values in all `Authorization:` headers.
-    ///
-    /// Returns a new `RawSipMessage` with the password portion of each
-    /// `Authorization:` header replaced by `[REDACTED]`. Messages without
-    /// an `Authorization:` header are returned unchanged.
-    ///
-    /// This method follows the immutable pattern: the original message is
-    /// not modified.
-    pub fn redact_authorization(&self) -> Self {
-        let text = String::from_utf8_lossy(&self.data);
-        let redacted = Self::redact_auth_header(&text);
-        Self {
-            data: redacted.into_bytes(),
-        }
-    }
-
-    /// Core redaction logic: replaces `password="<value>"` in Authorization headers.
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
-    fn redact_auth_header(text: &str) -> String {
-        let mut result = String::with_capacity(text.len());
-        let mut remaining = text;
-
-        while let Some(auth_pos) = remaining.to_ascii_lowercase().find("authorization:") {
-            // Append everything before and including the "Authorization:" keyword
-            result.push_str(&remaining[..auth_pos + "authorization:".len()]);
-            remaining = &remaining[auth_pos + "authorization:".len()..];
-
-            // Extract the header line (everything up to \r\n)
-            let line_end = remaining.find("\r\n").unwrap_or(remaining.len());
-            let line = &remaining[..line_end];
-
-            // Redact passwords within this header line
-            let redacted_line = Self::redact_password_in_line(line);
-            result.push_str(&redacted_line);
-
-            // Advance past the processed line (including \r\n)
-            remaining = &remaining[line_end..];
-        }
-
-        // Append any remaining text after the last Authorization header
-        result.push_str(remaining);
-        result
-    }
-
-    /// Redact `password="<value>"` in a single header line.
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
-    fn redact_password_in_line(line: &str) -> String {
-        let mut result = String::with_capacity(line.len());
-        let mut pos = 0;
-
-        while let Some(pw_start) = line[pos..].to_ascii_lowercase().find("password=\"") {
-            // Append text before password=
-            result.push_str(&line[pos..pos + pw_start]);
-            result.push_str("password=\"");
-            let after_pw_eq = pos + pw_start + "password=\"".len();
-            // Find the closing quote
-            if let Some(quote_end) = line[after_pw_eq..].find('"') {
-                result.push_str(REDACTED);
-                result.push('"');
-                pos = after_pw_eq + quote_end + 1;
-            } else {
-                // Malformed: no closing quote; append rest as-is
-                result.push_str(&line[after_pw_eq..]);
-                pos = line.len();
-                break;
-            }
-        }
-
-        // Append remaining text after the last password=
-        result.push_str(&line[pos..]);
-        result
-    }
-}
-
-/// The redaction placeholder for secret values.
-const REDACTED: &str = "[REDACTED]";
+// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+pub use crate::model::raw_sip_message_spec::RawSipMessage;
 
 #[cfg(test)]
 mod tests {
@@ -510,7 +420,7 @@ mod tests {
     // ── AccountId / CallId ────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn account_id_wraps_u64() -> Result<(), &'static str> {
         let id = AccountId::from_u64(42).map_err(|_| "invalid account id")?;
         assert_eq!(id.get().get(), 42);
@@ -518,7 +428,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn account_id_equality() -> Result<(), &'static str> {
         let one = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let two = AccountId::from_u64(2).map_err(|_| "invalid account id")?;
@@ -528,7 +438,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn account_id_is_hashable() -> Result<(), &'static str> {
         use std::collections::HashSet;
         let one = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
@@ -541,7 +451,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn call_id_wraps_u64() -> Result<(), &'static str> {
         let id = CallId::from_u64(99).map_err(|_| "invalid call id")?;
         assert_eq!(id.get().get(), 99);
@@ -571,7 +481,7 @@ mod tests {
     // ── EventMeta ──────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn event_meta_new_sets_required_fields() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
@@ -608,7 +518,7 @@ mod tests {
     // ── SipEventPayload ────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn payload_registration_started() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let info = RegistrationInfo {
@@ -627,7 +537,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn payload_registration_succeeded() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let info = RegistrationInfo {
@@ -646,7 +556,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn payload_registration_failed() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let failure = RegistrationFailure {
@@ -666,7 +576,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn payload_call_connected() -> Result<(), &'static str> {
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
@@ -696,7 +606,7 @@ mod tests {
     #[test]
     // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     // @verifies C029
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
     fn payload_dtmf_received() {
         let info = DtmfReceivedInfo {
             method: DtmfMethod::Rfc4733,
@@ -719,7 +629,7 @@ mod tests {
     // ── SipEvent ───────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn sip_event_new_combines_meta_and_payload() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let meta = EventMeta::new(1, Some(account_id), None);
@@ -731,7 +641,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn sip_event_meta_access() -> Result<(), &'static str> {
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
         let meta = EventMeta::new(5, None, Some(call_id));
@@ -742,7 +652,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn sip_event_clone_preserves_all_fields() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
@@ -761,7 +671,7 @@ mod tests {
     // ── Media info ────────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn media_active_info() -> Result<(), &'static str> {
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
         let info = MediaActiveInfo { call_id };
@@ -774,7 +684,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn media_error_info_with_reason() -> Result<(), &'static str> {
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
         let info = MediaErrorInfo {
@@ -793,7 +703,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn media_error_info_without_reason() -> Result<(), &'static str> {
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
         let info = MediaErrorInfo {
@@ -814,7 +724,7 @@ mod tests {
     // ── RegistrationInfo / RegistrationFailure ────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn registration_info_fields() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let info = RegistrationInfo {
@@ -827,7 +737,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn registration_failure_fields() -> Result<(), &'static str> {
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
         let failure = RegistrationFailure {
@@ -855,18 +765,6 @@ mod tests {
         );
     }
 
-    // ── RawSipMessage ─────────────────────────────────────────────────
-
-    #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
-    fn raw_sip_message_holds_bytes() {
-        let msg = RawSipMessage {
-            data: vec![0x53, 0x49, 0x50], // "SIP"
-        };
-        assert_eq!(msg.data.len(), 3);
-        assert!(!msg.data.is_empty());
-    }
-
     // ── Invariant: Clone + Debug ──────────────────────────────────────
 
     /// @verifies C020, C021
@@ -889,7 +787,7 @@ mod tests {
     fn sip_event_payload_is_non_exhaustive() {
         // Compile-time check: SipEventPayload derives Clone.
         // non_exhaustive is verified by separate crate compilation.
-// [::TICKET::] P0-5, P1-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P1-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5, P1-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P1-2|P8-4) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_clone::<SipEventPayload>();
     }
@@ -905,7 +803,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-5, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P8-4) --for-spec --no-implementation-order`.
     fn event_meta_populated_containers() -> Result<(), &'static str> {
         let mut meta = EventMeta::new(1, None, None);
         meta.headers = Some(vec![("X-Custom".into(), "value".into())]);
@@ -923,7 +821,7 @@ mod tests {
     // ── ConnectedCallInfo ─────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
     fn connected_call_info_all_fields() -> Result<(), &'static str> {
         let call_id = CallId::from_u64(1).map_err(|_| "invalid call id")?;
         let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
@@ -936,100 +834,6 @@ mod tests {
         assert_eq!(info.account_id, account_id);
         assert!(!info.remote_uri.is_empty());
         Ok(())
-    }
-
-    // ── RawSipMessage redact_authorization ────────────────────────────
-
-    /// @verifies C025, C048
-    #[test]
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
-    fn redact_authorization_replaces_password() {
-        let sip_msg = b"INVITE sip:user@example.com SIP/2.0\r\nAuthorization: Digest username=\"alice\", password=\"s3cret!\", realm=\"example.com\"\r\n\r\n";
-        let raw = RawSipMessage {
-            data: sip_msg.to_vec(),
-        };
-        let redacted = raw.redact_authorization();
-        let output = String::from_utf8_lossy(&redacted.data);
-        assert!(
-            output.contains("[REDACTED]"),
-            "redacted output must contain [REDACTED]"
-        );
-        assert!(
-            !output.contains("s3cret!"),
-            "redacted output must not contain original password"
-        );
-    }
-
-    /// @verifies C025, C048
-    #[test]
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
-    fn redact_authorization_noop_without_auth_header() {
-        let sip_msg = b"INVITE sip:user@example.com SIP/2.0\r\nVia: SIP/2.0/UDP 192.0.2.1\r\n\r\n";
-        let raw = RawSipMessage {
-            data: sip_msg.to_vec(),
-        };
-        let redacted = raw.redact_authorization();
-        assert_eq!(
-            raw.data, redacted.data,
-            "message without Authorization header must be unchanged"
-        );
-    }
-
-    /// @verifies C025, C048
-    #[test]
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
-    fn redact_authorization_multiple_headers() {
-        let sip_msg = b"MESSAGE sip:user@example.com SIP/2.0\r\nAuthorization: Digest password=\"pass1\", username=\"alice\"\r\nAuthorization: Digest password=\"pass2\", username=\"bob\"\r\n\r\n";
-        let raw = RawSipMessage {
-            data: sip_msg.to_vec(),
-        };
-        let redacted = raw.redact_authorization();
-        let output = String::from_utf8_lossy(&redacted.data);
-        assert_eq!(
-            output.matches("[REDACTED]").count(),
-            2,
-            "both Authorization headers must be redacted"
-        );
-        assert!(!output.contains("pass1"), "first password must be redacted");
-        assert!(
-            !output.contains("pass2"),
-            "second password must be redacted"
-        );
-    }
-
-    /// @verifies C025, C048
-    #[test]
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
-    fn redact_authorization_preserves_auth_type() {
-        // The Digest or Basic auth type must be preserved, only password value redacted
-        let sip_msg = b"INVITE sip:user@example.com SIP/2.0\r\nAuthorization: Basic password=\"base64encoded\"\r\n\r\n";
-        let raw = RawSipMessage {
-            data: sip_msg.to_vec(),
-        };
-        let redacted = raw.redact_authorization();
-        let output = String::from_utf8_lossy(&redacted.data);
-        assert!(
-            output.contains("Basic"),
-            "auth type 'Basic' must be preserved"
-        );
-        assert!(output.contains("[REDACTED]"), "password must be redacted");
-    }
-
-    /// @verifies C025, C048
-    #[test]
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
-    fn redact_authorization_clone_not_mutated() {
-        // Verify the immutable pattern: original message is not modified
-        let sip_msg = b"INVITE sip:user@example.com SIP/2.0\r\nAuthorization: Digest password=\"original\"\r\n\r\n";
-        let raw = RawSipMessage {
-            data: sip_msg.to_vec(),
-        };
-        let _redacted = raw.redact_authorization();
-        let original_output = String::from_utf8_lossy(&raw.data);
-        assert!(
-            original_output.contains("original"),
-            "original message must not be mutated"
-        );
     }
 
     // ── DTMF (P8-4) — DtmfReceivedInfo edge/boundary + DtmfSent payload ──
@@ -1147,10 +951,7 @@ mod tests {
             referred_by: Some("sip:bob@example.com".into()),
             replaces: Some("sip:oldcall@example.com".into()),
         };
-        assert_eq!(
-            attended.referred_by.as_deref(),
-            Some("sip:bob@example.com")
-        );
+        assert_eq!(attended.referred_by.as_deref(), Some("sip:bob@example.com"));
         assert_eq!(
             attended.replaces.as_deref(),
             Some("sip:oldcall@example.com")
@@ -1224,7 +1025,7 @@ mod tests {
     // [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
     fn refer_and_transfer_info_are_clone_debug() {
         // O-001 closure: compile-time Clone + Debug bounds for transfer types.
-// [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<ReferRequest>();
         assert_clone_debug::<TransferInfo>();

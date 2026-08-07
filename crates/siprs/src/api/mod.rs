@@ -26,6 +26,13 @@ pub mod dtmf_spec_received;
 pub mod asyncaudiosrc_adapter;
 // [::TICKET::] P5-2: Incoming call and REFER/transfer types — IncomingCall, IncomingCallConfig
 pub mod incoming_call_refer;
+// [::TICKET::] P9-2: Audio Subscribe API — AudioTapMode, AudioTapHandle, AudioTapSender
+pub mod audio_subscribe_bp;
+// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-3: Call API & Answer Semantics — CallApiSemantics trait (RFC N0027)
+pub mod call_api_semantics;
+// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 
 // Re-export public types at the api level
 pub use event_model_payload_bus::{
@@ -39,3 +46,7 @@ pub use m20_dtmfsent_twophase::{DtmfSentInfo, SentDtmfError};
 pub use asyncaudiosrc_adapter::{ErasedAudioSource, SyncAudioSource, SyncSourceAdapter};
 // [::TICKET::] P5-2: Incoming call re-exports
 pub use incoming_call_refer::{IncomingCall, IncomingCallConfig};
+// [::TICKET::] P9-2: Audio Subscribe API re-exports
+pub use audio_subscribe_bp::{AudioTapHandle, AudioTapMode, AudioTapSender};
+// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.

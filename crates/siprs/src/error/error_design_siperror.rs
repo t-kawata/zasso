@@ -1,3 +1,4 @@
+
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -23,42 +24,35 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
+use crate::model::{AccountId, CallId};
 use crate::runtime::command::ReactorError;
 
-// ---------------------------------------------------------------------------
-// PJSUA error code constants
-//
-// [::TICKET::] P3-2: FFI layer integrated — ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN
-// [::STUB::] P11-9: PJSIP status, inv-state, and media-status constants are hand-coded duplicates of pjsua.h defines (covers error_design_siperror.rs:32,302) -- Replace hand-coded PJSIP constants with the bindgen-generated constants from pjsua.h once the pjsua-native feature enables FFI
-// ---------------------------------------------------------------------------
-
-/// PJ_SUCCESS — no error.
-const PJ_SUCCESS: i32 = 0;
-/// PJ_ENOMEM — out of memory.
-const PJ_ENOMEM: i32 = -2;
-/// PJ_EINVALIDOP — invalid operation.
-const PJ_EINVALIDOP: i32 = 150002;
-/// PJ_EBUSY — resource busy.
-const PJ_EBUSY: i32 = 150003;
+// PJSUA status constants come from the single FFI source of truth (ffi::bindings —
+// bindgen under pjsua-native, stub aliases otherwise). No local duplicates.
+use crate::ffi::bindings::{PJ_EBUSY, PJ_EINVALIDOP, PJ_ENOMEM, PJ_SUCCESS};
 
 // ---------------------------------------------------------------------------
-// SipErrorKind — 23 semantically-named error variants
+// SipErrorKind — 24 semantically-named error variants
 // ---------------------------------------------------------------------------
 
 /// Semantic classification of a `SipError`.
 ///
 /// Each variant represents a distinct category of failure in the SIP stack.
-/// The 23 variants cover all siprs operations: configuration, registration,
-/// call setup, media, transport, DTMF, shutdown, and internal invariants.
+/// The 24 variants cover all siprs operations: configuration, argument
+/// validation, registration, call setup, media, transport, DTMF, shutdown,
+/// and internal invariants.
 ///
 /// # Invariant
-/// Exactly 23 variants exist (verified by `variant_count()` test).
+/// Exactly 24 variants exist (verified by `variant_count()` test).
 /// No M20 command-specific variants are added — M20 errors reuse existing
 /// variants (InvalidState, AccountNotFound, NativeError).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SipErrorKind {
     /// The provided configuration is invalid.
     InvalidConfig,
+    /// An argument supplied to an operation is invalid (empty, out of range,
+    /// or outside the allowed alphabet).
+    InvalidArgument,
     /// The operation is not valid in the current state.
     InvalidState,
     /// The client is already initialized — cannot initialize again.
@@ -107,10 +101,11 @@ pub enum SipErrorKind {
 
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 impl std::fmt::Display for SipErrorKind {
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             Self::InvalidConfig => "InvalidConfig",
+            Self::InvalidArgument => "InvalidArgument",
             Self::InvalidState => "InvalidState",
             Self::AlreadyInitialized => "AlreadyInitialized",
             Self::NotInitialized => "NotInitialized",
@@ -138,7 +133,7 @@ impl std::fmt::Display for SipErrorKind {
     }
 }
 
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P9-3, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3|P11-9) --for-spec --no-implementation-order`.
 impl SipErrorKind {
     /// Returns `true` if operations producing this error are typically retryable.
     ///
@@ -147,6 +142,7 @@ impl SipErrorKind {
     pub fn retryable(&self) -> bool {
         match self {
             Self::InvalidConfig
+            | Self::InvalidArgument
             | Self::InvalidState
             | Self::AlreadyInitialized
             | Self::NotInitialized
@@ -180,15 +176,17 @@ impl SipErrorKind {
 
 /// The top-level error type for the siprs public API.
 ///
-/// All public async functions return `Result<T, SipError>`. The `kind` field
+/// Every public async operation yields `Result<T, SipError>`. The `kind` field
 /// provides semantic classification via `SipErrorKind`. The `retryable` flag
-/// guides caller retry logic. Optional context fields (`account_id`, `call_id`,
-/// `native_status`) enrich diagnostic information.
+/// guides caller retry logic. Optional context fields (`account_id: Option<AccountId>`,
+/// `call_id: Option<CallId>`, `native_status: Option<i32>`) enrich diagnostic
+/// information; the id fields are NonZeroU64-backed newtypes so a bare `0` is
+/// never storable.
 ///
 /// # Invariant
 /// - `SipError` is `Send + Sync` for async API compatibility.
 /// - Struct has exactly 6 public fields.
-/// - Once constructed, immutable — `with_*` methods return new instances.
+/// - Once constructed, immutable — `with_*` methods produce new instances.
 #[derive(Debug, Clone, thiserror::Error)]
 #[error("{kind}: {message}")]
 pub struct SipError {
@@ -200,13 +198,17 @@ pub struct SipError {
     ///
     /// `Some(status)` when the error originates from an FFI call.
     /// `None` for errors that do not involve the native stack.
-    ///
-// [::STUB::] P9-5: Error fields use i32/u64 instead of AccountId/CallId newtypes pending caller migration -- Migrate native_status and AccountInfo to AccountId/CallId newtypes once the newtypes are stable across callers
     pub native_status: Option<i32>,
     /// Optional account ID associated with this error.
-    pub account_id: Option<u64>,
+    ///
+    /// `AccountId` is a NonZeroU64-backed newtype — the PJSUA 0 invalid
+    /// sentinel is unrepresentable and always maps to `None` at the FFI boundary.
+    pub account_id: Option<AccountId>,
     /// Optional call ID associated with this error.
-    pub call_id: Option<u64>,
+    ///
+    /// `CallId` is a NonZeroU64-backed newtype — the PJSUA 0 invalid
+    /// sentinel is unrepresentable and always maps to `None` at the FFI boundary.
+    pub call_id: Option<CallId>,
     /// Whether the caller should consider retrying the operation.
     ///
     /// `true` for transient failures (timeout, network, resource contention).
@@ -214,7 +216,7 @@ pub struct SipError {
     pub retryable: bool,
 }
 
-// [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P9-2, P9-3, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-2|P9-3|P9-5) --for-spec --no-implementation-order`.
 impl SipError {
     /// Create a new `SipError` with the given `kind` and `message`.
     ///
@@ -241,6 +243,15 @@ impl SipError {
         Self::new(SipErrorKind::InvalidState, message)
     }
 
+    /// Create a convenience `SipError` with `kind = InvalidArgument`.
+    ///
+    /// Used when an argument to an operation is invalid (empty, out of range,
+    /// or outside an allowed alphabet). Not retryable — the caller must fix
+    /// the argument.
+    pub fn invalid_argument(message: impl Into<String>) -> Self {
+        Self::new(SipErrorKind::InvalidArgument, message)
+    }
+
     /// Create a convenience `SipError` with `kind = NativeError`.
     ///
     /// `retryable` is set to `NativeError::retryable()` (typically `true`)
@@ -250,10 +261,19 @@ impl SipError {
         Self::new(SipErrorKind::NativeError, message)
     }
 
+    /// Create a convenience `SipError` with `kind = CallNotFound`.
+    ///
+    /// Used by call-scoped APIs (e.g. `subscribe_audio`, RFC §22 M20 追補) when
+    /// the target call is not present in the reactor's call registry.
+    pub fn not_found(message: impl Into<String>) -> Self {
+        Self::new(SipErrorKind::CallNotFound, message)
+    }
+
     /// Return a new `SipError` with the `account_id` field set.
     ///
-    /// All other fields are preserved from `self`.
-    pub fn with_account_id(self, account_id: u64) -> Self {
+    /// All other fields are preserved from `self`. The `AccountId` newtype
+    /// guarantees the value is non-zero, so a PJSUA 0 sentinel can never be stored.
+    pub fn with_account_id(self, account_id: AccountId) -> Self {
         Self {
             account_id: Some(account_id),
             ..self
@@ -262,8 +282,9 @@ impl SipError {
 
     /// Return a new `SipError` with the `call_id` field set.
     ///
-    /// All other fields are preserved from `self`.
-    pub fn with_call_id(self, call_id: u64) -> Self {
+    /// All other fields are preserved from `self`. The `CallId` newtype
+    /// guarantees the value is non-zero, so a PJSUA 0 sentinel can never be stored.
+    pub fn with_call_id(self, call_id: CallId) -> Self {
         Self {
             call_id: Some(call_id),
             ..self
@@ -312,16 +333,22 @@ pub fn convert_pj_status(status: i32) -> Option<SipErrorKind> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ffi::bindings::{PJ_EBUSY, PJ_EINVALIDOP, PJ_ENOMEM, PJ_SUCCESS};
+    use crate::model::id_design_newtype::IdError;
+    use crate::model::{AccountId, CallId};
 
     // ── Normal: SipError construction ──────────────────────────────────
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
     fn sip_error_new_creates_with_correct_kind_and_message() {
         let err = SipError::new(SipErrorKind::InvalidConfig, "bad host");
         assert_eq!(err.kind, SipErrorKind::InvalidConfig);
         assert_eq!(err.message, "bad host");
         assert_eq!(err.native_status, None);
+        // Compile-time proof that the id fields are newtype-backed, not Option<u64>.
+        let _: Option<AccountId> = err.account_id;
+        let _: Option<CallId> = err.call_id;
         assert_eq!(err.account_id, None);
         assert_eq!(err.call_id, None);
     }
@@ -343,29 +370,38 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-    fn sip_error_with_account_id_sets_field() {
-        let err = SipError::new(SipErrorKind::AccountNotFound, "not found").with_account_id(42);
-        assert_eq!(err.account_id, Some(42));
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    fn sip_error_with_account_id_sets_field() -> Result<(), Box<dyn std::error::Error>> {
+        let account_id = AccountId::from_u64(42)?;
+        let err =
+            SipError::new(SipErrorKind::AccountNotFound, "not found").with_account_id(account_id);
+        assert_eq!(err.account_id, Some(account_id));
         assert_eq!(err.kind, SipErrorKind::AccountNotFound);
+        Ok(())
     }
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-    fn sip_error_with_call_id_sets_field() {
-        let err = SipError::new(SipErrorKind::CallNotFound, "not found").with_call_id(99);
-        assert_eq!(err.call_id, Some(99));
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    fn sip_error_with_call_id_sets_field() -> Result<(), Box<dyn std::error::Error>> {
+        let call_id = CallId::from_u64(99)?;
+        let err = SipError::new(SipErrorKind::CallNotFound, "not found").with_call_id(call_id);
+        assert_eq!(err.call_id, Some(call_id));
+        Ok(())
     }
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-    fn sip_error_with_account_id_preserves_existing_account_id() {
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    fn sip_error_with_account_id_preserves_existing_account_id(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // Calling with_account_id twice should keep the second value
+        let first = AccountId::from_u64(1)?;
+        let second = AccountId::from_u64(2)?;
         let err = SipError::new(SipErrorKind::AccountNotFound, "")
-            .with_account_id(1)
-            .with_account_id(2);
-        assert_eq!(err.account_id, Some(2));
+            .with_account_id(first)
+            .with_account_id(second);
+        assert_eq!(err.account_id, Some(second));
         assert_eq!(err.call_id, None);
+        Ok(())
     }
 
     // ── Normal: Display & Debug ───────────────────────────────────────
@@ -378,14 +414,14 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-    fn sip_error_debug_includes_all_fields() {
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    fn sip_error_debug_includes_all_fields() -> Result<(), Box<dyn std::error::Error>> {
         let err = SipError {
             kind: SipErrorKind::InvalidConfig,
             message: "err".into(),
             native_status: Some(123),
-            account_id: Some(456),
-            call_id: Some(789),
+            account_id: Some(AccountId::from_u64(456)?),
+            call_id: Some(CallId::from_u64(789)?),
             retryable: true,
         };
         let debug = format!("{err:?}");
@@ -395,30 +431,32 @@ mod tests {
             "Debug must show native_status"
         );
         assert!(
-            debug.contains("account_id: Some(456)"),
-            "Debug must show account_id"
+            debug.contains("account_id: Some(AccountId(456))"),
+            "Debug must show account_id as a newtype"
         );
         assert!(
-            debug.contains("call_id: Some(789)"),
-            "Debug must show call_id"
+            debug.contains("call_id: Some(CallId(789))"),
+            "Debug must show call_id as a newtype"
         );
         assert!(
             debug.contains("retryable: true"),
             "Debug must show retryable"
         );
+        Ok(())
     }
 
     // ── Normal: SipErrorKind Display for all 23 variants (O-002) ────
 
     #[test]
     // @verifies C017
-    // [::TICKET::] P6-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P6-2 --for-spec --no-implementation-order`.
-    fn sip_error_kind_display_shows_variant_name_for_all_23() {
+    // [::TICKET::] P6-2, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-2|P9-3) --for-spec --no-implementation-order`.
+    fn sip_error_kind_display_shows_variant_name_for_all_24() {
         // ABC O-002 closure: previously only 3 kinds (InvalidConfig, NativeError,
         // ShutdownInProgress) were pinned by SipError-level Display tests. The other
         // 20 Display arms could drift from their variant names without any test failing.
-        const CASES: [(SipErrorKind, &str); 23] = [
+        const CASES: [(SipErrorKind, &str); 24] = [
             (SipErrorKind::InvalidConfig, "InvalidConfig"),
+            (SipErrorKind::InvalidArgument, "InvalidArgument"),
             (SipErrorKind::InvalidState, "InvalidState"),
             (SipErrorKind::AlreadyInitialized, "AlreadyInitialized"),
             (SipErrorKind::NotInitialized, "NotInitialized"),
@@ -464,6 +502,15 @@ mod tests {
         let err = SipError::invalid_state("bad state");
         assert_eq!(err.kind, SipErrorKind::InvalidState);
         assert_eq!(err.message, "bad state");
+    }
+
+    #[test]
+    // [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+    fn sip_error_invalid_argument_uses_correct_kind() {
+        let err = SipError::invalid_argument("bad digit");
+        assert_eq!(err.kind, SipErrorKind::InvalidArgument);
+        assert_eq!(err.message, "bad digit");
+        assert!(!err.retryable, "InvalidArgument must not be retryable");
     }
 
     #[test]
@@ -533,22 +580,25 @@ mod tests {
     // ── Error: SipError with all context fields ───────────────────────
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-    fn sip_error_with_all_fields_round_trips_correctly() {
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    fn sip_error_with_all_fields_round_trips_correctly() -> Result<(), Box<dyn std::error::Error>> {
+        let account_id = AccountId::from_u64(456)?;
+        let call_id = CallId::from_u64(789)?;
         let err = SipError {
             kind: SipErrorKind::InvalidConfig,
             message: "err".into(),
             native_status: Some(123),
-            account_id: Some(456),
-            call_id: Some(789),
+            account_id: Some(account_id),
+            call_id: Some(call_id),
             retryable: true,
         };
         assert_eq!(err.kind, SipErrorKind::InvalidConfig);
         assert_eq!(err.message, "err");
         assert_eq!(err.native_status, Some(123));
-        assert_eq!(err.account_id, Some(456));
-        assert_eq!(err.call_id, Some(789));
+        assert_eq!(err.account_id, Some(account_id));
+        assert_eq!(err.call_id, Some(call_id));
         assert!(err.retryable);
+        Ok(())
     }
 
     #[test]
@@ -571,18 +621,32 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-    fn sip_error_with_account_id_zero_is_valid() {
-        // Account ID 0 is a valid sentinel — not treated as None
-        let err = SipError::new(SipErrorKind::AccountNotFound, "").with_account_id(0);
-        assert_eq!(err.account_id, Some(0));
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    fn sip_error_account_id_zero_sentinel_is_none() {
+        // P9-5: PJSUA's 0 invalid-sentinel is unrepresentable as an AccountId (NonZeroU64).
+        // The 0 sentinel must map to None at the FFI boundary — never a stored 0.
+        assert_eq!(AccountId::from_u64(0), Err(IdError::ZeroValue));
+        assert_eq!(AccountId::from_u64(0).ok(), None);
     }
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-    fn sip_error_with_call_id_zero_is_valid() {
-        let err = SipError::new(SipErrorKind::CallNotFound, "").with_call_id(0);
-        assert_eq!(err.call_id, Some(0));
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    fn sip_error_call_id_zero_sentinel_is_none() {
+        // P9-5: same 0-sentinel rule for CallId — 0 maps to None, never a stored 0.
+        assert_eq!(CallId::from_u64(0), Err(IdError::ZeroValue));
+        assert_eq!(CallId::from_u64(0).ok(), None);
+    }
+
+    #[test]
+    // [::TICKET::] P0-4, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-5) --for-spec --no-implementation-order`.
+    fn sip_error_newtype_ids_round_trip_nonzero() -> Result<(), Box<dyn std::error::Error>> {
+        // P9-5: non-zero native ids round-trip through from_u64 without loss, so the
+        // FFI boundary can convert any valid PJSUA id to the newtype representation.
+        let account_id = AccountId::from_u64(42)?;
+        let call_id = CallId::from_u64(7)?;
+        assert_eq!(account_id.get().get(), 42);
+        assert_eq!(call_id.get().get(), 7);
+        Ok(())
     }
 
     // ── Invariant: Send + Sync ────────────────────────────────────────
@@ -626,13 +690,14 @@ mod tests {
     // ── Invariant: SipErrorKind variant count = 23 ────────────────────
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-    fn sip_error_kind_variant_count_is_23() {
+    // [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+    fn sip_error_kind_variant_count_is_24() {
         // @verifies C018
 
-        const EXPECTED: usize = 23;
+        const EXPECTED: usize = 24;
         let all = vec![
             SipErrorKind::InvalidConfig,
+            SipErrorKind::InvalidArgument,
             SipErrorKind::InvalidState,
             SipErrorKind::AlreadyInitialized,
             SipErrorKind::NotInitialized,
@@ -667,11 +732,12 @@ mod tests {
     // ── Invariant: SipErrorKind::retryable() consistency ──────────────
 
     #[test]
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
     fn sip_error_kind_retryable_is_consistent_with_new() {
         // SipError::new() must set retryable to the same value as kind.retryable()
         let all = [
             (SipErrorKind::InvalidConfig, false),
+            (SipErrorKind::InvalidArgument, false),
             (SipErrorKind::InvalidState, false),
             (SipErrorKind::AlreadyInitialized, false),
             (SipErrorKind::NotInitialized, false),
@@ -714,14 +780,15 @@ mod tests {
     #[test]
     // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
     // @verifies C017
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
-    fn exhaustive_match_over_sip_error_kind_has_23_branches() {
+    // [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
+    fn exhaustive_match_over_sip_error_kind_has_24_branches() {
         // If a variant is added without updating this match, the test
         // fails to compile — guaranteeing exhaustive coverage.
-        // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-4, P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-3) --for-spec --no-implementation-order`.
         fn classify(kind: SipErrorKind) -> &'static str {
             match kind {
                 SipErrorKind::InvalidConfig => "config",
+                SipErrorKind::InvalidArgument => "argument",
                 SipErrorKind::InvalidState => "state",
                 SipErrorKind::AlreadyInitialized => "init",
                 SipErrorKind::NotInitialized => "not_init",

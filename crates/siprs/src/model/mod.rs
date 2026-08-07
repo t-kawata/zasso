@@ -1,8 +1,9 @@
+
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P2-3: model module — SQLite persistence schema & DatabasePool.
-// The model/ directory also contains AudioChunkPair, ID design, and memory/ownership
-// stubs deferred to future tickets (P3-2 memory/ownership, P5-1 raw SIP message).
+// The model/ directory also contains AudioChunkPair, ID design, memory/ownership,
+// and the RFC §16 raw SIP message model (raw_sip_message_spec).
 
 /// ID newtypes — unconditionally compiled (not behind sqlite-storage feature)
 /// since AccountId, CallId, AudioSourceId are used across the entire crate.
@@ -51,3 +52,27 @@ pub mod sqlite_schema;
 
 #[cfg(feature = "sqlite-storage")]
 pub use sqlite_schema::*;
+
+/// Raw SIP message model — RFC §16 (N0024): parsed fields, parser, accessors.
+// [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
+pub mod raw_sip_message_spec;
+
+pub use raw_sip_message_spec::{RawSipMessage, SipMessageDirection};
+
+/// Memory ownership model and default policies — RFC §47/§48 (N0056).
+// [::TICKET::] P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-3 --for-spec --no-implementation-order`.
+pub mod memory_ownership_defaults;
+
+pub use memory_ownership_defaults::{
+    // [::TICKET::] P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-3 --for-spec --no-implementation-order`.
+    AudioDelivery,
+    CodecKind,
+    DefaultPolicies,
+    DtmfSendMethod,
+    MemoryOwnership,
+    MemoryOwnershipTag,
+    NativePtrClassification,
+    OwnershipScope,
+    SrtpMode,
+    TransportKind,
+};

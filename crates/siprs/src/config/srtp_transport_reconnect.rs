@@ -235,20 +235,34 @@ mod tests {
 
     #[test]
     // @verifies C043
-    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1, P11-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P11-16) --for-spec --no-implementation-order`.
     fn srtp_mandatory_requires_feature_enabled() {
         assert!(SrtpPolicy::Mandatory.validate(true).is_ok());
         let err = SrtpPolicy::Mandatory.validate(false).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InvalidConfig);
+        // C043 Postcondition message clause: the error must name SRTP and the
+        // policy variant so a regression dropping the context is detected.
+        assert!(err.message.contains("SRTP"), "error message must name SRTP");
+        assert!(
+            err.message.contains("Mandatory"),
+            "C043: error message must contain the policy variant"
+        );
     }
 
     #[test]
     // @verifies C043
-    // [::TICKET::] P1-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-1, P11-16 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P11-16) --for-spec --no-implementation-order`.
     fn srtp_optional_requires_feature_enabled() {
         assert!(SrtpPolicy::Optional.validate(true).is_ok());
         let err = SrtpPolicy::Optional.validate(false).unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InvalidConfig);
+        // C043 Postcondition message clause: the error must name SRTP and the
+        // policy variant so a regression dropping the context is detected.
+        assert!(err.message.contains("SRTP"), "error message must name SRTP");
+        assert!(
+            err.message.contains("Optional"),
+            "C043: error message must contain the policy variant"
+        );
     }
 
     // ── C043-Inv: Invariant — Disabled universally valid

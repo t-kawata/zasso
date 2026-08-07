@@ -103,7 +103,7 @@ impl VersionPolicy {
         if is_security_fix {
             return Ok(VersionBump::Patch);
         }
-// [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
         match (self.phase, change) {
             (SemverPhase::ZeroX, ChangeKind::Breaking) => Ok(VersionBump::Minor),
             (SemverPhase::ZeroX, ChangeKind::Additive) => Ok(VersionBump::Minor),

@@ -389,7 +389,7 @@ mod tests {
     #[test]
     // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn traits_clone_debug_copy_eq() {
-// [::TICKET::] P4-1, P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P8-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-1, P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P8-3) --for-spec --no-implementation-order`.
         fn assert_traits<T: Clone + std::fmt::Debug + Copy + PartialEq + Eq>() {}
         assert_traits::<CallState>();
         assert_traits::<CallTransitionError>();
@@ -444,13 +444,17 @@ mod tests {
     /// extra true cell (e.g. New->Active, Held->Calling, Disconnected->New) fails
     /// this suite.
     #[test]
-// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
     fn transition_table_has_no_implicit_edges() {
         for from in ALL_STATES {
             for to in ALL_STATES {
                 let is_expected = EXPECTED_EDGES.contains(&(from, to));
                 if is_expected {
-                    assert_eq!(from.transition(to), Ok(to), "missing valid edge {from:?}->{to:?}");
+                    assert_eq!(
+                        from.transition(to),
+                        Ok(to),
+                        "missing valid edge {from:?}->{to:?}"
+                    );
                 } else {
                     assert!(
                         from.transition(to).is_err(),
@@ -465,7 +469,7 @@ mod tests {
     /// O-003 — `can_transition_to()` must agree with `transition()` on every cell
     /// of the 13x13 matrix. This predicate was previously completely untested.
     #[test]
-// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
     fn can_transition_to_matches_transition_table() {
         for from in ALL_STATES {
             for to in ALL_STATES {
@@ -484,7 +488,7 @@ mod tests {
     /// valid path (BYE/hangup during a held call). The prior termination_path test
     /// only covered Active->Disconnecting->Disconnected, so this edge was untested.
     #[test]
-// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
     fn held_to_disconnecting_termination_edge() {
         assert_eq!(
             CallState::Held.transition(CallState::Disconnecting),
@@ -500,7 +504,7 @@ mod tests {
     /// Boundary — terminal states Disconnected and Failed are absorbing: they have
     /// no self-loop and no outgoing edge (their transition rows are all-false).
     #[test]
-// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
     fn terminal_states_are_absorbing() {
         for from in [CallState::Disconnected, CallState::Failed] {
             assert!(from.is_terminal());
@@ -522,7 +526,7 @@ mod tests {
     /// Failed within the 20-edge DAG. This is the "complete DAG, no dead cycles"
     /// invariant asserted by construction.
     #[test]
-// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
     fn all_non_terminal_states_reach_terminal() {
         for start in ALL_STATES {
             if start.is_terminal() {

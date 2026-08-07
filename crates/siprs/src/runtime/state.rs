@@ -54,14 +54,16 @@ pub struct ClientState {
 /// Per-account tracking entry held in the reactor's `ClientState`.
 ///
 /// `native_id` links the logical `AccountId` to the PJSUA native `pjsua_acc_id`.
+// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
 #[derive(Clone, Debug)]
 pub struct AccountEntry {
     /// Placeholder for `AccountId` — replaced in P0-3.
     pub id: u64,
     /// Placeholder for `pjsua_acc_id` — populated by FFI layer (P0-6).
     pub native_id: i32,
-    /// Placeholder for `AccountConfig` — replaced in P0-3.
-    pub config: String,
+    /// The full account configuration — the reactor's `ClientState` is the
+    /// source of truth for account config (P10-3 lifecycle).
+    pub config: crate::config::account_config_spec::AccountConfig,
     /// Registration state — placeholder for `RegistrationState` (P4-1).
     pub registration: String,
 }
@@ -188,17 +190,49 @@ mod tests {
 
     #[test]
     // @verifies C046
-    // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P10-1|P10-3) --for-spec --no-implementation-order`.
     fn account_entry_links_id_to_native_id() {
         // Contract-C046 invariant: AccountEntry maps logical id to native id.
+        // P10-1: registration stores a canonical RegistrationState Display string.
         let entry = AccountEntry {
             id: 42,
             native_id: 7,
-            config: "stub".into(),
-            registration: "Unregistered".into(),
+            config: crate::config::account_config_spec::AccountConfig::default(),
+            registration: "Idle".into(),
         };
         assert_eq!(entry.id, 42);
         assert_eq!(entry.native_id, 7);
+    }
+
+    #[test]
+    // @verifies C046, C026
+    // P10-1: AccountEntry.registration stores a canonical RegistrationState
+    // Display string (or the legacy "Unregistered") — the storage contract that
+    // RegistrationState::from_storage_str inverts.
+    // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+    fn account_entry_registration_uses_canonical_storage_strings() {
+        let canonical = [
+            "Disabled",
+            "Idle",
+            "Registering",
+            "Registered",
+            "Unregistering",
+            "Failed",
+            "Expired",
+            // Legacy storage string accepted for backwards compatibility.
+            "Unregistered",
+        ];
+        for registration in canonical {
+            let entry = AccountEntry {
+                id: 1,
+                native_id: 1,
+                config: crate::config::account_config_spec::AccountConfig::default(),
+                registration: registration.into(),
+            };
+            let _state = crate::state::registr_state_machine::RegistrationState::from_storage_str(
+                &entry.registration,
+            );
+        }
     }
 
     // Contract-C046 invariant: no blocking_read() calls in runtime module.
@@ -226,7 +260,7 @@ mod tests {
 
     #[test]
     // @verifies C046
-    // [::TICKET::] P3-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P4-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P10-3) --for-spec --no-implementation-order`.
     fn client_state_after_account_add_accounts_populated() {
         let mut state = ClientState::default();
         let acc1 = create_account_id(1);
@@ -236,7 +270,7 @@ mod tests {
             AccountEntry {
                 id: 1,
                 native_id: 100,
-                config: "sip:user@domain.com".into(),
+                config: crate::config::account_config_spec::AccountConfig::default(),
                 registration: "Registered".into(),
             },
         );
@@ -245,7 +279,7 @@ mod tests {
             AccountEntry {
                 id: 2,
                 native_id: 101,
-                config: "sip:user2@domain.com".into(),
+                config: crate::config::account_config_spec::AccountConfig::default(),
                 registration: "Registered".into(),
             },
         );
@@ -298,12 +332,12 @@ mod tests {
 
     #[test]
     // @verifies C046
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-7) --for-spec --no-implementation-order`.
     fn transport_runtime_state_default() {
-        let t = TransportRuntimeState::default();
-        assert_eq!(t.transport_id, 0);
-        assert!(t.transport_type.is_empty());
-        assert_eq!(t.port, 0);
+        let transport_state = TransportRuntimeState::default();
+        assert_eq!(transport_state.transport_id, 0);
+        assert!(transport_state.transport_type.is_empty());
+        assert_eq!(transport_state.port, 0);
     }
 
     #[test]

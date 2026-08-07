@@ -90,7 +90,7 @@ pub enum RegistrationState {
     Expired,
 }
 
-// [::TICKET::] P4-1, P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P8-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P4-1, P8-3, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P8-3|P10-1) --for-spec --no-implementation-order`.
 impl RegistrationState {
     /// Transition table indexed by (from_state, to_state).
     ///
@@ -143,6 +143,26 @@ impl RegistrationState {
     /// via `Registering`, no automatic progression occurs from them.
     pub fn is_terminal(self) -> bool {
         matches!(self, RegistrationState::Failed | RegistrationState::Expired)
+    }
+
+    /// Map a canonical storage string back to the corresponding variant.
+    ///
+    /// The reactor stores `AccountEntry.registration` as the `Display` form of a
+    /// `RegistrationState` (or the legacy P0-era "Unregistered"). It inverts that
+    /// encoding. Unknown or empty strings map to `Disabled` — the safe default —
+    /// so account-info retrieval never panics on unparseable state.
+    pub fn from_storage_str(storage: &str) -> RegistrationState {
+        match storage {
+            "Disabled" => RegistrationState::Disabled,
+            "Idle" => RegistrationState::Idle,
+            "Registering" => RegistrationState::Registering,
+            "Registered" => RegistrationState::Registered,
+            "Unregistering" => RegistrationState::Unregistering,
+            "Failed" => RegistrationState::Failed,
+            "Expired" => RegistrationState::Expired,
+            "Unregistered" => RegistrationState::Idle,
+            _ => RegistrationState::Disabled,
+        }
     }
 }
 
@@ -358,7 +378,7 @@ mod tests {
     #[test]
     // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
     fn traits_clone_debug_copy_eq() {
-// [::TICKET::] P4-1, P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P8-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-1, P8-3, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P8-3|P10-1) --for-spec --no-implementation-order`.
         fn assert_traits<T: Clone + std::fmt::Debug + Copy + PartialEq + Eq>() {}
         assert_traits::<RegistrationState>();
         assert_traits::<TransitionError>();
@@ -381,9 +401,15 @@ mod tests {
     const EXPECTED_EDGES: [(RegistrationState, RegistrationState); 10] = [
         (RegistrationState::Disabled, RegistrationState::Registering),
         (RegistrationState::Idle, RegistrationState::Registering),
-        (RegistrationState::Registering, RegistrationState::Registered),
+        (
+            RegistrationState::Registering,
+            RegistrationState::Registered,
+        ),
         (RegistrationState::Registering, RegistrationState::Failed),
-        (RegistrationState::Registered, RegistrationState::Unregistering),
+        (
+            RegistrationState::Registered,
+            RegistrationState::Unregistering,
+        ),
         (RegistrationState::Registered, RegistrationState::Expired),
         (RegistrationState::Unregistering, RegistrationState::Idle),
         (RegistrationState::Unregistering, RegistrationState::Failed),
@@ -396,13 +422,17 @@ mod tests {
     /// are valid, all other 39 (from,to) pairs are rejected. A spurious extra
     /// true cell (e.g. Failed->Registered, Expired->Failed) fails this suite.
     #[test]
-// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-3, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-3|P10-1) --for-spec --no-implementation-order`.
     fn transition_table_matches_rfc_edges() {
         for from in ALL_STATES {
             for to in ALL_STATES {
                 let is_expected = EXPECTED_EDGES.contains(&(from, to));
                 if is_expected {
-                    assert_eq!(from.transition(to), Ok(to), "missing valid edge {from:?}->{to:?}");
+                    assert_eq!(
+                        from.transition(to),
+                        Ok(to),
+                        "missing valid edge {from:?}->{to:?}"
+                    );
                 } else {
                     assert!(
                         from.transition(to).is_err(),
@@ -417,7 +447,7 @@ mod tests {
     /// `can_transition_to()` must agree with `transition()` on every cell of the
     /// 7x7 matrix — both read the same transition table constant.
     #[test]
-// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-3, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-3|P10-1) --for-spec --no-implementation-order`.
     fn can_transition_to_matches_transition_table() {
         for from in ALL_STATES {
             for to in ALL_STATES {
@@ -436,7 +466,7 @@ mod tests {
     /// are valid, and exactly 4 states can enter Registering: Disabled, Idle,
     /// Expired, Failed. No other state may transition into Registering.
     #[test]
-// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-3, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-3|P10-1) --for-spec --no-implementation-order`.
     fn retry_edges_reach_registering() {
         assert_eq!(
             RegistrationState::Expired.transition(RegistrationState::Registering),
@@ -471,7 +501,7 @@ mod tests {
     /// call-related payload. (The make_call signature independence is verified
     /// by the integration test in tests/verify_spec_p8_3.rs.)
     #[test]
-// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-3, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-3|P10-1) --for-spec --no-implementation-order`.
     fn registration_state_variants_are_unit_variants() {
         for state in ALL_STATES {
             match state {
@@ -484,5 +514,63 @@ mod tests {
                 | RegistrationState::Expired => {}
             }
         }
+    }
+
+    /// @verifies C026
+    /// P10-1: AccountEntry.registration stores a canonical Display string;
+    /// from_storage_str must invert the Display impl for all 7 variants and map
+    /// the legacy P0-era "Unregistered" storage string to Idle.
+    #[test]
+    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+    fn from_storage_str_maps_canonical_storage_strings() {
+        assert_eq!(
+            RegistrationState::from_storage_str("Disabled"),
+            RegistrationState::Disabled
+        );
+        assert_eq!(
+            RegistrationState::from_storage_str("Idle"),
+            RegistrationState::Idle
+        );
+        assert_eq!(
+            RegistrationState::from_storage_str("Registering"),
+            RegistrationState::Registering
+        );
+        assert_eq!(
+            RegistrationState::from_storage_str("Registered"),
+            RegistrationState::Registered
+        );
+        assert_eq!(
+            RegistrationState::from_storage_str("Unregistering"),
+            RegistrationState::Unregistering
+        );
+        assert_eq!(
+            RegistrationState::from_storage_str("Failed"),
+            RegistrationState::Failed
+        );
+        assert_eq!(
+            RegistrationState::from_storage_str("Expired"),
+            RegistrationState::Expired
+        );
+        // Legacy storage string from the P0-era reactor maps to Idle.
+        assert_eq!(
+            RegistrationState::from_storage_str("Unregistered"),
+            RegistrationState::Idle
+        );
+    }
+
+    /// @verifies C026
+    /// P10-1: unknown or empty storage strings map to the safe default Disabled —
+    /// account-info retrieval must never panic on unparseable reactor state.
+    #[test]
+    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+    fn from_storage_str_unknown_and_empty_map_to_disabled() {
+        assert_eq!(
+            RegistrationState::from_storage_str("bogus"),
+            RegistrationState::Disabled
+        );
+        assert_eq!(
+            RegistrationState::from_storage_str(""),
+            RegistrationState::Disabled
+        );
     }
 }

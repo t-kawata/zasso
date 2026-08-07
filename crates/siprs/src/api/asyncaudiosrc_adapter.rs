@@ -29,7 +29,13 @@ pub use crate::runtime::audio_worker::{AsyncAudioSource, MockAsyncAudioSource};
 #[cfg(feature = "cpal-input")]
 use crate::error::{SipError, SipErrorKind};
 #[cfg(feature = "cpal-input")]
-use crate::model::audio_format_chunkpair::AudioFormat;
+use crate::model::audio_format_chunkpair::{AudioFormat, ChannelLayout};
+#[cfg(feature = "cpal-input")]
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+#[cfg(feature = "cpal-input")]
+use std::collections::VecDeque;
+#[cfg(feature = "cpal-input")]
+use std::sync::{Arc, Mutex};
 
 // ---------------------------------------------------------------------------
 // ErasedAudioSource — object-safe wrapper for dynamic dispatch
@@ -58,7 +64,7 @@ pub trait ErasedAudioSource: Send {
     ///
     /// Returns the number of samples written. `0` indicates the source is
     /// exhausted and will produce no further data.
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
     fn next_chunk<'a>(
         &'a mut self,
         buf: &'a mut [i16],
@@ -160,24 +166,321 @@ const _: () = {
 /// injected — the trait abstraction is complete without the microphone.
 ///
 /// # Contract (C051)
-/// The signature is the RFC-specified API surface. Real capture requires the
-/// `cpal` crate, which the AsyncAudioSource ticket's no-new-dependencies
-// [::STUB::] P8-7: open_default_microphone_source returns a placeholder because real device capture is not yet wired -- Add cpal as an optional dependency behind the cpal-input feature and implement device-backed capture returning Result<Box<dyn AsyncAudioSource>, SipError> with an integration test
-/// constraint prohibits; the body currently returns a typed error.
+/// With `cpal-input` enabled and a default input device present, this returns
+/// `Ok(Box<dyn AsyncAudioSource>)` whose `next_chunk` fills an `i16` buffer with
+/// captured PCM. Device-open, format-mismatch, build-stream, and play failures
+/// surface as `Err(SipError)` — never a panic.
 #[cfg(feature = "cpal-input")]
 pub async fn open_default_microphone_source(
     format: AudioFormat,
 ) -> Result<Box<dyn AsyncAudioSource>, SipError> {
-    let _ = format;
-    Err(SipError::new(
+    let source = CpalMicrophoneSource::new(format)?;
+    Ok(Box::new(source))
+}
+
+// ---------------------------------------------------------------------------
+// SampleQueue — thread-safe FIFO of i16 PCM shared with the cpal callback
+// ---------------------------------------------------------------------------
+
+/// A FIFO of i16 PCM samples shared between the cpal callback thread (producer)
+/// and the async `next_chunk` consumer. The callback clones the queue (an Arc
+/// clone) and pushes; `next_chunk` drains. A poisoned mutex is recovered via
+/// `into_inner()` because the callback must never unwind across the audio
+/// boundary.
+#[cfg(feature = "cpal-input")]
+#[derive(Clone, Default)]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+struct SampleQueue {
+    samples: Arc<Mutex<VecDeque<i16>>>,
+}
+
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+impl SampleQueue {
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    fn new() -> Self {
+        Self::default()
+    }
+
+    /// Append samples from the cpal callback thread.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    fn push_i16(&self, samples: &[i16]) {
+        self.samples
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .extend(samples.iter().copied());
+    }
+
+    /// Drain queued samples into `buf` in FIFO order; returns the number written.
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    fn drain_to(&self, buf: &mut [i16]) -> usize {
+        let mut guard = self
+            .samples
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let written = guard.len().min(buf.len());
+        for (slot, sample) in buf.iter_mut().zip(guard.drain(..written)) {
+            *slot = sample;
+        }
+        written
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Sample conversion helpers — device sample format → i16 pipeline contract
+// ---------------------------------------------------------------------------
+
+/// Scale factor mapping an f32 sample in [-1.0, 1.0] to the i16 range (2^15).
+#[cfg(feature = "cpal-input")]
+const F32_TO_I16_SCALE: f32 = 32768.0;
+
+/// DC-offset midpoint of the u16 sample space (2^15), mapping to i16 zero.
+#[cfg(feature = "cpal-input")]
+const U16_DC_OFFSET: i32 = 0x8000;
+
+/// Convert an f32 sample in [-1.0, 1.0] to i16, clamping out-of-range values.
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+fn convert_f32_sample_to_i16(sample: f32) -> i16 {
+    let scaled = sample * F32_TO_I16_SCALE;
+    scaled.clamp(i16::MIN as f32, i16::MAX as f32) as i16
+}
+
+/// Convert a u16 sample to i16 with a DC-offset-preserving mapping.
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+fn convert_u16_sample_to_i16(sample: u16) -> i16 {
+    (sample as i32 - U16_DC_OFFSET) as i16
+}
+
+// ---------------------------------------------------------------------------
+// Device error mapping — every cpal failure becomes a typed SipError
+// ---------------------------------------------------------------------------
+
+/// cpal 0.18 consolidates all device/stream failures into a single `cpal::Error`;
+/// each mapping keeps a distinct message prefix so logs are greppable.
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+fn map_default_config_error(err: cpal::Error) -> SipError {
+    SipError::new(
         SipErrorKind::NativeError,
-        "cpal microphone source not yet integrated (P8-4)",
-    ))
+        format!("default_input_config_failed: {err}"),
+    )
+}
+
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+fn map_supported_configs_error(err: cpal::Error) -> SipError {
+    SipError::new(
+        SipErrorKind::NativeError,
+        format!("supported_input_configs_failed: {err}"),
+    )
+}
+
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+fn map_build_stream_error(err: cpal::Error) -> SipError {
+    SipError::new(
+        SipErrorKind::NativeError,
+        format!("build_stream_failed: {err}"),
+    )
+}
+
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+fn map_play_error(err: cpal::Error) -> SipError {
+    SipError::new(SipErrorKind::NativeError, format!("play_failed: {err}"))
+}
+
+/// cpal's error callback — log only; never unwind across the audio boundary.
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+fn input_stream_error(err: cpal::Error) {
+    tracing::error!(error = %err, "cpal input stream error");
+}
+
+// ---------------------------------------------------------------------------
+// CpalMicrophoneSource — device-backed AsyncAudioSource
+// ---------------------------------------------------------------------------
+
+/// The concrete device-backed source returned by `open_default_microphone_source`.
+///
+/// Holds the live `cpal::Stream` plus the shared [`SampleQueue`]. `stream` is
+/// `None` only in the `#[cfg(test)]` constructor used to exercise the queue and
+/// trait behavior without touching audio hardware.
+#[cfg(feature = "cpal-input")]
+pub struct CpalMicrophoneSource {
+    stream: Option<cpal::Stream>,
+    queue: SampleQueue,
+}
+
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+impl CpalMicrophoneSource {
+    /// Open the platform default input device, configure capture from `format`,
+    /// and start the stream.
+    pub fn new(format: AudioFormat) -> Result<Self, SipError> {
+        let host = cpal::default_host();
+        let device = host.default_input_device().ok_or_else(|| {
+            SipError::new(
+                SipErrorKind::NativeError,
+                "no_default_input_device: no default input device available",
+            )
+        })?;
+        let config = select_input_config(&device, &format)?;
+        let queue = SampleQueue::new();
+        let stream = build_input_stream(&device, &config, &queue)?;
+        stream.play().map_err(map_play_error)?;
+        Ok(Self {
+            stream: Some(stream),
+            queue,
+        })
+    }
+
+    /// Test-only constructor that bypasses the real cpal stream.
+    #[cfg(test)]
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    fn from_queue(queue: SampleQueue) -> Self {
+        Self {
+            stream: None,
+            queue,
+        }
+    }
+
+    /// Borrow the shared sample queue (used by unit tests to seed samples).
+    #[cfg(test)]
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    fn queue(&self) -> &SampleQueue {
+        &self.queue
+    }
+}
+
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+impl Drop for CpalMicrophoneSource {
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    fn drop(&mut self) {
+        // Dropping the cpal::Stream stops capture and releases the device; the
+        // explicit take() also marks the field as read (kept solely for its
+        // Drop side-effect while the source is alive).
+        self.stream.take();
+    }
+}
+
+#[cfg(feature = "cpal-input")]
+#[async_trait::async_trait]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+impl AsyncAudioSource for CpalMicrophoneSource {
+    async fn next_chunk(&mut self, buf: &mut [i16]) -> usize {
+        self.queue.drain_to(buf)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// cpal stream construction — per-format data callback → SampleQueue
+// ---------------------------------------------------------------------------
+
+/// Pick the capture config: prefer a supported config matching the requested
+/// sample rate and channel count; fall back to the device default otherwise.
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+fn select_input_config(
+    device: &cpal::Device,
+    format: &AudioFormat,
+) -> Result<cpal::SupportedStreamConfig, SipError> {
+    let requested_channels = match format.channel_layout {
+        ChannelLayout::Mono => 1,
+        ChannelLayout::StereoInOut => 2,
+    };
+    let preferred = device
+        .supported_input_configs()
+        .map_err(map_supported_configs_error)?
+        .filter_map(|config| {
+            if config.channels() == requested_channels {
+                // cpal::SampleRate is a u32 type alias in cpal 0.18.
+                config.try_with_sample_rate(format.sample_rate.as_hz())
+            } else {
+                None
+            }
+        })
+        .next();
+    match preferred {
+        Some(config) => Ok(config),
+        None => device
+            .default_input_config()
+            .map_err(map_default_config_error),
+    }
+}
+
+/// Build an input stream for the device's native sample format, converting each
+/// captured frame to i16 before enqueuing it.
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+fn build_input_stream(
+    device: &cpal::Device,
+    config: &cpal::SupportedStreamConfig,
+    queue: &SampleQueue,
+) -> Result<cpal::Stream, SipError> {
+    let stream_config = config.config();
+    let queue_for_callback = queue.clone();
+    let stream = match config.sample_format() {
+        cpal::SampleFormat::I16 => device.build_input_stream(
+            stream_config,
+            {
+                let queue = queue_for_callback.clone();
+                move |data: &[i16], _: &cpal::InputCallbackInfo| queue.push_i16(data)
+            },
+            input_stream_error,
+            None,
+        ),
+        cpal::SampleFormat::F32 => device.build_input_stream(
+            stream_config,
+            {
+                let queue = queue_for_callback.clone();
+                move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                    let converted: Vec<i16> = data
+                        .iter()
+                        .map(|&sample| convert_f32_sample_to_i16(sample))
+                        .collect();
+                    queue.push_i16(&converted);
+                }
+            },
+            input_stream_error,
+            None,
+        ),
+        cpal::SampleFormat::U16 => device.build_input_stream(
+            stream_config,
+            {
+                let queue = queue_for_callback.clone();
+                move |data: &[u16], _: &cpal::InputCallbackInfo| {
+                    let converted: Vec<i16> = data
+                        .iter()
+                        .map(|&sample| convert_u16_sample_to_i16(sample))
+                        .collect();
+                    queue.push_i16(&converted);
+                }
+            },
+            input_stream_error,
+            None,
+        ),
+        other => {
+            return Err(SipError::new(
+                SipErrorKind::AudioFormatUnsupported,
+                format!("unsupported_sample_format: {other:?}"),
+            ))
+        }
+    };
+    stream.map_err(map_build_stream_error)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Test-only imports for the cpal-input-gated signature test, kept at
+    // module scope rather than inside the test body.
+    #[cfg(feature = "cpal-input")]
+    use crate::model::audio_format_chunkpair::{BitDepth, SampleRate};
 
     // ── Normal: SyncAudioSource ─────────────────────────────────────────
 
@@ -185,7 +488,7 @@ mod tests {
     #[test]
     // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_audio_source_fills_buffer() {
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
         struct TestSource(Vec<i16>, usize);
         // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for TestSource {
@@ -214,7 +517,7 @@ mod tests {
     #[test]
     // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_audio_source_empty_returns_zero() {
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
         struct EmptySource;
         // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for EmptySource {
@@ -240,7 +543,7 @@ mod tests {
         struct TestData(Vec<i16>);
         // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for TestData {
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+            // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
             fn next_chunk(&mut self, buf: &mut [i16]) -> usize {
                 let written = self.0.len().min(buf.len());
                 buf[..written].copy_from_slice(&self.0[..written]);
@@ -258,7 +561,7 @@ mod tests {
     #[tokio::test]
     /// @verifies C033
     async fn sync_source_adapter_delegates_next_chunk() {
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
         struct FixedSource([i16; 3], usize);
         // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for FixedSource {
@@ -288,7 +591,7 @@ mod tests {
     /// @verifies C033
     #[tokio::test]
     async fn sync_source_adapter_exhausted_returns_zero() {
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
         struct Done;
         // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for Done {
@@ -329,7 +632,7 @@ mod tests {
     #[test]
     // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
     fn sync_source_adapter_empty_buffer_returns_zero() {
-// [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-4) --for-spec --no-implementation-order`.
         struct OneShot;
         // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
         impl SyncAudioSource for OneShot {
@@ -417,7 +720,7 @@ mod tests {
                 0
             }
         }
-// [::TICKET::] P5-2, P8-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-2|P8-4) --for-spec --no-implementation-order`.
+        // [::TICKET::] P5-2, P8-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P8-2|P8-4) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<SyncSourceAdapter<TestSource>>();
     }
@@ -425,20 +728,13 @@ mod tests {
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P8-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P8-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-2, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P8-4) --for-spec --no-implementation-order`.
     fn open_default_microphone_source_has_correct_signature() -> Result<(), &'static str> {
         // O-007 closure: C051 precondition — the RFC §40 signature
         // `open_default_microphone_source(format: AudioFormat) ->
         // Result<Box<dyn AsyncAudioSource>, SipError>` must exist behind the
         // cpal-input feature. The generic bound fails to compile if the output
         // type drifts (wrong error type, wrong source trait object, wrong arity).
-        use crate::error::SipError;
-        use crate::model::audio_format_chunkpair::{
-            AudioFormat, BitDepth, ChannelLayout, SampleRate,
-        };
-        use crate::runtime::audio_worker::AsyncAudioSource;
-
-// [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
         fn assert_microphone_future<F>(fut: F)
         where
             F: std::future::Future<Output = Result<Box<dyn AsyncAudioSource>, SipError>>,
@@ -450,9 +746,9 @@ mod tests {
 
         let format = AudioFormat::new(SampleRate::Hz48000, BitDepth::I16, ChannelLayout::Mono, 20)
             .map_err(|_| "48000/I16/Mono/20ms is a valid AudioFormat")?;
-        assert_microphone_future(crate::api::asyncaudiosrc_adapter::open_default_microphone_source(
-            format,
-        ));
+        assert_microphone_future(
+            crate::api::asyncaudiosrc_adapter::open_default_microphone_source(format),
+        );
         Ok(())
     }
 
@@ -464,11 +760,11 @@ mod tests {
     async fn sync_source_adapter_65536_buffer() {
         // O-004 closure: the upper extreme of the boundary invariant — a
         // 65536-sample buffer must be filled without overflow or truncation.
-// [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P8-4, P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-4|P8-7) --for-spec --no-implementation-order`.
         struct BigSource(Vec<i16>);
-// [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
         impl SyncAudioSource for BigSource {
-// [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
+            // [::TICKET::] P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-4 --for-spec --no-implementation-order`.
             fn next_chunk(&mut self, buf: &mut [i16]) -> usize {
                 let written = self.0.len().min(buf.len());
                 buf[..written].copy_from_slice(&self.0[..written]);
@@ -484,5 +780,114 @@ mod tests {
         assert_eq!(written, 65536, "adapter must fill a 65536-sample buffer");
         assert_eq!(buf[0], 7);
         assert_eq!(buf[65535], 7, "last sample must be preserved");
+    }
+
+    // ── C051: device-backed microphone source (P8-7) ──────────────────
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    fn sample_queue_drains_in_fifo_order() {
+        // C051-Post: SampleQueue::drain_to fills an i16 buffer in FIFO order.
+        let queue = SampleQueue::new();
+        queue.push_i16(&[100i16, 200i16, 300i16]);
+        let mut buf = [0i16; 4];
+        let written = queue.drain_to(&mut buf);
+        assert_eq!(written, 3, "must write exactly the queued samples");
+        assert_eq!(buf[0], 100);
+        assert_eq!(buf[1], 200);
+        assert_eq!(buf[2], 300);
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    fn sample_queue_empty_returns_zero() {
+        // C051-Post: an empty queue reports end-of-stream (0 samples).
+        let queue = SampleQueue::new();
+        let mut buf = [0i16; 4];
+        assert_eq!(queue.drain_to(&mut buf), 0, "empty queue = end of stream");
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    fn convert_f32_sample_clamps_at_i16_boundaries() {
+        // C051-Post/C051-Inv: f32 in [-1.0, 1.0] maps linearly; out-of-range clamps, never wraps.
+        assert_eq!(convert_f32_sample_to_i16(1.0), i16::MAX);
+        assert_eq!(convert_f32_sample_to_i16(-1.0), i16::MIN);
+        assert_eq!(convert_f32_sample_to_i16(0.0), 0);
+        assert_eq!(
+            convert_f32_sample_to_i16(2.0),
+            i16::MAX,
+            "out-of-range clamps, never wraps"
+        );
+        assert_eq!(convert_f32_sample_to_i16(-2.0), i16::MIN);
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    fn convert_u16_sample_is_bijective_at_extremes() {
+        // C051-Inv: u16 -> i16 mapping is bijective at the extremes and preserves DC offset.
+        assert_eq!(convert_u16_sample_to_i16(u16::MAX), i16::MAX);
+        assert_eq!(convert_u16_sample_to_i16(0), i16::MIN);
+        assert_eq!(convert_u16_sample_to_i16(0x8000), 0);
+        assert_eq!(convert_u16_sample_to_i16(1), -32767);
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[tokio::test]
+    async fn microphone_source_next_chunk_delegates_to_queue() {
+        // C051-Post: next_chunk drains the shared SampleQueue into the caller buffer.
+        let mut source = CpalMicrophoneSource::from_queue(SampleQueue::new());
+        source.queue().push_i16(&[7i16, 8i16, 9i16, 10i16]);
+        let mut out = [0i16; 4];
+        let written = AsyncAudioSource::next_chunk(&mut source, &mut out).await;
+        assert_eq!(written, 4);
+        assert_eq!(out, [7i16, 8i16, 9i16, 10i16]);
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[tokio::test]
+    async fn microphone_source_zero_length_buffer_returns_zero() {
+        // C051-Post: a zero-length buffer returns 0 without panicking.
+        let mut source = CpalMicrophoneSource::from_queue(SampleQueue::new());
+        let mut empty: [i16; 0] = [];
+        let written = AsyncAudioSource::next_chunk(&mut source, &mut empty).await;
+        assert_eq!(written, 0, "zero-length buffer returns 0 without panicking");
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+    fn microphone_source_is_send() {
+        // C051-Inv: the source can live in AudioMixer's DashMap as Box<dyn AsyncAudioSource + Send>.
+        // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+        fn assert_send<T: Send>() {}
+        assert_send::<CpalMicrophoneSource>();
+        assert_send::<Box<dyn AsyncAudioSource>>();
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[tokio::test]
+    async fn microphone_source_is_erased_audio_source() {
+        // C051-Inv/C033-Inv: ErasedAudioSource blanket impl auto-derives for the concrete source.
+        let mut erased: Box<dyn ErasedAudioSource> =
+            Box::new(CpalMicrophoneSource::from_queue(SampleQueue::new()));
+        let mut buf = vec![0i16; 4];
+        let written = erased.next_chunk(&mut buf).await;
+        assert_eq!(
+            written, 0,
+            "empty source reports end-of-stream through the erased wrapper"
+        );
     }
 }

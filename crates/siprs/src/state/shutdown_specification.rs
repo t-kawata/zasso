@@ -76,7 +76,7 @@ impl ShutdownPhase {
 // ---------------------------------------------------------------------------
 
 /// Errors that can occur during a shutdown phase.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ShutdownError {
     /// A phase completed with a backend error.
     PhaseFailed {
@@ -135,18 +135,16 @@ impl std::error::Error for ShutdownError {
 /// - `is_shutdown_started()` returns `true` after the first call to
 ///   `mark_shutdown_started()` or `execute_sequence()`.
 /// - Multiple calls to `execute_sequence()` are safe — the second and subsequent
-///   calls return `Ok(())` immediately without re-executing.
+///   calls complete with `Ok(())` immediately without re-executing.
 /// - Phase failures are logged but do not abort the remaining sequence.
 pub struct ShutdownSpec {
     /// Atomic guard — `true` once the first shutdown has been triggered.
     is_started: AtomicBool,
     /// Per-phase timeout before proceeding to the next phase.
-// [::STUB::] P12-9: ShutdownSpec.timeout is stored but unused -- Implement PhaseTimeout handling for per-call timeout tracking during shutdown
-    #[allow(dead_code)]
     timeout: Duration,
 }
 
-// [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P4-3, P12-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P12-9) --for-spec --no-implementation-order`.
 impl ShutdownSpec {
     /// Create a new shutdown specification with the given per-phase timeout.
     pub fn new(timeout: Duration) -> Self {
@@ -194,7 +192,7 @@ impl ShutdownSpec {
             tracing::info!("shutdown phase started: {}", phase.label());
 
             let result = self
-                .execute_phase(phase, backend, account_ids, call_ids)
+                .run_phase_with_timeout(phase, backend, account_ids, call_ids)
                 .await;
 
             if let Err(err) = result {
@@ -213,7 +211,40 @@ impl ShutdownSpec {
         }
     }
 
+    /// Run a single shutdown phase under the configured per-phase timeout.
+    ///
+    /// The overall phase deadline is enforced by `tokio::time::timeout`: if the
+    /// phase future is still pending when the timer fires, it is dropped and
+    /// `ShutdownError::PhaseTimeout` is returned carrying the phase and the exact
+    /// configured timeout.
+    async fn run_phase_with_timeout(
+        &self,
+        phase: ShutdownPhase,
+        backend: &mut dyn SipBackend,
+        account_ids: &[i32],
+        call_ids: &[i32],
+    ) -> Result<(), ShutdownError> {
+        match tokio::time::timeout(
+            self.timeout,
+            self.execute_phase(phase, backend, account_ids, call_ids),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_elapsed) => Err(ShutdownError::PhaseTimeout {
+                phase,
+                timeout: self.timeout,
+            }),
+        }
+    }
+
     /// Execute a single shutdown phase.
+    ///
+    /// Per-item phases (`CancelCalls`, `UnregisterAccounts`) track a phase
+    /// deadline and bail with `PhaseTimeout` before starting a backend operation
+    /// once the budget is exhausted. `tokio::task::yield_now()` at each per-call
+    /// checkpoint gives the runtime a chance to observe the deadline (and lets the
+    /// phase future be preempted by `run_phase_with_timeout`).
     async fn execute_phase(
         &self,
         phase: ShutdownPhase,
@@ -221,6 +252,7 @@ impl ShutdownSpec {
         account_ids: &[i32],
         call_ids: &[i32],
     ) -> Result<(), ShutdownError> {
+        let phase_deadline = tokio::time::Instant::now() + self.timeout;
         match phase {
             ShutdownPhase::StopCommands => {
                 // StopCommands is handled by the reactor loop through
@@ -231,6 +263,8 @@ impl ShutdownSpec {
             }
             ShutdownPhase::CancelCalls => {
                 for &call_id in call_ids {
+                    self.ensure_within_phase_deadline(phase, phase_deadline)?;
+                    tokio::task::yield_now().await;
                     backend
                         .hangup(call_id)
                         .map_err(|e| ShutdownError::PhaseFailed { phase, source: e })?;
@@ -239,6 +273,8 @@ impl ShutdownSpec {
             }
             ShutdownPhase::UnregisterAccounts => {
                 for &acc_id in account_ids {
+                    self.ensure_within_phase_deadline(phase, phase_deadline)?;
+                    tokio::task::yield_now().await;
                     backend
                         .set_registration(acc_id, false)
                         .map_err(|e| ShutdownError::PhaseFailed { phase, source: e })?;
@@ -252,11 +288,32 @@ impl ShutdownSpec {
                 Ok(())
             }
             ShutdownPhase::InvokeDestroy => {
+                self.ensure_within_phase_deadline(phase, phase_deadline)?;
                 backend
                     .shutdown()
                     .map_err(|e| ShutdownError::PhaseFailed { phase, source: e })?;
                 Ok(())
             }
+        }
+    }
+
+    /// Return `PhaseTimeout` when the phase deadline has already passed.
+    ///
+    /// Guards each per-call backend operation so a phase never starts new work
+    /// once its configured budget is exhausted.
+    // [::TICKET::] P12-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-9 --for-spec --no-implementation-order`.
+    fn ensure_within_phase_deadline(
+        &self,
+        phase: ShutdownPhase,
+        deadline: tokio::time::Instant,
+    ) -> Result<(), ShutdownError> {
+        if tokio::time::Instant::now() >= deadline {
+            Err(ShutdownError::PhaseTimeout {
+                phase,
+                timeout: self.timeout,
+            })
+        } else {
+            Ok(())
         }
     }
 }
@@ -340,7 +397,7 @@ mod tests {
         // After first call, is_shutdown_started must be true.
         assert!(spec.is_shutdown_started());
 
-        // Second call must return Ok(()) immediately (idempotent).
+        // Second call must complete with Ok(()) immediately (idempotent).
         let second = spec.execute_sequence(&mut backend, &[], &[]).await;
         assert!(second.is_ok(), "second shutdown must succeed (idempotent)");
 
@@ -414,9 +471,9 @@ mod tests {
 
     #[test]
     // @verifies C044
-    // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P4-3, P12-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P12-9) --for-spec --no-implementation-order`.
     fn shutdown_error_is_send() {
-        // [::TICKET::] P4-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-3 --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-3, P12-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P12-9) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<ShutdownError>();
     }
@@ -441,5 +498,135 @@ mod tests {
         assert!(spec.mark_shutdown_started());
         assert!(!spec.mark_shutdown_started());
         assert!(!spec.mark_shutdown_started());
+    }
+
+    // ── C100: PhaseTimeout handling — per-call deadline + per-phase timeout ──
+
+    #[tokio::test]
+    // @verifies C100
+    async fn cancel_calls_exceeding_timeout_produces_phase_timeout(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        tokio::time::pause();
+        let task = tokio::spawn(async move {
+            let spec = ShutdownSpec::new(Duration::from_millis(50));
+            let mut backend = crate::runtime::backend::MockBackend::new();
+            let call_ids = [1i32, 2i32, 3i32];
+            let result = spec.execute_sequence(&mut backend, &[], &call_ids).await;
+            (result, backend, spec)
+        });
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(100)).await;
+        let (result, _backend, spec) = task.await?;
+        assert!(matches!(
+            result,
+            Err(ShutdownError::PhaseTimeout {
+                phase: ShutdownPhase::CancelCalls,
+                timeout,
+            }) if timeout == Duration::from_millis(50)
+        ));
+        assert!(spec.is_shutdown_started());
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C100
+    async fn unregister_accounts_exceeding_timeout_produces_phase_timeout(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        tokio::time::pause();
+        let task = tokio::spawn(async move {
+            let spec = ShutdownSpec::new(Duration::from_millis(50));
+            let mut backend = crate::runtime::backend::MockBackend::new();
+            let account_ids = [10i32, 11i32];
+            let result = spec.execute_sequence(&mut backend, &account_ids, &[]).await;
+            (result, backend, spec)
+        });
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(100)).await;
+        let (result, _backend, _spec) = task.await?;
+        assert!(matches!(
+            result,
+            Err(ShutdownError::PhaseTimeout {
+                phase: ShutdownPhase::UnregisterAccounts,
+                ..
+            })
+        ));
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C100
+    async fn zero_timeout_does_not_panic_and_remains_idempotent(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        tokio::time::pause();
+        let task = tokio::spawn(async move {
+            let spec = ShutdownSpec::new(Duration::ZERO);
+            let mut backend = crate::runtime::backend::MockBackend::new();
+            let call_ids = [1i32, 2i32, 3i32];
+            let first = spec.execute_sequence(&mut backend, &[], &call_ids).await;
+            let second = spec.execute_sequence(&mut backend, &[], &call_ids).await;
+            (first, second, backend)
+        });
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(1)).await;
+        let (first, second, _backend) = task.await?;
+        assert!(matches!(
+            first,
+            Err(ShutdownError::PhaseTimeout {
+                phase: ShutdownPhase::CancelCalls,
+                ..
+            })
+        ));
+        assert!(
+            second.is_ok(),
+            "timeout path must not re-enter execute_sequence"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C044
+    async fn phase_timeout_does_not_abort_remaining_phases(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        tokio::time::pause();
+        let task = tokio::spawn(async move {
+            let spec = ShutdownSpec::new(Duration::from_millis(50));
+            let mut backend = crate::runtime::backend::MockBackend::new();
+            let account_ids = [10i32, 11i32];
+            let call_ids = [1i32, 2i32, 3i32];
+            let result = spec
+                .execute_sequence(&mut backend, &account_ids, &call_ids)
+                .await;
+            (result, backend)
+        });
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(100)).await;
+        let (result, backend) = task.await?;
+        assert!(matches!(
+            result,
+            Err(ShutdownError::PhaseTimeout {
+                phase: ShutdownPhase::CancelCalls,
+                ..
+            })
+        ));
+        assert!(
+            !backend.initialized,
+            "InvokeDestroy must still execute after CancelCalls times out"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C100
+    // [::TICKET::] P12-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-9 --for-spec --no-implementation-order`.
+    fn shutdown_error_derives_clone_partial_eq() {
+        // [::TICKET::] P12-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-9 --for-spec --no-implementation-order`.
+        fn assert_clone<T: Clone>() {}
+        // [::TICKET::] P12-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-9 --for-spec --no-implementation-order`.
+        fn assert_partial_eq<T: PartialEq>() {}
+        // [::TICKET::] P12-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-9 --for-spec --no-implementation-order`.
+        fn assert_eq<T: Eq>() {}
+        assert_clone::<ShutdownError>();
+        assert_partial_eq::<ShutdownError>();
+        assert_eq::<ShutdownError>();
     }
 }

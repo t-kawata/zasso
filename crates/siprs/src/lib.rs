@@ -1,3 +1,4 @@
+
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -46,11 +47,12 @@ pub mod client;
 pub mod config;
 pub mod error;
 
-/// Account, Call, and Transport type stubs.
+/// Account and Transport lifecycle types; Call is implemented (P9-3).
 ///
-// [::STUB::] P10-3: account/call/transport lifecycle methods are deferred -- Implement account and transport configuration lifecycle methods (make, answer, hangup) per the P3-1 specification
-// [::STUB::] P9-3: SipCall lifecycle and fields are placeholders; call API semantics are deferred -- Implement SipCall with private fields and accessors and call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (NODE_ID=N0027)
+/// Account lifecycle (add_account/remove_account/account/update_config/remove)
+/// and transport lifecycle (add_transport) are implemented in P10-3.
 pub mod account;
+// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
 pub mod call;
 pub mod transport;
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
@@ -61,9 +63,8 @@ pub mod event;
 pub mod state;
 
 // [::TICKET::] P3-2: Audio mixer (mix_i16_frame) implemented in runtime/audio_worker.rs.
-// [::STUB::] P11-12: audio/ module is commented out; format types exist in model/ -- Uncomment and implement higher-level audio orchestration in the audio module once model/ format types are stable
-// The audio/ module remains commented out — reserved for future higher-level audio orchestration (P5+).
-// pub mod audio;
+// [::TICKET::] P11-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-12 --for-spec --no-implementation-order`.
+pub mod audio;
 
 // [::TICKET::] P3-2: ffi/ — PJSIP FFI bindings (safe wrappers)
 pub mod ffi;
@@ -115,15 +116,28 @@ pub use event::{
 // [::TICKET::] P3-1: Public API surface re-exports — account, call, transport config types
 pub use account::SipAccountHandle;
 pub use api::call_types::{AuthOverride, CallMediaPreferences, Codec, OutgoingCallRequest};
+// [::TICKET::] P9-3: SipCall and the call lifecycle contract re-exports
+pub use api::call_api_semantics::CallApiSemantics;
+// [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+pub use call::{HangupReason, SipCall};
+// [::TICKET::] P9-2: Audio Subscribe API re-exports
+pub use api::audio_subscribe_bp::{AudioTapHandle, AudioTapMode, AudioTapSender};
+// [::TICKET::] P11-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-12 --for-spec --no-implementation-order`.
+pub use audio::{AudioOrchestrationError, AudioPipeline, AudioPipelineConfig, ProcessedFrame};
+// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 pub use config::account_config_spec::{
     AccountCodecPolicy, AccountConfig, AccountMediaConfig, AccountTransportPolicy, DtmfMethod,
     DtmfPolicy, OpusConfig, SrtpPolicy,
 };
 pub use config::client_config_spec::{ClientAudioConfig, RawSipEventConfig, TimeoutConfig};
+#[cfg(feature = "tls")]
+pub use config::transport_ice_spec::TlsConfig;
 pub use config::transport_ice_spec::{
-    IceConfig, TcpTransportConfig, TlsConfig, TransportConfig, TurnServerConfig, TurnTransport,
+    IceConfig, TcpTransportConfig, TransportConfig, TurnServerConfig, TurnTransport,
     UdpTransportConfig,
 };
+// [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
 // StunServerConfig is NOT re-exported from transport_ice_spec to avoid name collision
 // with the existing config::StunServerConfig. Use the transport_ice_spec version
 // via `siprs::config::transport_ice_spec::StunServerConfig` for the RFC definition.

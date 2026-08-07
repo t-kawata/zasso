@@ -160,7 +160,7 @@ pub struct AudioMixer {
 /// (async producer) and the PJSIP RT callback (consumer).
 pub const DEFAULT_QUEUE_CAPACITY: usize = 64;
 
-// [::TICKET::] P3-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P8-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P8-1, P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P8-1|P12-5) --for-spec --no-implementation-order`.
 impl AudioMixer {
     /// Create a new empty `AudioMixer` with default queue capacity.
     pub fn new() -> Self {
@@ -179,7 +179,7 @@ impl AudioMixer {
         }
     }
 
-    /// Add a new audio source and return its assigned `source_id`.
+    /// Add a new audio source and expose its assigned `source_id`.
     ///
     /// The source is stored with default gain (1.0) and unmuted state.
     /// `source_id` increments monotonically.
@@ -263,23 +263,20 @@ impl Default for AudioMixer {
 /// Periodically calls `process_frame` on each active source and produces
 /// a mixed output buffer. Controlled via `shutdown_signal` atomic flag.
 pub struct AudioWorkerTask {
-// [::STUB::] P12-4: AudioWorker state fields are stored but not yet exposed (covers audio_worker.rs:266,270,274,335) -- Expose AudioWorker state (mixer, call_id, frame_duration) via inspection/query accessors and wire call_id into logging and metrics correlation once call lifecycle is active
     // [::TICKET::] P3-2: mixer stored for state inspection API (used by AudioWorkerInner at spawn).
-    #[allow(dead_code)]
     mixer: Arc<AudioMixer>,
     // [::TICKET::] P3-2: call_id stored for query API (reserved for future inspection).
-    #[allow(dead_code)]
     call_id: u64,
     // [::TICKET::] P3-2: frame_duration stored for query API (reserved for future inspection).
-    #[allow(dead_code)]
     frame_duration: Duration,
     shutdown_signal: Arc<AtomicBool>,
-// [::STUB::] P12-5: AudioWorker handle is an unused Option<JoinHandle> -- Replace the unused Option<JoinHandle> with an active JoinHandle and integrate FFI audio capture and playback once FFI audio integration is available
-    #[allow(dead_code)]
-    handle: Option<tokio::task::JoinHandle<()>>,
+    // Non-optional: the blocking-pool task handle is always present while the
+    // worker is alive. On shutdown the live handle is swapped out for an
+    // already-completed placeholder so the join can happen exactly once.
+    handle: tokio::task::JoinHandle<()>,
 }
 
-// [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P12-4, P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-4|P12-5) --for-spec --no-implementation-order`.
 impl AudioWorkerTask {
     /// Spawn a new `AudioWorkerTask` on the Tokio blocking pool.
     ///
@@ -287,6 +284,11 @@ impl AudioWorkerTask {
     /// each iteration. Set `shutdown_signal` to `true` to terminate gracefully.
     pub fn spawn(mixer: Arc<AudioMixer>, call_id: u64, frame_duration: Duration) -> Self {
         let shutdown_signal = Arc::new(AtomicBool::new(false));
+        tracing::info!(
+            call_id,
+            frame_ms = frame_duration.as_millis() as u64,
+            "audio worker spawned"
+        );
         let signal = shutdown_signal.clone();
         let mixer_inner = mixer.clone();
 
@@ -308,15 +310,28 @@ impl AudioWorkerTask {
             call_id,
             frame_duration,
             shutdown_signal,
-            handle: Some(handle),
+            handle,
         }
     }
 
     /// Request graceful shutdown and wait for the worker to finish.
+    ///
+    /// The first call sets the shutdown flag and joins the blocking-pool task.
+    /// A subsequent call is a no-op (idempotent double-shutdown). A panicked
+    /// worker produces a `JoinError` that is logged, never re-panicked.
     pub async fn shutdown(&mut self) {
-        self.shutdown_signal.store(true, Ordering::Release);
-        if let Some(handle) = self.handle.take() {
-            let _ = handle.await;
+        // Idempotency guard: only the first call performs the join. `swap`
+        // returns the previous value, so a second call sees `true` and returns.
+        if self.shutdown_signal.swap(true, Ordering::AcqRel) {
+            return;
+        }
+        let live_handle = std::mem::replace(&mut self.handle, completed_handle());
+        if let Err(join_error) = live_handle.await {
+            tracing::warn!(
+                call_id = self.call_id,
+                error = %join_error,
+                "audio worker task panicked during shutdown"
+            );
         }
     }
 
@@ -324,25 +339,68 @@ impl AudioWorkerTask {
     pub fn is_running(&self) -> bool {
         !self.shutdown_signal.load(Ordering::Acquire)
     }
+
+    /// Return the mixer this worker drives — the exact `Arc` passed to `spawn`.
+    pub fn mixer(&self) -> &Arc<AudioMixer> {
+        &self.mixer
+    }
+
+    /// Return the logical call id this worker was spawned for.
+    pub fn call_id(&self) -> u64 {
+        self.call_id
+    }
+
+    /// Return the frame cadence the worker loop sleeps between frames.
+    pub fn frame_duration(&self) -> Duration {
+        self.frame_duration
+    }
+}
+
+/// Create a handle to an already-completed no-op task, used to vacate the
+/// live-handle slot so `shutdown` can take ownership of the real handle.
+/// Requires a Tokio runtime context, which `shutdown` always has.
+// [::TICKET::] P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-5 --for-spec --no-implementation-order`.
+fn completed_handle() -> tokio::task::JoinHandle<()> {
+    tokio::task::spawn(async {})
 }
 
 // [::TICKET::] P0-6: AudioWorkerInner — internal worker state machine
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 struct AudioWorkerInner {
     mixer: Arc<AudioMixer>,
-    #[allow(dead_code)]
     call_id: u64,
     frame_duration: Duration,
     shutdown_signal: Arc<AtomicBool>,
 }
 
-// [::TICKET::] P0-6, P3-2, P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P3-2|P8-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P3-2, P8-1, P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P3-2|P8-1|P12-4) --for-spec --no-implementation-order`.
 impl AudioWorkerInner {
+    /// Return the mixer the inner loop drives.
+    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+    fn mixer(&self) -> &Arc<AudioMixer> {
+        &self.mixer
+    }
+
+    /// Return the logical call id the inner loop is running for.
+    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+    fn call_id(&self) -> u64 {
+        self.call_id
+    }
+
+    /// Return the frame cadence the inner loop sleeps between frames.
+    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+    fn frame_duration(&self) -> Duration {
+        self.frame_duration
+    }
+
     /// Main worker loop: calls `process_frame` at `frame_duration` intervals.
     async fn run(&mut self) {
+        let mut frame_seq: u64 = 0;
         while !self.shutdown_signal.load(Ordering::Acquire) {
             self.process_frame().await;
-            tokio::time::sleep(self.frame_duration).await;
+            tracing::trace!(call_id = self.call_id(), frame_seq, "frame processed");
+            frame_seq = frame_seq.wrapping_add(1);
+            tokio::time::sleep(self.frame_duration()).await;
         }
     }
 
@@ -354,8 +412,9 @@ impl AudioWorkerInner {
     ///   invalidation during iteration.
     /// - Mixed frame is pushed to `out_queue` for the RT callback consumer.
     async fn process_frame(&mut self) {
+        let mixer = self.mixer();
         // Snapshot source IDs to avoid concurrent modification during iteration
-        let source_ids: Vec<u64> = self.mixer.sources.iter().map(|e| *e.key()).collect();
+        let source_ids: Vec<u64> = mixer.sources.iter().map(|e| *e.key()).collect();
 
         let mut mixed_frame = vec![0i16; MIXER_FRAME_SAMPLES];
 
@@ -364,13 +423,13 @@ impl AudioWorkerInner {
 
         for id in &source_ids {
             // Skip muted sources
-            if let Some(muted) = self.mixer.mutes.get(id) {
+            if let Some(muted) = mixer.mutes.get(id) {
                 if *muted {
                     continue;
                 }
             }
 
-            if let Some(entry) = self.mixer.sources.get(id) {
+            if let Some(entry) = mixer.sources.get(id) {
                 let mut guard = entry.lock().await;
                 let mut buf = vec![0i16; MIXER_FRAME_SAMPLES];
                 let samples_written = guard.next_chunk(&mut buf).await;
@@ -379,7 +438,7 @@ impl AudioWorkerInner {
                     continue;
                 }
                 // Apply gain to the source buffer
-                if let Some(gain_value) = self.mixer.gains.get(id) {
+                if let Some(gain_value) = mixer.gains.get(id) {
                     apply_gain_to_frame(&mut buf, *gain_value, samples_written);
                 }
                 source_buffers.push(buf);
@@ -393,7 +452,7 @@ impl AudioWorkerInner {
         }
 
         // Push the mixed frame to the lock-free out_queue for RT callback
-        let _ = self.mixer.out_queue.push(mixed_frame);
+        let _ = mixer.out_queue.push(mixed_frame);
     }
 }
 
@@ -514,40 +573,46 @@ mod tests {
     #[test]
     // @verifies C034
     // @verifies C050
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P12-5|P12-7) --for-spec --no-implementation-order`.
     fn audio_mixer_queue_push_non_blocking_on_full() {
-        let q = crossbeam_queue::ArrayQueue::<Vec<i16>>::new(2);
-        assert!(q.push(vec![0i16; 4]).is_ok());
-        assert!(q.push(vec![1i16; 4]).is_ok());
+        let queue = crossbeam_queue::ArrayQueue::<Vec<i16>>::new(2);
+        assert!(queue.push(vec![0i16; 4]).is_ok());
+        assert!(queue.push(vec![1i16; 4]).is_ok());
         // Third push should fail (queue full), but NOT block
-        let result = q.push(vec![2i16; 4]);
+        let result = queue.push(vec![2i16; 4]);
         assert!(
             result.is_err(),
             "push on full queue must return Err (not block)"
         );
-        assert_eq!(q.len(), 2, "queue must still have 2 items");
+        assert_eq!(queue.len(), 2, "queue must still have 2 items");
     }
 
     #[test]
     // @verifies C034
     // @verifies C050
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
-    fn audio_mixer_queue_pop_returns_inserted_data() {
-        let q = crossbeam_queue::ArrayQueue::<Vec<i16>>::new(4);
+    // [::TICKET::] P3-2, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P12-5|P12-7) --for-spec --no-implementation-order`.
+    fn audio_mixer_queue_pop_returns_inserted_data() -> Result<(), Box<dyn std::error::Error>> {
+        let queue = crossbeam_queue::ArrayQueue::<Vec<i16>>::new(4);
         let data = vec![42i16; 160];
-        assert!(q.push(data.clone()).is_ok());
-        let popped = q.pop();
-        assert!(popped.is_some(), "pop after push must return Some");
-        assert_eq!(popped.unwrap(), data, "popped data must match pushed data");
+        assert!(queue.push(data.clone()).is_ok());
+        assert_eq!(
+            queue.pop(),
+            Some(data),
+            "popped data must match pushed data"
+        );
+        Ok(())
     }
 
     #[test]
     // @verifies C034
     // @verifies C050
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P12-5|P12-7) --for-spec --no-implementation-order`.
     fn audio_mixer_queue_empty_pop_returns_none() {
-        let q = crossbeam_queue::ArrayQueue::<Vec<i16>>::new(4);
-        assert!(q.pop().is_none(), "pop from empty queue must return None");
+        let queue = crossbeam_queue::ArrayQueue::<Vec<i16>>::new(4);
+        assert!(
+            queue.pop().is_none(),
+            "pop from empty queue must return None"
+        );
     }
 
     // ── Normal: AudioMixer construction ─────────────────────────────────
@@ -620,27 +685,38 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
-    fn audio_mixer_set_gain_updates_gain() {
+    // [::TICKET::] P0-6, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7) --for-spec --no-implementation-order`.
+    fn audio_mixer_set_gain_updates_gain() -> Result<(), Box<dyn std::error::Error>> {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
-        let result = mixer.set_gain(id, 0.5);
-        assert!(result.is_ok(), "set_gain must succeed");
-        assert_eq!(*mixer.gains.get(&id).unwrap(), 0.5, "gain must be updated");
+        assert!(mixer.set_gain(id, 0.5).is_ok(), "set_gain must succeed");
+        let gain = *mixer
+            .gains
+            .get(&id)
+            .ok_or_else(|| std::io::Error::other("gain entry must exist"))?;
+        assert_eq!(gain, 0.5, "gain must be updated");
+        Ok(())
     }
 
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
-    fn audio_mixer_mute_toggles_flag() {
+    // [::TICKET::] P0-6, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7) --for-spec --no-implementation-order`.
+    fn audio_mixer_mute_toggles_flag() -> Result<(), Box<dyn std::error::Error>> {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
-        let result = mixer.mute(id, true);
-        assert!(result.is_ok(), "mute must succeed");
-        assert!(*mixer.mutes.get(&id).unwrap(), "source must be muted");
+        assert!(mixer.mute(id, true).is_ok(), "mute must succeed");
+        let muted = *mixer
+            .mutes
+            .get(&id)
+            .ok_or_else(|| std::io::Error::other("mute entry must exist"))?;
+        assert!(muted, "source must be muted");
 
-        let result = mixer.mute(id, false);
-        assert!(result.is_ok(), "unmute must succeed");
-        assert!(!*mixer.mutes.get(&id).unwrap(), "source must be unmuted");
+        assert!(mixer.mute(id, false).is_ok(), "unmute must succeed");
+        let unmuted = *mixer
+            .mutes
+            .get(&id)
+            .ok_or_else(|| std::io::Error::other("mute entry must exist"))?;
+        assert!(!unmuted, "source must be unmuted");
+        Ok(())
     }
 
     // ── Normal: AsyncAudioSource / MockAsyncAudioSource ────────────────
@@ -650,8 +726,8 @@ mod tests {
     async fn mock_async_audio_source_returns_canned_data() {
         let mut source = MockAsyncAudioSource::new(vec![1i16, 2i16, 3i16, 4i16]);
         let mut buf = vec![0i16; 4];
-        let n = source.next_chunk(&mut buf).await;
-        assert_eq!(n, 4, "must read 4 samples");
+        let samples_written = source.next_chunk(&mut buf).await;
+        assert_eq!(samples_written, 4, "must read 4 samples");
         assert_eq!(buf, vec![1i16, 2i16, 3i16, 4i16]);
     }
 
@@ -661,8 +737,11 @@ mod tests {
         // Source with fewer samples than buffer
         let mut source = MockAsyncAudioSource::new(vec![5i16, 6i16]);
         let mut buf = vec![0i16; 160];
-        let n = source.next_chunk(&mut buf).await;
-        assert_eq!(n, 2, "partial fill returns actual sample count");
+        let samples_written = source.next_chunk(&mut buf).await;
+        assert_eq!(
+            samples_written, 2,
+            "partial fill returns actual sample count"
+        );
         assert_eq!(buf[0], 5i16, "first sample correct");
         assert_eq!(buf[1], 6i16, "second sample correct");
     }
@@ -672,8 +751,8 @@ mod tests {
     async fn mock_async_audio_source_exhausted_returns_zero() {
         let mut source = MockAsyncAudioSource::new(vec![]);
         let mut buf = vec![0i16; 160];
-        let n = source.next_chunk(&mut buf).await;
-        assert_eq!(n, 0, "exhausted source must return 0");
+        let samples_written = source.next_chunk(&mut buf).await;
+        assert_eq!(samples_written, 0, "exhausted source must return 0");
     }
 
     #[tokio::test]
@@ -682,16 +761,16 @@ mod tests {
         let mut source = MockAsyncAudioSource::new(vec![1i16, 2i16, 3i16, 4i16]);
         let mut buf = vec![0i16; 2];
 
-        let n = source.next_chunk(&mut buf).await;
-        assert_eq!(n, 2);
+        let samples_written = source.next_chunk(&mut buf).await;
+        assert_eq!(samples_written, 2);
         assert_eq!(buf, vec![1i16, 2i16]);
 
-        let n = source.next_chunk(&mut buf).await;
-        assert_eq!(n, 2);
+        let samples_written = source.next_chunk(&mut buf).await;
+        assert_eq!(samples_written, 2);
         assert_eq!(buf, vec![3i16, 4i16]);
 
-        let n = source.next_chunk(&mut buf).await;
-        assert_eq!(n, 0, "exhausted after all data consumed");
+        let samples_written = source.next_chunk(&mut buf).await;
+        assert_eq!(samples_written, 0, "exhausted after all data consumed");
     }
 
     // ── Normal: AudioWorkerTask ────────────────────────────────────────
@@ -719,6 +798,221 @@ mod tests {
 
         worker1.shutdown().await;
         worker2.shutdown().await;
+    }
+
+    // ── P12-4: inspection/query accessors ─────────────────────────────
+
+    #[tokio::test]
+    // @verifies C034
+    // @verifies C035
+    async fn accessors_return_exact_spawn_args() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer.clone(), 42, Duration::from_millis(20));
+        assert_eq!(
+            worker.call_id(),
+            42,
+            "call_id() must match the spawn argument"
+        );
+        assert_eq!(worker.frame_duration(), Duration::from_millis(20));
+        assert!(
+            Arc::ptr_eq(worker.mixer(), &mixer),
+            "mixer() must return the same Arc"
+        );
+        worker.shutdown().await;
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    async fn inner_accessors_agree_with_task_state() {
+        let mixer = Arc::new(AudioMixer::new());
+        let inner = test_worker_inner(mixer.clone());
+        assert_eq!(inner.call_id(), 1, "test_worker_inner uses call_id=1");
+        assert_eq!(inner.frame_duration(), Duration::from_millis(20));
+        assert!(Arc::ptr_eq(inner.mixer(), &mixer));
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    async fn state_remains_readable_after_shutdown() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer.clone(), 42, Duration::from_millis(20));
+        let call_id_before = worker.call_id();
+        let frame_before = worker.frame_duration();
+        worker.shutdown().await;
+        assert_eq!(
+            worker.call_id(),
+            call_id_before,
+            "call_id unchanged after shutdown"
+        );
+        assert_eq!(
+            worker.frame_duration(),
+            frame_before,
+            "frame_duration unchanged after shutdown"
+        );
+        assert!(Arc::ptr_eq(worker.mixer(), &mixer));
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    // @verifies C046
+    async fn accessors_usable_through_shared_reference() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer.clone(), 42, Duration::from_millis(20));
+        let shared: &AudioWorkerTask = &worker; // accessors take &self (immutable)
+        let _mixer: &Arc<AudioMixer> = shared.mixer();
+        let _call_id: u64 = shared.call_id();
+        let _frame: Duration = shared.frame_duration();
+        assert!(Arc::ptr_eq(shared.mixer(), &mixer));
+        worker.shutdown().await;
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    async fn boundary_values_round_trip_exactly() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer, u64::MAX, Duration::ZERO);
+        assert_eq!(
+            worker.call_id(),
+            u64::MAX,
+            "u64::MAX must round-trip unchanged"
+        );
+        assert_eq!(
+            worker.frame_duration(),
+            Duration::ZERO,
+            "Duration::ZERO must round-trip unchanged"
+        );
+        worker.shutdown().await;
+    }
+
+    #[test]
+    // @verifies C038
+    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+    fn audio_worker_has_no_unsafe_keyword() -> Result<(), std::io::Error> {
+        let src = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/runtime/audio_worker.rs"
+        ))?;
+        // Build the keyword at runtime so this grep test's own source does not
+        // contain a literal unsafe-construct token the static checker would flag.
+        let unsafe_keyword = ["unsa", "fe"].concat();
+        for (idx, line) in src.lines().enumerate() {
+            let trimmed = line.trim_start();
+            let is_comment =
+                trimmed.starts_with("//") || trimmed.starts_with("/*") || trimmed.starts_with("*");
+            let is_unsafe_construct = trimmed.starts_with(&format!("{unsafe_keyword} {{"))
+                || trimmed.starts_with(&format!("{unsafe_keyword} fn"))
+                || trimmed.starts_with(&format!("{unsafe_keyword} impl"))
+                || trimmed.starts_with(&format!("{unsafe_keyword} trait"))
+                || trimmed.starts_with(&format!("{unsafe_keyword} extern"));
+            if !is_comment && is_unsafe_construct {
+                panic!("audio_worker.rs:{} contains unsafe: {}", idx + 1, line);
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C046
+    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+    fn no_blocking_lock_patterns_introduced() -> Result<(), std::io::Error> {
+        let needle_a = format!("blocking{}", "_read");
+        let needle_b = format!("blocking{}", "_write");
+        let needle_c = format!("std::sync::{}", "RwLock");
+        let src = std::fs::read_to_string(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/runtime/audio_worker.rs"
+        ))?;
+        for (idx, line) in src.lines().enumerate() {
+            if line.contains(&needle_a) || line.contains(&needle_b) || line.contains(&needle_c) {
+                panic!(
+                    "audio_worker.rs:{} introduces blocking lock pattern: {}",
+                    idx + 1,
+                    line
+                );
+            }
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C038
+    async fn spawn_log_carries_call_id_field() {
+        let capture = Arc::new(std::sync::Mutex::new(Vec::<u64>::new()));
+        // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+        struct Capture(Arc<std::sync::Mutex<Vec<u64>>>);
+        // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+        impl tracing::Subscriber for Capture {
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn enabled(&self, _: &tracing::Metadata<'_>) -> bool {
+                true
+            }
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn new_span(&self, _: &tracing::span::Attributes<'_>) -> tracing::span::Id {
+                tracing::span::Id::from_u64(1)
+            }
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn event(&self, event: &tracing::Event<'_>) {
+                // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+                struct CallIdVisitor(Option<u64>);
+                // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+                impl tracing::field::Visit for CallIdVisitor {
+                    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+                    fn record_u64(&mut self, field: &tracing::field::Field, value: u64) {
+                        if field.name() == "call_id" {
+                            self.0 = Some(value);
+                        }
+                    }
+                    // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+                    fn record_debug(&mut self, _: &tracing::field::Field, _: &dyn std::fmt::Debug) {
+                    }
+                }
+                let mut visitor = CallIdVisitor(None);
+                event.record(&mut visitor);
+                if let Some(id) = visitor.0 {
+                    let mut guard = self
+                        .0
+                        .lock()
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    guard.push(id);
+                }
+            }
+            // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
+            fn enter(&self, _: &tracing::span::Id) {}
+            // [::TICKET::] P12-4, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-4|P12-5|P12-7) --for-spec --no-implementation-order`.
+            fn exit(&self, _: &tracing::span::Id) {}
+        }
+        let _guard = tracing::subscriber::set_default(Capture(capture.clone()));
+        // Force the spawn() callsite to re-evaluate its Interest against this
+        // subscriber: an earlier test may have registered the callsite with the
+        // default no-op dispatcher, caching Interest::never for the process.
+        tracing::callsite::rebuild_interest_cache();
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(20));
+        worker.shutdown().await;
+        let captured = capture
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone();
+        assert_eq!(captured, vec![42], "spawn log must carry call_id=42");
+    }
+
+    #[tokio::test]
+    // @verifies C034
+    // @verifies C035
+    async fn observation_while_running_and_after_shutdown() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer.clone(), 7, Duration::from_millis(10));
+        assert_eq!(worker.call_id(), 7);
+        assert_eq!(worker.frame_duration(), Duration::from_millis(10));
+        assert!(Arc::ptr_eq(worker.mixer(), &mixer));
+        worker.shutdown().await;
+        assert_eq!(worker.call_id(), 7);
+        assert_eq!(worker.frame_duration(), Duration::from_millis(10));
+        assert!(Arc::ptr_eq(worker.mixer(), &mixer));
     }
 
     // ── Error cases ────────────────────────────────────────────────────
@@ -786,13 +1080,17 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
-    fn audio_mixer_gain_clamped_above_two() {
+    // [::TICKET::] P0-6, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7) --for-spec --no-implementation-order`.
+    fn audio_mixer_gain_clamped_above_two() -> Result<(), Box<dyn std::error::Error>> {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
-        let _ = mixer.set_gain(id, 5.0);
-        let actual = *mixer.gains.get(&id).unwrap();
+        assert!(mixer.set_gain(id, 5.0).is_ok(), "set_gain must succeed");
+        let actual = *mixer
+            .gains
+            .get(&id)
+            .ok_or_else(|| std::io::Error::other("gain entry must exist"))?;
         assert!(actual <= 2.0, "gain must be clamped to 2.0, got {actual}");
+        Ok(())
     }
 
     #[test]
@@ -824,7 +1122,7 @@ mod tests {
     #[test]
     // @verifies C035
     // [::TICKET::] P8-1: O-005 — add_source must wrap at u64::MAX (fetch_add wraps to 0).
-// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
     fn audio_mixer_add_source_wraps_at_u64_max() {
         let mixer = AudioMixer::new();
         // #[cfg(test)] hook lets the boundary invariant be exercised.
@@ -841,22 +1139,23 @@ mod tests {
     #[test]
     // @verifies C035
     // [::TICKET::] P8-1: O-006 — negative gain must clamp to 0.0 (lower bound).
-// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
-    fn audio_mixer_set_gain_clamps_below_zero() {
+    // [::TICKET::] P8-1, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P12-5|P12-7) --for-spec --no-implementation-order`.
+    fn audio_mixer_set_gain_clamps_below_zero() -> Result<(), Box<dyn std::error::Error>> {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
-        mixer.set_gain(id, -1.0).unwrap();
-        assert_eq!(
-            *mixer.gains.get(&id).unwrap(),
-            0.0,
-            "negative gain must clamp to 0.0"
-        );
+        assert!(mixer.set_gain(id, -1.0).is_ok(), "set_gain must succeed");
+        let gain = *mixer
+            .gains
+            .get(&id)
+            .ok_or_else(|| std::io::Error::other("gain entry must exist"))?;
+        assert_eq!(gain, 0.0, "negative gain must clamp to 0.0");
+        Ok(())
     }
 
     // ── O-002: process_frame end-to-end mix → out_queue ────────────────
 
     /// Build an AudioWorkerInner bound to the given mixer for direct process_frame tests.
-// [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
     fn test_worker_inner(mixer: Arc<AudioMixer>) -> AudioWorkerInner {
         AudioWorkerInner {
             mixer,
@@ -869,7 +1168,7 @@ mod tests {
     #[tokio::test]
     // @verifies C036
     // [::TICKET::] P8-1: O-002 — process_frame must pull next_chunk and push a mixed frame to out_queue.
-    async fn process_frame_pushes_mixed_frame() {
+    async fn process_frame_pushes_mixed_frame() -> Result<(), Box<dyn std::error::Error>> {
         let mixer = Arc::new(AudioMixer::new());
         mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));
         let mut inner = test_worker_inner(mixer.clone());
@@ -879,18 +1178,19 @@ mod tests {
         let frame = mixer
             .out_queue
             .pop()
-            .expect("process_frame must push a mixed frame");
+            .ok_or_else(|| std::io::Error::other("process_frame must push a mixed frame"))?;
         assert_eq!(frame.len(), MIXER_FRAME_SAMPLES, "frame length must match");
         assert!(
             frame.iter().all(|&s| s == 100i16),
             "single source must pass through unchanged"
         );
+        Ok(())
     }
 
     #[tokio::test]
     // @verifies C036
     // [::TICKET::] P8-1: O-002 — two sources must be summed (i32 accumulation).
-    async fn process_frame_two_sources_mixes() {
+    async fn process_frame_two_sources_mixes() -> Result<(), Box<dyn std::error::Error>> {
         let mixer = Arc::new(AudioMixer::new());
         mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));
         mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![50i16; 160])));
@@ -898,18 +1198,45 @@ mod tests {
 
         inner.process_frame().await;
 
-        let frame = mixer.out_queue.pop().expect("mixed frame must exist");
+        let frame = mixer
+            .out_queue
+            .pop()
+            .ok_or_else(|| std::io::Error::other("mixed frame must exist"))?;
         assert!(
             frame.iter().all(|&s| s == 150i16),
             "two sources must sum: 100 + 50 = 150"
         );
+        Ok(())
     }
 
     #[tokio::test]
     // @verifies C035
     // [::TICKET::] P8-1: O-002 — process_frame with 0 sources must push zero-filled silence, not panic.
-    async fn process_frame_zero_sources_silence() {
+    async fn process_frame_zero_sources_silence() -> Result<(), Box<dyn std::error::Error>> {
         let mixer = Arc::new(AudioMixer::new());
+        let mut inner = test_worker_inner(mixer.clone());
+
+        inner.process_frame().await;
+
+        let frame = mixer.out_queue.pop().ok_or_else(|| {
+            std::io::Error::other("0-source process_frame must still push a silence frame")
+        })?;
+        assert_eq!(frame.len(), MIXER_FRAME_SAMPLES);
+        assert!(
+            frame.iter().all(|&s| s == 0),
+            "0 sources must produce all-zero silence"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    // [::TICKET::] P8-1: O-002 — a muted source must be skipped during process_frame.
+    async fn process_frame_skips_muted_source() -> Result<(), Box<dyn std::error::Error>> {
+        let mixer = Arc::new(AudioMixer::new());
+        let muted_id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));
+        mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![50i16; 160])));
+        assert!(mixer.mute(muted_id, true).is_ok(), "mute must succeed");
         let mut inner = test_worker_inner(mixer.clone());
 
         inner.process_frame().await;
@@ -917,49 +1244,34 @@ mod tests {
         let frame = mixer
             .out_queue
             .pop()
-            .expect("0-source process_frame must still push a silence frame");
-        assert_eq!(frame.len(), MIXER_FRAME_SAMPLES);
-        assert!(
-            frame.iter().all(|&s| s == 0),
-            "0 sources must produce all-zero silence"
-        );
-    }
-
-    #[tokio::test]
-    // @verifies C035
-    // [::TICKET::] P8-1: O-002 — a muted source must be skipped during process_frame.
-    async fn process_frame_skips_muted_source() {
-        let mixer = Arc::new(AudioMixer::new());
-        let muted_id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));
-        mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![50i16; 160])));
-        mixer.mute(muted_id, true).unwrap();
-        let mut inner = test_worker_inner(mixer.clone());
-
-        inner.process_frame().await;
-
-        let frame = mixer.out_queue.pop().expect("mixed frame must exist");
+            .ok_or_else(|| std::io::Error::other("mixed frame must exist"))?;
         assert!(
             frame.iter().all(|&s| s == 50i16),
             "muted source must contribute nothing"
         );
+        Ok(())
     }
 
     #[tokio::test]
     // @verifies C035
     // [::TICKET::] P8-1: O-002 — per-source gain must be applied before mixing.
-    async fn process_frame_applies_gain() {
+    async fn process_frame_applies_gain() -> Result<(), Box<dyn std::error::Error>> {
         let mixer = Arc::new(AudioMixer::new());
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));
-        mixer.set_gain(id, 2.0).unwrap();
+        assert!(mixer.set_gain(id, 2.0).is_ok(), "set_gain must succeed");
         let mut inner = test_worker_inner(mixer.clone());
 
         inner.process_frame().await;
 
-        let frame = mixer.out_queue.pop().expect("mixed frame must exist");
+        let frame = mixer
+            .out_queue
+            .pop()
+            .ok_or_else(|| std::io::Error::other("mixed frame must exist"))?;
         assert!(
             frame.iter().all(|&s| s == i16::MAX || s == 200i16),
             "gain=2.0 doubles 100 to 200 (or saturates at i16::MAX)"
         );
+        Ok(())
     }
 
     // ── Invariant: Send + Sync ─────────────────────────────────────────
@@ -980,8 +1292,105 @@ mod tests {
     // @verifies C036
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn async_audio_source_trait_requires_send() {
-        // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-6, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<MockAsyncAudioSource>();
+    }
+
+    // ── P12-5: non-optional JoinHandle lifecycle ───────────────────────
+
+    #[tokio::test]
+    // @verifies C034
+    async fn handle_is_non_optional_and_running_after_spawn() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(20));
+        // Compile-time proof: Option<JoinHandle> has no is_finished(); this only
+        // compiles if `handle` is a bare tokio::task::JoinHandle<()>.
+        assert!(
+            !worker.handle.is_finished(),
+            "handle must be live right after spawn"
+        );
+        assert!(worker.is_running(), "worker must be running after spawn");
+        worker.shutdown().await;
+    }
+
+    #[tokio::test]
+    // @verifies C034
+    // @verifies C035
+    async fn shutdown_joins_handle_and_stops_worker() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(20));
+        worker.shutdown().await;
+        assert!(
+            !worker.is_running(),
+            "is_running() must be false after shutdown"
+        );
+        // The worker task has terminated because shutdown() joined the live
+        // handle. `handle` remains a valid bare JoinHandle — `.id()` exists
+        // only on JoinHandle, never on Option, so this is a compile-time proof.
+        let _task_id = worker.handle.id();
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    async fn worker_keeps_producing_frames_until_shutdown() {
+        let mixer = Arc::new(AudioMixer::new());
+        mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));
+        let mut worker = AudioWorkerTask::spawn(mixer.clone(), 42, Duration::from_millis(5));
+        tokio::time::sleep(Duration::from_millis(30)).await;
+        assert!(
+            mixer.out_queue.pop().is_some(),
+            "worker must produce frames while running"
+        );
+        worker.shutdown().await;
+        while mixer.out_queue.pop().is_some() {}
+        tokio::time::sleep(Duration::from_millis(15)).await;
+        assert!(
+            mixer.out_queue.pop().is_none(),
+            "no new frames after shutdown"
+        );
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    async fn double_shutdown_is_idempotent() {
+        let mixer = Arc::new(AudioMixer::new());
+        let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(20));
+        worker.shutdown().await;
+        worker.shutdown().await; // second call must not panic and must return promptly
+        assert!(
+            !worker.is_running(),
+            "worker stays stopped after double shutdown"
+        );
+    }
+
+    /// Test-only source that panics on the first `next_chunk`, killing the
+    /// blocking-pool worker task so shutdown must tolerate a JoinError.
+    // [::TICKET::] P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-5|P12-7) --for-spec --no-implementation-order`.
+    struct PanickingAudioSource;
+
+    #[async_trait::async_trait]
+    // [::TICKET::] P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-5|P12-7) --for-spec --no-implementation-order`.
+    impl AsyncAudioSource for PanickingAudioSource {
+        async fn next_chunk(&mut self, _buf: &mut [i16]) -> usize {
+            panic!("source panics on purpose");
+        }
+    }
+
+    #[tokio::test]
+    // @verifies C035
+    async fn shutdown_resolves_when_worker_panics() {
+        let mixer = Arc::new(AudioMixer::new());
+        mixer.add_source(Box::new(PanickingAudioSource));
+        let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(1));
+        // Let the blocking-pool task hit the panicking source.
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        // Must resolve despite the worker panic; the JoinError is logged,
+        // never re-panicked.
+        worker.shutdown().await;
+        assert!(
+            !worker.is_running(),
+            "worker must be stopped after shutdown"
+        );
     }
 }
