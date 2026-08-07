@@ -176,7 +176,7 @@ pub fn platform_clang_defines(target: &str) -> Vec<String> {
         || target.contains("aarch64_be")
         || target.ends_with("eb")
         || target.contains("-big-endian");
-// [::TICKET::] P11-5, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-5, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11|P12-7) --for-spec --no-implementation-order`.
     match (is_arm, is_big_endian) {
         (true, false) => vec![
             "PJ_IS_LITTLE_ENDIAN=1".to_string(),
@@ -195,7 +195,7 @@ mod tests {
     use super::*;
 
     #[test]
-// [::TICKET::] P11-5, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-5, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn feature_env_present_reflects_cargo_env() {
         assert!(feature_env_present(Ok(String::from("1"))));
         assert!(!feature_env_present(Err(std::env::VarError::NotPresent)));
@@ -236,7 +236,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P11-5, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-5, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn resolve_header_root_prefers_prebuilt_over_vendor() -> std::io::Result<()> {
         let root = std::env::temp_dir().join(format!("siprs-bindgen-test-{}", std::process::id()));
         let prebuilt = root.join("vendor/prebuilt/x86_64-unknown-linux-gnu/include");
@@ -252,7 +252,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P11-5, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-5, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn resolve_header_root_returns_none_when_no_headers() -> std::io::Result<()> {
         let root = std::env::temp_dir().join(format!("siprs-empty-{}", std::process::id()));
         assert_eq!(resolve_header_root(&root, "x86_64-unknown-linux-gnu"), None);
@@ -261,7 +261,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P11-5, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-5, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn has_pjsua_header_distinguishes_pjsua_from_other() -> std::io::Result<()> {
         let root = std::env::temp_dir().join(format!("siprs-hdr-{}", std::process::id()));
         std::fs::create_dir_all(&root)?;
@@ -274,7 +274,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P11-5, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-5, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn allowlist_covers_stub_surface() {
         assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pj_str_t"));
         assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsua_call_info"));
@@ -284,7 +284,7 @@ mod tests {
 
     // [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.
     #[test]
-// [::TICKET::] P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-9, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn allowlist_covers_p11_9_constant_surface() {
         // P11-9: the error/state mapping modules consume these constants from
         // ffi::bindings. A constant missing from the allowlist fails this test,
@@ -337,7 +337,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P11-5, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-5, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn allowlist_is_fixed_and_duplicate_free() {
         let mut all: Vec<&str> = BINDGEN_ALLOWLIST_TYPES
             .iter()
@@ -353,13 +353,13 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P11-5, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-5, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn bindings_output_path_is_well_known() {
         assert_eq!(BINDINGS_OUTPUT, "bindings.rs");
     }
 
     #[test]
-// [::TICKET::] P11-5, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-5, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn platform_clang_defines_for_arm_little_endian() {
         assert_eq!(
             platform_clang_defines("aarch64-apple-darwin"),
@@ -378,7 +378,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P11-5, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-5, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn platform_clang_defines_for_big_endian_arm() {
         assert_eq!(
             platform_clang_defines("armeb-unknown-linux-gnueabi"),
@@ -390,7 +390,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P11-5, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-5, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn platform_clang_defines_for_x86_are_empty() {
         assert_eq!(
             platform_clang_defines("x86_64-unknown-linux-gnu"),

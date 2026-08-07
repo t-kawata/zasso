@@ -510,7 +510,7 @@ mod tests {
     use crate::ffi::pj_str::PjOwnedStr;
 
     #[test]
-// [::TICKET::] P3-2, P11-5, P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P11-8|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-5, P11-8, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P11-8|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn pj_str_t_null_creates_zero_length() {
         let owned = pj_str_t::null();
         assert_eq!(owned.slen, 0, "null pj_str_t must have slen=0");
@@ -518,7 +518,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn pjsua_call_get_info_stub_returns_success() {
         let mut info = pjsua_call_info {
             conf_slot: 0,
@@ -602,7 +602,7 @@ mod tests {
 
     #[test]
     // @verifies C038
-// [::TICKET::] P11-5, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-5, P11-10, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-5|P11-10|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn stub_surface_is_callable_without_pjsua() {
         // C038-Pre: the FFI surface must be callable with no system PJSIP install.
         let mut info = pjsua_call_info {
@@ -621,7 +621,7 @@ mod tests {
 
     // [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.
     #[test]
-// [::TICKET::] P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-9, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn stub_surface_exposes_p11_9_constants() {
         // P11-9: the error/state mapping modules consume these constants from
         // ffi::bindings. RED until the stub_aliases expose them; the type
@@ -639,7 +639,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn pj_str_to_string_reads_valid_str() {
         let owned = PjOwnedStr::new("opus/48000/2");
         let raw = owned.as_raw();
@@ -648,7 +648,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn pj_str_to_string_null_returns_empty() {
         let raw = pj_str_t::null();
         assert_eq!(pj_str_to_string(&raw), "");
@@ -656,7 +656,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn decode_enumeration_result_error_returns_empty() {
         let raw: Vec<pjsua_codec_info> = Vec::new();
         let result = decode_enumeration_result(PJ_EUNKNOWN, 3, raw);
@@ -665,7 +665,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn decode_enumeration_result_truncates_to_count() {
         let zero = pjsua_codec_info {
             codec_id: pj_str_t::null(),
@@ -680,7 +680,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn decode_enumeration_result_count_exceeding_buffer_returns_empty() {
         let zero = pjsua_codec_info {
             codec_id: pj_str_t::null(),
@@ -696,7 +696,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn enumerate_codecs_empty_without_native() {
         // The stub pjsua_enum_codecs reports count=0, so the safe wrapper
         // returns an empty list on the non-pjsua-native path.
@@ -705,7 +705,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P11-8, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn pjsua_enum_codecs_null_count_returns_error() {
         let status = unsafe { pjsua_enum_codecs(std::ptr::null_mut(), std::ptr::null_mut()) };
         assert_eq!(status, PJ_EUNKNOWN);

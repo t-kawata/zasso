@@ -29,7 +29,7 @@ use crate::runtime::command::ReactorError;
 
 // PJSUA status constants come from the single FFI source of truth (ffi::bindings —
 // bindgen under pjsua-native, stub aliases otherwise). No local duplicates.
-use crate::ffi::bindings::{PJ_SUCCESS, PJ_ENOMEM, PJ_EINVALIDOP, PJ_EBUSY};
+use crate::ffi::bindings::{PJ_EBUSY, PJ_EINVALIDOP, PJ_ENOMEM, PJ_SUCCESS};
 
 // ---------------------------------------------------------------------------
 // SipErrorKind — 24 semantically-named error variants
@@ -333,7 +333,7 @@ pub fn convert_pj_status(status: i32) -> Option<SipErrorKind> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ffi::bindings::{PJ_SUCCESS, PJ_ENOMEM, PJ_EINVALIDOP, PJ_EBUSY};
+    use crate::ffi::bindings::{PJ_EBUSY, PJ_EINVALIDOP, PJ_ENOMEM, PJ_SUCCESS};
     use crate::model::id_design_newtype::IdError;
     use crate::model::{AccountId, CallId};
 

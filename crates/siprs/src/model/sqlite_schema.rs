@@ -452,7 +452,7 @@ mod tests {
     #[test]
     // [::TICKET::] P2-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-3 --for-spec --no-implementation-order`.
     fn test_entities_are_send_sync() {
-// [::TICKET::] P2-3, P7-3, P12-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P7-3|P12-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-3, P7-3, P12-2, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P7-3|P12-2|P12-7) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         // [::TICKET::] P2-3, P4-3, P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-3|P4-3|P7-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
@@ -732,7 +732,10 @@ mod tests {
         assert_eq!(entity.auth_username, None);
         assert_eq!(entity.registrar_uri, None);
         assert_eq!(entity.transport, "tcp");
-        assert!(!entity.register_on_start, "register_on_start=0 decodes to false");
+        assert!(
+            !entity.register_on_start,
+            "register_on_start=0 decodes to false"
+        );
         assert!(
             entity.allow_outbound_without_register,
             "allow_outbound_without_register=1 decodes to true"

@@ -290,7 +290,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5, P9-6, P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P9-6, P11-9, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn native_event_call_state_changed_calling() {
         let result = convert_native_event_to_payload(
             NativeEvent::CallStateChanged {
@@ -304,7 +304,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5, P9-6, P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P9-6, P11-9, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn native_event_call_state_changed_confirmed() {
         let result = convert_native_event_to_payload(
             NativeEvent::CallStateChanged {
@@ -324,7 +324,7 @@ mod tests {
 
     /// @verifies C022
     #[test]
-// [::TICKET::] P0-5, P9-6, P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P9-6, P11-9, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-9|P11-11|P12-7) --for-spec --no-implementation-order`.
     fn native_event_call_state_changed_disconnected() {
         let result = convert_native_event_to_payload(
             NativeEvent::CallStateChanged {

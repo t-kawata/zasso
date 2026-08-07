@@ -573,7 +573,7 @@ mod tests {
     #[test]
     // @verifies C034
     // @verifies C050
-// [::TICKET::] P3-2, P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P12-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P12-5|P12-7) --for-spec --no-implementation-order`.
     fn audio_mixer_queue_push_non_blocking_on_full() {
         let queue = crossbeam_queue::ArrayQueue::<Vec<i16>>::new(2);
         assert!(queue.push(vec![0i16; 4]).is_ok());
@@ -590,22 +590,29 @@ mod tests {
     #[test]
     // @verifies C034
     // @verifies C050
-// [::TICKET::] P3-2, P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P12-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P12-5|P12-7) --for-spec --no-implementation-order`.
     fn audio_mixer_queue_pop_returns_inserted_data() -> Result<(), Box<dyn std::error::Error>> {
         let queue = crossbeam_queue::ArrayQueue::<Vec<i16>>::new(4);
         let data = vec![42i16; 160];
         assert!(queue.push(data.clone()).is_ok());
-        assert_eq!(queue.pop(), Some(data), "popped data must match pushed data");
+        assert_eq!(
+            queue.pop(),
+            Some(data),
+            "popped data must match pushed data"
+        );
         Ok(())
     }
 
     #[test]
     // @verifies C034
     // @verifies C050
-// [::TICKET::] P3-2, P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P12-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P12-5|P12-7) --for-spec --no-implementation-order`.
     fn audio_mixer_queue_empty_pop_returns_none() {
         let queue = crossbeam_queue::ArrayQueue::<Vec<i16>>::new(4);
-        assert!(queue.pop().is_none(), "pop from empty queue must return None");
+        assert!(
+            queue.pop().is_none(),
+            "pop from empty queue must return None"
+        );
     }
 
     // ── Normal: AudioMixer construction ─────────────────────────────────
@@ -678,7 +685,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-6, P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7) --for-spec --no-implementation-order`.
     fn audio_mixer_set_gain_updates_gain() -> Result<(), Box<dyn std::error::Error>> {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -692,7 +699,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-6, P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7) --for-spec --no-implementation-order`.
     fn audio_mixer_mute_toggles_flag() -> Result<(), Box<dyn std::error::Error>> {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -731,7 +738,10 @@ mod tests {
         let mut source = MockAsyncAudioSource::new(vec![5i16, 6i16]);
         let mut buf = vec![0i16; 160];
         let samples_written = source.next_chunk(&mut buf).await;
-        assert_eq!(samples_written, 2, "partial fill returns actual sample count");
+        assert_eq!(
+            samples_written, 2,
+            "partial fill returns actual sample count"
+        );
         assert_eq!(buf[0], 5i16, "first sample correct");
         assert_eq!(buf[1], 6i16, "second sample correct");
     }
@@ -972,7 +982,7 @@ mod tests {
             }
             // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
             fn enter(&self, _: &tracing::span::Id) {}
-// [::TICKET::] P12-4, P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-4|P12-5) --for-spec --no-implementation-order`.
+            // [::TICKET::] P12-4, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-4|P12-5|P12-7) --for-spec --no-implementation-order`.
             fn exit(&self, _: &tracing::span::Id) {}
         }
         let _guard = tracing::subscriber::set_default(Capture(capture.clone()));
@@ -1070,7 +1080,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-6, P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-6, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7) --for-spec --no-implementation-order`.
     fn audio_mixer_gain_clamped_above_two() -> Result<(), Box<dyn std::error::Error>> {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -1129,7 +1139,7 @@ mod tests {
     #[test]
     // @verifies C035
     // [::TICKET::] P8-1: O-006 — negative gain must clamp to 0.0 (lower bound).
-// [::TICKET::] P8-1, P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P12-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-1, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P12-5|P12-7) --for-spec --no-implementation-order`.
     fn audio_mixer_set_gain_clamps_below_zero() -> Result<(), Box<dyn std::error::Error>> {
         let mixer = AudioMixer::new();
         let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -1208,10 +1218,9 @@ mod tests {
 
         inner.process_frame().await;
 
-        let frame = mixer
-            .out_queue
-            .pop()
-            .ok_or_else(|| std::io::Error::other("0-source process_frame must still push a silence frame"))?;
+        let frame = mixer.out_queue.pop().ok_or_else(|| {
+            std::io::Error::other("0-source process_frame must still push a silence frame")
+        })?;
         assert_eq!(frame.len(), MIXER_FRAME_SAMPLES);
         assert!(
             frame.iter().all(|&s| s == 0),
@@ -1283,7 +1292,7 @@ mod tests {
     // @verifies C036
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn async_audio_source_trait_requires_send() {
-// [::TICKET::] P0-6, P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-6, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<MockAsyncAudioSource>();
     }
@@ -1357,11 +1366,11 @@ mod tests {
 
     /// Test-only source that panics on the first `next_chunk`, killing the
     /// blocking-pool worker task so shutdown must tolerate a JoinError.
-// [::TICKET::] P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-5|P12-7) --for-spec --no-implementation-order`.
     struct PanickingAudioSource;
 
     #[async_trait::async_trait]
-// [::TICKET::] P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-5|P12-7) --for-spec --no-implementation-order`.
     impl AsyncAudioSource for PanickingAudioSource {
         async fn next_chunk(&mut self, _buf: &mut [i16]) -> usize {
             panic!("source panics on purpose");

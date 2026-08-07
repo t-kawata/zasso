@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     // @verifies C038, C057
-// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-5, P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3|P12-7) --for-spec --no-implementation-order`.
     fn pj_owned_str_new_constructs_from_str() {
         let input = "sip:user@domain.com";
         let owned = PjOwnedStr::new(input);
@@ -148,7 +148,7 @@ mod tests {
 
     #[test]
     // @verifies C038, C057
-// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-5, P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3|P12-7) --for-spec --no-implementation-order`.
     fn pj_owned_str_as_raw_returns_consistent_value() {
         let owned = PjOwnedStr::new("test-value");
         let raw1 = owned.as_raw();
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     // @verifies C038, C057
-// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-5, P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3|P12-7) --for-spec --no-implementation-order`.
     fn pj_owned_str_empty_string() {
         let owned = PjOwnedStr::new("");
         assert_eq!(owned.raw.slen, 0, "empty string must have slen=0");
@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     // @verifies C057
-// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-5, P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3|P12-7) --for-spec --no-implementation-order`.
     fn pj_owned_str_owns_its_bytes() {
         let owned = {
             let input = String::from("owned-test");
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-5, P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3|P12-7) --for-spec --no-implementation-order`.
     fn pj_owned_str_debug_does_not_show_ptr() {
         let owned = PjOwnedStr::new("hello");
         let debug = format!("{:?}", owned);
@@ -204,7 +204,7 @@ mod tests {
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-5, P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3|P12-7) --for-spec --no-implementation-order`.
     fn pj_owned_str_display_shows_content() {
         let owned = PjOwnedStr::new("display-test");
         assert_eq!(format!("{}", owned), "display-test");
@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     // @verifies C057
-// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-5, P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3|P12-7) --for-spec --no-implementation-order`.
     fn pj_owned_str_partial_eq_str() {
         let owned = PjOwnedStr::new("eq-test");
         assert_eq!(owned.as_str(), "eq-test");
@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     // @verifies C057
-// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-5, P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3|P12-7) --for-spec --no-implementation-order`.
     fn pj_owned_str_large_input() {
         let large = "x".repeat(4096);
         let owned = PjOwnedStr::new(&large);
@@ -237,7 +237,7 @@ mod tests {
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-5, P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3|P12-7) --for-spec --no-implementation-order`.
     fn pj_owned_str_unicode_content() {
         let owned = PjOwnedStr::new("日本語");
         assert_eq!(owned.as_str(), "日本語", "unicode content must match");
@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     // @verifies C038
-// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-5, P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3|P12-7) --for-spec --no-implementation-order`.
     fn pj_owned_str_special_characters() {
         let owned = PjOwnedStr::new("user+tag@domain.org;param=value");
         assert!(owned.raw.slen > 0);
@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     // @verifies C057
-// [::TICKET::] P3-2, P11-5, P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-5, P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-5|P12-3|P12-7) --for-spec --no-implementation-order`.
     fn pj_owned_str_raw_ptr_invariants() {
         // raw.ptr must alias the Rust-owned Vec<u8> backing for the whole
         // PjOwnedStr lifetime (C057 invariant) — the bytes are readable without

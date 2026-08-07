@@ -261,10 +261,13 @@ mod tests {
 
     #[test]
     // @verifies C057
-    // [::TICKET::] P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-3|P12-7) --for-spec --no-implementation-order`.
     fn default_policies_match_rfc_section_48() {
         let policies = DefaultPolicies::default();
-        assert_eq!(policies.transports, &[TransportKind::Udp, TransportKind::Tcp]);
+        assert_eq!(
+            policies.transports,
+            &[TransportKind::Udp, TransportKind::Tcp]
+        );
         assert_eq!(policies.codec_order, &[CodecKind::Opus, CodecKind::Pcmu]);
         assert_eq!(policies.dtmf_send_method, DtmfSendMethod::Rfc4733);
         assert_eq!(policies.audio_delivery, AudioDelivery::default());
@@ -301,8 +304,9 @@ mod tests {
 
     #[test]
     // @verifies C038
-    // [::TICKET::] P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-3 --for-spec --no-implementation-order`.
-    fn model_and_runtime_production_code_have_no_unsafe() -> Result<(), Box<dyn std::error::Error>> {
+    // [::TICKET::] P12-3, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-3|P12-7) --for-spec --no-implementation-order`.
+    fn model_and_runtime_production_code_have_no_unsafe() -> Result<(), Box<dyn std::error::Error>>
+    {
         // [::TICKET::] P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-3 --for-spec --no-implementation-order`.
         fn production_has_unsafe(dir: &str) -> Result<bool, std::io::Error> {
             let files: Vec<_> = std::fs::read_dir(dir)?
@@ -321,7 +325,10 @@ mod tests {
         }
         let manifest = env!("CARGO_MANIFEST_DIR");
         assert!(!production_has_unsafe(&format!("{}/src/model", manifest))?);
-        assert!(!production_has_unsafe(&format!("{}/src/runtime", manifest))?);
+        assert!(!production_has_unsafe(&format!(
+            "{}/src/runtime",
+            manifest
+        ))?);
         Ok(())
     }
 }

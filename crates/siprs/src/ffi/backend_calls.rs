@@ -24,7 +24,7 @@ use crate::ffi::pj_str::PjOwnedStr;
 /// `PJ_SUCCESS`.
 #[cfg(feature = "pjsua-native")]
 pub fn initialize() -> i32 {
-// [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
     let create = unsafe { bindings::pjsua_create() };
     if create != bindings::PJ_SUCCESS {
         return create;
@@ -211,7 +211,7 @@ pub fn transfer_call(native_call_id: i32, target: &str) -> i32 {
 /// Put a call on hold via `pjsua_call_set_hold`.
 #[cfg(feature = "pjsua-native")]
 pub fn hold_call(native_call_id: i32) -> i32 {
-// [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
     // SAFETY: native_call_id is a valid pjsua_call_id; null msg_data selects
     // PJSIP defaults for the re-INVITE that puts the call on hold.
     unsafe { bindings::pjsua_call_set_hold(native_call_id, std::ptr::null()) }
@@ -223,7 +223,7 @@ pub fn hold_call(native_call_id: i32) -> i32 {
 /// options = 0 and null msg_data resumes the media direction on the call.
 #[cfg(feature = "pjsua-native")]
 pub fn unhold_call(native_call_id: i32) -> i32 {
-// [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
     // SAFETY: native_call_id is a valid pjsua_call_id; options=0 + null msg_data
     // send a default re-INVITE that resumes the call media.
     unsafe { bindings::pjsua_call_reinvite(native_call_id, 0, std::ptr::null()) }

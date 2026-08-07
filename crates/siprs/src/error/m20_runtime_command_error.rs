@@ -30,7 +30,7 @@ use crate::state::registr_state_machine::RegistrationState;
 
 // PJSUA status constants come from the single FFI source of truth (ffi::bindings),
 // shared with error_design_siperror. No local duplicates.
-use crate::ffi::bindings::{PJ_SUCCESS, PJ_EINVALIDOP};
+use crate::ffi::bindings::{PJ_EINVALIDOP, PJ_SUCCESS};
 
 // ---------------------------------------------------------------------------
 // M20 RuntimeCommand error converters
@@ -184,7 +184,7 @@ pub fn convert_get_account_info_error(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ffi::bindings::{PJ_SUCCESS, PJ_EINVALIDOP, PJ_EBUSY};
+    use crate::ffi::bindings::{PJ_EBUSY, PJ_EINVALIDOP, PJ_SUCCESS};
     use crate::model::{AccountId, CallId};
     use crate::runtime::state::AccountEntry;
     use crate::state::registr_state_machine::RegistrationState;
@@ -267,7 +267,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-4, P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P11-15) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P11-15, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P11-15|P12-7) --for-spec --no-implementation-order`.
     fn conf_disconnect_other_error_returns_native() {
         let result = convert_conf_disconnect_error(PJ_EBUSY, 42);
         let err = result.unwrap_err();
@@ -301,7 +301,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-4, P10-1, P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P10-1|P11-15) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P10-1, P11-15, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P10-1|P11-15|P12-7) --for-spec --no-implementation-order`.
     fn get_account_info_pjsip_error_returns_native() {
         let result = convert_get_account_info_error(Some(&registered_entry()), PJ_EBUSY);
         let err = result.unwrap_err();
@@ -318,7 +318,7 @@ mod tests {
     // ── P9-5: native_error_with_status preserves the i32 diagnostic ──
 
     #[test]
-// [::TICKET::] P9-5, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-5|P11-9) --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-5, P11-9, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-5|P11-9|P12-7) --for-spec --no-implementation-order`.
     fn native_error_with_status_sets_native_status_and_newtype_none_ids() {
         // P9-5: the M20 native-error constructor keeps the PJSUA i32 diagnostic
         // but leaves the id fields None of the newtype types — a u64 must never leak.

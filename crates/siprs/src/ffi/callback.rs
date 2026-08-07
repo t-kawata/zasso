@@ -266,7 +266,7 @@ mod tests {
     ///
     /// Test-only queue isolation: each test installs its own queue so assertions
     /// never see events from a previous test.
-// [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P12-7) --for-spec --no-implementation-order`.
     fn install_test_queue(capacity: usize) -> &'static crossbeam_queue::ArrayQueue<NativeEvent> {
         install_native_event_queue(crossbeam_queue::ArrayQueue::new(capacity));
         // SAFETY: the queue was just installed and never freed while this test runs.
@@ -370,7 +370,7 @@ mod tests {
     // ── on_call_state ──────────────────────────────────────────────────
 
     /// Build a stub `pjsip_event` carrying the given invite-session state.
-// [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P12-7) --for-spec --no-implementation-order`.
     fn stub_call_event(state: u32) -> bindings::pjsip_event {
         bindings::pjsip_event {
             body: bindings::pjsip_event_body {

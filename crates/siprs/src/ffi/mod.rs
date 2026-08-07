@@ -30,8 +30,10 @@ pub mod callback;
 // Re-export the callback-bridge surface so the runtime layer and tests never
 // depend on the raw module path (P11-11).
 pub use callback::{
-// [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
-    enqueue_native_event, native_event_dropped_count, register_callbacks,
+    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    enqueue_native_event,
+    native_event_dropped_count,
+    register_callbacks,
     NATIVE_EVENT_QUEUE_CAPACITY,
 };
 

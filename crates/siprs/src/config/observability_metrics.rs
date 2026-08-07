@@ -625,7 +625,7 @@ mod tests {
 
     /// @verifies C041
     #[test]
-// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P12-7) --for-spec --no-implementation-order`.
     fn codec_from_pjsua_codec_info_maps_fields() {
         use crate::ffi::bindings::pjsua_codec_info;
         use crate::ffi::pj_str::PjOwnedStr;
@@ -647,7 +647,7 @@ mod tests {
 
     /// @verifies C041
     #[test]
-// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P12-7) --for-spec --no-implementation-order`.
     fn opus_available_reflects_enumerated_codecs() {
         let opus_list = vec![Codec {
             id: "opus/48000/2".into(),
@@ -665,7 +665,7 @@ mod tests {
 
     /// @verifies C041
     #[test]
-// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P12-7) --for-spec --no-implementation-order`.
     fn client_capabilities_new_empty_codecs_without_feature() {
         let caps = ClientCapabilities::new();
         assert!(caps.available_codecs.is_empty());
@@ -674,7 +674,7 @@ mod tests {
 
     /// @verifies C041
     #[test]
-// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P12-7) --for-spec --no-implementation-order`.
     fn enumerate_available_codecs_filters_invalid_entries() {
         use crate::ffi::bindings::pjsua_codec_info;
         use crate::ffi::pj_str::PjOwnedStr;

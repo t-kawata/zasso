@@ -762,7 +762,7 @@ mod tests {
     // ── Invariant: Send + Sync ─────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P2-2, P7-1, P11-2, P12-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2|P12-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2, P7-1, P11-2, P12-2, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2|P12-2|P12-7) --for-spec --no-implementation-order`.
     fn test_server_config_send_sync() {
         // [::TICKET::] P2-2, P7-1, P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
@@ -1189,8 +1189,8 @@ mod tests {
         #[tokio::test]
         // @verifies C065, C063
         // [::TICKET::] P12-2: each persisted account is re-registered via add_account.
-        async fn restore_accounts_adds_each_loaded_account() -> Result<(), Box<dyn std::error::Error>>
-        {
+        async fn restore_accounts_adds_each_loaded_account(
+        ) -> Result<(), Box<dyn std::error::Error>> {
             let state = build_test_app_state().await?;
             state.db.init_schema().await?;
             insert_persisted_account(
@@ -1224,8 +1224,8 @@ mod tests {
         #[tokio::test]
         // @verifies C065, C015
         // [::TICKET::] P12-2: an account that fails add_account is skipped, never fatal.
-        async fn restore_accounts_skips_invalid_and_continues() -> Result<(), Box<dyn std::error::Error>>
-        {
+        async fn restore_accounts_skips_invalid_and_continues(
+        ) -> Result<(), Box<dyn std::error::Error>> {
             let state = build_test_app_state().await?;
             state.db.init_schema().await?;
             insert_persisted_account(
@@ -1290,7 +1290,7 @@ mod tests {
         #[test]
         // @verifies C015
         // [::TICKET::] P12-2: AccountEntity → AccountConfig maps the add_account fields.
-// [::TICKET::] P12-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P12-2, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-2|P12-7) --for-spec --no-implementation-order`.
         fn account_entity_to_config_maps_core_fields() {
             use crate::model::sqlite_schema::AccountEntity;
 
@@ -1326,7 +1326,7 @@ mod tests {
         #[test]
         // @verifies C015
         // [::TICKET::] P12-2: unknown transport strings fall back to Udp.
-// [::TICKET::] P12-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P12-2, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-2|P12-7) --for-spec --no-implementation-order`.
         fn account_entity_to_config_transport_fallback() {
             use crate::config::account_config_spec::AccountTransportPolicy;
             use crate::model::sqlite_schema::AccountEntity;

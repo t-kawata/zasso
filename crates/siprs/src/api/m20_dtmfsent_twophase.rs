@@ -118,7 +118,7 @@ pub(crate) fn spawn_dtmf_sent_timeout(
 /// to the same out-of-band RTP event.
 // [::TICKET::] P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-6 --for-spec --no-implementation-order`.
 impl From<crate::config::account_config_spec::DtmfMethod> for DtmfMethod {
-// [::TICKET::] P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P12-7) --for-spec --no-implementation-order`.
     fn from(method: crate::config::account_config_spec::DtmfMethod) -> Self {
         match method {
             crate::config::account_config_spec::DtmfMethod::Rfc2833
@@ -140,8 +140,8 @@ mod tests {
     /// @verifies C030
     #[tokio::test]
     // [::TICKET::] P7-2: O-002 — deterministic timeout publishes DtmfSent{Err(Timeout)} after 500ms
-    async fn dtmf_sent_timeout_fallback_publishes_timeout(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn dtmf_sent_timeout_fallback_publishes_timeout() -> Result<(), Box<dyn std::error::Error>>
+    {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -159,7 +159,11 @@ mod tests {
 
         tokio::time::advance(std::time::Duration::from_millis(500)).await;
         let ev = rx.recv().await?;
-        assert_eq!(ev.meta.call_id, Some(call_id), "EventMeta must carry the call_id");
+        assert_eq!(
+            ev.meta.call_id,
+            Some(call_id),
+            "EventMeta must carry the call_id"
+        );
         assert_eq!(
             ev.meta.account_id,
             Some(account_id),
@@ -285,9 +289,9 @@ mod tests {
     // ── Clone + Debug invariants ───────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P11-6, P11-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-6|P11-13) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P11-6, P11-13, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-6|P11-13|P12-7) --for-spec --no-implementation-order`.
     fn dtmf_sent_info_is_clone_and_debug() {
-// [::TICKET::] P0-5, P11-6, P11-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-6|P11-13) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5, P11-6, P11-13, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-6|P11-13|P12-7) --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<DtmfSentInfo>();
         assert_clone_debug::<SentDtmfError>();
@@ -313,12 +317,12 @@ mod tests {
     /// @verifies C029
     #[test]
     // [::TICKET::] P11-6: m20 DtmfMethod gains the Inband variant (C029 3-category set)
-// [::TICKET::] P11-6, P11-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-6, P11-13, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13|P12-7) --for-spec --no-implementation-order`.
     fn dtmf_method_inband_variant() {
         let inband = DtmfMethod::Inband;
         let info = DtmfMethod::Info;
         let rfc4733 = DtmfMethod::Rfc4733;
-// [::TICKET::] P11-6, P11-13 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13) --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-6, P11-13, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13|P12-7) --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<DtmfMethod>();
         assert_ne!(inband, rfc4733);
@@ -328,7 +332,7 @@ mod tests {
     /// @verifies C030
     #[test]
     // [::TICKET::] P11-6: From<account_config_spec::DtmfMethod> is total (Rfc2833 is an alias of Rfc4733)
-// [::TICKET::] P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P12-7) --for-spec --no-implementation-order`.
     fn dtmf_method_conversion_is_total() {
         use crate::config::account_config_spec::DtmfMethod as ConfigDtmf;
         assert_eq!(DtmfMethod::from(ConfigDtmf::Rfc2833), DtmfMethod::Rfc4733);
@@ -374,7 +378,8 @@ mod tests {
     /// @verifies C069
     #[tokio::test]
     // [::TICKET::] P11-6: the published DtmfSent event carries call_id/account_id and the exact method/digit
-    async fn dtmf_sent_timeout_event_carries_identifiers() -> Result<(), Box<dyn std::error::Error>> {
+    async fn dtmf_sent_timeout_event_carries_identifiers() -> Result<(), Box<dyn std::error::Error>>
+    {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
