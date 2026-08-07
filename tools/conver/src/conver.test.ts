@@ -8,6 +8,10 @@
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する。
 import { describe, it, mock, before } from "node:test";
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 // LoopOptions の型定義（runner.ts からインポートすると NodeNext の型解決で
 // never に推論されるため、テスト用にインライン定義する）
 interface MockLoopOptions {
@@ -176,24 +180,32 @@ describe("conver", () => {
     mockState.parseCliOptionsCalled = false;
 
     const logLines: string[] = [];
-    mock.method(console, "log", (...args: string[]) => {
-      logLines.push(args.join(" "));
-    });
+    // Passthrough swap: capture startup writes while still forwarding to the
+    // real stdout so the node:test runner's own TAP output is not swallowed.
+    const origWrite = process.stdout.write.bind(process.stdout);
+    (process.stdout.write as any) = ((s: string) => {
+      logLines.push(String(s).replace(/\n$/, ""));
+      return origWrite(s);
+    }) as any;
 
-    const { main } = await import("./conver.js");
-    await main();
+    try {
+      const { main } = await import("./conver.js");
+      await main();
 
-    // "  " で始まる行 = パラメータ行, "model" から始まるが先頭空白のため
-    const paramLines = logLines.filter((l) => l.startsWith("  "));
-    assert.strictEqual(paramLines.length, 8);
-    assert.ok(paramLines[0].startsWith("  model="));
-    assert.ok(paramLines[1].startsWith("  ticketsPath="));
-    assert.ok(paramLines[2].startsWith("  maxCount="));
-    assert.ok(paramLines[3].startsWith("  resolveEvery="));
-    assert.ok(paramLines[4].startsWith("  pushEnabled="));
-    assert.ok(paramLines[5].startsWith("  timeoutMs="));
-    assert.ok(paramLines[6].startsWith("  noFind="));
-    assert.ok(paramLines[7].startsWith("  watcherConfig="));
+      // "  " で始まる行 = パラメータ行, "model" から始まるが先頭空白のため
+      const paramLines = logLines.filter((l) => l.startsWith("  "));
+      assert.strictEqual(paramLines.length, 8);
+      assert.ok(paramLines[0].startsWith("  model="));
+      assert.ok(paramLines[1].startsWith("  ticketsPath="));
+      assert.ok(paramLines[2].startsWith("  maxCount="));
+      assert.ok(paramLines[3].startsWith("  resolveEvery="));
+      assert.ok(paramLines[4].startsWith("  pushEnabled="));
+      assert.ok(paramLines[5].startsWith("  timeoutMs="));
+      assert.ok(paramLines[6].startsWith("  noFind="));
+      assert.ok(paramLines[7].startsWith("  watcherConfig="));
+    } finally {
+      (process.stdout.write as any) = origWrite;
+    }
   });
 
   it("main(): parseCliOptions → runLoop の呼出連鎖", async () => {
@@ -328,5 +340,61 @@ describe("conver", () => {
     assert.notStrictEqual(mockState.runLoopOptions, null);
     assert.ok(!mockState.cronSchedulerStarted);
     assert.strictEqual(mockState.exitCalls.length, 0);
+  });
+});
+
+// --- C003: プロセスレベルのクラッシュガード ---
+// @verifies C003
+
+// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+describe("reportFatalError / installCrashHandlers", () => {
+  it("reportFatalError はエラーメッセージをログし exit code 1 で終了する", async () => {
+    const logLines: string[] = [];
+    const exitCalls: number[] = [];
+    mock.method(console, "error", (...args: unknown[]) => {
+      logLines.push(args.join(" "));
+    });
+    mock.method(process, "exit", (code?: number) => {
+      exitCalls.push(code ?? 0);
+    });
+
+    const { reportFatalError } = await import("./conver.js");
+    reportFatalError("致命的エラー (unhandledRejection)", new Error("boom"));
+
+    assert.strictEqual(exitCalls[0], 1);
+    assert.ok(logLines.join("\n").includes("boom"));
+  });
+
+  it("installCrashHandlers は uncaughtException / unhandledRejection を登録する", async () => {
+    const exitCalls: number[] = [];
+    mock.method(process, "exit", (code?: number) => {
+      exitCalls.push(code ?? 0);
+    });
+
+    const { installCrashHandlers } = await import("./conver.js");
+    installCrashHandlers();
+    assert.ok(process.listenerCount("uncaughtException") > 0);
+    assert.ok(process.listenerCount("unhandledRejection") > 0);
+
+    // 後片付け — テストプロセス全体に影響を与えないよう即時除去する
+    process.removeAllListeners("uncaughtException");
+    process.removeAllListeners("unhandledRejection");
+    assert.strictEqual(exitCalls.length, 0);
+  });
+
+  it("IT: installCrashHandlers はサブプロセスの unhandledRejection を clean exit(1) に変換する", async () => {
+    const script = `
+      import('./dist/conver.js').then((m) => {
+        m.installCrashHandlers();
+        Promise.reject(new Error('boom'));
+      });
+    `;
+    const result = (await execFileAsync(process.execPath, ["-e", script], {
+      cwd: process.cwd(),
+    }).catch((err: unknown) => err)) as { code?: number; stderr?: string };
+
+    // reportFatalError が stderr にログして exit(1) することを検証する
+    assert.strictEqual(result.code, 1);
+    assert.ok(String(result.stderr).includes("致命的エラー (unhandledRejection)"));
   });
 });

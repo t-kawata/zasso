@@ -7,8 +7,30 @@ import type { WatcherConfig } from "./watcher.js";
 import { isWithinTimeWindow } from "./step-timer.js";
 import { CronScheduler } from "./cron-scheduler.js";
 
-// グローバルエラーハンドラは SDK の内部処理を阻害するため登録しない。
-// EPIPE は子プロセス終了時の正常な副作用であり上位のエラー処理で対応する。
+/**
+ * Log a fatal error and terminate the process with code 1.
+ * Used by the process-level crash handlers so conver never dies with a raw
+ * unhandled-error trace; the message is prefixed for greppability.
+ */
+// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+export function reportFatalError(prefix: string, err: unknown): void {
+  console.error(`${prefix}:`, err instanceof Error ? err.message : String(err));
+  process.exit(1);
+}
+
+/**
+ * Install process-level crash handlers (uncaughtException / unhandledRejection)
+ * that report and exit cleanly. Command-level errors are handled by runLoop's
+ * catch; these handlers are a last-resort guard for anything outside that path.
+ */
+export function installCrashHandlers(): void {
+  process.on("uncaughtException", (err) => {
+    reportFatalError("致命的エラー (uncaughtException)", err);
+  });
+  process.on("unhandledRejection", (reason) => {
+    reportFatalError("致命的エラー (unhandledRejection)", reason);
+  });
+}
 
 /**
  * CliOptions を LoopOptions に変換する。
@@ -32,6 +54,7 @@ async function runNormalMode(cli: CliOptions): Promise<void> {
  * CronScheduler で定期的に runLoop を実行する。
  * SIGINT/SIGTERM でグレースフルシャットダウンする。
  */
+// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
 async function runWatcherMode(cli: CliOptions): Promise<void> {
   // Step 1: 設定ファイルの読み込みと検証
   let config: WatcherConfig;
@@ -48,7 +71,7 @@ async function runWatcherMode(cli: CliOptions): Promise<void> {
 
   // Step 2: 初回時間枠チェック — 枠外なら即時終了
   if (!isWithinTimeWindow(config)) {
-    console.log("Watcher mode: 現在時刻は時間枠外です。終了します。");
+    process.stdout.write("Watcher mode: 現在時刻は時間枠外です。終了します。\n");
     process.exit(0);
     return;
   }
@@ -90,24 +113,24 @@ async function runWatcherMode(cli: CliOptions): Promise<void> {
   process.on("SIGINT", cleanup);
   process.on("SIGTERM", cleanup);
 
-  console.log(
+  process.stdout.write(
     `Watcher mode started: interval=${config.intervalMinutes}min, ` +
-      `window=${config.startTime}-${config.endTime}, tz=${config.timezone}`,
+      `window=${config.startTime}-${config.endTime}, tz=${config.timezone}\n`,
   );
 }
 
 export async function main(): Promise<void> {
   const options = parseCliOptions(process.argv);
 
-  console.log("conver.js — チケット処理を開始します");
-  console.log("  model=%s", options.model);
-  console.log("  ticketsPath=%s", options.ticketsPath);
-  console.log("  maxCount=%d", options.maxCount);
-  console.log("  resolveEvery=%d", options.resolveEvery);
-  console.log("  pushEnabled=%s", options.pushEnabled);
-  console.log("  timeoutMs=%d", options.timeoutMs);
-  console.log("  noFind=%s", options.noFind);
-  console.log("  watcherConfig=%s", options.watcherConfig);
+  process.stdout.write("conver.js — チケット処理を開始します\n");
+  process.stdout.write(`  model=${options.model}\n`);
+  process.stdout.write(`  ticketsPath=${options.ticketsPath}\n`);
+  process.stdout.write(`  maxCount=${options.maxCount}\n`);
+  process.stdout.write(`  resolveEvery=${options.resolveEvery}\n`);
+  process.stdout.write(`  pushEnabled=${options.pushEnabled}\n`);
+  process.stdout.write(`  timeoutMs=${options.timeoutMs}\n`);
+  process.stdout.write(`  noFind=${options.noFind}\n`);
+  process.stdout.write(`  watcherConfig=${options.watcherConfig}\n`);
 
   if (options.watcherConfig) {
     await runWatcherMode(options);
@@ -115,8 +138,5 @@ export async function main(): Promise<void> {
     await runNormalMode(options);
   }
 }
-
-// 子プロセス後片付け時の EPIPE をサイレントに抑止
-process.on("uncaughtException", () => {});
 
 // main() の実行は entry.ts が行う（esbuild バンドル用エントリポイント）

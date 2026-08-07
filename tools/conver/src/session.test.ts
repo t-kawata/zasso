@@ -9,16 +9,39 @@
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する。
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { buildClientApp, runCommand, disposeSession } from "./session.js";
+import { EventEmitter } from "node:events";
+import {
+  buildClientApp,
+  runCommand,
+  disposeSession,
+  shutdownChildProcess,
+} from "./session.js";
 import type { AcpSession, RunCommandOptions } from "./session.js";
 import { CommandTimeoutError } from "./error.js";
 
 // --- モック用ヘルパー ---
 
+/**
+ * ChildProcess モックを生成する。
+ * runCommand / shutdownChildProcess は proc.once / proc.off / proc.exitCode を
+ * 使うため、EventEmitter を基底にしたモックが必要。
+ */
+// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+function mockProc(overrides?: Record<string, unknown>): any {
+  const proc = new EventEmitter() as any;
+  proc.exitCode = null;
+  proc.signalCode = null;
+  proc.kill = () => {};
+  proc.stdin = { end: () => {} };
+  proc.stdout = { on: () => {} };
+  return Object.assign(proc, overrides);
+}
+
 /** AcpSession モックを生成する */
+// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
 function mockSession(overrides?: Partial<AcpSession>): AcpSession {
   return {
-    proc: { kill: () => {}, stdin: { end: () => {} } } as any,
+    proc: mockProc(),
     stream: {} as any,
     sessionId: "mock-sid",
     ctx: {} as any,
@@ -135,46 +158,202 @@ describe("runCommand", () => {
       process.stdout.write = orig;
     }
   });
+
+  // C001: 子プロセスが stop 前に終了したら、タイムアウトを待たずに
+  // command / exit code / signal を含むエラーで fail-fast する。
+  // @verifies C001
+
+  it("子プロセスが exit code 1 で終了するとタイムアウト前に reject する", async () => {
+    const proc = mockProc();
+    const session = mockSession({
+      proc,
+      session: {
+        sessionId: "s",
+// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+        prompt() {},
+        nextUpdate: () => new Promise(() => {}), // stop を返さずハングする
+// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+        dispose() {},
+      } as any,
+    });
+
+    const pending = runCommand(session, "/resolve-ticket", {
+      timeoutMs: 60_000,
+      verbose: false,
+    });
+    setImmediate(() => proc.emit("exit", 1, null));
+
+    await assert.rejects(pending, (err: Error) => {
+      assert.ok(err.message.includes("/resolve-ticket"));
+      assert.ok(err.message.includes("1"));
+      return true;
+    });
+  });
+
+  it("子プロセスが signal で終了すると signal を含むエラーで reject する", async () => {
+    const proc = mockProc();
+    const session = mockSession({
+      proc,
+      session: {
+        sessionId: "s",
+// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+        prompt() {},
+        nextUpdate: () => new Promise(() => {}),
+// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+        dispose() {},
+      } as any,
+    });
+
+    const pending = runCommand(session, "/resolve-ticket", {
+      timeoutMs: 60_000,
+      verbose: false,
+    });
+    setImmediate(() => proc.emit("exit", null, "SIGTERM"));
+
+    await assert.rejects(pending, (err: Error) => {
+      assert.ok(err.message.includes("SIGTERM"));
+      return true;
+    });
+  });
+
+  it("子プロセスが既に終了している場合は prompt を呼ばず reject する", async () => {
+    let promptCalled = false;
+    const session = mockSession({
+      proc: mockProc({ exitCode: 3 }),
+      session: {
+        sessionId: "s",
+// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+        prompt() { promptCalled = true; },
+        nextUpdate: () => new Promise(() => {}),
+// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+        dispose() {},
+      } as any,
+    });
+
+    await assert.rejects(
+      runCommand(session, "/resolve-ticket", { timeoutMs: 1000, verbose: false }),
+      (err: Error) => {
+        assert.ok(err.message.includes("3"));
+        assert.strictEqual(promptCalled, false);
+        return true;
+      },
+    );
+  });
+
+  it("正常完了後に exit リスナが除去される", async () => {
+    const proc = mockProc();
+    const session = mockSession({
+      proc,
+      session: mockSessionWithUpdates([{ kind: "stop", response: "ok" }]) as any,
+    });
+
+    const result = await runCommand(session, "/test", { timeoutMs: 1000, verbose: false });
+    assert.strictEqual(result, "ok");
+    assert.strictEqual(proc.listenerCount("exit"), 0);
+  });
+
+  it("タイムアウト時も exit リスナが除去される", async () => {
+    const proc = mockProc();
+    const session = mockSession({ proc });
+
+    await assert.rejects(
+      runCommand(session, "/test", { timeoutMs: 0, verbose: false }),
+      CommandTimeoutError,
+    );
+    assert.strictEqual(proc.listenerCount("exit"), 0);
+  });
 });
 
 // --- disposeSession ---
 
 describe("disposeSession", () => {
+  // shutdownChildProcess が同期部で proc.kill() を呼ぶため、kill は
+  // disposeSession 直後に true になる。pending の grace タイマーを
+  // クリアするため、後続の setImmediate で 'exit' を emit する。
+
   it("session.dispose() と proc.kill() が呼ばれる", async () => {
     let disposed = false;
     let killed = false;
+    const proc = mockProc({ kill: () => { killed = true; } });
     const session = mockSession({
-      proc: { kill: () => { killed = true; } } as any,
+      proc,
       session: { sessionId: "s", prompt() {}, nextUpdate() { return new Promise(() => {}); }, dispose: () => { disposed = true; } } as any,
     });
     disposeSession(session);
     assert.strictEqual(disposed, true);
-    // proc.kill() は setImmediate で遅延実行されるため、1ティック待つ
-    await new Promise<void>((r) => setImmediate(r));
     assert.strictEqual(killed, true);
+    setImmediate(() => proc.emit("exit", 0, null));
+    await new Promise<void>((r) => setImmediate(r));
   });
 
   it("dispose() エラー時も proc.kill() が呼ばれる", async () => {
     let killed = false;
+    const proc = mockProc({ kill: () => { killed = true; } });
     const session = mockSession({
-      proc: { kill: () => { killed = true; } } as any,
+      proc,
       session: { sessionId: "s", prompt() {}, nextUpdate() { return new Promise(() => {}); }, dispose: () => { throw new Error("err"); } } as any,
     });
     disposeSession(session);
-    await new Promise<void>((r) => setImmediate(r));
     assert.strictEqual(killed, true);
+    setImmediate(() => proc.emit("exit", 0, null));
+    await new Promise<void>((r) => setImmediate(r));
   });
 
   it("複数回呼び出しでもエラーにならない", async () => {
     let disp = 0, kill = 0;
+    const proc = mockProc({ kill: () => { kill++; } });
     const session = mockSession({
-      proc: { kill: () => { kill++; } } as any,
+      proc,
       session: { sessionId: "s", prompt() {}, nextUpdate() { return new Promise(() => {}); }, dispose: () => { disp++; } } as any,
     });
     disposeSession(session);
     disposeSession(session);
     assert.strictEqual(disp, 2);
-    await new Promise<void>((r) => setImmediate(r));
     assert.strictEqual(kill, 2);
+    setImmediate(() => proc.emit("exit", 0, null));
+    await new Promise<void>((r) => setImmediate(r));
+  });
+});
+
+// --- shutdownChildProcess ---
+// @verifies C002
+
+describe("shutdownChildProcess", () => {
+  it("SIGTERM 送信後、子プロセスの exit を待って resolve する", async () => {
+    const kills: Array<string | undefined> = [];
+    const proc = mockProc({ kill: (sig?: any) => { kills.push(sig); } });
+
+    const promise = shutdownChildProcess(proc, 2000);
+    setImmediate(() => proc.emit("exit", 0, null));
+    await promise;
+
+    assert.deepStrictEqual(kills, [undefined]); // SIGTERM
+  });
+
+  it("grace 超過で SIGKILL を送信して resolve する", async () => {
+    const kills: Array<string | undefined> = [];
+    const proc = mockProc({ kill: (sig?: any) => { kills.push(sig); } });
+
+    await shutdownChildProcess(proc, 20); // 子は exit を emit しない
+
+    assert.deepStrictEqual(kills, [undefined, "SIGKILL"]);
+  });
+
+  it("既に終了したプロセスには何もしない", async () => {
+    let killed = false;
+    const proc = mockProc({ exitCode: 0, kill: () => { killed = true; } });
+
+    await shutdownChildProcess(proc, 2000);
+
+    assert.strictEqual(killed, false);
+  });
+
+  it("stdin.end / kill が throw しても reject しない", async () => {
+    const proc = mockProc({
+      kill: () => { throw new Error("kill error"); },
+      stdin: { end: () => { throw new Error("end error"); } },
+    });
+
+    await assert.doesNotReject(shutdownChildProcess(proc, 10));
   });
 });

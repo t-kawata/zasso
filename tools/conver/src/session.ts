@@ -42,14 +42,22 @@ function resolveAcpBinary(): string {
 
 const ACP_BINARY = resolveAcpBinary();
 
+// Grace period (ms) before a claude-agent-acp child that ignores SIGTERM is
+// force-killed with SIGKILL during session teardown.
+export const CHILD_GRACE_MS = 2000;
+
+// Timeout (ms) for ACP session initialization (spawn + connect + buildSession).
+const SESSION_INIT_TIMEOUT_MS = 30000;
+
 // ACP セッションの状態を保持するインターフェース
+// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
 export interface AcpSession {
   proc: ChildProcess;
   stream: acp.Stream;
   sessionId: string;
   ctx: acp.ClientContext;
   session: acp.ActiveSession;
-  /** connectWith 経由で開いた接続（disposeSession で close する） */
+  /** connectWith 経由で開いた接続（手動 close 用。破棄は shutdownChildProcess が行う） */
   connection: { close: (error?: unknown) => void };
 }
 
@@ -169,9 +177,9 @@ export async function withSession<T>(
 
   return new Promise<T>((resolve, reject) => {
     const timeout = setTimeout(() => {
-      proc.kill();
+      void shutdownChildProcess(proc, CHILD_GRACE_MS);
       reject(new Error("ACPセッション初期化タイムアウト"));
-    }, 30000);
+    }, SESSION_INIT_TIMEOUT_MS);
 
     // ★ acp-test.mjs と同じ connectWith パターン
     //    fn をコールバック内部で実行し、接続が閉じられる前に完了させる
@@ -183,16 +191,16 @@ export async function withSession<T>(
           clientCapabilities: {} as never,
         });
 
-        const s = await ctx.buildSession(cwd).start();
-        activeSession = s;
+        const startedSession = await ctx.buildSession(cwd).start();
+        activeSession = startedSession;
         clearTimeout(timeout);
 
         const acpSession: AcpSession = {
           proc,
           stream,
-          sessionId: s.sessionId,
+          sessionId: startedSession.sessionId,
           ctx,
-          session: s,
+          session: startedSession,
           connection: { close: () => { proc.stdin?.end(); proc.kill(); } },
         };
 
@@ -201,8 +209,9 @@ export async function withSession<T>(
         reject(err);
       } finally {
         try { activeSession?.dispose(); } catch { /* ignore */ }
-        proc.stdin?.end();
-        proc.kill();
+        // Ensure the child is dead before the SDK teardown closes its stdout
+        // pipe; otherwise an in-flight write crashes the child with EPIPE.
+        await shutdownChildProcess(proc, CHILD_GRACE_MS);
       }
     });
   });
@@ -218,84 +227,140 @@ export async function runCommand(
   command: string,
   options: RunCommandOptions,
 ): Promise<string> {
-  // prompt() は非同期で開始し、nextUpdate() でストリーミング更新を
-  // 読み取るために await しない（意図的）
-  void acpSession.session.prompt(command);
+  // Fail fast if the claude-agent-acp child already died before this command.
+  if (acpSession.proc.exitCode != null || acpSession.proc.signalCode != null) {
+    throw new Error(
+      `claude-agent-acp 子プロセスはすでに終了しています (command=${command}, exit code=${acpSession.proc.exitCode}, signal=${acpSession.proc.signalCode ?? "none"})`,
+    );
+  }
 
-  const startTime = Date.now();
-  let fullResponse = "";
+  // Race nextUpdate() against the child's 'exit' so a mid-command child crash
+  // never hangs until timeoutMs and surfaces a clear, phase-attributable error.
+  let rejectOnChildExit: (err: Error) => void = () => {};
+  const childExited = new Promise<never>((_, reject) => {
+    rejectOnChildExit = reject;
+  });
+  const onChildExit = (code: number | null, signal: NodeJS.Signals | null) => {
+    rejectOnChildExit(
+      new Error(
+        `claude-agent-acp 子プロセスがコマンド完了前に終了しました (command=${command}, exit code=${code}, signal=${signal ?? "none"})`,
+      ),
+    );
+  };
+  acpSession.proc.once("exit", onChildExit);
 
-  for (;;) {
-    if (Date.now() - startTime >= options.timeoutMs) {
-      throw new CommandTimeoutError(
-        `コマンドがタイムアウトしました: ${command} (${options.timeoutMs}ms)`,
-      );
-    }
+  try {
+    // prompt() は非同期で開始し、nextUpdate() でストリーミング更新を
+    // 読み取るために await しない（意図的）
+    void acpSession.session.prompt(command);
 
-    const msg = await acpSession.session.nextUpdate();
-    // msg が空（初期化未完など）の場合はスキップする
-    if (!msg) {
-      continue;
-    }
+    const startTime = Date.now();
+    let fullResponse = "";
 
-    if (msg.kind === "stop") {
-      fullResponse = msg.response?.toString() ?? "";
-      break;
-    }
+    for (;;) {
+      if (Date.now() - startTime >= options.timeoutMs) {
+        throw new CommandTimeoutError(
+          `コマンドがタイムアウトしました: ${command} (${options.timeoutMs}ms)`,
+        );
+      }
 
-    // verbose モード: agent_message_chunk を出力
-    // 1回のメッセージが完了した（句点等で終わる）タイミングで改行する
-    if (
-      options.verbose &&
-      msg.kind === "session_update" &&
-      msg.update?.sessionUpdate === "agent_message_chunk"
-    ) {
-      const text = (msg.update.content as { text?: string })?.text ?? "";
-      if (text) {
-        process.stdout.write(text);
-        // 句点・改行・閉じ括弧などメッセージの区切りで改行する
-        if (/[。．\n！？）」】]/.test(text)) {
-          process.stdout.write("\n");
+      const msg = await Promise.race([
+        acpSession.session.nextUpdate(),
+        childExited,
+      ]);
+      // msg が空（初期化未完など）の場合はスキップする
+      if (!msg) {
+        continue;
+      }
+
+      if (msg.kind === "stop") {
+        fullResponse = msg.response?.toString() ?? "";
+        break;
+      }
+
+      // verbose モード: agent_message_chunk を出力
+      // 1回のメッセージが完了した（句点等で終わる）タイミングで改行する
+      if (
+        options.verbose &&
+        msg.kind === "session_update" &&
+        msg.update?.sessionUpdate === "agent_message_chunk"
+      ) {
+        const text = (msg.update.content as { text?: string })?.text ?? "";
+        if (text) {
+          process.stdout.write(text);
+          // 句点・改行・閉じ括弧などメッセージの区切りで改行する
+          if (/[。．\n！？）」】]/.test(text)) {
+            process.stdout.write("\n");
+          }
         }
       }
     }
-  }
 
-  return fullResponse;
+    return fullResponse;
+  } finally {
+    // Always remove the exit listener so a teardown-time exit cannot reject an
+    // already-settled promise or leak listeners across runCommand calls.
+    acpSession.proc.off("exit", onChildExit);
+  }
+}
+
+/**
+ * Ensure the claude-agent-acp child is dead before the SDK tears down the
+ * stdio pipe. Sends stdin EOF, then SIGTERM, waits up to graceMs for the child
+ * to exit, and force-kills with SIGKILL if it ignores SIGTERM.
+ *
+ * Never throws: stdin.end / kill errors are swallowed because teardown must
+ * not fail the outer session promise. A child that is already dead is a no-op.
+ */
+export async function shutdownChildProcess(
+  proc: ChildProcess,
+  graceMs: number,
+): Promise<void> {
+  if (proc.exitCode != null) return;
+  try {
+    proc.stdin?.end();
+  } catch {
+    // ignore — EOF failure must not block termination
+  }
+  try {
+    proc.kill();
+  } catch {
+    // ignore — the child may already be gone
+  }
+  if (proc.exitCode != null) return;
+  await new Promise<void>((resolve) => {
+    let timer: NodeJS.Timeout;
+    const onExit = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    timer = setTimeout(() => {
+      proc.off("exit", onExit);
+      try {
+        proc.kill("SIGKILL");
+      } catch {
+        // ignore — already dead
+      }
+      resolve();
+    }, graceMs);
+    proc.once("exit", onExit);
+  });
 }
 
 // ACP セッションを破棄する
 //
 // session.dispose() — ActiveSession の更新ルーティングを停止
-// proc.kill() — claude-agent-acp 子プロセスを終了
+// shutdownChildProcess() — 子プロセスを EOF → SIGTERM → grace → SIGKILL で終了
 //
 // dispose() のエラーは握りつぶす — セッション破棄失敗が原因で
-// 後続の処理（proc.kill 等）が阻害されてはならない。
+// 後続の処理（子プロセス終了等）が阻害されてはならない。
 export function disposeSession(acpSession: AcpSession): void {
   try {
     acpSession.session.dispose();
   } catch {
     // dispose エラーは無視する
   }
-  // stdin に EOF を送り、子プロセスの自然終了を促す
-  try {
-    acpSession.proc.stdin?.end();
-  } catch {
-    // end エラーは無視する
-  }
-  // ACP 接続を閉じる
-  try {
-    acpSession.connection.close();
-  } catch {
-    // close エラーは無視する
-  }
-  // 子プロセスを強制終了する（即座に kill すると子が書き込み中の EPIPE が
-  // 発生するため、setImmediate で1イベントループ遅延させる）
-  setImmediate(() => {
-    try {
-      acpSession.proc.kill();
-    } catch {
-      // kill エラーは無視する
-    }
-  });
+  // Terminate the child with the shared helper so teardown never races the SDK
+  // stream close (EPIPE prevention). Fire-and-forget: the public API is sync.
+  void shutdownChildProcess(acpSession.proc, CHILD_GRACE_MS);
 }
