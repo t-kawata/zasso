@@ -28,7 +28,7 @@ interface FindOutcomeMock {
 }
 
 /** 共有モック状態の型 — プロパティ絞り込みを避けるため明示的に型付けする */
-// [::TICKET::] PX-117 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-117 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-117|PX-146) --for-spec --no-implementation-order`.
 interface MockState {
   runCommandImpl: (cmd: string) => Promise<string>;
   slackCalls: Array<{ ticketId: string; phase: string }>;
@@ -36,6 +36,10 @@ interface MockState {
   graphPath: string;
   findOutcome: FindOutcomeMock | undefined;
   countSnapshots: Array<{ phaseCount: number; ticketCount: number }>;
+  /** clearForNextRound の呼び出し回数（PX-146 C005） */
+  clearCalls: number;
+  /** /review-ticket 実行時にチケットを reviewed に遷移させるか（PX-146 C002/C003 制御） */
+  reviewMarksReviewed: boolean;
 }
 
 const mockState: MockState = {
@@ -49,6 +53,8 @@ const mockState: MockState = {
   findOutcome: undefined,
   /** countPhasesAndTickets の戻り値キュー — find 前後でシフトして統合成否を検証する */
   countSnapshots: [],
+  clearCalls: 0,
+  reviewMarksReviewed: true,
 };
 
 /** find 関連モック状態をリセットする（型絞り込みを避けるため関数経由） */
@@ -69,6 +75,7 @@ const mockStepTimerState = {
 // --- テスト用ヘルパー ---
 
 /** テスト用のデフォルト LoopOptions */
+// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
 function baseOptions(overrides?: Partial<LoopOptions>): LoopOptions {
   return {
     apiKey: "test-api-key",
@@ -76,6 +83,7 @@ function baseOptions(overrides?: Partial<LoopOptions>): LoopOptions {
     ticketsPath: "/tmp/test-tickets.json",
     maxCount: 999999,
     resolveEvery: 1,
+    maxRetries: 3,
     pushEnabled: false,
     slackWebhookUrl: "https://hooks.slack.com/test",
     verbose: false,
@@ -117,8 +125,13 @@ describe("runLoop", () => {
           _model: string,
           fn: (session: unknown) => Promise<unknown>,
         ) => fn({ sessionId: "mock" }),
-        runCommand: async (_session: unknown, cmd: string) =>
-          mockState.runCommandImpl(cmd),
+        runCommand: async (_session: unknown, cmd: string) => {
+          // PX-146 C002: /review-ticket 成功時、事後検証が通るようチケットを reviewed に遷移させる。
+          if (cmd.startsWith("/review-ticket") && mockState.reviewMarksReviewed) {
+            markReviewed(ticketPath, extractTicketKey(cmd));
+          }
+          return mockState.runCommandImpl(cmd);
+        },
       },
     });
 
@@ -149,7 +162,10 @@ describe("runLoop", () => {
             .flatMap((phase: { id: number; tickets: Array<{ id: number; status: string }> }) =>
               phase.tickets.map((t) => ({ ...t, phaseId: phase.id })),
             )
-            .filter((t: { status: string }) => t.status !== "reviewed");
+            .filter(
+              (t: { status: string; forNextRound?: boolean }) =>
+                t.status !== "reviewed" && t.forNextRound !== true,
+            );
         },
         checkAllReviewed: (_ticketsPath: string) => mockState.allReviewed,
         // getGraphPathFromTickets は同期関数（readFileSync + JSON.parse）なので
@@ -159,6 +175,9 @@ describe("runLoop", () => {
         // find 前後で 2 回呼ばれる想定 — キューをシフトして前後差分を検証する
         countPhasesAndTickets: (_path: string) =>
           mockState.countSnapshots.shift() ?? { phaseCount: 0, ticketCount: 0 },
+        clearForNextRound: (_path: string) => {
+          mockState.clearCalls++;
+        },
       },
     });
 
@@ -177,13 +196,37 @@ describe("runLoop", () => {
   });
 
   /** Tickets.json を作成する */
-// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-116, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-116|PX-146) --for-spec --no-implementation-order`.
   function writeTickets(phases: Array<{
     id: number;
     name: string;
-    tickets: Array<{ id: number; phaseId: number; status: string; title: string }>;
+    tickets: Array<{ id: number; phaseId: number; status: string; title: string; forNextRound?: boolean }>;
   }>): void {
     writeFileSync(ticketPath, JSON.stringify({ phases }, null, 2));
+  }
+
+  /** コマンド文字列からチケットキー（末尾トークン）を抽出する */
+// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
+  function extractTicketKey(cmd: string): string {
+    const parts = cmd.trim().split(/\s+/);
+    return parts[parts.length - 1] ?? "";
+  }
+
+  /** fixture 内のチケットを reviewed に遷移させる（PX-146 C002 事後検証用モック） */
+// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
+  function markReviewed(path: string, key: string): void {
+    const data = JSON.parse(readFileSync(path, "utf-8"));
+    const separator = key.indexOf("-");
+    const phasePart = key.slice(0, separator);
+    const idPart = key.slice(separator + 1);
+    const phaseId = phasePart === "PX" ? -1 : parseInt(phasePart.slice(1), 10);
+    const id = parseInt(idPart, 10);
+    for (const phase of data.phases) {
+      if (phase.id !== phaseId) continue;
+      const t = (phase.tickets || []).find((x: { id: number }) => x.id === id);
+      if (t) t.status = "reviewed";
+    }
+    writeFileSync(path, JSON.stringify(data, null, 2));
   }
 
   // --- 正常系 ---
@@ -574,5 +617,96 @@ describe("runLoop", () => {
     assert.strictEqual(slackPhase, "consolidate-stubs");
     assert.strictEqual(exitCode, 1);
     mockState.allReviewed = false;
+  });
+
+  // ==================================================================
+  // PX-146: wave ループ / リトライ / find+break / 安全網
+  // ==================================================================
+
+  // @verifies C001
+  it("PX-146 C001: maxCount 重複なし予算を超えない", async () => {
+    const { runLoop } = await import("./runner.js");
+    const commands: string[] = [];
+    mockState.runCommandImpl = async (cmd) => { commands.push(cmd); return "ok"; };
+    writeTickets([{ id: 0, name: "P0", tickets: [
+      { id: 1, phaseId: 0, status: "todo", title: "A" },
+      { id: 2, phaseId: 0, status: "todo", title: "B" },
+      { id: 3, phaseId: 0, status: "todo", title: "C" },
+    ] }]);
+    await runLoop(baseOptions({ ticketsPath: ticketPath, maxCount: 2 }));
+    const madeKeys = commands
+      .filter((c) => c.startsWith("/make-ticket"))
+      .map((c) => c.split(" ")[1]);
+    assert.ok(madeKeys.length <= 2, "at most 2 distinct tickets made");
+  });
+
+  // @verifies C001
+  it("PX-146 C001: forNextRound チケットは処理対象外", async () => {
+    const { runLoop } = await import("./runner.js");
+    const commands: string[] = [];
+    mockState.runCommandImpl = async (cmd) => { commands.push(cmd); return "ok"; };
+    writeTickets([{ id: 0, name: "P0", tickets: [
+      { id: 1, phaseId: 0, status: "todo", title: "normal" },
+      { id: 2, phaseId: 0, status: "todo", title: "deferred", forNextRound: true },
+    ] }]);
+    await runLoop(baseOptions({ ticketsPath: ticketPath }));
+    assert.ok(!commands.some((c) => c.includes("P0-2")), "deferred ticket not processed");
+  });
+
+  // @verifies C002
+  it("PX-146 C002: review 失敗チケットが次 wave で再処理される（救済）", async () => {
+    const { runLoop } = await import("./runner.js");
+    let reviews = 0;
+    mockState.reviewMarksReviewed = false;
+    mockState.runCommandImpl = async (cmd) => {
+      if (cmd.startsWith("/review-ticket")) {
+        reviews++;
+        if (reviews >= 2) markReviewed(ticketPath, extractTicketKey(cmd));
+      }
+      return "ok";
+    };
+    writeTickets([{ id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] }]);
+    await runLoop(baseOptions({ ticketsPath: ticketPath }));
+    assert.ok(reviews >= 2, "failed-review ticket retried in a later wave");
+    mockState.reviewMarksReviewed = true;
+  });
+
+  // @verifies C003
+  it("PX-146 C003: リトライ上限超過で Slack 通知し abort しない", async () => {
+    const { runLoop } = await import("./runner.js");
+    mockState.slackCalls = [];
+    mockState.reviewMarksReviewed = false;
+    mockState.runCommandImpl = async () => "ok";
+    writeTickets([{ id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "Stuck" }] }]);
+    const exitMock = mockProcessExit();
+    await runLoop(baseOptions({ ticketsPath: ticketPath, maxRetries: 3 }));
+    assert.strictEqual(exitMock.calledWith.length, 0, "run does not abort");
+    assert.ok(mockState.slackCalls.some((c) => c.ticketId === "P0-1"), "Slack error notified");
+    mockState.reviewMarksReviewed = true;
+    exitMock.restore();
+  });
+
+  // @verifies C004
+  it("PX-146 C004: checkAllReviewed=true で find が1回だけ実行されループが終了する", async () => {
+    const { runLoop } = await import("./runner.js");
+    mockState.allReviewed = true;
+    resetFindState();
+    const commands: string[] = [];
+    mockState.runCommandImpl = async (cmd) => { commands.push(cmd); return "ok"; };
+    writeTickets([{ id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "A" }] }]);
+    await runLoop(baseOptions({ ticketsPath: ticketPath }));
+    const finds = commands.filter((c) => c.startsWith("/find-omissions")).length;
+    assert.strictEqual(finds, 1, "find runs exactly once");
+    mockState.allReviewed = false;
+  });
+
+  // @verifies C005
+  it("PX-146 C005: 起動時に clearForNextRound が1回だけ呼ばれる", async () => {
+    const { runLoop } = await import("./runner.js");
+    mockState.clearCalls = 0;
+    mockState.runCommandImpl = async () => "ok";
+    writeTickets([{ id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "reviewed", title: "Done" }] }]);
+    await runLoop(baseOptions({ ticketsPath: ticketPath }));
+    assert.strictEqual(mockState.clearCalls, 1, "clearForNextRound called once at entry");
   });
 });

@@ -136,4 +136,27 @@ describe("parseCliOptions", () => {
     assert.strictEqual(options.maxCount, 5);
     assert.strictEqual(options.resolveEvery, 1);
   });
+
+  // @verifies C005
+  // [::TICKET::] PX-145 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-145 --for-spec --no-implementation-order`.
+  it("-x 5 で maxRetries=5 になる（短縮フラグ）", () => {
+    const argv = ["node", "conver.js", "-k", "k", "-s", "s", "-x", "5"];
+    const options = parseCliOptions(argv);
+    assert.strictEqual(options.maxRetries, 5);
+  });
+
+  // @verifies C005
+  it("--max-retries 省略でデフォルト 3 になる", () => {
+    const argv = ["node", "conver.js", "-k", "k", "-s", "s"];
+    const options = parseCliOptions(argv);
+    assert.strictEqual(options.maxRetries, 3);
+  });
+
+  // @verifies C005
+  it("-r 1 -x 7 が共存し resolveEvery/maxRetries 両方が正しい（-r 衝突なし）", () => {
+    const argv = ["node", "conver.js", "-k", "k", "-s", "s", "-r", "1", "-x", "7"];
+    const options = parseCliOptions(argv);
+    assert.strictEqual(options.resolveEvery, 1);
+    assert.strictEqual(options.maxRetries, 7);
+  });
 });

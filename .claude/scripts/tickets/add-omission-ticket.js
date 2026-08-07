@@ -103,7 +103,7 @@ function validateTicket(ticket) {
  * @returns {object} — New data object with appended ticket (immutable)
  */
 // [::TICKET::] PX-100, PX-101, PX-106, PX-107, PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119, PX-143, PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-119|PX-143|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
 function appendTicket(data, ticket) {
   const result = JSON.parse(JSON.stringify(data));
 
@@ -122,6 +122,8 @@ function appendTicket(data, ticket) {
   const newTicket = JSON.parse(JSON.stringify(ticket));
   newTicket.fromStub = false;
   newTicket.stubs = [];
+  // Omission tickets are mid-pipeline additions deferred to the next round (PX-143).
+  newTicket.forNextRound = true;
   // PX-106: Idempotent sentinel guard — prepend only if no sentinel exists
   const alreadyFlagged = newTicket.background &&
     newTicket.background.startsWith(INSPECTION_SENTINEL);

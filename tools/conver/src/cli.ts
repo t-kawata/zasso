@@ -3,12 +3,15 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { VERSION } from "./settings.js";
 
+// [::TICKET::] PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146) --for-spec --no-implementation-order`.
 export interface CliOptions {
   apiKey: string;
   model: string;
   ticketsPath: string;
   maxCount: number;
   resolveEvery: number;
+  /** 同一チケットのリトライ上限（PX-145/PX-146）。デフォルト 3。 */
+  maxRetries: number;
   pushEnabled: boolean;
   slackWebhookUrl: string;
   verbose: boolean;
@@ -19,6 +22,7 @@ export interface CliOptions {
   watcherConfig?: string;
 }
 
+// [::TICKET::] PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146) --for-spec --no-implementation-order`.
 function showUsage(): void {
   console.log(`conver.js ${VERSION} — ACP-based ticket processing pipeline (DeepSeek V4)
 
@@ -30,6 +34,7 @@ Options:
   -t, --tickets <path>       Tickets.json path (default: ./Tickets.json)
   -c, --count <number>       Max tickets to process (default: 999999)
   -r, --resolve-every <num>  Resolve interval (default: 3)
+  -x, --max-retries <num>    Max review retries per ticket (default: 3)
   -p, --push <0|1>           Auto epush-branch after resolve (default: 1)
   -m, --model <name>         AI model (default: deepseek-v4-flash)
   -s, --slack-url <url>      Slack Incoming Webhook URL (required)
@@ -52,6 +57,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
       tickets: { type: "string", short: "t", default: "./Tickets.json" },
       count: { type: "string", short: "c", default: "999999" },
       "resolve-every": { type: "string", short: "r", default: "3" },
+      "max-retries": { type: "string", short: "x", default: "3" },
       push: { type: "string", short: "p", default: "1" },
       "slack-url": { type: "string", short: "s" },
       verbose: { type: "string", short: "v", default: "1" },
@@ -92,6 +98,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
     ticketsPath: path.resolve(parsed.values.tickets),
     maxCount: parseInt(parsed.values.count, 10),
     resolveEvery: parseInt(parsed.values["resolve-every"], 10),
+    maxRetries: parseInt(parsed.values["max-retries"], 10),
     pushEnabled: parsed.values.push === "1",
     slackWebhookUrl: parsed.values["slack-url"],
     verbose: parsed.values.verbose === "1",

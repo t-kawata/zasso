@@ -72,10 +72,13 @@ function findTicket(ticketsData, ticketKey) {
  * @returns {object} — New ticket with residue stripped
  */
 // [::TICKET::] PX-122: stripCompletedResidue. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-122 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-122, PX-123, PX-124, PX-125, PX-126, PX-127, PX-143, PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-122|PX-123|PX-124|PX-125|PX-126|PX-127|PX-143|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
 function stripCompletedResidue(ticket) {
   const next = { ...ticket };
   next.status = 'todo';
+  // Mid-pipeline creations (resolving/deferral/crimeDeferral) are deferred to the
+  // next round; the flag is cleared at the round transition (PX-144).
+  next.forNextRound = true;
   for (const field of STRIP_ON_CLONE) {
     delete next[field];
   }

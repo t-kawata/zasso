@@ -117,7 +117,7 @@ function extractTicketKeysFromStubs(findAllOutput) {
  * @returns {string[]} — Ticket keys in "P{phaseId}-{ticketId}" format
  */
 // [::TICKET::] PX-97, PX-98 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-97|PX-98) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-119, PX-141 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-119|PX-141) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119, PX-141, PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-119|PX-141|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
 function collectNonReviewedTickets(ticketsData) {
   if (!ticketsData || !Array.isArray(ticketsData.phases)) {
     return [];
@@ -130,6 +130,8 @@ function collectNonReviewedTickets(ticketsData) {
       // PX-141: the PX phase (phaseId=-1) is out of scope for /find-omissions
       // and must never be re-queued into _tmp-omissions.
       if (phaseId === -1) continue;
+      // PX-144: forNextRound tickets are deferred to the next round; never re-queue.
+      if (ticket.forNextRound === true) continue;
       // Re-queue non-reviewed tickets except R<round> past-round records.
       if (ticket.status !== 'reviewed' && !ROUND_STATUS_RE.test(ticket.status || '')) {
         keys.push('P' + phaseId + '-' + ticket.id);

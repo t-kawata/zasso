@@ -37,7 +37,9 @@ import {
   checkAllReviewed,
   getGraphPathFromTickets,
   countPhasesAndTickets,
+  clearForNextRound,
 } from "./tickets.js";
+import type { TicketsJson } from "./tickets.js";
 import type { WatcherConfig } from "./watcher.js";
 import { checkStepDeadline } from "./step-timer.js";
 
@@ -45,12 +47,15 @@ import { checkStepDeadline } from "./step-timer.js";
 
 /** ループ制御に必要な全オプション。cli.ts の CliOptions と同一フィールドだが
  *  将来的な分離可能性のため独立定義する。 */
+// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
 export interface LoopOptions {
   apiKey: string;
   model: string;
   ticketsPath: string;
   maxCount: number;
   resolveEvery: number;
+  /** 同一チケットのリトライ上限（PX-146）。デフォルト 3。 */
+  maxRetries: number;
   pushEnabled: boolean;
   slackWebhookUrl: string;
   verbose: boolean;
@@ -100,6 +105,82 @@ function toRunCommandOptions(options: LoopOptions): RunCommandOptions {
     timeoutMs: options.timeoutMs,
     verbose: options.verbose,
   };
+}
+
+/** チケットキー（P{phaseId}-{id} / PX-{id}）を生成する（PX-146: wave / リトライ追跡用）。 */
+// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
+function ticketKey(ticket: { phaseId: number; id: number }): string {
+  return ticket.phaseId === -1 ? `PX-${ticket.id}` : `P${ticket.phaseId}-${ticket.id}`;
+}
+
+/**
+ * Tickets.json を読み直し、指定チケットが terminal（reviewed または R<round>）に
+ * 到達したかを判定する（PX-146 C002 事後検証）。ファイルが読めない場合は false。
+ */
+// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
+function isTerminalStatus(ticketsPath: string, key: string): boolean {
+  let raw: string;
+  try {
+    raw = readFileSync(ticketsPath, "utf-8");
+  } catch {
+    return false;
+  }
+  const data: TicketsJson = JSON.parse(raw);
+  const separator = key.indexOf("-");
+  const phasePart = key.slice(0, separator);
+  const idPart = key.slice(separator + 1);
+  const phaseId = phasePart === "PX" ? -1 : parseInt(phasePart.slice(1), 10);
+  const id = parseInt(idPart, 10);
+  for (const phase of data.phases) {
+    if (phase.id !== phaseId) continue;
+    const ticket = (phase.tickets || []).find((t) => t.id === id);
+    if (!ticket) return false;
+    return ticket.status === "reviewed" || /^R[1-9]\d*$/.test(ticket.status);
+  }
+  return false;
+}
+
+/** resolve + epush を実行する（PX-146: resolveEvery のリズムと find 前の最終 resolve を一元化）。 */
+// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
+async function runResolve(
+  cwd: string,
+  options: LoopOptions,
+  ticketId: string,
+): Promise<void> {
+  const runOptions = toRunCommandOptions(options);
+  printCommandHeader("/resolve-ticket", ticketId, "resolve");
+  await withSession(
+    cwd,
+    options.apiKey,
+    options.model,
+    async (session) => {
+      await runCommand(session, `/resolve-ticket ${cwd}`, runOptions);
+    },
+  );
+  console.log("\n>>> ✅ resolve 完了");
+
+  if (options.pushEnabled) {
+    try {
+      printCommandHeader("/epush-branch");
+      await withSession(
+        cwd,
+        options.apiKey,
+        options.model,
+        async (session) => {
+          await runCommand(session, "/epush-branch", runOptions);
+        },
+      );
+      console.log("\n>>> ✅ epush-branch 完了");
+    } catch (pushError) {
+      await sendSlackError(options.slackWebhookUrl, {
+        ticketId,
+        phase: "epush-branch",
+        error: pushError as Error,
+        ticketsPath: options.ticketsPath,
+      });
+      throw pushError;
+    }
+  }
 }
 
 // --- 公開 API ---
@@ -190,10 +271,8 @@ function buildProgressText(ticketsPath: string): string {
 
 export async function runLoop(options: LoopOptions): Promise<void> {
   const cwd = path.resolve(process.cwd());
-  const pending = loadPendingTickets(options.ticketsPath).sort(
-    (a, b) => a.phaseId - b.phaseId || a.id - b.id,
-  );
-  const target = pending.slice(0, options.maxCount);
+  // PX-146 C005: 安全網 — 中断ラウンドで残った forNextRound を解除してから開始する。
+  clearForNextRound(options.ticketsPath);
 
   let reviewedCount = 0;
   const processedTickets: Array<{
@@ -201,172 +280,180 @@ export async function runLoop(options: LoopOptions): Promise<void> {
     title: string;
     phaseId: number;
   }> = [];
+  const processedDistinct = new Set<string>();
+  const retryCount = new Map<string, number>();
+  /** リトライ上限到達で諦めたチケット — 再取得しない（通知付き穴）（PX-146 C003） */
+  const giveUp = new Set<string>();
+  let timeWindowExited = false;
 
-  for (const ticket of target) {
-    // Watcher モード時: 時間枠外ならループを終了
-    const ticketLabel = ticket.phaseId === -1 ? `PX-${ticket.id}` : `P${ticket.phaseId}-${ticket.id}`;
-    if (!checkStepDeadline(ticketLabel, options.watcherConfig)) {
-      break;
-    }
+  while (true) {
+    const pending = loadPendingTickets(options.ticketsPath).sort(
+      (a, b) => a.phaseId - b.phaseId || a.id - b.id,
+    );
+    if (pending.length === 0) break;
 
-    const ticketId = ticket.phaseId === -1 ? `PX-${ticket.id}` : `P${ticket.phaseId}-${ticket.id}`;
-    processedTickets.push({
-      id: ticketId,
-      title: ticket.title,
-      phaseId: ticket.phaseId,
-    });
-    const runOptions = toRunCommandOptions(options);
+    // 重複なし maxCount 予算: 新規チケットは残り予算まで、リトライ対象は予算を消費しない。
+    const remainingBudget = options.maxCount - processedDistinct.size;
+    const newCandidates = pending
+      .filter((t) => !processedDistinct.has(ticketKey(t)))
+      .slice(0, Math.max(0, remainingBudget));
+    const retryCandidates = pending.filter(
+      (t) => processedDistinct.has(ticketKey(t)) && !giveUp.has(ticketKey(t)),
+    );
+    if (newCandidates.length === 0 && retryCandidates.length === 0) break;
 
-    try {
-      const status = ticket.status;
-      const bindReview = options.bindReviewInOneSession ?? true;
+    const target = [...retryCandidates, ...newCandidates];
 
-      // Session A: make/plan/start/review（統合モード時は同セッション）
-      //   -b 1（デフォルト）: [make→plan→start→review]
-      //   -b 0:              [make→plan→start] → 別セッションで review
-      if (status === "todo" || status === "made" || status === "planned") {
-        await withSession(
-          cwd,
-          options.apiKey,
-          options.model,
-          async (session) => {
-            if (status === "todo") {
-              printCommandHeader("/make-ticket", ticketId, ticket.title);
-              await runCommand(session, `/make-ticket ${ticketId}`, runOptions);
-              console.log("\n>>> ✅ make-ticket 完了");
-            }
-            if (status !== "planned") {
-              printCommandHeader("/plan-ticket", ticketId, ticket.title);
-              await runCommand(session, `/plan-ticket ${ticketId}`, runOptions);
-              console.log("\n>>> ✅ plan-ticket 完了");
-            }
-            printCommandHeader("/start-ticket", ticketId, ticket.title);
-            await runCommand(session, `/start-ticket ${ticketId}`, runOptions);
-            console.log("\n>>> ✅ start-ticket 完了");
-            if (bindReview) {
-              printCommandHeader("/review-ticket", ticketId, ticket.title);
+    for (const ticket of target) {
+      const ticketId = ticketKey(ticket);
+      // Watcher モード時: 時間枠外ならループ全体を終了
+      if (!checkStepDeadline(ticketId, options.watcherConfig)) {
+        timeWindowExited = true;
+        break;
+      }
+
+      if (!processedDistinct.has(ticketId)) {
+        processedDistinct.add(ticketId);
+        reviewedCount++;
+        processedTickets.push({
+          id: ticketId,
+          title: ticket.title,
+          phaseId: ticket.phaseId,
+        });
+      }
+      const runOptions = toRunCommandOptions(options);
+
+      try {
+        const status = ticket.status;
+        const bindReview = options.bindReviewInOneSession ?? true;
+
+        // Session A: make/plan/start/review（統合モード時は同セッション）
+        //   -b 1（デフォルト）: [make→plan→start→review]
+        //   -b 0:              [make→plan→start] → 別セッションで review
+        if (status === "todo" || status === "made" || status === "planned") {
+          await withSession(
+            cwd,
+            options.apiKey,
+            options.model,
+            async (session) => {
+              if (status === "todo") {
+                printCommandHeader("/make-ticket", ticketId, ticket.title);
+                await runCommand(session, `/make-ticket ${ticketId}`, runOptions);
+                console.log("\n>>> ✅ make-ticket 完了");
+              }
+              if (status !== "planned") {
+                printCommandHeader("/plan-ticket", ticketId, ticket.title);
+                await runCommand(session, `/plan-ticket ${ticketId}`, runOptions);
+                console.log("\n>>> ✅ plan-ticket 完了");
+              }
+              printCommandHeader("/start-ticket", ticketId, ticket.title);
+              await runCommand(session, `/start-ticket ${ticketId}`, runOptions);
+              console.log("\n>>> ✅ start-ticket 完了");
+              if (bindReview) {
+                printCommandHeader("/review-ticket", ticketId, ticket.title);
+                await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
+                console.log("\n>>> ✅ review 完了");
+              }
+            },
+          );
+        }
+
+        // review を別セッションで実行（分離モード または done）
+        if (!bindReview || status === "done") {
+          printCommandHeader("/review-ticket", ticketId, ticket.title);
+          await withSession(
+            cwd,
+            options.apiKey,
+            options.model,
+            async (session) => {
               await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
-              console.log("\n>>> ✅ review 完了");
-            }
-          },
-        );
+            },
+          );
+          console.log("\n>>> ✅ review 完了");
+        }
+
+        // resolve 間隔（C001 invariant: resolveEvery のリズムを維持）
+        if (reviewedCount % options.resolveEvery === 0) {
+          await runResolve(cwd, options, ticketId);
+        }
+      // C002: 事後検証 — Tickets.json を読み直し、terminal 到達を確認する。
+      if (isTerminalStatus(options.ticketsPath, ticketId)) {
+        retryCount.delete(ticketId);
+      } else {
+        const attempts = (retryCount.get(ticketId) ?? 0) + 1;
+        retryCount.set(ticketId, attempts);
+        if (attempts > options.maxRetries) {
+          // C003: リトライ上限到達 — Slack 通知し、通知付き穴として再取得を停止する。
+          giveUp.add(ticketId);
+          await sendSlackError(options.slackWebhookUrl, {
+            ticketId,
+            phase: "review-retry",
+            error: new Error(
+              `Ticket ${ticketId} did not reach reviewed after ${options.maxRetries} retries`,
+            ),
+            ticketsPath: options.ticketsPath,
+          });
+          console.error(
+            `\n⚠️ ${ticketId} が ${options.maxRetries} 回のリトライ後も未完了です（通知付きで継続）`,
+          );
+        }
+        // 非 terminal のまま次 wave へ — 再取得で再処理される（救済）。
+        continue;
       }
 
-      // review を別セッションで実行（分離モード または done）
-      if (!bindReview || status === "done") {
-        printCommandHeader("/review-ticket", ticketId, ticket.title);
+      // C004: 全チケット reviewed → consolidate → find → 通知 → return（1インボケーション=1ラウンド）
+      if (!options.noFind && checkAllReviewed(options.ticketsPath)) {
+        await runResolve(cwd, options, ticketId); // 最終 resolve（冪等）
+        const processed = buildProcessedText(
+          options.ticketsPath,
+          processedTickets,
+        );
+        const progress = buildProgressText(options.ticketsPath);
+        const successCtx: SuccessContext = {
+          count: reviewedCount,
+          processed,
+          progress,
+        };
+        sendSlackSuccess(options.slackWebhookUrl, successCtx).catch(() => {});
+
+        printCommandHeader("/consolidate-stubs");
         await withSession(
           cwd,
           options.apiKey,
           options.model,
           async (session) => {
-            await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
+            await runCommand(session, "/consolidate-stubs", runOptions);
           },
         );
-        console.log("\n>>> ✅ review 完了");
-      }
-      reviewedCount++;
+        console.log("\n>>> ✅ consolidate-stubs 完了");
 
-      // Step 3: Session C — resolve（resolveEvery の間隔 OR 最終チケットで実行）
-      if (
-        reviewedCount % options.resolveEvery === 0 ||
-        reviewedCount === target.length
-      ) {
-        printCommandHeader("/resolve-ticket", ticketId, ticket.title);
+        printCommandHeader("/find-omissions");
+        const graphPath = getGraphPathFromTickets(options.ticketsPath);
+        const before = countPhasesAndTickets(options.ticketsPath);
         await withSession(
           cwd,
           options.apiKey,
           options.model,
           async (session) => {
-            await runCommand(session, `/resolve-ticket ${cwd}`, runOptions);
-          },
-        );
-        console.log("\n>>> ✅ resolve 完了");
-
-        // Step 3b: オプション — epush-branch（pushEnabled が true の場合のみ）
-        if (options.pushEnabled) {
-          try {
-            printCommandHeader("/epush-branch");
-            await withSession(
-              cwd,
-              options.apiKey,
-              options.model,
-              async (session) => {
-                await runCommand(session, "/epush-branch", runOptions);
-              },
+            await runCommand(
+              session,
+              `/find-omissions ${graphPath}`,
+              runOptions,
             );
-            console.log("\n>>> ✅ epush-branch 完了");
-          } catch (pushError) {
-            await sendSlackError(options.slackWebhookUrl, {
-              ticketId,
-              phase: "epush-branch",
-              error: pushError as Error,
-              ticketsPath: options.ticketsPath,
-            });
-            throw pushError;
-          }
-        }
-
-        // 全チケット完了時: Slack に完了通知を送信
-        if (reviewedCount === target.length) {
-          const processed = buildProcessedText(
-            options.ticketsPath,
-            processedTickets,
-          );
-          const progress = buildProgressText(options.ticketsPath);
-          const successCtx: SuccessContext = {
-            count: target.length,
-            processed,
-            progress,
-          };
-          // 失敗してもメインループは停止しない
-          sendSlackSuccess(options.slackWebhookUrl, successCtx).catch(() => {});
-        }
-
-        // Step 4: 全チケット reviewed チェック → Session D1: consolidate-stubs → Session D2: find-omissions
-        // noFind が true の場合はスキップする
-        if (!options.noFind && checkAllReviewed(options.ticketsPath)) {
-          // /find-omissions は /consolidate-stubs 完了を前提とするため、
-          // 必ず先に consolidate-stubs を実行してマニフェストを生成する
-          printCommandHeader("/consolidate-stubs");
-          await withSession(
-            cwd,
-            options.apiKey,
-            options.model,
-            async (session) => {
-              await runCommand(session, "/consolidate-stubs", runOptions);
-            },
-          );
-          console.log("\n>>> ✅ consolidate-stubs 完了");
-
-          printCommandHeader("/find-omissions");
-          const graphPath = getGraphPathFromTickets(options.ticketsPath);
-          const before = countPhasesAndTickets(options.ticketsPath);
-          await withSession(
-            cwd,
-            options.apiKey,
-            options.model,
-            async (session) => {
-              await runCommand(
-                session,
-                `/find-omissions ${graphPath}`,
-                runOptions,
-              );
-            },
-          );
-          console.log("\n>>> ✅ find-omissions 完了");
-          // find 後の統合成否を決定的に判定し、進捗一覧と共に通知する
-          const after = countPhasesAndTickets(options.ticketsPath);
-          const mergedPhases = after.phaseCount - before.phaseCount;
-          const mergedTickets = after.ticketCount - before.ticketCount;
-          const progress = buildProgressText(options.ticketsPath);
-          sendFindOutcomeNotification(options.slackWebhookUrl, {
-            progress,
-            integrationSucceeded: mergedPhases > 0 || mergedTickets > 0,
-            mergedPhases,
-            mergedTickets,
-          }).catch(() => {});
-        }
+          },
+        );
+        console.log("\n>>> ✅ find-omissions 完了");
+        const after = countPhasesAndTickets(options.ticketsPath);
+        const mergedPhases = after.phaseCount - before.phaseCount;
+        const mergedTickets = after.ticketCount - before.ticketCount;
+        const progressAfter = buildProgressText(options.ticketsPath);
+        sendFindOutcomeNotification(options.slackWebhookUrl, {
+          progress: progressAfter,
+          integrationSucceeded: mergedPhases > 0 || mergedTickets > 0,
+          mergedPhases,
+          mergedTickets,
+        }).catch(() => {});
+        return; // 1ラウンド完結 — ループを抜けて conver.js を終了する
       }
     } catch (error) {
       const err = error as Error;
@@ -392,7 +479,19 @@ export async function runLoop(options: LoopOptions): Promise<void> {
       }
       process.exit(1);
     }
+    }
+
+    if (timeWindowExited) break;
+
+    // ラウンド完了（pending 空）時の最終 resolve — resolveEvery 境界を外れた
+    // 最終チケットも resolve する（旧 `reviewedCount === target.length` 相当）。
+    if (reviewedCount % options.resolveEvery !== 0 && reviewedCount > 0) {
+      const remaining = loadPendingTickets(options.ticketsPath);
+      if (remaining.length === 0) {
+        await runResolve(cwd, options, "final");
+      }
+    }
   }
 
-  console.log(`\n✅ 全${target.length}チケットの処理が完了しました。`);
+  console.log(`\n✅ 全${reviewedCount}チケットの処理が完了しました。`);
 }

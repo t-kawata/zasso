@@ -1,6 +1,3 @@
-
-
-
 // tickets.test.ts — tickets.ts のユニットテスト
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する
 //
@@ -16,6 +13,7 @@ import {
   checkAllReviewed,
   getGraphPathFromTickets,
   countPhasesAndTickets,
+  clearForNextRound,
 } from "./tickets.js";
 
 /** テスト用に一時ディレクトリに Tickets.json を書き込み、そのパスを返す */
@@ -371,5 +369,175 @@ describe("countPhasesAndTickets", () => {
   it("空の phases → { phaseCount: 0, ticketCount: 0 }", () => {
     const ticketsPath = writeTempTickets({ title: "Test", phases: [] });
     assert.deepStrictEqual(countPhasesAndTickets(ticketsPath), { phaseCount: 0, ticketCount: 0 });
+  });
+});
+
+// ======================================================================
+// PX-145: forNextRound filtering / clearing
+// ======================================================================
+
+// @verifies C002
+// [::TICKET::] PX-145 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-145 --for-spec --no-implementation-order`.
+describe("loadPendingTickets forNextRound", () => {
+  it("forNextRound=true のチケットを除外する", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [
+            { id: 1, phaseId: 0, status: "todo", title: "normal" },
+            { id: 2, phaseId: 0, status: "todo", title: "deferred", forNextRound: true },
+            { id: 3, phaseId: 0, status: "reviewed", title: "done" },
+          ],
+        },
+      ],
+    });
+    const result = loadPendingTickets(path);
+    assert.deepStrictEqual(result.map((t) => t.id), [1]);
+  });
+
+  it("forNextRound と reviewed/R<round> の複合フィルタが機能する", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [
+            { id: 1, phaseId: 0, status: "R1", title: "past-round" },
+            { id: 2, phaseId: 0, status: "todo", title: "normal" },
+            { id: 3, phaseId: 0, status: "todo", title: "deferred", forNextRound: true },
+          ],
+        },
+      ],
+    });
+    const result = loadPendingTickets(path);
+    assert.deepStrictEqual(result.map((t) => t.id), [2]);
+  });
+
+  it("forNextRound が欠落した既存チケットは処理対象として残る", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [{ id: 9, phaseId: 0, status: "todo", title: "legacy" }],
+        },
+      ],
+    });
+    const result = loadPendingTickets(path);
+    assert.deepStrictEqual(result.map((t) => t.id), [9]);
+  });
+});
+
+// @verifies C003
+// [::TICKET::] PX-145 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-145 --for-spec --no-implementation-order`.
+describe("checkAllReviewed forNextRound", () => {
+  it("forNextRound=true のみ未済でも true を返す（完了をブロックしない）", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [
+            { id: 1, phaseId: 0, status: "reviewed", title: "done" },
+            { id: 2, phaseId: 0, status: "todo", title: "deferred", forNextRound: true },
+          ],
+        },
+      ],
+    });
+    assert.strictEqual(checkAllReviewed(path), true);
+  });
+
+  it("非 forNextRound の未済が残っていれば false", () => {
+    const path = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [
+            { id: 1, phaseId: 0, status: "todo", title: "pending" },
+            { id: 2, phaseId: 0, status: "todo", title: "deferred", forNextRound: true },
+          ],
+        },
+      ],
+    });
+    assert.strictEqual(checkAllReviewed(path), false);
+  });
+});
+
+// @verifies C004
+// [::TICKET::] PX-145 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-145 --for-spec --no-implementation-order`.
+describe("clearForNextRound", () => {
+  it("全チケットの forNextRound フラグを除去する", () => {
+    const ticketsPath = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [
+            { id: 1, phaseId: 0, status: "todo", title: "a", forNextRound: true },
+            { id: 2, phaseId: 0, status: "reviewed", title: "b" },
+          ],
+        },
+      ],
+    });
+    clearForNextRound(ticketsPath);
+    const data = JSON.parse(readFileSync(ticketsPath, "utf-8"));
+    for (const phase of data.phases) {
+      for (const ticket of phase.tickets) {
+        assert.ok(ticket.forNextRound !== true);
+      }
+    }
+  });
+
+  it("冪等 — 2回呼んでも結果が変わらない", () => {
+    const ticketsPath = writeTempTickets({
+      title: "Test",
+      round: 1,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [{ id: 1, phaseId: 0, status: "todo", title: "a", forNextRound: true }],
+        },
+      ],
+    });
+    clearForNextRound(ticketsPath);
+    const first = readFileSync(ticketsPath, "utf-8");
+    clearForNextRound(ticketsPath);
+    const second = readFileSync(ticketsPath, "utf-8");
+    assert.strictEqual(first, second);
+  });
+
+  it("他フィールド（status/title/round）を変更しない", () => {
+    const ticketsPath = writeTempTickets({
+      title: "Test",
+      round: 2,
+      metadata: { source: "r.md", generatedAt: "2026-06-25" },
+      phases: [
+        {
+          id: 0, name: "P0",
+          tickets: [{ id: 1, phaseId: 0, status: "todo", title: "a", forNextRound: true }],
+        },
+      ],
+    });
+    clearForNextRound(ticketsPath);
+    const data = JSON.parse(readFileSync(ticketsPath, "utf-8"));
+    assert.strictEqual(data.round, 2);
+    assert.strictEqual(data.phases[0].tickets[0].title, "a");
+    assert.strictEqual(data.phases[0].tickets[0].status, "todo");
   });
 });

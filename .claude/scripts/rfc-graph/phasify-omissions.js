@@ -827,7 +827,7 @@ function backupTickets(sourcePath, targetPath) {
  * @throws {TypeError} On null/invalid input
  */
 // [::TICKET::] PX-108: phasify-omissions auto-merge. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-108 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-108 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-108, PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-108|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
 function mergePhasifyToTickets(ticketsData, phasifiedOutput) {
   if (!ticketsData || typeof ticketsData !== 'object') {
     throw new TypeError('ticketsData must be a non-null object');
@@ -847,6 +847,15 @@ function mergePhasifyToTickets(ticketsData, phasifiedOutput) {
   // Append each phase (already deep-cloned by stringify/parse cycle)
   for (let i = 0; i < phasesToAdd.length; i++) {
     merged.phases.push(phasesToAdd[i]);
+  }
+
+  // Round transition (PX-144): release every ticket for the next round. The flag
+  // is set on mid-round creations (PX-143) and must be cleared on ALL tickets —
+  // both pre-existing and newly merged omission clones — at the round boundary.
+  for (const phase of merged.phases) {
+    for (const ticket of (phase.tickets || [])) {
+      delete ticket.forNextRound;
+    }
   }
 
   return { success: true, data: merged };

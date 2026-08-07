@@ -509,6 +509,21 @@ const VALID_TICKET = {
   assert(maxPhase.tickets.some(t => t.title === VALID_TICKET.title), 'new ticket placed in max real phase');
 })();
 
+(function testC005ForNextRound() {
+// [::TICKET::] PX-143 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-143 --for-spec --no-implementation-order`.
+  console.log('  ── C005 Postcondition: forNextRound=true ──');
+  const data = { phases: [
+    { id: -1, tickets: [] },
+    { id: 0, tickets: [] }
+  ] };
+  const ticket = { ...VALID_TICKET, status: 'todo' };
+  const result = appendTicket(data, ticket);
+  const maxPhase = result.phases.find(p => p.id === 0);
+  const added = maxPhase.tickets.find(t => t.title === VALID_TICKET.title);
+  assert(added, 'omission ticket appended to max real phase');
+  assertStrictEqual(added.forNextRound, true, 'omission ticket carries forNextRound=true');
+})();
+
 // ======================================================================
 console.log('\n━━━ Summary ━━━\n');
 console.log('Passed: ' + passed + '\nFailed: ' + failed + '\n');

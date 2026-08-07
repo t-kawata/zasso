@@ -6,17 +6,20 @@
 // - checkAllReviewed:   全チケットが reviewed 状態か判定
 // - getGraphPathFromTickets: /find-omissions へ渡す *-GRAPH.json の絶対パスを解決
 //
-// 書き込み処理はスコープ外。.claude/scripts/tickets/ のスクリプト群が担当する。
-import { readFileSync } from "node:fs";
+// 読み取りが主務。clearForNextRound のみ、runLoop 起動時の安全網として書き込みを行う（PX-145）。
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
 /** 単一チケットの情報 */
+// [::TICKET::] PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146) --for-spec --no-implementation-order`.
 export interface Ticket {
   id: number;
   phaseId: number;
   status: string;
   title: string;
+  /** ラウンド途中で追加されたチケット。次ラウンドまで処理対象外（PX-143/PX-144）。 */
+  forNextRound?: boolean;
   referenceSection?: string;
   background?: string;
   scope?: string[];
@@ -77,7 +80,12 @@ export function loadPendingTickets(ticketsPath: string): Ticket[] {
     .flatMap((phase) =>
       phase.tickets.map((t) => ({ ...t, phaseId: phase.id })),
     )
-    .filter((t) => t.status !== "reviewed" && !isRoundStatus(t.status));
+    .filter(
+      (t) =>
+        t.status !== "reviewed" &&
+        !isRoundStatus(t.status) &&
+        t.forNextRound !== true,
+    );
 }
 
 /**
@@ -92,13 +100,34 @@ export function checkAllReviewed(ticketsPath: string): boolean {
 
   for (const phase of data.phases) {
     for (const ticket of phase.tickets) {
-      if (ticket.status !== "reviewed" && !isRoundStatus(ticket.status)) {
+      // forNextRound チケットは次ラウンドの作業なので「今ラウンドの完了判定」をブロックしない（PX-145）。
+      if (
+        ticket.status !== "reviewed" &&
+        !isRoundStatus(ticket.status) &&
+        ticket.forNextRound !== true
+      ) {
         return false;
       }
     }
   }
 
   return true;
+}
+
+/**
+ * 全チケットの forNextRound フラグを削除して Tickets.json に書き戻す。
+ * runLoop 起動時の安全網（PX-145）: 中断されたラウンドで残ったフラグを解除し、
+ * チケットが次ラウンドで処理可能になる。冪等 — 何度呼んでも結果は同一。
+ * @param ticketsPath Tickets.json のファイルパス
+ */
+export function clearForNextRound(ticketsPath: string): void {
+  const data: TicketsJson = JSON.parse(readFileSync(ticketsPath, "utf-8"));
+  for (const phase of data.phases) {
+    for (const ticket of phase.tickets) {
+      delete ticket.forNextRound;
+    }
+  }
+  writeFileSync(ticketsPath, JSON.stringify(data, null, 2) + "\n", "utf-8");
 }
 
 /** GRAPH ファイル名の接尾辞 — graphify の命名規約（<source>.md → <source>-GRAPH.json） */

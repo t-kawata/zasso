@@ -31,17 +31,21 @@ function resolveCheckbox(status) {
  * @param {object} data — Parsed Tickets.json with phases[{id, name, tickets}]
  * @returns {string[]} — Markdown lines
  */
-// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-114, PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-114|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
 function renderTicketLines(data) {
   const lines = [];
   for (const p of (data.phases || [])) {
     const phaseLabel = p.id === PX_PHASE_ID ? 'PX' : 'P' + p.id;
     const allReviewed = (p.tickets || []).length > 0 && (p.tickets || []).every(function(t) {
-      return t.status === 'reviewed' || /^R[1-9]\d*$/.test(t.status);
+      // PX-144: forNextRound tickets are deferred to the next round and do not
+      // count as pending work for the phase completion display.
+      return t.forNextRound === true || t.status === 'reviewed' || /^R[1-9]\d*$/.test(t.status);
     });
     lines.push('- ' + (allReviewed ? CB.reviewed : CB.todo) + ' ' + phaseLabel + ': ' + (p.name || ''));
     for (const t of (p.tickets || [])) {
-      lines.push('    - ' + resolveCheckbox(t.status) + ' ' + phaseLabel + '-' + t.id + ': ' + (t.title || ''));
+      // PX-144: forNextRound tickets render with a distinct marker ([→] = next round).
+      const checkbox = t.forNextRound === true ? '[→]' : resolveCheckbox(t.status);
+      lines.push('    - ' + checkbox + ' ' + phaseLabel + '-' + t.id + ': ' + (t.title || ''));
     }
   }
   return lines;

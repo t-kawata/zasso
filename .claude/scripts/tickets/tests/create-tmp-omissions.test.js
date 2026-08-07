@@ -227,6 +227,35 @@ try {
   assert(keys.every(k => !/^PX-/.test(k)), 'no PX-* keys');
 })();
 
+// PX-144: forNextRound tickets are deferred to the next round and must never be
+// re-queued into _tmp-omissions. @verifies C002
+// [::TICKET::] PX-144 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-144 --for-spec --no-implementation-order`.
+(function testC002ForNextRoundExcluded() {
+  console.log('  ── C002 forNextRound excluded ──');
+  const mockTickets = { phases: [
+    { id: 0, tickets: [
+      { id: 1, status: 'todo', title: 'normal pending', phaseId: 0 },
+      { id: 2, status: 'todo', title: 'deferred', phaseId: 0, forNextRound: true },
+      { id: 3, status: 'reviewed', title: 'done', phaseId: 0 }
+    ] }
+  ] };
+  const keys = collectNonReviewedTickets(mockTickets);
+  assert(keys.includes('P0-1'), 'normal todo ticket re-queued');
+  assert(!keys.includes('P0-2'), 'forNextRound ticket excluded');
+  assert(!keys.includes('P0-3'), 'reviewed ticket excluded');
+})();
+
+// PX-144: a ticket without forNextRound behaves as processable (absent = false).
+// [::TICKET::] PX-144 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-144 --for-spec --no-implementation-order`.
+(function testC002AbsentForNextRoundProcessable() {
+  console.log('  ── C002 absent forNextRound = processable ──');
+  const mockTickets = { phases: [
+    { id: 0, tickets: [{ id: 9, status: 'todo', title: 'legacy', phaseId: 0 }] }
+  ] };
+  const keys = collectNonReviewedTickets(mockTickets);
+  assert(keys.includes('P0-9'), 'legacy ticket without the flag is re-queued');
+})();
+
 // ======================================================================
 // C003: Merge and Dedup
 // ======================================================================
