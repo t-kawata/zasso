@@ -46,7 +46,7 @@ pub struct BootConfig {
 pub struct CoreReactor;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -136,13 +136,7 @@ impl CoreReactor {
                                         }
                                         Err(panic_payload) => {
                                             terminated.store(true, Ordering::Release);
-                                            let msg = if let Some(s) = panic_payload.downcast_ref::<&str>() {
-                                                s.to_string()
-                                            } else if let Some(s) = panic_payload.downcast_ref::<String>() {
-                                                s.clone()
-                                            } else {
-                                                "unknown panic".to_string()
-                                            };
+                                            let msg = panic_message(&panic_payload);
                                             tracing::error!(panic_msg = %msg, "reactor command panicked");
                                             let _ = reply.send(Err(
                                                 crate::runtime::command::ReactorError::BackendError(
@@ -221,13 +215,7 @@ impl CoreReactor {
                                         }
                                         Err(panic_payload) => {
                                             terminated.store(true, Ordering::Release);
-                                            let msg = if let Some(s) = panic_payload.downcast_ref::<&str>() {
-                                                s.to_string()
-                                            } else if let Some(s) = panic_payload.downcast_ref::<String>() {
-                                                s.clone()
-                                            } else {
-                                                "unknown panic".to_string()
-                                            };
+                                            let msg = panic_message(&panic_payload);
                                             tracing::error!(panic_msg = %msg, "reactor get_account_info panicked");
                                             let _ = reply.send(Err(
                                                 crate::runtime::command::ReactorError::BackendError(
@@ -260,13 +248,7 @@ impl CoreReactor {
                                         }
                                         Err(panic_payload) => {
                                             terminated.store(true, Ordering::Release);
-                                            let msg = if let Some(s) = panic_payload.downcast_ref::<&str>() {
-                                                s.to_string()
-                                            } else if let Some(s) = panic_payload.downcast_ref::<String>() {
-                                                s.clone()
-                                            } else {
-                                                "unknown panic".to_string()
-                                            };
+                                            let msg = panic_message(&panic_payload);
                                             tracing::error!(panic_msg = %msg, "reactor add_account panicked");
                                             let _ = reply.send(Err(
                                                 ReactorError::BackendError(
@@ -300,13 +282,7 @@ impl CoreReactor {
                                         }
                                         Err(panic_payload) => {
                                             terminated.store(true, Ordering::Release);
-                                            let msg = if let Some(s) = panic_payload.downcast_ref::<&str>() {
-                                                s.to_string()
-                                            } else if let Some(s) = panic_payload.downcast_ref::<String>() {
-                                                s.clone()
-                                            } else {
-                                                "unknown panic".to_string()
-                                            };
+                                            let msg = panic_message(&panic_payload);
                                             tracing::error!(panic_msg = %msg, "reactor make_call panicked");
                                             let _ = reply.send(Err(
                                                 ReactorError::BackendError(
@@ -357,17 +333,7 @@ impl CoreReactor {
                                         }
                                         Err(panic_payload) => {
                                             terminated.store(true, Ordering::Release);
-                                            let msg = if let Some(s) =
-                                                panic_payload.downcast_ref::<&str>()
-                                            {
-                                                s.to_string()
-                                            } else if let Some(s) =
-                                                panic_payload.downcast_ref::<String>()
-                                            {
-                                                s.clone()
-                                            } else {
-                                                "unknown panic".to_string()
-                                            };
+                                            let msg = panic_message(&panic_payload);
                                             tracing::error!(panic_msg = %msg, "reactor update_account panicked");
                                             let _ = reply.send(Err(
                                                 ReactorError::BackendError(format!(
@@ -397,17 +363,7 @@ impl CoreReactor {
                                         }
                                         Err(panic_payload) => {
                                             terminated.store(true, Ordering::Release);
-                                            let msg = if let Some(s) =
-                                                panic_payload.downcast_ref::<&str>()
-                                            {
-                                                s.to_string()
-                                            } else if let Some(s) =
-                                                panic_payload.downcast_ref::<String>()
-                                            {
-                                                s.clone()
-                                            } else {
-                                                "unknown panic".to_string()
-                                            };
+                                            let msg = panic_message(&panic_payload);
                                             tracing::error!(panic_msg = %msg, "reactor remove_account panicked");
                                             let _ = reply.send(Err(
                                                 ReactorError::BackendError(format!(
@@ -453,17 +409,7 @@ impl CoreReactor {
                                         }
                                         Err(panic_payload) => {
                                             terminated.store(true, Ordering::Release);
-                                            let msg = if let Some(s) =
-                                                panic_payload.downcast_ref::<&str>()
-                                            {
-                                                s.to_string()
-                                            } else if let Some(s) =
-                                                panic_payload.downcast_ref::<String>()
-                                            {
-                                                s.clone()
-                                            } else {
-                                                "unknown panic".to_string()
-                                            };
+                                            let msg = panic_message(&panic_payload);
                                             tracing::error!(panic_msg = %msg, "reactor create_transport panicked");
                                             let _ = reply.send(Err(
                                                 ReactorError::BackendError(format!(
@@ -477,6 +423,18 @@ impl CoreReactor {
                                 DispatchCommand::QueryState { reply } => {
                                     // Authoritative-state clone for the query API (O-004).
                                     let _ = reply.send(Ok(client_state.clone()));
+                                }
+                                DispatchCommand::NativeEvent { event } => {
+                                    // O-001: on a native event, convert it and publish
+                                    // to the owning EventBus. Backend errors surface as
+                                    // SipEventPayload::Error — never crash the loop.
+                                    process_native_event(
+                                        &*backend,
+                                        &client_event_buses,
+                                        &default_event_bus,
+                                        event,
+                                        &client_state.calls,
+                                    );
                                 }
                                 DispatchCommand::Shutdown { reply } => {
                                     let _ = backend.shutdown();
@@ -511,6 +469,22 @@ impl CoreReactor {
     }
 }
 
+/// Extract a readable message from a `catch_unwind` panic payload.
+///
+/// Panics may carry either a `&str` or a `String` message; anything else is
+/// reported generically. Shared by every reactor loop arm so the panic-handling
+/// block reads as a single sentence instead of a repeated downcast chain.
+// [::TICKET::] P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-7 --for-spec --no-implementation-order`.
+fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
+    if let Some(s) = payload.downcast_ref::<&str>() {
+        s.to_string()
+    } else if let Some(s) = payload.downcast_ref::<String>() {
+        s.clone()
+    } else {
+        "unknown panic".to_string()
+    }
+}
+
 /// Client buses keyed by logical account ID.
 // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
 type ClientEventBuses = std::collections::HashMap<AccountId, EventBus>;
@@ -528,8 +502,6 @@ type CallTable = std::collections::BTreeMap<CallId, CallEntry>;
 /// This is the production dual-client dispatch: the Reactor calls it whenever a
 /// NativeEvent has been converted to a `SipEvent` (O-003).
 // [::TICKET::] P7-2: O-003 — production account_id-based EventBus dispatch
-// [::STUB::] P12-7: NativeEvent dispatch and processing are not yet wired into the reactor loop (covers reactor.rs:260,294,335) -- Wire dispatch_event and process_native_event (with its extract_event_ids helper) into the reactor loop so NativeEvents delivered by the FFI callback bridge are processed
-#[allow(dead_code)]
 pub(crate) fn dispatch_event(
     client_event_buses: &ClientEventBuses,
     default_event_bus: &EventBus,
@@ -567,7 +539,6 @@ pub(crate) fn dispatch_event(
 /// `calls[call_id].account_id` before conversion — this is what lets a
 /// `CONFIRMED` call publish a `CallConnected` payload with the real account.
 // [::TICKET::] P7-2: O-001 — production NativeEvent → SipEvent publication flow
-#[allow(dead_code)]
 pub(crate) fn process_native_event(
     backend: &dyn SipBackend,
     client_event_buses: &ClientEventBuses,
@@ -615,7 +586,6 @@ pub(crate) fn process_native_event(
 /// Call/DTMF events carry only a `call_id`; the owning `account_id` is resolved
 /// from the reactor's call-state table by `process_native_event`. Registration
 /// events carry the `acc_id`.
-#[allow(dead_code)]
 // [::TICKET::] P7-2, P9-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P11-11) --for-spec --no-implementation-order`.
 fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>) {
     match event {
@@ -773,8 +743,8 @@ mod tests {
     }
 
     // [::TICKET::] P7-2: O-003 — test helper shared by dispatch/process_native_event tests
-    // [::TICKET::] P7-2, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6) --for-spec --no-implementation-order`.
-    fn make_event(account_id: Option<AccountId>) -> SipEvent {
+    // [::TICKET::] P7-2, P9-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P12-7) --for-spec --no-implementation-order`.
+    fn make_disconnect_event(account_id: Option<AccountId>) -> SipEvent {
         SipEvent {
             meta: EventMeta::new(1, account_id, Some(test_call_id(1))),
             payload: SipEventPayload::CallDisconnected,
@@ -786,7 +756,7 @@ mod tests {
     /// @verifies C039
     #[test]
     // [::TICKET::] P7-2: O-003 — production dispatch routes to the matching client bus only
-    // [::TICKET::] P7-2, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-2, P9-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P12-7) --for-spec --no-implementation-order`.
     fn dispatch_event_routes_to_matching_bus_only() {
         let bus_a = EventBus::new(16, None);
         let bus_b = EventBus::new(16, None);
@@ -798,7 +768,11 @@ mod tests {
         let mut rx_a = bus_a.subscribe_control();
         let mut rx_b = bus_b.subscribe_control();
 
-        dispatch_event(&buses, &default_bus, make_event(Some(test_account(1))));
+        dispatch_event(
+            &buses,
+            &default_bus,
+            make_disconnect_event(Some(test_account(1))),
+        );
 
         assert!(
             rx_a.try_recv().is_ok(),
@@ -816,7 +790,7 @@ mod tests {
     /// @verifies C039
     #[test]
     // [::TICKET::] P7-2: O-003 — production dispatch broadcasts account_id=None to every bus
-    // [::TICKET::] P7-2, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-2, P9-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P12-7) --for-spec --no-implementation-order`.
     fn dispatch_event_none_account_broadcasts_to_all() {
         let bus_a = EventBus::new(16, None);
         let bus_b = EventBus::new(16, None);
@@ -829,7 +803,7 @@ mod tests {
         let mut rx_b = bus_b.subscribe_control();
         let mut rx_default = default_bus.subscribe_control();
 
-        let mut event = make_event(None);
+        let mut event = make_disconnect_event(None);
         event.meta.account_id = None;
         dispatch_event(&buses, &default_bus, event);
 
@@ -850,7 +824,7 @@ mod tests {
     /// @verifies C039
     #[test]
     // [::TICKET::] P7-2: O-003 — production dispatch falls back to default_event_bus for unmatched account
-    // [::TICKET::] P7-2, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P7-2, P9-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P12-7) --for-spec --no-implementation-order`.
     fn dispatch_event_unmatched_account_falls_back_to_default() {
         let bus_a = EventBus::new(16, None);
         let default_bus = EventBus::new(16, None);
@@ -860,7 +834,11 @@ mod tests {
         let mut rx_a = bus_a.subscribe_control();
         let mut rx_default = default_bus.subscribe_control();
 
-        dispatch_event(&buses, &default_bus, make_event(Some(test_account(99))));
+        dispatch_event(
+            &buses,
+            &default_bus,
+            make_disconnect_event(Some(test_account(99))),
+        );
 
         assert!(
             rx_default.try_recv().is_ok(),
@@ -1697,6 +1675,38 @@ mod tests {
         assert_eq!(state.transports.len(), 1, "one transport must be recorded");
         assert_eq!(state.transports[0].port, 5070);
         assert_eq!(state.transports[0].transport_type, "udp");
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    // ── P12-7: reactor-loop NativeEvent ingestion round-trip ───────────
+
+    #[tokio::test]
+    // @verifies C039, C046
+    // [::TICKET::] P12-7: a NativeEvent injected through the handle's ingestion
+    // receiver reaches process_native_event on the reactor thread and is published
+    // on the reactor-owned default_event_bus (O-001 production flow).
+    async fn reactor_enqueued_registration_state_changed_publishes(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        // Register an account so MockBackend::get_account_info(1) yields the
+        // Ok(200) success shape (P10-1 registry-derived snapshot).
+        let account_id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        let mut rx = handle.default_event_bus().subscribe_control();
+
+        handle.enqueue_native_event(NativeEvent::RegistrationStateChanged {
+            acc_id: account_id as u32,
+        })?;
+
+        let ev = rx.recv().await?;
+        assert!(
+            matches!(ev.payload, SipEventPayload::RegistrationSucceeded(_)),
+            "expected RegistrationSucceeded, got {:?}",
+            ev.payload
+        );
+        assert_eq!(ev.meta.account_id, Some(test_account(1)));
         shutdown_reactor(handle, join).await;
         Ok(())
     }

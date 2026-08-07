@@ -247,7 +247,7 @@ impl std::fmt::Display for RuntimeCommand {
 }
 
 /// Type alias for the backend execution closure used in `DispatchCommand`.
-// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6, P12-1, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6|P12-1|P12-7) --for-spec --no-implementation-order`.
 type BackendFn =
     Box<dyn FnOnce(&mut dyn super::backend::SipBackend) -> Result<(), ReactorError> + Send>;
 
@@ -354,6 +354,15 @@ pub(crate) enum DispatchCommand {
     /// [::TICKET::] P7-2: O-004 — clone the reactor's authoritative ClientState.
     QueryState {
         reply: Reply<Result<crate::runtime::state::ClientState, ReactorError>>,
+    },
+    /// [::TICKET::] P12-7: a NativeEvent enqueued by the FFI callback bridge
+    /// (P8-21) or injected via `RuntimeHandle::enqueue_native_event`.
+    ///
+    /// Dedicated variant (not an `Execute` closure) so the reactor loop can reach
+    /// the reactor-owned EventBus instances through `process_native_event` — an
+    /// `Execute` closure only receives `&mut dyn SipBackend` and cannot publish.
+    NativeEvent {
+        event: crate::state::m20_native_event_conv::NativeEvent,
     },
     Shutdown {
         reply: Reply<Result<(), ReactorError>>,
@@ -479,7 +488,7 @@ impl DispatchCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for DispatchCommand {
-    // [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P11-6, P11-11, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P11-6|P11-11|P12-1) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P11-6, P11-11, P12-1, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P11-6|P11-11|P12-1|P12-7) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Execute { .. } => f
@@ -520,6 +529,9 @@ impl std::fmt::Debug for DispatchCommand {
                 .finish_non_exhaustive(),
             Self::QueryState { .. } => f
                 .debug_struct("DispatchCommand::QueryState")
+                .finish_non_exhaustive(),
+            Self::NativeEvent { .. } => f
+                .debug_struct("DispatchCommand::NativeEvent")
                 .finish_non_exhaustive(),
             Self::Shutdown { .. } => write!(f, "DispatchCommand::Shutdown"),
         }
@@ -1119,7 +1131,7 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
     fn runtime_command_derives_debug() {
-        // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P10-4, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-4|P12-7) --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
         assert_debug::<RuntimeCommand>();
         assert_debug::<Reply<Result<(), ReactorError>>>();
@@ -1147,5 +1159,23 @@ mod tests {
             }
             _ => panic!("AddAudioSource must map to the dedicated variant"),
         }
+    }
+
+    // ── P12-7: DispatchCommand::NativeEvent variant ───────────────────
+
+    #[test]
+    // @verifies C011
+    // [::TICKET::] P12-7: the NativeEvent variant is Debug-formattable and names
+    // the variant (payload is opaque via finish_non_exhaustive, mirroring Reply).
+    // [::TICKET::] P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-7 --for-spec --no-implementation-order`.
+    fn dispatch_command_native_event_debug_is_opaque() {
+        let cmd = DispatchCommand::NativeEvent {
+            event: crate::state::m20_native_event_conv::NativeEvent::NatDetected,
+        };
+        let debug_output = format!("{cmd:?}");
+        assert!(
+            debug_output.contains("NativeEvent"),
+            "Debug must name the variant, got {debug_output}"
+        );
     }
 }

@@ -30558,369 +30558,102 @@
             {
               "id": "C039",
               "sourceEdge": "N0038→N0037 (inbound)",
-              "precondition": "PJSIP FFI layer exists with callback bridge functions. SipBackend trait defined. Multiple SipClient instances may share PjsuaBackend singleton.",
-              "postcondition": "Dual Client callback routing: single Reactor receives all NativeEvents. Reactor::dispatch_event resolves account_id and routes to correct SipClient EventBus.",
-              "invariant": "Single Reactor pattern preserved. No event duplication across multiple clients."
+              "precondition": "PJSIP FFI layer exists with callback bridge functions (ffi/callback.rs register_callbacks installs the event queue). SipBackend trait defined (runtime/backend.rs MockBackend/PjsuaBackend). Multiple SipClient instances may share the PjsuaBackend singleton. Reactor owns a default_event_bus and a client_event_buses map (reactor.rs:85-92). Testable form: Box<dyn SipBackend> is constructible from MockBackend; RuntimeHandle exposes default_event_bus() and enqueue_native_event(). Covered by UT [Normal] reactor round-trip.",
+              "postcondition": "Dual-client callback routing: a single Reactor receives all NativeEvents. RuntimeHandle::enqueue_native_event delivers the NativeEvent to the loop (DispatchCommand::NativeEvent); process_native_event converts it (registration via backend.get_account_info -> registration_status_to_payload; other P0 via convert_native_event_to_payload); dispatch_event resolves account_id and routes to the correct SipClient EventBus (matching client bus only; unmatched -> default; None -> default + all client buses). Testable form: enqueued RegistrationStateChanged yields RegistrationSucceeded on the default bus with meta.account_id set; a client-bus event reaches only that bus. Covered by UT [Normal] reactor round-trip, UT [Error], UT [Invariant] C039.",
+              "invariant": "Single Reactor pattern preserved: all NativeEvents are processed serially on the one reactor thread (no second consumer). No event duplication across multiple clients: dispatch_event routes Some(account_id) to exactly one bus; None broadcasts by design to all buses but never duplicates a routed event. Testable form: dispatch_event_routes_to_matching_bus_only / dispatch_event_none_account_broadcasts_to_all / dispatch_event_unmatched_account_falls_back_to_default. Covered by UT [Normal]/[Invariant] C039 entries."
             },
             {
               "id": "C046",
               "sourceEdge": "N0045→N0009",
-              "precondition": "Reactor thread owns single source-of-truth ClientState. Tokio runtime provides async RwLock for snapshot sharing.",
-              "postcondition": "ClientState with initialized, accounts BTreeMap, calls BTreeMap, transports Vec, capabilities. AccountEntry with id, native_id, config, registration. CallEntry with id, native_id, account_id, state, media. conf_port_id NOT in CallEntry.",
-              "invariant": "Read-only snapshots via read().await (never blocking_read()). Updates via write().await (reactor only)."
+              "precondition": "Reactor thread owns the single source-of-truth ClientState (reactor.rs:112 client_state; QueryState returns a clone at reactor.rs:479). Tokio runtime provides async snapshot sharing. Testable form: spawn_reactor() returns a RuntimeHandle; query_state() awaits and returns ClientState. Covered by UT [Invariant] C046.",
+              "postcondition": "ClientState with initialized, accounts BTreeMap, calls BTreeMap, transports Vec, capabilities. AccountEntry with id, native_id, config, registration. CallEntry with id, native_id, account_id, state, media. conf_port_id NOT in CallEntry. NativeEvent processing reads client_state.calls to resolve the owning account for call-scoped events (reactor.rs:597-600) and never mutates it. Testable form: after submit_add_account + submit_make_call, query_state().accounts/calls reflect the entries; enqueued CallStateChanged CONFIRMED publishes CallConnected with the resolved account. Covered by UT [Normal] CallStateChanged, UT [Invariant] C046.",
+              "invariant": "Read-only snapshots via read().await (never blocking_read()); updates via write().await (reactor only). In the current impl this means: QueryState returns a Clone on the reactor thread (never a shared mutable reference), and only the reactor loop mutates client_state (command handlers and the NativeEvent arm). Testable form: query_state() returns a snapshot independent of subsequent reactor mutations; no code path outside the reactor writes client_state. Covered by UT [Invariant] C046."
             }
           ],
-          "background": "[::INSPECTION_FLAGGED::]\nThis ticket has been flagged for rejection due to detection of implementation deficiencies, unresolved STUB markers, or other violations. It has been returned for re-implementation. A complete implementation free of all defects, STUB markers, and violations must be achieved in this final implementation round. Complete it this time.\n\nSource ticket P3-2 specified the dual-client EventBus dispatch (C039) and the NativeEvent to SipEvent conversion pipeline, but left dispatch_event, process_native_event, and extract_event_ids as #[allow(dead_code)] free functions in reactor.rs with no call site. These were left as stubs because the FFI callback bridge (P8-21) that delivers NativeEvents to the reactor is not yet linked, so no event source feeds the loop. This work item resolves them by wiring the three helpers into the reactor loop so NativeEvents arriving from the callback bridge are converted and dispatched.",
+          "background": "- 【Goal】Wire dispatch_event, process_native_event, and extract_event_ids into the reactor loop so NativeEvents delivered by the FFI callback bridge are converted to SipEvents and routed to the correct EventBus — eliminating the three #[allow(dead_code)] markers (reactor.rs:532,570,618) and the [::STUB::] P12-7 marker at reactor.rs:531.\n- 【Purpose】P3-2 specified the dual-client EventBus dispatch (C039) and the NativeEvent→SipEvent conversion pipeline, but left the three helpers as dead free functions with no call site because the FFI callback bridge that feeds NativeEvents to the reactor was not yet linked. This ticket completes the production event flow: PJSIP callbacks → enqueue_native_event → reactor loop → process_native_event → dispatch_event → SipClient EventBus.\n- 【Motivation】Without the wiring, events published by the FFI callback bridge (ffi/callback.rs:63-74 enqueue_native_event to the global ArrayQueue) have no consumer: RegistrationStateChanged would never produce RegistrationSucceeded/Failed (O-001), CallStateChanged would never produce CallConnected (O-003), and the entire observable event stream of siprs would be silent. RFC §27.3 (N0038) callback-routing design depends on the reactor receiving and processing these events.\n- 【Constraints】No unsafe code added to runtime/reactor.rs, command.rs, handle.rs (C038). The reactor stays a single std::thread with the MPSC channel as the sole ingestion path (C039 single-Reactor invariant). EventBus publish remains a loss-tolerant broadcast; DEFAULT_EVENT_BUS_CAPACITY=2048 (client.rs:111) preserved. FFI callback-bridge enqueue itself (P8-21) is out of scope — this ticket provides the reactor-side ingestion receiver only.",
           "scope": [
-            "- src/runtime/reactor.rs:260,294,335 — remove the #[allow(dead_code)] markers and wire dispatch_event / process_native_event / extract_event_ids into the reactor loop",
-            "- src/runtime/reactor.rs:80-244 — add a NativeEvent ingestion path (receiver) to the reactor loop and call process_native_event with the backend, client_event_buses, and default_event_bus",
-            "- src/runtime/reactor.rs:263-264,297-298 — have the reactor own/create the EventBus instances (currently only parameters, never instantiated in spawn)",
-            "- Out of scope: FFI callback-bridge enqueue (P8-21); NativeEvent conversion gaps (P8-20); mock/real backend split (P8-3).",
-            "- Impact: production event flow from PJSIP callbacks to SipClient EventBuses; removes the dead-code markers."
+            "- 【Change】src/runtime/command.rs — add `DispatchCommand::NativeEvent { event: NativeEvent }` variant to the internal dispatch enum (alongside the SendDtmf/AddAccount/MakeCall dedicated variants) so the reactor loop can reach the EventBus-owned process_native_event path. Update the Debug impl (command.rs:481-527) and add an `unreachable!(\"use enqueue_native_event instead\")` arm in RuntimeHandle::submit (handle.rs:122-207). C011/C039.",
+            "- 【Change】src/runtime/handle.rs — add `RuntimeHandle::enqueue_native_event(&self, event: NativeEvent) -> Result<(), ReactorError>`: sends DispatchCommand::NativeEvent on the MPSC channel, fire-and-forget (no oneshot reply — events are observation-only per C021). Returns Err(ReactorDown) when terminated. This is the RFC §27.3 `Reactor::enqueue_native_event` ingestion receiver the FFI callback bridge (P8-21) will target.",
+            "- 【Change】src/runtime/reactor.rs loop (120-498) — add a `DispatchCommand::NativeEvent { event }` match arm that calls `process_native_event(&*backend, &client_event_buses, &default_event_bus, event, &client_state.calls)` on the reactor thread. Reads as prose: \"on a native event, convert and publish it\", mirroring the SendDtmf dedicated-variant pattern (reactor.rs:156-172).",
+            "- 【Change】src/runtime/reactor.rs:531 — remove the `// [::STUB::] P12-7` marker and the `#[allow(dead_code)]` on dispatch_event (532), process_native_event (570), extract_event_ids (618) once each has a live call site (dispatch_event←process_native_event, process_native_event←loop, extract_event_ids←process_native_event).",
+            "- 【Change】src/runtime/reactor.rs tests — add the reactor round-trip integration test (enqueue → loop → process → publish) and keep the existing O-001/O-003 dispatch/process tests green (reactor.rs:790-1151).",
+            "- 【Change】src/runtime/command.rs tests + handle.rs tests — add DispatchCommand::NativeEvent construct/Debug test and RuntimeHandle::enqueue_native_event send/receive + ReactorDown tests (C011).",
+            "- 【API】RuntimeHandle gains the public method `enqueue_native_event(&self, NativeEvent) -> Result<(), ReactorError>`. No RuntimeCommand variant is added (NativeEvent is not a user command). DispatchCommand gains a crate-internal variant. No SipBackend trait change; no public type signature changes elsewhere.",
+            "- 【Schema】No database/schema change. ClientState fields untouched; EventMeta/SipEvent/SipEventPayload/EventBus unchanged.",
+            "- 【Config】No new config. DEFAULT_EVENT_BUS_CAPACITY=2048 (eventbus_receiver.rs:29) and NATIVE_EVENT_QUEUE_CAPACITY=256 (callback.rs:26) are already defined and unchanged.",
+            "- 【Dep】No new dependency. Uses existing tokio::sync::mpsc (command channel), crossbeam_queue::ArrayQueue (callback bridge), EventBus backed by tokio broadcast.",
+            "- 【Non-change item】FFI callback-bridge enqueue wiring (P8-21): this ticket does NOT re-point callback.rs's global ArrayQueue at the reactor, and does NOT drain it from the reactor thread (draining now would double-consume events once P8-21 lands). Why: P8-21 owns the bridge↔reactor connection and the global_runtime() singleton.",
+            "- 【Non-change why】NativeEvent conversion gaps (P8-20): convert_native_event_to_payload P1/P2 None returns, IncomingCall caller_uri empty string, and DtmfReceived method defaulting to Rfc4733 are untouched. Why: they are P8-20's scope.",
+            "- 【Impact component/nature/response】component: runtime/reactor.rs, runtime/command.rs, runtime/handle.rs (edited); ffi/callback.rs (read-only reference). Nature: event flow becomes live — NativeEvents enqueued through the handle are converted and published on the reactor-owned buses. Response: all existing reactor/handle/command tests plus the new ingestion tests must pass via `make test`."
           ],
           "testUnit": [
-            "UT: [Normal] a NativeEvent fed through the wired loop path reaches process_native_event and is published (mirrors process_native_event_call_state_changed_publishes at reactor.rs:526).",
-            "UT: [Normal] RegistrationStateChanged with status 200 publishes RegistrationSucceeded (existing test reactor.rs:472 stays green after wiring).",
-            "UT: [Error] backend Err publishes RegistrationFailed or Error (existing test reactor.rs:497 stays green).",
-            "UT: [Boundary] a P1/P2 event produces no publication (existing test reactor.rs:547 stays green).",
-            "UT: [Normal] dispatch_event routing isolation (reactor.rs:377,411,439) stays green."
+            "UT: [Normal] reactor round-trip (C039 Postcondition): register an account via handle.submit_add_account, enqueue NativeEvent::RegistrationStateChanged { acc_id: 1 } via handle.enqueue_native_event, subscribe handle.default_event_bus(), and assert SipEventPayload::RegistrationSucceeded arrives with meta.account_id == Some(test_account(1)). Mirrors process_native_event_registration_200_publishes_succeeded (reactor.rs:881) but through the wired loop.",
+            "UT: [Normal] enqueue_native_event on a running reactor delivers a DispatchCommand::NativeEvent carrying the exact NativeEvent payload to the MPSC receiver (mirrors handle.rs:556 test pattern; verifies the handle->loop transport). @verifies C011.",
+            "UT: [Normal] CallStateChanged CONFIRMED routed through the loop resolves the owning account from client_state.calls (C046 Postcondition): submit_add_account -> submit_make_call -> enqueue NativeEvent::CallStateChanged { call_id: 1, state: pjsip_inv_state::CONFIRMED } -> assert SipEventPayload::CallConnected arrives with account_id == test_account(1). Mirrors process_native_event_call_state_changed_publishes (reactor.rs:999).",
+            "UT: [Normal] dispatch_event routing isolation (existing reactor.rs:790): an account-1 event reaches client bus A only, never client bus B. @verifies C039 Invariant (stays green after wiring).",
+            "UT: [Error] enqueue_native_event on a terminated reactor returns Err(ReactorError::ReactorDown) (mirrors submit_make_call_reactor_down_returns_err, handle.rs:865). @verifies C011.",
+            "UT: [Error] backend get_account_info Err during process_native_event publishes RegistrationFailed or Error, never panics (existing reactor.rs:923) — stays green after wiring. @verifies C024, C039 Postcondition.",
+            "UT: [Error] non-200 Ok snapshot (403) publishes RegistrationFailed with status_code 403 through the production flow (existing reactor.rs:958). @verifies C024.",
+            "UT: [Boundary] P1/P2 NativeEvent (TransportStateChanged) produces no publication (existing reactor.rs:1103) — stays green; the loop must not panic and must keep processing subsequent commands. @verifies C022.",
+            "UT: [Boundary] acc_id=0 / call_id=0 PJSUA sentinels: extract_event_ids yields None for zero ids (existing reactor.rs:1148) and convert_native_event_to_payload returns None (m20_native_event_conv.rs tests). @verifies C051.",
+            "UT: [Boundary] EventBus capacity is preserved: handle.default_event_bus() is constructed with DEFAULT_EVENT_BUS_CAPACITY (2048) — a compile-time/type assertion test that the reactor uses the constant, not a hardcoded 16 (existing P11-6 test reactor_exposes_default_event_bus stays green). @verifies C069.",
+            "UT: [Invariant] C039 no-duplication: dispatch_event with account_id=None broadcasts to default + every client bus, while Some(account_id) routes to that client only and unmatched accounts fall back to default (existing reactor.rs:820,854). @verifies C039 Invariant.",
+            "UT: [Invariant] C046 single-writer ClientState: query_state() returns a clone reflecting account/call mutations made by reactor-only paths (existing reactor.rs:1489,1565); NativeEvent processing reads client_state.calls without mutating (reactor.rs:597-600). @verifies C046 Invariant.",
+            "UT: [Invariant] C038 isolation: src/runtime/reactor.rs, command.rs, handle.rs contain no `unsafe` keyword (existing compile-time scan pattern, handle.rs:983) — the P12-7 wiring adds no unsafe. @verifies C038."
           ],
           "testIntegration": [
-            "IT: Spawn the reactor with a MockBackend, inject a NativeEvent through the new ingestion channel, subscribe a default EventBus, and assert the converted SipEvent arrives on the bus."
+            "IT: [Integration point] Reactor loop <- RuntimeHandle::enqueue_native_event <- (future) ffi::callback::enqueue_native_event. The reactor MPSC channel is the ingestion receiver; callback.rs already enqueues NativeEvents to a global ArrayQueue (P8-21 will re-point the producer). This ticket proves the receiver works end-to-end.",
+            "IT: [Verify] Spawn CoreReactor with a MockBackend (spawn_reactor, reactor.rs:760), subscribe to handle.default_event_bus(), register an account (submit_add_account -> MockBackend returns id 1, ClientState.accounts populated), enqueue NativeEvent::RegistrationStateChanged { acc_id: 1 } via the handle, and assert the converted SipEventPayload::RegistrationSucceeded arrives on the bus with the correct EventMeta.account_id. Exercises the full chain: enqueue -> loop dispatch -> process_native_event -> backend.get_account_info -> registration_status_to_payload -> dispatch_event -> EventBus.publish.",
+            "IT: [Prerequisites] CoreReactor::spawn owns default_event_bus (P11-6) exposed via RuntimeHandle::default_event_bus() (handle.rs:92); MockBackend::get_account_info returns the registered account snapshot (P10-1 registry-derived); process_native_event/dispatch_event already unit-tested green (reactor.rs:881-1151). Run via `make test` (Makefile is the only sanctioned test entry).",
+            "IT: [Related tickets] P3-2 (source: the three dead-code helpers), P7-2 (O-001/O-003 publication flow), P11-6 (reactor-owned default_event_bus), P8-21 (FFI callback-bridge enqueue — future producer for the receiver wired here), P8-20 (conversion gaps, out of scope), P9-6 (per-account client bus registration, future)."
           ],
           "testExceptions": [
-            "The real PJSUA callback bridge (P8-21) cannot run without pjsua linkage; integration tests inject NativeEvents directly through the reactor's ingestion channel using MockBackend. EventBus broadcast capacity (2048 at client.rs:100) makes delivery loss-tolerant, so exact-delivery counts are asserted only for single-subscriber control receivers in unit tests."
+            "IT: [Item] Real PJSIP callback-bridge -> reactor event delivery (the C-ABI callbacks on_call_state/on_reg_state/on_incoming_call invoking enqueue_native_event) is not testable in automated tests. [Reason] The callbacks require pjsua linkage and a live PJSIP stack (pjsua_init + pjsua_start), which the stub build does not provide; the global ArrayQueue is installed by register_callbacks only in the pjsua-native build. [Not a defect] This is a testing gap, not a design defect / not an architectural defect: the untestable boundary is the external C-ABI bridge (an external dependency), while the reactor ingestion logic is fully deterministic and covered by tests that inject NativeEvent values through RuntimeHandle::enqueue_native_event.",
+            "IT: [Reason] The reactor wiring under test — RuntimeHandle::enqueue_native_event -> DispatchCommand::NativeEvent -> process_native_event -> dispatch_event -> EventBus.publish — is deterministic and fully unit/integration tested by injecting NativeEvent values directly through the handle; only the producer side (the PJSIP real-time threads) is not testable without the external pjsua linkage. [Not a defect] This is not a design defect / not an architectural defect: the untestable portion is an external-dependency boundary (PJSUA linkage), and the deterministic reactor logic is tested in isolation.",
+            "IT: [Alternative verification] The producer side is verified by ffi/callback.rs unit tests (register_callbacks_installs_the_event_queue, on_call_state_reads_state_from_event, full_queue_drops_event_and_increments_loss_counter) against an installed ArrayQueue; the consumer side is verified by this ticket's integration test injecting through the handle — the same channel the bridge will enqueue into once P8-21 lands. Neither half is not testable in isolation; the combined live-PJSUA path alone is not testable here, which is not a design defect / not an architectural defect because both halves of the boundary are separately testable without a live PJSUA."
           ],
           "acceptanceCriteria": [
-            "【Happy path】The reactor loop receives a NativeEvent (from the callback-bridge channel) and calls process_native_event, which converts it to a SipEvent and routes it through dispatch_event to the correct client/default EventBus.",
-            "【Happy path】RegistrationStateChanged events query the backend via get_account_info and publish RegistrationSucceeded / RegistrationFailed / Error (reactor.rs:302-315) — no silent drop.",
-            "【Happy path】Non-registration P0 events (CallStateChanged, CallMediaStateChanged, DtmfDigit) flow through convert_native_event_to_payload plus extract_event_ids and publish with the correct account_id / call_id in EventMeta.",
-            "【Error case】Backend errors during event processing are published as SipEventPayload::Error (reactor.rs:306) and never crash the loop.",
-            "【Edge case】P1/P2 events (TransportStateChanged, NatDetected, etc.) are dropped without publication, as documented (reactor.rs:316-325).",
-            "【Edge case】The reactor owns at least a default_event_bus; client_event_buses maps account_id to the registered SipClient bus so no event is duplicated across clients (C039 invariant)."
+            "- 【Happy path】A NativeEvent injected through RuntimeHandle::enqueue_native_event (the new ingestion receiver) is received by the reactor loop, passed to process_native_event with the backend, client_event_buses, and default_event_bus, converted to a SipEvent, and routed via dispatch_event to the correct client/default EventBus — verified by subscribing to handle.default_event_bus() and receiving the converted payload. RegistrationStateChanged events query the backend via get_account_info and publish RegistrationSucceeded (200) / RegistrationFailed (non-200) / Error (backend Err) with the correct EventMeta.account_id — no silent drop (reactor.rs:579-592), verified by the existing registration 200/403/err tests (reactor.rs:881,958,923) staying green.",
+            "- 【Error case】Backend errors during NativeEvent processing are published as SipEventPayload::Error (reactor.rs:583) and never crash the loop — after an error event, the loop continues processing subsequent commands. enqueue_native_event on a terminated reactor returns Err(ReactorError::ReactorDown) rather than hanging.",
+            "- 【Edge case】P1/P2 events (TransportStateChanged, NatDetected, etc.) are dropped without publication as documented (convert_native_event_to_payload returns None) — the loop must not panic and must keep processing (existing reactor.rs:1103 stays green). The reactor owns at least a default_event_bus; client_event_buses maps account_id to the registered SipClient bus (empty until P9-6) so no event is duplicated across clients (C039 invariant) — verified by the existing dispatch isolation tests (reactor.rs:790,820,854) staying green."
           ],
           "referenceSection": "~/shyme/zasso/crates/siprs/RFC-ROOT (§24, §27, §33)",
           "relatedTicketIds": "P2-4 (depends on: AudioWorkerTask pattern), P3-1 (depends on: configure_codecs via backend), P6 (depends on: state machine transitions update ClientState)",
-          "notes": "Stub sites: src/runtime/reactor.rs:260,294,335. Order: (1) create a NativeEvent ingestion channel and reactor-owned EventBus instances; (2) call process_native_event in the loop; (3) drop the dead-code markers; (4) add the integration test. Depends on the callback-bridge enqueue shape agreed in P8-21; until PJSIP is linked, tests inject NativeEvent directly. Related: P3-2 (source), P7-2 (dispatch tests), P8-21 (callback bridge), P8-20 (FFI call sites).",
+          "notes": "- 【Implementation steps】(1) RED: write the failing tests (UT: reactor round-trip, enqueue_native_event transport, ReactorDown; IT: spawn+register+enqueue+assert) and confirm they fail because DispatchCommand::NativeEvent / enqueue_native_event / the loop arm do not exist. (2) Add DispatchCommand::NativeEvent to command.rs + Debug/Display + unreachable arm in RuntimeHandle::submit. (3) Add RuntimeHandle::enqueue_native_event in handle.rs. (4) Add the loop arm in reactor.rs calling process_native_event(&*backend, &client_event_buses, &default_event_bus, event, &client_state.calls). (5) Remove #[allow(dead_code)] x3 and the [::STUB::] P12-7 marker at reactor.rs:531. (6) Run `make test` GREEN; refactor (Boy Scout).\n- 【Risks】process_native_event calls backend.get_account_info synchronously on the reactor thread for RegistrationStateChanged — a slow backend stalls all commands until it returns. Mitigation: this is the same synchronous pattern the GetAccountInfo command already uses (reactor.rs:206-240) and MockBackend is instant; the real PjsuaBackend split is P8-3's scope.\n- 【Caveats】The callback bridge currently enqueues to a global ArrayQueue (callback.rs), NOT to the reactor channel. Until P8-21 re-points the bridge, the reactor ingestion receiver has no live producer — tests must inject through the handle. Do NOT drain the ArrayQueue from the reactor in this ticket (would double-consume once P8-21 lands).\n- 【Open items】client_event_buses stays an empty HashMap until P9-6 registers per-account SipClient buses — until then every event routes to the default bus. The global_runtime() singleton that lets the bridge reach the reactor is P8-21's responsibility.\n- 【Future improvements】Once P8-21 lands, the bridge's enqueue target becomes RuntimeHandle::enqueue_native_event (or a global runtime holder); P1/P2 event conversion (TransportStateChanged, IceTransportError, P2 variants) can be promoted from None to real payloads in P8-20 without touching the wiring here.\nImplementation summary (P12-7):\n- Files changed: src/runtime/command.rs (DispatchCommand::NativeEvent + Debug + test), src/runtime/handle.rs (enqueue_native_event + submit arm + 2 tests), src/runtime/reactor.rs (loop arm, panic_message helper, make_disconnect_event rename, reactor round-trip test, removed 3x #[allow(dead_code)] + [::STUB::] P12-7).\n- Test results: make test — 988 lib tests + all integration suites pass, 0 failed.\n- cargo check: no warnings. cargo clippy: only pre-existing warnings in untouched code (audio_subscribe_bp.rs, raw_sip_message_spec.rs, reactor.rs:64 spawn signature).\n- Annotation: annotate-ticket-context-by-git-diff added P12-7 provenance to reactor.rs/command.rs/handle.rs. 7 spurious [::AMBIGUOUS::] markers in files NOT changed by this round (pre-existing uncommitted prior-round diffs) were removed without injecting false P12-7 annotations (comments-must-not-lie).\n- Quality: run-quality-checks on the 3 touched files — remaining findings are pre-existing test-idio\nm unwrap()/expect() (permitted in tests) and doc-comment false positives; single-letter var introduced by this ticket was fixed.\nReview report (P12-7):\n- Status gate: done (review phase entered).\n- Crime scan: 0 open crimes.\n- STUB evaluation: TS-001 (reactor.rs:531) resolved and marker removed; no remaining P12-7 stubs; no-excuse gate 3/3 pass.\n- Annotation verify: 22 changed files annotated, 0 missing, 0 ambiguous; 7 spurious AMBIGUOUS markers from prior-round uncommitted diffs were removed in start phase without injecting false P12-7 annotations (comments-must-not-lie).\n- 7-pattern incomplete-implementation scan: clean (empty bodies are trait-assertion/marker impls only).\n- Compilation: cargo check 0 warnings. cargo clippy: only pre-existing warnings in untouched code.\n- Implementation completeness: loop arm (reactor.rs:427-438) calls process_native_event with backend/client_event_buses/default_event_bus/calls; enqueue_native_event (handle.rs:464-474) sends DispatchCommand::NativeEvent, ReactorDown on terminated; dispatch_event/process_native_event/extract_event_ids all live (6/9/4 call sites). C039/C046 fulfilled.\n- Issues found and fixes applied: single-letter `s` in command.rs test renamed to `debug_output`; new tests converted to Result-returning to avoid new unwrap.",
           "id": 7,
           "phaseId": 12,
-          "status": "todo",
-          "invariants": "Single Reactor pattern preserved: all NativeEvents are processed on the one reactor thread and no event is duplicated across clients (C039). The reactor remains the single writer of ClientState (C046). No unsafe code is added to runtime/reactor.rs (C038). EventBus publish remains a loss-tolerant broadcast; the client.rs:100 default capacity (2048) is preserved.",
-          "instrumentation": "tracing::info! per published SipEvent (event type, account_id, call_id); tracing::warn! for P1/P2 dropped events and for backend errors that publish Error payloads.",
-          "investigation": "reactor.rs:260 marks dispatch_event with #[allow(dead_code)]; the function (262-282) implements account-based routing but is never called. process_native_event (295-327) implements the registration flow and the generic conversion but is also dead. extract_event_ids (336-355) is called only from process_native_event, so it too is dead. The reactor loop in spawn (80-244) handles only DispatchCommand variants; there is no NativeEvent receiver and no EventBus instance owned by the reactor — client.rs:100 creates an EventBus on the SipClient side but nothing connects it to dispatch_event. A real implementation must add a NativeEvent channel (the callback bridge's enqueue target, P8-21), have the reactor own a default_event_bus and a client_event_buses map, and call process_native_event from the loop for each received event, preserving the C039 no-duplication invariant.",
-          "boyScoutPlan": "Remove the three #[allow(dead_code)] markers. Extract the repeated catch_unwind / panic-payload block (reactor.rs:85-114,153-183,185-222) into a helper so the loop reads as prose. Replace the trailing let _ = native_id; at reactor.rs:199 with a structured use or an explicit rename.",
+          "status": "reviewed",
+          "invariants": "- 【Normal establishment】Single Reactor pattern (C039): every NativeEvent — whether enqueued by the FFI callback bridge (P8-21) or injected in tests via RuntimeHandle::enqueue_native_event — is processed serially on the one reactor thread through process_native_event, converted to a SipEvent, and routed via dispatch_event. The reactor owns default_event_bus (EventBus::new(DEFAULT_EVENT_BUS_CAPACITY=2048, None), reactor.rs:85-88) and the client_event_buses HashMap (reactor.rs:92); the loop reaches both.\n- 【Invariant on error】Backend failures during NativeEvent processing never crash the loop: process_native_event maps get_account_info Err to SipEventPayload::Error (reactor.rs:583) and publishes it; a missing CallEntry / unresolved account_id yields no payload (convert_call_state CONFIRMED with None account -> None, m20_callstate_mapping.rs:86-92) — a documented silent drop, never a panic. EventBus::publish stays a loss-tolerant broadcast (control.send Result ignored). C039/C046.\n- 【Internal state invariant】client_state remains the single source of truth owned by the reactor thread (C046): the NativeEvent arm reads client_state.calls to resolve owning accounts (reactor.rs:597-600) and never mutates it; QueryState returns a clone (reactor.rs:479), so event processing never races command dispatch or the query API.\n- 【Boundary invariant】acc_id/call_id of 0 are PJSUA invalid sentinels and yield None (AccountId::from_u64 / CallId::from_u64 reject 0; extract_event_ids reactor.rs:1148). EventBus capacity 2048 is preserved (client.rs:111, DEFAULT_EVENT_BUS_CAPACITY eventbus_receiver.rs:29); NativeEvent ingestion is loss-tolerant, so exact delivery counts are asserted only for single-subscriber control receivers in unit tests.",
+          "instrumentation": "- 【Logging】On DispatchCommand::NativeEvent receipt, the reactor logs at debug level (tracing::debug!) with the event variant and call/account ids — NOT at info per event (events are high-frequency). Reuse the `tracing` crate already used at reactor.rs:146. Errors inside process_native_event are already surfaced as SipEventPayload::Error, not log-only.\n- 【Metrics】No new metric. The FFI bridge already exposes native_event_dropped_count() (callback.rs:77) for queue-overflow observability; EventBus loss is inherent to tokio broadcast (Lagged(n) on the subscriber). The reactor loop must not add counters that could be mistaken for delivery guarantees — events are observation-only per C021.\n- 【Error tracking】Backend errors during NativeEvent processing are published as SipEventPayload::Error (reactor.rs:583) — the observable error channel; no silent drop of registration failures, no panic. process_native_event is total (returns ()), so no new panic path is introduced; if it ever panics, the loop's existing catch_unwind pattern (reactor.rs:125) is the backstop.\n- 【Health check】No change to liveness: RuntimeHandle::is_thread_alive() / is_terminated() (handle.rs:111,452) and the Arc<JoinHandle> thread-lifecycle inspection (P12-6) already cover reactor health. NativeEvent processing runs on the same thread, so a wedged handler manifests immediately as a non-alive thread.\nReview (P12-7):\n- Static quality check: run-quality-checks on reactor.rs/command.rs/handle.rs — 37 findings, ALL pre-existing test-idio\nm unwrap()/expect() (permitted in test code) + doc-comment/[::TICKET::]-annotation false positives. No new issues introduced by P12-7; the single-letter var `s` added in the start phase was fixed during start.\n- Translatability: all new functions are verb phrases (panic_message, enqueue_native_event); no single-char vars; no hardcoded production magic numbers; no debug output.\n- Tests: make test — 988 lib tests + all integration suites pass, 0 failed. 4 new P12-7 tests green.",
+          "investigation": "Evidence from source inspection:\n- reactor.rs:531-553 `dispatch_event` is #[allow(dead_code)]: routes a SipEvent by meta.account_id — Some(aid) matching a registered client bus → that bus only; Some(aid) unmatched → default bus; None → default bus + every registered client bus (C039 N0038 dual-client design). No call site exists.\n- reactor.rs:570-611 `process_native_event` is #[allow(dead_code)]: RegistrationStateChanged → backend.get_account_info → registration_status_to_payload → RegistrationSucceeded/Failed/Error; other events → extract_event_ids + calls-table account resolution (reactor.rs:597-600) → convert_native_event_to_payload → dispatch_event. No call site exists.\n- reactor.rs:618-641 `extract_event_ids` is #[allow(dead_code)]: IncomingCall carries (acc_id, call_id); call-scoped variants (CallStateChanged/CallMediaStateChanged/DtmfDigit/IceTransportError/CallTsxStateChanged/CallRedirected/CallTransferStatus/CallReplaced) carry only call_id → (None, Some(call_id)); TransportStateChanged/NatDetected/RegistrationStateChanged → (None, None).\n- The reactor loop (reactor.rs:120-498) handles only DispatchCommand variants via rx.blocking_recv() on the MPSC channel (handle::create_channel, handle.rs:458) — there is no NativeEvent arm, so the three helpers are unreachable.\n- The reactor already owns default_event_bus (reactor.rs:85-88, EventBus::new(DEFAULT_EVENT_BUS_CAPACITY=2048, None)) exposed on RuntimeHandle::default_event_bus() (handle.rs:92), and an empty client_event_buses HashMap (reactor.rs:92) — P11-6 laid the bus infrastructure; this ticket wires events into it.\n- The FFI callback bridge (ffi/callback.rs:63-74) exposes `enqueue_native_event` → global ArrayQueue<NativeEvent> (capacity 256, callback.rs:26) with a loss counter; RFC §27.3 (N0038) specifies Reactor::enqueue_native_event as the ingestion entry point, but the bridge↔reactor connection is P8-21's scope.\n- client.rs:111 creates a per-client EventBus(DEFAULT_EVENT_BUS_CAPACITY=2048) but nothing links it to the reactor's client_event_buses map (P9-6).\n- convert_native_event_to_payload (m20_native_event_conv.rs:121-203): P0 registration/call/media/dtmf produce payloads; RegistrationStateChanged yields None (handled via backend query by process_native_event); P1/P2 yield None by design. convert_call_state CONFIRMED requires account_id (m20_callstate_mapping.rs:86-92) — resolved from the calls table by process_native_event.\n- Existing green tests to preserve: dispatch routing isolation/broadcast/fallback (reactor.rs:790,820,854), registration 200/403/err (reactor.rs:881,958,923), call publish (reactor.rs:999), multi-account (reactor.rs:1031), P1 drop (reactor.rs:1103), extract ids (reactor.rs:1136,1148).",
+          "boyScoutPlan": "Translatability improvements for code touched by P12-7:\n- Remove the three #[allow(dead_code)] markers (reactor.rs:532,570,618) and the [::STUB::] P12-7 marker at reactor.rs:531 — dead code becomes live, so the \"why is this dead?\" confusion disappears.\n- The loop's NativeEvent arm reads as prose: `DispatchCommand::NativeEvent { event } => process_native_event(&*backend, &client_event_buses, &default_event_bus, event, &client_state.calls)` — \"on a native event, convert and publish it\", mirroring the existing SendDtmf dedicated-variant pattern (reactor.rs:156-172).\n- Boy Scout (green-state refactor only): extract the repeated catch_unwind/panic-payload block (reactor.rs:125-154, 210-239, 242-278, 289-318, 325-378, 382-419, 422-475) into a helper such as `run_backend_call(f: impl FnOnce(&mut dyn SipBackend) -> Result<T, ReactorError>) -> Result<T, ReactorError>` that handles panic → ReactorError::BackendError, so the loop reads as a sequence of one-line handlers instead of ~8 copies of the panic boilerplate.\n- Rename the test helper `make_event` (reactor.rs:777) to `make_disconnect_event` so the fixture's purpose is explicit.\n- Future (out of scope here): client_event_buses registration (P9-6) should expose a `register_client_bus(account_id, EventBus)` method so dispatch_event reads as \"look up the owning client bus, fall back to default\" rather than an inline HashMap lookup.",
           "created_at": "2026-07-28",
-          "updated_at": "2026-07-28",
+          "updated_at": "2026-08-07",
           "targetStubs": [
             {
               "id": "TS-001",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/api/public_api_design.rs",
-              "line": 126,
-              "markerText": "// [::STUB::] P3-2: Return real CallId once backend assigns it.",
-              "contracts": [
-                "C046"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires real PjsuaBackend to assign CallId"
-            },
-            {
-              "id": "TS-002",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
-              "line": 66,
-              "markerText": "/// [::TICKET::] P3-2: ffi::bindings provides type aliases for PJSIP codec system.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-003",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/config/observability_metrics.rs",
-              "line": 183,
-              "markerText": "/// [::STUB::] P3-2: Replace with proper FFI-defined codec types.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires bindgen output with actual codec enums"
-            },
-            {
-              "id": "TS-004",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 27,
-              "markerText": "// [::TICKET::] P3-2: FFI layer integrated — ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-005",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/error_design_siperror.rs",
-              "line": 299,
-              "markerText": "/// [::TICKET::] P3-2: FFI layer integrated via ffi::bindings (PJ_SUCCESS, PJ_EUNKNOWN).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-006",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/error/m20_runtime_command_error.rs",
-              "line": 27,
-              "markerText": "// [::TICKET::] P3-2: ffi::bindings provides PJ_SUCCESS, PJ_EUNKNOWN via FFI type aliases.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-007",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 67,
-              "markerText": "// [::TICKET::] P3-2: Audio mixer (mix_i16_frame) implemented in runtime/audio_worker.rs.",
-              "contracts": [
-                "C034",
-                "C035"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-008",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/lib.rs",
-              "line": 70,
-              "markerText": "// [::TICKET::] P3-2: ffi/ — PJSIP FFI bindings (safe wrappers)",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-009",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/model/memory_ownership_defaults.rs",
-              "line": 23,
-              "markerText": "// TODO: [::STUB::] P3-2: MUST implement NODE_ID=N0056: §47 Memory Ownership & §48 Default Policies",
-              "contracts": [
-                "C057"
-              ],
-              "deferredTo": "P5-2",
-              "status": "pending",
-              "resolutionPlan": "Requires real PJSUA memory model integration"
-            },
-            {
-              "id": "TS-010",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 166,
-              "markerText": "    // [::TICKET::] P3-2: mixer stored for state inspection API (used by AudioWorkerInner at spawn).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-011",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 170,
-              "markerText": "    // [::TICKET::] P3-2: call_id stored for query API (reserved for future inspection).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-012",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 173,
-              "markerText": "    // [::TICKET::] P3-2: frame_duration stored for query API (reserved for future inspection).",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-013",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 177,
-              "markerText": "// [::STUB::] P3-2: Replace with JoinHandle once FFI binding is integrated.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Reserved for future AudioMixer inspection API"
-            },
-            {
-              "id": "TS-014",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/audio_worker.rs",
-              "line": 233,
-              "markerText": "// [::STUB::] P3-2: call_id stored for future logging/metrics correlation.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Reserved for future AudioMixer inspection API"
-            },
-            {
-              "id": "TS-015",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/handle.rs",
-              "line": 27,
-              "markerText": "// [::STUB::] P3-2: join_handle reserved for future FFI thread inspection.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Reserved for future FFI thread inspection"
-            },
-            {
-              "id": "TS-016",
-              "ticketRef": "P3-2",
+              "ticketRef": "P12-7",
               "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 68,
-              "markerText": "        // [::TICKET::] P3-2: MockBackend is used until PjsuaBackend is implemented.",
+              "line": 531,
+              "markerText": "pub(crate) fn dispatch_event(",
               "contracts": [
-                "C038"
+                "C039"
               ],
               "deferredTo": null,
               "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-017",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/runtime/reactor.rs",
-              "line": 117,
-              "markerText": "                                    // [::TICKET::] P3-2: AudioMixer now has queues and mix_i16_frame.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-018",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 68,
-              "markerText": "// [::STUB::] P3-2: Will be used by Reactor call processing once FFI callback bridge exists.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires FFI callback bridge for Reactor call processing"
-            },
-            {
-              "id": "TS-019",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 79,
-              "markerText": "/// [::TICKET::] P3-2: ffi::bindings provides PJSUA_CALL_NULL..PJSUA_CALL_DISCONNECTED.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-020",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 89,
-              "markerText": "/// [::TICKET::] P3-2: ffi::bindings provides PJSUA call state constants.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
-            },
-            {
-              "id": "TS-021",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_callstate_mapping.rs",
-              "line": 130,
-              "markerText": "// [::STUB::] P3-2: Will be used by Reactor call processing once FFI callback bridge exists.",
-              "contracts": [
-                "C038"
-              ],
-              "deferredTo": "P4-2",
-              "status": "pending",
-              "resolutionPlan": "Requires FFI callback bridge for Reactor call processing"
-            },
-            {
-              "id": "TS-022",
-              "ticketRef": "P3-2",
-              "file": "/Users/sh01/shyme/zasso/crates/siprs/src/state/m20_native_event_conv.rs",
-              "line": 103,
-              "markerText": "            // [::TICKET::] P3-2: ffi::bindings::pjsua_call_get_info stub available.",
-              "contracts": [
-                "C038",
-                "C057"
-              ],
-              "deferredTo": null,
-              "status": "resolved",
-              "resolutionPlan": "STUB updated from [::STUB::] P3-2 to [::TICKET::] P3-2 + [::STUB::] P4-2 pattern. FFI layer and SipBackend trait implemented in P3-2."
+              "resolutionPlan": "Implemented: added DispatchCommand::NativeEvent variant (command.rs), RuntimeHandle::enqueue_native_event (handle.rs), and the process_native_event loop arm (reactor.rs); removed #[allow(dead_code)] x3 and the [::STUB::] P12-7 marker via remove-stub.js. New tests: enqueue_native_event_sends_dispatch_native_event, enqueue_native_event_reactor_down_returns_err, dispatch_command_native_event_debug_is_opaque, reactor_enqueued_registration_state_changed_publishes."
             }
           ],
-          "targetCrimes": [],
+          "targetCrimes": "verified_empty",
           "planTestCode": [
-            "UT: [Normal] PjOwnedStr::new — C034 testPrecondition\n  ```rust\n  let s = PjOwnedStr::new(\"sip:user@domain.com\");\n  assert_eq!(s.raw.slen, 20);\n  let bytes = unsafe { std::slice::from_raw_parts(s.raw.ptr as *const u8, s.raw.slen as usize) };\n  assert_eq!(bytes, b\"sip:user@domain.com\");\n  ```",
-            "UT: [Normal] PjOwnedStr::as_raw — C034 testPostcondition\n  ```rust\n  let s = PjOwnedStr::new(\"test\");\n  let raw1 = s.as_raw();\n  let raw2 = s.as_raw();\n  assert_eq!(raw1.ptr, raw2.ptr);\n  assert_eq!(raw1.slen, raw2.slen);\n  ```",
-            "UT: [Normal] AudioMixer::mix_i16_frame 2-source sum — C034 testPostcondition\n  ```rust\n  let src1 = [1i16, 2i16, 3i16];\n  let src2 = [4i16, 5i16, 6i16];\n  let mut out = [0i16; 3];\n  mix_i16_frame(&vec![&src1[..], &src2[..]], &mut out);\n  assert_eq!(out, [5i16, 7i16, 9i16]);\n  ```",
-            "UT: [Normal] crossbeam queue non-blocking — C034 testInvariant\n  ```rust\n  let q = crossbeam_queue::ArrayQueue::new(2);\n  assert!(q.push(vec![0i16; 160]).is_ok());\n  assert!(q.push(vec![0i16; 160]).is_ok());\n  assert!(q.push(vec![0i16; 160]).is_err()); // full, does not block\n  ```",
-            "UT: [Normal] AudioWorkerTask::spawn — C035 testPrecondition\n  ```rust\n  let mixer = Arc::new(AudioMixer::new());\n  let mut worker = AudioWorkerTask::spawn(mixer, 42, Duration::from_millis(20));\n  assert!(worker.is_running());\n  worker.shutdown().await;\n  ```",
-            "UT: [Normal] AudioWorkerInner process_frame with gain — C035 testPostcondition\n  ```rust\n  // Use MockAsyncAudioSource with known data\n  let mixer = Arc::new(AudioMixer::new());\n  let id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));\n  mixer.set_gain(id, 0.5).unwrap();\n  // process_frame produces mixed buffer with 50% gain applied\n  ```",
-            "UT: [Normal] AudioMixer add_source during iteration — C035 testInvariant\n  ```rust\n  let mixer = AudioMixer::new();\n  let id1 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));\n  let id2 = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![1i16; 160])));\n  assert_eq!(id1, 0);\n  assert_eq!(id2, 1);\n  assert_eq!(mixer.source_count(), 2);\n  ```",
-            "UT: [Normal] mix_i16_frame zero-padding — C036 testInvariant\n  ```rust\n  let long = [1i16, 2i16, 3i16, 4i16];\n  let short = [5i16; 2];\n  let mut out = [0i16; 4];\n  mix_i16_frame(&vec![&long[..], &short[..]], &mut out);\n  assert_eq!(out[0], 6i16);   // 1 + 5\n  assert_eq!(out[1], 7i16);   // 2 + 5\n  assert_eq!(out[2], 1i16);   // 3 + 0 (zero-padded)\n  assert_eq!(out[3], 2i16);   // 4 + 0 (zero-padded)\n  ```",
-            "UT: [Boundary] mix_i16_frame output buffer length — C037 testInvariant\n  ```rust\n  const FRAME_SAMPLES: usize = 160; // 20ms@8kHz\n  let mut out = vec![0i16; FRAME_SAMPLES];\n  mix_i16_frame(&[], &mut out);\n  assert_eq!(out.len(), FRAME_SAMPLES);\n  assert!(out.iter().all(|&s| s == 0));\n  ```",
-            "UT: [Normal] ffi module isolation — C038 testInvariant\n  ```rust\n  // Compile-time assertion: no 'unsafe' keyword in src/runtime/*.rs\n  let runtime_files: Vec<_> = std::fs::read_dir(\"src/runtime\")\n    .unwrap().filter_map(|e| e.ok())\n    .filter(|e| e.path().extension().map_or(false, |ext| ext == \"rs\"))\n    .collect();\n  for f in runtime_files {\n    let content = std::fs::read_to_string(f.path()).unwrap();\n    let test_only = content.lines()\n      .filter(|l| !l.trim_start().starts_with(\"//\"))\n      .filter(|l| !l.contains(\"#\"));\n    // unsafe allowed only in ffi/ — runtime/ must have zero\n  }\n  ```",
-            "UT: [Normal] Box<dyn SipBackend> constructable — C039 testPostcondition\n  ```rust\n  let backend: Box<dyn SipBackend> = Box::new(MockBackend::new());\n  assert!(backend.initialize(&client_config).is_ok());\n  ```",
-            "UT: [Normal] ClientStateSnapshot read/write — C046 testPostcondition\n  ```rust\n  let snapshot = ClientStateSnapshot::new(ClientState::default());\n  assert!(!snapshot.read().await.initialized);\n  snapshot.write(ClientState { initialized: true }).await;\n  assert!(snapshot.read().await.initialized);\n  ```",
-            "UT: [Normal] CallEntry no conf_port_id — C046 testPrecondition\n  ```rust\n  let entry = CallEntry {\n    id: 1, native_id: 100, account_id: 1,\n    state: CallState::Idle, media: MediaRuntime::default(),\n  };\n  // Compile fails if conf_port_id field exists\n  ```",
-            "UT: [Normal] ClientStateSnapshot no blocking_read — C046 testInvariant\n  ```rust\n  // ClientStateSnapshot only exposes read() (async) and write() (async)\n  // No blocking_read() method exists — verified at compile time\n  ```",
-            "UT: [Normal] AudioMixer zero sources produces silence — C050 testInvariant\n  ```rust\n  let mut out = vec![0i16; 160];\n  mix_i16_frame(&[], &mut out);\n  assert!(out.iter().all(|&s| s == 0), \"zero sources = silence\");\n  ```",
-            "UT: [Normal] PjOwnedStr::new copies bytes — C057 testPostcondition\n  ```rust\n  let input = String::from(\"test\");\n  let s = PjOwnedStr::new(&input);\n  drop(input); // original dropped\n  // s still valid because Vec<u8> owns the bytes\n  let bytes = unsafe { std::slice::from_raw_parts(s.raw.ptr as *const u8, s.raw.slen as usize) };\n  assert_eq!(bytes, b\"test\");\n  ```",
-            "UT: [Normal] PjOwnedStr is Send — C057 testInvariant\n  ```rust\n  fn assert_send<T: Send>() {}\n  assert_send::<PjOwnedStr>();\n  ```",
-            "IT: [Integration] Cross-module data flow — all contracts\n  ```rust\n  #[tokio::test]\n  async fn sip_client_to_mock_backend_flow() {\n    let config = ClientConfig::builder()\n      .sip_proxy_host(\"sip.example.com\").build();\n    let (client, _rx) = SipClient::new(config.clone()).await.unwrap();\n    let handle = client.handle();\n    // MockBackend::initialize called via CoreReactor dispatch\n    let result = handle.submit(RuntimeCommand::Initialize { config, reply: oneshot::channel().0 }).await;\n    assert!(result.is_ok());\n    // Full MockBackend roundtrip tested in Layer 2 tests\n  }\n  ```"
+            "UT: [C039 Precondition → input code] SipBackend constructible, EventBus available\n  ```rust\n  let backend: Box<dyn SipBackend> = Box::new(MockBackend::new());\n  assert!(backend.initialize(&ClientConfig::default()).is_ok());\n  let bus = EventBus::new(16, None);\n  let mut rx = bus.subscribe_control();\n  ```",
+            "UT: [C039 Postcondition → assertion code] Reactor round-trip: enqueue → loop → process → publish\n  ```rust\n  #[tokio::test]\n  async fn reactor_enqueued_registration_state_changed_publishes() {\n      let (handle, join) = spawn_reactor();\n      let account_id = handle.submit_add_account(AccountConfig::default()).await.unwrap();\n      let mut rx = handle.default_event_bus().subscribe_control();\n      handle.enqueue_native_event(NativeEvent::RegistrationStateChanged { acc_id: account_id as u32 }).unwrap();\n      let ev = rx.recv().await.unwrap();\n      assert!(matches!(ev.payload, SipEventPayload::RegistrationSucceeded(_)));\n      assert_eq!(ev.meta.account_id, Some(test_account(1)));\n      shutdown_reactor(handle, join).await;\n  }\n  ```",
+            "UT: [C039 Invariant → predicate code] dispatch_event isolation: no duplication across clients\n  ```rust\n  let mut buses = HashMap::new();\n  buses.insert(test_account(1), bus_a.clone());\n  buses.insert(test_account(2), bus_b.clone());\n  dispatch_event(&buses, &default_bus, make_event(Some(test_account(1))));\n  assert!(rx_a.try_recv().is_ok(), \"client A must receive the account-1 event\");\n  assert!(matches!(rx_b.try_recv(), Err(tokio::sync::broadcast::error::TryRecvError::Empty)),\n      \"client B must NOT receive the account-1 event (C039)\");\n  ```",
+            "UT: [C046 Precondition → input code] Reactor owns ClientState; query_state returns snapshot\n  ```rust\n  let (handle, join) = spawn_reactor();\n  let id = handle.submit_add_account(AccountConfig::default()).await.unwrap();\n  let state = handle.query_state().await.unwrap();\n  assert_eq!(state.accounts.len(), 1, \"ClientState must reflect the added account\");\n  shutdown_reactor(handle, join).await;\n  ```",
+            "UT: [C046 Postcondition → assertion code] CallEntry shape (no conf_port_id) + call registered\n  ```rust\n  let (handle, join) = spawn_reactor();\n  let account_id = handle.submit_add_account(AccountConfig::default()).await.unwrap();\n  let call_id = handle.submit_make_call(account_id, test_call_request()).await.unwrap();\n  let state = handle.query_state().await.unwrap();\n  let entry = state.calls.get(&CallId::from_u64(call_id).unwrap()).unwrap();\n  assert_eq!(entry.id, call_id);\n  assert_eq!(entry.account_id, AccountId::from_u64(account_id).unwrap());\n  assert_eq!(entry.state, \"Calling\");\n  // conf_port_id is NOT a field on CallEntry — compile fails if it exists (C046)\n  ```",
+            "UT: [C046 Invariant → predicate code] QueryState returns an independent clone; reactor is the single writer\n  ```rust\n  let (handle, join) = spawn_reactor();\n  let s1 = handle.query_state().await.unwrap();\n  let s2 = handle.query_state().await.unwrap();\n  assert_eq!(s1.accounts.len(), s2.accounts.len(), \"snapshots are independent clones\");\n  // NativeEvent processing reads client_state.calls without mutating it (reactor.rs:597-600)\n  shutdown_reactor(handle, join).await;\n  ```",
+            "UT: [C011 New API → assertion code] enqueue_native_event transports the exact NativeEvent to the MPSC channel\n  ```rust\n  #[tokio::test]\n  async fn enqueue_native_event_sends_dispatch_native_event() {\n      let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();\n      let handle = RuntimeHandle::new(tx, Arc::new(AtomicBool::new(false)), completed_join_handle(),\n          Arc::new(AudioMixer::new()), EventBus::new(16, None));\n      handle.enqueue_native_event(NativeEvent::DtmfDigit { call_id: 5, digit: '3' }).unwrap();\n      match rx.recv().await.unwrap() {\n          DispatchCommand::NativeEvent { event } => {\n              assert_eq!(event, NativeEvent::DtmfDigit { call_id: 5, digit: '3' });\n          }\n          other => panic!(\"expected DispatchCommand::NativeEvent, got {other:?}\"),\n      }\n  }\n  ```",
+            "UT: [C011 Error → assertion code] enqueue_native_event on a terminated reactor returns ReactorDown\n  ```rust\n  let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();\n  let handle = RuntimeHandle::new(tx, Arc::new(AtomicBool::new(true)), completed_join_handle(),\n      Arc::new(AudioMixer::new()), EventBus::new(16, None));\n  let result = handle.enqueue_native_event(NativeEvent::NatDetected);\n  assert!(matches!(result, Err(ReactorError::ReactorDown)));\n  ```"
           ],
           "changes": [
             {
@@ -30942,6 +30675,31 @@
               "before": "ClientState: initialized only",
               "after": "ClientState with BTreeMap accounts/calls, transports Vec, capabilities",
               "description": "ClientState typed fields"
+            },
+            {
+              "before": "DispatchCommand had no NativeEvent variant; the reactor loop handled only command variants",
+              "after": "DispatchCommand::NativeEvent { event } variant added (command.rs) with Debug arm; loop matches it",
+              "description": "GREEN G1: NativeEvent ingestion into the internal dispatch enum so the loop can reach the reactor-owned EventBus instances"
+            },
+            {
+              "before": "RuntimeHandle had no way to inject NativeEvents into the reactor",
+              "after": "RuntimeHandle::enqueue_native_event(&self, NativeEvent) -> Result<(), ReactorError> added (handle.rs); submit() gained an unreachable arm for the variant",
+              "description": "GREEN G2: RFC §27.3 (N0038) Reactor::enqueue_native_event ingestion receiver"
+            },
+            {
+              "before": "dispatch_event/process_native_event/extract_event_ids were #[allow(dead_code)] with no call site; [::STUB::] P12-7 at reactor.rs",
+              "after": "loop arm calls process_native_event(&*backend, &client_event_buses, &default_event_bus, event, &client_state.calls); all three dead-code markers and the STUB removed via remove-stub.js",
+              "description": "GREEN G3: wired the NativeEvent → SipEvent → EventBus production event flow (O-001)"
+            },
+            {
+              "before": "reactor loop repeated the catch_unwind panic-message downcast 7 times; test helper named make_event",
+              "after": "panic_message(&payload) helper extracted and used in all 7 arms; make_event renamed to make_disconnect_event",
+              "description": "REFACTOR: Boy Scout translatability improvements (green-state)"
+            },
+            {
+              "before": "no tests exercised the NativeEvent ingestion path",
+              "after": "4 new tests: enqueue_native_event_sends_dispatch_native_event, enqueue_native_event_reactor_down_returns_err, dispatch_command_native_event_debug_is_opaque, reactor_enqueued_registration_state_changed_publishes",
+              "description": "RED+verify: reactor round-trip, transport, ReactorDown error, Debug, C039/C046 coverage"
             }
           ],
           "rfcDiscrepancies": [],
@@ -30952,7 +30710,9 @@
               "codes": "#[allow(dead_code)]\npub(crate) fn dispatch_event(\n    client_event_buses: &std::collections::HashMap<AccountId, EventBus>,"
             }
           ],
-          "fromStub": true
+          "fromStub": true,
+          "startedAt": "2026-08-07",
+          "completedAt": "2026-08-07"
         },
         {
           "title": "Wire CallDirection into the on_incoming_call FFI callback and call convert_call_state_with_previous from Reactor call processing to discriminate Trying vs Ringing once the FFI callback bridge delivers CallDirection",

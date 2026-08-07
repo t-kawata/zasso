@@ -55,7 +55,7 @@ impl std::fmt::Debug for RuntimeHandle {
     }
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
@@ -203,6 +203,10 @@ impl RuntimeHandle {
             // QueryState handled via separate method
             DispatchCommand::QueryState { .. } => {
                 unreachable!("use query_state instead")
+            }
+            // NativeEvent is fire-and-forget — handled via enqueue_native_event.
+            DispatchCommand::NativeEvent { .. } => {
+                unreachable!("use enqueue_native_event instead")
             }
         };
 
@@ -446,6 +450,27 @@ impl RuntimeHandle {
             .map_err(|_| ReactorError::ReactorDown)?;
 
         rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// Enqueue a `NativeEvent` for processing on the reactor thread.
+    ///
+    /// This is the RFC §27.3 (N0038) `Reactor::enqueue_native_event` ingestion
+    /// receiver: the FFI callback bridge (P8-21) and tests deliver NativeEvents
+    /// through this channel. Fire-and-forget (no oneshot reply) — events are
+    /// observation-only per C021, so delivery is loss-tolerant broadcast.
+    ///
+    /// # Errors
+    /// Returns `ReactorError::ReactorDown` if the reactor has terminated.
+    pub fn enqueue_native_event(
+        &self,
+        event: crate::state::m20_native_event_conv::NativeEvent,
+    ) -> Result<(), ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+        self.sender
+            .send(DispatchCommand::NativeEvent { event })
+            .map_err(|_| ReactorError::ReactorDown)
     }
 
     /// Returns `true` if the reactor thread has terminated (panic or graceful shutdown).
@@ -1018,6 +1043,70 @@ mod tests {
         assert!(
             !handle.is_thread_alive(),
             "panicked thread must report not alive"
+        );
+    }
+
+    // ── P12-7: enqueue_native_event ingestion receiver ────────────────
+
+    #[tokio::test]
+    // @verifies C039, C011
+    // [::TICKET::] P12-7: enqueue_native_event transports the exact NativeEvent
+    // payload to the reactor's MPSC channel (RFC §27.3 ingestion receiver).
+    async fn enqueue_native_event_sends_dispatch_native_event(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
+        let handle = RuntimeHandle::new(
+            tx,
+            Arc::new(AtomicBool::new(false)),
+            completed_join_handle(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
+
+        handle.enqueue_native_event(
+            crate::state::m20_native_event_conv::NativeEvent::DtmfDigit {
+                call_id: 5,
+                digit: '3',
+            },
+        )?;
+
+        match rx
+            .recv()
+            .await
+            .ok_or("reactor channel closed unexpectedly")?
+        {
+            DispatchCommand::NativeEvent { event } => {
+                assert_eq!(
+                    event,
+                    crate::state::m20_native_event_conv::NativeEvent::DtmfDigit {
+                        call_id: 5,
+                        digit: '3',
+                    }
+                );
+            }
+            other => panic!("expected DispatchCommand::NativeEvent, got {other:?}"),
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C011
+    // [::TICKET::] P12-7: enqueue_native_event on a terminated reactor must map to
+    // ReactorDown (never hang and never fabricate a delivery).
+    async fn enqueue_native_event_reactor_down_returns_err() {
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        let handle = RuntimeHandle::new(
+            tx,
+            Arc::new(AtomicBool::new(true)),
+            completed_join_handle(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
+        let result = handle
+            .enqueue_native_event(crate::state::m20_native_event_conv::NativeEvent::NatDetected);
+        assert!(
+            matches!(result, Err(ReactorError::ReactorDown)),
+            "a terminated reactor must map to ReactorDown"
         );
     }
 }
