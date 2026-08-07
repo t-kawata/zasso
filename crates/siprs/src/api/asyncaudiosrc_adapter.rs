@@ -188,8 +188,8 @@ pub async fn open_default_microphone_source(
 /// `into_inner()` because the callback must never unwind across the audio
 /// boundary.
 #[cfg(feature = "cpal-input")]
-#[derive(Clone, Default)]
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+#[derive(Clone, Debug, Default)]
+// [::TICKET::] P8-7, P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-7|P13-1) --for-spec --no-implementation-order`.
 struct SampleQueue {
     samples: Arc<Mutex<VecDeque<i16>>>,
 }
@@ -412,63 +412,81 @@ fn select_input_config(
     }
 }
 
+/// The per-format data-callback handler for the device's native sample format.
+///
+/// Carries the shared `SampleQueue` clone so the cpal callback thread can enqueue
+/// captured samples without touching the async pipeline.
+#[cfg(feature = "cpal-input")]
+#[derive(Debug)]
+// [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+enum SampleFormatHandler {
+    I16(SampleQueue),
+    F32(SampleQueue),
+    U16(SampleQueue),
+}
+
+/// Pick the data-callback handler for a sample format, or reject it as
+/// unsupported. Only {I16, F32, U16} are convertible to the i16 pipeline
+/// contract; every other format maps to SipErrorKind::AudioFormatUnsupported.
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+fn select_sample_format_handler(
+    sample_format: cpal::SampleFormat,
+    queue: SampleQueue,
+) -> Result<SampleFormatHandler, SipError> {
+    match sample_format {
+        cpal::SampleFormat::I16 => Ok(SampleFormatHandler::I16(queue)),
+        cpal::SampleFormat::F32 => Ok(SampleFormatHandler::F32(queue)),
+        cpal::SampleFormat::U16 => Ok(SampleFormatHandler::U16(queue)),
+        other => Err(SipError::new(
+            SipErrorKind::AudioFormatUnsupported,
+            format!("unsupported_sample_format: {other:?}"),
+        )),
+    }
+}
+
 /// Build an input stream for the device's native sample format, converting each
 /// captured frame to i16 before enqueuing it.
 #[cfg(feature = "cpal-input")]
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P8-7, P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-7|P13-1) --for-spec --no-implementation-order`.
 fn build_input_stream(
     device: &cpal::Device,
     config: &cpal::SupportedStreamConfig,
     queue: &SampleQueue,
 ) -> Result<cpal::Stream, SipError> {
     let stream_config = config.config();
-    let queue_for_callback = queue.clone();
-    let stream = match config.sample_format() {
-        cpal::SampleFormat::I16 => device.build_input_stream(
+    let handler = select_sample_format_handler(config.sample_format(), queue.clone())?;
+    let stream = match handler {
+        SampleFormatHandler::I16(queue) => device.build_input_stream(
             stream_config,
-            {
-                let queue = queue_for_callback.clone();
-                move |data: &[i16], _: &cpal::InputCallbackInfo| queue.push_i16(data)
+            move |data: &[i16], _: &cpal::InputCallbackInfo| queue.push_i16(data),
+            input_stream_error,
+            None,
+        ),
+        SampleFormatHandler::F32(queue) => device.build_input_stream(
+            stream_config,
+            move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                let converted: Vec<i16> = data
+                    .iter()
+                    .map(|&sample| convert_f32_sample_to_i16(sample))
+                    .collect();
+                queue.push_i16(&converted);
             },
             input_stream_error,
             None,
         ),
-        cpal::SampleFormat::F32 => device.build_input_stream(
+        SampleFormatHandler::U16(queue) => device.build_input_stream(
             stream_config,
-            {
-                let queue = queue_for_callback.clone();
-                move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                    let converted: Vec<i16> = data
-                        .iter()
-                        .map(|&sample| convert_f32_sample_to_i16(sample))
-                        .collect();
-                    queue.push_i16(&converted);
-                }
+            move |data: &[u16], _: &cpal::InputCallbackInfo| {
+                let converted: Vec<i16> = data
+                    .iter()
+                    .map(|&sample| convert_u16_sample_to_i16(sample))
+                    .collect();
+                queue.push_i16(&converted);
             },
             input_stream_error,
             None,
         ),
-        cpal::SampleFormat::U16 => device.build_input_stream(
-            stream_config,
-            {
-                let queue = queue_for_callback.clone();
-                move |data: &[u16], _: &cpal::InputCallbackInfo| {
-                    let converted: Vec<i16> = data
-                        .iter()
-                        .map(|&sample| convert_u16_sample_to_i16(sample))
-                        .collect();
-                    queue.push_i16(&converted);
-                }
-            },
-            input_stream_error,
-            None,
-        ),
-        other => {
-            return Err(SipError::new(
-                SipErrorKind::AudioFormatUnsupported,
-                format!("unsupported_sample_format: {other:?}"),
-            ))
-        }
     };
     stream.map_err(map_build_stream_error)
 }
@@ -870,7 +888,7 @@ mod tests {
     // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn microphone_source_is_send() {
         // C051-Inv: the source can live in AudioMixer's DashMap as Box<dyn AsyncAudioSource + Send>.
-        // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+        // [::TICKET::] P8-7, P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-7|P13-1) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<CpalMicrophoneSource>();
         assert_send::<Box<dyn AsyncAudioSource>>();
@@ -889,5 +907,116 @@ mod tests {
             written, 0,
             "empty source reports end-of-stream through the erased wrapper"
         );
+    }
+
+    // ── C051 O-001: error-mapping helpers + sample-format dispatch ─────
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+    fn map_default_config_error_maps_to_native_error() {
+        // C051-Post (O-001): default-config failure surfaces as SipErrorKind::NativeError.
+        let cpal_err = cpal::Error::with_message(
+            cpal::ErrorKind::DeviceNotAvailable,
+            "no default input config",
+        );
+        let sip_err = map_default_config_error(cpal_err);
+        assert_eq!(sip_err.kind, SipErrorKind::NativeError);
+        assert!(
+            sip_err.message.contains("default_input_config_failed:"),
+            "message must carry the greppable prefix"
+        );
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+    fn map_supported_configs_error_maps_to_native_error() {
+        // C051-Post (O-001): supported-config enumeration failure surfaces as NativeError.
+        let cpal_err = cpal::Error::with_message(cpal::ErrorKind::HostUnavailable, "host absent");
+        let sip_err = map_supported_configs_error(cpal_err);
+        assert_eq!(sip_err.kind, SipErrorKind::NativeError);
+        assert!(sip_err.message.contains("supported_input_configs_failed:"));
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+    fn map_build_stream_error_maps_to_native_error() {
+        // C051-Post (O-001): build-stream failure surfaces as NativeError.
+        let cpal_err =
+            cpal::Error::with_message(cpal::ErrorKind::PermissionDenied, "mic privacy denied");
+        let sip_err = map_build_stream_error(cpal_err);
+        assert_eq!(sip_err.kind, SipErrorKind::NativeError);
+        assert!(sip_err.message.contains("build_stream_failed:"));
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+    fn map_play_error_maps_to_native_error() {
+        // C051-Post (O-001): stream.play() failure surfaces as NativeError.
+        let cpal_err = cpal::Error::with_message(cpal::ErrorKind::DeviceBusy, "device busy");
+        let sip_err = map_play_error(cpal_err);
+        assert_eq!(sip_err.kind, SipErrorKind::NativeError);
+        assert!(sip_err.message.contains("play_failed:"));
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+    fn select_sample_format_handler_accepts_convertible_formats() {
+        // C051-Post (O-001): {I16, F32, U16} select their per-format handler.
+        let queue = SampleQueue::new();
+        assert!(matches!(
+            select_sample_format_handler(cpal::SampleFormat::I16, queue.clone()),
+            Ok(SampleFormatHandler::I16(_))
+        ));
+        assert!(matches!(
+            select_sample_format_handler(cpal::SampleFormat::F32, queue.clone()),
+            Ok(SampleFormatHandler::F32(_))
+        ));
+        assert!(matches!(
+            select_sample_format_handler(cpal::SampleFormat::U16, queue),
+            Ok(SampleFormatHandler::U16(_))
+        ));
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+    fn select_sample_format_handler_rejects_non_convertible_formats() {
+        // C051-Post (O-001): every format outside {I16,F32,U16} maps to
+        // AudioFormatUnsupported — a violation (panic or wrong kind) fails this test.
+        let queue = SampleQueue::new();
+        for format in [
+            cpal::SampleFormat::I8,
+            cpal::SampleFormat::I24,
+            cpal::SampleFormat::I32,
+            cpal::SampleFormat::I64,
+            cpal::SampleFormat::U8,
+            cpal::SampleFormat::U24,
+            cpal::SampleFormat::U32,
+            cpal::SampleFormat::U64,
+            cpal::SampleFormat::F64,
+            cpal::SampleFormat::DsdU8,
+            cpal::SampleFormat::DsdU16,
+            cpal::SampleFormat::DsdU32,
+        ] {
+            let err = select_sample_format_handler(format, queue.clone())
+                .expect_err("every non-convertible format must be rejected");
+            assert_eq!(
+                err.kind,
+                SipErrorKind::AudioFormatUnsupported,
+                "format {format:?} must map to AudioFormatUnsupported"
+            );
+            assert!(err.message.contains("unsupported_sample_format:"));
+        }
     }
 }

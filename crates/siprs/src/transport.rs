@@ -63,7 +63,7 @@ mod tests {
             let path = entry.path();
             if path.is_dir() {
                 collect_rs_files(&path, out)?;
-            } else if path.extension().map_or(false, |e| e == "rs") {
+            } else if path.extension().is_some_and(|e| e == "rs") {
                 out.push(path);
             }
         }

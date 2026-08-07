@@ -31,8 +31,8 @@ async fn report_capabilities(
 ) -> Result<(), Box<dyn std::error::Error>> {
     loop {
         match events.recv().await {
-            Ok(event) => match event.payload {
-                SipEventPayload::ClientInitialized(caps) => {
+            Ok(event) => {
+                if let SipEventPayload::ClientInitialized(caps) = event.payload {
                     writeln!(
                         std::io::stdout(),
                         "client initialized: event_bus_capacity={} max_calls={}",
@@ -41,8 +41,7 @@ async fn report_capabilities(
                     )?;
                     return Ok(());
                 }
-                _ => {}
-            },
+            }
             Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
             Err(e) => return Err(format!("event channel closed: {e:?}").into()),
         }

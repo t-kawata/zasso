@@ -1,4 +1,3 @@
-
 // [::TICKET::] P11-10: Safe PJSUA backend-call wrappers.
 // [::TICKET::] P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-10 --for-spec --no-implementation-order`.
 //

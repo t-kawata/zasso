@@ -14,8 +14,10 @@
 // and set SI_PRS_TEST_AUDIO=1 to actually exercise the device (the env gate keeps
 // accidental --ignored runs on CI hosts from failing spuriously).
 //
-// The default build (feature off) compiles with no cpal crate — verified by
-// `cargo tree -e normal` showing no cpal — and this file is an empty crate then.
+// The default build (feature off) compiles with no cpal crate and this file is
+// an empty crate then. The feature-additive invariant — the default build graph
+// resolves no cpal, and `--features cpal-input` adds it — is enforced by the
+// automated test in tests/verify_feature_additive_build.rs (O-001 closure).
 //
 // See specs/P8-7.md §Contracts C051 for the contract mapping.
 
@@ -30,6 +32,7 @@ use siprs::runtime::audio_worker::AsyncAudioSource;
 ///
 /// A 48 kHz / 20 ms mono frame is 960 samples; we assert the device produced at
 /// least one sample, not specific sample values (which depend on physical input).
+// [::TICKET::] P13-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-2 --for-spec --no-implementation-order`.
 #[tokio::test]
 #[ignore = "requires audio hardware; set SI_PRS_TEST_AUDIO=1 and run with --ignored"]
 async fn opens_default_microphone_and_captures_a_frame() -> Result<(), &'static str> {
