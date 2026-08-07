@@ -13,6 +13,10 @@ const fs = require('fs');
 const os = require('os');
 const { spawn } = require('child_process');
 const REPO_ROOT = path.join(__dirname, '..', '..');
+// Hook commands reference paths like `.claude/scripts/hooks/...` relative to the
+// project root, so hooks must always be spawned from the directory that CONTAINS
+// .claude (i.e. the parent of REPO_ROOT). PX-142: makes the test CWD-independent.
+const HOOK_CWD = path.resolve(REPO_ROOT, '..');
 
 // Test helper
 function _test(name, fn) {
@@ -106,13 +110,14 @@ function getSessionStartPayload(stdout) {
  * @param {object} input - Hook input object
  * @param {object} env - Environment variables
  */
+// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
 function runHookCommand(command, input = {}, env = {}, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
     const isWindows = process.platform === 'win32';
     const mergedEnv = { ...process.env, CLAUDE_PLUGIN_ROOT: REPO_ROOT, ...env };
     if (Array.isArray(command)) {
       const [program, ...args] = command;
-      const proc = spawn(program, args, { env: mergedEnv, stdio: ['pipe', 'pipe', 'pipe'] });
+      const proc = spawn(program, args, { env: mergedEnv, stdio: ['pipe', 'pipe', 'pipe'], cwd: HOOK_CWD });
 
       let stdout = '';
       let stderr = '';
@@ -176,8 +181,8 @@ function runHookCommand(command, input = {}, env = {}, timeoutMs = 10000) {
         : [];
 
     const proc = useDirectNodeSpawn
-      ? spawn('node', nodeArgs, { env: mergedEnv, stdio: ['pipe', 'pipe', 'pipe'] })
-      : spawn(shell, shellArgs, { env: mergedEnv, stdio: ['pipe', 'pipe', 'pipe'] });
+      ? spawn('node', nodeArgs, { env: mergedEnv, stdio: ['pipe', 'pipe', 'pipe'], cwd: HOOK_CWD })
+      : spawn(shell, shellArgs, { env: mergedEnv, stdio: ['pipe', 'pipe', 'pipe'], cwd: HOOK_CWD });
 
     let stdout = '';
     let stderr = '';

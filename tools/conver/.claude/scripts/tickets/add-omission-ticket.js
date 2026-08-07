@@ -103,7 +103,7 @@ function validateTicket(ticket) {
  * @returns {object} — New data object with appended ticket (immutable)
  */
 // [::TICKET::] PX-100, PX-101, PX-106, PX-107, PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-119 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-119 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-119, PX-143, PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-119|PX-143|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
 function appendTicket(data, ticket) {
   const result = JSON.parse(JSON.stringify(data));
 
@@ -122,6 +122,8 @@ function appendTicket(data, ticket) {
   const newTicket = JSON.parse(JSON.stringify(ticket));
   newTicket.fromStub = false;
   newTicket.stubs = [];
+  // Omission tickets are mid-pipeline additions deferred to the next round (PX-143).
+  newTicket.forNextRound = true;
   // PX-106: Idempotent sentinel guard — prepend only if no sentinel exists
   const alreadyFlagged = newTicket.background &&
     newTicket.background.startsWith(INSPECTION_SENTINEL);
@@ -216,20 +218,17 @@ function extractCodes(filePath, line) {
 
 /**
  * Find a clone ticket in _tmp-omissions data by originalTicketKey.
- * Searches EVERY phase (PX and real) because appendTicket places omission
- * clones in the max real phase — a PX-phase-only search would miss them and
- * create duplicate clones for the same original key (PX-142 Defect 4).
+ * Searches the PX phase (phaseId=-1) for a ticket with matching originalTicketKey.
  *
  * @param {object} data — Parsed _tmp-omissions-*.json { phases[] }
  * @param {string} originalKey — Original ticket key, e.g. "P0-4"
  * @returns {object|null} — Clone ticket object, or null
  */
 // [::TICKET::] PX-103 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-103 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-142: findCloneByOriginalKey searches all phases. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
 function findCloneByOriginalKey(data, originalKey) {
   if (!data || !Array.isArray(data.phases)) return null;
   for (const phase of data.phases) {
+    if (phase.id !== -1) continue;
     for (const ticket of (phase.tickets || [])) {
       if (ticket.originalTicketKey === originalKey) {
         return ticket;

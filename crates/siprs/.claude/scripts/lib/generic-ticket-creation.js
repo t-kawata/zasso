@@ -75,7 +75,7 @@ function setCrimeDeferredTo(ticketsData, crimeId, newKey) {
  * @param {string|null} sourceRoot — Repo root for resolving-seed file paths
  * @returns {{success: true, data: object, created: Array}|{success: false, error: string}}
  */
-// [::TICKET::] PX-2, PX-129, PX-130, PX-131 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-2|PX-129|PX-130|PX-131) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-2, PX-129, PX-130, PX-131, PX-143, PX-144, PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-2|PX-129|PX-130|PX-131|PX-143|PX-144|PX-145|PX-146) --for-spec --no-implementation-order`.
 function createOne(data, seed, sourceRoot) {
   switch (seed.type) {
     case "resolving": {
@@ -123,6 +123,17 @@ function createOne(data, seed, sourceRoot) {
     case "bulk": {
       const res = bulkAddTickets(data, [{ phaseId: seed.phaseId, tickets: seed.tickets }]);
       if (!res.success) return { success: false, error: res.error || "bulk add failed" };
+      // Mark every bulk-created ticket forNextRound=true at the call site so the
+      // setup utility bulkAddTickets.js stays untouched (PX-143).
+      for (const keyInfo of res.tickets || []) {
+        const parsed = /^P(-?\d+|X)-(\d+)$/.exec(keyInfo.ticketKey);
+        if (!parsed) continue;
+        const phaseId = parsed[1] === 'X' ? -1 : parseInt(parsed[1], 10);
+        const ticketId = parseInt(parsed[2], 10);
+        const phase = data.phases.find((p) => p.id === phaseId);
+        const created = phase && phase.tickets.find((t) => t.id === ticketId);
+        if (created) created.forNextRound = true;
+      }
       return { success: true, data, created: (res.tickets || []).map((tk) => ({ newKey: tk.ticketKey })) };
     }
     default:

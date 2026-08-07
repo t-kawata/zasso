@@ -33,10 +33,9 @@ describe("scope-detection-constants", () => {
     assert.strictEqual(SOURCE_EXTENSIONS.size, expected.length);
   });
 
-  test("DEFINITION_PATTERNS has 15 patterns (14 original + method shorthand)", () => {
-    // 14 original from annotate-ticket-context-by-git-diff.js + 1 added for
-    // JS/TS method shorthand (e.g. `bar() { ... }`)
-    assert.strictEqual(DEFINITION_PATTERNS.length, 15);
+  test("DEFINITION_PATTERNS has 16 patterns (15 original + IIFE)", () => {
+    // 14 original + method shorthand + a JS IIFE pattern
+    assert.strictEqual(DEFINITION_PATTERNS.length, 16);
   });
 
   test("DEFINITION_PATTERNS all compile as RegExp", () => {

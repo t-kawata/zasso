@@ -145,10 +145,75 @@ function makeData() {
 // C005: find-omissions.md wiring
 
 (function testC005PostconditionCommandFileReferencesScript() {
+// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
   const commandPath = path.resolve(__dirname, '../../commands/find-omissions.md');
   const md = fs.readFileSync(commandPath, 'utf8');
   assert(md.includes('create-resolving-ticket.js'), 'C005: find-omissions.md Step 1 references create-resolving-ticket.js');
-  assert(md.includes('never pause to ask the human') || md.includes('never pause'), 'C005: Step 1 has a never-ask directive');
+  // PX-142: the directive in find-omissions.md Step 1 reads "never ask the human";
+  // the assertion must track the current wording instead of the stale "never pause".
+  assert(md.includes('never ask the human'), 'C005: Step 1 has a never-ask directive');
+})();
+
+// ======================================================================
+// PX-142 Defect 1: a resolving ticket must not inherit inspection residue
+
+(function testPX142Defect1StripsInspectionResidue() {
+// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+  // The source carries ABC-inspection residue from a prior omission round:
+  // foundOmissions, originalTicketKey and a [::INSPECTION_FLAGGED::] prefix.
+  const data = {
+    title: 'T',
+    round: 1,
+    metadata: { source: 'test', generatedAt: '2026-08-04' },
+    phases: [{
+      id: 8,
+      name: 'P8',
+      tickets: [{
+        id: 4,
+        phaseId: 8,
+        title: 'cpal implementation',
+        status: 'reviewed',
+        nodeIds: ['N0001'],
+        relatedTicketIds: 'P0-2',
+        foundOmissions: [{ criterion: 'A', evaluations: [] }],
+        originalTicketKey: 'P5-2',
+        background: '[::INSPECTION_FLAGGED::]\nThis ticket failed ABC inspection.\n\nReal original content'
+      }]
+    }]
+  };
+  const stubs = [{ file: 'src/a.rs', line: 5, content: '[::STUB::] P8-4: -- Vendor lib' }];
+  const res = createResolvingTicket({ ticketsData: data, sourceKey: 'P8-4', seed: { title: 'New' }, stubs });
+  assert(res.success === true, 'PX142/D1: resolving ticket created from residue-carrying source');
+  assert(res.ticket.foundOmissions === undefined, 'PX142/D1: foundOmissions stripped');
+  assert(res.ticket.originalTicketKey === undefined, 'PX142/D1: originalTicketKey stripped');
+  assert(!res.ticket.background.includes('[::INSPECTION_FLAGGED::]'), 'PX142/D1: sentinel block stripped from background');
+  assertStrictEqual(res.ticket.status, 'todo', 'PX142/D1: status forced to todo');
+  assert(Array.isArray(res.ticket.nodeIds) && res.ticket.nodeIds[0] === 'N0001', 'PX142/D1: PRESERVE nodeIds survive');
+})();
+
+(function testPX142Defect1SentinelFreeBackgroundUnchanged() {
+// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+  // A background without a sentinel must pass through untouched (regex no-op).
+  const data = {
+    title: 'T',
+    round: 1,
+    metadata: { source: 'test', generatedAt: '2026-08-04' },
+    phases: [{
+      id: 0,
+      name: 'P0',
+      tickets: [{
+        id: 1,
+        phaseId: 0,
+        title: 'Old',
+        status: 'reviewed',
+        background: 'Plain background, no sentinel'
+      }]
+    }]
+  };
+  const stubs = [{ file: 'src/a.rs', line: 5, content: '[::STUB::] P0-1: -- Vendor lib' }];
+  const res = createResolvingTicket({ ticketsData: data, sourceKey: 'P0-1', seed: { title: 'New' }, stubs });
+  assert(res.success === true, 'PX142/D1: created from sentinel-free source');
+  assertStrictEqual(res.ticket.background, 'Plain background, no sentinel', 'PX142/D1: sentinel-free background unchanged');
 })();
 
 // ======================================================================

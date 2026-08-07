@@ -162,6 +162,27 @@ function listDefinitions(filePath, ticketKey) {
 }
 
 /**
+ * Remove all [::AMBIGUOUS::] marker lines and the blank-line artifact each one
+ * left behind (the annotate AMBIGUOUS branch prepends `[marker, "", ...lines]`).
+ * This keeps a leading shebang on line 1 after resolution.
+ * Returns a new array of lines (immutable).
+ */
+// [::TICKET::] PX-147 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-147 --for-spec --no-implementation-order`.
+function cleanAmbiguousArtifacts(lines) {
+  const result = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.includes("[::AMBIGUOUS::]")) {
+      // Skip the marker and one immediately-following blank line artifact.
+      if (i + 1 < lines.length && lines[i + 1].trim() === "") i++;
+      continue;
+    }
+    result.push(line);
+  }
+  return result;
+}
+
+/**
  * Mode 2: Inject [::TICKET::] annotations before the specified definition lines,
  * then remove all [::AMBIGUOUS::] markers. Mutates the file.
  *
@@ -172,7 +193,7 @@ function listDefinitions(filePath, ticketKey) {
  * @param {number|number[]} definitionLines — 0-indexed line number(s) of target definitions
  * @returns {{success: boolean, error?: string, insertedAtLines?: number[]}}
  */
-// [::TICKET::] PX-64, PX-65 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-64|PX-65) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-64, PX-65, PX-147 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-64|PX-65|PX-147) --for-spec --no-implementation-order`.
 function injectAt(filePath, ticketKey, definitionLines) {
   try {
     const content = fs.readFileSync(filePath, "utf8");
@@ -202,8 +223,8 @@ function injectAt(filePath, ticketKey, definitionLines) {
     // Return inserted lines in ascending order for predictable output
     const insertedAtLines = [...linesToInject].sort((a, b) => a - b);
 
-    // Remove all AMBIGUOUS lines (not just the first)
-    lines = lines.filter((l) => !l.includes("[::AMBIGUOUS::]"));
+    // Remove all AMBIGUOUS markers and the blank-line artifacts they left behind
+    lines = cleanAmbiguousArtifacts(lines);
 
     // Write back
     fs.writeFileSync(filePath, lines.join("\n"), "utf8");
@@ -289,6 +310,7 @@ if (typeof module !== "undefined" && module.exports) {
     listAllDefinitions,
     listDefinitions,
     injectAt,
+    cleanAmbiguousArtifacts,
   };
 }
 

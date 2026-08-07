@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 /**
  * scope-detection-constants.js
  *
@@ -42,6 +41,11 @@ const DEFINITION_PATTERN_METAS = [
   // Negative lookahead excludes control-flow keywords that also use "keyword(...) {"
   { raw: /^\s*(?:(?:public|private|protected|static)\s+)*(?!(?:if|for|while|switch|catch|with|typeof|instanceof|void|return|throw|delete)\b)(?:async\s+)?(?:get\s+|set\s+)?(\w+)\s*\([^)]*\)\s*\{/,
     kind: "function" },
+// [::TICKET::] PX-147 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-147 --for-spec --no-implementation-order`.
+  // JS/TS: IIFE — `(function name() { ... })();`. The leading "(" makes the
+  // line-start function pattern miss it, so it needs an explicit pattern.
+  { raw: /^\s*\(\s*(?:async\s+)?function\s*\*?\s*(\w*)\s*\(/,
+    kind: "function", nameIndex: 1, allowEmptyName: true },
   // JS/TS: export default function|class (kind determined by match[1])
   { raw: /^\s*(?:export\s+)?default\s+(function|class)\s+(\w+)/,
     kind: null, kindIndex: 1, nameIndex: 2 },

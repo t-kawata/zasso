@@ -272,7 +272,22 @@ function resolveGitPath(filePath, cwd) {
   return path.resolve(repoRoot, filePath);
 }
 
-// [::TICKET::] PX-62, PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-62, PX-63, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-62|PX-63|PX-146) --for-spec --no-implementation-order`.
+/**
+ * Prepend a comment line to source lines while preserving a leading shebang.
+ * A shebang (`#!`) is only valid on line 1 of an executable script, so the
+ * comment is inserted BELOW it; otherwise it is inserted at the top.
+ * Returns a new array of lines (immutable).
+ */
+// [::TICKET::] PX-147 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-147 --for-spec --no-implementation-order`.
+function prependCommentPreservingShebang(lines, comment) {
+  if (lines.length > 0 && lines[0].startsWith("#!")) {
+    return [lines[0], comment, ...lines.slice(1)];
+  }
+  return [comment, ...lines];
+}
+
+// [::TICKET::] PX-147 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-147 --for-spec --no-implementation-order`.
 function processFile(filePath, ticketKey, opts) {
   const verbose = opts && opts.verbose;
   const cwd = opts && opts.cwd ? opts.cwd : process.cwd();
@@ -294,12 +309,20 @@ function processFile(filePath, ticketKey, opts) {
   const definitions = changedLinesToDefinitions(lines, changedLines, ext);
 
   if (definitions.size === 0) {
-    // No definition contains any changed line — insert ambiguous marker at top
-    const ambiguousComment = `// [::AMBIGUOUS::] Could not locate containing definition for changed line(s) in ticket ${ticketKey} — AI must resolve placement.`;
-    const newLines = [ambiguousComment, "", ...lines];
-    fs.writeFileSync(resolved, newLines.join("\n"), "utf8");
-    if (verbose) console.error(`[annotate] Inserted AMBIGUOUS marker: ${filePath}`);
-    return "annotated:ambiguous";
+    // No definition contains any changed line — insert an AMBIGUOUS marker.
+    // Idempotency guard: a marker for the same ticketKey must not stack.
+    const alreadyHasMarker = lines.some(
+      (l) => l.includes("[::AMBIGUOUS::]") && l.includes(ticketKey)
+    );
+    if (!alreadyHasMarker) {
+      const ambiguousComment = `// [::AMBIGUOUS::] Could not locate containing definition for changed line(s) in ticket ${ticketKey} — AI must resolve placement.`;
+      const newLines = prependCommentPreservingShebang(lines, ambiguousComment);
+      fs.writeFileSync(resolved, newLines.join("\n"), "utf8");
+      if (verbose) console.error(`[annotate] Inserted AMBIGUOUS marker: ${filePath}`);
+      return "annotated:ambiguous";
+    }
+    if (verbose) console.error(`[annotate] AMBIGUOUS marker already present for ${ticketKey}: ${filePath}`);
+    return "skipped:already-annotated";
   }
 
   // Sort definitions by startLine DESCENDING to avoid line offset issues
@@ -635,6 +658,7 @@ function main() {
  * @param {string[]} lines
  * @returns {number|null} — 1-indexed line number or null
  */
+// [::TICKET::] PX-147 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-147 --for-spec --no-implementation-order`.
 function detectFirstDefinition(lines) {
   if (!Array.isArray(lines)) return null;
   for (let i = 0; i < lines.length; i++) {
@@ -688,6 +712,7 @@ if (typeof module !== "undefined" && module.exports) {
     verifyAnnotations,
     checkAmbiguousMarkers,
     processFile,
+    prependCommentPreservingShebang,
     parseArgs,
     main,
     // New PX-62 functions

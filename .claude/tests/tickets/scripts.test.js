@@ -3,6 +3,7 @@
 
 
 
+
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -908,6 +909,70 @@ try {
 
     // cleanup
     fs.rmSync(baseDir, { recursive: true, force: true });
+  }
+
+  // ===============================================
+// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+  // PX-142: script self-defense regression tests
+  // ===============================================
+
+  // -----------------------------------------------
+  // Defect 4: findCloneByOriginalKey searches ALL phases (no duplicate clones)
+  // -----------------------------------------------
+  console.log('\n## PX-142: Defect 4 — duplicate clone prevention\n');
+  {
+    const addOmissionMod = require(path.join(SCRIPTS_DIR, 'add-omission-ticket.js'));
+    const { findCloneByOriginalKey, appendFoundOmissions } = addOmissionMod;
+
+    // A clone placed in a REAL phase must be found (was PX-phase-only search).
+    const dataWithRealClone = {
+      phases: [
+        { id: 8, name: 'P8', tickets: [{ id: 1, phaseId: 8, originalTicketKey: 'P6-1', foundOmissions: [] }] }
+      ]
+    };
+    assertOk(findCloneByOriginalKey(dataWithRealClone, 'P6-1'), 'Defect4: clone in a REAL phase is found by originalTicketKey');
+
+    // Repeated appends must accumulate on the existing clone, never duplicate it.
+    const omissionA = { criterion: 'A', evaluations: [{ criterion: 'A', passed: false, reason: 'rA', evidence: [{ file: 'a.rs', line: 1 }] }] };
+    const omissionB = { criterion: 'B', evaluations: [{ criterion: 'B', passed: false, reason: 'rB', evidence: [{ file: 'b.rs', line: 2 }] }] };
+    let dedupData = dataWithRealClone;
+    dedupData = appendFoundOmissions(dedupData, 'P6-1', [omissionA]);
+    dedupData = appendFoundOmissions(dedupData, 'P6-1', [omissionB]);
+    const clones = dedupData.phases.flatMap(p => p.tickets).filter(t => t.originalTicketKey === 'P6-1');
+    assertEq(clones.length, 1, 'Defect4: exactly one clone for key after repeated appends');
+    assertEq(clones[0].foundOmissions.length, 2, 'Defect4: both omissions accumulated on the single clone');
+
+    // Backward compatibility: a clone in the PX phase is still found.
+    const pxData = { phases: [{ id: -1, tickets: [{ id: 9, phaseId: -1, originalTicketKey: 'PX-7', foundOmissions: [] }] }] };
+    assertOk(findCloneByOriginalKey(pxData, 'PX-7'), 'Defect4: clone in the PX phase is still found (backward compat)');
+  }
+
+  // -----------------------------------------------
+  // Defect 3: create-tmp-omissions rejects a second tmp file unless --force
+  // -----------------------------------------------
+  console.log('\n## PX-142: Defect 3 — single tmp-omissions file\n');
+  {
+    const createTmpScript = path.join(SCRIPTS_DIR, 'create-tmp-omissions.js');
+
+    // Precondition: a _tmp-omissions-*.json already exists in CWD.
+    fs.writeFileSync('_tmp-omissions-20260806000000.json', '{"title":"seed"}', 'utf8');
+
+    // No --force → must exit 2 with a clear error.
+    let blockedStatus = null;
+    let blockedErr = '';
+    try {
+      execSync(`node ${createTmpScript}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    } catch (e) {
+      blockedStatus = e.status;
+      blockedErr = e.stderr || '';
+    }
+    assertEq(blockedStatus, 2, 'Defect3: no --force exits with status 2');
+    assertOk(blockedErr.includes('already exists'), 'Defect3: error names the existing tmp file');
+
+    // --force → a new file is created.
+    const forcedOut = execSync(`node ${createTmpScript} --force`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    const forcedPath = forcedOut.trim().split('\n').pop();
+    assertOk(forcedPath && fs.existsSync(forcedPath), 'Defect3: --force creates a new tmp-omissions file');
   }
 
 } finally {

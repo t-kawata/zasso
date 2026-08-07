@@ -13,13 +13,16 @@
 const { describe, test, before } = require("node:test");
 const assert = require("node:assert");
 const path = require("path");
+const fs = require("fs");
+const os = require("os");
 
 let parseGitDiffUnified0, changedLinesToDefinitions, annotateSourceFiles;
 let detectAnnotationLine, detectAnnotationAtLine, mergeAnnotation;
+let processFile;
 
 before(() => {
-  // The current module exports will include new functions after PX-62 rewrite.
-  // Before the rewrite, the import still works but some functions may be missing.
+  // The module exports grow after the PX-62 rewrite.
+  // Before the rewrite, the import still resolves but some exports may be absent.
   const mod = require("../../scripts/tickets/annotate-ticket-context-by-git-diff");
   parseGitDiffUnified0 = mod.parseGitDiffUnified0;
   changedLinesToDefinitions = mod.changedLinesToDefinitions;
@@ -28,11 +31,13 @@ before(() => {
   detectAnnotationLine = mod.detectAnnotationLine;
   detectAnnotationAtLine = mod.detectAnnotationAtLine;
   mergeAnnotation = mod.mergeAnnotation;
+  processFile = mod.processFile;
   // Must exist after PX-62 rewrite
   assert.ok(typeof parseGitDiffUnified0 === "function",
     "parseGitDiffUnified0 must be exported");
   assert.ok(typeof changedLinesToDefinitions === "function",
     "changedLinesToDefinitions must be exported");
+  assert.ok(typeof processFile === "function", "processFile must be exported");
 });
 
 // =============================================================================
@@ -103,7 +108,7 @@ describe("parseGitDiffUnified0", () => {
     // With -U0, there's STILL 1 context line (line1) because git needs to show
     // WHERE the change is anchored. So context = 1 minimum.
     //
-    // OK let me reconsider. With -U0, the parser should still collect ALL lines in the
+    // Reconsider: with -U0, the parser should still collect ALL lines in the
     // new file hunk range. The hunk header +1,4 means new lines 1-4.
     // Among those 4 lines: line1 (context), line2_modified (added), line2b (added)
     // But where's line 4? With -U0, the 4th line doesn't appear in the output.
@@ -239,7 +244,7 @@ describe("changedLinesToDefinitions", () => {
   });
 
   test("throws on invalid input (null/undefined lines)", () => {
-    // The function should handle gracefully — pure function contract
+    // It should handle invalid inputs gracefully (pure contract)
     assert.doesNotThrow(() => changedLinesToDefinitions([], new Set(), ".rs"));
   });
 });
@@ -319,5 +324,106 @@ describe("detectAnnotationLine", () => {
 describe("annotateSourceFiles integration path", () => {
   test("exists as a function", () => {
     assert.ok(typeof annotateSourceFiles === "function");
+  });
+});
+
+// =============================================================================
+// processFile AMBIGUOUS branch (PX-147) — shebang preservation, no blank line
+// =============================================================================
+
+describe("processFile AMBIGUOUS branch (PX-147)", () => {
+  // @verifies C001
+  // @verifies C002
+  // @verifies C003
+  function makeTempDir() {
+    return fs.mkdtempSync(path.join(os.tmpdir(), "px147-"));
+  }
+
+  test("C001: shebang file keeps shebang on line 1, AMBIGUOUS below, no blank line", () => {
+    const tmp = makeTempDir();
+    const file = path.join(tmp, "sample.js");
+    fs.writeFileSync(file, "#!/usr/bin/env node\nconst a = 1;\n");
+    const result = processFile("sample.js", "PX-147", { cwd: tmp, changedLines: new Set([0, 1]) });
+    assert.ok(result.includes("ambiguous"), `expected ambiguous action, got ${result}`);
+    const text = fs.readFileSync(file, "utf8");
+    const lines = text.split("\n");
+    assert.strictEqual(lines[0], "#!/usr/bin/env node", "shebang must stay line 1");
+    assert.ok(lines[1].startsWith("// [::AMBIGUOUS::]"), "AMBIGUOUS marker below shebang");
+    assert.notStrictEqual(lines[1], "", "no blank line inserted");
+    assert.notStrictEqual(text[0], "\n", "file must not start with a newline");
+  });
+
+  test("C002: non-shebang file gets AMBIGUOUS at line 1 with no blank", () => {
+    const tmp = makeTempDir();
+    const file = path.join(tmp, "sample.js");
+    fs.writeFileSync(file, "const a = 1;\n");
+    processFile("sample.js", "PX-147", { cwd: tmp, changedLines: new Set([0]) });
+    const lines = fs.readFileSync(file, "utf8").split("\n");
+    assert.ok(lines[0].startsWith("// [::AMBIGUOUS::]"), "marker at line 1");
+    assert.strictEqual(lines[1], "const a = 1;", "original first line, no blank");
+  });
+
+  test("C001 error: unreadable file returns skipped:unreadable and writes nothing", () => {
+    // resolveGitPath needs a git repo as cwd for its fallback; use the repo root
+    // with a file that does not exist so readFileSync throws ENOENT.
+    const { execFileSync } = require("child_process");
+    const repoRoot = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
+    const result = processFile("px147-definitely-missing.js", "PX-147", { cwd: repoRoot, changedLines: new Set([0]) });
+    assert.strictEqual(result, "skipped:unreadable");
+  });
+
+  test("C003: idempotent — second call adds no second AMBIGUOUS marker", () => {
+    const tmp = makeTempDir();
+    const file = path.join(tmp, "sample.js");
+    fs.writeFileSync(file, "#!/usr/bin/env node\nconst a = 1;\n");
+    const opts = { cwd: tmp, changedLines: new Set([0, 1]) };
+    processFile("sample.js", "PX-147", opts);
+    processFile("sample.js", "PX-147", opts);
+    const count = fs.readFileSync(file, "utf8").split("[::AMBIGUOUS::]").length - 1;
+    assert.ok(count <= 1, `expected <= 1 AMBIGUOUS marker, got ${count}`);
+  });
+
+  test("C001/C002 invariant: file first byte is never a newline after processFile", () => {
+    const tmp = makeTempDir();
+    const file = path.join(tmp, "sample.js");
+    fs.writeFileSync(file, "#!/usr/bin/env node\nconst a = 1;\n");
+    processFile("sample.js", "PX-147", { cwd: tmp, changedLines: new Set([0, 1]) });
+    const text = fs.readFileSync(file, "utf8");
+    assert.notStrictEqual(text[0], "\n");
+  });
+});
+
+// =============================================================================
+// PX-147 integration — temp git repo exercises the real git-diff + fs write path
+// =============================================================================
+
+describe("PX-147 integration — temp git repo real write path", () => {
+  const { execFileSync } = require("child_process");
+
+  test("annotateSourceFiles keeps shebang line 1 and file stays parseable", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "px147-repo-"));
+    try {
+      execFileSync("git", ["init", "-q"], { cwd: tmp });
+      execFileSync("git", ["config", "user.email", "t@t"], { cwd: tmp });
+      execFileSync("git", ["config", "user.name", "t"], { cwd: tmp });
+      fs.writeFileSync(path.join(tmp, "a.js"), "#!/usr/bin/env node\nconst a = 1;\n");
+      execFileSync("git", ["add", "."], { cwd: tmp });
+      execFileSync("git", ["commit", "-qm", "base"], { cwd: tmp });
+      fs.appendFileSync(path.join(tmp, "a.js"), "(function t() { const v = 1; })();\n");
+
+      annotateSourceFiles(tmp, "PX-147", {});
+      const text = fs.readFileSync(path.join(tmp, "a.js"), "utf8");
+      assert.strictEqual(text.split("\n")[0], "#!/usr/bin/env node", "shebang stays line 1");
+      assert.ok(!text.startsWith("\n"), "no leading blank line");
+
+      const { injectAt } = require("../../scripts/tickets/resolve-ambiguous-markers");
+      if (text.includes("[::AMBIGUOUS::]")) {
+        injectAt(path.join(tmp, "a.js"), "PX-147", [4]);
+      }
+      assert.doesNotThrow(() => execFileSync(process.execPath, ["--check", path.join(tmp, "a.js")]),
+        "annotated file must remain valid JavaScript");
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });

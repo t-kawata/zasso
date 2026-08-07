@@ -119,7 +119,8 @@ function makeData() {
 // C005: start-ticket.md no-external-excuse wiring
 
 (function testC005StartTicketWiring() {
-  const md = fs.readFileSync(path.resolve('.claude/commands/start-ticket.md'), 'utf8');
+// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+  const md = fs.readFileSync(path.resolve(__dirname, '../../commands/start-ticket.md'), 'utf8');
   assert(md.includes('create-crime-deferral-ticket.js'), 'C005: start-ticket.md references create-crime-deferral-ticket.js');
   assert(!md.includes('create a new ticket via `/make-ticket`'), 'C005: /make-ticket removed from the escape hatch');
   assert(md.includes('FORBIDDEN'), 'C005: external-excuse language forbidden');
@@ -129,11 +130,14 @@ function makeData() {
 // parseArgs
 
 (function testParseArgs() {
-  const args = ['--source-key=P0-1', '--crime-id=TC-1', '--tickets=Tickets.json'];
+// [::TICKET::] PX-142 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-142 --for-spec --no-implementation-order`.
+  const args = ['--source-key=P0-1', '--crime-id=TC-1'];
   const parsed = parseArgs(args);
   assertStrictEqual(parsed.sourceKey, 'P0-1', 'parseArgs: sourceKey parsed');
   assertStrictEqual(parsed.crimeId, 'TC-1', 'parseArgs: crimeId parsed');
-  assertStrictEqual(parsed.tickets, 'Tickets.json', 'parseArgs: tickets path parsed');
+  // PX-142: --tickets was intentionally removed (Tickets.json is always
+  // ./Tickets.json from the CWD), so parseArgs no longer carries a tickets field.
+  assertStrictEqual(parsed.tickets, undefined, 'parseArgs: tickets field removed');
 })();
 
 // ======================================================================
