@@ -1,4 +1,3 @@
-
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2: FFI module — PJSIP unsafe binding isolation.

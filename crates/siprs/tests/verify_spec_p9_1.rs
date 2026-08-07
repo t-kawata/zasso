@@ -73,14 +73,13 @@ async fn client_init_flow_reports_capabilities() -> Result<(), Box<dyn std::erro
     let (client, mut rx) = SipClient::new(client_config()).await?;
     loop {
         match rx.recv().await {
-            Ok(event) => match event.payload {
-                SipEventPayload::ClientInitialized(caps) => {
+            Ok(event) => {
+                if let SipEventPayload::ClientInitialized(caps) = event.payload {
                     assert_eq!(caps.event_bus_capacity, 2048);
                     assert_eq!(caps.max_calls, u32::MAX);
                     break;
                 }
-                _ => {}
-            },
+            }
             Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
             Err(e) => return Err(format!("event channel closed: {e:?}").into()),
         }
@@ -141,7 +140,8 @@ async fn account_register_flow_via_public_facade() -> Result<(), Box<dyn std::er
 #[tokio::test]
 // @verifies C053
 // [::TICKET::] P13-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-3 --for-spec --no-implementation-order`.
-async fn add_account_rejects_invalid_config_before_network() -> Result<(), Box<dyn std::error::Error>> {
+async fn add_account_rejects_invalid_config_before_network(
+) -> Result<(), Box<dyn std::error::Error>> {
     let (client, _events) = SipClient::new(client_config()).await?;
     let invalid = AccountConfig {
         username: String::new(),

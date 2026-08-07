@@ -29,8 +29,7 @@ use std::process::Command;
 // [::TICKET::] P13-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-2 --for-spec --no-implementation-order`.
 fn cargo_toml_keeps_cpal_optional_behind_cpal_input() -> Result<(), String> {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
-    let text = std::fs::read_to_string(&manifest)
-        .map_err(|e| format!("read Cargo.toml: {e}"))?;
+    let text = std::fs::read_to_string(&manifest).map_err(|e| format!("read Cargo.toml: {e}"))?;
 
     assert!(
         text.contains("cpal = { version = \"0.18\", optional = true }"),

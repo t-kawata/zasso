@@ -47,6 +47,11 @@ pub struct BootConfig {
 /// 5. If reactor panics, `is_terminated()` returns `true`
 pub struct CoreReactor;
 
+/// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
+/// join handle, or a boxed spawn error.
+type SpawnResult =
+    Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
+
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
 // [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8) --for-spec --no-implementation-order`.
 impl CoreReactor {
@@ -61,10 +66,7 @@ impl CoreReactor {
     /// # Returns
     /// - `Ok((RuntimeHandle, Arc<JoinHandle<()>>))` on successful thread spawn
     /// - `Err` if the thread could not be spawned
-    pub fn spawn(
-        boot_config: BootConfig,
-    ) -> Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>
-    {
+    pub fn spawn(boot_config: BootConfig) -> SpawnResult {
         let (tx, mut rx) = handle::create_channel();
         let terminated = Arc::new(AtomicBool::new(false));
         let terminated_clone = terminated.clone();
@@ -596,7 +598,9 @@ pub(crate) fn process_native_event(
             // CallDirection::Incoming (C039 provenance — never read from payload).
             if let NativeEvent::IncomingCall { call_id, .. } = &other_event {
                 if let Ok(cid) = CallId::from_u64(*call_id as u64) {
-                    call_state.call_directions.insert(cid, CallDirection::Incoming);
+                    call_state
+                        .call_directions
+                        .insert(cid, CallDirection::Incoming);
                 }
             }
             let (mut account_id, call_id) = extract_event_ids(&other_event);
@@ -705,7 +709,9 @@ pub(crate) fn handle_make_call(
     if let Ok(call_id) = CallId::from_u64(entry_id) {
         call_state.calls.insert(call_id, entry);
         // A MakeCall command is an outgoing call by origin (C046 provenance).
-        call_state.call_directions.insert(call_id, CallDirection::Outgoing);
+        call_state
+            .call_directions
+            .insert(call_id, CallDirection::Outgoing);
     }
     Ok(entry_id)
 }
@@ -1388,7 +1394,7 @@ mod tests {
     /// @verifies C070, C046
     #[test]
     // [::TICKET::] P12-8: a MakeCall command records the outgoing direction by origin
-// [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
     fn handle_make_call_records_outgoing_direction() {
         let mut backend = MockBackend::new();
         let mut client_state = ClientState::default();
@@ -1798,7 +1804,7 @@ mod tests {
     // @verifies C070, C046
     // [::TICKET::] P12-1: handle_make_call delegates to the backend, registers the
     // returned CallEntry in the authoritative ClientState, and returns the CallId.
-// [::TICKET::] P12-1, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-1, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8) --for-spec --no-implementation-order`.
     fn handle_make_call_registers_entry_and_returns_id() {
         let mut backend = MockBackend::new();
         let mut client_state = ClientState::default();
@@ -1822,7 +1828,7 @@ mod tests {
     // @verifies C070
     // [::TICKET::] P12-1: a failing backend.make_call must propagate Err and
     // register no CallEntry — never a fabricated id.
-// [::TICKET::] P12-1, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-1, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8) --for-spec --no-implementation-order`.
     fn handle_make_call_error_registers_nothing() {
         let mut backend = MockBackend::new();
         backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));

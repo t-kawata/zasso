@@ -33,20 +33,14 @@ pub const MIN_TAP_CAPACITY: usize = 1;
 /// `Realtime` is the default: it prefers the newest frame and never blocks the
 /// audio pipeline. `Lossless` prefers integrity: it backpressures the producer
 /// instead of dropping a frame (best-effort guarantee).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AudioTapMode {
     /// Real-time priority — oldest-drop on overflow, no pipeline impact.
+    #[default]
     Realtime,
     /// Integrity priority — producer backpressure, no frame dropped.
     Lossless,
-}
-
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
-impl Default for AudioTapMode {
-    // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
-    fn default() -> Self {
-        Self::Realtime
-    }
 }
 
 /// Bounded frame queue shared by the tap producer and consumer.
@@ -102,18 +96,28 @@ impl AudioTapHandle {
         Self { rx, queue }
     }
 
+    /// Pop the next ready frame, notifying the producer of freed space.
+    ///
+    /// The mutex guard is scoped to this call, so it is always released before
+    /// the caller can `await` (RFC §22 concurrency invariant).
+    fn pop_ready_frame(&self) -> Option<AudioChunkPair> {
+        let mut frames = lock_queue(&self.queue);
+        let popped = frames.pop_front();
+        if popped.is_some() {
+            self.queue.space_available.notify_one();
+        }
+        popped
+    }
+
     /// Receive the next audio frame; `None` when the producer has closed.
     pub async fn recv(&mut self) -> Option<AudioChunkPair> {
         loop {
-            let mut frames = lock_queue(&self.queue);
-            if let Some(pair) = frames.pop_front() {
-                self.queue.space_available.notify_one();
+            if let Some(pair) = self.pop_ready_frame() {
                 return Some(pair);
             }
             if self.rx.is_closed() {
                 return None;
             }
-            drop(frames);
             self.queue.frame_available.notified().await;
         }
     }

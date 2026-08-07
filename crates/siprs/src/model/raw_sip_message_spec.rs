@@ -199,8 +199,7 @@ fn split_start_line(text: &str) -> (&str, &str) {
 /// Classify a start line as a request or a response.
 // [::TICKET::] P9-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-4 --for-spec --no-implementation-order`.
 fn parse_start_line(line: &str) -> Result<(SipMessageDirection, String), SipError> {
-    if line.starts_with("SIP/2.0") {
-        let rest = &line["SIP/2.0".len()..];
+    if let Some(rest) = line.strip_prefix("SIP/2.0") {
         if !rest.trim_start().starts_with(|c: char| c.is_ascii_digit()) {
             return Err(SipError::invalid_argument(
                 "SIP response start line must carry a status code",

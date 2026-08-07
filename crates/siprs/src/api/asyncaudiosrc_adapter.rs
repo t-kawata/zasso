@@ -888,7 +888,7 @@ mod tests {
     // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn microphone_source_is_send() {
         // C051-Inv: the source can live in AudioMixer's DashMap as Box<dyn AsyncAudioSource + Send>.
-// [::TICKET::] P8-7, P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-7|P13-1) --for-spec --no-implementation-order`.
+        // [::TICKET::] P8-7, P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-7|P13-1) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<CpalMicrophoneSource>();
         assert_send::<Box<dyn AsyncAudioSource>>();
@@ -914,7 +914,7 @@ mod tests {
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
     fn map_default_config_error_maps_to_native_error() {
         // C051-Post (O-001): default-config failure surfaces as SipErrorKind::NativeError.
         let cpal_err = cpal::Error::with_message(
@@ -932,7 +932,7 @@ mod tests {
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
     fn map_supported_configs_error_maps_to_native_error() {
         // C051-Post (O-001): supported-config enumeration failure surfaces as NativeError.
         let cpal_err = cpal::Error::with_message(cpal::ErrorKind::HostUnavailable, "host absent");
@@ -944,7 +944,7 @@ mod tests {
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
     fn map_build_stream_error_maps_to_native_error() {
         // C051-Post (O-001): build-stream failure surfaces as NativeError.
         let cpal_err =
@@ -957,7 +957,7 @@ mod tests {
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
     fn map_play_error_maps_to_native_error() {
         // C051-Post (O-001): stream.play() failure surfaces as NativeError.
         let cpal_err = cpal::Error::with_message(cpal::ErrorKind::DeviceBusy, "device busy");
@@ -969,7 +969,7 @@ mod tests {
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
     fn select_sample_format_handler_accepts_convertible_formats() {
         // C051-Post (O-001): {I16, F32, U16} select their per-format handler.
         let queue = SampleQueue::new();
@@ -990,7 +990,7 @@ mod tests {
     /// @verifies C051
     #[cfg(feature = "cpal-input")]
     #[test]
-// [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-1 --for-spec --no-implementation-order`.
     fn select_sample_format_handler_rejects_non_convertible_formats() {
         // C051-Post (O-001): every format outside {I16,F32,U16} maps to
         // AudioFormatUnsupported — a violation (panic or wrong kind) fails this test.
