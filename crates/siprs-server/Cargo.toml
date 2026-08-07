@@ -9,13 +9,40 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 siprs = { path = "../siprs", features = ["serde"] }
-axum = "0.7"
+axum = { version = "0.7", features = ["ws"] }
 tokio = { version = "1", features = ["full"] }
 jsonwebtoken = "9"
 tokio-tungstenite = "0.21"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"
+
+# [::TICKET::] P12-10: Layer 5 integration-test dev-dependencies.
+# tower drives the axum Router via ServiceExt::oneshot; http-body-util reads
+# response bodies; futures provides StreamExt for WebSocketStream.
+[dev-dependencies]
+tower = "0.5"
+http-body-util = "0.1"
+futures = "0.3"
+
+# [::TICKET::] P12-10: Cargo does not auto-discover test files in
+# subdirectories of tests/; each Layer 5 test file must be declared
+# explicitly so the RFC §57.2 layout (tests/api, tests/ws) is runnable.
+[[test]]
+name = "api_health_test"
+path = "tests/api/health_test.rs"
+
+[[test]]
+name = "api_auth_test"
+path = "tests/api/auth_test.rs"
+
+[[test]]
+name = "api_accounts_test"
+path = "tests/api/accounts_test.rs"
+
+[[test]]
+name = "ws_event_stream_test"
+path = "tests/ws/event_stream_test.rs"
 
 # [::STUB::] P4-3: rusqlite, sea-orm dependencies for SQLite persistence
 # rusqlite = "0.31"
