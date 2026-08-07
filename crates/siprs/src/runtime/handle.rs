@@ -991,4 +991,33 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    // @verifies C038
+    // [::TICKET::] P12-6: inspection on a panicked thread must report dead without
+    // panicking the accessor — is_finished() is safe on a dead/panicked thread.
+    fn inspection_on_panicked_thread_reports_dead_safely() {
+        let join_arc = Arc::new(std::thread::spawn(|| panic!("deliberate test panic")));
+        let handle = RuntimeHandle::new(
+            create_channel().0,
+            Arc::new(AtomicBool::new(false)),
+            join_arc,
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
+        // The thread panics immediately and exits; poll deterministically for exit.
+        let mut attempts = 0;
+        while handle.is_thread_alive() && attempts < 100 {
+            std::thread::sleep(std::time::Duration::from_millis(1));
+            attempts += 1;
+        }
+        assert!(
+            handle.thread_handle().is_finished(),
+            "panicked thread must report finished"
+        );
+        assert!(
+            !handle.is_thread_alive(),
+            "panicked thread must report not alive"
+        );
+    }
 }

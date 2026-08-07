@@ -76,7 +76,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -90,7 +90,7 @@ impl SipClient {
     ///
     /// # Invariant (C002)
     /// The reactor thread model must remain unchanged — `CoreReactor::spawn()`
-    /// must always return `(RuntimeHandle, JoinHandle)`.
+    /// must always return `(RuntimeHandle, Arc<JoinHandle<()>>)`.
     #[instrument(skip(config), fields(sip_host = %config.sip_proxy_host, sip_port = config.sip_proxy_port))]
     pub async fn new(
         config: ClientConfig,
@@ -527,7 +527,7 @@ mod tests {
         // C002 invariant: SipClient must be Send + Sync for use with tokio tasks.
         // ABC O-001 closure: the Sync half was previously unenforced — a non-Sync
         // field (e.g. RefCell) would have passed every test.
-// [::TICKET::] P6-1, P7-2, P10-1, P10-3, P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P10-1|P10-3|P11-15) --for-spec --no-implementation-order`.
+        // [::TICKET::] P6-1, P7-2, P10-1, P10-3, P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P10-1|P10-3|P11-15) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         // [::TICKET::] P6-1, P6-2, P7-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2|P7-2|P10-1) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
@@ -649,29 +649,29 @@ mod tests {
         // account, add_transport, call_state, subscribe_audio, shutdown) to Result<_, String>
         // or another Debug error type would pass the whole suite (existing tests only call
         // .is_ok() or read err.kind, which require only E: Debug).
-// [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_new_result(_: &Result<(SipClient, broadcast::Receiver<SipEvent>), SipError>) {}
-// [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_accounts_result(
             _: &Result<Vec<crate::api::event_model_payload_bus::AccountSnapshot>, SipError>,
         ) {
         }
-// [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_add_account_result(_: &Result<crate::account::SipAccountHandle, SipError>) {}
-// [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_remove_account_result(_: &Result<(), SipError>) {}
-// [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_account_result(_: &Result<crate::account::SipAccountHandle, SipError>) {}
-// [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_add_transport_result(_: &Result<(), SipError>) {}
-// [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_call_state_result(_: &Result<Vec<crate::runtime::state::CallEntry>, SipError>) {}
-// [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_subscribe_audio_result(
             _: &Result<crate::api::audio_subscribe_bp::AudioTapHandle, SipError>,
         ) {
         }
-// [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_shutdown_result(_: &Result<(), SipError>) {}
         let config = ClientConfig::builder()
             .sip_proxy_host("sip.example.com")
@@ -689,7 +689,9 @@ mod tests {
             assert_account_result(&client.account(9999).await);
             assert_add_transport_result(
                 &client
-                    .add_transport(crate::config::transport_ice_spec::TransportConfig::udp(5070))
+                    .add_transport(crate::config::transport_ice_spec::TransportConfig::udp(
+                        5070,
+                    ))
                     .await,
             );
             assert_call_state_result(&client.call_state().await);
@@ -701,7 +703,9 @@ mod tests {
             )?;
             let call_id = crate::model::CallId::from_u64(1)?;
             let mode = crate::api::audio_subscribe_bp::AudioTapMode::Realtime;
-            assert_subscribe_audio_result(&client.subscribe_audio(call_id, format, 1024, mode).await);
+            assert_subscribe_audio_result(
+                &client.subscribe_audio(call_id, format, 1024, mode).await,
+            );
             let shutdown_result = client.shutdown().await;
             assert_shutdown_result(&shutdown_result);
         }

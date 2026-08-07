@@ -1,4 +1,3 @@
-
 // [::TICKET::] P8-1: Runtime Infrastructure — ABC closure integration tests.
 //
 // This integration test file closes the O-001 and O-003 ABC inspection gaps:
@@ -23,8 +22,8 @@ use siprs::runtime::{
 };
 
 // [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
-// [::TICKET::] P11-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-3 --for-spec --no-implementation-order`.
-fn spawn_reactor() -> (RuntimeHandle, std::thread::JoinHandle<()>) {
+// [::TICKET::] P11-3, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-3|P12-6|P12-1) --for-spec --no-implementation-order`.
+fn spawn_reactor() -> (RuntimeHandle, Arc<std::thread::JoinHandle<()>>) {
     CoreReactor::spawn(BootConfig::default()).expect("reactor must spawn")
 }
 
@@ -47,6 +46,7 @@ async fn conf_connect_flows_through_reactor_and_returns_ok() {
     );
 
     drop(handle);
+    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
     let _ = join.join();
 }
 
@@ -69,6 +69,7 @@ async fn conf_disconnect_flows_through_reactor_and_returns_ok() {
     );
 
     drop(handle);
+    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
     let _ = join.join();
 }
 
@@ -109,6 +110,7 @@ async fn audio_source_lifecycle_sequence_through_reactor() {
         .expect("remove must succeed on existing source");
 
     drop(handle);
+    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
     let _ = join.join();
 }
 
@@ -137,6 +139,7 @@ async fn audio_source_lifecycle_nonexistent_source_returns_error() {
     );
 
     drop(handle);
+    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
     let _ = join.join();
 }
 
@@ -227,6 +230,7 @@ async fn add_audio_source_updates_reactor_mixer_state() {
     );
 
     drop(handle);
+    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
     let _ = join.join();
 }
 
@@ -253,6 +257,7 @@ async fn set_audio_source_gain_updates_reactor_mixer_state() {
     );
 
     drop(handle);
+    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
     let _ = join.join();
 }
 
@@ -279,6 +284,7 @@ async fn mute_audio_source_updates_reactor_mixer_state() {
     );
 
     drop(handle);
+    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
     let _ = join.join();
 }
 
@@ -304,6 +310,7 @@ async fn remove_audio_source_decrements_reactor_mixer_state() {
     );
 
     drop(handle);
+    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
     let _ = join.join();
 }
 
@@ -334,5 +341,6 @@ async fn failed_audio_lifecycle_op_leaves_reactor_mixer_unchanged() {
     );
 
     drop(handle);
+    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
     let _ = join.join();
 }

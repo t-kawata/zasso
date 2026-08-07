@@ -1194,6 +1194,26 @@ mod tests {
     }
 
     #[tokio::test]
+    // @verifies C046
+    // [::TICKET::] P12-6: dropping all RuntimeHandle clones must NOT terminate the
+    // reactor thread — the OS thread's lifecycle is independent of the Arc refcount
+    // and ends only on Shutdown / panic / channel-close.
+    async fn dropping_all_handles_does_not_terminate_reactor_thread() {
+        let (handle, join) = spawn_reactor();
+        let cloned = handle.clone();
+        drop(cloned);
+        assert!(
+            !join.is_finished(),
+            "reactor must survive dropping a cloned RuntimeHandle"
+        );
+        // Drop the last handle: the MPSC sender closes and the reactor loop exits
+        // via channel-close (None from blocking_recv), NOT via the Arc refcount.
+        drop(handle);
+        let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
+        let _ = join.join();
+    }
+
+    #[tokio::test]
     // @verifies C011
     async fn reactor_spawn_multiple_concurrent_submits() {
         // Contract-C011: 10 concurrent submit() calls are serialized.
