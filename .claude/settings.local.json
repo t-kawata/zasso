@@ -1700,7 +1700,29 @@
       "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P12-10\" --phase=start)",
       "Bash(echo \"=== check exit: $? ===\")",
       "Bash(rm -f /tmp/siprs_test_final.log; git status --short 2>/dev/null | head -10)",
-      "Bash(git commit -m 'chore: extend Bash allowlist for P12-9/P12-10 ticket workflow *)"
+      "Bash(git commit -m 'chore: extend Bash allowlist for P12-9/P12-10 ticket workflow *)",
+      "Bash(echo \"---exit: $?\")",
+      "Bash(node -e \"const {CFG} = require\\('./.claude/scripts/tickets/lib/tickets'\\); console.log\\(JSON.stringify\\(CFG.review, null, 2\\)\\)\")",
+      "Bash(echo \"--- rs/ts/js/toml stubs exit: $?\")",
+      "Bash(echo \"=== .rs stubs exit: $?\")",
+      "Bash(node -e \"const m = require\\('../../lib/tickets'\\); console.log\\(Object.keys\\(m\\)\\); console.log\\(JSON.stringify\\(m.CFG && m.CFG.review\\)\\)\")",
+      "Bash(echo \"=== scanned-ext stubs exit: $?\")",
+      "Bash(node .claude/scripts/tickets/search-tickets.js --key P0-3)",
+      "Bash(node .claude/scripts/tickets/search-tickets.js --key P1-3)",
+      "Bash(node .claude/scripts/tickets/search-tickets.js --key P0-5)",
+      "Bash(node .claude/scripts/tickets/get-ticket.js P0-3)",
+      "Bash(node .claude/scripts/tickets/get-ticket.js P1-3)",
+      "Bash(node .claude/scripts/tickets/get-ticket.js P0-5)",
+      "Bash(node .claude/scripts/tickets/get-ticket.js Tickets.json P0-3)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(JSON.stringify\\({key:j.ticket?.key||j.key, status:j.ticket?.status||j.status, title:\\(j.ticket?.title||j.title||''\\).slice\\(0,80\\)},null,2\\)\\)}\\)\")",
+      "Bash(node .claude/scripts/tickets/get-ticket.js Tickets.json P1-3)",
+      "Bash(node .claude/scripts/tickets/get-ticket.js Tickets.json P0-5)",
+      "Bash(node .claude/scripts/tickets/validate-graph-arg.js \"/Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json\")",
+      "Bash(node .claude/scripts/tickets/require-consolidated-manifest.js)",
+      "Bash(echo \"---PWD---\"; pwd; echo \"---Tickets.json locations---\"; find /Users/sh01/shyme/zasso -name \"Tickets.json\" -maxdepth 4 2>/dev/null; echo \"---STUB markers anywhere in siprs---\"; grep -rn \"\\\\[::STUB::\\\\]\" /Users/sh01/shyme/zasso/crates/siprs --include=\"*.rs\" --include=\"*.md\" -l 2>/dev/null | head -30)",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); const arr=Array.isArray\\(t\\)?t:\\(t.tickets||t.phases||[]\\); console.log\\('root keys:', Object.keys\\(t\\)\\); if\\(Array.isArray\\(t\\)\\){console.log\\('len',t.length\\)} else {console.log\\('ticket count', Object.keys\\(t\\).length\\)}\")",
+      "Bash(node -e \"const {CFG}=require\\('./.claude/scripts/lib/tickets'\\); console.log\\(JSON.stringify\\(CFG.review,null,2\\)\\)\")",
+      "Bash(node -e \"const {CFG}=require\\('./.claude/scripts/lib/tickets'\\); console.log\\(CFG.review.targetExtensions\\)\")"
     ]
   }
 }
