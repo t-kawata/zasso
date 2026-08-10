@@ -82,6 +82,9 @@ export function spawnAgent(
 ): { proc: ChildProcess; stream: acp.Stream } {
   const proc = spawn(ACP_BINARY, [], {
     stdio: ["pipe", "pipe", "inherit"],
+    // プロセスグループリーダー化する。teardown で claude-code 孫プロセスまで
+    // process.kill(-pid, sig) で確実に終了できるようにするため（PX-150 C004）。
+    detached: true,
     env: {
       ...process.env,
       ACP_PERMISSION_MODE: "bypassPermissions",
@@ -174,7 +177,26 @@ export async function withSession<T>(
 ): Promise<T> {
   const { proc, stream } = spawnAgent(apiKey, model);
   const app = buildClientApp();
+  return runSession(app, stream, proc, cwd, fn);
+}
 
+/**
+ * Establish an ACP session via connectWith and run `fn` inside the callback.
+ *
+ * Guard: a connectWith/runUntil rejection — the SDK rejects with 'ACP
+ * connection closed' when the connection dies before the callback settles
+ * (jsonrpc.js runUntil) — must never escape as an unhandledRejection. The
+ * outer-promise settle is idempotent, so a redundant reject here is a no-op;
+ * clearTimeout also covers the case where connectWith rejects before the
+ * callback ever runs (no other code clears the init timer then).
+ */
+export async function runSession<T>(
+  app: acp.ClientApp,
+  stream: acp.Stream,
+  proc: ChildProcess,
+  cwd: string,
+  fn: (session: AcpSession) => Promise<T>,
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timeout = setTimeout(() => {
       void shutdownChildProcess(proc, CHILD_GRACE_MS);
@@ -183,7 +205,7 @@ export async function withSession<T>(
 
     // ★ acp-test.mjs と同じ connectWith パターン
     //    fn をコールバック内部で実行し、接続が閉じられる前に完了させる
-    app.connectWith(stream, async (ctx) => {
+    const connectPromise = app.connectWith(stream, async (ctx) => {
       let activeSession: acp.ActiveSession | null = null;
       try {
         await ctx.request(acp.methods.agent.initialize, {
@@ -213,6 +235,13 @@ export async function withSession<T>(
         // pipe; otherwise an in-flight write crashes the child with EPIPE.
         await shutdownChildProcess(proc, CHILD_GRACE_MS);
       }
+    });
+
+    // Guard (PX-150 C001): connectWith/runUntil rejections must never escape as
+    // process-level unhandledRejection events.
+    void connectPromise.catch((err) => {
+      clearTimeout(timeout);
+      reject(err);
     });
   });
 }
@@ -251,8 +280,14 @@ export async function runCommand(
 
   try {
     // prompt() は非同期で開始し、nextUpdate() でストリーミング更新を
-    // 読み取るために await しない（意図的）
-    void acpSession.session.prompt(command);
+    // 読み取るために await しない（意図的）。SDK は同一の失敗を
+    // updates.reject() 経由で nextUpdate() にも配送するため、ここでは
+    // 未処理 rejection の発生だけを防ぐ（PX-150 C001）。
+    // Promise.resolve で包むのは、テストのモック prompt が非 Promise を
+    // 返す場合にも .catch を安全に呼べるようにするため。
+    void Promise.resolve(acpSession.session.prompt(command)).catch(() => {
+      // エラーは nextUpdate() 経由で拾われるためここでは握りつぶさない。
+    });
 
     const startTime = Date.now();
     let fullResponse = "";
@@ -322,11 +357,7 @@ export async function shutdownChildProcess(
   } catch {
     // ignore — EOF failure must not block termination
   }
-  try {
-    proc.kill();
-  } catch {
-    // ignore — the child may already be gone
-  }
+  signalChildProcess(proc, "SIGTERM");
   if (proc.exitCode != null) return;
   await new Promise<void>((resolve) => {
     let timer: NodeJS.Timeout;
@@ -336,15 +367,36 @@ export async function shutdownChildProcess(
     };
     timer = setTimeout(() => {
       proc.off("exit", onExit);
-      try {
-        proc.kill("SIGKILL");
-      } catch {
-        // ignore — already dead
-      }
+      signalChildProcess(proc, "SIGKILL");
       resolve();
     }, graceMs);
     proc.once("exit", onExit);
   });
+}
+
+/**
+ * Signal the claude-agent-acp child and, when it leads a process group
+ * (spawned with detached:true), its claude-code grandchild too (PX-150 C004).
+ * A negative pid targets the whole group, so the grandchild cannot survive
+ * teardown and hold the working-directory session for the next spawn. Falls
+ * back to the single process when the child is not a group leader or is gone.
+ */
+// [::TICKET::] PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-150 --for-spec --no-implementation-order`.
+function signalChildProcess(proc: ChildProcess, signal: NodeJS.Signals): void {
+  const pid = proc.pid;
+  if (pid != null) {
+    try {
+      process.kill(-pid, signal);
+      return;
+    } catch {
+      // fall through to single-process kill
+    }
+  }
+  try {
+    proc.kill(signal);
+  } catch {
+    // ignore — already dead
+  }
 }
 
 // ACP セッションを破棄する

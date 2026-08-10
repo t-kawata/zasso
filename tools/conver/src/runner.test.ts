@@ -13,6 +13,7 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { LoopOptions } from "./runner.js";
+import { CommandTimeoutError } from "./error.js";
 
 // --- 共有モック状態 ---
 // mock.module() は各モジュールに1度しか呼べないため、
@@ -28,7 +29,7 @@ interface FindOutcomeMock {
 }
 
 /** 共有モック状態の型 — プロパティ絞り込みを避けるため明示的に型付けする */
-// [::TICKET::] PX-117, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-117|PX-146) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117, PX-146, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-117|PX-146|PX-150) --for-spec --no-implementation-order`.
 interface MockState {
   runCommandImpl: (cmd: string) => Promise<string>;
   slackCalls: Array<{ ticketId: string; phase: string }>;
@@ -40,6 +41,8 @@ interface MockState {
   clearCalls: number;
   /** /review-ticket 実行時にチケットを reviewed に遷移させるか（PX-146 C002/C003 制御） */
   reviewMarksReviewed: boolean;
+  /** withSession をこの回数だけ recoverable エラーで失敗させる（PX-150 C003 制御） */
+  withSessionFailures: number;
 }
 
 const mockState: MockState = {
@@ -55,6 +58,7 @@ const mockState: MockState = {
   countSnapshots: [],
   clearCalls: 0,
   reviewMarksReviewed: true,
+  withSessionFailures: 0,
 };
 
 /** find 関連モック状態をリセットする（型絞り込みを避けるため関数経由） */
@@ -124,7 +128,14 @@ describe("runLoop", () => {
           _key: string,
           _model: string,
           fn: (session: unknown) => Promise<unknown>,
-        ) => fn({ sessionId: "mock" }),
+        ) => {
+          // PX-150 C003: セッション確立の recoverable 失敗を指定回数シミュレート
+          if (mockState.withSessionFailures > 0) {
+            mockState.withSessionFailures--;
+            throw new Error("ACP connection closed");
+          }
+          return fn({ sessionId: "mock" });
+        },
         runCommand: async (_session: unknown, cmd: string) => {
           // PX-146 C002: /review-ticket 成功時、事後検証が通るようチケットを reviewed に遷移させる。
           if (cmd.startsWith("/review-ticket") && mockState.reviewMarksReviewed) {
@@ -213,7 +224,7 @@ describe("runLoop", () => {
   }
 
   /** fixture 内のチケットを reviewed に遷移させる（PX-146 C002 事後検証用モック） */
-// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-146, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-146|PX-150) --for-spec --no-implementation-order`.
   function markReviewed(path: string, key: string): void {
     const data = JSON.parse(readFileSync(path, "utf-8"));
     const separator = key.indexOf("-");
@@ -223,8 +234,8 @@ describe("runLoop", () => {
     const id = parseInt(idPart, 10);
     for (const phase of data.phases) {
       if (phase.id !== phaseId) continue;
-      const t = (phase.tickets || []).find((x: { id: number }) => x.id === id);
-      if (t) t.status = "reviewed";
+      const ticket = (phase.tickets || []).find((x: { id: number }) => x.id === id);
+      if (ticket) ticket.status = "reviewed";
     }
     writeFileSync(path, JSON.stringify(data, null, 2));
   }
@@ -526,11 +537,14 @@ describe("runLoop", () => {
 
   // --- 異常系 ---
 
-  /** ヘルパー: エラーテスト共通処理（1チケットの一時ファイル＋runLoop実行） */
+  /** ヘルパー: エラーテスト共通処理（1チケットの一時ファイル＋runLoop実行）。
+   *  PX-150 以降、フェーズ失敗は process.exit せず give-up（Slack 通知）して
+   *  次へ継続する。maxRetries: 0 で即 give-up させ、exit しないことを検証する。 */
+// [::TICKET::] PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-150 --for-spec --no-implementation-order`.
   async function runErrorTest(
     cmdImpl: (cmd: string) => Promise<string>,
     opts: Partial<LoopOptions>,
-  ): Promise<{ slackPhase: string; exitCode: number | undefined }> {
+  ): Promise<{ slackPhase: string; exitCalls: number[] }> {
     mockStepTimerState.deadlineResult = true;
     // テストごとにチケットファイルを新規作成
     writeTickets([
@@ -542,22 +556,20 @@ describe("runLoop", () => {
     mockState.slackCalls = [];
 
     const { runLoop } = await import("./runner.js");
-    try {
-      await runLoop(baseOptions({ ticketsPath: ticketPath, ...opts }));
-    } catch {
-      // process.exit モックが投げた例外 — 期待動作
-    }
+    // process.exit は呼ばれないため例外は出ない（防御的な catch のみ）
+    await runLoop(baseOptions({ ticketsPath: ticketPath, ...opts, maxRetries: 0 }));
 
     const result = {
       slackPhase: mockState.slackCalls[0]?.phase ?? "",
-      exitCode: exitMock.calledWith[0],
+      exitCalls: exitMock.calledWith,
     };
     exitMock.restore();
     return result;
   }
 
-  it("make-ticket エラー時に sendSlackError + exit(1)", async () => {
-    const { slackPhase, exitCode } = await runErrorTest(
+  // @verifies C002
+  it("make-ticket エラー時に sendSlackError で通知し exit せず継続する", async () => {
+    const { slackPhase, exitCalls } = await runErrorTest(
       async (cmd) => {
         if (cmd.startsWith("/make-ticket")) throw new Error("/make-ticket failed");
         return "ok";
@@ -565,11 +577,12 @@ describe("runLoop", () => {
       {},
     );
     assert.strictEqual(slackPhase, "make-ticket");
-    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(exitCalls.length, 0);
   });
 
-  it("review-ticket エラー時に sendSlackError + exit(1)", async () => {
-    const { slackPhase, exitCode } = await runErrorTest(
+  // @verifies C002
+  it("review-ticket エラー時に sendSlackError で通知し exit せず継続する", async () => {
+    const { slackPhase, exitCalls } = await runErrorTest(
       async (cmd) => {
         if (cmd.startsWith("/review-ticket")) throw new Error("/review-ticket error");
         return "ok";
@@ -577,11 +590,12 @@ describe("runLoop", () => {
       {},
     );
     assert.strictEqual(slackPhase, "review-ticket");
-    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(exitCalls.length, 0);
   });
 
-  it("resolve-ticket エラー時に sendSlackError + exit(1)", async () => {
-    const { slackPhase, exitCode } = await runErrorTest(
+  // @verifies C002
+  it("resolve-ticket エラー時に sendSlackError で通知し exit せず継続する", async () => {
+    const { slackPhase, exitCalls } = await runErrorTest(
       async (cmd) => {
         if (cmd.startsWith("/resolve-ticket")) throw new Error("/resolve-ticket failed");
         return "ok";
@@ -589,11 +603,12 @@ describe("runLoop", () => {
       {},
     );
     assert.strictEqual(slackPhase, "resolve-ticket");
-    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(exitCalls.length, 0);
   });
 
-  it("epush-branch エラー時に sendSlackError + exit(1)", async () => {
-    const { slackPhase, exitCode } = await runErrorTest(
+  // @verifies C002
+  it("epush-branch エラー時に sendSlackError で通知し exit せず継続する", async () => {
+    const { slackPhase, exitCalls } = await runErrorTest(
       async (cmd) => {
         if (cmd.startsWith("/epush-branch")) throw new Error("/epush-branch failed");
         return "ok";
@@ -601,13 +616,14 @@ describe("runLoop", () => {
       { pushEnabled: true },
     );
     assert.strictEqual(slackPhase, "epush-branch");
-    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(exitCalls.length, 0);
   });
 
-  it("consolidate-stubs エラー時に sendSlackError + exit(1)", async () => {
+  // @verifies C002
+  it("consolidate-stubs エラー時に sendSlackError で通知し exit せず継続する", async () => {
     mockState.allReviewed = true;
     resetFindState();
-    const { slackPhase, exitCode } = await runErrorTest(
+    const { slackPhase, exitCalls } = await runErrorTest(
       async (cmd) => {
         if (cmd.startsWith("/consolidate-stubs")) throw new Error("/consolidate-stubs failed");
         return "ok";
@@ -615,8 +631,110 @@ describe("runLoop", () => {
       {},
     );
     assert.strictEqual(slackPhase, "consolidate-stubs");
-    assert.strictEqual(exitCode, 1);
+    assert.strictEqual(exitCalls.length, 0);
     mockState.allReviewed = false;
+  });
+
+  // ==================================================================
+  // PX-150: isRecoverableError / retryWithBackoff / 継続
+  // ==================================================================
+
+  // @verifies C002
+  it("isRecoverableError は接続・子プロセス・タイムアウトを recoverable と分類する", async () => {
+    const { isRecoverableError } = await import("./runner.js");
+    assert.strictEqual(isRecoverableError(new Error("ACP connection closed")), true);
+    assert.strictEqual(isRecoverableError(new Error("claude-agent-acp 子プロセスがコマンド完了前に終了しました (command=/make-ticket, exit code=1)")), true);
+    assert.strictEqual(isRecoverableError(new Error("write EPIPE")), true);
+    assert.strictEqual(isRecoverableError(new CommandTimeoutError("コマンドがタイムアウトしました: /x")), true);
+    assert.strictEqual(isRecoverableError(new Error("config invalid")), false);
+    assert.strictEqual(isRecoverableError(new Error("ENOENT")), false);
+  });
+
+  // @verifies C003
+  it("retryWithBackoff は recoverable エラーを maxAttempts までリトライし最後のエラーで reject する", async () => {
+    const { retryWithBackoff, isRecoverableError } = await import("./runner.js");
+    const opts = { maxAttempts: 3, baseDelayMs: 1, maxDelayMs: 10, jitterMs: 0, isRetryable: isRecoverableError };
+    let calls = 0;
+    await assert.rejects(
+      retryWithBackoff(async () => { calls++; throw new Error("ACP connection closed"); }, opts),
+      /ACP connection closed/,
+    );
+    assert.strictEqual(calls, 3);
+  });
+
+  // @verifies C003
+  it("retryWithBackoff は non-retryable エラーを即座に伝播する", async () => {
+    const { retryWithBackoff, isRecoverableError } = await import("./runner.js");
+    const opts = { maxAttempts: 3, baseDelayMs: 1, maxDelayMs: 10, jitterMs: 0, isRetryable: isRecoverableError };
+    let calls = 0;
+    await assert.rejects(
+      retryWithBackoff(async () => { calls++; throw new Error("config invalid"); }, opts),
+      /config invalid/,
+    );
+    assert.strictEqual(calls, 1);
+  });
+
+  // @verifies C003
+  it("retryWithBackoff は後続の試行で成功する", async () => {
+    const { retryWithBackoff, isRecoverableError } = await import("./runner.js");
+    const opts = { maxAttempts: 3, baseDelayMs: 1, maxDelayMs: 10, jitterMs: 0, isRetryable: isRecoverableError };
+    let calls = 0;
+    const result = await retryWithBackoff(async () => { calls++; if (calls < 3) throw new Error("ACP connection closed"); return "ok"; }, opts);
+    assert.strictEqual(result, "ok");
+    assert.strictEqual(calls, 3);
+  });
+
+  // @verifies C003
+  it("withSession が recoverable で一時失敗してもリトライで完走する（exit しない）", async () => {
+    const exitMock = mockProcessExit();
+    mockState.slackCalls = [];
+    mockState.reviewMarksReviewed = true;
+    mockState.withSessionFailures = 2; // 最初の2回は確立失敗、3回目で成功
+
+    const runnerMod = await import("./runner.js");
+    const origBase = runnerMod.retryPolicy.baseDelayMs;
+    const origJitter = runnerMod.retryPolicy.jitterMs;
+    runnerMod.retryPolicy.baseDelayMs = 1;
+    runnerMod.retryPolicy.jitterMs = 0;
+
+    try {
+      writeTickets([
+        { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
+      ]);
+      await runnerMod.runLoop(baseOptions({ ticketsPath: ticketPath, maxRetries: 0 }));
+      assert.strictEqual(exitMock.calledWith.length, 0);
+      assert.strictEqual(mockState.slackCalls.length, 0); // give-up されず完走
+    } finally {
+      runnerMod.retryPolicy.baseDelayMs = origBase;
+      runnerMod.retryPolicy.jitterMs = origJitter;
+      mockState.withSessionFailures = 0;
+      exitMock.restore();
+    }
+  });
+
+  // @verifies C002
+  it("PX-150 C002: セッション失敗は通知後に次のチケットへ継続する（exit しない）", async () => {
+    const exitMock = mockProcessExit();
+    mockState.slackCalls = [];
+    mockState.reviewMarksReviewed = true;
+    writeTickets([
+      { id: 0, name: "P0", tickets: [
+        { id: 1, phaseId: 0, status: "todo", title: "T1" },
+        { id: 2, phaseId: 0, status: "todo", title: "T2" },
+      ]},
+    ]);
+    mockState.runCommandImpl = async (cmd) => {
+      if (cmd.startsWith("/make-ticket P0-1")) throw new Error("/make-ticket failed");
+      return "ok";
+    };
+    const { runLoop } = await import("./runner.js");
+    await runLoop(baseOptions({ ticketsPath: ticketPath, maxRetries: 1 }));
+    assert.strictEqual(exitMock.calledWith.length, 0);
+    assert.ok(
+      mockState.slackCalls.some((c) => c.phase === "make-ticket"),
+      "P0-1 の give-up が通知される",
+    );
+    exitMock.restore();
   });
 
   // ==================================================================

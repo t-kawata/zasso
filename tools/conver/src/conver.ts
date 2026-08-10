@@ -8,20 +8,20 @@ import { isWithinTimeWindow } from "./step-timer.js";
 import { CronScheduler } from "./cron-scheduler.js";
 
 /**
- * Log a fatal error and terminate the process with code 1.
- * Used by the process-level crash handlers so conver never dies with a raw
- * unhandled-error trace; the message is prefixed for greppability.
+ * Log a fatal error and continue. Used by the process-level crash handlers so
+ * conver never dies with a raw unhandled-error trace and, crucially, never
+ * exits mid-run: the night loop must only terminate at a defined completion
+ * point (PX-150). The message is prefixed for greppability.
  */
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
 export function reportFatalError(prefix: string, err: unknown): void {
   console.error(`${prefix}:`, err instanceof Error ? err.message : String(err));
-  process.exit(1);
 }
 
 /**
  * Install process-level crash handlers (uncaughtException / unhandledRejection)
- * that report and exit cleanly. Command-level errors are handled by runLoop's
- * catch; these handlers are a last-resort guard for anything outside that path.
+ * that log and continue. Command-level errors are handled by runLoop's catch;
+ * these handlers are a last-resort guard for anything outside that path.
  */
 export function installCrashHandlers(): void {
   process.on("uncaughtException", (err) => {

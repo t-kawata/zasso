@@ -7,7 +7,7 @@
 //   withSession は createSession 経由のため実際のセッションが必要 — エラーハンドリングのみ検証。
 //
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する。
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import {
@@ -15,6 +15,7 @@ import {
   runCommand,
   disposeSession,
   shutdownChildProcess,
+  runSession,
 } from "./session.js";
 import type { AcpSession, RunCommandOptions } from "./session.js";
 import { CommandTimeoutError } from "./error.js";
@@ -222,10 +223,10 @@ describe("runCommand", () => {
       proc: mockProc({ exitCode: 3 }),
       session: {
         sessionId: "s",
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
         prompt() { promptCalled = true; },
         nextUpdate: () => new Promise(() => {}),
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
         dispose() {},
       } as any,
     });
@@ -261,6 +262,56 @@ describe("runCommand", () => {
       CommandTimeoutError,
     );
     assert.strictEqual(proc.listenerCount("exit"), 0);
+  });
+
+  // C001: 接続切断時に session.prompt() が reject しても、未処理 rejection にせず
+  // 次の nextUpdate() 経由で同じエラーを拾って reject する。
+  // @verifies C001
+  it("session.prompt が reject しても unhandledRejection にならない", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (r: unknown) => { unhandled.push(r); };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const session = mockSession({
+        session: {
+          sessionId: "mock-sid",
+          prompt: () => Promise.reject(new Error("ACP connection closed")),
+          nextUpdate: () => Promise.reject(new Error("ACP connection closed")),
+          dispose: () => {},
+        } as any,
+      });
+      await assert.rejects(
+        runCommand(session, "/resolve-ticket /tmp/x", { timeoutMs: 1000, verbose: false }),
+        /ACP connection closed/,
+      );
+    } finally {
+      process.removeListener("unhandledRejection", onUnhandled);
+    }
+    assert.deepStrictEqual(unhandled, []);
+  });
+});
+
+// --- runSession ---
+// @verifies C001
+
+describe("runSession", () => {
+  it("connectWith が reject しても unhandledRejection にならず reject する", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (r: unknown) => { unhandled.push(r); };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      // connectWith はコールバックを呼ばずに即 reject する（確立前の接続切断）
+      const app = { connectWith: () => Promise.reject(new Error("ACP connection closed")) } as any;
+      const stream = {} as any;
+      const proc = mockProc();
+      await assert.rejects(
+        runSession(app, stream, proc, "/tmp/x", async () => "ok"),
+        /ACP connection closed/,
+      );
+    } finally {
+      process.removeListener("unhandledRejection", onUnhandled);
+    }
+    assert.deepStrictEqual(unhandled, []);
   });
 });
 
@@ -316,7 +367,7 @@ describe("disposeSession", () => {
 });
 
 // --- shutdownChildProcess ---
-// @verifies C002
+// @verifies C004
 
 describe("shutdownChildProcess", () => {
   it("SIGTERM 送信後、子プロセスの exit を待って resolve する", async () => {
@@ -327,7 +378,8 @@ describe("shutdownChildProcess", () => {
     setImmediate(() => proc.emit("exit", 0, null));
     await promise;
 
-    assert.deepStrictEqual(kills, [undefined]); // SIGTERM
+    // pid 未設定のプロセスはグループ kill できないため proc.kill にフォールバックする
+    assert.deepStrictEqual(kills, ["SIGTERM"]);
   });
 
   it("grace 超過で SIGKILL を送信して resolve する", async () => {
@@ -336,7 +388,28 @@ describe("shutdownChildProcess", () => {
 
     await shutdownChildProcess(proc, 20); // 子は exit を emit しない
 
-    assert.deepStrictEqual(kills, [undefined, "SIGKILL"]);
+    assert.deepStrictEqual(kills, ["SIGTERM", "SIGKILL"]);
+  });
+
+  // C004: claude-code 孫プロセスを確実に終了させるため、プロセスグループへ
+  // SIGTERM/SIGKILL を送る。グループ kill が失敗したら単一プロセスへフォールバックする。
+  // @verifies C004
+  it("プロセスグループ（claude-code 孫）へ kill を送信し、失敗時はフォールバックする", async () => {
+    const groupSignals: Array<[number, string]> = [];
+    mock.method(process, "kill", (pid: number, sig: string) => {
+      groupSignals.push([pid, sig]);
+      // 実在しないグループを模倣: SIGKILL 時だけ ESRCH で失敗 → フォールバック検証
+      if (sig === "SIGKILL") throw new Error("ESRCH");
+    });
+    try {
+      const proc = mockProc({ pid: 1234 });
+      await shutdownChildProcess(proc, 10); // exit を emit しない → grace 後 SIGKILL
+      assert.deepStrictEqual(groupSignals[0], [-1234, "SIGTERM"]);
+      // SIGKILL はグループ kill が ESRCH のため proc.kill にフォールバックした
+      assert.ok(groupSignals.some(([pid, sig]) => pid === -1234 && sig === "SIGKILL"));
+    } finally {
+      mock.restoreAll();
+    }
   });
 
   it("既に終了したプロセスには何もしない", async () => {

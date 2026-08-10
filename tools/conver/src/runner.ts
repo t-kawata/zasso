@@ -25,7 +25,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 import { withSession, runCommand } from "./session.js";
-import type { RunCommandOptions } from "./session.js";
+import type { RunCommandOptions, AcpSession } from "./session.js";
 import {
   sendSlackError,
   sendSlackSuccess,
@@ -107,6 +107,86 @@ function toRunCommandOptions(options: LoopOptions): RunCommandOptions {
   };
 }
 
+// --- PX-150: セッション障害からの回復（再試行・継続） ---
+
+/** セッション再試行ポリシー。テストから遅延を短縮できるよう mutable に保つ。 */
+// [::TICKET::] PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-150 --for-spec --no-implementation-order`.
+export const retryPolicy = {
+  maxAttempts: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 8000,
+  jitterMs: 500,
+};
+
+/** 回復可能エラーと判定するためのキーワード（接続切断・子プロセス死亡・一時障害） */
+const RECOVERABLE_ERROR_MARKERS = [
+  "ACP connection closed",
+  "子プロセス",
+  "EPIPE",
+  "ECONNRESET",
+  "タイムアウト",
+  "timeout",
+  "connect",
+  "initialize",
+];
+
+/**
+ * 回復可能（接続切断・子プロセス死亡・タイムアウト等）なエラーかを判定する。
+ * 回復可能なエラーはセッション確立を再試行し、システム障害（設定・ENOENT等）は
+ * 即座に伝播する。
+ */
+export function isRecoverableError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return RECOVERABLE_ERROR_MARKERS.some((m) => msg.includes(m));
+}
+
+/**
+ * 指数バックオフ + ジッタ付きで操作を再試行する。
+ * - recoverable エラー: maxAttempts まで再試行
+ * - non-recoverable エラー: 即座に throw
+ * - 上限到達: 最後のエラーを throw
+ */
+export async function retryWithBackoff<T>(
+  op: () => Promise<T>,
+  opts: {
+    maxAttempts: number;
+    baseDelayMs: number;
+    maxDelayMs: number;
+    jitterMs: number;
+    isRetryable: (err: unknown) => boolean;
+  },
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= opts.maxAttempts; attempt++) {
+    try {
+      return await op();
+    } catch (err) {
+      lastError = err;
+      if (!opts.isRetryable(err) || attempt === opts.maxAttempts) break;
+      const base = Math.min(opts.baseDelayMs * 2 ** (attempt - 1), opts.maxDelayMs);
+      const delay = base + Math.random() * opts.jitterMs;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastError;
+}
+
+/** withSession をセッション確立の再試行付きで実行する（PX-150 C003）。 */
+async function runWithSession<T>(
+  cwd: string,
+  apiKey: string,
+  model: string,
+  fn: (session: AcpSession) => Promise<T>,
+): Promise<T> {
+  return retryWithBackoff(() => withSession(cwd, apiKey, model, fn), {
+    maxAttempts: retryPolicy.maxAttempts,
+    baseDelayMs: retryPolicy.baseDelayMs,
+    maxDelayMs: retryPolicy.maxDelayMs,
+    jitterMs: retryPolicy.jitterMs,
+    isRetryable: isRecoverableError,
+  });
+}
+
 /** チケットキー（P{phaseId}-{id} / PX-{id}）を生成する（PX-146: wave / リトライ追跡用）。 */
 // [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
 function ticketKey(ticket: { phaseId: number; id: number }): string {
@@ -141,7 +221,7 @@ function isTerminalStatus(ticketsPath: string, key: string): boolean {
 }
 
 /** resolve + epush を実行する（PX-146: resolveEvery のリズムと find 前の最終 resolve を一元化）。 */
-// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-146, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-146|PX-150) --for-spec --no-implementation-order`.
 async function runResolve(
   cwd: string,
   options: LoopOptions,
@@ -149,7 +229,7 @@ async function runResolve(
 ): Promise<void> {
   const runOptions = toRunCommandOptions(options);
   printCommandHeader("/resolve-ticket", ticketId, "resolve");
-  await withSession(
+  await runWithSession(
     cwd,
     options.apiKey,
     options.model,
@@ -157,12 +237,12 @@ async function runResolve(
       await runCommand(session, `/resolve-ticket ${cwd}`, runOptions);
     },
   );
-  console.log("\n>>> ✅ resolve 完了");
+  process.stdout.write("\n>>> ✅ resolve 完了\n");
 
   if (options.pushEnabled) {
     try {
       printCommandHeader("/epush-branch");
-      await withSession(
+      await runWithSession(
         cwd,
         options.apiKey,
         options.model,
@@ -170,7 +250,7 @@ async function runResolve(
           await runCommand(session, "/epush-branch", runOptions);
         },
       );
-      console.log("\n>>> ✅ epush-branch 完了");
+      process.stdout.write("\n>>> ✅ epush-branch 完了\n");
     } catch (pushError) {
       await sendSlackError(options.slackWebhookUrl, {
         ticketId,
@@ -196,19 +276,20 @@ async function runResolve(
  * 3. process.exit(1) でプロセス終了
  */
 /** コマンド実行前に視認性の高いヘッダーを出力する */
+// [::TICKET::] PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-150 --for-spec --no-implementation-order`.
 function printCommandHeader(
   command: string,
   ticketId?: string,
   title?: string,
 ): void {
   const separator = "=".repeat(46);
-  console.log(`\n${separator}`);
+  process.stdout.write(`\n${separator}\n`);
   if (ticketId && title) {
-    console.log(`🟢 ${command} ${ticketId}: ${title}`);
+    process.stdout.write(`🟢 ${command} ${ticketId}: ${title}\n`);
   } else {
-    console.log(`🟢 ${command}`);
+    process.stdout.write(`🟢 ${command}\n`);
   }
-  console.log(`${separator}\n`);
+  process.stdout.write(`${separator}\n`);
 }
 
 /** Tickets.json から処理済みチケットをフェーズ別に整形する */
@@ -331,7 +412,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         //   -b 1（デフォルト）: [make→plan→start→review]
         //   -b 0:              [make→plan→start] → 別セッションで review
         if (status === "todo" || status === "made" || status === "planned") {
-          await withSession(
+          await runWithSession(
             cwd,
             options.apiKey,
             options.model,
@@ -339,20 +420,20 @@ export async function runLoop(options: LoopOptions): Promise<void> {
               if (status === "todo") {
                 printCommandHeader("/make-ticket", ticketId, ticket.title);
                 await runCommand(session, `/make-ticket ${ticketId}`, runOptions);
-                console.log("\n>>> ✅ make-ticket 完了");
+                process.stdout.write("\n>>> ✅ make-ticket 完了\n");
               }
               if (status !== "planned") {
                 printCommandHeader("/plan-ticket", ticketId, ticket.title);
                 await runCommand(session, `/plan-ticket ${ticketId}`, runOptions);
-                console.log("\n>>> ✅ plan-ticket 完了");
+                process.stdout.write("\n>>> ✅ plan-ticket 完了\n");
               }
               printCommandHeader("/start-ticket", ticketId, ticket.title);
               await runCommand(session, `/start-ticket ${ticketId}`, runOptions);
-              console.log("\n>>> ✅ start-ticket 完了");
+              process.stdout.write("\n>>> ✅ start-ticket 完了\n");
               if (bindReview) {
                 printCommandHeader("/review-ticket", ticketId, ticket.title);
                 await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
-                console.log("\n>>> ✅ review 完了");
+                process.stdout.write("\n>>> ✅ review 完了\n");
               }
             },
           );
@@ -361,7 +442,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         // review を別セッションで実行（分離モード または done）
         if (!bindReview || status === "done") {
           printCommandHeader("/review-ticket", ticketId, ticket.title);
-          await withSession(
+          await runWithSession(
             cwd,
             options.apiKey,
             options.model,
@@ -369,7 +450,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
               await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
             },
           );
-          console.log("\n>>> ✅ review 完了");
+          process.stdout.write("\n>>> ✅ review 完了\n");
         }
 
         // resolve 間隔（C001 invariant: resolveEvery のリズムを維持）
@@ -417,7 +498,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         sendSlackSuccess(options.slackWebhookUrl, successCtx).catch(() => {});
 
         printCommandHeader("/consolidate-stubs");
-        await withSession(
+        await runWithSession(
           cwd,
           options.apiKey,
           options.model,
@@ -425,12 +506,12 @@ export async function runLoop(options: LoopOptions): Promise<void> {
             await runCommand(session, "/consolidate-stubs", runOptions);
           },
         );
-        console.log("\n>>> ✅ consolidate-stubs 完了");
+        process.stdout.write("\n>>> ✅ consolidate-stubs 完了\n");
 
         printCommandHeader("/find-omissions");
         const graphPath = getGraphPathFromTickets(options.ticketsPath);
         const before = countPhasesAndTickets(options.ticketsPath);
-        await withSession(
+        await runWithSession(
           cwd,
           options.apiKey,
           options.model,
@@ -442,7 +523,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
             );
           },
         );
-        console.log("\n>>> ✅ find-omissions 完了");
+        process.stdout.write("\n>>> ✅ find-omissions 完了\n");
         const after = countPhasesAndTickets(options.ticketsPath);
         const mergedPhases = after.phaseCount - before.phaseCount;
         const mergedTickets = after.ticketCount - before.ticketCount;
@@ -457,27 +538,27 @@ export async function runLoop(options: LoopOptions): Promise<void> {
       }
     } catch (error) {
       const err = error as Error;
-      await sendSlackError(options.slackWebhookUrl, {
-        ticketId,
-        phase: getCurrentPhase(err),
-        error: err,
-        ticketsPath: options.ticketsPath,
-      });
-      console.error(`\n❌ エラー発生: ${err.message}`);
-      if (
-        err.message.includes("connect") ||
-        err.message.includes("initialize")
-      ) {
-        console.error("");
-        console.error("ACP セッションの初期化に失敗しました。考えられる原因:");
-        console.error("  - DeepSeek API キーが正しくない");
-        console.error("  - ネットワーク接続の問題");
-        console.error("  - claude-agent-acp のバージョン不一致");
+      // PX-150: フェーズ失敗は process.exit せず、リトライ上限までは次 wave で
+      // 再処理し、上限到達で give-up（Slack 通知）して次のチケットへ継続する。
+      const attempts = (retryCount.get(ticketId) ?? 0) + 1;
+      retryCount.set(ticketId, attempts);
+      if (attempts <= options.maxRetries) {
         console.error(
-          "環境変数 ANTHROPIC_BASE_URL が正しいか確認してください。",
+          `\n⚠️ ${ticketId} セッション失敗（${attempts}/${options.maxRetries}）: ${err.message} — 次ラウンドで再試行`,
         );
+      } else {
+        giveUp.add(ticketId);
+        await sendSlackError(options.slackWebhookUrl, {
+          ticketId,
+          phase: getCurrentPhase(err),
+          error: err,
+          ticketsPath: options.ticketsPath,
+        });
+        console.error(`\n⚠️ ${ticketId} を諦めて次へ継続: ${err.message}`);
       }
-      process.exit(1);
+      // 明確な完了点以外で終了しない。giveUp でない失敗チケットは
+      // retryCandidates に残り、次 wave で再処理される。
+      continue;
     }
     }
 
@@ -493,5 +574,5 @@ export async function runLoop(options: LoopOptions): Promise<void> {
     }
   }
 
-  console.log(`\n✅ 全${reviewedCount}チケットの処理が完了しました。`);
+  process.stdout.write(`\n✅ 全${reviewedCount}チケットの処理が完了しました。\n`);
 }

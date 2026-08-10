@@ -346,9 +346,11 @@ describe("conver", () => {
 // --- C003: プロセスレベルのクラッシュガード ---
 // @verifies C003
 
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
 describe("reportFatalError / installCrashHandlers", () => {
-  it("reportFatalError はエラーメッセージをログし exit code 1 で終了する", async () => {
+  // PX-150: クラッシュハンドラは exit せずログのみ（夜間ループの完走を保証する）
+  // @verifies C003
+  it("reportFatalError はエラーメッセージをログし exit しない", async () => {
     const logLines: string[] = [];
     const exitCalls: number[] = [];
     mock.method(console, "error", (...args: unknown[]) => {
@@ -361,7 +363,7 @@ describe("reportFatalError / installCrashHandlers", () => {
     const { reportFatalError } = await import("./conver.js");
     reportFatalError("致命的エラー (unhandledRejection)", new Error("boom"));
 
-    assert.strictEqual(exitCalls[0], 1);
+    assert.strictEqual(exitCalls.length, 0);
     assert.ok(logLines.join("\n").includes("boom"));
   });
 
@@ -382,19 +384,27 @@ describe("reportFatalError / installCrashHandlers", () => {
     assert.strictEqual(exitCalls.length, 0);
   });
 
-  it("IT: installCrashHandlers はサブプロセスの unhandledRejection を clean exit(1) に変換する", async () => {
+  it("IT: installCrashHandlers はサブプロセスの unhandledRejection をログして継続する（exit しない）", async () => {
     const script = `
       import('./dist/conver.js').then((m) => {
         m.installCrashHandlers();
         Promise.reject(new Error('boom'));
       });
     `;
-    const result = (await execFileAsync(process.execPath, ["-e", script], {
+    // PX-150: クラッシュハンドラはログして継続するため、保留タスクが無ければ
+    // プロセスは正常終了（exit 0 → execFileAsync は resolve）する。
+    const result = await execFileAsync(process.execPath, ["-e", script], {
       cwd: process.cwd(),
-    }).catch((err: unknown) => err)) as { code?: number; stderr?: string };
+    })
+      .then((res) => ({ ok: true as const, stderr: res.stderr }))
+      .catch((err: { code?: number; signal?: string; stderr?: string }) => ({
+        ok: false as const,
+        code: err.code ?? null,
+        signal: err.signal ?? null,
+        stderr: err.stderr ?? String(err),
+      }));
 
-    // reportFatalError が stderr にログして exit(1) することを検証する
-    assert.strictEqual(result.code, 1);
+    assert.strictEqual(result.ok, true);
     assert.ok(String(result.stderr).includes("致命的エラー (unhandledRejection)"));
   });
 });
