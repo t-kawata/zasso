@@ -21014,6 +21014,239 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-08-10"
+        },
+        {
+          "id": 151,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Provider-agnostic model/baseUrl configuration (-m/-u) for arbitrary Anthropic-compatible providers",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/151-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\n-m を自由なモデル選択、-u/--url を自由な baseUrl 設定として受け付けることで、conver が DeepSeek だけでなく OpenRouter / Ollama 等の任意の Anthropic 互換プロバイダーに接続して動作できるようにする。\n\n### Purpose\n現状は session.ts:91 の ANTHROPIC_BASE_URL と session.ts:94 の ANTHROPIC_DEFAULT_OPUS_MODEL が DeepSeek に直書きされ、-k も必須（cli.ts:84-88）のため単一ベンダーロックイン。ベース URL とモデルを外部から注入可能にしてロックインを解消する。\n\n### Motivation\nOpenRouter は https://openrouter.ai/api でネイティブな Anthropic Messages API を公開し、Ollama（>= v0.14.0）は http://localhost:11434/v1/messages を実装している。claude-agent-acp は Claude Code を起動するため、ANTHROPIC_BASE_URL とモデル env を差し替えるだけで両者へ接続できる。プロバイダーごとの対応を conver 内部に積まず、Claude Code の標準 env 契約に委ねるのが最小で堅牢。\n\n### Constraints\n- 既存の DeepSeek 夜間ループがフラグ無変更で動き続けること（デフォルト baseUrl = 現行 DeepSeek URL、デフォルト model = deepseek-v4-flash）。\n- 新規依存（npm パッケージ等）を追加しない。\n- ACP セッションライフサイクル（session.ts spawn/run/dispose）の構造を変えない。\n- プロバイダー検出（URL を読んで挙動を切り替えるマジック）を追加しない。baseUrl は raw パススルー。",
+          "scope": [
+            "Change (path): src/cli.ts, src/session.ts, src/runner.ts, src/conver.ts とテスト4ファイル（src/cli.test.ts, src/session.test.ts, src/runner.test.ts, src/conver.test.ts）。ドキュメントは tools/conver/CLAUDE.md と RFC_ROOT.md。",
+            "Change (action): -u/--url オプション追加、-k の必須解除、baseUrl 末尾スラッシュ正規化、ヘルプ文言の一般化。spawnAgent/withSession のシグネチャ変更、LoopOptions.baseUrl 追加、起動ログへの baseUrl 行追加。",
+            "Change (detail): SessionConfig {apiKey, model, baseUrl} 型を新設し spawnAgent(config) 化。ANTHROPIC_BASE_URL を options 由来に。ANTHROPIC_DEFAULT_OPUS_MODEL = process.env.ANTHROPIC_DEFAULT_OPUS_MODEL ?? model。ANTHROPIC_API_KEY を空文字に設定（OpenRouter の Anthropic 直認証フォールバック防止）。",
+            "Change (before-after): Before = ANTHROPIC_BASE_URL: https://api.deepseek.com/anthropic（session.ts:91 直書き）、ANTHROPIC_DEFAULT_OPUS_MODEL: deepseek-v4-pro（session.ts:94 直書き）、-k 必須。After = baseUrl は -u から、-k は任意（keyless プレースホルダ）、OPUS tier は env ?? model。",
+            "Change (api): CliOptions.baseUrl / LoopOptions.baseUrl / SessionConfig を追加。spawnAgent(apiKey, model) を spawnAgent(config: SessionConfig) に、withSession(cwd, apiKey, model, fn) を withSession(cwd, config, fn) に変更。runWithSession も同様。",
+            "Change (schema): データスキーマ変更なし。Tickets.json の構造・フィールドは不変。",
+            "Change (config): 新 CLI オプション -u/--url <baseUrl>（デフォルト https://api.deepseek.com/anthropic）。-k/--api-key が optional 化。env 経由の上書き（ANTHROPIC_DEFAULT_OPUS_MODEL 等）を尊重。",
+            "Change (dep): 依存追加なし。@agentclientprotocol/sdk 等の既存依存は不変。",
+            "Non-change (item): ACP セッションライフサイクル、Slack 通知（notifier.ts）、tickets.ts、watcher.ts、step-timer.ts、cron-scheduler.ts、check-and-start-loop.ts、process.exit の意味論（必須不足時のみ exit 1）。",
+            "Non-change (why): プロバイダー接続性の変更に閉じる。セッション管理・エラー回復は PX-150 で堅牢化済みの直交領域であり、本チケットで触れると回帰リスクが増える。",
+            "Impact (component): cli.ts（パース）、session.ts（spawn env）、runner.ts（baseUrl スレッド）、conver.ts（起動ログ）。影響を受けるテスト: cli.test.ts（全フラグ系）、runner.test.ts（baseOptions と withSession モック）、conver.test.ts（起動ログ検証）。",
+            "Impact (nature): CLI 表面の追加（新規 optional フラグ）と spawn env の変更。内部シグネチャ変更は TS 型レベルでコンパイル時に検出され、外部プロトコルへの破壊的変更はない。",
+            "Impact (response): フラグ無変更の既存呼び出しはデフォルト値により従来通り DeepSeek で動作。-k 省略時は警告ログを出力し、認証必須プロバイダーでは上流エラーとして可視化。ドキュメント（CLAUDE.md オプション表）を更新。"
+          ],
+          "testUnit": [
+            "UT: [Normal] -u https://openrouter.ai/api parses into CliOptions.baseUrl",
+            "UT: [Normal] -u omitted returns default baseUrl https://api.deepseek.com/anthropic (C001 invariant)",
+            "UT: [Normal] --url long form equals -u short form",
+            "UT: [Edge] -u https://foo/api/ trailing slash is normalized to https://foo/api",
+            "UT: [Edge] -u empty string falls back to default baseUrl",
+            "UT: [Error] -k omitted does not exit; CliOptions.apiKey === empty string (C002 postcondition)",
+            "UT: [Normal] full argv with -u coexists (model and baseUrl both correct)",
+            "UT: [Normal] spawnAgent is invoked with SessionConfig {apiKey, model, baseUrl} and builds the child env (C003/C004 precondition)",
+            "UT: [Normal] mock child_process.spawn: env.ANTHROPIC_BASE_URL === baseUrl, env.ANTHROPIC_AUTH_TOKEN === apiKey, env.ANTHROPIC_MODEL === model, env.CLAUDE_CODE_SUBAGENT_MODEL === model, env.CLAUDE_CODE_EFFORT_LEVEL === high (C003)",
+            "UT: [Normal] apiKey omitted leads to env.ANTHROPIC_AUTH_TOKEN === keyless placeholder (C003 postcondition)",
+            "UT: [Normal] process.env.ANTHROPIC_DEFAULT_OPUS_MODEL set leads to env override; unset falls back to model (C004)",
+            "UT: [Invariant] missing api-key never terminates the process (C002 invariant)",
+            "UT: [Invariant] spawn env never contains the literal deepseek-v4-pro hardcoded in session.ts (C004 invariant)",
+            "UT: [Boundary] baseUrl with scheme-less value passes through unchanged (no magic validation)",
+            "UT: [Invariant] every runWithSession call passes options.baseUrl unchanged to withSession (C005)"
+          ],
+          "testIntegration": [
+            "IT: [point] cli.ts -> runner.ts -> session.ts baseUrl threading: runLoop passes options.baseUrl into withSession",
+            "IT: [verify] runner.test.ts withSession mock signature updated to receive baseUrl; every call receives baseUrl === options.baseUrl (C005); main() startup log includes a baseUrl= key=value line; buildLoopOptions carries baseUrl from CliOptions to LoopOptions without loss",
+            "IT: [prereq] All unit tests green; Makefile test-conver (npx tsc + node --test on dist) passes",
+            "IT: [tickets] Related tickets PX-145 (CLI options), PX-146 (LoopOptions/retry), PX-149/PX-150 (session robustness) must remain green"
+          ],
+          "testExceptions": [
+            "Item: live end-to-end session against external providers (OpenRouter/Ollama). Reason: requires network + real API credentials or a local Ollama daemon, so it cannot test in CI. This is not a design defect or an architectural defect: the child-process env construction is fully unit-tested by mocking child_process.spawn. Alternative: assert the exact env object passed to spawn via mock, and verify provider connectivity manually in review.",
+            "Item: behavior of claude-agent-acp against a live third-party endpoint. Reason: depends on external service availability and version, not testable in a hermetic unit suite; this is not an architectural defect of conver. Alternative: unit-test that the spawned env matches the documented ANTHROPIC_* contract exactly."
+          ],
+          "default_files": [
+            "src/cli.ts",
+            "src/session.ts",
+            "src/runner.ts",
+            "src/conver.ts",
+            "src/cli.test.ts",
+            "src/session.test.ts",
+            "src/runner.test.ts",
+            "src/conver.test.ts"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: node dist/conver.js -k <key> -s <url> -u https://openrouter.ai/api -m deepseek/deepseek-chat が claude-agent-acp を ANTHROPIC_BASE_URL=https://openrouter.ai/api, ANTHROPIC_AUTH_TOKEN=<key>, ANTHROPIC_MODEL=deepseek/deepseek-chat で spawn し、ループが走る。Ollama では -u http://localhost:11434 -m qwen3-coder を -k 無しで起動でき、keyless プレースホルダで動作する。",
+            "Error case: -k 無し・-u 無しの既存 DeepSeek 呼び出し（-k <key> -s <url> のみ）が従来通りデフォルト baseUrl https://api.deepseek.com/anthropic で動作し、回帰しない。必須不足（-s 欠如等）は従来通り usage + exit(1)。",
+            "Edge case: -u 末尾スラッシュは正規化される。process.env.ANTHROPIC_DEFAULT_OPUS_MODEL 設定時は OPUS tier が上書きされる。起動ログに baseUrl= が出力される。-k 省略時は警告が出る。"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "cli.ts -> CliOptions",
+              "precondition": "argv contains -u <URL> or --url <URL>",
+              "postcondition": "CliOptions.baseUrl equals the normalized URL (trailing slash removed)",
+              "invariant": "baseUrl defaults to https://api.deepseek.com/anthropic when the option is absent"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "cli.ts -> parseCliOptions",
+              "precondition": "argv lacks -k/--api-key",
+              "postcondition": "CliOptions.apiKey is empty string and no process.exit occurs",
+              "invariant": "missing api-key alone never terminates the process"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "session.ts spawnAgent -> child env",
+              "precondition": "spawnAgent({apiKey, model, baseUrl}) is invoked",
+              "postcondition": "child env ANTHROPIC_BASE_URL === baseUrl and ANTHROPIC_AUTH_TOKEN === apiKey or keyless placeholder",
+              "invariant": "env always sets ANTHROPIC_MODEL === model, CLAUDE_CODE_SUBAGENT_MODEL === model, CLAUDE_CODE_EFFORT_LEVEL === high"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "session.ts spawnAgent -> ANTHROPIC_DEFAULT_OPUS_MODEL",
+              "precondition": "spawnAgent is invoked",
+              "postcondition": "env ANTHROPIC_DEFAULT_OPUS_MODEL === process.env.ANTHROPIC_DEFAULT_OPUS_MODEL or model when unset",
+              "invariant": "no provider-specific model literal (deepseek-v4-pro) is hardcoded in session.ts"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "runner.ts runLoop -> withSession",
+              "precondition": "runLoop(options) is called with options.baseUrl",
+              "postcondition": "every runWithSession call passes baseUrl === options.baseUrl",
+              "invariant": "no withSession call site drops the baseUrl argument"
+            }
+          ],
+          "notes": "- 【Implementation steps】: 1) cli.ts + cli.test.ts（-u/--url 追加、-k optional 化、末尾スラッシュ正規化、ヘルプ文言一般化）。2) session.ts + session.test.ts（SessionConfig 導入、env 構築、OPUS env ?? model、ANTHROPIC_API_KEY 空文字、spawn モックで env 検証）。3) runner.ts + runner.test.ts（LoopOptions.baseUrl、runWithSession へのスレッド、withSession モックのシグネチャ更新）。4) conver.ts + conver.test.ts（baseUrl ログ行）。5) ドキュメント更新。\n- 【Risks】: OPUS tier デフォルトが process.env.ANTHROPIC_DEFAULT_OPUS_MODEL 未設定時に deepseek-v4-pro から model へ変わる（メインエージェントが flash になる）。既存 DeepSeek 運用者は export ANTHROPIC_DEFAULT_OPUS_MODEL=deepseek-v4-pro で維持する。ANTHROPIC_API_KEY 空文字追加後、DeepSeek で AUTH_TOKEN が優先されることを実機で確認する。\n- 【Caveats】: OpenRouter は ANTHROPIC_API_KEY の明示的空文字が必要（Anthropic 直認証フォールバック防止）。Ollama は >= v0.14.0 かつトークンを無視する（keyless で可）。末尾スラッシュは OpenRouter が拒否。ANTHROPIC_CUSTOM_HEADERS は process.env 透過で既に機能（コード変更不要、動作確認のみ）。\n- 【Open items】: baseUrl の URL スキーマ/形式検証を入れるか。CLAUDE_CODE_EFFORT_LEVEL=high をオプション化（--effort）するか。--opus-model フラグを追加するか。\n- 【Future improvements】: per-tier モデル CLI フラグ（--opus-model / --sonnet-model / --haiku-model）、プロバイダープリセット（deepseek / openrouter / ollama）、モデル名補完。\nImplementation summary (PX-151):\n- Changed files: src/cli.ts, src/session.ts, src/runner.ts, src/conver.ts, src/cli.test.ts, src/session.test.ts, src/runner.test.ts, src/conver.test.ts, test.sh\n- Key changes: -u/--url baseUrl option (default https://api.deepseek.com/anthropic), -k optional with keyless placeholder token, SessionConfig + buildSpawnEnv pure env constructor, ANTHROPIC_DEFAULT_OPUS_MODEL = process.env.ANTHROPIC_DEFAULT_OPUS_MODEL ?? model, ANTHROPIC_API_KEY set to empty string (OpenRouter fallback prevention), baseUrl threaded through runner to every withSession call, startup log + keyless warning.\n- Test results: make test-conver -> 212 tests, 212 pass, 0 fail. CLI integration ([CLI1/3/4/5] of test.sh) verified manually: --help exit 0, no-args error mentions slack-url + usage, -k-only error mentions slack-url, keyless (-k omitted) starts with warning and baseUrl log.\n- Quality check: run-quality-checks.js -> 0 issues (converted showUsage/--version console.log to process.stdout.write).\n- Verified env: spawnAgent passes buildSpawnEnv(config) to child_process.spawn (spawnFn injection seam for tests).\n- Open item (documented risk): existing DeepSeek users should export ANTHROPIC_DEFAULT_OPUS_MODEL=deepseek-v4-pro to keep the pro/flash split; manual provider connectivity check for OpenRouter/Ollama remains (cannot be CI-tested).",
+          "invariants": "- 【Normal establishment】\n  - -u/--url で指定された baseUrl が claude-agent-acp 子プロセスの ANTHROPIC_BASE_URL にそのまま伝播する。\n  - -m で指定されたモデルが ANTHROPIC_MODEL / ANTHROPIC_DEFAULT_SONNET_MODEL / ANTHROPIC_DEFAULT_HAIKU_MODEL / CLAUDE_CODE_SUBAGENT_MODEL に一貫して設定される。\n  - -k 省略時も ANTHROPIC_AUTH_TOKEN に keyless プレースホルダが入り spawn が必ず成功する。\n- 【Invariant on error】\n  - 設定不足・パースエラー時は cli.ts が明示的に usage を表示して exit(1) するだけで、baseUrl 起因の未捕捉クラッシュが起きない。\n  - セッション確立失敗は既存の PX-150 retry/give-up 機構に委ねられ、baseUrl 導入で回復経路が変わらない。\n- 【Internal state invariant】\n  - CliOptions.baseUrl === LoopOptions.baseUrl === 各 withSession 呼び出しの baseUrl（一貫性）。\n  - spawn env は ...process.env を継承しつつ conver が制御する ANTHROPIC_* のみ上書き。ANTHROPIC_CUSTOM_HEADERS 等の他プロバイダー固有 env は透過させる。\n- 【Boundary invariant】\n  - baseUrl は末尾スラッシュを除去。空文字・未指定はデフォルト https://api.deepseek.com/anthropic。\n  - OPUS tier は process.env.ANTHROPIC_DEFAULT_OPUS_MODEL 優先、未設定なら model。session.ts にプロバイダー固有のモデル名ハードコード（deepseek-v4-pro）を残さない。",
+          "instrumentation": "- 【Logging】: 起動パラメータログに baseUrl=... を追加（conver.ts:126 ブロック）。-k 省略時は keyless モードである旨の警告を stderr に出力。既存のフェーズログは不変。\n- 【Metrics】: conver にはメトリクス基盤が無いため追加しない（現状維持）。本変更で計測要件は発生しない。\n- 【Error tracking】: sendSlackError は phase と message を通知する既存経路をそのまま使用。baseUrl 起因の spawn/セッション失敗は PX-150 の isRecoverableError / retryWithBackoff で回復されることを確認する。\n- 【Health check】: conver は夜間バッチでありヘルスチェック基盤を持たない（該当なし）。ウォッチャーモードのスケジューラ健全性（cron-scheduler）は不変。",
+          "investigation": "- session.ts:91 — ANTHROPIC_BASE_URL: https://api.deepseek.com/anthropic がハードコード。\n- session.ts:94 — ANTHROPIC_DEFAULT_OPUS_MODEL: deepseek-v4-pro がハードコード。\n- session.ts:95-97 — SONNET / HAIKU / SUBAGENT は model 引数に従う。\n- session.ts:79-100 — spawnAgent(apiKey, model) は env を ...process.env + 明示7変数で構築。他 env は透過（ANTHROPIC_CUSTOM_HEADERS 等は既に機能）。\n- session.ts:172-181 — withSession(cwd, apiKey, model, fn) → spawnAgent(apiKey, model)。baseUrl を渡すにはシグネチャ変更が必要。\n- cli.ts:56 — model デフォルト deepseek-v4-flash。\n- cli.ts:84-88 — api-key 必須チェック（無ければ usage + exit 1）。\n- runner.ts:51-67 — LoopOptions に model あり baseUrl なし。\n- runner.ts:175-188 — runWithSession(cwd, apiKey, model, fn)。呼び出し箇所: 232, 245, 415, 445, 501, 514。\n- runner.test.ts:83-98 — baseOptions() に apiKey/model あり。withSession モックは (cwd, key, model, fn) の4引数（126-133行）→ baseUrl 追加で更新必須。\n- conver.test.ts:178-209 — 起動パラメータログは8行を検証（paramLines.length === 8）。baseUrl 行追加で更新必須。\n- cli.test.ts — 全フラグ/デフォルト検証。-u 追加で拡張。\n- 外部制約: OpenRouter は https://openrouter.ai/api（Anthropic Messages 互換、末尾スラッシュ不可、ANTHROPIC_API_KEY 空文字必要）。Ollama は v0.14.0+ で /v1/messages ネイティブ、トークンはダミーで可。",
+          "boyScoutPlan": "- ハードコードされたリテラル（DeepSeek URL・モデル名）を named constant 化するのではなく、オプション/env 由来の値に置換し、値の出自をコード上で読めるようにする。\n- spawnAgent(apiKey, model) の位置引数2つを SessionConfig にまとめ、呼び出しの意図（どの設定で spawn するか）を型で表現する。\n- 変更対象の withSession / runWithSession は関数名が動詞句で意図が読み取れる状態を維持し、baseUrl 追加で引数爆発させず options オブジェクトで束ねる。\n- 触れた箇所のコメント（session.ts の DeepSeek V4 の Anthropic 互換エンドポイント 等）をプロバイダー非依存の記述に更新し、嘘のコメントを残さない。\n- 既存コードで翻訳可能性を損なう箇所は、本変更の範囲内（cli/session/runner/conver）で発見したもののみ改善する（スコープ外の全面改修はしない）。",
+          "created_at": "2026-08-15",
+          "updated_at": "2026-08-15",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: C001 precondition/postcondition - -u/--url parsed into normalized CliOptions.baseUrl\n```typescript\nconst argv = [\"node\", \"conver.js\", \"-k\", \"k\", \"-s\", \"s\", \"-u\", \"https://openrouter.ai/api/\"];\nconst options = parseCliOptions(argv);\nassert.strictEqual(options.baseUrl, \"https://openrouter.ai/api\");\n```",
+            "UT: C001 invariant - default baseUrl when -u absent\n```typescript\nconst defaults = parseCliOptions([\"node\", \"conver.js\", \"-k\", \"k\", \"-s\", \"s\"]);\nassert.strictEqual(defaults.baseUrl, \"https://api.deepseek.com/anthropic\");\n```",
+            "UT: C002 precondition/postcondition - missing -k does not exit and apiKey is empty\n```typescript\nconst noKey = parseCliOptions([\"node\", \"conver.js\", \"-s\", \"https://hooks.slack.com/x\"]);\nassert.strictEqual(noKey.apiKey, \"\");\n```",
+            "UT: C002 invariant - missing api-key alone never terminates the process (parseCliOptions is pure; exit path only when slack-url also missing)\n```typescript\n// no process.exit is reachable inside parseCliOptions for api-key alone\nassert.strictEqual(noKey.apiKey, \"\");\n```",
+            "UT: C003 precondition - spawnAgent invoked with SessionConfig\n```typescript\nconst config = { apiKey: \"sk-test\", model: \"deepseek/deepseek-chat\", baseUrl: \"https://openrouter.ai/api\" };\nconst { proc, stream } = spawnAgent(config);\n```",
+            "UT: C003 postcondition - child env carries baseUrl/auth/model\n```typescript\nassert.strictEqual(capturedEnv.ANTHROPIC_BASE_URL, \"https://openrouter.ai/api\");\nassert.strictEqual(capturedEnv.ANTHROPIC_AUTH_TOKEN, \"sk-test\");\nassert.strictEqual(capturedEnv.ANTHROPIC_MODEL, \"deepseek/deepseek-chat\");\n```",
+            "UT: C003 invariant - env always sets model tiers + effort\n```typescript\nassert.strictEqual(capturedEnv.CLAUDE_CODE_SUBAGENT_MODEL, \"deepseek/deepseek-chat\");\nassert.strictEqual(capturedEnv.CLAUDE_CODE_EFFORT_LEVEL, \"high\");\n```",
+            "UT: C004 postcondition - ANTHROPIC_DEFAULT_OPUS_MODEL = env override ?? model\n```typescript\nconst prev = process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;\nprocess.env.ANTHROPIC_DEFAULT_OPUS_MODEL = \"deepseek-v4-pro\";\nspawnAgent({ apiKey: \"k\", model: \"deepseek-v4-flash\", baseUrl: \"https://api.deepseek.com/anthropic\" });\nassert.strictEqual(capturedEnv.ANTHROPIC_DEFAULT_OPUS_MODEL, \"deepseek-v4-pro\");\ndelete process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;\nspawnAgent({ apiKey: \"k\", model: \"deepseek-v4-flash\", baseUrl: \"https://api.deepseek.com/anthropic\" });\nassert.strictEqual(capturedEnv.ANTHROPIC_DEFAULT_OPUS_MODEL, \"deepseek-v4-flash\");\nprocess.env.ANTHROPIC_DEFAULT_OPUS_MODEL = prev;\n```",
+            "UT: C004 invariant - no hardcoded provider-specific literal remains\n```typescript\nconst envJson = JSON.stringify(capturedEnv);\nassert.strictEqual(envJson.includes(\"deepseek-v4-pro\"), false);\n```",
+            "UT: C005 postcondition/invariant - every runWithSession call passes baseUrl unchanged\n```typescript\nconst loopOptions = { ...baseOptions(), baseUrl: \"https://openrouter.ai/api\" };\nawait runLoop(loopOptions);\nassert.strictEqual(mockState.withSessionBaseUrls.every((u) => u === \"https://openrouter.ai/api\"), true);\n```"
+          ],
+          "startedAt": "2026-08-15",
+          "changes": [
+            {
+              "before": "cli.ts: ANTHROPIC_BASE_URL/OPUS model hardcoded in session.ts, -k mandatory, no baseUrl option",
+              "after": "cli.ts adds -u/--url + normalizeBaseUrl (trailing-slash strip, default DeepSeek URL); -k is optional",
+              "description": "Provider-agnostic CLI surface for base URL and model"
+            },
+            {
+              "before": "session.ts: spawnAgent(apiKey, model) hardcoded DeepSeek env; withSession(cwd, apiKey, model, fn)",
+              "after": "session.ts adds SessionConfig + pure buildSpawnEnv(); spawnAgent(config, spawnFn?) and withSession(cwd, config, fn) thread baseUrl; ANTHROPIC_DEFAULT_OPUS_MODEL = env ?? model; ANTHROPIC_API_KEY=''",
+              "description": "Env construction extracted to a pure, directly testable function"
+            },
+            {
+              "before": "runner.ts: LoopOptions had no baseUrl; runWithSession(cwd, apiKey, model, fn)",
+              "after": "runner.ts adds LoopOptions.baseUrl, toSessionConfig(options), runWithSession(cwd, config, fn) at all 6 call sites",
+              "description": "baseUrl threaded from CLI to every ACP session"
+            },
+            {
+              "before": "conver.ts: startup log printed model/ticketsPath/... (8 param lines)",
+              "after": "conver.ts prints baseUrl= line and a keyless warning to stderr when -k is omitted",
+              "description": "Startup visibility for the provider being used"
+            },
+            {
+              "before": "tests covered DeepSeek-only behavior",
+              "after": "cli/session/runner/conver tests updated + spawn-env assertions added; test.sh [CLI3] now expects slack-url error",
+              "description": "Red-phase test suite for the new contracts"
+            }
+          ],
+          "reviewedAt": "2026-08-15",
+          "reviewReport": {
+            "summary": "PX-151: Provider-agnostic session configuration review completed",
+            "steps": {
+              "step0_statusGate": {
+                "status": "passed",
+                "detail": "PX-151 status is \"done\" — review gate cleared"
+              },
+              "step1_ticketInfo": {
+                "status": "passed",
+                "detail": "show-ticket-context.js returned ticket info successfully"
+              },
+              "step2_exploration": {
+                "status": "passed",
+                "detail": "No RFC graph available for conver; source-code-based review conducted"
+              },
+              "step3_crimeResolution": {
+                "status": "passed",
+                "detail": "scan-crimes.sh: 0 unresolved crimes; no missing [::STUB::] markers found"
+              },
+              "step4_stubEvaluation": {
+                "status": "passed",
+                "detail": "find-all-stubs.js: 0 stubs found; validate-no-external-excuses.js: passed"
+              },
+              "step5_incompleteCheck": {
+                "status": "passed",
+                "detail": "7-pattern active search: 0 incomplete implementations; annotation verify: 8/8 files annotated, 0 AMBIGUOUS; check-ambiguous: exit 0"
+              },
+              "step6_compilationAndTests": {
+                "status": "passed",
+                "detail": "make test-conver: npx tsc + node --test — 212 tests, 212 pass, 0 fail, 0 skip, 10.43s"
+              },
+              "step7_completeness": {
+                "status": "passed",
+                "detail": "5 contracts C001-C005 verified against source + tests; no risks/omissions/contradictions found"
+              },
+              "step8_staticQuality": {
+                "status": "passed",
+                "detail": "run-quality-checks.js → 0 issues (generate-report.js: All checks passed)"
+              },
+              "step9_translatability": {
+                "status": "passed",
+                "detail": "All function names are verb phrases; 0 single-char variables; comments explain \"why\"; all export functions typed; [::TICKET::] format correct"
+              }
+            },
+            "contracts": {
+              "C001": {
+                "status": "verified",
+                "detail": "baseUrl parsing: short/long form, trailing slash normalization, empty fallback, normalizeBaseUrl edge cases — tested in cli.test.ts (lines 168-210)"
+              },
+              "C002": {
+                "status": "verified",
+                "detail": "apiKey optional: no mandatory check, empty string on omission, no exit — tested in cli.test.ts (lines 196-201); keyless warning in conver.ts tested in conver.test.ts (lines 232-252)"
+              },
+              "C003": {
+                "status": "verified",
+                "detail": "buildSpawnEnv: baseUrl/auth/model env vars, keyless placeholder, all-tier model consistency, ANTHROPIC_API_KEY empty — tested in session.test.ts"
+              },
+              "C004": {
+                "status": "verified",
+                "detail": "ANTHROPIC_DEFAULT_OPUS_MODEL = env ?? model; no hardcoded deepseek-v4-pro in session.ts — tested in session.test.ts spawnAgent describe"
+              },
+              "C005": {
+                "status": "verified",
+                "detail": "baseUrl threading through runner: every withSession call receives options.baseUrl — tested in runner.test.ts line 277"
+              }
+            },
+            "changedFiles": [
+              "src/cli.ts",
+              "src/session.ts",
+              "src/runner.ts",
+              "src/conver.ts",
+              "src/cli.test.ts",
+              "src/session.test.ts",
+              "src/runner.test.ts",
+              "src/conver.test.ts",
+              "test.sh"
+            ],
+            "verificationCommand": "make test-conver — 212 tests, 212 pass, 0 fail",
+            "verdict": "PASS — All 9 review steps completed successfully. 5 contracts (C001-C005) verified. No crimes, no stubs, no incomplete implementations. Zero quality issues. Tests 212/212 pass. Ready for status transition to reviewed."
+          },
+          "completedAt": "2026-08-15"
         }
       ]
     },

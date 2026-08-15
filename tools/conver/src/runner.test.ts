@@ -29,7 +29,7 @@ interface FindOutcomeMock {
 }
 
 /** 共有モック状態の型 — プロパティ絞り込みを避けるため明示的に型付けする */
-// [::TICKET::] PX-117, PX-146, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-117|PX-146|PX-150) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117, PX-146, PX-150, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-117|PX-146|PX-150|PX-151) --for-spec --no-implementation-order`.
 interface MockState {
   runCommandImpl: (cmd: string) => Promise<string>;
   slackCalls: Array<{ ticketId: string; phase: string }>;
@@ -43,6 +43,8 @@ interface MockState {
   reviewMarksReviewed: boolean;
   /** withSession をこの回数だけ recoverable エラーで失敗させる（PX-150 C003 制御） */
   withSessionFailures: number;
+  /** withSession が受け取った baseUrl の記録（PX-151 C005 検証用） */
+  withSessionBaseUrls: string[];
 }
 
 const mockState: MockState = {
@@ -59,6 +61,7 @@ const mockState: MockState = {
   clearCalls: 0,
   reviewMarksReviewed: true,
   withSessionFailures: 0,
+  withSessionBaseUrls: [],
 };
 
 /** find 関連モック状態をリセットする（型絞り込みを避けるため関数経由） */
@@ -79,11 +82,12 @@ const mockStepTimerState = {
 // --- テスト用ヘルパー ---
 
 /** テスト用のデフォルト LoopOptions */
-// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-146, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-146|PX-151) --for-spec --no-implementation-order`.
 function baseOptions(overrides?: Partial<LoopOptions>): LoopOptions {
   return {
     apiKey: "test-api-key",
     model: "test-model",
+    baseUrl: "test-base-url",
     ticketsPath: "/tmp/test-tickets.json",
     maxCount: 999999,
     resolveEvery: 1,
@@ -125,10 +129,11 @@ describe("runLoop", () => {
       exports: {
         withSession: async (
           _cwd: string,
-          _key: string,
-          _model: string,
+          _config: { apiKey: string; model: string; baseUrl: string },
           fn: (session: unknown) => Promise<unknown>,
         ) => {
+          // PX-151 C005: 全セッションに baseUrl が一貫して渡ることを記録する
+          mockState.withSessionBaseUrls.push(_config.baseUrl);
           // PX-150 C003: セッション確立の recoverable 失敗を指定回数シミュレート
           if (mockState.withSessionFailures > 0) {
             mockState.withSessionFailures--;
@@ -265,6 +270,34 @@ describe("runLoop", () => {
     assert.ok(commands.some((c) => c.startsWith("/start-ticket")));
     assert.ok(commands.some((c) => c.startsWith("/review-ticket")));
     assert.ok(commands.some((c) => c.startsWith("/resolve-ticket")));
+    exitMock.restore();
+  });
+
+  // @verifies C005
+  it("全 withSession 呼び出しに options.baseUrl が一貫して渡る", async () => {
+    const exitMock = mockProcessExit();
+    writeTickets([
+      { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
+    ]);
+
+    mockState.runCommandImpl = async (_cmd: string) => "ok";
+    mockState.slackCalls = [];
+    mockState.withSessionBaseUrls = [];
+    mockState.allReviewed = false;
+    mockState.countSnapshots = [];
+
+    const { runLoop } = await import("./runner.js");
+    await runLoop(
+      baseOptions({ ticketsPath: ticketPath, baseUrl: "https://openrouter.ai/api" }),
+    );
+
+    assert.ok(mockState.withSessionBaseUrls.length > 0);
+    assert.strictEqual(
+      mockState.withSessionBaseUrls.every(
+        (u) => u === "https://openrouter.ai/api",
+      ),
+      true,
+    );
     exitMock.restore();
   });
 

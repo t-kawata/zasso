@@ -14,9 +14,11 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 // LoopOptions の型定義（runner.ts からインポートすると NodeNext の型解決で
 // never に推論されるため、テスト用にインライン定義する）
+// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
 interface MockLoopOptions {
   apiKey: string;
   model: string;
+  baseUrl: string;
   ticketsPath: string;
   maxCount: number;
   resolveEvery: number;
@@ -76,10 +78,12 @@ const mockState: MockState = {
 // --- テスト用ヘルパー ---
 
 /** テスト用のデフォルト MockLoopOptions */
+// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
 function baseOptions(overrides?: Partial<MockLoopOptions>): MockLoopOptions {
   return {
     apiKey: "test-api-key",
     model: "test-model",
+    baseUrl: "test-base-url",
     ticketsPath: "/tmp/test-tickets.json",
     maxCount: 999999,
     resolveEvery: 1,
@@ -194,15 +198,16 @@ describe("conver", () => {
 
       // "  " で始まる行 = パラメータ行, "model" から始まるが先頭空白のため
       const paramLines = logLines.filter((l) => l.startsWith("  "));
-      assert.strictEqual(paramLines.length, 8);
+      assert.strictEqual(paramLines.length, 9);
       assert.ok(paramLines[0].startsWith("  model="));
-      assert.ok(paramLines[1].startsWith("  ticketsPath="));
-      assert.ok(paramLines[2].startsWith("  maxCount="));
-      assert.ok(paramLines[3].startsWith("  resolveEvery="));
-      assert.ok(paramLines[4].startsWith("  pushEnabled="));
-      assert.ok(paramLines[5].startsWith("  timeoutMs="));
-      assert.ok(paramLines[6].startsWith("  noFind="));
-      assert.ok(paramLines[7].startsWith("  watcherConfig="));
+      assert.ok(paramLines[1].startsWith("  baseUrl="));
+      assert.ok(paramLines[2].startsWith("  ticketsPath="));
+      assert.ok(paramLines[3].startsWith("  maxCount="));
+      assert.ok(paramLines[4].startsWith("  resolveEvery="));
+      assert.ok(paramLines[5].startsWith("  pushEnabled="));
+      assert.ok(paramLines[6].startsWith("  timeoutMs="));
+      assert.ok(paramLines[7].startsWith("  noFind="));
+      assert.ok(paramLines[8].startsWith("  watcherConfig="));
     } finally {
       (process.stdout.write as any) = origWrite;
     }
@@ -220,7 +225,30 @@ describe("conver", () => {
     if (actualOptions === null) return; // 型ガード（実際にはここには到達しない）
     assert.strictEqual(actualOptions.apiKey, "test-api-key");
     assert.strictEqual(actualOptions.model, "test-model");
+    assert.strictEqual(actualOptions.baseUrl, "test-base-url");
     assert.strictEqual(mockState.parseCliOptionsCalled, true);
+  });
+
+  it("main(): -k 省略（apiKey 空文字）時に keyless 警告を stderr へ出力", async () => {
+    mockState.runLoopImpl = () => Promise.resolve();
+    mockState.parseCliOptionsCalled = false;
+    mockState.parseCliOptionsReturn = { ...baseOptions(), apiKey: "" };
+
+    const errLines: string[] = [];
+    const origErr = process.stderr.write.bind(process.stderr);
+    (process.stderr.write as any) = ((s: string) => {
+      errLines.push(String(s));
+      return origErr(s);
+    }) as any;
+
+    try {
+      const { main } = await import("./conver.js");
+      await main();
+      assert.ok(errLines.some((l) => l.includes("keyless")));
+    } finally {
+      (process.stderr.write as any) = origErr;
+      mockState.parseCliOptionsReturn = null;
+    }
   });
 
   it("parseCliOptions は process.argv で呼ばれる", () => {

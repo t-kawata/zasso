@@ -1,3 +1,4 @@
+// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
 // cli.test.ts — parseCliOptions のユニットテスト
 // ビルド後、dist/ 以下の compiled JS に対して node --test で実行する
 //
@@ -7,7 +8,7 @@
 import path from "node:path";
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseCliOptions } from "./cli.js";
+import { parseCliOptions, normalizeBaseUrl } from "./cli.js";
 
 describe("parseCliOptions", () => {
   it("全フラグ指定時のパース結果が期待値と一致する", () => {
@@ -28,6 +29,8 @@ describe("parseCliOptions", () => {
       "0",
       "-m",
       "deepseek-v4-pro",
+      "-u",
+      "https://openrouter.ai/api",
       "-v",
       "1",
       "--timeout",
@@ -41,6 +44,7 @@ describe("parseCliOptions", () => {
     assert.strictEqual(options.resolveEvery, 1);
     assert.strictEqual(options.pushEnabled, false);
     assert.strictEqual(options.model, "deepseek-v4-pro");
+    assert.strictEqual(options.baseUrl, "https://openrouter.ai/api");
     assert.strictEqual(options.verbose, true);
     assert.strictEqual(options.timeoutMs, 3600000);
   });
@@ -49,6 +53,7 @@ describe("parseCliOptions", () => {
     const argv = ["node", "conver.js", "-k", "sk-test-key", "-s", "https://hooks.slack.com/test"];
     const options = parseCliOptions(argv);
     assert.strictEqual(options.model, "deepseek-v4-flash");
+    assert.strictEqual(options.baseUrl, "https://api.deepseek.com/anthropic");
     assert.strictEqual(options.ticketsPath, path.resolve("./Tickets.json"));
     assert.strictEqual(options.maxCount, 999999);
     assert.strictEqual(options.resolveEvery, 3);
@@ -158,5 +163,49 @@ describe("parseCliOptions", () => {
     const options = parseCliOptions(argv);
     assert.strictEqual(options.resolveEvery, 1);
     assert.strictEqual(options.maxRetries, 7);
+  });
+
+  // @verifies C001
+  it("-u 指定で baseUrl が格納される（短縮フラグ）", () => {
+    const argv = ["node", "conver.js", "-k", "k", "-s", "s", "-u", "https://openrouter.ai/api"];
+    const options = parseCliOptions(argv);
+    assert.strictEqual(options.baseUrl, "https://openrouter.ai/api");
+  });
+
+  // @verifies C001
+  it("--url ロング形式で baseUrl が格納される", () => {
+    const argv = ["node", "conver.js", "-k", "k", "-s", "s", "--url", "http://localhost:11434"];
+    const options = parseCliOptions(argv);
+    assert.strictEqual(options.baseUrl, "http://localhost:11434");
+  });
+
+  // @verifies C001
+  it("baseUrl の末尾スラッシュは正規化される", () => {
+    const argv = ["node", "conver.js", "-k", "k", "-s", "s", "-u", "https://foo/api/"];
+    const options = parseCliOptions(argv);
+    assert.strictEqual(options.baseUrl, "https://foo/api");
+  });
+
+  // @verifies C001
+  it("-u 空文字はデフォルト baseUrl にフォールバックする", () => {
+    const argv = ["node", "conver.js", "-k", "k", "-s", "s", "-u", ""];
+    const options = parseCliOptions(argv);
+    assert.strictEqual(options.baseUrl, "https://api.deepseek.com/anthropic");
+  });
+
+  // @verifies C002
+  it("-k 省略時も apiKey が空文字になり exit しない", () => {
+    const argv = ["node", "conver.js", "-s", "https://hooks.slack.com/x"];
+    const options = parseCliOptions(argv);
+    assert.strictEqual(options.apiKey, "");
+  });
+
+  // @verifies C001
+  it("normalizeBaseUrl: 空文字・空白はデフォルト、末尾スラッシュは除去、スキーマなしは透過", () => {
+    assert.strictEqual(normalizeBaseUrl(""), "https://api.deepseek.com/anthropic");
+    assert.strictEqual(normalizeBaseUrl("   "), "https://api.deepseek.com/anthropic");
+    assert.strictEqual(normalizeBaseUrl("https://x/"), "https://x");
+    assert.strictEqual(normalizeBaseUrl("https://x//"), "https://x");
+    assert.strictEqual(normalizeBaseUrl("localhost:11434"), "localhost:11434");
   });
 });

@@ -3,10 +3,26 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { VERSION } from "./settings.js";
 
-// [::TICKET::] PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146) --for-spec --no-implementation-order`.
+// プロバイダー非依存化（PX-151）: -u/--url 未指定時の既定の Anthropic 互換エンドポイント。
+// 後方互換のため従来の DeepSeek エンドポイントを維持する。
+export const DEFAULT_BASE_URL = "https://api.deepseek.com/anthropic";
+
+/**
+ * baseUrl を正規化する。
+ * - 空文字・空白のみはデフォルトへフォールバック
+ * - 末尾スラッシュは除去（OpenRouter は末尾スラッシュを拒否する）
+ * - スキーマなし（localhost:11434 等）はそのまま透過（プロバイダー検出マジックは行わない）
+ */
+export function normalizeBaseUrl(rawUrl: string): string {
+  const trimmed = rawUrl.trim();
+  return trimmed === "" ? DEFAULT_BASE_URL : trimmed.replace(/\/+$/, "");
+}
+
+// [::TICKET::] PX-145, PX-146, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146|PX-151) --for-spec --no-implementation-order`.
 export interface CliOptions {
   apiKey: string;
   model: string;
+  baseUrl: string;
   ticketsPath: string;
   maxCount: number;
   resolveEvery: number;
@@ -22,21 +38,22 @@ export interface CliOptions {
   watcherConfig?: string;
 }
 
-// [::TICKET::] PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145, PX-146, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146|PX-151) --for-spec --no-implementation-order`.
 function showUsage(): void {
-  console.log(`conver.js ${VERSION} — ACP-based ticket processing pipeline (DeepSeek V4)
+  process.stdout.write(`conver.js ${VERSION} — ACP-based ticket processing pipeline (provider-agnostic)
 
 Usage:
   node dist/conver.js -k <api_key> -s <webhook_url> [options]
 
 Options:
-  -k, --api-key <key>        DeepSeek API Key (required)
+  -k, --api-key <key>        API key (optional; keyless providers use a placeholder)
   -t, --tickets <path>       Tickets.json path (default: ./Tickets.json)
   -c, --count <number>       Max tickets to process (default: 999999)
   -r, --resolve-every <num>  Resolve interval (default: 3)
   -x, --max-retries <num>    Max review retries per ticket (default: 3)
   -p, --push <0|1>           Auto epush-branch after resolve (default: 1)
   -m, --model <name>         AI model (default: deepseek-v4-flash)
+  -u, --url <url>            Anthropic-compatible base URL (default: https://api.deepseek.com/anthropic)
   -s, --slack-url <url>      Slack Incoming Webhook URL (required)
   -v, --verbose <0|1>        Verbose output (default: 1)
   --timeout <seconds>        Command timeout in seconds (default: 1800)
@@ -45,7 +62,7 @@ Options:
   -w, --watcher <path>       Watcher config JSON path
   -n, --no-find <0|1>        Skip find-omissions after all done (default: 0)
   -h, --help                 Show this message
-  --version                  Show version number`);
+  --version                  Show version number\n`);
 }
 
 export function parseCliOptions(argv: string[]): CliOptions {
@@ -54,6 +71,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
     options: {
       "api-key": { type: "string", short: "k" },
       model: { type: "string", short: "m", default: "deepseek-v4-flash" },
+      url: { type: "string", short: "u", default: DEFAULT_BASE_URL },
       tickets: { type: "string", short: "t", default: "./Tickets.json" },
       count: { type: "string", short: "c", default: "999999" },
       "resolve-every": { type: "string", short: "r", default: "3" },
@@ -72,7 +90,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
   });
 
   if (parsed.values.version) {
-    console.log(`conver.js ${VERSION}`);
+    process.stdout.write(`conver.js ${VERSION}\n`);
     process.exit(0);
   }
 
@@ -81,11 +99,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
     process.exit(0);
   }
 
-  if (!parsed.values["api-key"]) {
-    console.error("エラー: -k / --api-key は必須です。");
-    showUsage();
-    process.exit(1);
-  }
+  // -k/--api-key は任意（keyless プロバイダー対応のため必須チェックを廃止）
   if (!parsed.values["slack-url"]) {
     console.error("エラー: -s / --slack-url は必須です。");
     showUsage();
@@ -93,8 +107,9 @@ export function parseCliOptions(argv: string[]): CliOptions {
   }
 
   return {
-    apiKey: parsed.values["api-key"],
+    apiKey: parsed.values["api-key"] ?? "",
     model: parsed.values.model,
+    baseUrl: normalizeBaseUrl(parsed.values.url),
     ticketsPath: path.resolve(parsed.values.tickets),
     maxCount: parseInt(parsed.values.count, 10),
     resolveEvery: parseInt(parsed.values["resolve-every"], 10),

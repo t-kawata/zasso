@@ -397,9 +397,9 @@ node dist/conver.js --help > /dev/null 2>&1 && pass "--help: exit 0" || fail "--
 echo "[CLI2] -h 短縮形で exit 0"
 node dist/conver.js -h > /dev/null 2>&1 && pass "-h: exit 0" || fail "-h: expected exit 0"
 
-echo "[CLI3] 引数なしで exit 1 + エラーメッセージ"
+echo "[CLI3] 引数なしで exit 1 + エラーメッセージ（api-key は optional のため slack-url 不足が最初のエラー）"
 R="$(node dist/conver.js 2>&1 || true)"
-echo "$R" | grep -q "api-key" && pass "エラーに --api-key の言及あり" || fail "エラーに --api-key の言及なし"
+echo "$R" | grep -q "slack-url" && pass "エラーに --slack-url の言及あり" || fail "エラーに --slack-url の言及なし"
 echo "$R" | grep -q "conver.js" && pass "エラー後に usage 表示あり" || fail "エラー後に usage 表示なし"
 
 echo "[CLI4] -k のみ（--slack-url 不足）で exit 1 + エラーメッセージ"

@@ -67,36 +67,59 @@ export interface RunCommandOptions {
   verbose: boolean;
 }
 
-// DeepSeek V4 の Anthropic 互換エンドポイント経由で claude-agent-acp 子プロセスを起動する
+// プロバイダー接続設定。claude-agent-acp（Claude Code）の ANTHROPIC_* env 契約に
+// 委ね、baseUrl / model / apiKey を外部から注入可能にする（PX-151）。
+// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
+export interface SessionConfig {
+  apiKey: string;
+  model: string;
+  baseUrl: string;
+}
+
+// 認証不要プロバイダー（Ollama 等）向けのトークン。Claude Code は値そのものを
+// 検証しないため、keyless を示すプレースホルダで十分。
+const KEYLESS_AUTH_TOKEN = "keyless";
+
+// 子プロセスへ注入する env を構築する純関数。
+// ...process.env を継承しつつ conver が制御する ANTHROPIC_* のみ上書きする。
+// 他プロバイダー固有 env（ANTHROPIC_CUSTOM_HEADERS 等）は透過する。
+export function buildSpawnEnv(config: SessionConfig): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    ACP_PERMISSION_MODE: "bypassPermissions",
+    ANTHROPIC_BASE_URL: config.baseUrl,
+    ANTHROPIC_AUTH_TOKEN:
+      config.apiKey === "" ? KEYLESS_AUTH_TOKEN : config.apiKey,
+    ANTHROPIC_MODEL: config.model,
+    // OPUS tier は env 上書きを優先、未設定なら model にフォールバックする。
+    // プロバイダー固有モデル名をハードコードしない（PX-151 C004）。
+    ANTHROPIC_DEFAULT_OPUS_MODEL:
+      process.env.ANTHROPIC_DEFAULT_OPUS_MODEL ?? config.model,
+    ANTHROPIC_DEFAULT_SONNET_MODEL: config.model,
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: config.model,
+    CLAUDE_CODE_SUBAGENT_MODEL: config.model,
+    CLAUDE_CODE_EFFORT_LEVEL: "high",
+    // OpenRouter 等のゲートウェイでは Anthropic 直認証へのフォールバックを防ぐため
+    // 明示的に空文字にする（未設定のままでは古いログインが優先され得る）。
+    ANTHROPIC_API_KEY: "",
+  };
+}
+
+// Anthropic 互換エンドポイント経由で claude-agent-acp 子プロセスを起動する
 //
-// env に注入する環境変数：
-//   ACP_PERMISSION_MODE=bypassPermissions — 権限確認をバイパス
-//   ANTHROPIC_BASE_URL=... — DeepSeek の Anthropic 互換エンドポイント
-//   ANTHROPIC_AUTH_TOKEN — DeepSeek API キー
-//   ANTHROPIC_MODEL / ANTHROPIC_DEFAULT_* — 使用モデル指定
-//   CLAUDE_CODE_SUBAGENT_MODEL — サブエージェントモデル
-//   CLAUDE_CODE_EFFORT_LEVEL=high — 推論努力レベル
+// env に注入する環境変数は buildSpawnEnv() が一元的に構築する。
+// spawnFn はテスト時に child_process.spawn を差し替えるための注入シーム
+// （デフォルトは実 spawn）。既定動作を変えずに env の検証を可能にする。
 export function spawnAgent(
-  apiKey: string,
-  model: string,
+  config: SessionConfig,
+  spawnFn: typeof spawn = spawn,
 ): { proc: ChildProcess; stream: acp.Stream } {
-  const proc = spawn(ACP_BINARY, [], {
+  const proc = spawnFn(ACP_BINARY, [], {
     stdio: ["pipe", "pipe", "inherit"],
     // プロセスグループリーダー化する。teardown で claude-code 孫プロセスまで
     // process.kill(-pid, sig) で確実に終了できるようにするため（PX-150 C004）。
     detached: true,
-    env: {
-      ...process.env,
-      ACP_PERMISSION_MODE: "bypassPermissions",
-      ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
-      ANTHROPIC_AUTH_TOKEN: apiKey,
-      ANTHROPIC_MODEL: model,
-      ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-v4-pro",
-      ANTHROPIC_DEFAULT_SONNET_MODEL: model,
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: model,
-      CLAUDE_CODE_SUBAGENT_MODEL: model,
-      CLAUDE_CODE_EFFORT_LEVEL: "high",
-    },
+    env: buildSpawnEnv(config),
   });
 
   // claude-agent-acp の起動失敗（ENOENT）のみ捕捉する。
@@ -171,11 +194,10 @@ export function buildClientApp(): acp.ClientApp {
 // fn は必ずコールバック内部で実行しなければならない。
 export async function withSession<T>(
   cwd: string,
-  apiKey: string,
-  model: string,
+  config: SessionConfig,
   fn: (session: AcpSession) => Promise<T>,
 ): Promise<T> {
-  const { proc, stream } = spawnAgent(apiKey, model);
+  const { proc, stream } = spawnAgent(config);
   const app = buildClientApp();
   return runSession(app, stream, proc, cwd, fn);
 }

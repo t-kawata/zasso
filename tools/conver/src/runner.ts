@@ -25,7 +25,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 import { withSession, runCommand } from "./session.js";
-import type { RunCommandOptions, AcpSession } from "./session.js";
+import type { RunCommandOptions, AcpSession, SessionConfig } from "./session.js";
 import {
   sendSlackError,
   sendSlackSuccess,
@@ -47,10 +47,11 @@ import { checkStepDeadline } from "./step-timer.js";
 
 /** ループ制御に必要な全オプション。cli.ts の CliOptions と同一フィールドだが
  *  将来的な分離可能性のため独立定義する。 */
-// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-146, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-146|PX-151) --for-spec --no-implementation-order`.
 export interface LoopOptions {
   apiKey: string;
   model: string;
+  baseUrl: string;
   ticketsPath: string;
   maxCount: number;
   resolveEvery: number;
@@ -171,14 +172,23 @@ export async function retryWithBackoff<T>(
   throw lastError;
 }
 
+/** LoopOptions からセッション起動用の SessionConfig を抽出する（PX-151）。 */
+// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
+function toSessionConfig(options: LoopOptions): SessionConfig {
+  return {
+    apiKey: options.apiKey,
+    model: options.model,
+    baseUrl: options.baseUrl,
+  };
+}
+
 /** withSession をセッション確立の再試行付きで実行する（PX-150 C003）。 */
 async function runWithSession<T>(
   cwd: string,
-  apiKey: string,
-  model: string,
+  config: SessionConfig,
   fn: (session: AcpSession) => Promise<T>,
 ): Promise<T> {
-  return retryWithBackoff(() => withSession(cwd, apiKey, model, fn), {
+  return retryWithBackoff(() => withSession(cwd, config, fn), {
     maxAttempts: retryPolicy.maxAttempts,
     baseDelayMs: retryPolicy.baseDelayMs,
     maxDelayMs: retryPolicy.maxDelayMs,
@@ -221,7 +231,7 @@ function isTerminalStatus(ticketsPath: string, key: string): boolean {
 }
 
 /** resolve + epush を実行する（PX-146: resolveEvery のリズムと find 前の最終 resolve を一元化）。 */
-// [::TICKET::] PX-146, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-146|PX-150) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-146, PX-150, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-146|PX-150|PX-151) --for-spec --no-implementation-order`.
 async function runResolve(
   cwd: string,
   options: LoopOptions,
@@ -231,8 +241,7 @@ async function runResolve(
   printCommandHeader("/resolve-ticket", ticketId, "resolve");
   await runWithSession(
     cwd,
-    options.apiKey,
-    options.model,
+    toSessionConfig(options),
     async (session) => {
       await runCommand(session, `/resolve-ticket ${cwd}`, runOptions);
     },
@@ -244,8 +253,7 @@ async function runResolve(
       printCommandHeader("/epush-branch");
       await runWithSession(
         cwd,
-        options.apiKey,
-        options.model,
+        toSessionConfig(options),
         async (session) => {
           await runCommand(session, "/epush-branch", runOptions);
         },
@@ -414,8 +422,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         if (status === "todo" || status === "made" || status === "planned") {
           await runWithSession(
             cwd,
-            options.apiKey,
-            options.model,
+            toSessionConfig(options),
             async (session) => {
               if (status === "todo") {
                 printCommandHeader("/make-ticket", ticketId, ticket.title);
@@ -444,8 +451,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
           printCommandHeader("/review-ticket", ticketId, ticket.title);
           await runWithSession(
             cwd,
-            options.apiKey,
-            options.model,
+            toSessionConfig(options),
             async (session) => {
               await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
             },
@@ -500,8 +506,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         printCommandHeader("/consolidate-stubs");
         await runWithSession(
           cwd,
-          options.apiKey,
-          options.model,
+          toSessionConfig(options),
           async (session) => {
             await runCommand(session, "/consolidate-stubs", runOptions);
           },
@@ -513,8 +518,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
         const before = countPhasesAndTickets(options.ticketsPath);
         await runWithSession(
           cwd,
-          options.apiKey,
-          options.model,
+          toSessionConfig(options),
           async (session) => {
             await runCommand(
               session,

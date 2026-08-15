@@ -10,14 +10,18 @@
 import { describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import { Writable, Readable } from "node:stream";
 import {
   buildClientApp,
   runCommand,
   disposeSession,
   shutdownChildProcess,
   runSession,
+  buildSpawnEnv,
+  spawnAgent,
 } from "./session.js";
-import type { AcpSession, RunCommandOptions } from "./session.js";
+import type { AcpSession, RunCommandOptions, SessionConfig } from "./session.js";
+import * as childProcess from "node:child_process";
 import { CommandTimeoutError } from "./error.js";
 
 // --- モック用ヘルパー ---
@@ -223,7 +227,7 @@ describe("runCommand", () => {
       proc: mockProc({ exitCode: 3 }),
       session: {
         sessionId: "s",
-// [::TICKET::] PX-149, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-150, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-150|PX-151) --for-spec --no-implementation-order`.
         prompt() { promptCalled = true; },
         nextUpdate: () => new Promise(() => {}),
 // [::TICKET::] PX-149, PX-150 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-150) --for-spec --no-implementation-order`.
@@ -428,5 +432,159 @@ describe("shutdownChildProcess", () => {
     });
 
     await assert.doesNotReject(shutdownChildProcess(proc, 10));
+  });
+});
+
+// --- PX-151: provider-agnostic env construction ---
+// buildSpawnEnv は純関数のため直接検証できる。spawnAgent は spawnFn 注入シーム
+// （デフォルト実 spawn）で受け取った env を検証する。
+
+describe("buildSpawnEnv", () => {
+// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
+  function callEnv(overrides?: Partial<SessionConfig>): NodeJS.ProcessEnv {
+    return buildSpawnEnv({
+      apiKey: "sk-test",
+      model: "deepseek/deepseek-chat",
+      baseUrl: "https://openrouter.ai/api",
+      ...overrides,
+    });
+  }
+
+  // @verifies C003
+  it("ANTHROPIC_BASE_URL が config.baseUrl になる", () => {
+    assert.strictEqual(callEnv().ANTHROPIC_BASE_URL, "https://openrouter.ai/api");
+  });
+
+  // @verifies C003
+  it("ANTHROPIC_AUTH_TOKEN が apiKey になる", () => {
+    assert.strictEqual(callEnv().ANTHROPIC_AUTH_TOKEN, "sk-test");
+  });
+
+  // @verifies C003
+  it("apiKey 空文字なら ANTHROPIC_AUTH_TOKEN が keyless プレースホルダになる", () => {
+    assert.strictEqual(callEnv({ apiKey: "" }).ANTHROPIC_AUTH_TOKEN, "keyless");
+  });
+
+  // @verifies C003
+  it("モデルが全 tier の env に一貫して設定される", () => {
+    const env = callEnv();
+    assert.strictEqual(env.ANTHROPIC_MODEL, "deepseek/deepseek-chat");
+    assert.strictEqual(env.ANTHROPIC_DEFAULT_SONNET_MODEL, "deepseek/deepseek-chat");
+    assert.strictEqual(env.ANTHROPIC_DEFAULT_HAIKU_MODEL, "deepseek/deepseek-chat");
+    assert.strictEqual(env.CLAUDE_CODE_SUBAGENT_MODEL, "deepseek/deepseek-chat");
+    assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, "high");
+  });
+
+  // @verifies C003
+  it("ANTHROPIC_API_KEY が空文字になる（OpenRouter フォールバック防止）", () => {
+    assert.strictEqual(callEnv().ANTHROPIC_API_KEY, "");
+  });
+
+  // @verifies C004
+  it("ANTHROPIC_DEFAULT_OPUS_MODEL: process.env 設定時は上書き優先", () => {
+    const prev = process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+    process.env.ANTHROPIC_DEFAULT_OPUS_MODEL = "deepseek-v4-pro";
+    try {
+      assert.strictEqual(
+        callEnv().ANTHROPIC_DEFAULT_OPUS_MODEL,
+        "deepseek-v4-pro",
+      );
+    } finally {
+      if (prev === undefined) delete process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+      else process.env.ANTHROPIC_DEFAULT_OPUS_MODEL = prev;
+    }
+  });
+
+  // @verifies C004
+  it("ANTHROPIC_DEFAULT_OPUS_MODEL: process.env 未設定時は model にフォールバック", () => {
+    const prev = process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+    delete process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+    try {
+      assert.strictEqual(
+        callEnv().ANTHROPIC_DEFAULT_OPUS_MODEL,
+        "deepseek/deepseek-chat",
+      );
+    } finally {
+      if (prev !== undefined) process.env.ANTHROPIC_DEFAULT_OPUS_MODEL = prev;
+    }
+  });
+
+  // @verifies C004
+  it("env にプロバイダー固有モデル名のハードコードが残らない（env 由来のみ許容）", () => {
+    const prev = process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+    delete process.env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+    try {
+      const env = callEnv();
+      // フォールバックは model そのもの — 固有名 deepseek-v4-pro が出ない
+      assert.strictEqual(env.ANTHROPIC_DEFAULT_OPUS_MODEL, "deepseek/deepseek-chat");
+      assert.strictEqual(JSON.stringify(env).includes("deepseek-v4-pro"), false);
+    } finally {
+      if (prev !== undefined) process.env.ANTHROPIC_DEFAULT_OPUS_MODEL = prev;
+    }
+  });
+
+  it("process.env の他プロバイダー固有変数を透過する", () => {
+    const prev = process.env.ANTHROPIC_CUSTOM_HEADERS;
+    process.env.ANTHROPIC_CUSTOM_HEADERS = '{"HTTP-Referer":"https://example.com"}';
+    try {
+      assert.strictEqual(
+        callEnv().ANTHROPIC_CUSTOM_HEADERS,
+        '{"HTTP-Referer":"https://example.com"}',
+      );
+    } finally {
+      if (prev === undefined) delete process.env.ANTHROPIC_CUSTOM_HEADERS;
+      else process.env.ANTHROPIC_CUSTOM_HEADERS = prev;
+    }
+  });
+});
+
+describe("spawnAgent", () => {
+// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
+  function captureSpawnEnv(config: SessionConfig): NodeJS.ProcessEnv {
+    let captured: NodeJS.ProcessEnv = {};
+    const mockSpawn = ((
+      _cmd: string,
+      _args: string[],
+      opts: { env?: NodeJS.ProcessEnv },
+    ) => {
+      captured = opts.env ?? {};
+      // spawnAgent は Writable.toWeb / Readable.toWeb で ndjson ストリームを
+      // 構築するため、モック proc に実ストリームを渡す。
+      const stdin = new Writable({
+        write(_chunk: unknown, _enc: unknown, cb: () => void) { cb(); },
+      });
+      const stdout = new Readable({ read() {} });
+      const proc = new EventEmitter() as any;
+      proc.exitCode = null;
+      proc.signalCode = null;
+      proc.kill = () => {};
+      proc.stdin = stdin;
+      proc.stdout = stdout;
+      return proc;
+    }) as unknown as typeof childProcess.spawn;
+    spawnAgent(config, mockSpawn);
+    return captured;
+  }
+
+  // @verifies C003
+  it("SessionConfig の baseUrl/apiKey/model を env に渡して spawn する", () => {
+    const env = captureSpawnEnv({
+      apiKey: "sk-test",
+      model: "deepseek/deepseek-chat",
+      baseUrl: "https://openrouter.ai/api",
+    });
+    assert.strictEqual(env.ANTHROPIC_BASE_URL, "https://openrouter.ai/api");
+    assert.strictEqual(env.ANTHROPIC_AUTH_TOKEN, "sk-test");
+    assert.strictEqual(env.ANTHROPIC_MODEL, "deepseek/deepseek-chat");
+  });
+
+  // @verifies C003
+  it("apiKey 空文字なら keyless プレースホルダで spawn する", () => {
+    const env = captureSpawnEnv({
+      apiKey: "",
+      model: "qwen3-coder",
+      baseUrl: "http://localhost:11434",
+    });
+    assert.strictEqual(env.ANTHROPIC_AUTH_TOKEN, "keyless");
   });
 });

@@ -120,10 +120,19 @@ async function runWatcherMode(cli: CliOptions): Promise<void> {
 }
 
 export async function main(): Promise<void> {
+// [::TICKET::] PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-151 --for-spec --no-implementation-order`.
   const options = parseCliOptions(process.argv);
+
+  // -k 省略時は keyless モードの旨を警告する（認証必須プロバイダーでは上流エラーになる）
+  if (options.apiKey === "") {
+    process.stderr.write(
+      "警告: -k/--api-key が未指定です（keyless プロバイダー向け）。認証が必要なプロバイダーでは指定してください。\n",
+    );
+  }
 
   process.stdout.write("conver.js — チケット処理を開始します\n");
   process.stdout.write(`  model=${options.model}\n`);
+  process.stdout.write(`  baseUrl=${options.baseUrl}\n`);
   process.stdout.write(`  ticketsPath=${options.ticketsPath}\n`);
   process.stdout.write(`  maxCount=${options.maxCount}\n`);
   process.stdout.write(`  resolveEvery=${options.resolveEvery}\n`);
