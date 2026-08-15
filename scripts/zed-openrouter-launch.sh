@@ -46,11 +46,11 @@ export ANTHROPIC_AUTH_TOKEN="$OPENROUTER_API_KEY"
 export ANTHROPIC_API_KEY=""
 
 # Claude Code 内部の論理モデル → OpenRouter 経由の DeepSeek 実モデルのマッピング
-export ANTHROPIC_MODEL="deepseek/deepseek-v4-flash-0731"
-export ANTHROPIC_DEFAULT_OPUS_MODEL="deepseek/deepseek-v4-flash-0731"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="deepseek/deepseek-v4-flash-0731"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="deepseek/deepseek-v4-flash-0731"
-export CLAUDE_CODE_SUBAGENT_MODEL="deepseek/deepseek-v4-flash-0731"
+export ANTHROPIC_MODEL="deepseek/deepseek-v4-flash-0731@preset/baidu-ds-v4-flash-0731"
+export ANTHROPIC_DEFAULT_OPUS_MODEL="deepseek/deepseek-v4-flash-0731@preset/baidu-ds-v4-flash-0731"
+export ANTHROPIC_DEFAULT_SONNET_MODEL="deepseek/deepseek-v4-flash-0731@preset/baidu-ds-v4-flash-0731"
+export ANTHROPIC_DEFAULT_HAIKU_MODEL="deepseek/deepseek-v4-flash-0731@preset/baidu-ds-v4-flash-0731"
+export CLAUDE_CODE_SUBAGENT_MODEL="deepseek/deepseek-v4-flash-0731@preset/baidu-ds-v4-flash-0731"
 # export CLAUDE_CODE_EFFORT_LEVEL="xhigh"
 
 # zed コマンドがあればそれを優先
