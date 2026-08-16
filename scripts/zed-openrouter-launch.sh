@@ -51,6 +51,7 @@ export ANTHROPIC_DEFAULT_OPUS_MODEL="deepseek/deepseek-v4-flash-0731@preset/baid
 export ANTHROPIC_DEFAULT_SONNET_MODEL="deepseek/deepseek-v4-flash-0731@preset/baidu-ds-v4-flash-0731"
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="deepseek/deepseek-v4-flash-0731@preset/baidu-ds-v4-flash-0731"
 export CLAUDE_CODE_SUBAGENT_MODEL="deepseek/deepseek-v4-flash-0731@preset/baidu-ds-v4-flash-0731"
+export CLAUDE_CODE_MAX_CONTEXT_TOKENS=1048576
 # export CLAUDE_CODE_EFFORT_LEVEL="xhigh"
 
 # zed コマンドがあればそれを優先
