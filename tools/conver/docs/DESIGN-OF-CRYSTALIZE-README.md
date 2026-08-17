@@ -15,12 +15,13 @@
 
 ## 1. 目的 (Goal)
 
-RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの「使い方 README」を生成する。
+RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの「使い方 README」を生成する。README が書けるか否かは、**README に記載する使い方に従って完全に動作する examples 実装が、現状の実装で完全に成立しうるか**で判断する。
 
 - 出力先:
   - **(a)** README が書ける場合 → RFC と同じディレクトリの `README.md`
   - **(b)** 書けない場合（実装未成立・漏れ・矛盾）→ `examples/` と同ディレクトリの `residues/RESIDUE-<YYYYMMDDhhmmss>.md`
 - どちらの場合も、**最後のセクションは必ず「examples（実装サンプル）の仕様と設計」**とする。
+- RESIDUE は「書けない理由のメモ」ではなく、**README と examples 実装を完全なものにするための実装用チケットを作成する情報**として、実装漏れ・不足・矛盾を厳格かつ厳密に記録する（将来 `/drill-rfc-down` で 1 件ずつチケット化される）。
 
 > 旧設計では `samples` と呼称していたが、**`examples` に改名**する（siprs の `examples/` ディレクトリに整合）。
 

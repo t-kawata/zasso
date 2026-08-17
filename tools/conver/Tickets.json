@@ -21323,7 +21323,7 @@
             "UT: [Error] validate-graph-arg rejects a non-existent --graph path — stderr includes the resolved path, process.exitCode=1",
             "UT: [Error] validate-graph-arg rejects malformed JSON (JSON.parse throws) — exit 1 with a clear stderr message naming the parse error",
             "UT: [Error] validate-graph-arg rejects schema violations — missing sourceFile / missing nodes / missing edges / empty nodes array → exit 1 listing the failing required field",
-            "UT: [Normal] derive-output-paths derives rfcDir=dirname(sourceFile), examplesDir=rfcDir/examples, residuesDir=rfcDir/residues, readmePath=rfcDir/README.md, residuePath=residuesDir/RESIDUE-<ts>.md",
+            "UT: [Normal] derive-output-paths derives rfcDir=dirname(sourceFile), examplesDir=rfcDir/examples, residuesDir=rfcDir/residues, readmePath=rfcDir/README.md",
             "UT: [Normal] derive-output-paths expands a home-relative sourceFile (e.g. \"~/shyme/zasso/crates/siprs/RFC-ROOT.md\") via fromHomeRelative() from .claude/scripts/lib/path-utils.js BEFORE path.dirname — rfcDir becomes .../crates/siprs (this is the siprs RFC-ROOT-GRAPH.json case)",
             "UT: [Error] derive-output-paths fails with exit 1 when sourceFile is empty string, missing, or non-string (no dirname derivable)",
             "UT: [Normal] extract-toc-candidates extracts heading candidates from graph nodes in document order — builds [{level:number, title:string}] from node.title + node.headingRefs[].heading (the heading level) + node.kind",
@@ -21344,7 +21344,7 @@
             "UT: [Error] validate-examples-spec fails listing each unresolvable sample file reference",
             "UT: [Normal] update-step-status.js start-step/end-step transitions persist step states to CRYSTALIZE-Status.json atomically (temp-file + rename) — reuse of .claude/scripts/rfc-graph/update-step-status.js pattern with --status= subcommand",
             "UT: [C001-Pre] derive-output-paths with a non-empty string sourceFile returns all 5 derived paths (precondition coverage)",
-            "UT: [C001-Post] derive-output-paths outputs exactly {rfcDir, examplesDir, residuesDir, readmePath, residuePath} with the documented dirname relationships (postcondition coverage)",
+            "UT: [C001-Post] derive-output-paths outputs exactly {rfcDir, examplesDir, residuesDir, readmePath} with the documented dirname relationships (postcondition coverage)",
             "UT: [C001-Inv] derive-output-paths invariant — path.dirname(examplesDir)===rfcDir && path.dirname(residuesDir)===rfcDir for arbitrary nested sourceFile (invariant coverage)",
             "UT: [C002-Pre] check-readme-writable consumes a graph object already schema-validated by validate-graph-arg (precondition coverage)",
             "UT: [C002-Post] check-readme-writable returns exactly one of branch 'README' (reasons=[]) or branch 'RESIDUE' (reasons.length>0) (postcondition coverage)",
@@ -21395,7 +21395,7 @@
               "id": "C001",
               "sourceEdge": "DESIGN-OF-CRYSTALIZE-README.md §6 Step 0 (derive-output-paths.js)",
               "precondition": "graph.sourceFile is a non-empty string path; the graph has already passed validate-graph-arg schema validation against .claude/scripts/rfc-graph/schema/graph.schema.json (required: sourceFile/mainLanguage/nodes/edges); sourceFile may be home-relative (\"~/...\") and MUST be expanded via fromHomeRelative() from .claude/scripts/lib/path-utils.js before path.dirname",
-              "postcondition": "prints JSON {rfcDir: <abs dirname(sourceFile)>, examplesDir: <rfcDir>/examples, residuesDir: <rfcDir>/residues, readmePath: <rfcDir>/README.md, residuePath: <residuesDir>/RESIDUE-<YYYYMMDDhhmmss>.md} to stdout and exits 0",
+              "postcondition": "prints JSON {rfcDir: <abs dirname(sourceFile)>, examplesDir: <rfcDir>/examples, residuesDir: <rfcDir>/residues, readmePath: <rfcDir>/README.md} to stdout and exits 0; the RESIDUE filename is NOT derived here — generate-residue-filename.js (C004) produces RESIDUE-<YYYYMMDDhhmmss>.md at Step 4",
               "invariant": "examplesDir and residuesDir are always located under rfcDir — path.dirname(examplesDir)===rfcDir && path.dirname(residuesDir)===rfcDir for any nested sourceFile"
             },
             {

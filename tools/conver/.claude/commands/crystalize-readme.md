@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # /crystalize-readme <graph-path>
 
-**Role**: RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの「使い方 README」を生成する。README が書けない場合は、その理由（実装漏れ・不足・矛盾）を `residues/RESIDUE-<timestamp>.md` に記録する。
+**Role**: RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの「使い方 README」を生成する。README が書けるか否かは、**README に記載する使い方に従って完全に動作する examples 実装が、現状の実装で完全に成立しうるか**で判断する。書けない場合は、その実装漏れ・不足・矛盾を `residues/RESIDUE-<timestamp>.md` に記録する。RESIDUE は「書けない理由のメモ」ではなく、**README と examples 実装を完全なものにするための実装用チケットを作成する情報源**として、厳格かつ厳密に記述する（将来 `/drill-rfc-down` によりチケット化される）。
 
 ## Language Protocol
 
@@ -27,32 +27,31 @@ disable-model-invocation: true
 
 ## Derived Paths
 
-以下のパスはグラフの `sourceFile` フィールドから機械的に導出される（`derive-output-paths.js`）。
+以下のパスはグラフの `sourceFile` フィールドから機械的に導出される（`derive-output-paths.js` を直接実行し、JSON 結果を参照する）。
 
 ```bash
-sourceFile="$(node .claude/scripts/crystalize-readme/derive-output-paths.js --graph=<graphPath> --field=sourceFile)"
-rfcDir="$(dirname "$sourceFile")"
-examplesDir="$rfcDir/examples"
-residuesDir="$rfcDir/residues"
-readmePath="$rfcDir/README.md"
-residuePath="$residuesDir/RESIDUE-<YYYYMMDDhhmmss>.md"
+node .claude/scripts/crystalize-readme/derive-output-paths.js --graph="$ARGUMENTS"
 ```
 
-| パス | 値 |
-|------|----|
-| `rfcDir` | `sourceFile` の親ディレクトリ |
-| `examplesDir` | `<rfcDir>/examples/` |
-| `residuesDir` | `<rfcDir>/residues/` |
-| README 候補 | `<rfcDir>/README.md` |
-| RESIDUE 候補 | `<residuesDir>/RESIDUE-<YYYYMMDDhhmmss>.md` |
+出力例:
+
+```json
+{"rfcDir":"/path/to/rfc","examplesDir":"/path/to/rfc/examples","residuesDir":"/path/to/rfc/residues","readmePath":"/path/to/rfc/README.md"}
+```
+
+| パス | 説明 |
+|------|------|
+| `rfcDir` | 元 RFC 文書が置かれているディレクトリ |
+| `examplesDir` | `<rfcDir>/examples/`。examples（実装サンプル）の置き場 |
+| `residuesDir` | `<rfcDir>/residues/`。RESIDUE 文書の置き場 |
+| `readmePath` | `<rfcDir>/README.md`。README の出力先 |
 
 ## Execution Steps
 
-### Step 0: 引数検証・パス導出（決定論）
+### Step 0: 引数検証（決定論）
 
 ```bash
 node .claude/scripts/crystalize-readme/validate-graph-arg.js --graph="$ARGUMENTS" || exit 2
-node .claude/scripts/crystalize-readme/derive-output-paths.js --graph="$ARGUMENTS"
 ```
 
 - グラフのスキーマ（nodes / edges / sourceFile）と `sourceFile` の実在を検証する。
@@ -82,7 +81,7 @@ README 末尾セクション「examples（実装サンプル）の仕様と設�
 ### Step 3: 分岐判定（決定論）
 
 ```bash
-node .claude/scripts/crystalize-readme/check-readme-writable.js --graph=<graphPath>
+node .claude/scripts/crystalize-readme/check-readme-writable.js --graph="$ARGUMENTS"
 # exit 0 → (a) README 系統 / exit 1 → (b) RESIDUE 系統
 ```
 

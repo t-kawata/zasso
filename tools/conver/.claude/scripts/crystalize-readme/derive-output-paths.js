@@ -4,8 +4,11 @@
  * derive-output-paths.js — Derive output paths from the graph sourceFile (Step 0, C001)
  *
  * CLI:
- *   derive-output-paths.js --graph=<path>                → prints {rfcDir, examplesDir, residuesDir, readmePath, residuePath}
+ *   derive-output-paths.js --graph=<path>                → prints {rfcDir, examplesDir, residuesDir, readmePath}
  *   derive-output-paths.js --graph=<path> --field=sourceFile → prints the expanded sourceFile
+ *
+ * The actual RESIDUE filename (RESIDUE-<timestamp>.md) is generated separately by
+ * generate-residue-filename.js at Step 4, so it is NOT derived here.
  *
  * Home-relative (~/...) sourceFile is expanded via fromHomeRelative() BEFORE
  * path.dirname so rfcDir never resolves to a literal "~" directory.
@@ -32,12 +35,6 @@ const RESIDUES_DIR_NAME = 'residues';
 
 /** README filename inside rfcDir */
 const README_FILENAME = 'README.md';
-
-/** RESIDUE filename prefix (timestamp is injected by generate-residue-filename.js) */
-const RESIDUE_FILENAME_PREFIX = 'RESIDUE-';
-
-/** RESIDUE filename template with the timestamp placeholder */
-const RESIDUE_FILENAME_PLACEHOLDER = 'RESIDUE-<YYYYMMDDhhmmss>.md';
 
 /**
  * Parse command line arguments.
@@ -70,10 +67,10 @@ function parseArguments(args) {
 }
 
 /**
- * Derive the 5 output paths from a schema-validated graph.
+ * Derive the output paths from a schema-validated graph.
  *
  * @param {Object} graph — Schema-validated graph
- * @returns {{ rfcDir, examplesDir, residuesDir, readmePath, residuePath }}
+ * @returns {{ rfcDir, examplesDir, residuesDir, readmePath }}
  * @throws {Error} If sourceFile is missing or not a non-empty string
  */
 // [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
@@ -93,7 +90,6 @@ function deriveOutputPaths(graph) {
     examplesDir,
     residuesDir,
     readmePath: path.join(rfcDir, README_FILENAME),
-    residuePath: path.join(residuesDir, RESIDUE_FILENAME_PLACEHOLDER),
   };
 }
 
@@ -131,6 +127,4 @@ module.exports = {
   EXAMPLES_DIR_NAME,
   RESIDUES_DIR_NAME,
   README_FILENAME,
-  RESIDUE_FILENAME_PREFIX,
-  RESIDUE_FILENAME_PLACEHOLDER,
 };

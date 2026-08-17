@@ -2,7 +2,7 @@
  * derive-output-paths.test.cjs — Tests for derive-output-paths.js (Contract C001)
  *
  * C001-Pre: sourceFile is a non-empty string, possibly ~/-relative.
- * C001-Post: prints {rfcDir, examplesDir, residuesDir, readmePath, residuePath}.
+ * C001-Post: prints {rfcDir, examplesDir, residuesDir, readmePath}.
  * C001-Inv: examplesDir and residuesDir always live under rfcDir.
  */
 
@@ -43,14 +43,13 @@ describe('parseArguments', () => {
 });
 
 describe('deriveOutputPaths — C001', () => {
-  it('derives all 5 paths from an absolute sourceFile (C001-Post)', () => {
+  it('derives the 4 output paths from an absolute sourceFile (C001-Post)', () => {
     const sourceFile = path.join(tmpDir, 'nested', 'RFC-ROOT.md');
     const paths = deriveOutputPaths({ sourceFile, mainLanguage: 'rust', nodes: [], edges: [] });
     assert.equal(paths.rfcDir, path.dirname(sourceFile));
     assert.equal(paths.examplesDir, path.join(paths.rfcDir, 'examples'));
     assert.equal(paths.residuesDir, path.join(paths.rfcDir, 'residues'));
     assert.equal(paths.readmePath, path.join(paths.rfcDir, 'README.md'));
-    assert.equal(paths.residuePath, path.join(paths.residuesDir, 'RESIDUE-<YYYYMMDDhhmmss>.md'));
   });
 
   it('expands a home-relative sourceFile via fromHomeRelative() BEFORE dirname (C001-Pre)', () => {
