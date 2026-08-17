@@ -28,6 +28,10 @@ test-conver:
 test-rfc-graph:
 		node --test "tests/rfc-graph/*.test.cjs" "tests/rfc-graph/schema/*.test.cjs"
 
+# test-crystalize-readme: crystalize-readme 全スクリプトのテスト（CommonJS、tsc 不要）
+test-crystalize-readme:
+		node --test "tests/crystalize-readme/*.test.cjs"
+
 # test-stub-resolution: batch-create-resolving-tickets の動作保証テスト（PX-1）
 test-stub-resolution:
 		node --test tests/batch-create-resolving-tickets.test.cjs
