@@ -1,11 +1,12 @@
 /**
  * emit-readme-skeleton.test.cjs — Tests for emit-readme-skeleton.js (PX-156, Step 1 end)
  *
- * At the end of Step 1 (fresh mode only) a script mechanically writes a README.md
- * skeleton: the confirmed heading group (from CRYSTALIZE-Status.json grill.toc.nodes)
- * plus the trailing examples section. The output path is derived internally from
- * the status sourceFile (<rfcDir>/README.md) — there is no --readme flag. An
- * existing README.md (refine mode) is never overwritten.
+ * At the end of Step 1 a script mechanically writes a README.md skeleton: the
+ * confirmed heading group (from CRYSTALIZE-Status.json grill.toc.nodes) plus the
+ * trailing examples section. The output path is derived internally from the status
+ * sourceFile (<rfcDir>/README.md) — there is no --readme flag. Both fresh and
+ * refine modes emit the skeleton: an existing README.md (refine mode) is
+ * overwritten so that Step 2 re-analyzes every section from scratch.
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -107,9 +108,17 @@ describe('emitSkeletonToFile', () => {
     assert.ok(text.includes(MARKER_TEMPLATE_EXAMPLES));
   });
 
-  it('refuses to overwrite an existing README.md (fresh-mode-only; refine preserves)', () => {
-    fs.writeFileSync(path.join(tmpDir, 'README.md'), '## A\n\nComplete prose.\n', 'utf8');
-    assert.throws(() => emitSkeletonToFile(makeStatus([])), /refus/i);
+  it('overwrites an existing README.md with the new skeleton (refine re-emits for full re-analysis)', () => {
+    fs.writeFileSync(path.join(tmpDir, 'README.md'), '## 旧見出し\n\nComplete prose from the previous run.\n', 'utf8');
+    const text = emitSkeletonToFile(makeStatus([
+      { id: 'H1', heading: 'クイックスタート', level: 1, confirmedContent: '本文', status: 'confirmed' },
+    ]));
+    assert.ok(!text.includes('旧見出し'), 'the previous body is replaced by the new skeleton');
+    assert.ok(text.includes('# クイックスタート'));
+    assert.ok(text.includes(MARKER_TEMPLATE_README));
+    assert.ok(text.includes(MARKER_TEMPLATE_EXAMPLES));
+    const onDisk = fs.readFileSync(path.join(tmpDir, 'README.md'), 'utf8');
+    assert.equal(onDisk, text);
   });
 });
 
@@ -140,11 +149,11 @@ describe('CLI', () => {
     assert.ok(readme.includes(MARKER_TEMPLATE_README));
   });
 
-  it('exits 1 in refine mode when README.md already exists', () => {
+  it('re-emits the skeleton over an existing README.md (refine mode, exit 0)', () => {
     const sourceFile = path.join(tmpDir, 'cli-refine', 'RFC-ROOT.md');
     fs.mkdirSync(path.dirname(sourceFile), { recursive: true });
     fs.writeFileSync(sourceFile, '# RFC Root\n', 'utf8');
-    fs.writeFileSync(path.join(path.dirname(sourceFile), 'README.md'), '# Existing\n', 'utf8');
+    fs.writeFileSync(path.join(path.dirname(sourceFile), 'README.md'), '# 旧タイトル\n\nComplete prose.\n', 'utf8');
     const graphPath = path.join(path.dirname(sourceFile), 'RFC-ROOT-GRAPH.json');
     fs.writeFileSync(graphPath, JSON.stringify({ sourceFile, mainLanguage: 'rust', nodes: [], edges: [] }), 'utf8');
     fs.writeFileSync(path.join(path.dirname(sourceFile), 'CRYSTALIZE-Status.json'), JSON.stringify({
@@ -156,7 +165,9 @@ describe('CLI', () => {
     }), 'utf8');
 
     const result = spawnSync('node', [SCRIPT, `--graph=${graphPath}`], { encoding: 'utf8' });
-    assert.equal(result.status, 1);
-    assert.match(result.stderr, /refus/i);
+    assert.equal(result.status, 0);
+    const readme = fs.readFileSync(path.join(path.dirname(sourceFile), 'README.md'), 'utf8');
+    assert.ok(readme.includes(MARKER_TEMPLATE_EXAMPLES));
+    assert.ok(!readme.includes('旧タイトル'));
   });
 });

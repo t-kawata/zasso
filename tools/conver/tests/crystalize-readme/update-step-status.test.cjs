@@ -32,6 +32,7 @@ const {
   executeApproveToc,
   executeResolveSection,
   executeMarkResidue,
+  executeResetSections,
   atomicWrite,
   MIN_STEP,
   MAX_STEP,
@@ -93,6 +94,12 @@ describe('parseArguments', () => {
     assert.equal(parsed.subcommand, 'reset-toc');
   });
 
+  it('parses reset-sections without extra arguments', () => {
+    const parsed = parseArguments([`--graph=${graphPath}`, 'reset-sections']);
+    assert.equal(parsed.subcommand, 'reset-sections');
+    assert.equal(parsed.stepNumber, null);
+  });
+
   it('rejects an unknown subcommand', () => {
     assert.throws(() => parseArguments([`--graph=${graphPath}`, 'bogus']));
   });
@@ -114,16 +121,17 @@ describe('parseArguments', () => {
     assert.ok(ALLOWED_SUBCOMMANDS.includes('propose-heading'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('confirm-heading'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('reset-toc'));
+    assert.ok(ALLOWED_SUBCOMMANDS.includes('reset-sections'));
   });
 });
 
 describe('createDefaultStatus', () => {
-  it('builds a default status with steps 0..4 pending and an empty toc tree', () => {
+  it('builds a default status with steps 0..3 pending and an empty toc tree', () => {
     const status = createDefaultStatus(graphPath);
     assert.equal(status.graphFile, graphPath);
     assert.equal(status.sourceFile, path.join(tmpDir, 'RFC-ROOT.md'));
     assert.equal(status.currentStep, MIN_STEP);
-    assert.equal(status.steps['4'], STATUS_PENDING);
+    assert.equal(status.steps['3'], STATUS_PENDING);
     assert.equal(status.grill.tocApproved, false);
     assert.equal(status.grill.examplesApproved, false);
     assert.deepEqual(status.grill.toc.nodes, []);
@@ -168,12 +176,12 @@ describe('readStatus', () => {
 });
 
 describe('validateStepNumber', () => {
-  it('accepts 0..4 and rejects out-of-range values', () => {
+  it('accepts 0..3 and rejects out-of-range values', () => {
     assert.equal(MIN_STEP, 0);
-    assert.equal(MAX_STEP, 4);
+    assert.equal(MAX_STEP, 3);
     assert.ok(validateStepNumber(0));
-    assert.ok(validateStepNumber(4));
-    assert.ok(!validateStepNumber(5));
+    assert.ok(validateStepNumber(3));
+    assert.ok(!validateStepNumber(4));
     assert.ok(!validateStepNumber(-1));
   });
 });
@@ -257,6 +265,25 @@ describe('section state subcommands — PX-156', () => {
     const status = createDefaultStatus(graphPath);
     assert.throws(() => executeResolveSection(status, { heading: 'x' }), /id/);
     assert.throws(() => executeMarkResidue(status, { id: 'H1' }), /heading/);
+  });
+});
+
+describe('reset-sections — full re-analysis restart (PX-156)', () => {
+  it('clears grill.sections and examplesApproved so Step 2 re-analyzes every section', () => {
+    const status = createDefaultStatus(graphPath);
+    executeResolveSection(status, { id: 'H1', heading: 'クイックスタート' });
+    executeMarkResidue(status, { id: 'H1-1', heading: 'アカウントの追加' });
+    status.grill.examplesApproved = true;
+    executeResetSections(status);
+    assert.deepEqual(status.grill.sections, []);
+    assert.equal(status.grill.examplesApproved, false);
+  });
+
+  it('is a no-op on an already-clear sections list', () => {
+    const status = createDefaultStatus(graphPath);
+    executeResetSections(status);
+    assert.deepEqual(status.grill.sections, []);
+    assert.equal(status.grill.examplesApproved, false);
   });
 });
 

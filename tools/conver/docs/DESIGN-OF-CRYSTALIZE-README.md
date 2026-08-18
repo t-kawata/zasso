@@ -83,8 +83,9 @@ RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの�
          └──────────┬─────────────────┘
                     ▼
   ┌────────────────────────────────────────────────────┐
-  │ Step 4: 出力検証（決定論）                           │
-  │   validate-readme-output.js / validate-residue-*.js │
+  │ Step 4: 出力検証                                    │
+  │   （独立した検証 Step は廃止。                      │
+  │    Step 2 --check のマーカー文法検証が最終検証）     │
   └────────────────────────────────────────────────────┘
 ```
 
@@ -138,36 +139,25 @@ RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの�
 4. **ユーザー回答**: ユーザーは **ID 単位で A/B/C/Yes/No で回答**する。自由コメントも可（確定には ID 単位の回答が必要）。
 5. **確定記録（決定論）**: 回答ごとに `update-step-status.js confirm-heading` に `{id, confirmedContent}` を渡し、ノードの `confirmedContent` と `status=confirmed` を CRYSTALIZE-Status.json に永続化する。全ノード確定時のみ `isTocComplete()=true` / `tocApproved=true` となり、`end-step 1` で Step 2 へ進む。未確定の間は Step 1 を完了できない。確定済みツリー（id/heading/level/confirmedContent/status）は `status` サブコマンドで確認でき、セッション再開時にも復元できる。
    - **末尾の見出しは必ず「examples（実装サンプル）の仕様と設計」**とする。
+6. **雛形出力（Step 1 の最後・決定論）**: `emit-readme-skeleton.js` が確定見出し群 + examples セクションを `<::TEMPLATE-README::>` / `<::TEMPLATE-EXAMPLES::>` マーカー付きで README.md へ機械出力する。fresh / refine 共通で実行し、refine では既存 README.md を上書きして Step 2 の全セクション再解析を開始する（`update-step-status.js reset-sections` で `grill.sections` / `examplesApproved` をリセット）。
 
-### Step 2: グリル — examples（実装サンプル）の仕様と設計
+### Step 2: セクション単位の点検ループ
 
-目的: README 末尾セクション「examples（実装サンプル）の仕様と設計」の内容を確定する。
+目的: 確定した見出し群の各セクションを「完全記述」または「残渣記述」へ遷移させる。判断はセクション単位。
 
-1. **候補抽出（決定論）**: グラフから examples 関連ノード（実装サンプルを示す kind）を抽出して AI に提示する。
-2. **AI による合成（非決定論）**: AI が examples の仕様と設計（各サンプルが示す使い方・API 表面・期待動作）を合成する。
-3. **構造チェック（決定論）**: `validate-examples-spec.js` が合成結果の構造・参照整合を検証する。
+1. **エントリー（決定論）**: `list-phases-and-tickets.js Tickets.json` でチケットリストを表示し、src 内のどこを読むべきかのエントリーを特定する。チケットキー（P3-2 など）から `specs/<チケットキー>.md` で設計 spec を確認できる。
+2. **実装の解析（証拠必須・非決定論）**: 各 `<::TEMPLATE-README::>` セクションについて、対応するチケットの spec → src 実装を解析し、README に書かれる内容が「危険・漏れ・矛盾・不足のない完全に動作する実装」として完了しているかを点検する。
+3. **判定（セクション単位・非決定論）**: 「書ける」→ `resolve-section`（stdin `{id, heading, content}`）で完全記述へ。「書けない」→ `mark-residue`（同）で `<::README-RESIDUE::>` + 証拠へ。両コマンドとも README 置換と `grill.sections` 更新を一括実行する（**AI は README を手編集しない**）。
+4. **脱出条件（決定論）**: `--check` が `Loop converged`（`<::TEMPLATE-README::>` ゼロ かつ マーカー文法クリーン。examples の `<::TEMPLATE-EXAMPLES::>` は許容）を返したら Step 3 へ。
 
-### Step 3: 分岐判定（決定論）
+### Step 3: examples 専用 Step（ループ脱出後）
 
-`check-readme-writable.js` が (a)/(b) を決定する。
+目的: README 末尾セクション「Examples（implementation samples）spec and design」を確定する。
 
-**(a) README が書ける** と判定されるのは、以下を**すべて**満たす場合:
-
-1. グラフの機械検証が通過する（`uncoveredHeadings = []`、`isolatedNodes = []`、`unresolvableRefs = []`）
-2. 未解決の OMISSIONS インベントリが存在しない
-3. `examples/` が実在し、グラフが参照するサンプル実装がすべて実在する
-4. グリルで確定した目次・examples 仕様が整合している
-
-いずれか 1 つでも満たさない場合は **(b)** RESIDUE へ。RESIDUE には該当した判定理由を記録する。
-
-> 判定基準は実装フェーズでテストにより固定化する（基準の変更はテスト変更を伴う）。
-> 未解決 OMISSIONS の検出は機械可読形式（find-omissions の出力 JSON / ステータスファイル）に依存し、実装時に定義する。
-
-### Step 4: 出力生成と検証
-
-- (a): `<rfcDir>/README.md` を生成。末尾セクションは必ず「examples（実装サンプル）の仕様と設計」。
-- (b): `<residuesDir>/RESIDUE-<YYYYMMDDhhmmss>.md` を生成。
-- `validate-readme-output.js` / `validate-residue-output.js` が出力構造を検証し、不合格なら AI が修正する。
+1. **エントリーゲート（決定論・必須）**: `--check` で `Loop converged` を確認してから開始。未収束なら `resolve-examples` / `mark-examples-residue` はエラーで拒否され、`--check-examples` は `Examples not resolved` を返す。
+2. **examples 設計の合成（非決定論）**: Examples 以外の全セクションで説明された内容を一つの実装例に含める設計を、契約（事前条件・事後条件・不変条件）一覧・単体/結合テスト・実装コード・ビルド方法・操作方法まで含む具体度で合成する。書き上げた後、全セクションを完全にカバーする完璧な実装例かを点検し、不備があれば修正を繰り返す。
+3. **確定（決定論・スクリプト）**: 「書ける」→ `resolve-examples`（stdin `{content}`）で `<::TEMPLATE-EXAMPLES::>` を削除し complete 化。「書けない」→ `mark-examples-residue`（同）で `<::EXAMPLES-RESIDUE::>` + 証拠へ。両コマンドとも `grill.examplesApproved` / `grill.sections` を更新し、**AI は README を手編集しない**。
+4. **完了条件（決定論）**: `--check-examples` が `Examples resolved`（`<::TEMPLATE-EXAMPLES::>` ゼロ かつ マーカー文法クリーン）を返したら完了。最終状態はこの機械検証で保証される。
 
 ## 7. RESIDUE の構造
 
@@ -201,13 +191,12 @@ RESIDUE は「README が書けない理由」を体系的に記録する文書�
 |---|---|---|
 | `validate-graph-arg.js` | 100% | グラフ読込・スキーマ検証（スタンドアロン工程では直接呼ばない。`derive-output-paths.js` が `readGraphFile` を内部利用） |
 | `derive-output-paths.js` | 100% | Preflight。出力パス導出 + `sourceFile` 実在チェック + モード判定（fresh/refine）+ 英語 Markdown 出力 |
+| `validate-marker-grammar.js` | 100% | 4 マーカー（TEMPLATE-README / README-RESIDUE / TEMPLATE-EXAMPLES / EXAMPLES-RESIDUE）の単一情報源 + `splitSections` / `validateMarkerGrammar` |
 | `validate-toc-proposal.js` | 100% | Step 1 見出し提案の検証ゲート（階層パス ID /^H[1-9][0-9]*(-[1-9][0-9]*)*$/（1〜6 セグメント）・親存在チェック・existingIds 一意・contentOptions 2-4・推奨 ∈ 選択肢・reason 非空・決定論） |
 | `validate-examples-spec.js` | 100% | examples 仕様の構造・参照整合検証 |
-| `check-readme-writable.js` | 100% | (a)/(b) 分岐判定 |
-| `generate-residue-filename.js` | 100% | `RESIDUE-<YYYYMMDDhhmmss>.md` 名生成 |
-| `validate-readme-output.js` | 100% | README 出力構造検証 |
-| `validate-residue-output.js` | 100% | RESIDUE 出力構造検証 |
-| `update-step-status.js` | 100% | ステップ進行管理 + Step 1 グリル確定（`grill.toc.nodes` に id/heading/level/confirmedContent/status を永続化。`propose-heading`（UPSERT）/ `confirm-heading` / `delete-heading` / `reset-toc` / `isTocComplete`。level と親は ID から導出。全確定で `tocApproved`、未確定で `end-step 1` をブロック） |
+| `emit-readme-skeleton.js` | 100% | Step 1 末。確定見出し群 + examples セクションを `<::TEMPLATE-*::>` マーカー付きで README.md へ機械出力。fresh / refine 共通で実行し、refine では既存 README.md を上書きして全セクションを再解析対象にする |
+| `loop-drive-readme.js` | 100% | Step 2 + Step 3 駆動（独立スクリプト）。`--graph` / `--status` から README パスを内部導出し、`--list` / `--check` / `--check-examples`。Step 2 の遷移は `resolve-section` / `mark-residue` サブコマンドが README 置換と `grill.sections` 更新を一括実行（stdin `{id, heading, content}`）。Step 3 の遷移は `resolve-examples` / `mark-examples-residue` が `<::TEMPLATE-EXAMPLES::>` を解決（stdin `{content}`、C003 エントリーゲート + テンプレートガード付き）。脱出条件は「`<::TEMPLATE-README::>` ゼロ かつ マーカー文法クリーン（クロスコンタミ・二重マーカーなし。examples の `<::TEMPLATE-EXAMPLES::>` は許容）」、examples 完了条件は「`<::TEMPLATE-EXAMPLES::>` ゼロ かつ マーカー文法クリーン」の機械検証（= 最終出力検証を兼ねる）。出力は常に自然言語英語（確認・エラーは 3 部構成、ガイダンスは stderr） |
+| `update-step-status.js` | 100% | ステップ進行管理 + Step 1 グリル確定（`grill.toc.nodes` に id/heading/level/confirmedContent/status を永続化。`propose-heading`（UPSERT）/ `confirm-heading` / `delete-heading` / `reset-toc` / `isTocComplete`。level と親は ID から導出。全確定で `tocApproved`、未確定で `end-step 1` をブロック）+ セクション状態（`resolve-section` / `mark-residue` / `reset-sections`） |
 
 各スクリプトは `tests/crystalize-readme/*.test.cjs` を伴う（node.md 規約: CommonJS、`make test-crystalize-readme` で `node --test` 実行）。
 
@@ -229,6 +218,7 @@ RESIDUE は「README が書けない理由」を体系的に記録する文書�
 
 ## 12. 変更履歴
 
+- 2026-08-18 (PX-156): Step 2+ をセクション単位の点検ループ方式に再設計。`emit-readme-skeleton.js` を追加し、Step 1 末に確定見出し群 + examples をマーカー付きで README.md へ機械出力。`loop-drive-readme.js` / `validate-marker-grammar.js` を追加し、RESIDUE ファイル生成（`check-readme-writable` / `generate-residue-filename` / `validate-residue-output`）を廃止。**refine モードでもスケルトンを再出力して既存 README.md を上書きし、Step 2 で全セクションを再解析する**（`update-step-status.js` に `reset-sections` を追加）。
 - 2026-08-18 (PX-155): Preflight に実行モード判定（fresh/refine）を追加。`README.md` / `CRYSTALIZE-Status.json` の実在から過去実行（洗練・更新）か新規かを英語 Markdown で出力。`update-step-status.js` に `delete-heading`（ノード + 全子孫を削除）を追加し、`propose-heading` / `confirm-heading` の UPSERT 動作を明文化。
 - 2026-08-18 (PX-154): ID スキームを階層パス（H1, H1-1, H1-2-1, H2, ...）に変更。親 = 最後の `-<n>` を除去して導出（parentId は保存しない）。親不在の子（H2 無しの H2-1）を構造違反として拒否。確定済み目次を `update-step-status.js` の `grill.toc.nodes`（id/heading/level/confirmedContent/status）として CRYSTALIZE-Status.json に永続化し、AI の記憶に依存しない方式に変更。
 - 2026-08-18 (PX-153): Step 1 を「見出しごとの提案グリル」に再設計。決定論的候補抽出（`extract-toc-candidates.js`）と構造チェック（`check-toc-structure.js`）を廃止・削除。各見出し提案を `validate-toc-proposal.js` で提示前に検証し、`update-step-status.js` の `confirm-heading` / `isTocComplete` で全 ID 確定まで Step 2 へ進めない方式に変更。
