@@ -21473,6 +21473,138 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-08-17"
+        },
+        {
+          "id": 153,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Redesign /crystalize-readme Step 1 TOC grill: per-heading validated proposals and remove obsolete scripts",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/153-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "- 【Goal】/crystalize-readme の Step 1（グリル—階層的見出し）を作り直す。sourceFile の内容を前提情報とし、「使い方に絞って技術的詳細内容に踏み込まない README.md の目次（階層的見出し）」を提案する。全ての見出しに階層的に一意な ID（H1, H2-3 等）を採番し、各見出しに対して「内容の提案」を A/B/C または Yes/No で回答できる形で提示する。AI はどれを推すのかを理由とともに明確にする。ユーザーは ID 単位で A/B/C/Yes/No で回答（自由コメント可）。全ての見出し項目と内容が確定するまで Step 2 には進まない。\n- 【Purpose】現行 Step 1 の決定論的候補抽出（extract-toc-candidates.js）と構造チェック（check-toc-structure.js）は根本的に誤りであり廃止する。grill-me-for-rfc.md の Question Format Validation Gate（validate-question-format.js）パターンを参考に、提案一つ一つを専用スクリプト validate-toc-proposal.js で検証後にユーザーに提示する。AI の提案記述が揺れないよう機械的に検証する。\n- 【Motivation】grill-me-for-rfc の validate-question-format.js と同一スクリプト・同一チェック方法は使えない（対象が RFC 設計グリルではなく使い方 README の目次グリル）。crystalize-readme 専用の構造化バリデータを新設する。\n- 【Constraints】この改修で不要になるスクリプトはゴミとして掃除する。extract-toc-candidates.js / check-toc-structure.js とそのテスト（extract-toc-candidates.test.cjs / check-toc-structure.test.cjs）を削除し、コマンドファイルと設計書から参照を除去する。check-toc-structure が担っていた「末尾は examples セクション」の不変条件は新しいグリル設計で維持する。",
+          "scope": [
+            ".claude/commands/crystalize-readme.md — modify: Step 1 を新グリル設計に書き換え（sourceFile 前提 / 使い方に絞る / H1・H2-N の階層的一意 ID / A/B/C or Yes/No / AI 推奨+理由 / validate-toc-proposal.js ゲート / 全確定まで Step 2 へ進まない）。Scripts 節から extract-toc-candidates.js / check-toc-structure.js を除去。",
+            "docs/DESIGN-OF-CRYSTALIZE-README.md — modify: §4 フロー / §5 決定論表 / §6 Step 1 / §8 スクリプト一覧 / §12 変更履歴 を新設計に更新。extract-toc-candidates.js / check-toc-structure.js の行を削除。",
+            ".claude/scripts/crystalize-readme/validate-toc-proposal.js — add: 構造化バリデータ（id 階層一意 / heading 非空 / contentOptions 2-4 / recommendation ∈ options / reason 非空 / 決定論）。CLI は JSON を stdin で受けて {valid,errors} と exit 0/1 を返す。",
+            "tests/crystalize-readme/validate-toc-proposal.test.cjs — add: C001 の Pre/Post/Inv を UT で全網羅（RED→GREEN→REFACTOR、node --test）。",
+            ".claude/scripts/crystalize-readme/update-step-status.js — modify: grill 状態を proposedIds / confirmedIds に拡張し、confirm-heading サブコマンドを追加。全提案確定時にのみ tocApproved=true を導出。",
+            ".claude/scripts/crystalize-readme/check-toc-structure.js — remove: 構造チェックは不要（ユーザー指摘）。",
+            ".claude/scripts/crystalize-readme/extract-toc-candidates.js — remove: 決定論的候補抽出は禁止（ユーザー指摘）。",
+            "tests/crystalize-readme/check-toc-structure.test.cjs — remove: 対応スクリプト削除に伴う。",
+            "tests/crystalize-readme/extract-toc-candidates.test.cjs — remove: 対応スクリプト削除に伴う。",
+            "API contract change: validate-toc-proposal.js は {valid:boolean, errors:string[]} を返す新規 API。update-step-status.js は confirm-heading <id> サブコマンドを追加。既存の approve-toc は全確定導出に置き換え。",
+            "Data schema change: CRYSTALIZE-Status.json の grill セクションを {tocApproved, examplesApproved} → {tocApproved, examplesApproved, proposedIds[], confirmedIds[]} に拡張。既存ファイルは読み込み時にデフォルト補完（後方互換）。",
+            "Config/env change: なし。依存追加・削除なし（node:fs, node:path, node:child_process のみ）。",
+            "Out of scope: Step 2（examples グリル）の作り直しは本チケット対象外。validate-examples-spec.js / check-readme-writable.js / generate-residue-filename.js / validate-readme-output.js / validate-residue-output.js / derive-output-paths.js は現状維持。",
+            "Out of scope reason: examples グリルは Step 1 確定後に別途設計する。既存の決定論スクリプトは README/RESIDUE 判定・出力検証に必要であり、今回の指摘対象（Step 1 の目次グリル）とは無関係。",
+            "Affected: /crystalize-readme を実行する全セッション — Step 1 が ID 単位・検証ゲート付きグリルに変わる。",
+            "Impact nature: 手順（グリル進行方法）と完了条件（全見出し確定）の変更。外部 API・データ形式は CRYSTALIZE-Status.json の grill 拡張のみ。",
+            "Response: CRYSTALIZE-Status.json を拡張し、途中セッションは status サブコマンドで再開可能。Step 1 を再実行する場合は reset-to-step 1 で grill 状態をリセット。"
+          ],
+          "testUnit": [
+            "UT: [Normal] validate-toc-proposal accepts a valid choice-form proposal — {id:'H1', heading:'Overview', contentOptions:['英語で Overview を書く','日本語で概要を書く','両言語併記'], recommendation:'英語で Overview を書く', reason:'README の本文言語は対象 RFC に追随する（デフォルト英語）ため', seenIds:[]} → {valid:true, errors:[]}, exit 0 (C001-Pre/Post)",
+            "UT: [Normal] validate-toc-proposal accepts a valid Yes/No-form proposal — {id:'H2-1', heading:'Usage', contentOptions:['はい','いいえ'], recommendation:'はい', reason:'使い方 README に Usage 節は必須のため', seenIds:['H1']} → {valid:true, errors:[]} (C001-Post: contentOptions 長 2、recommendation ∈ options)",
+            "UT: [Error] validate-toc-proposal rejects a duplicate id within the batch — {id:'H1', seenIds:['H1'], ...} → valid:false, errors に duplicate-id (C001: 階層的一意性)",
+            "UT: [Error] validate-toc-proposal rejects an id violating the hierarchical pattern — {id:'H0'}, {id:'H2-0'}, {id:'free text'}, {id:42} → valid:false (C001-Pre: id は ^H[1-6](-[1-9][0-9]*)?$)",
+            "UT: [Error] validate-toc-proposal rejects contentOptions outside 2–4 options — length 1 と length 5 → valid:false (C001: A/B/C または Yes/No で回答可能)",
+            "UT: [Error] validate-toc-proposal rejects a recommendation not in contentOptions — recommendation:'Z案' で options=['A案','B案'] → valid:false (C001: 推奨は提示選択肢のいずれか)",
+            "UT: [Error] validate-toc-proposal rejects an empty recommendation reason — reason:'' / reason 空白のみ → valid:false (C001: reason 非空文字列)",
+            "UT: [Error] validate-toc-proposal rejects a missing or empty heading — heading:'' / heading 欠落 → valid:false (C001-Pre)",
+            "UT: [Boundary] validate-toc-proposal is deterministic — 同一提案入力を 2 回実行し結果が deep-equal (C001-Inv: 決定論)",
+            "UT: [Invariant] C001-Post — valid:true の提案は常に /^H[1-6](-[1-9][0-9]*)?$/.test(id) を満たし、recommendation ∈ contentOptions、reason 非空 (assert で機械検証)",
+            "UT: [Normal] update-step-status confirm-heading — 提案済み id の confirm-heading <id> が status.grill.confirmedIds に記録し stdout に確認メッセージを出力 (C002-Post)",
+            "UT: [Error] update-step-status confirm-heading — 未提案 id の confirm-heading <id> は exit 1 で拒否され confirmedIds に追加されない (C002-Inv)",
+            "UT: [Boundary] update-step-status toc 完了判定 — 全提案 id が confirmed のときのみ tocApproved=true になり、未確定 id が残る間は false のまま (C002-Post/Inv)",
+            "UT: [Invariant] C002-Inv — 未確定 id が残る状態で end-step 1 を実行しても steps['1'] は done にならず currentStep は進まない"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] Step 1 grill ループ — コマンドファイルが各見出し提案の提示前に validate-toc-proposal.js の実行を必須化し、valid:true の提案のみユーザーへ提示する",
+            "IT: [Verification] update-step-status.js の per-heading 確定 — confirm-heading <id> が confirmedIds に記録し、status 出力が「全提案 id 確定時にのみ tocApproved=true」を報告し、Step 1 は未確定 id が残る限り end-step できない",
+            "IT: [Prerequisites] validate-toc-proposal.js と update-step-status.js は node --test（CommonJS）で動作し、新規依存 crate なし・ネットワーク不要",
+            "IT: [Related tickets] extract-toc-candidates.js / check-toc-structure.js とテスト削除後も make test-crystalize-readme が全緑（リグレッションゲート）"
+          ],
+          "testExceptions": [
+            "ユーザーによる ID 単位の対話確認（A/B/C/Yes/No 回答）は自動テスト不能 — 本質的に人間が介在する操作のため cannot test。設計欠陥ではない: 決定論ゲート（validate-toc-proposal）と完了ゲート（update-step-status confirm-heading）は単体/統合テストで検証され、対話ループ自体はそれらのゲートで境界づけられる。",
+            "使い方に絞った TOC の AI 合成（非決定論）は単体テスト不能 — 内容合成そのもののため not testable。設計欠陥ではない: 非決定論ステップは決定論的な validate-toc-proposal ゲートで制約され、ゲート自体は単体テストで全網羅される。",
+            "実ユーザーとの複数ターンの対話グリル全体は CI ではテスト不能 — ライブ端末を必要とする E2E/手動操作のため impossible to test。設計欠陥ではない: スクリプト化したターン列（validate-toc-proposal → confirm-heading → status 検証）を IT でカバーする。"
+          ],
+          "default_files": [
+            ".claude/commands/crystalize-readme.md",
+            "docs/DESIGN-OF-CRYSTALIZE-README.md",
+            ".claude/scripts/crystalize-readme/validate-toc-proposal.js",
+            "tests/crystalize-readme/validate-toc-proposal.test.cjs",
+            ".claude/scripts/crystalize-readme/extract-toc-candidates.js",
+            ".claude/scripts/crystalize-readme/check-toc-structure.js",
+            "tests/crystalize-readme/extract-toc-candidates.test.cjs",
+            "tests/crystalize-readme/check-toc-structure.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: Step 1 で AI が各見出し提案（階層的一意 ID / A/B/C or Yes/No 選択肢 / 推奨+理由）を、validate-toc-proposal.js が valid:true を返した後にのみユーザーへ提示する。ユーザーが ID 単位で回答し、全見出しが確定したら Step 1 完了 → Step 2 へ進む。",
+            "Error case: validate-toc-proposal.js で invalid になった提案はユーザーへ提示されない。AI は errors[] に従い再構成し valid:true になるまで繰り返す。再構成しても valid:true にならない提案はグリルを先に進めない。",
+            "Edge case: ユーザーが自由コメントを付与しても AI は受け付けるが、確定には ID 単位の A/B/C/Yes/No 回答が必要。全 ID が確定するまで Step 2 に進まない。確定済み ID を後から変更したい場合は再グリルで扱う。"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "Step 1 grill → per-proposal validation gate",
+              "precondition": "A heading proposal object {id, heading, contentOptions[], recommendation, reason, seenIds?} is passed to validate-toc-proposal.js. id は文字列、contentOptions は文字列配列、seenIds は既に提案済みの id 配列（省略時は空）。",
+              "postcondition": "Returns {valid:boolean, errors:string[]} (exit 0/1). valid=true は以下のすべてを満たす場合のみ: id が /^H[1-6](-[1-9][0-9]*)?$/ に一致 / id が seenIds に含まれない / heading が非空文字列 / contentOptions の要素数が 2〜4 / recommendation が contentOptions のいずれかと完全一致 / reason が非空文字列。",
+              "invariant": "Validation is deterministic — the same proposal input always yields the same output. A valid proposal always has a hierarchically unique id and a non-empty recommendation reason."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Step 1 grill → completion gate (CRYSTALIZE-Status.json)",
+              "precondition": "status.grill に Step 1 の提案済み見出し id 集合 proposedIds が記録されている。update-step-status.js に confirm-heading サブコマンドが実装済み。",
+              "postcondition": "confirm-heading <id> は status.grill.confirmedIds に id を追加して stdout に確認メッセージを出力する。全 proposedIds が confirmedIds に含まれる場合のみ tocApproved=true になり、end-step 1 が steps['1']=done と currentStep=2 を記録できる。",
+              "invariant": "未提案 id の confirm-heading は exit 1 で拒否される。未確定 id が残る限り tocApproved は false のままであり、Step 1 は完了（end-step）できない。"
+            }
+          ],
+          "notes": "- 【Implementation steps】(1) 削除対象の参照が無いことを確認後、extract-toc-candidates.js / check-toc-structure.js とテストを削除。(2) TDD: validate-toc-proposal.js を新規作成（RED→GREEN→REFACTOR、C001）。 (3) update-step-status.js に confirm-heading と grill 状態拡張を TDD で追加（C002）。(4) コマンドファイル Step 1 を新グリル設計に書き換え。(5) 設計書 §4/§5/§6/§8/§12 を更新。(6) make test-crystalize-readme で全緑を確認。\n- 【Risks】check-toc-structure.js 削除により「末尾が examples セクション」の機械的強制が消える。新設計では Step 1 の最後の見出し提案を必ず「examples（実装サンプル）の仕様と設計」とし、確定済み TOC 状態に記録して不変条件を維持する。\n- 【Caveats】grill-me-for-rfc の validate-question-format.js は再利用しない。パターン（提案を提示前に検証するゲート）のみ参考にする。validate-toc-proposal.js は構造化入力（JSON）を検証する方式とし、フリーテキストの正規表現チェックにはしない。\n- 【Open items】確定済み見出しの状態記録は update-step-status.js（CRYSTALIZE-Status.json）に統合する方針。詳細な JSON 構造（proposedIds/confirmedIds の持ち方、tocApproved 導出）は plan フェーズで確定する。\n- 【Future improvements】README 生成後（Step 4 の validate-readme-output.js）と確定済み TOC の整合検証を後続チケットで検討。\nImplementation summary (PX-153):\n- Changed files: validate-toc-proposal.js (new), update-step-status.js (extended), crystalize-readme.md (Step 1 rewrite), DESIGN-OF-CRYSTALIZE-README.md (updated), deleted extract-toc-candidates.js / check-toc-structure.js + 2 tests\n- Key changes: per-heading TOC grill with mandatory pre-presentation validation gate; confirm-heading / isTocComplete completion gate blocks Step 2 until every proposed heading id is confirmed\n- Test results: make test-crystalize-readme → 131/131 passed; quality checks 0 issues\nReview report (PX-153):\n- Static quality check: passed (run-quality-checks 0 issues)\n- Translatability: all functions verb phrases, domain-concept variable names, named constants (ID_PATTERN/MIN_OPTIONS/MAX_OPTIONS), no debug output\n- Tests: make test-crystalize-readme 131/131 passed; validate-toc-proposal 13 tests, update-step-status 28 tests\n- Annotation: 3 source files verified, 0 missing, 0 AMBIGUOUS\n- Contracts: C001 (validate-toc-proposal gate) and C002 (confirm-heading completion gate) fulfilled; verify-final-contracts coverage 100%\n- Issues found and fixes applied: Step 0 wording in crystalize-readme.md reintroduced ambiguous '全て読む' phrasing the user previously rejected; simplified to 'Preflight が出力した sourceFile のファイルを読む。' to match the design doc",
+          "invariants": "- 【Normal establishment】各見出し提案は validate-toc-proposal.js で valid:true になるまでユーザーに提示されない。ID は階層パターン ^H[1-6](-[1-9][0-9]*)?$ に従い、同一ターン内で重複しない。\n- 【Invariant on error】検証失敗の提案は提示されず、AI は errors[] の内容に従って再構成し、valid:true になるまで再検証を繰り返す。\n- 【Internal state invariant】status.grill に提案済み ID（proposedIds）と確定済み ID（confirmedIds）が記録される。確定済み ID は不変（変更は再グリルで扱う）。\n- 【Boundary invariant】全ての提案 ID が確定済みにならない限り tocApproved=true にならない。Step 2 への進行はブロックされる。TOC の末尾の見出しは常に「examples（実装サンプル）の仕様と設計」。",
+          "instrumentation": "- 【Logging】update-step-status.js の各サブコマンド（confirm-heading / status / end-step 等）は実行結果を stdout に出力する（既存パターン）。validate-toc-proposal.js は検証結果 JSON を stdout に出力し、exit 0/1 で合否を通知する。\n- 【Metrics】グリル進行は CRYSTALIZE-Status.json の grill セクションに記録される（proposedIds 数 / confirmedIds 数）。status サブコマンドで確認できる。\n- 【Error tracking】検証失敗は validate-toc-proposal.js が errors[] として構造化出力し、exit 1 で通知。AI はその内容で提案を再構成する。\n- 【Health check】status サブコマンドが currentStep / 各 step 状態 / grill の確定状況を機械的に出力する。\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-phrase functions, no single-char/generic vars, no magic numbers, no debug output)\nTests: 131/131 passed (make test-crystalize-readme)\nContracts: C001/C002 verified, verify-final-contracts coverage 100%\nCrimes: 0 / Stubs: 0 / No-excuse gate: passed / AMBIGUOUS: 0",
+          "investigation": "- validate-question-format.js（grill-me-for-rfc）: CLI で質問テキストを受け取り、正規表現で Q<number> / 理由表現（理由・ため・比較・trade-off 等）/ A/B/C・Yes/No / 自由記述禁止 / 選択肢を行単位列挙 / 選択肢の後に推奨+理由 を検証し {valid,errors} と exit 0/1 を返す。これを構造化入力（JSON）版として crystalize-readme 用に新設する。\n- check-toc-structure.js（削除対象）: {toc:[{level,title}], expectedSections} を入力に duplicate / skippedLevel / missingCoverage / missingTrailingSection を検出。TRAILING_SECTION_TITLE='examples (implementation samples) spec and design'。末尾セクション不変条件は新設計で維持する。\n- extract-toc-candidates.js（削除対象）: グラフノードから {level, title} を機械抽出（headingRefs[0].heading、既定 level 2）。決定論的候補抽出のため禁止。\n- update-step-status.js: CRYSTALIZE-Status.json を管理。現状 grill={tocApproved:false, examplesApproved:false}、サブコマンド start/end/fail-step・approve-toc・approve-examples・status・cleanup・backup、MAX_STEP=4。per-heading 確定のため grill 状態拡張 + confirm-heading 追加が必要。\n- 削除対象スクリプトの参照はコマンドファイル（crystalize-readme.md L66/L68/L110）・設計書（DESIGN-OF-CRYSTALIZE-README.md L131/L133/L204/L205）・自身のテストのみで、他の pipeline からの参照は無い。",
+          "boyScoutPlan": "- validate-toc-proposal.js: 関数名は動詞句（parseProposal / validateProposal / runGate）、変数名はドメイン概念（contentOptions / recommendation / reason / seenIds）、1 関数 1 責務、ハードコード値は名前付き定数（ID_PATTERN / MIN_OPTIONS / MAX_OPTIONS）、エラーは握りつぶさず errors[] に構造化して返す。\n- update-step-status.js: 一括承認の executeApproveToc を per-heading の confirm-heading に置き換え、tocApproved を「全 ID 確定」から機械的に導出する。グリル状態の読み書き（readGrill / writeGrill / isTocComplete）を関数に抽出して可読性を上げる。\n- 削除対象（extract-toc-candidates.js / check-toc-structure.js）はコマンドファイル・設計書から参照を完全に除去し、デッドリファレンスを残さない。",
+          "created_at": "2026-08-18",
+          "updated_at": "2026-08-18",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Pre] validate-toc-proposal が有効な提案 JSON を受理する\n```js\nconst { validateProposal } = require('../../.claude/scripts/crystalize-readme/validate-toc-proposal.js');\nconst proposal = { id: 'H1', heading: 'Overview', contentOptions: ['英語で Overview を書く', '日本語で概要を書く', '両言語併記'], recommendation: '英語で Overview を書く', reason: 'README 本文言語は対象 RFC に追随（デフォルト英語）', seenIds: [] };\nconst result = validateProposal(proposal);\nassert.deepEqual(result, { valid: true, errors: [] });\n```",
+            "UT: [C001-Post] valid 提案は階層一意 id と推奨選択肢・非空理由を持つ\n```js\nassert.match(proposal.id, /^H[1-6](-[1-9][0-9]*)?$/);\nassert.ok(proposal.contentOptions.includes(proposal.recommendation));\nassert.ok(proposal.reason.trim().length > 0);\nassert.equal(result.valid, true);\n```",
+            "UT: [C001-Inv] 決定論 — 同一提案入力は常に同一結果\n```js\nconst first = validateProposal(proposal);\nconst second = validateProposal(proposal);\nassert.deepEqual(first, second);\n```",
+            "UT: [C002-Pre] status.grill.proposedIds に Step 1 の提案 id 集合が記録されている\n```js\nconst status = createDefaultStatus(graphPath);\nstatus.grill.proposedIds = ['H1', 'H2-1'];\nstatus.grill.confirmedIds = [];\nassert.deepEqual(status.grill.proposedIds, ['H1', 'H2-1']);\n```",
+            "UT: [C002-Post] confirm-heading が confirmedIds に追加し、全確定時にのみ tocApproved=true\n```js\nexecuteConfirmHeading(status, 'H1');\nassert.deepEqual(status.grill.confirmedIds, ['H1']);\nassert.equal(isTocComplete(status), false);\nexecuteConfirmHeading(status, 'H2-1');\nassert.equal(isTocComplete(status), true);\nassert.equal(status.grill.tocApproved, true);\n```",
+            "UT: [C002-Inv] 未提案 id の confirm-heading は拒否され、未確定の間 Step 1 は完了しない\n```js\nassert.throws(() => executeConfirmHeading(status, 'H3-1'), /not proposed/);\nstatus.grill.confirmedIds = ['H1'];\nassert.equal(isTocComplete(status), false);\nassert.equal(status.grill.tocApproved, false);\n```"
+          ],
+          "startedAt": "2026-08-18",
+          "changes": [
+            {
+              "before": "validate-toc-proposal.js は存在しない",
+              "after": "validate-toc-proposal.js を新規作成",
+              "description": "Step 1 見出し提案の検証ゲート。ID 階層一意 / heading 非空 / contentOptions 2-4 / recommendation ∈ options / reason 非空 / 決定論を {valid,errors} と exit 0/1 で判定（C001）"
+            },
+            {
+              "before": "grill={tocApproved,examplesApproved} のみ",
+              "after": "grill に proposedIds/confirmedIds を追加し propose-heading/confirm-heading/reset-toc サブコマンドを追加",
+              "description": "update-step-status.js を拡張。isTocComplete() で全確定判定、approve-toc は全確定時にのみ tocApproved、end-step 1 は未確定ならブロック（C002）"
+            },
+            {
+              "before": "extract-toc-candidates.js / check-toc-structure.js + テスト 2 本が存在",
+              "after": "4 ファイルを削除",
+              "description": "決定論的候補抽出と構造チェックはユーザー指摘により廃止。コマンドファイル・設計書の参照も除去"
+            },
+            {
+              "before": "Step 1: 候補抽出→構造チェック→一括 Y/N 承認",
+              "after": "Step 1: 見出しごとの提案→validate-toc-proposal 検証→ID 単位確定→全確定で Step 2 へ",
+              "description": "crystalize-readme.md の Step 1 を新グリル設計に書き換え"
+            },
+            {
+              "before": "設計書は旧 Step 1 を記述",
+              "after": "§4/§5/§6/§8/§12 を新設計に更新",
+              "description": "DESIGN-OF-CRYSTALIZE-README.md を整合"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-18"
         }
       ]
     },

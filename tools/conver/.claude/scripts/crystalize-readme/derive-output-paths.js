@@ -1,11 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * derive-output-paths.js — Derive output paths from the graph sourceFile (Step 0, C001)
+ * derive-output-paths.js — Preflight: derive output paths and verify the sourceFile (C001)
+ *
+ * Serves as the /crystalize-readme Preflight. Reads the graph JSON, checks that the
+ * graph's sourceFile RFC document exists on disk, and derives the output paths in
+ * one invocation.
  *
  * CLI:
- *   derive-output-paths.js --graph=<path>                → prints {rfcDir, examplesDir, residuesDir, readmePath}
+ *   derive-output-paths.js --graph=<path>                → prints {sourceFile, rfcDir, examplesDir, residuesDir, readmePath}
  *   derive-output-paths.js --graph=<path> --field=sourceFile → prints the expanded sourceFile
+ *
+ * Exit-code contract:
+ *   success → 0, prints the derived paths plus sourceFile (or the expanded sourceFile)
+ *   any Preflight failure (missing/invalid graph, missing sourceFile) → 1
  *
  * The actual RESIDUE filename (RESIDUE-<timestamp>.md) is generated separately by
  * generate-residue-filename.js at Step 4, so it is NOT derived here.
@@ -14,6 +22,7 @@
  * path.dirname so rfcDir never resolves to a literal "~" directory.
  */
 
+const fs = require('fs');
 const path = require('path');
 const { fromHomeRelative } = require('../lib/path-utils');
 const { readGraphFile } = require('./validate-graph-arg.js');
@@ -94,22 +103,52 @@ function deriveOutputPaths(graph) {
 }
 
 /**
- * main — CLI entry point.
+ * Assert that the graph's sourceFile RFC document exists on disk.
+ *
+ * This is the Preflight gate: the pipeline cannot proceed unless the RFC design
+ * document the graph was built from is actually present at the derived location.
+ * The resolved path is returned so the caller (Step 0) can read the document.
+ *
+ * @param {Object} graph — Schema-validated graph
+ * @returns {string} The resolved absolute sourceFile path
+ * @throws {Error} If sourceFile is missing, not a non-empty string, or absent on disk
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
-function main() {
-  const { graphPath, field } = parseArguments();
-  const graph = readGraphFile(graphPath);
-
-  if (field === SOURCE_FILE_FIELD) {
-    const expanded = path.resolve(fromHomeRelative(graph.sourceFile));
-    process.stdout.write(expanded + '\n');
-    process.exit(0);
+// [::TICKET::] PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-153 --for-spec --no-implementation-order`.
+function assertSourceFileExists(graph) {
+  const sourceFile = graph && graph.sourceFile;
+  if (typeof sourceFile !== 'string' || sourceFile.trim() === '') {
+    throw new Error('graph.sourceFile must be a non-empty string.');
   }
+  const resolved = path.resolve(fromHomeRelative(sourceFile));
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`sourceFile not found: ${resolved}`);
+  }
+  return resolved;
+}
 
-  const paths = deriveOutputPaths(graph);
-  process.stdout.write(JSON.stringify(paths) + '\n');
-  process.exit(0);
+/**
+ * main — CLI entry point (Preflight).
+ */
+// [::TICKET::] PX-152, PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153) --for-spec --no-implementation-order`.
+function main() {
+  try {
+    const { graphPath, field } = parseArguments();
+    const graph = readGraphFile(graphPath);
+    const expandedSourceFile = assertSourceFileExists(graph);
+
+    if (field === SOURCE_FILE_FIELD) {
+      process.stdout.write(expandedSourceFile + '\n');
+      process.exit(0);
+    }
+
+    const paths = deriveOutputPaths(graph);
+    process.stdout.write(JSON.stringify({ sourceFile: expandedSourceFile, ...paths }) + '\n');
+    process.exit(0);
+  } catch (error) {
+    console.error('[ERROR] Preflight failed.');
+    console.error(`Cause: ${error.message}`);
+    process.exit(1);
+  }
 }
 
 // Call main only when executed as CLI
@@ -120,6 +159,7 @@ if (require.main === module) {
 module.exports = {
   parseArguments,
   deriveOutputPaths,
+  assertSourceFileExists,
   main,
   GRAPH_PATH_ARG_PREFIX,
   FIELD_ARG_PREFIX,

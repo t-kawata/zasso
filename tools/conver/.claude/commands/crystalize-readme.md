@@ -25,54 +25,65 @@ disable-model-invocation: true
   - 例: `crates/siprs/RFC-ROOT-GRAPH.json`
   - 例: `/absolute/path/to/rfc-doc-GRAPH.json`
 
-## Derived Paths
+## Preflight: パス導出と sourceFile 実在チェック（決定論）
 
-以下のパスはグラフの `sourceFile` フィールドから機械的に導出される（`derive-output-paths.js` を直接実行し、JSON 結果を参照する）。
+`derive-output-paths.js` を実行し、グラフ JSON の読込・構造検証（nodes / edges / `sourceFile` フィールド）と **`sourceFile` の実在チェック**を同時に行い、出力パスを導出する。
 
 ```bash
-node .claude/scripts/crystalize-readme/derive-output-paths.js --graph="$ARGUMENTS"
+node .claude/scripts/crystalize-readme/derive-output-paths.js --graph="$ARGUMENTS" || exit 1
 ```
+
+- グラフが読めない / 構造が不正 / `sourceFile` が実在しない場合はエラーメッセージを表示して終了する（exit 1）。
+- 成功時は以下の JSON を出力する。このパス群と `sourceFile` を以降の Step の前提とする。
 
 出力例:
 
 ```json
-{"rfcDir":"/path/to/rfc","examplesDir":"/path/to/rfc/examples","residuesDir":"/path/to/rfc/residues","readmePath":"/path/to/rfc/README.md"}
+{"sourceFile":"/path/to/rfc/RFC-ROOT.md","rfcDir":"/path/to/rfc","examplesDir":"/path/to/rfc/examples","residuesDir":"/path/to/rfc/residues","readmePath":"/path/to/rfc/README.md"}
 ```
 
 | パス | 説明 |
 |------|------|
+| `sourceFile` | グラフの生成元 RFC 文書（Preflight で実在を確認済み）。Step 0 の読込対象 |
 | `rfcDir` | 元 RFC 文書が置かれているディレクトリ |
 | `examplesDir` | `<rfcDir>/examples/`。examples（実装サンプル）の置き場 |
 | `residuesDir` | `<rfcDir>/residues/`。RESIDUE 文書の置き場 |
 | `readmePath` | `<rfcDir>/README.md`。README の出力先 |
 
-## Execution Steps
+## Workflow Steps
 
-### Step 0: 引数検証（決定論）
+### Step 0: sourceFile の読込
 
-```bash
-node .claude/scripts/crystalize-readme/validate-graph-arg.js --graph="$ARGUMENTS" || exit 2
-```
+Preflight が出力した `sourceFile` のファイルを読む。
 
-- グラフのスキーマ（nodes / edges / sourceFile）と `sourceFile` の実在を検証する。
-- 検証失敗時はエラーメッセージを表示して終了する（exit 2）。
+- 読み取った内容は **Step 1（目次グリル）と Step 2（examples 仕様グリル）の前提情報**として使用する。
+- この Step が完了するまで Step 1 以降に進まない。
 
 ### Step 1: グリル — 階層的見出し（目次）
 
-README の目次（階層的見出し）を確定する。
+README の目次（階層的見出し）を確定する。Step 0 で読み込んだ `sourceFile` の内容を前提情報として使用する。
 
-1. **候補抽出（決定論）**: `extract-toc-candidates.js` でグラフのノード階層から見出し候補を抽出する。
-2. **AI による編成（非決定論）**: 候補を土台に、AI が目次の取捨・階層・見出し文を合成する。
-3. **構造チェック（決定論）**: `check-toc-structure.js` で目次案を検証する。
-   - 見出しの重複がない / 階層が整合的 / グラフの主要セクションを網羅 / 末尾が「examples（実装サンプル）の仕様と設計」
-   - 不合格なら AI が自動修正を試み、修正後も不合格なら再提案として扱う。
-4. **ユーザー承認**: ユーザーは **Yes/No または ABC の選択のみ**で回答する。自由記述を要求しない。
-   - 例: `この目次で進めますか? Y / N / A / B / C`
-   - 承認された目次はステータスファイルに記録し、以降の Step で参照する。
+**方針**: 「使い方に絞った README の目次」を提案する。技術的詳細内容には踏み込まない。全ての見出しに**階層的に一意な ID（H1, H2-1, H2-2, ...）**を採番する。
+
+1. **見出し提案（非決定論）**: AI が `sourceFile` を前提に、使い方に絞った目次の各見出しを合成する。各見出しは `{id, heading, contentOptions[], recommendation, reason}` の形で、A/B/C または Yes/No で回答できる「内容の提案」を伴う。各提案には **AI の推奨とその理由**を明示する。
+2. **検証ゲート（決定論・必須）**: 各提案は**ユーザーへ提示する前に必ず** `validate-toc-proposal.js` で検証する。`valid:true` になるまで再構成し、未検証の提案は提示しない。
+
+```bash
+echo '<proposal-json>' | node .claude/scripts/crystalize-readme/validate-toc-proposal.js || exit 1
+```
+
+3. **ユーザー回答**: ユーザーは **ID 単位で A/B/C/Yes/No で回答**する。自由コメントも可（受け付けるが、確定には ID 単位の回答が必要）。
+4. **確定記録**: 回答ごとに `confirm-heading <id>` で確定を記録する。
+
+```bash
+node .claude/scripts/crystalize-readme/update-step-status.js --graph="$ARGUMENTS" confirm-heading <id>
+```
+
+5. **完了条件**: 全ての見出し項目と内容が確定するまで Step 2 に進まない。全 ID 確定後、`end-step 1` で Step 1 を完了し Step 2 へ進む。**末尾の見出しは必ず「examples（実装サンプル）の仕様と設計」**とする。
 
 ### Step 2: グリル — examples（実装サンプル）の仕様と設計
 
-README 末尾セクション「examples（実装サンプル）の仕様と設計」の内容を確定する。
+README 末尾セクション「examples（実装サンプル）の仕様と設計」の内容を確定する。Step 0 で読み込んだ `sourceFile` の内容を前提情報として使用する。
 
 1. **候補抽出（決定論）**: グラフから examples 関連ノード（実装サンプルを示す kind）を抽出して AI に提示する。
 2. **AI による合成（非決定論）**: AI が examples の仕様と設計（各サンプルが示す使い方・API 表面・期待動作）を合成する。
@@ -104,7 +115,8 @@ node .claude/scripts/crystalize-readme/check-readme-writable.js --graph="$ARGUME
 
 使用するスクリプトは `.claude/scripts/crystalize-readme/` に配置される（設計書 `tools/conver/docs/DESIGN-OF-CRYSTALIZE-README.md` §8 参照）。
 
-- `validate-graph-arg.js` / `derive-output-paths.js` / `extract-toc-candidates.js` / `check-toc-structure.js` / `validate-examples-spec.js` / `check-readme-writable.js` / `generate-residue-filename.js` / `validate-readme-output.js` / `validate-residue-output.js`
+- Preflight: `derive-output-paths.js`（グラフ読込・`sourceFile` 実在チェック・パス導出。`validate-graph-arg.js` の `readGraphFile` を内部利用）
+- グリル / 判定 / 出力検証: `validate-toc-proposal.js` / `update-step-status.js`（`propose-heading` / `confirm-heading` / `reset-toc` 等）/ `validate-examples-spec.js` / `check-readme-writable.js` / `generate-residue-filename.js` / `validate-readme-output.js` / `validate-residue-output.js`
 - ステップ進行は `update-step-status.js`（既存パターン）で管理する。
 
 ## 設計原則

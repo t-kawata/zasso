@@ -1,8 +1,9 @@
 /**
  * update-step-status.test.cjs — Tests for the crystalize update-step-status.js
  *
- * Manages CRYSTALIZE-Status.json: step transitions 0..4 plus grill approvals
- * (approve-toc / approve-examples). All writes are atomic (temp-file + rename).
+ * Manages CRYSTALIZE-Status.json: step transitions 0..4 plus the Step 1
+ * per-heading TOC grill (propose-heading / confirm-heading / reset-toc) and
+ * grill approvals (approve-toc / approve-examples). All writes are atomic.
  */
 
 const { describe, it, before, after, afterEach } = require('node:test');
@@ -21,6 +22,10 @@ const {
   executeEndStep,
   executeFailStep,
   executeResetToStep,
+  executeProposeHeading,
+  executeConfirmHeading,
+  executeResetToc,
+  isTocComplete,
   executeApproveToc,
   executeApproveExamples,
   atomicWrite,
@@ -73,6 +78,30 @@ describe('parseArguments', () => {
     assert.equal(parsed.stepNumber, null);
   });
 
+  it('parses propose-heading with a heading id', () => {
+    const parsed = parseArguments([`--graph=${graphPath}`, 'propose-heading', 'H1']);
+    assert.equal(parsed.subcommand, 'propose-heading');
+    assert.equal(parsed.headingId, 'H1');
+    assert.equal(parsed.stepNumber, null);
+  });
+
+  it('parses confirm-heading with a heading id', () => {
+    const parsed = parseArguments([`--graph=${graphPath}`, 'confirm-heading', 'H2-1']);
+    assert.equal(parsed.subcommand, 'confirm-heading');
+    assert.equal(parsed.headingId, 'H2-1');
+    assert.equal(parsed.stepNumber, null);
+  });
+
+  it('parses reset-toc without extra arguments', () => {
+    const parsed = parseArguments([`--graph=${graphPath}`, 'reset-toc']);
+    assert.equal(parsed.subcommand, 'reset-toc');
+    assert.equal(parsed.headingId, null);
+  });
+
+  it('rejects confirm-heading without a heading id', () => {
+    assert.throws(() => parseArguments([`--graph=${graphPath}`, 'confirm-heading']));
+  });
+
   it('rejects an unknown subcommand', () => {
     assert.throws(() => parseArguments([`--graph=${graphPath}`, 'bogus']));
   });
@@ -85,10 +114,13 @@ describe('parseArguments', () => {
     assert.throws(() => parseArguments(['start-step', '0']));
   });
 
-  it('exports the allowed subcommand list including approve-toc/approve-examples', () => {
+  it('exports the allowed subcommand list including the grill subcommands', () => {
     assert.ok(ALLOWED_SUBCOMMANDS.includes('approve-toc'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('approve-examples'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('status'));
+    assert.ok(ALLOWED_SUBCOMMANDS.includes('propose-heading'));
+    assert.ok(ALLOWED_SUBCOMMANDS.includes('confirm-heading'));
+    assert.ok(ALLOWED_SUBCOMMANDS.includes('reset-toc'));
   });
 });
 
@@ -101,6 +133,8 @@ describe('createDefaultStatus', () => {
     assert.equal(status.steps['4'], STATUS_PENDING);
     assert.equal(status.grill.tocApproved, false);
     assert.equal(status.grill.examplesApproved, false);
+    assert.deepEqual(status.grill.proposedIds, []);
+    assert.deepEqual(status.grill.confirmedIds, []);
   });
 });
 
@@ -143,8 +177,10 @@ describe('step transitions', () => {
     assert.equal(status.currentStep, 1);
   });
 
-  it('end-step marks a step done and advances currentStep', () => {
+  it('end-step marks a step done and advances currentStep when Step 1 is gated and complete', () => {
     const status = createDefaultStatus(graphPath);
+    status.grill.proposedIds = ['H1'];
+    status.grill.confirmedIds = ['H1'];
     executeEndStep(status, 1);
     assert.equal(status.steps['1'], STATUS_DONE);
     assert.equal(status.currentStep, 2);
@@ -165,12 +201,74 @@ describe('step transitions', () => {
     assert.equal(status.currentStep, 1);
   });
 
-  it('approve-toc and approve-examples set the grill flags', () => {
+  it('approve-toc derives tocApproved from full confirmation; approve-examples sets its own flag', () => {
     const status = createDefaultStatus(graphPath);
+    status.grill.proposedIds = ['H1', 'H2-1'];
     executeApproveToc(status);
-    executeApproveExamples(status);
+    assert.equal(status.grill.tocApproved, false);
+    executeConfirmHeading(status, 'H1');
+    executeConfirmHeading(status, 'H2-1');
+    executeApproveToc(status);
     assert.equal(status.grill.tocApproved, true);
+    executeApproveExamples(status);
     assert.equal(status.grill.examplesApproved, true);
+  });
+});
+
+describe('per-heading grill — C002', () => {
+  it('propose-heading records a heading id in proposedIds (deduplicated)', () => {
+    const status = createDefaultStatus(graphPath);
+    executeProposeHeading(status, 'H1');
+    executeProposeHeading(status, 'H2-1');
+    executeProposeHeading(status, 'H1');
+    assert.deepEqual(status.grill.proposedIds, ['H1', 'H2-1']);
+  });
+
+  it('confirm-heading records a proposed id in confirmedIds', () => {
+    const status = createDefaultStatus(graphPath);
+    status.grill.proposedIds = ['H1', 'H2-1'];
+    executeConfirmHeading(status, 'H1');
+    assert.deepEqual(status.grill.confirmedIds, ['H1']);
+  });
+
+  it('confirm-heading throws for an id that was never proposed (C002-Inv)', () => {
+    const status = createDefaultStatus(graphPath);
+    status.grill.proposedIds = ['H1'];
+    assert.throws(() => executeConfirmHeading(status, 'H3-1'), /not proposed/);
+    assert.deepEqual(status.grill.confirmedIds, []);
+  });
+
+  it('isTocComplete is false while any proposed id is unconfirmed and true when all are confirmed', () => {
+    const status = createDefaultStatus(graphPath);
+    status.grill.proposedIds = ['H1', 'H2-1'];
+    assert.equal(isTocComplete(status), false);
+    executeConfirmHeading(status, 'H1');
+    assert.equal(isTocComplete(status), false);
+    executeConfirmHeading(status, 'H2-1');
+    assert.equal(isTocComplete(status), true);
+  });
+
+  it('isTocComplete is false for an empty proposed set', () => {
+    const status = createDefaultStatus(graphPath);
+    assert.equal(isTocComplete(status), false);
+  });
+
+  it('end-step 1 throws while the TOC grill is incomplete (C002-Inv)', () => {
+    const status = createDefaultStatus(graphPath);
+    status.grill.proposedIds = ['H1'];
+    assert.throws(() => executeEndStep(status, 1), /TOC grill is incomplete/);
+    assert.equal(status.steps['1'], STATUS_PENDING);
+  });
+
+  it('reset-toc clears the per-heading grill state', () => {
+    const status = createDefaultStatus(graphPath);
+    status.grill.proposedIds = ['H1'];
+    status.grill.confirmedIds = ['H1'];
+    status.grill.tocApproved = true;
+    executeResetToc(status);
+    assert.deepEqual(status.grill.proposedIds, []);
+    assert.deepEqual(status.grill.confirmedIds, []);
+    assert.equal(status.grill.tocApproved, false);
   });
 });
 

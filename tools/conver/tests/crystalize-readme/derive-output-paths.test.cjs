@@ -2,18 +2,24 @@
  * derive-output-paths.test.cjs — Tests for derive-output-paths.js (Contract C001)
  *
  * C001-Pre: sourceFile is a non-empty string, possibly ~/-relative.
- * C001-Post: prints {rfcDir, examplesDir, residuesDir, readmePath}.
+ * C001-Post: deriveOutputPaths prints {rfcDir, examplesDir, residuesDir, readmePath}.
  * C001-Inv: examplesDir and residuesDir always live under rfcDir.
+ *
+ * Preflight contract (C001-preflight): the CLI (main) fails with exit 1 when the
+ * graph's sourceFile RFC document does not exist on disk, and prints
+ * {sourceFile, rfcDir, examplesDir, residuesDir, readmePath} when it does, so
+ * Step 0 can read the RFC design documents from the verified sourceFile.
  */
 
 const { describe, it, before, after } = require('node:test');
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
 const SCRIPT = path.resolve(__dirname, '../../.claude/scripts/crystalize-readme/derive-output-paths.js');
-const { parseArguments, deriveOutputPaths } = require(SCRIPT);
+const { parseArguments, deriveOutputPaths, assertSourceFileExists } = require(SCRIPT);
 
 let tmpDir;
 
@@ -76,5 +82,68 @@ describe('deriveOutputPaths — C001', () => {
 
   it('fails on a non-string sourceFile', () => {
     assert.throws(() => deriveOutputPaths({ sourceFile: 42, mainLanguage: 'rust', nodes: [], edges: [] }));
+  });
+});
+
+describe('assertSourceFileExists — Preflight sourceFile check', () => {
+  it('passes when the sourceFile RFC document exists on disk', () => {
+    const sourceFile = path.join(tmpDir, 'preflight-exists', 'RFC-ROOT.md');
+    fs.mkdirSync(path.dirname(sourceFile), { recursive: true });
+    fs.writeFileSync(sourceFile, '# RFC-ROOT\n', 'utf8');
+    assert.doesNotThrow(() => assertSourceFileExists({ sourceFile }));
+  });
+
+  it('returns the resolved sourceFile path so Step 0 can read it', () => {
+    const sourceFile = path.join(tmpDir, 'preflight-return', 'RFC-ROOT.md');
+    fs.mkdirSync(path.dirname(sourceFile), { recursive: true });
+    fs.writeFileSync(sourceFile, '# RFC-ROOT\n', 'utf8');
+    const resolved = assertSourceFileExists({ sourceFile });
+    assert.equal(resolved, sourceFile);
+  });
+
+  it('fails when the sourceFile RFC document does not exist on disk', () => {
+    const sourceFile = path.join(tmpDir, 'preflight-missing', 'RFC-ROOT.md');
+    assert.throws(() => assertSourceFileExists({ sourceFile }), /sourceFile not found/);
+  });
+
+  it('fails on a missing sourceFile field', () => {
+    assert.throws(() => assertSourceFileExists({ nodes: [], edges: [] }));
+  });
+
+  it('fails on a non-string sourceFile', () => {
+    assert.throws(() => assertSourceFileExists({ sourceFile: 42 }));
+  });
+});
+
+describe('main — CLI Preflight', () => {
+  it('prints the derived paths and exits 0 when the graph and sourceFile exist', () => {
+    const dir = path.join(tmpDir, 'cli-ok');
+    fs.mkdirSync(dir, { recursive: true });
+    const sourceFile = path.join(dir, 'RFC-ROOT.md');
+    fs.writeFileSync(sourceFile, '# RFC-ROOT\n', 'utf8');
+    const graphPath = path.join(dir, 'RFC-ROOT-GRAPH.json');
+    fs.writeFileSync(graphPath, JSON.stringify({ sourceFile, mainLanguage: 'rust', nodes: [], edges: [] }), 'utf8');
+
+    const result = spawnSync('node', [SCRIPT, `--graph=${graphPath}`], { encoding: 'utf8' });
+    assert.equal(result.status, 0);
+    const paths = JSON.parse(result.stdout.trim());
+    assert.equal(paths.sourceFile, sourceFile);
+    assert.equal(paths.rfcDir, dir);
+    assert.equal(paths.readmePath, path.join(dir, 'README.md'));
+  });
+
+  it('exits 1 when the sourceFile does not exist', () => {
+    const dir = path.join(tmpDir, 'cli-missing');
+    fs.mkdirSync(dir, { recursive: true });
+    const graphPath = path.join(dir, 'RFC-ROOT-GRAPH.json');
+    fs.writeFileSync(
+      graphPath,
+      JSON.stringify({ sourceFile: path.join(dir, 'RFC-ROOT.md'), mainLanguage: 'rust', nodes: [], edges: [] }),
+      'utf8'
+    );
+
+    const result = spawnSync('node', [SCRIPT, `--graph=${graphPath}`], { encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /sourceFile not found/);
   });
 });

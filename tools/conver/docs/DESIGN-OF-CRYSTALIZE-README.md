@@ -44,20 +44,25 @@ RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの�
 ```
 
 - 第 1 引数: グラフ JSON のパス（絶対または相対）
-- グラフの `sourceFile` から元 RFC ドキュメントを特定する
+- グラフの `sourceFile` から元 RFC ドキュメントを特定する（実在は Preflight で検証）
 
 ## 4. 処理フロー（全体像）
 
 ```
   ┌────────────────────────────────────────────────────┐
-  │ Step 0: 引数検証・パス導出（決定論）                  │
-  │   validate-graph-arg.js + derive-output-paths.js    │
+  │ Preflight: パス導出 + sourceFile 実在チェック（決定論）│
+  │   derive-output-paths.js                            │
+  └────────────────────────────────────────────────────┘
+                        ▼
+  ┌────────────────────────────────────────────────────┐
+  │ Step 0: sourceFile の読込                           │
+  │   sourceFile が指すファイルを読む                    │
   └────────────────────────────────────────────────────┘
                         ▼
   ┌────────────────────────────────────────────────────┐
   │ Step 1: グリル — 階層的見出し（目次）                 │
-  │   AI が目次案を提案 → 決定論チェック →               │
-  │   ユーザーは Yes/No または ABC のみで回答            │
+  │   AI が提案 → validate-toc-proposal.js で検証 →     │
+  │   ID 単位で Yes/No・ABC 回答 → 全確定で Step 2 へ    │
   └────────────────────────────────────────────────────┘
                         ▼
   ┌────────────────────────────────────────────────────┐
@@ -90,9 +95,11 @@ RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの�
 
 | 工程 | 決定論（スクリプト） | 非決定論（AI） |
 |---|---|---|
-| 引数検証・パス導出 | ○ | — |
-| 目次案の候補抽出（グラフから） | ○ | — |
-| 目次案の編成・見出し文の合成 | 構造検証 ○ | ○（取捨・編成） |
+| Preflight（パス導出 + sourceFile 実在チェック） | ○ | — |
+| sourceFile の読込（Step 0） | — | ○（読込） |
+| 見出し提案の検証ゲート（validate-toc-proposal） | ○ | — |
+| 見出し提案の合成（使い方に絞る） | — | ○（合成・推奨） |
+| 見出しの確定記録（confirm-heading / isTocComplete） | ○ | — |
 | examples の仕様・設計の合成 | グラフノード抽出 ○ | ○ |
 | 分岐判定 (a)/(b) | ○ | — |
 | README / RESIDUE 本文の執筆 | 構造・雛形 ○ | ○ |
@@ -100,31 +107,33 @@ RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの�
 
 ## 6. Step 詳細
 
-### Step 0: 引数検証・パス導出（決定論）
+### Preflight: パス導出 + sourceFile 実在チェック（決定論）
 
-スクリプト:
-- `validate-graph-arg.js`: 引数がグラフ JSON として妥当か（nodes / edges / sourceFile の存在とスキーマ検証）
-- `derive-output-paths.js`: 以下を導出する
-  - `rfcDir` = dirname(sourceFile)
-  - `examplesDir` = `<rfcDir>/examples/`
-  - `residuesDir` = `<rfcDir>/residues/`
-  - README 候補 = `<rfcDir>/README.md`
-  - RESIDUE 候補 = `<residuesDir>/RESIDUE-<YYYYMMDDhhmmss>.md`
+`derive-output-paths.js` がグラフ JSON の読込・構造検証と、`sourceFile`（元 RFC 文書）の実在チェックを同時に行い、以下を導出する。
+
+- `sourceFile` = 展開後の元 RFC 文書パス（実在チェック済み。Step 0 の読込対象）
+- `rfcDir` = dirname(sourceFile)
+- `examplesDir` = `<rfcDir>/examples/`
+- `residuesDir` = `<rfcDir>/residues/`
+- README 候補 = `<rfcDir>/README.md`
+- RESIDUE 候補 = `<residuesDir>/RESIDUE-<YYYYMMDDhhmmss>.md`
+
+### Step 0: sourceFile の読込
+
+目的: Step 1（目次グリル）・Step 2（examples 仕様グリル）の前提情報を収集する。
+
+- Preflight が出力した `sourceFile` のファイルを読む。
+- この Step の完了前に Step 1 以降に進まない。
 
 ### Step 1: グリル — 階層的見出し（目次）
 
-目的: README の目次（階層的見出し）を確定する。
+目的: README の目次（階層的見出し）を確定する。sourceFile を前提とし、**使い方に絞って技術的詳細内容に踏み込まない**目次を合成する。
 
-1. **候補抽出（決定論）**: `extract-toc-candidates.js` がグラフのノード階層から見出し候補を抽出する。
-2. **AI による編成（非決定論）**: 候補を土台に、AI が目次の取捨・階層・見出し文を合成する。
-3. **構造チェック（決定論）**: `check-toc-structure.js` が目次案を検証する。
-   - 見出しの重複がない
-   - 階層が整合的（レベルが飛ばない）
-   - グラフの主要セクションを網羅している
-   - 末尾が「examples（実装サンプル）の仕様と設計」である
-   - 不合格なら AI が自動修正を試みる（修正後も不合格なら再提案として扱う）
-4. **ユーザー承認**: ユーザーは **Yes/No または ABC の選択のみ**で回答する（`/grill-me-for-rfc` と同様の応答形式）。自由記述を要求しない。
-   - 例: `この目次で進めますか? Y / N / A / B / C`
+1. **見出し提案（非決定論）**: AI が各見出しを `{id, heading, contentOptions[], recommendation, reason}` の形で合成する。全ての見出しに**階層的に一意な ID（H1, H2-1, H2-2, ...）**を採番し、各提案に AI の推奨と理由を明示する。
+2. **検証ゲート（決定論・必須）**: 各提案は**ユーザーへ提示する前に** `validate-toc-proposal.js` で検証する。`valid:true` になるまで再構成し、未検証の提案は提示しない。ID は `/^H[1-6](-[1-9][0-9]*)?$/` に従い、同一ターン内で重複しない。
+3. **ユーザー回答**: ユーザーは **ID 単位で A/B/C/Yes/No で回答**する。自由コメントも可（確定には ID 単位の回答が必要）。
+4. **確定記録（決定論）**: 回答ごとに `update-step-status.js confirm-heading <id>` で確定を記録する。全提案 ID が確定した場合のみ `isTocComplete()=true` / `tocApproved=true` となり、`end-step 1` で Step 2 へ進む。未確定の間は Step 1 を完了できない。
+   - **末尾の見出しは必ず「examples（実装サンプル）の仕様と設計」**とする。
 
 ### Step 2: グリル — examples（実装サンプル）の仕様と設計
 
@@ -186,16 +195,15 @@ RESIDUE は「README が書けない理由」を体系的に記録する文書�
 
 | スクリプト | 決定論 | 責務 |
 |---|---|---|
-| `validate-graph-arg.js` | 100% | 引数・グラフスキーマ検証 |
-| `derive-output-paths.js` | 100% | 出力パス導出 |
-| `extract-toc-candidates.js` | 100% | グラフからの見出し候補抽出 |
-| `check-toc-structure.js` | 100% | 目次案の構造検証 |
+| `validate-graph-arg.js` | 100% | グラフ読込・スキーマ検証（スタンドアロン工程では直接呼ばない。`derive-output-paths.js` が `readGraphFile` を内部利用） |
+| `derive-output-paths.js` | 100% | Preflight。出力パス導出 + `sourceFile` 実在チェック |
+| `validate-toc-proposal.js` | 100% | Step 1 見出し提案の検証ゲート（ID 階層一意 / contentOptions 2-4 / 推奨 ∈ 選択肢 / reason 非空 / 決定論） |
 | `validate-examples-spec.js` | 100% | examples 仕様の構造・参照整合検証 |
 | `check-readme-writable.js` | 100% | (a)/(b) 分岐判定 |
 | `generate-residue-filename.js` | 100% | `RESIDUE-<YYYYMMDDhhmmss>.md` 名生成 |
 | `validate-readme-output.js` | 100% | README 出力構造検証 |
 | `validate-residue-output.js` | 100% | RESIDUE 出力構造検証 |
-| `update-step-status.js` | 100% | ステップ進行管理（既存 `rfc-graph/update-step-status.js` パターンを流用） |
+| `update-step-status.js` | 100% | ステップ進行管理 + Step 1 グリル確定（`propose-heading` / `confirm-heading` / `reset-toc` / `isTocComplete`。全確定で `tocApproved`、未確定で `end-step 1` をブロック） |
 
 各スクリプトは `tests/crystalize-readme/*.test.cjs` を伴う（node.md 規約: CommonJS、`make test-crystalize-readme` で `node --test` 実行）。
 
@@ -217,4 +225,6 @@ RESIDUE は「README が書けない理由」を体系的に記録する文書�
 
 ## 12. 変更履歴
 
+- 2026-08-18 (PX-153): Step 1 を「見出しごとの提案グリル」に再設計。決定論的候補抽出（`extract-toc-candidates.js`）と構造チェック（`check-toc-structure.js`）を廃止・削除。各見出し提案を `validate-toc-proposal.js` で提示前に検証し、`update-step-status.js` の `confirm-heading` / `isTocComplete` で全 ID 確定まで Step 2 へ進めない方式に変更。
+- 2026-08-18: 独立した引数検証 Step 0 を廃止。Preflight を導入し、`derive-output-paths.js` がグラフ読込・`sourceFile` 実在チェック・パス導出を一括実行し、検証済み `sourceFile` を含む JSON を出力するように変更。新 Step 0 を「sourceFile の読込」とし、Step 1・2 の前提情報とした。
 - 2026-08-17: siprs の設計メモを収束・仕様化。`samples` → `examples` に改名。グリル（目次）の応答形式を Yes/No・ABC に規定。決定論 vs 非決定論の原則を明記。
