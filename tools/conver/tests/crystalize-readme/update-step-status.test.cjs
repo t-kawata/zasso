@@ -30,7 +30,8 @@ const {
   executeResetToc,
   isTocComplete,
   executeApproveToc,
-  executeApproveExamples,
+  executeResolveSection,
+  executeMarkResidue,
   atomicWrite,
   MIN_STEP,
   MAX_STEP,
@@ -106,7 +107,9 @@ describe('parseArguments', () => {
 
   it('exports the allowed subcommand list including the grill subcommands', () => {
     assert.ok(ALLOWED_SUBCOMMANDS.includes('approve-toc'));
-    assert.ok(ALLOWED_SUBCOMMANDS.includes('approve-examples'));
+    assert.ok(ALLOWED_SUBCOMMANDS.includes('resolve-section'));
+    assert.ok(ALLOWED_SUBCOMMANDS.includes('mark-residue'));
+    assert.ok(!ALLOWED_SUBCOMMANDS.includes('approve-examples'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('status'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('propose-heading'));
     assert.ok(ALLOWED_SUBCOMMANDS.includes('confirm-heading'));
@@ -124,6 +127,7 @@ describe('createDefaultStatus', () => {
     assert.equal(status.grill.tocApproved, false);
     assert.equal(status.grill.examplesApproved, false);
     assert.deepEqual(status.grill.toc.nodes, []);
+    assert.deepEqual(status.grill.sections, []);
   });
 });
 
@@ -213,7 +217,7 @@ describe('step transitions', () => {
     assert.equal(status.currentStep, 1);
   });
 
-  it('approve-toc derives tocApproved from full confirmation; approve-examples sets its own flag', () => {
+  it('approve-toc derives tocApproved from full confirmation', () => {
     const status = createDefaultStatus(graphPath);
     executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
     executeProposeHeading(status, { id: 'H1-1', heading: 'アカウントの追加' });
@@ -223,8 +227,36 @@ describe('step transitions', () => {
     executeConfirmHeading(status, { id: 'H1-1', confirmedContent: '本文2' });
     executeApproveToc(status);
     assert.equal(status.grill.tocApproved, true);
-    executeApproveExamples(status);
-    assert.equal(status.grill.examplesApproved, true);
+  });
+});
+
+describe('section state subcommands — PX-156', () => {
+  it('resolve-section marks a section complete', () => {
+    const status = createDefaultStatus(graphPath);
+    executeResolveSection(status, { id: 'H1', heading: 'クイックスタート' });
+    assert.equal(status.grill.sections.length, 1);
+    assert.equal(status.grill.sections[0].id, 'H1');
+    assert.equal(status.grill.sections[0].state, 'complete');
+  });
+
+  it('resolve-section upserts an existing section without duplicating it', () => {
+    const status = createDefaultStatus(graphPath);
+    executeResolveSection(status, { id: 'H1', heading: 'クイックスタート' });
+    executeResolveSection(status, { id: 'H1', heading: 'クイックスタート' });
+    assert.equal(status.grill.sections.length, 1);
+  });
+
+  it('mark-residue marks a section as residue', () => {
+    const status = createDefaultStatus(graphPath);
+    executeMarkResidue(status, { id: 'H1-1', heading: 'アカウントの追加' });
+    const section = status.grill.sections.find((s) => s.id === 'H1-1');
+    assert.equal(section.state, 'residue');
+  });
+
+  it('resolve-section / mark-residue require an id and heading', () => {
+    const status = createDefaultStatus(graphPath);
+    assert.throws(() => executeResolveSection(status, { heading: 'x' }), /id/);
+    assert.throws(() => executeMarkResidue(status, { id: 'H1' }), /heading/);
   });
 });
 

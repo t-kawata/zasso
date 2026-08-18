@@ -17,7 +17,8 @@
  *   delete-heading    Remove a heading and all its descendants from stdin {id}
  *   reset-toc          Clear the per-heading TOC grill state
  *   approve-toc       Set tocApproved only when every node is confirmed
- *   approve-examples  Record the Step 2 examples grill approval
+ *   resolve-section    Mark a section complete in grill.sections from stdin {id, heading}
+ *   mark-residue       Mark a section as residue in grill.sections from stdin {id, heading}
  *   status            Output the current state as formatted JSON
  *   cleanup           Delete known temporary files (idempotent)
  *   backup            Create a .bak of the status file (idempotent)
@@ -52,10 +53,10 @@ const MAX_STEP = 4;
 const STEP_SUBCOMMANDS = ['start-step', 'end-step', 'fail-step', 'reset-to-step'];
 
 /** Subcommands that read their input JSON from stdin */
-const STDIN_SUBCOMMANDS = ['propose-heading', 'confirm-heading', 'delete-heading'];
+const STDIN_SUBCOMMANDS = ['propose-heading', 'confirm-heading', 'delete-heading', 'resolve-section', 'mark-residue'];
 
 /** Subcommands that take no extra argument */
-const NO_ARG_SUBCOMMANDS = ['approve-toc', 'approve-examples', 'status', 'cleanup', 'backup', 'reset-toc'];
+const NO_ARG_SUBCOMMANDS = ['approve-toc', 'status', 'cleanup', 'backup', 'reset-toc'];
 
 /** Allowed subcommand names */
 const ALLOWED_SUBCOMMANDS = [
@@ -148,7 +149,7 @@ function resolveStatusPath(parsed) {
  * @param {string} graphPath — Graph file path
  * @returns {Object} Default status data
  */
-// [::TICKET::] PX-152, PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154|PX-156) --for-spec --no-implementation-order`.
 function createDefaultStatus(graphPath) {
   const graph = readGraphFile(graphPath);
   const sourceFile = path.resolve(fromHomeRelative(graph.sourceFile));
@@ -161,7 +162,7 @@ function createDefaultStatus(graphPath) {
     graphFile: path.resolve(graphPath),
     currentStep: MIN_STEP,
     steps,
-    grill: { tocApproved: false, examplesApproved: false, toc: { nodes: [] } },
+    grill: { tocApproved: false, examplesApproved: false, toc: { nodes: [] }, sections: [] },
   };
 }
 
@@ -172,7 +173,7 @@ function createDefaultStatus(graphPath) {
  * @param {string} graphPath — Graph file path (used for the default)
  * @returns {Object} Status data
  */
-// [::TICKET::] PX-152, PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154|PX-156) --for-spec --no-implementation-order`.
 function readStatus(statusPath, graphPath) {
   if (!fs.existsSync(statusPath)) {
     return createDefaultStatus(graphPath);
@@ -185,7 +186,10 @@ function readStatus(statusPath, graphPath) {
     throw new Error(`${statusPath} has invalid format. sourceFile / graphFile / currentStep / steps are required.`);
   }
   if (!statusData.grill) {
-    statusData.grill = { tocApproved: false, examplesApproved: false, toc: { nodes: [] } };
+    statusData.grill = { tocApproved: false, examplesApproved: false, toc: { nodes: [] }, sections: [] };
+  }
+  if (!Array.isArray(statusData.grill.sections)) {
+    statusData.grill.sections = [];
   }
   if (!statusData.grill.toc || !Array.isArray(statusData.grill.toc.nodes)) {
     // Backward-compatible migration from the legacy id-only grill (PX-153):
@@ -391,11 +395,58 @@ function executeApproveToc(status) {
   process.stdout.write(status.grill.tocApproved ? 'TOC grill approved (tocApproved=true).\n' : 'TOC grill incomplete (tocApproved=false).\n');
 }
 
-/** approve-examples: record the Step 2 examples grill approval. */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
-function executeApproveExamples(status) {
-  status.grill.examplesApproved = true;
-  process.stdout.write('Examples grill approved (examplesApproved=true).\n');
+/**
+ * resolve-section: mark a section as complete in grill.sections (UPSERT).
+ *
+ * @param {Object} status — Status data
+ * @param {Object} request — {id, heading}
+ * @throws {Error} If id or heading are missing
+ */
+// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+function executeResolveSection(status, request) {
+  const { id, heading } = request || {};
+  if (typeof id !== 'string' || id.trim() === '') {
+    throw new Error('request.id is required.');
+  }
+  if (typeof heading !== 'string' || heading.trim() === '') {
+    throw new Error('request.heading is required.');
+  }
+  const sections = status.grill.sections;
+  const existing = sections.find((s) => s.id === id);
+  if (existing) {
+    existing.heading = heading;
+    existing.state = 'complete';
+  } else {
+    sections.push({ id, heading, state: 'complete' });
+  }
+  process.stdout.write(`Section resolved: ${id}\n`);
+}
+
+/**
+ * mark-residue: mark a section as residue in grill.sections (UPSERT).
+ *
+ * @param {Object} status — Status data
+ * @param {Object} request — {id, heading}
+ * @throws {Error} If id or heading are missing
+ */
+// [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
+function executeMarkResidue(status, request) {
+  const { id, heading } = request || {};
+  if (typeof id !== 'string' || id.trim() === '') {
+    throw new Error('request.id is required.');
+  }
+  if (typeof heading !== 'string' || heading.trim() === '') {
+    throw new Error('request.heading is required.');
+  }
+  const sections = status.grill.sections;
+  const existing = sections.find((s) => s.id === id);
+  if (existing) {
+    existing.heading = heading;
+    existing.state = 'residue';
+  } else {
+    sections.push({ id, heading, state: 'residue' });
+  }
+  process.stdout.write(`Section marked residue: ${id}\n`);
 }
 
 /** status: output the current status as formatted JSON. */
@@ -477,7 +528,7 @@ function exitWithError(message, reason, action) {
 /**
  * Display usage instructions.
  */
-// [::TICKET::] PX-152, PX-153, PX-154, PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154|PX-155) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-155, PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154|PX-155|PX-156) --for-spec --no-implementation-order`.
 function printUsage() {
   process.stdout.write(`
 update-step-status.js — CRYSTALIZE-Status.json management
@@ -497,7 +548,8 @@ Subcommands:
   delete-heading    Remove a heading and all its descendants from stdin {id}
   reset-toc          Clear the per-heading TOC grill state
   approve-toc       Set tocApproved only when every node is confirmed
-  approve-examples  Record the examples grill approval
+  resolve-section   Mark a section complete in grill.sections from stdin {id, heading}
+  mark-residue      Mark a section as residue in grill.sections from stdin {id, heading}
   status            Output the current state as formatted JSON
   cleanup           Delete known temporary files (idempotent)
   backup            Create a .bak of the status file (idempotent)
@@ -514,7 +566,7 @@ Step numbers: ${MIN_STEP} to ${MAX_STEP}
 /**
  * main — parse arguments, dispatch subcommand, write atomically.
  */
-// [::TICKET::] PX-152, PX-153, PX-154, PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154|PX-155) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-155, PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154|PX-155|PX-156) --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {
@@ -584,8 +636,11 @@ function main() {
           exitWithError('TOC grill is not complete.', 'Not every proposed heading id is confirmed.', 'Confirm every proposed id via confirm-heading, then re-run approve-toc.');
         }
         break;
-      case 'approve-examples':
-        executeApproveExamples(status);
+      case 'resolve-section':
+        executeResolveSection(status, inputJson);
+        break;
+      case 'mark-residue':
+        executeMarkResidue(status, inputJson);
         break;
       case 'status':
         executeStatus(status);
@@ -634,7 +689,8 @@ module.exports = {
   isTocComplete,
   canEndStep,
   executeApproveToc,
-  executeApproveExamples,
+  executeResolveSection,
+  executeMarkResidue,
   executeStatus,
   executeCleanup,
   executeBackup,

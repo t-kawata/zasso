@@ -1,5 +1,5 @@
 ---
-description: RFC のグラフからユーザー向け使い方 README（または RESIDUE）を生成する。
+description: RFC のグラフからユーザー向け使い方 README を生成する（セクション単位の点検ループ方式）。
 argument-hint: </path/to/*-GRAPH.json>
 allowed-tools: Read, Write, Bash
 disable-model-invocation: true
@@ -7,7 +7,7 @@ disable-model-invocation: true
 
 # /crystalize-readme <graph-path>
 
-**Role**: RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの「使い方 README」を生成する。README が書けるか否かは、**README に記載する使い方に従って完全に動作する examples 実装が、現状の実装で完全に成立しうるか**で判断する。書けない場合は、その実装漏れ・不足・矛盾を `residues/RESIDUE-<timestamp>.md` に記録する。RESIDUE は「書けない理由のメモ」ではなく、**README と examples 実装を完全なものにするための実装用チケットを作成する情報源**として、厳格かつ厳密に記述する（将来 `/drill-rfc-down` によりチケット化される）。
+**Role**: RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの「使い方 README」を生成する。README の各セクションは、**そのセクションに記載する使い方に従って完全に動作する実装が現状で成立しうるか**をセクション単位で判断して「完全記述」か「残渣記述」に確定する。書けないセクションは `<::README-RESIDUE::>`（examples は `<::EXAMPLES-RESIDUE::>`）マーカーとともに、危険・漏れ・矛盾・不足の具体的証拠と実装補強設計を README.md 内に記録する。RESIDUE は「書けない理由のメモ」ではなく、**README と examples 実装を完全なものにするための実装用チケットを作成する情報源**として、厳格かつ厳密に記述する（将来 `/drill-rfc-down` によりチケット化される）。独立した RESIDUE ファイルは生成しない。
 
 ## Language Protocol
 
@@ -49,7 +49,6 @@ node .claude/scripts/crystalize-readme/derive-output-paths.js --graph="$ARGUMENT
 | sourceFile | /path/to/rfc/RFC-ROOT.md |
 | rfcDir | /path/to/rfc |
 | examplesDir | /path/to/rfc/examples |
-| residuesDir | /path/to/rfc/residues |
 | readmePath | /path/to/rfc/README.md |
 
 - sourceFile exists: yes
@@ -69,7 +68,6 @@ node .claude/scripts/crystalize-readme/derive-output-paths.js --graph="$ARGUMENT
 | sourceFile | /path/to/rfc/RFC-ROOT.md |
 | rfcDir | /path/to/rfc |
 | examplesDir | /path/to/rfc/examples |
-| residuesDir | /path/to/rfc/residues |
 | readmePath | /path/to/rfc/README.md |
 
 - sourceFile exists: yes
@@ -82,8 +80,14 @@ node .claude/scripts/crystalize-readme/derive-output-paths.js --graph="$ARGUMENT
 | `sourceFile` | グラフの生成元 RFC 文書（Preflight で実在を確認済み）。Step 0 の読込対象 |
 | `rfcDir` | 元 RFC 文書が置かれているディレクトリ |
 | `examplesDir` | `<rfcDir>/examples/`。examples（実装サンプル）の置き場 |
-| `residuesDir` | `<rfcDir>/residues/`。RESIDUE 文書の置き場 |
 | `readmePath` | `<rfcDir>/README.md`。README の出力先 |
+
+## マーカー分類（単一情報源: `validate-marker-grammar.js`）
+
+| セクション種別 | 作業単位（未処理） | 残渣（書けない） |
+|---|---|---|
+| 使い方セクション | `<::TEMPLATE-README::>` | `<::README-RESIDUE::>` |
+| examples セクション | `<::TEMPLATE-EXAMPLES::>` | `<::EXAMPLES-RESIDUE::>` |
 
 ## Workflow Steps
 
@@ -91,7 +95,7 @@ node .claude/scripts/crystalize-readme/derive-output-paths.js --graph="$ARGUMENT
 
 Preflight が出力した `sourceFile` のファイルを読む。
 
-- 読み取った内容は **Step 1（目次グリル）と Step 2（examples 仕様グリル）の前提情報**として使用する。
+- 読み取った内容は **Step 1（目次グリル）の前提情報**として使用する。
 - この Step が完了するまで Step 1 以降に進まない。
 
 ### Step 1: グリル — 階層的見出し（目次）
@@ -124,46 +128,82 @@ echo '<proposal-json>' | node .claude/scripts/crystalize-readme/update-step-stat
 echo '{"id":"H1-1","confirmedContent":"add_account() と register() を呼ぶコード"}' | node .claude/scripts/crystalize-readme/update-step-status.js --graph="$ARGUMENTS" confirm-heading
 ```
 
-6. **完了条件**: 全ての見出し項目と内容が確定するまで Step 2 に進まない。全ノード確定後、`end-step 1` で Step 1 を完了し Step 2 へ進む。**末尾の見出しは必ず「examples（実装サンプル）の仕様と設計」**とする。
+6. **完了条件**: 全ての見出し項目と内容が確定するまで次に進まない。提案修正と再提案を繰り返し全て確定するまで続ける。全ノード確定後、`end-step 1` で Step 1 を完了する。**末尾の見出しは必ず「Examples（implementation samples）spec and design」**とする。
 
-### Step 2: グリル — examples（実装サンプル）の仕様と設計
+7. **雛形出力（Step 1 の最後・決定論）**: 確定した見出し群 + examples セクションをスクリプトにより機械的に README.md へ雛形出力する。各使い方セクションには `<::TEMPLATE-README::>`、examples セクションには `<::TEMPLATE-EXAMPLES::>` のマーカーが自動付与される。
 
-README 末尾セクション「examples（実装サンプル）の仕様と設計」の内容を確定する。Step 0 で読み込んだ `sourceFile` の内容を前提情報として使用する。
+```bash
+node .claude/scripts/crystalize-readme/emit-readme-skeleton.js --graph="$ARGUMENTS" --readme=<rfcDir>/README.md
+```
+
+- **refine モード安全**: 未解決の `<::TEMPLATE-*::>` マーカーを含む既存 README.md は上書きを拒否する（exit 1）。
+- この Step が完了するまで Step 2 に進まない。
+
+### Step 2: セクション単位の点検ループ
+
+確定した見出し群の各セクションを「完全記述」または「残渣記述」へ遷移させるループ。**判断はセクション単位**でなければならない。
+
+**エントリー判断（決定論・必須）**: まずチケットリストを表示し、src 内のどこを読むべきかのエントリーを特定する。チケットキー（PX-1xx など）が分かれば `specs/<ticket>.md` で設計 spec を確認できる。
+
+```bash
+node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json
+```
+
+ループ本体:
+
+1. **ループ状態確認（決定論）**: `loop-drive-readme.js` で未解決セクション（`<::TEMPLATE-README::>` 残存）を一覧する。
+
+```bash
+node .claude/scripts/crystalize-readme/loop-drive-readme.js --readme=<rfcDir>/README.md --list
+```
+
+2. **実装の解析（証拠必須）**: 各 `<::TEMPLATE-README::>` セクションについて、セクションの内容に対応するチケットキーを特定し、`specs/<ticket>.md` → src の実装を解析する。「README のそのセクションに書かれる内容が**漏れ・矛盾・不足のない完全に動作する実装**として完了しているか」を厳しく点検する。証拠のない判断は禁止。
+3. **判定（セクション単位・非決定論）**: 「**確実に正確に動作することを保証できる README（使い方だけを記述し、内部の技術詳細には踏み込まない）**」が「書けるか書けないか」をセクション単位で判断する。
+   - **「書ける」** → 完全な記述を書き上げ、`<::TEMPLATE-README::>` マーカーを削除する（`resolve-section` で CRYSTALIZE-Status.json も complete 化）。
+   - **「書けない」** → 「危険・漏れ・矛盾・不足」の**具体的証拠**と**どう実装補強しなければならないか**を極めて具体的且つ説明的に記述し、`<::TEMPLATE-README::>` を消して `<::README-RESIDUE::>` に置換する（`mark-residue` で CRYSTALIZE-Status.json も residue 化）。
+
+```bash
+echo '{"id":"H1-1","heading":"アカウントの追加"}' | node .claude/scripts/crystalize-readme/update-step-status.js --graph="$ARGUMENTS" resolve-section
+echo '{"id":"H1-2","heading":"通話"}' | node .claude/scripts/crystalize-readme/update-step-status.js --graph="$ARGUMENTS" mark-residue
+```
+
+4. **脱出条件（決定論）**: 全ての `<::TEMPLATE-README::>` マーカーに対して対応が完了したことをスクリプトが点検し、README.md が「完全記述セクション」と「残渣記述セクション」の **2 種類のみ**で構成されることを保証できた時のみループを抜ける。
+
+```bash
+node .claude/scripts/crystalize-readme/loop-drive-readme.js --readme=<rfcDir>/README.md --check
+# exit 0 → ループ脱出 / exit 1 → 未解決セクションあり（ループ継続）
+```
+
+### Step 3: examples 専用 Step（ループ脱出後）
+
+README 末尾セクション「Examples（implementation samples）spec and design」を確定する。`<::TEMPLATE-EXAMPLES::>` マーカーの解決はこの専用 Step の責務であり、Step 2 ループの完了チェックには含まれない。
 
 1. **候補抽出（決定論）**: グラフから examples 関連ノード（実装サンプルを示す kind）を抽出して AI に提示する。
 2. **AI による合成（非決定論）**: AI が examples の仕様と設計（各サンプルが示す使い方・API 表面・期待動作）を合成する。
 3. **構造チェック（決定論）**: `validate-examples-spec.js` で合成結果の構造・参照整合を検証する。
+4. **確定（セクション単位）**: 確実に動作する examples の記述が書ける場合は完全記述で `<::TEMPLATE-EXAMPLES::>` を削除する。書けない場合は証拠 + 実装補強設計を記述し、`<::TEMPLATE-EXAMPLES::>` を `<::EXAMPLES-RESIDUE::>` に置換する。
 
-### Step 3: 分岐判定（決定論）
+### Step 4: 出力検証（決定論）
 
 ```bash
-node .claude/scripts/crystalize-readme/check-readme-writable.js --graph="$ARGUMENTS"
-# exit 0 → (a) README 系統 / exit 1 → (b) RESIDUE 系統
+node .claude/scripts/crystalize-readme/validate-readme-output.js --readme=<rfcDir>/README.md
 ```
 
-(a) README が書けると判定されるのは以下を**すべて**満たす場合:
-
-1. グラフの機械検証が通過する（`uncoveredHeadings = []`、`isolatedNodes = []`、`unresolvableRefs = []`）
-2. 未解決の OMISSIONS インベントリが存在しない
-3. `examples/` が実在し、グラフが参照するサンプル実装がすべて実在する
-4. グリルで確定した目次・examples 仕様が整合している
-
-いずれかを満たさない場合は (b) RESIDUE へ。判定理由は RESIDUE に記録する。
-
-### Step 4: 出力生成と検証
-
-- **(a)** `<rfcDir>/README.md` を生成する。末尾セクションは必ず「examples（実装サンプル）の仕様と設計」。
-- **(b)** `<residuesDir>/RESIDUE-<YYYYMMDDhhmmss>.md` を生成する。既存の OMISSIONS インベントリ（例: `OMISSIONS-*.md`）があれば雛形として投入する。
-- 生成後、`validate-readme-output.js` / `validate-residue-output.js` で出力構造を検証し、不合格なら AI が修正する。
+- `<::TEMPLATE-*::>` が **0 個**で、全セクションが「完全記述」または「残渣記述」のどちらかであり、末尾セクションが「Examples（implementation samples）spec and design」であることを検証する。
+- 不合格なら AI が修正し、再検証する。
 
 ## Scripts
 
 使用するスクリプトは `.claude/scripts/crystalize-readme/` に配置される（設計書 `tools/conver/docs/DESIGN-OF-CRYSTALIZE-README.md` §8 参照）。
 
 - Preflight: `derive-output-paths.js`（グラフ読込・`sourceFile` 実在チェック・パス導出。`validate-graph-arg.js` の `readGraphFile` を内部利用）
-- グリル / 判定 / 出力検証: `validate-toc-proposal.js` / `update-step-status.js`（`propose-heading` / `confirm-heading` / `reset-toc` 等）/ `validate-examples-spec.js` / `check-readme-writable.js` / `generate-residue-filename.js` / `validate-readme-output.js` / `validate-residue-output.js`
+- マーカー文法: `validate-marker-grammar.js`（4 マーカーの単一情報源 + `splitSections` / `validateMarkerGrammar`）
+- 雛形出力: `emit-readme-skeleton.js`（Step 1 末。確定見出し群 + examples を README.md に機械出力）
+- ループ駆動: `loop-drive-readme.js`（**独立した**新規スクリプト。`--list` / `--check`、`resolveSection` / `markResidue`）
+- グリル / 状態管理: `validate-toc-proposal.js` / `update-step-status.js`（`propose-heading` / `confirm-heading` / `delete-heading` / `reset-toc` / `resolve-section` / `mark-residue` 等）/ `validate-examples-spec.js`
+- 出力検証: `validate-readme-output.js`（マーカー文法 + 末尾 examples セクション）
 - ステップ進行は `update-step-status.js`（既存パターン）で管理する。
 
 ## 設計原則
 
-決定論的に実行できることはスクリプトで実行し、AI にできるだけ考えさせない。一方、AI による非決定論的思考が必要な箇所（目次・examples 仕様・本文の合成）まで無理に決定論的に設計しない。
+決定論的に実行できることはスクリプトで実行し、AI にできるだけ考えさせない。一方、AI による非決定論的思考が必要な箇所（目次・examples 仕様・本文の合成・セクションの書ける/書けない判定）まで無理に決定論的に設計しない。判断はセクション単位とし、マーカー遷移（`<::TEMPLATE-README::>` → 完全記述 or `<::README-RESIDUE::>`）は機械的に検証可能な状態遷移として設計する。

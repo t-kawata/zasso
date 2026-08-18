@@ -10,12 +10,13 @@
  */
 
 const fs = require('fs');
+const {
+  validateMarkerGrammar,
+  TRAILING_SECTION_TITLE,
+} = require('./validate-marker-grammar.js');
 
 /** CLI argument prefix specifying the README file path */
 const README_ARG_PREFIX = '--readme=';
-
-/** The mandatory trailing section title (C005 invariant, case-insensitive) */
-const TRAILING_SECTION_TITLE = 'examples (implementation samples) spec and design';
 
 /**
  * Parse command line arguments.
@@ -60,7 +61,7 @@ function normalize(text) {
  * @param {string} text — README markdown content
  * @returns {{ ok: boolean, errors: string[] }}
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-156) --for-spec --no-implementation-order`.
 function validateReadmeOutput(text) {
   if (typeof text !== 'string' || text.trim() === '') {
     return { ok: false, errors: ['README content is empty.'] };
@@ -86,6 +87,14 @@ function validateReadmeOutput(text) {
   const lastHeadingText = lastHeading ? normalize(lastHeading.replace(/^#+\s*/, '')) : '';
   if (lastHeadingText !== normalize(TRAILING_SECTION_TITLE)) {
     errors.push(`Last section heading must be '${TRAILING_SECTION_TITLE}'.`);
+  }
+
+  // Marker grammar (PX-156): no unresolved TEMPLATE markers may remain; every
+  // section must be complete or a residue record, with no cross-contamination.
+  const grammar = validateMarkerGrammar(text);
+  errors.push(...grammar.errors);
+  if (grammar.templateCount > 0) {
+    errors.push('README still contains unresolved TEMPLATE markers (loop has not exited).');
   }
 
   return { ok: errors.length === 0, errors };

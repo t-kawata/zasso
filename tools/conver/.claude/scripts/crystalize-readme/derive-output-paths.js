@@ -16,8 +16,8 @@
  *   success → 0, prints the Markdown report (or the expanded sourceFile)
  *   any Preflight failure (missing/invalid graph, missing sourceFile) → 1
  *
- * The actual RESIDUE filename (RESIDUE-<timestamp>.md) is generated separately by
- * generate-residue-filename.js at Step 4, so it is NOT derived here.
+ * RESIDUE file output is abolished (PX-156); residue lives only as in-README
+ * markers, so no residues directory is derived here.
  *
  * Home-relative (~/...) sourceFile is expanded via fromHomeRelative() BEFORE
  * path.dirname so rfcDir never resolves to a literal "~" directory.
@@ -39,9 +39,6 @@ const SOURCE_FILE_FIELD = 'sourceFile';
 
 /** Name of the implementation-samples directory under rfcDir */
 const EXAMPLES_DIR_NAME = 'examples';
-
-/** Name of the residues directory under rfcDir */
-const RESIDUES_DIR_NAME = 'residues';
 
 /** README filename inside rfcDir */
 const README_FILENAME = 'README.md';
@@ -83,10 +80,10 @@ function parseArguments(args) {
  * Derive the output paths from a schema-validated graph.
  *
  * @param {Object} graph — Schema-validated graph
- * @returns {{ rfcDir, examplesDir, residuesDir, readmePath }}
+ * @returns {{ rfcDir, examplesDir, readmePath }}
  * @throws {Error} If sourceFile is missing or not a non-empty string
  */
-// [::TICKET::] PX-152 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-152 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-156) --for-spec --no-implementation-order`.
 function deriveOutputPaths(graph) {
   const sourceFile = graph && graph.sourceFile;
   if (typeof sourceFile !== 'string' || sourceFile.trim() === '') {
@@ -96,12 +93,10 @@ function deriveOutputPaths(graph) {
   const expanded = fromHomeRelative(sourceFile);
   const rfcDir = path.dirname(path.resolve(expanded));
   const examplesDir = path.join(rfcDir, EXAMPLES_DIR_NAME);
-  const residuesDir = path.join(rfcDir, RESIDUES_DIR_NAME);
 
   return {
     rfcDir,
     examplesDir,
-    residuesDir,
     readmePath: path.join(rfcDir, README_FILENAME),
   };
 }
@@ -163,7 +158,6 @@ function formatPreflightMarkdown(paths, mode, flags) {
     ['sourceFile', paths.sourceFile],
     ['rfcDir', paths.rfcDir],
     ['examplesDir', paths.examplesDir],
-    ['residuesDir', paths.residuesDir],
     ['readmePath', paths.readmePath],
   ].map(([key, value]) => `| ${key} | ${value} |`).join('\n');
 
@@ -231,7 +225,6 @@ module.exports = {
   FIELD_ARG_PREFIX,
   SOURCE_FILE_FIELD,
   EXAMPLES_DIR_NAME,
-  RESIDUES_DIR_NAME,
   README_FILENAME,
   CRYSTALIZE_STATUS_FILENAME,
 };

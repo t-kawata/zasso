@@ -7,7 +7,7 @@
  *   table, and existence flags; exit 0. --field=sourceFile prints the expanded
  *   sourceFile path.
  * C001-Inv: mode detection is deterministic for a given file state; Markdown
- *   always contains sourceFile / rfcDir / examplesDir / residuesDir / readmePath.
+ *   always contains sourceFile / rfcDir / examplesDir / readmePath.
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -32,7 +32,6 @@ const SAMPLE_PATHS = {
   sourceFile: '/rfc/RFC-ROOT.md',
   rfcDir: '/rfc',
   examplesDir: '/rfc/examples',
-  residuesDir: '/rfc/residues',
   readmePath: '/rfc/README.md',
 };
 
@@ -80,13 +79,13 @@ describe('parseArguments', () => {
 });
 
 describe('deriveOutputPaths', () => {
-  it('derives the 4 output paths from an absolute sourceFile', () => {
+  it('derives the 3 output paths from an absolute sourceFile (no residues dir, PX-156)', () => {
     const sourceFile = path.join(tmpDir, 'nested', 'RFC-ROOT.md');
     const paths = deriveOutputPaths({ sourceFile, mainLanguage: 'rust', nodes: [], edges: [] });
     assert.equal(paths.rfcDir, path.dirname(sourceFile));
     assert.equal(paths.examplesDir, path.join(paths.rfcDir, 'examples'));
-    assert.equal(paths.residuesDir, path.join(paths.rfcDir, 'residues'));
     assert.equal(paths.readmePath, path.join(paths.rfcDir, 'README.md'));
+    assert.ok(!('residuesDir' in paths));
   });
 
   it('fails on a missing or empty sourceFile', () => {
@@ -144,11 +143,12 @@ describe('formatPreflightMarkdown — C001', () => {
     assert.ok(md.includes('README.md exists: yes'));
   });
 
-  it('always contains the five derived paths (C001-Inv)', () => {
+  it('always contains the four derived paths (C001-Inv, no residuesDir per PX-156)', () => {
     const md = formatPreflightMarkdown(SAMPLE_PATHS, 'fresh', { readmeExists: false, statusExists: false });
-    for (const key of ['sourceFile', 'rfcDir', 'examplesDir', 'residuesDir', 'readmePath']) {
+    for (const key of ['sourceFile', 'rfcDir', 'examplesDir', 'readmePath']) {
       assert.ok(md.includes(key), `missing ${key}`);
     }
+    assert.ok(!md.includes('residuesDir'));
   });
 });
 

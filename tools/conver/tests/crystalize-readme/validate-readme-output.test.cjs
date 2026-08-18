@@ -15,6 +15,12 @@ const { spawnSync } = require('child_process');
 
 const SCRIPT = path.resolve(__dirname, '../../.claude/scripts/crystalize-readme/validate-readme-output.js');
 const { validateReadmeOutput } = require(SCRIPT);
+const {
+  MARKER_TEMPLATE_README,
+  MARKER_README_RESIDUE,
+  MARKER_TEMPLATE_EXAMPLES,
+  MARKER_EXAMPLES_RESIDUE,
+} = require(path.resolve(__dirname, '../../.claude/scripts/crystalize-readme/validate-marker-grammar.js'));
 
 const VALID_README = [
   '# siprs README',
@@ -76,6 +82,34 @@ describe('validateReadmeOutput — C005', () => {
 
   it('fails when there is no H1 title', () => {
     const readme = VALID_README.replace('# siprs README', 'siprs README');
+    const result = validateReadmeOutput(readme);
+    assert.equal(result.ok, false);
+  });
+});
+
+describe('validateReadmeOutput — marker grammar (PX-156)', () => {
+  it('fails while any TEMPLATE-README marker remains (loop has not exited)', () => {
+    const readme = VALID_README.replace('## Usage', `## Usage\n\n${MARKER_TEMPLATE_README}`);
+    const result = validateReadmeOutput(readme);
+    assert.equal(result.ok, false);
+  });
+
+  it('fails while a TEMPLATE-EXAMPLES marker remains in the examples section', () => {
+    const readme = VALID_README.replace('## Examples (implementation samples) spec and design', `## Examples (implementation samples) spec and design\n\n${MARKER_TEMPLATE_EXAMPLES}`);
+    const result = validateReadmeOutput(readme);
+    assert.equal(result.ok, false);
+  });
+
+  it('passes with residue markers in usage and examples sections (valid final state)', () => {
+    const readme = VALID_README
+      .replace('## Usage', `## Usage\n\n${MARKER_README_RESIDUE} evidence`)
+      .replace('## Examples (implementation samples) spec and design', `## Examples (implementation samples) spec and design\n\n${MARKER_EXAMPLES_RESIDUE} missing`);
+    const result = validateReadmeOutput(readme);
+    assert.equal(result.ok, true);
+  });
+
+  it('fails on cross-contamination (usage section carrying an EXAMPLES marker)', () => {
+    const readme = VALID_README.replace('## Usage', `## Usage\n\n${MARKER_EXAMPLES_RESIDUE}`);
     const result = validateReadmeOutput(readme);
     assert.equal(result.ok, false);
   });

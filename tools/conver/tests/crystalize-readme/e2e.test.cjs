@@ -1,9 +1,11 @@
 /**
- * e2e.test.cjs — End-to-end tests for the /crystalize-readme pipeline
+ * e2e.test.cjs — End-to-end tests for the /crystalize-readme marker pipeline (PX-156)
  *
- * (a) Branch: valid graph → README.md written → validate-readme-output passes.
- * (b) Branch: graph with omissions → residues/RESIDUE-<ts>.md → validate-residue-output passes.
- * Smoke: crates/siprs/RFC-ROOT-GRAPH.json → expected (b) RESIDUE (read-only, skipped if absent).
+ * Full flow: Step 1 end emits the README.md skeleton with <::TEMPLATE-README::>
+ * / <::TEMPLATE-EXAMPLES::> markers -> Step 2 loop resolves each usage section to
+ * complete or <::README-RESIDUE::> -> post-loop examples step resolves the
+ * examples section -> loop exits only when zero TEMPLATE markers remain -> the
+ * final README.md passes validate-readme-output.js.
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -13,127 +15,98 @@ const path = require('path');
 const os = require('os');
 
 const { deriveOutputPaths } = require('../../.claude/scripts/crystalize-readme/derive-output-paths.js');
-const { checkReadmeWritable } = require('../../.claude/scripts/crystalize-readme/check-readme-writable.js');
-const { generateResidueFilename } = require('../../.claude/scripts/crystalize-readme/generate-residue-filename.js');
+const { emitSkeletonToFile } = require('../../.claude/scripts/crystalize-readme/emit-readme-skeleton.js');
+const { checkLoopReady, resolveSection, markResidue } = require('../../.claude/scripts/crystalize-readme/loop-drive-readme.js');
 const { validateReadmeOutput } = require('../../.claude/scripts/crystalize-readme/validate-readme-output.js');
-const { validateResidueOutput } = require('../../.claude/scripts/crystalize-readme/validate-residue-output.js');
+const { MARKER_TEMPLATE_README, MARKER_EXAMPLES_RESIDUE } = require('../../.claude/scripts/crystalize-readme/validate-marker-grammar.js');
 
 const {
   buildValidGraph,
-  buildEmptyGraph,
   materializeFixture,
   rmrf,
 } = require('./fixtures/helpers.cjs');
 
-const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'px152-e2e-'));
-
-const VALID_README = (rfcPath, graphPath) => [
-  '# siprs README',
-  '',
-  `> 対象 RFC: ${rfcPath}`,
-  `> 生成グラフ: ${graphPath}`,
-  '',
-  '## Overview',
-  '',
-  '## Usage',
-  '',
-  '## Examples (implementation samples) spec and design',
-  '',
-].join('\n');
+const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'px156-e2e-'));
 
 after(() => rmrf(tmpRoot));
 
-describe('End-to-end (a) branch — README generation', () => {
-  it('derives paths, decides README, and the written README passes validation', () => {
-    const dir = path.join(tmpRoot, 'e2e-valid');
-    const fx = materializeFixture(dir, buildValidGraph(path.join(dir, 'RFC-ROOT.md')));
+describe('End-to-end marker pipeline — PX-156', () => {
+  it('emits the skeleton, resolves every section, and produces a validating README', () => {
+    const dir = path.join(tmpRoot, 'e2e-marker');
+    const fx = materializeFixture(dir, buildValidGraph(path.join(dir, 'RFC-ROOT.md')), { omitGrill: true });
 
     const paths = deriveOutputPaths({ sourceFile: fx.sourceFile });
     assert.equal(paths.rfcDir, dir);
 
-    const decision = checkReadmeWritable(fx.graphPath);
-    assert.equal(decision.branch, 'README');
+    // Confirmed TOC (Step 1 output) + empty per-section state (Step 2 input)
+    const status = {
+      sourceFile: fx.sourceFile,
+      graphFile: fx.graphPath,
+      currentStep: 2,
+      steps: { 0: 'done', 1: 'done', 2: 'running', 3: 'pending', 4: 'pending' },
+      grill: {
+        tocApproved: true,
+        examplesApproved: false,
+        toc: {
+          nodes: [
+            { id: 'H1', heading: 'クイックスタート', level: 1, confirmedContent: 'x', status: 'confirmed' },
+            { id: 'H1-1', heading: 'アカウントの追加', level: 2, confirmedContent: 'y', status: 'confirmed' },
+          ],
+        },
+        sections: [],
+      },
+    };
 
-    // The AI writes README.md; validation confirms the trailing examples section.
-    fs.mkdirSync(dir, { recursive: true });
+    // Step 1 end: mechanically emit the skeleton
     const readmePath = path.join(dir, 'README.md');
-    fs.writeFileSync(readmePath, VALID_README(fx.sourceFile, fx.graphPath), 'utf8');
-    const verdict = validateReadmeOutput(fs.readFileSync(readmePath, 'utf8'));
-    assert.equal(verdict.ok, true);
-  });
-});
+    emitSkeletonToFile(status, readmePath);
+    let text = fs.readFileSync(readmePath, 'utf8');
+    assert.equal(checkLoopReady(text).ready, false, 'loop must not exit while templates remain');
 
-describe('End-to-end (b) branch — RESIDUE generation', () => {
-  it('decides RESIDUE, generates a timestamped filename, and the residue passes validation', () => {
+    // Step 2 loop: resolve each usage section (writable -> complete, one -> residue)
+    text = resolveSection(text, 'クイックスタート', '# クイックスタート\n\nComplete usage prose.');
+    text = markResidue(text, 'アカウントの追加', 'Evidence: register() missing; reinforcement: implement it.');
+    assert.equal(checkLoopReady(text).ready, true, 'loop exits once every TEMPLATE-README is resolved');
+
+    // Post-loop examples step: examples directory exists -> write complete sample
+    text = text.replace('<::TEMPLATE-EXAMPLES::>', '```rust\n// sample\n```');
+
+    // Final validation passes (zero TEMPLATE markers of both kinds)
+    const result = validateReadmeOutput(text);
+    assert.equal(result.ok, true, result.errors.join('; '));
+  });
+
+  it('keeps a residue section in the final README while the loop still exits', () => {
     const dir = path.join(tmpRoot, 'e2e-residue');
-    const fx = materializeFixture(
-      dir,
-      buildValidGraph(path.join(dir, 'RFC-ROOT.md')),
-      { withOmissions: true }
-    );
+    const fx = materializeFixture(dir, buildValidGraph(path.join(dir, 'RFC-ROOT.md')), { omitGrill: true });
+    const status = {
+      sourceFile: fx.sourceFile,
+      graphFile: fx.graphPath,
+      currentStep: 2,
+      steps: {},
+      grill: {
+        tocApproved: true,
+        examplesApproved: false,
+        toc: {
+          nodes: [
+            { id: 'H1', heading: 'クイックスタート', level: 1, confirmedContent: 'x', status: 'confirmed' },
+          ],
+        },
+        sections: [],
+      },
+    };
+    const readmePath = path.join(dir, 'README.md');
+    emitSkeletonToFile(status, readmePath);
+    let text = fs.readFileSync(readmePath, 'utf8');
 
-    const decision = checkReadmeWritable(fx.graphPath);
-    assert.equal(decision.branch, 'RESIDUE');
-    assert.ok(decision.reasons.includes('unresolvedOmissions'));
+    // Every usage section unwritable -> all become README-RESIDUE; examples unresolvable -> EXAMPLES-RESIDUE
+    text = markResidue(text, 'クイックスタート', 'Evidence: no implementation; reinforcement: add crate API.');
+    assert.ok(!text.includes(MARKER_TEMPLATE_README));
+    assert.equal(checkLoopReady(text).ready, true, 'loop exits once every TEMPLATE-README is resolved');
+    text = text.replace('<::TEMPLATE-EXAMPLES::>', MARKER_EXAMPLES_RESIDUE + ' examples/ missing');
 
-    const filename = generateResidueFilename('20260817120000');
-    assert.match(filename, /^RESIDUE-\d{14}\.md$/);
-
-    const residuesDir = path.join(dir, 'residues');
-    fs.mkdirSync(residuesDir, { recursive: true });
-    const residuePath = path.join(residuesDir, filename);
-    const residueText = [
-      `# ${filename.replace('.md', '')}`,
-      '',
-      `> 対象 RFC: ${fx.sourceFile}`,
-      `> 生成グラフ: ${fx.graphPath}`,
-      '> 生成日時: 2026-08-17 12:00:00',
-      `> 判定理由: ${decision.reasons.join(', ')}`,
-      '',
-      '## 未解決インベントリ',
-      '',
-      '### R-001 未実装機能',
-      '- 要求事項: 機能が要件を満たしていない',
-      '- 現状: 【OMISSION】',
-      '- 証拠: グラフノード N0001 / sourceRanges RFC-ROOT.md:1-10',
-      '- ステータス: open',
-      '',
-    ].join('\n');
-    fs.writeFileSync(residuePath, residueText, 'utf8');
-
-    const verdict = validateResidueOutput(fs.readFileSync(residuePath, 'utf8'));
-    assert.equal(verdict.ok, true);
-  });
-});
-
-describe('Empty graph handling', () => {
-  it('does not crash and takes the RESIDUE branch', () => {
-    const dir = path.join(tmpRoot, 'e2e-empty');
-    const fx = materializeFixture(
-      dir,
-      buildEmptyGraph(path.join(dir, 'RFC-ROOT.md')),
-      { withExamples: false, omitGrill: true }
-    );
-    const decision = checkReadmeWritable(fx.graphPath);
-    assert.equal(decision.branch, 'RESIDUE');
-    assert.ok(decision.reasons.length > 0);
-  });
-});
-
-describe('Smoke test against crates/siprs (read-only)', () => {
-  it('takes the RESIDUE branch because siprs has unresolved OMISSIONS', (t) => {
-    const siprsGraph = path.resolve(__dirname, '../../../../crates/siprs/RFC-ROOT-GRAPH.json');
-    if (!fs.existsSync(siprsGraph)) {
-      t.skip(`siprs graph not found: ${siprsGraph}`);
-      return;
-    }
-    // Verify ~/ expansion in the real graph and the expected branch decision.
-    const raw = JSON.parse(fs.readFileSync(siprsGraph, 'utf8'));
-    assert.match(raw.sourceFile, /^~\//);
-    const paths = deriveOutputPaths(raw);
-    assert.equal(paths.rfcDir, path.join(os.homedir(), 'shyme', 'zasso', 'crates', 'siprs'));
-    const decision = checkReadmeWritable(siprsGraph);
-    assert.equal(decision.branch, 'RESIDUE');
-    assert.ok(decision.reasons.includes('unresolvedOmissions'));
+    assert.equal(checkLoopReady(text).ready, true, 'loop exits with residue-only README');
+    const result = validateReadmeOutput(text);
+    assert.equal(result.ok, true, result.errors.join('; '));
   });
 });
