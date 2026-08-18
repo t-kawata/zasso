@@ -81,6 +81,20 @@ describe('validateMarkerGrammar — C001', () => {
     assert.equal(result.templateCount, 0);
   });
 
+  it('accepts a complete section whose body leads with a confirmedContent paragraph', () => {
+    const text = readmeWith(`## A\n\nConfirmed lead.\n\nComplete prose.`, `${EXAMPLES_HEADING}\n\nSample code.`);
+    const result = validateMarkerGrammar(text);
+    assert.equal(result.ok, true);
+    assert.equal(result.templateCount, 0);
+  });
+
+  it('accepts a residue section with a confirmedContent paragraph between heading and marker', () => {
+    const text = readmeWith(`## A\n\nConfirmed lead.\n\n${MARKER_README_RESIDUE} evidence`, `${EXAMPLES_HEADING}\n\nSample.`);
+    const result = validateMarkerGrammar(text);
+    assert.equal(result.ok, true);
+    assert.equal(result.templateCount, 0);
+  });
+
   it('accepts a pending usage section carrying TEMPLATE-README (work unit)', () => {
     const text = readmeWith(`## A\n\n${MARKER_TEMPLATE_README}`, `${EXAMPLES_HEADING}\n\n${MARKER_TEMPLATE_EXAMPLES}`);
     const result = validateMarkerGrammar(text);

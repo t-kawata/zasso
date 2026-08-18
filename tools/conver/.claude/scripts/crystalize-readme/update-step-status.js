@@ -409,7 +409,22 @@ function executeApproveToc(status) {
 }
 
 /**
- * resolve-section: mark a section as complete in grill.sections (UPSERT).
+ * Return the confirmedContent of the toc node matching the given id, or null.
+ *
+ * @param {Object} status — Status data
+ * @param {string} id — TOC node id
+ * @returns {string|null} The node's confirmedContent, or null when absent
+ */
+function confirmedContentOf(status, id) {
+  const nodes = status.grill && status.grill.toc && status.grill.toc.nodes;
+  if (!Array.isArray(nodes)) return null;
+  const node = nodes.find((n) => n.id === id);
+  return node && typeof node.confirmedContent === 'string' ? node.confirmedContent : null;
+}
+
+/**
+ * resolve-section: mark a section as complete in grill.sections (UPSERT), carrying
+ * the user's confirmedContent over from the matching toc node.
  *
  * @param {Object} status — Status data
  * @param {Object} request — {id, heading}
@@ -429,14 +444,16 @@ function executeResolveSection(status, request) {
   if (existing) {
     existing.heading = heading;
     existing.state = 'complete';
+    existing.confirmedContent = confirmedContentOf(status, id);
   } else {
-    sections.push({ id, heading, state: 'complete' });
+    sections.push({ id, heading, state: 'complete', confirmedContent: confirmedContentOf(status, id) });
   }
   process.stdout.write(`Section resolved: ${id}\n`);
 }
 
 /**
- * mark-residue: mark a section as residue in grill.sections (UPSERT).
+ * mark-residue: mark a section as residue in grill.sections (UPSERT), carrying
+ * the user's confirmedContent over from the matching toc node.
  *
  * @param {Object} status — Status data
  * @param {Object} request — {id, heading}
@@ -456,8 +473,9 @@ function executeMarkResidue(status, request) {
   if (existing) {
     existing.heading = heading;
     existing.state = 'residue';
+    existing.confirmedContent = confirmedContentOf(status, id);
   } else {
-    sections.push({ id, heading, state: 'residue' });
+    sections.push({ id, heading, state: 'residue', confirmedContent: confirmedContentOf(status, id) });
   }
   process.stdout.write(`Section marked residue: ${id}\n`);
 }

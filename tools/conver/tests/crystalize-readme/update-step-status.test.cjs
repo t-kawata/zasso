@@ -266,6 +266,40 @@ describe('section state subcommands — PX-156', () => {
     assert.throws(() => executeResolveSection(status, { heading: 'x' }), /id/);
     assert.throws(() => executeMarkResidue(status, { id: 'H1' }), /heading/);
   });
+
+  it('resolve-section copies confirmedContent from the matching toc node into the section record', () => {
+    const status = createDefaultStatus(graphPath);
+    status.grill.toc.nodes.push({ id: 'H1', heading: 'クイックスタート', confirmedContent: '本文1', status: 'confirmed' });
+    executeResolveSection(status, { id: 'H1', heading: 'クイックスタート' });
+    assert.equal(status.grill.sections[0].state, 'complete');
+    assert.equal(status.grill.sections[0].confirmedContent, '本文1');
+  });
+
+  it('mark-residue copies confirmedContent from the matching toc node into the section record', () => {
+    const status = createDefaultStatus(graphPath);
+    status.grill.toc.nodes.push({ id: 'H1-1', heading: 'アカウントの追加', confirmedContent: '本文2', status: 'confirmed' });
+    executeMarkResidue(status, { id: 'H1-1', heading: 'アカウントの追加' });
+    const section = status.grill.sections.find((s) => s.id === 'H1-1');
+    assert.equal(section.state, 'residue');
+    assert.equal(section.confirmedContent, '本文2');
+  });
+
+  it('resolve-section / mark-residue set confirmedContent to null when the node is missing', () => {
+    const status = createDefaultStatus(graphPath);
+    executeResolveSection(status, { id: 'H1', heading: 'クイックスタート' });
+    executeMarkResidue(status, { id: 'H1-1', heading: 'アカウントの追加' });
+    assert.equal(status.grill.sections.find((s) => s.id === 'H1').confirmedContent, null);
+    assert.equal(status.grill.sections.find((s) => s.id === 'H1-1').confirmedContent, null);
+  });
+
+  it('resolve-section refreshes confirmedContent onto an existing section record (upsert)', () => {
+    const status = createDefaultStatus(graphPath);
+    status.grill.toc.nodes.push({ id: 'H1', heading: 'クイックスタート', confirmedContent: '最新リード', status: 'confirmed' });
+    executeResolveSection(status, { id: 'H1', heading: 'クイックスタート' });
+    executeResolveSection(status, { id: 'H1', heading: 'クイックスタート' });
+    assert.equal(status.grill.sections.length, 1);
+    assert.equal(status.grill.sections[0].confirmedContent, '最新リード');
+  });
 });
 
 describe('reset-sections — full re-analysis restart (PX-156)', () => {

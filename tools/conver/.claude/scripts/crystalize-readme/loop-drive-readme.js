@@ -179,7 +179,23 @@ function readStdinJson() {
 }
 
 /**
- * Upsert a section's transition state into status.grill.sections.
+ * Return the confirmedContent of the toc node matching the given id, or null.
+ *
+ * @param {Object} status — Status data
+ * @param {string} id — TOC node id
+ * @returns {string|null} The node's confirmedContent, or null when absent
+ */
+function confirmedContentOf(status, id) {
+  const nodes = status.grill && status.grill.toc && status.grill.toc.nodes;
+  if (!Array.isArray(nodes)) return null;
+  const node = nodes.find((n) => n.id === id);
+  return node && typeof node.confirmedContent === 'string' ? node.confirmedContent : null;
+}
+
+/**
+ * Upsert a section's transition state into status.grill.sections, carrying the
+ * user's confirmedContent over from the matching toc node so the section layer
+ * and README render it as the section lead.
  *
  * @param {Object} status — Status data (readStatus output)
  * @param {string} id — TOC node id
@@ -189,13 +205,16 @@ function readStdinJson() {
 // [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
 function updateSectionState(status, id, heading, state) {
   const sections = status.grill.sections;
-  const existing = sections.find((s) => s.id === id);
-  if (existing) {
-    existing.heading = heading;
-    existing.state = state;
+  let record = sections.find((s) => s.id === id);
+  if (record) {
+    record.heading = heading;
+    record.state = state;
   } else {
-    sections.push({ id, heading, state });
+    record = { id, heading, state };
+    sections.push(record);
   }
+  record.confirmedContent = confirmedContentOf(status, id);
+  return record;
 }
 
 /**
@@ -404,15 +423,18 @@ function resolveSection(text, headingText, newSectionText) {
 
 /**
  * Mark a section as residue: replace its body with <::README-RESIDUE::> plus the
- * evidence and reinforcement design, preserving the original heading line.
+ * evidence and reinforcement design, preserving the original heading line. When
+ * a confirmedContent is given it is placed between the heading and the marker as
+ * the section lead.
  *
  * @param {string} text — README markdown content
  * @param {string} headingText — Section heading text
  * @param {string} residueBody — Evidence + reinforcement design prose
+ * @param {string|null} [confirmedContent] — Section lead paragraph, or null
  * @returns {string} Updated README
  */
 // [::TICKET::] PX-156 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-156 --for-spec --no-implementation-order`.
-function markResidue(text, headingText, residueBody) {
+function markResidue(text, headingText, residueBody, confirmedContent = null) {
   const lines = text.split('\n');
   const sections = splitSections(text);
   const target = sections.find((s) => s.headingText === headingText);
@@ -420,7 +442,8 @@ function markResidue(text, headingText, residueBody) {
     throw new Error(`Section "${headingText}" not found.`);
   }
   const headingLine = lines[target.headingLineIndex];
-  const newSectionText = `${headingLine}\n\n${MARKER_README_RESIDUE}\n${residueBody}`;
+  const lead = confirmedContent && confirmedContent.trim() !== '' ? `${confirmedContent}\n\n` : '';
+  const newSectionText = `${headingLine}\n\n${lead}${MARKER_README_RESIDUE}\n${residueBody}`;
   return replaceSection(text, headingText, newSectionText);
 }
 
@@ -553,11 +576,13 @@ function executeSectionTransition(parsed) {
 
   const text = fs.readFileSync(readmePath, 'utf8');
   const isResolve = parsed.subcommand === SUBCOMMAND_RESOLVE;
+  const confirmedContent = confirmedContentOf(status, id);
+  const lead = confirmedContent && confirmedContent.trim() !== '' ? confirmedContent : null;
   // Keep a blank line after the section so the next heading stays separated.
   const body = content.endsWith('\n') ? content : `${content}\n`;
   const next = isResolve
-    ? resolveSection(text, heading, `${sectionHeadingLine(text, heading)}\n\n${body}`)
-    : markResidue(text, heading, body);
+    ? resolveSection(text, heading, `${sectionHeadingLine(text, heading)}\n\n${lead ? `${lead}\n\n${body}` : body}`)
+    : markResidue(text, heading, body, lead);
 
   atomicWrite(readmePath, next);
   updateSectionState(status, id, heading, isResolve ? 'complete' : 'residue');
@@ -699,6 +724,7 @@ module.exports = {
   deriveReadmePath,
   readStdinJson,
   updateSectionState,
+  confirmedContentOf,
   sectionHeadingLine,
   atomicWrite,
   exitWithError,

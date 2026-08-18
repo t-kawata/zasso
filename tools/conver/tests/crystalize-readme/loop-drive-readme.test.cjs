@@ -46,7 +46,7 @@ function readmeWith(...sectionTexts) {
  * Materialize a graph + status + README in a subdirectory so the CLI can derive
  * the README path internally (rfcDir = dirname(status.sourceFile)).
  */
-function materialize(dirName, readmeText) {
+function materialize(dirName, readmeText, tocNodes = []) {
   const dir = path.join(tmpDir, dirName);
   fs.mkdirSync(dir, { recursive: true });
   const sourceFile = path.join(dir, 'RFC-ROOT.md');
@@ -59,7 +59,7 @@ function materialize(dirName, readmeText) {
     graphFile: graphPath,
     currentStep: 2,
     steps: {},
-    grill: { tocApproved: true, examplesApproved: false, toc: { nodes: [] }, sections: [] },
+    grill: { tocApproved: true, examplesApproved: false, toc: { nodes: tocNodes }, sections: [] },
   }), 'utf8');
   return { dir, sourceFile, graphPath, readmePath: path.join(dir, 'README.md') };
 }
@@ -211,6 +211,40 @@ describe('updateSectionState — PX-156', () => {
     assert.equal(status.grill.sections.find((s) => s.id === 'H1').state, 'complete');
     assert.equal(status.grill.sections.find((s) => s.id === 'H1-1').state, 'residue');
   });
+
+  it('copies confirmedContent from the matching toc node when creating a section record', () => {
+    const status = { grill: { sections: [], toc: { nodes: [{ id: 'H1', confirmedContent: 'トランスポート設定コード' }] } } };
+    updateSectionState(status, 'H1', 'クイックスタート', 'complete');
+    assert.equal(status.grill.sections[0].confirmedContent, 'トランスポート設定コード');
+    assert.equal(status.grill.sections[0].state, 'complete');
+  });
+
+  it('refreshes confirmedContent onto an existing section record when upserting', () => {
+    const status = { grill: { sections: [{ id: 'H1', heading: '旧見出し', state: 'residue' }], toc: { nodes: [{ id: 'H1', confirmedContent: 'リード' }] } } };
+    updateSectionState(status, 'H1', '新見出し', 'complete');
+    assert.equal(status.grill.sections.length, 1);
+    assert.equal(status.grill.sections[0].heading, '新見出し');
+    assert.equal(status.grill.sections[0].state, 'complete');
+    assert.equal(status.grill.sections[0].confirmedContent, 'リード');
+  });
+
+  it('sets confirmedContent to null when the matching toc node is missing', () => {
+    const status = { grill: { sections: [], toc: { nodes: [] } } };
+    updateSectionState(status, 'H1', 'クイックスタート', 'complete');
+    assert.equal(status.grill.sections[0].confirmedContent, null);
+  });
+
+  it('sets confirmedContent to null when the node carries no confirmedContent', () => {
+    const status = { grill: { sections: [], toc: { nodes: [{ id: 'H1', status: 'confirmed' }] } } };
+    updateSectionState(status, 'H1', 'クイックスタート', 'residue');
+    assert.equal(status.grill.sections[0].confirmedContent, null);
+  });
+
+  it('does not throw when the status has no grill.toc at all', () => {
+    const status = { grill: { sections: [] } };
+    updateSectionState(status, 'H1', 'クイックスタート', 'complete');
+    assert.equal(status.grill.sections[0].confirmedContent, null);
+  });
 });
 
 describe('deriveReadmePath', () => {
@@ -271,7 +305,7 @@ describe('CLI — resolve-section / mark-residue (combined README + status trans
     assert.ok(!readme.includes(MARKER_TEMPLATE_README));
     assert.ok(readme.includes('## A\n\nComplete usage prose.'));
     assert.ok(readme.includes('Complete usage prose.\n\n## Examples'), 'a blank line separates the resolved section from the next heading');
-    assert.deepEqual(statusOf(fx.dir).grill.sections, [{ id: 'H1', heading: 'A', state: 'complete' }]);
+    assert.deepEqual(statusOf(fx.dir).grill.sections, [{ id: 'H1', heading: 'A', state: 'complete', confirmedContent: null }]);
   });
 
   it('mark-residue replaces the marker with README-RESIDUE + evidence and marks the section residue', () => {
@@ -283,7 +317,7 @@ describe('CLI — resolve-section / mark-residue (combined README + status trans
     assert.ok(!readme.includes(MARKER_TEMPLATE_README));
     assert.ok(readme.includes(MARKER_README_RESIDUE));
     assert.ok(readme.includes('Evidence: register() missing; reinforcement: implement it.'));
-    assert.deepEqual(statusOf(fx.dir).grill.sections, [{ id: 'H1-1', heading: 'B', state: 'residue' }]);
+    assert.deepEqual(statusOf(fx.dir).grill.sections, [{ id: 'H1-1', heading: 'B', state: 'residue', confirmedContent: null }]);
   });
 
   it('preserves the heading level when resolving a nested section', () => {
@@ -312,6 +346,46 @@ describe('CLI — resolve-section / mark-residue (combined README + status trans
     assert.equal(result.status, 1);
     assert.match(result.stderr, /content is required/);
     assert.equal(fs.readFileSync(fx.readmePath, 'utf8').includes(MARKER_TEMPLATE_README), true, 'README must be untouched on invalid input');
+  });
+
+  it('resolve-section renders confirmedContent as the section lead and copies it into the status', () => {
+    const fx = materialize('resolve-confirmed', readmeWith(`## A\n\n${MARKER_TEMPLATE_README}`, `${EXAMPLES_HEADING}\n\nSample.`), [
+      { id: 'H1', heading: 'A', level: 2, confirmedContent: 'Confirmed lead.', status: 'confirmed' },
+    ]);
+    const input = JSON.stringify({ id: 'H1', heading: 'A', content: 'Complete usage prose.' });
+    const result = spawnSync('node', [SCRIPT, `--graph=${fx.graphPath}`, 'resolve-section'], { input, encoding: 'utf8' });
+    assert.equal(result.status, 0);
+    const readme = fs.readFileSync(fx.readmePath, 'utf8');
+    assert.ok(readme.includes('## A\n\nConfirmed lead.\n\nComplete usage prose.'), 'lead sits between heading and content');
+    const section = statusOf(fx.dir).grill.sections.find((s) => s.id === 'H1');
+    assert.equal(section.confirmedContent, 'Confirmed lead.');
+  });
+
+  it('mark-residue renders confirmedContent between the heading and README-RESIDUE and copies it into the status', () => {
+    const fx = materialize('residue-confirmed', readmeWith(`## B\n\n${MARKER_TEMPLATE_README}`, `${EXAMPLES_HEADING}\n\nSample.`), [
+      { id: 'H1-1', heading: 'B', level: 2, confirmedContent: 'Confirmed lead.', status: 'confirmed' },
+    ]);
+    const input = JSON.stringify({ id: 'H1-1', heading: 'B', content: 'Evidence: register() missing; reinforcement: implement it.' });
+    const result = spawnSync('node', [SCRIPT, `--graph=${fx.graphPath}`, 'mark-residue'], { input, encoding: 'utf8' });
+    assert.equal(result.status, 0);
+    const readme = fs.readFileSync(fx.readmePath, 'utf8');
+    assert.ok(readme.includes(`## B\n\nConfirmed lead.\n\n${MARKER_README_RESIDUE}\nEvidence: register() missing; reinforcement: implement it.`), 'lead sits between heading and marker');
+    const section = statusOf(fx.dir).grill.sections.find((s) => s.id === 'H1-1');
+    assert.equal(section.confirmedContent, 'Confirmed lead.');
+  });
+
+  it('keeps the current body unchanged when the matching node has no confirmedContent', () => {
+    const fx = materialize('resolve-no-confirmed', readmeWith(`## A\n\n${MARKER_TEMPLATE_README}`, `${EXAMPLES_HEADING}\n\nSample.`), [
+      { id: 'H1', heading: 'A', level: 2, status: 'confirmed' },
+    ]);
+    const input = JSON.stringify({ id: 'H1', heading: 'A', content: 'Plain prose.' });
+    const result = spawnSync('node', [SCRIPT, `--graph=${fx.graphPath}`, 'resolve-section'], { input, encoding: 'utf8' });
+    assert.equal(result.status, 0);
+    const readme = fs.readFileSync(fx.readmePath, 'utf8');
+    assert.ok(readme.includes('## A\n\nPlain prose.'));
+    assert.ok(!readme.includes('confirmedContent'));
+    const section = statusOf(fx.dir).grill.sections.find((s) => s.id === 'H1');
+    assert.equal(section.confirmedContent, null);
   });
 });
 
@@ -471,7 +545,7 @@ describe('CLI — resolve-examples / mark-examples-residue (examples dedicated s
     assert.ok(readme.includes('```rust'));
     const status = statusOf(fx.dir);
     assert.equal(status.grill.examplesApproved, true);
-    assert.deepEqual(status.grill.sections, [{ id: 'EXAMPLES', heading: 'Examples (implementation samples) spec and design', state: 'complete' }]);
+    assert.deepEqual(status.grill.sections, [{ id: 'EXAMPLES', heading: 'Examples (implementation samples) spec and design', state: 'complete', confirmedContent: null }]);
   });
 
   it('mark-examples-residue replaces TEMPLATE-EXAMPLES with EXAMPLES-RESIDUE and marks residue', () => {
@@ -485,7 +559,20 @@ describe('CLI — resolve-examples / mark-examples-residue (examples dedicated s
     assert.ok(readme.includes('Evidence: examples/ missing; reinforcement: add crate examples.'));
     const status = statusOf(fx.dir);
     assert.equal(status.grill.examplesApproved, false);
-    assert.deepEqual(status.grill.sections, [{ id: 'EXAMPLES', heading: 'Examples (implementation samples) spec and design', state: 'residue' }]);
+    assert.deepEqual(status.grill.sections, [{ id: 'EXAMPLES', heading: 'Examples (implementation samples) spec and design', state: 'residue', confirmedContent: null }]);
+  });
+
+  it('examples transitions never carry confirmedContent (EXAMPLES has no toc node)', () => {
+    const fx = materialize('examples-no-confirmed', readmeWith(`## A\n\nComplete prose.`, `${EXAMPLES_HEADING}\n\n${MARKER_TEMPLATE_EXAMPLES}`), [
+      { id: 'H1', heading: 'A', level: 2, confirmedContent: 'lead', status: 'confirmed' },
+    ]);
+    const input = JSON.stringify({ content: '```rust\n// sample\n```' });
+    const result = spawnSync('node', [SCRIPT, `--graph=${fx.graphPath}`, 'resolve-examples'], { input, encoding: 'utf8' });
+    assert.equal(result.status, 0);
+    const status = statusOf(fx.dir);
+    const examples = status.grill.sections.find((s) => s.id === 'EXAMPLES');
+    assert.equal(examples.state, 'complete');
+    assert.equal(examples.confirmedContent, null);
   });
 
   it('refuses to run when the Step 2 loop has not converged (C003-Pre), leaving files unchanged', () => {
