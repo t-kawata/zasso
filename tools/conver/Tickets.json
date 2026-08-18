@@ -21605,6 +21605,127 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-08-18"
+        },
+        {
+          "id": 154,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Persist confirmed TOC tree in CRYSTALIZE-Status.json; hierarchical-path heading IDs with parent-existence enforcement",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/154-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "- 【Goal】Step 1 グリルで確定した見出しを、AI の会話記憶に依存せず実際の JSON ファイル（CRYSTALIZE-Status.json）に階層構造＋確定内容つきで永続化する。ID スキームを階層パス（H1, H1-1, H1-2, H1-2-1, H2, H2-1, ...）に変更し、親不在の子（H2 無しの H2-1）を構造違反として拒否する。\n- 【Purpose】現状の update-step-status.js は confirm-heading で ID 文字列のみを confirmedIds に記録し、見出しタイトル・確定内容・階層が永続化されない。AI の記憶だけに依存するため、セッションを跨いだ Step 4（README 生成）ができない。また ID スキームが「レベル＋連番」解釈で、親子関係が ID から導出できず構造が曖昧。\n- 【Motivation】ユーザー指摘により確定: ID は階層パス（親 = 最後の -<n> を除去、子は親の後にのみ存在可能）。派生値（parentId 等）は保存しない。\n- 【Constraints】既存の CRYSTALIZE-Status.json の grill セクションを拡張（proposedIds/confirmedIds → toc.nodes[]）。validate-toc-proposal.js の ID パターンと親存在チェックを更新。TDD Red→Green→Refactor 必須。",
+          "scope": [
+            ".claude/scripts/crystalize-readme/validate-toc-proposal.js — modify: ID_PATTERN を階層パス /^H[1-9][0-9]*(-[1-9][0-9]*)*$/（1〜6 セグメント）に変更。入力の seenIds を existingIds（既存ノード ID 全体）に置換し、親存在チェック（parent(id) ∈ existingIds、トップレベルは親不要）と一意性を検証。エラーに Fix 指示を維持・拡充。",
+            ".claude/scripts/crystalize-readme/update-step-status.js — modify: grill.proposedIds/confirmedIds を廃止し grill.toc.nodes[]（id/heading/level/confirmedContent/status）に置換。propose-heading は提案 JSON（validate と同じ形）を stdin で受け、親存在チェック付きで status=proposed として記録。confirm-heading は {id, confirmedContent} を受けて status=confirmed。level と親は ID から導出（parentId は保存しない）。tocApproved は全ノード確定から導出。reset-toc はツリーをクリア。",
+            ".claude/commands/crystalize-readme.md — modify: Step 1 の提案 JSON 例を階層パス ID（H1, H1-1, ...）に更新し、propose→confirm で確定内容を CRYSTALIZE-Status.json に記録する手順を明記。",
+            "docs/DESIGN-OF-CRYSTALIZE-README.md — modify: §5 決定論表 / §6 Step 1 / §8 スクリプト一覧 / §12 変更履歴 を階層パス ID と toc.nodes 永続化に合わせて更新。",
+            "tests/crystalize-readme/validate-toc-proposal.test.cjs — modify: 階層パス ID の正常系（H1, H1-1, H1-2-1）・親不在エラー・一意性・決定論・parentIdOf 導出をカバー。",
+            "tests/crystalize-readme/update-step-status.test.cjs — modify: toc.nodes の propose/confirm/完了判定をカバー（proposedIds/confirmedIds を削除）。",
+            "API contract change: validate-toc-proposal.js の入力が seenIds → existingIds（既存ノード ID 全体）に変更。update-step-status.js の propose-heading が提案 JSON 入力、confirm-heading が {id, confirmedContent} 入力に変更。",
+            "Data schema change: CRYSTALIZE-Status.json の grill を {tocApproved, examplesApproved, toc:{nodes:[{id,heading,level,confirmedContent,status}]}} に拡張。既存ファイルは readStatus で toc デフォルト補完（後方互換）。",
+            "Config/env change: なし。依存追加・削除なし（node:fs, node:path, node:child_process のみ）。",
+            "Out of scope: Step 2（examples グリル）の作り直し、README 生成（Step 4）の toc.nodes 消費実装は対象外。",
+            "Out of scope reason: examples グリルと Step 4 の README 生成は本チケットの ID スキーム修正・永続化とは独立した工程。",
+            "Affected: /crystalize-readme を実行する全セッション — Step 1 の確定記録が ID 一覧から構造化ツリー（toc.nodes）に変わる。",
+            "Impact nature: CRYSTALIZE-Status.json の grill スキーマ拡張と propose/confirm コマンド形状の変更。",
+            "Response: readStatus で旧形式（proposedIds/confirmedIds）を toc.nodes に移行補完。Step 1 を再実行する場合は reset-to-step 1 で grill をリセット。"
+          ],
+          "testUnit": [
+            "UT: [Normal] validate-toc-proposal accepts a top-level hierarchical-path id — {id:'H1', heading:'クイックスタート', contentOptions:['...','...','...'], recommendation:'...', reason:'...', existingIds:[]} → valid:true",
+            "UT: [Normal] validate-toc-proposal accepts a child whose parent is in existingIds — {id:'H1-1', existingIds:['H1']} → valid:true",
+            "UT: [Normal] validate-toc-proposal accepts a grandchild whose parent exists — {id:'H1-2-1', existingIds:['H1','H1-2']} → valid:true",
+            "UT: [Error] validate-toc-proposal rejects a child whose parent is absent — {id:'H2-1', existingIds:['H1']} → valid:false, errors に parent-not-found (C001: 親存在)",
+            "UT: [Error] validate-toc-proposal rejects an id violating the path pattern — H0, H1-0, 'free text', 42, H1-2-3-4-5-6-7 (7 セグメント) → valid:false (C001-Pre: /^H[1-9][0-9]*(-[1-9][0-9]*)*$/ かつ 1〜6 セグメント)",
+            "UT: [Error] validate-toc-proposal rejects a duplicate id against existingIds — {id:'H1', existingIds:['H1']} → valid:false (C001: 一意性)",
+            "UT: [Error] validate-toc-proposal rejects contentOptions outside 2-4 / empty option / recommendation not in options / empty reason / empty heading (既存ルール維持)",
+            "UT: [Boundary] validate-toc-proposal derives parent by dropping the last -<n> segment — parentIdOf('H1-2-1') = 'H1-2', parentIdOf('H1') = null",
+            "UT: [Invariant] validate-toc-proposal is deterministic — identical input yields identical output (C001-Inv)",
+            "UT: [Normal] update-step-status propose-heading records a node {id, heading, level, status:proposed} into grill.toc.nodes from a proposal JSON; level derived from id (H1-1 → 2)",
+            "UT: [Error] update-step-status propose-heading rejects a child whose parent node is not in the tree — propose H2-1 without H2 → exit 1 (C002-Inv)",
+            "UT: [Normal] update-step-status confirm-heading sets confirmedContent and status=confirmed on the node; isTocComplete true only when every node is confirmed",
+            "UT: [Error] update-step-status confirm-heading rejects an unproposed id → exit 1 (C002-Inv)",
+            "UT: [Invariant] update-step-status stores no parentId — level and parent are derived from the id; the toc tree is reconstructable from document-ordered nodes (C002-Inv)"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] Step 1 grill — the same proposal JSON passed to validate-toc-proposal.js is recorded by update-step-status.js propose-heading; confirm-heading then persists confirmedContent into CRYSTALIZE-Status.json grill.toc.nodes",
+            "IT: [Verification] a scripted propose(H1) → propose(H1-1) → confirm(H1,content) → confirm(H1-1,content) sequence leaves grill.toc.nodes with two confirmed nodes and tocApproved=true; status output prints the tree with id/heading/confirmedContent/status",
+            "IT: [Prerequisites] both scripts run under node --test (CommonJS), no new dependencies, no network",
+            "IT: [Related tickets] PX-153 introduced the per-heading grill and the validation gate; PX-154 corrects the ID scheme to hierarchical paths and replaces id-only lists with the durable toc.nodes tree"
+          ],
+          "testExceptions": [
+            "ユーザーによる ID 単位の対話確認（A/B/C/Yes/No 回答）は自動テスト不能 — 人間が介在する操作のため cannot test。設計欠陥ではない: 決定論ゲート（validate-toc-proposal）と完了ゲート（update-step-status confirm-heading）が単体/統合テストで検証される。",
+            "使い方に絞った TOC の AI 合成（非決定論）は単体テスト不能 — 内容合成そのもののため not testable。設計欠陥ではない: 非決定論ステップは決定論的な validate-toc-proposal ゲートで制約される。"
+          ],
+          "default_files": [
+            ".claude/scripts/crystalize-readme/validate-toc-proposal.js",
+            ".claude/scripts/crystalize-readme/update-step-status.js",
+            ".claude/commands/crystalize-readme.md",
+            "docs/DESIGN-OF-CRYSTALIZE-README.md",
+            "tests/crystalize-readme/validate-toc-proposal.test.cjs",
+            "tests/crystalize-readme/update-step-status.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: Step 1 で各見出しが階層パス ID（H1, H1-1, ...）で提案され、親存在チェックを通過したものだけが提示される。ユーザー回答ごとに confirm-heading が confirmedContent を CRYSTALIZE-Status.json の grill.toc.nodes に記録し、全確定で tocApproved=true → Step 2 へ。",
+            "Error case: 親不在の ID（H2 無しの H2-1）は validate-toc-proposal.js と propose-heading の両方で拒否され exit 1。確定内容は AI の記憶ではなく JSON に永続化される。",
+            "Edge case: トップレベル見出し（H1, H2）は親不要。同一親配下の兄弟は 1..n の連番。セッション再開時に status から確定済みツリーを復元できる。"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "Step 1 grill → per-proposal validation gate",
+              "precondition": "A heading proposal {id, heading, contentOptions[], recommendation, reason, existingIds?} is passed to validate-toc-proposal.js. id は階層パス（H1, H1-1, H1-2-1, ...）、existingIds は既存ノード ID 全体。",
+              "postcondition": "Returns {valid:boolean, errors:string[]}. valid=true only when: id matches hierarchical path pattern (1-6 segments), id not in existingIds, parent(id) in existingIds (top-level has no parent), heading non-empty, contentOptions 2-4 options, recommendation in contentOptions, reason non-empty.",
+              "invariant": "Validation is deterministic. A valid proposal always has a hierarchical-path id whose parent (if any) is already in existingIds."
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Step 1 grill → completion gate (CRYSTALIZE-Status.json)",
+              "precondition": "status.grill.toc.nodes records the proposed heading nodes (status=proposed) in document order. update-step-status.js implements confirm-heading.",
+              "postcondition": "confirm-heading {id, confirmedContent} は該当ノードに confirmedContent をセットし status=confirmed にする。全ノード確定時に tocApproved=true となり、end-step 1 で Step 2 へ進める。",
+              "invariant": "親不在のノードは propose-heading で拒否される。未確定ノードが残る限り tocApproved は false。level と親は ID から導出（保存しない）。"
+            }
+          ],
+          "notes": "- 【Implementation steps】(1) TDD: validate-toc-proposal.js の ID_PATTERN 変更・existingIds・親存在チェック・parentIdOf 導出を RED→GREEN→REFACTOR。(2) TDD: update-step-status.js の toc.nodes 化・propose/confirm JSON 入力・完了判定を RED→GREEN→REFACTOR。(3) コマンドファイル Step 1 を更新。(4) 設計書を更新。(5) make test-crystalize-readme で全緑確認。\n- 【Risks】proposedIds/confirmedIds の削除は既存 CRYSTALIZE-Status.json と非互換 → readStatus で旧形式を toc.nodes に移行補完し後方互換を保つ。\n- 【Caveats】parentId は保存しない（ID の最後のセグメント除去で導出）。DRY 維持。既存 PX-153 のテスト（seenIds 使用）は existingIds に置換。\n- 【Open items】README 生成（Step 4）が grill.toc.nodes を消費する実装は後続チケットで。\n- 【Future improvements】目次の並べ替え・削除（兄弟の再採番）を後続で検討。\nImplementation summary (PX-154):\n- Changed files: validate-toc-proposal.js, update-step-status.js, crystalize-readme.md, DESIGN-OF-CRYSTALIZE-README.md, validate-toc-proposal.test.cjs, update-step-status.test.cjs\n- Key changes: hierarchical-path heading IDs (parent = drop last -<n> segment, child requires existing parent); durable confirmed-TOC tree persisted in CRYSTALIZE-Status.json grill.toc.nodes (id/heading/level/confirmedContent/status)\n- Test results: make test-crystalize-readme → 137/137 passed; validate-toc-proposal 17 tests, update-step-status 30 tests; quality checks 0 issues\nReview report (PX-154):\n- Static quality check: passed (run-quality-checks 0 issues)\n- Translatability: all functions verb phrases, domain-concept names, named constants (ID_PATTERN/MAX_ID_DEPTH/MIN_OPTIONS/MAX_OPTIONS), no debug output. Renamed generic data → statusData in readStatus (Boy Scout)\n- Tests: make test-crystalize-readme 137/137 passed; validate-toc-proposal 17 tests (hierarchical-path ID, parent-existence, uniqueness, deterministic), update-step-status 30 tests (toc.nodes propose/confirm/completion, no stored parentId)\n- Annotation: 2 source files verified, 0 missing, 0 AMBIGUOUS\n- Contracts: C001 (hierarchical-path validation gate) and C002 (durable toc.nodes completion gate) fulfilled; smoke test confirmed propose→confirm→approve-toc→end-step flow and parent-absent rejection\n- Issues found and fixes applied: generic variable data in readStatus renamed to statusData",
+          "invariants": "- 【Normal establishment】各見出し提案は validate-toc-proposal.js で valid:true になるまで提示されない。ID は階層パス /^H[1-9][0-9]*(-[1-9][0-9]*)*$/（1〜6 セグメント）に従い、existingIds に対して一意。\n- 【Invariant on error】親不在の ID（H2 無しの H2-1）は validate-toc-proposal.js と propose-heading の両方で拒否され、exit 1。検証失敗の提案はユーザーに提示されない。\n- 【Internal state invariant】status.grill.toc.nodes に提案/確定ノード（id/heading/level/confirmedContent/status）が文書順で記録される。parentId は保存しない（ID から導出）。\n- 【Boundary invariant】全ノードが confirmed になるまで tocApproved=true にならない。Step 2 への進行はブロックされる。TOC の末尾の見出しは常に「examples（実装サンプル）の仕様と設計」。",
+          "instrumentation": "- 【Logging】update-step-status.js の propose-heading / confirm-heading / status は実行結果を stdout に出力（既存パターン）。validate-toc-proposal.js は検証結果 JSON を stdout に出力し exit 0/1。\n- 【Metrics】グリル進行は CRYSTALIZE-Status.json の grill.toc.nodes に記録される（ノード数 / confirmed 数）。status サブコマンドで確認。\n- 【Error tracking】検証失敗・親不在は validate-toc-proposal.js が errors[] として構造化出力し exit 1。propose-heading / confirm-heading も exit 1 で拒否。\n- 【Health check】status サブコマンドが currentStep / 各 step 状態 / grill.toc.nodes の確定状況を機械的に出力。\nStatic quality check: passed (0 issues)\nTranslatability: no issues (renamed generic data → statusData in readStatus)\nTests: 137/137 passed (make test-crystalize-readme)\nContracts: C001/C002 verified, verify-final-contracts pending\nCrimes: 0 / Stubs: 0 / No-excuse: passed / AMBIGUOUS: 0",
+          "investigation": "- validate-toc-proposal.js（PX-153 実装）: 現状 ID_PATTERN=/^H[1-6](-[1-9][0-9]*)?$/、入力 seenIds（同一ターン内の提案済み ID）。親存在の概念なし。ID は「レベル＋連番」解釈で、親子関係が ID から導出できない。\n- update-step-status.js（PX-153 実装）: grill={tocApproved, examplesApproved, proposedIds[], confirmedIds[]}。propose-heading <id> / confirm-heading <id> は ID 文字列のみを記録。isTocComplete() は proposedIds ⊆ confirmedIds で判定。見出しタイトル・確定内容・階層は永続化されない。\n- ユーザー指摘（PX-154 確定）: ID は階層パス（H1, H1-1, H1-2, H1-2-1, H2, H2-1, ...）。親 = 最後の -<n> を除去して導出。子は親の後にのみ存在可能（H2 無しの H2-1 は構造違反）。派生値 parentId は保存しない。\n- 既存テスト: validate-toc-proposal.test.cjs（PX-153）は seenIds を使用。update-step-status.test.cjs は proposedIds/confirmedIds を使用。どちらも PX-154 で書き換えが必要。",
+          "boyScoutPlan": "- validate-toc-proposal.js: parentIdOf(id) を純関数として抽出（ID の最後のセグメント除去、トップレベルは null）。ID_PATTERN / MAX_ID_DEPTH(6) を名前付き定数化。validateProposal は「一意性→親存在→その他」の順で検証し、エラーを errors[] に構造化。\n- update-step-status.js: readGrill / writeGrill / isTocComplete を関数抽出し、toc.nodes の操作（findNode / upsertNode）を単一責務関数に分割。propose/confirm の入力を JSON 化し、exitWithError で構造化エラーを出力。\n- 既存の seenIds / proposedIds / confirmedIds 参照を existingIds / toc.nodes に置換し、デッドフィールドを残さない。",
+          "created_at": "2026-08-18",
+          "updated_at": "2026-08-18",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Pre] 階層パス ID + 親存在の提案を受理\n```js\nconst { validateProposal, parentIdOf } = require('../../.claude/scripts/crystalize-readme/validate-toc-proposal.js');\nconst proposal = { id: 'H1-1', heading: 'アカウントの追加', contentOptions: ['コードA', 'コードB', 'コードC'], recommendation: 'コードA', reason: 'README の使い方に即しているため', existingIds: ['H1'] };\nconst result = validateProposal(proposal);\nassert.deepEqual(result, { valid: true, errors: [] });\n```",
+            "UT: [C001-Post] valid の条件を assert — パターン一致・一意・親存在\n```js\nassert.match(proposal.id, /^H[1-9][0-9]*(-[1-9][0-9]*)*$/);\nassert.ok(!proposal.existingIds.includes(proposal.id));\nassert.ok(proposal.existingIds.includes(parentIdOf(proposal.id))); // H1-1 → H1\nassert.equal(result.valid, true);\n```",
+            "UT: [C001-Inv] 決定論と parentIdOf 導出（保存しない派生値）\n```js\nassert.deepEqual(validateProposal(proposal), validateProposal(proposal));\nassert.equal(parentIdOf('H1-2-1'), 'H1-2');\nassert.equal(parentIdOf('H1'), null);\n```",
+            "UT: [C002-Pre] grill.toc.nodes に提案ノードが文書順で記録される\n```js\nconst { createDefaultStatus, executeProposeHeading } = require('../../.claude/scripts/crystalize-readme/update-step-status.js');\nconst status = createDefaultStatus(graphPath);\nexecuteProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });\nexecuteProposeHeading(status, { id: 'H1-1', heading: 'アカウントの追加' });\nassert.equal(status.grill.toc.nodes.length, 2);\nassert.equal(status.grill.toc.nodes[0].status, 'proposed');\nassert.equal(status.grill.toc.nodes[1].level, 2); // H1-1 → level 2\n```",
+            "UT: [C002-Post] confirm-heading が confirmedContent をセットし、全確定で tocApproved\n```js\nconst { executeConfirmHeading, isTocComplete } = require('../../.claude/scripts/crystalize-readme/update-step-status.js');\nexecuteConfirmHeading(status, { id: 'H1', confirmedContent: 'クイックスタート本文' });\nassert.equal(status.grill.toc.nodes[0].confirmedContent, 'クイックスタート本文');\nassert.equal(status.grill.toc.nodes[0].status, 'confirmed');\nassert.equal(isTocComplete(status), false); // H1-1 未確定\nexecuteConfirmHeading(status, { id: 'H1-1', confirmedContent: 'アカウント追加本文' });\nassert.equal(isTocComplete(status), true);\nassert.equal(status.grill.tocApproved, true);\n```",
+            "UT: [C002-Inv] 親不在の propose は拒否され、level/親は ID から導出（parentId 非保存）\n```js\nconst { executeProposeHeading } = require('../../.claude/scripts/crystalize-readme/update-step-status.js');\nassert.throws(() => executeProposeHeading(status, { id: 'H2-1', heading: 'X' }), /parent/);\nassert.equal(status.grill.toc.nodes.find(n => n.id === 'H1-1').level, 2);\nassert.ok(!('parentId' in status.grill.toc.nodes[0]));\n```"
+          ],
+          "startedAt": "2026-08-18",
+          "changes": [
+            {
+              "before": "ID_PATTERN=/^H[1-6](-[1-9][0-9]*)?$/ (レベル＋連番)",
+              "after": "ID_PATTERN=/^H[1-9][0-9]*(-[1-9][0-9]*)*$/ (階層パス 1〜6 セグメント)",
+              "description": "validate-toc-proposal.js の ID スキームを階層パスに変更。parentIdOf() で親を ID から導出。existingIds に対する親存在チェックを追加。"
+            },
+            {
+              "before": "入力 seenIds（同一ターン内の提案済み ID）",
+              "after": "入力 existingIds（既存ノード ID 全体）に置換し、親存在チェックを追加",
+              "description": "validate-toc-proposal.js の C001 を更新。親不在の ID（H2 無しの H2-1）は valid:false。"
+            },
+            {
+              "before": "grill={tocApproved,examplesApproved,proposedIds[],confirmedIds[]}（ID のみ）",
+              "after": "grill={tocApproved,examplesApproved,toc:{nodes:[{id,heading,level,confirmedContent,status}]}}",
+              "description": "update-step-status.js を toc.nodes 化。propose-heading は提案 JSON、confirm-heading は {id,confirmedContent} を stdin で受け、level/親は ID から導出（parentId 非保存）。readStatus で旧形式を移行補完。"
+            },
+            {
+              "before": "Step 1 の例は H1 クイックスタート / seenIds",
+              "after": "Step 1 の例は H1-1 アカウントの追加 / existingIds、propose→confirm の記録手順を明記",
+              "description": "crystalize-readme.md と設計書を階層パス ID + toc.nodes 永続化に更新。"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-18"
         }
       ]
     },

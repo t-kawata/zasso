@@ -3,7 +3,8 @@
 /**
  * update-step-status.js — CRYSTALIZE-Status.json management (Steps 0-4 + grill)
  *
- * CLI: update-step-status.js --graph=<path>|--status=<path> <subcommand> [id|N]
+ * CLI: update-step-status.js --graph=<path>|--status=<path> <subcommand>
+ *      propose-heading / confirm-heading read their JSON from stdin.
  *
  * Subcommands:
  *   start-step <N>    Start Step N (running, currentStep=N)
@@ -11,22 +12,25 @@
  *                    — Step 1 requires the TOC grill to be complete
  *   fail-step <N>     Fail Step N abnormally (error, currentStep unchanged)
  *   reset-to-step <N> Reset to Step N (set N+1..4 back to pending)
- *   propose-heading <id> Record a proposed Step 1 heading id
- *   confirm-heading <id> Confirm a proposed Step 1 heading id
+ *   propose-heading   Record a proposed heading from stdin proposal JSON
+ *   confirm-heading   Confirm a proposed heading from stdin {id, confirmedContent}
  *   reset-toc          Clear the per-heading TOC grill state
- *   approve-toc       Set tocApproved only when every proposed id is confirmed
+ *   approve-toc       Set tocApproved only when every node is confirmed
  *   approve-examples  Record the Step 2 examples grill approval
  *   status            Output the current state as formatted JSON
  *   cleanup           Delete known temporary files (idempotent)
  *   backup            Create a .bak of the status file (idempotent)
  *
- * All writes are atomic (temp file + rename).
+ * The grill records a durable toc.nodes tree ({id, heading, level,
+ * confirmedContent, status}) where level and parent are derived from the
+ * hierarchical-path id (never stored). All writes are atomic.
  */
 
 const fs = require('fs');
 const path = require('path');
 const { fromHomeRelative } = require('../lib/path-utils');
 const { readGraphFile } = require('./validate-graph-arg.js');
+const { parentIdOf } = require('./validate-toc-proposal.js');
 
 /** CLI flag: explicit status file path */
 const FLAG_STATUS = '--status=';
@@ -46,8 +50,8 @@ const MAX_STEP = 4;
 /** Subcommands that take a step number */
 const STEP_SUBCOMMANDS = ['start-step', 'end-step', 'fail-step', 'reset-to-step'];
 
-/** Subcommands that take a heading id */
-const HEADING_SUBCOMMANDS = ['propose-heading', 'confirm-heading'];
+/** Subcommands that read their input JSON from stdin */
+const STDIN_SUBCOMMANDS = ['propose-heading', 'confirm-heading'];
 
 /** Subcommands that take no extra argument */
 const NO_ARG_SUBCOMMANDS = ['approve-toc', 'approve-examples', 'status', 'cleanup', 'backup', 'reset-toc'];
@@ -55,7 +59,7 @@ const NO_ARG_SUBCOMMANDS = ['approve-toc', 'approve-examples', 'status', 'cleanu
 /** Allowed subcommand names */
 const ALLOWED_SUBCOMMANDS = [
   ...STEP_SUBCOMMANDS,
-  ...HEADING_SUBCOMMANDS,
+  ...STDIN_SUBCOMMANDS,
   ...NO_ARG_SUBCOMMANDS,
 ];
 
@@ -78,7 +82,7 @@ const STATUS_ERROR = 'error';
  * @returns {{ statusPath: string|null, graphPath: string|null, subcommand: string, stepNumber: number|null }}
  * @throws {Error} If the argument syntax is invalid
  */
-// [::TICKET::] PX-152, PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154) --for-spec --no-implementation-order`.
 function parseArguments(args) {
   const argv = args || process.argv.slice(2);
 
@@ -110,7 +114,6 @@ function parseArguments(args) {
   }
 
   let stepNumber = null;
-  let headingId = null;
   if (STEP_SUBCOMMANDS.includes(subcommand)) {
     if (argv.length < 3) {
       throw new Error(`Subcommand "${subcommand}" requires a step number.`);
@@ -119,17 +122,9 @@ function parseArguments(args) {
     if (isNaN(stepNumber)) {
       throw new Error(`Step number is not a number: ${argv[2]}`);
     }
-  } else if (HEADING_SUBCOMMANDS.includes(subcommand)) {
-    if (argv.length < 3) {
-      throw new Error(`Subcommand "${subcommand}" requires a heading id.`);
-    }
-    headingId = argv[2];
-    if (headingId.trim() === '') {
-      throw new Error('Heading id is empty.');
-    }
   }
 
-  return { statusPath, graphPath, subcommand, stepNumber, headingId };
+  return { statusPath, graphPath, subcommand, stepNumber };
 }
 
 /**
@@ -152,7 +147,7 @@ function resolveStatusPath(parsed) {
  * @param {string} graphPath — Graph file path
  * @returns {Object} Default status data
  */
-// [::TICKET::] PX-152, PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154) --for-spec --no-implementation-order`.
 function createDefaultStatus(graphPath) {
   const graph = readGraphFile(graphPath);
   const sourceFile = path.resolve(fromHomeRelative(graph.sourceFile));
@@ -165,7 +160,7 @@ function createDefaultStatus(graphPath) {
     graphFile: path.resolve(graphPath),
     currentStep: MIN_STEP,
     steps,
-    grill: { tocApproved: false, examplesApproved: false, proposedIds: [], confirmedIds: [] },
+    grill: { tocApproved: false, examplesApproved: false, toc: { nodes: [] } },
   };
 }
 
@@ -176,28 +171,37 @@ function createDefaultStatus(graphPath) {
  * @param {string} graphPath — Graph file path (used for the default)
  * @returns {Object} Status data
  */
-// [::TICKET::] PX-152, PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154) --for-spec --no-implementation-order`.
 function readStatus(statusPath, graphPath) {
   if (!fs.existsSync(statusPath)) {
     return createDefaultStatus(graphPath);
   }
 
   const raw = fs.readFileSync(statusPath, 'utf8');
-  const data = JSON.parse(raw);
+  const statusData = JSON.parse(raw);
 
-  if (!data.sourceFile || !data.graphFile || typeof data.currentStep !== 'number' || !data.steps) {
+  if (!statusData.sourceFile || !statusData.graphFile || typeof statusData.currentStep !== 'number' || !statusData.steps) {
     throw new Error(`${statusPath} has invalid format. sourceFile / graphFile / currentStep / steps are required.`);
   }
-  if (!data.grill) {
-    data.grill = { tocApproved: false, examplesApproved: false, proposedIds: [], confirmedIds: [] };
+  if (!statusData.grill) {
+    statusData.grill = { tocApproved: false, examplesApproved: false, toc: { nodes: [] } };
   }
-  if (!Array.isArray(data.grill.proposedIds)) {
-    data.grill.proposedIds = [];
+  if (!statusData.grill.toc || !Array.isArray(statusData.grill.toc.nodes)) {
+    // Backward-compatible migration from the legacy id-only grill (PX-153):
+    // proposedIds/confirmedIds carry only ids, so heading/content are unknown.
+    const legacyProposed = Array.isArray(statusData.grill.proposedIds) ? statusData.grill.proposedIds : [];
+    const legacyConfirmed = Array.isArray(statusData.grill.confirmedIds) ? statusData.grill.confirmedIds : [];
+    statusData.grill.toc = {
+      nodes: legacyProposed.map((id) => ({
+        id,
+        heading: '',
+        level: (String(id).match(/-/g) || []).length + 1,
+        confirmedContent: null,
+        status: legacyConfirmed.includes(id) ? 'confirmed' : 'proposed',
+      })),
+    };
   }
-  if (!Array.isArray(data.grill.confirmedIds)) {
-    data.grill.confirmedIds = [];
-  }
-  return data;
+  return statusData;
 }
 
 /**
@@ -260,48 +264,84 @@ function executeResetToStep(status, n) {
 }
 
 /**
- * Whether the Step 1 TOC grill is complete: a non-empty proposed set whose
- * every id has been confirmed.
+ * Whether the Step 1 TOC grill is complete: a non-empty tree whose every node
+ * has been confirmed.
  *
  * @param {Object} status — Status data
- * @returns {boolean} true when every proposed heading id is confirmed
+ * @returns {boolean} true when every node is confirmed
  */
-// [::TICKET::] PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-153 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
 function isTocComplete(status) {
-  const { proposedIds, confirmedIds } = status.grill;
-  return proposedIds.length > 0 && proposedIds.every((id) => confirmedIds.includes(id));
-}
-
-/** propose-heading <id>: record a proposed Step 1 heading id (deduplicated). */
-// [::TICKET::] PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-153 --for-spec --no-implementation-order`.
-function executeProposeHeading(status, headingId) {
-  if (!status.grill.proposedIds.includes(headingId)) {
-    status.grill.proposedIds.push(headingId);
-  }
-  process.stdout.write(`Heading proposed: ${headingId}\n`);
+  const nodes = status.grill.toc.nodes;
+  return nodes.length > 0 && nodes.every((node) => node.status === 'confirmed');
 }
 
 /**
- * confirm-heading <id>: confirm a proposed Step 1 heading id.
+ * propose-heading: record a proposed heading node from a proposal JSON
+ * {id, heading, ...}. Level is derived from the hierarchical-path id; a child
+ * may only be proposed after its parent node already exists in the tree.
  *
+ * @param {Object} status — Status data
+ * @param {Object} proposal — {id, heading}
+ * @throws {Error} If id/heading are missing or the parent node is absent
+ */
+// [::TICKET::] PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
+function executeProposeHeading(status, proposal) {
+  const { id, heading } = proposal || {};
+  if (typeof id !== 'string' || id.trim() === '') {
+    throw new Error('proposal.id is required.');
+  }
+  if (typeof heading !== 'string' || heading.trim() === '') {
+    throw new Error('proposal.heading is required.');
+  }
+
+  const nodes = status.grill.toc.nodes;
+  const parent = parentIdOf(id);
+  if (parent !== null && !nodes.some((node) => node.id === parent)) {
+    throw new Error(`Parent "${parent}" of "${id}" is not in the TOC. Propose the parent first.`);
+  }
+
+  const level = (id.match(/-/g) || []).length + 1;
+  const existing = nodes.find((node) => node.id === id);
+  if (existing) {
+    existing.heading = heading;
+    existing.level = level;
+  } else {
+    nodes.push({ id, heading, level, confirmedContent: null, status: 'proposed' });
+  }
+  process.stdout.write(`Heading proposed: ${id}\n`);
+}
+
+/**
+ * confirm-heading: confirm a proposed heading node from {id, confirmedContent}.
+ *
+ * @param {Object} status — Status data
+ * @param {Object} confirmation — {id, confirmedContent}
  * @throws {Error} If the id was never proposed
  */
-// [::TICKET::] PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-153 --for-spec --no-implementation-order`.
-function executeConfirmHeading(status, headingId) {
-  if (!status.grill.proposedIds.includes(headingId)) {
-    throw new Error(`Heading id "${headingId}" is not proposed. Propose it first with propose-heading.`);
+// [::TICKET::] PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
+function executeConfirmHeading(status, confirmation) {
+  const { id, confirmedContent } = confirmation || {};
+  if (typeof id !== 'string' || id.trim() === '') {
+    throw new Error('confirmation.id is required.');
   }
-  if (!status.grill.confirmedIds.includes(headingId)) {
-    status.grill.confirmedIds.push(headingId);
+  if (typeof confirmedContent !== 'string' || confirmedContent.trim() === '') {
+    throw new Error('confirmation.confirmedContent is required.');
   }
-  process.stdout.write(`Heading confirmed: ${headingId}\n`);
+
+  const node = status.grill.toc.nodes.find((n) => n.id === id);
+  if (!node) {
+    throw new Error(`Heading id "${id}" is not proposed. Propose it first with propose-heading.`);
+  }
+  node.confirmedContent = confirmedContent;
+  node.status = 'confirmed';
+  process.stdout.write(`Heading confirmed: ${id}\n`);
 }
 
 /** reset-toc: clear the per-heading TOC grill state. */
-// [::TICKET::] PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-153 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
 function executeResetToc(status) {
-  status.grill.proposedIds = [];
-  status.grill.confirmedIds = [];
+  status.grill.toc.nodes = [];
   status.grill.tocApproved = false;
   process.stdout.write('TOC grill state reset.\n');
 }
@@ -399,7 +439,7 @@ function exitWithError(message, reason, action) {
 /**
  * Display usage instructions.
  */
-// [::TICKET::] PX-152, PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154) --for-spec --no-implementation-order`.
 function printUsage() {
   process.stdout.write(`
 update-step-status.js — CRYSTALIZE-Status.json management
@@ -414,14 +454,18 @@ Subcommands:
                     Step 1 requires the TOC grill to be complete
   fail-step <N>     Fail Step N abnormally (error, currentStep unchanged)
   reset-to-step <N> Reset to Step N (set N+1..4 to pending)
-  propose-heading <id> Record a proposed Step 1 heading id
-  confirm-heading <id> Confirm a proposed Step 1 heading id
+  propose-heading   Record a proposed heading from stdin proposal JSON
+  confirm-heading   Confirm a proposed heading from stdin {id, confirmedContent}
   reset-toc          Clear the per-heading TOC grill state
-  approve-toc       Set tocApproved only when every proposed id is confirmed
+  approve-toc       Set tocApproved only when every node is confirmed
   approve-examples  Record the examples grill approval
   status            Output the current state as formatted JSON
   cleanup           Delete known temporary files (idempotent)
   backup            Create a .bak of the status file (idempotent)
+
+propose-heading / confirm-heading read JSON from stdin, e.g.:
+  echo '{"id":"H1","heading":"クイックスタート"}' | update-step-status.js --graph=<path> propose-heading
+  echo '{"id":"H1","confirmedContent":"..."}' | update-step-status.js --graph=<path> confirm-heading
 
 Step numbers: ${MIN_STEP} to ${MAX_STEP}
 `);
@@ -430,7 +474,7 @@ Step numbers: ${MIN_STEP} to ${MAX_STEP}
 /**
  * main — parse arguments, dispatch subcommand, write atomically.
  */
-// [::TICKET::] PX-152, PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154) --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {
@@ -454,6 +498,19 @@ function main() {
     exitWithError(`Failed to read status file: ${readError.message}`, `File path: ${statusPath}`, 'Verify the file exists and is valid JSON.');
   }
 
+  let inputJson = null;
+  if (STDIN_SUBCOMMANDS.includes(parsed.subcommand)) {
+    try {
+      const raw = fs.readFileSync(0, 'utf8');
+      inputJson = JSON.parse(raw);
+      if (!inputJson || typeof inputJson !== 'object' || Array.isArray(inputJson)) {
+        throw new Error('Input must be a JSON object.');
+      }
+    } catch (stdinError) {
+      exitWithError(`Failed to read stdin JSON for ${parsed.subcommand}.`, stdinError.message, `Pipe a JSON object, e.g. echo '{"id":"H1","heading":"..."}' | update-step-status.js --graph=<path> ${parsed.subcommand}`);
+    }
+  }
+
   try {
     switch (parsed.subcommand) {
       case 'start-step':
@@ -470,10 +527,10 @@ function main() {
         break;
       }
       case 'propose-heading':
-        executeProposeHeading(status, parsed.headingId);
+        executeProposeHeading(status, inputJson);
         break;
       case 'confirm-heading':
-        executeConfirmHeading(status, parsed.headingId);
+        executeConfirmHeading(status, inputJson);
         break;
       case 'reset-toc':
         executeResetToc(status);
@@ -545,7 +602,7 @@ module.exports = {
   MAX_STEP,
   ALLOWED_SUBCOMMANDS,
   STEP_SUBCOMMANDS,
-  HEADING_SUBCOMMANDS,
+  STDIN_SUBCOMMANDS,
   NO_ARG_SUBCOMMANDS,
   STATUS_PENDING,
   STATUS_RUNNING,

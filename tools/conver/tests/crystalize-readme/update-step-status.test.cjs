@@ -1,9 +1,11 @@
 /**
  * update-step-status.test.cjs — Tests for the crystalize update-step-status.js
+ * @verifies C002
  *
  * Manages CRYSTALIZE-Status.json: step transitions 0..4 plus the Step 1
- * per-heading TOC grill (propose-heading / confirm-heading / reset-toc) and
- * grill approvals (approve-toc / approve-examples). All writes are atomic.
+ * per-heading TOC grill. The grill records a durable toc.nodes tree
+ * ({id, heading, level, confirmedContent, status}) where level and parent are
+ * derived from the hierarchical-path id (never stored). All writes are atomic.
  */
 
 const { describe, it, before, after, afterEach } = require('node:test');
@@ -44,7 +46,7 @@ let graphPath;
 let statusPath;
 
 before(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px152-uss-'));
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px154-uss-'));
   graphPath = path.join(tmpDir, 'RFC-ROOT-GRAPH.json');
   fs.writeFileSync(graphPath, JSON.stringify({
     sourceFile: path.join(tmpDir, 'RFC-ROOT.md'),
@@ -59,7 +61,7 @@ afterEach(() => fs.rmSync(statusPath, { force: true }));
 after(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
 describe('parseArguments', () => {
-  it('parses --graph=<path> with a subcommand', () => {
+  it('parses --graph=<path> with a step subcommand', () => {
     const parsed = parseArguments([`--graph=${graphPath}`, 'start-step', '0']);
     assert.equal(parsed.graphPath, graphPath);
     assert.equal(parsed.subcommand, 'start-step');
@@ -72,34 +74,21 @@ describe('parseArguments', () => {
     assert.equal(parsed.subcommand, 'status');
   });
 
-  it('parses approve-toc without a step number', () => {
-    const parsed = parseArguments([`--graph=${graphPath}`, 'approve-toc']);
-    assert.equal(parsed.subcommand, 'approve-toc');
-    assert.equal(parsed.stepNumber, null);
-  });
-
-  it('parses propose-heading with a heading id', () => {
-    const parsed = parseArguments([`--graph=${graphPath}`, 'propose-heading', 'H1']);
+  it('parses propose-heading without an extra argument (stdin JSON)', () => {
+    const parsed = parseArguments([`--graph=${graphPath}`, 'propose-heading']);
     assert.equal(parsed.subcommand, 'propose-heading');
-    assert.equal(parsed.headingId, 'H1');
     assert.equal(parsed.stepNumber, null);
   });
 
-  it('parses confirm-heading with a heading id', () => {
-    const parsed = parseArguments([`--graph=${graphPath}`, 'confirm-heading', 'H2-1']);
+  it('parses confirm-heading without an extra argument (stdin JSON)', () => {
+    const parsed = parseArguments([`--graph=${graphPath}`, 'confirm-heading']);
     assert.equal(parsed.subcommand, 'confirm-heading');
-    assert.equal(parsed.headingId, 'H2-1');
     assert.equal(parsed.stepNumber, null);
   });
 
   it('parses reset-toc without extra arguments', () => {
     const parsed = parseArguments([`--graph=${graphPath}`, 'reset-toc']);
     assert.equal(parsed.subcommand, 'reset-toc');
-    assert.equal(parsed.headingId, null);
-  });
-
-  it('rejects confirm-heading without a heading id', () => {
-    assert.throws(() => parseArguments([`--graph=${graphPath}`, 'confirm-heading']));
   });
 
   it('rejects an unknown subcommand', () => {
@@ -125,7 +114,7 @@ describe('parseArguments', () => {
 });
 
 describe('createDefaultStatus', () => {
-  it('builds a default status from the graph with steps 0..4 pending', () => {
+  it('builds a default status with steps 0..4 pending and an empty toc tree', () => {
     const status = createDefaultStatus(graphPath);
     assert.equal(status.graphFile, graphPath);
     assert.equal(status.sourceFile, path.join(tmpDir, 'RFC-ROOT.md'));
@@ -133,8 +122,7 @@ describe('createDefaultStatus', () => {
     assert.equal(status.steps['4'], STATUS_PENDING);
     assert.equal(status.grill.tocApproved, false);
     assert.equal(status.grill.examplesApproved, false);
-    assert.deepEqual(status.grill.proposedIds, []);
-    assert.deepEqual(status.grill.confirmedIds, []);
+    assert.deepEqual(status.grill.toc.nodes, []);
   });
 });
 
@@ -142,9 +130,10 @@ describe('readStatus', () => {
   it('returns the default when the status file does not exist', () => {
     const status = readStatus(statusPath, graphPath);
     assert.equal(status.currentStep, MIN_STEP);
+    assert.deepEqual(status.grill.toc.nodes, []);
   });
 
-  it('reads an existing status file', () => {
+  it('reads an existing status file and backfills a missing toc tree', () => {
     fs.writeFileSync(statusPath, JSON.stringify({
       sourceFile: path.join(tmpDir, 'RFC-ROOT.md'),
       graphFile: graphPath,
@@ -155,6 +144,21 @@ describe('readStatus', () => {
     const status = readStatus(statusPath, graphPath);
     assert.equal(status.currentStep, 2);
     assert.equal(status.grill.tocApproved, true);
+    assert.deepEqual(status.grill.toc.nodes, []);
+  });
+
+  it('migrates legacy proposedIds/confirmedIds into toc.nodes', () => {
+    fs.writeFileSync(statusPath, JSON.stringify({
+      sourceFile: path.join(tmpDir, 'RFC-ROOT.md'),
+      graphFile: graphPath,
+      currentStep: 1,
+      steps: { 0: 'done', 1: 'running', 2: 'pending', 3: 'pending', 4: 'pending' },
+      grill: { tocApproved: false, examplesApproved: false, proposedIds: ['H1', 'H1-1'], confirmedIds: ['H1'] },
+    }), 'utf8');
+    const status = readStatus(statusPath, graphPath);
+    assert.equal(status.grill.toc.nodes.length, 2);
+    assert.equal(status.grill.toc.nodes.find((n) => n.id === 'H1').status, 'confirmed');
+    assert.equal(status.grill.toc.nodes.find((n) => n.id === 'H1-1').status, 'proposed');
   });
 });
 
@@ -177,13 +181,20 @@ describe('step transitions', () => {
     assert.equal(status.currentStep, 1);
   });
 
-  it('end-step marks a step done and advances currentStep when Step 1 is gated and complete', () => {
+  it('end-step marks a step done and advances currentStep when Step 1 is complete', () => {
     const status = createDefaultStatus(graphPath);
-    status.grill.proposedIds = ['H1'];
-    status.grill.confirmedIds = ['H1'];
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    executeConfirmHeading(status, { id: 'H1', confirmedContent: 'クイックスタート本文' });
     executeEndStep(status, 1);
     assert.equal(status.steps['1'], STATUS_DONE);
     assert.equal(status.currentStep, 2);
+  });
+
+  it('end-step 1 throws while the TOC grill is incomplete (C002-Inv)', () => {
+    const status = createDefaultStatus(graphPath);
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    assert.throws(() => executeEndStep(status, 1), /TOC grill is incomplete/);
+    assert.equal(status.steps['1'], STATUS_PENDING);
   });
 
   it('fail-step marks a step error without moving currentStep', () => {
@@ -203,11 +214,12 @@ describe('step transitions', () => {
 
   it('approve-toc derives tocApproved from full confirmation; approve-examples sets its own flag', () => {
     const status = createDefaultStatus(graphPath);
-    status.grill.proposedIds = ['H1', 'H2-1'];
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    executeProposeHeading(status, { id: 'H1-1', heading: 'アカウントの追加' });
     executeApproveToc(status);
     assert.equal(status.grill.tocApproved, false);
-    executeConfirmHeading(status, 'H1');
-    executeConfirmHeading(status, 'H2-1');
+    executeConfirmHeading(status, { id: 'H1', confirmedContent: '本文1' });
+    executeConfirmHeading(status, { id: 'H1-1', confirmedContent: '本文2' });
     executeApproveToc(status);
     assert.equal(status.grill.tocApproved, true);
     executeApproveExamples(status);
@@ -216,58 +228,79 @@ describe('step transitions', () => {
 });
 
 describe('per-heading grill — C002', () => {
-  it('propose-heading records a heading id in proposedIds (deduplicated)', () => {
+  it('propose-heading records {id, heading, level, status:proposed} from a proposal JSON', () => {
     const status = createDefaultStatus(graphPath);
-    executeProposeHeading(status, 'H1');
-    executeProposeHeading(status, 'H2-1');
-    executeProposeHeading(status, 'H1');
-    assert.deepEqual(status.grill.proposedIds, ['H1', 'H2-1']);
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    executeProposeHeading(status, { id: 'H1-1', heading: 'アカウントの追加' });
+    assert.equal(status.grill.toc.nodes.length, 2);
+    assert.equal(status.grill.toc.nodes[0].id, 'H1');
+    assert.equal(status.grill.toc.nodes[0].heading, 'クイックスタート');
+    assert.equal(status.grill.toc.nodes[0].level, 1);
+    assert.equal(status.grill.toc.nodes[0].status, 'proposed');
+    assert.equal(status.grill.toc.nodes[1].level, 2); // H1-1 → level 2
   });
 
-  it('confirm-heading records a proposed id in confirmedIds', () => {
+  it('propose-heading rejects a child whose parent node is not in the tree (C002-Inv)', () => {
     const status = createDefaultStatus(graphPath);
-    status.grill.proposedIds = ['H1', 'H2-1'];
-    executeConfirmHeading(status, 'H1');
-    assert.deepEqual(status.grill.confirmedIds, ['H1']);
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    assert.throws(() => executeProposeHeading(status, { id: 'H2-1', heading: '通話' }), /parent/);
+    assert.equal(status.grill.toc.nodes.length, 1);
   });
 
-  it('confirm-heading throws for an id that was never proposed (C002-Inv)', () => {
+  it('propose-heading upserts an existing id with a new heading', () => {
     const status = createDefaultStatus(graphPath);
-    status.grill.proposedIds = ['H1'];
-    assert.throws(() => executeConfirmHeading(status, 'H3-1'), /not proposed/);
-    assert.deepEqual(status.grill.confirmedIds, []);
+    executeProposeHeading(status, { id: 'H1', heading: '旧タイトル' });
+    executeProposeHeading(status, { id: 'H1', heading: '新タイトル' });
+    assert.equal(status.grill.toc.nodes.length, 1);
+    assert.equal(status.grill.toc.nodes[0].heading, '新タイトル');
   });
 
-  it('isTocComplete is false while any proposed id is unconfirmed and true when all are confirmed', () => {
+  it('confirm-heading sets confirmedContent and status=confirmed (C002-Post)', () => {
     const status = createDefaultStatus(graphPath);
-    status.grill.proposedIds = ['H1', 'H2-1'];
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    executeConfirmHeading(status, { id: 'H1', confirmedContent: 'クイックスタート本文' });
+    assert.equal(status.grill.toc.nodes[0].confirmedContent, 'クイックスタート本文');
+    assert.equal(status.grill.toc.nodes[0].status, 'confirmed');
+  });
+
+  it('confirm-heading rejects an unproposed id (C002-Inv)', () => {
+    const status = createDefaultStatus(graphPath);
+    assert.throws(() => executeConfirmHeading(status, { id: 'H1', confirmedContent: '本文' }), /not proposed/);
+  });
+
+  it('isTocComplete is false while any node is unconfirmed and true when all are confirmed', () => {
+    const status = createDefaultStatus(graphPath);
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    executeProposeHeading(status, { id: 'H1-1', heading: 'アカウントの追加' });
     assert.equal(isTocComplete(status), false);
-    executeConfirmHeading(status, 'H1');
+    executeConfirmHeading(status, { id: 'H1', confirmedContent: '本文1' });
     assert.equal(isTocComplete(status), false);
-    executeConfirmHeading(status, 'H2-1');
+    executeConfirmHeading(status, { id: 'H1-1', confirmedContent: '本文2' });
     assert.equal(isTocComplete(status), true);
   });
 
-  it('isTocComplete is false for an empty proposed set', () => {
+  it('isTocComplete is false for an empty tree', () => {
     const status = createDefaultStatus(graphPath);
     assert.equal(isTocComplete(status), false);
   });
 
-  it('end-step 1 throws while the TOC grill is incomplete (C002-Inv)', () => {
+  it('stores no parentId — level and parent are derived from the id (C002-Inv)', () => {
     const status = createDefaultStatus(graphPath);
-    status.grill.proposedIds = ['H1'];
-    assert.throws(() => executeEndStep(status, 1), /TOC grill is incomplete/);
-    assert.equal(status.steps['1'], STATUS_PENDING);
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    executeProposeHeading(status, { id: 'H1-2', heading: '通話' });
+    executeProposeHeading(status, { id: 'H1-2-1', heading: '保留' });
+    assert.ok(!('parentId' in status.grill.toc.nodes[0]));
+    assert.equal(status.grill.toc.nodes[2].level, 3);
+    assert.equal(status.grill.toc.nodes[2].id, 'H1-2-1');
   });
 
   it('reset-toc clears the per-heading grill state', () => {
     const status = createDefaultStatus(graphPath);
-    status.grill.proposedIds = ['H1'];
-    status.grill.confirmedIds = ['H1'];
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    executeConfirmHeading(status, { id: 'H1', confirmedContent: '本文' });
     status.grill.tocApproved = true;
     executeResetToc(status);
-    assert.deepEqual(status.grill.proposedIds, []);
-    assert.deepEqual(status.grill.confirmedIds, []);
+    assert.deepEqual(status.grill.toc.nodes, []);
     assert.equal(status.grill.tocApproved, false);
   });
 });

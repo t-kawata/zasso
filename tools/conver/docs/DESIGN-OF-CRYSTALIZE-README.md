@@ -99,7 +99,7 @@ RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの�
 | sourceFile の読込（Step 0） | — | ○（読込） |
 | 見出し提案の検証ゲート（validate-toc-proposal） | ○ | — |
 | 見出し提案の合成（使い方に絞る） | — | ○（合成・推奨） |
-| 見出しの確定記録（confirm-heading / isTocComplete） | ○ | — |
+| 見出しの提案・確定記録（propose-heading / confirm-heading / isTocComplete） | ○ | — |
 | examples の仕様・設計の合成 | グラフノード抽出 ○ | ○ |
 | 分岐判定 (a)/(b) | ○ | — |
 | README / RESIDUE 本文の執筆 | 構造・雛形 ○ | ○ |
@@ -129,10 +129,11 @@ RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの�
 
 目的: README の目次（階層的見出し）を確定する。sourceFile を前提とし、**使い方に絞って技術的詳細内容に踏み込まない**目次を合成する。
 
-1. **見出し提案（非決定論）**: AI が各見出しを `{id, heading, contentOptions[], recommendation, reason}` の形で合成する。全ての見出しに**階層的に一意な ID（H1, H2-1, H2-2, ...）**を採番し、各提案に AI の推奨と理由を明示する。
-2. **検証ゲート（決定論・必須）**: 各提案は**ユーザーへ提示する前に** `validate-toc-proposal.js` で検証する。`valid:true` になるまで再構成し、未検証の提案は提示しない。ID は `/^H[1-6](-[1-9][0-9]*)?$/` に従い、同一ターン内で重複しない。
-3. **ユーザー回答**: ユーザーは **ID 単位で A/B/C/Yes/No で回答**する。自由コメントも可（確定には ID 単位の回答が必要）。
-4. **確定記録（決定論）**: 回答ごとに `update-step-status.js confirm-heading <id>` で確定を記録する。全提案 ID が確定した場合のみ `isTocComplete()=true` / `tocApproved=true` となり、`end-step 1` で Step 2 へ進む。未確定の間は Step 1 を完了できない。
+1. **見出し提案（非決定論）**: AI が各見出しを `{id, heading, contentOptions[], recommendation, reason, existingIds}` の形で合成する。全ての見出しに**階層パス ID（H1, H1-1, H1-2, H1-2-1, H2, H2-1, ...）**を採番し、各提案に AI の推奨と理由を明示する。ID は階層パスであり、**親 = 最後の `-<n>` を除去**して導出する（保存しない）。`existingIds` は既存ノード ID 全体。
+2. **検証ゲート（決定論・必須）**: 各提案は**ユーザーへ提示する前に** `validate-toc-proposal.js` で検証する。`valid:true` になるまで再構成し、未検証の提案は提示しない。ID は `/^H[1-9][0-9]*(-[1-9][0-9]*)*$/`（1〜6 セグメント）に従い、`existingIds` に対して一意。**親存在チェック**: 親不在の ID（H2 無しの H2-1）は `valid:false`。
+3. **提案の記録（決定論）**: 検証を通過した提案 JSON を `update-step-status.js propose-heading` で `grill.toc.nodes` に `status=proposed` として記録（親存在チェック付き）。
+4. **ユーザー回答**: ユーザーは **ID 単位で A/B/C/Yes/No で回答**する。自由コメントも可（確定には ID 単位の回答が必要）。
+5. **確定記録（決定論）**: 回答ごとに `update-step-status.js confirm-heading` に `{id, confirmedContent}` を渡し、ノードの `confirmedContent` と `status=confirmed` を CRYSTALIZE-Status.json に永続化する。全ノード確定時のみ `isTocComplete()=true` / `tocApproved=true` となり、`end-step 1` で Step 2 へ進む。未確定の間は Step 1 を完了できない。確定済みツリー（id/heading/level/confirmedContent/status）は `status` サブコマンドで確認でき、セッション再開時にも復元できる。
    - **末尾の見出しは必ず「examples（実装サンプル）の仕様と設計」**とする。
 
 ### Step 2: グリル — examples（実装サンプル）の仕様と設計
@@ -197,13 +198,13 @@ RESIDUE は「README が書けない理由」を体系的に記録する文書�
 |---|---|---|
 | `validate-graph-arg.js` | 100% | グラフ読込・スキーマ検証（スタンドアロン工程では直接呼ばない。`derive-output-paths.js` が `readGraphFile` を内部利用） |
 | `derive-output-paths.js` | 100% | Preflight。出力パス導出 + `sourceFile` 実在チェック |
-| `validate-toc-proposal.js` | 100% | Step 1 見出し提案の検証ゲート（ID 階層一意 / contentOptions 2-4 / 推奨 ∈ 選択肢 / reason 非空 / 決定論） |
+| `validate-toc-proposal.js` | 100% | Step 1 見出し提案の検証ゲート（階層パス ID /^H[1-9][0-9]*(-[1-9][0-9]*)*$/（1〜6 セグメント）・親存在チェック・existingIds 一意・contentOptions 2-4・推奨 ∈ 選択肢・reason 非空・決定論） |
 | `validate-examples-spec.js` | 100% | examples 仕様の構造・参照整合検証 |
 | `check-readme-writable.js` | 100% | (a)/(b) 分岐判定 |
 | `generate-residue-filename.js` | 100% | `RESIDUE-<YYYYMMDDhhmmss>.md` 名生成 |
 | `validate-readme-output.js` | 100% | README 出力構造検証 |
 | `validate-residue-output.js` | 100% | RESIDUE 出力構造検証 |
-| `update-step-status.js` | 100% | ステップ進行管理 + Step 1 グリル確定（`propose-heading` / `confirm-heading` / `reset-toc` / `isTocComplete`。全確定で `tocApproved`、未確定で `end-step 1` をブロック） |
+| `update-step-status.js` | 100% | ステップ進行管理 + Step 1 グリル確定（`grill.toc.nodes` に id/heading/level/confirmedContent/status を永続化。`propose-heading` / `confirm-heading` / `reset-toc` / `isTocComplete`。level と親は ID から導出。全確定で `tocApproved`、未確定で `end-step 1` をブロック） |
 
 各スクリプトは `tests/crystalize-readme/*.test.cjs` を伴う（node.md 規約: CommonJS、`make test-crystalize-readme` で `node --test` 実行）。
 
@@ -225,6 +226,7 @@ RESIDUE は「README が書けない理由」を体系的に記録する文書�
 
 ## 12. 変更履歴
 
+- 2026-08-18 (PX-154): ID スキームを階層パス（H1, H1-1, H1-2-1, H2, ...）に変更。親 = 最後の `-<n>` を除去して導出（parentId は保存しない）。親不在の子（H2 無しの H2-1）を構造違反として拒否。確定済み目次を `update-step-status.js` の `grill.toc.nodes`（id/heading/level/confirmedContent/status）として CRYSTALIZE-Status.json に永続化し、AI の記憶に依存しない方式に変更。
 - 2026-08-18 (PX-153): Step 1 を「見出しごとの提案グリル」に再設計。決定論的候補抽出（`extract-toc-candidates.js`）と構造チェック（`check-toc-structure.js`）を廃止・削除。各見出し提案を `validate-toc-proposal.js` で提示前に検証し、`update-step-status.js` の `confirm-heading` / `isTocComplete` で全 ID 確定まで Step 2 へ進めない方式に変更。
 - 2026-08-18: 独立した引数検証 Step 0 を廃止。Preflight を導入し、`derive-output-paths.js` がグラフ読込・`sourceFile` 実在チェック・パス導出を一括実行し、検証済み `sourceFile` を含む JSON を出力するように変更。新 Step 0 を「sourceFile の読込」とし、Step 1・2 の前提情報とした。
 - 2026-08-17: siprs の設計メモを収束・仕様化。`samples` → `examples` に改名。グリル（目次）の応答形式を Yes/No・ABC に規定。決定論 vs 非決定論の原則を明記。

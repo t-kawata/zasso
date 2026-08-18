@@ -63,23 +63,33 @@ Preflight が出力した `sourceFile` のファイルを読む。
 
 README の目次（階層的見出し）を確定する。Step 0 で読み込んだ `sourceFile` の内容を前提情報として使用する。
 
-**方針**: 「使い方に絞った README の目次」を提案する。技術的詳細内容には踏み込まない。全ての見出しに**階層的に一意な ID（H1, H2-1, H2-2, ...）**を採番する。
+**方針**: 「使い方に絞った README の目次」を提案する。技術的詳細内容には踏み込まない。全ての見出しに**階層パス ID（H1, H1-1, H1-2, H1-2-1, H2, H2-1, ...）**を採番する。ID は階層パスであり、**親 = 最後の `-<n>` を除去**して導出する（`H1-2-1` の親は `H1-2`）。**子は親の後にのみ存在でき、親不在の ID（H2 無しの H2-1）は構造違反**として拒否される。
 
-1. **見出し提案（非決定論）**: AI が `sourceFile` を前提に、使い方に絞った目次の各見出しを合成する。各見出しは `{id, heading, contentOptions[], recommendation, reason}` の形で、A/B/C または Yes/No で回答できる「内容の提案」を伴う。各提案には **AI の推奨とその理由**を明示する。
+1. **見出し提案（非決定論）**: AI が `sourceFile` を前提に、使い方に絞った目次の各見出しを合成する。各見出しは `{id, heading, contentOptions[], recommendation, reason, existingIds}` の形で、A/B/C または Yes/No で回答できる「内容の提案」を伴う。`existingIds` は既存ノード ID 全体（親が存在することを示す）。各提案には **AI の推奨とその理由**を明示する。
 2. **検証ゲート（決定論・必須）**: 各提案は**ユーザーへ提示する前に必ず** `validate-toc-proposal.js` で検証する。`valid:true` になるまで再構成し、未検証の提案は提示しない。
 
 ```bash
-echo '<proposal-json>' | node .claude/scripts/crystalize-readme/validate-toc-proposal.js || exit 1
+echo '{"id":"H1-1","heading":"アカウントの追加","contentOptions":["add_account() と register() を呼ぶコード","SipAccountHandle 経由で登録状態を確認するコード","set_registration_enabled() で動的に登録を切り替えるコード"],"recommendation":"add_account() と register() を呼ぶコード","reason":"アカウント追加は最も基本的な操作であり、先に最小のコードを示すのが効果的なため","existingIds":["H1"]}' | node .claude/scripts/crystalize-readme/validate-toc-proposal.js || exit 1
 ```
 
-3. **ユーザー回答**: ユーザーは **ID 単位で A/B/C/Yes/No で回答**する。自由コメントも可（受け付けるが、確定には ID 単位の回答が必要）。
-4. **確定記録**: 回答ごとに `confirm-heading <id>` で確定を記録する。
+- 提案 JSON の全フィールド: `id`（階層パス ID。親 = 最後の `-<n>` を除去）/ `heading`（見出しタイトル）/ `contentOptions`（A/B/C または Yes/No の選択肢 2〜4 件）/ `recommendation`（推奨する選択肢）/ `reason`（推奨理由）/ `existingIds`（既存ノード ID 全体。親が含まれること）。
+- 上記は実際の crate（siprs）の公開 API（`add_account` / `register` / `SipAccountHandle` 等）に基づく**生きた例**。AI も同様に、対象 RFC / `sourceFile` の実 API と使い方に即した具体的な内容で提案を組み立てること。
+- 見出し・選択肢・理由の**内容は日本語**で記述する。
+
+3. **提案の記録**: 検証を通過した提案 JSON を `propose-heading` で CRYSTALIZE-Status.json に記録する。
 
 ```bash
-node .claude/scripts/crystalize-readme/update-step-status.js --graph="$ARGUMENTS" confirm-heading <id>
+echo '<proposal-json>' | node .claude/scripts/crystalize-readme/update-step-status.js --graph="$ARGUMENTS" propose-heading
 ```
 
-5. **完了条件**: 全ての見出し項目と内容が確定するまで Step 2 に進まない。全 ID 確定後、`end-step 1` で Step 1 を完了し Step 2 へ進む。**末尾の見出しは必ず「examples（実装サンプル）の仕様と設計」**とする。
+4. **ユーザー回答**: ユーザーは **ID 単位で A/B/C/Yes/No で回答**する。自由コメントも可（受け付けるが、確定には ID 単位の回答が必要）。
+5. **確定記録**: 回答ごとに、確定した内容を `confirm-heading` で記録する。`confirmedContent` は選んだ選択肢の内容。
+
+```bash
+echo '{"id":"H1-1","confirmedContent":"add_account() と register() を呼ぶコード"}' | node .claude/scripts/crystalize-readme/update-step-status.js --graph="$ARGUMENTS" confirm-heading
+```
+
+6. **完了条件**: 全ての見出し項目と内容が確定するまで Step 2 に進まない。全ノード確定後、`end-step 1` で Step 1 を完了し Step 2 へ進む。**末尾の見出しは必ず「examples（実装サンプル）の仕様と設計」**とする。
 
 ### Step 2: グリル — examples（実装サンプル）の仕様と設計
 
