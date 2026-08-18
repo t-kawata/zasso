@@ -57,10 +57,9 @@ describe('End-to-end marker pipeline — PX-156', () => {
       },
     };
 
-    // Step 1 end: mechanically emit the skeleton
-    const readmePath = path.join(dir, 'README.md');
-    emitSkeletonToFile(status, readmePath);
-    let text = fs.readFileSync(readmePath, 'utf8');
+    // Step 1 end: mechanically emit the skeleton (path derived internally)
+    emitSkeletonToFile(status);
+    let text = fs.readFileSync(path.join(dir, 'README.md'), 'utf8');
     assert.equal(checkLoopReady(text).ready, false, 'loop must not exit while templates remain');
 
     // Step 2 loop: resolve each usage section (writable -> complete, one -> residue)
@@ -95,9 +94,8 @@ describe('End-to-end marker pipeline — PX-156', () => {
         sections: [],
       },
     };
-    const readmePath = path.join(dir, 'README.md');
-    emitSkeletonToFile(status, readmePath);
-    let text = fs.readFileSync(readmePath, 'utf8');
+    emitSkeletonToFile(status);
+    let text = fs.readFileSync(path.join(dir, 'README.md'), 'utf8');
 
     // Every usage section unwritable -> all become README-RESIDUE; examples unresolvable -> EXAMPLES-RESIDUE
     text = markResidue(text, 'クイックスタート', 'Evidence: no implementation; reinforcement: add crate API.');

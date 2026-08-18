@@ -130,18 +130,20 @@ echo '{"id":"H1-1","confirmedContent":"add_account() と register() を呼ぶコ
 
 6. **完了条件**: 全ての見出し項目と内容が確定するまで次に進まない。提案修正と再提案を繰り返し全て確定するまで続ける。全ノード確定後、`end-step 1` で Step 1 を完了する。**末尾の見出しは必ず「Examples（implementation samples）spec and design」**とする。
 
-7. **雛形出力（Step 1 の最後・決定論）**: 確定した見出し群 + examples セクションをスクリプトにより機械的に README.md へ雛形出力する。各使い方セクションには `<::TEMPLATE-README::>`、examples セクションには `<::TEMPLATE-EXAMPLES::>` のマーカーが自動付与される。
+7. **雛形出力（Step 1 の最後・決定論・fresh モードのみ）**: 確定した見出し群 + examples セクションをスクリプトにより機械的に README.md へ雛形出力する。各使い方セクションには `<::TEMPLATE-README::>`、examples セクションには `<::TEMPLATE-EXAMPLES::>` のマーカーが自動付与される。出力先の README.md パスはスクリプトが **内部で静的に導出**する（`--readme` フラグは存在しない）。
 
 ```bash
-node .claude/scripts/crystalize-readme/emit-readme-skeleton.js --graph="$ARGUMENTS" --readme=<rfcDir>/README.md
+node .claude/scripts/crystalize-readme/emit-readme-skeleton.js --graph="$ARGUMENTS"
 ```
 
-- **refine モード安全**: 未解決の `<::TEMPLATE-*::>` マーカーを含む既存 README.md は上書きを拒否する（exit 1）。
+- **fresh モード専用**: 既存の README.md が存在する場合（refine モード）は**上書きせず** exit 1 で拒否する。refine モードではスケルトンを再出力せず、**既存 README.md を保持したまま** Step 2 のループを実行する（洗練・更新として動作）。
 - この Step が完了するまで Step 2 に進まない。
 
 ### Step 2: セクション単位の点検ループ
 
 確定した見出し群の各セクションを「完全記述」または「残渣記述」へ遷移させるループ。**判断はセクション単位**でなければならない。
+
+**refine モード**: 既存 README.md（前回実行の成果物）を保持し、そのままこの Step 2 のループを実行する。fresh モードとは異なりスケルトンの再出力は行わない（Step 1 の雛形出力は fresh 専用）。既に「完全記述」または「残渣記述」に確定しているセクションはそのまま残し、未解決の `<::TEMPLATE-README::>` のみを点検対象とする。
 
 **エントリー判断（決定論・必須）**: まずチケットリストを表示し、src 内のどこを読むべきかのエントリーを特定する。チケットキー（PX-1xx など）が分かれば `specs/<ticket>.md` で設計 spec を確認できる。
 

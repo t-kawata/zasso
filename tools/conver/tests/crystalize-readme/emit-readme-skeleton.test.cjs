@@ -1,10 +1,11 @@
 /**
  * emit-readme-skeleton.test.cjs — Tests for emit-readme-skeleton.js (PX-156, Step 1 end)
  *
- * At the end of Step 1 a script mechanically writes a README.md skeleton: the
- * confirmed heading group (from CRYSTALIZE-Status.json grill.toc.nodes) plus the
- * trailing examples section. Each usage heading is followed by a
- * <::TEMPLATE-README::> marker line; the examples heading by <::TEMPLATE-EXAMPLES::>.
+ * At the end of Step 1 (fresh mode only) a script mechanically writes a README.md
+ * skeleton: the confirmed heading group (from CRYSTALIZE-Status.json grill.toc.nodes)
+ * plus the trailing examples section. The output path is derived internally from
+ * the status sourceFile (<rfcDir>/README.md) — there is no --readme flag. An
+ * existing README.md (refine mode) is never overwritten.
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -12,13 +13,19 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { spawnSync } = require('child_process');
 
 const SCRIPT = path.resolve(__dirname, '../../.claude/scripts/crystalize-readme/emit-readme-skeleton.js');
 const {
   MARKER_TEMPLATE_README,
   MARKER_TEMPLATE_EXAMPLES,
 } = require(path.resolve(__dirname, '../../.claude/scripts/crystalize-readme/validate-marker-grammar.js'));
-const { emitSkeleton, emitSkeletonToFile } = require(SCRIPT);
+const {
+  emitSkeleton,
+  emitSkeletonToFile,
+  deriveReadmePath,
+  parseArguments,
+} = require(SCRIPT);
 
 let tmpDir;
 
@@ -37,6 +44,25 @@ function makeStatus(nodes) {
     grill: { tocApproved: true, examplesApproved: false, toc: { nodes } },
   };
 }
+
+describe('parseArguments', () => {
+  it('accepts --graph without a --readme flag (readme is derived internally)', () => {
+    const parsed = parseArguments([`--graph=${path.join(tmpDir, 'RFC-ROOT-GRAPH.json')}`]);
+    assert.equal(parsed.graphPath, path.join(tmpDir, 'RFC-ROOT-GRAPH.json'));
+    assert.equal(parsed.statusPath, null);
+  });
+
+  it('rejects a --readme flag', () => {
+    assert.throws(() => parseArguments([`--graph=g.json`, `--readme=${tmpDir}/README.md`]), /Unknown argument/);
+  });
+});
+
+describe('deriveReadmePath', () => {
+  it('derives <rfcDir>/README.md from the status sourceFile', () => {
+    const status = makeStatus([]);
+    assert.equal(deriveReadmePath(status), path.join(tmpDir, 'README.md'));
+  });
+});
 
 describe('emitSkeleton', () => {
   it('emits the H1 title, target RFC line, and graph line', () => {
@@ -72,26 +98,65 @@ describe('emitSkeleton', () => {
 });
 
 describe('emitSkeletonToFile', () => {
-  it('writes the skeleton to the given path', () => {
-    const readmePath = path.join(tmpDir, 'README.md');
+  it('writes the skeleton to the internally-derived README.md path', () => {
     emitSkeletonToFile(makeStatus([
       { id: 'H1', heading: 'クイックスタート', level: 1, confirmedContent: '本文', status: 'confirmed' },
-    ]), readmePath);
-    const text = fs.readFileSync(readmePath, 'utf8');
+    ]));
+    const text = fs.readFileSync(path.join(tmpDir, 'README.md'), 'utf8');
     assert.ok(text.includes(MARKER_TEMPLATE_README));
     assert.ok(text.includes(MARKER_TEMPLATE_EXAMPLES));
   });
 
-  it('refuses to overwrite a README that still has unresolved TEMPLATE markers (refine-mode safety)', () => {
-    const readmePath = path.join(tmpDir, 'existing.md');
-    fs.writeFileSync(readmePath, `## A\n\n${MARKER_TEMPLATE_README}\n`, 'utf8');
-    assert.throws(() => emitSkeletonToFile(makeStatus([]), readmePath), /refus/i);
+  it('refuses to overwrite an existing README.md (fresh-mode-only; refine preserves)', () => {
+    fs.writeFileSync(path.join(tmpDir, 'README.md'), '## A\n\nComplete prose.\n', 'utf8');
+    assert.throws(() => emitSkeletonToFile(makeStatus([])), /refus/i);
+  });
+});
+
+describe('CLI', () => {
+  it('emits the skeleton via --graph with an internally-derived README path', () => {
+    // Materialize graph + status in a fresh RFC dir
+    const sourceFile = path.join(tmpDir, 'cli', 'RFC-ROOT.md');
+    fs.mkdirSync(path.dirname(sourceFile), { recursive: true });
+    fs.writeFileSync(sourceFile, '# RFC Root\n', 'utf8');
+    const graphPath = path.join(path.dirname(sourceFile), 'RFC-ROOT-GRAPH.json');
+    fs.writeFileSync(graphPath, JSON.stringify({ sourceFile, mainLanguage: 'rust', nodes: [], edges: [] }), 'utf8');
+    fs.writeFileSync(path.join(path.dirname(sourceFile), 'CRYSTALIZE-Status.json'), JSON.stringify({
+      sourceFile,
+      graphFile: graphPath,
+      currentStep: 2,
+      steps: {},
+      grill: {
+        tocApproved: true,
+        examplesApproved: false,
+        toc: { nodes: [{ id: 'H1', heading: 'クイックスタート', level: 1, confirmedContent: 'x', status: 'confirmed' }] },
+        sections: [],
+      },
+    }), 'utf8');
+
+    const result = spawnSync('node', [SCRIPT, `--graph=${graphPath}`], { encoding: 'utf8' });
+    assert.equal(result.status, 0);
+    const readme = fs.readFileSync(path.join(path.dirname(sourceFile), 'README.md'), 'utf8');
+    assert.ok(readme.includes(MARKER_TEMPLATE_README));
   });
 
-  it('overwrites a fully-written README with no markers', () => {
-    const readmePath = path.join(tmpDir, 'complete.md');
-    fs.writeFileSync(readmePath, '## A\n\nComplete prose.\n', 'utf8');
-    const text = emitSkeletonToFile(makeStatus([]), readmePath);
-    assert.ok(text.includes(MARKER_TEMPLATE_EXAMPLES));
+  it('exits 1 in refine mode when README.md already exists', () => {
+    const sourceFile = path.join(tmpDir, 'cli-refine', 'RFC-ROOT.md');
+    fs.mkdirSync(path.dirname(sourceFile), { recursive: true });
+    fs.writeFileSync(sourceFile, '# RFC Root\n', 'utf8');
+    fs.writeFileSync(path.join(path.dirname(sourceFile), 'README.md'), '# Existing\n', 'utf8');
+    const graphPath = path.join(path.dirname(sourceFile), 'RFC-ROOT-GRAPH.json');
+    fs.writeFileSync(graphPath, JSON.stringify({ sourceFile, mainLanguage: 'rust', nodes: [], edges: [] }), 'utf8');
+    fs.writeFileSync(path.join(path.dirname(sourceFile), 'CRYSTALIZE-Status.json'), JSON.stringify({
+      sourceFile,
+      graphFile: graphPath,
+      currentStep: 2,
+      steps: {},
+      grill: { tocApproved: true, examplesApproved: false, toc: { nodes: [] }, sections: [] },
+    }), 'utf8');
+
+    const result = spawnSync('node', [SCRIPT, `--graph=${graphPath}`], { encoding: 'utf8' });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /refus/i);
   });
 });
