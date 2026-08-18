@@ -26,6 +26,7 @@ const {
   executeResetToStep,
   executeProposeHeading,
   executeConfirmHeading,
+  executeDeleteHeading,
   executeResetToc,
   isTocComplete,
   executeApproveToc,
@@ -302,6 +303,51 @@ describe('per-heading grill — C002', () => {
     executeResetToc(status);
     assert.deepEqual(status.grill.toc.nodes, []);
     assert.equal(status.grill.tocApproved, false);
+  });
+});
+
+describe('delete-heading — C002', () => {
+  it('removes a node and all its descendants (C002-Post)', () => {
+    const status = createDefaultStatus(graphPath);
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    executeProposeHeading(status, { id: 'H1-1', heading: 'アカウントの追加' });
+    executeProposeHeading(status, { id: 'H1-1-1', heading: '保留' });
+    executeDeleteHeading(status, { id: 'H1-1' });
+    assert.deepEqual(status.grill.toc.nodes.map((n) => n.id), ['H1']);
+  });
+
+  it('leaves the tree empty when deleting a top-level node', () => {
+    const status = createDefaultStatus(graphPath);
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    executeProposeHeading(status, { id: 'H1-1', heading: 'アカウントの追加' });
+    executeDeleteHeading(status, { id: 'H1' });
+    assert.deepEqual(status.grill.toc.nodes, []);
+  });
+
+  it('rejects an id that is not in the tree (C002-Inv)', () => {
+    const status = createDefaultStatus(graphPath);
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    assert.throws(() => executeDeleteHeading(status, { id: 'H9' }), /not found/);
+    assert.equal(status.grill.toc.nodes.length, 1);
+  });
+
+  it('recomputes tocApproved via isTocComplete after deletion (C002-Inv)', () => {
+    const status = createDefaultStatus(graphPath);
+    executeProposeHeading(status, { id: 'H1', heading: 'クイックスタート' });
+    executeProposeHeading(status, { id: 'H1-1', heading: 'アカウントの追加' });
+    executeConfirmHeading(status, { id: 'H1', confirmedContent: '本文1' });
+    executeConfirmHeading(status, { id: 'H1-1', confirmedContent: '本文2' });
+    assert.equal(isTocComplete(status), true);
+    executeDeleteHeading(status, { id: 'H1' });
+    assert.equal(isTocComplete(status), false);
+  });
+
+  it('propose-heading upserts without duplicating an existing id (C002: UPSERT)', () => {
+    const status = createDefaultStatus(graphPath);
+    executeProposeHeading(status, { id: 'H1', heading: '旧タイトル' });
+    executeProposeHeading(status, { id: 'H1', heading: '新タイトル' });
+    assert.equal(status.grill.toc.nodes.filter((n) => n.id === 'H1').length, 1);
+    assert.equal(status.grill.toc.nodes[0].heading, '新タイトル');
   });
 });
 

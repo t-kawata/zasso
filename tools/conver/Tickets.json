@@ -21726,6 +21726,118 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-08-18"
+        },
+        {
+          "id": 155,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "Preflight mode detection (fresh vs refine) with Markdown output; update-step-status delete-heading",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/155-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "- 【Goal】Preflight で README.md / CRYSTALIZE-Status.json の実在を確認し、過去実行（洗練・更新）か新規かを AI に伝える。derive-output-paths.js の出力を分かりやすく整形された Markdown に変更。update-step-status.js を UPSERT 基調とし、ノード削除の手段（delete-heading）を追加する。\n- 【Purpose】現在の Preflight はパスの JSON を出力するだけで過去の実行有無を判定しない。2 回目以降の /crystalize-readme 実行（README/Status が既に存在）は洗練・更新、初回は新規として AI が処理を切り替えられる必要がある。\n- 【Motivation】ユーザー指摘により確定。出力は全て英語・親切丁寧。Markdown は AI が読みやすい整形済み形式。\n- 【Constraints】derive-output-paths.js の出力を JSON から Markdown に変更（--field=sourceFile はスクリプト消費用にパス文字列出力のまま）。update-step-status.js は UPSERT 基本 + delete-heading（ノードと全子孫を削除）。TDD Red→Green→Refactor 必須。",
+          "scope": [
+            ".claude/scripts/crystalize-readme/derive-output-paths.js — modify: README.md（readmePath）と CRYSTALIZE-Status.json（rfcDir 内）の実在をチェックし mode(fresh/refine) を判定。出力を Markdown 化（Mode 行 + パス表 + 存在フラグの英語メッセージ）。--field=sourceFile は従来のパス文字列出力のまま。",
+            ".claude/scripts/crystalize-readme/update-step-status.js — modify: delete-heading サブコマンドを追加（stdin で {id} を受け、該当ノードと全子孫（id.startsWith(id + -)）を toc.nodes から削除。削除後 isTocComplete() で tocApproved を再計算）。propose-heading / confirm-heading の UPSERT 動作をコメント・テストで明文化。",
+            ".claude/commands/crystalize-readme.md — modify: Preflight 節を Markdown 出力例（fresh / refine）とモード判定の説明に更新。",
+            "docs/DESIGN-OF-CRYSTALIZE-README.md — modify: §5 決定論表 / §6 Preflight / §8 スクリプト一覧 / §12 変更履歴 を更新。",
+            "tests/crystalize-readme/derive-output-paths.test.cjs — modify: Markdown 出力と mode 判定（fresh/refine）・存在フラグをカバー（JSON 期待テストを置換）。",
+            "tests/crystalize-readme/update-step-status.test.cjs — modify: delete-heading（ノード+子孫削除）・UPSERT をカバー。",
+            "API contract change: derive-output-paths.js のデフォルト出力が JSON → Markdown に変更（--field=sourceFile は不変）。update-step-status.js に delete-heading サブコマンドを追加。",
+            "Data schema change: なし（toc.nodes 構造は PX-154 で確立済み。delete-heading は既存構造を操作）。",
+            "Config/env change: なし。依存追加・削除なし（node:fs, node:path, node:child_process のみ）。",
+            "Out of scope: README 生成（Step 4）の refine モード更新ロジック、兄弟の再採番。",
+            "Out of scope reason: README 生成と再採番は本チケットの Preflight 判定・delete 手段とは独立した工程。",
+            "Affected: /crystalize-readme を実行する全セッション — Preflight 出力が Markdown になり、モード判定が可能に。",
+            "Impact nature: Preflight の出力形式変更（JSON→Markdown）と update-step-status のサブコマンド追加。",
+            "Response: 既存の JSON 期待テストを Markdown 期待に書き換え。CRYSTALIZE-Status.json のスキーマは変更なし。"
+          ],
+          "testUnit": [
+            "UT: [Normal] derive-output-paths detects mode fresh when neither README.md nor CRYSTALIZE-Status.json exists — creates rfcDir with only RFC-ROOT.md and the graph; stdout contains '**Mode: fresh**' and 'No previous run was detected' (C001-Post)",
+            "UT: [Normal] derive-output-paths detects mode refine when README.md exists (CRYSTALIZE-Status.json absent) — stdout contains '**Mode: refine**' and 'A previous /crystalize-readme run was detected' (C001-Post)",
+            "UT: [Normal] derive-output-paths detects mode refine when CRYSTALIZE-Status.json exists (README.md absent) — stdout contains '**Mode: refine**'",
+            "UT: [Boundary] derive-output-paths Markdown lists the existence flags for sourceFile / README.md / CRYSTALIZE-Status.json (e.g. 'README.md exists: yes')",
+            "UT: [Error] derive-output-paths exits 1 with an English message when the graph file is missing or sourceFile does not exist (既存契約維持)",
+            "UT: [Invariant] derive-output-paths Markdown output contains the exact derived paths (sourceFile / rfcDir / examplesDir / residuesDir / readmePath) and a 'Mode:' line that is deterministic for a given file state (C001-Inv)",
+            "UT: [Normal] update-step-status delete-heading removes a node and all its descendants — with H1, H1-1, H1-1-1 in the tree, delete-heading H1 leaves the tree empty (C002-Post)",
+            "UT: [Error] update-step-status delete-heading rejects an id that is not in the tree → exit 1 (C002-Inv)",
+            "UT: [Normal] update-step-status propose-heading upserts — re-proposing the same id updates the heading without duplicating the node (C002: UPSERT)",
+            "UT: [Invariant] update-step-status delete-heading recomputes tocApproved via isTocComplete — deleting a confirmed node can make tocApproved false again (C002-Inv)"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] Preflight Markdown output drives Step 0/1 — the AI reads the Mode from derive-output-paths output and switches fresh vs refine behavior",
+            "IT: [Verification] a scripted propose(H1) → propose(H1-1) → confirm(H1,content) → delete-heading(H1) sequence leaves toc.nodes empty and tocApproved false",
+            "IT: [Prerequisites] both scripts run under node --test (CommonJS), no new dependencies, no network",
+            "IT: [Related tickets] PX-154 introduced the durable toc.nodes tree and hierarchical-path IDs; PX-155 adds fresh/refine mode detection, Markdown Preflight output, and delete-heading"
+          ],
+          "testExceptions": [
+            "AI が fresh/refine モードに応じて実行内容を切り替える判断自体は非決定論 — 合成・判断のため not testable。設計欠陥ではない: 決定論部分（モード判定と Markdown 出力）は単体テストで検証される。",
+            "実ユーザーとの対話グリル全体は自動テスト不能 — 人間が介在するため cannot test。設計欠陥ではない: 決定論ゲート（validate-toc-proposal / delete-heading）が単体/統合テストで検証される。"
+          ],
+          "default_files": [
+            ".claude/scripts/crystalize-readme/derive-output-paths.js",
+            ".claude/scripts/crystalize-readme/update-step-status.js",
+            ".claude/commands/crystalize-readme.md",
+            "docs/DESIGN-OF-CRYSTALIZE-README.md",
+            "tests/crystalize-readme/derive-output-paths.test.cjs",
+            "tests/crystalize-readme/update-step-status.test.cjs"
+          ],
+          "acceptanceCriteria": [
+            "Happy path: Preflight が README.md / CRYSTALIZE-Status.json の実在から mode(fresh/refine) を判定し、英語の Markdown（パス表 + モード + 存在状態）を出力する。AI はモードに応じて新規/洗練・更新を切り替えられる。",
+            "Error case: グラフ欠落・sourceFile 不在・JSON 不正は exit 1 で英語メッセージ。delete-heading はツリー外 id を exit 1 で拒否。",
+            "Edge case: README.md と CRYSTALIZE-Status.json の一方のみ存在する場合も refine と判定。delete-heading はノードと全子孫を削除し、tocApproved を再計算。"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "Preflight → fresh/refine mode detection",
+              "precondition": "derive-output-paths.js がグラフを読み、rfcDir / readmePath / CRYSTALIZE-Status.json のパスを導出できる。",
+              "postcondition": "Markdown を stdout に出力する。Mode は readmePath または CRYSTALIZE-Status.json が実在なら refine、両方不在なら fresh。パス表・存在フラグ・英語メッセージを含む。exit 0。",
+              "invariant": "モード判定は決定論的（同一ファイル状態→同一モード）。Markdown には sourceFile / rfcDir / examplesDir / residuesDir / readmePath が必ず含まれる。"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "Step 1 grill → delete-heading (toc.nodes)",
+              "precondition": "status.grill.toc.nodes contains the node to delete. The delete-heading subcommand is implemented.",
+              "postcondition": "delete-heading {id} は該当ノードと全子孫（id.startsWith(id + -)）を toc.nodes から削除し、tocApproved を isTocComplete() で再計算する。exit 0。",
+              "invariant": "ツリー外 id の delete-heading は exit 1 で拒否される。propose-heading / confirm-heading は UPSERT 動作（同一 id は重複せず更新）。"
+            }
+          ],
+          "notes": "- 【Implementation steps】(1) TDD: derive-output-paths.js の mode 判定 + Markdown 出力を RED→GREEN→REFACTOR。(2) TDD: update-step-status.js の delete-heading を RED→GREEN→REFACTOR。(3) コマンドファイル Preflight 節を更新。(4) 設計書を更新。(5) make test-crystalize-readme で全緑確認。\n- 【Risks】Markdown 出力への変更は既存の JSON 期待テストと非互換 → テストを書き換え。--field=sourceFile はパス文字列出力のまま維持。\n- 【Caveats】出力は全て英語。モード判定はファイル実在ベースで決定論的に。\n- 【Open items】README 生成（Step 4）が refine モード時に既存 README を更新する詳細は後続で検討。\n- 【Future improvements】delete-heading の後、兄弟の再採番を後続で検討。\nImplementation summary (PX-155):\n- Changed files: derive-output-paths.js, update-step-status.js, crystalize-readme.md, DESIGN-OF-CRYSTALIZE-README.md, derive-output-paths.test.cjs, update-step-status.test.cjs\n- Key changes: Preflight fresh/refine mode detection + English Markdown output; delete-heading subcommand (node + descendants, tocApproved recompute)\n- Test results: make test-crystalize-readme → 145/145 passed; derive-output-paths 20 tests, update-step-status 35 tests; quality checks 0 issues\nReview report (PX-155):\n- Static quality check: passed (run-quality-checks 0 issues)\n- Translatability: all functions verb phrases, domain-concept names, named constants (CRYSTALIZE_STATUS_FILENAME), no debug output\n- Tests: make test-crystalize-readme 145/145 passed; derive-output-paths 20 tests (fresh/refine detection, Markdown output, existence flags, --field=sourceFile), update-step-status 35 tests (delete-heading node+descendants, UPSERT, tocApproved recompute)\n- Annotation: 2 source files verified, 0 missing, 0 AMBIGUOUS\n- Contracts: C001 (fresh/refine + Markdown Preflight) and C002 (delete-heading + UPSERT) fulfilled; smoke test confirmed fresh/refine detection and delete-heading descendant removal\n- Issues found and fixes applied: none (implementation clean)",
+          "invariants": "- 【Normal establishment】Preflight は README.md / CRYSTALIZE-Status.json の実在から mode(fresh/refine) を決定論的に判定し、英語の Markdown を出力する。\n- 【Invariant on error】グラフ欠落・sourceFile 不在・JSON 不正は exit 1 で英語メッセージ。delete-heading はツリー外 id を exit 1 で拒否。\n- 【Internal state invariant】toc.nodes の削除（delete-heading）はノードと全子孫を削除し、tocApproved を isTocComplete() で再計算する。propose/confirm は UPSERT 動作。\n- 【Boundary invariant】README.md と CRYSTALIZE-Status.json の一方のみ存在する場合も refine と判定。出力は全て英語。",
+          "instrumentation": "- 【Logging】derive-output-paths.js は Markdown を stdout に出力し、失敗時は英語メッセージ + exit 1。update-step-status.js の delete-heading は削除結果を stdout に出力。\n- 【Metrics】モード（fresh/refine）と導出パスは Markdown で可視化。toc.nodes の削除後は status で確認可能。\n- 【Error tracking】Preflight 失敗は exit 1 + 英語メッセージ。delete-heading のツリー外 id は exit 1 で拒否。\n- 【Health check】Preflight の存在フラグ（sourceFile / README.md / CRYSTALIZE-Status.json）で実行状態を機械的に確認。\nStatic quality check: passed (0 issues)\nTranslatability: no issues\nTests: 145/145 passed (make test-crystalize-readme)\nCrimes: 0 / Stubs: 0 / No-excuse: passed / AMBIGUOUS: 0",
+          "investigation": "- derive-output-paths.js（PX-152/PX-153 実装）: 現在のデフォルト出力は JSON {sourceFile, rfcDir, examplesDir, residuesDir, readmePath}。--field=sourceFile でパス文字列出力。rfcDir は sourceFile の dirname、readmePath は <rfcDir>/README.md。\n- CRYSTALIZE-Status.json（PX-154 実装）: rfcDir 内に生成され、grill.toc.nodes を保持。\n- update-step-status.js（PX-154 実装）: propose-heading / confirm-heading は stdin JSON を受け UPSERT 動作。isTocComplete() が tocApproved を導出。delete-heading は未実装。\n- ユーザー指摘（PX-155 確定）: Preflight が README.md / CRYSTALIZE-Status.json の実在で fresh/refine を判定し、AI に伝える。出力は Markdown・全て英語。delete 手段が必要。",
+          "boyScoutPlan": "- derive-output-paths.js: formatPreflightMarkdown(paths, mode) を純関数として抽出（Markdown 組み立て）。mode 判定（detectMode(paths)）を単一責務関数に分離。存在フラグのチェックをヘルパー化。\n- update-step-status.js: executeDeleteHeading を追加し、子孫判定（isDescendant(id, parentId)）を純関数化。propose/confirm の UPSERT 動作をコメントで明示。\n- 既存の JSON 出力テストを Markdown 期待に置き換え、デッドコード（JSON 整形）を残さない。",
+          "created_at": "2026-08-18",
+          "updated_at": "2026-08-18",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Pre] fresh モード（README.md / CRYSTALIZE-Status.json なし）の Markdown 出力\n```js\nconst { formatPreflightMarkdown } = require('../../.claude/scripts/crystalize-readme/derive-output-paths.js');\nconst paths = { sourceFile: '/rfc/RFC-ROOT.md', rfcDir: '/rfc', examplesDir: '/rfc/examples', residuesDir: '/rfc/residues', readmePath: '/rfc/README.md' };\nconst md = formatPreflightMarkdown(paths, 'fresh');\nassert.match(md, /\\*\\*Mode: fresh\\*\\*/);\nassert.match(md, /No previous run was detected/);\nassert.ok(md.includes('| readmePath | /rfc/README.md |'));\n```",
+            "UT: [C001-Post] refine モード（README.md 実在）の Markdown 出力\n```js\nconst { formatPreflightMarkdown, detectMode } = require('../../.claude/scripts/crystalize-readme/derive-output-paths.js');\nconst md = formatPreflightMarkdown(paths, 'refine');\nassert.match(md, /\\*\\*Mode: refine\\*\\*/);\nassert.match(md, /A previous \\/crystalize-readme run was detected/);\n```",
+            "UT: [C001-Inv] 決定論とパス表の完全性\n```js\nassert.equal(detectMode({ readmeExists: false, statusExists: false }), 'fresh');\nassert.equal(detectMode({ readmeExists: true, statusExists: false }), 'refine');\nassert.equal(detectMode({ readmeExists: false, statusExists: true }), 'refine');\nconst md = formatPreflightMarkdown(paths, 'fresh');\nassert.ok(md.includes('sourceFile') && md.includes('rfcDir') && md.includes('examplesDir') && md.includes('residuesDir') && md.includes('readmePath'));\n```",
+            "UT: [C002-Pre] toc.nodes に削除対象ノードと子孫が存在\n```js\nconst { createDefaultStatus, executeProposeHeading } = require('../../.claude/scripts/crystalize-readme/update-step-status.js');\nconst status = createDefaultStatus(graphPath);\nexecuteProposeHeading(status, { id: 'H1', heading: 'A' });\nexecuteProposeHeading(status, { id: 'H1-1', heading: 'B' });\nexecuteProposeHeading(status, { id: 'H1-1-1', heading: 'C' });\nassert.equal(status.grill.toc.nodes.length, 3);\n```",
+            "UT: [C002-Post] delete-heading がノードと全子孫を削除し tocApproved を再計算\n```js\nconst { executeConfirmHeading, executeDeleteHeading, isTocComplete } = require('../../.claude/scripts/crystalize-readme/update-step-status.js');\nexecuteConfirmHeading(status, { id: 'H1', confirmedContent: 'x' });\nexecuteConfirmHeading(status, { id: 'H1-1', confirmedContent: 'y' });\nexecuteConfirmHeading(status, { id: 'H1-1-1', confirmedContent: 'z' });\nassert.equal(isTocComplete(status), true);\nexecuteDeleteHeading(status, { id: 'H1-1' });\nassert.equal(status.grill.toc.nodes.length, 1); // H1 のみ残る\nassert.equal(isTocComplete(status), false);\n```",
+            "UT: [C002-Inv] ツリー外 id の delete-heading は拒否、UPSERT は重複しない\n```js\nassert.throws(() => executeDeleteHeading(status, { id: 'H9' }), /not found/);\nexecuteProposeHeading(status, { id: 'H1', heading: '新タイトル' });\nassert.equal(status.grill.toc.nodes.filter(n => n.id === 'H1').length, 1);\nassert.equal(status.grill.toc.nodes.find(n => n.id === 'H1').heading, '新タイトル');\n```"
+          ],
+          "startedAt": "2026-08-18",
+          "changes": [
+            {
+              "before": "Preflight 出力は JSON（パスのみ、モード判定なし）",
+              "after": "Preflight 出力は英語 Markdown（Mode fresh/refine + パス表 + 存在フラグ）",
+              "description": "derive-output-paths.js に detectMode() と formatPreflightMarkdown() を追加。README.md / CRYSTALIZE-Status.json の実在で fresh/refine を判定。"
+            },
+            {
+              "before": "delete-heading 未実装",
+              "after": "delete-heading サブコマンドを追加（ノード + 全子孫削除、tocApproved 再計算）",
+              "description": "update-step-status.js に executeDeleteHeading() / isDescendant() を追加。propose/confirm の UPSERT 動作を明文化。"
+            },
+            {
+              "before": "Preflight 節は JSON 出力例",
+              "after": "Preflight 節は Markdown 出力例（fresh/refine）とモード判定の説明",
+              "description": "crystalize-readme.md と設計書を更新。"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-18"
         }
       ]
     },

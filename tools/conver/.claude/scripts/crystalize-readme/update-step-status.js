@@ -12,8 +12,9 @@
  *                    — Step 1 requires the TOC grill to be complete
  *   fail-step <N>     Fail Step N abnormally (error, currentStep unchanged)
  *   reset-to-step <N> Reset to Step N (set N+1..4 back to pending)
- *   propose-heading   Record a proposed heading from stdin proposal JSON
+ *   propose-heading   Record a proposed heading from stdin proposal JSON (UPSERT)
  *   confirm-heading   Confirm a proposed heading from stdin {id, confirmedContent}
+ *   delete-heading    Remove a heading and all its descendants from stdin {id}
  *   reset-toc          Clear the per-heading TOC grill state
  *   approve-toc       Set tocApproved only when every node is confirmed
  *   approve-examples  Record the Step 2 examples grill approval
@@ -51,7 +52,7 @@ const MAX_STEP = 4;
 const STEP_SUBCOMMANDS = ['start-step', 'end-step', 'fail-step', 'reset-to-step'];
 
 /** Subcommands that read their input JSON from stdin */
-const STDIN_SUBCOMMANDS = ['propose-heading', 'confirm-heading'];
+const STDIN_SUBCOMMANDS = ['propose-heading', 'confirm-heading', 'delete-heading'];
 
 /** Subcommands that take no extra argument */
 const NO_ARG_SUBCOMMANDS = ['approve-toc', 'approve-examples', 'status', 'cleanup', 'backup', 'reset-toc'];
@@ -338,6 +339,43 @@ function executeConfirmHeading(status, confirmation) {
   process.stdout.write(`Heading confirmed: ${id}\n`);
 }
 
+/**
+ * Whether one id is a descendant of another in the hierarchical-path scheme.
+ * A descendant id always starts with "<parentId>-".
+ *
+ * @param {string} id — Candidate id
+ * @param {string} parentId — Ancestor id
+ * @returns {boolean} true when id is a child/grandchild of parentId
+ */
+// [::TICKET::] PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-155 --for-spec --no-implementation-order`.
+function isDescendant(id, parentId) {
+  return id.startsWith(parentId + '-');
+}
+
+/**
+ * delete-heading: remove a heading node and all its descendants from the tree.
+ *
+ * @param {Object} status — Status data
+ * @param {Object} request — {id}
+ * @throws {Error} If the id is not in the tree
+ */
+// [::TICKET::] PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-155 --for-spec --no-implementation-order`.
+function executeDeleteHeading(status, request) {
+  const { id } = request || {};
+  if (typeof id !== 'string' || id.trim() === '') {
+    throw new Error('request.id is required.');
+  }
+
+  const nodes = status.grill.toc.nodes;
+  if (!nodes.some((node) => node.id === id)) {
+    throw new Error(`Heading id "${id}" was not found in the TOC. Nothing was deleted.`);
+  }
+
+  status.grill.toc.nodes = nodes.filter((node) => node.id !== id && !isDescendant(node.id, id));
+  status.grill.tocApproved = isTocComplete(status);
+  process.stdout.write(`Heading deleted: ${id}\n`);
+}
+
 /** reset-toc: clear the per-heading TOC grill state. */
 // [::TICKET::] PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-153|PX-154) --for-spec --no-implementation-order`.
 function executeResetToc(status) {
@@ -439,7 +477,7 @@ function exitWithError(message, reason, action) {
 /**
  * Display usage instructions.
  */
-// [::TICKET::] PX-152, PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154|PX-155) --for-spec --no-implementation-order`.
 function printUsage() {
   process.stdout.write(`
 update-step-status.js — CRYSTALIZE-Status.json management
@@ -454,8 +492,9 @@ Subcommands:
                     Step 1 requires the TOC grill to be complete
   fail-step <N>     Fail Step N abnormally (error, currentStep unchanged)
   reset-to-step <N> Reset to Step N (set N+1..4 to pending)
-  propose-heading   Record a proposed heading from stdin proposal JSON
+  propose-heading   Record a proposed heading from stdin proposal JSON (UPSERT)
   confirm-heading   Confirm a proposed heading from stdin {id, confirmedContent}
+  delete-heading    Remove a heading and all its descendants from stdin {id}
   reset-toc          Clear the per-heading TOC grill state
   approve-toc       Set tocApproved only when every node is confirmed
   approve-examples  Record the examples grill approval
@@ -463,9 +502,10 @@ Subcommands:
   cleanup           Delete known temporary files (idempotent)
   backup            Create a .bak of the status file (idempotent)
 
-propose-heading / confirm-heading read JSON from stdin, e.g.:
+propose-heading / confirm-heading / delete-heading read JSON from stdin, e.g.:
   echo '{"id":"H1","heading":"クイックスタート"}' | update-step-status.js --graph=<path> propose-heading
   echo '{"id":"H1","confirmedContent":"..."}' | update-step-status.js --graph=<path> confirm-heading
+  echo '{"id":"H1-1"}' | update-step-status.js --graph=<path> delete-heading
 
 Step numbers: ${MIN_STEP} to ${MAX_STEP}
 `);
@@ -474,7 +514,7 @@ Step numbers: ${MIN_STEP} to ${MAX_STEP}
 /**
  * main — parse arguments, dispatch subcommand, write atomically.
  */
-// [::TICKET::] PX-152, PX-153, PX-154 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-154, PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-154|PX-155) --for-spec --no-implementation-order`.
 function main() {
   let parsed;
   try {
@@ -532,6 +572,9 @@ function main() {
       case 'confirm-heading':
         executeConfirmHeading(status, inputJson);
         break;
+      case 'delete-heading':
+        executeDeleteHeading(status, inputJson);
+        break;
       case 'reset-toc':
         executeResetToc(status);
         break;
@@ -585,6 +628,8 @@ module.exports = {
   executeResetToStep,
   executeProposeHeading,
   executeConfirmHeading,
+  executeDeleteHeading,
+  isDescendant,
   executeResetToc,
   isTocComplete,
   canEndStep,

@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 
 /**
- * derive-output-paths.js — Preflight: derive output paths and verify the sourceFile (C001)
+ * derive-output-paths.js — Preflight: derive output paths and detect run mode (C001)
  *
  * Serves as the /crystalize-readme Preflight. Reads the graph JSON, checks that the
- * graph's sourceFile RFC document exists on disk, and derives the output paths in
- * one invocation.
+ * graph's sourceFile RFC document exists on disk, detects whether a previous run
+ * left artifacts (README.md / CRYSTALIZE-Status.json) to decide fresh vs refine,
+ * and prints a friendly English Markdown report.
  *
  * CLI:
- *   derive-output-paths.js --graph=<path>                → prints {sourceFile, rfcDir, examplesDir, residuesDir, readmePath}
+ *   derive-output-paths.js --graph=<path>                → prints a Markdown report
  *   derive-output-paths.js --graph=<path> --field=sourceFile → prints the expanded sourceFile
  *
  * Exit-code contract:
- *   success → 0, prints the derived paths plus sourceFile (or the expanded sourceFile)
+ *   success → 0, prints the Markdown report (or the expanded sourceFile)
  *   any Preflight failure (missing/invalid graph, missing sourceFile) → 1
  *
  * The actual RESIDUE filename (RESIDUE-<timestamp>.md) is generated separately by
@@ -44,6 +45,9 @@ const RESIDUES_DIR_NAME = 'residues';
 
 /** README filename inside rfcDir */
 const README_FILENAME = 'README.md';
+
+/** Status filename inside rfcDir (managed by update-step-status.js) */
+const CRYSTALIZE_STATUS_FILENAME = 'CRYSTALIZE-Status.json';
 
 /**
  * Parse command line arguments.
@@ -127,9 +131,66 @@ function assertSourceFileExists(graph) {
 }
 
 /**
+ * Detect the run mode from the presence of previous artifacts.
+ *
+ * A previous /crystalize-readme run leaves README.md and/or CRYSTALIZE-Status.json
+ * in rfcDir; either one being present means this execution refines/updates the
+ * existing artifacts. Neither present means a fresh start.
+ *
+ * @param {{ readmeExists: boolean, statusExists: boolean }} flags — Artifact existence
+ * @returns {'fresh'|'refine'} Run mode
+ */
+// [::TICKET::] PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-155 --for-spec --no-implementation-order`.
+function detectMode({ readmeExists, statusExists }) {
+  return readmeExists || statusExists ? 'refine' : 'fresh';
+}
+
+/**
+ * Format the Preflight report as friendly English Markdown.
+ *
+ * @param {Object} paths — Derived paths including sourceFile
+ * @param {'fresh'|'refine'} mode — Run mode
+ * @param {{ readmeExists: boolean, statusExists: boolean }} flags — Artifact existence
+ * @returns {string} Markdown report
+ */
+// [::TICKET::] PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-155 --for-spec --no-implementation-order`.
+function formatPreflightMarkdown(paths, mode, flags) {
+  const modeLine = mode === 'fresh'
+    ? '**Mode: fresh** — No previous run was detected (no README.md or CRYSTALIZE-Status.json). This execution will start from scratch.'
+    : '**Mode: refine** — A previous /crystalize-readme run was detected (README.md and/or CRYSTALIZE-Status.json exists). This execution will refine and update the existing artifacts.';
+
+  const pathRows = [
+    ['sourceFile', paths.sourceFile],
+    ['rfcDir', paths.rfcDir],
+    ['examplesDir', paths.examplesDir],
+    ['residuesDir', paths.residuesDir],
+    ['readmePath', paths.readmePath],
+  ].map(([key, value]) => `| ${key} | ${value} |`).join('\n');
+
+  const existenceFlags = [
+    '- sourceFile exists: yes',
+    `- README.md exists: ${flags.readmeExists ? 'yes' : 'no'}`,
+    `- CRYSTALIZE-Status.json exists: ${flags.statusExists ? 'yes' : 'no'}`,
+  ].join('\n');
+
+  return [
+    '## crystalize-readme Preflight',
+    '',
+    modeLine,
+    '',
+    '| Path | Value |',
+    '|------|-------|',
+    pathRows,
+    '',
+    existenceFlags,
+    '',
+  ].join('\n');
+}
+
+/**
  * main — CLI entry point (Preflight).
  */
-// [::TICKET::] PX-152, PX-153 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-152, PX-153, PX-155 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-152|PX-153|PX-155) --for-spec --no-implementation-order`.
 function main() {
   try {
     const { graphPath, field } = parseArguments();
@@ -142,7 +203,10 @@ function main() {
     }
 
     const paths = deriveOutputPaths(graph);
-    process.stdout.write(JSON.stringify({ sourceFile: expandedSourceFile, ...paths }) + '\n');
+    const readmeExists = fs.existsSync(paths.readmePath);
+    const statusExists = fs.existsSync(path.join(paths.rfcDir, CRYSTALIZE_STATUS_FILENAME));
+    const mode = detectMode({ readmeExists, statusExists });
+    process.stdout.write(formatPreflightMarkdown({ sourceFile: expandedSourceFile, ...paths }, mode, { readmeExists, statusExists }) + '\n');
     process.exit(0);
   } catch (error) {
     console.error('[ERROR] Preflight failed.');
@@ -160,6 +224,8 @@ module.exports = {
   parseArguments,
   deriveOutputPaths,
   assertSourceFileExists,
+  detectMode,
+  formatPreflightMarkdown,
   main,
   GRAPH_PATH_ARG_PREFIX,
   FIELD_ARG_PREFIX,
@@ -167,4 +233,5 @@ module.exports = {
   EXAMPLES_DIR_NAME,
   RESIDUES_DIR_NAME,
   README_FILENAME,
+  CRYSTALIZE_STATUS_FILENAME,
 };

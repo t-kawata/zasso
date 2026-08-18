@@ -95,7 +95,8 @@ RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの�
 
 | 工程 | 決定論（スクリプト） | 非決定論（AI） |
 |---|---|---|
-| Preflight（パス導出 + sourceFile 実在チェック） | ○ | — |
+| Preflight（パス導出 + モード判定 fresh/refine + Markdown 出力） | ○ | — |
+| 見出しの削除（delete-heading / isDescendant） | ○ | — |
 | sourceFile の読込（Step 0） | — | ○（読込） |
 | 見出し提案の検証ゲート（validate-toc-proposal） | ○ | — |
 | 見出し提案の合成（使い方に絞る） | — | ○（合成・推奨） |
@@ -107,9 +108,9 @@ RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの�
 
 ## 6. Step 詳細
 
-### Preflight: パス導出 + sourceFile 実在チェック（決定論）
+### Preflight: パス導出 + 実行モード判定（決定論）
 
-`derive-output-paths.js` がグラフ JSON の読込・構造検証と、`sourceFile`（元 RFC 文書）の実在チェックを同時に行い、以下を導出する。
+`derive-output-paths.js` がグラフ JSON の読込・構造検証と、`sourceFile`（元 RFC 文書）の実在チェックを同時に行い、以下を導出する。さらに **`README.md` / `CRYSTALIZE-Status.json` の実在**から実行モードを判定し、英語の Markdown で出力する。
 
 - `sourceFile` = 展開後の元 RFC 文書パス（実在チェック済み。Step 0 の読込対象）
 - `rfcDir` = dirname(sourceFile)
@@ -117,6 +118,8 @@ RFC のグラフ（`*-GRAPH.json`）を入力として、ユーザー向けの�
 - `residuesDir` = `<rfcDir>/residues/`
 - README 候補 = `<rfcDir>/README.md`
 - RESIDUE 候補 = `<residuesDir>/RESIDUE-<YYYYMMDDhhmmss>.md`
+- **Mode 判定（決定論）**: `README.md` または `CRYSTALIZE-Status.json` が実在 → `refine`（過去実行あり＝洗練・更新）、両方なし → `fresh`（新規）
+- **出力形式**: 英語 Markdown（`## crystalize-readme Preflight` / `**Mode: fresh|refine**` / パス表 / 存在フラグ）
 
 ### Step 0: sourceFile の読込
 
@@ -197,14 +200,14 @@ RESIDUE は「README が書けない理由」を体系的に記録する文書�
 | スクリプト | 決定論 | 責務 |
 |---|---|---|
 | `validate-graph-arg.js` | 100% | グラフ読込・スキーマ検証（スタンドアロン工程では直接呼ばない。`derive-output-paths.js` が `readGraphFile` を内部利用） |
-| `derive-output-paths.js` | 100% | Preflight。出力パス導出 + `sourceFile` 実在チェック |
+| `derive-output-paths.js` | 100% | Preflight。出力パス導出 + `sourceFile` 実在チェック + モード判定（fresh/refine）+ 英語 Markdown 出力 |
 | `validate-toc-proposal.js` | 100% | Step 1 見出し提案の検証ゲート（階層パス ID /^H[1-9][0-9]*(-[1-9][0-9]*)*$/（1〜6 セグメント）・親存在チェック・existingIds 一意・contentOptions 2-4・推奨 ∈ 選択肢・reason 非空・決定論） |
 | `validate-examples-spec.js` | 100% | examples 仕様の構造・参照整合検証 |
 | `check-readme-writable.js` | 100% | (a)/(b) 分岐判定 |
 | `generate-residue-filename.js` | 100% | `RESIDUE-<YYYYMMDDhhmmss>.md` 名生成 |
 | `validate-readme-output.js` | 100% | README 出力構造検証 |
 | `validate-residue-output.js` | 100% | RESIDUE 出力構造検証 |
-| `update-step-status.js` | 100% | ステップ進行管理 + Step 1 グリル確定（`grill.toc.nodes` に id/heading/level/confirmedContent/status を永続化。`propose-heading` / `confirm-heading` / `reset-toc` / `isTocComplete`。level と親は ID から導出。全確定で `tocApproved`、未確定で `end-step 1` をブロック） |
+| `update-step-status.js` | 100% | ステップ進行管理 + Step 1 グリル確定（`grill.toc.nodes` に id/heading/level/confirmedContent/status を永続化。`propose-heading`（UPSERT）/ `confirm-heading` / `delete-heading` / `reset-toc` / `isTocComplete`。level と親は ID から導出。全確定で `tocApproved`、未確定で `end-step 1` をブロック） |
 
 各スクリプトは `tests/crystalize-readme/*.test.cjs` を伴う（node.md 規約: CommonJS、`make test-crystalize-readme` で `node --test` 実行）。
 
@@ -226,6 +229,7 @@ RESIDUE は「README が書けない理由」を体系的に記録する文書�
 
 ## 12. 変更履歴
 
+- 2026-08-18 (PX-155): Preflight に実行モード判定（fresh/refine）を追加。`README.md` / `CRYSTALIZE-Status.json` の実在から過去実行（洗練・更新）か新規かを英語 Markdown で出力。`update-step-status.js` に `delete-heading`（ノード + 全子孫を削除）を追加し、`propose-heading` / `confirm-heading` の UPSERT 動作を明文化。
 - 2026-08-18 (PX-154): ID スキームを階層パス（H1, H1-1, H1-2-1, H2, ...）に変更。親 = 最後の `-<n>` を除去して導出（parentId は保存しない）。親不在の子（H2 無しの H2-1）を構造違反として拒否。確定済み目次を `update-step-status.js` の `grill.toc.nodes`（id/heading/level/confirmedContent/status）として CRYSTALIZE-Status.json に永続化し、AI の記憶に依存しない方式に変更。
 - 2026-08-18 (PX-153): Step 1 を「見出しごとの提案グリル」に再設計。決定論的候補抽出（`extract-toc-candidates.js`）と構造チェック（`check-toc-structure.js`）を廃止・削除。各見出し提案を `validate-toc-proposal.js` で提示前に検証し、`update-step-status.js` の `confirm-heading` / `isTocComplete` で全 ID 確定まで Step 2 へ進めない方式に変更。
 - 2026-08-18: 独立した引数検証 Step 0 を廃止。Preflight を導入し、`derive-output-paths.js` がグラフ読込・`sourceFile` 実在チェック・パス導出を一括実行し、検証済み `sourceFile` を含む JSON を出力するように変更。新 Step 0 を「sourceFile の読込」とし、Step 1・2 の前提情報とした。

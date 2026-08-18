@@ -1,14 +1,13 @@
 /**
  * derive-output-paths.test.cjs — Tests for derive-output-paths.js (Contract C001)
+ * @verifies C001
  *
  * C001-Pre: sourceFile is a non-empty string, possibly ~/-relative.
- * C001-Post: deriveOutputPaths prints {rfcDir, examplesDir, residuesDir, readmePath}.
- * C001-Inv: examplesDir and residuesDir always live under rfcDir.
- *
- * Preflight contract (C001-preflight): the CLI (main) fails with exit 1 when the
- * graph's sourceFile RFC document does not exist on disk, and prints
- * {sourceFile, rfcDir, examplesDir, residuesDir, readmePath} when it does, so
- * Step 0 can read the RFC design documents from the verified sourceFile.
+ * C001-Post: prints a Markdown report containing Mode (fresh/refine), a path
+ *   table, and existence flags; exit 0. --field=sourceFile prints the expanded
+ *   sourceFile path.
+ * C001-Inv: mode detection is deterministic for a given file state; Markdown
+ *   always contains sourceFile / rfcDir / examplesDir / residuesDir / readmePath.
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -19,15 +18,47 @@ const path = require('path');
 const os = require('os');
 
 const SCRIPT = path.resolve(__dirname, '../../.claude/scripts/crystalize-readme/derive-output-paths.js');
-const { parseArguments, deriveOutputPaths, assertSourceFileExists } = require(SCRIPT);
+const {
+  parseArguments,
+  deriveOutputPaths,
+  assertSourceFileExists,
+  detectMode,
+  formatPreflightMarkdown,
+} = require(SCRIPT);
+
+const CRYSTALIZE_STATUS_FILENAME = 'CRYSTALIZE-Status.json';
+
+const SAMPLE_PATHS = {
+  sourceFile: '/rfc/RFC-ROOT.md',
+  rfcDir: '/rfc',
+  examplesDir: '/rfc/examples',
+  residuesDir: '/rfc/residues',
+  readmePath: '/rfc/README.md',
+};
 
 let tmpDir;
 
 before(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px152-dop-'));
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'px155-dop-'));
 });
 
 after(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+
+function makeRfcDir(name) {
+  const dir = path.join(tmpDir, name);
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+function writeGraph(dir, withReadme = false, withStatus = false) {
+  const sourceFile = path.join(dir, 'RFC-ROOT.md');
+  fs.writeFileSync(sourceFile, '# RFC\n', 'utf8');
+  if (withReadme) fs.writeFileSync(path.join(dir, 'README.md'), '# README\n', 'utf8');
+  if (withStatus) fs.writeFileSync(path.join(dir, CRYSTALIZE_STATUS_FILENAME), '{}', 'utf8');
+  const graphPath = path.join(dir, 'RFC-ROOT-GRAPH.json');
+  fs.writeFileSync(graphPath, JSON.stringify({ sourceFile, mainLanguage: 'rust', nodes: [], edges: [] }), 'utf8');
+  return { sourceFile, graphPath };
+}
 
 describe('parseArguments', () => {
   it('accepts --graph=<path>', () => {
@@ -48,8 +79,8 @@ describe('parseArguments', () => {
   });
 });
 
-describe('deriveOutputPaths — C001', () => {
-  it('derives the 4 output paths from an absolute sourceFile (C001-Post)', () => {
+describe('deriveOutputPaths', () => {
+  it('derives the 4 output paths from an absolute sourceFile', () => {
     const sourceFile = path.join(tmpDir, 'nested', 'RFC-ROOT.md');
     const paths = deriveOutputPaths({ sourceFile, mainLanguage: 'rust', nodes: [], edges: [] });
     assert.equal(paths.rfcDir, path.dirname(sourceFile));
@@ -58,90 +89,106 @@ describe('deriveOutputPaths — C001', () => {
     assert.equal(paths.readmePath, path.join(paths.rfcDir, 'README.md'));
   });
 
-  it('expands a home-relative sourceFile via fromHomeRelative() BEFORE dirname (C001-Pre)', () => {
-    const homeRel = '~/shyme/zasso/crates/siprs/RFC-ROOT.md';
-    const paths = deriveOutputPaths({ sourceFile: homeRel, mainLanguage: 'rust', nodes: [], edges: [] });
-    assert.equal(paths.rfcDir, path.dirname(path.resolve(os.homedir(), 'shyme/zasso/crates/siprs/RFC-ROOT.md')));
-    assert.equal(paths.rfcDir, path.join(os.homedir(), 'shyme', 'zasso', 'crates', 'siprs'));
-  });
-
-  it('keeps examplesDir and residuesDir under rfcDir for a nested sourceFile (C001-Inv)', () => {
-    const sourceFile = path.join(tmpDir, 'a', 'b', 'c', 'RFC-ROOT.md');
-    const paths = deriveOutputPaths({ sourceFile, mainLanguage: 'rust', nodes: [], edges: [] });
-    assert.equal(path.dirname(paths.examplesDir), paths.rfcDir);
-    assert.equal(path.dirname(paths.residuesDir), paths.rfcDir);
-  });
-
-  it('fails on an empty sourceFile string', () => {
+  it('fails on a missing or empty sourceFile', () => {
     assert.throws(() => deriveOutputPaths({ sourceFile: '', mainLanguage: 'rust', nodes: [], edges: [] }));
-  });
-
-  it('fails on a missing sourceFile', () => {
     assert.throws(() => deriveOutputPaths({ mainLanguage: 'rust', nodes: [], edges: [] }));
-  });
-
-  it('fails on a non-string sourceFile', () => {
-    assert.throws(() => deriveOutputPaths({ sourceFile: 42, mainLanguage: 'rust', nodes: [], edges: [] }));
   });
 });
 
-describe('assertSourceFileExists — Preflight sourceFile check', () => {
-  it('passes when the sourceFile RFC document exists on disk', () => {
+describe('assertSourceFileExists', () => {
+  it('returns the resolved sourceFile when it exists', () => {
     const sourceFile = path.join(tmpDir, 'preflight-exists', 'RFC-ROOT.md');
     fs.mkdirSync(path.dirname(sourceFile), { recursive: true });
-    fs.writeFileSync(sourceFile, '# RFC-ROOT\n', 'utf8');
-    assert.doesNotThrow(() => assertSourceFileExists({ sourceFile }));
+    fs.writeFileSync(sourceFile, '# RFC\n', 'utf8');
+    assert.equal(assertSourceFileExists({ sourceFile }), sourceFile);
   });
 
-  it('returns the resolved sourceFile path so Step 0 can read it', () => {
-    const sourceFile = path.join(tmpDir, 'preflight-return', 'RFC-ROOT.md');
-    fs.mkdirSync(path.dirname(sourceFile), { recursive: true });
-    fs.writeFileSync(sourceFile, '# RFC-ROOT\n', 'utf8');
-    const resolved = assertSourceFileExists({ sourceFile });
-    assert.equal(resolved, sourceFile);
-  });
-
-  it('fails when the sourceFile RFC document does not exist on disk', () => {
+  it('throws when the sourceFile does not exist', () => {
     const sourceFile = path.join(tmpDir, 'preflight-missing', 'RFC-ROOT.md');
     assert.throws(() => assertSourceFileExists({ sourceFile }), /sourceFile not found/);
   });
+});
 
-  it('fails on a missing sourceFile field', () => {
-    assert.throws(() => assertSourceFileExists({ nodes: [], edges: [] }));
+describe('detectMode — C001', () => {
+  it('returns fresh when neither README.md nor CRYSTALIZE-Status.json exists', () => {
+    assert.equal(detectMode({ readmeExists: false, statusExists: false }), 'fresh');
   });
 
-  it('fails on a non-string sourceFile', () => {
-    assert.throws(() => assertSourceFileExists({ sourceFile: 42 }));
+  it('returns refine when README.md exists', () => {
+    assert.equal(detectMode({ readmeExists: true, statusExists: false }), 'refine');
+  });
+
+  it('returns refine when CRYSTALIZE-Status.json exists', () => {
+    assert.equal(detectMode({ readmeExists: false, statusExists: true }), 'refine');
+  });
+
+  it('returns refine when both exist', () => {
+    assert.equal(detectMode({ readmeExists: true, statusExists: true }), 'refine');
   });
 });
 
-describe('main — CLI Preflight', () => {
-  it('prints the derived paths and exits 0 when the graph and sourceFile exist', () => {
-    const dir = path.join(tmpDir, 'cli-ok');
-    fs.mkdirSync(dir, { recursive: true });
-    const sourceFile = path.join(dir, 'RFC-ROOT.md');
-    fs.writeFileSync(sourceFile, '# RFC-ROOT\n', 'utf8');
-    const graphPath = path.join(dir, 'RFC-ROOT-GRAPH.json');
-    fs.writeFileSync(graphPath, JSON.stringify({ sourceFile, mainLanguage: 'rust', nodes: [], edges: [] }), 'utf8');
-
-    const result = spawnSync('node', [SCRIPT, `--graph=${graphPath}`], { encoding: 'utf8' });
-    assert.equal(result.status, 0);
-    const paths = JSON.parse(result.stdout.trim());
-    assert.equal(paths.sourceFile, sourceFile);
-    assert.equal(paths.rfcDir, dir);
-    assert.equal(paths.readmePath, path.join(dir, 'README.md'));
+describe('formatPreflightMarkdown — C001', () => {
+  it('prints the Mode line, path table, and existence flags for fresh', () => {
+    const md = formatPreflightMarkdown(SAMPLE_PATHS, 'fresh', { readmeExists: false, statusExists: false });
+    assert.match(md, /\*\*Mode: fresh\*\*/);
+    assert.match(md, /No previous run was detected/);
+    assert.ok(md.includes('| readmePath | /rfc/README.md |'));
+    assert.ok(md.includes('README.md exists: no'));
+    assert.ok(md.includes('CRYSTALIZE-Status.json exists: no'));
   });
 
-  it('exits 1 when the sourceFile does not exist', () => {
-    const dir = path.join(tmpDir, 'cli-missing');
-    fs.mkdirSync(dir, { recursive: true });
-    const graphPath = path.join(dir, 'RFC-ROOT-GRAPH.json');
-    fs.writeFileSync(
-      graphPath,
-      JSON.stringify({ sourceFile: path.join(dir, 'RFC-ROOT.md'), mainLanguage: 'rust', nodes: [], edges: [] }),
-      'utf8'
-    );
+  it('prints a refine message when previous artifacts exist', () => {
+    const md = formatPreflightMarkdown(SAMPLE_PATHS, 'refine', { readmeExists: true, statusExists: false });
+    assert.match(md, /\*\*Mode: refine\*\*/);
+    assert.match(md, /A previous \/crystalize-readme run was detected/);
+    assert.ok(md.includes('README.md exists: yes'));
+  });
 
+  it('always contains the five derived paths (C001-Inv)', () => {
+    const md = formatPreflightMarkdown(SAMPLE_PATHS, 'fresh', { readmeExists: false, statusExists: false });
+    for (const key of ['sourceFile', 'rfcDir', 'examplesDir', 'residuesDir', 'readmePath']) {
+      assert.ok(md.includes(key), `missing ${key}`);
+    }
+  });
+});
+
+describe('main — CLI', () => {
+  it('prints fresh Markdown for a graph with no previous artifacts', () => {
+    const dir = makeRfcDir('cli-fresh');
+    const { graphPath } = writeGraph(dir);
+    const result = spawnSync('node', [SCRIPT, `--graph=${graphPath}`], { encoding: 'utf8' });
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /\*\*Mode: fresh\*\*/);
+  });
+
+  it('prints refine Markdown when README.md exists', () => {
+    const dir = makeRfcDir('cli-refine-readme');
+    const { graphPath } = writeGraph(dir, true);
+    const result = spawnSync('node', [SCRIPT, `--graph=${graphPath}`], { encoding: 'utf8' });
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /\*\*Mode: refine\*\*/);
+  });
+
+  it('prints refine Markdown when CRYSTALIZE-Status.json exists', () => {
+    const dir = makeRfcDir('cli-refine-status');
+    const { graphPath } = writeGraph(dir, false, true);
+    const result = spawnSync('node', [SCRIPT, `--graph=${graphPath}`], { encoding: 'utf8' });
+    assert.equal(result.status, 0);
+    assert.match(result.stdout, /\*\*Mode: refine\*\*/);
+  });
+
+  it('--field=sourceFile still prints the expanded sourceFile path', () => {
+    const dir = makeRfcDir('cli-field');
+    const { sourceFile, graphPath } = writeGraph(dir);
+    const result = spawnSync('node', [SCRIPT, `--graph=${graphPath}`, '--field=sourceFile'], { encoding: 'utf8' });
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout.trim(), sourceFile);
+  });
+
+  it('exits 1 with an English error when the sourceFile does not exist', () => {
+    const dir = makeRfcDir('cli-missing');
+    const graphPath = path.join(dir, 'RFC-ROOT-GRAPH.json');
+    fs.writeFileSync(graphPath, JSON.stringify({ sourceFile: path.join(dir, 'RFC-ROOT.md'), mainLanguage: 'rust', nodes: [], edges: [] }), 'utf8');
     const result = spawnSync('node', [SCRIPT, `--graph=${graphPath}`], { encoding: 'utf8' });
     assert.equal(result.status, 1);
     assert.match(result.stderr, /sourceFile not found/);

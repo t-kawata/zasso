@@ -25,21 +25,56 @@ disable-model-invocation: true
   - 例: `crates/siprs/RFC-ROOT-GRAPH.json`
   - 例: `/absolute/path/to/rfc-doc-GRAPH.json`
 
-## Preflight: パス導出と sourceFile 実在チェック（決定論）
+## Preflight: パス導出と実行モード判定（決定論）
 
-`derive-output-paths.js` を実行し、グラフ JSON の読込・構造検証（nodes / edges / `sourceFile` フィールド）と **`sourceFile` の実在チェック**を同時に行い、出力パスを導出する。
+`derive-output-paths.js` を実行し、グラフ JSON の読込・構造検証（nodes / edges / `sourceFile` フィールド）と **`sourceFile` の実在チェック**を同時に行い、出力パスを導出する。さらに **`README.md` / `CRYSTALIZE-Status.json` の実在**から実行モードを判定する。
 
 ```bash
 node .claude/scripts/crystalize-readme/derive-output-paths.js --graph="$ARGUMENTS" || exit 1
 ```
 
 - グラフが読めない / 構造が不正 / `sourceFile` が実在しない場合はエラーメッセージを表示して終了する（exit 1）。
-- 成功時は以下の JSON を出力する。このパス群と `sourceFile` を以降の Step の前提とする。
+- 成功時は英語の Markdown を出力する。`Mode` とパス群・存在フラグを以降の Step の前提とする。
+- **モード判定**: `README.md` または `CRYSTALIZE-Status.json` が実在 → **`refine`**（過去に `/crystalize-readme` を実行済み。今回の実行は洗練・更新）、両方なし → **`fresh`**（まっさらから新規）。
 
-出力例:
+出力例（fresh）:
 
-```json
-{"sourceFile":"/path/to/rfc/RFC-ROOT.md","rfcDir":"/path/to/rfc","examplesDir":"/path/to/rfc/examples","residuesDir":"/path/to/rfc/residues","readmePath":"/path/to/rfc/README.md"}
+```markdown
+## crystalize-readme Preflight
+
+**Mode: fresh** — No previous run was detected (no README.md or CRYSTALIZE-Status.json). This execution will start from scratch.
+
+| Path | Value |
+|------|-------|
+| sourceFile | /path/to/rfc/RFC-ROOT.md |
+| rfcDir | /path/to/rfc |
+| examplesDir | /path/to/rfc/examples |
+| residuesDir | /path/to/rfc/residues |
+| readmePath | /path/to/rfc/README.md |
+
+- sourceFile exists: yes
+- README.md exists: no
+- CRYSTALIZE-Status.json exists: no
+```
+
+出力例（refine）:
+
+```markdown
+## crystalize-readme Preflight
+
+**Mode: refine** — A previous /crystalize-readme run was detected (README.md and/or CRYSTALIZE-Status.json exists). This execution will refine and update the existing artifacts.
+
+| Path | Value |
+|------|-------|
+| sourceFile | /path/to/rfc/RFC-ROOT.md |
+| rfcDir | /path/to/rfc |
+| examplesDir | /path/to/rfc/examples |
+| residuesDir | /path/to/rfc/residues |
+| readmePath | /path/to/rfc/README.md |
+
+- sourceFile exists: yes
+- README.md exists: yes
+- CRYSTALIZE-Status.json exists: yes
 ```
 
 | パス | 説明 |
