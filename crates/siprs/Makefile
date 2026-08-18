@@ -38,3 +38,6 @@ stubs:
 
 crimes:
 	.claude/scripts/tickets/scan-crimes.sh
+
+sections:
+	node .claude/scripts/crystalize-readme/list-sections.js
