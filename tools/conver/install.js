@@ -12,23 +12,25 @@ import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
+import installDeps from './install-deps.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const SOURCE_DIR_NAME = '.claude';
-const EXCLUDE_PATTERNS = ['.DS_Store'];
+const EXCLUDE_PATTERNS = ['.DS_Store', 'node_modules'];
 
 /**
  * コマンドライン引数を解析する。
  * @param {string[]} argv - process.argv
- * @returns {{ targetDir: string, overwriteAll: boolean } | null}
+ * @returns {{ targetDir: string, overwriteAll: boolean, noInstallDeps: boolean } | null}
  *   解析成功時はオプションオブジェクト、失敗時は null
  */
 function parseArgs(argv) {
   const args = argv.slice(2);
   let targetDir = null;
   let overwriteAll = false;
+  let noInstallDeps = false;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -41,6 +43,8 @@ function parseArgs(argv) {
       targetDir = path.resolve(args[i]);
     } else if (arg === '-y') {
       overwriteAll = true;
+    } else if (arg === '--no-install-deps') {
+      noInstallDeps = true;
     } else {
       console.error('エラー: 未知のオプションです: ' + arg);
       return null;
@@ -52,7 +56,7 @@ function parseArgs(argv) {
     return null;
   }
 
-  return { targetDir, overwriteAll };
+  return { targetDir, overwriteAll, noInstallDeps };
 }
 
 /**
@@ -66,6 +70,7 @@ function showUsage() {
   console.log('オプション:');
   console.log('  -t, --target <path>   インストール先ディレクトリ（必須）');
   console.log('  -y                    全ての上書きを自動承認');
+  console.log('  --no-install-deps      依存関係の解決をスキップ');
 }
 
 /**
@@ -166,7 +171,7 @@ async function main() {
     process.exit(1);
   }
 
-  const { targetDir, overwriteAll } = options;
+  const { targetDir, overwriteAll, noInstallDeps } = options;
   const scriptDir = __dirname;
   const sourceClaudeDir = path.join(scriptDir, SOURCE_DIR_NAME);
 
@@ -198,7 +203,45 @@ async function main() {
     stats[result]++;
   }
 
+  if (!noInstallDeps) {
+    await resolveDependenciesForTarget(sourceClaudeDir, targetDir);
+  }
+
   showSummary(stats);
+}
+
+/**
+ * ターゲットの .claude を破壊しない方法で依存関係を解決する。
+ *
+ * 1. 宣言された全依存が解決済みなら何もしない（ゼロミューテーション）。
+ * 2. 既存の node_modules には一切触らない（存在すればスキップして報告）。
+ * 3. node_modules 不在時のみ、安全フラグ付き npm install で新規作成する。
+ * 4. インストール失敗時は自動作成分の node_modules のみをロールバックする。
+ */
+async function resolveDependenciesForTarget(sourceClaudeDir, targetDir) {
+  const manifestPath = path.join(sourceClaudeDir, 'package.json');
+  const dependencyEntries = Object.keys(installDeps.readManifestDependencies(manifestPath));
+  const result = installDeps.resolveTargetDependencies({
+    targetClaudeDir: targetDir,
+    dependencyEntries,
+    commandRunner: installDeps.defaultCommandRunner,
+  });
+
+  const summaryByStatus = {
+    'no-dependencies': '依存関係の宣言がないため、依存解決をスキップしました。',
+    resolved: '全ての依存関係は解決済みのため、インストールしません。',
+    'skipped-existing': '既存の node_modules を保護するため、依存解決をスキップしました。手動で解決してください。',
+    installed: '依存関係をターゲットの .claude にインストールしました。',
+  };
+
+  if (result.status === 'install-failed') {
+    console.error('エラー: 依存関係のインストールに失敗しました（ロールバック済み）。');
+    console.error('  詳細: ' + result.error);
+    console.error('--no-install-deps フラグで依存解決をスキップできます。');
+    process.exit(1);
+  }
+
+  console.log(summaryByStatus[result.status]);
 }
 
 main().catch((err) => {

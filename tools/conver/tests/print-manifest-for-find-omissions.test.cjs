@@ -136,7 +136,8 @@ describe("C002 consumability (PX-137)", function () {
 describe("C003 find-omissions grouped example (PX-137)", function () {
   it("the handoff note shows a grouped JSON example and no misleading below pointer", () => {
     const doc = fs.readFileSync(path.resolve(__dirname, "../.claude/commands/find-omissions.md"), "utf8");
-    const handoff = doc.split("**`/consolidate-stubs` handoff**")[1] || "";
+    // Anchor to the current handoff header (renamed from `/consolidate-stubs` handoff in v0.24.601).
+    const handoff = doc.split("**Manifest handoff**")[1] || "";
     assert.ok(handoff.includes('"sourceKey"') && handoff.includes('"stubs"'), "handoff shows a grouped JSON example");
     assert.ok(!/the grouped shape below/.test(handoff), "no misleading below pointer");
   });

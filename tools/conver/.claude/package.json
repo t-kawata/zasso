@@ -1,3 +1,7 @@
 {
-  "type": "commonjs"
+  "type": "commonjs",
+  "dependencies": {
+    "ajv": "^8.20.0",
+    "sql.js": "^1.14.2"
+  }
 }
