@@ -343,7 +343,7 @@ RFC §52.1 の設計判断により、siprs 自体には Axum 等の HTTP 依存
 
 > **注意（現在の実装状態）**: `siprs-server` は実装途上です。`build_router` は `/api/v1/health` と `/api/v1/shutdown` の 2 ルートのみを登録し（`src/api/standalone_server_config.rs:335-336`）、RFC §54.1 の 18 エンドポイント中 16 は未登録です。また `run_server` は固定の `ClientConfig::default()` を使用し、`sip_proxy_host=""` のためバリデーションで `Err(InvalidConfig)` を返し**起動できません**（OMISSIONS F12）。サーバーを利用する際は上記の制約を前提にしてください。
 
-## Examples (implementation samples) spec and design
+# Examples (implementation samples) spec and design
 
 <::EXAMPLES-RESIDUE::>
 ## EXAMPLES-RESIDUE — 完全な examples 設計の作成不可

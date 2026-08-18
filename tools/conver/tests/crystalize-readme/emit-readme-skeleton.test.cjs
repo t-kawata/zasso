@@ -84,12 +84,24 @@ describe('emitSkeleton', () => {
     assert.ok(text.includes('## アカウントの追加'));
   });
 
-  it('appends the examples heading with TEMPLATE-EXAMPLES as the trailing section (C003)', () => {
+  it('appends the examples heading as an H1 sibling of the usage headings, with TEMPLATE-EXAMPLES (C003)', () => {
     const text = emitSkeleton(makeStatus([]));
     const lines = text.trimEnd().split('\n');
     const lastHeadingIndex = lines.findLastIndex((line) => /^#+\s+\S/.test(line));
-    assert.equal(lines[lastHeadingIndex], '## Examples (implementation samples) spec and design');
+    assert.equal(lines[lastHeadingIndex], '# Examples (implementation samples) spec and design');
     assert.ok(text.includes(MARKER_TEMPLATE_EXAMPLES));
+  });
+
+  it('emits the examples heading at the same level as the top-level usage headings (all H1)', () => {
+    const status = makeStatus([
+      { id: 'H1', heading: 'クイックスタート', level: 1, confirmedContent: '本文', status: 'confirmed' },
+    ]);
+    const text = emitSkeleton(status);
+    const headingLines = text.split('\n').filter((line) => /^#+\s+\S/.test(line));
+    const usageLine = headingLines.find((line) => line.includes('クイックスタート'));
+    const examplesLine = headingLines.find((line) => line.includes('Examples (implementation samples) spec and design'));
+    assert.equal(usageLine.replace(/\s.*$/, ''), '#');
+    assert.equal(examplesLine.replace(/\s.*$/, ''), '#');
   });
 
   it('emits no usage markers when there are no confirmed headings', () => {

@@ -126,7 +126,7 @@ function emitSkeleton(status) {
   for (const node of nodes) {
     lines.push(`${'#'.repeat(node.level)} ${node.heading}`, '', MARKER_TEMPLATE_README, '');
   }
-  lines.push(`## ${TRAILING_SECTION_TITLE}`, '', MARKER_TEMPLATE_EXAMPLES, '');
+  lines.push(`# ${TRAILING_SECTION_TITLE}`, '', MARKER_TEMPLATE_EXAMPLES, '');
   return lines.join('\n');
 }
 
