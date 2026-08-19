@@ -1,76 +1,127 @@
-# conver — RFC収束型二層ループ開発パイプライン
+# conver — RFC収束型4ループ開発パイプライン
 
-conver は **「RFC設計書への収束」** に集中する二層ループ開発パイプラインです。
+conver は、**「正典 RFC へ実装を収束させる」** と同時に、**「正典自体を安全に進化させ続ける」** ことを可能にする、4つのループから成る開発パイプラインです。
 
-- **上流ループ（設計ループ）**: 人間が RFC を書き、論理グラフ化し、ディレクトリ境界を決め、チケットに分解する
-- **実装ループ（実装収束ループ）**: `conver.js`（ACP クライアント）がチケットを実装し、RFC 設計とのギャップを計測・解消して収束させる
+## なぜ必要か — 変化し続けるビジネスと「再投資可能性」
 
-**RFC を正典とし、実装をそこへ収束させます。** RFC 自体に追加が必要な場合のみ `/drill-rfc-down` で設計を更新し、再び収束ループを回します。
+ソフトウェアは「一度作って完成」ではありません。市場は刻一刻と変化し、ビジネスはその変化に**進化という形で常に適応**し続けなければ生き残れません。機能追加・方向転換・新要件への対応——これらはすべて「開発への再投資」です。
+
+しかし長期にわたる開発で最も恐ろしいのは、**「変化がシステムを矛盾だらけにする」**ことです。過去の設計判断がどこに記録されたか分からなくなり、実装が設計から乖離し、テストが嘘をつき始める——そうなると再投資はリスクにしかならず、ビジネスは変化を諦めるか、破壊的な作り直しを強いられます。
+
+conver はこの問題を、**「正典 RFC」を中心とした4つのループ**で解決します。
+
+- **上流ループ（分解）**: 人間が RFC を書き、論理グラフ化し、ディレクトリ境界を決め、チケットに分解する
+- **実装ループ（収束）**: `conver.js`（ACP クライアント）がチケットを実装し、RFC 設計とのギャップを計測・解消して収束させる
+- **出荷ループ（商品化判定）**: `/crystalize-readme` が「ユーザーにとっての使い方」の視点から実装を検証し、不足（RESIDUE）を洗い出す。RESIDUE がゼロになったとき、その README は「商品として出荷可能な使い方の説明」として完成する
+- **進化ループ（再投資）**: `/drill-rfc-down` が正典 RFC・グラフ・ディレクトリ構造・チケットを「差分」として矛盾なく進化させ、新たなチケットを生み出す。ビジネスの再投資を安全に実行するための装置である
+
+**すべての設計判断は正典 RFC に集約され、実装はそこへ機械的に収束します。** そして正典自体を変化させる時も、グラフ・ディレクトリ構造・チケット・実装・テストが**矛盾なく連動して進化**するため、「安全な連続性を失わない再投資可能性」が技術的に保証されます。
 
 ---
 
-## 二層ループ構造
+## 全体像 — 4つのループが出荷に至るまで
 
 ```
-             上流ループ（設計ループ・人間実行）
- ┌─────────────────────────────────────────────────────────────────────────┐
- │  /grill-me-for-rfc   /graphify-rfc   /boundify-graph  /split-to-tickets │
- │   (RFC設計書)         (GRAPH.json)     (Dirs-Tree.json)  (Tickets.json)  │
- └──────────────┬──────────────────────────────────────────────────────────┘
-                │ RFC 自体に追加が必要なとき
-                ▼ /drill-rfc-down（RFC + GRAPH を矛盾なく更新）
-                │
-                │ チケット
-                ▼
-             実装ループ（実装収束ループ・conver.js 自動実行）
- ┌──────────────────────────────────────────────────────────────────┐
- │  make → plan → start → review → resolve                          │
- │                                    ↓                             │
- │                           consolidate-stubs → find-omissions     │
- │     ▲                                             │              │
- │     │ ギャップが実装起因なら omission を            │ 設計vs実装      │
- │     │ Tickets.json にマージして再実装（収束）       │ のギャップ計測    │
- │     └─────────────────── 収束 ────────────────────┘               │
- └──────────────────────────────────────────────────────────────────┘
+  上流ループ（分解・人間実行）
+    /grill-me-for-rfc → /graphify-rfc → /boundify-graph → /split-to-tickets
+    正典RFC → *-GRAPH.json → *-Dirs-Tree.json → Tickets.json
+        │
+        ▼ チケット
+  実装ループ（収束・conver.js 自動実行）
+    make → plan → start → review → resolve → consolidate → find
+        │ 実装起因のギャップは omission として Tickets.json へマージし、収束するまで再実装
+        ▼ find が数ラウンドで収束したら
+  出荷ループ（商品化判定・人間＋AI）
+    /crystalize-readme <*-GRAPH.json>
+      使い方 README をセクション単位で「完全な記述 or RESIDUE」に判定
+        ├─ RESIDUE あり → 証拠＋実装補強設計を README に残置 → 進化ループへ
+        └─ RESIDUE ゼロ → 「使い方として完全な README」→ 出荷
+        ▼
+  進化ループ（正典の進化・再投資）
+    /drill-rfc-down
+      入力: crystalize の RESIDUE / ユーザーとの自由会話 / 与えられた資料
+      grill（詳細確定）→ graphify → boundify → split を「差分」として内部実行
+      → 正典RFC・GRAPH・Dirs-Tree・Tickets を矛盾なく更新 → 積み増しチケットを実装ループへ
 ```
 
 | ループ | 実行主体 | コマンド | 責務 |
 |--------|----------|----------|------|
 | **上流ループ** | 人間（Claude Code 上で実行） | `/grill-me-for-rfc` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets` | RFC 設計書の作成 → 論理グラフ化 → ディレクトリ境界生成 → チケット分解 |
 | **実装ループ** | `conver.js`（ACP クライアント・自動） | `/make-ticket` → `/plan-ticket` → `/start-ticket` → `/review-ticket` → `/resolve-ticket` → `/consolidate-stubs` → `/find-omissions` | チケット実装 → 品質検証 → 警告・犯罪・スタブ解決 → スタブのチケット単位束ね直し → 契約ギャップ計測 → 収束 |
-| **設計更新の分岐** | 人間（Claude Code 上で実行） | `/drill-rfc-down` | RFC に追加が必要なとき、RFC と GRAPH を矛盾なく更新して収束ループを再実行する |
+| **出荷ループ** | 人間＋AI（Claude Code 上で実行） | `/crystalize-readme` | 使い方 README をセクション単位で検証し、書けないセクションを RESIDUE として洗い出す。RESIDUE ゼロで出荷判定 |
+| **進化ループ** | 人間＋AI（Claude Code 上で実行） | `/drill-rfc-down` | RESIDUE・自由会話・資料を入力に grill で詳細を確定し、正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させる。ビジネスの再投資を安全に実行する |
 
 ---
 
 ## 収束の設計思想
 
-**RFC 設計書が正典（canon）です。** 実装ループはチケット単位で実装を RFC に近づけ、`/find-omissions` が「設計と実装のギャップ」を計測します。計測されたギャップは次のように分類されます。
+**RFC 設計書が正典（canon）です。** 実装ループはチケット単位で実装を RFC に近づけ、`/find-omissions` が「設計と実装のギャップ」を計測します。さらに出荷ループの `/crystalize-readme` は「商品としての使い方の完成度」を、進化ループの `/drill-rfc-down` は「正典そのものの妥当性」をそれぞれ検証・更新します。計測されるギャップは次のように分類されます。
 
-| ギャップの起因 | 対処 | ループ |
-|----------------|------|--------|
-| **実装起因**（契約がテストに正しく翻訳されていない、未実装、バグ等） | `/find-omissions` が omission チケットとして記録し、`Tickets.json` にマージ → 実装ループで再実装 | 実装ループ内で収束 |
-| **設計起因**（RFC 自体の考慮不足・欠落） | `/drill-rfc-down` で RFC と GRAPH を更新し、更新された RFC への収束ループを再実行 | 上流ループへ戻って再収束 |
+| ギャップの起因 | 計測器 | 対処 | ループ |
+|----------------|--------|------|--------|
+| **実装起因**（契約がテストに正しく翻訳されていない、未実装、バグ等） | `/find-omissions` | omission チケットとして記録し、`Tickets.json` にマージ → 実装ループで再実装 | 実装ループ内で収束 |
+| **商品起因**（「ユーザーへの使い方」として不完全・危険・欠落がある） | `/crystalize-readme` | README に RESIDUE（証拠＋実装補強設計）として記録 → `/drill-rfc-down` がチケット化 → 実装ループで再実装 | 出荷ループ経由で収束 |
+| **設計起因**（RFC 自体の考慮不足・欠落、市場変化による進化要求） | `/drill-rfc-down`（grill） | 正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく更新 → 実装ループで再実装 | 進化ループ経由で収束 |
 
-実装ループを回すだけでは解消できないギャップ（設計起因）に遭遇したとき、それが `/drill-rfc-down` の出番です。
+実装ループを回すだけでは解消できないギャップに遭遇したとき、それが `/crystalize-readme`（商品起因）や `/drill-rfc-down`（設計起因・進化要求）の出番です。
 
 ---
 
-## /drill-rfc-down — 設計更新の分岐点
+## 再投資可能性 — 正典が安全に進化できるための5つの整合性
 
-**役割**: 既存 RFC に対して grill 方式の質問攻めで考慮不足・設計不足の穴を塞ぎ、**RFC 設計書と GRAPH を緻密に矛盾なく更新**します。更新後は、更新された RFC への収束を実装ループで再実行します。
+**再投資可能性（reinvestment capability）** とは、ビジネスが市場の変化に応じて**何度でも安全に開発へ再投資できる**構造のことです。conver はこれを技術的に保証します。
 
-**ループ内の位置付け**: 実装ループの `/find-omissions` が計測したギャップのうち「実装側で埋められない設計起因のもの」を解消する、**実装ループから上流ループへ戻る唯一の分岐点**です。
+実装を安全に中断・再開できることもその一部ですが、本質は「**正典自体が安全に変化・進化できる**」ことです。その安全性は、次の5つの整合性が**同時に**満たされることで成り立ちます。
+
+| # | 整合性 | 内容 |
+|---|--------|------|
+| 1 | **正典RFCが安全に変化・進化できる** | 変化の起点は常に正典 RFC であり、その変化は grill によって設計判断として確定・追跡される |
+| 2 | **グラフ（`*-GRAPH.json`）に一切の矛盾を発生させない** | 正典の変化は graphify によって I/O 境界単位のノード・エッジへ機械的に反映され、検証を通過する |
+| 3 | **グラフを実体化した Dirs-Tree（`*-Dirs-Tree.json`）に一切の矛盾を発生させない** | グラフの変化は boundify によってディレクトリ境界へ矛盾なく反映される |
+| 4 | **実装が以上と完全に一致する** | 変化は split によってチケット化され、実装ループが実装を正典へ収束させる |
+| 5 | **テストコードがそれを完全に保証する** | `/find-omissions` が契約→テスト翻訳を全チケット検査し、収束を機械的に計測する |
+
+**進化とはこれら5つの整合性を壊すことではなく、全てをロックステップで一段上げること**です。このハーネスが存在するからこそ、ビジネスは「安全な連続性を失わない再投資可能性」を年単位で維持しながら、市場の変化へ進化という形で適応し続けられます。
+
+---
+
+## /crystalize-readme — 出荷ループの入口
+
+**役割**: RFC グラフ（`*-GRAPH.json`）を入力に、**ユーザー向けの「使い方 README」**を生成します。各 README セクションを1つずつ検証し、**「そのセクションに書かれた使い方が完全に動作する実装が現在存在するか」**を判定します。書けるセクションは「完全な記述」として確定し、書けないセクションは「RESIDUE 記述」として README 内に証拠と実装補強設計を残します。
+
+**RESIDUE とは**: 「なぜ書けないか」のメモではなく、**「README と examples の実装を完全にするための実装チケットの素材」**です。危険・欠落・矛盾・不備の具体的な証拠と、実装を補強するための設計が、README 内の `<::README-RESIDUE::>`（または examples 用の `<::EXAMPLES-RESIDUE::>`）マーカーと共に厳密に記述されます。RESIDUE は後に `/drill-rfc-down` によってチケット化されます。
+
+**2つの実行モード**:
+
+- **fresh**: README.md / CRYSTALIZE-Status.json が存在しない初回実行。ゼロから開始します
+- **refine**: 過去の実行成果物が存在する再実行。見出しを再確定し、全セクションを再解析して洗練・更新します
+
+**ワークフロー**:
+
+1. **Preflight**: `derive-output-paths.js` がグラフを構造検証し、出力先と実行モードを決定（決定論）
+2. **Step 1 — 目次 grill**: 使い方に焦点を当てた README の見出し階層（H1, H1-1, …）をユーザーとの対話で確定し、骨子を README へ機械出力（各セクションに `<::TEMPLATE-README::>` マーカーを付与）
+3. **Step 2 — セクション単位検査ループ**: 各セクションについて、対応するチケットの spec → 実装を読み、証拠に基づいて「書ける／書けない」を判定。書ける → `resolve-section`、書けない → `mark-residue`。AI が README を直接編集することは禁止
+4. **Step 3 — Examples 専用ステップ**: 末尾の「Examples（実装サンプル）仕様と設計」を仕上げ、`<::TEMPLATE-EXAMPLES::>` を解決するか RESIDUE 化する
+
+**収束と出荷**: 全セクションが「完全な記述」または「RESIDUE 記述」になればループは収束します。RESIDUE が残っていれば `/drill-rfc-down` へ渡して実装を補強し、refine モードで再検証します。**RESIDUE がゼロになり「使い方として完全な README」が仕上がったとき、それが「出荷」です。**
+
+---
+
+## /drill-rfc-down — 進化の扉
+
+**役割**: 正典 RFC を「進化ステージ」ごと一段上げる、**唯一の進化の扉**です。入力（crystalize の RESIDUE / 事前のユーザーとの自由会話 / 与えられた資料）に対して **grill 方式の質問攻め**で設計判断を確定させ、確定した差分を既存の `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` へ**矛盾なく反映**します。つまり内部で **grill → graphify → boundify → split を「差分」に対して実行**します。
+
+**ループ内の位置付け**: 実装ループの `/find-omissions` が計測したギャップのうち「実装側で埋められない設計起因のもの」、および出荷ループの `/crystalize-readme` が残した RESIDUE を解消します。さらに、市場変化や新たな要件（ユーザーとの自由会話・資料）を正典へ取り込む**進化ループ**の入口でもあります。
 
 **編集方針**:
+
 - 追記優先。全文書き換え・セクション削除・破壊的変更は禁止
 - DesignTree / Status / CheckList は `/grill-me-for-rfc` と同一機構を再利用（既存セッションがあれば継続）
 - 質問 → 回答 → 追記 → CheckList 照合 → 再 grill 判定のサイクルで品質を高める
-- I/O 境界参照情報を追記し、後段の `/graphify-rfc` / `/boundify-graph` が安全に分割できるようにする
+- I/O 境界参照情報を追記し、後段の graphify / boundify が安全に分割できるようにする
+- 確定した差分に対して graphify → boundify → split を実行し、`*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` を矛盾なく更新して積み増しチケットを生成する
 
-> **⚠️ 実装状況**: GRAPH 自体（`*-GRAPH.json`）を矛盾なく更新する能力は **未実装です**（改修未済）。
-> 現状の `/drill-rfc-down` は RFC への追記（grill 方式）までを実行し、GRAPH の同期更新には対応していません。
-> このため「RFC と GRAPH を一貫更新して収束ループを再実行する」フローは、**意図された設計として** README に記載しています。
-> GRAPH 更新を伴う完全な `/drill-rfc-down` が実装されるまでの間は、RFC 追記後に `/graphify-rfc` を再実行して GRAPH を再生成する運用が現実的な代替です。
+**この機能の意味**: 正典・グラフ・ディレクトリ構造・チケットが常にロックステップで更新され続けるため、開発プロジェクトは「安全な連続性を失わない再投資可能性」を担保できます。ビジネスの再投資（方向転換・機能追加・要件変化への適応）は、いつでもこの扉を通じて正典を進化させることで、年単位の長期開発を矛盾なく続けられます。
 
 ---
 
@@ -186,11 +237,17 @@ reviewed チケットの**契約（Contracts）がテストコードへ正確に
 - 成功時にマニフェストとロールバックバックアップを削除（`clean-consolidation-artifacts.js`）。再実行には新たな `/consolidate-stubs` が必要
 - マージされた omission チケットは実装ループに戻り、**収束するまで再実装が繰り返される**
 
-### 設計更新（人間実行）
+### 出荷ループ（人間＋AI 実行）
+
+#### `/crystalize-readme <GRAPHファイルパス>`
+
+RFC グラフを入力に「使い方 README」をセクション単位で検証・生成します。書けないセクションは RESIDUE（証拠＋実装補強設計）として README 内に残し、`/drill-rfc-down` のチケット化素材とします。RESIDUE ゼロで出荷判定。詳細は「[/crystalize-readme — 出荷ループの入口](#crystalize-readme--出荷ループの入口)」を参照。
+
+### 進化ループ（人間＋AI 実行）
 
 #### `/drill-rfc-down <RFCファイルパス>`
 
-既存 RFC に対して grill 方式の質問攻めで考慮不足・設計不足の穴を塞ぎます。詳細は「[/drill-rfc-down — 設計更新の分岐点](#drill-rfc-down--設計更新の分岐点)」を参照。
+正典 RFC を進化させます。入力（crystalize の RESIDUE / ユーザーとの自由会話 / 与えられた資料）を grill で確定し、GRAPH・Dirs-Tree・Tickets を差分として矛盾なく更新して積み増しチケットを生成します。詳細は「[/drill-rfc-down — 進化の扉](#drill-rfc-down--進化の扉)」を参照。
 
 ---
 
@@ -360,6 +417,23 @@ OMISSIONS-<timestamp>.json
 └── 実装ディレクトリ境界（languageRules による言語別可視性）
 ```
 
+### CRYSTALIZE（`/crystalize-readme` の成果物）
+
+`/crystalize-readme` は、ユーザー向け使い方説明である **README.md**（RFC と同階層に出力）と、進捗・判定結果を記録する **CRYSTALIZE-Status.json** を生成・更新します。
+
+```
+README.md（rfcDir/README.md に出力）
+├── 使い方セクション: 完全な記述 or <::README-RESIDUE::>（証拠＋実装補強設計）
+└── 末尾: Examples セクション: 完全な設計 or <::EXAMPLES-RESIDUE::>
+
+CRYSTALIZE-Status.json
+├── mode: "fresh"|"refine"（実行モード）
+├── headings[]: { id, heading, confirmedContent }（目次 grill の確定結果）
+├── sections[]: { id, status: "complete"|"residue"|"template", content }（セクション単位の判定）
+├── examplesApproved: boolean
+└── 各 Step の進行状態（/crystalize-readme の update-step-status.js が更新）
+```
+
 ---
 
 ## スクリプトリファレンス
@@ -386,9 +460,13 @@ OMISSIONS-<timestamp>.json
 | 犯罪・スタブ | `scan-crimes.sh` / `malfeasance-create.js` / `malfeasance-update.js` / `insert-stub.js` / `scan-incomplete-implementations.js` / `ensure-malfeasance.js` |
 | 品質・検証 | `review/run-quality-checks.js` / `review/find-all-stubs.js` / `review/generate-report.js` / `lib/validate-tickets.js` / `lib/validate-omissions.js` |
 
-### grill（`.claude/scripts/grill-me-for-rfc/`）
+### 出荷ループ（`.claude/scripts/crystalize-readme/`）
 
-`init.js` / `init-for-drill-rfc-down.js` / `update-tree.js` / `tree-query.js` / `update-status.js` / `session-status.js` / `check-all-schema.js` / `generate-checklist.js` / `list-files.js` / `validate-question-format.js` / `extract-io-boundary.js` / `insert-io-boundary-template.js` / `check-io-stubs.js`
+`derive-output-paths.js`（Preflight・モード判定）/ `update-step-status.js`（Step 進行管理・確認記録）/ `validate-toc-proposal.js`（目次提案の構造検証）/ `emit-readme-skeleton.js`（骨子の機械出力）/ `loop-drive-readme.js`（セクション検査ループの駆動・resolve-section / mark-residue / resolve-examples / mark-examples-residue）/ `validate-marker-grammar.js`（マーカー文法の単一情報源）
+
+### grill / drill-rfc-down（`.claude/scripts/grill-me-for-rfc/`）
+
+`/drill-rfc-down` は grill 機構を再利用します。`init.js` / `init-for-drill-rfc-down.js` / `update-tree.js` / `tree-query.js` / `update-status.js` / `session-status.js` / `check-all-schema.js` / `generate-checklist.js` / `list-files.js` / `validate-question-format.js` / `extract-io-boundary.js` / `insert-io-boundary-template.js` / `check-io-stubs.js`
 
 ---
 
@@ -465,7 +543,9 @@ install.js -y -t /path/to/target/.claude
 5. `conver.js` が実装ループを自動実行（make → plan → start → review → resolve）
 6. `/consolidate-stubs` が `[::STUB::]` マーカーをチケット単位へ束ね直す（`/find-omissions` の必須前提）
 7. `/find-omissions` がギャップを計測し、実装起因の omission を `Tickets.json` にマージ → 収束するまで再実装
-8. 設計起因の欠落が見つかったら `/drill-rfc-down` で RFC（と将来は GRAPH）を更新し、更新された RFC への収束ループを再実行
+8. find の積み増しが数ラウンドで収束したら、`/crystalize-readme` で使い方 README をセクション単位で検証（出荷ループ）
+9. RESIDUE が出たら `/drill-rfc-down` がチケット化して積み増し → 手順5へ戻って再実装。RESIDUE がゼロになれば README は「使い方として完全」＝ 出荷
+10. 市場変化や新要件があれば `/drill-rfc-down` で正典を進化させ（進化ループ）、積み増しチケットを手順5から再実装
 
 ### CLI 直接実行
 
