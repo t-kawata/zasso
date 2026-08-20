@@ -228,32 +228,90 @@ node "$DRILL_DIR/update-status.js" "$SESSION_DIR" set-step 1-12
 
 ### Step 2: graphify
 
-Step 1 で確定した進化を既存 `*-GRAPH.json` へ、破壊・矛盾・危険ゼロで反映せよ。ノード・エッジの追加・編集は `crud.js`（唯一の書き込み経路）を使用し、`verify.js` で完全な検証を通過するまで修正を繰り返せ。
+Step 1 で確定した進化（`$SESSION_DIR/delta.json`）を既存 `*-GRAPH.json` へ反映する。**破壊・矛盾・危険ゼロ**のため、以下の **dry-run → AI 判断 → crud.js → verify.js** の慎重ループで進める。
 
-<!-- ? ここに詳細を書く:
-- 既存 GRAPH へのノード・エッジの追加・編集手順（crud.js 等の唯一の書き込み経路の利用）
-- グラフ検証スクリプトの実行と全項目通過条件（孤立ノード・未カバー行・headingRefs 等）
-- グラフの一意性・整合性・破壊的変更を防ぐスクリプト安全策の設計 -->
+**スクリプトによる決定論的解析（dry-run・書込なし）**: `graphify-delta-analyzer.js` が delta.json と既存 GRAPH から新規ノード / 修正ノード / 新規エッジの候補を提案し、`$SESSION_DIR/graph-delta.json` を生成する（GRAPH は一切書かない）。
+
+```bash
+node "$DRILL_DIR/graphify-delta-analyzer.js" --delta="$SESSION_DIR/delta.json" --graph="$GRAPH_PATH" --out="$SESSION_DIR/graph-delta.json"
+```
+
+**dry-run レポート確認**: `graphify-step.js --dry-run` で候補一覧を確認し、AI エンジニアリングエキスパートとして以下を厳格に判断する:
+
+- **危険**: 新規/修正ノード・エッジが既存設計を破壊しないか
+- **漏れ**: 全ての delta セクションが GRAPH に反映されるか
+- **矛盾**: 新規ノードの統合 vs 新規追加の判断が正しいか
+- **不足**: 新規ノードの kind / slug / headingRefs が適切か
+
+```bash
+node "$DRILL_DIR/graphify-step.js" --graph="$GRAPH_PATH" --delta="$SESSION_DIR/delta.json" --source="$RFC_PATH" --dry-run
+```
+
+**AI 判断 → 書込（完璧と判断した時のみ）**: 計画が完全なら `--approve` で crud.js 適用 → verify.js 全検査通過を確認する。不十分なら 1-8 へ戻って修正する。**破壊的変更（ノード削除）はデフォルト禁止・AI 明示承認のみ**。
+
+```bash
+node "$DRILL_DIR/graphify-step.js" --graph="$GRAPH_PATH" --delta="$SESSION_DIR/delta.json" --source="$RFC_PATH" --approve
+```
+
+**検証**: `verify.js` が未カバー見出し・孤立ノード・headingRefs 解決性・一意性を全検査し、**通過するまで修正を繰り返す**。グラフの書き込みは `crud.js` が唯一の経路。
 
 ### Step 3: boundify
 
-Step 1 で確定した進化を既存 `*-Dirs-Tree.json` と `src` 内のディレクトリ・ファイルへ、破壊・矛盾・危険ゼロで反映せよ。更新後に `validate-dirs-tree-schema.js` で検証し、GRAPH / Dirs-Tree 間の全ての矛盾・破壊を解消するまで修正を繰り返せ。
+Step 1 の進化（delta.json）と Step 2 の GRAPH 進化（`$SESSION_DIR/graph-delta.json`）を既存 `*-Dirs-Tree.json` と `src` 内の実ディレクトリ・ファイルへ反映する。**破壊・矛盾・危険ゼロ**のため、以下の **dry-run → AI 判断 → 書込 → validate-dirs-tree-schema** の慎重ループで進める。
 
-<!-- ? ここに詳細を書く:
-- Dirs-Tree の検証・自己修復手順
-- `src` への新規ディレクトリ・ファイル生成手順（宣言スタブ・Prose 除外・Prune 規則・循環依存検出）
-- GRAPH との整合性検証
-- 破壊的変更を防ぐスクリプト安全策の設計 -->
+**スクリプトによる決定論的解析（dry-run・書込なし）**: `boundify-delta-analyzer.js` が graph-delta.json と既存 Dirs-Tree と **`src` の実ファイル**（`fs` で機械列挙）から、新規ファイル / 修正ファイル / **src drift（欠落・余剰）** の候補を提案し、`$SESSION_DIR/dirs-tree-delta.json` を生成する（Dirs-Tree と src は一切書かない）。
+
+```bash
+node "$DRILL_DIR/boundify-delta-analyzer.js" --graph-delta="$SESSION_DIR/graph-delta.json" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR/src" --out="$SESSION_DIR/dirs-tree-delta.json"
+```
+
+**dry-run レポート確認**: `boundify-step.js --dry-run` で候補と src drift を確認し、AI エンジニアリングエキスパートとして以下を厳格に判断する:
+
+- **危険**: 新規/修正ファイルが既存実装を破壊しないか
+- **漏れ**: 全 GRAPH ノードが Dirs-Tree / src に反映されるか
+- **矛盾**: 配置位置・言語・kind が正しいか
+- **不足**: 宣言スタブ・Prose 除外（rationale/glossary/requirement）・Prune 規則を満たすか
+
+```bash
+node "$DRILL_DIR/boundify-step.js" --graph="$GRAPH_PATH" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR/src" --graph-delta="$SESSION_DIR/graph-delta.json" --dry-run
+```
+
+**AI 判断 → 書込（完璧と判断した時のみ）**: 計画が完全なら `--approve` で新規ファイル生成＋Dirs-Tree 更新を適用し、`validate-dirs-tree-schema.js` 全検査通過を確認する。不十分なら 1-8 へ戻って修正する。**破壊的変更（ファイル/ディレクトリの削除・移動）はデフォルト禁止・AI 明示承認のみ**。
+
+```bash
+node "$DRILL_DIR/boundify-step.js" --graph="$GRAPH_PATH" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR/src" --graph-delta="$SESSION_DIR/graph-delta.json" --approve
+```
+
+**検証**: `validate-dirs-tree-schema.js` が GRAPH / Dirs-Tree 間の整合・mappedNodeIds 解決・循環依存を全検査し、**通過するまで修正を繰り返す**。
 
 ### Step 4: split
 
-Step 1 で確定した進化を既存 `Tickets.json` へ、破壊・矛盾・危険ゼロでチケットの編集・積み増しとして反映せよ。更新後に `validate-tickets.js` でスキーマ検証し、GRAPH / Dirs-Tree / Tickets 間の全ての矛盾・破壊を解消するまで修正を繰り返せ。
+Step 3 の進化（`$SESSION_DIR/dirs-tree-delta.json`）を既存 `Tickets.json` へ、チケットの編集・積み増しとして反映する。**破壊・矛盾・危険ゼロ**のため、以下の **dry-run → AI 判断 → 書込 → validate-tickets** の慎重ループで進める。
 
-<!-- ? ここに詳細を書く:
-- 新規ノード群のフェーズ割当・チケット積み増しの手順（phasify 等）
-- 既存チケットの status 保全・ラウンド管理・phaseId 採番
-- Tickets.json のスキーマ検証・GRAPH / Dirs-Tree との整合性検証
-- 破壊的変更を防ぐスクリプト安全策の設計 -->
+**スクリプトによる決定論的解析（dry-run・書込なし）**: `split-delta-analyzer.js` が dirs-tree-delta.json と既存 Tickets.json から、新規チケット / 編集チケット / フェーズ割当の候補を提案し、`$SESSION_DIR/tickets-delta.json` を生成する（Tickets.json は一切書かない）。既存チケットの **status を surface** し、AI が保全判断できるようにする。
+
+```bash
+node "$DRILL_DIR/split-delta-analyzer.js" --dirs-tree-delta="$SESSION_DIR/dirs-tree-delta.json" --tickets="$TICKETS_PATH" --out="$SESSION_DIR/tickets-delta.json"
+```
+
+**dry-run レポート確認**: `split-step.js --dry-run` で候補を確認し、AI エンジニアリングエキスパートとして以下を厳格に判断する:
+
+- **危険**: 既存チケット（特に reviewed / R<N>）の status を壊さないか
+- **漏れ**: 全 GRAPH ノード / ファイルがチケットに反映されるか
+- **矛盾**: フェーズ割当・nodeIds 対応が正しいか
+- **不足**: 新規チケットに十分なスコープ・テスト計画があるか
+
+```bash
+node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --dirs-tree-delta="$SESSION_DIR/dirs-tree-delta.json" --dry-run
+```
+
+**AI 判断 → 書込（完璧と判断した時のみ）**: 計画が完全なら `--approve` で add-ticket / update-ticket により新規チケット追加・編集を適用し、`validate-tickets` スキーマ検証を通過させる。不十分なら 1-8 へ戻って修正する。**既存チケットの status は決して黙って上書きしない。破壊的変更（チケット削除）はデフォルト禁止・AI 明示承認のみ**。
+
+```bash
+node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --dirs-tree-delta="$SESSION_DIR/dirs-tree-delta.json" --approve
+```
+
+**検証**: `validate-tickets` がスキーマ（title / round / metadata / phases / tickets の status・phaseId 整合）を全検査し、**通過するまで修正を繰り返す**。ラウンド管理（R<N>）・phaseId 採番は既存 phasify 規約に従う。
 
 ### Step 5: verify
 

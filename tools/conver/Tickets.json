@@ -22033,7 +22033,7 @@
         {
           "id": 157,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "drill-rfc-down foundation - preflight VARIABLES output, io-boundary script restore, DRILL_DIR self-containment, session-init",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/157-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "### Goal\nEstablish the foundation for a self-contained /drill-rfc-down: preflight emits a machine-bindable [VARIABLES] block, the archived io-boundary scripts are restored, the drill script directory is made self-contained, and session-init.js creates the isolated drill session.\n\n### Purpose\n- preflight.js must output all resolved pipeline paths as a [VARIABLES] block (VAR=value) so the AI binds them verbatim without interpretation.\n- Restore insert-io-boundary-template.js and check-io-stubs.js from .claude/archive/scripts/grill-me-for-rfc/ (referenced by grill-me-for-rfc.md but currently non-executable).\n- Make .claude/scripts/drill-rfc-down/ self-contained so drill never references the grill script directory.\n- Implement session-init.js that creates/resumes the drill session in $SESSION_DIR = $RFC_DIR/drills.\n\n### Motivation\n- grill-me-for-rfc.md Step 7a references insert-io-boundary-template.js and check-io-stubs.js, but both were archived to .claude/archive/ - broken references make the command non-executable.\n- drill must be self-contained; depending on the grill script directory couples drill to another command and violates the \"drill de o kanjitsu\" (self-contained) requirement.\n- AI must not interpret path values; preflight must supply them mechanically to eliminate interpretation errors.\n\n### Constraints\n- New drill scripts are CommonJS (preflight.js pattern). Session-management scripts relocated from grill-me-for-rfc are ESM; module-type integration is resolved via package.json in the drill script directory.\n- [::STUB::] marker absolute obligation; zero unresolved crimes.\n- TDD Red -> Green -> Refactor is mandatory.",
@@ -22122,9 +22122,9 @@
               "invariant": "no file outside $SESSION_DIR is written"
             }
           ],
-          "notes": "- [Implementation steps] 1) restore io-boundary scripts + tests; 2) preflight [VARIABLES] + tests; 3) $DRILL_DIR package.json + relocate session scripts; 4) session-init.js + tests\n- [Risks] ESM/CJS module boundary inside $DRILL_DIR; relocating scripts must not break grill-me-for-rfc (copy, do not move)\n- [Caveats] the restored insert-io-boundary-template skips when an I/O section exists, so drill Step 1 uses AI-authored I/O boundary info verified by rfc-evolution.js (PX-158), not this script\n- [Open items] none\n- [Future improvements] after PX-158 (machinery) and PX-159 (integration), drill Step 1 becomes fully executable\nImplementation summary (PX-157):\n- Files: preflight.cjs (modified), session-init.js (new), package.json (new), 6 session scripts (relocated), insert-io-boundary-template.js/check-io-stubs.js (restored+fixed), tests (io-boundary-scripts, session-scripts-smoke, preflight-variables, session-init)\n- Key decisions: preflight.js to preflight.cjs rename for ESM/CJS coexistence under type:module; archived io-boundary scripts restored with skip-regex bug fixed (archived regex failed on real heading literal +); 6 session scripts copied (not moved) so grill-me-for-rfc stays intact\n- Test results: 47 drill tests + 6 io-boundary tests + 4 variables + 4 session-init + 7 smoke all green; quality checks 0 issues\n- Noted divergence: active insert-io-boundary-template.js differs from archive (regex fix + stdout.write + [::TICKET::] annotation)",
+          "notes": "- [Implementation steps] 1) restore io-boundary scripts + tests; 2) preflight [VARIABLES] + tests; 3) $DRILL_DIR package.json + relocate session scripts; 4) session-init.js + tests\n- [Risks] ESM/CJS module boundary inside $DRILL_DIR; relocating scripts must not break grill-me-for-rfc (copy, do not move)\n- [Caveats] the restored insert-io-boundary-template skips when an I/O section exists, so drill Step 1 uses AI-authored I/O boundary info verified by rfc-evolution.js (PX-158), not this script\n- [Open items] none\n- [Future improvements] after PX-158 (machinery) and PX-159 (integration), drill Step 1 becomes fully executable\nImplementation summary (PX-157):\n- Files: preflight.cjs (modified), session-init.js (new), package.json (new), 6 session scripts (relocated), insert-io-boundary-template.js/check-io-stubs.js (restored+fixed), tests (io-boundary-scripts, session-scripts-smoke, preflight-variables, session-init)\n- Key decisions: preflight.js to preflight.cjs rename for ESM/CJS coexistence under type:module; archived io-boundary scripts restored with skip-regex bug fixed (archived regex failed on real heading literal +); 6 session scripts copied (not moved) so grill-me-for-rfc stays intact\n- Test results: 47 drill tests + 6 io-boundary tests + 4 variables + 4 session-init + 7 smoke all green; quality checks 0 issues\n- Noted divergence: active insert-io-boundary-template.js differs from archive (regex fix + stdout.write + [::TICKET::] annotation)\nReview report (PX-157):\n- Static quality check: passed\n- Translatability: no issues\n- Tests: 141 tests all green\n- Final contracts: 100% fulfilled, all targetStubs resolved\n- Annotation check: the --verify flag reports false positives for untracked files created by later tickets (all files carry their creating ticket's [::TICKET::] annotation — verified)\n- No blockers/major issues found",
           "invariants": "- [Normal condition] When Tickets.json metadata resolves all pipeline paths, preflight always emits a [VARIABLES] block containing exactly the 8 variables RFC_PATH/RFC_DIR/GRAPH_PATH/DIRS_TREE_PATH/README_PATH/TICKETS_PATH/SESSION_DIR/DRILL_DIR.\n- [Error invariant] On any failure (missing file, empty material dir, unresolvable paths, unknown flag), preflight exits 1 with an error and abort instruction; it never emits a partial [VARIABLES] block.\n- [Internal state invariant] session-init writes only inside $SESSION_DIR; pre-existing session files in $RFC_DIR (Status.json/DesignTree.json/CheckList.md from the original grill session) are never read or written.\n- [Boundary invariant] SESSION_DIR is always derived as $RFC_DIR/drills; the restored io-boundary scripts never insert a duplicate I/O boundary section when one already exists.",
-          "instrumentation": "- [Logging] preflight [VARIABLES] block is stdout data, not log output; errors go to stderr\n- [Metrics] none (CLI utility)\n- [Error tracking] stderr error template + exit 1 on any failure\n- [Health check] n/a (CLI utility)",
+          "instrumentation": "- [Logging] preflight [VARIABLES] block is stdout data, not log output; errors go to stderr\n- [Metrics] none (CLI utility)\n- [Error tracking] stderr error template + exit 1 on any failure\n- [Health check] n/a (CLI utility)\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-named functions, no single-char vars)\nTests: 141 drill+io-boundary tests passed\nFinal contracts: 100% fulfilled",
           "investigation": "- preflight.js (existing, CommonJS): parseArguments/collectMaterialPaths/readTickets/resolvePipelinePaths/verifyExistence/formatPreflightMarkdown/formatAbortMessage; 32 tests green in tests/drill-rfc-down/preflight.test.cjs; exports all pure functions for direct testing.\n- Archive contains insert-io-boundary-template.js (ESM, appends I/O section template with [::IO-INFO-STUB::] markers, skips when section pattern exists, next section number = max+1) and check-io-stubs.js (ESM, scans markers, exit 0 clean / exit 1 remaining). Both were archived 2026-07-30 but are still referenced by grill-me-for-rfc.md Step 7a and drill-rfc-down-old.md Step 7a.\n- Active .claude/scripts/grill-me-for-rfc/ is ESM (package.json {\"type\":\"module\"}) and currently missing those two scripts (broken references).\n- .claude/scripts/drill-rfc-down/ contains only preflight.js (CommonJS); no package.json yet, so ESM session scripts cannot be dropped in without a module-type decision.\n- tests/sample-rfcs/ contains real siprs data: RFC-ROOT.md (3762 lines, I/O boundary section at 61), RFC-ROOT-GRAPH.json (67 nodes/68 edges), RFC-ROOT-Dirs-Tree.json, Tickets.json (16 phases, metadata.resolvedPaths -> ~/shyme/zasso/crates/siprs/...), plus Status.json/DesignTree.json/CheckList.md/CRYSTALIZE-Status.json.",
           "boyScoutPlan": "- preflight.js formatPreflightMarkdown is already a pure, tested function; the [VARIABLES] addition will be a new pure function (formatVariablesBlock) keeping the one-function-one-responsibility rule.\n- The restored io-boundary scripts are ESM CLI scripts; if their variable names are not self-explanatory, extract named constants (SECTION_PATTERN, STUB_PATTERN) instead of inline regex literals.\n- session-init.js must read as prose: functions named createSessionDir, writeSessionTemplates, reportResumeMode, with no magic strings for file names (STATUS_FILE, DESIGN_TREE_FILE, CHECKLIST_FILE constants).",
           "created_at": "2026-08-20",
@@ -22161,12 +22161,14 @@
               "after": "session-init.js creates/resumes $SESSION_DIR=<rfcDir>/drills with Status/DesignTree/CheckList",
               "description": "New ESM script; writes only inside $SESSION_DIR; schema-validated via check-all-schema.js"
             }
-          ]
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-20"
         },
         {
           "id": 158,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "drill-rfc-down Step 1 machinery - update-status.js (drill-wide progress manager) + rfc-evolution.js (evolution verification)",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/158-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "### Goal\nImplement the two core scripts that make drill Step 1 (grill) mechanically managed and verified.\n\n### Purpose\n- update-status.js: manages the ENTIRE drill pipeline (Step 1-5) at sub-step granularity (1-1, 1-2, ...). Always outputs the next AI action and the step to proceed in English. Steps 2-5 are registered as step definitions (placeholders) so they can be extended safely when implemented later.\n- rfc-evolution.js: capture (baseline snapshot), verify (append-only gate, delta extraction, well-formedness, contradiction candidates), clean (baseline removal). Artifact paths are deterministic under $SESSION_DIR; no path arguments are passed.\n\n### Motivation\n- Eliminate the possibility that the AI overlooks required work - update-status.js must always tell the AI what to do next.\n- RFC edits must be mechanically guarded (append-only; destructive changes forbidden).\n- Steps 2-5 are not yet implemented; the step schema must be extensible without breakage.\n\n### Constraints\n- update-status.js: step definition table covering Step 1-5 with sub-steps; operations set-step/set-state/inc-loop/show; English next-action output on every invocation; unknown step rejected.\n- rfc-evolution.js: capture/verify/clean; deterministic artifact paths ($SESSION_DIR/baseline.json, $SESSION_DIR/delta.json); append-only via ordered-subsequence check; contradiction candidates via token match against GRAPH/Dirs-Tree/Tickets resolved from Tickets.json; exit 1 on violations.\n- TDD Red -> Green -> Refactor mandatory; no stubs.",
@@ -22271,9 +22273,9 @@
               "invariant": "any violation exits 1"
             }
           ],
-          "notes": "- [Implementation steps] 1) update-status.js + tests; 2) rfc-evolution.js + tests\n- [Risks] the append-only subsequence check must align correctly when lines are duplicated; use a greedy alignment\n- [Caveats] delta.json is consumed by Step 2 (graphify); its schema must be stable and documented\n- [Open items] Step 2-5 step definitions are placeholders; extend gate scripts and nextAction text when those steps are implemented\n- [Future improvements] after PX-159, drill Step 1 is executable end to end\nImplementation summary (PX-158):\n- Files: update-status.js (rewritten), rfc-evolution.js (new), tests/drill-rfc-down/update-status.test.cjs (8 tests), tests/drill-rfc-down/rfc-evolution.test.cjs (13 tests, uses tests/sample-rfcs)\n- Key decisions: update-status STEP_DEFINITIONS covers 1-1..1-12 and Step 2-5 placeholders (extensible without schema change); every invocation prints currentStep + English nextAction; rfc-evolution uses greedy ordered-subsequence alignment for append-only gate; contradiction detection reuses preflight.cjs resolvePipelinePaths (DRY); IO_BOUNDARY_PATTERN relaxed to match 'graphify-rfc + boundify-graph' or 'I/O boundary'/'I/O 境界'\n- Test results: 68 drill tests + 6 io-boundary tests all green; quality checks 0 issues\n- Noted: annotate script merged PX-158 into relocated scripts (update-tree.js etc.) as provenance; update-status/rfc-evolution carry [::TICKET::] PX-158 annotations\nReview fix (applied after done):\n- Q-id convention (Q1, Q1a) enforced on DesignTree nodes in the drill copy of check-all-schema.js\n- Added tests/drill-rfc-down/design-tree-validation.test.cjs (6 tests: Q-id accept/reject, duplicate, missing questions, command guidance)\n- Boy Scout: fixed single-letter var + console.log in check-all-schema.js\nAdditional review fix (after done):\n- update-tree.js saveAndValidate now rolls back on validation failure -> a rejected add (e.g. non-Q id) leaves DesignTree.json unchanged\n- End-to-end verified: invalid id rejected with Q<number> message and node-1 absent from the file\n- Boy Scout: fixed single-letter vars and console.log in update-tree.js (quality 0)\nReview fix (after done):\n- formatDeltaReport now includes: (1) full delta section body content, (2) DesignTree resolved nodes as an omission-check aid, (3) contradiction candidates with the matched existing node context\n- Design principle: the script provides information kindly but does NOT decide danger/omission/contradiction/deficiency — that stays with the AI non-deterministic expert judgment\n- rfc-evolution.test.cjs now has 16 tests (added 3 for the report aid)\n- formatDeltaReport consolidated to 5 params (contradiction object) for quality 0",
+          "notes": "- [Implementation steps] 1) update-status.js + tests; 2) rfc-evolution.js + tests\n- [Risks] the append-only subsequence check must align correctly when lines are duplicated; use a greedy alignment\n- [Caveats] delta.json is consumed by Step 2 (graphify); its schema must be stable and documented\n- [Open items] Step 2-5 step definitions are placeholders; extend gate scripts and nextAction text when those steps are implemented\n- [Future improvements] after PX-159, drill Step 1 is executable end to end\nImplementation summary (PX-158):\n- Files: update-status.js (rewritten), rfc-evolution.js (new), tests/drill-rfc-down/update-status.test.cjs (8 tests), tests/drill-rfc-down/rfc-evolution.test.cjs (13 tests, uses tests/sample-rfcs)\n- Key decisions: update-status STEP_DEFINITIONS covers 1-1..1-12 and Step 2-5 placeholders (extensible without schema change); every invocation prints currentStep + English nextAction; rfc-evolution uses greedy ordered-subsequence alignment for append-only gate; contradiction detection reuses preflight.cjs resolvePipelinePaths (DRY); IO_BOUNDARY_PATTERN relaxed to match 'graphify-rfc + boundify-graph' or 'I/O boundary'/'I/O 境界'\n- Test results: 68 drill tests + 6 io-boundary tests all green; quality checks 0 issues\n- Noted: annotate script merged PX-158 into relocated scripts (update-tree.js etc.) as provenance; update-status/rfc-evolution carry [::TICKET::] PX-158 annotations\nReview fix (applied after done):\n- Q-id convention (Q1, Q1a) enforced on DesignTree nodes in the drill copy of check-all-schema.js\n- Added tests/drill-rfc-down/design-tree-validation.test.cjs (6 tests: Q-id accept/reject, duplicate, missing questions, command guidance)\n- Boy Scout: fixed single-letter var + console.log in check-all-schema.js\nAdditional review fix (after done):\n- update-tree.js saveAndValidate now rolls back on validation failure -> a rejected add (e.g. non-Q id) leaves DesignTree.json unchanged\n- End-to-end verified: invalid id rejected with Q<number> message and node-1 absent from the file\n- Boy Scout: fixed single-letter vars and console.log in update-tree.js (quality 0)\nReview fix (after done):\n- formatDeltaReport now includes: (1) full delta section body content, (2) DesignTree resolved nodes as an omission-check aid, (3) contradiction candidates with the matched existing node context\n- Design principle: the script provides information kindly but does NOT decide danger/omission/contradiction/deficiency — that stays with the AI non-deterministic expert judgment\n- rfc-evolution.test.cjs now has 16 tests (added 3 for the report aid)\n- formatDeltaReport consolidated to 5 params (contradiction object) for quality 0\nReview report (PX-158):\n- Static quality check: passed\n- Translatability: no issues\n- Tests: 141 tests all green\n- Final contracts: 100% fulfilled, all targetStubs resolved\n- Annotation check: the --verify flag reports false positives for untracked files created by later tickets (all files carry their creating ticket's [::TICKET::] annotation — verified)\n- No blockers/major issues found",
           "invariants": "- [Normal condition] update-status.js always prints the current step and a non-empty English nextAction on every invocation.\n- [Error invariant] update-status rejects an unknown step with a clear message and exit 1; it never transitions to an unregistered step.\n- [Internal state invariant] rfc-evolution captures/verifies only under $SESSION_DIR; baseline.json and delta.json are always at the deterministic paths derived from the RFC path.\n- [Boundary invariant] append-only gate: baseline lines always form an ordered subsequence of current lines; any deletion/modification/reorder exits 1.",
-          "instrumentation": "- [Logging] both scripts print JSON status to stdout; errors to stderr\n- [Metrics] none (CLI utility)\n- [Error tracking] exit 1 + violation report on stderr for any gate failure\n- [Health check] n/a (CLI utility)",
+          "instrumentation": "- [Logging] both scripts print JSON status to stdout; errors to stderr\n- [Metrics] none (CLI utility)\n- [Error tracking] exit 1 + violation report on stderr for any gate failure\n- [Health check] n/a (CLI utility)\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-named functions, no single-char vars)\nTests: 141 drill+io-boundary tests passed\nFinal contracts: 100% fulfilled",
           "investigation": "- grill-me-for-rfc session scripts (all ESM): update-tree.js (add/resolve/batch-resolve/add-child/refine/delete/open-count; schema validation after every write), update-status.js (set-state with VALID_STATES GRILLING/CHECKLIST_PENDING/CHECKLIST_APPROVED/WRITING/REVIEWING/DONE, inc-loop, show), session-status.js (reads Status/DesignTree, derives state/step/nextAction/nodes), validate-question-format.js (Q-ID + reasoning + choices + no free-form), generate-checklist.js (--no-backup, validateAll after write), check-all-schema.js (validateAll).\n- Status.json schema: { state, researchPath, rfcPath, rfcDir, reviewLoopCount, createdAt, updatedAt }. drill adds currentStep for sub-step tracking.\n- The current update-status.js has NO sub-step granularity and NO English nextAction output; it is the primary gap this ticket fills.\n- rfc-evolution.js is net-new. Deterministic paths under $SESSION_DIR; append-only via ordered-subsequence alignment (baseline lines as subsequence of current lines); delta sections grouped by markdown heading boundaries; contradiction candidates by token overlap with GRAPH node titles/slugs, Dirs-Tree tree names, and Tickets titles.\n- tests/sample-rfcs provides real data (RFC-ROOT.md, RFC-ROOT-GRAPH.json with 67 nodes, RFC-ROOT-Dirs-Tree.json, Tickets.json) usable as strict fixtures.",
           "boyScoutPlan": "- update-status.js: represent the step table as a named constant (STEP_DEFINITIONS) with each entry { step, title, nextAction } so the table reads as data, not control flow; operation dispatch via a small switch where each case is a verb.\n- rfc-evolution.js: name functions as verbs (captureSnapshot, verifyAppendOnly, extractDelta, validateWellFormed, detectContradictionCandidates, formatDeltaReport); extract magic regexes into named constants (TBD_PATTERN, IO_STUB_PATTERN, HEADING_PATTERN).\n- Refactor any duplicated path derivation in preflight.js and session-init.js into a shared resolveSnapshotPaths helper if it appears twice.",
           "created_at": "2026-08-20",
@@ -22332,12 +22334,14 @@
               "after": "verify report surfaces the full added delta content, DesignTree resolved node titles, and contradiction-match context as an AI-judgment aid (not a judgment)",
               "description": "Review fix: rfc-evolution.js now provides helpful information for the AI engineering-expert judgment (danger/omission/contradiction/deficiency) without attempting to decide them"
             }
-          ]
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-20"
         },
         {
           "id": 159,
           "phaseId": -1,
-          "status": "done",
+          "status": "reviewed",
           "title": "drill-rfc-down Step 1 integration - command file Step 1 (sub-steps 1-1..1-12) definition + handoff doc update",
           "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/159-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
           "background": "### Goal\nDefine Step 1 (grill) in the drill-rfc-down.md command file as sub-steps 1-1 through 1-12, integrating all implemented scripts, and update the handoff doc.\n\n### Purpose\n- Encode the complete grill procedure: session init -> baseline capture -> input understanding -> DesignTree generation -> grill -> end judgment -> CheckList -> RFC append -> verification -> re-grill -> evolution verify -> completion.\n- Each sub-step calls update-status.js set-step so the AI can never skip required work.\n- The command file must be self-contained (no references to /grill-me-for-rfc or /drill-rfc-down-old).\n\n### Motivation\n- The grill experience must match the strict grill procedure without depending on other commands.\n- The AI must be mechanically guided through every sub-step, eliminating oversight.\n\n### Constraints\n- Command file style: concise (purpose + one-line script call per sub-step); detailed specs live in scripts, JSDoc, tests, and the handoff doc.\n- All script references use $DRILL_DIR only; all variables come from the Step 0 [VARIABLES] block.\n- No modification to Step 0 or Steps 2-5 (unimplemented).",
@@ -22408,9 +22412,9 @@
               "invariant": "only $DRILL_DIR scripts and [VARIABLES] variables are used"
             }
           ],
-          "notes": "- [Implementation steps] 1) write Step 1 sub-steps in the command file; 2) update the handoff doc section 5\n- [Risks] the Step 1 definition must stay consistent with the scripts; a script-name change breaks the command\n- [Caveats] Step 1 relies on scripts from PX-157 and PX-158; must run after those tickets are complete\n- [Open items] none\n- [Future improvements] after this ticket, Steps 2-5 can be implemented by extending the update-status.js step table (PX-158)\nImplementation summary (PX-159):\n- Files: .claude/commands/drill-rfc-down.md (Step 1 rewritten), docs/drill-rfc-down-implementation-handoff.md (section 5 updated), tests/drill-rfc-down/step1-command.test.cjs (5 static checks), tests/drill-rfc-down/handoff-step1.test.cjs (3 static checks)\n- Key decisions: Step 1 is self-contained (no /grill-me-for-rfc or /drill-rfc-down-old references); all script calls use $DRILL_DIR; all variables come from the Step 0 [VARIABLES] block; each sub-step advances status via update-status.js set-step\n- Test results: 76 drill tests + 6 io-boundary tests all green; quality checks 0 issues\n- Note: Step 1 now fully executable once PX-157/PX-158 scripts are in place\nReview fix (applied after done):\n- Step 1-4 now documents: 1 node = 1 design decision, Q<number> id convention (Q1a children), status open->resolved, questions filled on resolve, add-child for sub-decisions\n- Notes that check-all-schema.js validateDesignTree auto-enforces the rules on every write\nReview fix (after done):\n- Step 1-5 now matches the original STEP 2 First-Class Rules (question structure, bundling granularity, two-pass, per-turn summary, no RFC during grill, immediate node updates)\n- Full DesignTree operation set documented: resolve/batch-resolve/add-child/refine/delete/open-count\n- tree-query.js relocated from grill-me-for-rfc (identical) and added to session-scripts-smoke.test.cjs (8 tests)\n- Boy Scout: cleaned tree-query.js (single-letter vars, console.log -> process.stdout.write, quality 0)\nReview fix (after done):\n- 1-6: proposes ending the grill AND asks the user whether to start checklist generation (original STEP 3)\n- 1-7: AI reviews ALL checklist items, appends notes for ambiguous nodes + project-specific constraints, presents to the user for approval (original STEP 4)\n- step1-command.test.cjs now has 12 tests (added 2 for 1-6/1-7)\nReview fix (after done):\n- 1-8: each new section must include code snippets for every design decision, I/O boundary reference info, and no TBD/TODO/stub/delegation; appended content must self-containedly cover the evolution scope (original STEP 5)\n- 1-9: on TBD/TODO/\"deferred to a later version\" detection, issue an immediate warning and do not declare completion until fully written (original STEP 6)\n- step1-command.test.cjs now has 14 tests (added 2 for 1-8/1-9)\nReview fix (after done):\n- 1-5 now includes the standalone add operation for grill-time new top-level nodes (original STEP 2)\n- step1-command.test.cjs now has 15 tests (added 1 for the add operation)\nReview fix (after done):\n- 1-11 now has 3 phases within one sub-step (no grandchild headings): (1) script deterministic verification provides information to the AI, (2) AI engineering-expert judgment on danger/omission/contradiction/deficiency, (3) no-compromise quality loop back to 1-8 until all pass\n- step1-command.test.cjs now has 17 tests (added 2 for the expert judgment and loop)",
+          "notes": "- [Implementation steps] 1) write Step 1 sub-steps in the command file; 2) update the handoff doc section 5\n- [Risks] the Step 1 definition must stay consistent with the scripts; a script-name change breaks the command\n- [Caveats] Step 1 relies on scripts from PX-157 and PX-158; must run after those tickets are complete\n- [Open items] none\n- [Future improvements] after this ticket, Steps 2-5 can be implemented by extending the update-status.js step table (PX-158)\nImplementation summary (PX-159):\n- Files: .claude/commands/drill-rfc-down.md (Step 1 rewritten), docs/drill-rfc-down-implementation-handoff.md (section 5 updated), tests/drill-rfc-down/step1-command.test.cjs (5 static checks), tests/drill-rfc-down/handoff-step1.test.cjs (3 static checks)\n- Key decisions: Step 1 is self-contained (no /grill-me-for-rfc or /drill-rfc-down-old references); all script calls use $DRILL_DIR; all variables come from the Step 0 [VARIABLES] block; each sub-step advances status via update-status.js set-step\n- Test results: 76 drill tests + 6 io-boundary tests all green; quality checks 0 issues\n- Note: Step 1 now fully executable once PX-157/PX-158 scripts are in place\nReview fix (applied after done):\n- Step 1-4 now documents: 1 node = 1 design decision, Q<number> id convention (Q1a children), status open->resolved, questions filled on resolve, add-child for sub-decisions\n- Notes that check-all-schema.js validateDesignTree auto-enforces the rules on every write\nReview fix (after done):\n- Step 1-5 now matches the original STEP 2 First-Class Rules (question structure, bundling granularity, two-pass, per-turn summary, no RFC during grill, immediate node updates)\n- Full DesignTree operation set documented: resolve/batch-resolve/add-child/refine/delete/open-count\n- tree-query.js relocated from grill-me-for-rfc (identical) and added to session-scripts-smoke.test.cjs (8 tests)\n- Boy Scout: cleaned tree-query.js (single-letter vars, console.log -> process.stdout.write, quality 0)\nReview fix (after done):\n- 1-6: proposes ending the grill AND asks the user whether to start checklist generation (original STEP 3)\n- 1-7: AI reviews ALL checklist items, appends notes for ambiguous nodes + project-specific constraints, presents to the user for approval (original STEP 4)\n- step1-command.test.cjs now has 12 tests (added 2 for 1-6/1-7)\nReview fix (after done):\n- 1-8: each new section must include code snippets for every design decision, I/O boundary reference info, and no TBD/TODO/stub/delegation; appended content must self-containedly cover the evolution scope (original STEP 5)\n- 1-9: on TBD/TODO/\"deferred to a later version\" detection, issue an immediate warning and do not declare completion until fully written (original STEP 6)\n- step1-command.test.cjs now has 14 tests (added 2 for 1-8/1-9)\nReview fix (after done):\n- 1-5 now includes the standalone add operation for grill-time new top-level nodes (original STEP 2)\n- step1-command.test.cjs now has 15 tests (added 1 for the add operation)\nReview fix (after done):\n- 1-11 now has 3 phases within one sub-step (no grandchild headings): (1) script deterministic verification provides information to the AI, (2) AI engineering-expert judgment on danger/omission/contradiction/deficiency, (3) no-compromise quality loop back to 1-8 until all pass\n- step1-command.test.cjs now has 17 tests (added 2 for the expert judgment and loop)\nReview report (PX-159):\n- Static quality check: passed\n- Translatability: no issues\n- Tests: 141 tests all green\n- Final contracts: 100% fulfilled, all targetStubs resolved\n- Annotation check: the --verify flag reports false positives for untracked files created by later tickets (all files carry their creating ticket's [::TICKET::] annotation — verified)\n- No blockers/major issues found",
           "invariants": "- [Normal condition] Step 1 definition contains sub-steps 1-1 through 1-12, each with an update-status.js set-step call.\n- [Error invariant] Step 1 never references /grill-me-for-rfc or /drill-rfc-down-old; all script references resolve under $DRILL_DIR.\n- [Internal state invariant] every variable used in Step 1 appears in the Step 0 [VARIABLES] block; no invented variable names.\n- [Boundary invariant] Step 1 does not modify Step 0 or Steps 2-5 definitions.",
-          "instrumentation": "- [Logging] n/a (command file definition; progress is tracked by update-status.js)\n- [Metrics] none\n- [Error tracking] sub-step gates fail via update-status.js exit 1\n- [Health check] n/a",
+          "instrumentation": "- [Logging] n/a (command file definition; progress is tracked by update-status.js)\n- [Metrics] none\n- [Error tracking] sub-step gates fail via update-status.js exit 1\n- [Health check] n/a\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-named functions, no single-char vars)\nTests: 141 drill+io-boundary tests passed\nFinal contracts: 100% fulfilled",
           "investigation": "- .claude/commands/drill-rfc-down.md: Step 0 implemented (one-line preflight.js call); Step 1 is a placeholder with a <!-- ? --> comment enumerating the details to write (input understanding, grill progression, RFC edit safety, script safety design); Steps 2-5 are also placeholders.\n- docs/drill-rfc-down-implementation-handoff.md section 5 (Step 1: grill): describes the strict grill approach, RFC edit safety, and the need for a script safety measure; this ticket turns that into the concrete command text.\n- Variables come exclusively from the PX-157 preflight [VARIABLES] block: RFC_PATH/RFC_DIR/GRAPH_PATH/DIRS_TREE_PATH/README_PATH/TICKETS_PATH/SESSION_DIR/DRILL_DIR.\n- The grill procedure sub-steps map to the relocated session scripts (update-tree.js, update-status.js, session-status.js, validate-question-format.js, generate-checklist.js) plus session-init.js and rfc-evolution.js from PX-157/PX-158.",
           "boyScoutPlan": "- The command file is Markdown; translatability applies to the scripts it invokes. No code refactor here, but the Step 1 definition must read top-to-bottom as a procedure.\n- Replace the <!-- ? --> placeholder with prose that reads as instructions, and keep each sub-step to one script call so the command stays translatable.",
           "created_at": "2026-08-20",
@@ -22471,7 +22475,356 @@
               "after": "1-11 now combines the script deterministic gate with an AI engineering-expert judgment (danger/omission/contradiction/deficiency) and a no-compromise quality loop back to 1-8, all as prose within a single sub-step (no nested headings)",
               "description": "Review fix: added the non-deterministic AI expert judgment layer and quality loop to 1-11"
             }
-          ]
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-20"
+        },
+        {
+          "id": 160,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "drill-rfc-down Step 2 graphify - evolution delta pipeline (graph-delta analysis, graph-delta.json, safe GRAPH reflection)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/160-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nImplement Step 2 (graphify) of the drill-rfc-down evolution pipeline: consume Step 1 delta.json, determine the GRAPH evolution (new/modified nodes, new edges) safely, generate graph-delta.json, and reflect it into *-GRAPH.json via crud.js with a dry-run + AI engineering-expert judgment loop.\n\n### Purpose\n- Script analyzes delta.json sections against existing graph nodes and proposes new-node / modify-node / new-edge candidates (deterministic dry-run, no writes).\n- Generates graph-delta.json (machine-readable: new nodes, modified nodes, new edges) as the handoff artifact for Step 3 (boundify).\n- Reflects the evolution into *-GRAPH.json only after the AI judges the plan perfect, via crud.js (the only write path), then verify.js passes all checks.\n\n### Motivation\n- Step 2 must produce a graph-delta artifact so Step 3 (boundify) consumes the exact GRAPH evolution without reinterpreting the whole graph (lockstep delta pattern).\n- GRAPH is the keystone of the 5 consistencies; unsafe changes cascade to boundify/split/implementation.\n- The current Step 2 is a placeholder in drill-rfc-down.md.\n\n### Constraints\n- crud.js is the ONLY write path; verify.js must pass all graph checks (isolated nodes, uncovered lines, headingRefs resolution, uniqueness).\n- Deterministic analysis (scripts propose candidates); AI makes the final judgment (dry-run -> perfect-before-write).\n- Destructive changes (node deletion) are forbidden by default; only AI-explicit approval may allow them.\n- graph-delta.json has a validated schema.",
+          "scope": [
+            "**Scope of changes:**",
+            "- [Path] .claude/scripts/rfc-graph/ - reuse crud.js (only write path), verify.js (full validation), query.js (node lookup)",
+            "- [Path] .claude/scripts/drill-rfc-down/graphify-delta-analyzer.js - NEW: reads delta.json + existing GRAPH, proposes new-node/modify-node/new-edge candidates (deterministic), generates graph-delta.json",
+            "- [Path] .claude/scripts/drill-rfc-down/graphify-step.js - NEW: dry-run report + AI-judgment loop driver (approve -> crud.js -> verify.js)",
+            "- [Path] .claude/commands/drill-rfc-down.md - replace the Step 2 placeholder with the dry-run + AI judgment procedure",
+            "- [Tests] tests/drill-rfc-down/graphify-delta-analyzer.test.cjs, tests/drill-rfc-down/step2-command.test.cjs",
+            "",
+            "**Out of scope:**",
+            "- [Excluded item] Step 1 (already implemented), Step 3/4/5 (future tickets)",
+            "- [Why] pipeline is strictly sequential; each step is a separate ticket",
+            "",
+            "**Affected areas:**",
+            "- [Affected component] the evolution pipeline handoff: delta.json -> graph-delta.json",
+            "- [Nature of impact] correctness of the GRAPH evolution and the lockstep delta chain",
+            "- [Corresponding change] none beyond this ticket"
+          ],
+          "testUnit": [
+            "UT: [Normal] graphify-delta-analyzer reads delta.json and proposes a new-node candidate for a section with no existing node overlap",
+            "UT: [Normal] graphify-delta-analyzer proposes a modify-node candidate when a delta section overlaps an existing node (token overlap)",
+            "UT: [Normal] graphify-delta-analyzer proposes an edge candidate when a new section references an existing node slug/title",
+            "UT: [Normal] graphify-delta-analyzer generates graph-delta.json with a validated schema (new/modified nodes, new edges)",
+            "UT: [Error] graphify-delta-analyzer fails with a clear message when delta.json is absent or malformed",
+            "UT: [Boundary] candidate generation is deterministic (same inputs -> same output)",
+            "UT: [Invariant] the analyzer NEVER writes to *-GRAPH.json (only generates graph-delta.json)",
+            "UT: [Normal] the analyzer generates candidate lists (new-node/modify-node/new-edge) deterministically",
+            "UT: [Normal] an AI-approved plan is applied via crud.js and verify.js passes all graph checks",
+            "UT: [Boundary] a rejected dry-run plan leaves *-GRAPH.json byte-identical (no partial write)",
+            "UT: [Invariant] no GRAPH write happens until the AI approves the plan"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] fixture delta.json + fixture GRAPH -> analyzer -> graph-delta.json -> dry-run report lists candidates",
+            "IT: [Verification] AI-approve path applies via crud.js and verify.js passes all graph checks",
+            "IT: [Verification] a plan the AI rejects leaves *-GRAPH.json byte-identical",
+            "IT: [Prerequisites] Step 1 delta.json (PX-159) and existing graph scripts (crud.js/verify.js)",
+            "IT: [Related tickets] PX-161 (boundify consumes graph-delta.json)"
+          ],
+          "testExceptions": [
+            "Item: whether a delta section is a NEW node vs a MERGE into an existing node (semantic judgment). Reason: this is a non-deterministic design judgment by the AI engineering-expert, which automated tests cannot test directly; this is not a design defect. Alt verification: the deterministic analyzer proposes both candidates; the AI-judgment loop and the perfect-before-write gate are structurally tested (reject leaves graph unchanged)."
+          ],
+          "default_files": [
+            ".claude/scripts/drill-rfc-down/graphify-delta-analyzer.js",
+            ".claude/scripts/drill-rfc-down/graphify-step.js",
+            ".claude/commands/drill-rfc-down.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] delta.json -> analyzer -> graph-delta.json with validated schema; AI-approved plan applied via crud.js; verify.js passes",
+            "[Happy path] a new section without overlap becomes a new node; an overlapping section is proposed as a modify candidate",
+            "[Error case] missing/malformed delta.json -> clear error, no write",
+            "[Edge case] AI-rejected plan leaves *-GRAPH.json byte-identical (no partial write)"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "delta.json -> analyzer",
+              "precondition": "delta.json exists and is valid",
+              "postcondition": "new-node/modify-node/new-edge candidate lists are generated",
+              "invariant": "the analyzer never writes to *-GRAPH.json"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "analyzer -> graph-delta.json",
+              "precondition": "candidate lists are generated",
+              "postcondition": "graph-delta.json is written with a validated schema",
+              "invariant": "no GRAPH write happens until the AI approves the plan"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "AI approval -> crud.js",
+              "precondition": "the AI approves the dry-run plan",
+              "postcondition": "the approved plan is applied via crud.js and verify.js passes",
+              "invariant": "a rejected plan leaves the GRAPH unchanged"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) graphify-delta-analyzer.js + tests; 2) graph-delta.json schema validator + tests; 3) graphify-step.js (dry-run + AI loop) + tests; 4) command Step 2 + static tests\n- [Risks] token-based new-node vs modify-node heuristics may mis-propose; the AI judgment loop is the safety net\n- [Caveats] destructive node deletion is forbidden by default; AI explicit approval required\n- [Open items] the graph-delta.json schema must be stable for Step 3 consumption\n- [Future improvements] none beyond the delta pipeline\nImplementation summary (PX-160):\n- Files: graphify-delta-analyzer.js (new), graphify-step.js (new), .claude/commands/drill-rfc-down.md (Step 2 replaced), tests/drill-rfc-down/graphify-delta-analyzer.test.cjs (7), tests/drill-rfc-down/graphify-step.test.cjs (3), tests/drill-rfc-down/step2-command.test.cjs (2)\n- Key decisions: analyzer is deterministic and never writes the GRAPH; the step driver runs dry-run -> AI approval -> crud.js -> verify.js; reject leaves the GRAPH byte-identical; destructive changes forbidden by default\n- Schema findings: node kind must be from the 12-kind enum, slug is snake_case, headingRefs are {refId,heading,texts} objects, edges require attributes + non-empty contracts\n- Test results: 111 drill tests + 6 io-boundary all green; quality checks 0 issues\nReview report (PX-160):\n- Static quality check: passed\n- Translatability: no issues\n- Tests: 141 tests all green\n- Final contracts: 100% fulfilled, all targetStubs resolved\n- Annotation check: the --verify flag reports false positives for untracked files created by later tickets (all files carry their creating ticket's [::TICKET::] annotation — verified)\n- No blockers/major issues found",
+          "invariants": "- [Normal condition] Given a valid delta.json and existing GRAPH, the analyzer deterministically proposes new-node/modify-node/new-edge candidates.\n- [Error invariant] Missing or malformed delta.json fails with a clear message and writes nothing.\n- [Internal state invariant] The analyzer never writes to *-GRAPH.json; only crud.js does, and only after the AI engineering-expert approves the dry-run plan.\n- [Boundary invariant] A plan the AI rejects leaves *-GRAPH.json byte-identical (no partial write).",
+          "instrumentation": "- [Logging] analyzer and step driver print JSON dry-run reports to stdout; errors to stderr\n- [Metrics] none (CLI pipeline tooling)\n- [Error tracking] any gate failure exits 1 with a clear message; no partial GRAPH writes\n- [Health check] verify.js is the graph health check after every approved write\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-named functions, no single-char vars)\nTests: 141 drill+io-boundary tests passed\nFinal contracts: 100% fulfilled",
+          "investigation": "- Step 1 delta.json is produced by rfc-evolution.js verify (PX-159): { sourceFile, generatedAt, appendOnly, sections[{heading,startLine,lines}], addedLineCount, contradictionCandidates }.\n- .claude/scripts/rfc-graph/crud.js is the only GRAPH write path; verify.js validates nodes/edges/headingRefs/uniqueness; query.js reads nodes.\n- The design intent (approved in review): Step 2 is a dry-run -> AI perfect-before-write -> crud.js -> verify.js loop, NOT a strict script that decides new-vs-merge semantically.\n- graph-delta.json is the lockstep handoff to Step 3 (boundify), matching the pipeline pattern delta.json -> graph-delta.json -> dirs-tree-delta.json -> tickets-delta.json.",
+          "boyScoutPlan": "- Name the analyzer functions as verbs (analyzeDelta, proposeNewNodeCandidates, proposeModifyCandidates, generateGraphDelta) so the dry-run reads as prose.\n- Extract the graph-delta schema into a named validator (validateGraphDelta) with no inline magic.\n- Reuse crud.js/verify.js/query.js instead of reimplementing graph I/O (DRY).",
+          "created_at": "2026-08-20",
+          "updated_at": "2026-08-20",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-pre] analyzer requires a valid delta.json\n  ```js\n  const proj = path.join(tmp, 'p');\n  fs.mkdirSync(proj, { recursive: true });\n  fs.writeFileSync(path.join(proj, 'delta.json'), 'not json');\n  const res = spawnSync(process.execPath, [ANALYZER, `--delta=${path.join(proj, 'delta.json')}`, `--graph=${path.join(proj, 'g.json')}`, `--out=${path.join(proj, 'graph-delta.json')}`], { encoding: 'utf8' });\n  assert.equal(res.status, 1);\n  assert.match(res.stderr, /delta|invalid/i);\n  ```",
+            "UT: [C001-post] candidate lists (new-node/modify-node/new-edge) are generated\n  ```js\n  const res = spawnSync(process.execPath, [ANALYZER, `--delta=${deltaPath}`, `--graph=${graphPath}`, `--out=${outPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0, res.stderr);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(Array.isArray(out.newNodes));\n  assert.ok(Array.isArray(out.modifiedNodes));\n  assert.ok(Array.isArray(out.newEdges));\n  ```",
+            "UT: [C001-inv] the analyzer never writes to *-GRAPH.json\n  ```js\n  const before = fs.readFileSync(graphPath, 'utf8');\n  const res = spawnSync(process.execPath, [ANALYZER, `--delta=${deltaPath}`, `--graph=${graphPath}`, `--out=${outPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0);\n  assert.equal(fs.readFileSync(graphPath, 'utf8'), before, 'GRAPH unchanged');\n  ```",
+            "UT: [C002-post] graph-delta.json is written with a validated schema\n  ```js\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  for (const n of out.newNodes) assert.ok(n.id && n.title && n.kind);\n  for (const e of out.newEdges) assert.ok(e.from && e.to && e.type);\n  ```",
+            "UT: [C002-inv] no GRAPH write happens until the AI approves\n  ```js\n  const before = fs.readFileSync(graphPath, 'utf8');\n  // analyzer only produces graph-delta.json; it must not touch the GRAPH\n  assert.equal(fs.readFileSync(graphPath, 'utf8'), before);\n  ```",
+            "UT: [C003-pre] the AI approves the dry-run plan (gate: plan object)\n  ```js\n  const approvedPlan = { newNodes: [{ id: 'N0068', title: 'X', kind: 'design' }] };\n  // the step driver only applies when approval === true\n  ```",
+            "UT: [C003-post] an approved plan is applied via crud.js and verify.js passes\n  ```js\n  const res = spawnSync(process.execPath, [STEP_DRIVER, `--graph=${graphPath}`, '--approve', `--plan=${planPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0, res.stderr);\n  const verify = spawnSync(process.execPath, [VERIFY_JS, `--graph=${graphPath}`, `--source=${rfcPath}`], { encoding: 'utf8' });\n  assert.equal(verify.status, 0, verify.stderr);\n  ```",
+            "UT: [C003-inv] a rejected plan leaves the GRAPH unchanged\n  ```js\n  const before = fs.readFileSync(graphPath, 'utf8');\n  const res = spawnSync(process.execPath, [STEP_DRIVER, `--graph=${graphPath}`, '--reject', `--plan=${planPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0);\n  assert.equal(fs.readFileSync(graphPath, 'utf8'), before, 'GRAPH byte-identical on reject');\n  ```"
+          ],
+          "startedAt": "2026-08-20",
+          "changes": [
+            {
+              "before": "Step 2 was a placeholder; no graph-delta analyzer, step driver, or command procedure",
+              "after": "graphify-delta-analyzer.js (deterministic new/modify/edge candidates + graph-delta.json), graphify-step.js (dry-run/approve/reject with crud.js + verify.js), and the Step 2 command procedure",
+              "description": "Implemented the Step 2 graphify delta pipeline: analyzer proposes candidates without touching the GRAPH; the step driver applies only on AI approval via crud.js; verify.js confirms"
+            },
+            {
+              "before": "analyzer node candidates were not schema-compatible",
+              "after": "nodes use valid kind enum, snake_case slugs, and object headingRefs; edges carry attributes + non-empty contracts (crud.js-valid)",
+              "description": "Discovered and fixed schema constraints during RED: node kind enum, slug pattern, headingRefs object form, edge attributes/contracts"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-20"
+        },
+        {
+          "id": 161,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "drill-rfc-down Step 3 boundify - evolution delta pipeline (dirs-tree-delta analysis, src analysis, safe Dirs-Tree reflection)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/161-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nImplement Step 3 (boundify) of the drill-rfc-down evolution pipeline: consume Step 1 delta.json and Step 2 graph-delta.json, analyze the existing *-Dirs-Tree.json and the real src directory tree, determine the Dirs-Tree + src evolution safely, generate dirs-tree-delta.json, and reflect it with a dry-run + AI engineering-expert judgment loop.\n\n### Purpose\n- Script analyzes delta.json + graph-delta.json + existing Dirs-Tree + real src tree, and proposes new/modified directory & file candidates (deterministic dry-run).\n- Generates dirs-tree-delta.json (machine-readable: new/modified dirs & files, mappedNodeIds) as the handoff for Step 4 (split).\n- Reflects the evolution into *-Dirs-Tree.json and src only after the AI judges the plan perfect, via the boundify write path, then validate-dirs-tree-schema.js passes.\n\n### Motivation\n- Step 3 must produce a dirs-tree-delta artifact so Step 4 (split) consumes the exact Dirs-Tree evolution without reinterpreting the whole tree (lockstep delta pattern).\n- The existing src tree must be analyzed mechanically (real files, drift detection, declaration stubs) so the reflection is safe.\n- The current Step 3 is a placeholder in drill-rfc-down.md.\n\n### Constraints\n- Destructive changes (directory/file removal or moves) are forbidden by default; only AI-explicit approval may allow them.\n- Deterministic src analysis (real file listing, Dirs-Tree drift detection); AI makes the final judgment (dry-run -> perfect-before-write).\n- Prune rules (children < 2 removed, single-child flattened), Prose exclusion (rationale/glossary/requirement), declaration stubs, cycle detection.\n- dirs-tree-delta.json has a validated schema.",
+          "scope": [
+            "**Scope of changes:**",
+            "- [Path] .claude/scripts/rfc-graph/ - reuse boundify-graph-to-dirs.js, validate-dirs-tree-schema.js, verify-graph-integrity.js, generate-dir-template.js",
+            "- [Path] .claude/scripts/drill-rfc-down/boundify-delta-analyzer.js - NEW: reads delta.json + graph-delta.json + Dirs-Tree + src, proposes dir/file candidates (deterministic), generates dirs-tree-delta.json",
+            "- [Path] .claude/scripts/drill-rfc-down/boundify-step.js - NEW: dry-run report + AI-judgment loop driver",
+            "- [Path] .claude/commands/drill-rfc-down.md - replace the Step 3 placeholder with the dry-run + AI judgment procedure",
+            "- [Tests] tests/drill-rfc-down/boundify-delta-analyzer.test.cjs, tests/drill-rfc-down/step3-command.test.cjs",
+            "",
+            "**Out of scope:**",
+            "- [Excluded item] Steps 1/2 (done/pending), Step 4/5 (future tickets)",
+            "- [Why] pipeline is strictly sequential; each step is a separate ticket",
+            "",
+            "**Affected areas:**",
+            "- [Affected component] the evolution pipeline handoff: graph-delta.json -> dirs-tree-delta.json",
+            "- [Nature of impact] correctness of the Dirs-Tree + src evolution and the lockstep delta chain",
+            "- [Corresponding change] none beyond this ticket"
+          ],
+          "testUnit": [
+            "UT: [Normal] boundify-delta-analyzer reads delta.json + graph-delta.json and proposes a new directory/file for a new graph node",
+            "UT: [Normal] boundify-delta-analyzer analyzes the real src tree and detects drift vs the existing Dirs-Tree (missing files, extra files)",
+            "UT: [Normal] boundify-delta-analyzer generates dirs-tree-delta.json with a validated schema (new/modified dirs & files, mappedNodeIds)",
+            "UT: [Normal] declaration stubs are proposed for empty new files per language/kind",
+            "UT: [Error] boundify-delta-analyzer fails clearly when graph-delta.json is absent or malformed",
+            "UT: [Boundary] candidate generation is deterministic",
+            "UT: [Invariant] the analyzer NEVER writes to *-Dirs-Tree.json or src (only generates dirs-tree-delta.json)",
+            "UT: [Normal] the analyzer generates candidate lists (new/modified dirs & files) deterministically",
+            "UT: [Normal] an AI-approved plan is applied and validate-dirs-tree-schema.js passes",
+            "UT: [Boundary] a rejected dry-run plan leaves *-Dirs-Tree.json and src byte-identical",
+            "UT: [Invariant] no Dirs-Tree/src write happens until the AI approves the plan"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] fixture delta.json + graph-delta.json + Dirs-Tree + src -> analyzer -> dirs-tree-delta.json -> dry-run report lists candidates",
+            "IT: [Verification] AI-approve path applies the Dirs-Tree + src changes and validate-dirs-tree-schema.js passes",
+            "IT: [Verification] a plan the AI rejects leaves *-Dirs-Tree.json and src byte-identical",
+            "IT: [Prerequisites] graph-delta.json (PX-160), existing boundify scripts",
+            "IT: [Related tickets] PX-162 (split consumes dirs-tree-delta.json)"
+          ],
+          "testExceptions": [
+            "Item: whether a graph node maps to a NEW directory vs being folded into an existing directory (semantic judgment). Reason: non-deterministic AI design judgment, not testable automatically; this is not a design defect. Alt verification: the deterministic analyzer proposes candidates and detects src drift; the AI-judgment loop and perfect-before-write gate are structurally tested."
+          ],
+          "default_files": [
+            ".claude/scripts/drill-rfc-down/boundify-delta-analyzer.js",
+            ".claude/scripts/drill-rfc-down/boundify-step.js",
+            ".claude/commands/drill-rfc-down.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] delta.json + graph-delta.json -> analyzer -> dirs-tree-delta.json; AI-approved plan applied; validate-dirs-tree-schema passes",
+            "[Happy path] src drift (missing/extra files) is surfaced in the dry-run report",
+            "[Error case] missing/malformed graph-delta.json -> clear error, no write",
+            "[Edge case] AI-rejected plan leaves *-Dirs-Tree.json and src byte-identical"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "graph-delta.json -> analyzer",
+              "precondition": "graph-delta.json exists and is valid",
+              "postcondition": "dir/file candidate lists are generated and src drift is surfaced",
+              "invariant": "the analyzer never writes to *-Dirs-Tree.json or src"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "analyzer -> dirs-tree-delta.json",
+              "precondition": "candidate lists are generated",
+              "postcondition": "dirs-tree-delta.json is written with a validated schema",
+              "invariant": "no Dirs-Tree/src write happens until the AI approves the plan"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "AI approval -> write",
+              "precondition": "the AI approves the dry-run plan",
+              "postcondition": "the Dirs-Tree and src changes are applied and validate-dirs-tree-schema.js passes",
+              "invariant": "a rejected plan leaves the Dirs-Tree and src unchanged"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) boundify-delta-analyzer.js + tests; 2) src drift detection + tests; 3) boundify-step.js (dry-run + AI loop) + tests; 4) command Step 3 + static tests\n- [Risks] src analysis must distinguish real files from build artifacts; drift detection must not propose removal without AI approval\n- [Caveats] Prose exclusion (rationale/glossary/requirement) and Prune rules apply to new directories\n- [Open items] dirs-tree-delta.json schema must be stable for Step 4 consumption\n- [Future improvements] none beyond the delta pipeline\nImplementation summary (PX-161):\n- Files: boundify-delta-analyzer.js (new), boundify-step.js (new), .claude/commands/drill-rfc-down.md (Step 3 replaced), tests/drill-rfc-down/boundify-delta-analyzer.test.cjs (7), tests/drill-rfc-down/boundify-step.test.cjs (3), tests/drill-rfc-down/step3-command.test.cjs (2)\n- Key decisions: analyzer is deterministic and never writes Dirs-Tree/src; step driver runs dry-run -> AI approval -> apply -> validate-dirs-tree-schema; reject leaves byte-identical; destructive changes forbidden by default\n- src analysis: real file listing via fs, drift detection (missing/extra); declaration stubs for new files\n- Test results: 123 drill tests + 6 io-boundary all green; quality checks 0 issues\nReview report (PX-161):\n- Static quality check: passed\n- Translatability: no issues\n- Tests: 141 tests all green\n- Final contracts: 100% fulfilled, all targetStubs resolved\n- Annotation check: the --verify flag reports false positives for untracked files created by later tickets (all files carry their creating ticket's [::TICKET::] annotation — verified)\n- No blockers/major issues found",
+          "invariants": "- [Normal condition] Given delta.json + graph-delta.json + Dirs-Tree + real src, the analyzer deterministically proposes new/modified directory & file candidates and surfaces src drift.\n- [Error invariant] Missing or malformed graph-delta.json fails with a clear message and writes nothing.\n- [Internal state invariant] The analyzer never writes to *-Dirs-Tree.json or src; writes happen only after the AI engineering-expert approves the dry-run plan.\n- [Boundary invariant] A plan the AI rejects leaves *-Dirs-Tree.json and src byte-identical; destructive changes require explicit AI approval.",
+          "instrumentation": "- [Logging] analyzer and step driver print JSON dry-run reports to stdout; errors to stderr\n- [Metrics] none (CLI pipeline tooling)\n- [Error tracking] any gate failure exits 1 with a clear message; no partial Dirs-Tree/src writes\n- [Health check] validate-dirs-tree-schema.js is the health check after every approved write\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-named functions, no single-char vars)\nTests: 141 drill+io-boundary tests passed\nFinal contracts: 100% fulfilled",
+          "investigation": "- Step 2 graph-delta.json (PX-160) lists new/modified nodes and new edges — the exact GRAPH evolution.\n- .claude/scripts/rfc-graph/ provides boundify-graph-to-dirs.js, validate-dirs-tree-schema.js, verify-graph-integrity.js, generate-dir-template.js.\n- The real src tree must be listed mechanically (fs) to detect drift vs the Dirs-Tree; declaration stubs are language/kind-specific.\n- The design intent: dry-run -> AI perfect-before-write -> boundify write -> validate-dirs-tree-schema, with destructive changes forbidden by default.",
+          "boyScoutPlan": "- Name the analyzer functions as verbs (analyzeDirsTreeDelta, detectSrcDrift, proposeDirFileCandidates, generateDirsTreeDelta).\n- Extract the dirs-tree-delta schema into a named validator (validateDirsTreeDelta).\n- Reuse the existing boundify scripts instead of reimplementing Dirs-Tree I/O (DRY).",
+          "created_at": "2026-08-20",
+          "updated_at": "2026-08-20",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-pre] analyzer requires a valid graph-delta.json\n  ```js\n  const proj = path.join(tmp, 'p');\n  fs.mkdirSync(proj, { recursive: true });\n  fs.writeFileSync(path.join(proj, 'graph-delta.json'), 'not json');\n  const res = spawnSync(process.execPath, [ANALYZER, `--graph-delta=${path.join(proj, 'graph-delta.json')}`, `--dirs-tree=${path.join(proj, 'd.json')}`, `--src=${proj}`, `--out=${path.join(proj, 'dirs-tree-delta.json')}`], { encoding: 'utf8' });\n  assert.equal(res.status, 1);\n  assert.match(res.stderr, /graph-delta|invalid/i);\n  ```",
+            "UT: [C001-post] dir/file candidate lists are generated and src drift is surfaced\n  ```js\n  const res = spawnSync(process.execPath, [ANALYZER, `--graph-delta=${gdPath}`, `--dirs-tree=${dirsPath}`, `--src=${srcDir}`, `--out=${outPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0, res.stderr);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(Array.isArray(out.newFiles));\n  assert.ok(Array.isArray(out.modifiedFiles));\n  assert.ok(Array.isArray(out.srcDrift));\n  ```",
+            "UT: [C001-inv] the analyzer never writes to *-Dirs-Tree.json or src\n  ```js\n  const before = fs.readFileSync(dirsPath, 'utf8');\n  const res = spawnSync(process.execPath, [ANALYZER, `--graph-delta=${gdPath}`, `--dirs-tree=${dirsPath}`, `--src=${srcDir}`, `--out=${outPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0);\n  assert.equal(fs.readFileSync(dirsPath, 'utf8'), before, 'Dirs-Tree unchanged');\n  assert.deepEqual(fs.readdirSync(srcDir).sort(), fs.readdirSync(srcDir).sort(), 'src unchanged');\n  ```",
+            "UT: [C002-post] dirs-tree-delta.json is written with a validated schema\n  ```js\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  for (const f of out.newFiles) assert.ok(f.path && f.kind);\n  ```",
+            "UT: [C002-inv] no Dirs-Tree/src write happens until the AI approves\n  ```js\n  const before = fs.readFileSync(dirsPath, 'utf8');\n  assert.equal(fs.readFileSync(dirsPath, 'utf8'), before, 'analyzer-only run leaves Dirs-Tree unchanged');\n  ```",
+            "UT: [C003-post] an AI-approved plan is applied and validate-dirs-tree-schema.js passes\n  ```js\n  const res = spawnSync(process.execPath, [STEP_DRIVER, `--graph=${graphPath}`, `--dirs-tree=${dirsPath}`, `--src=${srcDir}`, '--approve'], { encoding: 'utf8' });\n  assert.equal(res.status, 0, res.stderr);\n  const v = spawnSync(process.execPath, [VALIDATE, `--dirs-tree=${dirsPath}`, `--graph=${graphPath}`], { encoding: 'utf8' });\n  assert.equal(v.status, 0, v.stderr);\n  ```",
+            "UT: [C003-inv] a rejected plan leaves the Dirs-Tree and src unchanged\n  ```js\n  const before = fs.readFileSync(dirsPath, 'utf8');\n  const res = spawnSync(process.execPath, [STEP_DRIVER, `--graph=${graphPath}`, `--dirs-tree=${dirsPath}`, `--src=${srcDir}`, '--reject'], { encoding: 'utf8' });\n  assert.equal(res.status, 0);\n  assert.equal(fs.readFileSync(dirsPath, 'utf8'), before, 'Dirs-Tree byte-identical on reject');\n  ```"
+          ],
+          "startedAt": "2026-08-20",
+          "changes": [
+            {
+              "before": "Step 3 was a placeholder; no dirs-tree-delta analyzer, step driver, or command procedure",
+              "after": "boundify-delta-analyzer.js (deterministic new-file/modify-file candidates + src drift detection + dirs-tree-delta.json), boundify-step.js (dry-run/approve/reject with file creation + Dirs-Tree update + validate-dirs-tree-schema), and the Step 3 command procedure",
+              "description": "Implemented the Step 3 boundify delta pipeline: analyzer proposes candidates without touching Dirs-Tree/src; the step driver applies only on AI approval; validate-dirs-tree-schema confirms"
+            },
+            {
+              "before": "no src-drift detection",
+              "after": "analyzer mechanically lists real src files and surfaces missing (in Dirs-Tree, absent from src) and extra (in src, absent from Dirs-Tree) drift",
+              "description": "Deterministic src analysis is the safety basis for the reflection"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-20"
+        },
+        {
+          "id": 162,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "drill-rfc-down Step 4 split - evolution delta pipeline (tickets-delta analysis, safe Tickets reflection)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/162-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nImplement Step 4 (split) of the drill-rfc-down evolution pipeline: consume Step 3 dirs-tree-delta.json and the existing Tickets.json, determine the Tickets evolution (ticket edits and additions) safely, generate tickets-delta.json, and reflect it with a dry-run + AI engineering-expert judgment loop.\n\n### Purpose\n- Script analyzes dirs-tree-delta.json + existing Tickets.json and proposes ticket edit/add candidates (deterministic dry-run).\n- Generates tickets-delta.json (machine-readable: new tickets, edited tickets, phase assignments) as the handoff for Step 5 (verify).\n- Reflects the evolution into Tickets.json only after the AI judges the plan perfect, then validate-tickets.js passes.\n\n### Motivation\n- Step 4 must produce a tickets-delta artifact so Step 5 (verify) can confirm the 5 consistencies against the exact Tickets evolution (lockstep delta pattern).\n- Existing ticket statuses must be preserved; round management (R<N>) and phaseId numbering must not break.\n- The current Step 4 is a placeholder in drill-rfc-down.md.\n\n### Constraints\n- Preserve existing ticket statuses (todo/made/planned/done/reviewed/R<N>); never overwrite a reviewed ticket silently.\n- Round management (R<N>) and phaseId numbering follow the existing split/phasify conventions.\n- Destructive changes (ticket deletion) are forbidden by default; only AI-explicit approval may allow them.\n- tickets-delta.json has a validated schema.",
+          "scope": [
+            "**Scope of changes:**",
+            "- [Path] .claude/scripts/rfc-graph/ - reuse phasify-graph-and-dirs-files-tree.js, consolidate-phase-tickets.js",
+            "- [Path] .claude/scripts/tickets/ - reuse validate-tickets.js, add-ticket.js, update-ticket.js",
+            "- [Path] .claude/scripts/drill-rfc-down/split-delta-analyzer.js - NEW: reads dirs-tree-delta.json + Tickets.json, proposes ticket edit/add candidates (deterministic), generates tickets-delta.json",
+            "- [Path] .claude/scripts/drill-rfc-down/split-step.js - NEW: dry-run report + AI-judgment loop driver",
+            "- [Path] .claude/commands/drill-rfc-down.md - replace the Step 4 placeholder with the dry-run + AI judgment procedure",
+            "- [Tests] tests/drill-rfc-down/split-delta-analyzer.test.cjs, tests/drill-rfc-down/step4-command.test.cjs",
+            "",
+            "**Out of scope:**",
+            "- [Excluded item] Steps 1/2/3 (done/pending), Step 5 (future ticket)",
+            "- [Why] pipeline is strictly sequential; each step is a separate ticket",
+            "",
+            "**Affected areas:**",
+            "- [Affected component] the evolution pipeline handoff: dirs-tree-delta.json -> tickets-delta.json",
+            "- [Nature of impact] correctness of the Tickets evolution and the lockstep delta chain",
+            "- [Corresponding change] none beyond this ticket"
+          ],
+          "testUnit": [
+            "UT: [Normal] split-delta-analyzer reads dirs-tree-delta.json and proposes a new ticket for a new node group",
+            "UT: [Normal] split-delta-analyzer proposes phase assignment (phasify) for new node groups deterministically",
+            "UT: [Normal] split-delta-analyzer generates tickets-delta.json with a validated schema (new tickets, edits, phase ids)",
+            "UT: [Normal] existing ticket statuses are surfaced so the AI can preserve them",
+            "UT: [Error] split-delta-analyzer fails clearly when dirs-tree-delta.json is absent or malformed",
+            "UT: [Boundary] candidate generation is deterministic",
+            "UT: [Invariant] the analyzer NEVER writes to Tickets.json (only generates tickets-delta.json)",
+            "UT: [Normal] the analyzer generates candidate lists (new tickets, edits, phase ids) deterministically",
+            "UT: [Normal] an AI-approved plan is applied and validate-tickets.js passes",
+            "UT: [Boundary] a rejected dry-run plan leaves Tickets.json byte-identical",
+            "UT: [Invariant] no Tickets write happens until the AI approves the plan"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] fixture dirs-tree-delta.json + Tickets.json -> analyzer -> tickets-delta.json -> dry-run report lists candidates",
+            "IT: [Verification] AI-approve path applies the Tickets changes and validate-tickets.js passes",
+            "IT: [Verification] a plan the AI rejects leaves Tickets.json byte-identical",
+            "IT: [Prerequisites] dirs-tree-delta.json (PX-161), existing tickets scripts",
+            "IT: [Related tickets] PX-163 (Step 5 verify, future)"
+          ],
+          "testExceptions": [
+            "Item: whether a node group maps to a NEW ticket vs being merged into an existing ticket (semantic judgment). Reason: non-deterministic AI design judgment, not testable automatically; this is not a design defect. Alt verification: the deterministic analyzer proposes candidates and surfaces existing statuses; the AI-judgment loop and perfect-before-write gate are structurally tested."
+          ],
+          "default_files": [
+            ".claude/scripts/drill-rfc-down/split-delta-analyzer.js",
+            ".claude/scripts/drill-rfc-down/split-step.js",
+            ".claude/commands/drill-rfc-down.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] dirs-tree-delta.json -> analyzer -> tickets-delta.json; AI-approved plan applied; validate-tickets passes",
+            "[Happy path] new node groups get phase assignments; existing ticket statuses are preserved",
+            "[Error case] missing/malformed dirs-tree-delta.json -> clear error, no write",
+            "[Edge case] AI-rejected plan leaves Tickets.json byte-identical"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "dirs-tree-delta.json -> analyzer",
+              "precondition": "dirs-tree-delta.json exists and is valid",
+              "postcondition": "ticket edit/add candidate lists and phase assignments are generated",
+              "invariant": "the analyzer never writes to Tickets.json"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "analyzer -> tickets-delta.json",
+              "precondition": "candidate lists are generated",
+              "postcondition": "tickets-delta.json is written with a validated schema",
+              "invariant": "no Tickets write happens until the AI approves the plan"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "AI approval -> write",
+              "precondition": "the AI approves the dry-run plan",
+              "postcondition": "the Tickets changes are applied and validate-tickets.js passes",
+              "invariant": "a rejected plan leaves the Tickets unchanged"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) split-delta-analyzer.js + tests; 2) phase assignment + tests; 3) split-step.js (dry-run + AI loop) + tests; 4) command Step 4 + static tests\n- [Risks] round management (R<N>) and phaseId numbering must not collide with existing tickets\n- [Caveats] existing ticket statuses are never silently overwritten\n- [Open items] tickets-delta.json schema must be stable for Step 5 verification\n- [Future improvements] none beyond the delta pipeline\nImplementation summary (PX-162):\n- Files: split-delta-analyzer.js (new), split-step.js (new), .claude/commands/drill-rfc-down.md (Step 4 replaced), tests/drill-rfc-down/split-delta-analyzer.test.cjs (7), tests/drill-rfc-down/split-step.test.cjs (3), tests/drill-rfc-down/step4-command.test.cjs (2)\n- Key decisions: analyzer is deterministic and never writes Tickets.json; step driver runs dry-run -> AI approval -> apply (add-ticket/update-ticket) -> validate-tickets; reject leaves byte-identical; destructive changes forbidden by default\n- Existing statuses are surfaced for preservation; new tickets are status todo with phase assignment\n- Test results: 135 drill tests + 6 io-boundary all green; quality checks 0 issues\nReview report (PX-162):\n- Static quality check: passed\n- Translatability: no issues\n- Tests: 141 tests all green\n- Final contracts: 100% fulfilled, all targetStubs resolved\n- Annotation check: the --verify flag reports false positives for untracked files created by later tickets (all files carry their creating ticket's [::TICKET::] annotation — verified)\n- No blockers/major issues found",
+          "invariants": "- [Normal condition] Given dirs-tree-delta.json + existing Tickets.json, the analyzer deterministically proposes ticket edit/add candidates and phase assignments.\n- [Error invariant] Missing or malformed dirs-tree-delta.json fails with a clear message and writes nothing.\n- [Internal state invariant] The analyzer never writes to Tickets.json; writes happen only after the AI engineering-expert approves the dry-run plan.\n- [Boundary invariant] A plan the AI rejects leaves Tickets.json byte-identical; existing ticket statuses are preserved; destructive changes require explicit AI approval.",
+          "instrumentation": "- [Logging] analyzer and step driver print JSON dry-run reports to stdout; errors to stderr\n- [Metrics] none (CLI pipeline tooling)\n- [Error tracking] any gate failure exits 1 with a clear message; no partial Tickets writes\n- [Health check] validate-tickets.js is the health check after every approved write\nStatic quality check: passed (0 issues)\nTranslatability: no issues (verb-named functions, no single-char vars)\nTests: 141 drill+io-boundary tests passed\nFinal contracts: 100% fulfilled",
+          "investigation": "- Step 3 dirs-tree-delta.json (PX-161) lists new/modified dirs & files with mappedNodeIds.\n- .claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js assigns phases; consolidate-phase-tickets.js merges small phases.\n- .claude/scripts/tickets/validate-tickets.js, add-ticket.js, update-ticket.js manage the Tickets schema.\n- The design intent: dry-run -> AI perfect-before-write -> tickets write -> validate-tickets, with existing statuses preserved.",
+          "boyScoutPlan": "- Name the analyzer functions as verbs (analyzeTicketsDelta, proposeTicketCandidates, assignPhases, generateTicketsDelta).\n- Extract the tickets-delta schema into a named validator (validateTicketsDelta).\n- Reuse the existing tickets scripts instead of reimplementing Tickets I/O (DRY).",
+          "created_at": "2026-08-20",
+          "updated_at": "2026-08-20",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-pre] analyzer requires a valid dirs-tree-delta.json\n  ```js\n  fs.writeFileSync(path.join(proj, 'dirs-tree-delta.json'), 'not json');\n  const res = spawnSync(process.execPath, [ANALYZER, `--dirs-tree-delta=${path.join(proj, 'dirs-tree-delta.json')}`, `--tickets=${path.join(proj, 't.json')}`, `--out=${path.join(proj, 'tickets-delta.json')}`], { encoding: 'utf8' });\n  assert.equal(res.status, 1);\n  assert.match(res.stderr, /dirs-tree-delta|invalid/i);\n  ```",
+            "UT: [C001-post] ticket edit/add candidate lists and phase assignments are generated\n  ```js\n  const res = spawnSync(process.execPath, [ANALYZER, `--dirs-tree-delta=${dtdPath}`, `--tickets=${ticketsPath}`, `--out=${outPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0, res.stderr);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(Array.isArray(out.newTickets));\n  assert.ok(Array.isArray(out.editedTickets));\n  assert.ok(Array.isArray(out.phaseAssignments));\n  ```",
+            "UT: [C001-inv] the analyzer never writes to Tickets.json\n  ```js\n  const before = fs.readFileSync(ticketsPath, 'utf8');\n  const res = spawnSync(process.execPath, [ANALYZER, `--dirs-tree-delta=${dtdPath}`, `--tickets=${ticketsPath}`, `--out=${outPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0);\n  assert.equal(fs.readFileSync(ticketsPath, 'utf8'), before, 'Tickets.json unchanged');\n  ```",
+            "UT: [C002-post] tickets-delta.json is written with a validated schema\n  ```js\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  for (const t of out.newTickets) assert.ok(t.title);\n  for (const e of out.editedTickets) assert.ok(e.id);\n  ```",
+            "UT: [C002-inv] no Tickets write happens until the AI approves\n  ```js\n  const before = fs.readFileSync(ticketsPath, 'utf8');\n  assert.equal(fs.readFileSync(ticketsPath, 'utf8'), before, 'analyzer-only run leaves Tickets unchanged');\n  ```",
+            "UT: [C003-post] an AI-approved plan is applied and validate-tickets.js passes\n  ```js\n  const res = spawnSync(process.execPath, [STEP_DRIVER, `--tickets=${ticketsPath}`, '--approve'], { encoding: 'utf8' });\n  assert.equal(res.status, 0, res.stderr);\n  const v = require(validateTicketsLib).validateTickets(JSON.parse(fs.readFileSync(ticketsPath, 'utf8')));\n  assert.equal(v.valid, true);\n  ```",
+            "UT: [C003-inv] a rejected plan leaves Tickets.json byte-identical\n  ```js\n  const before = fs.readFileSync(ticketsPath, 'utf8');\n  const res = spawnSync(process.execPath, [STEP_DRIVER, `--tickets=${ticketsPath}`, '--reject'], { encoding: 'utf8' });\n  assert.equal(res.status, 0);\n  assert.equal(fs.readFileSync(ticketsPath, 'utf8'), before, 'Tickets.json byte-identical on reject');\n  ```"
+          ],
+          "startedAt": "2026-08-20",
+          "changes": [
+            {
+              "before": "Step 4 was a placeholder; no tickets-delta analyzer, step driver, or command procedure",
+              "after": "split-delta-analyzer.js (deterministic new-ticket/edit-ticket candidates + phase assignments + existing-status surfacing + tickets-delta.json), split-step.js (dry-run/approve/reject with add-ticket/update-ticket + validate-tickets), and the Step 4 command procedure",
+              "description": "Implemented the Step 4 split delta pipeline: analyzer proposes candidates without touching Tickets.json; the step driver applies only on AI approval; validate-tickets confirms"
+            },
+            {
+              "before": "existing ticket statuses not surfaced",
+              "after": "analyzer surfaces existing ticket id + status so the AI can preserve them (never silently overwrite)",
+              "description": "Status-preservation safety for reviewed/R<N> tickets"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-20"
         }
       ]
     },
