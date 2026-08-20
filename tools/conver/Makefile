@@ -32,6 +32,10 @@ test-rfc-graph:
 test-crystalize-readme:
 		node --test "tests/crystalize-readme/*.test.cjs"
 
+# test-drill-rfc-down: drill-rfc-down 全スクリプトのテスト（CommonJS、tsc 不要）
+test-drill-rfc-down:
+		node --test "tests/drill-rfc-down/*.test.cjs"
+
 # test-stub-resolution: batch-create-resolving-tickets の動作保証テスト（PX-1）
 test-stub-resolution:
 		node --test tests/batch-create-resolving-tickets.test.cjs

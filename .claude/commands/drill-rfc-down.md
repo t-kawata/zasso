@@ -1,12 +1,12 @@
 ---
-description: Fill gaps in consideration and design deficiencies in existing RFCs through grill-style questioning. Append-only. Destructive changes prohibited.
-argument-hint: </path/to/RFC-*.md>
+description: Evolve the canonical RFC and its GRAPH / Dirs-Tree / Tickets as deltas via grill-style questioning.
+argument-hint: [<material file|directory>...]
 disable-model-invocation: true
 ---
 
 # /drill-rfc-down
 
-**Role**: Fill consideration gaps in existing RFCs through grill-style questioning. Append-only, no destructive changes.
+**Role**: Evolve the canonical RFC and its GRAPH / Dirs-Tree / Tickets as deltas via grill-style questioning over crystalize RESIDUE, prior conversation, and given materials. Append-only, lockstep, no destructive changes.
 
 ## Language Protocol
 
@@ -20,253 +20,81 @@ disable-model-invocation: true
 
 ## Arguments
 
-- **First argument (required)**: Path to the RFC file to append to
+All arguments are **optional**. Any number of arguments may be given, separated by spaces.
+
+**Every argument is interpreted as a "given material"** — the third input type of drill-rfc-down, alongside the crystalize RESIDUE and the prior free conversation with the user.
+
+Each argument is a **path** to either:
+
+- a **material file** (reference document, design note, meeting minutes, RFC excerpt, market material, etc.), or
+- a **directory** containing material files (every file under it is read as a material)
+
+```bash
+/drill-rfc-down <material-file-or-dir> <material-file-or-dir> ...
+```
+
+If no arguments are given, drill-rfc-down proceeds with only the crystalize RESIDUE (in README.md) and the prior free conversation as input.
 
 ## Script List
 
-| Script | Arguments | Description |
-|---|---|---|
-| `init-for-drill-rfc-down.js` | `<target>` | Check existing session file. Call init.js if absent |
-| `update-tree.js` | `<dir> <op> [args]` | DesignTree operations: add/resolve/delete/show/open-count |
-| `update-status.js` | `<dir> <state>` | Update state in Status.json |
-| `session-status.js` | `<dir>` | Display current phase and count of unresolved nodes |
-| `validate-question-format.js` | `<text>` | Schema-validate question format |
-| `generate-checklist.js` | `<dir>` | Generate CheckList.md from resolved DesignTree |
-| `check-all-schema.js` | `<dir>` | Validate consistency across Status.json / DesignTree.json / CheckList.md |
-| `tree-query.js` | `<dir> <op>` | Retrieve list of unresolved nodes |
-| `list-files.js` | `<dir>` | List file paths pointed to by research-path |
+<!-- 最後に書くので、まだ書かないこと -->
 
 ## Workflow
 
-### STEP 0: Initialization
+### Step 0: Preflight
+
+引数（資料ファイル／ディレクトリ）とカレントディレクトリの `Tickets.json` を読み込み、全資料・`metadata.resolvedPaths` の3ファイル（RFC / GRAPH / Dirs-Tree）・`README.md` のパスを取得して実在を検証する。欠落があればエラー文言と共に中断を指示し、全て存在すればファイルパスを Markdown で明示して Step 1 への進行を指示する。
+
+この検証と出力はスクリプトファイル1行の実行で行う。
 
 ```bash
-TARGET_RFC="${ARGUMENTS%% *}"
-RFC_DIR="$(dirname "$TARGET_RFC")"
-SCRIPT_DIR=".claude/scripts/grill-me-for-rfc"
-if [ ! -f "$TARGET_RFC" ]; then echo "Error: $TARGET_RFC"; exit 1; fi
-node "$SCRIPT_DIR/init-for-drill-rfc-down.js" "$TARGET_RFC"
-node "$SCRIPT_DIR/session-status.js" "$RFC_DIR"
+node .claude/scripts/drill-rfc-down/preflight.js "$ARGUMENTS" || exit 1
 ```
 
-### STEP 1: Generate Initial DesignTree Nodes
+### Step 1: grill
 
-Read the target RFC and add nodes for areas lacking consideration:
+Preflight で確認した全資料・`README.md` 内の RESIDUE・ユーザーとの事前の会話を完全に理解し、`.claude/commands/grill-me-for-rfc.md`（および旧 `drill-rfc-down-old.md`）に定義された「スクリプトを多用した厳密な grill」と同一の厳格さで進化内容を確定せよ。簡易的な grill もどきは禁止。このステップで RFC への編集（追記優先・破壊的変更禁止）を完了せよ。
 
-```bash
-node "$SCRIPT_DIR/update-tree.js" "$RFC_DIR" add '{"id":"Q1","title":"...","status":"open","children":[]}'
-```
+<!-- ? ここに詳細を書く:
+- 入力（資料・RESIDUE・会話）を完全に理解する手順
+- grill の進行手順（init → DesignTree 生成 → 質問 → 回答反映 → CheckList 生成 → 照合 → 再 grill 判定）
+- RFC 編集の安全策（追記優先・破壊的変更禁止・I/O 境界参照情報の追記・TBD/スタブ禁止）
+- この時点で GRAPH / Dirs-Tree / Tickets と矛盾する破壊的変更が RFC に生じるため、それを検出・防止するスクリプト安全策の設計 -->
 
-### STEP 2: Grill Session
+### Step 2: graphify
 
-## ★ First-Class Rules (Strictly Enforce)
+Step 1 で確定した進化を既存 `*-GRAPH.json` へ、破壊・矛盾・危険ゼロで反映せよ。ノード・エッジの追加・編集は `crud.js`（唯一の書き込み経路）を使用し、`verify.js` で完全な検証を通過するまで修正を繰り返せ。
 
-1. **Every question MUST include the following structure in order. Each section's length should be sufficient to explain the complexity of the design decision.**
+<!-- ? ここに詳細を書く:
+- 既存 GRAPH へのノード・エッジの追加・編集手順（crud.js 等の唯一の書き込み経路の利用）
+- グラフ検証スクリプトの実行と全項目通過条件（孤立ノード・未カバー行・headingRefs 等）
+- グラフの一意性・整合性・破壊的変更を防ぐスクリプト安全策の設計 -->
 
-   0. **Question ID**: Prefix the question with a `Q<number>` format ID (e.g., `Q1`, `Q2`...). Use unique, non-overlapping numbers within a turn.
-   1. **Background and rationale**: Explain why this design decision is needed, what alternatives exist, and what their trade-offs are, with sufficient detail to understand the design decision. Do not try to be concise.
-   2. **Newline-separated list of options**: List each option on its own line in markdown list format. Do not place two or more options on the same line.
-   3. **One recommended option with reasoning**: Explicitly state which option is recommended and provide concrete justification for choosing it over the others. Stating a recommendation without reasoning is prohibited.
+### Step 3: boundify
 
-**The user answers only with Yes/No or an A/B/C choice. The AI must never ask for free-form answers (if the user volunteers a free-form answer, receiving it is permitted).**
+Step 1 で確定した進化を既存 `*-Dirs-Tree.json` と `src` 内のディレクトリ・ファイルへ、破壊・矛盾・危険ゼロで反映せよ。更新後に `validate-dirs-tree-schema.js` で検証し、GRAPH / Dirs-Tree 間の全ての矛盾・破壊を解消するまで修正を繰り返せ。
 
-2. **Aggregate questions at a coarse granularity. Rather than "1 design decision = 1 question", handle 3–5 nodes per question, presenting at most 5–10 questions per turn.**
+<!-- ? ここに詳細を書く:
+- Dirs-Tree の検証・自己修復手順
+- `src` への新規ディレクトリ・ファイル生成手順（宣言スタブ・Prose 除外・Prune 規則・循環依存検出）
+- GRAPH との整合性検証
+- 破壊的変更を防ぐスクリプト安全策の設計 -->
 
-   - One question covers a sub-area such as "choosing authentication method," within which 3–5 related decisions are asked together
-   - One turn covers a larger design area (e.g., authentication as a whole) and consists of 5–10 questions
-   - Use a two-pass structure: "decide the big picture (architecture level) first → then fill in details"
-   - After each turn, summarize what was settled in that turn before moving to the next
-3. **Do not write the RFC during grill sessions. Focus solely on questions and answers.**
-4. **When the user answers, update the corresponding DesignTree node immediately.**
+### Step 4: split
 
-### Automatic Question Format Validation Gate (Strictly Enforce)
+Step 1 で確定した進化を既存 `Tickets.json` へ、破壊・矛盾・危険ゼロでチケットの編集・積み増しとして反映せよ。更新後に `validate-tickets.js` でスキーマ検証し、GRAPH / Dirs-Tree / Tickets 間の全ての矛盾・破壊を解消するまで修正を繰り返せ。
 
-Before presenting a question to the user, **you MUST pass it through `validate-question-format.js`. It is forbidden to present a question to the user without passing this validation gate.**
+<!-- ? ここに詳細を書く:
+- 新規ノード群のフェーズ割当・チケット積み増しの手順（phasify 等）
+- 既存チケットの status 保全・ラウンド管理・phaseId 採番
+- Tickets.json のスキーマ検証・GRAPH / Dirs-Tree との整合性検証
+- 破壊的変更を防ぐスクリプト安全策の設計 -->
 
-```bash
-node .claude/scripts/grill-me-for-rfc/validate-question-format.js "<question_text_here>"
-```
+### Step 5: verify
 
-- Do not present a question to the user until validation returns `valid: true`
-- If validation returns `valid: false`, correct the question according to the error message and re-validate
-- Skipping this validation is a first-class rule violation and is not permitted
+5つの整合性（正典 RFC／GRAPH／Dirs-Tree／実装／テスト）を検証スクリプトと AI の厳格な解析で検査せよ。検査を完全に突破できるまで Step 2 に戻って修正を繰り返せ（ブロッキングループ）。
 
-## DesignTree Updates (Must execute after receiving answers)
-
-```bash
-# Resolve one node
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" resolve "<node_id>" "<answer_summary>"
-
-# Batch-resolve multiple nodes (when multiple questions were answered in one turn)
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" batch-resolve '["id1","id2","id3"]' "<answer_summary>"
-
-# Add a new node (expand the design tree)
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add '<node_json>'
-
-# Add a child node (refine the design tree)
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" add-child "<parent_id>" '<node_json>'
-
-# Refine node title
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" refine "<node_id>" "<new_title>"
-
-# Delete a node (removes all descendants)
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" delete "<node_id>"
-
-# Check count of open nodes
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" open-count
-```
-
-## DesignTree Visualization & Search
-
-Use `tree-query.js` for tree structure overview or specific node search (read-only, no schema validation required).
-
-```bash
-# Display full tree in hierarchy (🔲 = open, ✅ = resolved)
-node .claude/scripts/grill-me-for-rfc/tree-query.js "$RFC_DIR" tree
-
-# Keyword search (partial match on node id / title)
-node .claude/scripts/grill-me-for-rfc/tree-query.js "$RFC_DIR" search "<keyword>"
-
-# Show path from root to a specific node
-node .claude/scripts/grill-me-for-rfc/tree-query.js "$RFC_DIR" path "<node_id>"
-
-# Statistics (total / open / resolved / max depth / progress)
-node .claude/scripts/grill-me-for-rfc/tree-query.js "$RFC_DIR" stats
-```
-
-## Status Updates
-
-```bash
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state GRILLING
-```
-
-### STEP 3: Grill Session End Judgment
-
-When you determine `open-count` has reached 0, propose ending the session to the user.
-Simultaneously, ask the user whether to begin generating the RFC requirements checklist.
-
-```bash
-node .claude/scripts/grill-me-for-rfc/update-tree.js "$RFC_DIR" open-count
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHECKLIST_PENDING
-```
-
-### STEP 4: Checklist Generation
-
-Once the user approves, machine-generate the CheckList.md via script, then **the AI MUST visually inspect and append supplementary notes**. The CheckList.md must also include items verifying the relationship with the target RFC and whether any design decisions addressed through grilling are missing.
-
-```bash
-node .claude/scripts/grill-me-for-rfc/generate-checklist.js "$RFC_DIR" --no-backup
-```
-
-Generated checklist structure (2 levels):
-
-```
-## Problem Domain Name  ← top-level node
-- [ ] The entire section is fully described
-- [ ] Code snippets are included
-- [ ] No occurrences of TBD / TODO
-- [ ] Relationship with target RFC is clear
-- [ ] All design decisions resolved via grilling are reflected
-
-  ### Child Node Name  ← DesignTree node unit
-  - [ ] The <child node title> is fully described as a design
-  - [ ] Code snippets are included
-  - [ ] No occurrences of TBD / TODO
-```
-
-**★ After script generation, the AI MUST do the following:**
-
-- Visually inspect all checklist items; for nodes resolved in the DesignTree but with ambiguous descriptions, append supplementary notes
-- Add project-specific constraints (language, framework, performance requirements, etc.) as checklist items
-- After appending, ask the user to review and approve the CheckList.md
-
-```bash
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state CHECKLIST_APPROVED
-```
-
-### STEP 5: Append to Target RFC (Strict Edit Policy)
-
-**Append-first. Full rewrite, section deletion, or overwriting is prohibited.**
-
-- If appendable → append new design decisions to the target location
-- If not appendable → make minimal partial corrections
-- Absolutely prohibited: full rewrite, deletion, or changing the output target
-
-```bash
-wc -l "$TARGET_RFC"
-```
-
-### STEP 6: Checklist Verification & Polish
-
-After appending, mechanically verify every item in CheckList.md.
-
-```bash
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state REVIEWING
-```
-
-- If any item remains incomplete, fix it and iterate until all items are ✅
-- **If you detect TBD / TODO / "will be addressed in a later version", immediately warn and do not declare completion until those items are filled**
-- Once all items are cleared, report to the user
-
----
-
-### STEP 7: Re-grill Decision
-
-If new unresolved nodes are discovered through the appended content, or if the design tree requires expansion, return to STEP 2 and re-grill.
-
-```bash
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state GRILLING
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" inc-loop
-```
-
-- **Once the loop exceeds 3 iterations, report the reason for the prolongation and current status to the user before continuing.**
-- Only declare completion when re-grilling is deemed unnecessary.
-
----
-
-### STEP 7a: Append I/O Boundary Reference Information
-
-For RFCs with all design tree decisions resolved, append I/O boundary reference information to enable safe partitioning by future `/graphify-rfc` (graphing) and `/boundify-graph` (directory boundary generation).
-
-```bash
-# Insert template
-node "$SCRIPT_DIR/insert-io-boundary-template.js" "$TARGET_RFC"
-
-# AI fills in content (using `[::IO-INFO-STUB::]` markers as cues, generate content from existing RFC descriptions)
-```
-
-**The AI reads each `<!-- [::IO-INFO-STUB::] ... -->` marker in the template one by one, follows its instructions to generate appropriate content from existing RFC descriptions, and replaces the marker. Repeat until no markers remain.**
-
-Completion verification:
-
-```bash
-node "$SCRIPT_DIR/check-io-stubs.js" "$TARGET_RFC"
-if [ $? -ne 0 ]; then
-  echo "Error: Unfilled [::IO-INFO-STUB::] markers remain. AI content generation is incomplete."
-  exit 1
-fi
-```
-
----
-
-### STEP 8: Completion Declaration
-
-Only declare completion when ALL of the following conditions are met:
-
-- All DesignTree nodes are `resolved` (`open-count` = 0)
-- All CheckList items are ✅
-- Zero instances of TBD / TODO / stubs / deferred items in the RFC body
-- Appended content is consistent with the target RFC
-
-```bash
-node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state DONE
-node "$SCRIPT_DIR/check-all-schema.js" "$RFC_DIR"
-```
-
-### STEP 9: Completion Report
-
-```bash
-echo "=== /drill-rfc-down Complete ==="
-echo "Target: $TARGET_RFC"
-wc -l "$TARGET_RFC"
-```
+<!-- ? ここに詳細を書く:
+- 5つの整合性それぞれの検査項目・合格基準
+- 実行する検証スクリプト群と AI による解析の視点
+- 検査を突破できない場合に Step 2 へ戻す条件・ループ制御・報告方法 -->
