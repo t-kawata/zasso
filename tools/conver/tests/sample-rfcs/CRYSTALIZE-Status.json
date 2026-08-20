@@ -1,0 +1,248 @@
+{
+  "sourceFile": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "graphFile": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json",
+  "currentStep": 2,
+  "steps": {
+    "0": "pending",
+    "1": "done",
+    "2": "pending",
+    "3": "pending"
+  },
+  "grill": {
+    "tocApproved": false,
+    "examplesApproved": false,
+    "toc": {
+      "nodes": [
+        {
+          "id": "H1",
+          "heading": "クイックスタート（SipClient 初期化と最初のステップ）",
+          "level": 1,
+          "confirmedContent": "トランスポート（UDP/TCP/TLS）と STUN を設定した実用的な初期化コード",
+          "status": "confirmed"
+        },
+        {
+          "id": "H2",
+          "heading": "ClientConfig の設定項目（transports・STUN/TURN・音声・タイムアウト）",
+          "level": 1,
+          "confirmedContent": "ClientConfig の全フィールド（transports, stun_servers, turn_servers, ice, audio, timeouts, raw_sip_events）を既定値と併せて表形式で解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H3",
+          "heading": "初期化のバリデーション規則とエラー処理",
+          "level": 1,
+          "confirmedContent": "§42 のバリデーション規則（event_bus_capacity>=16、sample rate 制限、raw_sip 容量制約等）と失敗時の SipError 処理をコード付きで解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H4",
+          "heading": "アカウントの追加と設定更新（add_account / update_config）",
+          "level": 1,
+          "confirmedContent": "add_account の最小コードと、update_config(AccountConfigPatch) による設定更新および更新時に走る register/unregister の挙動を併せて解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H5",
+          "heading": "登録と登録解除（register / unregister / set_registration_enabled）",
+          "level": 1,
+          "confirmedContent": "register() / unregister() / set_registration_enabled() の使い分けと、register_on_start による自動登録設定を併せて解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H6",
+          "heading": "登録状態の参照（registration_state と RegistrationState）",
+          "level": 1,
+          "confirmedContent": "registration_state() の呼び出しと、RegistrationState（Disabled/Idle/Registering/Registered/Unregistering/Failed/Expired）の各状態の意味を表形式で解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H7",
+          "heading": "アカウントの取得・一覧・削除（account / accounts / remove_account）",
+          "level": 1,
+          "confirmedContent": "remove_account(id) の呼び出しと、削除時に走る unregister の挙動・関連イベントを併せて解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H8",
+          "heading": "イベントの購読と受信（subscribe / subscribe_account / subscribe_raw_sip）",
+          "level": 1,
+          "confirmedContent": "subscribe() / subscribe_account(id) / subscribe_raw_sip() の 3 つの購読方法の違いと、購読解除（unsubscribe）の方法、SipEventPayload の主要バリアントの受信コードを解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H9",
+          "heading": "発信（make_call と OutgoingCallRequest）",
+          "level": 1,
+          "confirmedContent": "make_call の最小コード（target_uri のみ指定）と、発信後のキャンセル（hangup）方法を併せて解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H10",
+          "heading": "着信と応答（IncomingCall と answer）",
+          "level": 1,
+          "confirmedContent": "IncomingCall イベントの受信から answer(code) による応答、reject（486/603）による切断までの一連のコードを解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H11",
+          "heading": "通話イベントと状態遷移（CallState の購読と判定）",
+          "level": 1,
+          "confirmedContent": "OutgoingCallRinging / CallConnected / CallRejected / CallDisconnected 等の通話イベント受信と、CallState（§18）との対応を解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H12",
+          "heading": "DTMF 送受信（send_dtmf と DtmfSent / DtmfReceived）",
+          "level": 1,
+          "confirmedContent": "send_dtmf(digits, method) の呼び出しと、DtmfMethod（Inband / SipInfo / Rfc4733）の使い分け、DtmfSent / DtmfReceived イベントの受信を解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H13",
+          "heading": "音声ストリームの取得（subscribe_audio と AudioChunkPair）",
+          "level": 1,
+          "confirmedContent": "AudioFormat（ビット深度・サンプルレート・チャンネル）とストリームデータの対応を解説し、指定 bit/hz のステレオ WAV ファイルへ書き出す方法まで示す",
+          "status": "confirmed"
+        },
+        {
+          "id": "H14",
+          "heading": "音声の注入（AsyncAudioSource と add_audio_source）",
+          "level": 1,
+          "confirmedContent": "2 者通話における IN / OUT / BOTH チャネルへの音声ファイル・ストリーム注入方法と、マイク入力 source の取得（open_default_microphone_source）を併せて解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H15",
+          "heading": "STUN/TURN/ICE とトランスポート設定",
+          "level": 1,
+          "confirmedContent": "ClientConfig への stun_servers / turn_servers / ice の設定方法と、TransportConfig（UDP/TCP/TLS）の選択を併せて解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H16",
+          "heading": "シャットダウン",
+          "level": 1,
+          "confirmedContent": "shutdown() の呼び出しコードと、その際のイベント（ClientShutdown）の受信、べき等性の説明を解説",
+          "status": "confirmed"
+        },
+        {
+          "id": "H17",
+          "heading": "REST/WebSocket API（siprs-server クレートとの境界）",
+          "level": 1,
+          "confirmedContent": "クライアントライブラリの README には含めず、siprs-server の README に委ねる旨を記載",
+          "status": "confirmed"
+        }
+      ]
+    },
+    "sections": [
+      {
+        "id": "H1",
+        "heading": "クイックスタート（SipClient 初期化と最初のステップ）",
+        "state": "residue",
+        "confirmedContent": "トランスポート（UDP/TCP/TLS）と STUN を設定した実用的な初期化コード"
+      },
+      {
+        "id": "H2",
+        "heading": "ClientConfig の設定項目（transports・STUN/TURN・音声・タイムアウト）",
+        "state": "residue",
+        "confirmedContent": "ClientConfig の全フィールド（transports, stun_servers, turn_servers, ice, audio, timeouts, raw_sip_events）を既定値と併せて表形式で解説"
+      },
+      {
+        "id": "H3",
+        "heading": "初期化のバリデーション規則とエラー処理",
+        "state": "residue",
+        "confirmedContent": "§42 のバリデーション規則（event_bus_capacity>=16、sample rate 制限、raw_sip 容量制約等）と失敗時の SipError 処理をコード付きで解説"
+      },
+      {
+        "id": "H4",
+        "heading": "アカウントの追加と設定更新（add_account / update_config）",
+        "state": "residue",
+        "confirmedContent": "add_account の最小コードと、update_config(AccountConfigPatch) による設定更新および更新時に走る register/unregister の挙動を併せて解説"
+      },
+      {
+        "id": "H5",
+        "heading": "登録と登録解除（register / unregister / set_registration_enabled）",
+        "state": "residue",
+        "confirmedContent": "register() / unregister() / set_registration_enabled() の使い分けと、register_on_start による自動登録設定を併せて解説"
+      },
+      {
+        "id": "H6",
+        "heading": "登録状態の参照（registration_state と RegistrationState）",
+        "state": "residue",
+        "confirmedContent": "registration_state() の呼び出しと、RegistrationState（Disabled/Idle/Registering/Registered/Unregistering/Failed/Expired）の各状態の意味を表形式で解説"
+      },
+      {
+        "id": "H7",
+        "heading": "アカウントの取得・一覧・削除（account / accounts / remove_account）",
+        "state": "residue",
+        "confirmedContent": "remove_account(id) の呼び出しと、削除時に走る unregister の挙動・関連イベントを併せて解説"
+      },
+      {
+        "id": "H8",
+        "heading": "イベントの購読と受信（subscribe / subscribe_account / subscribe_raw_sip）",
+        "state": "residue",
+        "confirmedContent": "subscribe() / subscribe_account(id) / subscribe_raw_sip() の 3 つの購読方法の違いと、購読解除（unsubscribe）の方法、SipEventPayload の主要バリアントの受信コードを解説"
+      },
+      {
+        "id": "H9",
+        "heading": "発信（make_call と OutgoingCallRequest）",
+        "state": "residue",
+        "confirmedContent": "make_call の最小コード（target_uri のみ指定）と、発信後のキャンセル（hangup）方法を併せて解説"
+      },
+      {
+        "id": "H10",
+        "heading": "着信と応答（IncomingCall と answer）",
+        "state": "residue",
+        "confirmedContent": "IncomingCall イベントの受信から answer(code) による応答、reject（486/603）による切断までの一連のコードを解説"
+      },
+      {
+        "id": "H11",
+        "heading": "通話イベントと状態遷移（CallState の購読と判定）",
+        "state": "residue",
+        "confirmedContent": "OutgoingCallRinging / CallConnected / CallRejected / CallDisconnected 等の通話イベント受信と、CallState（§18）との対応を解説"
+      },
+      {
+        "id": "H12",
+        "heading": "DTMF 送受信（send_dtmf と DtmfSent / DtmfReceived）",
+        "state": "residue",
+        "confirmedContent": "send_dtmf(digits, method) の呼び出しと、DtmfMethod（Inband / SipInfo / Rfc4733）の使い分け、DtmfSent / DtmfReceived イベントの受信を解説"
+      },
+      {
+        "id": "H13",
+        "heading": "音声ストリームの取得（subscribe_audio と AudioChunkPair）",
+        "state": "residue",
+        "confirmedContent": "AudioFormat（ビット深度・サンプルレート・チャンネル）とストリームデータの対応を解説し、指定 bit/hz のステレオ WAV ファイルへ書き出す方法まで示す"
+      },
+      {
+        "id": "H14",
+        "heading": "音声の注入（AsyncAudioSource と add_audio_source）",
+        "state": "residue",
+        "confirmedContent": "2 者通話における IN / OUT / BOTH チャネルへの音声ファイル・ストリーム注入方法と、マイク入力 source の取得（open_default_microphone_source）を併せて解説"
+      },
+      {
+        "id": "H15",
+        "heading": "STUN/TURN/ICE とトランスポート設定",
+        "state": "residue",
+        "confirmedContent": "ClientConfig への stun_servers / turn_servers / ice の設定方法と、TransportConfig（UDP/TCP/TLS）の選択を併せて解説"
+      },
+      {
+        "id": "H16",
+        "heading": "シャットダウン",
+        "state": "residue",
+        "confirmedContent": "shutdown() の呼び出しコードと、その際のイベント（ClientShutdown）の受信、べき等性の説明を解説"
+      },
+      {
+        "id": "H17",
+        "heading": "REST/WebSocket API（siprs-server クレートとの境界）",
+        "state": "complete",
+        "confirmedContent": "クライアントライブラリの README には含めず、siprs-server の README に委ねる旨を記載"
+      },
+      {
+        "id": "EXAMPLES",
+        "heading": "Examples (implementation samples) spec and design",
+        "state": "residue",
+        "confirmedContent": null
+      }
+    ]
+  }
+}

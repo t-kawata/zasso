@@ -1,0 +1,2954 @@
+{
+  "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "mainLanguage": "rust",
+  "nodes": [
+    {
+      "id": "N0001",
+      "title": "§1 Purpose — Responsibilities of this crate",
+      "kind": "architecture",
+      "summary": "Defines the siprs crate's purpose: providing safe async PJSUA access for SIP calling via tokio-native API, limited to audio only.",
+      "language": "rust",
+      "slug": "purpose_responsibility",
+      "headingRefs": [
+        {
+          "refId": "REF160",
+          "heading": 2,
+          "texts": [
+            "1. 目的"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0002",
+      "title": "§1a M20 Implementation Priority Map",
+      "kind": "requirement",
+      "summary": "Table of M20 supplement implementation items with priority (P0-P3), design decision references, and code impact scope.",
+      "language": "rust",
+      "slug": "m20_impl_priority_map",
+      "headingRefs": [
+        {
+          "refId": "REF161",
+          "heading": 2,
+          "texts": [
+            "1a. M20 実装優先度マップ"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0003",
+      "title": "§2 Non-goals & Tauri Integration Boundary",
+      "kind": "architecture",
+      "summary": "Documents what this crate does NOT provide (GUI, recording files, etc.) and clarifies responsibility split with Tauri frontend integration layer.",
+      "language": "rust",
+      "slug": "non_goals_tauri_boundary",
+      "headingRefs": [
+        {
+          "refId": "REF162",
+          "heading": 2,
+          "texts": [
+            "2. 非目的"
+          ]
+        },
+        {
+          "refId": "REF163",
+          "heading": 3,
+          "texts": [
+            "2.1 Tauri（フロントエンド）統合との責務境界"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0004",
+      "title": "§3 Terminology",
+      "kind": "glossary",
+      "summary": "Defines domain terms: Client, Account, Call, Media Session, Source, Chunk Pair, Raw SIP Event.",
+      "language": "rust",
+      "slug": "terminology_glossary",
+      "headingRefs": [
+        {
+          "refId": "REF164",
+          "heading": 2,
+          "texts": [
+            "3. 用語"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0005",
+      "title": "§4 Compliance Requirements",
+      "kind": "requirement",
+      "summary": "MSRV 1.95, tokio async runtime, PJSIP 2.17 fixed version, target OS triple, prebuilt-first two-stage build strategy.",
+      "language": "rust",
+      "slug": "compliance_requirements",
+      "headingRefs": [
+        {
+          "refId": "REF165",
+          "heading": 2,
+          "texts": [
+            "4. 準拠要件"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0006",
+      "title": "§4.1 Versioning Policy",
+      "kind": "config",
+      "summary": "Semver policy: 0.x phase allows breaking changes with CHANGELOG notification, 1.0+ follows strict semver with exceptions for security fixes.",
+      "language": "rust",
+      "slug": "versioning_policy",
+      "headingRefs": [
+        {
+          "refId": "REF166",
+          "heading": 3,
+          "texts": [
+            "4.1 バージョニングポリシー"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0007",
+      "title": "§5 Functional Requirements — Normative Scope",
+      "kind": "requirement",
+      "summary": "Definitive list of 15 functional requirements: multi-account, dynamic add/remove, register, transports, ICE, codecs, DTMF, event bus, audio pipeline, mixer, error handling.",
+      "language": "rust",
+      "slug": "functional_req_normative",
+      "headingRefs": [
+        {
+          "refId": "REF167",
+          "heading": 2,
+          "texts": [
+            "5. 機能要求の確定化"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0008",
+      "title": "§6 Module Structure & Crate Responsibility",
+      "kind": "architecture",
+      "summary": "Complete module tree layout (src/, ffi/, runtime/, audio/, util/) and design rationale for keeping SIP signalling, media bridge, audio processing, event bus in a single crate.",
+      "language": "rust",
+      "slug": "module_structure",
+      "headingRefs": [
+        {
+          "refId": "REF168",
+          "heading": 2,
+          "texts": [
+            "6. 全体構成"
+          ]
+        },
+        {
+          "refId": "REF169",
+          "heading": 3,
+          "texts": [
+            "6.1 Crate 責務分割方針（設計判断）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0009",
+      "title": "§7 Concurrency Model & Execution Contexts",
+      "kind": "architecture",
+      "summary": "Four execution contexts (User async, Core reactor, PJSIP callbacks, Audio worker tasks), single-reactor thread model, command serialization via MPSC.",
+      "language": "rust",
+      "slug": "concurrency_contexts",
+      "headingRefs": [
+        {
+          "refId": "REF170",
+          "heading": 2,
+          "texts": [
+            "7. 並行性モデル"
+          ]
+        },
+        {
+          "refId": "REF171",
+          "heading": 3,
+          "texts": [
+            "7.1 実行コンテキスト"
+          ]
+        },
+        {
+          "refId": "REF172",
+          "heading": 3,
+          "texts": [
+            "7.1a 単一Reactorのスケーラビリティ注記"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0010",
+      "title": "§7.2 RuntimeCommand & Command Serialization",
+      "kind": "api_contract",
+      "summary": "RuntimeCommand enum definition with all variants (Initialize, AddAccount, MakeCall, Hangup, etc.) and the unbounded MPSC serialization model ensuring Send+Sync without exposing PJSUA thread safety.",
+      "language": "rust",
+      "slug": "command_serialization",
+      "headingRefs": [
+        {
+          "refId": "REF173",
+          "heading": 3,
+          "texts": [
+            "7.2 command serialization"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0011",
+      "title": "§8 Public API Design",
+      "kind": "api_contract",
+      "summary": "Complete public API surface: crate root re-exports, SipClient struct and methods, SipAccountHandle API, OutgoingCallRequest and CallMediaPreferences definitions.",
+      "language": "rust",
+      "slug": "public_api_design",
+      "headingRefs": [
+        {
+          "refId": "REF174",
+          "heading": 2,
+          "texts": [
+            "8. 公開 API 設計"
+          ]
+        },
+        {
+          "refId": "REF175",
+          "heading": 3,
+          "texts": [
+            "8.1 crate ルート"
+          ]
+        },
+        {
+          "refId": "REF176",
+          "heading": 3,
+          "texts": [
+            "8.2 SipClient"
+          ]
+        },
+        {
+          "refId": "REF177",
+          "heading": 3,
+          "texts": [
+            "8.3 SipClient API"
+          ]
+        },
+        {
+          "refId": "REF178",
+          "heading": 3,
+          "texts": [
+            "8.4 SipAccountHandle API"
+          ]
+        },
+        {
+          "refId": "REF179",
+          "heading": 3,
+          "texts": [
+            "8.5 OutgoingCallRequest"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0012",
+      "title": "§9 ID Design — Newtype Identifiers",
+      "kind": "data_model",
+      "summary": "AccountId, CallId, AudioSourceId as NonZeroU64 newtypes. BiMap for RuntimeId to NativeId mapping to handle PJSUA id reuse.",
+      "language": "rust",
+      "slug": "id_design_newtype",
+      "headingRefs": [
+        {
+          "refId": "REF180",
+          "heading": 2,
+          "texts": [
+            "9. ID 設計"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0013",
+      "title": "§10 ClientConfig Full Specification",
+      "kind": "config",
+      "summary": "Complete ClientConfig struct definition, ClientAudioConfig, TimeoutConfig, RawSipEventConfig, LogLevel enum, and all default values.",
+      "language": "rust",
+      "slug": "client_config_spec",
+      "headingRefs": [
+        {
+          "refId": "REF181",
+          "heading": 2,
+          "texts": [
+            "10. ClientConfig 完全仕様"
+          ]
+        },
+        {
+          "refId": "REF182",
+          "heading": 3,
+          "texts": [
+            "10.1 既定値"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0014",
+      "title": "§11 AccountConfig Full Specification",
+      "kind": "config",
+      "summary": "Complete AccountConfig struct, AccountCodecPolicy, OpusConfig, DtmfPolicy, AccountMediaConfig definitions and validation rules.",
+      "language": "rust",
+      "slug": "account_config_spec",
+      "headingRefs": [
+        {
+          "refId": "REF183",
+          "heading": 2,
+          "texts": [
+            "11. AccountConfig 完全仕様"
+          ]
+        },
+        {
+          "refId": "REF184",
+          "heading": 3,
+          "texts": [
+            "11.1 validation rules"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0015",
+      "title": "§12 TransportConfig & §13 ICE/STUN/TURN Spec",
+      "kind": "config",
+      "summary": "TransportConfig enum (UDP/TCP/TLS), TlsConfig, IceConfig, StunServerConfig, TurnServerConfig definitions. Full ICE support with trickle ICE as optional optimization.",
+      "language": "rust",
+      "slug": "transport_ice_spec",
+      "headingRefs": [
+        {
+          "refId": "REF185",
+          "heading": 2,
+          "texts": [
+            "12. TransportConfig 完全仕様"
+          ]
+        },
+        {
+          "refId": "REF186",
+          "heading": 2,
+          "texts": [
+            "13. ICE/STUN/TURN 完全仕様"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0016",
+      "title": "§14 Error Design — SipError & SipErrorKind",
+      "kind": "error_policy",
+      "summary": "SipError struct with kind, message, native_status, account_id, call_id, retryable. SipErrorKind enum with all variants. Error conversion policy from pj_status_t.",
+      "language": "rust",
+      "slug": "error_design_siperror",
+      "headingRefs": [
+        {
+          "refId": "REF187",
+          "heading": 2,
+          "texts": [
+            "14. エラー設計"
+          ]
+        },
+        {
+          "refId": "REF188",
+          "heading": 3,
+          "texts": [
+            "14.1 エラー変換方針"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0017",
+      "title": "§14 M20 New RuntimeCommand Error Design",
+      "kind": "error_policy",
+      "summary": "Error design for ConfConnect, ConfDisconnect, GetAccountInfo using existing SipErrorKind variants (InvalidState, NotFound, InternalError) with rationale against adding new variants.",
+      "language": "rust",
+      "slug": "m20_runtime_command_error",
+      "headingRefs": [
+        {
+          "refId": "REF189",
+          "heading": 3,
+          "texts": [
+            "M20 追補: 新 RuntimeCommand のエラー設計"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0018",
+      "title": "§15 Event Model — SipEventPayload & EventBus",
+      "kind": "api_contract",
+      "summary": "Full SipEventPayload enum with all variants (Registration, Call, Media, DTMF, ICE, Transport, Account, Client lifecycle, Error). SipEvent wrapper, EventMeta, EventBus design with split control/raw_sip buses.",
+      "language": "rust",
+      "slug": "event_model_payload_bus",
+      "headingRefs": [
+        {
+          "refId": "REF190",
+          "heading": 2,
+          "texts": [
+            "15. イベントモデル"
+          ]
+        },
+        {
+          "refId": "REF191",
+          "heading": 3,
+          "texts": [
+            "15.1 SipEventPayload"
+          ]
+        },
+        {
+          "refId": "REF192",
+          "heading": 3,
+          "texts": [
+            "15.2 SipEvent"
+          ]
+        },
+        {
+          "refId": "REF193",
+          "heading": 3,
+          "texts": [
+            "15.3 EventMeta"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0019",
+      "title": "§15.4 EventBus Implementation & §15.5 AccountEventReceiver",
+      "kind": "api_contract",
+      "summary": "EventBus struct with control/raw_sip broadcast senders, subscribe/publish methods. AccountEventReceiver filtering by account_id.",
+      "language": "rust",
+      "slug": "eventbus_receiver",
+      "headingRefs": [
+        {
+          "refId": "REF194",
+          "heading": 3,
+          "texts": [
+            "15.4 EventBus"
+          ]
+        },
+        {
+          "refId": "REF195",
+          "heading": 3,
+          "texts": [
+            "15.5 AccountEventReceiver"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0020",
+      "title": "§15.6-15.7 Event Bus Design Decisions & Delivery Guarantees",
+      "kind": "architecture",
+      "summary": "Design rationale for split buses, loss-tolerant delivery model (broadcast channel, no reliable delivery), Lagged detection, source of truth is query API not events.",
+      "language": "rust",
+      "slug": "event_bus_guarantees",
+      "headingRefs": [
+        {
+          "refId": "REF196",
+          "heading": 3,
+          "texts": [
+            "15.6 イベントバス分割の設計判断"
+          ]
+        },
+        {
+          "refId": "REF197",
+          "heading": 3,
+          "texts": [
+            "15.7 重要: イベントバスは観測用途であり確実配送を保証しない"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0021",
+      "title": "§15 M20 NativeEvent to SipEventPayload Conversion",
+      "kind": "state_machine",
+      "summary": "Complete NativeEvent mapping table with P0/P1/P2 priority levels. Conversion logic for Registration, Call, DTMF, Transport/ICE events. PJSIP callback event → SipEventPayload transformation.",
+      "language": "rust",
+      "slug": "m20_native_event_conv",
+      "headingRefs": [
+        {
+          "refId": "REF198",
+          "heading": 3,
+          "texts": [
+            "M20 追補: NativeEvent → SipEventPayload 変換マッピング"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0022",
+      "title": "§15 M20 CallState & CallMediaState Mapping",
+      "kind": "state_machine",
+      "summary": "pjsip_inv_state to CallState mapping table, CONNECTING→Trying/Ringing discrimination logic, media_status to MediaActive/Held/Error conversion.",
+      "language": "rust",
+      "slug": "m20_callstate_mapping",
+      "headingRefs": [
+        {
+          "refId": "REF199",
+          "heading": 4,
+          "texts": [
+            "CallStateChanged の pjsip_inv_state マッピング"
+          ]
+        },
+        {
+          "refId": "REF200",
+          "heading": 4,
+          "texts": [
+            "CallMediaStateChanged の media_status 判定"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0023",
+      "title": "§15 M20 RegistrationStateChanged RuntimeCommand Pattern",
+      "kind": "state_machine",
+      "summary": "RegistrationStateChanged processing via RuntimeCommand::GetAccountInfo pattern, AccountInfoSnapshot struct, publish flow for RegistrationSucceeded/Failed.",
+      "language": "rust",
+      "slug": "m20_registr_cmd_pat",
+      "headingRefs": [
+        {
+          "refId": "REF201",
+          "heading": 4,
+          "texts": [
+            "RegistrationStateChanged の RuntimeCommand パターン"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0024",
+      "title": "§16 Raw SIP Message Specification",
+      "kind": "data_model",
+      "summary": "RawSipMessage struct definition with direction, transport, headers, body, redact_authorization for sensitive headers.",
+      "language": "rust",
+      "slug": "raw_sip_message_spec",
+      "headingRefs": [
+        {
+          "refId": "REF202",
+          "heading": 2,
+          "texts": [
+            "16. raw SIP メッセージ仕様"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0025",
+      "title": "§17 Registration State Machine",
+      "kind": "state_machine",
+      "summary": "RegistrationState enum (7 states) with complete transition diagram and rules. Independent from call ability — make_call() always allowed regardless of registration state.",
+      "language": "rust",
+      "slug": "registr_state_machine",
+      "headingRefs": [
+        {
+          "refId": "REF203",
+          "heading": 2,
+          "texts": [
+            "17. 登録状態モデル"
+          ]
+        },
+        {
+          "refId": "REF204",
+          "heading": 3,
+          "texts": [
+            "17.1 遷移規則"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0026",
+      "title": "§18 Call State Model",
+      "kind": "state_machine",
+      "summary": "CallState enum (12 states) with outgoing/incoming transition diagrams, REFER transfer transient state, max_calls concurrency constraint.",
+      "language": "rust",
+      "slug": "call_state_model",
+      "headingRefs": [
+        {
+          "refId": "REF205",
+          "heading": 2,
+          "texts": [
+            "18. 通話状態モデル"
+          ]
+        },
+        {
+          "refId": "REF206",
+          "heading": 3,
+          "texts": [
+            "18.1 遷移規則"
+          ]
+        },
+        {
+          "refId": "REF207",
+          "heading": 3,
+          "texts": [
+            "18.2 同時通話制約"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0027",
+      "title": "§19 Call API & Answer Semantics",
+      "kind": "api_contract",
+      "summary": "SipClient call control API (answer, hangup, hold, unhold, transfer, send_dtmf, call_state). Answer semantics for 180/183/200/486/603 codes.",
+      "language": "rust",
+      "slug": "call_api_semantics",
+      "headingRefs": [
+        {
+          "refId": "REF208",
+          "heading": 2,
+          "texts": [
+            "19. 発着信 API 詳細"
+          ]
+        },
+        {
+          "refId": "REF209",
+          "heading": 3,
+          "texts": [
+            "19.1 answer semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0028",
+      "title": "§20 DTMF Specification & DtmfReceived",
+      "kind": "api_contract",
+      "summary": "DtmfMethod enum (Inband/SipInfo/Rfc4733), DtmfReceivedInfo struct, policy-based method validation for send/receive.",
+      "language": "rust",
+      "slug": "dtmf_spec_received",
+      "headingRefs": [
+        {
+          "refId": "REF210",
+          "heading": 2,
+          "texts": [
+            "20. DTMF 仕様"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0029",
+      "title": "§20 M20 DtmfSentInfo & Two-Phase Design",
+      "kind": "api_contract",
+      "summary": "DtmfSentInfo struct, two-phase semantics (return value = command accepted, DtmfSent event = actual send), timeout fallback at 500ms.",
+      "language": "rust",
+      "slug": "m20_dtmfsent_twophase",
+      "headingRefs": [
+        {
+          "refId": "REF211",
+          "heading": 3,
+          "texts": [
+            "M20 追補: DtmfSentInfo 構造体と DtmfSent 発火設計"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0030",
+      "title": "§21 Audio Format Model & AudioChunkPair",
+      "kind": "data_model",
+      "summary": "SampleRate, BitDepth, ChannelLayout, AudioFormat enums/structs. AudioChunkPair with paired IN/OUT buffers, AudioChunk enum (I16/F32).",
+      "language": "rust",
+      "slug": "audio_format_chunkpair",
+      "headingRefs": [
+        {
+          "refId": "REF212",
+          "heading": 2,
+          "texts": [
+            "21. 音声フォーマットモデル"
+          ]
+        },
+        {
+          "refId": "REF213",
+          "heading": 3,
+          "texts": [
+            "21.1 AudioChunkPair"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0031",
+      "title": "§22 Audio Subscribe API & Backpressure Policy",
+      "kind": "api_contract",
+      "summary": "AudioTapMode (Realtime/Lossless), AudioTapHandle, subscribe_audio API, backpressure behavior per mode, SubscribeAudio Reactor handler design with MediaDirection and conf_connect integration.",
+      "language": "rust",
+      "slug": "audio_subscribe_bp",
+      "headingRefs": [
+        {
+          "refId": "REF214",
+          "heading": 2,
+          "texts": [
+            "22. 音声購読 API"
+          ]
+        },
+        {
+          "refId": "REF215",
+          "heading": 3,
+          "texts": [
+            "22.1 backpressure policy"
+          ]
+        },
+        {
+          "refId": "REF216",
+          "heading": 3,
+          "texts": [
+            "M20 追補: SubscribeAudio Reactor ハンドラ実装設計"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0032",
+      "title": "§23 AsyncAudioSource Trait & SyncSourceAdapter",
+      "kind": "api_contract",
+      "summary": "AsyncAudioSource trait with RPITIT, ErasedAudioSource auto-derivation for dynamic dispatch, SyncAudioSource trait and SyncSourceAdapter, design rationale for RPITIT adoption.",
+      "language": "rust",
+      "slug": "asyncaudiosrc_adapter",
+      "headingRefs": [
+        {
+          "refId": "REF217",
+          "heading": 2,
+          "texts": [
+            "23. AsyncAudioSource 仕様"
+          ]
+        },
+        {
+          "refId": "REF218",
+          "heading": 3,
+          "texts": [
+            "23.1 動的ディスパッチ用自動導出"
+          ]
+        },
+        {
+          "refId": "REF219",
+          "heading": 3,
+          "texts": [
+            "23.2 SyncSourceAdapter"
+          ]
+        },
+        {
+          "refId": "REF220",
+          "heading": 3,
+          "texts": [
+            "23.3 設計判断の注記"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0033",
+      "title": "§24 AudioMixer Design & Real-Time Boundary",
+      "kind": "architecture",
+      "summary": "Two-layer audio architecture: AudioWorkerTask (Tokio async) ↔ RustMediaPort (PJSIP RT callback). Lock-free queue boundary. AudioMixer struct with DashMap sources, mixing algorithm, AudioWorkerTask loop.",
+      "language": "rust",
+      "slug": "audiomixer_rt_boundary",
+      "headingRefs": [
+        {
+          "refId": "REF221",
+          "heading": 2,
+          "texts": [
+            "24. AudioMixer 設計"
+          ]
+        },
+        {
+          "refId": "REF222",
+          "heading": 3,
+          "texts": [
+            "24.0 リアルタイム境界（最重要設計判断）"
+          ]
+        },
+        {
+          "refId": "REF223",
+          "heading": 3,
+          "texts": [
+            "24.1 AudioMixer（AudioWorkerTask 側）"
+          ]
+        },
+        {
+          "refId": "REF224",
+          "heading": 3,
+          "texts": [
+            "24.2 mixing algorithm"
+          ]
+        },
+        {
+          "refId": "REF225",
+          "heading": 3,
+          "texts": [
+            "24.2 gain and normalization"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0034",
+      "title": "§24.3 AudioWorkerTask & Source Lifecycle",
+      "kind": "architecture",
+      "summary": "AudioWorkerTask driving mechanism, add_audio_source/remove_audio_source/set_gain/mute API, Box<dyn AsyncAudioSource> lifecycle, slab-based optimization future note.",
+      "language": "rust",
+      "slug": "audioworker_lifecycle",
+      "headingRefs": [
+        {
+          "refId": "REF226",
+          "heading": 3,
+          "texts": [
+            "24.3 AudioWorkerTask 駆動"
+          ]
+        },
+        {
+          "refId": "REF227",
+          "heading": 3,
+          "texts": [
+            "24.4 source lifecycle"
+          ]
+        },
+        {
+          "refId": "REF228",
+          "heading": 3,
+          "texts": [
+            "24.5 将来拡張：slab ベース source 管理（注記）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0035",
+      "title": "§25 IN/OUT Pair Alignment Algorithm",
+      "kind": "architecture",
+      "summary": "PairAligner design with timestamped ring buffers, tolerance-based matching, zero-padding on missing data, drift metrics. Memory optimization notes.",
+      "language": "rust",
+      "slug": "pair_aligner_algorithm",
+      "headingRefs": [
+        {
+          "refId": "REF229",
+          "heading": 2,
+          "texts": [
+            "25. IN/OUT ペア整列アルゴリズム"
+          ]
+        },
+        {
+          "refId": "REF230",
+          "heading": 3,
+          "texts": [
+            "25.1 欠損時の扱い"
+          ]
+        },
+        {
+          "refId": "REF231",
+          "heading": 3,
+          "texts": [
+            "25.2 メモリ最適化注記"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0036",
+      "title": "§26 Resampler Design & Stereo Mapping",
+      "kind": "architecture",
+      "summary": "ResamplePipeline using rubato, internal i16 PCM format, stereo IN/OUT interleave mapping (L=IN, R=OUT).",
+      "language": "rust",
+      "slug": "resampler_stereo_mapping",
+      "headingRefs": [
+        {
+          "refId": "REF232",
+          "heading": 2,
+          "texts": [
+            "26. リサンプラ設計"
+          ]
+        },
+        {
+          "refId": "REF233",
+          "heading": 3,
+          "texts": [
+            "26.1 stereo in/out mapping"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0037",
+      "title": "§27 PJSIP FFI Layer Architecture",
+      "kind": "architecture",
+      "summary": "FFI layer structure isolating unsafe code. Bindgen strategy, C string management (PjOwnedStr), callback bridge (minimal enqueue), SipBackend abstraction trait and MockBackend.",
+      "language": "rust",
+      "slug": "pjsip_ffi_layer",
+      "headingRefs": [
+        {
+          "refId": "REF234",
+          "heading": 2,
+          "texts": [
+            "27. PJSIP FFI 層"
+          ]
+        },
+        {
+          "refId": "REF235",
+          "heading": 3,
+          "texts": [
+            "27.1 bindgen 生成方針"
+          ]
+        },
+        {
+          "refId": "REF236",
+          "heading": 3,
+          "texts": [
+            "27.2 C string 管理"
+          ]
+        },
+        {
+          "refId": "REF237",
+          "heading": 3,
+          "texts": [
+            "27.3 callback bridge"
+          ]
+        },
+        {
+          "refId": "REF238",
+          "heading": 3,
+          "texts": [
+            "27a. SipBackend 抽象化（内部 trait）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0038",
+      "title": "§27 M20 Dual Client PJSIP Callback Routing",
+      "kind": "architecture",
+      "summary": "Single Reactor + EventBus split for multiple SipClient instances sharing PjsuaBackend singleton. Account_id-based event dispatch, Dual Client initialization pattern.",
+      "language": "rust",
+      "slug": "m20_dual_client_routing",
+      "headingRefs": [
+        {
+          "refId": "REF239",
+          "heading": 3,
+          "texts": [
+            "M20 追補: Dual Client 時の PJSIP callback routing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0039",
+      "title": "§28 Build Strategy & OS Dependencies",
+      "kind": "build_ci",
+      "summary": "Prebuilt-first then source build fallback. Build script pseudo-code, CMake flags (PJMEDIA_WITH_VIDEO=OFF), OS-specific package dependencies (Ubuntu, macOS, Windows).",
+      "language": "rust",
+      "slug": "build_strategy_os_deps",
+      "headingRefs": [
+        {
+          "refId": "REF240",
+          "heading": 2,
+          "texts": [
+            "28. build.rs 戦略"
+          ]
+        },
+        {
+          "refId": "REF241",
+          "heading": 3,
+          "texts": [
+            "28.1 探索順序"
+          ]
+        },
+        {
+          "refId": "REF242",
+          "heading": 3,
+          "texts": [
+            "28.2 build script 擬似実装"
+          ]
+        },
+        {
+          "refId": "REF243",
+          "heading": 3,
+          "texts": [
+            "28.3 cmake flags"
+          ]
+        },
+        {
+          "refId": "REF244",
+          "heading": 3,
+          "texts": [
+            "28.4 OS別システムパッケージ依存関係"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0040",
+      "title": "§29 Codec Policy & Fallback Rules",
+      "kind": "config",
+      "summary": "Codec enforcement (PCMU=254, Opus=255, others disabled), fallback rules, NegotiatedCodec enum, CodecSelectionPolicy (Ordered/PreferOpusFallbackPcmu).",
+      "language": "rust",
+      "slug": "codec_policy_fallback",
+      "headingRefs": [
+        {
+          "refId": "REF245",
+          "heading": 2,
+          "texts": [
+            "29. codec policy 強制"
+          ]
+        },
+        {
+          "refId": "REF246",
+          "heading": 3,
+          "texts": [
+            "29.1 コーデックフォールバックルール"
+          ]
+        },
+        {
+          "refId": "REF247",
+          "heading": 3,
+          "texts": [
+            "29.2 NegotiatedCodec と CodecSelectionPolicy"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0041",
+      "title": "§29 M20 Explicit Codec & Auto Mode Policy",
+      "kind": "config",
+      "summary": "Two-layer codec selection: explicit user specification vs system auto mode (Opus=255, PCMU=254). configure_codecs auto mode implementation.",
+      "language": "rust",
+      "slug": "m20_codec_auto_mode",
+      "headingRefs": [
+        {
+          "refId": "REF248",
+          "heading": 3,
+          "texts": [
+            "M20 追補: 明示的コーデック指定と auto モードの2層ポリシー"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0042",
+      "title": "§30 SRTP & §31 Transport Reconnection",
+      "kind": "config",
+      "summary": "SrtpPolicy enum (Disabled/Optional/Mandatory), feature-gated. Transport reconnection strategy per protocol (UDP/TCP/TLS), ReconnectPolicy struct.",
+      "language": "rust",
+      "slug": "srtp_transport_reconnect",
+      "headingRefs": [
+        {
+          "refId": "REF249",
+          "heading": 2,
+          "texts": [
+            "30. SRTP 仕様"
+          ]
+        },
+        {
+          "refId": "REF250",
+          "heading": 2,
+          "texts": [
+            "31. トランスポート再接続方針"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0043",
+      "title": "§32 Shutdown Specification",
+      "kind": "state_machine",
+      "summary": "Idempotent shutdown sequence: stop accepting commands, BYE/CANCEL all calls, unregister accounts, drain audio, pjsua_destroy. Cancellation safety: reactor continues on caller cancel.",
+      "language": "rust",
+      "slug": "shutdown_specification",
+      "headingRefs": [
+        {
+          "refId": "REF251",
+          "heading": 2,
+          "texts": [
+            "32. Shutdown 仕様"
+          ]
+        },
+        {
+          "refId": "REF252",
+          "heading": 3,
+          "texts": [
+            "32.1 cancellation safety"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0044",
+      "title": "§32 M20 Shutdown Command Routing",
+      "kind": "error_policy",
+      "summary": "Shutdown command dispatch rules: GetAccountInfo permitted (read-only), ConfConnect/ConfDisconnect rejected. dispatch_command() implementation.",
+      "language": "rust",
+      "slug": "m20_shutdown_routing",
+      "headingRefs": [
+        {
+          "refId": "REF253",
+          "heading": 3,
+          "texts": [
+            "M20 追補: Shutdown 中の RuntimeCommand 振り分け"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0045",
+      "title": "§33 Runtime Internal State & Lock Rules",
+      "kind": "architecture",
+      "summary": "ClientState, AccountEntry, CallEntry struct definitions. Lock rules: read().await for query APIs (blocking_read prohibited), write().await for Reactor updates. conf_port_id management encapsulated in PjsuaBackend.",
+      "language": "rust",
+      "slug": "runtime_state_lock_rules",
+      "headingRefs": [
+        {
+          "refId": "REF254",
+          "heading": 2,
+          "texts": [
+            "33. ランタイム内部 state"
+          ]
+        },
+        {
+          "refId": "REF255",
+          "heading": 3,
+          "texts": [
+            "M20 追補: ロック獲得ルールと conf_port_id 管理方針"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0046",
+      "title": "§34 Observability — Tracing, Metrics & Capabilities",
+      "kind": "config",
+      "summary": "tracing spans for all public operations, optional metrics counters/gauges, ClientCapabilities struct with capabilities advertised via ClientInitialized event.",
+      "language": "rust",
+      "slug": "observability_metrics",
+      "headingRefs": [
+        {
+          "refId": "REF256",
+          "heading": 2,
+          "texts": [
+            "34. 観測性"
+          ]
+        },
+        {
+          "refId": "REF257",
+          "heading": 3,
+          "texts": [
+            "34.1 tracing"
+          ]
+        },
+        {
+          "refId": "REF258",
+          "heading": 3,
+          "texts": [
+            "34.2 metrics"
+          ]
+        },
+        {
+          "refId": "REF259",
+          "heading": 3,
+          "texts": [
+            "34.3 ClientCapabilities"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0047",
+      "title": "§35 Security & §36 Platform Differences",
+      "kind": "security",
+      "summary": "SecretString for passwords, Authorization header redaction, TLS verify default true, memory zeroization. Platform-specific build notes (Windows MSVC, macOS system frameworks, Linux libs).",
+      "language": "rust",
+      "slug": "security_platform_diffs",
+      "headingRefs": [
+        {
+          "refId": "REF260",
+          "heading": 2,
+          "texts": [
+            "35. セキュリティ"
+          ]
+        },
+        {
+          "refId": "REF261",
+          "heading": 2,
+          "texts": [
+            "36. プラットフォーム差異"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0048",
+      "title": "§37 Incoming Call & §38 REFER/Transfer",
+      "kind": "api_contract",
+      "summary": "IncomingCall struct, auto-reject timer config. REFER/Transfer: blind transfer first-class, ReferRequest struct, NOTIFY-based completion detection.",
+      "language": "rust",
+      "slug": "incoming_call_refer",
+      "headingRefs": [
+        {
+          "refId": "REF262",
+          "heading": 2,
+          "texts": [
+            "37. 受信 call の扱い"
+          ]
+        },
+        {
+          "refId": "REF263",
+          "heading": 2,
+          "texts": [
+            "38. REFER/転送仕様"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0049",
+      "title": "§39 Media Bridge & PJSUA Conference Port",
+      "kind": "architecture",
+      "summary": "Custom media port design (RustMediaPort) with capture tap and playback inject ports. Lock-free queue boundary between RT callback and AudioWorkerTask. Full data flow diagram.",
+      "language": "rust",
+      "slug": "media_bridge_conf_port",
+      "headingRefs": [
+        {
+          "refId": "REF264",
+          "heading": 2,
+          "texts": [
+            "39. Media bridge と PJSUA conference port"
+          ]
+        },
+        {
+          "refId": "REF265",
+          "heading": 3,
+          "texts": [
+            "39.1 リアルタイム境界と lock-free queue"
+          ]
+        },
+        {
+          "refId": "REF266",
+          "heading": 3,
+          "texts": [
+            "39.2 custom media port 設計"
+          ]
+        },
+        {
+          "refId": "REF267",
+          "heading": 3,
+          "texts": [
+            "39.3 データフロー全体"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0050",
+      "title": "§40 Audio Device Policy & §41 Usage Examples",
+      "kind": "requirement",
+      "summary": "Optional cpal-input feature for microphone source. Complete usage examples: client init, account add/register, make call with events, audio tap with WAV export, AI TTS source insertion.",
+      "language": "rust",
+      "slug": "audio_usage_examples",
+      "headingRefs": [
+        {
+          "refId": "REF268",
+          "heading": 2,
+          "texts": [
+            "40. audio device policy"
+          ]
+        },
+        {
+          "refId": "REF269",
+          "heading": 2,
+          "texts": [
+            "41. 具体的使用例"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0051",
+      "title": "§42 Validation Phase",
+      "kind": "requirement",
+      "summary": "Fail-fast config validation: transport feature, codec selection, TLS/SRTP feature consistency, sample rate, event bus capacity >16, etc. validate_client_config() implementation.",
+      "language": "rust",
+      "slug": "validation_phase",
+      "headingRefs": [
+        {
+          "refId": "REF270",
+          "heading": 2,
+          "texts": [
+            "42. validation フェーズ"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0052",
+      "title": "§43 Test Strategy — 4-Layer Architecture",
+      "kind": "test_policy",
+      "summary": "Layer 1 Unit Tests (mock, PJSIP-free), Layer 2 State-Machine Tests (MockBackend), Layer 3 SIP Integration (Docker), Layer 4 Interop (real PBX). Test scope for each layer.",
+      "language": "rust",
+      "slug": "test_strategy_4layer",
+      "headingRefs": [
+        {
+          "refId": "REF271",
+          "heading": 2,
+          "texts": [
+            "43. テスト戦略"
+          ]
+        },
+        {
+          "refId": "REF272",
+          "heading": 3,
+          "texts": [
+            "43.1 Layer 1: Unit Tests（PJSIP不要）"
+          ]
+        },
+        {
+          "refId": "REF273",
+          "heading": 3,
+          "texts": [
+            "43.2 Layer 2: Deterministic State-Machine Tests（PJSIP不要）"
+          ]
+        },
+        {
+          "refId": "REF274",
+          "heading": 3,
+          "texts": [
+            "43.3 Layer 3: SIP Integration Tests（ローカルSIP server）"
+          ]
+        },
+        {
+          "refId": "REF275",
+          "heading": 3,
+          "texts": [
+            "43.4 Layer 4: 相互接続試験（実 PBX / Proxy）"
+          ]
+        },
+        {
+          "refId": "REF276",
+          "heading": 3,
+          "texts": [
+            "43.5 プラットフォームテスト"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0053",
+      "title": "§43 M20 Test Layer Mapping & Dual Client Utility",
+      "kind": "test_policy",
+      "summary": "M20 feature-to-test-layer mapping table, placeholder test resolution conditions, DualClientContext test utility design for bidirectional testing.",
+      "language": "rust",
+      "slug": "m20_test_dual_client",
+      "headingRefs": [
+        {
+          "refId": "REF277",
+          "heading": 3,
+          "texts": [
+            "M20 追補: 新機能のテスト層マッピング"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0054",
+      "title": "§44 CI/CD & M20 Docker/Prebuilt Pipeline",
+      "kind": "build_ci",
+      "summary": "CI matrix (Windows/macOS/Ubuntu, feature combinations), Docker Integration Test Job (Asterisk), Prebuilt Refresh Pipeline (macOS), source build fallback.",
+      "language": "rust",
+      "slug": "cicd_docker_prebuilt",
+      "headingRefs": [
+        {
+          "refId": "REF278",
+          "heading": 2,
+          "texts": [
+            "44. CI/CD 要件"
+          ]
+        },
+        {
+          "refId": "REF279",
+          "heading": 3,
+          "texts": [
+            "M20 追補: Docker テスト job と prebuilt CI pipeline"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0055",
+      "title": "§45 Implementation Challenges & §46 Panic Policy",
+      "kind": "error_policy",
+      "summary": "Known challenges (callback-to-async bridge, audio timing drift, multi-source, native id reuse) with solutions. Panic policy: panic-free goal, catch_unwind in FFI callbacks with cleanup procedure.",
+      "language": "rust",
+      "slug": "challenges_panic_policy",
+      "headingRefs": [
+        {
+          "refId": "REF280",
+          "heading": 2,
+          "texts": [
+            "45. 既知の実装上の難所と設計上の解答"
+          ]
+        },
+        {
+          "refId": "REF281",
+          "heading": 2,
+          "texts": [
+            "46. panic policy"
+          ]
+        },
+        {
+          "refId": "REF282",
+          "heading": 3,
+          "texts": [
+            "46.1 catch_unwind 発火時のクリーンアップ手順"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0056",
+      "title": "§47 Memory Ownership & §48 Default Policies",
+      "kind": "data_model",
+      "summary": "Memory ownership rules for native callbacks. Default policy documentation: transport, codec, DTMF, audio delivery, SRTP, ICE defaults.",
+      "language": "rust",
+      "slug": "memory_ownership_defaults",
+      "headingRefs": [
+        {
+          "refId": "REF283",
+          "heading": 2,
+          "texts": [
+            "47. メモリ所有権規則"
+          ]
+        },
+        {
+          "refId": "REF284",
+          "heading": 2,
+          "texts": [
+            "48. デフォルトポリシーの明文化"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0057",
+      "title": "§49 lib.rs Template & §50 Acceptance Criteria",
+      "kind": "requirement",
+      "summary": "lib.rs module declarations and re-exports. 12 acceptance criteria covering build, bindings, prebuilt, multi-account, transports, codecs, DTMF, events, audio chunks, API unification.",
+      "language": "rust",
+      "slug": "lib_template_acceptance",
+      "headingRefs": [
+        {
+          "refId": "REF285",
+          "heading": 2,
+          "texts": [
+            "49. lib.rs 雛形"
+          ]
+        },
+        {
+          "refId": "REF286",
+          "heading": 2,
+          "texts": [
+            "50. 受け入れ基準"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0058",
+      "title": "§51 Conclusion",
+      "kind": "rationale",
+      "summary": "RFC closure statement: all requirements expanded to implementable granularity, no further design work needed before implementation phase.",
+      "language": "rust",
+      "slug": "conclusion_rfc_closure",
+      "headingRefs": [
+        {
+          "refId": "REF287",
+          "heading": 2,
+          "texts": [
+            "51. 結論"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0059",
+      "title": "§52 HTTP/WebSocket API Layer & Crate Split",
+      "kind": "architecture",
+      "summary": "Separate crate (siprs-server) for HTTP/WS API with Axum. Dependency direction: siprs-server depends on siprs only. Justification for split, TOML config for both crates.",
+      "language": "rust",
+      "slug": "http_ws_crate_split",
+      "headingRefs": [
+        {
+          "refId": "REF288",
+          "heading": 2,
+          "texts": [
+            "52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"
+          ]
+        },
+        {
+          "refId": "REF289",
+          "heading": 3,
+          "texts": [
+            "52.1 Crate 分割方針（設計判断）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0060",
+      "title": "§52.2-52.4 License & Multi-Instance Policy",
+      "kind": "architecture",
+      "summary": "Dual-license (MIT/Apache 2.0) with GPL linking exception. Multi-instance via PjsuaBackend singleton sharing. Non-Pure Rust FFI audit policy.",
+      "language": "rust",
+      "slug": "license_multi_ffi",
+      "headingRefs": [
+        {
+          "refId": "REF290",
+          "heading": 3,
+          "texts": [
+            "52.2 ライセンス方針"
+          ]
+        },
+        {
+          "refId": "REF291",
+          "heading": 3,
+          "texts": [
+            "52.3 マルチインスタンス方式（設計判断）"
+          ]
+        },
+        {
+          "refId": "REF292",
+          "heading": 3,
+          "texts": [
+            "52.4 PJSIP 非 Pure Rust の補足"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0061",
+      "title": "§53 Standalone Server Mode & Config",
+      "kind": "api_contract",
+      "summary": "siprs-server main.rs entry point, ServerConfig struct (bind_addr, db_path, auth), AuthConfig/AuthMode for security configuration.",
+      "language": "rust",
+      "slug": "standalone_server_config",
+      "headingRefs": [
+        {
+          "refId": "REF293",
+          "heading": 2,
+          "texts": [
+            "53. スタンドアロンサーバーモード"
+          ]
+        },
+        {
+          "refId": "REF294",
+          "heading": 3,
+          "texts": [
+            "53.1 起動モード"
+          ]
+        },
+        {
+          "refId": "REF295",
+          "heading": 3,
+          "texts": [
+            "53.2 設定ファイル構成"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0062",
+      "title": "§54 HTTP/WS API Protocol — REST & WebSocket",
+      "kind": "api_contract",
+      "summary": "REST API endpoint table (18 endpoints), WebSocket endpoints (control + audio), Axum router structure, WS message protocol (JSON text + binary audio frames). Event-audio correlation via sequence numbers.",
+      "language": "rust",
+      "slug": "http_ws_protocol",
+      "headingRefs": [
+        {
+          "refId": "REF296",
+          "heading": 2,
+          "texts": [
+            "54. HTTP/WebSocket API プロトコル構成"
+          ]
+        },
+        {
+          "refId": "REF297",
+          "heading": 3,
+          "texts": [
+            "54.1 REST API エンドポイント一覧"
+          ]
+        },
+        {
+          "refId": "REF298",
+          "heading": 3,
+          "texts": [
+            "54.2 WebSocket エンドポイント"
+          ]
+        },
+        {
+          "refId": "REF299",
+          "heading": 3,
+          "texts": [
+            "54.3 Axum Router 構造"
+          ]
+        },
+        {
+          "refId": "REF300",
+          "heading": 3,
+          "texts": [
+            "54.4 WebSocket メッセージプロトコル"
+          ]
+        },
+        {
+          "refId": "REF301",
+          "heading": 3,
+          "texts": [
+            "54.5 イベント-音声時間的相関保証（設計判断）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0063",
+      "title": "§55 Auth Model — JWT & Axum Middleware",
+      "kind": "security",
+      "summary": "JWT token issuance via SIP account auth, Axum JWT auth middleware layer, AuthConfig defaults (LocalhostOnly mode for development).",
+      "language": "rust",
+      "slug": "auth_jwt_middleware",
+      "headingRefs": [
+        {
+          "refId": "REF302",
+          "heading": 2,
+          "texts": [
+            "55. 認証・認可モデル"
+          ]
+        },
+        {
+          "refId": "REF303",
+          "heading": 3,
+          "texts": [
+            "55.1 JWT 発行エンドポイント"
+          ]
+        },
+        {
+          "refId": "REF304",
+          "heading": 3,
+          "texts": [
+            "55.2 Axum JWT 認証 Middleware"
+          ]
+        },
+        {
+          "refId": "REF305",
+          "heading": 3,
+          "texts": [
+            "55.3 認証設定のデフォルト"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0064",
+      "title": "§56 SQLite Persistence with SeaORM",
+      "kind": "data_model",
+      "summary": "SQLite + SeaORM for account/transport setting persistence. Table schemas (accounts, transport_configs, client_settings, tls_configs). Migration management via Makefile.",
+      "language": "rust",
+      "slug": "sqlite_schema",
+      "headingRefs": [
+        {
+          "refId": "REF306",
+          "heading": 2,
+          "texts": [
+            "56. 設定永続化 — SQLite + SeaORM"
+          ]
+        },
+        {
+          "refId": "REF307",
+          "heading": 3,
+          "texts": [
+            "56.1 テーブルスキーマ"
+          ]
+        },
+        {
+          "refId": "REF308",
+          "heading": 3,
+          "texts": [
+            "56.2 マイグレーション管理"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0065",
+      "title": "§57 Test Strategy Layer 5 — API Integration",
+      "kind": "test_policy",
+      "summary": "Layer 5 for HTTP/WS API integration tests. Extended test layer structure, test directory layout, Axum TestResponse and WebSocket test examples. Graphify/boundify integration notes.",
+      "language": "rust",
+      "slug": "test_apilayer5",
+      "headingRefs": [
+        {
+          "refId": "REF309",
+          "heading": 2,
+          "texts": [
+            "57. テスト戦略拡張 — Layer 5（HTTP/WebSocket API Integration Test）"
+          ]
+        },
+        {
+          "refId": "REF310",
+          "heading": 3,
+          "texts": [
+            "57.1 テスト層構造（拡張版）"
+          ]
+        },
+        {
+          "refId": "REF311",
+          "heading": 3,
+          "texts": [
+            "57.2 テストディレクトリ構成"
+          ]
+        },
+        {
+          "refId": "REF312",
+          "heading": 3,
+          "texts": [
+            "57.3 graphify-rfc + boundify-graph との連携"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0066",
+      "title": "§58 Semver Operations & §59 SIP Networking Details",
+      "kind": "config",
+      "summary": "0.x flexible versioning policy, cargo semver-checks for 1.0+. TLS certificate management via NativeEvent, DNS SRV/NAPTR delegation to PJSIP, multi-network interface configuration.",
+      "language": "rust",
+      "slug": "semver_sip_networking",
+      "headingRefs": [
+        {
+          "refId": "REF313",
+          "heading": 2,
+          "texts": [
+            "58. セマンティックバージョニング運用方針"
+          ]
+        },
+        {
+          "refId": "REF314",
+          "heading": 2,
+          "texts": [
+            "59. SIP ネットワーキング詳細"
+          ]
+        },
+        {
+          "refId": "REF315",
+          "heading": 3,
+          "texts": [
+            "59.1 TLS 証明書管理"
+          ]
+        },
+        {
+          "refId": "REF316",
+          "heading": 3,
+          "texts": [
+            "59.2 DNS SRV/NAPTR 解決"
+          ]
+        },
+        {
+          "refId": "REF317",
+          "heading": 3,
+          "texts": [
+            "59.3 マルチネットワークインターフェース"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0067",
+      "title": "§61 I/O Boundary Reference Information",
+      "kind": "architecture",
+      "summary": "Reference information for future graphify-rfc splitting: 7 observed I/O boundaries (crate, FFI, async, API, event, persistence, auth) with attributes, dependencies, and test split guidance.",
+      "language": "rust",
+      "slug": "io_boundary_reference",
+      "headingRefs": [
+        {
+          "refId": "REF318",
+          "heading": 2,
+          "texts": [
+            "61. graphify-rfc + boundify-graph のための参考情報 — RFC設計書が示す I/O 境界の手がかり"
+          ]
+        },
+        {
+          "refId": "REF319",
+          "heading": 2,
+          "texts": [
+            "60. 既存 RFC セクションとの対応関係"
+          ]
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "N0001",
+      "to": "N0007",
+      "type": "implements",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C001",
+          "precondition": "RFC defines purpose",
+          "postcondition": "Purpose is implemented by functional requirements",
+          "invariant": "Purpose scope remains audio-only"
+        }
+      ]
+    },
+    {
+      "from": "N0001",
+      "to": "N0009",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C002",
+          "precondition": "Concurrency model defined",
+          "postcondition": "Purpose implementable via async model",
+          "invariant": "Reactor thread model unchanged"
+        }
+      ]
+    },
+    {
+      "from": "N0002",
+      "to": "N0001",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C003",
+          "precondition": "Purpose defined",
+          "postcondition": "M20 items prioritized",
+          "invariant": "Priority ordering does not imply dependency"
+        }
+      ]
+    },
+    {
+      "from": "N0003",
+      "to": "N0001",
+      "type": "constrains",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C004",
+          "precondition": "Purpose scope known",
+          "postcondition": "Non-goals documented",
+          "invariant": "Tauri boundary respected"
+        }
+      ]
+    },
+    {
+      "from": "N0004",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C005",
+          "precondition": "Terms used in purpose",
+          "postcondition": "Terms defined",
+          "invariant": "Definitions stable within document"
+        }
+      ]
+    },
+    {
+      "from": "N0005",
+      "to": "N0001",
+      "type": "constrains",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C006",
+          "precondition": "Purpose sets scope",
+          "postcondition": "Compliance requirements constrain implementation",
+          "invariant": "MSRV, PJSIP version, OS targets fixed"
+        }
+      ]
+    },
+    {
+      "from": "N0006",
+      "to": "N0005",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C007",
+          "precondition": "Compliance requirements constrain implementation",
+          "postcondition": "Compliance requirements constrain implementation",
+          "invariant": "0.x phase flexible"
+        }
+      ]
+    },
+    {
+      "from": "N0007",
+      "to": "N0001",
+      "type": "constrains",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C008",
+          "precondition": "Purpose and scope defined",
+          "postcondition": "15 functional requirements specified",
+          "invariant": "List is normative and exhaustive"
+        }
+      ]
+    },
+    {
+      "from": "N0008",
+      "to": "N0001",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C009",
+          "precondition": "Crate architecture to be defined",
+          "postcondition": "Module structure and responsibility split documented",
+          "invariant": "Single crate with modular internal structure"
+        }
+      ]
+    },
+    {
+      "from": "N0009",
+      "to": "N0008",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C010",
+          "precondition": "Module structure defined",
+          "postcondition": "Concurrency model fits module boundaries",
+          "invariant": "Reactor is single-threaded"
+        }
+      ]
+    },
+    {
+      "from": "N0010",
+      "to": "N0009",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C011",
+          "precondition": "Concurrency model established",
+          "postcondition": "RuntimeCommand enum defined for serialization",
+          "invariant": "All PJSUA calls go through MPSC channel"
+        }
+      ]
+    },
+    {
+      "from": "N0011",
+      "to": "N0009",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C012",
+          "precondition": "Command serialization established",
+          "postcondition": "Public API designed around RuntimeCommand pattern",
+          "invariant": "API is Send+Sync"
+        }
+      ]
+    },
+    {
+      "from": "N0012",
+      "to": "N0011",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C013",
+          "precondition": "Public API needs identifiers",
+          "postcondition": "Newtype IDs with BiMap mapping defined",
+          "invariant": "IDs are NonZeroU64"
+        }
+      ]
+    },
+    {
+      "from": "N0013",
+      "to": "N0005",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C014",
+          "precondition": "Compliance baseline established",
+          "postcondition": "ClientConfig fully specified",
+          "invariant": "All fields have defaults"
+        }
+      ]
+    },
+    {
+      "from": "N0014",
+      "to": "N0013",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C015",
+          "precondition": "ClientConfig defined",
+          "postcondition": "AccountConfig specified with validation",
+          "invariant": "Validation rules enforced"
+        }
+      ]
+    },
+    {
+      "from": "N0015",
+      "to": "N0013",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C016",
+          "precondition": "ClientConfig includes transport/ICE",
+          "postcondition": "TransportConfig and ICE config specified",
+          "invariant": "Full ICE support, trickle ICE optional"
+        }
+      ]
+    },
+    {
+      "from": "N0016",
+      "to": "N0011",
+      "type": "constrains",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C017",
+          "precondition": "Public API design in progress",
+          "postcondition": "Error design constrains API return types",
+          "invariant": "All APIs return Result<T, SipError>"
+        }
+      ]
+    },
+    {
+      "from": "N0017",
+      "to": "N0016",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C018",
+          "precondition": "Error design constrains API return types",
+          "postcondition": "Error design constrains API return types",
+          "invariant": "No new error kinds for M20 commands"
+        }
+      ]
+    },
+    {
+      "from": "N0018",
+      "to": "N0011",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C019",
+          "precondition": "Public API needs event types",
+          "postcondition": "SipEventPayload and EventBus defined",
+          "invariant": "Events are loss-tolerant broadcast"
+        }
+      ]
+    },
+    {
+      "from": "N0019",
+      "to": "N0018",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C020",
+          "precondition": "Event model established",
+          "postcondition": "EventBus implementation and AccountEventReceiver defined",
+          "invariant": "AccountEventReceiver filters by account_id"
+        }
+      ]
+    },
+    {
+      "from": "N0020",
+      "to": "N0018",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C021",
+          "precondition": "Event model defined",
+          "postcondition": "Bus split rationale and delivery guarantees documented",
+          "invariant": "Events are observation-only, not source of truth"
+        }
+      ]
+    },
+    {
+      "from": "N0021",
+      "to": "N0018",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C022",
+          "precondition": "Event model defined",
+          "postcondition": "NativeEvent-to-SipEventPayload mapping complete",
+          "invariant": "All NativeEvent variants handled"
+        }
+      ]
+    },
+    {
+      "from": "N0022",
+      "to": "N0021",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C023",
+          "precondition": "NativeEvent-to-SipEventPayload mapping complete",
+          "postcondition": "NativeEvent-to-SipEventPayload mapping complete",
+          "invariant": "pjsip_inv_state values 0-4 covered"
+        }
+      ]
+    },
+    {
+      "from": "N0023",
+      "to": "N0021",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C024",
+          "precondition": "NativeEvent-to-SipEventPayload mapping complete",
+          "postcondition": "NativeEvent-to-SipEventPayload mapping complete",
+          "invariant": "MockBackend testable"
+        }
+      ]
+    },
+    {
+      "from": "N0024",
+      "to": "N0018",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C025",
+          "precondition": "Event model provides RawSIP bus",
+          "postcondition": "RawSipMessage struct defined",
+          "invariant": "Redact authorization when enabled"
+        }
+      ]
+    },
+    {
+      "from": "N0025",
+      "to": "N0011",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C026",
+          "precondition": "Account API needs state",
+          "postcondition": "Registration state machine defined",
+          "invariant": "Registration independent of call ability"
+        }
+      ]
+    },
+    {
+      "from": "N0026",
+      "to": "N0011",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C027",
+          "precondition": "Call API needs state",
+          "postcondition": "Call state machine defined",
+          "invariant": "max_calls enforced"
+        }
+      ]
+    },
+    {
+      "from": "N0027",
+      "to": "N0026",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C028",
+          "precondition": "States defined",
+          "postcondition": "Call API with answer semantics",
+          "invariant": "answer() only valid for incoming calls"
+        }
+      ]
+    },
+    {
+      "from": "N0028",
+      "to": "N0027",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C029",
+          "precondition": "Call API supports DTMF",
+          "postcondition": "DTMF specification and DtmfReceived defined",
+          "invariant": "3 methods: Inband, SIP INFO, RFC4733"
+        }
+      ]
+    },
+    {
+      "from": "N0029",
+      "to": "N0028",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C030",
+          "precondition": "DTMF spec defined",
+          "postcondition": "DtmfSentInfo and two-phase design specified",
+          "invariant": "500ms timeout fallback"
+        }
+      ]
+    },
+    {
+      "from": "N0030",
+      "to": "N0011",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C031",
+          "precondition": "Audio delivery part of API",
+          "postcondition": "Audio format model and AudioChunkPair defined",
+          "invariant": "IN/OUT paired by timestamp"
+        }
+      ]
+    },
+    {
+      "from": "N0031",
+      "to": "N0026",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C032",
+          "precondition": "Call model defined",
+          "postcondition": "Audio subscribe API with backpressure policy",
+          "invariant": "Realtime vs Lossless modes"
+        }
+      ]
+    },
+    {
+      "from": "N0032",
+      "to": "N0031",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C033",
+          "precondition": "Audio subscribe uses sources",
+          "postcondition": "AsyncAudioSource trait with RPITIT",
+          "invariant": "ErasedAudioSource auto-derived"
+        }
+      ]
+    },
+    {
+      "from": "N0033",
+      "to": "N0009",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C034",
+          "precondition": "Concurrency model defines audio worker",
+          "postcondition": "AudioMixer with RT boundary via lock-free queue",
+          "invariant": "No blocking operations in RT callback"
+        }
+      ]
+    },
+    {
+      "from": "N0034",
+      "to": "N0033",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C035",
+          "precondition": "AudioMixer defined",
+          "postcondition": "AudioWorkerTask and source lifecycle specified",
+          "invariant": "Sources added/removed at frame boundaries"
+        }
+      ]
+    },
+    {
+      "from": "N0035",
+      "to": "N0033",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C036",
+          "precondition": "Audio pipeline needs alignment",
+          "postcondition": "PairAligner with tolerance-based matching",
+          "invariant": "Zero-padding on missing data"
+        }
+      ]
+    },
+    {
+      "from": "N0036",
+      "to": "N0033",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C037",
+          "precondition": "Audio pipeline needs resampling",
+          "postcondition": "ResamplePipeline with rubato",
+          "invariant": "Stereo L=IN, R=OUT mapping"
+        }
+      ]
+    },
+    {
+      "from": "N0037",
+      "to": "N0009",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C038",
+          "precondition": "FFI needed for PJSUA access",
+          "postcondition": "PJSIP FFI layer with safe wrappers",
+          "invariant": "Unsafe isolated to ffi/ module"
+        }
+      ]
+    },
+    {
+      "from": "N0038",
+      "to": "N0037",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C039",
+          "precondition": "FFI layer and SipBackend exist",
+          "postcondition": "Dual Client callback routing specified",
+          "invariant": "Single Reactor + EventBus split"
+        }
+      ]
+    },
+    {
+      "from": "N0039",
+      "to": "N0005",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C040",
+          "precondition": "Build requirements defined",
+          "postcondition": "build.rs strategy and OS dependencies specified",
+          "invariant": "Prebuilt-first, source fallback"
+        }
+      ]
+    },
+    {
+      "from": "N0040",
+      "to": "N0014",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C041",
+          "precondition": "AccountConfig defines codec policy",
+          "postcondition": "Codec enforcement and fallback rules specified",
+          "invariant": "PCMU and Opus only"
+        }
+      ]
+    },
+    {
+      "from": "N0041",
+      "to": "N0040",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C042",
+          "precondition": "Codec policy defined",
+          "postcondition": "Explicit vs auto mode specified",
+          "invariant": "Opus=255, PCMU=254 in auto mode"
+        }
+      ]
+    },
+    {
+      "from": "N0042",
+      "to": "N0015",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C043",
+          "precondition": "Transport config defined",
+          "postcondition": "SRTP spec and reconnection policy specified",
+          "invariant": "SRTP feature-gated"
+        }
+      ]
+    },
+    {
+      "from": "N0043",
+      "to": "N0001",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C044",
+          "precondition": "Lifetime management needed",
+          "postcondition": "Shutdown specification with cancellation safety",
+          "invariant": "Shutdown is idempotent"
+        }
+      ]
+    },
+    {
+      "from": "N0044",
+      "to": "N0043",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C045",
+          "precondition": "Shutdown spec defined",
+          "postcondition": "M20 command routing during shutdown specified",
+          "invariant": "GetAccountInfo permitted, ConfConnect rejected"
+        }
+      ]
+    },
+    {
+      "from": "N0045",
+      "to": "N0009",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C046",
+          "precondition": "Runtime state owned by reactor",
+          "postcondition": "ClientState, AccountEntry, CallEntry defined",
+          "invariant": "Read-only snapshots via read().await"
+        }
+      ]
+    },
+    {
+      "from": "N0046",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C047",
+          "precondition": "Observability needed for operations",
+          "postcondition": "tracing, metrics, and ClientCapabilities specified",
+          "invariant": "Metrics optional via feature flag"
+        }
+      ]
+    },
+    {
+      "from": "N0047",
+      "to": "N0001",
+      "type": "constrains",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C048",
+          "precondition": "Security requirements known",
+          "postcondition": "Security measures and platform differences documented",
+          "invariant": "SecretString for passwords"
+        }
+      ]
+    },
+    {
+      "from": "N0048",
+      "to": "N0027",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C049",
+          "precondition": "Call API defined",
+          "postcondition": "Incoming call handling and REFER/transfer specified",
+          "invariant": "Blind transfer mandatory"
+        }
+      ]
+    },
+    {
+      "from": "N0049",
+      "to": "N0033",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C050",
+          "precondition": "AudioMixer defined",
+          "postcondition": "Media bridge with custom media port",
+          "invariant": "Lock-free queue separates RT from async"
+        }
+      ]
+    },
+    {
+      "from": "N0050",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C051",
+          "precondition": "Usage needs documentation",
+          "postcondition": "Device policy and usage examples provided",
+          "invariant": "Microphone is optional feature"
+        }
+      ]
+    },
+    {
+      "from": "N0051",
+      "to": "N0013",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C052",
+          "precondition": "ClientConfig defined",
+          "postcondition": "Validation phase with fail-fast rules",
+          "invariant": "All validation rules enumerated"
+        }
+      ]
+    },
+    {
+      "from": "N0052",
+      "to": "N0007",
+      "type": "validates",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C053",
+          "precondition": "Test strategy needed for requirements",
+          "postcondition": "4-layer test strategy defined",
+          "invariant": "Each layer has defined scope"
+        }
+      ]
+    },
+    {
+      "from": "N0053",
+      "to": "N0052",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C054",
+          "precondition": "4-layer test strategy defined",
+          "postcondition": "4-layer test strategy defined",
+          "invariant": "DualClientContext for bidirectional tests"
+        }
+      ]
+    },
+    {
+      "from": "N0054",
+      "to": "N0039",
+      "type": "validates",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C055",
+          "precondition": "Build strategy defined",
+          "postcondition": "CI/CD pipeline and Docker tests specified",
+          "invariant": "Matrix covers 3 OSes"
+        }
+      ]
+    },
+    {
+      "from": "N0055",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C056",
+          "precondition": "Known challenges documented",
+          "postcondition": "Panic policy with cleanup procedure",
+          "invariant": "catch_unwind in FFI callbacks"
+        }
+      ]
+    },
+    {
+      "from": "N0056",
+      "to": "N0037",
+      "type": "constrains",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C057",
+          "precondition": "FFI layer needs memory rules",
+          "postcondition": "Memory ownership rules and default policies",
+          "invariant": "pj_str_t always Rust-owned"
+        }
+      ]
+    },
+    {
+      "from": "N0057",
+      "to": "N0007",
+      "type": "validates",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C058",
+          "precondition": "Acceptance criteria needed",
+          "postcondition": "lib.rs template and 12 acceptance criteria",
+          "invariant": "All criteria must pass for completion"
+        }
+      ]
+    },
+    {
+      "from": "N0058",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C059",
+          "precondition": "RFC complete",
+          "postcondition": "Conclusion declaring all requirements implementable",
+          "invariant": "No further design work needed"
+        }
+      ]
+    },
+    {
+      "from": "N0059",
+      "to": "N0008",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C060",
+          "precondition": "Core crate structure defined",
+          "postcondition": "HTTP/WS API layer in separate crate",
+          "invariant": "siprs-server depends on siprs, not inverse"
+        }
+      ]
+    },
+    {
+      "from": "N0060",
+      "to": "N0059",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C061",
+          "precondition": "HTTP/WS API layer in separate crate",
+          "postcondition": "HTTP/WS API layer in separate crate",
+          "invariant": "GPL linking exception"
+        }
+      ]
+    },
+    {
+      "from": "N0061",
+      "to": "N0059",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C062",
+          "precondition": "Server crate needed",
+          "postcondition": "Standalone server mode and config defined",
+          "invariant": "AuthConfig defaults to LocalhostOnly"
+        }
+      ]
+    },
+    {
+      "from": "N0062",
+      "to": "N0061",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C063",
+          "precondition": "Server mode defined",
+          "postcondition": "REST and WebSocket protocol detailed",
+          "invariant": "Event-audio correlation via sequence numbers"
+        }
+      ]
+    },
+    {
+      "from": "N0063",
+      "to": "N0062",
+      "type": "constrains",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C064",
+          "precondition": "API protocol defined",
+          "postcondition": "JWT auth model and middleware specified",
+          "invariant": "Default: LocalhostOnly"
+        }
+      ]
+    },
+    {
+      "from": "N0064",
+      "to": "N0061",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C065",
+          "precondition": "Server needs persistence",
+          "postcondition": "SQLite schema and migrations specified",
+          "invariant": "rusqlite bundled feature"
+        }
+      ]
+    },
+    {
+      "from": "N0065",
+      "to": "N0052",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C066",
+          "precondition": "Test strategy for core exists",
+          "postcondition": "Layer 5 API integration tests added",
+          "invariant": "Test directories mirror API structure"
+        }
+      ]
+    },
+    {
+      "from": "N0066",
+      "to": "N0006",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C067",
+          "precondition": "Versioning policy defined",
+          "postcondition": "Semver operations and networking details added",
+          "invariant": "0.x flexible, cargo semver-checks at 1.0"
+        }
+      ]
+    },
+    {
+      "from": "N0067",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C068",
+          "precondition": "I/O boundaries need documenting",
+          "postcondition": "Reference information for future splitting",
+          "invariant": "This is reference, not prescriptive"
+        }
+      ]
+    }
+  ]
+}
