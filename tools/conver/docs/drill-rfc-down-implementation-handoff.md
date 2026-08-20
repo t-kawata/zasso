@@ -20,7 +20,7 @@
 |----------|------|
 | `.claude/commands/drill-rfc-down.md` | 骨格完成。YAML / Role / Arguments / Workflow（Step 0〜5 見出し＋説明） |
 | `.claude/commands/drill-rfc-down-old.md` | 旧版バックアップ |
-| `.claude/scripts/drill-rfc-down/preflight.js` | **Step 0 実装済み・テスト済み** |
+| `.claude/scripts/drill-rfc-down/preflight.cjs` | **Step 0 実装済み・テスト済み**（PX-157 で ESM 共存のため `.cjs` にリネーム） |
 | `tests/drill-rfc-down/preflight.test.cjs` | 32 テスト Green |
 | `Makefile` | `test-drill-rfc-down` ターゲット追加済み |
 | `docs/drill-rfc-down-implementation-handoff.md` | 本ドキュメント |
@@ -56,19 +56,35 @@
 | graphify 検証 | `.claude/scripts/rfc-graph/`（`verify.js`, `deduplicate-headings.js`, `resolve-by-heading.js`, `query.js`, `validate-slug.js`, `show-graph-summary-markdown.js` 等） | Step 2 |
 | boundify | `.claude/scripts/rfc-graph/`（`boundify-graph-to-dirs.js`, `validate-dirs-tree-schema.js`, `verify-graph-integrity.js`, `generate-all-dir-templates.js`, `generate-dir-template.js` 等） | Step 3 |
 | split / phasify | `.claude/scripts/rfc-graph/`（`phasify-graph-and-dirs-files-tree.js`, `consolidate-phase-tickets.js`, `update-split-step-status.js` 等） | Step 4 |
-| パス解決 | `.claude/scripts/tickets/resolve-ticket-context.js` の `resolveRfcPaths` ／ `.claude/scripts/drill-rfc-down/preflight.js` の `resolvePipelinePaths` | resolvedPaths 優先 → metadata.source フォールバック |
+| パス解決 | `.claude/scripts/tickets/resolve-ticket-context.js` の `resolveRfcPaths` ／ `.claude/scripts/drill-rfc-down/preflight.cjs` の `resolvePipelinePaths` | resolvedPaths 優先 → metadata.source フォールバック |
 | テストパターン | `tests/crystalize-readme/derive-output-paths.test.cjs`（spawnSync CLI + 関数直叩き）／ `tests/drill-rfc-down/preflight.test.cjs`（Step 0 の実例） | 全ステップの型 |
 
 ## 5. Step 1: grill（勘所）
 
-**目的**: Preflight で確認した全資料・README.md 内の RESIDUE・事前会話を**完全に理解**し、grill 方式の質問攻めで進化内容を確定する。**このステップで RFC ファイルへの編集が完了する**。
+**目的**: 資料・README.md 内の RESIDUE・事前会話を**完全に理解**し、grill 方式の質問攻めで進化内容を確定する。**このステップで RFC ファイルへの編集が完了する**。実装済み（PX-157/158/159）。
 
-- **簡易 grill もどき禁止**。`.claude/commands/grill-me-for-rfc.md`（および旧 `drill-rfc-down-old.md`）に定義された「スクリプトを多用した厳密な grill」と同一の厳格さで行う。
-- `init-for-drill-rfc-down.js` でセッション初期化。既存セッションがあれば継続（DesignTree / Status / CheckList は grill-me-for-rfc と同一機構を再利用）。
-- grill 進行: DesignTree に不足領域をノード追加 → 質問（**Q番号・背景と理由・改行区切り選択肢・推奨と根拠** の4点構造）→ **`validate-question-format.js` ゲート通過必須** → 回答でノード解決 → 全解決で CheckList 生成 → RFC 追記。
-- RFC 編集の安全策: **追記優先・全文書き換え/セクション削除/破壊的変更禁止**。I/O 境界参照情報を追記（`insert-io-boundary-template.js` → AI が生成 → `check-io-stubs.js` で残0確認）。TBD / TODO / スタブ混入禁止。
-- ⚠ **この時点で GRAPH / Dirs-Tree / Tickets と矛盾する破壊的変更が RFC に対して行われる**。それを検出・防止する**スクリプト安全策を綿密に設計**すること（例: 追記前後で RFC の差分を機械抽出し、後段 Step 2〜4 で確実に反映できることを保証する）。
-- 実装アプローチ: 専用スクリプトを TDD で作るか、コマンド手続きを丁寧に書くかを、**設計判断としてユーザーと合意してから**進める。
+**構造**: Step 1 は **1-1〜1-12 のサブステップ**として `.claude/commands/drill-rfc-down.md` に定義済み。各サブステップは目的＋1行スクリプト呼び出し＋`update-status.js set-step` で構成され、AI が次にすべき行動を英語で常時把握できる。
+
+**スクリプト対応**（全て `$DRILL_DIR` 配下・drill 自己完結）:
+
+| サブステップ | スクリプト | 役割 |
+|---|---|---|
+| 1-1 | `session-init.js` | `$SESSION_DIR` 生成・Status/DesignTree/CheckList 初期化/継続 |
+| 1-2 | `rfc-evolution.js capture` | RFC 編集前スナップショット（baseline.json） |
+| 1-4 | `update-tree.js add` | DesignTree 初期ノード生成 |
+| 1-5 | `validate-question-format.js` + `update-tree.js resolve` | 厳密 grill（4点構造質問・ゲート必須） |
+| 1-6 | `update-tree.js open-count` + set-state | 終了判定 |
+| 1-7 | `generate-checklist.js` | CheckList 生成・承認 |
+| 1-11 | `rfc-evolution.js verify` | **安全策**: append-only ゲート・delta 抽出・well-formedness・矛盾候補 |
+| 1-12 | `check-all-schema.js` + `rfc-evolution.js clean` | 完了宣言 |
+
+**RFC 編集の安全策**: `rfc-evolution.js`（PX-158）が機械検証する。
+- **append-only ゲート**: baseline 全行が現在の RFC に順序部分列として存在（削除・改変・並べ替え=違反）
+- **delta 抽出**: `$SESSION_DIR/delta.json`（heading+lineRange 付きセクション）を Step 2 が消費
+- **well-formedness**: TBD/TODO/スタブ/`[::IO-INFO-STUB::]` 残0・I/O 境界情報必須
+- **矛盾候補**: 新セクション見出し × GRAPH/Dirs-Tree/Tickets のトークン重複（AI が最終判断）
+
+**進捗管理**: `update-status.js`（PX-158）が Step 1〜5 全体のステップ定義テーブル（`STEP_DEFINITIONS`）でサブステップを管理。常に currentStep + 英語 nextAction を出力。Step 2〜5 はプレースホルダとして登録済み（次フェーズのチケットで gate を埋める）。
 
 ## 6. Step 2: graphify（勘所）
 

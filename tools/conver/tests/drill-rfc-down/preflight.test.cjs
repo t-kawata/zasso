@@ -17,7 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const SCRIPT = path.resolve(__dirname, '../../.claude/scripts/drill-rfc-down/preflight.js');
+const SCRIPT = path.resolve(__dirname, '../../.claude/scripts/drill-rfc-down/preflight.cjs');
 const {
   parseArguments,
   collectMaterialPaths,

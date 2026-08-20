@@ -30,6 +30,10 @@ const EXIT_FAILURE = 1;
 const TICKETS_ARG_PREFIX = '--tickets=';
 const TICKETS_FILENAME = 'Tickets.json';
 const README_FILENAME = 'README.md';
+const SESSION_DIR_NAME = 'drills';
+const DRILL_DIR = '.claude/scripts/drill-rfc-down';
+const VARIABLES_HEADER = '[VARIABLES]';
+const VARIABLES_FOOTER = '[END VARIABLES]';
 
 const ARTIFACT_LABELS = {
   rfc: 'RFC',
@@ -240,12 +244,37 @@ function formatResolutionErrorMessage(pathSource, sourcePath) {
 }
 
 /**
+ * Format the machine-bindable [VARIABLES] block for Step 1.
+ *
+ * Emits 8 VAR=value lines so the AI binds them verbatim without interpreting
+ * the Markdown report. Wrapped in [VARIABLES] / [END VARIABLES] markers.
+ *
+ * @param {Object} vars — rfcPath, rfcDir, graphPath, dirsTreePath, readmePath, ticketsPath, sessionDir, drillDir
+ * @returns {string} [VARIABLES] block
+ */
+function formatVariablesBlock(vars) {
+  const { rfcPath, rfcDir, graphPath, dirsTreePath, readmePath, ticketsPath, sessionDir, drillDir } = vars;
+  return [
+    VARIABLES_HEADER,
+    `RFC_PATH=${rfcPath}`,
+    `RFC_DIR=${rfcDir}`,
+    `GRAPH_PATH=${graphPath}`,
+    `DIRS_TREE_PATH=${dirsTreePath}`,
+    `README_PATH=${readmePath}`,
+    `TICKETS_PATH=${ticketsPath}`,
+    `SESSION_DIR=${sessionDir}`,
+    `DRILL_DIR=${drillDir}`,
+    VARIABLES_FOOTER,
+  ].join('\n');
+}
+
+/**
  * Format the successful Preflight report as Markdown.
  *
- * @param {Object} params — materialSummary, pipeline paths, pathSource, present
+ * @param {Object} params — materialSummary, pipeline paths, pathSource, present, variablesBlock (optional)
  * @returns {string} Markdown report
  */
-function formatPreflightMarkdown({ materialSummary, pipeline, pathSource, present }) {
+function formatPreflightMarkdown({ materialSummary, pipeline, pathSource, present, variablesBlock }) {
   const { rfcPath, graphPath, dirsTreePath, readmePath } = pipeline;
   const materialSection = materialSummary.length === 0
     ? '### Input materials\n\nNone.'
@@ -263,7 +292,7 @@ function formatPreflightMarkdown({ materialSummary, pipeline, pathSource, presen
     .map(([label, key, artifactPath]) => `| ${label} | ${artifactPath} | ${present[key] ? '✅' : '❌'} |`)
     .join('\n');
 
-  return [
+  const lines = [
     '## /drill-rfc-down Preflight',
     '',
     '✅ All required files exist. Proceed to **Step 1: grill**.',
@@ -279,7 +308,11 @@ function formatPreflightMarkdown({ materialSummary, pipeline, pathSource, presen
     `Path source: ${pathSource}`,
     '',
     '**Next**: Read all materials and the RESIDUE in README.md, then proceed to **Step 1: grill**.',
-  ].join('\n');
+  ];
+  if (variablesBlock) {
+    lines.push('', '### Variables for Step 1', '', variablesBlock);
+  }
+  return lines.join('\n');
 }
 
 /**
@@ -325,11 +358,23 @@ function main() {
       process.stderr.write(`${formatAbortMessage(missing)}\n`);
       process.exit(EXIT_FAILURE);
     }
+    const rfcDir = path.dirname(rfcPath);
+    const variablesBlock = formatVariablesBlock({
+      rfcPath,
+      rfcDir,
+      graphPath,
+      dirsTreePath,
+      readmePath,
+      ticketsPath,
+      sessionDir: path.join(rfcDir, SESSION_DIR_NAME),
+      drillDir: DRILL_DIR,
+    });
     process.stdout.write(`${formatPreflightMarkdown({
       ...materialResult,
       pipeline: { rfcPath, graphPath, dirsTreePath, readmePath },
       pathSource,
       present,
+      variablesBlock,
     })}\n`);
     process.exit(EXIT_SUCCESS);
   } catch (error) {
@@ -352,10 +397,15 @@ module.exports = {
   formatResolutionErrorMessage,
   formatPreflightMarkdown,
   formatAbortMessage,
+  formatVariablesBlock,
   main,
   TICKETS_ARG_PREFIX,
   TICKETS_FILENAME,
   README_FILENAME,
+  SESSION_DIR_NAME,
+  DRILL_DIR,
+  VARIABLES_HEADER,
+  VARIABLES_FOOTER,
   ARTIFACT_LABELS,
   EXIT_SUCCESS,
   EXIT_FAILURE,
