@@ -4,9 +4,9 @@
  *
  * Manages the ENTIRE drill pipeline (Step 1-5) at sub-step granularity. The step
  * definition table (STEP_DEFINITIONS) registers every sub-step 1-1..1-12 plus
- * extensible placeholders for Steps 2-5. Every invocation prints the current
- * step and the next AI action in English, so the AI can never overlook the next
- * required work.
+ * the Step 2-5 gate steps (graphify / boundify / split / verify). Every
+ * invocation prints the current step and the next AI action in English, so the
+ * AI can never overlook the next required work.
  *
  * Operations:
  *   set-step <STEP-ID>      - Set the current sub-step (validated against the table)
@@ -38,9 +38,9 @@ const VALID_STATES = [
 /**
  * Step definition table for the whole drill pipeline.
  *
- * Steps 2-5 are registered as placeholders so later tickets can extend the
- * pipeline by filling in their gate scripts and nextAction text — the table
- * schema does not need to change.
+ * Step 1 (grill) is sub-step granular (1-1..1-12); Steps 2-5 (graphify /
+ * boundify / split / verify) are gate steps driven by their step scripts
+ * (graphify-step.js / boundify-step.js / split-step.js / verify-step.js).
  */
 const STEP_DEFINITIONS = {
   '1-1': { title: 'session-init', nextAction: 'Run session-init.js to create or resume the drill session in $SESSION_DIR.' },
@@ -55,10 +55,10 @@ const STEP_DEFINITIONS = {
   '1-10': { title: 're-grill', nextAction: 'If new unresolved nodes exist, set-state GRILLING and inc-loop then return to 1-5; otherwise proceed.' },
   '1-11': { title: 'evolution-verify', nextAction: 'Run rfc-evolution.js verify <RFC_PATH>; fix violations until it exits 0.' },
   '1-12': { title: 'complete', nextAction: 'Set-state DONE, run check-all-schema.js, run rfc-evolution.js clean, and hand delta.json to Step 2.' },
-  '2-1': { title: 'graphify', nextAction: '[Step 2 not implemented] Apply the evolution delta to GRAPH via crud.js and run verify.js.' },
-  '3-1': { title: 'boundify', nextAction: '[Step 3 not implemented] Apply the delta to Dirs-Tree and validate with validate-dirs-tree-schema.js.' },
-  '4-1': { title: 'split', nextAction: '[Step 4 not implemented] Add tickets from the delta and validate Tickets.json.' },
-  '5-1': { title: 'verify', nextAction: '[Step 5 not implemented] Check the five consistencies; loop back to Step 2 on failure.' },
+  '2-1': { title: 'graphify', nextAction: 'Run graphify-step.js --stage with delta.json, design the GRAPH evolution on the staging copy with crud.js, then --approve (or --reject).' },
+  '3-1': { title: 'boundify', nextAction: 'Run boundify-step.js --stage with the graph-delta, design the Dirs-Tree evolution on the staging copy with dirs-tree-crud.js, then --approve (or --reject).' },
+  '4-1': { title: 'split', nextAction: 'Run split-step.js --stage with the dirs-tree-delta, edit the staging Tickets.json with add-ticket.js / update-ticket.js, then --approve (or --reject).' },
+  '5-1': { title: 'verify', nextAction: 'Run verify-step.js with the 5 artifacts; on FAIL (exit 1) return to Step 2 and re-verify until PASS.' },
 };
 
 /** Read Status.json from the session directory. */

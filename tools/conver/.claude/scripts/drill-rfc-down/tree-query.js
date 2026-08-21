@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * tree-query.js <rfc-dir> <operation> [args...]
+ * tree-query.js <session-dir> <operation> [args...]
  *
  * A read-only script to display and search the DesignTree with high readability.
  * Provides tree rendering, search, path display, and statistics so the AI can
@@ -15,13 +15,13 @@
 import fs from "fs";
 import path from "path";
 
-const [,, rfcDir, operation, ...args] = process.argv;
-if (!rfcDir || !operation) {
-  console.error("Usage: tree-query.js <rfc-dir> <operation> [args...]");
+const [,, sessionDir, operation, ...args] = process.argv;
+if (!sessionDir || !operation) {
+  console.error("Usage: tree-query.js <session-dir> <operation> [args...]");
   process.exit(1);
 }
 
-const treePath = path.join(path.resolve(rfcDir), "DesignTree.json");
+const treePath = path.join(path.resolve(sessionDir), "DesignTree.json");
 if (!fs.existsSync(treePath)) {
   console.error(`DesignTree.json not found: ${treePath}`);
   process.exit(1);
@@ -111,7 +111,7 @@ switch (operation) {
   case "search": {
     const keyword = args[0];
     if (!keyword) {
-      console.error("Usage: tree-query.js <rfc-dir> search <keyword>");
+      console.error("Usage: tree-query.js <session-dir> search <keyword>");
       process.exit(1);
     }
     const kw = keyword.toLowerCase();
@@ -139,7 +139,7 @@ switch (operation) {
   case "path": {
     const nodeId = args[0];
     if (!nodeId) {
-      console.error("Usage: tree-query.js <rfc-dir> path <node-id>");
+      console.error("Usage: tree-query.js <session-dir> path <node-id>");
       process.exit(1);
     }
     const found = findNodeWithPath(tree.nodes, nodeId);

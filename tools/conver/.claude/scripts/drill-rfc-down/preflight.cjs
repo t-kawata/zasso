@@ -45,6 +45,12 @@ const ARTIFACT_LABELS = {
 /**
  * Parse command line arguments.
  *
+ * The /drill-rfc-down Step 0 command may arrive either as pre-split argv
+ * entries (shell word splitting) or as a single quoted string ("$ARGUMENTS").
+ * Material tokens are therefore normalized by splitting on whitespace and
+ * dropping empty tokens, so an empty argument list yields no materials and a
+ * space-separated multi-material string is decomposed correctly.
+ *
  * @param {string[]} [args] — Test argument array (defaults to process.argv when omitted)
  * @returns {{ ticketsPath: string, materialArgs: string[] }}
  * @throws {Error} If an unknown flag (starting with `-`) is present
@@ -59,7 +65,9 @@ function parseArguments(args) {
     } else if (arg.startsWith('-')) {
       throw new Error(`Unknown argument: ${arg}`);
     } else {
-      materialArgs.push(arg);
+      for (const token of arg.split(/\s+/)) {
+        if (token.length > 0) materialArgs.push(token);
+      }
     }
   }
   const resolvedTicketsPath = ticketsPath

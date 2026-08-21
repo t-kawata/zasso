@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * check-all-schema.js <rfc-dir>
+ * check-all-schema.js <session-dir>
  *
  * Validates the schema of Status.json, DesignTree.json, and CheckList.md.
  * Exported as a module and called internally at the end of every script's success path.
  * Also executable standalone as a CLI.
  *
  * Usage (CLI):
- *   node check-all-schema.js <rfc-dir>
+ *   node check-all-schema.js <session-dir>
  *
  * Usage (import within scripts):
  *   import { validateAll } from './check-all-schema.js';
- *   const errors = validateAll(rfcDir);
+ *   const errors = validateAll(sessionDir);
  *   if (errors.length) { process.exit(1); }
  */
 import fs from "fs";
@@ -35,9 +35,9 @@ const Q_ID_PATTERN = /^Q\d+[a-z]?$/;
 
 // ─── Status.json schema validation ───
 
-export function validateStatus(rfcDir) {
+export function validateStatus(sessionDir) {
   const errors = [];
-  const statusPath = path.join(rfcDir, "Status.json");
+  const statusPath = path.join(sessionDir, "Status.json");
 
   if (!fs.existsSync(statusPath)) {
     errors.push("Status.json: file does not exist");
@@ -79,9 +79,9 @@ export function validateStatus(rfcDir) {
 
 // ─── DesignTree.json schema validation ───
 
-export function validateDesignTree(rfcDir) {
+export function validateDesignTree(sessionDir) {
   const errors = [];
-  const treePath = path.join(rfcDir, "DesignTree.json");
+  const treePath = path.join(sessionDir, "DesignTree.json");
 
   if (!fs.existsSync(treePath)) {
     errors.push("DesignTree.json: file does not exist");
@@ -156,9 +156,9 @@ function validateNodeArray(nodes, pathPrefix, seenIds) {
 
 // ─── CheckList.md schema validation ───
 
-export function validateChecklist(rfcDir) {
+export function validateChecklist(sessionDir) {
   const errors = [];
-  const checklistPath = path.join(rfcDir, "CheckList.md");
+  const checklistPath = path.join(sessionDir, "CheckList.md");
 
   if (!fs.existsSync(checklistPath)) {
     errors.push("CheckList.md: file does not exist");
@@ -180,11 +180,11 @@ export function validateChecklist(rfcDir) {
  * Validates the schema of all 3 files and returns an array of error messages.
  * Returns an empty array if there are no errors.
  */
-export function validateAll(rfcDir) {
+export function validateAll(sessionDir) {
   const errors = [];
-  errors.push(...validateStatus(rfcDir));
-  errors.push(...validateDesignTree(rfcDir));
-  errors.push(...validateChecklist(rfcDir));
+  errors.push(...validateStatus(sessionDir));
+  errors.push(...validateDesignTree(sessionDir));
+  errors.push(...validateChecklist(sessionDir));
   return errors;
 }
 
@@ -196,12 +196,12 @@ const isMainModule =
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isMainModule) {
-  const cliRfcDir = process.argv[2];
-  if (!cliRfcDir) {
-    console.error("Usage: check-all-schema.js <rfc-dir>");
+  const cliSessionDir = process.argv[2];
+  if (!cliSessionDir) {
+    console.error("Usage: check-all-schema.js <session-dir>");
     process.exit(1);
   }
-  const resolved = path.resolve(cliRfcDir);
+  const resolved = path.resolve(cliSessionDir);
   const errors = validateAll(resolved);
   if (errors.length > 0) {
     process.stdout.write(JSON.stringify({ ok: false, errors }, null, 2) + "\n");

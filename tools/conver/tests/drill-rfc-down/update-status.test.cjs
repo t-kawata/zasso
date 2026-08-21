@@ -108,7 +108,7 @@ describe('update-status.js', () => {
     assert.ok(out.nextAction.length > 0);
   });
 
-  it('step table covers Step 1 sub-steps 1-1..1-12 and Step 2-5 placeholders', async () => {
+  it('step table covers Step 1 sub-steps 1-1..1-12 and Step 2-5 gate steps', async () => {
     const mod = await import(pathToFileURL(UPDATE_STATUS).href);
     const keys = Object.keys(mod.STEP_DEFINITIONS).sort();
     for (let i = 1; i <= 12; i++) {
@@ -116,7 +116,16 @@ describe('update-status.js', () => {
     }
     const stepPrefixes = new Set(keys.map((k) => k.split('-')[0]));
     for (const p of ['2', '3', '4', '5']) {
-      assert.ok(stepPrefixes.has(p), `Step ${p} placeholder present`);
+      assert.ok(stepPrefixes.has(p), `Step ${p} gate step present`);
+    }
+  });
+
+  it('Step 2-5 gate steps have real nextAction, not placeholders', async () => {
+    const mod = await import(pathToFileURL(UPDATE_STATUS).href);
+    for (const step of ['2-1', '3-1', '4-1', '5-1']) {
+      const def = mod.STEP_DEFINITIONS[step];
+      assert.ok(def, `${step} present`);
+      assert.doesNotMatch(def.nextAction, /not implemented/i, `${step} has real nextAction`);
     }
   });
 

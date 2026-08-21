@@ -83,22 +83,22 @@ describe('Step 1-5 grill First-Class Rules', () => {
   it('documents the 4-part question structure', () => {
     const step15 = subStepSection('1-5');
     assert.match(step15, /Q番号|Q<number>|Q[0-9]/, 'question ID');
-    assert.match(step15, /背景と理由/, 'background and rationale');
-    assert.match(step15, /改行区切り|選択肢/, 'line-broken choices');
-    assert.match(step15, /推奨と根拠|推奨/, 'recommendation with rationale');
+    assert.match(step15, /Background and rationale/i, 'background and rationale');
+    assert.match(step15, /Newline-separated options/i, 'line-broken choices');
+    assert.match(step15, /Recommendation with reasoning/i, 'recommendation with rationale');
   });
 
   it('documents coarse-granularity bundling, two-pass, and per-turn summary', () => {
     const step15 = subStepSection('1-5');
-    assert.match(step15, /3-5|粗粒度|バンドル/, 'question bundling granularity');
-    assert.match(step15, /2パス|2 パス|全体.*詳細/, 'two-pass approach');
-    assert.match(step15, /ターン.*要約|要約/, 'per-turn summary');
+    assert.match(step15, /Coarse-grained bundling/i, 'question bundling granularity');
+    assert.match(step15, /Two-pass approach/i, 'two-pass approach');
+    assert.match(step15, /Summarize.*turn/i, 'per-turn summary');
   });
 
   it('documents no RFC writing during grill and immediate node updates', () => {
     const step15 = subStepSection('1-5');
-    assert.match(step15, /RFC を書かない|RFCを書かない/, 'no RFC writing during grill');
-    assert.match(step15, /即時|即座/, 'immediate node resolution');
+    assert.match(step15, /Do not write the RFC/i, 'no RFC writing during grill');
+    assert.match(step15, /immediately/i, 'immediate node resolution');
   });
 
   it('documents the full DesignTree operation set and tree-query', () => {
@@ -111,16 +111,16 @@ describe('Step 1-5 grill First-Class Rules', () => {
 describe('Step 1-11 (evolution verification + AI expert judgment)', () => {
   it('1-11 includes AI expert judgment on danger/omission/contradiction/deficiency', () => {
     const step111 = subStepSection('1-11');
-    assert.match(step111, /エキスパート/, 'AI expert judgment mentioned');
-    assert.match(step111, /危険/, 'danger criterion');
-    assert.match(step111, /漏れ/, 'omission criterion');
-    assert.match(step111, /不足/, 'deficiency criterion');
+    assert.match(step111, /engineering expert/i, 'AI expert judgment mentioned');
+    assert.match(step111, /Danger/i, 'danger criterion');
+    assert.match(step111, /Omission/i, 'omission criterion');
+    assert.match(step111, /Deficiency/i, 'deficiency criterion');
   });
 
   it('1-11 includes a no-compromise loop back to 1-8 when judged insufficient', () => {
     const step111 = subStepSection('1-11');
-    assert.match(step111, /1-8 へ戻|1-8へ戻/, 'loop back to 1-8');
-    assert.match(step111, /妥協無く|妥協なし/, 'no-compromise loop');
+    assert.match(step111, /return to 1-8/i, 'loop back to 1-8');
+    assert.match(step111, /without compromise/i, 'no-compromise loop');
   });
 });
 
@@ -135,16 +135,16 @@ describe('Step 1-5 add operation (grill-time new top-level nodes)', () => {
 describe('Step 1-8 / 1-9 (RFC append + checklist verify)', () => {
   it('1-8 requires a code snippet for every design decision and self-contained coverage (original STEP 5)', () => {
     const step18 = subStepSection('1-8');
-    assert.match(step18, /コード例|コードスニペット|コードブロック/, 'code snippet required');
-    assert.match(step18, /自己完結|完全/, 'self-contained coverage');
-    assert.match(step18, /TBD|TODO|スタブ|委譲/, 'no TBD/TODO/stub/delegation');
+    assert.match(step18, /Code snippet|code example/i, 'code snippet required');
+    assert.match(step18, /self-contained/i, 'self-contained coverage');
+    assert.match(step18, /TBD|TODO|stub/i, 'no TBD/TODO/stub/delegation');
   });
 
   it('1-9 issues an immediate warning on TBD/TODO and defers completion until written (original STEP 6)', () => {
     const step19 = subStepSection('1-9');
     assert.match(step19, /TBD|TODO/, 'TBD/TODO mentioned');
-    assert.match(step19, /即時警告|警告/, 'immediate warning');
-    assert.match(step19, /完了宣言しない|宣言しない/, 'no completion declaration until fixed');
+    assert.match(step19, /warn/i, 'immediate warning');
+    assert.match(step19, /do not declare completion/i, 'no completion declaration until fixed');
   });
 });
 
@@ -152,15 +152,15 @@ describe('Step 1-6 / 1-7 (grill end + checklist)', () => {
   it('1-6 proposes ending the grill and asks the user about generating the checklist (original STEP 3)', () => {
     const step16 = subStepSection('1-6');
     assert.match(step16, /CheckList|チェックリスト/, 'checklist mentioned');
-    assert.match(step16, /問う|確認|開始しますか/, 'asks the user about the checklist');
+    assert.match(step16, /ask the user/i, 'asks the user about the checklist');
   });
 
   it('1-7 requires AI full review/supplement (ambiguous nodes, project constraints) and user approval (original STEP 4)', () => {
     const step17 = subStepSection('1-7');
-    assert.match(step17, /全項目|全て/, 'reviews all items');
-    assert.match(step17, /曖昧|補足/, 'notes for ambiguous nodes');
-    assert.match(step17, /プロジェクト固有|制約/, 'appends project-specific constraints');
-    assert.match(step17, /承認/, 'user approval');
+    assert.match(step17, /visually inspects all items/i, 'reviews all items');
+    assert.match(step17, /ambiguous/i, 'notes for ambiguous nodes');
+    assert.match(step17, /project-specific/i, 'appends project-specific constraints');
+    assert.match(step17, /approval/i, 'user approval');
   });
 });
 

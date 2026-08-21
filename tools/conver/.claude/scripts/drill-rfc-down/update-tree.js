@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * update-tree.js <rfc-dir> <operation> [args...]
+ * update-tree.js <session-dir> <operation> [args...]
  *
  * Operations:
  *   add            '<node_json>'                        - Add a node to the root
@@ -16,13 +16,13 @@ import fs from "fs";
 import path from "path";
 import { validateAll } from "./check-all-schema.js";
 
-const [,, rfcDir, operation, ...args] = process.argv;
-if (!rfcDir || !operation) {
-  console.error("Usage: update-tree.js <rfc-dir> <operation> [args...]");
+const [,, sessionDir, operation, ...args] = process.argv;
+if (!sessionDir || !operation) {
+  console.error("Usage: update-tree.js <session-dir> <operation> [args...]");
   process.exit(1);
 }
 
-const treePath = path.join(path.resolve(rfcDir), "DesignTree.json");
+const treePath = path.join(path.resolve(sessionDir), "DesignTree.json");
 if (!fs.existsSync(treePath)) {
   console.error(`DesignTree.json not found: ${treePath}`);
   process.exit(1);
@@ -64,7 +64,7 @@ function saveAndValidate() {
   // Strict validation must guard the file, not just report after corrupting it.
   const previousContent = fs.readFileSync(treePath, "utf-8");
   save();
-  const errors = validateAll(path.resolve(rfcDir));
+  const errors = validateAll(path.resolve(sessionDir));
   if (errors.length > 0) {
     fs.writeFileSync(treePath, previousContent, "utf-8");
     console.error(JSON.stringify({ ok: false, phase: "schema-validation", errors }, null, 2));

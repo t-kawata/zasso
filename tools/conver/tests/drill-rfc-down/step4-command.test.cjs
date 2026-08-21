@@ -37,14 +37,14 @@ describe('Step 4 command definition', () => {
   it('casts the analyzer output as candidate information and forbids analyzer re-run on approve', () => {
     const step4 = step4Section();
     assert.match(step4, /candidates\.json/, 'candidates file referenced');
-    assert.match(step4, /情報|候補/, 'candidates framed as information for AI judgment');
-    assert.match(step4, /再実行せず/, '--approve does not re-run the analyzer');
-    assert.match(step4, /手書き/, 'AI hand-editing of JSON is forbidden');
+    assert.match(step4, /candidate/i, 'candidates framed as information for AI judgment');
+    assert.match(step4, /re-run the analyzer/i, '--approve does not re-run the analyzer');
+    assert.match(step4, /hand-edit/i, 'AI hand-editing of JSON is forbidden');
   });
 
   it('documents existing-status preservation and destructive-change prohibition', () => {
     const step4 = step4Section();
-    assert.match(step4, /status.*上書き|黙って上書き|status.*保全/, 'status preservation mentioned');
-    assert.match(step4, /破壊|削除/, 'destructive change concern mentioned');
+    assert.match(step4, /overwrite.*status/i, 'status preservation mentioned');
+    assert.match(step4, /Destructive/i, 'destructive change concern mentioned');
   });
 });

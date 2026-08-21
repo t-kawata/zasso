@@ -41,7 +41,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
   進化ループ（正典の進化・再投資・適応）
     /drill-rfc-down
       入力: crystalize の RESIDUE / ユーザーとの自由会話 / 与えられた資料
-      grill（詳細確定）→ graphify → boundify → split を「差分」として内部実行
+      grill（詳細確定）→ graphify → boundify → split → verify を「差分」として内部実行
       → 正典RFC・GRAPH・Dirs-Tree・Tickets を矛盾なく更新 → 積み増しチケットを実装ループへ
 ```
 
@@ -50,7 +50,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 | **上流ループ** | 人間＋AI（Claude Code 上で実行） | `/grill-me-for-rfc` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets` | RFC 設計書の作成 → 論理グラフ化 → ディレクトリ境界生成 → チケット分解 |
 | **実装ループ** | AI（`conver.js` が自動実行） | `/make-ticket` → `/plan-ticket` → `/start-ticket` → `/review-ticket` → `/resolve-ticket` → `/consolidate-stubs` → `/find-omissions` | チケット実装 → 品質検証 → 警告・犯罪・スタブ解決 → スタブのチケット単位束ね直し → 契約ギャップ計測 → 収束 |
 | **出荷ループ** | 人間＋AI（Claude Code 上で実行） | `/crystalize-readme` | 使い方 README をセクション単位で「ユーザーにとって素敵か」の視点で検証し、書けないセクションを RESIDUE として洗い出す。RESIDUE ゼロで「素敵な使い方」が README.md に書き上がり、実装とテストがそれを満たす点検突破で出荷 |
-| **進化ループ** | 人間＋AI（Claude Code 上で実行） | `/drill-rfc-down` | RESIDUE・自由会話・資料を入力に grill で詳細を確定し、正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させる。ビジネスの再投資と進化・適応を安全に進める |
+| **進化ループ** | 人間＋AI（Claude Code 上で実行） | `/drill-rfc-down` | RESIDUE・自由会話・資料を入力に grill で詳細を確定し、正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させ、最後に verify で5整合性（RFC / GRAPH / Dirs-Tree / src / Tickets）を機械検証する。ビジネスの再投資と進化・適応を安全に進める |
 
 ---
 
@@ -110,17 +110,17 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 
 ## /drill-rfc-down — 進化の扉
 
-**役割**: 正典 RFC を「進化ステージ」ごと一段上げる、**唯一の進化の扉**です。入力（crystalize の RESIDUE / 事前のユーザーとの自由会話 / 与えられた資料）に対して **grill 方式の質問攻め**で設計判断を確定させ、確定した差分を既存の `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` へ**矛盾なく反映**します。つまり内部で **grill → graphify → boundify → split を「差分」に対して実行**します。
+**役割**: 正典 RFC を「進化ステージ」ごと一段上げる、**唯一の進化の扉**です。入力（crystalize の RESIDUE / 事前のユーザーとの自由会話 / 与えられた資料）に対して **grill 方式の質問攻め**で設計判断を確定させ、確定した差分を既存の `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` へ**矛盾なく反映**します。つまり内部で **grill → graphify → boundify → split → verify を「差分」に対して実行**します。
 
 **ループ内の位置付け**: 実装ループの `/find-omissions` が計測したギャップのうち「実装側で埋められない設計起因のもの」、および出荷ループの `/crystalize-readme` が残した RESIDUE を解消します。さらに、市場変化や新たな要件（ユーザーとの自由会話・資料）を正典へ取り込む**進化ループ**の入口でもあります。
 
 **編集方針**:
 
 - 追記優先。全文書き換え・セクション削除・破壊的変更は禁止
-- DesignTree / Status / CheckList は `/grill-me-for-rfc` と同一機構を再利用（既存セッションがあれば継続）
+- DesignTree / Status / CheckList は `/grill-me-for-rfc` と同一のノード機構（Q-id 規約）を再利用しつつ、セッションは `<rfcDir>/drills/`（`$SESSION_DIR`）に隔離して既存の `Status.json` 等には触れない（既存セッションがあれば継続）
 - 質問 → 回答 → 追記 → CheckList 照合 → 再 grill 判定のサイクルで品質を高める
 - I/O 境界参照情報を追記し、後段の graphify / boundify が安全に分割できるようにする
-- 確定した差分に対して graphify → boundify → split を実行し、`*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` を矛盾なく更新して積み増しチケットを生成する
+- 確定した差分に対して graphify → boundify → split を実行して `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` を矛盾なく更新し、最後に verify で5整合性（RFC / GRAPH / Dirs-Tree / src / Tickets）を機械検証して積み増しチケットを生成する
 
 **この機能の意味**: 正典・グラフ・ディレクトリ構造・チケットが常にロックステップで更新され続けるため、開発プロジェクトは「安全な連続性を失わないビジネス上の再投資可能性」を担保できます。ビジネスの再投資と進化・適応（方向転換・機能追加・要件変化への対応）は、いつでもこの扉を通じて正典を進化させることで、年単位の長期開発を矛盾なく続けられます。
 
@@ -246,9 +246,9 @@ RFC グラフを入力に「使い方 README」をセクション単位で検証
 
 ### 進化ループ（人間＋AI 実行）
 
-#### `/drill-rfc-down <RFCファイルパス>`
+#### `/drill-rfc-down [<material file|directory>...]`
 
-正典 RFC を進化させます。入力（crystalize の RESIDUE / ユーザーとの自由会話 / 与えられた資料）を grill で確定し、GRAPH・Dirs-Tree・Tickets を差分として矛盾なく更新して積み増しチケットを生成します。詳細は「[/drill-rfc-down — 進化の扉](#drill-rfc-down--進化の扉)」を参照。
+正典 RFC を進化させます。入力（crystalize の RESIDUE / ユーザーとの自由会話 / 与えられた資料）を grill で確定し、GRAPH・Dirs-Tree・Tickets を差分として矛盾なく更新して verify で5整合性を機械検証し、積み増しチケットを生成します。引数はマテリアル（参考資料）のファイル/ディレクトリで、RFC パスは `Tickets.json` の `metadata.resolvedPaths` から解決されます。詳細は「[/drill-rfc-down — 進化の扉](#drill-rfc-down--進化の扉)」を参照。
 
 ---
 
@@ -465,9 +465,13 @@ CRYSTALIZE-Status.json
 
 `derive-output-paths.js`（Preflight・モード判定）/ `update-step-status.js`（Step 進行管理・確認記録）/ `validate-toc-proposal.js`（目次提案の構造検証）/ `emit-readme-skeleton.js`（骨子の機械出力）/ `loop-drive-readme.js`（セクション検査ループの駆動・resolve-section / mark-residue / resolve-examples / mark-examples-residue）/ `validate-marker-grammar.js`（マーカー文法の単一情報源）
 
-### grill / drill-rfc-down（`.claude/scripts/grill-me-for-rfc/`）
+### grill-me-for-rfc（`.claude/scripts/grill-me-for-rfc/`）
 
-`/drill-rfc-down` は grill 機構を再利用します。`init.js` / `init-for-drill-rfc-down.js` / `update-tree.js` / `tree-query.js` / `update-status.js` / `session-status.js` / `check-all-schema.js` / `generate-checklist.js` / `list-files.js` / `validate-question-format.js` / `extract-io-boundary.js` / `insert-io-boundary-template.js` / `check-io-stubs.js`
+`init.js` / `init-for-drill-rfc-down.js` / `update-tree.js` / `tree-query.js` / `update-status.js` / `session-status.js` / `check-all-schema.js` / `generate-checklist.js` / `list-files.js` / `validate-question-format.js` / `extract-io-boundary.js` / `insert-io-boundary-template.js` / `check-io-stubs.js`
+
+### drill-rfc-down（`.claude/scripts/drill-rfc-down/`）
+
+`/drill-rfc-down` は grill と同一の DesignTree / Status / CheckList 機構を利用しつつ、セッションを `<rfcDir>/drills/`（`$SESSION_DIR`）に隔離して実行します。`preflight.cjs`（引数・RFC/GRAPH/Dirs-Tree/README.md の実在検証と `[VARIABLES]` 出力）/ `session-init.js`（セッション生成・継続）/ `session-status.js` / `update-status.js` / `rfc-evolution.js`（capture / verify / clean）/ `update-tree.js` / `validate-question-format.js` / `tree-query.js` / `generate-checklist.js` / `check-all-schema.js` / `graphify-delta-analyzer.js` / `graphify-step.js` / `boundify-delta-analyzer.js` / `boundify-step.js` / `dirs-tree-crud.js` / `split-delta-analyzer.js` / `split-step.js` / `verify-consistencies.js` / `verify-step.js` / `advisory-report.js`
 
 ---
 

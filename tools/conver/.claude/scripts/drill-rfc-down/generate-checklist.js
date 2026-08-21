@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * generate-checklist.js <rfc-dir>
+ * generate-checklist.js <session-dir>
  *
  * Reads DesignTree.json and generates CheckList.md in a section-by-node two-tier structure.
  * Backs up the existing CheckList.md before overwriting.
@@ -22,10 +22,10 @@ import fs from "fs";
 import path from "path";
 import { validateAll } from "./check-all-schema.js";
 
-const rfcDir = path.resolve(process.argv[2] ?? ".");
+const sessionDir = path.resolve(process.argv[2] ?? ".");
 const noBackup = process.argv.includes("--no-backup");
-const treePath = path.join(rfcDir, "DesignTree.json");
-const checklistPath = path.join(rfcDir, "CheckList.md");
+const treePath = path.join(sessionDir, "DesignTree.json");
+const checklistPath = path.join(sessionDir, "CheckList.md");
 
 if (!fs.existsSync(treePath)) {
   console.error(`DesignTree.json not found: ${treePath}`);
@@ -117,7 +117,7 @@ lines.push(`<!-- AI補足欄: 上記チェック項目に加え、プロジェ�
 
 fs.writeFileSync(checklistPath, lines.join("\n"), "utf-8");
 
-const schemaErrors = validateAll(rfcDir);
+const schemaErrors = validateAll(sessionDir);
 if (schemaErrors.length > 0) {
   console.error(JSON.stringify({ ok: false, phase: "schema-validation", errors: schemaErrors }, null, 2));
   process.exit(1);

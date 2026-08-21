@@ -36,14 +36,14 @@ describe('Step 3 command definition', () => {
   it('casts the analyzer output as candidate information and forbids analyzer re-run on approve', () => {
     const step3 = step3Section();
     assert.match(step3, /candidates\.json/, 'candidates file referenced');
-    assert.match(step3, /情報|候補/, 'candidates framed as information for AI judgment');
-    assert.match(step3, /再実行せず/, '--approve does not re-run the analyzer');
-    assert.match(step3, /手書き/, 'AI hand-editing of JSON is forbidden');
+    assert.match(step3, /candidate/i, 'candidates framed as information for AI judgment');
+    assert.match(step3, /re-run the analyzer/i, '--approve does not re-run the analyzer');
+    assert.match(step3, /hand-edit/i, 'AI hand-editing of JSON is forbidden');
   });
 
   it('documents src analysis and destructive-change prohibition', () => {
     const step3 = step3Section();
     assert.match(step3, /src|実ファイル/, 'src analysis referenced');
-    assert.match(step3, /破壊|除去|削除/, 'destructive change concern mentioned');
+    assert.match(step3, /Destructive/i, 'destructive change concern mentioned');
   });
 });

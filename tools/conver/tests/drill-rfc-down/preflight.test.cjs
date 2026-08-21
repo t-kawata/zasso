@@ -94,6 +94,22 @@ describe('parseArguments', () => {
   it('throws on unknown short flags', () => {
     assert.throws(() => parseArguments(['-x']), /Unknown argument/);
   });
+
+  it('splits a single space-separated argument string into multiple materials', () => {
+    const { materialArgs } = parseArguments(['a.md b/ c.md']);
+    assert.deepEqual(materialArgs, ['a.md', 'b/', 'c.md']);
+  });
+
+  it('filters empty and whitespace-only argument strings', () => {
+    const { materialArgs } = parseArguments(['', '  ', 'a.md']);
+    assert.deepEqual(materialArgs, ['a.md']);
+  });
+
+  it('splits materials even when --tickets= shares the same argument string', () => {
+    const { ticketsPath, materialArgs } = parseArguments(['--tickets=t/Tickets.json', 'm1.md m2.md']);
+    assert.equal(ticketsPath, path.resolve('t/Tickets.json'));
+    assert.deepEqual(materialArgs, ['m1.md', 'm2.md']);
+  });
 });
 
 describe('collectMaterialPaths', () => {

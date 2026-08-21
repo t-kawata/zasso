@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * session-status.js <rfc-dir>
+ * session-status.js <session-dir>
  *
  * Reads Status.json / DesignTree.json and mechanically derives
  * the current step, next step, node status, and loop count.
@@ -9,20 +9,20 @@
  * just by calling this script, without having to think about it.
  *
  * Usage:
- *   node session-status.js <rfc-dir>
+ *   node session-status.js <session-dir>
  */
 import fs from "fs";
 import path from "path";
 
-const rfcDirArg = process.argv[2];
-if (!rfcDirArg) {
-  console.error("Usage: session-status.js <rfc-dir>");
+const sessionDirArg = process.argv[2];
+if (!sessionDirArg) {
+  console.error("Usage: session-status.js <session-dir>");
   process.exit(1);
 }
 
-const rfcDir = path.resolve(rfcDirArg);
-const statusPath = path.join(rfcDir, "Status.json");
-const treePath = path.join(rfcDir, "DesignTree.json");
+const sessionDir = path.resolve(sessionDirArg);
+const statusPath = path.join(sessionDir, "Status.json");
+const treePath = path.join(sessionDir, "DesignTree.json");
 
 if (!fs.existsSync(statusPath)) {
   console.log("⚠️  Status.json not found. Run init.js first.");
