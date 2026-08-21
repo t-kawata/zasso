@@ -8,6 +8,9 @@
  *     GRAPH itself (C002)
  *
  * RED at make time: graphify-delta-analyzer.js does not exist yet.
+ *
+ * @verifies C001  (contradictionCandidates surfaced; never writes to GRAPH)
+ * @verifies C003  (duplicate-heading / oversized-section / invalid-slug / low-overlap flags, advisory-only)
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -16,6 +19,7 @@ const { spawnSync } = require('node:child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
 const ANALYZER = path.resolve(__dirname, '../../.claude/scripts/drill-rfc-down/graphify-delta-analyzer.js');
 
@@ -71,6 +75,15 @@ function runAnalyzer(deltaPath, graphPath, outPath) {
 }
 
 describe('graphify-delta-analyzer.js', () => {
+  it('writes graphify-candidates.json (information, not the plan)', () => {
+    const graphPath = setupGraph();
+    const deltaPath = setupDelta();
+    const outPath = path.join(tmpRoot, 'graphify-candidates.json');
+    const res = runAnalyzer(deltaPath, graphPath, outPath);
+    assert.equal(res.status, 0, res.stderr);
+    assert.ok(fs.existsSync(outPath), 'graphify-candidates.json written');
+  });
+
   it('proposes new-node / modify-node / new-edge candidates and writes graph-delta.json', () => {
     const graphPath = setupGraph();
     const deltaPath = setupDelta();
@@ -144,5 +157,93 @@ describe('graphify-delta-analyzer.js', () => {
     runAnalyzer(deltaPath, graphPath, out1);
     runAnalyzer(deltaPath, graphPath, out2);
     assert.equal(fs.readFileSync(out1, 'utf8'), fs.readFileSync(out2, 'utf8'), 'identical output for identical inputs');
+  });
+});
+
+describe('validateCandidates (output schema validation)', () => {
+  it('accepts valid candidates (newNodes/modifiedNodes/newEdges arrays)', async () => {
+    const mod = await import(pathToFileURL(ANALYZER).href);
+    const errors = mod.validateCandidates({ newNodes: [], modifiedNodes: [], newEdges: [] });
+    assert.deepEqual(errors, []);
+  });
+
+  it('rejects a candidate node missing required fields with an English message', async () => {
+    const mod = await import(pathToFileURL(ANALYZER).href);
+    const errors = mod.validateCandidates({
+      newNodes: [{ id: 'N0003' }], modifiedNodes: [], newEdges: [],
+    });
+    assert.ok(errors.some((e) => /title|kind/i.test(e)), 'English message names the missing field');
+  });
+
+  it('rejects an edge missing required fields with an English message', async () => {
+    const mod = await import(pathToFileURL(ANALYZER).href);
+    const errors = mod.validateCandidates({
+      newNodes: [], modifiedNodes: [], newEdges: [{ from: 'N0003' }],
+    });
+    assert.ok(errors.some((e) => /to|type/i.test(e)), 'English message names the missing edge field');
+  });
+});
+
+describe('four-axis advisory (PX-166 inspection layer)', () => {
+  it('surfaces delta.contradictionCandidates in the contradiction axis (C001)', () => {
+    const graphPath = setupGraph();
+    const deltaPath = path.join(tmpRoot, 'delta-contra.json');
+    writeJson(deltaPath, {
+      sourceFile: 'RFC.md', appendOnly: true, sections: [], addedLineCount: 0,
+      contradictionCandidates: [{ kind: 'graph', target: 'N0002', context: 'Auth module', matchedBy: ['auth'] }],
+    });
+    const outPath = path.join(tmpRoot, 'out-contra.json');
+    runAnalyzer(deltaPath, graphPath, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.contradiction.some((f) => f.message.includes('N0002')), 'contradiction finding surfaces the target');
+  });
+
+  it('flags a duplicate heading in the omission axis (C003)', () => {
+    const graphPath = setupGraph();
+    const deltaPath = path.join(tmpRoot, 'delta-dup.json');
+    writeJson(deltaPath, {
+      sourceFile: 'RFC.md', appendOnly: true,
+      sections: [
+        { heading: '## Auth', startLine: 1, lines: ['## Auth', ''] },
+        { heading: '## Auth', startLine: 5, lines: ['## Auth', ''] },
+      ],
+      addedLineCount: 4, contradictionCandidates: [],
+    });
+    const outPath = path.join(tmpRoot, 'out-dup.json');
+    runAnalyzer(deltaPath, graphPath, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.omission.some((f) => /duplicate heading/i.test(f.message)), 'duplicate heading flagged');
+  });
+
+  it('flags an oversized section and an over-long slug in the deficiency axis (C003)', () => {
+    const graphPath = setupGraph();
+    const deltaPath = path.join(tmpRoot, 'delta-big.json');
+    writeJson(deltaPath, {
+      sourceFile: 'RFC.md', appendOnly: true,
+      sections: [
+        { heading: '## Long', startLine: 1, lines: ['## Long', ...Array(105).fill('x')] },
+        { heading: '## This is an extremely long section title that when slugified exceeds the maximum length limit', startLine: 120, lines: ['## This is an extremely long section title that when slugified exceeds the maximum length limit', ''] },
+      ],
+      addedLineCount: 106, contradictionCandidates: [],
+    });
+    const outPath = path.join(tmpRoot, 'out-big.json');
+    runAnalyzer(deltaPath, graphPath, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.deficiency.some((f) => /100|long|oversized/i.test(f.message)), 'oversized section flagged');
+    assert.ok(out.advisory.deficiency.some((f) => /slug.*invalid|length/i.test(f.message)), 'over-long slug flagged');
+  });
+
+  it('flags a low-overlap modify candidate in the omission axis (C002)', () => {
+    const graphPath = setupGraph();
+    const deltaPath = path.join(tmpRoot, 'delta-low.json');
+    writeJson(deltaPath, {
+      sourceFile: 'RFC.md', appendOnly: true,
+      sections: [{ heading: '## Module extension', startLine: 1, lines: ['## Module extension', ''] }],
+      addedLineCount: 2, contradictionCandidates: [],
+    });
+    const outPath = path.join(tmpRoot, 'out-low.json');
+    runAnalyzer(deltaPath, graphPath, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.omission.some((f) => /low|overlap|only 1/i.test(f.message)), 'low-overlap modify candidate flagged');
   });
 });

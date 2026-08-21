@@ -22825,6 +22825,802 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-08-20"
+        },
+        {
+          "id": 163,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "drill-rfc-down Step 2 graphify AI-as-engineer refactor - candidates info, staging, granular editing via crud.js, safe promote",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/163-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nRefactor Step 2 (graphify) so the AI acts as the engineering expert who DESIGNS the GRAPH evolution, using scripts as information-providing tools. The step driver must not auto-generate and apply the plan; the AI crafts it via granular crud.js operations on a staging copy, then --approve validates and promotes.\n\n### Purpose\n- graphify-delta-analyzer outputs graphify-candidates.json (new/modify/edge candidates + contradiction hints) as INFORMATION for the AI, not the authoritative plan.\n- graphify-step gains --stage (copy the real GRAPH to a staging path + run the analyzer to show candidates) and --approve (validate the staging GRAPH with verify.js, then promote to the real GRAPH).\n- Between stage and approve, the AI uses crud.js --graph=<staging> to design the graph (add/modify/delete nodes and edges, edit contracts) - no hand-edited JSON.\n- Every editing operation runs schema validation; failures produce natural-language English Error/Cause/Action messages and exit non-zero.\n\n### Motivation\n- The current step driver auto-applies the analyzer delta on --approve, forcing the AI into a passive validate-the-script role instead of an active engineering-expert role.\n- crud.js already provides complete granular graph editing tools; the step driver must expose them through a staging flow.\n\n### Constraints\n- Candidates and plan are separated: graphify-candidates.json (script) vs graph-delta.json (AI-crafted plan).\n- --approve promotes only after verify.js passes on the staging GRAPH; a rejected plan leaves the real GRAPH byte-identical.\n- Destructive changes (node deletion) are forbidden by default; AI explicit approval only.\n- All editing scripts validate schema after every operation and emit English Error/Cause/Action on failure (exit non-zero).",
+          "scope": [
+            "**Scope of changes:**",
+            "- [Path] .claude/scripts/drill-rfc-down/graphify-delta-analyzer.js - MODIFY: output graphify-candidates.json (renamed from graph-delta.json) as candidates/information; add output schema validation with English Error/Cause/Action on failure",
+            "- [Path] .claude/scripts/drill-rfc-down/graphify-step.js - MODIFY: add --stage (copy GRAPH to staging + run analyzer to show candidates); --approve reads the AI-crafted graph-delta.json plan and applies it to the STAGING GRAPH via crud.js, runs verify.js, then promotes staging to real on success",
+            "- [Path] .claude/commands/drill-rfc-down.md - MODIFY: reframe Step 2 text so the AI is the author of the graphify (script provides information; AI designs; --approve applies the AI-crafted plan)",
+            "- [Reuse] .claude/scripts/rfc-graph/crud.js (granular graph editing, already validates + Error/Cause/Action) - no change",
+            "- [Tests] tests/drill-rfc-down/graphify-delta-analyzer.test.cjs, graphify-step.test.cjs, step2-command.test.cjs - UPDATE to cover candidates/plan separation, staging flow, and validation messages",
+            "",
+            "**Out of scope:**",
+            "- [Excluded item] Steps 3/4 (boundify/split) - separate tickets",
+            "- [Why] sequential pipeline; each step is a separate ticket",
+            "",
+            "**Affected areas:**",
+            "- [Affected component] the Step 2 graphify pipeline: delta.json -> graphify-candidates.json -> AI-crafted graph-delta.json -> promote",
+            "- [Nature of impact] correctness of the AI-as-engineer flow; no auto-apply of script output",
+            "- [Corresponding change] none beyond this ticket"
+          ],
+          "testUnit": [
+            "UT: [Normal] graphify-delta-analyzer outputs graphify-candidates.json (candidates, not the plan) and validates its output schema",
+            "UT: [Error] graphify-delta-analyzer emits an English Error/Cause/Action message and exits 1 on malformed input",
+            "UT: [Normal] graphify-step --stage copies the real GRAPH to a staging path and shows the candidates",
+            "UT: [Normal] graphify-step --approve applies the AI-crafted graph-delta.json plan to the STAGING GRAPH via crud.js and promotes on verify.js pass",
+            "UT: [Invariant] --approve does NOT re-run the analyzer; it applies the AI-crafted plan file",
+            "UT: [Boundary] a rejected plan leaves the real GRAPH byte-identical; staging GRAPH is discarded",
+            "UT: [Normal] crud.js operations on the staging path validate the graph schema after every edit and emit English Error/Cause/Action on failure"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] delta.json + GRAPH -> analyzer -> graphify-candidates.json -> AI edits staging via crud.js -> graph-delta.json -> --approve promotes + verify.js passes",
+            "IT: [Verification] a malformed AI-crafted graph-delta.json is rejected with an English message and no promote",
+            "IT: [Prerequisites] Step 1 delta.json (PX-159) and crud.js/verify.js",
+            "IT: [Related tickets] PX-164 (boundify consumes graph-delta.json)"
+          ],
+          "testExceptions": [
+            "Item: whether a delta section is a NEW node vs a MERGE into an existing node (semantic judgment). Reason: this is the AI engineering-expert non-deterministic design work, which automated tests cannot test directly; this is not a design defect. Alt verification: the deterministic analyzer proposes both candidates; the AI crafts the plan via crud.js on staging; the perfect-before-write gate (reject leaves real GRAPH unchanged) is structurally tested."
+          ],
+          "default_files": [
+            ".claude/scripts/drill-rfc-down/graphify-delta-analyzer.js",
+            ".claude/scripts/drill-rfc-down/graphify-step.js",
+            ".claude/commands/drill-rfc-down.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] analyzer -> graphify-candidates.json; AI crafts graph-delta.json via crud.js on staging; --approve promotes and verify.js passes",
+            "[Happy path] --stage leaves the real GRAPH untouched; --approve promotes only on verify.js pass",
+            "[Error case] malformed input or plan -> English Error/Cause/Action message, exit 1, no promote",
+            "[Edge case] a rejected plan leaves the real GRAPH byte-identical"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "analyzer -> candidates",
+              "precondition": "delta.json exists and is valid",
+              "postcondition": "graphify-candidates.json is generated with a validated schema as INFORMATION (never applied directly)",
+              "invariant": "the analyzer never writes to *-GRAPH.json"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "AI design -> staging",
+              "precondition": "the AI reviews candidates + sources",
+              "postcondition": "the AI crafts graph-delta.json via crud.js on the staging GRAPH (no hand-edited JSON)",
+              "invariant": "the real GRAPH is untouched until --approve promotes"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "approve -> promote",
+              "precondition": "the AI-crafted graph-delta.json is present and valid",
+              "postcondition": "--approve applies it to the staging GRAPH via crud.js, verify.js passes, then promotes to the real GRAPH",
+              "invariant": "a rejected plan leaves the real GRAPH byte-identical; crud.js is the only graph write path"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) analyzer candidates output + schema validation; 2) step driver --stage/--approve staging flow; 3) command Step 2 reframe; 4) update tests\n- [Risks] the staging/promote flow must be atomic (promote only after full validation); a crash mid-promote must not corrupt the real GRAPH\n- [Caveats] crud.js consumes --file inputs and deletes them; the step driver must manage staging temp files\n- [Open items] the graphify-candidates.json and graph-delta.json schemas must be stable for PX-164\n- [Future improvements] none beyond the AI-as-engineer refactor\nCoverage completion (post-done): added error-path + delta-derivation tests to close the guarantee gap.\n- graphify-step: --stage missing --delta / --approve missing --source / verify-fail staging rejection / modifiedNodes derivation (8 tests)\n- boundify-step: --stage missing --graph-delta / --approve missing --graph / validate-fail staging rejection / modifiedFiles derivation (8 tests)\n- split-step: --stage missing --dirs-tree-delta / validate-fail staging rejection / editedTickets derivation (7 tests)\n- Full suite: 1676/1676 pass; drill-rfc-down: 169/169; quality checks 0 issues\nGarbage cleanup (post-done): each step driver's final lifecycle step now removes its transient candidates file.\n- --approve: after promote, removeCandidates() deletes <artifact>.candidates.json (stale after commit; .delta.json handoff preserved)\n- --reject: discardStaging() + removeCandidates() delete staging AND candidates (design discarded)\n- Implemented in graphify-step.js / boundify-step.js / split-step.js; tests assert candidates removal after approve and reject\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues\n- Tests: full suite 1705/1705 passed; drill-rfc-down 198/198 passed\n- Annotation verify: all changed source files carry [::TICKET::] annotations (missing 0, ambiguous 0)\n- Final contracts: fulfilled (coverage 100%)\n- Crimes/stubs/no-excuse: all 0",
+          "invariants": "- [Normal condition] The analyzer deterministically generates graphify-candidates.json as INFORMATION; the AI designs the graph-delta.json plan via crud.js on a staging GRAPH copy.\n- [Error invariant] Any malformed input or plan produces an English [ERROR] Cause: ... Action: ... message and exits 1; no promote happens.\n- [Internal state invariant] The real GRAPH is untouched until --approve promotes; crud.js is the only graph write path; every crud.js edit validates the graph schema.\n- [Boundary invariant] A rejected plan leaves the real GRAPH byte-identical; staging is discarded.",
+          "instrumentation": "- [Logging] analyzer and step driver print JSON dry-run reports to stdout; errors to stderr\n- [Metrics] none (CLI pipeline tooling)\n- [Error tracking] any validation failure exits 1 with an English Error/Cause/Action message; no partial graph writes\n- [Health check] verify.js is the graph health check after every approved promote\nStatic quality check: passed (0 issues)\nTranslatability: no issues\nTests: full suite 1705/1705 passed",
+          "investigation": "- graphify-delta-analyzer.js currently outputs graph-delta.json (newNodes/modifiedNodes/newEdges/report) which the step driver auto-applies on --approve — the drift to fix.\n- graphify-step.js --approve currently re-runs the analyzer and applies its output; it must instead apply the AI-crafted plan.\n- crud.js (rfc-graph) provides complete granular graph editing (create-nodes/update-node/delete-node/create-edges/update-edge/delete-edges/get-node/list-nodes) with validateWithSchema + Error/Cause/Action — reuse for staging edits.\n- verify.js validates coverage/isolated nodes/headingRefs resolvability; used as the promote gate.\n- The AI-as-engineer design (approved in review): scripts provide information; AI designs; --approve applies the AI-crafted plan; no hand-edited JSON.",
+          "boyScoutPlan": "- Name functions as verbs (analyzeCandidates, stageGraph, applyPlan, promote) so the staging flow reads as prose.\n- Extract the candidates/plan schema into named validators (validateCandidates, validatePlan) with no inline magic.\n- Reuse crud.js/verify.js instead of reimplementing graph I/O (DRY).",
+          "created_at": "2026-08-21",
+          "updated_at": "2026-08-21",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-pre] analyzer requires a valid delta.json\n  ```js\n  const proj = path.join(tmp, 'p');\n  fs.mkdirSync(proj, { recursive: true });\n  fs.writeFileSync(path.join(proj, 'delta.json'), 'not json');\n  const res = spawnSync(process.execPath, [ANALYZER, `--delta=${path.join(proj, 'delta.json')}`, `--graph=${path.join(proj, 'g.json')}`, `--out=${path.join(proj, 'graphify-candidates.json')}`], { encoding: 'utf8' });\n  assert.equal(res.status, 1);\n  assert.match(res.stderr, /delta|invalid/i);\n  ```",
+            "UT: [C001-post] analyzer generates graphify-candidates.json as INFORMATION\n  ```js\n  const res = spawnSync(process.execPath, [ANALYZER, `--delta=${deltaPath}`, `--graph=${graphPath}`, `--out=${candidatesPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0, res.stderr);\n  assert.ok(fs.existsSync(candidatesPath), 'graphify-candidates.json written');\n  const out = JSON.parse(fs.readFileSync(candidatesPath, 'utf8'));\n  assert.ok(Array.isArray(out.newNodes) && Array.isArray(out.modifiedNodes) && Array.isArray(out.newEdges));\n  ```",
+            "UT: [C001-inv] analyzer never writes to *-GRAPH.json\n  ```js\n  const before = fs.readFileSync(graphPath, 'utf8');\n  const res = spawnSync(process.execPath, [ANALYZER, `--delta=${deltaPath}`, `--graph=${graphPath}`, `--out=${candidatesPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0);\n  assert.equal(fs.readFileSync(graphPath, 'utf8'), before, 'GRAPH unchanged');\n  ```",
+            "UT: [C002-post] AI crafts the plan via crud.js on a staging GRAPH (no hand-edited JSON)\n  ```js\n  const staging = path.join(tmp, 'staging-graph.json');\n  fs.copyFileSync(graphPath, staging);\n  const nodesFile = path.join(tmp, 'nodes.json');\n  fs.writeFileSync(nodesFile, JSON.stringify([{ id: 'N0003', title: 'X', kind: 'architecture', summary: 's', slug: 'x', headingRefs: [{ refId: 'REF003', heading: 2, texts: ['X'] }] }]));\n  const crud = spawnSync(process.execPath, [CRUD, `--graph=${staging}`, 'create-nodes', `--file=${nodesFile}`], { encoding: 'utf8' });\n  assert.equal(crud.status, 0, crud.stderr);\n  // staging changed, real graph untouched\n  assert.notEqual(fs.readFileSync(staging, 'utf8'), fs.readFileSync(graphPath, 'utf8'));\n  ```",
+            "UT: [C002-inv] real GRAPH untouched until --approve promotes\n  ```js\n  const before = fs.readFileSync(graphPath, 'utf8');\n  // AI edits staging via crud.js; --approve has not run yet\n  assert.equal(fs.readFileSync(graphPath, 'utf8'), before, 'real GRAPH untouched before approve');\n  ```",
+            "UT: [C003-post] --approve applies the AI-crafted plan to staging, verifies, promotes\n  ```js\n  const res = spawnSync(process.execPath, [STEP, `--graph=${graphPath}`, `--source=${rfcPath}`, '--stage'], { encoding: 'utf8' });\n  assert.equal(res.status, 0, res.stderr);\n  // AI crafts graph-delta.json and edits the staging graph via crud.js\n  const approve = spawnSync(process.execPath, [STEP, `--graph=${graphPath}`, `--source=${rfcPath}`, `--plan=${planPath}`, '--approve'], { encoding: 'utf8' });\n  assert.equal(approve.status, 0, approve.stderr);\n  assert.ok(fs.readFileSync(graphPath, 'utf8').includes('N0003'), 'real GRAPH promoted with the AI-crafted node');\n  ```",
+            "UT: [C003-inv] a rejected plan leaves the real GRAPH byte-identical\n  ```js\n  const before = fs.readFileSync(graphPath, 'utf8');\n  const res = spawnSync(process.execPath, [STEP, `--graph=${graphPath}`, `--source=${rfcPath}`, `--plan=${planPath}`, '--reject'], { encoding: 'utf8' });\n  assert.equal(res.status, 0);\n  assert.equal(fs.readFileSync(graphPath, 'utf8'), before, 'real GRAPH byte-identical on reject');\n  ```",
+            "UT: [C003-post] malformed plan -> English Error/Cause/Action and no promote\n  ```js\n  fs.writeFileSync(badPlanPath, 'not json');\n  const res = spawnSync(process.execPath, [STEP, `--graph=${graphPath}`, `--source=${rfcPath}`, `--plan=${badPlanPath}`, '--approve'], { encoding: 'utf8' });\n  assert.equal(res.status, 1);\n  assert.match(res.stderr, /Error|Cause|Action/i, 'English error message');\n  assert.equal(fs.readFileSync(graphPath, 'utf8'), fs.readFileSync(graphPath, 'utf8'), 'no promote');\n  ```"
+          ],
+          "startedAt": "2026-08-21",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-21"
+        },
+        {
+          "id": 164,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "drill-rfc-down Step 3 boundify AI-as-engineer refactor - candidates info, dirs-tree-crud.js granular editing, staging, safe promote",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/164-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nRefactor Step 3 (boundify) so the AI acts as the engineering expert who DESIGNS the Dirs-Tree + src evolution, using scripts as information-providing tools. NEW: dirs-tree-crud.js provides granular Dirs-Tree editing (add-dir/add-file/update-node/remove-node/update-mapped) with validation after every operation and English Error/Cause/Action messages.\n\n### Purpose\n- boundify-delta-analyzer outputs boundify-candidates.json (new/modify file candidates + src drift) as INFORMATION, not the plan.\n- NEW dirs-tree-crud.js gives the AI safe granular Dirs-Tree editing (no hand-edited JSON) with schema validation and English error messages.\n- boundify-step gains --stage (copy the real Dirs-Tree to a staging path + show candidates) and --approve (validate the staging Dirs-Tree with validate-dirs-tree-schema, then promote to the real Dirs-Tree + commit src files).\n- Every editing operation validates the Dirs-Tree schema; failures produce English Error/Cause/Action and exit non-zero.\n\n### Motivation\n- No granular Dirs-Tree editing tool exists; the AI cannot craft a boundify plan without hand-editing JSON - a critical gap.\n- The current step driver auto-applies the analyzer delta, forcing a passive AI role.\n\n### Constraints\n- Candidates and plan are separated: boundify-candidates.json (script) vs dirs-tree-delta.json (AI-crafted plan).\n- dirs-tree-crud.js validates the Dirs-Tree schema after every operation and emits English Error/Cause/Action on failure (exit non-zero).\n- --approve promotes only after validate-dirs-tree-schema passes on the staging Dirs-Tree; a rejected plan leaves the real Dirs-Tree and src byte-identical.\n- Destructive changes (file/dir removal or moves) are forbidden by default; AI explicit approval only.",
+          "scope": [
+            "**Scope of changes:**",
+            "- [Path] .claude/scripts/drill-rfc-down/boundify-delta-analyzer.js - MODIFY: output boundify-candidates.json (renamed from dirs-tree-delta.json) as candidates/information; add output schema validation with English Error/Cause/Action",
+            "- [Path] .claude/scripts/drill-rfc-down/dirs-tree-crud.js - NEW: granular Dirs-Tree editing (add-dir, add-file, update-node, remove-node, update-mapped-node-ids) with schema validation after every operation and English Error/Cause/Action on failure",
+            "- [Path] .claude/scripts/drill-rfc-down/boundify-step.js - MODIFY: add --stage (copy Dirs-Tree to staging + show candidates); --approve applies the AI-crafted dirs-tree-delta.json plan to the STAGING Dirs-Tree, runs validate-dirs-tree-schema, then promotes to the real Dirs-Tree + commits src files on success",
+            "- [Path] .claude/commands/drill-rfc-down.md - MODIFY: reframe Step 3 text so the AI is the author of the boundify (script provides information; AI designs; --approve applies the AI-crafted plan)",
+            "- [Reuse] boundify-graph-to-dirs.js, validate-dirs-tree-schema.js, generate-dir-template.js (validation + file generation) - reuse where applicable",
+            "- [Tests] tests/drill-rfc-down/boundify-delta-analyzer.test.cjs, boundify-step.test.cjs, step3-command.test.cjs - UPDATE; tests/drill-rfc-down/dirs-tree-crud.test.cjs - NEW",
+            "",
+            "**Out of scope:**",
+            "- [Excluded item] Steps 2/4 (graphify/split) - separate tickets",
+            "- [Why] sequential pipeline; each step is a separate ticket",
+            "",
+            "**Affected areas:**",
+            "- [Affected component] the Step 3 boundify pipeline: graph-delta.json -> boundify-candidates.json -> AI-crafted dirs-tree-delta.json -> promote",
+            "- [Nature of impact] correctness of the AI-as-engineer flow; new granular Dirs-Tree editing capability",
+            "- [Corresponding change] none beyond this ticket"
+          ],
+          "testUnit": [
+            "UT: [Normal] dirs-tree-crud add-file adds a file node and validates the Dirs-Tree schema after the write",
+            "UT: [Normal] dirs-tree-crud update-node updates kind/mappedNodeIds and validates",
+            "UT: [Error] dirs-tree-crud emits an English Error/Cause/Action message and exits 1 on a schema violation (e.g. invalid kind)",
+            "UT: [Normal] boundify-delta-analyzer outputs boundify-candidates.json (candidates + src drift) and validates its output schema",
+            "UT: [Normal] boundify-step --stage copies the real Dirs-Tree to a staging path and shows the candidates + src drift",
+            "UT: [Normal] boundify-step --approve applies the AI-crafted dirs-tree-delta.json plan to the STAGING Dirs-Tree, validates, and promotes on success",
+            "UT: [Boundary] a rejected plan leaves the real Dirs-Tree and src byte-identical; staging is discarded",
+            "UT: [Invariant] --approve does NOT re-run the analyzer; it applies the AI-crafted plan"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] graph-delta.json + Dirs-Tree + src -> analyzer -> boundify-candidates.json -> AI edits staging via dirs-tree-crud.js -> dirs-tree-delta.json -> --approve promotes + validate-dirs-tree-schema passes",
+            "IT: [Verification] a malformed AI-crafted dirs-tree-delta.json is rejected with an English message and no promote",
+            "IT: [Prerequisites] graph-delta.json (PX-163), existing boundify scripts",
+            "IT: [Related tickets] PX-165 (split consumes dirs-tree-delta.json)"
+          ],
+          "testExceptions": [
+            "Item: whether a graph node maps to a NEW directory vs being folded into an existing directory (semantic judgment). Reason: this is the AI engineering-expert non-deterministic design work, not testable automatically; this is not a design defect. Alt verification: the deterministic analyzer proposes candidates and surfaces src drift; the AI crafts the plan via dirs-tree-crud.js on staging; the perfect-before-write gate is structurally tested."
+          ],
+          "default_files": [
+            ".claude/scripts/drill-rfc-down/dirs-tree-crud.js",
+            ".claude/scripts/drill-rfc-down/boundify-delta-analyzer.js",
+            ".claude/scripts/drill-rfc-down/boundify-step.js",
+            ".claude/commands/drill-rfc-down.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] analyzer -> boundify-candidates.json; AI crafts dirs-tree-delta.json via dirs-tree-crud.js on staging; --approve promotes and validate-dirs-tree-schema passes",
+            "[Happy path] dirs-tree-crud.js enables every safe Dirs-Tree edit with validation after each operation",
+            "[Error case] a schema violation in any edit -> English Error/Cause/Action message, exit 1, no partial write",
+            "[Edge case] a rejected plan leaves the real Dirs-Tree and src byte-identical"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "analyzer -> candidates",
+              "precondition": "graph-delta.json exists and is valid",
+              "postcondition": "boundify-candidates.json is generated with a validated schema as INFORMATION (never applied directly)",
+              "invariant": "the analyzer never writes to *-Dirs-Tree.json or src"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "dirs-tree-crud -> staged edit",
+              "precondition": "the AI reviews candidates + sources + src drift",
+              "postcondition": "dirs-tree-crud.js performs granular Dirs-Tree edits on the staging copy and validates the schema after every operation",
+              "invariant": "every edit validates; a violation exits 1 with an English Error/Cause/Action message"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "approve -> promote",
+              "precondition": "the AI-crafted dirs-tree-delta.json is present and valid",
+              "postcondition": "--approve applies it to the staging Dirs-Tree, validate-dirs-tree-schema passes, then promotes to the real Dirs-Tree + commits src files",
+              "invariant": "a rejected plan leaves the real Dirs-Tree and src byte-identical; destructive changes require explicit AI approval"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) dirs-tree-crud.js + tests (validation + English messages); 2) analyzer candidates output + schema validation; 3) step driver --stage/--approve; 4) command Step 3 reframe; 5) update tests\n- [Risks] src file generation (declaration stubs) must be consistent with the Dirs-Tree; the promote must be atomic\n- [Caveats] Prose exclusion (rationale/glossary/requirement) and Prune rules apply; dirs-tree-crud must respect them\n- [Open items] the dirs-tree-delta.json schema must be stable for PX-165\n- [Future improvements] none beyond the AI-as-engineer refactor\nPX-164 implementation complete:\n- New: .claude/scripts/drill-rfc-down/dirs-tree-crud.js + tests/drill-rfc-down/dirs-tree-crud.test.cjs (7 tests)\n- Modified: boundify-delta-analyzer.js (validateCandidates), boundify-step.js (staging flow), command Step 3\n- Tests: 1660/1660 pass (full suite); quality checks 0 issues\n- Key design: --approve derives dirs-tree-delta.json by diffing real vs staging Dirs-Tree (never re-runs analyzer); commits src stubs for new file nodes; destructive remove-node requires --force\nCoverage completion (post-done): added error-path + delta-derivation tests to close the guarantee gap.\n- graphify-step: --stage missing --delta / --approve missing --source / verify-fail staging rejection / modifiedNodes derivation (8 tests)\n- boundify-step: --stage missing --graph-delta / --approve missing --graph / validate-fail staging rejection / modifiedFiles derivation (8 tests)\n- split-step: --stage missing --dirs-tree-delta / validate-fail staging rejection / editedTickets derivation (7 tests)\n- Full suite: 1676/1676 pass; drill-rfc-down: 169/169; quality checks 0 issues\nGarbage cleanup (post-done): each step driver's final lifecycle step now removes its transient candidates file.\n- --approve: after promote, removeCandidates() deletes <artifact>.candidates.json (stale after commit; .delta.json handoff preserved)\n- --reject: discardStaging() + removeCandidates() delete staging AND candidates (design discarded)\n- Implemented in graphify-step.js / boundify-step.js / split-step.js; tests assert candidates removal after approve and reject\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues\n- Tests: full suite 1705/1705 passed; drill-rfc-down 198/198 passed\n- Annotation verify: all changed source files carry [::TICKET::] annotations (missing 0, ambiguous 0)\n- Final contracts: fulfilled (coverage 100%)\n- Crimes/stubs/no-excuse: all 0",
+          "invariants": "- [Normal condition] The analyzer deterministically generates boundify-candidates.json (candidates + src drift) as INFORMATION; dirs-tree-crud.js performs granular Dirs-Tree edits on a staging copy with schema validation after every operation.\n- [Error invariant] Any malformed input or schema violation produces an English [ERROR] Cause: ... Action: ... message and exits 1; no promote happens.\n- [Internal state invariant] The real Dirs-Tree and src are untouched until --approve promotes; every dirs-tree-crud.js edit validates the Dirs-Tree schema.\n- [Boundary invariant] A rejected plan leaves the real Dirs-Tree and src byte-identical; staging is discarded; destructive changes require explicit AI approval.",
+          "instrumentation": "- [Logging] analyzer, dirs-tree-crud, and step driver print JSON dry-run reports to stdout; errors to stderr\n- [Metrics] none (CLI pipeline tooling)\n- [Error tracking] any validation failure exits 1 with an English Error/Cause/Action message; no partial Dirs-Tree/src writes\n- [Health check] validate-dirs-tree-schema is the health check after every approved promote\nStatic quality check: passed (0 issues)\nTranslatability: no issues\nTests: full suite 1705/1705 passed",
+          "investigation": "- boundify-delta-analyzer.js currently outputs dirs-tree-delta.json which the step driver auto-applies — the drift to fix.\n- NO granular Dirs-Tree editing tool exists: boundify-graph-to-dirs.js (whole-tree generation), generate-dir-template.js (Dirs-Tree -> files), validate-dirs-tree-schema.js (validation), boundify-tree.js (display). dirs-tree-crud.js is the missing tool.\n- The Dirs-Tree structure: trees keyed by language, DirNode {name, type, kind, mappedNodeIds, children, declarationStub}, dependencyDirections.\n- validate-dirs-tree-schema.js already emits Error/Cause/Action; reuse as the promote gate.\n- The AI-as-engineer design (approved in review): scripts provide information; AI designs via granular tools on staging; --approve applies the AI-crafted plan; no hand-edited JSON.",
+          "boyScoutPlan": "- Name dirs-tree-crud operations as verbs (addDirectory, addFile, updateNode, removeNode, updateMappedNodeIds) so edits read as prose.\n- Extract the Dirs-Tree schema into a named validator reused by every operation; English Error/Cause/Action on every failure.\n- Reuse boundify-graph-to-dirs.js and validate-dirs-tree-schema.js instead of reimplementing Dirs-Tree I/O (DRY).",
+          "created_at": "2026-08-21",
+          "updated_at": "2026-08-21",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-pre] analyzer fails with an English error on malformed graph-delta.json\n  ```js\n  fs.writeFileSync(badGd, 'not json');\n  const res = spawnSync(process.execPath, [ANALYZER, `--graph-delta=${badGd}`, `--dirs-tree=${dtPath}`, `--src=${srcDir}`, `--out=${candidatesPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 1);\n  assert.match(res.stderr, /graph-delta|invalid/i);\n  ```",
+            "UT: [C001-post] analyzer generates boundify-candidates.json as INFORMATION (validated schema)\n  ```js\n  const res = spawnSync(process.execPath, [ANALYZER, `--graph-delta=${gdPath}`, `--dirs-tree=${dtPath}`, `--src=${srcDir}`, `--out=${candidatesPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0, res.stderr);\n  const out = JSON.parse(fs.readFileSync(candidatesPath, 'utf8'));\n  assert.ok(Array.isArray(out.newFiles) && Array.isArray(out.modifiedFiles) && Array.isArray(out.srcDrift));\n  ```",
+            "UT: [C001-inv] analyzer never writes to *-Dirs-Tree.json or src\n  ```js\n  const beforeTree = fs.readFileSync(dtPath, 'utf8');\n  const res = spawnSync(process.execPath, [ANALYZER, `--graph-delta=${gdPath}`, `--dirs-tree=${dtPath}`, `--src=${srcDir}`, `--out=${candidatesPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0);\n  assert.equal(fs.readFileSync(dtPath, 'utf8'), beforeTree, 'Dirs-Tree unchanged');\n  ```",
+            "UT: [C002-post] dirs-tree-crud performs a granular edit on the staging copy and validates after the write\n  ```js\n  const staging = path.join(tmp, 'staging-dirs.json');\n  fs.copyFileSync(dtPath, staging);\n  const res = spawnSync(process.execPath, [CRUD, `--dirs-tree=${staging}`, `--graph=${graphPath}`, 'add-file', `--path=src/session_storage.rs`, `--kind=architecture`, `--mapped=N0003:Session storage`], { encoding: 'utf8' });\n  assert.equal(res.status, 0, res.stderr);\n  assert.ok(JSON.stringify(JSON.parse(fs.readFileSync(staging, 'utf8'))).includes('session_storage.rs'), 'file node added');\n  ```",
+            "UT: [C002-inv] a schema violation (invalid kind) exits 1 with an English Error/Cause/Action and no write\n  ```js\n  const staging = path.join(tmp, 'staging-dirs.json');\n  fs.copyFileSync(dtPath, staging);\n  const before = fs.readFileSync(staging, 'utf8');\n  const res = spawnSync(process.execPath, [CRUD, `--dirs-tree=${staging}`, `--graph=${graphPath}`, 'add-file', `--path=src/bad.rs`, `--kind=not_a_kind`, `--mapped=N0003:X`], { encoding: 'utf8' });\n  assert.equal(res.status, 1);\n  assert.match(res.stderr, /Error|Cause|Action/i, 'English error message');\n  assert.equal(fs.readFileSync(staging, 'utf8'), before, 'no partial write');\n  ```",
+            "UT: [C002-inv] destructive remove-node is forbidden by default; --force is required\n  ```js\n  const staging = path.join(tmp, 'staging-dirs.json');\n  fs.copyFileSync(dtPath, staging);\n  const res = spawnSync(process.execPath, [CRUD, `--dirs-tree=${staging}`, `--graph=${graphPath}`, 'remove-node', `--path=src/api/auth.rs`], { encoding: 'utf8' });\n  assert.equal(res.status, 1);\n  assert.match(res.stderr, /force|destructive|permission/i, 'English error demands explicit approval');\n  ```",
+            "UT: [C003-pre] --approve with a missing staging Dirs-Tree emits an English error and does not promote\n  ```js\n  const before = fs.readFileSync(dtPath, 'utf8');\n  const res = spawnSync(process.execPath, [STEP, `--dirs-tree=${dtPath}`, `--src=${srcDir}`, `--graph=${graphPath}`, '--approve'], { encoding: 'utf8' });\n  assert.equal(res.status, 1);\n  assert.match(res.stderr, /Error|Cause|Action/i, 'English error message');\n  assert.equal(fs.readFileSync(dtPath, 'utf8'), before, 'Dirs-Tree unchanged');\n  ```",
+            "UT: [C003-post] --approve validates the staging Dirs-Tree, commits src stubs, and promotes\n  ```js\n  runStep([`--graph=${graphPath}`, `--graph-delta=${gdPath}`, '--stage'], dtPath, srcDir);\n  const staging = stagingPathOf(dtPath);\n  const crud = spawnSync(process.execPath, [CRUD, `--dirs-tree=${staging}`, `--graph=${graphPath}`, 'add-file', `--path=src/session_storage.rs`, `--kind=architecture`, `--mapped=N0003:Session storage`], { encoding: 'utf8' });\n  assert.equal(crud.status, 0, crud.stderr);\n  const approve = runStep([`--graph=${graphPath}`, '--approve'], dtPath, srcDir);\n  assert.equal(approve.status, 0, approve.stderr);\n  assert.ok(fs.readFileSync(dtPath, 'utf8').includes('session_storage.rs'), 'Dirs-Tree promoted');\n  assert.ok(fs.existsSync(path.join(srcDir, 'session_storage.rs')), 'src stub committed');\n  ```",
+            "UT: [C003-inv] a rejected plan leaves the real Dirs-Tree and src byte-identical\n  ```js\n  const beforeTree = fs.readFileSync(dtPath, 'utf8');\n  const res = runStep([`--graph=${graphPath}`, `--graph-delta=${gdPath}`, '--reject'], dtPath, srcDir);\n  assert.equal(res.status, 0);\n  assert.equal(fs.readFileSync(dtPath, 'utf8'), beforeTree, 'Dirs-Tree byte-identical on reject');\n  ```"
+          ],
+          "startedAt": "2026-08-21",
+          "changes": [
+            {
+              "before": "no granular Dirs-Tree editing tool existed",
+              "after": "dirs-tree-crud.js provides add-dir/add-file/update-node/update-mapped/remove-node with schema validation after every operation and English Error/Cause/Action on failure",
+              "description": "New granular Dirs-Tree editing tool (C002)"
+            },
+            {
+              "before": "boundify-delta-analyzer output dirs-tree-delta.json (auto-applied by step driver)",
+              "after": "outputs boundify-candidates.json as INFORMATION with validateCandidates schema validation",
+              "description": "Analyzer candidates information + validation (C001)"
+            },
+            {
+              "before": "boundify-step --dry-run/--approve auto-applied analyzer output",
+              "after": "boundify-step --stage/--approve/--reject staging flow: AI designs staging Dirs-Tree via dirs-tree-crud.js; --approve validates, derives dirs-tree-delta.json, commits src stubs, promotes",
+              "description": "Step driver AI-as-engineer staging flow (C003)"
+            },
+            {
+              "before": "Step 3 command text described dry-run->AI judgment->write",
+              "after": "reframed to stage->AI design (dirs-tree-crud.js)->approve (validate promote)->reject",
+              "description": "Command Step 3 reframe"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-21"
+        },
+        {
+          "id": 165,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "drill-rfc-down Step 4 split AI-as-engineer refactor - candidates info, staging, granular editing via add/update-ticket, safe promote",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/165-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nRefactor Step 4 (split) so the AI acts as the engineering expert who DESIGNS the Tickets evolution, using scripts as information-providing tools. The step driver must not auto-generate and apply the plan; the AI crafts it via granular add-ticket/update-ticket operations on a staging copy, then --approve validates and promotes.\n\n### Purpose\n- split-delta-analyzer outputs split-candidates.json (new/edit ticket candidates + phase assignments + existing statuses) as INFORMATION, not the plan.\n- split-step gains --stage (copy the real Tickets.json to a staging path + show candidates) and --approve (validate the staging Tickets.json with validate-tickets, then promote to the real Tickets.json).\n- Between stage and approve, the AI uses add-ticket.js / update-ticket.js on the staging Tickets.json to design the ticket plan (add/edit tickets, assign phases) - no hand-edited JSON.\n- Every editing operation validates the Tickets schema; failures produce English Error/Cause/Action and exit non-zero.\n\n### Motivation\n- The current step driver auto-applies the analyzer delta on --approve, forcing a passive AI role.\n- add-ticket.js / update-ticket.js already provide granular ticket editing tools; the step driver must expose them through a staging flow.\n\n### Constraints\n- Candidates and plan are separated: split-candidates.json (script) vs tickets-delta.json (AI-crafted plan).\n- --approve promotes only after validate-tickets passes on the staging Tickets.json; a rejected plan leaves the real Tickets.json byte-identical.\n- Existing ticket statuses are never silently overwritten; destructive changes (ticket deletion) are forbidden by default; AI explicit approval only.\n- All editing scripts validate schema after every operation and emit English Error/Cause/Action on failure (exit non-zero).",
+          "scope": [
+            "**Scope of changes:**",
+            "- [Path] .claude/scripts/drill-rfc-down/split-delta-analyzer.js - MODIFY: output split-candidates.json (renamed from tickets-delta.json) as candidates/information; add output schema validation with English Error/Cause/Action",
+            "- [Path] .claude/scripts/drill-rfc-down/split-step.js - MODIFY: add --stage (copy Tickets.json to staging + show candidates); --approve applies the AI-crafted tickets-delta.json plan to the STAGING Tickets.json via add-ticket/update-ticket, runs validate-tickets, then promotes to the real Tickets.json on success",
+            "- [Path] .claude/commands/drill-rfc-down.md - MODIFY: reframe Step 4 text so the AI is the author of the split (script provides information; AI designs; --approve applies the AI-crafted plan)",
+            "- [Reuse] add-ticket.js / update-ticket.js (granular ticket editing, validateTickets after edits) - no change",
+            "- [Tests] tests/drill-rfc-down/split-delta-analyzer.test.cjs, split-step.test.cjs, step4-command.test.cjs - UPDATE to cover candidates/plan separation, staging flow, and validation messages",
+            "",
+            "**Out of scope:**",
+            "- [Excluded item] Steps 2/3 (graphify/boundify) - separate tickets",
+            "- [Why] sequential pipeline; each step is a separate ticket",
+            "",
+            "**Affected areas:**",
+            "- [Affected component] the Step 4 split pipeline: dirs-tree-delta.json -> split-candidates.json -> AI-crafted tickets-delta.json -> promote",
+            "- [Nature of impact] correctness of the AI-as-engineer flow; no auto-apply of script output",
+            "- [Corresponding change] none beyond this ticket"
+          ],
+          "testUnit": [
+            "UT: [Normal] split-delta-analyzer outputs split-candidates.json (candidates + existing statuses) and validates its output schema",
+            "UT: [Error] split-delta-analyzer emits an English Error/Cause/Action message and exits 1 on malformed input",
+            "UT: [Normal] split-step --stage copies the real Tickets.json to a staging path and shows the candidates + existing statuses",
+            "UT: [Normal] split-step --approve applies the AI-crafted tickets-delta.json plan to the STAGING Tickets.json via add-ticket/update-ticket, validates, and promotes on success",
+            "UT: [Invariant] --approve does NOT re-run the analyzer; it applies the AI-crafted plan file",
+            "UT: [Boundary] a rejected plan leaves the real Tickets.json byte-identical; staging is discarded",
+            "UT: [Normal] add-ticket/update-ticket on the staging Tickets.json validate the schema after every edit and emit English Error/Cause/Action on failure"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] dirs-tree-delta.json + Tickets.json -> analyzer -> split-candidates.json -> AI edits staging via add-ticket/update-ticket -> tickets-delta.json -> --approve promotes + validate-tickets passes",
+            "IT: [Verification] a malformed AI-crafted tickets-delta.json is rejected with an English message and no promote",
+            "IT: [Prerequisites] dirs-tree-delta.json (PX-164), existing tickets scripts",
+            "IT: [Related tickets] PX-166 (Step 5 verify, future)"
+          ],
+          "testExceptions": [
+            "Item: whether a node group maps to a NEW ticket vs being merged into an existing ticket (semantic judgment). Reason: this is the AI engineering-expert non-deterministic design work, not testable automatically; this is not a design defect. Alt verification: the deterministic analyzer proposes candidates and surfaces existing statuses; the AI crafts the plan via add-ticket/update-ticket on staging; the perfect-before-write gate is structurally tested."
+          ],
+          "default_files": [
+            ".claude/scripts/drill-rfc-down/split-delta-analyzer.js",
+            ".claude/scripts/drill-rfc-down/split-step.js",
+            ".claude/commands/drill-rfc-down.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] analyzer -> split-candidates.json; AI crafts tickets-delta.json via add-ticket/update-ticket on staging; --approve promotes and validate-tickets passes",
+            "[Happy path] --stage leaves the real Tickets.json untouched; existing ticket statuses are preserved",
+            "[Error case] malformed input or plan -> English Error/Cause/Action message, exit 1, no promote",
+            "[Edge case] a rejected plan leaves the real Tickets.json byte-identical"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "analyzer -> candidates",
+              "precondition": "dirs-tree-delta.json exists and is valid",
+              "postcondition": "split-candidates.json is generated with a validated schema as INFORMATION (never applied directly)",
+              "invariant": "the analyzer never writes to Tickets.json"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "AI design -> staging",
+              "precondition": "the AI reviews candidates + existing statuses",
+              "postcondition": "the AI crafts tickets-delta.json via add-ticket/update-ticket on the staging Tickets.json (no hand-edited JSON)",
+              "invariant": "the real Tickets.json is untouched until --approve promotes; existing statuses are preserved"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "approve -> promote",
+              "precondition": "the AI-crafted tickets-delta.json is present and valid",
+              "postcondition": "--approve applies it to the staging Tickets.json, validate-tickets passes, then promotes to the real Tickets.json",
+              "invariant": "a rejected plan leaves the real Tickets.json byte-identical; destructive changes require explicit AI approval"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) analyzer candidates output + schema validation; 2) step driver --stage/--approve staging flow; 3) command Step 4 reframe; 4) update tests\n- [Risks] the staging/promote flow must be atomic; add-ticket/update-ticket on staging must not touch the real Tickets.json\n- [Caveats] existing ticket statuses (reviewed/R<N>) are never silently overwritten\n- [Open items] the tickets-delta.json schema must be stable for Step 5 verification\n- [Future improvements] none beyond the AI-as-engineer refactor\nPX-165 implementation complete:\n- Modified: split-delta-analyzer.js (validateCandidates), split-step.js (staging flow), command Step 4\n- Tests: split-delta-analyzer (10 incl. validateCandidates), split-step (4 staging flow), step4-command (new contract); full suite 1665/1665\n- Key design: --approve derives tickets-delta.json by diffing real vs staging Tickets.json (never re-runs analyzer); existing ticket statuses preserved; old P0-${edit.id} phase assumption eliminated\nCoverage completion (post-done): added error-path + delta-derivation tests to close the guarantee gap.\n- graphify-step: --stage missing --delta / --approve missing --source / verify-fail staging rejection / modifiedNodes derivation (8 tests)\n- boundify-step: --stage missing --graph-delta / --approve missing --graph / validate-fail staging rejection / modifiedFiles derivation (8 tests)\n- split-step: --stage missing --dirs-tree-delta / validate-fail staging rejection / editedTickets derivation (7 tests)\n- Full suite: 1676/1676 pass; drill-rfc-down: 169/169; quality checks 0 issues\nGarbage cleanup (post-done): each step driver's final lifecycle step now removes its transient candidates file.\n- --approve: after promote, removeCandidates() deletes <artifact>.candidates.json (stale after commit; .delta.json handoff preserved)\n- --reject: discardStaging() + removeCandidates() delete staging AND candidates (design discarded)\n- Implemented in graphify-step.js / boundify-step.js / split-step.js; tests assert candidates removal after approve and reject\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues\n- Tests: full suite 1705/1705 passed; drill-rfc-down 198/198 passed\n- Annotation verify: all changed source files carry [::TICKET::] annotations (missing 0, ambiguous 0)\n- Final contracts: fulfilled (coverage 100%)\n- Crimes/stubs/no-excuse: all 0",
+          "invariants": "- [Normal condition] The analyzer deterministically generates split-candidates.json (candidates + existing statuses) as INFORMATION; the AI designs tickets-delta.json via add-ticket/update-ticket on a staging Tickets.json copy.\n- [Error invariant] Any malformed input or plan produces an English [ERROR] Cause: ... Action: ... message and exits 1; no promote happens.\n- [Internal state invariant] The real Tickets.json is untouched until --approve promotes; existing ticket statuses are preserved; every edit validates the Tickets schema.\n- [Boundary invariant] A rejected plan leaves the real Tickets.json byte-identical; staging is discarded; destructive changes require explicit AI approval.",
+          "instrumentation": "- [Logging] analyzer and step driver print JSON dry-run reports to stdout; errors to stderr\n- [Metrics] none (CLI pipeline tooling)\n- [Error tracking] any validation failure exits 1 with an English Error/Cause/Action message; no partial Tickets writes\n- [Health check] validate-tickets is the health check after every approved promote\nStatic quality check: passed (0 issues)\nTranslatability: no issues\nTests: full suite 1705/1705 passed",
+          "investigation": "- split-delta-analyzer.js currently outputs tickets-delta.json which the step driver auto-applies on --approve - the drift to fix.\n- split-step.js --approve currently re-runs the analyzer and applies its output; it must instead apply the AI-crafted plan.\n- add-ticket.js / update-ticket.js provide granular ticket editing (addTicket/updateTicket) with validateTickets after edits, and take an arbitrary Tickets.json path (staging-capable).\n- validate-tickets.js validates the Tickets schema (title/round/metadata/phases/tickets status+phaseId).\n- The AI-as-engineer design (approved in review): scripts provide information; AI designs via granular tools on staging; --approve applies the AI-crafted plan; no hand-edited JSON.",
+          "boyScoutPlan": "- Name functions as verbs (analyzeCandidates, stageTickets, applyPlan, promote) so the staging flow reads as prose.\n- Extract the candidates/plan schema into named validators with no inline magic.\n- Reuse add-ticket/update-ticket/validate-tickets instead of reimplementing Tickets I/O (DRY).",
+          "created_at": "2026-08-21",
+          "updated_at": "2026-08-21",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-pre] analyzer fails with an English error on malformed dirs-tree-delta.json\n  ```js\n  fs.writeFileSync(badDtd, 'not json');\n  const res = spawnSync(process.execPath, [ANALYZER, `--dirs-tree-delta=${badDtd}`, `--tickets=${ticketsPath}`, `--out=${candidatesPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 1);\n  assert.match(res.stderr, /dirs-tree-delta|invalid/i);\n  ```",
+            "UT: [C001-post] analyzer generates split-candidates.json as INFORMATION (validated schema)\n  ```js\n  const res = spawnSync(process.execPath, [ANALYZER, `--dirs-tree-delta=${dtdPath}`, `--tickets=${ticketsPath}`, `--out=${candidatesPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0, res.stderr);\n  const out = JSON.parse(fs.readFileSync(candidatesPath, 'utf8'));\n  assert.ok(Array.isArray(out.newTickets) && Array.isArray(out.editedTickets) && Array.isArray(out.existingStatuses));\n  ```",
+            "UT: [C001-inv] analyzer never writes to Tickets.json\n  ```js\n  const before = fs.readFileSync(ticketsPath, 'utf8');\n  const res = spawnSync(process.execPath, [ANALYZER, `--dirs-tree-delta=${dtdPath}`, `--tickets=${ticketsPath}`, `--out=${candidatesPath}`], { encoding: 'utf8' });\n  assert.equal(res.status, 0);\n  assert.equal(fs.readFileSync(ticketsPath, 'utf8'), before, 'Tickets.json unchanged');\n  ```",
+            "UT: [C002-post] the AI designs the plan by editing the staging Tickets.json via add-ticket (no hand-edited JSON)\n  ```js\n  const staging = path.join(tmp, 'Tickets.staging.json');\n  fs.copyFileSync(ticketsPath, staging);\n  const input = JSON.stringify({ title: 'Session storage', nodeIds: ['N0003'], scope: [], testUnit: [], testIntegration: [], testExceptions: [], changes: [] });\n  const res = spawnSync(process.execPath, [ADD_TICKET, staging, 'P1'], { encoding: 'utf8', input });\n  assert.equal(res.status, 0, res.stderr);\n  assert.ok(fs.readFileSync(staging, 'utf8').includes('Session storage'), 'staging ticket added');\n  ```",
+            "UT: [C002-inv] real Tickets.json untouched until --approve promotes\n  ```js\n  const before = fs.readFileSync(ticketsPath, 'utf8');\n  // AI edits staging via add-ticket; --approve has not run yet\n  assert.equal(fs.readFileSync(ticketsPath, 'utf8'), before, 'real Tickets.json untouched before approve');\n  ```",
+            "UT: [C003-pre] --approve with a missing staging Tickets.json emits an English error and does not promote\n  ```js\n  const before = fs.readFileSync(ticketsPath, 'utf8');\n  const res = spawnSync(process.execPath, [STEP, `--tickets=${ticketsPath}`, `--dirs-tree-delta=${dtdPath}`, '--approve'], { encoding: 'utf8' });\n  assert.equal(res.status, 1);\n  assert.match(res.stderr, /Error|Cause|Action/i, 'English error message');\n  assert.equal(fs.readFileSync(ticketsPath, 'utf8'), before, 'no promote');\n  ```",
+            "UT: [C003-post] --approve validates the staging Tickets.json and promotes; tickets-delta.json records the AI-crafted evolution\n  ```js\n  runStep([`--dirs-tree-delta=${dtdPath}`, '--stage'], ticketsPath, dtdPath);\n  const staging = stagingPathOf(ticketsPath);\n  const input = JSON.stringify({ title: 'Session storage', nodeIds: ['N0003'], scope: [], testUnit: [], testIntegration: [], testExceptions: [], changes: [] });\n  const add = spawnSync(process.execPath, [ADD_TICKET, staging, 'P1'], { encoding: 'utf8', input });\n  assert.equal(add.status, 0, add.stderr);\n  const approve = runStep([`--dirs-tree-delta=${dtdPath}`, '--approve'], ticketsPath, dtdPath);\n  assert.equal(approve.status, 0, approve.stderr);\n  assert.ok(fs.readFileSync(ticketsPath, 'utf8').includes('Session storage'), 'real Tickets.json promoted');\n  const delta = JSON.parse(fs.readFileSync(deltaPathOf(ticketsPath), 'utf8'));\n  assert.ok(delta.newTickets.some((t) => t.title === 'Session storage'), 'tickets-delta.json records the AI-added ticket');\n  ```",
+            "UT: [C003-inv] a rejected plan leaves the real Tickets.json byte-identical\n  ```js\n  const before = fs.readFileSync(ticketsPath, 'utf8');\n  const res = runStep([`--dirs-tree-delta=${dtdPath}`, '--reject'], ticketsPath, dtdPath);\n  assert.equal(res.status, 0);\n  assert.equal(fs.readFileSync(ticketsPath, 'utf8'), before, 'Tickets.json byte-identical on reject');\n  ```"
+          ],
+          "startedAt": "2026-08-21",
+          "changes": [
+            {
+              "before": "split-delta-analyzer output tickets-delta.json (auto-applied by step driver)",
+              "after": "outputs split-candidates.json as INFORMATION with validateCandidates schema validation",
+              "description": "Analyzer candidates information + validation (C001)"
+            },
+            {
+              "before": "split-step --dry-run/--approve auto-applied analyzer output (with P0-phase assumption bug)",
+              "after": "split-step --stage/--approve/--reject staging flow: AI designs staging Tickets.json via add-ticket/update-ticket; --approve validates, derives tickets-delta.json, promotes; P0-assumption removed",
+              "description": "Step driver AI-as-engineer staging flow (C003)"
+            },
+            {
+              "before": "Step 4 command text described dry-run->AI judgment->write",
+              "after": "reframed to stage->AI design (add-ticket/update-ticket)->approve (validate promote)->reject",
+              "description": "Command Step 4 reframe"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-21"
+        },
+        {
+          "id": 166,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "drill-rfc-down Step 2 graphify inspection layer - four-axis advisory + contradictionCandidates surface + 本家 verification (dedup/100-line/slug)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/166-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nAdd a comprehensive four-axis (Danger/Omission/Contradiction/Deficiency) mechanical inspection layer to graphify that reports findings to the AI in kind English advisory form, surface the Step 1 delta.contradictionCandidates that are currently dropped, and match the 本家 /graphify-rfc verification layers (deduplicate-headings, analyze-source-structure 100-line rule, validate-slug).\n\n### Purpose\n- NEW advisory-report.js (shared helper) renders a standard four-axis advisory report in English; PX-167/168 reuse it.\n- graphify-delta-analyzer gains mechanical checks: contradictionCandidates surface, duplicate-heading detection, >100-line section flag, slug validation, low-overlap/unmapped-section flag.\n- graphify-step --stage shows the four-axis advisory alongside the candidate report.\n\n### Motivation\n- Q1 gap: the analyzer only generates candidates + validates schema; it does not mechanically inspect for 危険・漏れ・矛盾・不足.\n- Q2 gap: delta.contradictionCandidates (from Step 1 rfc-evolution) is dropped at Step 2; 本家 dedup/100-line/slug checks are absent.\n\n### Constraints\n- Advisory-only: findings NEVER block promote (the verify.js gate is unchanged).\n- Deterministic and fully English; findings rendered via the shared advisory-report.js.\n- The analyzer never writes to *-GRAPH.json.",
+          "scope": [
+            "**Scope of changes:**",
+            "- [Path] .claude/scripts/drill-rfc-down/advisory-report.js - NEW: shared four-axis advisory report builder (Danger/Omission/Contradiction/Deficiency) with kind English rendering; exports buildAdvisoryReport(findings)",
+            "- [Path] .claude/scripts/drill-rfc-down/graphify-delta-analyzer.js - MODIFY: add contradictionCandidates surface, duplicate-heading check, >100-line section flag, slug validation, low-overlap/unmapped-section flag; output carries an `advisory` section",
+            "- [Path] .claude/scripts/drill-rfc-down/graphify-step.js - MODIFY: --stage report includes the four-axis advisory section",
+            "- [Path] .claude/commands/drill-rfc-down.md - MODIFY: Step 2 text references the inspection report",
+            "- [Tests] tests/drill-rfc-down/advisory-report.test.cjs (NEW); graphify-delta-analyzer.test.cjs, graphify-step.test.cjs (UPDATE)",
+            "",
+            "**Non-change scope:**",
+            "- [Item] the verify.js promote gate - [Why] the advisory is design-phase support; the gate stays the sole commit authority",
+            "- [Item] the --approve/--reject/--stage CLI shape - [Why] no new modes are needed; the advisory rides on the existing --stage report",
+            "",
+            "**Affected areas:**",
+            "- [Affected component] the Step 2 graphify pipeline: delta.json -> candidates + four-axis advisory -> AI design",
+            "- [Nature of impact] design-phase advisory support; no change to promote semantics",
+            "- [Corresponding change] PX-167/PX-168 import advisory-report.js; command Step 2/3/4 text updated"
+          ],
+          "testUnit": [
+            "UT: [Normal] advisory-report.js renders a four-axis report (Danger/Omission/Contradiction/Deficiency) with English messages and 'no findings' placeholders",
+            "UT: [Normal] analyzer surfaces delta.contradictionCandidates in its output (C001-post)",
+            "UT: [Error] analyzer flags a duplicate heading in new sections (C003)",
+            "UT: [Boundary] analyzer flags a >100-line new section (C003)",
+            "UT: [Boundary] analyzer flags an invalid slug in a new node (C003)",
+            "UT: [Normal] analyzer flags a low-overlap section that produced a modify candidate (C002 漏れ)",
+            "UT: [Invariant] the advisory is advisory-only: verify.js gate behavior is unchanged (C002-inv)",
+            "UT: [Invariant] the analyzer never writes to *-GRAPH.json (C001-inv)"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] delta.json (with contradictionCandidates) -> analyzer -> candidates + advisory -> --stage report shows both",
+            "IT: [Verification] a delta section >100 lines is flagged in the report without blocking --stage",
+            "IT: [Prerequisites] Step 1 delta.json (PX-159), graphify-delta-analyzer (PX-160/163)",
+            "IT: [Related tickets] PX-167/PX-168 reuse advisory-report.js"
+          ],
+          "testExceptions": [
+            "Item: whether a low-overlap section should be a NEW node vs a MODIFY (semantic judgment). Reason: this non-deterministic AI engineering-expert design decision is not testable automatically (impossible to test by assertion); the advisory flags it but the decision is the AI's. This is not a design defect. Alt verification: the analyzer deterministically emits the low-overlap finding and the --stage report renders it; the AI resolves it via crud.js on staging."
+          ],
+          "default_files": [
+            ".claude/scripts/drill-rfc-down/advisory-report.js",
+            ".claude/scripts/drill-rfc-down/graphify-delta-analyzer.js",
+            ".claude/scripts/drill-rfc-down/graphify-step.js",
+            ".claude/commands/drill-rfc-down.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] analyzer -> candidates + four-axis advisory; --stage shows both in English",
+            "[Happy path] delta.contradictionCandidates appears in the advisory (not dropped)",
+            "[Error case] a duplicate-heading / >100-line / invalid-slug / low-overlap finding appears in the advisory without blocking --stage",
+            "[Edge case] an empty advisory renders 'no findings' in each axis; verify.js gate unchanged"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "delta.contradictionCandidates -> advisory",
+              "precondition": "delta.json carries a contradictionCandidates array",
+              "postcondition": "the analyzer output carries a contradictionCandidates section rendered by advisory-report",
+              "invariant": "the analyzer never writes to *-GRAPH.json"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "analyzer -> four-axis advisory",
+              "precondition": "candidates and delta sections are computed",
+              "postcondition": "advisory-report emits Danger/Omission/Contradiction/Deficiency findings in English",
+              "invariant": "the advisory is advisory-only and never blocks the verify.js promote gate"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "delta sections -> 本家 verification checks",
+              "precondition": "delta sections are available",
+              "postcondition": "the analyzer flags duplicate headings, >100-line sections, and invalid slugs",
+              "invariant": "all checks are deterministic and advisory-only"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) advisory-report.js + tests; 2) analyzer checks + contradictionCandidates surface + tests; 3) step report integration + tests; 4) command Step 2 text\n- [Risks] the advisory must not change promote semantics; verify.js remains the sole gate\n- [Caveats] the >100-line threshold (100) and slug pattern (^[a-z][a-z0-9_]*$) must match 本家 constants (analyze-source-structure.js / validate-slug.js)\n- [Open items] the advisory schema must be stable for PX-167/168 reuse\n- [Future improvements] none\nPX-166 implementation complete:\n- New: .claude/scripts/drill-rfc-down/advisory-report.js + tests/drill-rfc-down/advisory-report.test.cjs (4 tests)\n- Modified: graphify-delta-analyzer.js (inspectCandidates + 6 check functions + advisory output), graphify-step.js (--stage advisory report), command Step 2\n- Tests: drill-rfc-down 177/177; full suite 1684/1684; quality 0 issues\n- Key design: advisory-only (never blocks promote); 本家 constants reused (LONG_SECTION_THRESHOLD=100, SLUG_FORMAT_PATTERN, MAX_SLUG_LENGTH=25)\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues\n- Tests: full suite 1705/1705 passed; drill-rfc-down 198/198 passed\n- Annotation verify: all changed source files carry [::TICKET::] annotations (missing 0, ambiguous 0)\n- Final contracts: fulfilled (coverage 100%)\n- Crimes/stubs/no-excuse: all 0",
+          "invariants": "- [Normal condition] The analyzer deterministically generates candidates plus a four-axis advisory (Danger/Omission/Contradiction/Deficiency) as INFORMATION; the AI designs the graph evolution on a staging copy via crud.js.\n- [Error invariant] Any malformed input or schema violation produces an English [ERROR] Cause: ... Action: ... message and exits 1; the advisory itself never blocks promote.\n- [Internal state invariant] The real GRAPH is untouched until --approve promotes; every crud.js edit validates the graph schema; the advisory-report.js output is byte-deterministic for identical inputs.\n- [Boundary invariant] A rejected plan leaves the real GRAPH byte-identical; the advisory degrades gracefully to 'no findings' when no delta sections or candidates exist.",
+          "instrumentation": "- [Logging] analyzer prints the four-axis advisory as a Markdown section to stdout; errors to stderr\n- [Metrics] none (CLI pipeline tooling)\n- [Error tracking] any validation failure exits 1 with an English Error/Cause/Action message; no partial graph writes\n- [Health check] verify.js remains the graph health check after every approved promote\nStatic quality check: passed (0 issues)\nTranslatability: no issues\nTests: full suite 1705/1705 passed",
+          "investigation": "- graphify-delta-analyzer.js currently reads delta.sections only and drops delta.contradictionCandidates (material evidence: main() builds candidates from analyzeDirsTreeDelta-style section loop; contradictionCandidates is never read).\n- 本家 /graphify-rfc.md Step 0 uses deduplicate-headings.js; Step 1 uses analyze-source-structure.js (100-line rule) and validate-slug.js — none of these are called by the drill analyzers.\n- verify.js (rfc-graph) is the drill promote gate and already checks coverage/isolated/headingRefs/uniqueness; the advisory adds design-phase support without touching the gate.\n- The delta.json schema (rfc-evolution.js) carries contradictionCandidates: [] (material evidence: graphify-step.test.cjs fixture has contradictionCandidates: []).",
+          "boyScoutPlan": "- Name advisory checks as verbs (flagDuplicateHeadings, flagOversizedSections, flagInvalidSlugs, flagLowOverlap) so the inspection reads as prose.\n- Extract the shared advisory-report.js buildAdvisoryReport so all four axes render uniformly; no inline magic.\n- Reuse the 本家 constants (100-line threshold, slug regex) instead of re-declaring them (DRY).",
+          "created_at": "2026-08-21",
+          "updated_at": "2026-08-21",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-pre] analyzer surfaces delta.contradictionCandidates in the advisory (contradiction axis)\n  ```js\n  const deltaPath = path.join(tmp, 'delta.json');\n  writeJson(deltaPath, { sourceFile: 'RFC.md', appendOnly: true, sections: [], addedLineCount: 0, contradictionCandidates: [{ kind: 'graph', target: 'N0002', context: 'Auth module', matchedBy: ['auth'] }] });\n  const res = runAnalyzer(deltaPath, graphPath, outPath);\n  assert.equal(res.status, 0, res.stderr);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.contradiction.some((f) => f.message.includes('N0002')), 'contradiction finding surfaces the target');\n  ```",
+            "UT: [C001-inv] analyzer never writes to *-GRAPH.json (contradiction surface is information only)\n  ```js\n  const before = fs.readFileSync(graphPath, 'utf8');\n  runAnalyzer(deltaPath, graphPath, outPath);\n  assert.equal(fs.readFileSync(graphPath, 'utf8'), before, 'GRAPH byte-identical');\n  ```",
+            "UT: [C002-post] advisory-report.js emits a four-axis report in English\n  ```js\n  const mod = await import(pathToFileURL(ADVISORY).href);\n  const report = mod.buildAdvisoryReport({ danger: [{ message: 'slug collision detected' }], omission: [], contradiction: [{ message: 'contradiction candidate' }], deficiency: [] });\n  assert.match(report, /Danger|Omission|Contradiction|Deficiency/);\n  assert.match(report, /slug collision detected/);\n  assert.match(report, /contradiction candidate/);\n  ```",
+            "UT: [C002-inv] the advisory is advisory-only: graphify-step --stage exits 0 and shows the advisory without promoting\n  ```js\n  const res = runStep([`--source=${rfcPath}`, `--delta=${deltaPath}`, '--stage'], graphPath);\n  assert.equal(res.status, 0, res.stderr);\n  assert.match(res.stdout, /Danger|Omission|Contradiction|Deficiency/i, 'advisory section shown');\n  assert.ok(!fs.existsSync(`${graphPath}.staging.json`.replace('staging', 'promoted')), 'stage does not promote');\n  ```",
+            "UT: [C003-post] analyzer flags a duplicate heading in delta sections\n  ```js\n  writeJson(deltaPath, { sourceFile: 'RFC.md', appendOnly: true, sections: [\n    { heading: '## Auth', startLine: 1, lines: ['## Auth', ''] },\n    { heading: '## Auth', startLine: 5, lines: ['## Auth', ''] },\n  ], addedLineCount: 4, contradictionCandidates: [] });\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.omission.some((f) => /duplicate heading/i.test(f.message)), 'duplicate heading flagged');\n  ```",
+            "UT: [C003-post] analyzer flags a >100-line section and an over-long slug\n  ```js\n  writeJson(deltaPath, { sourceFile: 'RFC.md', appendOnly: true, sections: [\n    { heading: '## Long', startLine: 1, lines: ['## Long', ...Array(105).fill('x')] },\n    { heading: '## This is an extremely long section title that when slugified exceeds the maximum length', startLine: 120, lines: ['## This is an extremely long section title that when slugified exceeds the maximum length', ''] },\n  ], addedLineCount: 106, contradictionCandidates: [] });\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.deficiency.some((f) => /100|long|oversized/i.test(f.message)), 'oversized section flagged');\n  assert.ok(out.advisory.deficiency.some((f) => /slug.*long|length/i.test(f.message)), 'over-long slug flagged');\n  ```",
+            "UT: [C003-inv] the 本家 checks are deterministic and advisory-only\n  ```js\n  const out1 = path.join(tmp, 'a1.json'); const out2 = path.join(tmp, 'a2.json');\n  runAnalyzer(deltaPath, graphPath, out1); runAnalyzer(deltaPath, graphPath, out2);\n  assert.equal(fs.readFileSync(out1, 'utf8'), fs.readFileSync(out2, 'utf8'), 'identical output');\n  ```"
+          ],
+          "startedAt": "2026-08-21",
+          "changes": [
+            {
+              "before": "no four-axis inspection existed; delta.contradictionCandidates was dropped at Step 2",
+              "after": "advisory-report.js (NEW) renders Danger/Omission/Contradiction/Deficiency in English; graphify-delta-analyzer surfaces contradictionCandidates + flags slug collisions, duplicate headings, low-overlap, oversized sections, invalid slugs",
+              "description": "Four-axis advisory inspection layer (C001/C002/C003)"
+            },
+            {
+              "before": "graphify-step --stage showed only candidate lists",
+              "after": "--stage report also shows the four-axis Advisory Report",
+              "description": "Step report advisory integration"
+            },
+            {
+              "before": "Step 2 command text mentioned only candidates",
+              "after": "mentions the four-axis inspection report and that it never blocks promote",
+              "description": "Command Step 2 text"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-21"
+        },
+        {
+          "id": 167,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "drill-rfc-down Step 3 boundify inspection layer - four-axis advisory (path collision / dependency cycle / unmapped nodes / kind consistency / Prose-Prune)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/167-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nAdd a four-axis (Danger/Omission/Contradiction/Deficiency) mechanical inspection layer to boundify that reports findings in kind English via the shared advisory-report.js, matching the 本家 /boundify-graph verification layers (cycle detection, Prose-exclusion/Prune rules).\n\n### Purpose\n- boundify-delta-analyzer gains mechanical checks: path-collision detection, dependency-cycle detection, GRAPH-node-unmapped report, kind-consistency check, Prose-exclusion (rationale/glossary/requirement) and Prune-rule advisory.\n- boundify-step --stage shows the four-axis advisory alongside the candidate report.\n\n### Motivation\n- Q1 gap: the analyzer only surfaces srcDrift; it does not detect path collisions, dependency cycles, unmapped GRAPH nodes, kind mismatches, or Prose/Prune deficiencies.\n- Q2 gap: 本家 boundify-graph-to-dirs has cycle detection; the drill does not.\n\n### Constraints\n- Advisory-only: findings NEVER block promote (validate-dirs-tree-schema gate is unchanged).\n- Deterministic and fully English via advisory-report.js.\n- The analyzer never writes to *-Dirs-Tree.json or src.",
+          "scope": [
+            "**Scope of changes:**",
+            "- [Path] .claude/scripts/drill-rfc-down/boundify-delta-analyzer.js - MODIFY: add path-collision, dependency-cycle, unmapped-GRAPH-node, kind-consistency, Prose-exclusion/Prune advisory checks; output carries an `advisory` section",
+            "- [Path] .claude/scripts/drill-rfc-down/boundify-step.js - MODIFY: --stage report includes the four-axis advisory section",
+            "- [Path] .claude/commands/drill-rfc-down.md - MODIFY: Step 3 text references the inspection report",
+            "- [Tests] tests/drill-rfc-down/boundify-delta-analyzer.test.cjs, boundify-step.test.cjs (UPDATE)",
+            "",
+            "**Non-change scope:**",
+            "- [Item] the validate-dirs-tree-schema promote gate - [Why] the advisory is design-phase support; the gate stays the sole commit authority",
+            "- [Item] the dirs-tree-crud.js editing tool - [Why] unchanged; only the analyzer and step report gain advisory output",
+            "",
+            "**Affected areas:**",
+            "- [Affected component] the Step 3 boundify pipeline: graph-delta.json -> candidates + four-axis advisory -> AI design",
+            "- [Nature of impact] design-phase advisory support; no change to promote semantics",
+            "- [Corresponding change] reuses advisory-report.js from PX-166"
+          ],
+          "testUnit": [
+            "UT: [Normal] analyzer detects a new-file path collision with an existing Dirs-Tree file (C001)",
+            "UT: [Normal] analyzer detects a dependency-direction cycle (C001)",
+            "UT: [Error] analyzer reports GRAPH nodes unmapped to any Dirs-Tree file (C002)",
+            "UT: [Error] analyzer reports a kind mismatch between a graph node and its Dirs-Tree file (C002)",
+            "UT: [Boundary] when candidates are available, analyzer flags Prose nodes (rationale/glossary/requirement) that should be excluded from src (C003)",
+            "UT: [Boundary] analyzer flags a missing declaration stub for a new file (C003)",
+            "UT: [Invariant] advisory is advisory-only; validate-dirs-tree-schema gate unchanged (C001-inv)",
+            "UT: [Invariant] the analyzer never writes to *-Dirs-Tree.json or src (C001-inv)"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] graph-delta.json + Dirs-Tree + src -> analyzer -> candidates + advisory -> --stage report shows both",
+            "IT: [Verification] a dependency cycle in new dependencyDirs is flagged without blocking --stage",
+            "IT: [Prerequisites] graph-delta.json (PX-163), advisory-report.js (PX-166)",
+            "IT: [Related tickets] PX-168 reuses advisory-report.js"
+          ],
+          "testExceptions": [
+            "Item: whether an unmapped GRAPH node folds into an existing directory vs needs a new directory (semantic judgment). Reason: this non-deterministic AI engineering-expert design decision is not testable automatically (impossible to test by assertion); the advisory flags it but the decision is the AI's. This is not a design defect. Alt verification: the analyzer deterministically emits the unmapped-node finding and the AI resolves it via dirs-tree-crud.js on staging."
+          ],
+          "default_files": [
+            ".claude/scripts/drill-rfc-down/boundify-delta-analyzer.js",
+            ".claude/scripts/drill-rfc-down/boundify-step.js",
+            ".claude/commands/drill-rfc-down.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] analyzer -> candidates + four-axis advisory; --stage shows both in English",
+            "[Happy path] path collisions, dependency cycles, unmapped nodes, kind mismatches are flagged",
+            "[Error case] Prose-exclusion/Prune/missing-stub findings appear in the advisory without blocking --stage",
+            "[Edge case] an empty advisory renders 'no findings' in each axis; validate-dirs-tree-schema gate unchanged"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "candidates -> danger detection",
+              "precondition": "new file candidates and dependencyDirs candidates are computed",
+              "postcondition": "the analyzer flags path collisions and dependency-direction cycles in English",
+              "invariant": "advisory-only; the validate-dirs-tree-schema gate is unchanged"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "GRAPH + Dirs-Tree -> omission/contradiction detection",
+              "precondition": "GRAPH, Dirs-Tree and candidates are available",
+              "postcondition": "the analyzer flags GRAPH nodes unmapped to any Dirs-Tree file and kind mismatches",
+              "invariant": "deterministic and advisory-only"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "candidates -> deficiency detection",
+              "precondition": "candidates are available",
+              "postcondition": "the analyzer flags Prose-exclusion (rationale/glossary/requirement) and Prune-rule violations and missing declaration stubs",
+              "invariant": "the analyzer never writes to *-Dirs-Tree.json or src"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) analyzer checks + tests; 2) step report integration + tests; 3) command Step 3 text\n- [Risks] cycle detection must match 本家 boundify-graph-to-dirs semantics\n- [Caveats] Prose exclusion (rationale/glossary/requirement) follows the 本家 rule\n- [Open items] the advisory schema reuses PX-166's advisory-report.js\n- [Future improvements] none\nPX-167 implementation complete:\n- Modified: boundify-delta-analyzer.js (inspectCandidates + 6 check functions + optional --graph + advisory output), boundify-step.js (--graph forward + --stage advisory report), command Step 3\n- Tests: boundify-delta-analyzer 17/17; boundify-step 8/8; drill-rfc-down 184/184; full suite 1691/1691; quality 0 issues\n- Key design: advisory-only (never blocks promote); 本家 constants reused (PROSE_KINDS rationale/glossary/requirement); cycle detection mirrors 本家 tarjanSCC semantics\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues\n- Tests: full suite 1705/1705 passed; drill-rfc-down 198/198 passed\n- Annotation verify: all changed source files carry [::TICKET::] annotations (missing 0, ambiguous 0)\n- Final contracts: fulfilled (coverage 100%)\n- Crimes/stubs/no-excuse: all 0",
+          "invariants": "- [Normal condition] The analyzer deterministically generates candidates plus a four-axis advisory (Danger/Omission/Contradiction/Deficiency) as INFORMATION; the AI designs the Dirs-Tree evolution on a staging copy via dirs-tree-crud.js.\n- [Error invariant] Any malformed input or schema violation produces an English [ERROR] Cause: ... Action: ... message and exits 1; the advisory itself never blocks promote.\n- [Internal state invariant] The real Dirs-Tree and src are untouched until --approve promotes; every dirs-tree-crud.js edit validates the Dirs-Tree schema; the advisory is byte-deterministic for identical inputs.\n- [Boundary invariant] A rejected plan leaves the real Dirs-Tree and src byte-identical; the advisory degrades gracefully to 'no findings' when no candidates exist.",
+          "instrumentation": "- [Logging] analyzer prints the four-axis advisory as a Markdown section to stdout; errors to stderr\n- [Metrics] none (CLI pipeline tooling)\n- [Error tracking] any validation failure exits 1 with an English Error/Cause/Action message; no partial Dirs-Tree/src writes\n- [Health check] validate-dirs-tree-schema remains the health check after every approved promote\nStatic quality check: passed (0 issues)\nTranslatability: no issues\nTests: full suite 1705/1705 passed",
+          "investigation": "- boundify-delta-analyzer.js currently surfaces only newFiles/modifiedFiles/srcDrift/dependencyDirs; it does not check path collisions, dependency cycles, or Prose/Prune rules (material evidence: analyzeDirsTreeDelta builds four arrays only).\n- 本家 /boundify-graph.md Step 1 uses verify-graph-integrity.js (5-axis) and boundify-graph-to-dirs.js has cycle detection; validate-dirs-tree-schema does NOT check dependency cycles (material evidence: its 6 checks omit cycle detection).\n- The Prose-exclusion rule (rationale/glossary/requirement) is documented in the command Step 3 text and 本家; the drill analyzer does not enforce/advisory it.",
+          "boyScoutPlan": "- Name advisory checks as verbs (flagPathCollisions, flagDependencyCycles, flagUnmappedNodes, flagKindMismatches, flagProseExclusions) so the inspection reads as prose.\n- Reuse advisory-report.js buildAdvisoryReport for uniform four-axis rendering.\n- Reuse the 本家 cycle-detection approach instead of reimplementing graph traversal (DRY).",
+          "created_at": "2026-08-21",
+          "updated_at": "2026-08-21",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-post] analyzer flags a new-file path collision with an existing Dirs-Tree file\n  ```js\n  // graphDelta.newFiles contains a path already present in the Dirs-Tree\n  const gd = JSON.parse(fs.readFileSync(graphDeltaPath, 'utf8'));\n  gd.newFiles = [{ path: 'src/api/auth.rs', kind: 'architecture', nodeId: 'N0003', title: 'Session storage' }];\n  writeJson(graphDeltaPath, gd);\n  const res = runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.danger.some((f) => /collision|already exists/i.test(f.message)), 'path collision flagged');\n  ```",
+            "UT: [C001-post] analyzer detects a dependency-direction cycle among new edges\n  ```js\n  const gd = JSON.parse(fs.readFileSync(graphDeltaPath, 'utf8'));\n  gd.newEdges = [{ from: 'N0003', to: 'N0004', type: 'depends_on' }, { from: 'N0004', to: 'N0003', type: 'depends_on' }];\n  writeJson(graphDeltaPath, gd);\n  const res = runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.danger.some((f) => /cycle|circular/i.test(f.message)), 'dependency cycle flagged');\n  ```",
+            "UT: [C001-inv] the advisory is advisory-only; validate-dirs-tree-schema gate unchanged\n  ```js\n  const res = runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath);\n  assert.equal(res.status, 0, res.stderr); // analyzer never blocks\n  const before = fs.readFileSync(dirsTreePath, 'utf8');\n  const after = fs.readFileSync(dirsTreePath, 'utf8');\n  assert.equal(after, before, 'Dirs-Tree untouched by analysis');\n  ```",
+            "UT: [C002-post] analyzer reports a GRAPH node unmapped to any Dirs-Tree file\n  ```js\n  const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));\n  graph.nodes.push({ id: 'N0009', title: 'Orphan', slug: 'orphan', kind: 'architecture', summary: 's', headingRefs: [{ refId: 'REF009', heading: 2, texts: ['Orphan'] }] });\n  writeJson(graphPath, graph);\n  const res = runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath, graphPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.omission.some((f) => f.message.includes('N0009')), 'unmapped node N0009 flagged');\n  ```",
+            "UT: [C002-post] analyzer reports a kind mismatch between a graph node and its Dirs-Tree file\n  ```js\n  const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));\n  graph.nodes.find((n) => n.id === 'N0002').kind = 'security'; // Dirs-Tree auth.rs is api_contract\n  writeJson(graphPath, graph);\n  const res = runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath, graphPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.contradiction.some((f) => /kind|mismatch/i.test(f.message)), 'kind mismatch flagged');\n  ```",
+            "UT: [C003-post] analyzer flags Prose nodes (rationale/glossary/requirement) proposed as src files\n  ```js\n  const gd = JSON.parse(fs.readFileSync(graphDeltaPath, 'utf8'));\n  gd.newFiles = [{ path: 'src/rationale.md', kind: 'rationale', nodeId: 'N0008', title: 'Rationale' }];\n  writeJson(graphDeltaPath, gd);\n  const res = runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath, graphPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.deficiency.some((f) => /prose|rationale|exclude/i.test(f.message)), 'prose exclusion flagged');\n  ```",
+            "UT: [C003-post] analyzer flags a missing declaration stub for a new file\n  ```js\n  // newFiles proposes src/session_storage.rs which does not exist in srcDir\n  const gd = JSON.parse(fs.readFileSync(graphDeltaPath, 'utf8'));\n  gd.newFiles = [{ path: 'src/session_storage.rs', kind: 'architecture', nodeId: 'N0003', title: 'Session storage' }];\n  writeJson(graphDeltaPath, gd);\n  const res = runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.deficiency.some((f) => /stub|missing/i.test(f.message)), 'missing declaration stub flagged');\n  ```",
+            "UT: [C003-inv] the 本家 checks are deterministic and advisory-only\n  ```js\n  const out1 = path.join(tmpRoot, 'b1.json'); const out2 = path.join(tmpRoot, 'b2.json');\n  runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, out1);\n  runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, out2);\n  assert.equal(fs.readFileSync(out1, 'utf8'), fs.readFileSync(out2, 'utf8'), 'identical output');\n  ```"
+          ],
+          "startedAt": "2026-08-21",
+          "changes": [
+            {
+              "before": "boundify-delta-analyzer surfaced only newFiles/modifiedFiles/srcDrift/dependencyDirs",
+              "after": "adds four-axis advisory (danger: path collision + dependency cycle; omission: unmapped GRAPH nodes; contradiction: kind mismatch; deficiency: Prose exclusion + missing declaration stub) via inspectCandidates",
+              "description": "Four-axis advisory inspection layer (C001/C002/C003)"
+            },
+            {
+              "before": "boundify-step --stage showed only candidate lists",
+              "after": "--stage forwards --graph to the analyzer and shows the four-axis Advisory Report",
+              "description": "Step report advisory integration"
+            },
+            {
+              "before": "Step 3 command text mentioned only candidates",
+              "after": "mentions the four-axis inspection report (path collision/cycle/unmapped/kind/Prose/stub)",
+              "description": "Command Step 3 text"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-21"
+        },
+        {
+          "id": 168,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "drill-rfc-down Step 4 split inspection layer - four-axis advisory (unmapped files / status overwrite / phase conflict / scope sufficiency)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/168-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nAdd a four-axis (Danger/Omission/Contradiction/Deficiency) mechanical inspection layer to split that reports findings in kind English via the shared advisory-report.js.\n\n### Purpose\n- split-delta-analyzer gains mechanical checks: unmapped-file report, existing-status-overwrite risk, phase-assignment conflict detection, and new-ticket scope/test-plan sufficiency.\n- split-step --stage shows the four-axis advisory alongside the candidate report.\n\n### Motivation\n- Q1 gap: the analyzer only surfaces existingStatuses; it does not detect unmapped files, phase conflicts, or scope deficiencies.\n\n### Constraints\n- Advisory-only: findings NEVER block promote (validate-tickets gate is unchanged).\n- Deterministic and fully English via advisory-report.js.\n- The analyzer never writes to Tickets.json.",
+          "scope": [
+            "**Scope of changes:**",
+            "- [Path] .claude/scripts/drill-rfc-down/split-delta-analyzer.js - MODIFY: add unmapped-file, status-overwrite-risk, phase-conflict, scope/test-plan-sufficiency advisory checks; output carries an `advisory` section",
+            "- [Path] .claude/scripts/drill-rfc-down/split-step.js - MODIFY: --stage report includes the four-axis advisory section",
+            "- [Path] .claude/commands/drill-rfc-down.md - MODIFY: Step 4 text references the inspection report",
+            "- [Tests] tests/drill-rfc-down/split-delta-analyzer.test.cjs, split-step.test.cjs (UPDATE)",
+            "",
+            "**Non-change scope:**",
+            "- [Item] the validate-tickets promote gate - [Why] the advisory is design-phase support; the gate stays the sole commit authority",
+            "- [Item] the add-ticket/update-ticket editing tools - [Why] unchanged; only the analyzer and step report gain advisory output",
+            "",
+            "**Affected areas:**",
+            "- [Affected component] the Step 4 split pipeline: dirs-tree-delta.json -> candidates + four-axis advisory -> AI design",
+            "- [Nature of impact] design-phase advisory support; no change to promote semantics",
+            "- [Corresponding change] reuses advisory-report.js from PX-166"
+          ],
+          "testUnit": [
+            "UT: [Normal] analyzer reports a file in dirs-tree-delta unmapped to any ticket (C001)",
+            "UT: [Normal] analyzer reports an existing reviewed/R<N> status overwrite risk (C001)",
+            "UT: [Error] analyzer detects a phase-assignment conflict (same node in two phases) (C002)",
+            "UT: [Boundary] analyzer flags a new ticket candidate lacking scope or test plan (C003)",
+            "UT: [Invariant] advisory is advisory-only; validate-tickets gate unchanged (C001-inv)",
+            "UT: [Invariant] the analyzer never writes to Tickets.json (C001-inv)"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] dirs-tree-delta.json + Tickets.json -> analyzer -> candidates + advisory -> --stage report shows both",
+            "IT: [Verification] a phase conflict is flagged without blocking --stage",
+            "IT: [Prerequisites] dirs-tree-delta.json (PX-164), advisory-report.js (PX-166)",
+            "IT: [Related tickets] PX-169 (Step 5 verify) consumes the inspection results"
+          ],
+          "testExceptions": [
+            "Item: whether an unmapped file should create a NEW ticket vs merge into an existing ticket (semantic judgment). Reason: this non-deterministic AI engineering-expert design decision is not testable automatically (impossible to test by assertion); the advisory flags it but the decision is the AI's. This is not a design defect. Alt verification: the analyzer deterministically emits the unmapped-file finding and the AI resolves it via add-ticket/update-ticket on staging."
+          ],
+          "default_files": [
+            ".claude/scripts/drill-rfc-down/split-delta-analyzer.js",
+            ".claude/scripts/drill-rfc-down/split-step.js",
+            ".claude/commands/drill-rfc-down.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] analyzer -> candidates + four-axis advisory; --stage shows both in English",
+            "[Happy path] unmapped files, status-overwrite risks, phase conflicts are flagged",
+            "[Error case] scope/test-plan-deficiency findings appear in the advisory without blocking --stage",
+            "[Edge case] an empty advisory renders 'no findings' in each axis; validate-tickets gate unchanged"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "dirs-tree-delta + Tickets -> omission/danger detection",
+              "precondition": "dirs-tree-delta and Tickets.json are available",
+              "postcondition": "the analyzer flags files unmapped to any ticket and existing-status overwrite risks",
+              "invariant": "advisory-only; the validate-tickets gate is unchanged"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "phase assignments -> contradiction detection",
+              "precondition": "phase assignments and existing tickets are available",
+              "postcondition": "the analyzer flags phase-assignment conflicts",
+              "invariant": "deterministic and advisory-only"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "new ticket candidates -> deficiency detection",
+              "precondition": "new ticket candidates are available",
+              "postcondition": "the analyzer flags candidates lacking scope or test plan",
+              "invariant": "the analyzer never writes to Tickets.json"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) analyzer checks + tests; 2) step report integration + tests; 3) command Step 4 text\n- [Risks] status-overwrite detection must not false-positive on intentional updates\n- [Caveats] scope/test-plan sufficiency follows the existing ticket field conventions\n- [Open items] the advisory schema reuses PX-166's advisory-report.js\n- [Future improvements] none\nPX-168 implementation complete:\n- Modified: split-delta-analyzer.js (inspectCandidates + 4 check functions + advisory output), split-step.js (--stage advisory report), command Step 4\n- Tests: split-delta-analyzer 15/15; split-step 7/7; drill-rfc-down 189/189; full suite 1696/1696; quality 0 issues\n- Key design: advisory-only (never blocks promote); status preservation (reviewed/R<N>) surfaced as explicit overwrite risk\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues\n- Tests: full suite 1705/1705 passed; drill-rfc-down 198/198 passed\n- Annotation verify: all changed source files carry [::TICKET::] annotations (missing 0, ambiguous 0)\n- Final contracts: fulfilled (coverage 100%)\n- Crimes/stubs/no-excuse: all 0",
+          "invariants": "- [Normal condition] The analyzer deterministically generates candidates plus a four-axis advisory (Danger/Omission/Contradiction/Deficiency) as INFORMATION; the AI designs the Tickets evolution on a staging copy via add-ticket/update-ticket.\n- [Error invariant] Any malformed input or schema violation produces an English [ERROR] Cause: ... Action: ... message and exits 1; the advisory itself never blocks promote.\n- [Internal state invariant] The real Tickets.json is untouched until --approve promotes; every add-ticket/update-ticket edit validates the Tickets schema; the advisory is byte-deterministic for identical inputs.\n- [Boundary invariant] A rejected plan leaves the real Tickets.json byte-identical; the advisory degrades gracefully to 'no findings' when no candidates exist.",
+          "instrumentation": "- [Logging] analyzer prints the four-axis advisory as a Markdown section to stdout; errors to stderr\n- [Metrics] none (CLI pipeline tooling)\n- [Error tracking] any validation failure exits 1 with an English Error/Cause/Action message; no partial Tickets.json writes\n- [Health check] validate-tickets remains the health check after every approved promote\nStatic quality check: passed (0 issues)\nTranslatability: no issues\nTests: full suite 1705/1705 passed",
+          "investigation": "- split-delta-analyzer.js currently surfaces only newTickets/editedTickets/phaseAssignments/existingStatuses; it does not check unmapped files, phase conflicts, or scope sufficiency (material evidence: analyzeTicketsDelta builds four arrays only).\n- existingStatuses already surfaces reviewed/R<N> statuses for preservation; the advisory extends this to an explicit overwrite-risk flag.\n- validate-tickets.js validates ticket schema (title/round/metadata/phases/tickets status+phaseId); it does not check phase-assignment conflicts.",
+          "boyScoutPlan": "- Name advisory checks as verbs (flagUnmappedFiles, flagStatusOverwriteRisks, flagPhaseConflicts, flagScopeDeficiencies) so the inspection reads as prose.\n- Reuse advisory-report.js buildAdvisoryReport for uniform four-axis rendering.\n- Reuse existing surfaceExistingStatuses logic instead of re-reading tickets (DRY).",
+          "created_at": "2026-08-21",
+          "updated_at": "2026-08-21",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-post] analyzer reports a file unmapped to any ticket\n  ```js\n  const dtd = JSON.parse(fs.readFileSync(dtdPath, 'utf8'));\n  dtd.modifiedFiles = [{ nodeId: 'N0005', path: 'src/api/new.rs', changes: { title: 'New' } }];\n  writeJson(dtdPath, dtd);\n  const res = runAnalyzer(dtdPath, ticketsPath, outPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.omission.some((f) => /no existing ticket|unmapped|merge/i.test(f.message)), 'unmapped modified file flagged');\n  ```",
+            "UT: [C001-post] analyzer reports an existing reviewed/R<N> status overwrite risk\n  ```js\n  const dtd = JSON.parse(fs.readFileSync(dtdPath, 'utf8'));\n  dtd.modifiedFiles = [{ nodeId: 'N0002', path: 'src/api/auth.rs', changes: { title: 'Auth module extended' } }];\n  writeJson(dtdPath, dtd);\n  const res = runAnalyzer(dtdPath, ticketsPath, outPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.danger.some((f) => /preserve|overwrite|reviewed/i.test(f.message)), 'status overwrite risk flagged');\n  ```",
+            "UT: [C001-inv] the advisory is advisory-only; validate-tickets gate unchanged\n  ```js\n  const before = fs.readFileSync(ticketsPath, 'utf8');\n  const res = runAnalyzer(dtdPath, ticketsPath, outPath);\n  assert.equal(res.status, 0, res.stderr);\n  assert.equal(fs.readFileSync(ticketsPath, 'utf8'), before, 'Tickets.json untouched by analysis');\n  ```",
+            "UT: [C002-post] analyzer detects a duplicate-node ticket conflict (node already covered by an existing ticket)\n  ```js\n  const dtd = JSON.parse(fs.readFileSync(dtdPath, 'utf8'));\n  dtd.newFiles = [{ nodeId: 'N0002', path: 'src/api/auth.rs', kind: 'api_contract', title: 'Auth module extended' }];\n  writeJson(dtdPath, dtd);\n  const res = runAnalyzer(dtdPath, ticketsPath, outPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.contradiction.some((f) => /duplicate|already covered|prefer an edit/i.test(f.message)), 'duplicate-node ticket conflict flagged');\n  ```",
+            "UT: [C003-post] analyzer flags a new ticket candidate lacking scope or test plan\n  ```js\n  const res = runAnalyzer(dtdPath, ticketsPath, outPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.advisory.deficiency.some((f) => /no scope|test plan/i.test(f.message)), 'scope/test-plan deficiency flagged');\n  ```",
+            "UT: [C003-inv] the 本家 checks are deterministic and advisory-only\n  ```js\n  const out1 = path.join(tmpRoot, 's1.json'); const out2 = path.join(tmpRoot, 's2.json');\n  runAnalyzer(dtdPath, ticketsPath, out1); runAnalyzer(dtdPath, ticketsPath, out2);\n  assert.equal(fs.readFileSync(out1, 'utf8'), fs.readFileSync(out2, 'utf8'), 'identical output');\n  ```"
+          ],
+          "startedAt": "2026-08-21",
+          "changes": [
+            {
+              "before": "split-delta-analyzer surfaced only newTickets/editedTickets/phaseAssignments/existingStatuses",
+              "after": "adds four-axis advisory (danger: status overwrite risk; omission: unmapped modified files; contradiction: duplicate-node ticket; deficiency: scope/test-plan) via inspectCandidates",
+              "description": "Four-axis advisory inspection layer (C001/C002/C003)"
+            },
+            {
+              "before": "split-step --stage showed only candidate lists",
+              "after": "--stage report shows the four-axis Advisory Report",
+              "description": "Step report advisory integration"
+            },
+            {
+              "before": "Step 4 command text mentioned only candidates",
+              "after": "mentions the four-axis inspection report (status overwrite/unmapped/duplicate/scope)",
+              "description": "Command Step 4 text"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-21"
+        },
+        {
+          "id": 169,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "drill-rfc-down Step 5 verify - 5-consistency final verification (RFC/GRAPH/Dirs-Tree/src/Tickets) + cross-artifact zero-contradiction + regression loop",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/169-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nImplement Step 5 (verify): a final cross-artifact verification that checks the five consistencies (canonical RFC / GRAPH / Dirs-Tree / src / Tickets) and detects cross-artifact contradictions, omissions, and dangers, reporting in kind English. On findings, loop back to Step 2 for fix until PASS.\n\n### Purpose\n- NEW verify-consistencies.js performs the 5-consistency check across all artifacts.\n- Matches the 本家 verify-graph-integrity.js 5-axis regression (nodes/edges/headingRefs/orphans/coverage) at the pipeline level.\n- Provides the blocking loop (Step 5 -> Step 2 fix -> re-verify until PASS).\n\n### Motivation\n- Q2 gap: cross-artifact 矛盾ゼロ and 5-axis regression are not implemented; each step only checks step-local consistency.\n- The final guarantee that RFC/GRAPH/Dirs-Tree/src/Tickets are mutually consistent.\n\n### Constraints\n- Read-only: never writes to any artifact.\n- Deterministic and fully English.\n- Blocking loop: the pipeline cannot pass Step 5 with unresolved high-severity findings.",
+          "scope": [
+            "**Scope of changes:**",
+            "- [Path] .claude/scripts/drill-rfc-down/verify-consistencies.js - NEW: 5-consistency check (RFC headings vs GRAPH headingRefs, GRAPH nodes vs Dirs-Tree mappedNodeIds, Dirs-Tree files vs src files, GRAPH/Dirs-Tree nodes vs Tickets nodeIds) with English findings",
+            "- [Path] .claude/scripts/drill-rfc-down/verify-step.js - NEW: Step 5 driver that runs verify-consistencies and reports severity-ranked findings; exit 1 if high-severity findings remain",
+            "- [Path] .claude/commands/drill-rfc-down.md - MODIFY: Step 5 text (blocking loop, severity levels)",
+            "- [Tests] tests/drill-rfc-down/verify-consistencies.test.cjs, verify-step.test.cjs (NEW)",
+            "",
+            "**Non-change scope:**",
+            "- [Item] the per-step promote gates (verify.js / validate-dirs-tree-schema / validate-tickets) - [Why] they guard each step; Step 5 is the cross-artifact final gate",
+            "- [Item] the per-step inspection layers (PX-166/167/168) - [Why] design-phase advisories are distinct from the final blocking verification",
+            "",
+            "**Affected areas:**",
+            "- [Affected component] the whole drill-rfc-down pipeline: Step 5 as the final blocking gate",
+            "- [Nature of impact] cross-artifact zero-contradiction guarantee",
+            "- [Corresponding change] none beyond this ticket"
+          ],
+          "testUnit": [
+            "UT: [Normal] verify-consistencies detects an RFC heading with no GRAPH headingRef (C001)",
+            "UT: [Normal] verify-consistencies detects a GRAPH node with no Dirs-Tree mappedNodeId (C001)",
+            "UT: [Normal] verify-consistencies detects a Dirs-Tree file missing from src (C001)",
+            "UT: [Error] verify-consistencies deterministically detects a GRAPH/Dirs-Tree node with no Tickets nodeId (C002)",
+            "UT: [Error] verify-consistencies deterministically detects a dangling reference across artifacts and reports it in English (C002)",
+            "UT: [Boundary] verify-step exits 1 when high-severity findings remain (C003)",
+            "UT: [Boundary] verify-step exits 0 when only low-severity/cosmetic findings remain (C003)",
+            "UT: [Invariant] verify-consistencies never writes to any artifact (C001-inv)"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] full pipeline artifacts (RFC/GRAPH/Dirs-Tree/src/Tickets) -> verify-consistencies -> severity-ranked findings -> verify-step blocking loop",
+            "IT: [Verification] a cross-artifact contradiction (e.g., node in GRAPH but absent from Tickets) is reported and blocks PASS",
+            "IT: [Prerequisites] PX-166/167/168 inspection layers and all artifacts",
+            "IT: [Related tickets] all drill-rfc-down tickets (PX-157..168)"
+          ],
+          "testExceptions": [
+            "Item: whether a low-severity/cosmetic finding (e.g., wording) should block the pipeline. Reason: severity ranking is a deterministic rule (high=structural, medium=consistency, low=cosmetic) and the blocking threshold is mechanical; the semantic judgment on each finding is the AI's and is not testable automatically (impossible to test by assertion). This is not a design defect. Alt verification: verify-step exits 0 with only low-severity findings and 1 with high-severity, tested mechanically."
+          ],
+          "default_files": [
+            ".claude/scripts/drill-rfc-down/verify-consistencies.js",
+            ".claude/scripts/drill-rfc-down/verify-step.js",
+            ".claude/commands/drill-rfc-down.md"
+          ],
+          "acceptanceCriteria": [
+            "[Happy path] all 5 consistencies verified; zero high-severity findings -> PASS (exit 0)",
+            "[Happy path] findings are severity-ranked and reported in kind English",
+            "[Error case] a cross-artifact contradiction -> exit 1 with a clear report; pipeline loops back to Step 2",
+            "[Edge case] only cosmetic findings remain -> PASS (exit 0)"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "artifacts -> 5-consistency check",
+              "precondition": "RFC, GRAPH, Dirs-Tree, src, and Tickets all exist",
+              "postcondition": "verify-consistencies checks RFC headings vs GRAPH headingRefs, GRAPH nodes vs Dirs-Tree mappedNodeIds, Dirs-Tree files vs src files",
+              "invariant": "read-only; never writes to any artifact"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "cross-artifact -> contradiction/omission detection",
+              "precondition": "all artifacts are available",
+              "postcondition": "verify-consistencies reports cross-artifact contradictions (node in GRAPH absent from Tickets, dangling references)",
+              "invariant": "deterministic and fully English"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "findings -> regression loop",
+              "precondition": "verify-consistencies has produced findings",
+              "postcondition": "verify-step exits 1 when high-severity findings remain (loop back to Step 2) and 0 when only low-severity remain",
+              "invariant": "no PASS with unresolved high-severity findings"
+            }
+          ],
+          "notes": "- [Implementation steps] 1) verify-consistencies.js + tests; 2) verify-step.js + tests; 3) command Step 5 text\n- [Risks] severity classification must be deterministic; blocking threshold is mechanical\n- [Caveats] reuses the existing validate-tickets / validate-dirs-tree-schema / verify.js logic where applicable (DRY)\n- [Open items] none\n- [Future improvements] none\nPX-169 implementation complete:\n- New: .claude/scripts/drill-rfc-down/verify-consistencies.js + verify-step.js + their tests (6 + 3 = 9 tests)\n- Modified: command Step 5 text\n- Tests: drill-rfc-down 198/198; full suite 1705/1705; quality 0 issues\n- Key design: read-only (never writes artifacts); severity-ranked (high=structural block, low=cosmetic); exit 1 loops back to Step 2\nReview report:\n- Static quality check: passed (0 issues)\n- Translatability: no issues\n- Tests: full suite 1705/1705 passed; drill-rfc-down 198/198 passed\n- Annotation verify: all changed source files carry [::TICKET::] annotations (missing 0, ambiguous 0)\n- Final contracts: fulfilled (coverage 100%)\n- Crimes/stubs/no-excuse: all 0",
+          "invariants": "- [Normal condition] verify-consistencies deterministically checks the five consistencies (RFC headings vs GRAPH headingRefs, GRAPH nodes vs Dirs-Tree mappedNodeIds, Dirs-Tree files vs src files, GRAPH/Dirs-Tree nodes vs Tickets nodeIds) and reports findings in kind English.\n- [Error invariant] Any malformed or missing artifact produces an English [ERROR] Cause: ... Action: ... message and exits 1; a verify run never writes to any artifact.\n- [Internal state invariant] Findings are severity-ranked (high=structural, medium=consistency, low=cosmetic); the blocking threshold is deterministic.\n- [Boundary invariant] verify-step exits 0 only when zero high-severity findings remain; with any high-severity finding it exits 1 (loop back to Step 2).",
+          "instrumentation": "- [Logging] verify-consistencies prints severity-ranked findings to stdout; errors to stderr\n- [Metrics] none (CLI pipeline tooling)\n- [Error tracking] any malformed artifact exits 1 with an English Error/Cause/Action message\n- [Health check] verify-step is the pipeline health check; PASS requires zero high-severity findings\nStatic quality check: passed (0 issues)\nTranslatability: no issues\nTests: full suite 1705/1705 passed",
+          "investigation": "- The drill pipeline artifacts are RFC.md, *-GRAPH.json, *-Dirs-Tree.json, src/, Tickets.json (material evidence: drill-rfc-down command Step 0 [VARIABLES]).\n- 本家 /boundify-graph.md uses verify-graph-integrity.js --graph-before/--graph-after for a 5-axis regression (nodes/edges/headingRefs/orphans/coverage); Step 5 is the pipeline-level equivalent.\n- verify.js (graphify gate), validate-dirs-tree-schema.js (boundify gate), and validate-tickets.js (split gate) each validate one artifact; none check cross-artifact consistency.",
+          "boyScoutPlan": "- Name verification functions as verbs (verifyHeadingCoverage, verifyGraphDirsTreeMapping, verifySrcDrift, verifyTicketCoverage, verifyNoDanglingRefs) so the checks read as prose.\n- Reuse the existing verify.js / validate-dirs-tree-schema / validate-tickets check logic where applicable (DRY).\n- Extract a shared severity classifier (high/medium/low) so the blocking threshold is explicit and testable.",
+          "created_at": "2026-08-21",
+          "updated_at": "2026-08-21",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-post] verify-consistencies detects an RFC heading with no GRAPH headingRef\n  ```js\n  fs.writeFileSync(rfcPath, '# Doc\\n\\n## Uncovered Heading\\n');\n  const res = runVerifyConsistencies(rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath, outPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.findings.some((f) => f.severity === 'high' && /heading|uncovered/i.test(f.message)), 'uncovered RFC heading flagged');\n  ```",
+            "UT: [C001-post] verify-consistencies detects a GRAPH node with no Dirs-Tree mappedNodeId\n  ```js\n  const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));\n  graph.nodes.push({ id: 'N0009', title: 'Orphan', slug: 'orphan', kind: 'architecture', summary: 's', headingRefs: [{ refId: 'REF009', heading: 2, texts: ['Auth'] }] });\n  writeJson(graphPath, graph);\n  const res = runVerifyConsistencies(rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath, outPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.findings.some((f) => f.severity === 'high' && f.message.includes('N0009')), 'unmapped graph node flagged');\n  ```",
+            "UT: [C001-post] verify-consistencies detects a Dirs-Tree file missing from src\n  ```js\n  // Dirs-Tree has auth.rs but src/api/auth.rs is deleted\n  fs.rmSync(path.join(srcDir, 'api', 'auth.rs'));\n  const res = runVerifyConsistencies(rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath, outPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.findings.some((f) => f.severity === 'high' && /missing from src|auth\\.rs/i.test(f.message)), 'Dirs-Tree file missing from src flagged');\n  ```",
+            "UT: [C002-post] verify-consistencies detects a GRAPH node absent from Tickets\n  ```js\n  // Remove N0002 from the only ticket's nodeIds\n  const tickets = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));\n  tickets.phases[0].tickets[0].nodeIds = [];\n  writeJson(ticketsPath, tickets);\n  const res = runVerifyConsistencies(rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath, outPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.findings.some((f) => f.severity === 'high' && /absent from|tickets|N0002/i.test(f.message)), 'graph node absent from Tickets flagged');\n  ```",
+            "UT: [C002-post] verify-consistencies detects a dangling Dirs-Tree reference\n  ```js\n  const dt = JSON.parse(fs.readFileSync(dirsTreePath, 'utf8'));\n  const auth = dt.trees.rust.children.find((c) => c.name === 'api').children.find((c) => c.name === 'auth.rs');\n  auth.mappedNodeIds = [{ nodeId: 'N9999', title: 'Missing' }];\n  writeJson(dirsTreePath, dt);\n  const res = runVerifyConsistencies(rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath, outPath);\n  const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));\n  assert.ok(out.findings.some((f) => f.severity === 'high' && /dangling|N9999/i.test(f.message)), 'dangling reference flagged');\n  ```",
+            "UT: [C003-post] verify-step exits 1 when high-severity findings remain\n  ```js\n  fs.writeFileSync(rfcPath, '# Doc\\n\\n## Uncovered Heading\\n'); // introduces a high finding\n  const res = runVerifyStep(rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath);\n  assert.equal(res.status, 1, 'high findings block PASS');\n  ```",
+            "UT: [C003-post] verify-step exits 0 when only low-severity findings remain\n  ```js\n  fs.writeFileSync(path.join(srcDir, 'stray.rs'), '// stray\\n'); // src extra is low severity\n  const res = runVerifyStep(rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath);\n  assert.equal(res.status, 0, 'only low-severity findings pass');\n  ```",
+            "UT: [C001-inv] verify-consistencies never writes to any artifact\n  ```js\n  const before = { rfc: fs.readFileSync(rfcPath, 'utf8'), graph: fs.readFileSync(graphPath, 'utf8'), tickets: fs.readFileSync(ticketsPath, 'utf8') };\n  runVerifyConsistencies(rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath, outPath);\n  assert.equal(fs.readFileSync(rfcPath, 'utf8'), before.rfc, 'RFC unchanged');\n  assert.equal(fs.readFileSync(graphPath, 'utf8'), before.graph, 'GRAPH unchanged');\n  assert.equal(fs.readFileSync(ticketsPath, 'utf8'), before.tickets, 'Tickets unchanged');\n  ```"
+          ],
+          "startedAt": "2026-08-21",
+          "changes": [
+            {
+              "before": "no cross-artifact verification existed; each step only checked step-local consistency",
+              "after": "verify-consistencies.js (NEW) checks 5 consistencies (RFC headings vs GRAPH headingRefs, GRAPH vs Dirs-Tree mappedNodeIds, Dirs-Tree vs src, GRAPH vs Tickets nodeIds, dangling references) with severity-ranked English findings; verify-step.js (NEW) blocks PASS on high findings",
+              "description": "Step 5 final cross-artifact verification (C001/C002/C003)"
+            },
+            {
+              "before": "Step 5 command text was a placeholder",
+              "after": "documents the 5-consistency checks, severity levels, and the blocking loop to Step 2",
+              "description": "Command Step 5 text"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-21"
         }
       ]
     },

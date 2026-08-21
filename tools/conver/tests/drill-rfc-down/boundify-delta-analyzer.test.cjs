@@ -8,6 +8,10 @@
  *     the Dirs-Tree or src (C002)
  *
  * RED at make time: boundify-delta-analyzer.js does not exist yet.
+ *
+ * @verifies C001  (analyzer generates boundify-candidates.json as information and never writes Dirs-Tree/src)
+ * @verifies C002  (unmapped GRAPH nodes and kind mismatches flagged in the advisory)
+ * @verifies C003  (Prose exclusion and missing-declaration-stub flags, advisory-only deterministic)
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -16,6 +20,7 @@ const { spawnSync } = require('node:child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
 const ANALYZER = path.resolve(__dirname, '../../.claude/scripts/drill-rfc-down/boundify-delta-analyzer.js');
 
@@ -68,6 +73,19 @@ function setupProject() {
     dependencyDirections: { rust: [] },
   });
 
+  const graphPath = path.join(tmpRoot, 'RFC-GRAPH.json');
+  writeJson(graphPath, {
+    sourceFile: 'RFC.md',
+    mainLanguage: 'rust',
+    nodes: [
+      { id: 'N0001', title: 'Purpose', summary: 'Purpose', slug: 'purpose', kind: 'architecture', headingRefs: [{ refId: 'REF001', heading: 1, texts: ['Purpose'] }], language: 'rust' },
+      { id: 'N0002', title: 'Auth module', summary: 'Auth', slug: 'auth', kind: 'api_contract', headingRefs: [{ refId: 'REF002', heading: 2, texts: ['Auth'] }], language: 'rust' },
+      { id: 'N0003', title: 'Session storage', summary: 'Session', slug: 'session_storage', kind: 'architecture', headingRefs: [{ refId: 'REF003', heading: 2, texts: ['Session storage'] }], language: 'rust' },
+      { id: 'N0004', title: 'Legacy', summary: 'Legacy', slug: 'legacy', kind: 'architecture', headingRefs: [{ refId: 'REF004', heading: 2, texts: ['Legacy'] }], language: 'rust' },
+    ],
+    edges: [],
+  });
+
   const graphDeltaPath = path.join(tmpRoot, 'graph-delta.json');
   writeJson(graphDeltaPath, {
     sourceFile: 'RFC.md',
@@ -81,11 +99,13 @@ function setupProject() {
     report: { edgeMatches: {} },
   });
 
-  return { srcDir, dirsTreePath, graphDeltaPath };
+  return { srcDir, dirsTreePath, graphPath, graphDeltaPath };
 }
 
-function runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath) {
-  return spawnSync(process.execPath, [ANALYZER, `--graph-delta=${graphDeltaPath}`, `--dirs-tree=${dirsTreePath}`, `--src=${srcDir}`, `--out=${outPath}`], { encoding: 'utf8' });
+function runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath, graphPath) {
+  const args = [ANALYZER, `--graph-delta=${graphDeltaPath}`, `--dirs-tree=${dirsTreePath}`, `--src=${srcDir}`, `--out=${outPath}`];
+  if (graphPath) args.push(`--graph=${graphPath}`);
+  return spawnSync(process.execPath, args, { encoding: 'utf8' });
 }
 
 describe('boundify-delta-analyzer.js', () => {
@@ -156,5 +176,114 @@ describe('boundify-delta-analyzer.js', () => {
     runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, out1);
     runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, out2);
     assert.equal(fs.readFileSync(out1, 'utf8'), fs.readFileSync(out2, 'utf8'), 'identical output for identical inputs');
+  });
+});
+
+describe('validateCandidates (output schema validation)', () => {
+  it('accepts valid candidates (newFiles/modifiedFiles/srcDrift/dependencyDirs arrays)', async () => {
+    const mod = await import(pathToFileURL(ANALYZER).href);
+    const errors = mod.validateCandidates({ newFiles: [], modifiedFiles: [], srcDrift: [], dependencyDirs: [] });
+    assert.deepEqual(errors, []);
+  });
+
+  it('rejects a new-file candidate missing required fields with an English message', async () => {
+    const mod = await import(pathToFileURL(ANALYZER).href);
+    const errors = mod.validateCandidates({
+      newFiles: [{ path: 'src/x.rs' }], modifiedFiles: [], srcDrift: [], dependencyDirs: [],
+    });
+    assert.ok(errors.some((e) => /kind/i.test(e)), 'English message names the missing field');
+  });
+
+  it('allows an unmapped modified-file candidate (path null) while requiring nodeId', async () => {
+    const mod = await import(pathToFileURL(ANALYZER).href);
+    const errors = mod.validateCandidates({
+      newFiles: [], modifiedFiles: [{ nodeId: 'N0002', path: null, changes: {} }], srcDrift: [], dependencyDirs: [],
+    });
+    assert.deepEqual(errors, [], 'path:null is an accepted design decision for an unmapped node');
+  });
+});
+
+describe('four-axis advisory (PX-167 inspection layer)', () => {
+  it('flags a new-file path collision with an existing Dirs-Tree file (C001 danger)', () => {
+    const { srcDir, dirsTreePath, graphPath, graphDeltaPath } = setupProject();
+    // The Dirs-Tree already contains src/session_storage.rs, which is exactly
+    // the path the analyzer proposes for the new node N0003.
+    const dt = JSON.parse(fs.readFileSync(dirsTreePath, 'utf8'));
+    dt.trees.rust.children.push({ name: 'session_storage.rs', type: 'file', kind: 'architecture', mappedNodeIds: [{ nodeId: 'N0003', title: 'Session storage' }] });
+    writeJson(dirsTreePath, dt);
+    const outPath = path.join(tmpRoot, 'ad-collision.json');
+    runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath, graphPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.danger.some((f) => /collid|collision|already exists/i.test(f.message)), 'path collision flagged');
+  });
+
+  it('detects a dependency-direction cycle among new edges (C001 danger)', () => {
+    const { srcDir, dirsTreePath, graphPath, graphDeltaPath } = setupProject();
+    const gd = JSON.parse(fs.readFileSync(graphDeltaPath, 'utf8'));
+    gd.newEdges = [{ from: 'N0003', to: 'N0004', type: 'depends_on' }, { from: 'N0004', to: 'N0003', type: 'depends_on' }];
+    writeJson(graphDeltaPath, gd);
+    const outPath = path.join(tmpRoot, 'ad-cycle.json');
+    runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath, graphPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.danger.some((f) => /cycle|circular/i.test(f.message)), 'dependency cycle flagged');
+  });
+
+  it('reports a GRAPH node unmapped to any Dirs-Tree file (C002 omission)', () => {
+    const { srcDir, dirsTreePath, graphPath, graphDeltaPath } = setupProject();
+    const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
+    graph.nodes.push({ id: 'N0009', title: 'Orphan', summary: 'Orphan', slug: 'orphan', kind: 'architecture', headingRefs: [{ refId: 'REF009', heading: 2, texts: ['Orphan'] }], language: 'rust' });
+    writeJson(graphPath, graph);
+    const outPath = path.join(tmpRoot, 'ad-orphan.json');
+    runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath, graphPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.omission.some((f) => f.message.includes('N0009')), 'unmapped node N0009 flagged');
+  });
+
+  it('reports a kind mismatch between a graph node and its Dirs-Tree file (C002 contradiction)', () => {
+    const { srcDir, dirsTreePath, graphPath, graphDeltaPath } = setupProject();
+    const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
+    graph.nodes.find((n) => n.id === 'N0002').kind = 'security'; // Dirs-Tree auth.rs is api_contract
+    writeJson(graphPath, graph);
+    const outPath = path.join(tmpRoot, 'ad-kind.json');
+    runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath, graphPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.contradiction.some((f) => /kind|mismatch/i.test(f.message)), 'kind mismatch flagged');
+  });
+
+  it('flags a Prose node (rationale) proposed as a src file (C003 deficiency)', () => {
+    const { srcDir, dirsTreePath, graphPath, graphDeltaPath } = setupProject();
+    // A new node of kind 'rationale' produces a new-file candidate that the
+    // advisory must flag as a Prose exclusion.
+    const gd = JSON.parse(fs.readFileSync(graphDeltaPath, 'utf8'));
+    gd.newNodes = [{ id: 'N0008', title: 'Rationale', kind: 'rationale', summary: 'R', slug: 'rationale', headingRefs: [{ refId: 'REF008', heading: 2, texts: ['Rationale'] }] }];
+    writeJson(graphDeltaPath, gd);
+    const outPath = path.join(tmpRoot, 'ad-prose.json');
+    runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath, graphPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.deficiency.some((f) => /prose|rationale|exclude/i.test(f.message)), 'prose exclusion flagged');
+  });
+
+  it('flags a missing declaration stub for a new file (C003 deficiency)', () => {
+    const { srcDir, dirsTreePath, graphPath, graphDeltaPath } = setupProject();
+    const gd = JSON.parse(fs.readFileSync(graphDeltaPath, 'utf8'));
+    gd.newFiles = [{ path: 'src/session_storage.rs', kind: 'architecture', nodeId: 'N0003', title: 'Session storage' }];
+    writeJson(graphDeltaPath, gd);
+    const outPath = path.join(tmpRoot, 'ad-stub.json');
+    runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, outPath, graphPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.deficiency.some((f) => /stub|missing/i.test(f.message)), 'missing declaration stub flagged');
+  });
+
+  it('is deterministic and never writes to *-Dirs-Tree.json or src (C001/C003 invariants)', () => {
+    const { srcDir, dirsTreePath, graphPath, graphDeltaPath } = setupProject();
+    const beforeTree = fs.readFileSync(dirsTreePath, 'utf8');
+    const beforeSrc = fs.readdirSync(srcDir).sort();
+    const out1 = path.join(tmpRoot, 'ad-det1.json');
+    const out2 = path.join(tmpRoot, 'ad-det2.json');
+    runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, out1, graphPath);
+    runAnalyzer(graphDeltaPath, dirsTreePath, srcDir, out2, graphPath);
+    assert.equal(fs.readFileSync(out1, 'utf8'), fs.readFileSync(out2, 'utf8'), 'identical output');
+    assert.equal(fs.readFileSync(dirsTreePath, 'utf8'), beforeTree, 'Dirs-Tree unchanged');
+    assert.deepEqual(fs.readdirSync(srcDir).sort(), beforeSrc, 'src unchanged');
   });
 });

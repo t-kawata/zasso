@@ -1,13 +1,19 @@
 /**
- * boundify-step.test.cjs — Tests for the Step 3 boundify step driver (PX-161)
+ * boundify-step.test.cjs — Tests for the Step 3 boundify step driver (PX-161, PX-164)
  *
- * Covers contract C003 (AI approval -> write):
- *   - --dry-run prints the candidate report without changing Dirs-Tree or src
- *   - --reject leaves Dirs-Tree and src byte-identical (perfect-before-write gate)
- *   - --approve applies the plan (new file + Dirs-Tree update) and
- *     validate-dirs-tree-schema passes
+ * Covers the AI-as-engineer staging flow:
+ *   - --stage copies the real Dirs-Tree to a staging path and shows candidates;
+ *     the real Dirs-Tree and src are untouched
+ *   - the AI designs the evolution by editing the STAGING Dirs-Tree via
+ *     dirs-tree-crud.js (no hand-edited JSON, no driver re-running the analyzer
+ *     on --approve)
+ *   - --approve validates the staging Dirs-Tree, derives dirs-tree-delta.json,
+ *     commits missing src stubs, and promotes
+ *   - --reject leaves the real Dirs-Tree and src byte-identical
  *
- * RED at make time: boundify-step.js does not exist yet.
+ * RED at make time: boundify-step.js still auto-applies the analyzer output.
+ *
+ * @verifies C003  (--approve validates, commits src stubs, and promotes; reject leaves byte-identical)
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -18,6 +24,7 @@ const os = require('os');
 const path = require('path');
 
 const STEP_DRIVER = path.resolve(__dirname, '../../.claude/scripts/drill-rfc-down/boundify-step.js');
+const CRUD = path.resolve(__dirname, '../../.claude/scripts/drill-rfc-down/dirs-tree-crud.js');
 const VALIDATE = path.resolve(__dirname, '../../.claude/scripts/rfc-graph/validate-dirs-tree-schema.js');
 
 let tmpRoot;
@@ -34,7 +41,7 @@ function writeJson(filePath, data) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf8');
 }
 
-/** Build a valid project: graph (with N0003), Dirs-Tree, src, graph-delta. */
+/** Build a valid project: graph, Dirs-Tree, src, graph-delta (N0003 new). */
 function setupProject() {
   const srcDir = path.join(tmpRoot, 'src');
   fs.mkdirSync(path.join(srcDir, 'api'), { recursive: true });
@@ -52,7 +59,7 @@ function setupProject() {
     edges: [],
   });
 
-  const dirsTreePath = path.join(tmpRoot, 'dirs.json');
+  const dirsTreePath = path.join(tmpRoot, 'RFC-Dirs-Tree.json');
   writeJson(dirsTreePath, {
     schemaVersion: 1,
     sourceGraph: 'graph.json',
@@ -88,46 +95,140 @@ function setupProject() {
   return { srcDir, graphPath, dirsTreePath, graphDeltaPath };
 }
 
+function stagingPathOf(dirsTreePath) {
+  return `${dirsTreePath}.staging.json`;
+}
+
+function candidatesPathOf(dirsTreePath) {
+  return `${dirsTreePath}.candidates.json`;
+}
+
+function deltaPathOf(dirsTreePath) {
+  return `${dirsTreePath}.delta.json`;
+}
+
 function runStep(args, dirsTreePath, srcDir) {
   return spawnSync(process.execPath, [STEP_DRIVER, `--dirs-tree=${dirsTreePath}`, `--src=${srcDir}`, ...args], { encoding: 'utf8' });
 }
 
-describe('boundify-step.js', () => {
-  it('--dry-run prints the candidate report without changing Dirs-Tree or src', () => {
+describe('boundify-step.js (AI-as-engineer staging flow)', () => {
+  it('--stage copies the real Dirs-Tree to a staging path and shows candidates; real Dirs-Tree and src unchanged', () => {
     const { srcDir, graphPath, dirsTreePath, graphDeltaPath } = setupProject();
     const beforeTree = fs.readFileSync(dirsTreePath, 'utf8');
-    const res = runStep([`--graph=${graphPath}`, `--graph-delta=${graphDeltaPath}`, '--dry-run'], dirsTreePath, srcDir);
+    const res = runStep([`--graph=${graphPath}`, `--graph-delta=${graphDeltaPath}`, '--stage'], dirsTreePath, srcDir);
     assert.equal(res.status, 0, res.stderr);
     assert.match(res.stdout, /new file|newFiles|session_storage/i, 'report shows the new-file candidate');
-    assert.equal(fs.readFileSync(dirsTreePath, 'utf8'), beforeTree, 'Dirs-Tree unchanged on dry-run');
-    assert.ok(!fs.existsSync(path.join(srcDir, 'session_storage.rs')), 'src unchanged on dry-run');
+    assert.match(res.stdout, /Advisory Report|Danger|Omission|Contradiction|Deficiency/i, 'report shows the four-axis advisory (PX-167)');
+    assert.ok(fs.existsSync(stagingPathOf(dirsTreePath)), 'staging copy created');
+    assert.equal(fs.readFileSync(dirsTreePath, 'utf8'), beforeTree, 'real Dirs-Tree unchanged on stage');
+    assert.ok(!fs.existsSync(path.join(srcDir, 'session_storage.rs')), 'src unchanged on stage');
   });
 
-  it('--reject leaves Dirs-Tree and src byte-identical (perfect-before-write gate)', () => {
+  it('the AI designs the evolution by editing the staging Dirs-Tree via dirs-tree-crud.js; --approve validates, commits src stubs, and promotes', () => {
+    const { srcDir, graphPath, dirsTreePath, graphDeltaPath } = setupProject();
+    runStep([`--graph=${graphPath}`, `--graph-delta=${graphDeltaPath}`, '--stage'], dirsTreePath, srcDir);
+    const staging = stagingPathOf(dirsTreePath);
+
+    // The AI designs the Dirs-Tree by editing the STAGING copy via dirs-tree-crud.js.
+    const edit = spawnSync(process.execPath, [CRUD, `--dirs-tree=${staging}`, `--graph=${graphPath}`, 'add-file', '--path=src/session_storage.rs', '--kind=architecture', '--mapped=N0003:Session storage'], { encoding: 'utf8' });
+    assert.equal(edit.status, 0, edit.stderr);
+
+    // The real Dirs-Tree is still untouched before --approve.
+    assert.ok(!fs.readFileSync(dirsTreePath, 'utf8').includes('session_storage.rs'), 'real Dirs-Tree untouched before approve');
+
+    const approve = runStep([`--graph=${graphPath}`, '--approve'], dirsTreePath, srcDir);
+    assert.equal(approve.status, 0, approve.stderr);
+
+    // The real Dirs-Tree was promoted with the AI-crafted file node.
+    assert.ok(fs.readFileSync(dirsTreePath, 'utf8').includes('session_storage.rs'), 'Dirs-Tree promoted');
+
+    // The src stub was committed for the new file node.
+    assert.ok(fs.existsSync(path.join(srcDir, 'session_storage.rs')), 'src stub committed');
+
+    // validate-dirs-tree-schema passes on the promoted Dirs-Tree.
+    const validateRes = spawnSync(process.execPath, [VALIDATE, `--dirs-tree=${dirsTreePath}`, `--graph=${graphPath}`], { encoding: 'utf8' });
+    assert.equal(validateRes.status, 0, `validate should pass: ${validateRes.stderr}`);
+
+    // The pipeline handoff dirs-tree-delta.json records the AI-crafted evolution.
+    const delta = JSON.parse(fs.readFileSync(deltaPathOf(dirsTreePath), 'utf8'));
+    assert.ok(delta.newFiles.some((f) => String(f.nodeId || f.path).includes('session_storage.rs') || String(f.path).includes('session_storage.rs')), 'dirs-tree-delta.json records the new file');
+
+    // Garbage cleanup: the transient candidates file is removed once the design
+    // is committed; the delta (handoff) is preserved.
+    assert.ok(!fs.existsSync(candidatesPathOf(dirsTreePath)), 'candidates removed after approve');
+  });
+
+  it('--reject leaves the real Dirs-Tree byte-identical and discards staging (perfect-before-write gate)', () => {
     const { srcDir, graphPath, dirsTreePath, graphDeltaPath } = setupProject();
     const beforeTree = fs.readFileSync(dirsTreePath, 'utf8');
-    const beforeFiles = fs.readdirSync(srcDir).sort();
-    const res = runStep([`--graph=${graphPath}`, `--graph-delta=${graphDeltaPath}`, '--reject'], dirsTreePath, srcDir);
+    runStep([`--graph=${graphPath}`, `--graph-delta=${graphDeltaPath}`, '--stage'], dirsTreePath, srcDir);
+    const res = runStep([`--graph=${graphPath}`, '--reject'], dirsTreePath, srcDir);
     assert.equal(res.status, 0, res.stderr);
-    assert.equal(fs.readFileSync(dirsTreePath, 'utf8'), beforeTree, 'Dirs-Tree byte-identical on reject');
-    assert.deepEqual(fs.readdirSync(srcDir).sort(), beforeFiles, 'src unchanged on reject');
+    assert.equal(fs.readFileSync(dirsTreePath, 'utf8'), beforeTree, 'real Dirs-Tree byte-identical on reject');
+    assert.ok(!fs.existsSync(stagingPathOf(dirsTreePath)), 'staging discarded on reject');
+    assert.ok(!fs.existsSync(candidatesPathOf(dirsTreePath)), 'candidates removed after reject');
   });
 
-  it('--approve applies the plan (new file + Dirs-Tree update) and validate-dirs-tree-schema passes', () => {
+  it('--approve with a missing staging Dirs-Tree emits an English error and does not promote', () => {
+    const { srcDir, graphPath, dirsTreePath } = setupProject();
+    const beforeTree = fs.readFileSync(dirsTreePath, 'utf8');
+    const res = runStep([`--graph=${graphPath}`, '--approve'], dirsTreePath, srcDir);
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /Error|Cause|Action/i, 'English error message');
+    assert.equal(fs.readFileSync(dirsTreePath, 'utf8'), beforeTree, 'real Dirs-Tree unchanged');
+  });
+
+  it('--stage without --graph-delta emits an English error and creates no staging', () => {
+    const { srcDir, graphPath, dirsTreePath } = setupProject();
+    const beforeTree = fs.readFileSync(dirsTreePath, 'utf8');
+    const res = runStep([`--graph=${graphPath}`, '--stage'], dirsTreePath, srcDir);
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /Error|Cause|Action/i, 'English error message');
+    assert.ok(!fs.existsSync(stagingPathOf(dirsTreePath)), 'no staging created');
+    assert.equal(fs.readFileSync(dirsTreePath, 'utf8'), beforeTree, 'real Dirs-Tree unchanged');
+  });
+
+  it('--approve without --graph emits an English error and does not promote', () => {
+    const { srcDir, dirsTreePath, graphDeltaPath } = setupProject();
+    const beforeTree = fs.readFileSync(dirsTreePath, 'utf8');
+    const res = runStep([`--graph-delta=${graphDeltaPath}`, '--approve'], dirsTreePath, srcDir);
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /Error|Cause|Action/i, 'English error message');
+    assert.equal(fs.readFileSync(dirsTreePath, 'utf8'), beforeTree, 'real Dirs-Tree unchanged');
+  });
+
+  it('--approve rejects a staging Dirs-Tree that fails validate-dirs-tree-schema and does not promote', () => {
     const { srcDir, graphPath, dirsTreePath, graphDeltaPath } = setupProject();
-    const res = runStep([`--graph=${graphPath}`, `--graph-delta=${graphDeltaPath}`, '--approve'], dirsTreePath, srcDir);
-    assert.equal(res.status, 0, res.stderr);
+    runStep([`--graph=${graphPath}`, `--graph-delta=${graphDeltaPath}`, '--stage'], dirsTreePath, srcDir);
+    // Simulate an out-of-band invalid state: a file whose name violates the
+    // lower_snake_case convention fails validate-dirs-tree-schema.
+    const staging = stagingPathOf(dirsTreePath);
+    const staged = JSON.parse(fs.readFileSync(staging, 'utf8'));
+    const apiDir = staged.trees.rust.children.find((c) => c.name === 'api');
+    const auth = apiDir.children.find((c) => c.name === 'auth.rs');
+    auth.name = 'Bad Name.rs';
+    fs.writeFileSync(staging, JSON.stringify(staged, null, 2) + '\n', 'utf8');
 
-    // The new file must be created in src.
-    assert.ok(fs.existsSync(path.join(srcDir, 'session_storage.rs')), 'session_storage.rs created in src');
+    const beforeTree = fs.readFileSync(dirsTreePath, 'utf8');
+    const res = runStep([`--graph=${graphPath}`, '--approve'], dirsTreePath, srcDir);
+    assert.equal(res.status, 1);
+    assert.match(res.stderr, /Error|Cause|Action/i, 'English error message');
+    assert.equal(fs.readFileSync(dirsTreePath, 'utf8'), beforeTree, 'real Dirs-Tree unchanged (no promote)');
+  });
 
-    // The Dirs-Tree must now contain the new file node.
-    const updated = JSON.parse(fs.readFileSync(dirsTreePath, 'utf8'));
-    const rustChildren = updated.trees.rust.children;
-    assert.ok(rustChildren.some((c) => c.name === 'session_storage.rs'), 'new file node added to Dirs-Tree');
+  it('the delta derivation records an AI-modified file node in modifiedFiles and promotes it', () => {
+    const { srcDir, graphPath, dirsTreePath, graphDeltaPath } = setupProject();
+    runStep([`--graph=${graphPath}`, `--graph-delta=${graphDeltaPath}`, '--stage'], dirsTreePath, srcDir);
+    // The AI updates auth.rs kind via dirs-tree-crud.js on the staging copy.
+    const staging = stagingPathOf(dirsTreePath);
+    const patchFile = path.join(tmpRoot, 'dt-patch.json');
+    writeJson(patchFile, { kind: 'security' });
+    const edit = spawnSync(process.execPath, [CRUD, `--dirs-tree=${staging}`, `--graph=${graphPath}`, 'update-node', '--path=src/api/auth.rs', `--file=${patchFile}`], { encoding: 'utf8' });
+    assert.equal(edit.status, 0, edit.stderr);
 
-    // validate-dirs-tree-schema must pass on the updated Dirs-Tree.
-    const v = spawnSync(process.execPath, [VALIDATE, `--dirs-tree=${dirsTreePath}`, `--graph=${graphPath}`], { encoding: 'utf8' });
-    assert.equal(v.status, 0, `validate should pass: ${v.stderr}`);
+    const approve = runStep([`--graph=${graphPath}`, '--approve'], dirsTreePath, srcDir);
+    assert.equal(approve.status, 0, approve.stderr);
+    const delta = JSON.parse(fs.readFileSync(deltaPathOf(dirsTreePath), 'utf8'));
+    assert.ok(delta.modifiedFiles.some((m) => String(m.path).includes('auth.rs')), 'delta records the AI-modified file node');
   });
 });

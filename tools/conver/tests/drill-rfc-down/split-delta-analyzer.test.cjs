@@ -8,6 +8,10 @@
  *     Tickets.json (C002)
  *
  * RED at make time: split-delta-analyzer.js does not exist yet.
+ *
+ * @verifies C001  (analyzer generates split-candidates.json as information and never writes Tickets.json)
+ * @verifies C002  (duplicate-node ticket conflict flagged in the advisory)
+ * @verifies C003  (scope/test-plan deficiency flag, advisory-only deterministic)
  */
 
 const { describe, it, before, after } = require('node:test');
@@ -16,6 +20,7 @@ const { spawnSync } = require('node:child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
 const ANALYZER = path.resolve(__dirname, '../../.claude/scripts/drill-rfc-down/split-delta-analyzer.js');
 
@@ -134,5 +139,83 @@ describe('split-delta-analyzer.js', () => {
     runAnalyzer(dtdPath, ticketsPath, out1);
     runAnalyzer(dtdPath, ticketsPath, out2);
     assert.equal(fs.readFileSync(out1, 'utf8'), fs.readFileSync(out2, 'utf8'), 'identical output for identical inputs');
+  });
+});
+
+describe('validateCandidates (output schema validation)', () => {
+  it('accepts valid candidates (newTickets/editedTickets/phaseAssignments/existingStatuses arrays)', async () => {
+    const mod = await import(pathToFileURL(ANALYZER).href);
+    const errors = mod.validateCandidates({ newTickets: [], editedTickets: [], phaseAssignments: [], existingStatuses: [] });
+    assert.deepEqual(errors, []);
+  });
+
+  it('rejects a new-ticket candidate missing required fields with an English message', async () => {
+    const mod = await import(pathToFileURL(ANALYZER).href);
+    const errors = mod.validateCandidates({
+      newTickets: [{ title: 'Session storage' }], editedTickets: [], phaseAssignments: [], existingStatuses: [],
+    });
+    assert.ok(errors.some((e) => /status|phaseId|nodeIds/i.test(e)), 'English message names the missing field');
+  });
+
+  it('allows an unmapped edited-ticket candidate (id null) while requiring nodeId', async () => {
+    const mod = await import(pathToFileURL(ANALYZER).href);
+    const errors = mod.validateCandidates({
+      newTickets: [], editedTickets: [{ nodeId: 'N0005', id: null, changes: {} }], phaseAssignments: [], existingStatuses: [],
+    });
+    assert.deepEqual(errors, [], 'id:null is an accepted design decision for an unmapped modified node');
+  });
+});
+
+describe('four-axis advisory (PX-168 inspection layer)', () => {
+  it('reports a file unmapped to any ticket (C001 omission)', () => {
+    const { ticketsPath, dtdPath } = setupProject();
+    const dtd = JSON.parse(fs.readFileSync(dtdPath, 'utf8'));
+    dtd.modifiedFiles = [{ nodeId: 'N0005', path: 'src/api/new.rs', changes: { title: 'New' } }];
+    writeJson(dtdPath, dtd);
+    const outPath = path.join(tmpRoot, 'ad-unmapped.json');
+    runAnalyzer(dtdPath, ticketsPath, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.omission.some((f) => /no existing ticket|unmapped|merge/i.test(f.message)), 'unmapped modified file flagged');
+  });
+
+  it('reports an existing reviewed status overwrite risk (C001 danger)', () => {
+    const { ticketsPath, dtdPath } = setupProject();
+    const dtd = JSON.parse(fs.readFileSync(dtdPath, 'utf8'));
+    dtd.modifiedFiles = [{ nodeId: 'N0002', path: 'src/api/auth.rs', changes: { title: 'Auth module extended' } }];
+    writeJson(dtdPath, dtd);
+    const outPath = path.join(tmpRoot, 'ad-status.json');
+    runAnalyzer(dtdPath, ticketsPath, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.danger.some((f) => /preserve|overwrite|reviewed/i.test(f.message)), 'status overwrite risk flagged');
+  });
+
+  it('detects a duplicate-node ticket conflict (C002 contradiction)', () => {
+    const { ticketsPath, dtdPath } = setupProject();
+    const dtd = JSON.parse(fs.readFileSync(dtdPath, 'utf8'));
+    dtd.newFiles = [{ nodeId: 'N0002', path: 'src/api/auth.rs', kind: 'api_contract', title: 'Auth module extended' }];
+    writeJson(dtdPath, dtd);
+    const outPath = path.join(tmpRoot, 'ad-dup.json');
+    runAnalyzer(dtdPath, ticketsPath, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.contradiction.some((f) => /duplicate|already covered|prefer an edit/i.test(f.message)), 'duplicate-node ticket conflict flagged');
+  });
+
+  it('flags a new ticket candidate lacking scope or test plan (C003 deficiency)', () => {
+    const { ticketsPath, dtdPath } = setupProject();
+    const outPath = path.join(tmpRoot, 'ad-scope.json');
+    runAnalyzer(dtdPath, ticketsPath, outPath);
+    const out = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    assert.ok(out.advisory.deficiency.some((f) => /no scope|test plan/i.test(f.message)), 'scope/test-plan deficiency flagged');
+  });
+
+  it('is deterministic and never writes to Tickets.json (C001/C003 invariants)', () => {
+    const { ticketsPath, dtdPath } = setupProject();
+    const before = fs.readFileSync(ticketsPath, 'utf8');
+    const out1 = path.join(tmpRoot, 'ad-det1.json');
+    const out2 = path.join(tmpRoot, 'ad-det2.json');
+    runAnalyzer(dtdPath, ticketsPath, out1);
+    runAnalyzer(dtdPath, ticketsPath, out2);
+    assert.equal(fs.readFileSync(out1, 'utf8'), fs.readFileSync(out2, 'utf8'), 'identical output');
+    assert.equal(fs.readFileSync(ticketsPath, 'utf8'), before, 'Tickets.json untouched by analysis');
   });
 });

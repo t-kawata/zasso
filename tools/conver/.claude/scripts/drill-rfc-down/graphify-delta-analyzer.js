@@ -23,9 +23,18 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { emptyAdvisory } from './advisory-report.js';
 
 const TOKEN_PATTERN = /[a-zA-Z0-9_]{4,}/g;
 const DEFAULT_KIND = 'architecture';
+
+// 本家 /graphify-rfc verification constants (analyze-source-structure.js /
+// validate-slug.js / boundify-helpers.js) — reused so the advisory matches the
+// 本家 thresholds exactly.
+const LONG_SECTION_THRESHOLD = 100;
+const SLUG_FORMAT_PATTERN = /^[a-z][a-z0-9_]*$/;
+const MAX_SLUG_LENGTH = 25;
+const LOW_OVERLAP_THRESHOLD = 1;
 
 /** Tokenize a string into significant (length >= 4) lowercase tokens. */
 // [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
@@ -70,10 +79,115 @@ function sectionText(section) {
 }
 
 /**
+ * Validate the generated candidates structure and return English error messages.
+ * Returns an empty array when valid.
+ */
+// [::TICKET::] PX-163, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-163|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+function validateCandidates(candidates) {
+  const errors = [];
+  const requireFields = (items, pathPrefix, required) => {
+    for (const item of items || []) {
+      for (const field of required) {
+        if (!item[field] || (Array.isArray(item[field]) && item[field].length === 0)) {
+          errors.push(`${pathPrefix} item is missing required field "${field}"`);
+        }
+      }
+    }
+  };
+  requireFields(candidates.newNodes, 'newNodes', ['id', 'title', 'kind']);
+  requireFields(candidates.modifiedNodes, 'modifiedNodes', ['id', 'changes']);
+  requireFields(candidates.newEdges, 'newEdges', ['from', 'to', 'type']);
+  return errors;
+}
+
+/** A danger finding: a new node slug collides with an existing node slug. */
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+function flagSlugCollisions(newNodes, graph) {
+  const existingSlugs = new Set((graph.nodes || []).map((n) => n.slug));
+  return (newNodes || [])
+    .filter((n) => existingSlugs.has(n.slug))
+    .map((n) => ({ message: `new node ${n.id} slug "${n.slug}" collides with an existing node; rename it before approve` }));
+}
+
+/** An omission finding: two delta sections share the same heading text + level. */
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+function flagDuplicateHeadings(sections) {
+  const seen = new Map();
+  for (const section of sections || []) {
+    const key = `${headingLevel(section.heading || '')}#${headingTitle(section.heading || '')}`;
+    if (seen.has(key)) {
+      seen.get(key).push(section);
+    } else {
+      seen.set(key, [section]);
+    }
+  }
+  const findings = [];
+  for (const [, group] of seen) {
+    if (group.length > 1) {
+      findings.push({ message: `duplicate heading "${headingTitle(group[0].heading || '')}" appears ${group.length} times in the delta; each must map to a distinct graph node` });
+    }
+  }
+  return findings;
+}
+
+/** An omission finding: a modify candidate rests on a very weak token overlap. */
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+function flagLowOverlap(modifiedNodes) {
+  return (modifiedNodes || [])
+    .filter((mod) => typeof mod.overlap === 'number' && mod.overlap <= LOW_OVERLAP_THRESHOLD)
+    .map((mod) => ({ message: `modify candidate ${mod.id} matches with only ${mod.overlap} shared token(s); verify this is a true merge, not a forced new node` }));
+}
+
+/** A contradiction finding: surface the Step 1 contradiction candidates. */
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+function surfaceContradictionCandidates(delta) {
+  return (delta.contradictionCandidates || []).map((candidate) => ({
+    message: `contradiction candidate: ${candidate.kind} ${candidate.target} "${candidate.context || ''}" matched by ${(candidate.matchedBy || []).join(', ')}`,
+  }));
+}
+
+/** A deficiency finding: a delta section exceeds the 本家 100-line threshold. */
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+function flagOversizedSections(sections) {
+  return (sections || [])
+    .filter((section) => (section.lines || []).length > LONG_SECTION_THRESHOLD)
+    .map((section) => ({ message: `section "${headingTitle(section.heading || '')}" has ${(section.lines || []).length} lines (max ${LONG_SECTION_THRESHOLD}); split it into smaller sections` }));
+}
+
+/** A deficiency finding: a new node slug is invalid or exceeds the max length. */
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+function flagInvalidSlugs(newNodes) {
+  return (newNodes || [])
+    .filter((n) => !SLUG_FORMAT_PATTERN.test(n.slug) || n.slug.length > MAX_SLUG_LENGTH)
+    .map((n) => ({ message: `new node ${n.id} slug "${n.slug}" is invalid (must match ${SLUG_FORMAT_PATTERN} and be <= ${MAX_SLUG_LENGTH} chars)` }));
+}
+
+/**
+ * Mechanically inspect the candidates on the four axes (danger / omission /
+ * contradiction / deficiency) as an advisory for the AI. Advisory-only: the
+ * findings never block promote.
+ */
+// [::TICKET::] PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+function inspectCandidates(delta, candidates, graph) {
+  const advisory = emptyAdvisory();
+  advisory.danger = flagSlugCollisions(candidates.newNodes, graph);
+  advisory.omission = [
+    ...flagDuplicateHeadings(delta.sections),
+    ...flagLowOverlap(candidates.modifiedNodes),
+  ];
+  advisory.contradiction = surfaceContradictionCandidates(delta);
+  advisory.deficiency = [
+    ...flagOversizedSections(delta.sections),
+    ...flagInvalidSlugs(candidates.newNodes),
+  ];
+  return advisory;
+}
+
+/**
  * Propose the GRAPH evolution candidates deterministically from delta.json.
  * Returns { newNodes, modifiedNodes, newEdges }.
  */
-// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-160, PX-161, PX-162, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function proposeCandidates(delta, graph) {
   const nodes = graph.nodes || [];
   const newNodes = [];
@@ -129,9 +243,11 @@ function proposeCandidates(delta, graph) {
         }
       }
     } else {
-      // Modify candidate: the section extends an existing node.
+      // Modify candidate: the section extends an existing node. The token
+      // overlap is recorded so the advisory can flag weak merges (low overlap).
       modifiedNodes.push({
         id: bestMatch.id,
+        overlap: bestOverlap,
         changes: {
           title: headingTitle(section.heading || ''),
           summary: (section.lines || []).slice(1).join(' ').trim().slice(0, 200),
@@ -143,7 +259,7 @@ function proposeCandidates(delta, graph) {
   return { newNodes, modifiedNodes, newEdges, report: { edgeMatches } };
 }
 
-// [::TICKET::] PX-160, PX-161, PX-162 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-160, PX-161, PX-162, PX-163, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-160|PX-161|PX-162|PX-163|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let deltaPath = '';
@@ -174,14 +290,26 @@ function main() {
     process.exit(1);
   }
 
-  // The graph-delta is fully deterministic (no timestamp) so repeated analysis
+  // The candidates are fully deterministic (no timestamp) so repeated analysis
   // of identical inputs yields byte-identical output.
-  const graphDelta = {
+  const candidates = {
     sourceFile: delta.sourceFile || graph.sourceFile || '',
     ...proposeCandidates(delta, graph),
   };
-  fs.writeFileSync(outPath, JSON.stringify(graphDelta, null, 2) + '\n', 'utf8');
-  process.stdout.write(JSON.stringify({ ok: true, ...graphDelta }) + '\n');
+  // Mechanically inspect the candidates on the four axes (danger / omission /
+  // contradiction / deficiency) as an advisory for the AI. Advisory-only.
+  candidates.advisory = inspectCandidates(delta, candidates, graph);
+  // Guarantee the output is always valid JSON with the expected shape; on
+  // failure emit a natural-language English Error/Cause/Action and exit 1.
+  const validationErrors = validateCandidates(candidates);
+  if (validationErrors.length > 0) {
+    console.error('[ERROR] graphify-delta-analyzer: generated candidates failed schema validation');
+    console.error('Cause: ' + validationErrors.join('; '));
+    console.error('Action: fix the candidate generation so every candidate carries its required fields, then re-run.');
+    process.exit(1);
+  }
+  fs.writeFileSync(outPath, JSON.stringify(candidates, null, 2) + '\n', 'utf8');
+  process.stdout.write(JSON.stringify({ ok: true, ...candidates }) + '\n');
 }
 
 const isMainModule =
@@ -192,4 +320,20 @@ if (isMainModule) {
   main();
 }
 
-export { tokenize, slugify, maxNodeNumber, headingTitle, headingLevel, proposeCandidates, main };
+export {
+  tokenize,
+  slugify,
+  maxNodeNumber,
+  headingTitle,
+  headingLevel,
+  proposeCandidates,
+  validateCandidates,
+  flagSlugCollisions,
+  flagDuplicateHeadings,
+  flagLowOverlap,
+  surfaceContradictionCandidates,
+  flagOversizedSections,
+  flagInvalidSlugs,
+  inspectCandidates,
+  main,
+};

@@ -1,5 +1,10 @@
 /**
- * step3-command.test.cjs — Static verification of the Step 3 boundify command (PX-161)
+ * step3-command.test.cjs — Static verification of the Step 3 boundify command (PX-161, PX-164)
+ *
+ * PX-164 reframes Step 3 to the AI-as-engineer staging flow: scripts provide
+ * candidate information and safe editing tools (dirs-tree-crud.js), the AI
+ * designs the evolution on a STAGING Dirs-Tree, and --approve validates +
+ * promotes without re-running the analyzer.
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -18,11 +23,22 @@ function step3Section() {
 }
 
 describe('Step 3 command definition', () => {
-  it('documents the dry-run -> AI judgment -> write -> validate-dirs-tree-schema loop', () => {
+  it('documents the stage -> AI design (dirs-tree-crud.js on staging) -> approve (validate promote) loop', () => {
     const step3 = step3Section();
+    assert.match(step3, /--stage/, '--stage flag documented');
+    assert.match(step3, /--approve/, '--approve flag documented');
+    assert.match(step3, /--reject/, '--reject flag documented');
+    assert.match(step3, /\.staging\.json/, 'staging copy path documented');
+    assert.match(step3, /dirs-tree-crud\.js/, 'dirs-tree-crud.js (only write path) referenced');
     assert.match(step3, /validate-dirs-tree-schema/, 'validate-dirs-tree-schema referenced');
-    assert.match(step3, /dry-run|dry run/, 'dry-run mentioned');
-    assert.match(step3, /dirs-tree-delta\.json/, 'dirs-tree-delta.json referenced');
+  });
+
+  it('casts the analyzer output as candidate information and forbids analyzer re-run on approve', () => {
+    const step3 = step3Section();
+    assert.match(step3, /candidates\.json/, 'candidates file referenced');
+    assert.match(step3, /情報|候補/, 'candidates framed as information for AI judgment');
+    assert.match(step3, /再実行せず/, '--approve does not re-run the analyzer');
+    assert.match(step3, /手書き/, 'AI hand-editing of JSON is forbidden');
   });
 
   it('documents src analysis and destructive-change prohibition', () => {
