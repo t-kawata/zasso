@@ -138,3 +138,81 @@ describe("isInTimeWindow", () => {
     assert.strictEqual(isInTimeWindow(now, "09:00", "17:00", "UTC"), false);
   });
 });
+
+// ============================================================
+// isInTimeWindow の曜日フィルタ（daysOfWeek）
+// @verifies C001
+// @verifies C003
+// @verifies C004
+// ============================================================
+// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+describe("isInTimeWindow — daysOfWeek", () => {
+  // --- C001: 後方互換（undefined = 全曜日） ---
+
+  it("daysOfWeek undefined → 日曜・水曜・土曜すべて active（後方互換）", () => {
+    const sunday = new Date("2026-08-23T10:00:00Z");
+    const wednesday = new Date("2026-08-26T10:00:00Z");
+    const saturday = new Date("2026-08-29T10:00:00Z");
+    for (const now of [sunday, wednesday, saturday]) {
+      assert.strictEqual(isInTimeWindow(now, "09:00", "17:00", "UTC", undefined), true);
+    }
+  });
+
+  it("daysOfWeek=[0,1,2,3,4,5,6] と undefined が全サンプルで等価", () => {
+    const instants = ["2026-08-23T10:00:00Z", "2026-08-24T00:30:00Z", "2026-08-29T23:00:00Z"];
+    for (const iso of instants) {
+      const base = isInTimeWindow(new Date(iso), "09:00", "17:00", "UTC", undefined);
+      const allDays = isInTimeWindow(new Date(iso), "09:00", "17:00", "UTC", [0, 1, 2, 3, 4, 5, 6]);
+      assert.strictEqual(base, allDays);
+    }
+  });
+
+  // --- C003: 同一日窓の曜日フィルタ ---
+
+  it("平日 [1..5] + 09:00-17:00: 月10時 true / 土10時 false / 月08時 false", () => {
+    assert.strictEqual(
+      isInTimeWindow(new Date("2026-08-24T10:00:00Z"), "09:00", "17:00", "UTC", [1, 2, 3, 4, 5]),
+      true,
+    );
+    assert.strictEqual(
+      isInTimeWindow(new Date("2026-08-29T10:00:00Z"), "09:00", "17:00", "UTC", [1, 2, 3, 4, 5]),
+      false,
+    );
+    assert.strictEqual(
+      isInTimeWindow(new Date("2026-08-24T08:00:00Z"), "09:00", "17:00", "UTC", [1, 2, 3, 4, 5]),
+      false,
+    );
+  });
+
+  it("daysOfWeek=[0]（日曜のみ）で日曜 active、月曜 inactive", () => {
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-23T10:00:00Z"), "00:00", "23:59", "UTC", [0]), true);
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-24T10:00:00Z"), "00:00", "23:59", "UTC", [0]), false);
+  });
+
+  it("daysOfWeek=[6]（土曜のみ）で土曜 active、日曜 inactive", () => {
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-29T10:00:00Z"), "00:00", "23:59", "UTC", [6]), true);
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-23T10:00:00Z"), "00:00", "23:59", "UTC", [6]), false);
+  });
+
+  // @verifies C003
+  it("曜日判定は config.timezone 基準（JST=月09:30 / NY=日20:30 の同一瞬間）", () => {
+    const instant = new Date("2026-08-24T00:30:00Z");
+    assert.strictEqual(isInTimeWindow(instant, "00:00", "23:59", "Asia/Tokyo", [1]), true);
+    assert.strictEqual(isInTimeWindow(instant, "00:00", "23:59", "America/New_York", [1]), false);
+  });
+
+  // --- C004: 日跨ぎ窓（開始日帰属・連続性） ---
+
+  // @verifies C004
+  it("日跨ぎ窓 22:00-06:00 + daysOfWeek=[1]: 月23時 active / 火03時 active / 火23時 inactive / 日23時 inactive", () => {
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-24T23:00:00Z"), "22:00", "06:00", "UTC", [1]), true);
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-25T03:00:00Z"), "22:00", "06:00", "UTC", [1]), true);
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-25T23:00:00Z"), "22:00", "06:00", "UTC", [1]), false);
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-23T23:00:00Z"), "22:00", "06:00", "UTC", [1]), false);
+  });
+
+  it("日跨ぎ窓の開始時刻ちょうど（22:00）と終了時刻ちょうど（06:00）で active", () => {
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-24T22:00:00Z"), "22:00", "06:00", "UTC", [1]), true);
+    assert.strictEqual(isInTimeWindow(new Date("2026-08-25T06:00:00Z"), "22:00", "06:00", "UTC", [1]), true);
+  });
+});

@@ -337,7 +337,8 @@ todo ─(make)→ made ─(plan)→ planned ─(start)→ done ─(review)→ re
   "intervalMinutes": 60,
   "startTime": "09:00",
   "endTime": "19:00",
-  "timezone": "Asia/Tokyo"
+  "timezone": "Asia/Tokyo",
+  "daysOfWeek": [1, 2, 3, 4, 5]
 }
 ```
 
@@ -347,14 +348,17 @@ todo ─(make)→ made ─(plan)→ planned ─(start)→ done ─(review)→ re
 | `startTime` | 稼働開始時刻（HH:mm、24時間表記） | 例: `"09:00"` |
 | `endTime` | 稼働終了時刻（HH:mm、24時間表記） | 例: `"19:00"` |
 | `timezone` | IANA タイムゾーン名 | 例: `"Asia/Tokyo"`, `"America/New_York"` |
+| `daysOfWeek` | 実行を許可する曜日（0=日〜6=土） | 任意。未指定は毎日。例: `[1,2,3,4,5]`（平日のみ） |
 
 **動作フロー**:
 1. `-w config.json` で起動すると `runWatcherMode` が呼ばれる
 2. 設定ファイルを読み込み、全フィールドをバリデーション（不正値はエラー終了）
-3. 現在時刻が時間枠外なら即時終了
-4. `CronScheduler` を起動 — `intervalMinutes` 間隔で `runLoop` を定期実行
-5. 各 `runLoop` 内で各チケット処理前に `checkStepDeadline` を実行 — 時間枠外ならそのチケットをスキップしループ終了
+3. 現在時刻が時間枠外（または曜日不一致）なら即時終了
+4. `CronScheduler` を起動 — `intervalMinutes` 間隔で `runLoop` を定期実行（発火時刻・曜日は `timezone` 基準で評価）
+5. 各 `runLoop` 内で各チケット処理前に `checkStepDeadline` を実行 — 時間枠外・曜日不一致ならそのチケットをスキップしループ終了
 6. SIGINT/SIGTERM でグレースフルシャットダウン
+
+> 日跨ぎ窓（`startTime` > `endTime`、例: 22:00〜06:00）で `daysOfWeek` を指定した場合、曜日は**窓の開始日**で判定されます（例: 月22:00〜火06:00 + `daysOfWeek: [1]` は月曜夜〜火曜未明が連続して稼働）。
 
 ---
 

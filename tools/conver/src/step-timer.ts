@@ -20,6 +20,7 @@ import { isInTimeWindow } from "./time-window.js";
  * @returns 時間枠内なら true、枠外なら false
  * @throws config が不正な場合、内部の isInTimeWindow から Error が伝播する
  */
+// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
 export function isWithinTimeWindow(
   config: WatcherConfig | null | undefined,
 ): boolean {
@@ -33,6 +34,7 @@ export function isWithinTimeWindow(
     config.startTime,
     config.endTime,
     config.timezone,
+    config.daysOfWeek,
   );
 }
 

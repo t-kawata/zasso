@@ -18,6 +18,7 @@ interface MockCronTask {
 }
 
 /** モック内部状態（テスト間で共有されるが各テストが new CronScheduler で独立） */
+// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
 interface MockState {
   /** schedule に渡された最後の cron 式 */
   lastExpression: string;
@@ -35,6 +36,8 @@ interface MockState {
   validateCallCount: number;
   /** validate に渡された最後の式 */
   lastValidateExpression: string;
+  /** schedule に渡された最後の options（第3引数、未指定は null） */
+  lastScheduleOptions: { timezone?: string } | null;
 }
 
 const mockState: MockState = {
@@ -46,6 +49,7 @@ const mockState: MockState = {
   validateResult: true,
   validateCallCount: 0,
   lastValidateExpression: "",
+  lastScheduleOptions: null,
 };
 
 /** before() で動的 import した CronScheduler コンストラクタを保持する */
@@ -57,9 +61,14 @@ before(async () => {
     exports: {
       default: {
         // schedule(expression, callback, options?) → CronTask
-        schedule: (expression: string, callback: () => void) => {
+        schedule: (
+          expression: string,
+          callback: () => void,
+          options?: { timezone?: string },
+        ) => {
           mockState.lastExpression = expression;
           mockState.lastCallback = callback;
+          mockState.lastScheduleOptions = options ?? null;
           mockState.scheduleCallCount++;
           if (mockState.scheduleError) {
             throw mockState.scheduleError;
@@ -116,6 +125,7 @@ describe("CronScheduler", () => {
     mockState.validateResult = true;
     mockState.validateCallCount = 0;
     mockState.lastValidateExpression = "";
+    mockState.lastScheduleOptions = null;
   });
 
   // ============================================================
@@ -265,5 +275,30 @@ describe("CronScheduler", () => {
     mockState.lastCallback!();
 
     assert.strictEqual(called, true);
+  });
+
+  // ============================================================
+  // 正常系: options.timezone（config.timezone 統一）
+  // @verifies C002
+  // ============================================================
+
+  it("start() で cron.schedule の第3引数 options.timezone が config.timezone と一致する", () => {
+    const scheduler = new CronScheduler(validConfig({ timezone: "Asia/Tokyo" }));
+    scheduler.start(() => {});
+
+    assert.notStrictEqual(mockState.lastScheduleOptions, null);
+    assert.strictEqual(mockState.lastScheduleOptions!.timezone, "Asia/Tokyo");
+  });
+
+  it("同一 intervalMinutes で config.timezone が異なっても cron 式は同一（C002 Invariant）", () => {
+    const jst = new CronScheduler(validConfig({ timezone: "Asia/Tokyo" }));
+    jst.start(() => {});
+    const exprJst = mockState.lastExpression;
+
+    const utc = new CronScheduler(validConfig({ timezone: "UTC" }));
+    utc.start(() => {});
+    const exprUtc = mockState.lastExpression;
+
+    assert.strictEqual(exprJst, exprUtc);
   });
 });

@@ -22,6 +22,7 @@ const INTERVAL_MAX_MINUTES = 525_600;
  * Watcher 設定ファイルの型定義。
  * -w/--watcher フラグで指定されるJSON設定ファイルの内容に対応する。
  */
+// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
 export interface WatcherConfig {
   /** 定期実行間隔（分）。1以上、525600（1年分）以下。 */
   intervalMinutes: number;
@@ -31,6 +32,8 @@ export interface WatcherConfig {
   endTime: string;
   /** IANA タイムゾーン名。例: "Asia/Tokyo", "America/New_York" */
   timezone: string;
+  /** 実行を許可する曜日（0=日曜〜6=土曜）。未指定は全曜日。 */
+  daysOfWeek?: number[];
 }
 
 /**
@@ -57,18 +60,18 @@ export function validateWatcherConfig(config: unknown): ValidationResult {
     return { valid: false, errors };
   }
 
-  const obj = config as Record<string, unknown>;
+  const candidate = config as Record<string, unknown>;
 
   // intervalMinutes の検証
-  if (obj.intervalMinutes === undefined || obj.intervalMinutes === null) {
+  if (candidate.intervalMinutes === undefined || candidate.intervalMinutes === null) {
     errors.push("intervalMinutes が設定されていません");
-  } else if (typeof obj.intervalMinutes !== "number") {
+  } else if (typeof candidate.intervalMinutes !== "number") {
     errors.push("intervalMinutes は数値である必要があります");
-  } else if (!Number.isInteger(obj.intervalMinutes)) {
+  } else if (!Number.isInteger(candidate.intervalMinutes)) {
     errors.push("intervalMinutes は整数である必要があります");
   } else if (
-    obj.intervalMinutes < INTERVAL_MIN_MINUTES ||
-    obj.intervalMinutes > INTERVAL_MAX_MINUTES
+    candidate.intervalMinutes < INTERVAL_MIN_MINUTES ||
+    candidate.intervalMinutes > INTERVAL_MAX_MINUTES
   ) {
     errors.push(
       `intervalMinutes は ${INTERVAL_MIN_MINUTES} 以上 ${INTERVAL_MAX_MINUTES} 以下である必要があります`,
@@ -76,41 +79,78 @@ export function validateWatcherConfig(config: unknown): ValidationResult {
   }
 
   // startTime の検証
-  if (obj.startTime === undefined || obj.startTime === null) {
+  if (candidate.startTime === undefined || candidate.startTime === null) {
     errors.push("startTime が設定されていません");
-  } else if (typeof obj.startTime !== "string") {
+  } else if (typeof candidate.startTime !== "string") {
     errors.push("startTime は文字列である必要があります");
-  } else if (!TIME_FORMAT_PATTERN.test(obj.startTime)) {
+  } else if (!TIME_FORMAT_PATTERN.test(candidate.startTime)) {
     errors.push(
-      `startTime の形式が不正です（"HH:mm" 形式、例: "09:00"）: ${obj.startTime}`,
+      `startTime の形式が不正です（"HH:mm" 形式、例: "09:00"）: ${candidate.startTime}`,
     );
   }
 
   // endTime の検証
-  if (obj.endTime === undefined || obj.endTime === null) {
+  if (candidate.endTime === undefined || candidate.endTime === null) {
     errors.push("endTime が設定されていません");
-  } else if (typeof obj.endTime !== "string") {
+  } else if (typeof candidate.endTime !== "string") {
     errors.push("endTime は文字列である必要があります");
-  } else if (!TIME_FORMAT_PATTERN.test(obj.endTime)) {
+  } else if (!TIME_FORMAT_PATTERN.test(candidate.endTime)) {
     errors.push(
-      `endTime の形式が不正です（"HH:mm" 形式、例: "17:30"）: ${obj.endTime}`,
+      `endTime の形式が不正です（"HH:mm" 形式、例: "17:30"）: ${candidate.endTime}`,
     );
   }
 
   // timezone の検証
-  if (obj.timezone === undefined || obj.timezone === null) {
+  if (candidate.timezone === undefined || candidate.timezone === null) {
     errors.push("timezone が設定されていません");
-  } else if (typeof obj.timezone !== "string") {
+  } else if (typeof candidate.timezone !== "string") {
     errors.push("timezone は文字列である必要があります");
-  } else if (obj.timezone.trim() === "") {
+  } else if (candidate.timezone.trim() === "") {
     errors.push("timezone が空文字です");
-  } else if (!isValidTimezone(obj.timezone)) {
+  } else if (!isValidTimezone(candidate.timezone)) {
     errors.push(
-      `timezone が有効なIANAタイムゾーン名ではありません: ${obj.timezone}`,
+      `timezone が有効なIANAタイムゾーン名ではありません: ${candidate.timezone}`,
     );
   }
 
+  // daysOfWeek の検証（オプショナル — 未指定は全曜日）
+  validateDaysOfWeek(candidate.daysOfWeek, errors);
+
   return { valid: errors.length === 0, errors };
+}
+
+/**
+ * daysOfWeek を検証する。undefined / null は許容（全曜日 = 後方互換）。
+ * @param value 検証対象の値（WatcherConfig.daysOfWeek）
+ * @param errors 検証エラーを追記する配列
+ */
+// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+function validateDaysOfWeek(value: unknown, errors: string[]): void {
+  if (value === undefined || value === null) {
+    return;
+  }
+  if (!Array.isArray(value)) {
+    errors.push("daysOfWeek は配列である必要があります");
+    return;
+  }
+  if (value.length === 0) {
+    errors.push("daysOfWeek は空配列にできません（未指定なら省略してください）");
+    return;
+  }
+  const seen = new Set<number>();
+  for (const item of value) {
+    if (typeof item !== "number" || !Number.isInteger(item)) {
+      errors.push(`daysOfWeek の要素は整数である必要があります: ${item}`);
+    } else if (item < 0 || item > 6) {
+      errors.push(
+        `daysOfWeek の要素は 0(日)〜6(土) の範囲である必要があります: ${item}`,
+      );
+    } else if (seen.has(item)) {
+      errors.push(`daysOfWeek に重複した値があります: ${item}`);
+    } else {
+      seen.add(item);
+    }
+  }
 }
 
 /**
@@ -119,13 +159,16 @@ export function validateWatcherConfig(config: unknown): ValidationResult {
  * @param tz 検証対象のタイムゾーン名
  * @returns 有効なタイムゾーンなら true
  */
+// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
 function isValidTimezone(tz: string): boolean {
   try {
-    const available = Intl.supportedValuesOf("timeZone");
-    return available.includes(tz);
-  } catch {
-    // Intl.supportedValuesOf が未サポートの環境では寛容に扱う
+    // Intl.supportedValuesOf("timeZone") は有効な IANA 名の一部（例: "UTC"）を
+    // 返さないことがあるため、実際に Intl.DateTimeFormat が構築できるかで判定する。
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
     return true;
+  } catch {
+    // 不正なタイムゾーン名は RangeError になり false を返す
+    return false;
   }
 }
 

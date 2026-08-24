@@ -10,8 +10,16 @@ import assert from "node:assert/strict";
 import type { WatcherConfig } from "./watcher.js";
 
 // isInTimeWindow をモック化。テストごとに mockImplementation で制御する
+// 第5引数（daysOfWeek）は伝播検証のために捕捉する。
+// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
 const mockIsInTimeWindow = mock.fn(
-  (_now: Date, _start: string, _end: string, _tz: string): boolean => true,
+  (
+    _now: Date,
+    _start: string,
+    _end: string,
+    _tz: string,
+    _daysOfWeek?: number[],
+  ): boolean => true,
 );
 
 mock.module("./time-window.js", {
@@ -116,6 +124,17 @@ describe("isWithinTimeWindow", () => {
     assert.strictEqual(call.arguments[1], "09:00"); // startTime
     assert.strictEqual(call.arguments[2], "17:00"); // endTime
     assert.strictEqual(call.arguments[3], "UTC"); // timezone
+  });
+
+  // @verifies C003
+  it("isWithinTimeWindow が config.daysOfWeek を第5引数として isInTimeWindow に渡す", () => {
+    mockIsInTimeWindow.mock.resetCalls();
+    mockIsInTimeWindow.mock.mockImplementation(() => true);
+    const configWithDays: WatcherConfig = { ...TEST_CONFIG, daysOfWeek: [1, 2, 3] };
+
+    assert.strictEqual(isWithinTimeWindow(configWithDays), true);
+    assert.strictEqual(mockIsInTimeWindow.mock.calls.length, 1);
+    assert.deepStrictEqual(mockIsInTimeWindow.mock.calls[0].arguments[4], [1, 2, 3]);
   });
 });
 

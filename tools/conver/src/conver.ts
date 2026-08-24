@@ -54,7 +54,7 @@ async function runNormalMode(cli: CliOptions): Promise<void> {
  * CronScheduler で定期的に runLoop を実行する。
  * SIGINT/SIGTERM でグレースフルシャットダウンする。
  */
-// [::TICKET::] PX-149 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-149 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-149, PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-149|PX-173) --for-spec --no-implementation-order`.
 async function runWatcherMode(cli: CliOptions): Promise<void> {
   // Step 1: 設定ファイルの読み込みと検証
   let config: WatcherConfig;
@@ -115,7 +115,8 @@ async function runWatcherMode(cli: CliOptions): Promise<void> {
 
   process.stdout.write(
     `Watcher mode started: interval=${config.intervalMinutes}min, ` +
-      `window=${config.startTime}-${config.endTime}, tz=${config.timezone}\n`,
+      `window=${config.startTime}-${config.endTime}, ` +
+      `days=${config.daysOfWeek?.join("-") ?? "all"}, tz=${config.timezone}\n`,
   );
 }
 

@@ -16,6 +16,9 @@ const INTERVAL_MIN_MINUTES = 1;
 /** intervalMinutes の最大値（分）— node-cron の式制限に基づく実用上限 */
 const INTERVAL_MAX_MINUTES = 525_600;
 
+/** 1時間の分数 — cron 式の時間変換に使用 */
+const MINUTES_PER_HOUR = 60;
+
 /**
  * CronScheduler — node-cron による定期ジョブ管理クラス。
  *
@@ -30,6 +33,7 @@ const INTERVAL_MAX_MINUTES = 525_600;
  * scheduler.stop();
  * ```
  */
+// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
 export class CronScheduler {
   /** node-cron のジョブタスク（未起動時は null） */
   #cronTask: ScheduledTask | null = null;
@@ -93,12 +97,12 @@ export class CronScheduler {
   #buildCronExpression(minutes: number): string {
     let expression: string;
 
-    if (minutes >= INTERVAL_MIN_MINUTES && minutes < 60) {
+    if (minutes >= INTERVAL_MIN_MINUTES && minutes < MINUTES_PER_HOUR) {
       // 1〜59 分: "*/N * * * *"
       expression = `*/${minutes} * * * *`;
-    } else if (minutes % 60 === 0) {
+    } else if (minutes % MINUTES_PER_HOUR === 0) {
       // 60 の倍数（時間単位）
-      const hours = minutes / 60;
+      const hours = minutes / MINUTES_PER_HOUR;
       if (hours === 1) {
         // 60分 = 1時間: "0 * * * *"（毎時0分）
         expression = "0 * * * *";
@@ -134,10 +138,19 @@ export class CronScheduler {
       return;
     }
 
-    const task = cron.schedule(this.#cronExpression, callback);
+    const task = cron.schedule(
+      this.#cronExpression,
+      callback,
+      this.#scheduleOptions,
+    );
     task.start();
     this.#cronTask = task;
     this.#isActive = true;
+  }
+
+  /** node-cron に渡すスケジューリングオプション — 発火時刻・曜日を config.timezone 基準に統一する */
+  get #scheduleOptions(): { timezone: string } {
+    return { timezone: this.#config.timezone };
   }
 
   /**

@@ -160,6 +160,12 @@ describe("validateWatcherConfig", () => {
     assert.ok(result.errors.some((e) => e.includes("timezone")));
   });
 
+  it('timezone="UTC"（Intl.supportedValuesOf に無いが有効なIANA名）→ valid: true', () => {
+    const config = { ...validConfig(), timezone: "UTC" };
+    const result = validateWatcherConfig(config);
+    assert.strictEqual(result.valid, true);
+  });
+
   // --- 複合エラー ---
   it("intervalMinutes=0 + 不正startTime + 空timezone → 3件のエラー", () => {
     const config = {
@@ -218,5 +224,72 @@ describe("loadWatcherConfig", () => {
         err instanceof Error &&
         err.message.includes("バリデーション"),
     );
+  });
+});
+
+// ============================================================
+// validateWatcherConfig の daysOfWeek 検証
+// @verifies C001
+// ============================================================
+// [::TICKET::] PX-173 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-173 --for-spec --no-implementation-order`.
+describe("validateWatcherConfig — daysOfWeek", () => {
+  it("daysOfWeek 未指定（undefined）→ valid: true（後方互換）", () => {
+    const result = validateWatcherConfig(validConfig());
+    assert.strictEqual(result.valid, true);
+  });
+
+  it("daysOfWeek=[0,1,2,3,4,5,6]（全曜日明示）→ valid: true", () => {
+    const config = { ...validConfig(), daysOfWeek: [0, 1, 2, 3, 4, 5, 6] };
+    const result = validateWatcherConfig(config);
+    assert.strictEqual(result.valid, true);
+  });
+
+  it('daysOfWeek=[7]（範囲外）→ errors に範囲エラー', () => {
+    const config = { ...validConfig(), daysOfWeek: [7] };
+    const result = validateWatcherConfig(config);
+    assert.strictEqual(result.valid, false);
+    assert.ok(result.errors.some((e) => e.includes("daysOfWeek")));
+  });
+
+  it('daysOfWeek=[-1]（負値）→ errors に範囲エラー', () => {
+    const config = { ...validConfig(), daysOfWeek: [-1] };
+    const result = validateWatcherConfig(config);
+    assert.strictEqual(result.valid, false);
+    assert.ok(result.errors.some((e) => e.includes("daysOfWeek")));
+  });
+
+  it('daysOfWeek=[1.5]（小数）→ errors に整数エラー', () => {
+    const config = { ...validConfig(), daysOfWeek: [1.5] };
+    const result = validateWatcherConfig(config);
+    assert.strictEqual(result.valid, false);
+    assert.ok(result.errors.some((e) => e.includes("整数")));
+  });
+
+  it('daysOfWeek=["abc"]（非数値文字列）→ errors に型エラー', () => {
+    const config = { ...validConfig(), daysOfWeek: ["abc"] };
+    const result = validateWatcherConfig(config);
+    assert.strictEqual(result.valid, false);
+    assert.ok(result.errors.some((e) => e.includes("daysOfWeek")));
+  });
+
+  it("daysOfWeek=[]（空配列）→ errors にエラー", () => {
+    const config = { ...validConfig(), daysOfWeek: [] };
+    const result = validateWatcherConfig(config);
+    assert.strictEqual(result.valid, false);
+    assert.ok(result.errors.some((e) => e.includes("daysOfWeek")));
+  });
+
+  it("daysOfWeek=[1,1,2]（重複）→ errors に重複エラー", () => {
+    const config = { ...validConfig(), daysOfWeek: [1, 1, 2] };
+    const result = validateWatcherConfig(config);
+    assert.strictEqual(result.valid, false);
+    assert.ok(result.errors.some((e) => e.includes("重複")));
+  });
+
+  it("daysOfWeek=42（非配列）→ errors に型エラー", () => {
+    const config = { ...validConfig(), daysOfWeek: 42 };
+    const result = validateWatcherConfig(config);
+    assert.strictEqual(result.valid, false);
+    assert.ok(result.errors.some((e) => e.includes("daysOfWeek")));
   });
 });
