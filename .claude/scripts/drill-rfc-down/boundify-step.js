@@ -16,8 +16,9 @@
  *   --approve validates the STAGING Dirs-Tree with validate-dirs-tree-schema,
  *             derives dirs-tree-delta.json (newFiles/modifiedFiles/srcDrift/
  *             dependencyDirs) by diffing the real Dirs-Tree against the staged
- *             graph, commits missing src stubs for new file nodes, and promotes
- *             the staging copy to the real Dirs-Tree. The analyzer is NOT re-run
+ *             graph, generates delta-only src template files (Initial Design
+ *             Artifact header) for new file nodes, and promotes the staging copy
+ *             to the real Dirs-Tree. The analyzer is NOT re-run
  *             — the staged Dirs-Tree, which the AI crafted via dirs-tree-crud.js,
  *             is the plan.
  *   --reject  discards the staging copy; the real Dirs-Tree and src stay
@@ -34,6 +35,8 @@ import path from 'path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'url';
 import { buildAdvisoryReport } from './advisory-report.js';
+import { generateDirsTreeDelta } from './generate-dir-templates-delta.js';
+import { refreshFileHeaders } from './refresh-file-headers.js';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const ANALYZER = path.join(SCRIPT_DIR, 'boundify-delta-analyzer.js');
@@ -253,21 +256,6 @@ function verifyStagingDirsTree(dirsTreePath, graphPath) {
   }
 }
 
-/** Commit missing src stubs for every new file node in the approved delta. */
-// [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
-function commitSrcStubs(dirsTreeDelta, srcDir) {
-  for (const newFile of dirsTreeDelta.newFiles || []) {
-    // The delta path is Dirs-Tree-relative (e.g. "src/api/x.rs"); strip the
-    // tree root name because srcDir already is that root.
-    const relativePath = newFile.path.split('/').slice(1).join('/') || newFile.path;
-    const fullPath = path.join(srcDir, relativePath);
-    if (!fs.existsSync(fullPath)) {
-      fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-      fs.writeFileSync(fullPath, `// ${newFile.title || newFile.path} — declaration stub\n`, 'utf8');
-    }
-  }
-}
-
 /** Promote the staging copy to the real Dirs-Tree (the only promote path). */
 // [::TICKET::] PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
 function promoteStagingToReal(dirsTreePath) {
@@ -291,7 +279,7 @@ function removeCandidates(dirsTreePath) {
   fs.rmSync(candidatesPathOf(dirsTreePath), { force: true });
 }
 
-// [::TICKET::] PX-161, PX-162, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-161|PX-162|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-161, PX-162, PX-164, PX-165, PX-166, PX-167, PX-168, PX-169, PX-170, PX-171, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-161|PX-162|PX-164|PX-165|PX-166|PX-167|PX-168|PX-169|PX-170|PX-171|PX-172) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   let dirsTreePath = '';
@@ -353,7 +341,24 @@ function main() {
     const stagedTree = JSON.parse(fs.readFileSync(stagingPathOf(dirsTreePath), 'utf8'));
     const delta = deriveDirsTreeDelta(beforeTree, stagedTree, srcDir);
     fs.writeFileSync(deltaPathOf(dirsTreePath), JSON.stringify(delta, null, 2) + '\n', 'utf8');
-    commitSrcStubs(delta, srcDir);
+    const generation = generateDirsTreeDelta({
+      dirsTreePath,
+      stagedDirsTree: stagedTree,
+      srcDir,
+      graphPath,
+      deltaPath: deltaPathOf(dirsTreePath),
+    });
+    process.stdout.write(`Generated src stubs: ${generation.created.length} created, ${generation.skipped.length} skipped, ${generation.excluded.length} excluded.\n`);
+    if (graphDeltaPath && fs.existsSync(graphDeltaPath)) {
+      const refresh = refreshFileHeaders({
+        dirsTreePath,
+        stagedDirsTree: stagedTree,
+        srcDir,
+        graphPath,
+        graphDeltaPath,
+      });
+      process.stdout.write(`Refreshed existing headers: ${refresh.refreshed.length} refreshed, ${refresh.skipped.length} skipped.\n`);
+    }
     promoteStagingToReal(dirsTreePath);
     removeCandidates(dirsTreePath);
     process.stdout.write('Staged Dirs-Tree verified and promoted; dirs-tree-delta.json written for Step 4.\n');

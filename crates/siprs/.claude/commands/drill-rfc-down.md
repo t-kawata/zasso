@@ -56,9 +56,12 @@ If no arguments are given, drill-rfc-down proceeds with only the crystalize RESI
 | `boundify-delta-analyzer.js` | `--graph-delta=<path> --dirs-tree=<path> --src=<dir> --out=<path> [--graph=<path>]` | Step 3: deterministically propose Dirs-Tree + src evolution candidates plus the four-axis advisory |
 | `boundify-step.js` | `--dirs-tree=<path> --src=<dir> [--graph=<path>] [--graph-delta=<path>] [--stage\|--approve\|--reject]` | Step 3 driver: stage / AI design / approve / reject |
 | `dirs-tree-crud.js` | `--dirs-tree=<path> --graph=<path> <add-dir\|add-file\|update-node\|update-mapped\|remove-node>` | Granular Dirs-Tree editing with schema validation after every operation |
+| `generate-dir-templates-delta.js` | (module) | Step 3: create ONLY the delta newFiles with the Initial Design Artifact header |
+| `refresh-file-headers.js` | (module) | Step 3: refresh existing-file headers / cross-references (implementation body untouched) |
 | `split-delta-analyzer.js` | `--dirs-tree-delta=<path> --tickets=<path> --out=<path>` | Step 4: deterministically propose Tickets evolution candidates plus the four-axis advisory |
 | `split-step.js` | `--tickets=<path> [--dirs-tree-delta=<path>] [--stage\|--approve\|--reject]` | Step 4 driver: stage / AI design / approve / reject |
-| `verify-consistencies.js` | `--rfc=<path> --graph=<path> --dirs-tree=<path> --src=<dir> --tickets=<path> [--out=<path>]` | Step 5: cross-artifact 5-consistency check |
+| `detect-orphan-contracts.js` | (module) | Step 4/5: report orphaned edge contracts with connecting tickets (read-only, never auto-assigns) |
+| `verify-consistencies.js` | `--rfc=<path> --graph=<path> --dirs-tree=<path> --src=<dir> --tickets=<path> [--out=<path>]` | Step 5: cross-artifact 6-consistency check |
 | `verify-step.js` | `--rfc=<path> --graph=<path> --dirs-tree=<path> --src=<dir> --tickets=<path>` | Step 5 driver: PASS/FAIL blocking gate |
 | `advisory-report.js` | (shared) | Four-axis (Danger / Omission / Contradiction / Deficiency) English advisory report builder |
 
@@ -309,7 +312,7 @@ node "$DRILL_DIR/boundify-step.js" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR
 - **Contradiction**: are the placement, language, and kind correct?
 - **Deficiency**: are the declaration stubs, Prose exclusion (rationale/glossary/requirement), and Prune rules satisfied?
 
-The candidates are reference information only; there is no obligation to apply them as-is. If the AI's judgment differs from the candidates, reflect it on staging with dirs-tree-crud.js granular editing tools (`add-dir` / `add-file` / `update-node` / `update-mapped` / `remove-node`). The AI also creates the actual new files (e.g. declaration stubs under src). **`--approve` does NOT re-run the analyzer; it validates and promotes the staging Dirs-Tree the AI designed with dirs-tree-crud.js as-is**.
+The candidates are reference information only; there is no obligation to apply them as-is. If the AI's judgment differs from the candidates, reflect it on staging with dirs-tree-crud.js granular editing tools (`add-dir` / `add-file` / `update-node` / `update-mapped` / `remove-node`). **`--approve` does NOT re-run the analyzer; it validates and promotes the staging Dirs-Tree the AI designed with dirs-tree-crud.js as-is**. Actual src files are then produced mechanically: `generate-dir-templates-delta.js` creates ONLY the delta newFiles with the Initial Design Artifact header, and `refresh-file-headers.js` refreshes the headers of existing files whose mapped nodes changed — never touching implementation bodies. The AI may still hand-create files when the delta generator is not applicable.
 
 ```bash
 # Example: add a file node to the staging Dirs-Tree (--dirs-tree points at the staging path)
@@ -322,7 +325,7 @@ node "$DRILL_DIR/dirs-tree-crud.js" --dirs-tree="$DIRS_TREE_PATH.staging.json" -
 node "$DRILL_DIR/dirs-tree-crud.js" --dirs-tree="$DIRS_TREE_PATH.staging.json" --graph="$GRAPH_PATH" update-mapped --path=src/api/auth.rs --mapped=N0002:Auth module
 ```
 
-**③ approve (only when judged complete)**: run `--approve` once the design is complete. `validate-dirs-tree-schema.js` fully inspects the staging Dirs-Tree (GRAPH/Dirs-Tree consistency, mappedNodeIds resolution, dependency cycles), and **only if it passes**, mechanically derive the evolution delta `dirs-tree-delta.json`, commit the src stubs for new files, and promote staging → real Dirs-Tree. On validation failure, an English message (`[ERROR] Cause: ... Action: ...`) is emitted and no promotion occurs, so fix with dirs-tree-crud.js and re-run. **Destructive changes (file/directory deletion or moves) are forbidden by default; explicit AI approval (`remove-node --force`) only**.
+**③ approve (only when judged complete)**: run `--approve` once the design is complete. `validate-dirs-tree-schema.js` fully inspects the staging Dirs-Tree (GRAPH/Dirs-Tree consistency, mappedNodeIds resolution, dependency cycles), and **only if it passes**, mechanically derive the evolution delta `dirs-tree-delta.json`, generate the delta-only new src template files (Initial Design Artifact header) via `generate-dir-templates-delta.js`, refresh existing-file headers via `refresh-file-headers.js` (when `--graph-delta` is provided), and promote staging → real Dirs-Tree. On validation failure, an English message (`[ERROR] Cause: ... Action: ...`) is emitted and no promotion occurs, so fix with dirs-tree-crud.js and re-run. **Destructive changes (file/directory deletion or moves) are forbidden by default; explicit AI approval (`remove-node --force`) only**.
 
 ```bash
 node "$DRILL_DIR/boundify-step.js" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR/src" --graph="$GRAPH_PATH" --approve
@@ -378,13 +381,13 @@ node "$DRILL_DIR/split-step.js" --tickets="$TICKETS_PATH" --reject
 
 ### Step 5: verify
 
-Mechanically verify the **mutual consistency** of the 5 artifacts (canonical RFC / GRAPH / Dirs-Tree / src implementation / Tickets) and confirm **cross-artifact zero contradiction**. `verify-consistencies.js` inspects the 5 consistencies and `verify-step.js` decides PASS/FAIL by severity. **If even one high-severity finding remains, FAIL (exit 1) → return to Step 2 to fix → re-verify** (blocking loop). Only low (cosmetic) findings remain → PASS.
+Mechanically verify the **mutual consistency** of the 5 artifacts (canonical RFC / GRAPH / Dirs-Tree / src implementation / Tickets) and confirm **cross-artifact zero contradiction**. `verify-consistencies.js` inspects the 6 consistencies and `verify-step.js` decides PASS/FAIL by severity. **If even one high-severity finding remains, FAIL (exit 1) → return to Step 2 to fix → re-verify** (blocking loop). Only low (cosmetic) findings remain → PASS.
 
 ```bash
 node "$DRILL_DIR/verify-step.js" --rfc="$RFC_PATH" --graph="$GRAPH_PATH" --dirs-tree="$DIRS_TREE_PATH" --src="$RFC_DIR/src" --tickets="$TICKETS_PATH"
 ```
 
-**5 consistency checks (severity: high = structural break / low = cosmetic)**:
+**6 consistency checks (severity: high = structural break / low = cosmetic)**:
 
 | Check | Content | severity |
 |---|---|---|
@@ -393,5 +396,6 @@ node "$DRILL_DIR/verify-step.js" --rfc="$RFC_PATH" --graph="$GRAPH_PATH" --dirs-
 | Dirs-Tree ↔ src | every Dirs-Tree file exists in src / src extras | high / low |
 | GRAPH ↔ Tickets nodeIds | every non-Prose node exists in a ticket | high |
 | Dangling references | Dirs-Tree / Tickets reference targets exist in the GRAPH | high |
+| Edge contracts ↔ Tickets contracts | every edge contract is present in at least one connecting ticket (orphan-free) | high |
 
 **Loop control**: if `verify-step.js` returns exit 1, **return to Step 2 (graphify) to fix** the reported high items, re-run Steps 3/4, then re-verify. Repeat until exit 0 (PASS). The verification is **read-only** (it never rewrites any artifact and is deterministic).
