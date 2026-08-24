@@ -50,7 +50,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 | **上流ループ** | 人間＋AI（Claude Code 上で実行） | `/grill-me-for-rfc` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets` | RFC 設計書の作成 → 論理グラフ化 → ディレクトリ境界生成 → チケット分解 |
 | **実装ループ** | AI（`conver.js` が自動実行） | `/make-ticket` → `/plan-ticket` → `/start-ticket` → `/review-ticket` → `/resolve-ticket` → `/consolidate-stubs` → `/find-omissions` | チケット実装 → 品質検証 → 警告・犯罪・スタブ解決 → スタブのチケット単位束ね直し → 契約ギャップ計測 → 収束 |
 | **出荷ループ** | 人間＋AI（Claude Code 上で実行） | `/crystalize-readme` | 使い方 README をセクション単位で「ユーザーにとって素敵か」の視点で検証し、書けないセクションを RESIDUE として洗い出す。RESIDUE ゼロで「素敵な使い方」が README.md に書き上がり、実装とテストがそれを満たす点検突破で出荷 |
-| **進化ループ** | 人間＋AI（Claude Code 上で実行） | `/drill-rfc-down` | RESIDUE・自由会話・資料を入力に grill で詳細を確定し、正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させ、最後に verify で5整合性（RFC / GRAPH / Dirs-Tree / src / Tickets）を機械検証する。ビジネスの再投資と進化・適応を安全に進める |
+| **進化ループ** | 人間＋AI（Claude Code 上で実行） | `/drill-rfc-down` | RESIDUE・自由会話・資料を入力に grill で詳細を確定し、正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させ、最後に verify で5成果物（RFC / GRAPH / Dirs-Tree / src / Tickets）の相互整合性を6チェックで機械検証する。ビジネスの再投資と進化・適応を安全に進める |
 
 ---
 
@@ -120,7 +120,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 - DesignTree / Status / CheckList は `/grill-me-for-rfc` と同一のノード機構（Q-id 規約）を再利用しつつ、セッションは `<rfcDir>/drills/`（`$SESSION_DIR`）に隔離して既存の `Status.json` 等には触れない（既存セッションがあれば継続）
 - 質問 → 回答 → 追記 → CheckList 照合 → 再 grill 判定のサイクルで品質を高める
 - I/O 境界参照情報を追記し、後段の graphify / boundify が安全に分割できるようにする
-- 確定した差分に対して graphify → boundify → split を実行して `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` を矛盾なく更新し、最後に verify で5整合性（RFC / GRAPH / Dirs-Tree / src / Tickets）を機械検証して積み増しチケットを生成する
+- 確定した差分に対して graphify → boundify → split を実行して `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` を矛盾なく更新し、最後に verify で5成果物（RFC / GRAPH / Dirs-Tree / src / Tickets）の相互整合性を6チェックで機械検証して積み増しチケットを生成する。boundify は新規ファイルを `Initial Design Artifact` ヘッダ付きで機械生成し、既存ファイルのヘッダも自動更新する（実装本体は不変）。verify は孤立エッジ契約（グラフに存在しどのチケットにも紐づかない契約）も検出する
 
 **この機能の意味**: 正典・グラフ・ディレクトリ構造・チケットが常にロックステップで更新され続けるため、開発プロジェクトは「安全な連続性を失わないビジネス上の再投資可能性」を担保できます。ビジネスの再投資と進化・適応（方向転換・機能追加・要件変化への対応）は、いつでもこの扉を通じて正典を進化させることで、年単位の長期開発を矛盾なく続けられます。
 
@@ -248,7 +248,7 @@ RFC グラフを入力に「使い方 README」をセクション単位で検証
 
 #### `/drill-rfc-down [<material file|directory>...]`
 
-正典 RFC を進化させます。入力（crystalize の RESIDUE / ユーザーとの自由会話 / 与えられた資料）を grill で確定し、GRAPH・Dirs-Tree・Tickets を差分として矛盾なく更新して verify で5整合性を機械検証し、積み増しチケットを生成します。引数はマテリアル（参考資料）のファイル/ディレクトリで、RFC パスは `Tickets.json` の `metadata.resolvedPaths` から解決されます。詳細は「[/drill-rfc-down — 進化の扉](#drill-rfc-down--進化の扉)」を参照。
+正典 RFC を進化させます。入力（crystalize の RESIDUE / ユーザーとの自由会話 / 与えられた資料）を grill で確定し、GRAPH・Dirs-Tree・Tickets を差分として矛盾なく更新して verify で5成果物の相互整合性を機械検証し、積み増しチケットを生成します。引数はマテリアル（参考資料）のファイル/ディレクトリで、RFC パスは `Tickets.json` の `metadata.resolvedPaths` から解決されます。詳細は「[/drill-rfc-down — 進化の扉](#drill-rfc-down--進化の扉)」を参照。
 
 ---
 
@@ -471,7 +471,7 @@ CRYSTALIZE-Status.json
 
 ### drill-rfc-down（`.claude/scripts/drill-rfc-down/`）
 
-`/drill-rfc-down` は grill と同一の DesignTree / Status / CheckList 機構を利用しつつ、セッションを `<rfcDir>/drills/`（`$SESSION_DIR`）に隔離して実行します。`preflight.cjs`（引数・RFC/GRAPH/Dirs-Tree/README.md の実在検証と `[VARIABLES]` 出力）/ `session-init.js`（セッション生成・継続）/ `session-status.js` / `update-status.js` / `rfc-evolution.js`（capture / verify / clean）/ `update-tree.js` / `validate-question-format.js` / `tree-query.js` / `generate-checklist.js` / `check-all-schema.js` / `graphify-delta-analyzer.js` / `graphify-step.js` / `boundify-delta-analyzer.js` / `boundify-step.js` / `dirs-tree-crud.js` / `split-delta-analyzer.js` / `split-step.js` / `verify-consistencies.js` / `verify-step.js` / `advisory-report.js`
+`/drill-rfc-down` は grill と同一の DesignTree / Status / CheckList 機構を利用しつつ、セッションを `<rfcDir>/drills/`（`$SESSION_DIR`）に隔離して実行します。`preflight.cjs`（引数・RFC/GRAPH/Dirs-Tree/README.md の実在検証と `[VARIABLES]` 出力）/ `session-init.js`（セッション生成・継続）/ `session-status.js` / `update-status.js` / `rfc-evolution.js`（capture / verify / clean）/ `update-tree.js` / `validate-question-format.js` / `tree-query.js` / `generate-checklist.js` / `check-all-schema.js` / `graphify-delta-analyzer.js` / `graphify-step.js` / `boundify-delta-analyzer.js` / `boundify-step.js` / `dirs-tree-crud.js` / `generate-dir-templates-delta.js`（新規ファイルのヘッダ付き機械生成）/ `refresh-file-headers.js`（既存ヘッダ更新・本体不変）/ `split-delta-analyzer.js` / `split-step.js` / `detect-orphan-contracts.js`（孤立エッジ契約の検出）/ `verify-consistencies.js` / `verify-step.js` / `advisory-report.js`
 
 ---
 

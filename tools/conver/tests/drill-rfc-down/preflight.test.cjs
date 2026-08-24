@@ -236,6 +236,20 @@ describe('resolvePipelinePaths', () => {
     assert.equal(result.pathSource, 'metadata.source.md');
   });
 
+  it('resolves a metadata.source stored relative to a repo root (ancestor of ticketsDir)', () => {
+    const repoRoot = path.join(tmpRoot, 'rp-repo-relative');
+    const dir = path.join(repoRoot, 'sub'); // Tickets.json lives in a subdirectory
+    fs.mkdirSync(dir, { recursive: true });
+    const sourceFile = path.join(repoRoot, 'RFC.md');
+    fs.writeFileSync(sourceFile, '# RFC');
+    const tickets = { metadata: { source: 'rp-repo-relative/RFC.md' } };
+    const result = resolvePipelinePaths(tickets, dir);
+    assert.equal(result.rfcPath, sourceFile);
+    assert.equal(result.graphPath, path.join(repoRoot, 'RFC-GRAPH.json'));
+    assert.equal(result.dirsTreePath, path.join(repoRoot, 'RFC-Dirs-Tree.json'));
+    assert.equal(result.pathSource, 'metadata.source.md');
+  });
+
   it('derives paths from metadata.source.json (GRAPH file)', () => {
     const dir = path.join(tmpRoot, 'rp-json');
     fs.mkdirSync(dir, { recursive: true });

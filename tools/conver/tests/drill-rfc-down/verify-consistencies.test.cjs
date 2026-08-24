@@ -98,7 +98,7 @@ function runVerify(project, outPath) {
   return spawnSync(process.execPath, args, { encoding: 'utf8' });
 }
 
-describe('verify-consistencies.js (5-consistency check)', () => {
+describe('verify-consistencies.js (6-consistency check)', () => {
   it('reports an RFC heading with no GRAPH headingRef as a high-severity finding (C001)', () => {
     const { rfcPath, graphPath, dirsTreePath, srcDir, ticketsPath } = setupProject();
     fs.writeFileSync(rfcPath, '# Doc\n\n## Uncovered Heading\n');

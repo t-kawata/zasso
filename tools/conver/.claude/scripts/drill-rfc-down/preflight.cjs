@@ -150,6 +150,38 @@ function readTickets(ticketsPath) {
 }
 
 /**
+ * Resolve a metadata.source value to an absolute path.
+ *
+ * The value may follow any of the conventions observed across projects:
+ *   1. absolute path         (e.g. /Users/me/zasso/crates/siprs/RFC-ROOT.md)
+ *   2. home-relative ~/...   (e.g. ~/zasso/crates/siprs/RFC-ROOT.md)
+ *   3. tickets-dir-relative  (e.g. RFC-ROOT.md) — the historical default
+ *   4. repo-root-relative    (e.g. tools/conver/RFC_ROOT.md) — some legacy artifacts
+ *
+ * Cases 1/2 become absolute immediately. A bare relative path is ambiguous, so
+ * we try the tickets-dir base first (preserving the historical behavior), then
+ * walk up toward the filesystem root for the nearest ancestor that makes the
+ * path exist (covers repo-root-relative legacy data). If no ancestor matches,
+ * the tickets-dir resolution is returned so callers report the most likely
+ * intended path.
+ *
+ * @param {string} rawSource — Raw metadata.source value
+ * @param {string} ticketsDir — Directory containing Tickets.json
+ * @returns {string} Absolute path
+ */
+function resolveMetadataSource(rawSource, ticketsDir) {
+  const expanded = fromHomeRelative(rawSource);
+  if (path.isAbsolute(expanded)) return path.resolve(expanded);
+  const viaTicketsDir = path.resolve(ticketsDir, expanded);
+  if (fs.existsSync(viaTicketsDir)) return viaTicketsDir;
+  for (let base = path.dirname(ticketsDir); base !== path.dirname(base); base = path.dirname(base)) {
+    const candidate = path.resolve(base, expanded);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return viaTicketsDir;
+}
+
+/**
  * Resolve the three pipeline artifact paths from Tickets.json metadata.
  *
  * Priority order:
@@ -180,7 +212,7 @@ function resolvePipelinePaths(tickets, ticketsDir) {
     return { rfcPath: '', graphPath: '', dirsTreePath: '', pathSource: 'none' };
   }
 
-  const resolvedSource = path.resolve(ticketsDir, fromHomeRelative(rawSource));
+  const resolvedSource = resolveMetadataSource(rawSource, ticketsDir);
   if (!fs.existsSync(resolvedSource)) {
     return { rfcPath: '', graphPath: '', dirsTreePath: '', pathSource: 'not_found', sourcePath: resolvedSource };
   }
@@ -400,6 +432,7 @@ module.exports = {
   collectMaterialPaths,
   collectFilesRecursive,
   readTickets,
+  resolveMetadataSource,
   resolvePipelinePaths,
   verifyExistence,
   formatResolutionErrorMessage,

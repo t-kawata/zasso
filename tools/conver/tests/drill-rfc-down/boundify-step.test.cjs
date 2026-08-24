@@ -142,8 +142,11 @@ describe('boundify-step.js (AI-as-engineer staging flow)', () => {
     // The real Dirs-Tree was promoted with the AI-crafted file node.
     assert.ok(fs.readFileSync(dirsTreePath, 'utf8').includes('session_storage.rs'), 'Dirs-Tree promoted');
 
-    // The src stub was committed for the new file node.
-    assert.ok(fs.existsSync(path.join(srcDir, 'session_storage.rs')), 'src stub committed');
+    // The src stub was generated for the new file node (PX-170 delta-only generator).
+    const sessionFile = path.join(srcDir, 'session_storage.rs');
+    assert.ok(fs.existsSync(sessionFile), 'src stub committed');
+    const sessionBody = fs.readFileSync(sessionFile, 'utf8');
+    assert.match(sessionBody, /Initial Design Artifact — RFC-driven Implementation/, 'generated src stub carries the provenance header');
 
     // validate-dirs-tree-schema passes on the promoted Dirs-Tree.
     const validateRes = spawnSync(process.execPath, [VALIDATE, `--dirs-tree=${dirsTreePath}`, `--graph=${graphPath}`], { encoding: 'utf8' });
@@ -230,5 +233,37 @@ describe('boundify-step.js (AI-as-engineer staging flow)', () => {
     assert.equal(approve.status, 0, approve.stderr);
     const delta = JSON.parse(fs.readFileSync(deltaPathOf(dirsTreePath), 'utf8'));
     assert.ok(delta.modifiedFiles.some((m) => String(m.path).includes('auth.rs')), 'delta records the AI-modified file node');
+  });
+
+  it('PX-171: --approve refreshes existing-file headers when --graph-delta is provided, leaving bodies byte-identical', () => {
+    const { srcDir, graphPath, dirsTreePath, graphDeltaPath } = setupProject();
+    // Give auth.rs a provenance header mapped to N0002, and update the graph title to the delta's new title.
+    const authPath = path.join(srcDir, 'api', 'auth.rs');
+    const SEP = '// ' + '='.repeat(76);
+    const header = [
+      SEP,
+      '// Initial Design Artifact — RFC-driven Implementation',
+      '// !!! NEVER DELETE OR EDIT THIS COMMENT !!!',
+      SEP,
+      '// Graph: ../RFC-GRAPH.json',
+      '// Mapped node(s):',
+      '//   - NODE_ID=N0002: Auth module',
+      SEP,
+    ].join('\n');
+    const BODY = 'pub struct Auth {}\n';
+    fs.writeFileSync(authPath, header + '\n' + BODY, 'utf8');
+    // Update the graph so N0002's title matches the delta's modified node.
+    const graph = JSON.parse(fs.readFileSync(graphPath, 'utf8'));
+    const n2 = graph.nodes.find((n) => n.id === 'N0002');
+    n2.title = 'Auth module extended';
+    writeJson(graphPath, graph);
+
+    runStep([`--graph=${graphPath}`, `--graph-delta=${graphDeltaPath}`, '--stage'], dirsTreePath, srcDir);
+    const approve = runStep([`--graph=${graphPath}`, `--graph-delta=${graphDeltaPath}`, '--approve'], dirsTreePath, srcDir);
+    assert.equal(approve.status, 0, approve.stderr);
+    assert.match(approve.stdout, /Refreshed existing headers/i, 'header refresh ran during approve');
+    const out = fs.readFileSync(authPath, 'utf8');
+    assert.match(out, /Auth module extended/, 'existing-file header reflects the graph update');
+    assert.ok(out.includes(BODY), 'existing-file body preserved');
   });
 });

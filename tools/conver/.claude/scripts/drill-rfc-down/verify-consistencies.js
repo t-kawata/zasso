@@ -22,6 +22,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { detectOrphanContracts } from './detect-orphan-contracts.js';
 
 /** Prose node kinds that are not required to map to src files or tickets. */
 const PROSE_KINDS = ['rationale', 'glossary', 'requirement'];
@@ -178,8 +179,20 @@ function checkDanglingReferences(graphNodes, dirsTree, tickets) {
   return findings;
 }
 
-/** Run all five consistency checks and return the findings. */
-// [::TICKET::] PX-169 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-169 --for-spec --no-implementation-order`.
+/** A finding: an edge contract not present in any connecting ticket's contracts (high). */
+// [::TICKET::] PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-172 --for-spec --no-implementation-order`.
+function checkOrphanEdgeContracts(graph, tickets) {
+  return detectOrphanContracts(graph, tickets).map((orphan) => {
+    const edgeLabel = `${orphan.edge.from}→${orphan.edge.to}`;
+    const connections = orphan.connectingTickets.length === 0
+      ? 'no ticket owns the edge endpoints'
+      : `connecting tickets: ${orphan.connectingTickets.map((t) => `${t.key}(${t.status})`).join(', ')}`;
+    return { severity: 'high', message: `orphan edge contract ${orphan.contract.id} on edge ${edgeLabel} is present in no connecting ticket contract (${connections})` };
+  });
+}
+
+/** Run all consistency checks and return the findings. */
+// [::TICKET::] PX-169, PX-172 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-169|PX-172) --for-spec --no-implementation-order`.
 function verifyConsistencies(rfcLines, graph, dirsTree, srcDir, tickets) {
   const findings = [
     ...checkRfcHeadingCoverage(rfcLines, graph.nodes || []),
@@ -187,6 +200,7 @@ function verifyConsistencies(rfcLines, graph, dirsTree, srcDir, tickets) {
     ...checkDirsTreeSrcConsistency(dirsTree, srcDir),
     ...checkGraphTicketCoverage(graph.nodes || [], tickets),
     ...checkDanglingReferences(graph.nodes || [], dirsTree, tickets),
+    ...checkOrphanEdgeContracts(graph, tickets),
   ];
   const high = findings.filter((f) => f.severity === 'high').length;
   const low = findings.filter((f) => f.severity === 'low').length;
@@ -243,6 +257,7 @@ export {
   checkDirsTreeSrcConsistency,
   checkGraphTicketCoverage,
   checkDanglingReferences,
+  checkOrphanEdgeContracts,
   verifyConsistencies,
   main,
 };
