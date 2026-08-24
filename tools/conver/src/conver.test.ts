@@ -34,6 +34,7 @@ interface MockLoopOptions {
 // mock.module() は各モジュールに1度しか呼べないため、
 // テスト間で挙動を切り替えるために共有オブジェクトを使用する。
 
+// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
 interface MockState {
   /** parseCliOptions が呼ばれたか */
   parseCliOptionsCalled: boolean;
@@ -43,6 +44,8 @@ interface MockState {
   parseCliOptionsReturn: Record<string, unknown> | null;
   /** runLoop に渡された options（最後の呼出のみ） */
   runLoopOptions: MockLoopOptions | null;
+  /** runLoop の呼び出し回数（PX-174 C004 二重実行検証用） */
+  runLoopCallCount: number;
   /** runLoop の実装（テストごとに差し替え） */
   runLoopImpl: () => Promise<void>;
   /** process.exit が呼ばれたときのコード */
@@ -55,6 +58,8 @@ interface MockState {
   isWithinTimeWindowResult: boolean;
   /** CronScheduler.start が呼ばれたか */
   cronSchedulerStarted: boolean;
+  /** CronScheduler のコールバック（PX-174 C004 発火スキップ検証用） */
+  cronCallback: (() => void) | null;
 }
 
 const mockState: MockState = {
@@ -62,6 +67,7 @@ const mockState: MockState = {
   parseCliOptionsArgv: [],
   parseCliOptionsReturn: null,
   runLoopOptions: null,
+  runLoopCallCount: 0,
   runLoopImpl: (): Promise<void> => Promise.resolve(),
   exitCalls: [],
   loadWatcherConfigImpl: () => ({
@@ -73,6 +79,7 @@ const mockState: MockState = {
   loadWatcherConfigError: null,
   isWithinTimeWindowResult: true,
   cronSchedulerStarted: false,
+  cronCallback: null,
 };
 
 // --- テスト用ヘルパー ---
@@ -115,6 +122,7 @@ before(() => {
   mock.module("./runner.js", {
     exports: {
       runLoop: (options: MockLoopOptions): Promise<void> => {
+        mockState.runLoopCallCount++;
         mockState.runLoopOptions = options;
         return mockState.runLoopImpl();
       },
@@ -142,6 +150,8 @@ before(() => {
       CronScheduler: class {
         start(callback: () => void): void {
           mockState.cronSchedulerStarted = true;
+          // PX-174 C004: 発火スキップ検証用にコールバックを捕捉する
+          mockState.cronCallback = callback;
           // 実際の CronScheduler は定期実行するが、テストでは
           // コールバックを即時呼び出して runLoop の呼出を検証する
           callback();
@@ -368,6 +378,40 @@ describe("conver", () => {
     assert.notStrictEqual(mockState.runLoopOptions, null);
     assert.ok(!mockState.cronSchedulerStarted);
     assert.strictEqual(mockState.exitCalls.length, 0);
+  });
+
+  // @verifies C004
+  it("UT6: 待機中（runLoop 未解決）は cron 発火がスキップされ二重実行されない", async () => {
+    mockState.parseCliOptionsReturn = {
+      ...baseOptions(),
+      watcherConfig: "/tmp/watcher.json",
+      noFind: false,
+      bindReviewInOneSession: true,
+    };
+    mockState.loadWatcherConfigError = null;
+    mockState.isWithinTimeWindowResult = true;
+    mockState.cronSchedulerStarted = false;
+    mockState.runLoopOptions = null;
+    mockState.runLoopCallCount = 0;
+    mockState.runLoopImpl = () => new Promise(() => {}); // 待機中（未解決）
+    mockState.cronCallback = null;
+    mockState.exitCalls = [];
+
+    mock.method(process, "exit", (code?: number) => {
+      mockState.exitCalls.push(code ?? 0);
+    });
+
+    const { main } = await import("./conver.js");
+    await main();
+
+    // start() 内の1回目の callback() で runLoop 開始（isLoopRunning=true のまま）
+    assert.strictEqual(mockState.runLoopCallCount, 1);
+    assert.notStrictEqual(mockState.cronCallback, null);
+
+    // 待機中に追加の cron 発火 → isLoopRunning ガードでスキップされ runLoop は再実行されない
+    mockState.cronCallback!();
+    mockState.cronCallback!();
+    assert.strictEqual(mockState.runLoopCallCount, 1);
   });
 });
 

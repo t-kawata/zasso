@@ -41,7 +41,7 @@ import {
 } from "./tickets.js";
 import type { TicketsJson } from "./tickets.js";
 import type { WatcherConfig } from "./watcher.js";
-import { checkStepDeadline } from "./step-timer.js";
+import { waitForWindow } from "./step-timer.js";
 
 // --- インターフェース定義 ---
 
@@ -204,30 +204,87 @@ function ticketKey(ticket: { phaseId: number; id: number }): string {
 }
 
 /**
- * Tickets.json を読み直し、指定チケットが terminal（reviewed または R<round>）に
- * 到達したかを判定する（PX-146 C002 事後検証）。ファイルが読めない場合は false。
+ * チケットキー（"P{phaseId}-{id}" / "PX-{id}"）を phaseId と id に分解する。
  */
-// [::TICKET::] PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-146 --for-spec --no-implementation-order`.
-function isTerminalStatus(ticketsPath: string, key: string): boolean {
-  let raw: string;
-  try {
-    raw = readFileSync(ticketsPath, "utf-8");
-  } catch {
-    return false;
-  }
-  const data: TicketsJson = JSON.parse(raw);
+// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+function parseTicketKey(key: string): { phaseId: number; id: number } {
   const separator = key.indexOf("-");
   const phasePart = key.slice(0, separator);
   const idPart = key.slice(separator + 1);
   const phaseId = phasePart === "PX" ? -1 : parseInt(phasePart.slice(1), 10);
   const id = parseInt(idPart, 10);
-  for (const phase of data.phases) {
+  return { phaseId, id };
+}
+
+/**
+ * Tickets.json を読み直し、指定チケットの現在の status を返す（PX-174 C003 status 再読込）。
+ * チケットが見つからない・ファイルが読めない場合は "todo" を返す（新規扱いで安全側）。
+ */
+// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+function readTicketStatus(ticketsPath: string, key: string): string {
+  let raw: string;
+  try {
+    raw = readFileSync(ticketsPath, "utf-8");
+  } catch {
+    return "todo";
+  }
+  const ticketsData: TicketsJson = JSON.parse(raw);
+  const { phaseId, id } = parseTicketKey(key);
+  for (const phase of ticketsData.phases) {
     if (phase.id !== phaseId) continue;
     const ticket = (phase.tickets || []).find((t) => t.id === id);
-    if (!ticket) return false;
-    return ticket.status === "reviewed" || /^R[1-9]\d*$/.test(ticket.status);
+    if (!ticket) return "todo";
+    return ticket.status;
   }
-  return false;
+  return "todo";
+}
+
+/** status 文字列が terminal（reviewed または R<round>）か判定する（PX-174 review ゲート用）。 */
+// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+function isTerminalStatusValue(status: string): boolean {
+  return status === "reviewed" || /^R[1-9]\d*$/.test(status);
+}
+
+/**
+ * Tickets.json を読み直し、指定チケットが terminal（reviewed または R<round>）に
+ * 到達したかを判定する（PX-146 C002 事後検証）。ファイルが読めない場合は false。
+ */
+// [::TICKET::] PX-146, PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-146|PX-174) --for-spec --no-implementation-order`.
+function isTerminalStatus(ticketsPath: string, key: string): boolean {
+  return isTerminalStatusValue(readTicketStatus(ticketsPath, key));
+}
+
+/** 実行するフェーズの定義（runPhaseIfNeeded に渡す） */
+// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+interface PhaseSpec {
+  /** 実行コマンド（例: "/make-ticket"） */
+  command: string;
+  /** チケットタイトル（ログ用） */
+  title: string;
+  /** 現在 status を受け、フェーズを実行すべきか判定する述語 */
+  shouldRun: (status: string) => boolean;
+}
+
+/**
+ * 1つのフェーズを「status 再読込 → 枠外待機 → 実行」の順で行う（PX-174 C003）。
+ * 現在の status で phase.shouldRun が false なら完了済みとみなし、フェーズをスキップする。
+ * セッション再試行時も status 再読込により完了済みフェーズは再実行されない。
+ */
+// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+async function runPhaseIfNeeded(
+  session: AcpSession,
+  options: LoopOptions,
+  ticketId: string,
+  phase: PhaseSpec,
+): Promise<void> {
+  await waitForWindow(options.watcherConfig);
+  const current = readTicketStatus(options.ticketsPath, ticketId);
+  if (!phase.shouldRun(current)) {
+    return;
+  }
+  printCommandHeader(phase.command, ticketId, phase.title);
+  await runCommand(session, `${phase.command} ${ticketId}`, toRunCommandOptions(options));
+  process.stdout.write(`\n>>> ✅ ${phase.command.replace("/", "")} 完了\n`);
 }
 
 /** resolve + epush を実行する（PX-146: resolveEvery のリズムと find 前の最終 resolve を一元化）。 */
@@ -373,7 +430,6 @@ export async function runLoop(options: LoopOptions): Promise<void> {
   const retryCount = new Map<string, number>();
   /** リトライ上限到達で諦めたチケット — 再取得しない（通知付き穴）（PX-146 C003） */
   const giveUp = new Set<string>();
-  let timeWindowExited = false;
 
   while (true) {
     const pending = loadPendingTickets(options.ticketsPath).sort(
@@ -395,11 +451,9 @@ export async function runLoop(options: LoopOptions): Promise<void> {
 
     for (const ticket of target) {
       const ticketId = ticketKey(ticket);
-      // Watcher モード時: 時間枠外ならループ全体を終了
-      if (!checkStepDeadline(ticketId, options.watcherConfig)) {
-        timeWindowExited = true;
-        break;
-      }
+
+      // Watcher モード時: 時間枠外なら枠内に戻るまで待機する（PX-174）
+      await waitForWindow(options.watcherConfig);
 
       if (!processedDistinct.has(ticketId)) {
         processedDistinct.add(ticketId);
@@ -413,41 +467,32 @@ export async function runLoop(options: LoopOptions): Promise<void> {
       const runOptions = toRunCommandOptions(options);
 
       try {
-        const status = ticket.status;
         const bindReview = options.bindReviewInOneSession ?? true;
+        const initialStatus = readTicketStatus(options.ticketsPath, ticketId);
 
         // Session A: make/plan/start/review（統合モード時は同セッション）
+        //   各フェーズ直前に status を再読込し、完了済みフェーズをスキップする（PX-174 C003）。
         //   -b 1（デフォルト）: [make→plan→start→review]
         //   -b 0:              [make→plan→start] → 別セッションで review
-        if (status === "todo" || status === "made" || status === "planned") {
+        if (initialStatus === "todo" || initialStatus === "made" || initialStatus === "planned") {
           await runWithSession(
             cwd,
             toSessionConfig(options),
             async (session) => {
-              if (status === "todo") {
-                printCommandHeader("/make-ticket", ticketId, ticket.title);
-                await runCommand(session, `/make-ticket ${ticketId}`, runOptions);
-                process.stdout.write("\n>>> ✅ make-ticket 完了\n");
-              }
-              if (status !== "planned") {
-                printCommandHeader("/plan-ticket", ticketId, ticket.title);
-                await runCommand(session, `/plan-ticket ${ticketId}`, runOptions);
-                process.stdout.write("\n>>> ✅ plan-ticket 完了\n");
-              }
-              printCommandHeader("/start-ticket", ticketId, ticket.title);
-              await runCommand(session, `/start-ticket ${ticketId}`, runOptions);
-              process.stdout.write("\n>>> ✅ start-ticket 完了\n");
+              await runPhaseIfNeeded(session, options, ticketId, { command: "/make-ticket", title: ticket.title, shouldRun: (s) => s === "todo" });
+              await runPhaseIfNeeded(session, options, ticketId, { command: "/plan-ticket", title: ticket.title, shouldRun: (s) => s === "todo" || s === "made" });
+              await runPhaseIfNeeded(session, options, ticketId, { command: "/start-ticket", title: ticket.title, shouldRun: (s) => ["todo", "made", "planned"].includes(s) });
               if (bindReview) {
-                printCommandHeader("/review-ticket", ticketId, ticket.title);
-                await runCommand(session, `/review-ticket ${ticketId}`, runOptions);
-                process.stdout.write("\n>>> ✅ review 完了\n");
+                await runPhaseIfNeeded(session, options, ticketId, { command: "/review-ticket", title: ticket.title, shouldRun: (s) => !isTerminalStatusValue(s) });
               }
             },
           );
         }
 
         // review を別セッションで実行（分離モード または done）
-        if (!bindReview || status === "done") {
+        const statusForReview = readTicketStatus(options.ticketsPath, ticketId);
+        if (!bindReview || statusForReview === "done") {
+          await waitForWindow(options.watcherConfig);
           printCommandHeader("/review-ticket", ticketId, ticket.title);
           await runWithSession(
             cwd,
@@ -459,8 +504,9 @@ export async function runLoop(options: LoopOptions): Promise<void> {
           process.stdout.write("\n>>> ✅ review 完了\n");
         }
 
-        // resolve 間隔（C001 invariant: resolveEvery のリズムを維持）
+        // resolve 間隔（C001 invariant: resolveEvery のリズムを維持）— 枠外なら待機してから実行
         if (reviewedCount % options.resolveEvery === 0) {
+          await waitForWindow(options.watcherConfig);
           await runResolve(cwd, options, ticketId);
         }
       // C002: 事後検証 — Tickets.json を読み直し、terminal 到達を確認する。
@@ -490,6 +536,7 @@ export async function runLoop(options: LoopOptions): Promise<void> {
 
       // C004: 全チケット reviewed → consolidate → find → 通知 → return（1インボケーション=1ラウンド）
       if (!options.noFind && checkAllReviewed(options.ticketsPath)) {
+        await waitForWindow(options.watcherConfig);
         await runResolve(cwd, options, ticketId); // 最終 resolve（冪等）
         const processed = buildProcessedText(
           options.ticketsPath,
@@ -566,13 +613,12 @@ export async function runLoop(options: LoopOptions): Promise<void> {
     }
     }
 
-    if (timeWindowExited) break;
-
     // ラウンド完了（pending 空）時の最終 resolve — resolveEvery 境界を外れた
     // 最終チケットも resolve する（旧 `reviewedCount === target.length` 相当）。
     if (reviewedCount % options.resolveEvery !== 0 && reviewedCount > 0) {
       const remaining = loadPendingTickets(options.ticketsPath);
       if (remaining.length === 0) {
+        await waitForWindow(options.watcherConfig);
         await runResolve(cwd, options, "final");
       }
     }

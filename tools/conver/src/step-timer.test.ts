@@ -29,7 +29,7 @@ mock.module("./time-window.js", {
 });
 
 // モック適用後に動的 import で step-timer を読み込む
-const { isWithinTimeWindow, checkStepDeadline } = await import(
+const { isWithinTimeWindow, checkStepDeadline, waitForWindow } = await import(
   "./step-timer.js"
 );
 
@@ -206,5 +206,67 @@ describe("checkStepDeadline", () => {
       () => checkStepDeadline("make-ticket", badConfig),
       /無効な時刻形式/,
     );
+  });
+});
+
+// ============================================================
+// waitForWindow のテスト
+// @verifies C001
+// ============================================================
+// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+describe("waitForWindow", () => {
+  const config: WatcherConfig = {
+    intervalMinutes: 15,
+    startTime: "19:30",
+    endTime: "09:30",
+    timezone: "UTC",
+    daysOfWeek: [1],
+  };
+
+  it("枠内時刻 → sleep を呼ばず即 return", async () => {
+    mockIsInTimeWindow.mock.resetCalls();
+    mockIsInTimeWindow.mock.mockImplementation(() => true);
+    const sleepSpy = mock.fn(async (_ms: number) => {});
+    await waitForWindow(config, 1, () => new Date(), sleepSpy);
+    assert.strictEqual(sleepSpy.mock.callCount(), 0);
+  });
+
+  it("枠外時刻 → sleep を1回呼び、枠内に進めたら return（sleep 引数 = sleepMs）", async () => {
+    mockIsInTimeWindow.mock.resetCalls();
+    let inWindow = false;
+    mockIsInTimeWindow.mock.mockImplementation(() => inWindow);
+    const sleepAdvance = mock.fn(async (_ms: number) => {
+      inWindow = true;
+    });
+    await waitForWindow(config, 1, () => new Date(), sleepAdvance);
+    assert.strictEqual(sleepAdvance.mock.callCount(), 1);
+    assert.strictEqual(sleepAdvance.mock.calls[0].arguments[0], 1);
+  });
+
+  it("枠外継続 → sleep を複数回呼び、枠内で return（sleep 回数 = 枠外判定回数）", async () => {
+    mockIsInTimeWindow.mock.resetCalls();
+    let inWindow = false;
+    let sleepCount = 0;
+    mockIsInTimeWindow.mock.mockImplementation(() => inWindow);
+    const sleepSeq = mock.fn(async (_ms: number) => {
+      sleepCount++;
+      if (sleepCount >= 2) inWindow = true;
+    });
+    await waitForWindow(config, 1, () => new Date(), sleepSeq);
+    assert.strictEqual(sleepSeq.mock.callCount(), 2);
+  });
+
+  it("config=null（非 Watcher）→ 即 return（no-op、sleep 未呼出）", async () => {
+    mockIsInTimeWindow.mock.resetCalls();
+    const nullSleep = mock.fn(async (_ms: number) => {});
+    await waitForWindow(null, 1, () => new Date(), nullSleep);
+    assert.strictEqual(nullSleep.mock.callCount(), 0);
+  });
+
+  it("config=undefined（非 Watcher）→ 即 return（no-op、sleep 未呼出）", async () => {
+    mockIsInTimeWindow.mock.resetCalls();
+    const undefSleep = mock.fn(async (_ms: number) => {});
+    await waitForWindow(undefined, 1, () => new Date(), undefSleep);
+    assert.strictEqual(undefSleep.mock.callCount(), 0);
   });
 });

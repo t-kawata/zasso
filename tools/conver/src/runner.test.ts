@@ -29,7 +29,7 @@ interface FindOutcomeMock {
 }
 
 /** 共有モック状態の型 — プロパティ絞り込みを避けるため明示的に型付けする */
-// [::TICKET::] PX-117, PX-146, PX-150, PX-151 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-117|PX-146|PX-150|PX-151) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117, PX-146, PX-150, PX-151, PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-117|PX-146|PX-150|PX-151|PX-174) --for-spec --no-implementation-order`.
 interface MockState {
   runCommandImpl: (cmd: string) => Promise<string>;
   slackCalls: Array<{ ticketId: string; phase: string }>;
@@ -45,6 +45,8 @@ interface MockState {
   withSessionFailures: number;
   /** withSession が受け取った baseUrl の記録（PX-151 C005 検証用） */
   withSessionBaseUrls: string[];
+  /** withSession の呼び出し回数（PX-174 C002 セッション数検証用） */
+  withSessionCallCount: number;
 }
 
 const mockState: MockState = {
@@ -62,6 +64,7 @@ const mockState: MockState = {
   reviewMarksReviewed: true,
   withSessionFailures: 0,
   withSessionBaseUrls: [],
+  withSessionCallCount: 0,
 };
 
 /** find 関連モック状態をリセットする（型絞り込みを避けるため関数経由） */
@@ -77,6 +80,8 @@ const mockStepTimerState = {
   stepNames: [] as string[],
   /** checkStepDeadline の戻り値。true=通過, false=スキップ */
   deadlineResult: true,
+  /** waitForWindow の呼び出し回数（PX-174 境界待機の検証用） */
+  waitCalls: 0,
 };
 
 // --- テスト用ヘルパー ---
@@ -132,6 +137,8 @@ describe("runLoop", () => {
           _config: { apiKey: string; model: string; baseUrl: string },
           fn: (session: unknown) => Promise<unknown>,
         ) => {
+          // PX-174 C002: セッション呼び出し回数を記録する
+          mockState.withSessionCallCount++;
           // PX-151 C005: 全セッションに baseUrl が一貫して渡ることを記録する
           mockState.withSessionBaseUrls.push(_config.baseUrl);
           // PX-150 C003: セッション確立の recoverable 失敗を指定回数シミュレート
@@ -203,6 +210,10 @@ describe("runLoop", () => {
           mockStepTimerState.stepNames.push(stepName);
           return mockStepTimerState.deadlineResult;
         },
+        // PX-174: フェーズ境界の待機はモックで即通過（待機ロジック自体は step-timer.test.ts で検証）
+        waitForWindow: async () => {
+          mockStepTimerState.waitCalls++;
+        },
       },
     });
   });
@@ -245,6 +256,23 @@ describe("runLoop", () => {
     writeFileSync(path, JSON.stringify(data, null, 2));
   }
 
+  /** fixture 内のチケットを指定 status に遷移させる（PX-174 C003 status 再読込検証用） */
+// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
+  function setTicketStatus(path: string, key: string, status: string): void {
+    const data = JSON.parse(readFileSync(path, "utf-8"));
+    const separator = key.indexOf("-");
+    const phasePart = key.slice(0, separator);
+    const idPart = key.slice(separator + 1);
+    const phaseId = phasePart === "PX" ? -1 : parseInt(phasePart.slice(1), 10);
+    const id = parseInt(idPart, 10);
+    for (const phase of data.phases) {
+      if (phase.id !== phaseId) continue;
+      const ticket = (phase.tickets || []).find((x: { id: number }) => x.id === id);
+      if (ticket) ticket.status = status;
+    }
+    writeFileSync(path, JSON.stringify(data, null, 2));
+  }
+
   // --- 正常系 ---
 
   it("1チケット: make/plan/start → review → resolve が順に呼ばれる", async () => {
@@ -270,6 +298,73 @@ describe("runLoop", () => {
     assert.ok(commands.some((c) => c.startsWith("/start-ticket")));
     assert.ok(commands.some((c) => c.startsWith("/review-ticket")));
     assert.ok(commands.some((c) => c.startsWith("/resolve-ticket")));
+    exitMock.restore();
+  });
+
+  // @verifies C002
+  it("bindReviewInOneSession=true で make/plan/start/review が1セッションに統合（withSession は Session A + resolve の2回のみ）", async () => {
+    const exitMock = mockProcessExit();
+    writeTickets([
+      { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
+    ]);
+    mockState.runCommandImpl = async (_cmd: string) => "ok";
+    mockState.slackCalls = [];
+    mockState.allReviewed = false;
+    mockState.countSnapshots = [];
+    mockState.withSessionCallCount = 0;
+
+    const { runLoop } = await import("./runner.js");
+    await runLoop(baseOptions({ ticketsPath: ticketPath, bindReviewInOneSession: true }));
+
+    // セッション分割されない — make/plan/start/review は Session A の1セッション。
+    // もしフェーズごとに分割していれば withSession は 4 + resolve で 5 回になる。
+    assert.strictEqual(mockState.withSessionCallCount, 2); // Session A + resolve
+    exitMock.restore();
+  });
+
+  // @verifies C003
+  it("status 再読込: セッション再試行時、完了済み make が再実行されない", async () => {
+    const exitMock = mockProcessExit();
+    writeTickets([
+      { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
+    ]);
+    let makeCalls = 0;
+    let planCalls = 0;
+    mockState.runCommandImpl = async (cmd) => {
+      const key = extractTicketKey(cmd);
+      if (cmd.startsWith("/make-ticket")) {
+        makeCalls++;
+        setTicketStatus(ticketPath, key, "made");
+        return "ok";
+      }
+      if (cmd.startsWith("/plan-ticket")) {
+        planCalls++;
+        // 1回目は recoverable エラーで失敗 → runWithSession がセッション全体を再試行する
+        if (planCalls === 1) throw new Error("plan タイムアウト");
+        setTicketStatus(ticketPath, key, "planned");
+        return "ok";
+      }
+      if (cmd.startsWith("/start-ticket")) {
+        setTicketStatus(ticketPath, key, "done");
+        return "ok";
+      }
+      if (cmd.startsWith("/review-ticket")) {
+        setTicketStatus(ticketPath, key, "reviewed");
+        return "ok";
+      }
+      return "ok";
+    };
+    mockState.slackCalls = [];
+    mockState.allReviewed = false;
+    mockState.countSnapshots = [];
+    mockState.withSessionFailures = 0;
+
+    const { runLoop } = await import("./runner.js");
+    await runLoop(baseOptions({ ticketsPath: ticketPath }));
+
+    // status 再読込により、再試行で make は再実行されない（stale status だと2回になる）
+    assert.strictEqual(makeCalls, 1);
+    assert.strictEqual(planCalls, 2);
     exitMock.restore();
   });
 
@@ -327,7 +422,7 @@ describe("runLoop", () => {
     exitMock.restore();
   });
 
-  it("watcherConfig あり時間枠内: 全ステップ実行", async () => {
+  it("watcherConfig あり時間枠内: 全ステップ実行 + waitForWindow 呼出", async () => {
     const exitMock = mockProcessExit();
     writeTickets([
       { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
@@ -341,6 +436,7 @@ describe("runLoop", () => {
     mockState.slackCalls = [];
     mockStepTimerState.stepNames = [];
     mockStepTimerState.deadlineResult = true;
+    mockStepTimerState.waitCalls = 0;
 
     const { runLoop } = await import("./runner.js");
     await runLoop(baseOptions({
@@ -355,11 +451,12 @@ describe("runLoop", () => {
 
     assert.strictEqual(exitMock.calledWith.length, 0);
     assert.ok(commands.some((c) => c.startsWith("/make-ticket")));
-    assert.ok(mockStepTimerState.stepNames.length >= 1);
+    // チケット境界で waitForWindow が呼ばれている（PX-174）
+    assert.ok(mockStepTimerState.waitCalls >= 1);
     exitMock.restore();
   });
 
-  it("watcherConfig あり時間枠外: ループ break", async () => {
+  it("watcherConfig あり: 各フェーズ境界で waitForWindow が呼ばれ処理が続行する（PX-174）", async () => {
     const exitMock = mockProcessExit();
     writeTickets([
       { id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "todo", title: "T1" }] },
@@ -371,8 +468,7 @@ describe("runLoop", () => {
       return "ok";
     };
     mockState.slackCalls = [];
-    mockStepTimerState.stepNames = [];
-    mockStepTimerState.deadlineResult = false;
+    mockStepTimerState.waitCalls = 0;
 
     const { runLoop } = await import("./runner.js");
     await runLoop(baseOptions({
@@ -386,10 +482,11 @@ describe("runLoop", () => {
     }));
 
     assert.strictEqual(exitMock.calledWith.length, 0);
-    // 時間枠外 → コマンドは一切実行されない
-    assert.strictEqual(commands.length, 0);
-    // ただし checkStepDeadline は 1回呼ばれている
-    assert.ok(mockStepTimerState.stepNames.length >= 1);
+    // チケット境界 + make/plan/start/review + resolve で waitForWindow が呼ばれる
+    assert.ok(mockStepTimerState.waitCalls >= 5);
+    // 待機モックは即通過のため処理は続行する
+    assert.ok(commands.some((c) => c.startsWith("/make-ticket")));
+    assert.ok(commands.some((c) => c.startsWith("/review-ticket")));
     exitMock.restore();
   });
 

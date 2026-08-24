@@ -24164,6 +24164,138 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-08-24"
+        },
+        {
+          "id": 174,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "conver.js Watcher: 時間枠外のフェーズ境界待機 (waitForWindow) と status 再読込",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/174-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nWatcher モードで、実行中に時間枠外に入った場合、各フェーズ境界（make/plan/start/review/resolve/find の直前）で枠内チェックを行い、枠外なら待機して枠内復帰後に同一セッションで再開する。\n\n### Purpose\n現在はチケット境界（runner.ts:399）でのみ検知し、枠外ならラウンドを終了するため、①チケット1件分のオーバーランが発生し得る ②枠内復帰後も次回 cron 発火（intervalMinutes、例15分）まで再開が遅れる。フェーズ粒度の待機・復帰（1分以内）で枠の意味を強める。\n\n### Motivation\nオフピーク実行（例: 19:30-09:30 の DeepSeek off-peek）で、枠内に戻った瞬間から作業を再開したい。現在の設計では復帰まで最大 intervalMinutes 分の無駄が生じる。\n\n### Constraints\n- セッション分割は禁止: make→plan→start→review は1セッションを維持（実装精度のための最適な区切りであり破壊禁止）\n- 待機はセッションコールバック内の runCommand 間に置く（子プロセスをアイドル保持するが、これは Claude Code の通常動作と等価）\n- PX-150 再試行の再実行防止のため、各フェーズ実行直前に Tickets.json の status を再読込\n- クロック（now）と sleep を注入可能にし、実時間待ちを回避してテスト可能にする\n- 起動時枠外の exit(0)（conver.ts:73）は維持\n- 新規依存なし、TDD Red-Green-Refactor、make test-conver 全グリーン",
+          "scope": [
+            "src/step-timer.ts (modify): waitForWindow(config, sleepMs=WINDOW_WAIT_SLEEP_MS, now=()=>new Date(), sleep=defaultSleep) を新規 export。WINDOW_WAIT_SLEEP_MS = 60_000 定数。isWithinTimeWindow(config, now?) に任意第2引数 now を追加（後方互換）",
+            "src/runner.ts (modify): チケット境界（runner.ts:399）の checkStepDeadline break を await waitForWindow(options.watcherConfig) に置換。Session A 内の各フェーズ（make/plan/start/review）実行直前に waitForWindow + status 再読込。resolve 前（runResolve）と find 前（C004 ブロック）にも waitForWindow。timeWindowExited 変数と runner.ts:569 の break を除去",
+            "src/step-timer.test.ts (modify): waitForWindow のクロック注入テスト（枠内即return / 枠外1回sleep / 枠外N回sleep / config=null no-op / 境界時刻）を追加",
+            "src/runner.test.ts (modify): step-timer モックに waitForWindow を追加。フェーズ境界の待機・復帰、status 再読込（make→made→planスキップ）、PX-150 再試行時の完了済みフェーズスキップを検証",
+            "README.md (modify): Watcher 動作フローに「フェーズ境界で枠外待機・復帰」「status 再読込」の説明を追記",
+            "**Scope of changes:**\n  - File/module path: src/step-timer.ts, src/runner.ts, src/step-timer.test.ts, src/runner.test.ts, README.md\n  - Action: modify（step-timer.ts 関数追加、runner.ts 待機挿入、テスト2ファイル拡張、README 更新）\n  - Detail: waitForWindow 追加 / isWithinTimeWindow に now 引数 / 各フェーズ直前に待機+status再読込 / timeWindowExited 除去\n  - Before → After: step-timer.ts「isWithinTimeWindow(config) → isWithinTimeWindow(config, now?) + waitForWindow」/ runner.ts「チケット境界のみチェック・枠外break → 全フェーズ境界で待機・復帰」\n  - API contract: waitForWindow を新規 export。isWithinTimeWindow に任意第2引数 now（後方互換）\n  - Data schema: 変更なし（Tickets.json / Watcher 設定JSON 不変）\n  - Config/env: 変更なし（新規設定なし。既存 WatcherConfig を使用）\n  - Dependency: 変更なし",
+            "**Out of scope:**\n  - セッション分割（make→plan→start→review を別セッション化）— 実装精度を損なうため禁止\n  - フェーズ実行順序の変更 / bindReviewInOneSession の意味論変更\n  - checkStepDeadline の削除 — 非 Watcher モードの既存呼び出し互換のため維持\n  - waitForWindow の sleepMs の設定ファイル化 — 今後の拡張",
+            "**Affected areas:**\n  - Affected component: step-timer.ts / runner.ts（直接）。conver.ts（起動時 isWithinTimeWindow exit(0) は維持）、conver.test.ts（isLoopRunning 検証）は透過\n  - Nature of impact: 動作（枠外で待機・復帰）、パフォーマンス（待機中は cron 発火スキップ、1分間隔の判定のみ）\n  - Corresponding change: Y — テスト2ファイルの拡張。conver.ts は変更不要"
+          ],
+          "testUnit": [
+            "UT: [Normal] C001-Post: 枠内時刻 → waitForWindow(config, 1, () => 枠内Date, sleepSpy) が sleep を呼ばず即 return（step-timer.test.ts, クロック注入）",
+            "UT: [Normal] C001-Post: 枠外時刻 → sleep を1回呼び、now を枠内に切替えたら return（sleep 呼出引数 = sleepMs）",
+            "UT: [Normal] C001-Post: 枠外継続 → now を枠外×N→枠内に切替え、sleep をN回呼び枠内で return",
+            "UT: [Error] C001-Pre: config=null（非 Watcher）→ waitForWindow が即 return（no-op、sleep 未呼出）",
+            "UT: [Boundary] C001: 枠内境界時刻ちょうど（startTime==now）→ 即 return",
+            "UT: [Invariant] C001-Inv: waitForWindow は枠内判定が true になるまで sleep を繰り返す（sleep 呼出回数 = 枠外判定回数）",
+            "UT: [Normal] C002-Post: bindReviewInOneSession=true（既定）でチケット処理が開始される前提で、make/plan/start/review が同一 runWithSession 内で実行される（セッション分割されない — withSession モック呼出回数が Session A の1回のみ）",
+            "UT: [Invariant] C002-Inv: チケット1件あたりの runWithSession 呼び出し回数が変更前と同一（bindReviewInOneSession=true 時）",
+            "UT: [Normal] C003-Post: 各フェーズ実行直前に Tickets.json の status を再読込し、todo→make / made→planスキップ が正しく分岐する",
+            "UT: [Invariant] C003-Inv: 完了済みフェーズは再実行されない（PX-150 のセッション再試行時も含む）— withSessionFailures で再試行を誘発し status 再読込で検証",
+            "UT: [Boundary] C004: 待機中 isLoopRunning が true のまま（cron 発火スキップ — conver.test.ts の CronScheduler モックで検証）",
+            "UT: [Invariant] C004-Inv: 待機中に runLoop が二重実行されない"
+          ],
+          "testIntegration": [
+            "IT: runner.test.ts で、枠外時に Session A 内で waitForWindow が呼ばれ、枠内復帰後に同じセッションで続行する（step-timer モックで waitForWindow を制御）",
+            "IT: status 再読込により、make 完了後のセッション失敗 → PX-150 再試行で plan から再開する（withSessionFailures で再試行を誘発）",
+            "IT: 非 Watcher モード（watcherConfig 未指定）で waitForWindow が no-op となり既存フローが不変（既存 runner.test.ts 全テストがグリーン）"
+          ],
+          "testExceptions": [
+            "実時間の60秒待機を単体テストで検証することはテストランナーをブロックするため不可能。これは「決定論的だが根本的にテスト不能」という設計欠陥ではなく、クロック（now）と sleep を注入可能な設計にした上での「実時間経過そのものは検証対象外」という境界。代替としてクロック注入で「枠外→sleep→枠内→復帰」のロジックを実時間なしに検証する。",
+            "実際の cron 発火との結合（待機中に cron 発火がスキップされる実時間検証）は実時間依存でテスト不能。これは設計欠陥ではなく外部スケジューラ（node-cron）との実時間結合による制約であり、設計欠陥ではない。代替として isLoopRunning ガード（conver.ts の CronScheduler コールバック）の単体検証で担保する。"
+          ],
+          "default_files": [
+            "src/step-timer.ts",
+            "src/runner.ts",
+            "src/step-timer.test.ts",
+            "src/runner.test.ts",
+            "README.md"
+          ],
+          "acceptanceCriteria": [
+            "**[Happy path]** 枠外に入ると各フェーズ直前で waitForWindow が待機し、枠内復帰（sleepMs=60秒以内）後に同じセッションで続行する。待機開始・復帰のログが出力される",
+            "**[Error case]** セッションが待機中に失敗しても PX-150 再試行 + status 再読込により完了済みフェーズをスキップして再開する。完了済みフェーズの再実行がないことを withSessionFailures で検証",
+            "**[Edge case]** 非 Watcher モード（watcherConfig 未指定）では waitForWindow が no-op で既存フローが不変。枠が再び開かない設定ミスでは待機継続（SIGINT で終了可能）。クロック注入テストで「枠外→sleep→枠内→復帰」を実時間なしに検証"
+          ],
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "step-timer.ts waitForWindow",
+              "precondition": "waitForWindow(config, sleepMs, now, sleep) が呼ばれる。config は有効な WatcherConfig",
+              "postcondition": "枠内の時刻なら sleep を呼ばず即 return。枠外の時刻なら sleep(sleepMs) を呼び再判定し、枠内に戻ったら return",
+              "invariant": "waitForWindow は枠内判定が true になるまで sleep を繰り返す。config が null/undefined（非 Watcher）なら即 return（no-op）"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "runner.ts Session A",
+              "precondition": "bindReviewInOneSession=true（既定）でチケット処理が開始される",
+              "postcondition": "make/plan/start/review が同一 runWithSession 内で実行される（セッション分割されない）",
+              "invariant": "チケット1件あたりの runWithSession 呼び出し回数が変更前と同一（bindReview=true 時は Session A の1回のみ）"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "runner.ts フェーズ分岐",
+              "precondition": "チケットが make/plan/start/review のいずれかのフェーズを実行しようとしている",
+              "postcondition": "各フェーズ実行直前に Tickets.json の status を再読込し、その status に基づいてフェーズを実行/スキップする",
+              "invariant": "完了済みフェーズは再実行されない（PX-150 のセッション再試行時も含む）"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "runner.ts 待機中",
+              "precondition": "waitForWindow が待機中（枠外）",
+              "postcondition": "待機中は isLoopRunning=true が維持され cron 発火がスキップされる。SIGINT/SIGTERM はプロセスレベルで効く",
+              "invariant": "待機中に runLoop が二重実行されない"
+            }
+          ],
+          "notes": "- Implementation steps: (1) RED — step-timer.test.ts に waitForWindow のクロック注入テスト、runner.test.ts に待機・status 再読込テストを追加し全RED確認 (2) GREEN — step-timer.ts に waitForWindow + isWithinTimeWindow now 引数、runner.ts にフェーズ境界の待機挿入 + status 再読込 (3) REFACTOR — make test-conver 全グリーン確認後、boyScoutPlan の runPhaseIfNeeded 抽出を適用\n- Risks: 待機中に子プロセスを長時間アイドル保持（メモリのみ、stdio は切れない）。PX-150 再試行時の再実行（status 再読込で防止）。cron 発火スキップ（isLoopRunning 維持）\n- Caveats: セッション分割禁止。status 再読込の I/O コスト（Tickets.json 読み、数ms、フェーズごと）。待機ログで可視化\n- Open items: 待機中の cron 発火スキップにより、枠内復帰のタイミングは sleepMs 粒度（1分）。より細かい粒度が必要なら設定化\n- Future improvements: waitForWindow の sleepMs を WatcherConfig で設定化 / 待機中の Slack 通知\n\n\n=== Implementation summary (PX-174) ===\n- Changed files: src/step-timer.ts, src/runner.ts, src/step-timer.test.ts, src/runner.test.ts, src/conver.test.ts, README.md\n- Key changes: waitForWindow 追加（クロック/スリープ注入可能）/ isWithinTimeWindow now 引数 / runPhaseIfNeeded（status再読込→待機→実行）/ readTicketStatus + parseTicketKey 共通化 / timeWindowExited 除去\n- TDD: RED（waitForWindow 不存在のコンパイルエラー + 既存テスト更新）→ GREEN（241テスト全パス）→ REFACTOR（PhaseSpec で6引数を4引数化、品質チェック0件）\n- Test results: make test-conver 241 pass / 0 fail。run-quality-checks 0 issues\n- README: Watcher 動作フローに待機・復帰・status再読込を追記\n\n\n=== Review report (PX-174) ===\n- Found & fixed: ラウンド完了時の最終 resolve（runLoop 末尾）に waitForWindow が欠落していた → 追加\n- Found & fixed: readTicketStatus 内の汎用変数 data → ticketsData に改名（翻訳可能性）\n- Verified: C001 waitForWindow（クロック注入テスト）/ C002 セッション統合（withSessionCallCount=2）/ C003 status 再読込（再試行時 makeCalls=1）/ C004 isLoopRunning ガード\n- No crimes, no stubs introduced. No unresolved AMBIGUOUS.",
+          "invariants": "- 【Normal establishment】枠内では waitForWindow が即 return し、既存フローと同一。フェーズ実行前に status 再読込で現在の進捗に基づき分岐\n- 【Invariant on error】セッション失敗時（PX-150 再試行）、status 再読込により完了済みフェーズをスキップして再開（再実行されない）\n- 【Internal state invariant】待機中 isLoopRunning=true が維持され、runLoop が二重実行されない。timeWindowExited デッドコードは除去済み\n- 【Boundary invariant】枠内境界時刻（startTime/endTime ちょうど）で waitForWindow が即 return。非 Watcher モード（config=null）で no-op",
+          "instrumentation": "- Logging: 待機開始「⏳ 時間枠外のため待機します（60000ms 後に再判定）」・復帰「✅ 時間枠内に復帰しました」を出力\n- Metrics: 追加なし（CLI ツールのため既存 Slack 通知に変更なし）\n- Error tracking: isWithinTimeWindow の throw は waitForWindow 経由で伝播（既存の失敗経路を維持）\n- Health check: SIGINT/SIGTERM の graceful shutdown を維持。待機中もプロセスレベルで効く\n\n\n=== Review result (PX-174) ===\n- Static quality check: passed (0 issues)\n- Translatability: no issues (noun-start functions 0, generic vars 0 after ticketsData rename, magic numbers 0, debug output 0)\n- Tests: make test-conver 241 pass / 0 fail\n- Annotation: 5 source files verified, 0 missing, 0 ambiguous",
+          "investigation": "- 現状の検知ポイントは runner.ts:399 の checkStepDeadline のみ（チケット境界）。枠外なら timeWindowExited=true → break → runner.ts:569 で while を抜ける\n- Session A（runner.ts:422-446）は make/plan/start/review を1つの runWithSession 内で実行。status はループ先頭（runner.ts:416）で捕捉され、PX-150 のセッション再試行（runWithSession がコールバック全体を再実行）では stale な status で再分岐する\n- step-timer.ts の isWithinTimeWindow は new Date() を内部使用（クロック注入不可）。checkStepDeadline は stepName 警告付きで true/false を返す\n- runner.test.ts のモック: session.js（withSession は withSessionFailures で PX-150 再試行を誘発可能）、step-timer.js（checkStepDeadline をモック）。step-timer.test.ts は isInTimeWindow をモック\n- 設計判断: 待機をセッションコールバック内に置く（分割禁止制約）。子プロセスアイドル保持は Claude Code の通常動作と等価で安全。status 再読込で再試行の再実行を防止\n- 起動時 exit(0)（conver.ts:73）は維持。isLoopRunning ガード（conver.ts:88-93）が待機中の cron 発火をスキップ",
+          "boyScoutPlan": "- step-timer.ts: waitForWindow を追加する際、sleep を `defaultSleep(ms)` として抽出し、クロック（now）とスリープの注入を明示。isWithinTimeWindow の now 引数追加で単一責務を維持\n- runner.ts: Session A のコールバック内に make/plan/start/review の分岐が並ぶ現状を、`runPhaseIfNeeded(session, phaseCommand, ticketId, options)` ヘルパーで整理（「status 再読込 → waitForWindow → runCommand」を単一責務化）。コードが「各フェーズ: 現在statusを確認し、完了済みならスキップ、枠外なら待機、実行」と散文のように読めるようにする",
+          "created_at": "2026-08-24",
+          "updated_at": "2026-08-24",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: [C001-Post] 枠内時刻 → sleep 未呼出で即 return\n```ts\nconst config: WatcherConfig = { intervalMinutes: 15, startTime: \"19:30\", endTime: \"09:30\", timezone: \"UTC\", daysOfWeek: [1] };\nconst sleepSpy = mock.fn(async (_ms: number) => {});\nawait waitForWindow(config, 1, () => new Date(\"2026-08-24T20:00:00Z\"), sleepSpy as never);\nassert.strictEqual(sleepSpy.mock.callCount(), 0);\n```",
+            "UT: [C001-Post] 枠外時刻 → sleep を1回呼び枠内に切替えたら return（sleep 呼出引数 = sleepMs）\n```ts\nlet current = new Date(\"2026-08-25T10:00:00Z\"); // 火曜 10:00 = 枠外\nconst sleepAdvance = mock.fn(async (ms: number) => { current = new Date(\"2026-08-25T20:00:00Z\"); });\nawait waitForWindow(config, 1, () => current, sleepAdvance as never);\nassert.strictEqual(sleepAdvance.mock.callCount(), 1);\nassert.ok(sleepAdvance.mock.calls[0].arguments[0] === 1);\n```",
+            "UT: [C001-Inv] 枠内判定が true になるまで sleep を繰り返す（sleep 回数 = 枠外判定回数）\n```ts\nconst times = [new Date(\"2026-08-25T10:00:00Z\"), new Date(\"2026-08-25T11:00:00Z\"), new Date(\"2026-08-25T20:00:00Z\")];\nlet i = 0;\nconst sleepSeq = mock.fn(async (_ms: number) => { i++; });\nawait waitForWindow(config, 1, () => times[Math.min(i, 2)], sleepSeq as never);\nassert.strictEqual(sleepSeq.mock.callCount(), 2); // 枠外2回 → sleep2回 → 3回目で枠内\n```",
+            "UT: [C001-Pre] config=null（非 Watcher）→ 即 return（no-op、sleep 未呼出）\n```ts\nconst nullSleep = mock.fn(async (_ms: number) => {});\nawait waitForWindow(null, 1, () => new Date(), nullSleep as never);\nassert.strictEqual(nullSleep.mock.callCount(), 0);\n```",
+            "UT: [C002-Post] bindReviewInOneSession=true で make/plan/start/review が同一 runWithSession（withSession モック呼出回数 = Session A の1回のみ）\n```ts\nmockState.withSessionCallCount = 0;\nawait runLoop({ ...baseOptions(), bindReviewInOneSession: true });\nassert.strictEqual(mockState.withSessionCallCount, 1);\n```",
+            "UT: [C003-Post] 各フェーズ実行直前に Tickets.json の status を再読込し、todo→make / made→planスキップ が正しく分岐する\n```ts\nmockState.runCommandImpl = async (cmd) => {\n  if (cmd.startsWith(\"/make-ticket\")) { setTicketStatus(ticketsPath, \"PX-1\", \"made\"); return \"ok\"; }\n  if (cmd.startsWith(\"/plan-ticket\")) { setTicketStatus(ticketsPath, \"PX-1\", \"planned\"); return \"ok\"; }\n  return \"ok\";\n};\nconst called: string[] = [];\nawait runLoop(opts);\n// make 後に status=made を再読込 → plan は実行されず start へ進む想定（runPhaseIfNeeded の shouldRun が false）\n```",
+            "UT: [C003-Inv] セッション再試行時（PX-150）、完了済みフェーズが再実行されない（status 再読込で made 以降をスキップ）\n```ts\nlet makeCalls = 0, planCalls = 0;\nmockState.runCommandImpl = async (cmd) => {\n  if (cmd.startsWith(\"/make-ticket\")) { makeCalls++; setTicketStatus(ticketsPath, \"PX-1\", \"made\"); return \"ok\"; }\n  if (cmd.startsWith(\"/plan-ticket\")) {\n    planCalls++;\n    if (planCalls === 1) throw new Error(\"plan タイムアウト\"); // recoverable → retry\n    setTicketStatus(ticketsPath, \"PX-1\", \"planned\"); return \"ok\";\n  }\n  return \"ok\";\n};\nawait runLoop(opts);\nassert.strictEqual(makeCalls, 1); // 再試行で make は再実行されない\nassert.strictEqual(planCalls, 2); // plan は再試行で再実行\n```",
+            "UT: [C004-Inv] 待機中 isLoopRunning が true のまま → cron 発火がスキップされ runLoop が二重実行されない\n```ts\nmockState.runLoopImpl = () => new Promise(() => {}); // 待機中（未解決）\nconst callback = mockState.cronCallback; // CronScheduler モックが捕捉\ncallback(); callback(); // 2回発火\nassert.strictEqual(mockState.runLoopOptions の呼出回数, 1);\n```"
+          ],
+          "startedAt": "2026-08-24",
+          "changes": [
+            {
+              "before": "チケット境界（checkStepDeadline break）のみで時間枠外を検知し、枠外ならラウンド終了",
+              "after": "チケット境界 + 各フェーズ（make/plan/start/review/resolve/find）の直前で waitForWindow が待機し、枠内復帰（60秒間隔判定）後に同一セッションで続行",
+              "description": "src/runner.ts: フェーズ境界待機の導入、timeWindowExited デッドコード除去"
+            },
+            {
+              "before": "status はループ先頭で捕捉され、PX-150 セッション再試行時に stale な status で完了済みフェーズを再実行",
+              "after": "各フェーズ実行直前に readTicketStatus で status を再読込し、完了済みフェーズをスキップ（再試行でも再実行なし）",
+              "description": "src/runner.ts: readTicketStatus / runPhaseIfNeeded 導入、isTerminalStatus のキー解析を parseTicketKey に共通化"
+            },
+            {
+              "before": "isWithinTimeWindow は new Date() を内部使用（クロック注入不可）、待機機能なし",
+              "after": "isWithinTimeWindow(config, now?) に任意 now 引数。waitForWindow(config, sleepMs, now, sleep) を新規追加（WINDOW_WAIT_SLEEP_MS=60_000）",
+              "description": "src/step-timer.ts: waitForWindow + クロック/スリープ注入"
+            },
+            {
+              "before": "waitForWindow のテストなし、時間枠挙動のテストは checkStepDeadline break 前提",
+              "after": "step-timer.test.ts に waitForWindow のクロック注入テスト、runner.test.ts にセッション統合・status再読込テスト、conver.test.ts に二重実行スキップテストを追加",
+              "description": "テスト3ファイル: REDテスト追加（241件に増加）"
+            },
+            {
+              "before": "README の Watcher 動作フローが「枠外ならスキップしループ終了」と記述",
+              "after": "「フェーズ境界で枠外待機・復帰」「status 再読込」の説明に更新",
+              "description": "README.md: Watcher 動作フローの更新"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-24"
         }
       ]
     },

@@ -355,8 +355,9 @@ todo ─(make)→ made ─(plan)→ planned ─(start)→ done ─(review)→ re
 2. 設定ファイルを読み込み、全フィールドをバリデーション（不正値はエラー終了）
 3. 現在時刻が時間枠外（または曜日不一致）なら即時終了
 4. `CronScheduler` を起動 — `intervalMinutes` 間隔で `runLoop` を定期実行（発火時刻・曜日は `timezone` 基準で評価）
-5. 各 `runLoop` 内で各チケット処理前に `checkStepDeadline` を実行 — 時間枠外・曜日不一致ならそのチケットをスキップしループ終了
-6. SIGINT/SIGTERM でグレースフルシャットダウン
+5. 各 `runLoop` 内で**チケット境界および各フェーズ（make/plan/start/review/resolve/find）の直前**に時間枠チェックを実行 — 枠外なら枠内に戻るまで待機し、復帰後に続行する（`waitForWindow`、60秒間隔で再判定）
+6. 各フェーズは実行直前に `Tickets.json` の status を再読込する — 完了済みフェーズをスキップし、セッション再試行時も再実行されない
+7. SIGINT/SIGTERM でグレースフルシャットダウン
 
 > 日跨ぎ窓（`startTime` > `endTime`、例: 22:00〜06:00）で `daysOfWeek` を指定した場合、曜日は**窓の開始日**で判定されます（例: 月22:00〜火06:00 + `daysOfWeek: [1]` は月曜夜〜火曜未明が連続して稼働）。
 
