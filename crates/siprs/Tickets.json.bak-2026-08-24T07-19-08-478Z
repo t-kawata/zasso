@@ -33027,12 +33027,12 @@
       ]
     },
     {
-      "id": 15,
+      "id": 16,
       "name": "Implementation Integration — RESIDUE Resolution (§62)",
       "tickets": [
         {
           "id": 1,
-          "phaseId": 15,
+          "phaseId": 16,
           "status": "todo",
           "title": "Implementation Integration Framework — §62 RESIDUE resolution blueprint",
           "nodeIds": [
@@ -33093,7 +33093,7 @@
         },
         {
           "id": 2,
-          "phaseId": 15,
+          "phaseId": 16,
           "status": "todo",
           "title": "Config unification — RFC §10 ClientConfig promotion, STUN/TURN/ICE type unification, Vec-ization",
           "nodeIds": [
@@ -33166,7 +33166,7 @@
         },
         {
           "id": 3,
-          "phaseId": 15,
+          "phaseId": 16,
           "status": "todo",
           "title": "Backend selection — PjsuaBackend full unification, MockBackend deletion, TestBackend (cfg test)",
           "nodeIds": [
@@ -33232,7 +33232,7 @@
         },
         {
           "id": 4,
-          "phaseId": 15,
+          "phaseId": 16,
           "status": "todo",
           "title": "Event bus unification — single EventBus owned by SipClient, reactor dispatch_event direct publish",
           "nodeIds": [
@@ -33291,7 +33291,7 @@
         },
         {
           "id": 5,
-          "phaseId": 15,
+          "phaseId": 16,
           "status": "todo",
           "title": "Registration state machine production wiring — typed RegistrationState, M20 converter drive, register_on_start consumption",
           "nodeIds": [
@@ -33357,7 +33357,7 @@
         },
         {
           "id": 6,
-          "phaseId": 15,
+          "phaseId": 16,
           "status": "todo",
           "title": "Call API expansion — answer/hangup/hold/unhold/transfer/send_dtmf/call_state(call_id), calls() rename",
           "nodeIds": [
@@ -33423,7 +33423,7 @@
         },
         {
           "id": 7,
-          "phaseId": 15,
+          "phaseId": 16,
           "status": "todo",
           "title": "Media path architecture — per-call AudioMixer, AudioWorkerTask spawn, ChannelSelector injection, tap push, mic source",
           "nodeIds": [
@@ -33487,7 +33487,7 @@
         },
         {
           "id": 8,
-          "phaseId": 15,
+          "phaseId": 16,
           "status": "todo",
           "title": "Shutdown wiring — ShutdownSpec.execute_sequence production wiring, ClientShutdown publish, command router gate",
           "nodeIds": [
@@ -33546,7 +33546,7 @@
         },
         {
           "id": 9,
-          "phaseId": 15,
+          "phaseId": 16,
           "status": "todo",
           "title": "Error native_status preservation — SipError.native_status i32, M20 converter unification on production path",
           "nodeIds": [

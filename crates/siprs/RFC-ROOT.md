@@ -2115,7 +2115,7 @@ impl Default for CodecSelectionPolicy {
 
 コーデック選択には「利用者の明示指定」と「システム自動選択（auto モード）」の2層がある。
 
-#### 優先順位
+#### コーデック選択の優先順位
 
 ```text
 利用者の明示指定（CallMediaPreferences::preferred_codecs に1件以上指定）
