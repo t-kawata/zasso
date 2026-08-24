@@ -1,0 +1,28 @@
+{
+  "title": "Media path architecture — per-call AudioMixer, AudioWorkerTask spawn, ChannelSelector injection, tap push, mic source",
+  "nodeIds": ["N0075"],
+  "scope": [
+    "per-call AudioMixer（§24.4）を採用し、クライアント初期化で AudioWorkerTask を spawn する（§62.6）。",
+    "AddAudioSource コマンドに call_id と channels: ChannelSelector(IN/OUT/BOTH) を付与し、reactor 内で IN 経路（受話取得）と OUT 経路（送話 mix & 送信）へ分岐する。",
+    "AudioTapSender::push を PjsuaBackend のメディアコールバック（conf port put_frame）から呼び、subscribe_audio の tap を実データで駆動する（OMISSIONS F9 解消）。",
+    "open_default_microphone_source を cpal-input feature のデフォルト feature 方針で実入力機器へ接続する。"
+  ],
+  "testUnit": [
+    "ChannelSelector の分岐（In/Out/Both）が正しい mixer メソッド（add_in_source/add_out_source）を呼ぶこと。",
+    "per-call mixer が call_id ごとに独立して存在すること。"
+  ],
+  "testIntegration": [
+    "subscribe_audio(call_id, ...) が AudioChunkPair を連続生産すること（tap push 配線）。",
+    "add_audio_source(call_id, source, Both) で IN/OUT 両経路に注入されること。"
+  ],
+  "testExceptions": [
+    "実メディアフローは pjsua-native（Layer 3+）で検証する。"
+  ],
+  "changes": [
+    { "before": "AddAudioSource に call_id とチャネル指定がない", "after": "call_id と channels: ChannelSelector(IN/OUT/BOTH) を追加", "description": "統一音声注入 API（§24.4）" },
+    { "before": "AudioMixer がグローバル単一", "after": "per-call AudioMixer を call_id で管理し AudioWorkerTask を spawn", "description": "per-call メディア経路" },
+    { "before": "AudioTapSender::push を呼ぶ生産コードがない", "after": "PjsuaBackend のメディアコールバックから tap.push を呼ぶ", "description": "subscribe_audio の実データ駆動（OMISSIONS F9 解消）" },
+    { "before": "cpal-input がデフォルト feature 外", "after": "デフォルト feature 方針を確定し実入力機器へ接続", "description": "マイク source の接続" }
+  ],
+  "phaseName": "Implementation Integration — RESIDUE Resolution (§62)"
+}

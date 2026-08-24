@@ -1,0 +1,5 @@
+Q6: 登録状態機械の production 配線を確定します。この設計判断が必要な理由は、現在 AccountEntry.registration が String で保存され（src/runtime/state.rs:66-68）、MockBackend::add_account が registration を "Registered" にハードコードするため（backend.rs:206）、未登録でも Registered を返し RFC §17 の初期状態 Disabled と矛盾するからです。register_on_start もランタイム未消費で、実 REGISTER 成功時のみ Registered に遷移する状態機械がありません。選択肢:
+A) AccountEntry.registration を typed RegistrationState に変更し、Mock 初期値を Disabled/Idle に修正。M20 変換器（m20_registr_cmd_pat.rs）が NativeEvent(RegistrationStateChanged) を消費し、状態機械（registr_state_machine.rs）を駆動して実 REGISTER 成功時のみ Registered へ遷移。
+B) typed RegistrationState へ変更するが、set_registration コマンド受理時に同期的に状態遷移させる（NativeEvent 非依存）。
+C) String 保存を維持しつつ from_storage_str の変換と Mock 初期値修正のみ行う。
+推奨: A を推します。理由は、実 PJSIP の登録結果は非同期イベントでしか観測できないため、NativeEvent 駆動の状態機械が唯一正しい遷移源だからです。B は実 REGISTER 失敗時に状態が一致せず、C は typed 状態と §33 の要求を満たしません。

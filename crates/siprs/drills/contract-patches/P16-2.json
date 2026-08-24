@@ -1,0 +1,25 @@
+{
+ "contracts": [
+  {
+   "id": "C070",
+   "sourceEdge": "N0070→N0068",
+   "precondition": "§62 親セクションが存在する",
+   "postcondition": "62.1 が §62 の一部として記述される",
+   "invariant": "設定一本化は §10/§13 と矛盾しない"
+  },
+  {
+   "id": "C080",
+   "sourceEdge": "N0070→N0013",
+   "precondition": "N0013 が §10 ClientConfig を定義する",
+   "postcondition": "62.1 が ClientConfig 一本化を規定する",
+   "invariant": "RFC §10 型が唯一の公開型として残る"
+  },
+  {
+   "id": "C081",
+   "sourceEdge": "N0070→N0015",
+   "precondition": "N0015 が §12/§13 の transport/ICE/STUN/TURN を定義する",
+   "postcondition": "62.1 が StunServerConfig/TurnServerConfig 一元化と Vec 化を規定する",
+   "invariant": "二重定義が解消され §13 既定値と一致する"
+  }
+ ]
+}

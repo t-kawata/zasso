@@ -1,0 +1,25 @@
+{
+ "contracts": [
+  {
+   "id": "C071",
+   "sourceEdge": "N0071→N0068",
+   "precondition": "§62 親セクションが存在する",
+   "postcondition": "62.2 が §62 の一部として記述される",
+   "invariant": "バックエンド選択は §3.1/§27a と整合する"
+  },
+  {
+   "id": "C082",
+   "sourceEdge": "N0071→N0037",
+   "precondition": "N0037 が §27 PJSIP FFI 層と SipBackend を定義する",
+   "postcondition": "62.2 が PjsuaBackend 完全統一と MockBackend 削除を規定する",
+   "invariant": "SipBackend trait は維持される"
+  },
+  {
+   "id": "C083",
+   "sourceEdge": "N0071→N0052",
+   "precondition": "N0052 が §43 4層テスト戦略を定義する",
+   "postcondition": "62.2 が MockBackend 削除後の TestBackend 戦略を参照する",
+   "invariant": "Layer 2 決定性テストが PJSIP 不要のまま維持される"
+  }
+ ]
+}

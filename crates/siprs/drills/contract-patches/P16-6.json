@@ -1,0 +1,18 @@
+{
+ "contracts": [
+  {
+   "id": "C074",
+   "sourceEdge": "N0074→N0068",
+   "precondition": "§62 親セクションが存在する",
+   "postcondition": "62.5 が §62 の一部として記述される",
+   "invariant": "公開 API 拡充は §19/§20 と整合する"
+  },
+  {
+   "id": "C086",
+   "sourceEdge": "N0074→N0027",
+   "precondition": "N0027 が §19 発着信 API 詳細を定義する",
+   "postcondition": "62.5 が answer/hangup/hold/unhold/transfer/call_state(call_id) 追加を規定する",
+   "invariant": "answer が 180/183/200/486/603 を受理する"
+  }
+ ]
+}

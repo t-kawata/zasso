@@ -1,0 +1,5 @@
+Q8: エラー変換の native_status 保持を確定します。この設計判断が必要な理由は、SipError.native_status が変換経路で喪失するためです（src/error.rs:299-307 が None を設定、backend.rs の map_pjsua_status は文字列埋め込みで数値ステータスが消える）。§14.1 のエラー変換テーブルはネイティブ数値ステータスとログの対応を要求しており、m20_runtime_command_error.rs に converter は存在するが生産経路から呼ばれません。選択肢:
+A) SipError.native_status を i32 で保持し、reactor 経路のエラー変換で M20 converter を呼び出して数値ステータスを設定。pjsua_status→native_status の写像を §14.1 テーブル準拠で一元化。
+B) SipErrorKind に NativeStatus バリアントを追加し、数値ステータスを variant 内に埋め込む。
+C) native_status は維持せず、エラーメッセージ文字列に数値ステータスを埋め込む現状を正とする。
+推奨: A を推します。理由は、§14.1 の変換テーブルが構造化された数値ステータス保持を要求し、reactor 経路での M20 converter 呼び出しが設計済みの資産を再利用するからです。B は SipErrorKind を拡張する破壊的変更が大きすぎ、C は RESIDUE（OMISSIONS §6.3c）を放置します。

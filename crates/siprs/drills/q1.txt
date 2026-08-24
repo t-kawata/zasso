@@ -1,0 +1,5 @@
+Q1: 公開設定 API の一本化方針を確定します。現在、ClientConfig が2つ存在します。旧 src/config.rs 版（公開されているが transports/stun_servers/turn_servers/timeouts を持たず、stun_server: Option<String> と turn_server: Option<StunServerConfig> という単一型で TURN が STUN 型になる型バグを含む）と、RFC §10 準拠の client_config_spec.rs 版（全フィールドを持つが lib.rs 未再公開で dead config）です。StunServerConfig も config.rs:71 と transport_ice_spec.rs:143 に二重定義があります。README の完全記述には公開型が RFC と一致することが前提です。選択肢:
+A) RFC §10 準拠型を唯一の公開 ClientConfig に昇格し、旧 config.rs 版を完全削除。StunServerConfig/TurnServerConfig も一元化して Vec 化（stun_servers/turn_servers）。
+B) RFC §10 準拠型を新公開型とし、旧型は #[deprecated] エイリアスとして一時併存。型の二重定義は残る。
+C) 新名称（例: SipConfig）で RFC 型を公開し、ClientConfig 名は旧型に温存。
+推奨: A を推します。二重定義・旧型の温存は RESIDUE（OMISSIONS F3/§6.6）の根本原因を残し、README 完全記述の前提（公開型=RFC 型）が満たせません。完全削除なら破壊的変更ですが、v0.x の開発期であり lib.rs 再公開と併せて一度に移行するのが最も保守性が高いと判断します。

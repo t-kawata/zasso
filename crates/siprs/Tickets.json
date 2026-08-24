@@ -33025,6 +33025,584 @@
           "originalTicketKey": "P13-3"
         }
       ]
+    },
+    {
+      "id": 16,
+      "name": "Implementation Integration — RESIDUE Resolution (§62)",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Implementation Integration Framework — §62 RESIDUE resolution blueprint",
+          "nodeIds": [
+            "N0068",
+            "N0069",
+            "N0078"
+          ],
+          "scope": [
+            "RFC §62.0 の3根因（公開ClientConfig非RFC型 / Mock固定バックエンド / イベントバス分断）を実装整合の基準として文書化する。",
+            "§62.9 のI/O境界参照表を graphify/boundify の分割判断に利用可能にする。",
+            "破壊的変更（旧config.rs削除・MockBackend削除・call_state改名）を v0.x の今一度に完了させるための全体手順を定義する。"
+          ],
+          "testUnit": [
+            "§62.0 の根因記述が RFC 本文（§10/§3/§15）と整合すること（assertion で固定）。",
+            "§62.9 のI/O境界表が既存 GRAPH ノード（N0013/N0015/N0016/N0017/N0018/N0025/N0027/N0031/N0033/N0043/N0044/N0067）を正しく参照すること。"
+          ],
+          "testIntegration": [],
+          "testExceptions": [
+            "純設計参照のため実機/ネットワーク不要。"
+          ],
+          "changes": [
+            {
+              "before": "RFC に §62 が存在せず RESIDUE が解消不可",
+              "after": "RFC §62 が追記され spec ファイル（impl_integration_design.rs / evolution_scope.rs / io_boundary_62.rs）が整合",
+              "description": "§62 実装整合フレームワークの確立"
+            }
+          ],
+          "contracts": [
+            {
+              "id": "C069",
+              "sourceEdge": "N0069→N0068",
+              "precondition": "§62 進化スコープが定義される",
+              "postcondition": "62.0 が §62 の一部として記述される",
+              "invariant": "根因3点の記述は §62 の他の節と整合する"
+            },
+            {
+              "id": "C078",
+              "sourceEdge": "N0078→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.9 が §62 の一部として記述される",
+              "invariant": "I/O 境界参照は §61 の情報と整合する"
+            },
+            {
+              "id": "C079",
+              "sourceEdge": "N0069→N0013",
+              "precondition": "進化スコープが設定乖離を言及する",
+              "postcondition": "62.0 が N0013 の乖離を参照する",
+              "invariant": "公開 ClientConfig が RFC 型でない根因が記述される"
+            },
+            {
+              "id": "C090",
+              "sourceEdge": "N0078→N0067",
+              "precondition": "N0067 が §61 I/O 境界参照情報を定義する",
+              "postcondition": "62.9 が各設計判断の I/O 境界を参照可能にする",
+              "invariant": "分割判断が既存の境界情報と矛盾しない"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Config unification — RFC §10 ClientConfig promotion, STUN/TURN/ICE type unification, Vec-ization",
+          "nodeIds": [
+            "N0070"
+          ],
+          "scope": [
+            "client_config_spec 版 ClientConfig を唯一の公開型に昇格し lib.rs で再公開する（§62.1）。",
+            "旧 src/config.rs の ClientConfig / StunServerConfig を完全削除し、SipClient::new のシグネチャを RFC 型に移行する。",
+            "StunServerConfig / TurnServerConfig の二重定義（config.rs:71 と transport_ice_spec.rs:143）を一元化し、stun_servers/turn_servers を Vec 化する。",
+            "§13 の ICE 既定値（enabled=true / aggressive_nomination=true / max_host_candidates=16）に一致させる。",
+            "§42 の validate() を SipClient::new 冒頭で fail-fast 実行する。"
+          ],
+          "testUnit": [
+            "ClientConfig::validate() が §42 規則（event_bus_capacity>=16, sample rate 8/16/24/48k, raw_sip 容量制約）を検査すること。",
+            "IceConfig 既定値が §13（enabled=true / aggressive_nomination=true / max_host_candidates=16）と一致すること。",
+            "TurnServerConfig が StunServerConfig と別型であること（型バグ解消）。"
+          ],
+          "testIntegration": [
+            "SipClient::new(RFC型ClientConfig) が Ok を返し ClientInitialized を publish すること。",
+            "不正な ClientConfig（event_bus_capacity<16）で Err(InvalidConfig) を返すこと。"
+          ],
+          "testExceptions": [
+            "実 PJSIP への設定反映は pjsua-native feature（Layer 3+）で検証する。"
+          ],
+          "changes": [
+            {
+              "before": "lib.rs は旧 config.rs 型を公開",
+              "after": "lib.rs が client_config_spec 版 ClientConfig を唯一の公開型として再公開",
+              "description": "公開 ClientConfig の RFC §10 型への昇格"
+            },
+            {
+              "before": "src/config.rs に旧 ClientConfig / StunServerConfig が存在",
+              "after": "旧型を完全削除",
+              "description": "二重定義の排除"
+            },
+            {
+              "before": "client_config_spec.rs / transport_ice_spec.rs に単一型・旧既定値",
+              "after": "stun_servers/turn_servers の Vec 化と §13 ICE 既定値への一致",
+              "description": "STUN/TURN/ICE 型の一元化"
+            },
+            {
+              "before": "SipClient::new が旧 config 型を受理",
+              "after": "SipClient::new が RFC 型を受理し validate() を fail-fast 実行",
+              "description": "公開 API のシグネチャ移行"
+            }
+          ],
+          "contracts": [
+            {
+              "id": "C070",
+              "sourceEdge": "N0070→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.1 が §62 の一部として記述される",
+              "invariant": "設定一本化は §10/§13 と矛盾しない"
+            },
+            {
+              "id": "C080",
+              "sourceEdge": "N0070→N0013",
+              "precondition": "N0013 が §10 ClientConfig を定義する",
+              "postcondition": "62.1 が ClientConfig 一本化を規定する",
+              "invariant": "RFC §10 型が唯一の公開型として残る"
+            },
+            {
+              "id": "C081",
+              "sourceEdge": "N0070→N0015",
+              "precondition": "N0015 が §12/§13 の transport/ICE/STUN/TURN を定義する",
+              "postcondition": "62.1 が StunServerConfig/TurnServerConfig 一元化と Vec 化を規定する",
+              "invariant": "二重定義が解消され §13 既定値と一致する"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Backend selection — PjsuaBackend full unification, MockBackend deletion, TestBackend (cfg test)",
+          "nodeIds": [
+            "N0071"
+          ],
+          "scope": [
+            "本番バックエンドを pjsua-native feature 選択の PjsuaBackend に完全統一する（§62.2）。",
+            "MockBackend の生産コード（src/runtime/backend.rs 非 test 実装、reactor.rs:74-75 の無条件生成）を完全削除する。",
+            "SipBackend trait（§27a）は維持し、cfg(test) 専用の TestBackend で Layer 2 決定性テストを駆動する。",
+            "mock-backend feature は作らない。非 feature 非 test ビルドは明示的エラーを返す。"
+          ],
+          "testUnit": [
+            "create_backend の cfg 分岐（feature 有無 × test 有無）が正しい backend を返すこと。",
+            "TestBackend::add_account が RegistrationState::Disabled 初期値を返すこと。",
+            "TestBackend::set_registration が enable/disable に応じて Registering/Unregistering を返すこと。"
+          ],
+          "testIntegration": [
+            "TestBackend 上で register→RegistrationSucceeded の決定性シーケンスが完走すること（Layer 2）。"
+          ],
+          "testExceptions": [
+            "実 PJSIP 検証は pjsua-native feature が有効なビルドでのみ実施する。"
+          ],
+          "changes": [
+            {
+              "before": "reactor.rs:74-75 が MockBackend を無条件生成",
+              "after": "create_backend の feature 分岐（pjsua-native）で PjsuaBackend を選択",
+              "description": "バックエンド選択機構の実装"
+            },
+            {
+              "before": "src/runtime/backend.rs に MockBackend 生産実装が存在",
+              "after": "MockBackend を削除し TestBackend（cfg test）を追加",
+              "description": "MockBackend 削除とテストダブル移行"
+            },
+            {
+              "before": "非 feature 非 test ビルドが Mock に依存",
+              "after": "明示的エラー（SipError::unsupported）を返す",
+              "description": "pjsua 完全統一の方針反映"
+            }
+          ],
+          "contracts": [
+            {
+              "id": "C071",
+              "sourceEdge": "N0071→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.2 が §62 の一部として記述される",
+              "invariant": "バックエンド選択は §3.1/§27a と整合する"
+            },
+            {
+              "id": "C082",
+              "sourceEdge": "N0071→N0037",
+              "precondition": "N0037 が §27 PJSIP FFI 層と SipBackend を定義する",
+              "postcondition": "62.2 が PjsuaBackend 完全統一と MockBackend 削除を規定する",
+              "invariant": "SipBackend trait は維持される"
+            },
+            {
+              "id": "C083",
+              "sourceEdge": "N0071→N0052",
+              "precondition": "N0052 が §43 4層テスト戦略を定義する",
+              "postcondition": "62.2 が MockBackend 削除後の TestBackend 戦略を参照する",
+              "invariant": "Layer 2 決定性テストが PJSIP 不要のまま維持される"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Event bus unification — single EventBus owned by SipClient, reactor dispatch_event direct publish",
+          "nodeIds": [
+            "N0072"
+          ],
+          "scope": [
+            "単一 EventBus を SipClient（ClientInner.events）が所有し、reactor の dispatch_event がそのバスへ直接 publish する（§62.3 / §15.6 一元化）。",
+            "RawSipEventConfig.enabled（default true）に応じて raw_sip チャネルを生成し、subscribe_raw_sip は無効時のみ None を返す。",
+            "subscribe_account の account_id フィルタ死滅を解消するため、全イベントに meta.account_id を付与する配線を実装する。"
+          ],
+          "testUnit": [
+            "EventBus::new(control_capacity, Some(raw_capacity)) が raw_sip チャネルを生成すること。",
+            "EventBus::new(control_capacity, None) で subscribe_raw_sip が None を返すこと。"
+          ],
+          "testIntegration": [
+            "reactor が publish した SipEvent が SipClient::subscribe() の receiver で受信できること。",
+            "subscribe_account(id) が meta.account_id でフィルタしたイベントのみ受信すること。",
+            "subscribe_raw_sip() が RawSipMessage を受信できること（enabled 時）。"
+          ],
+          "testExceptions": [
+            "raw_sip 無効時の None は単体テストで固定する。"
+          ],
+          "changes": [
+            {
+              "before": "client.rs と reactor.rs が別バスを持つ",
+              "after": "単一 EventBus を SipClient が所有し reactor の dispatch_event が直接 publish",
+              "description": "イベントバス一元化"
+            },
+            {
+              "before": "raw_sip チャネルが None 固定",
+              "after": "RawSipEventConfig.enabled に応じて生成",
+              "description": "raw_sip チャネルの条件生成"
+            },
+            {
+              "before": "subscribe_account のフィルタが 0 件",
+              "after": "全イベントに meta.account_id を付与しフィルタ成立",
+              "description": "account_id フィルタ死滅の解消"
+            }
+          ],
+          "contracts": [
+            {
+              "id": "C072",
+              "sourceEdge": "N0072→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.3 が §62 の一部として記述される",
+              "invariant": "イベントバス一元化は §15.6 と整合する"
+            },
+            {
+              "id": "C084",
+              "sourceEdge": "N0072→N0018",
+              "precondition": "N0018 が §15 イベントモデルと EventBus を定義する",
+              "postcondition": "62.3 が単一 EventBus 一元化と dispatch_event 直 publish を規定する",
+              "invariant": "subscribe_account のフィルタ死滅が解消される"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Registration state machine production wiring — typed RegistrationState, M20 converter drive, register_on_start consumption",
+          "nodeIds": [
+            "N0073"
+          ],
+          "scope": [
+            "AccountEntry.registration を String から typed RegistrationState（§33）に変更する（§62.4）。",
+            "M20 変換器（m20_registr_cmd_pat.rs）が NativeEvent::RegistrationStateChanged を消費し、registr_state_machine.rs を駆動して実 REGISTER 成功時のみ Registered へ遷移させる。",
+            "Mock/TestBackend の初期値を §17 どおり Disabled / Idle に修正する。",
+            "register_on_start をランタイムで消費し、UpdateAccount 後に再登録 / 解除を発行する。"
+          ],
+          "testUnit": [
+            "registr_state_machine::transition が全状態遷移（Disabled→Registering→Registered→...）を正しく決定すること。",
+            "AccountEntry.registration が RegistrationState enum 型であること。",
+            "初期値が Disabled であること。"
+          ],
+          "testIntegration": [
+            "TestBackend 上で register() を実行し RegistrationStateChanged(Registering→Registered) が publish されること。",
+            "unregister() で Unregistering→Idle に遷移しイベントが発火すること。",
+            "update_config で register_on_start 変更後に set_registration が呼ばれること。"
+          ],
+          "testExceptions": [
+            "実 REGISTER の成否は pjsua-native（Layer 3+）で検証する。"
+          ],
+          "changes": [
+            {
+              "before": "AccountEntry.registration が String",
+              "after": "typed RegistrationState（§33）に変更",
+              "description": "登録状態の型安全化"
+            },
+            {
+              "before": "MockBackend が Registered をハードコード",
+              "after": "M20 変換器が NativeEvent を消費し状態機械を駆動",
+              "description": "実 REGISTER 成功時のみ Registered へ遷移"
+            },
+            {
+              "before": "register_on_start が未消費",
+              "after": "UpdateAccount 後に set_registration を発行",
+              "description": "register_on_start のランタイム消費"
+            },
+            {
+              "before": "TestBackend 初期値が Registered",
+              "after": "§17 どおり Disabled / Idle に修正",
+              "description": "初期状態の整合"
+            }
+          ],
+          "contracts": [
+            {
+              "id": "C073",
+              "sourceEdge": "N0073→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.4 が §62 の一部として記述される",
+              "invariant": "登録状態機械は §17/§33 と整合する"
+            },
+            {
+              "id": "C085",
+              "sourceEdge": "N0073→N0025",
+              "precondition": "N0025 が §17 登録状態機械を定義する",
+              "postcondition": "62.4 が typed RegistrationState と M20 変換器駆動を規定する",
+              "invariant": "実 REGISTER 成功時のみ Registered へ遷移する"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Call API expansion — answer/hangup/hold/unhold/transfer/send_dtmf/call_state(call_id), calls() rename",
+          "nodeIds": [
+            "N0074"
+          ],
+          "scope": [
+            "SipClient に §19/§20 の通話 API を追加する（§62.5）: answer(call_id, code) / hangup(call_id, reason) / hold / unhold / transfer / send_dtmf / call_state(call_id)。",
+            "answer は §19.1 の 180/183/200/486/603 を受理する（486=Busy, 603=Decline。reject は独立 API にせず answer(call_id, 486/603) で実現）。",
+            "現行 call_state() -> Vec<CallEntry> を calls() に改名し、§19 の正名 call_state(call_id) -> Result<CallState, SipError> を新設する。",
+            "unsubscribe は明示 API を追加せず、broadcast Receiver の drop による購読解除を README に明文化する。"
+          ],
+          "testUnit": [
+            "validate_answer_code が 180/183/200/486/603 を受理し、その他を拒否すること。",
+            "call_state(call_id) が per-call の CallState を返すこと。",
+            "calls() が全 CallEntry の一覧を返すこと。"
+          ],
+          "testIntegration": [
+            "TestBackend 上で answer(call_id, 200) → CallConnected が publish されること。",
+            "answer(call_id, 486) で decline が成立すること。",
+            "send_dtmf が RuntimeCommand::SendDtmf を submit し、DtmfSent 二相タイムアウトが成立すること。"
+          ],
+          "testExceptions": [
+            "実 INVITE/DTMF は pjsua-native（Layer 3+）で検証する。"
+          ],
+          "changes": [
+            {
+              "before": "SipClient に answer/hangup/hold/unhold/transfer/send_dtmf が不在",
+              "after": "§19/§20 の通話 API を追加（call_id 基準）",
+              "description": "公開 API の拡充"
+            },
+            {
+              "before": "is_valid_answer_code が 486/603 を拒否",
+              "after": "validate_answer_code が 180/183/200/486/603 を受理",
+              "description": "decline 応答の受理（§19.1）"
+            },
+            {
+              "before": "call_state() が Vec<CallEntry> を返す",
+              "after": "calls() に改名し call_state(call_id) -> CallState を新設",
+              "description": "call_state シグネチャの整合"
+            },
+            {
+              "before": "unsubscribe が未定義",
+              "after": "broadcast Receiver の drop による購読解除を README に明文化",
+              "description": "unsubscribe の設計確定"
+            }
+          ],
+          "contracts": [
+            {
+              "id": "C074",
+              "sourceEdge": "N0074→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.5 が §62 の一部として記述される",
+              "invariant": "公開 API 拡充は §19/§20 と整合する"
+            },
+            {
+              "id": "C086",
+              "sourceEdge": "N0074→N0027",
+              "precondition": "N0027 が §19 発着信 API 詳細を定義する",
+              "postcondition": "62.5 が answer/hangup/hold/unhold/transfer/call_state(call_id) 追加を規定する",
+              "invariant": "answer が 180/183/200/486/603 を受理する"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Media path architecture — per-call AudioMixer, AudioWorkerTask spawn, ChannelSelector injection, tap push, mic source",
+          "nodeIds": [
+            "N0075"
+          ],
+          "scope": [
+            "per-call AudioMixer（§24.4）を採用し、クライアント初期化で AudioWorkerTask を spawn する（§62.6）。",
+            "AddAudioSource コマンドに call_id と channels: ChannelSelector(IN/OUT/BOTH) を付与し、reactor 内で IN 経路（受話取得）と OUT 経路（送話 mix & 送信）へ分岐する。",
+            "AudioTapSender::push を PjsuaBackend のメディアコールバック（conf port put_frame）から呼び、subscribe_audio の tap を実データで駆動する（OMISSIONS F9 解消）。",
+            "open_default_microphone_source を cpal-input feature のデフォルト feature 方針で実入力機器へ接続する。"
+          ],
+          "testUnit": [
+            "ChannelSelector の分岐（In/Out/Both）が正しい mixer メソッド（add_in_source/add_out_source）を呼ぶこと。",
+            "per-call mixer が call_id ごとに独立して存在すること。"
+          ],
+          "testIntegration": [
+            "subscribe_audio(call_id, ...) が AudioChunkPair を連続生産すること（tap push 配線）。",
+            "add_audio_source(call_id, source, Both) で IN/OUT 両経路に注入されること。"
+          ],
+          "testExceptions": [
+            "実メディアフローは pjsua-native（Layer 3+）で検証する。"
+          ],
+          "changes": [
+            {
+              "before": "AddAudioSource に call_id とチャネル指定がない",
+              "after": "call_id と channels: ChannelSelector(IN/OUT/BOTH) を追加",
+              "description": "統一音声注入 API（§24.4）"
+            },
+            {
+              "before": "AudioMixer がグローバル単一",
+              "after": "per-call AudioMixer を call_id で管理し AudioWorkerTask を spawn",
+              "description": "per-call メディア経路"
+            },
+            {
+              "before": "AudioTapSender::push を呼ぶ生産コードがない",
+              "after": "PjsuaBackend のメディアコールバックから tap.push を呼ぶ",
+              "description": "subscribe_audio の実データ駆動（OMISSIONS F9 解消）"
+            },
+            {
+              "before": "cpal-input がデフォルト feature 外",
+              "after": "デフォルト feature 方針を確定し実入力機器へ接続",
+              "description": "マイク source の接続"
+            }
+          ],
+          "contracts": [
+            {
+              "id": "C075",
+              "sourceEdge": "N0075→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.6 が §62 の一部として記述される",
+              "invariant": "メディア経路は §22/§24 と整合する"
+            },
+            {
+              "id": "C087",
+              "sourceEdge": "N0075→N0033",
+              "precondition": "N0033 が §24 AudioMixer リアルタイム境界を定義する",
+              "postcondition": "62.6 が per-call AudioMixer と ChannelSelector 統一注入を規定する",
+              "invariant": "IN/OUT/BOTH が独立経路として分岐する"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Shutdown wiring — ShutdownSpec.execute_sequence production wiring, ClientShutdown publish, command router gate",
+          "nodeIds": [
+            "N0076"
+          ],
+          "scope": [
+            "reactor の Shutdown アームから ShutdownSpec.execute_sequence（§32: BYE/CANCEL → unregister → audio drain → pjsua_destroy、PhaseTimeout 含む）を非同期で実行する（§62.7）。",
+            "完了後に ClientShutdown イベントを publish し、is_terminated ゲートを設定する。",
+            "ShutdownCommandRouter をコマンド受信ループに接続し、is_shutting_down ゲートで shutdown 中のコマンドを破棄（ログ）する。"
+          ],
+          "testUnit": [
+            "ShutdownSpec.execute_sequence が §32 の順序（通話終了→登録解除→音声破棄→pjsua_destroy）を守ること。",
+            "shutdown() のべき等性（is_terminated ゲート）が維持されること。",
+            "ShutdownCommandRouter::is_shutting_down が shutdown 対象コマンドを正しく判定すること。"
+          ],
+          "testIntegration": [
+            "shutdown() 実行後に ClientShutdown が publish されること。",
+            "shutdown 後のコマンド送信が拒否（ドロップ）されること。"
+          ],
+          "testExceptions": [
+            "実 pjsua_destroy は pjsua-native（Layer 3+）で検証する。"
+          ],
+          "changes": [
+            {
+              "before": "reactor Shutdown アームが backend.shutdown のみ実行",
+              "after": "ShutdownSpec.execute_sequence（BYE/CANCEL→unregister→audio drain→pjsua_destroy）を実行",
+              "description": "§32 完全手順の production 配線"
+            },
+            {
+              "before": "ClientShutdown イベントが未 publish",
+              "after": "完了後に publish し is_terminated ゲートを設定",
+              "description": "シャットダウン通知"
+            },
+            {
+              "before": "ShutdownCommandRouter が未接続",
+              "after": "command_loop に is_shutting_down ゲートを追加",
+              "description": "シャットダウン中のコマンド拒否"
+            }
+          ],
+          "contracts": [
+            {
+              "id": "C076",
+              "sourceEdge": "N0076→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.7 が §62 の一部として記述される",
+              "invariant": "シャットダウン手順は §32 と整合する"
+            },
+            {
+              "id": "C088",
+              "sourceEdge": "N0076→N0043",
+              "precondition": "N0043 が §32 Shutdown 仕様を定義する",
+              "postcondition": "62.7 が ShutdownSpec.execute_sequence の production 配線を規定する",
+              "invariant": "BYE/CANCEL→unregister→audio drain→pjsua_destroy の順序が保証される"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Error native_status preservation — SipError.native_status i32, M20 converter unification on production path",
+          "nodeIds": [
+            "N0077"
+          ],
+          "scope": [
+            "SipError に native_status: Option<i32> を保持し、reactor 経路のエラー変換で m20_runtime_command_error.rs の M20 converter を呼び出す（§62.8）。",
+            "pjsua_status → native_status の写像を §14.1 テーブル準拠で一元化する。",
+            "src/error.rs:299-307 の None 設定と backend.rs の map_pjsua_status による文字列埋め込みを排除する。"
+          ],
+          "testUnit": [
+            "m20_runtime_command_error::classify が pjsip_status_code を §14.1 準拠の SipErrorKind に写像すること。",
+            "SipError::with_status が native_status を保持すること。",
+            "エラー変換経路で native_status が None にならないこと。"
+          ],
+          "testIntegration": [
+            "TestBackend でエラーが発生した際に SipError.native_status() が Some を返すこと。"
+          ],
+          "testExceptions": [
+            "実 pjsip エラーは pjsua-native（Layer 3+）で検証する。"
+          ],
+          "changes": [
+            {
+              "before": "SipError.native_status が変換経路で None 化",
+              "after": "native_status: Option<i32> を保持し with_status で設定",
+              "description": "native_status の保存"
+            },
+            {
+              "before": "backend.rs の map_pjsua_status が文字列埋め込み",
+              "after": "map_native_error が M20 converter を呼び出し §14.1 準拠で写像",
+              "description": "エラー変換の一元化"
+            },
+            {
+              "before": "error.rs:299-307 が None を設定",
+              "after": "None 設定を排除し reactor 経路で native_status を維持",
+              "description": "変換経路の整合"
+            }
+          ],
+          "contracts": [
+            {
+              "id": "C077",
+              "sourceEdge": "N0077→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.8 が §62 の一部として記述される",
+              "invariant": "エラー変換は §14.1 と整合する"
+            },
+            {
+              "id": "C089",
+              "sourceEdge": "N0077→N0016",
+              "precondition": "N0016 が §14 SipError を定義する",
+              "postcondition": "62.8 が native_status: Option<i32> 保持と M20 converter 一元化を規定する",
+              "invariant": "reactor 経路の変換で native_status が喪失しない"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

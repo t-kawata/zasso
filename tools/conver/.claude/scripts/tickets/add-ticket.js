@@ -48,8 +48,10 @@ function addTicket(ticketsJsonPath, phaseArg, ticketData) {
         error: 'Phase "' + phaseArg + '" not found. Specify phaseName.',
       };
     }
-    // PX の場合は id=-1（独立フェーズ）に固定。それ以外は自動採番
-    const phaseId = phaseArg === "PX" ? -1 : data.phases.length;
+    // PX の場合は id=-1（独立フェーズ）に固定。それ以外は既存フェーズ id の最大値 + 1 で自動採番
+    // （PX の -1 は最大値に影響しないため、配列長ではなく max+1 を使う — data.phases.length は PX を数えてしまう）
+    const maxPhaseId = data.phases.reduce((max, p) => Math.max(max, p.id), 0);
+    const phaseId = phaseArg === "PX" ? -1 : maxPhaseId + 1;
     phase = { id: phaseId, name: phaseName, tickets: [] };
     data.phases.push(phase);
   }

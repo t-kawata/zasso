@@ -1,0 +1,569 @@
+{
+  "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "newNodes": [
+    {
+      "id": "N0068",
+      "title": "§62 実装整合設計 — RESIDUE 解消のための設計判断確定",
+      "kind": "architecture",
+      "summary": "READ ME RESIDUE の3根因（公開API非RFC型 / Mock固定バックエンド / イベントバス分断）を解消する9設計判断の親セクション。破壊的変更を v0.x の今一度に完了させる方針。",
+      "language": "rust",
+      "slug": "impl_integration_design",
+      "headingRefs": [
+        {
+          "refId": "REF320",
+          "heading": 2,
+          "texts": [
+            "62. 実装整合設計 — RESIDUE 解消のための設計判断確定"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0069",
+      "title": "62.0 進化スコープと根因",
+      "kind": "architecture",
+      "summary": "RESIDUE 乖離の根因3点（公開 ClientConfig 非RFC型 / reactor の Mock 固定 / クライアント-react イベントバス分断）の記述。",
+      "language": "rust",
+      "slug": "evolution_scope",
+      "headingRefs": [
+        {
+          "refId": "REF321",
+          "heading": 3,
+          "texts": [
+            "62.0 進化スコープと根因"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0070",
+      "title": "62.1 公開設定 API の一本化（ClientConfig / STUN/TURN/ICE）",
+      "kind": "config",
+      "summary": "RFC §10 準拠 ClientConfig を唯一の公開型に昇格し旧 config.rs 版を完全削除。StunServerConfig/TurnServerConfig の二重定義を一元化し stun_servers/turn_servers を Vec 化。§13 ICE 既定値に一致。",
+      "language": "rust",
+      "slug": "client_config_unify",
+      "headingRefs": [
+        {
+          "refId": "REF322",
+          "heading": 3,
+          "texts": [
+            "62.1 公開設定 API の一本化（ClientConfig / STUN/TURN/ICE）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0071",
+      "title": "62.2 バックエンド選択機構（PjsuaBackend 完全統一・MockBackend 削除）",
+      "kind": "architecture",
+      "summary": "本番バックエンドを pjsua-native feature 選択の PjsuaBackend に完全統一。MockBackend を削除し SipBackend trait は維持、テストは cfg(test) 専用 TestBackend で駆動。",
+      "language": "rust",
+      "slug": "backend_selection",
+      "headingRefs": [
+        {
+          "refId": "REF323",
+          "heading": 3,
+          "texts": [
+            "62.2 バックエンド選択機構（PjsuaBackend 完全統一・MockBackend 削除）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0072",
+      "title": "62.3 イベントバス一元化トポロジ",
+      "kind": "architecture",
+      "summary": "単一 EventBus を SipClient が所有し reactor の dispatch_event が直接 publish。RawSipEventConfig.enabled に応じた raw_sip チャネル生成、subscribe_account の account_id フィルタ死滅解消。",
+      "language": "rust",
+      "slug": "event_bus_unify",
+      "headingRefs": [
+        {
+          "refId": "REF324",
+          "heading": 3,
+          "texts": [
+            "62.3 イベントバス一元化トポロジ"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0073",
+      "title": "62.4 登録状態機械の production 配線",
+      "kind": "state_machine",
+      "summary": "AccountEntry.registration を typed RegistrationState に変更。M20 変換器が NativeEvent(RegistrationStateChanged) を消費し registr_state_machine を駆動。register_on_start をランタイム消費。",
+      "language": "rust",
+      "slug": "registr_wiring",
+      "headingRefs": [
+        {
+          "refId": "REF325",
+          "heading": 3,
+          "texts": [
+            "62.4 登録状態機械の production 配線"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0074",
+      "title": "62.5 公開 API 拡充（通話 API 群）",
+      "kind": "api_contract",
+      "summary": "SipClient に answer(180/183/200/486/603)/hangup/hold/unhold/transfer/send_dtmf/call_state(call_id) を追加。旧 call_state() は calls() に改名。unsubscribe は drop 依存を明文化。",
+      "language": "rust",
+      "slug": "call_api_expansion",
+      "headingRefs": [
+        {
+          "refId": "REF326",
+          "heading": 3,
+          "texts": [
+            "62.5 公開 API 拡充（通話 API 群）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0075",
+      "title": "62.6 メディア経路アーキテクチャと統一音声注入",
+      "kind": "architecture",
+      "summary": "per-call AudioMixer + 初期化時 AudioWorkerTask spawn。AddAudioSource に call_id と channels: ChannelSelector(IN/OUT/BOTH) を付与し統一注入 API 化。tap push を production から呼ぶ。",
+      "language": "rust",
+      "slug": "media_path_arch",
+      "headingRefs": [
+        {
+          "refId": "REF327",
+          "heading": 3,
+          "texts": [
+            "62.6 メディア経路アーキテクチャと統一音声注入"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0076",
+      "title": "62.7 シャットダウン手順の production 配線",
+      "kind": "state_machine",
+      "summary": "reactor Shutdown アームから ShutdownSpec.execute_sequence を実行（BYE/CANCEL→unregister→audio drain→pjsua_destroy）。ClientShutdown publish、ShutdownCommandRouter を is_shutting_down ゲートで接続。",
+      "language": "rust",
+      "slug": "shutdown_wiring",
+      "headingRefs": [
+        {
+          "refId": "REF328",
+          "heading": 3,
+          "texts": [
+            "62.7 シャットダウン手順の production 配線"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0077",
+      "title": "62.8 エラー変換の native_status 保持",
+      "kind": "error_policy",
+      "summary": "SipError に native_status: Option<i32> を保持。M20 converter を reactor 経路で呼び出し pjsua_status→native_status 写像を §14.1 準拠で一元化。文字列埋め込み排除。",
+      "language": "rust",
+      "slug": "error_native_status",
+      "headingRefs": [
+        {
+          "refId": "REF329",
+          "heading": 3,
+          "texts": [
+            "62.8 エラー変換の native_status 保持"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0078",
+      "title": "62.9 I/O 境界参照情報（graphify / boundify 用）",
+      "kind": "architecture",
+      "summary": "各設計判断の入力/出力境界と関連 GRAPH ノード、boundify が Prune する削除対象ファイルの一覧。",
+      "language": "rust",
+      "slug": "io_boundary_62",
+      "headingRefs": [
+        {
+          "refId": "REF330",
+          "heading": 3,
+          "texts": [
+            "62.9 I/O 境界参照情報（graphify / boundify 用）"
+          ]
+        }
+      ]
+    }
+  ],
+  "modifiedNodes": [],
+  "newEdges": [
+    {
+      "from": "N0069",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C069",
+          "precondition": "§62 進化スコープが定義される",
+          "postcondition": "62.0 が §62 の一部として記述される",
+          "invariant": "根因3点の記述は §62 の他の節と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0070",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C070",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.1 が §62 の一部として記述される",
+          "invariant": "設定一本化は §10/§13 と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0071",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C071",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.2 が §62 の一部として記述される",
+          "invariant": "バックエンド選択は §3.1/§27a と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0072",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C072",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.3 が §62 の一部として記述される",
+          "invariant": "イベントバス一元化は §15.6 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0073",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C073",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.4 が §62 の一部として記述される",
+          "invariant": "登録状態機械は §17/§33 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0074",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C074",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.5 が §62 の一部として記述される",
+          "invariant": "公開 API 拡充は §19/§20 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0075",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C075",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.6 が §62 の一部として記述される",
+          "invariant": "メディア経路は §22/§24 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0076",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C076",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.7 が §62 の一部として記述される",
+          "invariant": "シャットダウン手順は §32 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0077",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C077",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.8 が §62 の一部として記述される",
+          "invariant": "エラー変換は §14.1 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0078",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C078",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.9 が §62 の一部として記述される",
+          "invariant": "I/O 境界参照は §61 の情報と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0069",
+      "to": "N0013",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C079",
+          "precondition": "進化スコープが設定乖離を言及する",
+          "postcondition": "62.0 が N0013 の乖離を参照する",
+          "invariant": "公開 ClientConfig が RFC 型でない根因が記述される"
+        }
+      ]
+    },
+    {
+      "from": "N0070",
+      "to": "N0013",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C080",
+          "precondition": "N0013 が §10 ClientConfig を定義する",
+          "postcondition": "62.1 が ClientConfig 一本化を規定する",
+          "invariant": "RFC §10 型が唯一の公開型として残る"
+        }
+      ]
+    },
+    {
+      "from": "N0070",
+      "to": "N0015",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C081",
+          "precondition": "N0015 が §12/§13 の transport/ICE/STUN/TURN を定義する",
+          "postcondition": "62.1 が StunServerConfig/TurnServerConfig 一元化と Vec 化を規定する",
+          "invariant": "二重定義が解消され §13 既定値と一致する"
+        }
+      ]
+    },
+    {
+      "from": "N0071",
+      "to": "N0037",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C082",
+          "precondition": "N0037 が §27 PJSIP FFI 層と SipBackend を定義する",
+          "postcondition": "62.2 が PjsuaBackend 完全統一と MockBackend 削除を規定する",
+          "invariant": "SipBackend trait は維持される"
+        }
+      ]
+    },
+    {
+      "from": "N0071",
+      "to": "N0052",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C083",
+          "precondition": "N0052 が §43 4層テスト戦略を定義する",
+          "postcondition": "62.2 が MockBackend 削除後の TestBackend 戦略を参照する",
+          "invariant": "Layer 2 決定性テストが PJSIP 不要のまま維持される"
+        }
+      ]
+    },
+    {
+      "from": "N0072",
+      "to": "N0018",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C084",
+          "precondition": "N0018 が §15 イベントモデルと EventBus を定義する",
+          "postcondition": "62.3 が単一 EventBus 一元化と dispatch_event 直 publish を規定する",
+          "invariant": "subscribe_account のフィルタ死滅が解消される"
+        }
+      ]
+    },
+    {
+      "from": "N0073",
+      "to": "N0025",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C085",
+          "precondition": "N0025 が §17 登録状態機械を定義する",
+          "postcondition": "62.4 が typed RegistrationState と M20 変換器駆動を規定する",
+          "invariant": "実 REGISTER 成功時のみ Registered へ遷移する"
+        }
+      ]
+    },
+    {
+      "from": "N0074",
+      "to": "N0027",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C086",
+          "precondition": "N0027 が §19 発着信 API 詳細を定義する",
+          "postcondition": "62.5 が answer/hangup/hold/unhold/transfer/call_state(call_id) 追加を規定する",
+          "invariant": "answer が 180/183/200/486/603 を受理する"
+        }
+      ]
+    },
+    {
+      "from": "N0075",
+      "to": "N0033",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C087",
+          "precondition": "N0033 が §24 AudioMixer リアルタイム境界を定義する",
+          "postcondition": "62.6 が per-call AudioMixer と ChannelSelector 統一注入を規定する",
+          "invariant": "IN/OUT/BOTH が独立経路として分岐する"
+        }
+      ]
+    },
+    {
+      "from": "N0076",
+      "to": "N0043",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C088",
+          "precondition": "N0043 が §32 Shutdown 仕様を定義する",
+          "postcondition": "62.7 が ShutdownSpec.execute_sequence の production 配線を規定する",
+          "invariant": "BYE/CANCEL→unregister→audio drain→pjsua_destroy の順序が保証される"
+        }
+      ]
+    },
+    {
+      "from": "N0077",
+      "to": "N0016",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C089",
+          "precondition": "N0016 が §14 SipError を定義する",
+          "postcondition": "62.8 が native_status: Option<i32> 保持と M20 converter 一元化を規定する",
+          "invariant": "reactor 経路の変換で native_status が喪失しない"
+        }
+      ]
+    },
+    {
+      "from": "N0078",
+      "to": "N0067",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C090",
+          "precondition": "N0067 が §61 I/O 境界参照情報を定義する",
+          "postcondition": "62.9 が各設計判断の I/O 境界を参照可能にする",
+          "invariant": "分割判断が既存の境界情報と矛盾しない"
+        }
+      ]
+    }
+  ]
+}

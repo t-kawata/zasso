@@ -222,6 +222,17 @@
                 }
               ],
               "declarationStub": "pub struct Config {}"
+            },
+            {
+              "name": "client_config_unify.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0070",
+                  "title": "62.1 公開設定 API の一本化（ClientConfig / STUN/TURN/ICE）"
+                }
+              ]
             }
           ]
         },
@@ -407,6 +418,50 @@
                 }
               ],
               "declarationStub": "pub trait Service {}"
+            },
+            {
+              "name": "event_bus_guarantees.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0020",
+                  "title": "§15.6-15.7 Event Bus Design Decisions & Delivery Guarantees"
+                }
+              ]
+            },
+            {
+              "name": "http_ws_crate_split.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0059",
+                  "title": "§52 HTTP/WebSocket API Layer & Crate Split"
+                }
+              ]
+            },
+            {
+              "name": "event_bus_unify.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0072",
+                  "title": "62.3 イベントバス一元化トポロジ"
+                }
+              ]
+            },
+            {
+              "name": "call_api_expansion.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0074",
+                  "title": "62.5 公開 API 拡充（通話 API 群）"
+                }
+              ]
             }
           ]
         },
@@ -496,6 +551,39 @@
                 }
               ],
               "declarationStub": "pub struct Model {}"
+            },
+            {
+              "name": "audio_aligner.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0035",
+                  "title": "§25 IN/OUT Pair Alignment Algorithm"
+                }
+              ]
+            },
+            {
+              "name": "audio_resampler.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0036",
+                  "title": "§26 Resampler Design & Stereo Mapping"
+                }
+              ]
+            },
+            {
+              "name": "media_bridge.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0049",
+                  "title": "§39 Media Bridge & PJSUA Conference Port"
+                }
+              ]
             }
           ]
         },
@@ -569,6 +657,17 @@
                 }
               ],
               "declarationStub": "pub enum Error {}"
+            },
+            {
+              "name": "error_native_status.rs",
+              "type": "file",
+              "kind": "error_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0077",
+                  "title": "62.8 エラー変換の native_status 保持"
+                }
+              ]
             }
           ]
         },
@@ -674,6 +773,28 @@
                 }
               ],
               "declarationStub": "pub enum State {}"
+            },
+            {
+              "name": "registr_wiring.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0073",
+                  "title": "62.4 登録状態機械の production 配線"
+                }
+              ]
+            },
+            {
+              "name": "shutdown_wiring.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0076",
+                  "title": "62.7 シャットダウン手順の production 配線"
+                }
+              ]
             }
           ]
         },
@@ -813,6 +934,179 @@
                 }
               ],
               "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            }
+          ]
+        },
+        {
+          "name": "runtime",
+          "type": "directory",
+          "kind": "architecture",
+          "mappedNodeIds": [],
+          "children": [
+            {
+              "name": "mod.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0009",
+                  "title": "§7 Concurrency Model & Execution Contexts"
+                }
+              ]
+            },
+            {
+              "name": "audioworker_lifecycle.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0034",
+                  "title": "§24.3 AudioWorkerTask & Source Lifecycle"
+                }
+              ]
+            },
+            {
+              "name": "runtime_state_lock_rules.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0045",
+                  "title": "§33 Runtime Internal State & Lock Rules"
+                }
+              ]
+            },
+            {
+              "name": "backend_selection.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0071",
+                  "title": "62.2 バックエンド選択機構（PjsuaBackend 完全統一・MockBackend 削除）"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "audio",
+          "type": "directory",
+          "kind": "architecture",
+          "mappedNodeIds": [],
+          "children": [
+            {
+              "name": "audiomixer_rt_boundary.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0033",
+                  "title": "§24 AudioMixer Design & Real-Time Boundary"
+                }
+              ]
+            },
+            {
+              "name": "media_path_arch.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0075",
+                  "title": "62.6 メディア経路アーキテクチャと統一音声注入"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ffi",
+          "type": "directory",
+          "kind": "architecture",
+          "mappedNodeIds": [],
+          "children": [
+            {
+              "name": "pjsip_ffi_layer.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0037",
+                  "title": "§27 PJSIP FFI Layer Architecture"
+                }
+              ]
+            },
+            {
+              "name": "m20_dual_client_routing.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0038",
+                  "title": "§27 M20 Dual Client PJSIP Callback Routing"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "architecture",
+          "type": "directory",
+          "kind": "architecture",
+          "mappedNodeIds": [],
+          "children": [
+            {
+              "name": "crate_scope.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0001",
+                  "title": "§1 Purpose — Responsibilities of this crate"
+                },
+                {
+                  "nodeId": "N0003",
+                  "title": "§2 Non-goals & Tauri Integration Boundary"
+                },
+                {
+                  "nodeId": "N0008",
+                  "title": "§6 Module Structure & Crate Responsibility"
+                }
+              ]
+            },
+            {
+              "name": "policy_reference.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0060",
+                  "title": "§52.2-52.4 License & Multi-Instance Policy"
+                },
+                {
+                  "nodeId": "N0067",
+                  "title": "§61 I/O Boundary Reference Information"
+                }
+              ]
+            },
+            {
+              "name": "impl_integration_design.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0068",
+                  "title": "§62 実装整合設計 — RESIDUE 解消のための設計判断確定"
+                },
+                {
+                  "nodeId": "N0069",
+                  "title": "62.0 進化スコープと根因"
+                },
+                {
+                  "nodeId": "N0078",
+                  "title": "62.9 I/O 境界参照情報（graphify / boundify 用）"
+                }
+              ]
             }
           ]
         }
