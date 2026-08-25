@@ -13,7 +13,9 @@ use crate::runtime::command::{send_reply, DispatchCommand, ReactorError};
 use crate::runtime::handle::{self, RuntimeHandle};
 use crate::runtime::state::{AccountEntry, CallEntry, ClientState};
 
-use crate::api::event_model_payload_bus::{AccountId, CallId, EventMeta, SipEvent};
+use crate::api::event_model_payload_bus::{
+    AccountId, CallId, ConnectedCallInfo, EventMeta, SipEvent, SipEventPayload,
+};
 use crate::api::eventbus_receiver::EventBus;
 use crate::state::m20_callstate_mapping::{convert_call_state_with_previous, CallDirection};
 use crate::state::m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
@@ -84,7 +86,7 @@ type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -328,6 +330,135 @@ impl CoreReactor {
                                             terminated.store(true, Ordering::Release);
                                             let msg = panic_message(&panic_payload);
                                             tracing::error!(panic_msg = %msg, "reactor make_call panicked");
+                                            let _ = reply.send(Err(
+                                                ReactorError::BackendError(
+                                                    format!("reactor panic: {msg}")
+                                                )
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                DispatchCommand::Answer {
+                                    call_id,
+                                    code,
+                                    reply,
+                                } => {
+                                    // [::TICKET::] P15-6: answer the call, update
+                                    // CallEntry.state, and publish CallConnected /
+                                    // decline events (§19.1). The reply is sent exactly
+                                    // once on every outcome.
+                                    let mut call_state = CallStateTables {
+                                        calls: &mut client_state.calls,
+                                        call_directions: &mut call_directions,
+                                    };
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            handle_answer(
+                                                &mut *backend,
+                                                &event_bus,
+                                                &mut call_state,
+                                                call_id,
+                                                code,
+                                            )
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(())) => {
+                                            let _ = reply.send(Ok(()));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = panic_message(&panic_payload);
+                                            tracing::error!(panic_msg = %msg, "reactor answer panicked");
+                                            let _ = reply.send(Err(
+                                                ReactorError::BackendError(
+                                                    format!("reactor panic: {msg}")
+                                                )
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                DispatchCommand::Hangup {
+                                    call_id,
+                                    reason,
+                                    reply,
+                                } => {
+                                    // [::TICKET::] P15-6: hang up the call, mark it
+                                    // disconnected in ClientState, and publish
+                                    // CallDisconnected. The reply is sent exactly once.
+                                    let mut call_state = CallStateTables {
+                                        calls: &mut client_state.calls,
+                                        call_directions: &mut call_directions,
+                                    };
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            handle_hangup(
+                                                &mut *backend,
+                                                &event_bus,
+                                                &mut call_state,
+                                                call_id,
+                                                reason,
+                                            )
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(())) => {
+                                            let _ = reply.send(Ok(()));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = panic_message(&panic_payload);
+                                            tracing::error!(panic_msg = %msg, "reactor hangup panicked");
+                                            let _ = reply.send(Err(
+                                                ReactorError::BackendError(
+                                                    format!("reactor panic: {msg}")
+                                                )
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                DispatchCommand::Transfer {
+                                    call_id,
+                                    target,
+                                    reply,
+                                } => {
+                                    // [::TICKET::] P15-6: blind-transfer the call and
+                                    // mark it Transferring in ClientState. The reply is
+                                    // sent exactly once.
+                                    let mut call_state = CallStateTables {
+                                        calls: &mut client_state.calls,
+                                        call_directions: &mut call_directions,
+                                    };
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            handle_transfer(
+                                                &mut *backend,
+                                                &mut call_state,
+                                                call_id,
+                                                &target,
+                                            )
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(())) => {
+                                            let _ = reply.send(Ok(()));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = panic_message(&panic_payload);
+                                            tracing::error!(panic_msg = %msg, "reactor transfer panicked");
                                             let _ = reply.send(Err(
                                                 ReactorError::BackendError(
                                                     format!("reactor panic: {msg}")
@@ -779,6 +910,99 @@ pub(crate) fn handle_make_call(
             .insert(call_id, CallDirection::Outgoing);
     }
     Ok(entry_id)
+}
+
+/// Handle a `RuntimeCommand::Answer` on the reactor thread (§19.1 / N0027).
+///
+/// Reads as prose: answer via the backend; on success record the resulting call
+/// state in the authoritative `ClientState.calls`, publish `CallConnected` for a
+/// `200` accept or `CallDisconnected` for a `486`/`603` decline (the reject path),
+/// and leave provisional answers (`180`/`183`) without a terminal event; on
+/// backend error propagate without mutating state.
+pub(crate) fn handle_answer(
+    backend: &mut dyn SipBackend,
+    event_bus: &EventBus,
+    call_state: &mut CallStateTables<'_>,
+    call_id: u64,
+    code: u16,
+) -> Result<(), ReactorError> {
+    let call_id_typed = CallId::from_u64(call_id)
+        .map_err(|_| ReactorError::BackendError("invalid call id 0".into()))?;
+    backend.answer_call(call_id as i32, code)?;
+    let account_id = call_state.calls.get(&call_id_typed).map(|e| e.account_id);
+    if let Some(entry) = call_state.calls.get_mut(&call_id_typed) {
+        entry.state = crate::api::call_api_expansion::answer_state_string(code).to_string();
+    }
+    let payload = match (code, account_id) {
+        (200, Some(account_id)) => Some(SipEventPayload::CallConnected(ConnectedCallInfo {
+            call_id: call_id_typed,
+            account_id,
+            remote_uri: String::new(),
+        })),
+        (486 | 603, _) => Some(SipEventPayload::CallDisconnected),
+        _ => None,
+    };
+    if let Some(payload) = payload {
+        dispatch_event(
+            event_bus,
+            SipEvent {
+                meta: EventMeta::new(0, account_id, Some(call_id_typed)),
+                payload,
+            },
+        );
+    }
+    Ok(())
+}
+
+/// Handle a `RuntimeCommand::Hangup` on the reactor thread.
+///
+/// Reads as prose: hang up via the backend; on success mark the call
+/// `Disconnected` in the authoritative `ClientState.calls` and publish
+/// `CallDisconnected`; on backend error propagate. The caller-supplied reason is
+/// logged for observability — the backend `hangup` API takes only the native id.
+pub(crate) fn handle_hangup(
+    backend: &mut dyn SipBackend,
+    event_bus: &EventBus,
+    call_state: &mut CallStateTables<'_>,
+    call_id: u64,
+    reason: crate::call::HangupReason,
+) -> Result<(), ReactorError> {
+    let call_id_typed = CallId::from_u64(call_id)
+        .map_err(|_| ReactorError::BackendError("invalid call id 0".into()))?;
+    backend.hangup(call_id as i32)?;
+    tracing::info!(%call_id_typed, ?reason, "call hung up");
+    let account_id = call_state.calls.get(&call_id_typed).map(|e| e.account_id);
+    if let Some(entry) = call_state.calls.get_mut(&call_id_typed) {
+        entry.state = "Disconnected".to_string();
+    }
+    dispatch_event(
+        event_bus,
+        SipEvent {
+            meta: EventMeta::new(0, account_id, Some(call_id_typed)),
+            payload: SipEventPayload::CallDisconnected,
+        },
+    );
+    Ok(())
+}
+
+/// Handle a `RuntimeCommand::Transfer` on the reactor thread.
+///
+/// Reads as prose: blind-transfer via the backend; on success record the target
+/// and mark the call `Transferring` in the authoritative `ClientState.calls`;
+/// on backend error propagate.
+pub(crate) fn handle_transfer(
+    backend: &mut dyn SipBackend,
+    call_state: &mut CallStateTables<'_>,
+    call_id: u64,
+    target: &str,
+) -> Result<(), ReactorError> {
+    let call_id_typed = CallId::from_u64(call_id)
+        .map_err(|_| ReactorError::BackendError("invalid call id 0".into()))?;
+    backend.transfer_call(call_id as i32, target)?;
+    if let Some(entry) = call_state.calls.get_mut(&call_id_typed) {
+        entry.state = "Transferring".to_string();
+    }
+    Ok(())
 }
 
 /// Handle a `RuntimeCommand::SendDtmf` on the reactor thread.
@@ -2171,6 +2395,249 @@ mod tests {
         assert_eq!(
             state.accounts[&test_account(1)].registration,
             RegistrationState::Registering
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    // ── P15-6: handle_answer / handle_hangup / handle_transfer ─────────
+
+    /// @verifies C086
+    #[tokio::test]
+    async fn handle_answer_200_publishes_call_connected() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: "Incoming".into(),
+                media: "none".into(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        handle_answer(&mut backend, &bus, &mut call_state, 1, 200)?;
+        assert_eq!(
+            backend.answer_calls,
+            vec![(1, 200)],
+            "backend.answer_call must be invoked with (native_call_id, code)"
+        );
+        assert_eq!(
+            client_state.calls[&call_id].state,
+            "Active",
+            "a 200 answer must mark the call Active"
+        );
+
+        let ev = rx.recv().await?;
+        assert!(
+            matches!(ev.payload, SipEventPayload::CallConnected(_)),
+            "a 200 answer must publish CallConnected, got {:?}",
+            ev.payload
+        );
+        assert_eq!(ev.meta.account_id, Some(account_id));
+        assert_eq!(ev.meta.call_id, Some(call_id));
+        Ok(())
+    }
+
+    /// @verifies C086
+    #[tokio::test]
+    async fn handle_answer_486_publishes_call_disconnected() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut backend = TestBackend::new();
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: "Incoming".into(),
+                media: "none".into(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        handle_answer(&mut backend, &bus, &mut call_state, 1, 486)?;
+        assert_eq!(backend.answer_calls, vec![(1, 486)]);
+        assert_eq!(
+            client_state.calls[&call_id].state,
+            "Disconnected",
+            "a 486 decline must mark the call Disconnected"
+        );
+
+        let ev = rx.recv().await?;
+        assert!(
+            matches!(ev.payload, SipEventPayload::CallDisconnected),
+            "a 486 decline must publish CallDisconnected, got {:?}",
+            ev.payload
+        );
+        Ok(())
+    }
+
+    /// @verifies C086
+    #[tokio::test]
+    async fn handle_answer_180_publishes_no_terminal_event() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut backend = TestBackend::new();
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: "Incoming".into(),
+                media: "none".into(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        handle_answer(&mut backend, &bus, &mut call_state, 1, 180)?;
+        assert_eq!(backend.answer_calls, vec![(1, 180)]);
+        assert_eq!(
+            client_state.calls[&call_id].state,
+            "Connecting",
+            "a provisional 180 answer must leave the call Connecting"
+        );
+
+        let timeout = tokio::time::timeout(std::time::Duration::from_millis(50), rx.recv()).await;
+        assert!(
+            timeout.is_err(),
+            "a provisional answer must publish no terminal event"
+        );
+        Ok(())
+    }
+
+    /// @verifies C074
+    #[tokio::test]
+    async fn handle_hangup_publishes_call_disconnected() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: "Active".into(),
+                media: "none".into(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        handle_hangup(
+            &mut backend,
+            &bus,
+            &mut call_state,
+            1,
+            crate::call::HangupReason::LocalUser,
+        )?;
+        assert_eq!(backend.hangup_calls, vec![1]);
+        assert_eq!(
+            client_state.calls[&call_id].state,
+            "Disconnected",
+            "hangup must mark the call Disconnected"
+        );
+
+        let ev = rx.recv().await?;
+        assert!(
+            matches!(ev.payload, SipEventPayload::CallDisconnected),
+            "hangup must publish CallDisconnected, got {:?}",
+            ev.payload
+        );
+        assert_eq!(ev.meta.account_id, Some(account_id));
+        Ok(())
+    }
+
+    /// @verifies C074
+    #[tokio::test]
+    async fn handle_transfer_marks_call_transferring() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: "Active".into(),
+                media: "none".into(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        handle_transfer(&mut backend, &mut call_state, 1, "sip:bob@example.com")?;
+        assert_eq!(
+            backend.transfer_calls,
+            vec![(1, "sip:bob@example.com".to_string())],
+            "backend.transfer_call must be invoked with (native_call_id, target)"
+        );
+        assert_eq!(
+            client_state.calls[&call_id].state,
+            "Transferring",
+            "transfer must mark the call Transferring"
+        );
+        Ok(())
+    }
+
+    /// @verifies C086
+    #[tokio::test]
+    async fn answer_dispatch_publishes_call_connected() -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let bus = handle.event_bus();
+        let mut rx = bus.subscribe_control();
+        let account_id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        let call_id = handle.submit_make_call(account_id, test_call_request()).await?;
+        handle.submit_answer(call_id, 200).await?;
+
+        let ev = rx.recv().await?;
+        assert!(
+            matches!(ev.payload, SipEventPayload::CallConnected(_)),
+            "answer(200) dispatch must publish CallConnected, got {:?}",
+            ev.payload
         );
         shutdown_reactor(handle, join).await;
         Ok(())

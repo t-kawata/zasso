@@ -55,7 +55,7 @@ impl std::fmt::Debug for RuntimeHandle {
     }
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7, P15-4, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7|P15-4|P15-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7, P15-4, P15-5, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7|P15-4|P15-5|P15-6) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
@@ -156,6 +156,17 @@ impl RuntimeHandle {
             // MakeCall has a typed Result<u64> reply — handled via submit_make_call.
             DispatchCommand::MakeCall { .. } => {
                 unreachable!("use submit_make_call instead")
+            }
+            // [::TICKET::] P15-6: call-control commands need reactor-side state
+            // updates + event publish, so they have dedicated submit_* methods.
+            DispatchCommand::Answer { .. } => {
+                unreachable!("use submit_answer instead")
+            }
+            DispatchCommand::Hangup { .. } => {
+                unreachable!("use submit_hangup instead")
+            }
+            DispatchCommand::Transfer { .. } => {
+                unreachable!("use submit_transfer instead")
             }
             DispatchCommand::UpdateAccount {
                 account_id,
@@ -336,6 +347,95 @@ impl RuntimeHandle {
             .map_err(|_| ReactorError::ReactorDown)?;
 
         rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// [::TICKET::] P15-6: submit an `Answer` command and await the reactor's reply.
+    ///
+    /// Separate from `submit()` because the reactor needs the dedicated
+    /// `DispatchCommand::Answer` variant (state update + event publish). The code
+    /// has already passed `validate_answer_code` at the facade.
+    pub async fn submit_answer(&self, call_id: u64, code: u16) -> Result<(), ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::Answer {
+            call_id,
+            code,
+            reply: Reply::new(tx),
+        };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// [::TICKET::] P15-6: submit a `Hangup` command carrying the reason.
+    pub async fn submit_hangup(
+        &self,
+        call_id: u64,
+        reason: crate::call::HangupReason,
+    ) -> Result<(), ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::Hangup {
+            call_id,
+            reason,
+            reply: Reply::new(tx),
+        };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// [::TICKET::] P15-6: submit a `Transfer` command and await the reactor's reply.
+    pub async fn submit_transfer(
+        &self,
+        call_id: u64,
+        target: String,
+    ) -> Result<(), ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::Transfer {
+            call_id,
+            target,
+            reply: Reply::new(tx),
+        };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// [::TICKET::] P15-6: query a single call's signalling state.
+    ///
+    /// Reads the authoritative `ClientState` via `query_state` (C021), maps the
+    /// `CallEntry.state` string to the public `CallState` enum, and returns
+    /// `BackendError("call not found")` when the call id is unknown.
+    pub async fn call_state(
+        &self,
+        call_id: crate::model::CallId,
+    ) -> Result<crate::state::call_state_model::CallState, ReactorError> {
+        let state = self.query_state().await?;
+        state
+            .calls
+            .get(&call_id)
+            .map(|entry| crate::api::call_api_expansion::call_state_from_entry_state(&entry.state))
+            .ok_or_else(|| ReactorError::BackendError("call not found".into()))
     }
 
     /// Submit an `UpdateAccount` command and await the reactor's reply.
@@ -647,7 +747,7 @@ mod tests {
             match rx.recv().await {
                 Some(DispatchCommand::RemoveAudioSource { source_id, reply }) => {
                     assert_eq!(source_id, 7);
-                    reply.send(Ok(())).unwrap();
+                    let _ = reply.send(Ok(()));
                 }
                 other => panic!("expected RemoveAudioSource, got {other:?}"),
             }
@@ -681,7 +781,7 @@ mod tests {
                 }) => {
                     assert_eq!(source_id, 3);
                     assert!((gain - 0.5).abs() < f32::EPSILON);
-                    reply.send(Ok(())).unwrap();
+                    let _ = reply.send(Ok(()));
                 }
                 other => panic!("expected SetAudioSourceGain, got {other:?}"),
             }
@@ -715,7 +815,7 @@ mod tests {
                 }) => {
                     assert_eq!(source_id, 5);
                     assert!(muted);
-                    reply.send(Ok(())).unwrap();
+                    let _ = reply.send(Ok(()));
                 }
                 other => panic!("expected MuteAudioSource, got {other:?}"),
             }
@@ -808,7 +908,7 @@ mod tests {
                 }) => {
                     assert_eq!(account_id, 7);
                     assert_eq!(register_on_start, None);
-                    reply.send(Ok(())).unwrap();
+                    let _ = reply.send(Ok(()));
                 }
                 other => panic!("expected UpdateAccount, got {other:?}"),
             }
@@ -1132,5 +1232,116 @@ mod tests {
             matches!(result, Err(ReactorError::ReactorDown)),
             "a terminated reactor must map to ReactorDown"
         );
+    }
+
+    // ── P15-6: submit_answer / submit_hangup / submit_transfer ─────────
+
+    #[tokio::test]
+    // @verifies C086
+    // [::TICKET::] P15-6: submit_answer sends DispatchCommand::Answer with the
+    // (call_id, code) payload and delivers the reactor reply.
+    async fn submit_answer_sends_dispatch_answer() -> Result<(), Box<dyn std::error::Error>> {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
+        let handle = RuntimeHandle::new(
+            tx,
+            Arc::new(AtomicBool::new(false)),
+            completed_join_handle(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
+
+        let consumer = tokio::spawn(async move {
+            match rx.recv().await {
+                Some(DispatchCommand::Answer {
+                    call_id,
+                    code,
+                    reply,
+                }) => {
+                    assert_eq!(call_id, 7);
+                    assert_eq!(code, 200);
+                    let _ = reply.send(Ok(()));
+                }
+                other => panic!("expected DispatchCommand::Answer, got {other:?}"),
+            }
+        });
+
+        let result = handle.submit_answer(7, 200).await;
+        assert!(result.is_ok(), "the reactor reply must be surfaced");
+        consumer.await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C074
+    // [::TICKET::] P15-6: submit_hangup sends DispatchCommand::Hangup carrying the
+    // caller-supplied reason.
+    async fn submit_hangup_sends_dispatch_hangup() -> Result<(), Box<dyn std::error::Error>> {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
+        let handle = RuntimeHandle::new(
+            tx,
+            Arc::new(AtomicBool::new(false)),
+            completed_join_handle(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
+
+        let consumer = tokio::spawn(async move {
+            match rx.recv().await {
+                Some(DispatchCommand::Hangup {
+                    call_id,
+                    reason,
+                    reply,
+                }) => {
+                    assert_eq!(call_id, 9);
+                    assert_eq!(reason, crate::call::HangupReason::LocalUser);
+                    let _ = reply.send(Ok(()));
+                }
+                other => panic!("expected DispatchCommand::Hangup, got {other:?}"),
+            }
+        });
+
+        let result = handle
+            .submit_hangup(9, crate::call::HangupReason::LocalUser)
+            .await;
+        assert!(result.is_ok(), "the reactor reply must be surfaced");
+        consumer.await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C074
+    // [::TICKET::] P15-6: submit_transfer sends DispatchCommand::Transfer with the
+    // target URI.
+    async fn submit_transfer_sends_dispatch_transfer() -> Result<(), Box<dyn std::error::Error>> {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
+        let handle = RuntimeHandle::new(
+            tx,
+            Arc::new(AtomicBool::new(false)),
+            completed_join_handle(),
+            Arc::new(AudioMixer::new()),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
+
+        let consumer = tokio::spawn(async move {
+            match rx.recv().await {
+                Some(DispatchCommand::Transfer {
+                    call_id,
+                    target,
+                    reply,
+                }) => {
+                    assert_eq!(call_id, 3);
+                    assert_eq!(target, "sip:bob@example.com");
+                    let _ = reply.send(Ok(()));
+                }
+                other => panic!("expected DispatchCommand::Transfer, got {other:?}"),
+            }
+        });
+
+        let result = handle
+            .submit_transfer(3, "sip:bob@example.com".into())
+            .await;
+        assert!(result.is_ok(), "the reactor reply must be surfaced");
+        consumer.await?;
+        Ok(())
     }
 }

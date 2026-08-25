@@ -118,7 +118,7 @@ pub trait SipBackend: Send {
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 }
 
@@ -174,6 +174,12 @@ pub struct TestBackend {
     pub hold_calls: Vec<i32>,
     /// Recorded native call ids from every `unhold` invocation (P11-11).
     pub unhold_calls: Vec<i32>,
+    /// Recorded `(native_call_id, code)` pairs from every `answer_call` (P15-6).
+    pub answer_calls: Vec<(i32, u16)>,
+    /// Recorded native call ids from every `hangup` invocation (P15-6).
+    pub hangup_calls: Vec<i32>,
+    /// Recorded `(native_call_id, target)` pairs from every `transfer_call` (P15-6).
+    pub transfer_calls: Vec<(i32, String)>,
 }
 
 #[cfg(any(test, feature = "test-util"))]
@@ -213,7 +219,7 @@ impl TestBackend {
 
 // [::TICKET::] P8-1, P10-3, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-3|P11-11) --for-spec --no-implementation-order`.
 #[cfg(any(test, feature = "test-util"))]
-// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-6) --for-spec --no-implementation-order`.
 impl SipBackend for TestBackend {
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
@@ -319,12 +325,20 @@ impl SipBackend for TestBackend {
     }
 
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
-    fn answer_call(&mut self, _native_call_id: i32, _code: u16) -> Result<(), ReactorError> {
+    // [::TICKET::] P15-6: record every answer_call invocation so integration tests
+    // can prove the reactor Answer handler dispatched to the backend.
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn answer_call(&mut self, native_call_id: i32, code: u16) -> Result<(), ReactorError> {
+        self.answer_calls.push((native_call_id, code));
         Ok(())
     }
 
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
-    fn hangup(&mut self, _native_call_id: i32) -> Result<(), ReactorError> {
+    // [::TICKET::] P15-6: record every hangup invocation so integration tests can
+    // prove the reactor Hangup handler dispatched to the backend.
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn hangup(&mut self, native_call_id: i32) -> Result<(), ReactorError> {
+        self.hangup_calls.push(native_call_id);
         Ok(())
     }
 
@@ -344,7 +358,11 @@ impl SipBackend for TestBackend {
     }
 
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
-    fn transfer_call(&mut self, _native_call_id: i32, _target: &str) -> Result<(), ReactorError> {
+    // [::TICKET::] P15-6: record every transfer_call invocation (native id + target)
+    // so integration tests can prove the reactor Transfer handler dispatched.
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn transfer_call(&mut self, native_call_id: i32, target: &str) -> Result<(), ReactorError> {
+        self.transfer_calls.push((native_call_id, target.to_string()));
         Ok(())
     }
 
@@ -1247,7 +1265,7 @@ mod tests {
     // @verifies C038, C039
 // [::TICKET::] P3-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3) --for-spec --no-implementation-order`.
     fn test_backend_is_send() {
-// [::TICKET::] P3-2, P10-1, P10-3, P12-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P12-1|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-1, P10-3, P12-1, P15-3, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P12-1|P15-3|P15-6) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<TestBackend>();
         assert_send::<PjsuaBackend>();
@@ -1469,5 +1487,59 @@ mod tests {
             result.is_err(),
             "AccountId::from_u64(0) is Err — make_call must map it, never expect()"
         );
+    }
+
+    // ── P15-6: answer/hangup/transfer recorders ───────────────────────
+
+    #[test]
+    // @verifies C086
+    // [::TICKET::] P15-6: answer_call records every (native_call_id, code) so
+    // integration tests can prove the reactor Answer handler dispatched.
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn test_backend_records_answer_calls() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.answer_call(1, 200)?;
+        backend.answer_call(2, 486)?;
+        assert_eq!(
+            backend.answer_calls,
+            vec![(1, 200), (2, 486)],
+            "answer_call must record (native_call_id, code) in order"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C074
+    // [::TICKET::] P15-6: hangup records the native call id.
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn test_backend_records_hangup_calls() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.hangup(5)?;
+        backend.hangup(6)?;
+        assert_eq!(
+            backend.hangup_calls,
+            vec![5, 6],
+            "hangup must record native call ids in order"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C074
+    // [::TICKET::] P15-6: transfer_call records (native_call_id, target).
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn test_backend_records_transfer_calls() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.transfer_call(3, "sip:bob@example.com")?;
+        backend.transfer_call(4, "sip:carol@example.com")?;
+        assert_eq!(
+            backend.transfer_calls,
+            vec![
+                (3, "sip:bob@example.com".to_string()),
+                (4, "sip:carol@example.com".to_string()),
+            ],
+            "transfer_call must record (native_call_id, target) in order"
+        );
+        Ok(())
     }
 }

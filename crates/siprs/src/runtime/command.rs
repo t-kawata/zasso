@@ -141,8 +141,22 @@ pub enum RuntimeCommand {
         request: Box<crate::api::call_types::OutgoingCallRequest>,
         reply: Reply<Result<u64, ReactorError>>,
     },
+    /// [::TICKET::] P15-6: Answer an incoming call with the given SIP code (§19.1).
+    ///
+    /// The `code` has already passed `validate_answer_code` at the facade, so the
+    /// reactor only ever dispatches an accepted code (180/183/200/486/603).
+    Answer {
+        call_id: u64,
+        code: u16,
+        reply: Reply<Result<(), ReactorError>>,
+    },
+    /// Hang up a call with the caller-supplied reason.
+    ///
+    /// The reason is recorded by the reactor (`handle_hangup`) for observability;
+    /// the backend `hangup` API itself takes only the native call id.
     Hangup {
         call_id: u64,
+        reason: crate::call::HangupReason,
         reply: Reply<Result<(), ReactorError>>,
     },
     Hold {
@@ -151,6 +165,12 @@ pub enum RuntimeCommand {
     },
     Unhold {
         call_id: u64,
+        reply: Reply<Result<(), ReactorError>>,
+    },
+    /// Blind-transfer a call to the given target URI.
+    Transfer {
+        call_id: u64,
+        target: String,
         reply: Reply<Result<(), ReactorError>>,
     },
     SendDtmf {
@@ -221,7 +241,7 @@ pub enum RuntimeCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Display for RuntimeCommand {
-    // [::TICKET::] P0-2, P0-5, P0-6, P7-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P10-3, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P10-3|P15-6) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let variant = match self {
             Self::Initialize { .. } => "Initialize",
@@ -231,9 +251,11 @@ impl std::fmt::Display for RuntimeCommand {
             Self::CreateTransport { .. } => "CreateTransport",
             Self::SetRegistration { .. } => "SetRegistration",
             Self::MakeCall { .. } => "MakeCall",
+            Self::Answer { .. } => "Answer",
             Self::Hangup { .. } => "Hangup",
             Self::Hold { .. } => "Hold",
             Self::Unhold { .. } => "Unhold",
+            Self::Transfer { .. } => "Transfer",
             Self::SendDtmf { .. } => "SendDtmf",
             Self::GetAccountInfo { .. } => "GetAccountInfo",
             Self::QueryState { .. } => "QueryState",
@@ -250,7 +272,7 @@ impl std::fmt::Display for RuntimeCommand {
 }
 
 /// Type alias for the backend execution closure used in `DispatchCommand`.
-// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6, P12-1, P12-7, P15-4, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6|P12-1|P12-7|P15-4|P15-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6, P12-1, P12-7, P15-4, P15-5, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6|P12-1|P12-7|P15-4|P15-5|P15-6) --for-spec --no-implementation-order`.
 type BackendFn =
     Box<dyn FnOnce(&mut dyn super::backend::SipBackend) -> Result<(), ReactorError> + Send>;
 
@@ -331,6 +353,36 @@ pub(crate) enum DispatchCommand {
         request: Box<crate::api::call_types::OutgoingCallRequest>,
         reply: Reply<Result<u64, ReactorError>>,
     },
+    /// [::TICKET::] P15-6: answer an incoming call and reflect the result in state.
+    ///
+    /// Dedicated variant (not an `Execute` closure) so the reactor loop can update
+    /// `client_state.calls[].state` and publish `CallConnected` / decline events on
+    /// the single client-owned EventBus via `handle_answer` — an `Execute` closure
+    /// only receives `&mut dyn SipBackend` and cannot reach the EventBus.
+    Answer {
+        call_id: u64,
+        code: u16,
+        reply: Reply<Result<(), ReactorError>>,
+    },
+    /// [::TICKET::] P15-6: hang up a call, recording the reason and publishing
+    /// `CallDisconnected`.
+    ///
+    /// Dedicated variant so the reactor loop can mark the call disconnected in
+    /// `client_state.calls` and publish the disconnect event via `handle_hangup`.
+    Hangup {
+        call_id: u64,
+        reason: crate::call::HangupReason,
+        reply: Reply<Result<(), ReactorError>>,
+    },
+    /// [::TICKET::] P15-6: blind-transfer a call to a target URI.
+    ///
+    /// Dedicated variant so the reactor loop can mark the call `Transferring` in
+    /// `client_state.calls` via `handle_transfer`.
+    Transfer {
+        call_id: u64,
+        target: String,
+        reply: Reply<Result<(), ReactorError>>,
+    },
     /// Update the stored config of an existing account in the reactor's ClientState.
     ///
     /// Dedicated variant (not an `Execute` closure) so the reactor loop can also
@@ -384,7 +436,7 @@ pub(crate) enum DispatchCommand {
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10, P11-11, P12-1, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10|P11-11|P12-1|P15-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10, P11-11, P12-1, P15-5, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10|P11-11|P12-1|P15-5|P15-6) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
@@ -432,8 +484,18 @@ impl DispatchCommand {
                 request,
                 reply,
             },
-            RuntimeCommand::Hangup { call_id, reply } => Self::Execute {
-                f: Box::new(move |backend| backend.hangup(call_id as i32)),
+            RuntimeCommand::Answer { call_id, code, reply } => Self::Answer {
+                call_id,
+                code,
+                reply,
+            },
+            RuntimeCommand::Hangup {
+                call_id,
+                reason,
+                reply,
+            } => Self::Hangup {
+                call_id,
+                reason,
                 reply,
             },
             RuntimeCommand::Hold { call_id, reply } => Self::Execute {
@@ -442,6 +504,11 @@ impl DispatchCommand {
             },
             RuntimeCommand::Unhold { call_id, reply } => Self::Execute {
                 f: Box::new(move |backend| backend.unhold(call_id as i32)),
+                reply,
+            },
+            RuntimeCommand::Transfer { call_id, target, reply } => Self::Transfer {
+                call_id,
+                target,
                 reply,
             },
             RuntimeCommand::SendDtmf {
@@ -506,7 +573,7 @@ impl DispatchCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for DispatchCommand {
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P11-6, P11-11, P12-1, P12-7, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P11-6|P11-11|P12-1|P12-7|P15-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P11-6, P11-11, P12-1, P12-7, P15-5, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P11-6|P11-11|P12-1|P12-7|P15-5|P15-6) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Execute { .. } => f
@@ -535,6 +602,15 @@ impl std::fmt::Debug for DispatchCommand {
                 .finish_non_exhaustive(),
             Self::MakeCall { .. } => f
                 .debug_struct("DispatchCommand::MakeCall")
+                .finish_non_exhaustive(),
+            Self::Answer { .. } => f
+                .debug_struct("DispatchCommand::Answer")
+                .finish_non_exhaustive(),
+            Self::Hangup { .. } => f
+                .debug_struct("DispatchCommand::Hangup")
+                .finish_non_exhaustive(),
+            Self::Transfer { .. } => f
+                .debug_struct("DispatchCommand::Transfer")
                 .finish_non_exhaustive(),
             Self::UpdateAccount { .. } => f
                 .debug_struct("DispatchCommand::UpdateAccount")
@@ -820,6 +896,119 @@ mod tests {
             }
             other => panic!("expected DispatchCommand::MakeCall, got {other:?}"),
         }
+    }
+
+    // ── P15-6: Answer / Hangup{reason} / Transfer dedicated dispatch ──
+
+    #[test]
+    // @verifies C086
+    // [::TICKET::] P15-6: Answer maps to the dedicated DispatchCommand::Answer
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn from_runtime_command_converts_answer_to_dedicated_variant() {
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let cmd = RuntimeCommand::Answer {
+            call_id: 7,
+            code: 200,
+            reply: Reply::new(tx),
+        };
+        let dispatch = DispatchCommand::from_runtime_command(cmd);
+        match dispatch {
+            DispatchCommand::Answer {
+                call_id,
+                code,
+                reply,
+            } => {
+                assert_eq!(call_id, 7, "call_id must be preserved");
+                assert_eq!(code, 200, "answer code must be preserved");
+                let _ = reply;
+            }
+            other => panic!("expected DispatchCommand::Answer, got {other:?}"),
+        }
+    }
+
+    #[test]
+    // @verifies C074
+    // [::TICKET::] P15-6: Hangup maps to the dedicated DispatchCommand::Hangup and
+    // carries the caller-supplied reason.
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn from_runtime_command_converts_hangup_to_dedicated_variant_with_reason() {
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let cmd = RuntimeCommand::Hangup {
+            call_id: 9,
+            reason: crate::call::HangupReason::LocalUser,
+            reply: Reply::new(tx),
+        };
+        let dispatch = DispatchCommand::from_runtime_command(cmd);
+        match dispatch {
+            DispatchCommand::Hangup {
+                call_id,
+                reason,
+                reply,
+            } => {
+                assert_eq!(call_id, 9, "call_id must be preserved");
+                assert_eq!(
+                    reason,
+                    crate::call::HangupReason::LocalUser,
+                    "hangup reason must be preserved"
+                );
+                let _ = reply;
+            }
+            other => panic!("expected DispatchCommand::Hangup, got {other:?}"),
+        }
+    }
+
+    #[test]
+    // @verifies C074
+    // [::TICKET::] P15-6: Transfer maps to the dedicated DispatchCommand::Transfer
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn from_runtime_command_converts_transfer_to_dedicated_variant() {
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let cmd = RuntimeCommand::Transfer {
+            call_id: 3,
+            target: "sip:bob@example.com".into(),
+            reply: Reply::new(tx),
+        };
+        let dispatch = DispatchCommand::from_runtime_command(cmd);
+        match dispatch {
+            DispatchCommand::Transfer {
+                call_id,
+                target,
+                reply,
+            } => {
+                assert_eq!(call_id, 3, "call_id must be preserved");
+                assert_eq!(target, "sip:bob@example.com", "target must be preserved");
+                let _ = reply;
+            }
+            other => panic!("expected DispatchCommand::Transfer, got {other:?}"),
+        }
+    }
+
+    #[test]
+    // @verifies C011
+    // [::TICKET::] P15-6: new RuntimeCommand variants display their variant name
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn runtime_command_display_shows_new_call_api_variants() {
+        let (tx, _rx) = tokio::sync::oneshot::channel();
+        let answer = RuntimeCommand::Answer {
+            call_id: 1,
+            code: 200,
+            reply: Reply::new(tx),
+        };
+        assert_eq!(format!("{answer}"), "RuntimeCommand::Answer");
+        let (tx2, _rx2) = tokio::sync::oneshot::channel();
+        let hangup = RuntimeCommand::Hangup {
+            call_id: 1,
+            reason: crate::call::HangupReason::Busy,
+            reply: Reply::new(tx2),
+        };
+        assert_eq!(format!("{hangup}"), "RuntimeCommand::Hangup");
+        let (tx3, _rx3) = tokio::sync::oneshot::channel();
+        let transfer = RuntimeCommand::Transfer {
+            call_id: 1,
+            target: "sip:bob@example.com".into(),
+            reply: Reply::new(tx3),
+        };
+        assert_eq!(format!("{transfer}"), "RuntimeCommand::Transfer");
     }
 
     #[test]

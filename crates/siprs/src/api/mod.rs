@@ -34,6 +34,9 @@ pub mod audio_subscribe_bp;
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-3: Call API & Answer Semantics — CallApiSemantics trait (RFC N0027)
 pub mod call_api_semantics;
+// [::TICKET::] P15-6: Call API expansion — §62.5 public call-control surface (N0074)
+pub mod call_api_expansion;
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 

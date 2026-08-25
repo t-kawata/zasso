@@ -164,8 +164,22 @@ subscribe() / subscribe_account(id) / subscribe_raw_sip() の 3 つの購読方�
 
 1. reactor の `dispatch_event` をクライアントのバスへ転送（§15.6 `subscribe()` → `subscribe_control()` 一元化、`P12-7` の `dispatch_event` 配線）。
 2. `RawSipEventConfig.enabled`（default true）に応じて raw_sip チャネルを生成。
-3. 明示的な unsubscribe API を追加するか、drop による購読解除を README に明文化（要 API 設計判断）。
+3. **設計確定（§62.5 / P15-6）**: 明示的な unsubscribe API は追加しない。購読解除は broadcast `Receiver` の drop による（RFC §8.3）。`subscribe()` / `subscribe_account()` / `subscribe_raw_sip()` が返す Receiver を drop すれば購読が自動解除される。
 4. `SipEventPayload` 36 バリアントのうち P1/P2 系を M20 変換器で `Some()` 化（OMISSIONS F8）。
+
+# 通話制御 API（answer / hangup / hold / unhold / transfer / send_dtmf / call_state / calls）
+
+RFC §19 / §20 の通話制御 API を `SipClient` に追加した（§62.5、P15-6）。全メソッドは `CallId` を入力に取り、非同期 `Result<_, SipError>` を返す。
+
+- `answer(call_id, code)` — 着信応答。`180 / 183 / 200 / 486 / 603` を受理（§19.1）。`486`=Busy、`603`=Decline が reject 経路（独立 reject API は無い）。不正 code は `Err(InvalidArgument)` で dispatch 前に拒否（fail-fast）。
+- `hangup(call_id, reason)` — 切断。`HangupReason` を受理し、reactor が `CallDisconnected` を publish。
+- `hold(call_id)` / `unhold(call_id)` — 保留・復帰。
+- `transfer(call_id, target)` — ブラインド転送（`sip:` URI）。
+- `send_dtmf(call_id, digits, method)` — DTMF 送信。戻り値は「Reactor が PJSIP へ受理した」ことのみを意味し、配送は二相タイムアウトの `DtmfSent` で監視（§20）。
+- `call_state(call_id)` — per-call の `CallState`（§18 の 13 状態 enum）。未知の call_id は `Err(CallNotFound)`。
+- `calls()` — 全 `CallEntry` 一覧。**旧 `call_state()`（`Vec<CallEntry>` を返していた）の改名**。per-call 参照は上記 `call_state(call_id)` を使用。
+
+`make_call`（`SipAccountHandle`）で取得した `CallId` をこれらに渡す発着信フローが成立する。
 
 # 発信（make_call と OutgoingCallRequest）
 
@@ -178,7 +192,7 @@ make_call の最小コード（target_uri のみ指定）と、発信後のキ�
 ### 証拠（欠落・危険）
 
 - `make_call` → `submit_make_call` → `MakeCall` アーム → `handle_make_call`（`reactor.rs:701-721`）→ `MockBackend::make_call` はインクリメント ID を返すのみ。**発信系イベント（OutgoingCallStarted / Trying / Ringing / CallConnected）は一切発火しない**（`reactor.rs:270-312`、OMISSIONS F6）。
-- 確認済み内容の**「発信後のキャンセル（hangup）方法」を実現する公開 API が存在しない**。`SipCall::hangup`（`src/call.rs:160`）はローカル状態遷移のみで reactor/wire に届かない。`make_call` が返す CallId（u64）に対する cancel 経路がない。
+- 確認済み内容の**「発信後のキャンセル（hangup）方法」を実現する公開 API が存在しない**。`SipCall::hangup`（`src/call.rs:160`）はローカル状態遷移のみで reactor/wire に届かない。`make_call` が返す CallId（u64）に対する cancel 経路がない。**（§62.5 / P15-6 で解消）**: `SipClient::hangup(call_id, HangupReason)` が `RuntimeCommand::Hangup` を submit し、reactor が backend へ dispatch して `CallDisconnected` を publish する。
 - §17 の「未登録でも make_call 可能」不変条件も Mock 上のみ。
 
 ### 実装補強設計（完全記述への条件）
