@@ -709,7 +709,13 @@
       "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6)",
       "Read(//Users/sh01/.claude/projects/-Users-sh01-shyme-zasso/memory/**)",
       "Bash(git -C /Users/sh01/shyme/zasso/crates/siprs log --oneline -8)",
-      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P15-6\")"
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P15-6\")",
+      "Bash(ls -la /Users/sh01/shyme/zasso/crates/siprs && echo \"---ROOT---\" && ls /Users/sh01/shyme/zasso/Makefile 2>/dev/null && echo \"Makefile exists at root\" || echo \"No Makefile at root\")",
+      "Bash(node .claude/scripts/tickets/review/find-all-stubs.js \".\")",
+      "Bash(.claude/scripts/tickets/scan-crimes.sh \".\")",
+      "Bash(echo \"VALIDATOR EXIT: $?\")",
+      "Bash(awk '{f+=$4} END {print \"TOTAL FAILED: \" f}')",
+      "Bash(git commit -m 'chore: extend local settings allowlist with P15 review tooling commands *)"
     ]
   }
 }
