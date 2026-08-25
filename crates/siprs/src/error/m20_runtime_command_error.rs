@@ -121,7 +121,7 @@ pub struct AccountInfo {
     pub registered: bool,
 }
 
-// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-5) --for-spec --no-implementation-order`.
 impl AccountInfo {
     /// Build an `AccountInfo` from the reactor's authoritative `AccountEntry`.
     ///
@@ -141,8 +141,7 @@ impl AccountInfo {
             account_id,
             display_name: entry.config.display_name.clone().unwrap_or_default(),
             sip_uri: format!("sip:{}@{}", entry.config.username, entry.config.domain),
-            registered: RegistrationState::from_storage_str(&entry.registration)
-                == RegistrationState::Registered,
+            registered: entry.registration == RegistrationState::Registered,
         })
     }
 }
@@ -191,7 +190,7 @@ mod tests {
 
     // A registered account entry as stored by TestBackend::add_account.
     // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
-// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-5) --for-spec --no-implementation-order`.
     fn registered_entry() -> AccountEntry {
         AccountEntry {
             id: 1,
@@ -201,7 +200,7 @@ mod tests {
                 domain: "example.com".into(),
                 ..Default::default()
             },
-            registration: "Registered".into(),
+            registration: RegistrationState::Registered,
         }
     }
 
@@ -475,22 +474,21 @@ mod tests {
 
     #[test]
     // @verifies C013
-    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P15-5) --for-spec --no-implementation-order`.
     fn account_info_from_entry_maps_id_and_registered() -> Result<(), Box<dyn std::error::Error>> {
         let info = AccountInfo::from_entry(&registered_entry())?;
         let _: AccountId = info.account_id; // compile-time: field is AccountId, not u64
         assert_eq!(info.account_id, AccountId::from_u64(1)?);
         assert_eq!(
             info.registered,
-            RegistrationState::from_storage_str(&registered_entry().registration)
-                == RegistrationState::Registered
+            registered_entry().registration == RegistrationState::Registered
         );
         Ok(())
     }
 
     #[test]
     // @verifies C013
-    // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-5) --for-spec --no-implementation-order`.
     fn account_info_from_entry_zero_id_returns_account_not_found() {
         // C013 invariant: AccountId::from_u64(0) is Err (NonZeroU64) — a zero
         // entry.id must map to Err(AccountNotFound), never a stored 0 sentinel.
@@ -498,7 +496,7 @@ mod tests {
             id: 0,
             native_id: 0,
             config: crate::config::account_config_spec::AccountConfig::default(),
-            registration: "Registered".into(),
+            registration: RegistrationState::Registered,
         };
         let err = AccountInfo::from_entry(&zero_entry).expect_err("zero id must fail");
         assert_eq!(err.kind, SipErrorKind::AccountNotFound);

@@ -431,7 +431,7 @@ impl SipClient {
 /// (zero value), skipping such entries. `uri` and `display_name` are derived
 /// from the stored `AccountConfig` (P10-3 makes `ClientState` the source of truth).
 // [::TICKET::] P7-2: O-004 — authoritative query API mapping
-// [::TICKET::] P7-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P7-2, P10-1, P10-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P10-1|P10-3|P15-5) --for-spec --no-implementation-order`.
 fn account_snapshot_from_entry(
     entry: &crate::runtime::state::AccountEntry,
 ) -> Option<crate::api::event_model_payload_bus::AccountSnapshot> {
@@ -439,8 +439,7 @@ fn account_snapshot_from_entry(
         account_id: crate::model::AccountId::from_u64(entry.id).ok()?,
         display_name: entry.config.display_name.clone(),
         uri: format!("sip:{}@{}", entry.config.username, entry.config.domain),
-        registered: RegistrationState::from_storage_str(&entry.registration)
-            == RegistrationState::Registered,
+        registered: entry.registration == RegistrationState::Registered,
     })
 }
 

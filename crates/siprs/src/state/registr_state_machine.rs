@@ -1,3 +1,4 @@
+// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
 // ============================================================================
 // Initial Design Artifact — RFC-driven Implementation
 // !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
@@ -145,25 +146,6 @@ impl RegistrationState {
         matches!(self, RegistrationState::Failed | RegistrationState::Expired)
     }
 
-    /// Map a canonical storage string back to the corresponding variant.
-    ///
-    /// The reactor stores `AccountEntry.registration` as the `Display` form of a
-    /// `RegistrationState` (or the legacy P0-era "Unregistered"). It inverts that
-    /// encoding. Unknown or empty strings map to `Disabled` — the safe default —
-    /// so account-info retrieval never panics on unparseable state.
-    pub fn from_storage_str(storage: &str) -> RegistrationState {
-        match storage {
-            "Disabled" => RegistrationState::Disabled,
-            "Idle" => RegistrationState::Idle,
-            "Registering" => RegistrationState::Registering,
-            "Registered" => RegistrationState::Registered,
-            "Unregistering" => RegistrationState::Unregistering,
-            "Failed" => RegistrationState::Failed,
-            "Expired" => RegistrationState::Expired,
-            "Unregistered" => RegistrationState::Idle,
-            _ => RegistrationState::Disabled,
-        }
-    }
 }
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
@@ -514,63 +496,5 @@ mod tests {
                 | RegistrationState::Expired => {}
             }
         }
-    }
-
-    /// @verifies C026
-    /// P10-1: AccountEntry.registration stores a canonical Display string;
-    /// from_storage_str must invert the Display impl for all 7 variants and map
-    /// the legacy P0-era "Unregistered" storage string to Idle.
-    #[test]
-    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
-    fn from_storage_str_maps_canonical_storage_strings() {
-        assert_eq!(
-            RegistrationState::from_storage_str("Disabled"),
-            RegistrationState::Disabled
-        );
-        assert_eq!(
-            RegistrationState::from_storage_str("Idle"),
-            RegistrationState::Idle
-        );
-        assert_eq!(
-            RegistrationState::from_storage_str("Registering"),
-            RegistrationState::Registering
-        );
-        assert_eq!(
-            RegistrationState::from_storage_str("Registered"),
-            RegistrationState::Registered
-        );
-        assert_eq!(
-            RegistrationState::from_storage_str("Unregistering"),
-            RegistrationState::Unregistering
-        );
-        assert_eq!(
-            RegistrationState::from_storage_str("Failed"),
-            RegistrationState::Failed
-        );
-        assert_eq!(
-            RegistrationState::from_storage_str("Expired"),
-            RegistrationState::Expired
-        );
-        // Legacy storage string from the P0-era reactor maps to Idle.
-        assert_eq!(
-            RegistrationState::from_storage_str("Unregistered"),
-            RegistrationState::Idle
-        );
-    }
-
-    /// @verifies C026
-    /// P10-1: unknown or empty storage strings map to the safe default Disabled —
-    /// account-info retrieval must never panic on unparseable reactor state.
-    #[test]
-    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
-    fn from_storage_str_unknown_and_empty_map_to_disabled() {
-        assert_eq!(
-            RegistrationState::from_storage_str("bogus"),
-            RegistrationState::Disabled
-        );
-        assert_eq!(
-            RegistrationState::from_storage_str(""),
-            RegistrationState::Disabled
-        );
     }
 }

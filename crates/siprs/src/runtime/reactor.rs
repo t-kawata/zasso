@@ -11,15 +11,15 @@ use crate::runtime::backend::SipBackend;
 use crate::runtime::backend_selection::create_backend;
 use crate::runtime::command::{send_reply, DispatchCommand, ReactorError};
 use crate::runtime::handle::{self, RuntimeHandle};
-use crate::runtime::state::{CallEntry, ClientState};
+use crate::runtime::state::{AccountEntry, CallEntry, ClientState};
 
-use crate::api::event_model_payload_bus::{
-    AccountId, CallId, EventMeta, SipEvent, SipEventPayload,
-};
+use crate::api::event_model_payload_bus::{AccountId, CallId, EventMeta, SipEvent};
 use crate::api::eventbus_receiver::EventBus;
 use crate::state::m20_callstate_mapping::{convert_call_state_with_previous, CallDirection};
 use crate::state::m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
-use crate::state::m20_registr_cmd_pat::registration_status_to_payload;
+use crate::state::registr_wiring::{
+    apply_registration_command_state, process_registration_state_changed,
+};
 
 /// Name of the reactor OS thread. Used for diagnostics and by the FFI
 /// thread-lifecycle observer (P8-21) to correlate thread ids with the reactor.
@@ -84,7 +84,7 @@ type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -340,6 +340,7 @@ impl CoreReactor {
                                 DispatchCommand::UpdateAccount {
                                     account_id,
                                     config,
+                                    register_on_start,
                                     reply,
                                 } => {
                                     let result = std::panic::catch_unwind(
@@ -358,7 +359,19 @@ impl CoreReactor {
                                                     )
                                                 })?
                                                 .native_id;
-                                            backend.update_account(native_id, &config)
+                                            backend.update_account(native_id, &config)?;
+                                            // §62.4: consume the register_on_start delta —
+                                            // re-issue registration/unregistration after the
+                                            // config update.
+                                            if let Some(enabled) = register_on_start {
+                                                backend.set_registration(native_id, enabled)?;
+                                                apply_registration_command_state(
+                                                    &mut client_state,
+                                                    aid,
+                                                    enabled,
+                                                );
+                                            }
+                                            Ok(())
                                         }),
                                     );
                                     match result {
@@ -409,6 +422,60 @@ impl CoreReactor {
                                             terminated.store(true, Ordering::Release);
                                             let msg = panic_message(&panic_payload);
                                             tracing::error!(panic_msg = %msg, "reactor remove_account panicked");
+                                            let _ = reply.send(Err(
+                                                ReactorError::BackendError(format!(
+                                                    "reactor panic: {msg}"
+                                                ))
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                DispatchCommand::SetRegistration {
+                                    account_id,
+                                    enabled,
+                                    reply,
+                                } => {
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            let aid = AccountId::from_u64(account_id).map_err(
+                                                |_| {
+                                                    ReactorError::NotInitialized(
+                                                        "invalid account id".into(),
+                                                    )
+                                                },
+                                            )?;
+                                            let native_id = client_state
+                                                .accounts
+                                                .get(&aid)
+                                                .ok_or_else(|| {
+                                                    ReactorError::NotInitialized(
+                                                        "account not found".into(),
+                                                    )
+                                                })?
+                                                .native_id;
+                                            backend.set_registration(native_id, enabled)?;
+                                            // §17.1 command edge: advance ClientState to
+                                            // Registering/Unregistering alongside the backend.
+                                            apply_registration_command_state(
+                                                &mut client_state,
+                                                aid,
+                                                enabled,
+                                            );
+                                            Ok(())
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(())) => {
+                                            let _ = reply.send(Ok(()));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = panic_message(&panic_payload);
+                                            tracing::error!(panic_msg = %msg, "reactor set_registration panicked");
                                             let _ = reply.send(Err(
                                                 ReactorError::BackendError(format!(
                                                     "reactor panic: {msg}"
@@ -481,6 +548,7 @@ impl CoreReactor {
                                         &event_bus,
                                         event,
                                         &mut call_state,
+                                        &mut client_state.accounts,
                                     );
                                 }
                                 DispatchCommand::Shutdown { reply } => {
@@ -564,10 +632,11 @@ pub(crate) fn dispatch_event(event_bus: &EventBus, event: SipEvent) {
 
 /// Convert a `NativeEvent` to a `SipEvent` and publish it via `dispatch_event` (N0021).
 ///
-/// `RegistrationStateChanged` is special: it queries the backend via
-/// `get_account_info()` and publishes `RegistrationSucceeded`/`RegistrationFailed`
-/// (or `Error`) — this is the production publication path that previously had no
-/// call site for `registration_status_to_payload` (O-001).
+/// `RegistrationStateChanged` is special (§62.4): it delegates to
+/// `registr_wiring::process_registration_state_changed`, which queries the
+/// backend via `get_account_info()`, drives the §17 state machine, updates
+/// `ClientState`, and produces `SipEventPayload::RegistrationStateChanged`
+/// (or `Error` on backend failure).
 ///
 /// Other P0 events flow through `convert_native_event_to_payload`; P1/P2 events
 /// convert to `None` and are silently not published (documented rationale).
@@ -582,19 +651,11 @@ pub(crate) fn process_native_event(
     event_bus: &EventBus,
     event: NativeEvent,
     call_state: &mut CallStateTables<'_>,
+    accounts: &mut BTreeMap<AccountId, AccountEntry>,
 ) {
     match event {
         NativeEvent::RegistrationStateChanged { acc_id } => {
-            let account_id = AccountId::from_u64(acc_id as u64).ok();
-            let payload = match backend.get_account_info(acc_id) {
-                Ok(snapshot) => registration_status_to_payload(&snapshot),
-                Err(reactor_error) => Some(SipEventPayload::Error(reactor_error.into())),
-            };
-            if let Some(payload) = payload {
-                let sip_event = SipEvent {
-                    meta: EventMeta::new(0, account_id, None),
-                    payload,
-                };
+            if let Some(sip_event) = process_registration_state_changed(backend, acc_id, accounts) {
                 dispatch_event(event_bus, sip_event);
             }
         }
@@ -760,11 +821,13 @@ pub(crate) fn handle_send_dtmf(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::event_model_payload_bus::SipEventPayload;
     use crate::runtime::backend::TestBackend;
     use crate::runtime::command::Reply;
-    use crate::runtime::state::CallEntry;
+    use crate::runtime::state::{AccountEntry, CallEntry};
     use crate::state::m20_callstate_mapping::pjsip_inv_state;
     use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
+    use crate::state::registr_state_machine::RegistrationState;
     use std::collections::BTreeMap;
 
     /// Construct a test `CallId` from a non-zero value.
@@ -869,25 +932,18 @@ mod tests {
 
     // ── O-001: production process_native_event registration flow ───────
 
-    /// @verifies C024
+    /// @verifies C024, C073
     #[tokio::test]
-    // [::TICKET::] P7-2: O-001 — status 200 publishes RegistrationSucceeded via dispatch_event
-    async fn process_native_event_registration_200_publishes_succeeded(
+    // [::TICKET::] P15-5: §62.4 — a status 200 native event drives the state machine
+    // from Registering to Registered and publishes RegistrationStateChanged(Registered).
+    async fn process_native_event_registration_200_publishes_registration_state_changed_registered(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
-        // P10-1: the snapshot is registry-derived — register an account first so
-        // get_account_info(1) yields the Ok(200) success shape.
-        // [::TICKET::] P15-3: add_account now starts Disabled (§62.2), so the
-        // account is advanced to Registered before the 200 flow.
         let mut backend = TestBackend::new();
-        let config = crate::config::account_config_spec::AccountConfig {
-            username: "alice".into(),
-            ..crate::config::account_config_spec::AccountConfig::default()
-        };
-        backend.add_account(&config)?;
-        backend.mark_registered(1);
+        backend.add_account(&crate::config::account_config_spec::AccountConfig::default())?;
+        backend.mark_registered(1); // get_account_info -> status 200
         let bus = EventBus::new(16, None);
         let mut calls = BTreeMap::new();
+        let mut accounts = account_with_registration(1, RegistrationState::Registering);
         let mut rx = bus.subscribe_control();
 
         let mut call_state = CallStateTables {
@@ -899,41 +955,7 @@ mod tests {
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
-        );
-
-        let ev = rx
-            .recv()
-            .await
-            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
-        assert!(
-            matches!(ev.payload, SipEventPayload::RegistrationSucceeded(_)),
-            "expected RegistrationSucceeded, got {:?}",
-            ev.payload
-        );
-        assert_eq!(ev.meta.account_id, Some(test_account(1)));
-        Ok(())
-    }
-
-    /// @verifies C024
-    #[tokio::test]
-    // [::TICKET::] P7-2: O-001 — get_account_info Err publishes a failure event (no silent drop)
-    async fn process_native_event_registration_err_publishes_failure() {
-        let mut backend = TestBackend::new();
-        backend.get_account_info_result =
-            Some(Err(ReactorError::BackendError("mock backend down".into())));
-        let bus = EventBus::new(16, None);
-        let mut calls = BTreeMap::new();
-        let mut rx = bus.subscribe_control();
-
-        let mut call_state = CallStateTables {
-            calls: &mut calls,
-            call_directions: &mut empty_directions(),
-        };
-        process_native_event(
-            &backend,
-            &bus,
-            NativeEvent::RegistrationStateChanged { acc_id: 1 },
-            &mut call_state,
+            &mut accounts,
         );
 
         let ev = rx
@@ -943,10 +965,56 @@ mod tests {
         assert!(
             matches!(
                 ev.payload,
-                SipEventPayload::RegistrationFailed(_) | SipEventPayload::Error(_)
+                SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
             ),
-            "expected RegistrationFailed or Error, got {:?}",
+            "expected RegistrationStateChanged(Registered), got {:?}",
             ev.payload
+        );
+        assert_eq!(ev.meta.account_id, Some(test_account(1)));
+        assert_eq!(
+            accounts[&test_account(1)].registration,
+            RegistrationState::Registered
+        );
+        Ok(())
+    }
+
+    /// @verifies C024
+    #[tokio::test]
+    // [::TICKET::] P15-5: §62.4 — get_account_info Err publishes SipEventPayload::Error
+    // and leaves ClientState unchanged (no silent drop, no state corruption).
+    async fn process_native_event_registration_err_publishes_error() {
+        let mut backend = TestBackend::new();
+        backend.get_account_info_result =
+            Some(Err(ReactorError::BackendError("mock backend down".into())));
+        let bus = EventBus::new(16, None);
+        let mut calls = BTreeMap::new();
+        let mut accounts = account_with_registration(1, RegistrationState::Registering);
+        let mut rx = bus.subscribe_control();
+
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+        };
+        process_native_event(
+            &backend,
+            &bus,
+            NativeEvent::RegistrationStateChanged { acc_id: 1 },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+        assert!(
+            matches!(ev.payload, SipEventPayload::Error(_)),
+            "expected Error, got {:?}",
+            ev.payload
+        );
+        assert_eq!(
+            accounts[&test_account(1)].registration,
+            RegistrationState::Registering
         );
     }
 
@@ -954,10 +1022,9 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P10-6: O-001 — non-200 Ok snapshot (403) publishes RegistrationFailed via the production flow
     // [::TICKET::] P10-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-6 --for-spec --no-implementation-order`.
-    async fn process_native_event_registration_403_publishes_failed() {
-        // C024: a non-200 registration status must be published as RegistrationFailed
-        // through the production path, not just the isolated status mapping
-        // exercised by the registration_status_to_payload unit tests (ABC O-001).
+    async fn process_native_event_registration_403_publishes_registration_state_changed_failed() {
+        // C024/C085: a non-200 registration status drives Registering → Failed and
+        // publishes RegistrationStateChanged(Failed) via the production path.
         let mut backend = TestBackend::new();
         backend.get_account_info_result = Some(Ok(AccountInfoSnapshot {
             acc_id: test_account(1),
@@ -968,6 +1035,7 @@ mod tests {
         }));
         let bus = EventBus::new(16, None);
         let mut calls = BTreeMap::new();
+        let mut accounts = account_with_registration(1, RegistrationState::Registering);
         let mut rx = bus.subscribe_control();
 
         let mut call_state = CallStateTables {
@@ -979,19 +1047,26 @@ mod tests {
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
+            &mut accounts,
         );
 
         let ev = rx
             .recv()
             .await
             .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
-        match &ev.payload {
-            SipEventPayload::RegistrationFailed(failure) => {
-                assert_eq!(failure.status_code, 403);
-                assert_eq!(ev.meta.account_id, Some(test_account(1)));
-            }
-            other => panic!("expected RegistrationFailed, got {other:?}"),
-        }
+        assert!(
+            matches!(
+                ev.payload,
+                SipEventPayload::RegistrationStateChanged(RegistrationState::Failed)
+            ),
+            "expected RegistrationStateChanged(Failed), got {:?}",
+            ev.payload
+        );
+        assert_eq!(ev.meta.account_id, Some(test_account(1)));
+        assert_eq!(
+            accounts[&test_account(1)].registration,
+            RegistrationState::Failed
+        );
     }
 
     /// @verifies C022
@@ -1003,6 +1078,7 @@ mod tests {
         let mut calls = confirmed_calls();
         let mut rx = bus.subscribe_control();
 
+        let mut accounts = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
@@ -1015,6 +1091,7 @@ mod tests {
                 state: pjsip_inv_state::CONFIRMED,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         let ev = rx
@@ -1060,6 +1137,7 @@ mod tests {
         ]);
         let mut rx = bus.subscribe_control();
 
+        let mut accounts = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
@@ -1072,6 +1150,7 @@ mod tests {
                 state: pjsip_inv_state::CONFIRMED,
             },
             &mut call_state,
+            &mut accounts,
         );
         let mut call_state = CallStateTables {
             calls: &mut calls,
@@ -1085,6 +1164,7 @@ mod tests {
                 state: pjsip_inv_state::CONFIRMED,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         let first = rx
@@ -1112,6 +1192,7 @@ mod tests {
         let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut calls = BTreeMap::new();
+        let mut accounts = BTreeMap::new();
         let mut rx = bus.subscribe_control();
 
         let mut call_state = CallStateTables {
@@ -1126,6 +1207,7 @@ mod tests {
                 state: 0,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         // P1/P2 convert to None — no event must be published on the bus.
@@ -1161,6 +1243,7 @@ mod tests {
         )]);
         let mut directions = BTreeMap::from([(test_call_id(7), CallDirection::Incoming)]);
 
+        let mut accounts = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
@@ -1173,6 +1256,7 @@ mod tests {
                 state: pjsip_inv_state::CONNECTING,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         let ev = rx
@@ -1207,6 +1291,7 @@ mod tests {
         )]);
         let mut directions = BTreeMap::from([(test_call_id(7), CallDirection::Outgoing)]);
 
+        let mut accounts = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
@@ -1219,6 +1304,7 @@ mod tests {
                 state: pjsip_inv_state::CONNECTING,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         let ev = rx
@@ -1251,6 +1337,7 @@ mod tests {
         )]);
         let mut directions = BTreeMap::new();
 
+        let mut accounts = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
@@ -1263,6 +1350,7 @@ mod tests {
                 state: pjsip_inv_state::CONNECTING,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         let ev = rx
@@ -1286,6 +1374,7 @@ mod tests {
         let mut calls = BTreeMap::new();
         let mut directions = empty_directions();
 
+        let mut accounts = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
@@ -1298,6 +1387,7 @@ mod tests {
                 call_id: 7,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         // The IncomingCall event must be published (existing behavior) AND the
@@ -1842,6 +1932,7 @@ mod tests {
             .submit(crate::runtime::command::RuntimeCommand::UpdateAccount {
                 account_id: id,
                 config: new_config.clone(),
+                register_on_start: None,
                 reply: Reply::new(_tx),
             })
             .await?;
@@ -1879,6 +1970,7 @@ mod tests {
             .submit(crate::runtime::command::RuntimeCommand::UpdateAccount {
                 account_id: 999, // not registered in ClientState
                 config,
+                register_on_start: None,
                 reply: Reply::new(_tx),
             })
             .await;
@@ -1918,18 +2010,15 @@ mod tests {
     // ── P12-7: reactor-loop NativeEvent ingestion round-trip ───────────
 
     #[tokio::test]
-    // @verifies C039, C046
+    // @verifies C039, C046, C085
     // [::TICKET::] P12-7: a NativeEvent injected through the handle's ingestion
-    // receiver reaches process_native_event on the reactor thread and is published
-    // on the single client-owned EventBus (O-001 production flow).
-    // [::TICKET::] P15-3: add_account starts Disabled (§62.2), so a fresh account
-    // derives the unregistered shape (status 0) and the ingestion publishes
-    // RegistrationFailed. The Succeeded-via-ingestion flow for a Registered
-    // account is restored by P15-5 (§62.4 registration state machine wiring).
-    async fn reactor_enqueued_registration_state_changed_publishes(
+    // receiver reaches process_native_event on the reactor thread.
+    // [::TICKET::] P15-5: §62.4 — a fresh Disabled account receiving a native
+    // registration event is an invalid §17.1 edge (Disabled→Idle), so no event is
+    // published and ClientState stays Disabled (C085 invariant).
+    async fn reactor_enqueued_registration_state_changed_for_disabled_account_stays_disabled(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (handle, join) = spawn_reactor();
-        // Register an account so TestBackend derives a registry-based snapshot.
         let account_id = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
             .await?;
@@ -1939,13 +2028,150 @@ mod tests {
             acc_id: account_id as u32,
         })?;
 
-        let ev = rx.recv().await?;
+        let timeout = tokio::time::timeout(std::time::Duration::from_millis(50), rx.recv()).await;
         assert!(
-            matches!(ev.payload, SipEventPayload::RegistrationFailed(_)),
-            "expected RegistrationFailed for a Disabled account, got {:?}",
+            timeout.is_err(),
+            "a Disabled account must not publish a registration event (invalid edge)"
+        );
+        let state = handle.query_state().await?;
+        assert_eq!(
+            state.accounts[&test_account(1)].registration,
+            RegistrationState::Disabled
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    // ── P15-5: §62.4 registration state machine production wiring ──────
+
+    /// Build an `accounts` map with a single account whose registration is
+    /// `state` and whose native id matches `acc_id` (TestBackend id == logical id).
+// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    fn account_with_registration(
+        acc_id: u32,
+        state: RegistrationState,
+    ) -> BTreeMap<AccountId, AccountEntry> {
+        BTreeMap::from([(
+            test_account(acc_id as u64),
+            AccountEntry {
+                id: acc_id as u64,
+                native_id: acc_id as i32,
+                config: crate::config::account_config_spec::AccountConfig::default(),
+                registration: state,
+            },
+        )])
+    }
+
+    /// @verifies C073, C085
+    /// P15-5: a native 200 registration event drives the §17 state machine from
+    /// Registering to Registered, updates ClientState, and publishes
+    /// `SipEventPayload::RegistrationStateChanged(Registered)`.
+    #[tokio::test]
+    async fn process_native_event_drives_registration_state_machine(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.add_account(&crate::config::account_config_spec::AccountConfig::default())?;
+        backend.mark_registered(1); // get_account_info -> status 200
+
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut calls = BTreeMap::new();
+        let mut accounts = account_with_registration(1, RegistrationState::Registering);
+
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+        };
+        process_native_event(
+            &backend,
+            &bus,
+            NativeEvent::RegistrationStateChanged { acc_id: 1 },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|e| panic!("expected registration event: {e}"));
+        assert!(
+            matches!(
+                ev.payload,
+                SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+            ),
+            "expected RegistrationStateChanged(Registered), got {:?}",
             ev.payload
         );
-        assert_eq!(ev.meta.account_id, Some(test_account(1)));
+        assert_eq!(
+            accounts[&test_account(1)].registration,
+            RegistrationState::Registered
+        );
+        Ok(())
+    }
+
+    /// @verifies C085
+    /// P15-5: a success event for a Disabled account is an invalid §17 edge —
+    /// no event is published, ClientState stays Disabled, reactor stays alive.
+    #[tokio::test]
+    async fn process_native_event_ignores_invalid_registration_transition(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.add_account(&crate::config::account_config_spec::AccountConfig::default())?;
+        backend.mark_registered(1); // native reports 200, but current is Disabled
+
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut calls = BTreeMap::new();
+        let mut accounts = account_with_registration(1, RegistrationState::Disabled);
+
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+        };
+        process_native_event(
+            &backend,
+            &bus,
+            NativeEvent::RegistrationStateChanged { acc_id: 1 },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        let timeout = tokio::time::timeout(std::time::Duration::from_millis(50), rx.recv()).await;
+        assert!(
+            timeout.is_err(),
+            "invalid transition must not publish an event"
+        );
+        assert_eq!(
+            accounts[&test_account(1)].registration,
+            RegistrationState::Disabled
+        );
+        Ok(())
+    }
+
+    /// @verifies C073
+    /// P15-5: an UpdateAccount carrying `register_on_start: Some(true)` consumes
+    /// the flag at runtime — the reactor advances ClientState to Registering
+    /// (via backend.set_registration) after updating the config.
+    #[tokio::test]
+    async fn update_account_register_on_start_consumes_set_registration(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let account_id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        handle
+            .submit_update_account(
+                account_id,
+                crate::config::account_config_spec::AccountConfig::default(),
+                Some(true),
+            )
+            .await?;
+
+        let state = handle.query_state().await?;
+        assert_eq!(
+            state.accounts[&test_account(1)].registration,
+            RegistrationState::Registering
+        );
         shutdown_reactor(handle, join).await;
         Ok(())
     }

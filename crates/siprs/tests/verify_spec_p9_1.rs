@@ -1,3 +1,4 @@
+// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-1: Layer 5 API integration tests for the example flows.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
 //
@@ -98,14 +99,13 @@ async fn account_register_flow_registers_account() -> Result<(), Box<dyn std::er
     account.register().await?;
     let accounts = client.accounts().await?;
     assert_eq!(accounts.len(), 1, "AddAccount must surface one account");
-    // [::TICKET::] P15-3: §62.2 — add_account starts Disabled, and the
-    // Registering→Registered transition on a native success is production-wired
-    // by P15-5 (§62.4). P15-3 pins the correct pre-wiring state: register() is
-    // accepted and the account is present and Disabled.
+    // [::TICKET::] P15-3, P15-5: §62.2 add_account starts Disabled; P15-5 §62.4
+    // wires the SetRegistration command edge, so register() advances ClientState
+    // to Registering (the Registered transition still requires a native success).
     assert_eq!(
         account.registration_state().await?,
-        siprs::RegistrationState::Disabled,
-        "P15-3: a fresh account stays Disabled until the §62.4 state machine is wired"
+        siprs::RegistrationState::Registering,
+        "P15-5: register() must advance the §17 state machine to Registering"
     );
     client.shutdown().await?;
     Ok(())
@@ -129,11 +129,11 @@ async fn account_register_flow_via_public_facade() -> Result<(), Box<dyn std::er
     account.register().await?;
     let accounts = client.accounts().await?;
     assert_eq!(accounts.len(), 1, "AddAccount must surface one account");
-    // [::TICKET::] P15-3: §62.2 — see account_register_flow_registers_account.
+    // [::TICKET::] P15-3, P15-5: see account_register_flow_registers_account.
     assert_eq!(
         account.registration_state().await?,
-        siprs::RegistrationState::Disabled,
-        "P15-3: a fresh account stays Disabled until the §62.4 state machine is wired"
+        siprs::RegistrationState::Registering,
+        "P15-5: register() must advance the §17 state machine to Registering"
     );
     client.shutdown().await?;
     Ok(())

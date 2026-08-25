@@ -55,7 +55,7 @@ impl std::fmt::Debug for RuntimeHandle {
     }
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7, P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7|P15-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7, P15-4, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7|P15-4|P15-5) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
@@ -158,10 +158,14 @@ impl RuntimeHandle {
                 unreachable!("use submit_make_call instead")
             }
             DispatchCommand::UpdateAccount {
-                account_id, config, ..
+                account_id,
+                config,
+                register_on_start,
+                ..
             } => DispatchCommand::UpdateAccount {
                 account_id,
                 config,
+                register_on_start,
                 reply: Reply::new(tx),
             },
             DispatchCommand::RemoveAccount { account_id, .. } => DispatchCommand::RemoveAccount {
@@ -170,6 +174,15 @@ impl RuntimeHandle {
             },
             DispatchCommand::CreateTransport { config, .. } => DispatchCommand::CreateTransport {
                 config,
+                reply: Reply::new(tx),
+            },
+            DispatchCommand::SetRegistration {
+                account_id,
+                enabled,
+                ..
+            } => DispatchCommand::SetRegistration {
+                account_id,
+                enabled,
                 reply: Reply::new(tx),
             },
             // Audio-lifecycle commands with a Result<()> reply are handled directly;
@@ -331,6 +344,9 @@ impl RuntimeHandle {
     /// `Result<(), ReactorError>` directly, so callers never need a dummy reply
     /// channel — the reactor's outcome is always surfaced.
     ///
+    /// `register_on_start` is the patch delta (§62.4): when `Some`, the reactor
+    /// re-issues registration after the config update.
+    ///
     /// # Errors
     /// Returns `ReactorError::ReactorDown` if the reactor has terminated, or the
     /// reactor's reply error if the backend rejected the update.
@@ -338,6 +354,7 @@ impl RuntimeHandle {
         &self,
         account_id: u64,
         config: crate::config::account_config_spec::AccountConfig,
+        register_on_start: Option<bool>,
     ) -> Result<(), ReactorError> {
         if self.is_terminated() {
             return Err(ReactorError::ReactorDown);
@@ -347,6 +364,7 @@ impl RuntimeHandle {
         let dispatch = DispatchCommand::UpdateAccount {
             account_id,
             config,
+            register_on_start,
             reply: Reply::new(tx),
         };
 
@@ -784,10 +802,12 @@ mod tests {
             match rx.recv().await {
                 Some(DispatchCommand::UpdateAccount {
                     account_id,
-                    config: _,
+                    register_on_start,
                     reply,
+                    ..
                 }) => {
                     assert_eq!(account_id, 7);
+                    assert_eq!(register_on_start, None);
                     reply.send(Ok(())).unwrap();
                 }
                 other => panic!("expected UpdateAccount, got {other:?}"),
@@ -798,6 +818,7 @@ mod tests {
             .submit_update_account(
                 7,
                 crate::config::account_config_spec::AccountConfig::default(),
+                None,
             )
             .await;
         assert_eq!(
@@ -825,6 +846,7 @@ mod tests {
             .submit_update_account(
                 1,
                 crate::config::account_config_spec::AccountConfig::default(),
+                None,
             )
             .await;
         assert!(

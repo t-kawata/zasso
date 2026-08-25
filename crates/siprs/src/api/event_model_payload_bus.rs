@@ -26,6 +26,7 @@ use std::collections::BTreeMap;
 use crate::config::account_config_spec::DtmfMethod;
 use crate::config::observability_metrics::ClientCapabilities;
 use crate::error::SipError;
+use crate::state::registr_state_machine::RegistrationState;
 
 // ── ID newtypes (re-exported from model/id_design_newtype) ──────────────
 
@@ -304,6 +305,8 @@ pub enum SipEventPayload {
     UnregistrationFailed(RegistrationFailure),
     /// Registration period expired.
     RegistrationExpired,
+    /// Registration state changed — the typed §17 state machine outcome (P15-5).
+    RegistrationStateChanged(RegistrationState),
 
     // ── Call (P0) ──
     /// Outgoing call initiated (INVITE sent).
@@ -573,6 +576,18 @@ mod tests {
             _ => panic!("unexpected payload variant"),
         }
         Ok(())
+    }
+
+    /// @verifies C073
+    /// The typed §17 state machine outcome variant constructs and matches.
+    #[test]
+// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    fn payload_registration_state_changed() {
+        let payload = SipEventPayload::RegistrationStateChanged(RegistrationState::Registered);
+        assert!(matches!(
+            payload,
+            SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+        ));
     }
 
     #[test]

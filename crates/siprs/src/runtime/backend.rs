@@ -118,7 +118,7 @@ pub trait SipBackend: Send {
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 }
 
@@ -177,7 +177,7 @@ pub struct TestBackend {
 }
 
 #[cfg(any(test, feature = "test-util"))]
-// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-5) --for-spec --no-implementation-order`.
 impl TestBackend {
     pub fn new() -> Self {
         Self::default()
@@ -203,7 +203,8 @@ impl TestBackend {
     /// set up the post-success state directly.
     pub fn mark_registered(&mut self, native_acc_id: i32) {
         if let Some(entry) = self.accounts.get_mut(&native_acc_id) {
-            entry.registration = "Registered".into();
+            entry.registration =
+                crate::state::registr_state_machine::RegistrationState::Registered;
         }
         self.registrations
             .insert(native_acc_id, crate::state::registr_state_machine::RegistrationState::Registered);
@@ -228,7 +229,7 @@ impl SipBackend for TestBackend {
         Ok(())
     }
 
-// [::TICKET::] P3-2, P10-1, P10-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-1, P10-3, P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P15-3|P15-5) --for-spec --no-implementation-order`.
     fn add_account(
         &mut self,
         config: &crate::config::account_config_spec::AccountConfig,
@@ -241,8 +242,8 @@ impl SipBackend for TestBackend {
             id: id as u64,
             native_id: id,
             config: config.clone(),
-            // §62.2: a freshly added account starts with registration Disabled.
-            registration: "Disabled".into(),
+            // §62.2/§62.4: a freshly added account starts with registration Disabled.
+            registration: crate::state::registr_state_machine::RegistrationState::Disabled,
         };
         self.accounts.insert(id, entry.clone());
         self.registrations
@@ -269,7 +270,7 @@ impl SipBackend for TestBackend {
         Ok(())
     }
 
-// [::TICKET::] P3-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3|P15-5) --for-spec --no-implementation-order`.
     fn set_registration(
         &mut self,
         native_acc_id: i32,
@@ -284,7 +285,7 @@ impl SipBackend for TestBackend {
             crate::state::registr_state_machine::RegistrationState::Unregistering
         };
         if let Some(entry) = self.accounts.get_mut(&native_acc_id) {
-            entry.registration = next.to_string();
+            entry.registration = next;
         }
         self.registrations.insert(native_acc_id, next);
         Ok(())
@@ -408,12 +409,12 @@ impl SipBackend for TestBackend {
 
 /// Derive an `AccountInfoSnapshot` from a stored `AccountEntry`.
 ///
-/// "Registered" maps to the PJSIP success shape (status 200, 1h expiry, online);
-/// every other registration string maps to the unregistered shape (0, None, offline).
+/// `Registered` maps to the PJSIP success shape (status 200, 1h expiry, online);
+/// every other registration state maps to the unregistered shape (0, None, offline).
 /// The `uri` is the entry's config (the mock stores the account username there).
 // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
 #[cfg(any(test, feature = "test-util"))]
-// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-5) --for-spec --no-implementation-order`.
 fn account_entry_to_snapshot(entry: &AccountEntry) -> Result<AccountInfoSnapshot, ReactorError> {
     let account_id = AccountId::from_u64(entry.id).map_err(|_| {
         ReactorError::BackendError(format!(
@@ -421,7 +422,8 @@ fn account_entry_to_snapshot(entry: &AccountEntry) -> Result<AccountInfoSnapshot
             entry.id
         ))
     })?;
-    let registered = entry.registration == "Registered";
+    let registered =
+        entry.registration == crate::state::registr_state_machine::RegistrationState::Registered;
     Ok(AccountInfoSnapshot {
         acc_id: account_id,
         registration_status: if registered { 200 } else { 0 },
@@ -504,7 +506,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-    // [::TICKET::] P3-2, P10-1, P10-3, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P11-10|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-1, P10-3, P11-10, P11-11, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P11-10|P11-11|P15-5) --for-spec --no-implementation-order`.
     fn add_account(
         &mut self,
         _config: &crate::config::account_config_spec::AccountConfig,
@@ -517,7 +519,9 @@ impl SipBackend for PjsuaBackend {
                 id: _native_acc_id as u64,
                 native_id: _native_acc_id,
                 config: _config.clone(),
-                registration: String::new(),
+                // §62.4: a freshly added account starts with registration Disabled.
+                registration:
+                    crate::state::registr_state_machine::RegistrationState::Disabled,
             };
             Ok((_native_acc_id, entry))
         }
@@ -858,7 +862,7 @@ mod tests {
 
     #[test]
     // @verifies C083
-// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-5) --for-spec --no-implementation-order`.
     fn test_backend_add_account_starts_disabled() {
         let mut backend = TestBackend::default();
         let config = crate::config::account_config_spec::AccountConfig {
@@ -866,7 +870,11 @@ mod tests {
             ..Default::default()
         };
         let (id, entry) = backend.add_account(&config).unwrap();
-        assert_eq!(entry.registration, "Disabled", "RFC §62.2 Disabled initial");
+        assert_eq!(
+            entry.registration,
+            crate::state::registr_state_machine::RegistrationState::Disabled,
+            "RFC §62.2 Disabled initial"
+        );
         assert_eq!(
             backend.registration_state(id),
             Some(crate::state::registr_state_machine::RegistrationState::Disabled)
@@ -875,7 +883,7 @@ mod tests {
 
     #[test]
     // @verifies C083
-// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-5) --for-spec --no-implementation-order`.
     fn test_backend_set_registration_transitions_registration_map() {
         let mut backend = TestBackend::default();
         let config = crate::config::account_config_spec::AccountConfig::default();
@@ -885,13 +893,19 @@ mod tests {
             backend.registration_state(id),
             Some(crate::state::registr_state_machine::RegistrationState::Registering)
         );
-        assert_eq!(backend.accounts[&id].registration, "Registering");
+        assert_eq!(
+            backend.accounts[&id].registration,
+            crate::state::registr_state_machine::RegistrationState::Registering
+        );
         backend.set_registration(id, false).unwrap();
         assert_eq!(
             backend.registration_state(id),
             Some(crate::state::registr_state_machine::RegistrationState::Unregistering)
         );
-        assert_eq!(backend.accounts[&id].registration, "Unregistering");
+        assert_eq!(
+            backend.accounts[&id].registration,
+            crate::state::registr_state_machine::RegistrationState::Unregistering
+        );
     }
 
     #[test]
@@ -1252,18 +1266,18 @@ mod tests {
 
     /// @verifies C024
     #[test]
-// [::TICKET::] P10-1, P10-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3, P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-3|P15-5) --for-spec --no-implementation-order`.
     fn mock_backend_get_account_info_derives_idle_snapshot(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::new();
         backend.add_account(&account_config("bob"))?;
-        // Mutate the stored entry to the Idle storage string — the snapshot
-        // must derive the unregistered shape, not a canned 200.
+        // Mutate the stored entry to Idle — the snapshot must derive the
+        // unregistered shape, not a canned 200.
         let entry = backend
             .accounts
             .get_mut(&1)
             .ok_or("registry must hold the added account")?;
-        entry.registration = "Idle".into();
+        entry.registration = crate::state::registr_state_machine::RegistrationState::Idle;
         let snapshot = backend.get_account_info(1)?;
         assert_eq!(snapshot.registration_status, 0);
         assert_eq!(snapshot.registration_expires, None);

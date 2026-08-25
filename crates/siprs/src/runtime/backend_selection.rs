@@ -75,13 +75,17 @@ mod tests {
     #[test]
     // @verifies C083
     #[cfg(not(feature = "pjsua-native"))]
-// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-5) --for-spec --no-implementation-order`.
     fn create_backend_returns_test_backend_in_test_build() -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = create_backend(&ClientConfig::default())?;
         let config = AccountConfig::default();
         let (id, entry) = backend.add_account(&config)?;
         assert_eq!(id, 1, "dispatch proves the concrete TestBackend");
-        assert_eq!(entry.registration, "Disabled");
+        assert_eq!(
+            entry.registration,
+            RegistrationState::Disabled,
+            "§62.2/§62.4 initial registration is Disabled"
+        );
         Ok(())
     }
 

@@ -19,9 +19,8 @@
 //
 // [::TICKET::] P0-5: RegistrationStateChanged RuntimeCommand pattern — AccountInfoSnapshot
 
-use crate::api::event_model_payload_bus::{
-    AccountId, RegistrationFailure, RegistrationInfo, SipEventPayload,
-};
+use crate::api::event_model_payload_bus::AccountId;
+use crate::state::registr_state_machine::{RegistrationState, TransitionError};
 
 /// Snapshot of account info from `pjsua_acc_get_info()`.
 ///
@@ -42,28 +41,31 @@ pub struct AccountInfoSnapshot {
     pub uri: String,
 }
 
-/// Convert an `AccountInfoSnapshot` into a `SipEventPayload` based on the
-/// registration status code.
+/// Map a native registration status code to the §17 `RegistrationState`.
 ///
-/// Status 200 → `RegistrationSucceeded`
-/// All other statuses → `RegistrationFailed`
-pub fn registration_status_to_payload(snapshot: &AccountInfoSnapshot) -> Option<SipEventPayload> {
-    let acc_id = snapshot.acc_id;
-    if snapshot.registration_status == 200 {
-        Some(SipEventPayload::RegistrationSucceeded(RegistrationInfo {
-            account_id: acc_id,
-            renew: snapshot.registration_expires.is_some_and(|e| e > 0),
-        }))
-    } else {
-        Some(SipEventPayload::RegistrationFailed(RegistrationFailure {
-            account_id: acc_id,
-            status_code: snapshot.registration_status as u16,
-            reason: format!(
-                "registration failed with status {}",
-                snapshot.registration_status
-            ),
-        }))
+/// 200 (OK) → `Registered`; 0 → `Idle` (unregistered / unregister success);
+/// every other status → `Failed`. This is the M20 native→domain conversion that
+/// the §62.4 registration state machine consumes (§62.4 / N0073).
+pub fn registration_state_from_status(status: u32) -> RegistrationState {
+    match status {
+        200 => RegistrationState::Registered,
+        0 => RegistrationState::Idle,
+        _ => RegistrationState::Failed,
     }
+}
+
+/// Drive the §17 state machine from the current state and a native snapshot.
+///
+/// Returns `Ok(next)` when the §17.1 edge is valid, or `Err(TransitionError)`
+/// when the native outcome cannot follow the current state (e.g. a success
+/// event for a `Disabled` account — the C085 invariant: only a real REGISTER
+/// success transitions to `Registered`).
+pub fn registration_transition_from_native(
+    current: RegistrationState,
+    snapshot: &AccountInfoSnapshot,
+) -> Result<RegistrationState, TransitionError> {
+    let native_state = registration_state_from_status(snapshot.registration_status);
+    current.transition(native_state)
 }
 
 #[cfg(test)]
@@ -105,117 +107,129 @@ mod tests {
         assert!(!snap.online_status);
     }
 
-    // ── registration_status_to_payload ─────────────────────────────────
-
-    /// @verifies C024
-    #[test]
-    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
-    fn status_200_maps_to_registration_succeeded() {
-        let snap = AccountInfoSnapshot {
-            acc_id: AccountId::from_u64(1).unwrap(),
-            registration_status: 200,
-            registration_expires: Some(3600),
-            online_status: true,
-            uri: String::new(),
-        };
-        let payload = registration_status_to_payload(&snap).unwrap();
-        match &payload {
-            SipEventPayload::RegistrationSucceeded(info) => {
-                assert_eq!(info.account_id, AccountId::from_u64(1).unwrap());
-            }
-            _ => panic!("expected RegistrationSucceeded, got {payload:?}"),
-        }
-    }
-
-    /// @verifies C024
-    #[test]
-    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
-    fn status_403_maps_to_registration_failed() {
-        let snap = AccountInfoSnapshot {
-            acc_id: AccountId::from_u64(1).unwrap(),
-            registration_status: 403,
-            registration_expires: None,
-            online_status: false,
-            uri: String::new(),
-        };
-        let payload = registration_status_to_payload(&snap).unwrap();
-        match &payload {
-            SipEventPayload::RegistrationFailed(failure) => {
-                assert_eq!(failure.status_code, 403);
-                assert!(!failure.reason.is_empty());
-            }
-            _ => panic!("expected RegistrationFailed, got {payload:?}"),
-        }
-    }
-
-    /// @verifies C024
-    #[test]
-    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
-    fn status_503_maps_to_registration_failed() {
-        let snap = AccountInfoSnapshot {
-            acc_id: AccountId::from_u64(3).unwrap(),
-            registration_status: 503,
-            registration_expires: None,
-            online_status: false,
-            uri: String::new(),
-        };
-        let payload = registration_status_to_payload(&snap).unwrap();
-        match &payload {
-            SipEventPayload::RegistrationFailed(failure) => {
-                assert_eq!(failure.status_code, 503);
-                assert_eq!(failure.account_id, AccountId::from_u64(3).unwrap());
-            }
-            _ => panic!("expected RegistrationFailed"),
-        }
-    }
-
-    /// @verifies C024
-    #[test]
-    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
-    fn status_200_with_zero_expiry_maps_to_succeeded() {
-        let snap = AccountInfoSnapshot {
-            acc_id: AccountId::from_u64(5).unwrap(),
-            registration_status: 200,
-            registration_expires: Some(0),
-            online_status: false,
-            uri: String::new(),
-        };
-        let payload = registration_status_to_payload(&snap).unwrap();
-        assert!(matches!(payload, SipEventPayload::RegistrationSucceeded(_)));
-    }
-
-    // ── Invariant: always produces Some ────────────────────────────────
-
-    /// @verifies C024
-    #[test]
-    // [::TICKET::] P0-5, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1) --for-spec --no-implementation-order`.
-    fn registration_status_always_produces_event() {
-        // Both 200 and non-200 should produce Some payload
-        let success = AccountInfoSnapshot {
-            acc_id: AccountId::from_u64(1).unwrap(),
-            registration_status: 200,
-            registration_expires: Some(3600),
-            online_status: true,
-            uri: String::new(),
-        };
-        let failure = AccountInfoSnapshot {
-            acc_id: AccountId::from_u64(2).unwrap(),
-            registration_status: 503,
-            registration_expires: None,
-            online_status: false,
-            uri: String::new(),
-        };
-        assert!(registration_status_to_payload(&success).is_some());
-        assert!(registration_status_to_payload(&failure).is_some());
-    }
-
     // ── Clone + Debug ─────────────────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P15-5) --for-spec --no-implementation-order`.
     fn account_info_snapshot_clone_and_debug() {
-        // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-5, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P15-5) --for-spec --no-implementation-order`.
         fn assert_cd<T: Clone + std::fmt::Debug>() {}
         assert_cd::<AccountInfoSnapshot>();
+    }
+
+    // ── P15-5: M20 converter drives the §17 state machine (C073/C085) ──
+
+    /// Helper: build an `AccountInfoSnapshot` carrying a native registration status.
+// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    fn snapshot_with_status(status: u32) -> AccountInfoSnapshot {
+        AccountInfoSnapshot {
+            acc_id: AccountId::from_u64(1).unwrap(),
+            registration_status: status,
+            registration_expires: if status == 200 { Some(3600) } else { None },
+            online_status: status == 200,
+            uri: "sip:alice@example.com".into(),
+        }
+    }
+
+    /// All §17 `RegistrationState` variants in discriminant order.
+    const ALL_STATES: [RegistrationState; 7] = [
+        RegistrationState::Disabled,
+        RegistrationState::Idle,
+        RegistrationState::Registering,
+        RegistrationState::Registered,
+        RegistrationState::Unregistering,
+        RegistrationState::Failed,
+        RegistrationState::Expired,
+    ];
+
+    /// @verifies C085
+    /// M20 converter maps native status → §17 state: 200→Registered, 0→Idle,
+    /// every other status→Failed (boundary: 199/201/1/u32::MAX are not success).
+    #[test]
+// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    fn registration_state_from_status_maps_200_0_else() {
+        assert_eq!(
+            registration_state_from_status(200),
+            RegistrationState::Registered
+        );
+        assert_eq!(registration_state_from_status(0), RegistrationState::Idle);
+        assert_eq!(
+            registration_state_from_status(403),
+            RegistrationState::Failed
+        );
+        assert_eq!(
+            registration_state_from_status(503),
+            RegistrationState::Failed
+        );
+        assert_eq!(
+            registration_state_from_status(1),
+            RegistrationState::Failed
+        );
+        assert_eq!(
+            registration_state_from_status(199),
+            RegistrationState::Failed
+        );
+        assert_eq!(
+            registration_state_from_status(201),
+            RegistrationState::Failed
+        );
+        assert_eq!(
+            registration_state_from_status(u32::MAX),
+            RegistrationState::Failed
+        );
+    }
+
+    /// @verifies C085
+    /// The converter drives the §17.1 state machine: valid edges produce Ok(next),
+    /// invalid edges (Disabled/Idle → Registered) produce Err(TransitionError).
+    #[test]
+// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    fn registration_transition_drives_state_machine() {
+        let ok = snapshot_with_status(200);
+        let idle = snapshot_with_status(0);
+        let fail = snapshot_with_status(403);
+        assert_eq!(
+            registration_transition_from_native(RegistrationState::Registering, &ok),
+            Ok(RegistrationState::Registered)
+        );
+        assert_eq!(
+            registration_transition_from_native(RegistrationState::Unregistering, &idle),
+            Ok(RegistrationState::Idle)
+        );
+        assert_eq!(
+            registration_transition_from_native(RegistrationState::Registering, &fail),
+            Ok(RegistrationState::Failed)
+        );
+        assert_eq!(
+            registration_transition_from_native(RegistrationState::Unregistering, &fail),
+            Ok(RegistrationState::Failed)
+        );
+        assert!(
+            registration_transition_from_native(RegistrationState::Disabled, &ok).is_err(),
+            "Disabled cannot jump directly to Registered"
+        );
+        assert!(
+            registration_transition_from_native(RegistrationState::Idle, &ok).is_err(),
+            "Idle cannot jump directly to Registered"
+        );
+    }
+
+    /// @verifies C085
+    /// C085 invariant — only a real REGISTER success (current=Registering, status=200)
+    /// yields Registered. Table-driven over all 7 states × representative statuses.
+    #[test]
+// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    fn only_real_register_success_yields_registered() {
+        for current in ALL_STATES {
+            for status in [200u32, 0, 403] {
+                let snap = snapshot_with_status(status);
+                let result = registration_transition_from_native(current, &snap);
+                if current == RegistrationState::Registering && status == 200 {
+                    assert_eq!(result, Ok(RegistrationState::Registered));
+                } else {
+                    assert_ne!(result, Ok(RegistrationState::Registered));
+                }
+            }
+        }
     }
 }

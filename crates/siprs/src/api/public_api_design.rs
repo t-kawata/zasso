@@ -37,7 +37,7 @@ pub struct SipAccountHandle {
     pub(crate) id: u64,
 }
 
-// [::TICKET::] P3-1, P4-1, P10-1, P10-3, P10-4, P11-4, P11-7, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1|P10-1|P10-3|P10-4|P11-4|P11-7|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P4-1, P10-1, P10-3, P10-4, P11-4, P11-7, P12-1, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P4-1|P10-1|P10-3|P10-4|P11-4|P11-7|P12-1|P15-5) --for-spec --no-implementation-order`.
 impl SipAccountHandle {
     /// Create a new `SipAccountHandle`.
     #[instrument(skip(client))]
@@ -113,9 +113,9 @@ impl SipAccountHandle {
 
     /// Get the current registration state.
     ///
-    /// Queries the reactor's authoritative `ClientState` and maps the stored
-    /// `AccountEntry.registration` storage string via `RegistrationState::from_storage_str`.
-    /// A missing or invalid account id maps to `Ok(Disabled)` — never panics.
+    /// Queries the reactor's authoritative `ClientState` and returns the typed
+    /// `AccountEntry.registration` (§62.4). A missing or invalid account id maps
+    /// to `Ok(Disabled)` — never panics.
     #[instrument(skip(self))]
     pub async fn registration_state(&self) -> Result<RegistrationState, SipError> {
         let state = self.client.handle().query_state().await.map_err(|e| {
@@ -127,7 +127,7 @@ impl SipAccountHandle {
         let account_id = AccountId::from_u64(self.id).ok();
         let entry = account_id.and_then(|id| state.accounts.get(&id));
         match entry {
-            Some(entry) => Ok(RegistrationState::from_storage_str(&entry.registration)),
+            Some(entry) => Ok(entry.registration),
             None => Ok(RegistrationState::Disabled),
         }
     }
@@ -185,9 +185,11 @@ impl SipAccountHandle {
 
         // The typed submit_update_account builds and awaits the reply channel, so
         // a reactor rejection is surfaced as Err here — never silently dropped.
+        // The patch's register_on_start delta is passed so the reactor re-issues
+        // registration/unregistration after the config update (§62.4).
         self.client
             .handle()
-            .submit_update_account(self.id, merged)
+            .submit_update_account(self.id, merged, patch.register_on_start)
             .await
             .map_err(|e| {
                 SipError::new(

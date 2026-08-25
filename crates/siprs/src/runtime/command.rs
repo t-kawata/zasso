@@ -114,9 +114,12 @@ pub enum RuntimeCommand {
     /// The `config` payload is the **merged, validated** `AccountConfig` produced
     /// by `AccountConfigPatch::apply` at the facade (C052 fail-fast), so the
     /// reactor never dispatches an unvalidated config.
+    /// `register_on_start` is the patch's delta (`Some` when the update explicitly
+    /// set it) — the reactor re-issues registration after the config update (§62.4).
     UpdateAccount {
         account_id: u64,
         config: crate::config::account_config_spec::AccountConfig,
+        register_on_start: Option<bool>,
         reply: Reply<Result<(), ReactorError>>,
     },
     RemoveAccount {
@@ -247,7 +250,7 @@ impl std::fmt::Display for RuntimeCommand {
 }
 
 /// Type alias for the backend execution closure used in `DispatchCommand`.
-// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6, P12-1, P12-7, P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6|P12-1|P12-7|P15-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6, P12-1, P12-7, P15-4, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6|P12-1|P12-7|P15-4|P15-5) --for-spec --no-implementation-order`.
 type BackendFn =
     Box<dyn FnOnce(&mut dyn super::backend::SipBackend) -> Result<(), ReactorError> + Send>;
 
@@ -332,9 +335,21 @@ pub(crate) enum DispatchCommand {
     ///
     /// Dedicated variant (not an `Execute` closure) so the reactor loop can also
     /// mutate `client_state.accounts` — an `Execute` closure only sees `&mut dyn SipBackend`.
+    /// `register_on_start` is the patch delta (§62.4) consumed after the config update.
     UpdateAccount {
         account_id: u64,
         config: crate::config::account_config_spec::AccountConfig,
+        register_on_start: Option<bool>,
+        reply: Reply<Result<(), ReactorError>>,
+    },
+    /// Enable or disable registration, updating the reactor's ClientState to
+    /// `Registering`/`Unregistering` alongside the backend (§17.1 command edge).
+    ///
+    /// Dedicated variant (not an `Execute` closure) so the reactor loop can mutate
+    /// `client_state.accounts` — an `Execute` closure only sees `&mut dyn SipBackend`.
+    SetRegistration {
+        account_id: u64,
+        enabled: bool,
         reply: Reply<Result<(), ReactorError>>,
     },
     /// Remove an account from the backend AND the reactor's ClientState.
@@ -369,7 +384,7 @@ pub(crate) enum DispatchCommand {
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10, P11-11, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10|P11-11|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10, P11-11, P12-1, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10|P11-11|P12-1|P15-5) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
@@ -385,10 +400,12 @@ impl DispatchCommand {
             RuntimeCommand::UpdateAccount {
                 account_id,
                 config,
+                register_on_start,
                 reply,
             } => Self::UpdateAccount {
                 account_id,
                 config,
+                register_on_start,
                 reply,
             },
             RuntimeCommand::RemoveAccount { account_id, reply } => {
@@ -401,8 +418,9 @@ impl DispatchCommand {
                 account_id,
                 enabled,
                 reply,
-            } => Self::Execute {
-                f: Box::new(move |backend| backend.set_registration(account_id as i32, enabled)),
+            } => Self::SetRegistration {
+                account_id,
+                enabled,
                 reply,
             },
             RuntimeCommand::MakeCall {
@@ -488,7 +506,7 @@ impl DispatchCommand {
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for DispatchCommand {
-    // [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P11-6, P11-11, P12-1, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P11-6|P11-11|P12-1|P12-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P11-6, P11-11, P12-1, P12-7, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P11-6|P11-11|P12-1|P12-7|P15-5) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Execute { .. } => f
@@ -526,6 +544,9 @@ impl std::fmt::Debug for DispatchCommand {
                 .finish_non_exhaustive(),
             Self::CreateTransport { .. } => f
                 .debug_struct("DispatchCommand::CreateTransport")
+                .finish_non_exhaustive(),
+            Self::SetRegistration { .. } => f
+                .debug_struct("DispatchCommand::SetRegistration")
                 .finish_non_exhaustive(),
             Self::QueryState { .. } => f
                 .debug_struct("DispatchCommand::QueryState")
@@ -978,12 +999,13 @@ mod tests {
 
     #[test]
     // @verifies C012
-    // [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P10-3, P10-4, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4|P15-5) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_update_account() {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::UpdateAccount {
             account_id: 3,
             config: crate::config::account_config_spec::AccountConfig::default(),
+            register_on_start: None,
             reply: Reply::new(tx),
         };
         let dispatch = DispatchCommand::from_runtime_command(cmd);
@@ -1036,12 +1058,13 @@ mod tests {
 
     #[test]
     // @verifies C011
-    // [::TICKET::] P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P10-3, P10-4, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P10-4|P15-5) --for-spec --no-implementation-order`.
     fn runtime_command_display_shows_new_lifecycle_variants() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let update = RuntimeCommand::UpdateAccount {
             account_id: 1,
             config: crate::config::account_config_spec::AccountConfig::default(),
+            register_on_start: None,
             reply: Reply::new(tx),
         };
         assert_eq!(format!("{update}"), "RuntimeCommand::UpdateAccount");
@@ -1057,7 +1080,7 @@ mod tests {
 
     #[test]
     // @verifies C011
-    // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-4, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-4|P15-5) --for-spec --no-implementation-order`.
     fn runtime_command_debug_exposes_payload_field_names() {
         // RED on the manual impl (prints only "RuntimeCommand::UpdateAccount");
         // GREEN once #[derive(Debug)] replaces it.
@@ -1065,6 +1088,7 @@ mod tests {
         let cmd = RuntimeCommand::UpdateAccount {
             account_id: 1,
             config: crate::config::account_config_spec::AccountConfig::default(),
+            register_on_start: None,
             reply: Reply::new(tx),
         };
         assert!(
