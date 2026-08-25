@@ -99,7 +99,7 @@ pub struct CoreReactor;
 
 /// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
 /// join handle, or a boxed spawn error.
-// [::TICKET::] P15-4, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-4, P15-7, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9) --for-spec --no-implementation-order`.
 type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
@@ -930,8 +930,12 @@ fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
 }
 
 /// Active calls keyed by logical call ID (`ClientState.calls`).
-// [::TICKET::] P9-6, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-6|P12-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P9-6, P12-8, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-6|P12-8|P15-9) --for-spec --no-implementation-order`.
 type CallTable = std::collections::BTreeMap<CallId, CallEntry>;
+
+/// Accounts keyed by account ID, passed to native-event processing.
+// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+type AccountTable = std::collections::BTreeMap<AccountId, AccountEntry>;
 
 /// Reactor-owned call-state tables passed to call-state handlers.
 ///
@@ -980,7 +984,7 @@ pub(crate) fn process_native_event(
     event_bus: &EventBus,
     event: NativeEvent,
     call_state: &mut CallStateTables<'_>,
-    accounts: &mut BTreeMap<AccountId, AccountEntry>,
+    accounts: &mut AccountTable,
 ) {
     match event {
         NativeEvent::RegistrationStateChanged { acc_id } => {
@@ -2324,7 +2328,7 @@ mod tests {
     // @verifies C070
     // [::TICKET::] P12-1: a failing backend.make_call must propagate Err and
     // register no CallEntry — never a fabricated id.
-// [::TICKET::] P12-1, P12-8, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P12-8, P15-3, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P15-9) --for-spec --no-implementation-order`.
     fn handle_make_call_error_registers_nothing() {
         let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));
@@ -2337,6 +2341,39 @@ mod tests {
         assert!(
             matches!(result, Err(ReactorError::BackendError(_))),
             "backend error must propagate"
+        );
+        assert!(
+            client_state.calls.is_empty(),
+            "no CallEntry may be registered on a failed MakeCall"
+        );
+    }
+
+    #[test]
+    // @verifies C089, C090
+    // [::TICKET::] P15-9: a failing backend.make_call carrying a NativeError must
+    // propagate through the reactor handler while preserving native_status.
+// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    fn handle_make_call_native_error_preserves_status() {
+        let mut backend = TestBackend::new();
+        backend.make_call_result = Some(Err(ReactorError::NativeError {
+            message: "invite rejected".into(),
+            native_status: crate::ffi::bindings::PJ_EUNKNOWN,
+        }));
+        let mut client_state = ClientState::default();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut empty_directions(),
+        };
+        let result = handle_make_call(&mut backend, &mut call_state, 1, &test_call_request());
+        assert!(
+            matches!(
+                result,
+                Err(ReactorError::NativeError {
+                    native_status: crate::ffi::bindings::PJ_EUNKNOWN,
+                    ..
+                })
+            ),
+            "NativeError must propagate with the raw pj_status preserved"
         );
         assert!(
             client_state.calls.is_empty(),

@@ -12,16 +12,22 @@ pub enum ReactorError {
     NotInitialized(String),
     /// A PJSUA operation failed.
     BackendError(String),
+    /// A PJSUA FFI operation failed; `native_status` carries the raw `pj_status_t`.
+    NativeError { message: String, native_status: i32 },
 }
 
 // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
 impl std::fmt::Display for ReactorError {
-    // [::TICKET::] P0-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P15-9) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ReactorDown => write!(f, "reactor thread is down"),
             Self::NotInitialized(msg) => write!(f, "not initialized: {msg}"),
             Self::BackendError(msg) => write!(f, "backend error: {msg}"),
+            Self::NativeError {
+                message,
+                native_status,
+            } => write!(f, "native error: {message} (pj_status {native_status})"),
         }
     }
 }

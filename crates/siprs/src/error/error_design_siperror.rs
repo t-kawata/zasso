@@ -215,7 +215,7 @@ pub struct SipError {
     pub retryable: bool,
 }
 
-// [::TICKET::] P0-4, P9-2, P9-3, P9-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-2|P9-3|P9-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-4, P9-2, P9-3, P9-5, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P9-2|P9-3|P9-5|P15-9) --for-spec --no-implementation-order`.
 impl SipError {
     /// Create a new `SipError` with the given `kind` and `message`.
     ///
@@ -231,6 +231,34 @@ impl SipError {
             call_id: None,
             retryable,
         }
+    }
+
+    /// Create a `SipError` that preserves the PJSUA diagnostic code.
+    ///
+    /// Unlike [`new`](Self::new) (which leaves `native_status` as `None`), this
+    /// constructor stores the raw FFI `pj_status_t` in `native_status` so
+    /// callers can log the exact code. FFI errors keep `retryable` from
+    /// [`SipErrorKind::retryable`].
+    // [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    pub fn with_status(kind: SipErrorKind, message: impl Into<String>, native_status: i32) -> Self {
+        let retryable = kind.retryable();
+        Self {
+            kind,
+            message: message.into(),
+            native_status: Some(native_status),
+            account_id: None,
+            call_id: None,
+            retryable,
+        }
+    }
+
+    /// Return the optional PJSUA native error code carried by this error.
+    ///
+    /// `Some(status)` when the error originated from an FFI call and the code
+    /// survived the conversion path; `None` for non-FFI errors.
+    // [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    pub fn native_status(&self) -> Option<i32> {
+        self.native_status
     }
 
     /// Create a convenience `SipError` with `kind = InvalidState`.
@@ -297,7 +325,7 @@ impl SipError {
 
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 impl From<ReactorError> for SipError {
-    // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-4, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-4|P15-9) --for-spec --no-implementation-order`.
     fn from(err: ReactorError) -> Self {
         match err {
             ReactorError::ReactorDown => {
@@ -305,6 +333,15 @@ impl From<ReactorError> for SipError {
             }
             ReactorError::NotInitialized(msg) => SipError::new(SipErrorKind::NotInitialized, msg),
             ReactorError::BackendError(msg) => SipError::new(SipErrorKind::NativeError, msg),
+            ReactorError::NativeError {
+                message,
+                native_status,
+            } => {
+                // §62.8: route the FFI error through the unified §14.1 mapper so
+                // the native_status survives the reactor boundary.
+                let kind = crate::error::m20_runtime_command_error::classify(native_status);
+                SipError::with_status(kind, message, native_status)
+            }
         }
     }
 }
@@ -332,7 +369,7 @@ pub fn convert_pj_status(status: i32) -> Option<SipErrorKind> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ffi::bindings::{PJ_EBUSY, PJ_EINVALIDOP, PJ_ENOMEM, PJ_SUCCESS};
+    use crate::ffi::bindings::{PJ_EBUSY, PJ_EINVALIDOP, PJ_ENOMEM, PJ_EUNKNOWN, PJ_SUCCESS};
     use crate::model::id_design_newtype::IdError;
     use crate::model::{AccountId, CallId};
 
@@ -545,6 +582,49 @@ mod tests {
         let sip: SipError = ReactorError::BackendError("pjsua failed".into()).into();
         assert_eq!(sip.kind, SipErrorKind::NativeError);
         assert_eq!(sip.message, "pjsua failed");
+        assert!(sip.retryable);
+    }
+
+    // ── P15-9: with_status / native_status preservation (C089) ────────
+
+    #[test]
+    // @verifies C089
+    // [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    fn sip_error_with_status_sets_native_status_and_preserves_context() {
+        // C089 precondition: SipError carries native_status: Option<i32>.
+        // C089 postcondition: with_status stores Some(i32); accessor returns it.
+        let err = SipError::with_status(SipErrorKind::NativeError, "hangup failed", PJ_EUNKNOWN);
+        assert_eq!(err.native_status(), Some(PJ_EUNKNOWN));
+        assert_eq!(err.kind, SipErrorKind::NativeError);
+        assert_eq!(err.message, "hangup failed");
+        assert_eq!(err.account_id, None);
+        assert_eq!(err.call_id, None);
+        assert!(err.retryable);
+    }
+
+    #[test]
+    // @verifies C089
+    // [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    fn sip_error_with_status_holds_zero_status_value() {
+        // Boundary: Some(0) (PJ_SUCCESS) must be storable — a non-FFI caller
+        // passing 0 must not be silently dropped to None.
+        let err = SipError::with_status(SipErrorKind::NativeError, "weird", 0);
+        assert_eq!(err.native_status(), Some(0));
+    }
+
+    #[test]
+    // @verifies C089
+    // [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    fn from_reactor_error_native_error_preserves_status() {
+        // C089 invariant: the reactor path must not lose native_status.
+        let sip: SipError = ReactorError::NativeError {
+            message: "hangup failed".into(),
+            native_status: PJ_EUNKNOWN,
+        }
+        .into();
+        assert_eq!(sip.native_status(), Some(PJ_EUNKNOWN));
+        assert_eq!(sip.kind, SipErrorKind::NativeError);
+        assert_eq!(sip.message, "hangup failed");
         assert!(sip.retryable);
     }
 

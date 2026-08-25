@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use crate::error::error_design_siperror::SipError;
 use crate::ffi::bindings;
 #[cfg(any(test, feature = "test-util"))]
 use crate::model::AccountId;
@@ -129,7 +130,7 @@ pub trait SipBackend: Send {
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6|P15-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6, P15-7, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6|P15-7|P15-9) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Push a processed media frame into the call's audio tap (subscribe_audio).
@@ -138,7 +139,7 @@ pub trait SipBackend: Send {
     /// drives the tap with real data. `call_id` is the public `CallId` value
     /// (not the native id). Implementations must be non-blocking — this is
     /// invoked from the RT media callback context.
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-7, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P15-9) --for-spec --no-implementation-order`.
     fn push_media_frame(
         &mut self,
         call_id: u64,
@@ -492,18 +493,33 @@ fn account_entry_to_snapshot(entry: &AccountEntry) -> Result<AccountInfoSnapshot
 // PjsuaBackend — real PJSUA FFI-backed implementation
 // ---------------------------------------------------------------------------
 
+/// Map a PJSUA `pj_status_t` to a `SipError` via the unified §14.1 mapper.
+///
+/// Reads as prose: classify the status into a semantic kind, then build a
+/// `SipError` that preserves the native status as a structured field (not a
+/// string-embedded diagnostic).
+// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+pub(crate) fn map_native_error(status: i32, detail: &str) -> SipError {
+    let kind = crate::error::m20_runtime_command_error::classify(status);
+    SipError::with_status(kind, detail, status)
+}
+
 /// Map a PJSUA `pj_status_t` to a `ReactorError`, preserving the diagnostic.
 ///
 /// `PJ_SUCCESS` (0) maps to `Ok`; any non-zero status produces
-/// `Err(ReactorError::BackendError)` naming the failed operation. A canned
-/// `Ok(())` for an unexecuted FFI call is prohibited (C111).
+/// `Err(ReactorError::NativeError)` carrying the raw code as a structured field.
+/// A canned `Ok(())` for an unexecuted FFI call is prohibited (C111).
+// [::TICKET::] P11-10, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-10|P15-9) --for-spec --no-implementation-order`.
 pub(crate) fn map_pjsua_status(status: i32, operation: &str) -> Result<(), ReactorError> {
     if status == bindings::PJ_SUCCESS {
         Ok(())
     } else {
-        Err(ReactorError::BackendError(format!(
-            "PjsuaBackend::{operation} failed with pj_status {status}"
-        )))
+        let detail = format!("PjsuaBackend::{operation} failed");
+        let err = map_native_error(status, &detail);
+        Err(ReactorError::NativeError {
+            message: err.message,
+            native_status: status,
+        })
     }
 }
 
@@ -946,6 +962,7 @@ impl SipBackend for PjsuaBackend {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::error_design_siperror::SipErrorKind;
 
     // ── SipBackend trait ──────────────────────────────────────────
 
@@ -1069,22 +1086,54 @@ mod tests {
 
     #[test]
     // @verifies C111
-    // [::TICKET::] P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-10, P11-11, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-10|P11-11|P15-9) --for-spec --no-implementation-order`.
     fn map_pjsua_status_error_preserves_diagnostic() {
-        let err = map_pjsua_status(70001, "hangup").unwrap_err();
+        let err = map_pjsua_status(crate::ffi::bindings::PJ_EUNKNOWN, "hangup").unwrap_err();
         match err {
-            ReactorError::BackendError(msg) => {
+            ReactorError::NativeError {
+                message,
+                native_status,
+            } => {
                 assert!(
-                    msg.contains("hangup"),
-                    "message must name the operation: {msg}"
+                    message.contains("hangup"),
+                    "message must name the operation: {message}"
                 );
-                assert!(
-                    msg.contains("70001"),
-                    "message must preserve the status: {msg}"
+                assert_eq!(
+                    native_status, crate::ffi::bindings::PJ_EUNKNOWN,
+                    "native_status must preserve the code as a structured field"
                 );
             }
-            _ => panic!("expected BackendError, got {err:?}"),
+            _ => panic!("expected NativeError, got {err:?}"),
         }
+    }
+
+    #[test]
+    // @verifies C090
+    // [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    fn map_native_error_preserves_status_via_classify() {
+        // C090 postcondition: map_native_error calls classify + with_status and
+        // produces a SipError carrying native_status = Some(status).
+        let err = map_native_error(crate::ffi::bindings::PJ_EBUSY, "conf_connect failed");
+        assert_eq!(err.native_status(), Some(crate::ffi::bindings::PJ_EBUSY));
+        assert_eq!(err.kind, SipErrorKind::NativeError);
+        assert_eq!(err.message, "conf_connect failed");
+        assert!(err.retryable);
+    }
+
+    #[test]
+    // @verifies C090
+    // [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    fn map_pjsua_status_non_zero_produces_native_error_with_status() {
+        // C090 invariant: a non-zero status always yields an error — a canned
+        // Ok for an unexecuted FFI call is prohibited (C111).
+        let err = map_pjsua_status(crate::ffi::bindings::PJ_EUNKNOWN, "answer_call").unwrap_err();
+        match err {
+            ReactorError::NativeError { native_status, .. } => {
+                assert_eq!(native_status, crate::ffi::bindings::PJ_EUNKNOWN);
+            }
+            _ => panic!("expected NativeError, got {err:?}"),
+        }
+        assert!(map_pjsua_status(crate::ffi::bindings::PJ_SUCCESS, "answer_call").is_ok());
     }
 
     #[test]
@@ -1182,7 +1231,7 @@ mod tests {
 
     #[test]
     // [::TICKET::] P15-7: push_media_frame on an unsubscribed call is a no-op Ok.
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-7, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P15-9) --for-spec --no-implementation-order`.
     fn pjsua_push_media_frame_unsubscribed_call_is_noop() {
         let mut backend = PjsuaBackend::new();
         let frame = crate::audio::pipeline::ProcessedFrame {
@@ -1190,7 +1239,7 @@ mod tests {
             negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
             timestamp: std::time::Instant::now(),
         };
-        // No tap registered — must return Ok(()) without panicking (RT safety).
+        // No tap registered — must yield Ok(()) without panicking (RT safety).
         assert!(backend.push_media_frame(42, frame).is_ok());
     }
 

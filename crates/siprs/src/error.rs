@@ -16,6 +16,12 @@ pub mod m20_runtime_command_error;
 /// M20 shutdown command routing (N0044) — shutdown command classifier.
 pub mod m20_shutdown_routing;
 
+/// §62.8 Error conversion — SipError native_status preservation (N0077).
+pub mod error_native_status;
+// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+
 // ── Public API re-exports ───────────────────────────────────────────────
 
 pub use error_design_siperror::SipError;

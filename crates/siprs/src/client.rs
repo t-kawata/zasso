@@ -84,7 +84,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1, P15-2, P15-4, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1|P15-2|P15-4|P15-6|P15-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1, P15-2, P15-4, P15-6, P15-7, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1|P15-2|P15-4|P15-6|P15-7|P15-9) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -98,7 +98,7 @@ impl SipClient {
     ///
     /// # Invariant (C002)
     /// The reactor thread model must remain unchanged — `CoreReactor::spawn()`
-    /// must always return `(RuntimeHandle, Arc<JoinHandle<()>>)`.
+    /// must always produce `(RuntimeHandle, Arc<JoinHandle<()>>)`.
     #[instrument(skip(config), fields(user_agent = %config.user_agent, max_calls = config.max_calls))]
     pub async fn new(
         config: ClientConfig,
@@ -236,7 +236,7 @@ impl SipClient {
             .collect())
     }
 
-    /// Add a SIP account and return a handle for account-level operations.
+    /// Add a SIP account and provide a handle for account-level operations.
     ///
     /// Validates the config first (fail-fast, C052) — an invalid config returns
     /// `Err(InvalidConfig)` without submitting any RuntimeCommand. On success the
@@ -586,7 +586,7 @@ impl SipClient {
 ///
 /// A missing call id surfaces as `CallNotFound`; a down reactor as `NativeError`.
 /// `NotInitialized` maps to its public counterpart.
-// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-6, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P15-9) --for-spec --no-implementation-order`.
 fn map_call_state_query_error(e: ReactorError) -> SipError {
     match e {
         ReactorError::BackendError(_) => {
@@ -597,6 +597,15 @@ fn map_call_state_query_error(e: ReactorError) -> SipError {
         }
         ReactorError::NotInitialized(msg) => {
             SipError::new(SipErrorKind::NotInitialized, msg)
+        }
+        ReactorError::NativeError {
+            message,
+            native_status,
+        } => {
+            // §62.8: preserve the FFI diagnostic through the call_state query
+            // boundary via the unified §14.1 mapper.
+            let kind = crate::error::m20_runtime_command_error::classify(native_status);
+            SipError::with_status(kind, message, native_status)
         }
     }
 }
@@ -627,6 +636,24 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::error_design_siperror::SipErrorKind;
+
+    // ── P15-9: map_call_state_query_error native_status preservation (C089) ──
+
+    #[test]
+    // @verifies C089
+    // [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    fn map_call_state_query_error_native_error_preserves_status() {
+        // C089 invariant: the reactor path must not drop native_status, even on
+        // the call_state query boundary.
+        let sip = map_call_state_query_error(ReactorError::NativeError {
+            message: "make_call failed".into(),
+            native_status: crate::ffi::bindings::PJ_EUNKNOWN,
+        });
+        assert_eq!(sip.native_status(), Some(crate::ffi::bindings::PJ_EUNKNOWN));
+        assert_eq!(sip.kind, SipErrorKind::NativeError);
+        assert_eq!(sip.message, "make_call failed");
+    }
 
     // ── Normal ──────────────────────────────────────────────────────
 
@@ -790,7 +817,7 @@ mod tests {
         // C002 invariant: SipClient must be Send + Sync for use with tokio tasks.
         // ABC O-001 closure: the Sync half was previously unenforced — a non-Sync
         // field (e.g. RefCell) would have passed every test.
-// [::TICKET::] P6-1, P7-2, P10-1, P10-3, P11-15, P15-2, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P10-1|P10-3|P11-15|P15-2|P15-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P10-1, P10-3, P11-15, P15-2, P15-6, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P10-1|P10-3|P11-15|P15-2|P15-6|P15-9) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
 // [::TICKET::] P6-1, P6-2, P7-2, P10-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2|P7-2|P10-1|P15-2) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
@@ -863,7 +890,7 @@ mod tests {
         );
 
         // Drop every event receiver (simulate event loss / Lagged): the query
-        // API must still return the same authoritative state (C021 invariant).
+        // API must still reflect the same authoritative state (C021 invariant).
         let _ = client.subscribe(); // a fresh receiver that immediately goes out of scope
         let accounts_after_loss = client
             .accounts()
