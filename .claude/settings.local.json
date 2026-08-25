@@ -685,7 +685,27 @@
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P15-4\" --for-spec --review)",
       "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P15-4\" --verify)",
       "Bash(node .claude/scripts/tickets/verify-final-contracts.js --ticket-key=\"P15-4\" --tickets=\"Tickets.json\")",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); t=d['updated']; print\\('status:', t['status']\\); print\\('completedAt:', t.get\\('completedAt'\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); t=d['updated']; print\\('status:', t['status']\\); print\\('completedAt:', t.get\\('completedAt'\\)\\)\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P15-5\")",
+      "Bash(find /Users/sh01/shyme/zasso -maxdepth 3 -name \"RFC-ROOT*.json\" -o -maxdepth 3 -name \"RFC-ROOT*.md\" 2>/dev/null | grep -v node_modules | head -20)",
+      "Bash(mkdir -p /tmp/p15-5 && echo \"dir ready\")",
+      "Bash(node /tmp/p15-5-update.js)",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P15-5\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P15-5\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"P15-5\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=\"P15-5\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/update-ticket.js Tickets.json P15-5)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P15-5\" --for-spec)",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P15-5\")",
+      "Bash(node -e 'let d=\"\";process.stdin.on\\(\"data\",c=>d+=c\\);process.stdin.on\\(\"end\",\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(\"success:\",j.success,\"| status:\",j.updated&&j.updated.status\\);}\\);')",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P15-5\" --phase=plan)",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P15-5\" --for-spec --plan)",
+      "Bash(node /tmp/p15-5-plan-testcode.js)",
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P15-5\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P15-5\" --phase=start)",
+      "Bash(node -e 'let d=\"\";process.stdin.on\\(\"data\",c=>d+=c\\);process.stdin.on\\(\"end\",\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(\"success:\",j.success,\"| startedAt:\",j.updated&&j.updated.startedAt\\);}\\);')",
+      "Bash(grep -n \"fn process_registration_state_changed\\\\|fn apply_registration_command_state\\\\|Drive the §17 registration state machine\\\\|Advance the reactor's \\\\`ClientState\\\\`\" src/runtime/reactor.rs)"
     ]
   }
 }
