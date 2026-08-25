@@ -380,10 +380,28 @@ impl AsyncAudioSource for CpalMicrophoneSource {
 // cpal stream construction — per-format data callback → SampleQueue
 // ---------------------------------------------------------------------------
 
+/// Find the first supported config matching the requested channel count and
+/// sample rate among `candidates`, or None when no candidate matches (the
+/// caller then falls back to the device default config).
+#[cfg(feature = "cpal-input")]
+// [::TICKET::] P14-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P14-2 --for-spec --no-implementation-order`.
+fn prefer_config_matching_request<'a>(
+    candidates: impl IntoIterator<Item = &'a cpal::SupportedStreamConfig>,
+    requested_channels: cpal::ChannelCount,
+    requested_sample_rate: cpal::SampleRate,
+) -> Option<cpal::SupportedStreamConfig> {
+    candidates
+        .into_iter()
+        .find(|config| {
+            config.channels() == requested_channels && config.sample_rate() == requested_sample_rate
+        })
+        .cloned()
+}
+
 /// Pick the capture config: prefer a supported config matching the requested
 /// sample rate and channel count; fall back to the device default otherwise.
 #[cfg(feature = "cpal-input")]
-// [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P8-7, P14-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-7|P14-2) --for-spec --no-implementation-order`.
 fn select_input_config(
     device: &cpal::Device,
     format: &AudioFormat,
@@ -392,19 +410,13 @@ fn select_input_config(
         ChannelLayout::Mono => 1,
         ChannelLayout::StereoInOut => 2,
     };
-    let preferred = device
+    let requested_sample_rate = format.sample_rate.as_hz();
+    let candidates = device
         .supported_input_configs()
         .map_err(map_supported_configs_error)?
-        .filter_map(|config| {
-            if config.channels() == requested_channels {
-                // cpal::SampleRate is a u32 type alias in cpal 0.18.
-                config.try_with_sample_rate(format.sample_rate.as_hz())
-            } else {
-                None
-            }
-        })
-        .next();
-    match preferred {
+        .filter_map(|range| range.try_with_sample_rate(requested_sample_rate))
+        .collect::<Vec<_>>();
+    match prefer_config_matching_request(&candidates, requested_channels, requested_sample_rate) {
         Some(config) => Ok(config),
         None => device
             .default_input_config()
@@ -888,7 +900,7 @@ mod tests {
     // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn microphone_source_is_send() {
         // C051-Inv: the source can live in AudioMixer's DashMap as Box<dyn AsyncAudioSource + Send>.
-        // [::TICKET::] P8-7, P13-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-7|P13-1) --for-spec --no-implementation-order`.
+        // [::TICKET::] P8-7, P13-1, P14-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-7|P13-1|P14-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<CpalMicrophoneSource>();
         assert_send::<Box<dyn AsyncAudioSource>>();
@@ -1018,5 +1030,105 @@ mod tests {
             );
             assert!(err.message.contains("unsupported_sample_format:"));
         }
+    }
+
+    // ── C051-Inv O-001: config-preference decision (select_input_config) ──
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P14-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P14-2 --for-spec --no-implementation-order`.
+    fn prefer_config_matching_request_prefers_exact_match() -> Result<(), String> {
+        // C051-Inv (O-001): among constructible candidates, pick the first config
+        // matching the requested channel count AND sample rate.
+        let candidates = [
+            cpal::SupportedStreamConfig::new(
+                2,
+                48_000,
+                cpal::SupportedBufferSize::Unknown,
+                cpal::SampleFormat::I16,
+            ),
+            cpal::SupportedStreamConfig::new(
+                1,
+                44_100,
+                cpal::SupportedBufferSize::Unknown,
+                cpal::SampleFormat::I16,
+            ),
+            cpal::SupportedStreamConfig::new(
+                1,
+                48_000,
+                cpal::SupportedBufferSize::Unknown,
+                cpal::SampleFormat::F32,
+            ),
+        ];
+        let picked = prefer_config_matching_request(&candidates, 1, 48_000)
+            .ok_or_else(|| "a Mono@48k candidate must be preferred".to_string())?;
+        assert_eq!(picked.channels(), 1);
+        assert_eq!(picked.sample_rate(), 48_000);
+        assert_eq!(picked.sample_format(), cpal::SampleFormat::F32);
+        Ok(())
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P14-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P14-2 --for-spec --no-implementation-order`.
+    fn prefer_config_matching_request_returns_none_when_no_config_matches() {
+        // C051-Inv (O-001): no Mono@48k candidate -> None triggers the
+        // default-config fallback inside select_input_config.
+        let candidates = [
+            cpal::SupportedStreamConfig::new(
+                2,
+                48_000,
+                cpal::SupportedBufferSize::Unknown,
+                cpal::SampleFormat::I16,
+            ),
+            cpal::SupportedStreamConfig::new(
+                1,
+                44_100,
+                cpal::SupportedBufferSize::Unknown,
+                cpal::SampleFormat::I16,
+            ),
+        ];
+        assert!(
+            prefer_config_matching_request(&candidates, 1, 48_000).is_none(),
+            "no matching config -> None -> device default fallback"
+        );
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P14-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P14-2 --for-spec --no-implementation-order`.
+    fn prefer_config_matching_request_prefers_first_exact_match() -> Result<(), String> {
+        // C051-Inv (O-001): the first exact channels+rate match in device order wins.
+        let candidates = [
+            cpal::SupportedStreamConfig::new(
+                1,
+                48_000,
+                cpal::SupportedBufferSize::Unknown,
+                cpal::SampleFormat::I16,
+            ),
+            cpal::SupportedStreamConfig::new(
+                1,
+                48_000,
+                cpal::SupportedBufferSize::Unknown,
+                cpal::SampleFormat::F32,
+            ),
+        ];
+        let picked = prefer_config_matching_request(&candidates, 1, 48_000)
+            .ok_or_else(|| "an exact match must be picked".to_string())?;
+        assert_eq!(picked.sample_format(), cpal::SampleFormat::I16);
+        Ok(())
+    }
+
+    /// @verifies C051
+    #[cfg(feature = "cpal-input")]
+    #[test]
+    // [::TICKET::] P14-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P14-2 --for-spec --no-implementation-order`.
+    fn prefer_config_matching_request_empty_candidates_returns_none() {
+        // C051-Inv (O-001): an empty candidate list yields None without panicking.
+        let empty: Vec<cpal::SupportedStreamConfig> = Vec::new();
+        assert!(prefer_config_matching_request(&empty, 1, 48_000).is_none());
     }
 }
