@@ -705,7 +705,11 @@
       "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P15-5\" --tickets=\"Tickets.json\")",
       "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P15-5\" --phase=start)",
       "Bash(node -e 'let d=\"\";process.stdin.on\\(\"data\",c=>d+=c\\);process.stdin.on\\(\"end\",\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(\"success:\",j.success,\"| startedAt:\",j.updated&&j.updated.startedAt\\);}\\);')",
-      "Bash(grep -n \"fn process_registration_state_changed\\\\|fn apply_registration_command_state\\\\|Drive the §17 registration state machine\\\\|Advance the reactor's \\\\`ClientState\\\\`\" src/runtime/reactor.rs)"
+      "Bash(grep -n \"fn process_registration_state_changed\\\\|fn apply_registration_command_state\\\\|Drive the §17 registration state machine\\\\|Advance the reactor's \\\\`ClientState\\\\`\" src/runtime/reactor.rs)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6)",
+      "Read(//Users/sh01/.claude/projects/-Users-sh01-shyme-zasso/memory/**)",
+      "Bash(git -C /Users/sh01/shyme/zasso/crates/siprs log --oneline -8)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P15-6\")"
     ]
   }
 }
