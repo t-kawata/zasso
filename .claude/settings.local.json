@@ -814,7 +814,11 @@
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const r=JSON.parse\\(d\\);console.log\\('status:', r.updated?.status, '| ticket:', r.ticketKey\\)}\\)\")",
       "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P15-9\" --phase=start)",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const r=JSON.parse\\(d\\);console.log\\('startedAt:', r.updated?.startedAt\\)}\\)\")",
-      "Bash(echo \"---scan-crimes exit=$?\")"
+      "Bash(echo \"---scan-crimes exit=$?\")",
+      "Bash(grep -nE '^[a-zA-Z0-9._-]+:' /Users/sh01/shyme/zasso/Makefile 2>/dev/null | head -60)",
+      "Bash(grep -nE 'warning|error' /tmp/siprs-check.log /tmp/siprs-test.log | grep -v '^.*warning: unused' | head -40; echo \"---counts---\"; grep -c 'warning' /tmp/siprs-check.log /tmp/siprs-test.log)",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(echo \"VALIDATOR_EXIT=$?\")"
     ]
   }
 }
