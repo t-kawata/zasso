@@ -473,6 +473,44 @@ const _: () = {
 mod tests {
     use super::*;
 
+    // A process-wide default subscriber whose `register_callsite` always
+    // reports `Interest::always`. `tracing` caches one `Interest` per callsite
+    // for the whole process; if the first thread to touch a callsite runs
+    // under the default no-op dispatcher, that callsite is cached as
+    // `Interest::never` and every later event at it is dropped. Under `cargo
+    // test` parallel execution the shared spawn callsite can be poisoned this
+    // way, making subscriber-capturing tests flaky. Installing this default
+    // once guarantees no callsite is ever cached as `never`.
+    #[derive(Clone, Copy)]
+    struct EnableAllSubscriber;
+
+    impl tracing::Subscriber for EnableAllSubscriber {
+        fn enabled(&self, _: &tracing::Metadata<'_>) -> bool {
+            true
+        }
+        fn new_span(&self, _: &tracing::span::Attributes<'_>) -> tracing::span::Id {
+            tracing::span::Id::from_u64(1)
+        }
+        fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
+        fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
+        fn event(&self, _: &tracing::Event<'_>) {}
+        fn enter(&self, _: &tracing::span::Id) {}
+        fn exit(&self, _: &tracing::span::Id) {}
+        fn register_callsite(&self, _: &tracing::Metadata<'_>) -> tracing::subscriber::Interest {
+            tracing::subscriber::Interest::always()
+        }
+    }
+
+    /// Install the process-wide `EnableAllSubscriber` once so parallel tests
+    /// cannot poison a shared callsite's interest cache with `never`.
+    fn ensure_callsites_never_poisoned() {
+        use std::sync::Once;
+        static INIT: Once = Once::new();
+        INIT.call_once(|| {
+            let _ = tracing::subscriber::set_global_default(EnableAllSubscriber);
+        });
+    }
+
     // ── Normal: mix_i16_frame ─────────────────────────────────────────────
 
     #[test]
@@ -937,6 +975,7 @@ mod tests {
     #[tokio::test]
     // @verifies C038
     async fn spawn_log_carries_call_id_field() {
+        ensure_callsites_never_poisoned();
         let capture = Arc::new(std::sync::Mutex::new(Vec::<u64>::new()));
         // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
         struct Capture(Arc<std::sync::Mutex<Vec<u64>>>);
