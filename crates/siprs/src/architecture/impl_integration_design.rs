@@ -370,6 +370,7 @@ mod tests {
     }
 
     #[test]
+    // @verifies C071  -- precondition: §62 親セクションが存在する / postcondition: 62.2 が §62 の一部として記述される
     // @verifies C090  -- invariant: 分割判断が既存の境界情報と矛盾しない
 // [::TICKET::] P15-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-1 --for-spec --no-implementation-order`.
     fn breaking_change_order_is_complete_and_unique() {
@@ -384,7 +385,7 @@ mod tests {
     #[test]
     // @verifies C069 @verifies C078 @verifies C079 @verifies C090  -- source consistency
 // [::TICKET::] P15-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-1 --for-spec --no-implementation-order`.
-// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-2|P15-3) --for-spec --no-implementation-order`.
     fn evidence_matches_actual_source() -> Result<(), std::io::Error> {
         // R1 (ConfigUnification) is resolved by P15-2: the legacy config.rs
         // ClientConfig and the TURN-as-STUN type bug are gone, and config.rs
@@ -402,10 +403,23 @@ mod tests {
             config_src.contains("pub use client_config_spec::"),
             "R1 resolved: config.rs must re-export the RFC ClientConfig"
         );
-        // R2 / R3 are still open (P15-3 / P15-4): MockBackend and the
-        // split EventBus remain in the source tree.
+        // R2 is resolved by P15-3: MockBackend is gone from reactor.rs and the
+        // backend is selected through create_backend. R3 remains open (P15-4):
+        // the split EventBus stays in the source tree.
         let reactor_src = std::fs::read_to_string("src/runtime/reactor.rs")?;
-        assert!(reactor_src.contains("MockBackend::new()"), "R2 still open: reactor.rs must still create MockBackend unconditionally");
+        assert!(
+            !reactor_src.contains("MockBackend"),
+            "R2 resolved: reactor.rs must no longer reference MockBackend"
+        );
+        assert!(
+            reactor_src.contains("create_backend("),
+            "R2 resolved: reactor.rs must select the backend via create_backend"
+        );
+        let backend_src = std::fs::read_to_string("src/runtime/backend.rs")?;
+        assert!(
+            !backend_src.contains("pub struct MockBackend"),
+            "R2 resolved: backend.rs must not define the MockBackend struct"
+        );
         let client_src = std::fs::read_to_string("src/client.rs")?;
         assert!(client_src.contains("EventBus::new"), "R3 still open: client.rs must still create its own EventBus");
         Ok(())

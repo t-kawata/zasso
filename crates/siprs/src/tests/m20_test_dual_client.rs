@@ -36,13 +36,13 @@ pub struct M20FeatureTestEntry {
 /// Which test layer validates an M20 feature.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum M20TestLayer {
-    /// Layer 2: State-machine tests with MockBackend (PJSIP-free).
+    /// Layer 2: State-machine tests with TestBackend (PJSIP-free).
     Layer2,
     /// Layer 3: SIP Integration with Docker SIP server (PJSIP required).
     Layer3,
 }
 
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3) --for-spec --no-implementation-order`.
 impl M20FeatureTestEntry {
     /// Returns the full 11-entry M20 feature test mapping table as defined
     /// in RFC §43 M20 Test Layer Mapping.
@@ -52,7 +52,7 @@ impl M20FeatureTestEntry {
                 feature_name: "NativeEvent → SipEventPayload conversion",
                 layer: M20TestLayer::Layer2,
                 validation_description: "Each NativeEvent converts to the correct SipEventPayload",
-                notes: "MockBackend injects NativeEvent for verification",
+                notes: "TestBackend injects NativeEvent for verification",
             },
             Self {
                 feature_name: "RegistrationStateChanged",
@@ -141,14 +141,14 @@ impl DualClientContext {
 mod tests {
     use super::*;
 
-    // ── C054-Precondition: MockBackend exists for DualClientContext ─
+    // ── C054-Precondition: TestBackend exists for DualClientContext ─
     // @verifies C054
     #[test]
-    // [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3) --for-spec --no-implementation-order`.
     fn test_dual_client_presupposes_backend() {
-        // DualClientContext depends on MockBackend from runtime::backend
-        let _mock = crate::runtime::backend::MockBackend::new();
-        assert!(!_mock.initialized, "MockBackend must start uninitialized");
+        // DualClientContext depends on TestBackend from runtime::backend
+        let _mock = crate::runtime::backend::TestBackend::new();
+        assert!(!_mock.initialized, "TestBackend must start uninitialized");
     }
 
     // ── C054-Postcondition: DualClientContext constructs cleanly ──

@@ -388,7 +388,7 @@ mod tests {
     // @verifies C044
     async fn shutdown_sequence_executes_idempotently() {
         let spec = ShutdownSpec::new(Duration::from_secs(5));
-        let mut backend = crate::runtime::backend::MockBackend::new();
+        let mut backend = crate::runtime::backend::TestBackend::new();
 
         // First call should execute the sequence and succeed.
         let first = spec.execute_sequence(&mut backend, &[], &[]).await;
@@ -402,7 +402,7 @@ mod tests {
         assert!(second.is_ok(), "second shutdown must succeed (idempotent)");
 
         // Verify backend.shutdown() was called at least once.
-        // Note: MockBackend.shutdown() sets initialized=false.
+        // Note: TestBackend.shutdown() sets initialized=false.
         assert!(!backend.initialized, "backend must be shut down");
     }
 
@@ -410,7 +410,7 @@ mod tests {
     // @verifies C044, C045
     async fn shutdown_sequence_with_calls_hangs_up_and_unregisters() {
         let spec = ShutdownSpec::new(Duration::from_secs(5));
-        let mut backend = crate::runtime::backend::MockBackend::new();
+        let mut backend = crate::runtime::backend::TestBackend::new();
         let account_ids = [1i32, 2i32];
         let call_ids = [1i32];
 
@@ -425,7 +425,7 @@ mod tests {
     // @verifies C044
     async fn shutdown_sequence_without_calls_or_accounts_succeeds() {
         let spec = ShutdownSpec::new(Duration::from_secs(5));
-        let mut backend = crate::runtime::backend::MockBackend::new();
+        let mut backend = crate::runtime::backend::TestBackend::new();
 
         let result = spec.execute_sequence(&mut backend, &[], &[]).await;
         assert!(result.is_ok(), "shutdown with no calls must succeed");
@@ -473,7 +473,7 @@ mod tests {
     // @verifies C044
     // [::TICKET::] P4-3, P12-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P12-9) --for-spec --no-implementation-order`.
     fn shutdown_error_is_send() {
-        // [::TICKET::] P4-3, P12-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P12-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P4-3, P12-9, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P12-9|P15-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<ShutdownError>();
     }
@@ -509,7 +509,7 @@ mod tests {
         tokio::time::pause();
         let task = tokio::spawn(async move {
             let spec = ShutdownSpec::new(Duration::from_millis(50));
-            let mut backend = crate::runtime::backend::MockBackend::new();
+            let mut backend = crate::runtime::backend::TestBackend::new();
             let call_ids = [1i32, 2i32, 3i32];
             let result = spec.execute_sequence(&mut backend, &[], &call_ids).await;
             (result, backend, spec)
@@ -535,7 +535,7 @@ mod tests {
         tokio::time::pause();
         let task = tokio::spawn(async move {
             let spec = ShutdownSpec::new(Duration::from_millis(50));
-            let mut backend = crate::runtime::backend::MockBackend::new();
+            let mut backend = crate::runtime::backend::TestBackend::new();
             let account_ids = [10i32, 11i32];
             let result = spec.execute_sequence(&mut backend, &account_ids, &[]).await;
             (result, backend, spec)
@@ -560,7 +560,7 @@ mod tests {
         tokio::time::pause();
         let task = tokio::spawn(async move {
             let spec = ShutdownSpec::new(Duration::ZERO);
-            let mut backend = crate::runtime::backend::MockBackend::new();
+            let mut backend = crate::runtime::backend::TestBackend::new();
             let call_ids = [1i32, 2i32, 3i32];
             let first = spec.execute_sequence(&mut backend, &[], &call_ids).await;
             let second = spec.execute_sequence(&mut backend, &[], &call_ids).await;
@@ -590,7 +590,7 @@ mod tests {
         tokio::time::pause();
         let task = tokio::spawn(async move {
             let spec = ShutdownSpec::new(Duration::from_millis(50));
-            let mut backend = crate::runtime::backend::MockBackend::new();
+            let mut backend = crate::runtime::backend::TestBackend::new();
             let account_ids = [10i32, 11i32];
             let call_ids = [1i32, 2i32, 3i32];
             let result = spec

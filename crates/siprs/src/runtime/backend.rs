@@ -1,9 +1,11 @@
 // [::TICKET::] P3-2: SipBackend trait — abstract SIP backend operations.
 // [::TICKET::] P0-2: backend abstraction — Backend trait, MockBackend, StubBackend
 
+#[cfg(any(test, feature = "test-util"))]
 use std::collections::BTreeMap;
 
 use crate::ffi::bindings;
+#[cfg(any(test, feature = "test-util"))]
 use crate::model::AccountId;
 use crate::runtime::command::ReactorError;
 use crate::runtime::state::{AccountEntry, CallEntry};
@@ -15,7 +17,7 @@ use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
 ///
 /// The reactor's event loop calls `SipBackend` trait methods — not raw FFI.
 /// This allows:
-/// 1. Unit-testing the reactor with `MockBackend`
+/// 1. Unit-testing the reactor with `TestBackend`
 /// 2. Swapping the real `PjsuaBackend` without changing reactor code
 /// 3. Encapsulating `conf_port_id` management inside the backend
 pub trait SipBackend: Send {
@@ -112,19 +114,21 @@ pub trait SipBackend: Send {
     fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError>;
 
     /// Connect a call's media to the conference bridge.
-    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10, P11-11, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P15-3) --for-spec --no-implementation-order`.
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-    // [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 }
 
 // ---------------------------------------------------------------------------
-// MockBackend — canned responses for reactor unit tests
+// TestBackend — deterministic canned responses for reactor unit tests
 // ---------------------------------------------------------------------------
 
-/// Mock implementation of `SipBackend` for testing reactor command dispatch.
+/// Deterministic implementation of `SipBackend` for driving reactor command
+/// dispatch in tests (Layer 2 — §43.2). Test-only: compiled for unit tests and
+/// for the `test-util` feature that integration tests enable.
 ///
 /// All methods yield deterministic canned responses without side effects.
 /// The `initialized` flag tracks whether `initialize()` was called.
@@ -138,7 +142,8 @@ pub trait SipBackend: Send {
 /// closure actually dispatched to the backend (a backend method with no observable
 /// side effect is untestable).
 #[derive(Default)]
-pub struct MockBackend {
+#[cfg(any(test, feature = "test-util"))]
+pub struct TestBackend {
     pub initialized: bool,
     /// Configurable result for `get_account_info`. `Some` short-circuits the
     /// registry lookup so tests can inject failures or canned snapshots.
@@ -154,6 +159,9 @@ pub struct MockBackend {
     /// Account registry keyed by native_acc_id — the source from which
     /// `get_account_info` derives its snapshot (P10-1).
     pub accounts: BTreeMap<i32, AccountEntry>,
+    /// Registration state keyed by native_acc_id, kept in lockstep with
+    /// `accounts[id].registration` (§62.2 TestBackend semantics).
+    pub registrations: BTreeMap<i32, crate::state::registr_state_machine::RegistrationState>,
     /// Next logical/native id assigned by `add_account` (first = 1).
     next_id: i32,
     /// Next logical/native call id assigned by `make_call` (first = 1).
@@ -168,14 +176,44 @@ pub struct MockBackend {
     pub unhold_calls: Vec<i32>,
 }
 
-impl MockBackend {
+#[cfg(any(test, feature = "test-util"))]
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+impl TestBackend {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// The registration state tracked for `native_acc_id`, if the account exists.
+    ///
+    /// Exposes the §62.2 registration transitions to tests so they can assert
+    /// the state machine edges (`Disabled` → `Registering`/`Unregistering`)
+    /// without round-tripping through the reactor.
+    pub fn registration_state(
+        &self,
+        native_acc_id: i32,
+    ) -> Option<crate::state::registr_state_machine::RegistrationState> {
+        self.registrations.get(&native_acc_id).copied()
+    }
+
+    /// Advance the account to `Registered` so tests can exercise the success
+    /// shape (`get_account_info` → status 200) of the registration flow.
+    ///
+    /// The full `Registering` → `Registered` transition on a native success
+    /// response is production-wired by P15-5 (§62.4); this helper lets tests
+    /// set up the post-success state directly.
+    pub fn mark_registered(&mut self, native_acc_id: i32) {
+        if let Some(entry) = self.accounts.get_mut(&native_acc_id) {
+            entry.registration = "Registered".into();
+        }
+        self.registrations
+            .insert(native_acc_id, crate::state::registr_state_machine::RegistrationState::Registered);
     }
 }
 
 // [::TICKET::] P8-1, P10-3, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-3|P11-11) --for-spec --no-implementation-order`.
-impl SipBackend for MockBackend {
+#[cfg(any(test, feature = "test-util"))]
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+impl SipBackend for TestBackend {
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
         self.initialized = true;
@@ -190,7 +228,7 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-    // [::TICKET::] P3-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-1, P10-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P15-3) --for-spec --no-implementation-order`.
     fn add_account(
         &mut self,
         config: &crate::config::account_config_spec::AccountConfig,
@@ -203,9 +241,12 @@ impl SipBackend for MockBackend {
             id: id as u64,
             native_id: id,
             config: config.clone(),
-            registration: "Registered".into(),
+            // §62.2: a freshly added account starts with registration Disabled.
+            registration: "Disabled".into(),
         };
         self.accounts.insert(id, entry.clone());
+        self.registrations
+            .insert(id, crate::state::registr_state_machine::RegistrationState::Disabled);
         Ok((id, entry))
     }
 
@@ -228,12 +269,24 @@ impl SipBackend for MockBackend {
         Ok(())
     }
 
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3) --for-spec --no-implementation-order`.
     fn set_registration(
         &mut self,
-        _native_acc_id: i32,
-        _enabled: bool,
+        native_acc_id: i32,
+        enabled: bool,
     ) -> Result<(), ReactorError> {
+        // §62.2: enabling registration enters Registering, disabling enters
+        // Unregistering. The pending states are observable via the
+        // `registration_state` accessor and the stored AccountEntry.
+        let next = if enabled {
+            crate::state::registr_state_machine::RegistrationState::Registering
+        } else {
+            crate::state::registr_state_machine::RegistrationState::Unregistering
+        };
+        if let Some(entry) = self.accounts.get_mut(&native_acc_id) {
+            entry.registration = next.to_string();
+        }
+        self.registrations.insert(native_acc_id, next);
         Ok(())
     }
 
@@ -317,7 +370,7 @@ impl SipBackend for MockBackend {
         Ok(1)
     }
 
-    // [::TICKET::] P4-1, P7-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P7-2|P10-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P4-1, P7-2, P10-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-1|P7-2|P10-1|P15-3) --for-spec --no-implementation-order`.
     fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError> {
         // [::TICKET::] P7-2: O-001 — tests can inject a failure via get_account_info_result.
         // P10-1: without an injected result, derive the snapshot from the registry.
@@ -326,7 +379,7 @@ impl SipBackend for MockBackend {
             None => {
                 let entry = self.accounts.get(&(native_acc_id as i32)).ok_or_else(|| {
                     ReactorError::BackendError(format!(
-                        "MockBackend::get_account_info: unknown native_acc_id {native_acc_id}"
+                        "TestBackend::get_account_info: unknown native_acc_id {native_acc_id}"
                     ))
                 })?;
                 account_entry_to_snapshot(entry)
@@ -359,10 +412,12 @@ impl SipBackend for MockBackend {
 /// every other registration string maps to the unregistered shape (0, None, offline).
 /// The `uri` is the entry's config (the mock stores the account username there).
 // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+#[cfg(any(test, feature = "test-util"))]
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
 fn account_entry_to_snapshot(entry: &AccountEntry) -> Result<AccountInfoSnapshot, ReactorError> {
     let account_id = AccountId::from_u64(entry.id).map_err(|_| {
         ReactorError::BackendError(format!(
-            "MockBackend: account entry has invalid id {}",
+            "TestBackend: account entry has invalid id {}",
             entry.id
         ))
     })?;
@@ -402,7 +457,7 @@ pub(crate) fn map_pjsua_status(status: i32, operation: &str) -> Result<(), React
 /// `#[cfg(feature = "pjsua-native")]` and maps the `pj_status_t` through
 /// [`map_pjsua_status`]. Without the feature the backend cannot drive PJSUA and
 /// each method returns a clear precondition error — the crate still compiles
-/// (RFC §28, C058) and the reactor uses `MockBackend` for tests.
+/// (RFC §28, C058) and tests use the deterministic `TestBackend`.
 #[derive(Default)]
 pub struct PjsuaBackend;
 
@@ -780,11 +835,100 @@ mod tests {
 
     #[test]
     // @verifies C038, C039
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3) --for-spec --no-implementation-order`.
     fn sip_backend_trait_object_is_object_safe() {
         // Box<dyn SipBackend> must be constructable (object-safe).
-        let _backend: Box<dyn SipBackend> = Box::new(MockBackend::new());
+        let _backend: Box<dyn SipBackend> = Box::new(TestBackend::new());
         // Compile-time verification: Box<dyn SipBackend> is constructable.
+    }
+
+    // ── TestBackend — §62.2 registration semantics ────────────────
+
+    #[test]
+    // @verifies C083
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+    fn test_backend_add_account_assigns_ids_from_one() {
+        let mut backend = TestBackend::default();
+        let config = crate::config::account_config_spec::AccountConfig::default();
+        let (first, _) = backend.add_account(&config).unwrap();
+        let (second, _) = backend.add_account(&config).unwrap();
+        assert_eq!(first, 1, "first native id is 1");
+        assert_eq!(second, 2, "ids increment monotonically");
+    }
+
+    #[test]
+    // @verifies C083
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+    fn test_backend_add_account_starts_disabled() {
+        let mut backend = TestBackend::default();
+        let config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            ..Default::default()
+        };
+        let (id, entry) = backend.add_account(&config).unwrap();
+        assert_eq!(entry.registration, "Disabled", "RFC §62.2 Disabled initial");
+        assert_eq!(
+            backend.registration_state(id),
+            Some(crate::state::registr_state_machine::RegistrationState::Disabled)
+        );
+    }
+
+    #[test]
+    // @verifies C083
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+    fn test_backend_set_registration_transitions_registration_map() {
+        let mut backend = TestBackend::default();
+        let config = crate::config::account_config_spec::AccountConfig::default();
+        let (id, _) = backend.add_account(&config).unwrap();
+        backend.set_registration(id, true).unwrap();
+        assert_eq!(
+            backend.registration_state(id),
+            Some(crate::state::registr_state_machine::RegistrationState::Registering)
+        );
+        assert_eq!(backend.accounts[&id].registration, "Registering");
+        backend.set_registration(id, false).unwrap();
+        assert_eq!(
+            backend.registration_state(id),
+            Some(crate::state::registr_state_machine::RegistrationState::Unregistering)
+        );
+        assert_eq!(backend.accounts[&id].registration, "Unregistering");
+    }
+
+    #[test]
+    // @verifies C083
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+    fn test_backend_mark_registered_yields_200_snapshot() {
+        let mut backend = TestBackend::default();
+        let config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            domain: "example.com".into(),
+            ..Default::default()
+        };
+        let (id, _) = backend.add_account(&config).unwrap();
+        backend.mark_registered(id);
+        let snapshot = backend.get_account_info(id as u32).unwrap();
+        assert_eq!(snapshot.registration_status, 200);
+        assert_eq!(snapshot.registration_expires, Some(3600));
+        assert!(snapshot.online_status);
+        assert_eq!(snapshot.uri, "sip:alice@example.com");
+    }
+
+    #[test]
+    // @verifies C083
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+    fn test_backend_get_account_info_unknown_id_returns_error() {
+        let backend = TestBackend::default();
+        let result = backend.get_account_info(99);
+        assert!(result.is_err(), "unknown native id must return Err, not a canned snapshot");
+    }
+
+    #[test]
+    // @verifies C083
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+    fn test_backend_update_account_unknown_id_returns_error() {
+        let mut backend = TestBackend::default();
+        let result = backend.update_account(99, &crate::config::account_config_spec::AccountConfig::default());
+        assert!(result.is_err(), "update of an unknown account must return Err");
     }
 
     // ── map_pjsua_status (C111) ───────────────────────────────────
@@ -828,38 +972,38 @@ mod tests {
         assert!(map_pjsua_status(70007, "make_call").is_err());
     }
 
-    // ── MockBackend ──────────────────────────────────────────────
+    // ── TestBackend ──────────────────────────────────────────────
 
     #[test]
     // @verifies C038
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_initialize_sets_flag() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let config = crate::config::ClientConfig::default();
         let result = backend.initialize(&config);
-        assert!(result.is_ok(), "MockBackend::initialize must succeed");
+        assert!(result.is_ok(), "TestBackend::initialize must succeed");
         assert!(backend.initialized, "initialized flag must be true");
     }
 
     #[test]
     // @verifies C038
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_shutdown_clears_flag() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let config = crate::config::ClientConfig::default();
         backend.initialize(&config).unwrap();
         assert!(backend.initialized);
 
         let result = backend.shutdown();
-        assert!(result.is_ok(), "MockBackend::shutdown must succeed");
+        assert!(result.is_ok(), "TestBackend::shutdown must succeed");
         assert!(!backend.initialized, "initialized flag must be cleared");
     }
 
     #[test]
     // @verifies C038
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_conf_connect_disconnect_returns_ok() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         assert!(backend.conf_connect(1, 2).is_ok());
         assert!(backend.conf_disconnect(1, 2).is_ok());
     }
@@ -868,9 +1012,9 @@ mod tests {
     // @verifies C038
     // [::TICKET::] P8-1: O-001 — conf_connect must record the (source, sink) pair so
     // tests can prove the from_runtime_command closure actually invoked it.
-    // [::TICKET::] P8-1, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P8-1, P10-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-1|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_conf_connect_records_invocation() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.conf_connect(3, 4).unwrap();
         backend.conf_connect(5, 6).unwrap();
         assert_eq!(
@@ -883,9 +1027,9 @@ mod tests {
     #[test]
     // @verifies C038
     // [::TICKET::] P8-1: O-001 — conf_disconnect must record the (source, sink) pair.
-    // [::TICKET::] P8-1, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P8-1, P10-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-1|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_conf_disconnect_records_invocation() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.conf_disconnect(7, 8).unwrap();
         assert_eq!(
             backend.conf_disconnect_calls,
@@ -896,9 +1040,9 @@ mod tests {
 
     #[test]
     // @verifies C054
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-11, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_hold_unhold_records_invocation() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.hold(9).unwrap();
         backend.hold(10).unwrap();
         backend.unhold(9).unwrap();
@@ -944,9 +1088,9 @@ mod tests {
 
     #[test]
     // @verifies C038
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_resolve_conf_port_returns_ok() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let port = backend.resolve_conf_port(42);
         assert!(port.is_ok(), "resolve_conf_port must succeed");
         assert_eq!(port.unwrap(), 1, "mock must return fixed port 1");
@@ -954,9 +1098,9 @@ mod tests {
 
     #[test]
     // @verifies C038
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_add_account_returns_entry() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let config = crate::config::account_config_spec::AccountConfig {
             username: "test".into(),
             ..crate::config::account_config_spec::AccountConfig::default()
@@ -969,28 +1113,31 @@ mod tests {
 
     #[test]
     // @verifies C039
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_configure_codecs_returns_ok() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         assert!(backend.configure_codecs().is_ok());
     }
 
-    // ── O-001: MockBackend::get_account_info ─────────────────────────
+    // ── O-001: TestBackend::get_account_info ─────────────────────────
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P7-2: O-001 — MockBackend::get_account_info returns the controllable snapshot shape
+    // [::TICKET::] P7-2: O-001 — TestBackend::get_account_info returns the controllable snapshot shape
     // [::TICKET::] P10-1: the snapshot is now derived from the stored AccountEntry
-    // [::TICKET::] P7-2, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P10-1|P10-3) --for-spec --no-implementation-order`.
-    fn mock_backend_get_account_info_derives_registered_snapshot(
+// [::TICKET::] P7-2, P10-1, P10-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P10-1|P10-3|P15-3) --for-spec --no-implementation-order`.
+    fn test_backend_get_account_info_derives_registered_snapshot(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let config = crate::config::account_config_spec::AccountConfig {
             username: "alice".into(),
             domain: "sip.example.com".into(),
             ..crate::config::account_config_spec::AccountConfig::default()
         };
         backend.add_account(&config)?;
+        // [::TICKET::] P15-3: §62.2 — add_account starts Disabled; advance the
+        // account to Registered so the 200 success shape is exercised.
+        backend.mark_registered(1);
         let snapshot = backend.get_account_info(1)?;
         assert_eq!(snapshot.acc_id, AccountId::from_u64(1)?);
         assert_eq!(snapshot.registration_status, 200);
@@ -1006,9 +1153,9 @@ mod tests {
     /// @verifies C024
     #[test]
     // [::TICKET::] P7-2: O-001 — get_account_info_result lets tests configure the Err path
-    // [::TICKET::] P7-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P10-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P7-2, P10-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P10-1|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_get_account_info_result_configurable() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.get_account_info_result =
             Some(Err(ReactorError::BackendError("mock backend down".into())));
 
@@ -1022,9 +1169,9 @@ mod tests {
 
     #[test]
     // @verifies C039
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_transfer_call_returns_ok() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         assert!(backend.transfer_call(1, "sip:target@example.com").is_ok());
     }
 
@@ -1084,11 +1231,11 @@ mod tests {
 
     #[test]
     // @verifies C038, C039
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
-    fn mock_backend_is_send() {
-        // [::TICKET::] P3-2, P10-1, P10-3, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-3) --for-spec --no-implementation-order`.
+    fn test_backend_is_send() {
+// [::TICKET::] P3-2, P10-1, P10-3, P12-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-1|P10-3|P12-1|P15-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-        assert_send::<MockBackend>();
+        assert_send::<TestBackend>();
         assert_send::<PjsuaBackend>();
     }
 
@@ -1105,10 +1252,10 @@ mod tests {
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_get_account_info_derives_idle_snapshot(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.add_account(&account_config("bob"))?;
         // Mutate the stored entry to the Idle storage string — the snapshot
         // must derive the unregistered shape, not a canned 200.
@@ -1130,11 +1277,11 @@ mod tests {
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_get_account_info_unknown_native_id_returns_err() {
         // P10-1: no canned fallback — an unknown native_acc_id is Err when no
         // injected get_account_info_result is set.
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let result = backend.get_account_info(99);
         assert!(
             matches!(result, Err(ReactorError::BackendError(_))),
@@ -1144,10 +1291,10 @@ mod tests {
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_add_account_assigns_incrementing_ids() -> Result<(), Box<dyn std::error::Error>>
     {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let (native1, entry1) = backend.add_account(&account_config("alice"))?;
         let (native2, entry2) = backend.add_account(&account_config("bob"))?;
         assert_eq!(native1, 1, "first account native_id must be 1");
@@ -1161,10 +1308,10 @@ mod tests {
 
     /// @verifies C024
     #[test]
-    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_remove_account_removes_registry_entry() -> Result<(), Box<dyn std::error::Error>>
     {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.add_account(&account_config("alice"))?;
         assert!(backend.get_account_info(1).is_ok());
         backend.remove_account(1)?;
@@ -1175,13 +1322,13 @@ mod tests {
         Ok(())
     }
 
-    // ── P10-3: MockBackend::update_account + full-config storage ───────
+    // ── P10-3: TestBackend::update_account + full-config storage ───────
 
     #[test]
     // @verifies C015
-    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_add_account_stores_full_config() -> Result<(), Box<dyn std::error::Error>> {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let mut config = account_config("alice");
         config.domain = "pbx.example.com".into();
         backend.add_account(&config)?;
@@ -1196,10 +1343,10 @@ mod tests {
 
     #[test]
     // @verifies C015
-    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_update_account_updates_stored_config() -> Result<(), Box<dyn std::error::Error>>
     {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.add_account(&account_config("alice"))?;
         let mut new_config = account_config("bob");
         new_config.domain = "pbx.example.com".into();
@@ -1212,9 +1359,9 @@ mod tests {
 
     #[test]
     // @verifies C017
-    // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-3|P15-3) --for-spec --no-implementation-order`.
     fn mock_backend_update_account_unknown_id_returns_err() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         assert!(
             backend.update_account(99, &account_config("x")).is_err(),
             "update_account on an unknown native id must return Err"
@@ -1232,7 +1379,7 @@ mod tests {
         );
     }
 
-    // ── P12-1: MockBackend::make_call assigns deterministic incrementing ids ─
+    // ── P12-1: TestBackend::make_call assigns deterministic incrementing ids ─
 
     // [::TICKET::] P12-1: test helper shared by the make_call tests.
     // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
@@ -1249,9 +1396,9 @@ mod tests {
 
     #[test]
     // @verifies C070
-    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P15-3) --for-spec --no-implementation-order`.
     fn mock_make_call_increments_call_ids() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let (native_id1, entry1) = backend.make_call(1, &test_call_request()).unwrap();
         let (native_id2, entry2) = backend.make_call(1, &test_call_request()).unwrap();
         assert_eq!(native_id1, 1, "first make_call native id is 1");
@@ -1269,9 +1416,9 @@ mod tests {
 
     #[test]
     // @verifies C070
-    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P15-3) --for-spec --no-implementation-order`.
     fn mock_make_call_result_injection_ok() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let entry = CallEntry {
             id: 42,
             native_id: 42,
@@ -1287,9 +1434,9 @@ mod tests {
 
     #[test]
     // @verifies C070
-    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P15-3) --for-spec --no-implementation-order`.
     fn mock_make_call_result_injection_err() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));
         let result = backend.make_call(1, &test_call_request());
         assert!(
@@ -1300,9 +1447,9 @@ mod tests {
 
     #[test]
     // @verifies C070
-    // [::TICKET::] P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P15-3) --for-spec --no-implementation-order`.
     fn mock_make_call_zero_native_id_returns_err() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let result = backend.make_call(0, &test_call_request());
         assert!(
             result.is_err(),

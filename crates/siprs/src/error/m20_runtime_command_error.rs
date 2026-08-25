@@ -189,8 +189,9 @@ mod tests {
     use crate::runtime::state::AccountEntry;
     use crate::state::registr_state_machine::RegistrationState;
 
-    // A registered account entry as stored by MockBackend::add_account.
+    // A registered account entry as stored by TestBackend::add_account.
     // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
     fn registered_entry() -> AccountEntry {
         AccountEntry {
             id: 1,

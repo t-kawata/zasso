@@ -32,7 +32,7 @@ pub enum TestLayer {
     /// Unit tests (PJSIP-free): config validation, id mapping, pair aligner,
     /// resampler, mixer clipping, event filtering, error consistency.
     Layer1Unit,
-    /// State-machine tests with MockBackend: RegistrationState and CallState
+    /// State-machine tests with TestBackend: RegistrationState and CallState
     /// transitions, concurrency, shutdown behaviour.
     Layer2StateMachine,
     /// SIP Integration with Docker Asterisk/FreeSWITCH: REGISTER, INVITE/BYE,
@@ -42,7 +42,7 @@ pub enum TestLayer {
     Layer4Interop,
 }
 
-// [::TICKET::] P1-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3) --for-spec --no-implementation-order`.
 impl TestLayer {
     /// Returns a human-readable description of this test layer's scope.
     pub const fn description(&self) -> &'static str {
@@ -53,7 +53,7 @@ impl TestLayer {
                  error consistency"
             }
             Self::Layer2StateMachine => {
-                "State-machine tests with MockBackend: RegistrationState and \
+                "State-machine tests with TestBackend: RegistrationState and \
                  CallState transitions, concurrency, shutdown behaviour"
             }
             Self::Layer3SipIntegration => {

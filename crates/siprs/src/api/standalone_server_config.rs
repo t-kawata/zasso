@@ -775,7 +775,7 @@ mod tests {
     fn test_server_config_send_sync() {
         // [::TICKET::] P2-2, P7-1, P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P2-2, P3-3, P7-1, P11-2, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3|P7-1|P11-2|P15-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P2-2, P3-3, P7-1, P11-2, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3|P7-1|P11-2|P15-2|P15-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<ServerConfig>();
         assert_sync::<ServerConfig>();
@@ -1028,7 +1028,7 @@ mod tests {
 
     // ── P7-1: AppState + build_router behavioral tests (feature-gated) ──
     //
-    // The reactor runs on MockBackend (src/runtime/reactor.rs), so a real
+    // The reactor runs on TestBackend (src/runtime/reactor.rs), so a real
     // SipClient can be constructed in tests without PJSIP native init.
     // The RFC §10 ClientConfig::default() passes §42 validation (P15-2), so
     // the helper uses the default config directly.
@@ -1041,15 +1041,15 @@ mod tests {
         #[test]
         // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
         fn test_app_state_send_sync() {
-// [::TICKET::] P3-3, P7-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1|P15-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-3, P7-1, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1|P15-2|P15-3) --for-spec --no-implementation-order`.
             fn assert_send<T: Send>() {}
-// [::TICKET::] P3-3, P7-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1|P15-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-3, P7-1, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1|P15-2|P15-3) --for-spec --no-implementation-order`.
             fn assert_sync<T: Sync>() {}
             assert_send::<AppState>();
             assert_sync::<AppState>();
         }
 
-        /// Build a real AppState backed by a MockBackend reactor (no PJSIP).
+        /// Build a real AppState backed by a TestBackend reactor (no PJSIP).
         ///
         /// With `sqlite-storage`, opens an in-memory DatabasePool for the `db` field.
         #[cfg(feature = "sqlite-storage")]
@@ -1068,7 +1068,7 @@ mod tests {
             })
         }
 
-        /// Build a real AppState backed by a MockBackend reactor (no PJSIP).
+        /// Build a real AppState backed by a TestBackend reactor (no PJSIP).
         #[cfg(not(feature = "sqlite-storage"))]
         async fn build_test_app_state() -> Result<AppState, Box<dyn std::error::Error>> {
             use crate::client::SipClient;

@@ -7,7 +7,8 @@ use std::thread::{self, JoinHandle};
 
 use crate::config::ClientConfig;
 use crate::runtime::audio_worker::AudioMixer;
-use crate::runtime::backend::{MockBackend, SipBackend};
+use crate::runtime::backend::SipBackend;
+use crate::runtime::backend_selection::create_backend;
 use crate::runtime::command::{send_reply, DispatchCommand, ReactorError};
 use crate::runtime::handle::{self, RuntimeHandle};
 use crate::runtime::state::{CallEntry, ClientState};
@@ -71,7 +72,7 @@ type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -89,8 +90,10 @@ impl CoreReactor {
         let terminated = Arc::new(AtomicBool::new(false));
         let terminated_clone = terminated.clone();
 
-        // [::TICKET::] P3-2: MockBackend is used until PjsuaBackend is implemented.
-        let mut backend: Box<dyn SipBackend> = Box::new(MockBackend::new());
+        // [::TICKET::] P15-3: §62.2 — the backend is selected by feature set:
+        // PjsuaBackend (pjsua-native), TestBackend (test builds), or an explicit
+        // unsupported error otherwise. TestBackend no longer exists in production.
+        let mut backend = create_backend(&boot_config.config)?;
         // [::TICKET::] P8-1: O-003 — the reactor owns a default-call AudioMixer. Audio
         // lifecycle commands (AddAudioSource / RemoveAudioSource / SetAudioSourceGain /
         // MuteAudioSource) mutate this mixer on the reactor thread (single-writer rule).
@@ -713,7 +716,7 @@ pub(crate) struct SendDtmfContext<'a> {
 /// Delegates to the backend, registers the returned `CallEntry` in the reactor's
 /// authoritative `ClientState.calls` (C046), and returns the assigned logical
 /// CallId. Extracted as a helper so the error path is unit-testable with a
-/// failing MockBackend (mirrors `handle_send_dtmf`).
+/// failing TestBackend (mirrors `handle_send_dtmf`).
 ///
 /// Reads as prose: place the call via the backend; on success register the call
 /// entry under its CallId, record its outgoing origin, and returns that id; on
@@ -778,6 +781,7 @@ pub(crate) fn handle_send_dtmf(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::backend::TestBackend;
     use crate::runtime::command::Reply;
     use crate::runtime::state::CallEntry;
     use crate::state::m20_callstate_mapping::pjsip_inv_state;
@@ -960,12 +964,15 @@ mod tests {
         // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
         // P10-1: the snapshot is registry-derived — register an account first so
         // get_account_info(1) yields the Ok(200) success shape.
-        let mut backend = MockBackend::new();
+        // [::TICKET::] P15-3: add_account now starts Disabled (§62.2), so the
+        // account is advanced to Registered before the 200 flow.
+        let mut backend = TestBackend::new();
         let config = crate::config::account_config_spec::AccountConfig {
             username: "alice".into(),
             ..crate::config::account_config_spec::AccountConfig::default()
         };
         backend.add_account(&config)?;
+        backend.mark_registered(1);
         let bus = EventBus::new(16, None);
         let buses = HashMap::new();
         let mut calls = BTreeMap::new();
@@ -1000,7 +1007,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P7-2: O-001 — get_account_info Err publishes a failure event (no silent drop)
     async fn process_native_event_registration_err_publishes_failure() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.get_account_info_result =
             Some(Err(ReactorError::BackendError("mock backend down".into())));
         let bus = EventBus::new(16, None);
@@ -1042,7 +1049,7 @@ mod tests {
         // C024: a non-200 registration status must be published as RegistrationFailed
         // through the production path, not just the isolated status mapping
         // exercised by the registration_status_to_payload unit tests (ABC O-001).
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.get_account_info_result = Some(Ok(AccountInfoSnapshot {
             acc_id: test_account(1),
             registration_status: 403,
@@ -1084,7 +1091,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P7-2: O-001 — non-registration P0 events convert and publish through dispatch_event
     async fn process_native_event_call_state_changed_publishes() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let buses = HashMap::new();
         let mut calls = confirmed_calls();
@@ -1122,7 +1129,7 @@ mod tests {
     async fn process_native_event_multi_account_call_connected() {
         // Two calls, one per account: each CallConnected payload must carry the
         // owning CallEntry.account_id — never the hardcoded account 1.
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let buses = HashMap::new();
         let mut calls = BTreeMap::from([
@@ -1200,7 +1207,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P7-2: O-001 — P1/P2 events are dropped without publication (documented rationale)
     async fn process_native_event_p1_drops_without_publish() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let buses = HashMap::new();
         let mut calls = BTreeMap::new();
@@ -1239,7 +1246,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: inbound CONNECTING discriminates to OutgoingCallRinging
     async fn process_native_event_incoming_connecting_rings() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::from([(
@@ -1286,7 +1293,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: outbound CONNECTING discriminates to OutgoingCallTrying
     async fn process_native_event_outgoing_connecting_tries() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::from([(
@@ -1331,7 +1338,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: CONNECTING with no recorded direction falls back to Trying (outgoing assumption)
     async fn process_native_event_connecting_no_direction_falls_back_to_trying() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::from([(
@@ -1376,7 +1383,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: processing NativeEvent::IncomingCall records the Incoming direction
     async fn process_native_event_incoming_call_records_direction() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::new();
@@ -1414,9 +1421,9 @@ mod tests {
     /// @verifies C070, C046
     #[test]
     // [::TICKET::] P12-8: a MakeCall command records the outgoing direction by origin
-    // [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P12-8, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P15-3) --for-spec --no-implementation-order`.
     fn handle_make_call_records_outgoing_direction() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
         let mut directions = empty_directions();
         let mut call_state = CallStateTables {
@@ -1669,7 +1676,7 @@ mod tests {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let client_state = ClientState::default();
         let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
 
@@ -1708,7 +1715,7 @@ mod tests {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let call_id = CallId::from_u64(1).unwrap();
         let account_id = AccountId::from_u64(5).unwrap();
         let mut client_state = ClientState::default();
@@ -1756,7 +1763,7 @@ mod tests {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.send_dtmf_result = Some(Err(crate::runtime::command::ReactorError::BackendError(
             "send failed".into(),
         )));
@@ -1797,7 +1804,7 @@ mod tests {
         let id = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
             .await?;
-        assert_eq!(id, 1, "MockBackend assigns the first account id 1");
+        assert_eq!(id, 1, "TestBackend assigns the first account id 1");
         let state = handle.query_state().await?;
         assert_eq!(
             state.accounts.len(),
@@ -1827,9 +1834,9 @@ mod tests {
     // @verifies C070, C046
     // [::TICKET::] P12-1: handle_make_call delegates to the backend, registers the
     // returned CallEntry in the authoritative ClientState, and returns the CallId.
-    // [::TICKET::] P12-1, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P12-8, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3) --for-spec --no-implementation-order`.
     fn handle_make_call_registers_entry_and_returns_id() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
@@ -1837,7 +1844,7 @@ mod tests {
         };
         let id = handle_make_call(&mut backend, &mut call_state, 1, &test_call_request())
             .unwrap_or_else(|error| panic!("make_call must succeed: {error}"));
-        assert_eq!(id, 1, "MockBackend assigns the first call id 1");
+        assert_eq!(id, 1, "TestBackend assigns the first call id 1");
         let entry = client_state
             .calls
             .get(&test_call_id(1))
@@ -1851,9 +1858,9 @@ mod tests {
     // @verifies C070
     // [::TICKET::] P12-1: a failing backend.make_call must propagate Err and
     // register no CallEntry — never a fabricated id.
-    // [::TICKET::] P12-1, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P12-8, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3) --for-spec --no-implementation-order`.
     fn handle_make_call_error_registers_nothing() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));
         let mut client_state = ClientState::default();
         let mut call_state = CallStateTables {
@@ -1884,7 +1891,7 @@ mod tests {
         let call_id = handle
             .submit_make_call(account_id, test_call_request())
             .await?;
-        assert_eq!(call_id, 1, "MockBackend assigns the first call id 1");
+        assert_eq!(call_id, 1, "TestBackend assigns the first call id 1");
         let state = handle.query_state().await?;
         assert_eq!(state.calls.len(), 1, "ClientState must reflect the call");
         assert!(
@@ -2021,11 +2028,14 @@ mod tests {
     // [::TICKET::] P12-7: a NativeEvent injected through the handle's ingestion
     // receiver reaches process_native_event on the reactor thread and is published
     // on the reactor-owned default_event_bus (O-001 production flow).
+    // [::TICKET::] P15-3: add_account starts Disabled (§62.2), so a fresh account
+    // derives the unregistered shape (status 0) and the ingestion publishes
+    // RegistrationFailed. The Succeeded-via-ingestion flow for a Registered
+    // account is restored by P15-5 (§62.4 registration state machine wiring).
     async fn reactor_enqueued_registration_state_changed_publishes(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (handle, join) = spawn_reactor();
-        // Register an account so MockBackend::get_account_info(1) yields the
-        // Ok(200) success shape (P10-1 registry-derived snapshot).
+        // Register an account so TestBackend derives a registry-based snapshot.
         let account_id = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
             .await?;
@@ -2037,8 +2047,8 @@ mod tests {
 
         let ev = rx.recv().await?;
         assert!(
-            matches!(ev.payload, SipEventPayload::RegistrationSucceeded(_)),
-            "expected RegistrationSucceeded, got {:?}",
+            matches!(ev.payload, SipEventPayload::RegistrationFailed(_)),
+            "expected RegistrationFailed for a Disabled account, got {:?}",
             ev.payload
         );
         assert_eq!(ev.meta.account_id, Some(test_account(1)));

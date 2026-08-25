@@ -29,6 +29,8 @@
 
 pub mod audio_worker;
 pub mod backend;
+pub mod backend_selection;
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
 pub mod command;
 pub mod handle;
 pub mod reactor;

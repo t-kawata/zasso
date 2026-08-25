@@ -12,8 +12,12 @@ list-active-tickets:
 build:
 	cargo build --release
 
+# [::TICKET::] P15-3: the test suite enables the test-util feature so the
+# live-reactor integration tests (tests/*.rs) select TestBackend. The feature
+# is never in default, so `cargo build` (production) still fails fast without
+# pjsua-native (RFC §62.2).
 test:
-	cargo test
+	cargo test --features test-util
 
 # ═══════════════════════════════════════════════
 #  commit / push（親 Makefile へ透過委譲）

@@ -3,7 +3,7 @@
 // This integration test file closes the O-001 and O-003 ABC inspection gaps:
 //
 //   O-001: No test submitted RuntimeCommand::ConfConnect / ConfDisconnect
-//          end-to-end through a live CoreReactor + MockBackend.
+//          end-to-end through a live CoreReactor + TestBackend.
 //   O-003: No test submitted AddAudioSource / RemoveAudioSource /
 //          SetAudioSourceGain / MuteAudioSource through the reactor.
 //
@@ -23,6 +23,7 @@ use siprs::runtime::{
 
 // [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
 // [::TICKET::] P11-3, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-3|P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
 fn spawn_reactor() -> (RuntimeHandle, Arc<std::thread::JoinHandle<()>>) {
     CoreReactor::spawn(BootConfig::default()).expect("reactor must spawn")
 }

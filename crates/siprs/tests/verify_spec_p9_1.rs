@@ -3,7 +3,7 @@
 //
 // These tests drive the flows the example binaries (client_init,
 // account_register, make_call, audio_tap, tts_source) perform against the
-// reactor/MockBackend (Layer 2), verifying the public API surface the examples
+// reactor/TestBackend (Layer 2), verifying the public API surface the examples
 // consume (contract C066). The shared CLI parser is included via `#[path]` so
 // its unit tests run under `make test` regardless of whether example test
 // targets are built.
@@ -25,6 +25,7 @@ use siprs::{
 ///
 /// Matches RFC §41.5: an `AsyncAudioSource` over `tokio::sync::mpsc::Receiver<Vec<i16>>`.
 // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
 struct TtsStreamSource {
     rx: tokio::sync::mpsc::Receiver<Vec<i16>>,
 }
@@ -97,9 +98,14 @@ async fn account_register_flow_registers_account() -> Result<(), Box<dyn std::er
     account.register().await?;
     let accounts = client.accounts().await?;
     assert_eq!(accounts.len(), 1, "AddAccount must surface one account");
-    assert!(
-        accounts[0].registered,
-        "MockBackend reports registered=true"
+    // [::TICKET::] P15-3: §62.2 — add_account starts Disabled, and the
+    // Registering→Registered transition on a native success is production-wired
+    // by P15-5 (§62.4). P15-3 pins the correct pre-wiring state: register() is
+    // accepted and the account is present and Disabled.
+    assert_eq!(
+        account.registration_state().await?,
+        siprs::RegistrationState::Disabled,
+        "P15-3: a fresh account stays Disabled until the §62.4 state machine is wired"
     );
     client.shutdown().await?;
     Ok(())
@@ -123,9 +129,11 @@ async fn account_register_flow_via_public_facade() -> Result<(), Box<dyn std::er
     account.register().await?;
     let accounts = client.accounts().await?;
     assert_eq!(accounts.len(), 1, "AddAccount must surface one account");
-    assert!(
-        accounts[0].registered,
-        "MockBackend reports registered=true"
+    // [::TICKET::] P15-3: §62.2 — see account_register_flow_registers_account.
+    assert_eq!(
+        account.registration_state().await?,
+        siprs::RegistrationState::Disabled,
+        "P15-3: a fresh account stays Disabled until the §62.4 state machine is wired"
     );
     client.shutdown().await?;
     Ok(())

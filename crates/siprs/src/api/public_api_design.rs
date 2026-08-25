@@ -215,9 +215,9 @@ mod tests {
 
     #[test]
     // @verifies C012, C026
-    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P15-3) --for-spec --no-implementation-order`.
     fn sip_account_handle_is_clone() {
-// [::TICKET::] P3-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P15-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P15-2|P15-3) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_clone::<SipAccountHandle>();
     }
@@ -233,9 +233,9 @@ mod tests {
 
     #[test]
     // @verifies C012, C026
-    // [::TICKET::] P3-1, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P10-1, P10-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3|P15-3) --for-spec --no-implementation-order`.
     fn sip_account_handle_is_send() {
-// [::TICKET::] P3-1, P10-1, P10-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3|P15-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P10-1, P10-3, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3|P15-2|P15-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<SipAccountHandle>();
     }
@@ -253,7 +253,10 @@ mod tests {
 
     #[tokio::test]
     // @verifies C017
-    async fn registration_state_queries_reactor_and_returns_registered(
+    // [::TICKET::] P15-3: §62.2 — add_account starts Disabled, so the query
+    // round-trip asserts Disabled. The Registered state after a successful
+    // registration is production-wired by P15-5 (§62.4).
+    async fn registration_state_queries_reactor_and_returns_disabled(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
@@ -265,7 +268,7 @@ mod tests {
         let handle = SipAccountHandle::new(client.clone(), account_id);
         assert_eq!(
             handle.registration_state().await?,
-            RegistrationState::Registered,
+            RegistrationState::Disabled,
             "registration_state must read the reactor ClientState populated by AddAccount"
         );
         client.shutdown().await?;
@@ -453,10 +456,12 @@ mod tests {
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let handle = client.add_account(valid_account_config()).await?;
+        // [::TICKET::] P15-3: §62.2 — add_account starts Disabled, so the
+        // preservation assertion pins Disabled → Disabled across update_config.
         assert_eq!(
             handle.registration_state().await?,
-            RegistrationState::Registered,
-            "MockBackend stores 'Registered' on add_account"
+            RegistrationState::Disabled,
+            "TestBackend starts the account Disabled on add_account"
         );
         let patch = crate::config::account_config_spec::AccountConfigPatch {
             username: Some("alice2".into()),
@@ -465,7 +470,7 @@ mod tests {
         handle.update_config(patch).await?;
         assert_eq!(
             handle.registration_state().await?,
-            RegistrationState::Registered,
+            RegistrationState::Disabled,
             "update_config must not change the registration state (C026)"
         );
         client.shutdown().await?;
@@ -554,7 +559,7 @@ mod tests {
         let account_id = client.handle().submit_add_account(account_config).await?;
         let handle = SipAccountHandle::new(client.clone(), account_id);
         let call_id = handle.make_call(test_call_request()).await?;
-        assert_eq!(call_id, 1, "MockBackend assigns the first call id 1");
+        assert_eq!(call_id, 1, "TestBackend assigns the first call id 1");
         let state = client.handle().query_state().await?;
         let cid = CallId::from_u64(call_id)?;
         assert_eq!(

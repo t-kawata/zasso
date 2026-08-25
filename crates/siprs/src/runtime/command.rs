@@ -556,7 +556,7 @@ pub(crate) fn send_reply<T>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::backend::MockBackend;
+    use crate::runtime::backend::TestBackend;
 
     #[test]
     // @verifies C011
@@ -873,9 +873,9 @@ mod tests {
     #[test]
     // @verifies C011
     // [::TICKET::] P8-1: O-001 — executing the ConfConnect closure must invoke backend.conf_connect.
-    // [::TICKET::] P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P8-1, P10-4, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4|P15-3) --for-spec --no-implementation-order`.
     fn conf_connect_closure_invokes_backend_conf_connect() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::ConfConnect {
             call_id: 9,
@@ -899,9 +899,9 @@ mod tests {
     #[test]
     // @verifies C011
     // [::TICKET::] P8-1: O-001 — executing the ConfDisconnect closure must invoke backend.conf_disconnect.
-    // [::TICKET::] P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P8-1, P10-4, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-4|P15-3) --for-spec --no-implementation-order`.
     fn conf_disconnect_closure_invokes_backend_conf_disconnect() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::ConfDisconnect {
             call_id: 5,
@@ -926,9 +926,9 @@ mod tests {
 
     #[test]
     // @verifies C054
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-11, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P15-3) --for-spec --no-implementation-order`.
     fn hold_closure_invokes_backend_hold() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::Hold {
             call_id: 9,
@@ -951,9 +951,9 @@ mod tests {
 
     #[test]
     // @verifies C054
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-11, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P15-3) --for-spec --no-implementation-order`.
     fn unhold_closure_invokes_backend_unhold() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::Unhold {
             call_id: 12,
