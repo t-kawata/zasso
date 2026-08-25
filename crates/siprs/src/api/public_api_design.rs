@@ -217,7 +217,7 @@ mod tests {
     // @verifies C012, C026
     // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn sip_account_handle_is_clone() {
-        // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P15-2) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_clone::<SipAccountHandle>();
     }
@@ -226,7 +226,7 @@ mod tests {
     // @verifies C012
     // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn sip_account_handle_is_debug() {
-        // [::TICKET::] P3-1, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P10-1, P10-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3|P15-2) --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
         assert_debug::<SipAccountHandle>();
     }
@@ -235,7 +235,7 @@ mod tests {
     // @verifies C012, C026
     // [::TICKET::] P3-1, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3) --for-spec --no-implementation-order`.
     fn sip_account_handle_is_send() {
-        // [::TICKET::] P3-1, P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P10-1, P10-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3|P15-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<SipAccountHandle>();
     }
@@ -255,9 +255,7 @@ mod tests {
     // @verifies C017
     async fn registration_state_queries_reactor_and_returns_registered(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let account_config = crate::config::account_config_spec::AccountConfig {
             username: "alice".into(),
@@ -278,9 +276,7 @@ mod tests {
     // @verifies C013
     async fn registration_state_returns_disabled_for_missing_account(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let handle = SipAccountHandle::new(client.clone(), 99);
         assert_eq!(
@@ -296,9 +292,7 @@ mod tests {
     // @verifies C013
     async fn registration_state_returns_disabled_for_zero_id(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let handle = SipAccountHandle::new(client.clone(), 0);
         assert_eq!(
@@ -314,9 +308,7 @@ mod tests {
     // @verifies C017
     async fn registration_state_maps_reactor_down_to_native_error(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         client.shutdown().await?;
         let handle = SipAccountHandle::new(client, 1);
@@ -340,7 +332,7 @@ mod tests {
         // existing assert_clone/assert_debug tests above).
         // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-        // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-2) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<SipClient>();
         assert_sync::<SipClient>();
@@ -355,11 +347,9 @@ mod tests {
         // C017 invariant: every public account-info query yields Result<T, SipError>.
         // registration_state is async, so its result is an opaque Future;
         // awaiting it must produce Result<RegistrationState, SipError>.
-        // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-2) --for-spec --no-implementation-order`.
         fn assert_result_type(_: &Result<RegistrationState, SipError>) {}
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let handle = SipAccountHandle::new(client, 1);
         let result = handle.registration_state().await;
@@ -384,9 +374,7 @@ mod tests {
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     async fn update_config_applies_patch_to_stored_config() -> Result<(), Box<dyn std::error::Error>>
     {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let handle = client.add_account(valid_account_config()).await?;
         let patch = crate::config::account_config_spec::AccountConfigPatch {
@@ -415,9 +403,7 @@ mod tests {
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     async fn update_config_invalid_patch_leaves_config_unchanged(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let handle = client.add_account(valid_account_config()).await?;
         let patch = crate::config::account_config_spec::AccountConfigPatch {
@@ -444,9 +430,7 @@ mod tests {
     // @verifies C017
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     async fn update_config_missing_account_returns_err() -> Result<(), Box<dyn std::error::Error>> {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let handle = SipAccountHandle::new(client.clone(), 999);
         let err = match handle
@@ -466,9 +450,7 @@ mod tests {
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     async fn update_config_preserves_registration_state() -> Result<(), Box<dyn std::error::Error>>
     {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let handle = client.add_account(valid_account_config()).await?;
         assert_eq!(
@@ -495,9 +477,7 @@ mod tests {
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     async fn sip_account_handle_remove_delegates_to_client(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let handle = client.add_account(valid_account_config()).await?;
         handle.remove().await?;
@@ -515,9 +495,7 @@ mod tests {
     // leave the authoritative ClientState account entry untouched (C052).
     async fn update_config_noop_patch_leaves_state_unchanged(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let handle = client.add_account(valid_account_config()).await?;
         let account_id = AccountId::from_u64(handle.id()).map_err(|_| "invalid account id")?;
@@ -567,9 +545,7 @@ mod tests {
     // [::TICKET::] P12-1: make_call awaits the MakeCall reply and returns the
     // CallId the reactor registered in client_state.calls (no hardcoded Ok(1)).
     async fn make_call_returns_backend_assigned_id() -> Result<(), Box<dyn std::error::Error>> {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let account_config = crate::config::account_config_spec::AccountConfig {
             username: "alice".into(),
@@ -595,9 +571,7 @@ mod tests {
     // Err mapped to SipErrorKind::InviteFailed — never a hardcoded value.
     async fn make_call_after_shutdown_returns_invite_failed(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let account_config = crate::config::account_config_spec::AccountConfig {
             username: "alice".into(),
@@ -624,9 +598,7 @@ mod tests {
     // CallIds and grow the calls map by exactly one entry each.
     async fn consecutive_make_calls_return_distinct_ids() -> Result<(), Box<dyn std::error::Error>>
     {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let account_config = crate::config::account_config_spec::AccountConfig {
             username: "alice".into(),
@@ -655,9 +627,7 @@ mod tests {
     // state and the owning account id under the returned CallId.
     async fn make_call_registers_call_entry_state_calling() -> Result<(), Box<dyn std::error::Error>>
     {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let account_config = crate::config::account_config_spec::AccountConfig {
             username: "alice".into(),

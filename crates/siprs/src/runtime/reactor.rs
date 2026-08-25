@@ -26,11 +26,29 @@ const REACTOR_THREAD_NAME: &str = "siprs-reactor";
 
 /// Configuration passed to `CoreReactor::spawn()`.
 ///
-/// This is now the real `ClientConfig` type defined in `src/config.rs`.
-#[derive(Debug, Clone, Default)]
+/// `config` resolves to the RFC §10 `ClientConfig` re-exported from
+/// `src/config.rs` (P15-2 ConfigUnification).
+#[derive(Debug, Clone)]
 pub struct BootConfig {
     /// The client configuration that drives PJSUA initialization.
     pub config: ClientConfig,
+    /// DtmfSent fallback timeout in milliseconds (O-002, P7-2).
+    ///
+    /// The RFC §10 `ClientConfig` carries no DTMF field, so the reactor reads
+    /// this timeout from a dedicated boot parameter sourced at the
+    /// `SipClient::new` boundary.
+    pub dtmf_sent_timeout_ms: u64,
+}
+
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+impl Default for BootConfig {
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+    fn default() -> Self {
+        Self {
+            config: ClientConfig::default(),
+            dtmf_sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
+        }
+    }
 }
 
 /// The core reactor that owns the PJSUA control thread.
@@ -53,7 +71,7 @@ type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -95,7 +113,9 @@ impl CoreReactor {
         let default_event_bus_for_handle = default_event_bus.clone();
         let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
         // [::TICKET::] P11-6: sent_timeout_ms drives the DtmfSent fallback timer (C030).
-        let dtmf_sent_timeout_ms = boot_config.config.dtmf.sent_timeout_ms;
+        // [::TICKET::] P15-2: the RFC §10 ClientConfig has no dtmf field; the timeout
+        // is a dedicated BootConfig boot parameter (P7-2 O-002).
+        let dtmf_sent_timeout_ms = boot_config.dtmf_sent_timeout_ms;
 
         // [::TICKET::] P11-6: the reactor owns a small tokio runtime that drives
         // the DtmfSent timeout fallback timers. It is built here (outside the
@@ -1603,9 +1623,12 @@ mod tests {
     // @verifies C030
     // [::TICKET::] P11-6: SendDtmf dispatch spawns the timeout after backend success
     async fn send_dtmf_dispatch_spawns_timeout_after_backend_ok() {
-        let mut config = ClientConfig::default();
-        config.dtmf.sent_timeout_ms = 50;
-        let (handle, join) = CoreReactor::spawn(BootConfig { config }).unwrap();
+        let config = ClientConfig::default();
+        let (handle, join) = CoreReactor::spawn(BootConfig {
+            config,
+            dtmf_sent_timeout_ms: 50,
+        })
+        .unwrap();
         let mut rx = handle.default_event_bus().subscribe_control();
 
         let (tx, _rx) = tokio::sync::oneshot::channel();

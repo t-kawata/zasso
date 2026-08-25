@@ -44,12 +44,9 @@ impl AsyncAudioSource for TtsStreamSource {
     }
 }
 
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-1|P15-2) --for-spec --no-implementation-order`.
 fn client_config() -> ClientConfig {
-    ClientConfig::builder()
-        .sip_proxy_host("sip.example.com")
-        .sip_proxy_port(5060)
-        .build()
+    ClientConfig::default()
 }
 
 /// CLI arguments matching the shared `account::add_account_and_resolve` helper.

@@ -371,6 +371,15 @@ pub async fn run_server(config: ServerConfig) -> Result<(), crate::error::SipErr
         "Starting siprs-server"
     );
 
+    // Validate the auth configuration against the bind address before any
+    // startup side effects (system-boundary input validation).
+    config.auth.validate(&config.bind_addr).map_err(|e| {
+        crate::error::SipError::new(
+            crate::error::SipErrorKind::InvalidConfig,
+            format!("invalid server auth config: {e}"),
+        )
+    })?;
+
     let sip_client = SipClient::new(ClientConfig::default()).await?;
     let sip_client = sip_client.0; // Discard event receiver — caller can subscribe via SipClient API
 
@@ -746,7 +755,7 @@ mod tests {
     // ── Normal: ServerConfig struct construction ───────────────────────
 
     #[test]
-    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P2-2, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P15-2) --for-spec --no-implementation-order`.
     fn test_server_config_struct_fields() {
         let config = ServerConfig {
             bind_addr: format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse().unwrap(),
@@ -756,17 +765,17 @@ mod tests {
             auth: AuthConfig::default(),
         };
         assert_eq!(config.auth.jwt_expiry_secs, 3600);
-        assert_eq!(config.bind_addr.port(), 3910);
+        assert_eq!(config.bind_addr.port(), DEFAULT_SIPRS_PORT);
     }
 
     // ── Invariant: Send + Sync ─────────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P2-2, P7-1, P11-2, P12-2, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2|P12-2|P12-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P2-2, P7-1, P11-2, P12-2, P12-7, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2|P12-2|P12-7|P15-2) --for-spec --no-implementation-order`.
     fn test_server_config_send_sync() {
         // [::TICKET::] P2-2, P7-1, P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-        // [::TICKET::] P2-2, P3-3, P7-1, P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3|P7-1|P11-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P2-2, P3-3, P7-1, P11-2, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3|P7-1|P11-2|P15-2) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<ServerConfig>();
         assert_sync::<ServerConfig>();
@@ -784,10 +793,13 @@ mod tests {
 
     // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     #[test]
-    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P15-2) --for-spec --no-implementation-order`.
     fn test_server_config_default_values() -> Result<(), Box<dyn std::error::Error>> {
         let config = ServerConfig::default();
-        assert_eq!(config.bind_addr.to_string(), "127.0.0.1:3910");
+        assert_eq!(
+            config.bind_addr.to_string(),
+            format!("127.0.0.1:{DEFAULT_SIPRS_PORT}")
+        );
         assert_eq!(config.db_path.to_str().unwrap(), "~/.siprs/data.db");
         assert_eq!(config.auth.mode, AuthMode::LocalhostOnly);
         assert!(config.config_file.is_none());
@@ -895,10 +907,10 @@ mod tests {
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P15-2) --for-spec --no-implementation-order`.
         fn test_from_args_default_port() -> Result<(), Box<dyn std::error::Error>> {
             let config = ServerConfig::from_args_with(&[])?;
-            assert_eq!(config.bind_addr.port(), 3910);
+            assert_eq!(config.bind_addr.port(), DEFAULT_SIPRS_PORT);
             assert_eq!(config.auth.mode, AuthMode::LocalhostOnly);
             Ok(())
         }
@@ -959,13 +971,13 @@ mod tests {
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P15-2) --for-spec --no-implementation-order`.
         fn test_from_args_rejects_invalid_bind_addr() {
             let result = ServerConfig::from_args_with(&[
                 "--bind-addr".to_string(),
                 "not-an-ip".to_string(),
                 "--port".to_string(),
-                "3910".to_string(),
+                DEFAULT_SIPRS_PORT.to_string(),
             ]);
             assert!(result.is_err(), "Invalid bind-addr must return error");
         }
@@ -1018,8 +1030,8 @@ mod tests {
     //
     // The reactor runs on MockBackend (src/runtime/reactor.rs), so a real
     // SipClient can be constructed in tests without PJSIP native init.
-    // ClientConfig::default() fails validate() (empty sip_proxy_host), so the
-    // helper builds a valid config explicitly.
+    // The RFC §10 ClientConfig::default() passes §42 validation (P15-2), so
+    // the helper uses the default config directly.
 
     #[cfg(all(test, feature = "server"))]
     mod server_tests {
@@ -1029,9 +1041,9 @@ mod tests {
         #[test]
         // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
         fn test_app_state_send_sync() {
-            // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-3, P7-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1|P15-2) --for-spec --no-implementation-order`.
             fn assert_send<T: Send>() {}
-            // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-3, P7-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1|P15-2) --for-spec --no-implementation-order`.
             fn assert_sync<T: Sync>() {}
             assert_send::<AppState>();
             assert_sync::<AppState>();
@@ -1046,10 +1058,7 @@ mod tests {
             use crate::config::ClientConfig;
             use crate::model::sqlite_schema::DatabasePool;
 
-            let client_config = ClientConfig::builder()
-                .sip_proxy_host("sip.example.com")
-                .sip_proxy_port(5060)
-                .build();
+            let client_config = ClientConfig::default();
             let (sip_client, _rx) = SipClient::new(client_config).await?;
             let db = DatabasePool::open(":memory:").await?;
             Ok(AppState {
@@ -1065,10 +1074,7 @@ mod tests {
             use crate::client::SipClient;
             use crate::config::ClientConfig;
 
-            let client_config = ClientConfig::builder()
-                .sip_proxy_host("sip.example.com")
-                .sip_proxy_port(5060)
-                .build();
+            let client_config = ClientConfig::default();
             let (sip_client, _rx) = SipClient::new(client_config).await?;
             Ok(AppState {
                 sip_client: Arc::new(sip_client),
@@ -1126,13 +1132,22 @@ mod tests {
         }
 
         // run_server must surface a typed SipError (never panic) when startup fails.
-        // SipClient::new(ClientConfig::default()) fails validate() (empty sip_proxy_host),
-        // so run_server returns Err(InvalidConfig) before any port binding.
-        // NOTE: run_server's ClientConfig source is an open design item (P4-3).
+        // The RFC §10 ClientConfig::default() now passes §42 validation (P15-2),
+        // so the deterministic startup failure is the auth-config boundary
+        // validation: Jwt mode without a jwt_secret is rejected before any port
+        // binding.
         #[tokio::test]
-        async fn test_run_server_returns_typed_error_on_invalid_client_config(
+        async fn test_run_server_returns_typed_error_on_invalid_auth_config(
         ) -> Result<(), Box<dyn std::error::Error>> {
-            let result = run_server(ServerConfig::default()).await;
+            let config = ServerConfig {
+                auth: AuthConfig {
+                    mode: AuthMode::Jwt,
+                    jwt_secret: None,
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            let result = run_server(config).await;
             let err = result.expect_err("run_server must return a typed error");
             assert_eq!(
                 err.kind,

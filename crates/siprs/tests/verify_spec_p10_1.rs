@@ -19,11 +19,9 @@ use siprs::SipAccountHandle;
 use siprs::SipClient;
 
 /// Build the minimal ClientConfig the reactor accepts.
-// [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P15-2) --for-spec --no-implementation-order`.
 fn test_config() -> ClientConfig {
-    ClientConfig::builder()
-        .sip_proxy_host("sip.example.com")
-        .build()
+    ClientConfig::default()
 }
 
 /// Register an account with the given username and hand back the client plus

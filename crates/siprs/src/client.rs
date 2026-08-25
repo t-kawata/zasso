@@ -76,7 +76,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1|P15-2) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -91,7 +91,7 @@ impl SipClient {
     /// # Invariant (C002)
     /// The reactor thread model must remain unchanged — `CoreReactor::spawn()`
     /// must always return `(RuntimeHandle, Arc<JoinHandle<()>>)`.
-    #[instrument(skip(config), fields(sip_host = %config.sip_proxy_host, sip_port = config.sip_proxy_port))]
+    #[instrument(skip(config), fields(user_agent = %config.user_agent, max_calls = config.max_calls))]
     pub async fn new(
         config: ClientConfig,
     ) -> Result<(Self, broadcast::Receiver<SipEvent>), SipError> {
@@ -99,6 +99,10 @@ impl SipClient {
 
         let (handle, _join) = CoreReactor::spawn(BootConfig {
             config: config.clone(),
+            // The RFC §10 ClientConfig carries no DTMF field; the DtmfSent
+            // fallback timeout is a reactor boot parameter sourced from the
+            // module default (O-002, P7-2).
+            dtmf_sent_timeout_ms: crate::config::DtmfConfig::default().sent_timeout_ms,
         })
         .map_err(|e| {
             SipError::new(
@@ -454,10 +458,7 @@ mod tests {
     async fn sip_client_constructs_with_valid_config() {
         // C001 precondition: RFC defines purpose — valid config → Ok.
         // C002 precondition: Concurrency model defined — reactor spawns.
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .sip_proxy_port(5060)
-            .build();
+        let config = ClientConfig::default();
         let result = SipClient::new(config).await;
         assert!(
             result.is_ok(),
@@ -473,9 +474,7 @@ mod tests {
     #[tokio::test]
     // @verifies C002
     async fn sip_client_returns_runtime_handle() {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await.unwrap();
         let handle = client.handle();
         assert!(!handle.is_terminated(), "RuntimeHandle must be accessible");
@@ -484,9 +483,7 @@ mod tests {
     #[tokio::test]
     // @verifies C044
     async fn sip_client_shutdown_completes() {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await.unwrap();
         // C044 postcondition: Shutdown specification with cancellation safety.
         let result =
@@ -502,19 +499,31 @@ mod tests {
 
     #[tokio::test]
     // @verifies C001
-    async fn sip_client_rejects_empty_host() {
-        // C001 invariant: InvalidConfig on empty host.
-        let config = ClientConfig::builder().sip_proxy_host("").build();
+    // @verifies C080  -- invariant: §42 validate() fail-fast before reactor spawn
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+    async fn sip_client_rejects_invalid_config_fail_fast() {
+        // §42 invariant: invalid config must be rejected by validate() before
+        // the reactor is spawned. event_bus_capacity < 16 is the canonical
+        // rejection path of the RFC §10 ClientConfig.
+        let config = ClientConfig {
+            event_bus_capacity: 8,
+            ..Default::default()
+        };
         let result = SipClient::new(config).await;
         assert!(
             result.is_err(),
-            "SipClient::new with empty host must return Err"
+            "SipClient::new with event_bus_capacity < 16 must return Err"
         );
         let err = result.unwrap_err();
         assert_eq!(
             err.kind,
             SipErrorKind::InvalidConfig,
-            "expected InvalidConfig from empty host"
+            "expected InvalidConfig from undersized event bus"
+        );
+        assert!(
+            err.message.contains("event_bus_capacity"),
+            "message must name event_bus_capacity: {}",
+            err.message
         );
     }
 
@@ -527,9 +536,9 @@ mod tests {
         // C002 invariant: SipClient must be Send + Sync for use with tokio tasks.
         // ABC O-001 closure: the Sync half was previously unenforced — a non-Sync
         // field (e.g. RefCell) would have passed every test.
-        // [::TICKET::] P6-1, P7-2, P10-1, P10-3, P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P10-1|P10-3|P11-15) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P10-1, P10-3, P11-15, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P10-1|P10-3|P11-15|P15-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-        // [::TICKET::] P6-1, P6-2, P7-2, P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2|P7-2|P10-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P6-2, P7-2, P10-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2|P7-2|P10-1|P15-2) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<SipClient>();
         assert_sync::<SipClient>();
@@ -556,9 +565,7 @@ mod tests {
     // @verifies C044
     async fn sip_client_shutdown_is_idempotent() {
         // C044 invariant: Shutdown is idempotent.
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await.unwrap();
 
         // First shutdown should succeed.
@@ -576,9 +583,7 @@ mod tests {
     // @verifies C021
     // [::TICKET::] P7-2: O-004 — accounts()/call_state() read authoritative ClientState, not the event stream
     async fn sip_client_query_api_is_authoritative() {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await.unwrap();
 
         // Register an account so ClientState has authoritative data.
@@ -621,9 +626,7 @@ mod tests {
     // @verifies C021
     // [::TICKET::] P7-2: O-004 — call_state() returns the authoritative call snapshot
     async fn sip_client_call_state_query_returns_snapshot() {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await.unwrap();
 
         let calls = client
@@ -664,18 +667,16 @@ mod tests {
         fn assert_account_result(_: &Result<crate::account::SipAccountHandle, SipError>) {}
         // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_add_transport_result(_: &Result<(), SipError>) {}
-        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-15, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-15|P15-2) --for-spec --no-implementation-order`.
         fn assert_call_state_result(_: &Result<Vec<crate::runtime::state::CallEntry>, SipError>) {}
         // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_subscribe_audio_result(
             _: &Result<crate::api::audio_subscribe_bp::AudioTapHandle, SipError>,
         ) {
         }
-        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-15, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-15|P15-2) --for-spec --no-implementation-order`.
         fn assert_shutdown_result(_: &Result<(), SipError>) {}
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         let new_result = SipClient::new(config).await;
         assert_new_result(&new_result);
         if let Ok((client, _rx)) = new_result {
@@ -1130,9 +1131,7 @@ mod tests {
 
     async fn test_client(
     ) -> Result<(SipClient, broadcast::Receiver<SipEvent>), Box<dyn std::error::Error>> {
-        let config = ClientConfig::builder()
-            .sip_proxy_host("sip.example.com")
-            .build();
+        let config = ClientConfig::default();
         Ok(SipClient::new(config).await?)
     }
 

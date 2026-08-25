@@ -384,14 +384,30 @@ mod tests {
     #[test]
     // @verifies C069 @verifies C078 @verifies C079 @verifies C090  -- source consistency
 // [::TICKET::] P15-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
     fn evidence_matches_actual_source() -> Result<(), std::io::Error> {
+        // R1 (ConfigUnification) is resolved by P15-2: the legacy config.rs
+        // ClientConfig and the TURN-as-STUN type bug are gone, and config.rs
+        // re-exports the RFC §10 ClientConfig.
         let config_src = std::fs::read_to_string("src/config.rs")?;
-        assert!(config_src.contains("pub struct ClientConfig"), "legacy config.rs must still define ClientConfig");
-        assert!(config_src.contains("turn_server: Option<StunServerConfig>"), "legacy config.rs must keep the turn_server type bug");
+        assert!(
+            !config_src.contains("turn_server: Option<StunServerConfig>"),
+            "R1 resolved: legacy turn_server type bug must be gone from config.rs"
+        );
+        assert!(
+            !config_src.contains("pub struct ClientConfig"),
+            "R1 resolved: config.rs must not define a legacy ClientConfig"
+        );
+        assert!(
+            config_src.contains("pub use client_config_spec::"),
+            "R1 resolved: config.rs must re-export the RFC ClientConfig"
+        );
+        // R2 / R3 are still open (P15-3 / P15-4): MockBackend and the
+        // split EventBus remain in the source tree.
         let reactor_src = std::fs::read_to_string("src/runtime/reactor.rs")?;
-        assert!(reactor_src.contains("MockBackend::new()"), "reactor.rs must still create MockBackend unconditionally");
+        assert!(reactor_src.contains("MockBackend::new()"), "R2 still open: reactor.rs must still create MockBackend unconditionally");
         let client_src = std::fs::read_to_string("src/client.rs")?;
-        assert!(client_src.contains("EventBus::new"), "client.rs must still create its own EventBus");
+        assert!(client_src.contains("EventBus::new"), "R3 still open: client.rs must still create its own EventBus");
         Ok(())
     }
 }

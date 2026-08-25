@@ -24,10 +24,9 @@ use siprs::{ClientConfig, SipClient, SipEventPayload};
 // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 #[tokio::test]
 async fn client_initialized_event_carries_capabilities() {
-    let config = ClientConfig::builder()
-        .sip_proxy_host("sip.example.com")
-        .sip_proxy_port(5060)
-        .build();
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+    let config = ClientConfig::default();
     let (_client, mut rx) = SipClient::new(config)
         .await
         .expect("SipClient::new with a valid config must succeed");

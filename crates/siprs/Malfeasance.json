@@ -1210,6 +1210,15 @@
       "detected_at": "2026-08-06T15:46:27.283Z",
       "status": "resolved",
       "resolved_at": "2026-08-06T15:48:16.433Z"
+    },
+    {
+      "id": 131,
+      "file": "src/config/client_config_spec.rs",
+      "line": 62,
+      "description": "resampler_quality is a String placeholder for the unimplemented ResamplerQuality type (RFC §10)",
+      "detected_at": "2026-08-25T12:09:26.083Z",
+      "status": "false_positive",
+      "note": "Technically unresolvable in P15-2: ResamplerQuality type is not implemented anywhere in the tree. resampler_quality is a functioning String representation (RFC §10 specifies a ResamplerQuality enum that does not exist yet). Classified false_positive (accepted as intentional); no [::STUB::] marker remains (a MUST RESOLVE marker would be a terminal excuse per validate-no-external-excuses)."
     }
   ]
 }

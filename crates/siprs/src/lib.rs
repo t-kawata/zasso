@@ -99,9 +99,19 @@ pub mod model;
 // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
 // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
 pub use client::SipClient;
-pub use config::{
-    AuthConfig, AuthCredentials, AuthMode, ClientConfig, ClientConfigBuilder, ConfigError,
-    LogLevel, ServerConfig, StunServerConfig,
+pub use config::{AuthConfig, AuthCredentials, AuthMode, ConfigError, ServerConfig};
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-2: RFC §10 ClientConfig promoted to the only public config type.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+pub use config::client_config_spec::{
+    ClientAudioConfig, ClientConfig, LogLevel, RawSipEventConfig, TimeoutConfig,
+};
+// [::TICKET::] P15-2: §13 STUN/TURN/ICE types unified and re-exported.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+pub use config::transport_ice_spec::{
+    IceConfig, StunServerConfig, TcpTransportConfig, TransportConfig, TurnServerConfig,
+    TurnTransport, UdpTransportConfig,
 };
 pub use error::SipError;
 pub use error::SipErrorKind;
@@ -134,14 +144,10 @@ pub use config::account_config_spec::{
     AccountCodecPolicy, AccountConfig, AccountMediaConfig, AccountTransportPolicy, DtmfMethod,
     DtmfPolicy, OpusConfig, SrtpPolicy,
 };
-pub use config::client_config_spec::{ClientAudioConfig, RawSipEventConfig, TimeoutConfig};
 #[cfg(feature = "tls")]
 pub use config::transport_ice_spec::TlsConfig;
-pub use config::transport_ice_spec::{
-    IceConfig, TcpTransportConfig, TransportConfig, TurnServerConfig, TurnTransport,
-    UdpTransportConfig,
-};
 // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-// StunServerConfig is NOT re-exported from transport_ice_spec to avoid name collision
-// with the existing config::StunServerConfig. Use the transport_ice_spec version
-// via `siprs::config::transport_ice_spec::StunServerConfig` for the RFC definition.
+// [::TICKET::] P15-2: StunServerConfig collision comment removed — the legacy
+// config::StunServerConfig is gone and transport_ice_spec::StunServerConfig is
+// the single unified definition re-exported above.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.

@@ -31,6 +31,7 @@ use crate::config::transport_ice_spec::{
     IceConfig, StunServerConfig, TransportConfig, TurnServerConfig,
 };
 use crate::error::{SipError, SipErrorKind};
+use crate::model::{AudioFormat, BitDepth, ChannelLayout, SampleRate};
 use std::time::Duration;
 
 /// Logging verbosity level.
@@ -48,7 +49,7 @@ pub enum LogLevel {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ClientAudioConfig {
     /// Default format for audio delivery.
-    pub default_delivery_format: String, // placeholder for AudioFormat (P4-2)
+    pub default_delivery_format: AudioFormat,
     /// Pair buffer duration in ms.
     pub pair_buffer_ms: u32,
     /// Jitter buffer duration in ms.
@@ -58,15 +59,26 @@ pub struct ClientAudioConfig {
     /// Maximum number of audio sources per call.
     pub max_sources_per_call: usize,
     /// Resampler quality setting.
-    pub resampler_quality: String, // placeholder for ResamplerQuality
+    ///
+    /// Stored as a `String` because the `ResamplerQuality` enum from RFC §10 is
+    /// not implemented in the tree yet; the value is one of the quality levels
+    /// the underlying resampler accepts (e.g. "High").
+    pub resampler_quality: String,
 }
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
 impl Default for ClientAudioConfig {
     // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
-            default_delivery_format: "16000Hz/i16/stereo".into(),
+            default_delivery_format: AudioFormat {
+                sample_rate: SampleRate::Hz16000,
+                bit_depth: BitDepth::I16,
+                channel_layout: ChannelLayout::StereoInOut,
+                frame_ms: 20,
+            },
             pair_buffer_ms: 120,
             jitter_buffer_ms: 60,
             mixer_frame_ms: 20,
@@ -182,7 +194,7 @@ impl Default for ClientConfig {
     }
 }
 
-// [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P15-2) --for-spec --no-implementation-order`.
 impl ClientConfig {
     /// Validate all configuration fields.
     ///
@@ -217,6 +229,18 @@ impl ClientConfig {
             return Err(SipError::new(
                 SipErrorKind::InvalidConfig,
                 "at least one transport is required",
+            ));
+        }
+        // §42: the default delivery sample rate must be one of 8/16/24/48 kHz.
+        // SampleRate is a closed enum whose only variants are the four valid
+        // rates, so this check is defensive (unreachable in practice).
+        if !matches!(
+            self.audio.default_delivery_format.sample_rate,
+            SampleRate::Hz8000 | SampleRate::Hz16000 | SampleRate::Hz24000 | SampleRate::Hz48000
+        ) {
+            return Err(SipError::new(
+                SipErrorKind::InvalidConfig,
+                "unsupported sample rate",
             ));
         }
         Ok(())
@@ -284,24 +308,69 @@ mod tests {
 
     #[test]
     // @verifies C052
-    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P15-2) --for-spec --no-implementation-order`.
     fn client_config_timeout_defaults() {
-        let t = TimeoutConfig::default();
-        assert_eq!(t.command_timeout, Duration::from_secs(10));
-        assert_eq!(t.shutdown_timeout, Duration::from_secs(15));
-        assert_eq!(t.register_timeout, Duration::from_secs(15));
-        assert_eq!(t.invite_timeout, Duration::from_secs(90));
+        let timeouts = TimeoutConfig::default();
+        assert_eq!(timeouts.command_timeout, Duration::from_secs(10));
+        assert_eq!(timeouts.shutdown_timeout, Duration::from_secs(15));
+        assert_eq!(timeouts.register_timeout, Duration::from_secs(15));
+        assert_eq!(timeouts.invite_timeout, Duration::from_secs(90));
     }
 
     #[test]
     // @verifies C052
+    // @verifies C080  -- precondition: §10 ClientAudioConfig with AudioFormat default
     // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
     fn client_audio_config_defaults() {
         let audio = ClientAudioConfig::default();
+        assert_eq!(
+            audio.default_delivery_format,
+            AudioFormat {
+                sample_rate: SampleRate::Hz16000,
+                bit_depth: BitDepth::I16,
+                channel_layout: ChannelLayout::StereoInOut,
+                frame_ms: 20,
+            },
+            "§10.1 default delivery format is 16kHz / i16 / stereo-in-out / 20ms"
+        );
         assert_eq!(audio.pair_buffer_ms, 120);
         assert_eq!(audio.jitter_buffer_ms, 60);
         assert_eq!(audio.mixer_frame_ms, 20);
         assert_eq!(audio.max_sources_per_call, 16);
+    }
+
+    #[test]
+    // @verifies C052
+    // @verifies C080  -- precondition: §42 sample-rate rule expressed via AudioFormat type
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+    fn client_config_accepts_all_sample_rates() {
+        // §42 requires the delivery sample rate to be one of 8/16/24/48 kHz.
+        // SampleRate is a closed enum with exactly these four variants, so every
+        // representable rate must pass validation.
+        for rate in [
+            SampleRate::Hz8000,
+            SampleRate::Hz16000,
+            SampleRate::Hz24000,
+            SampleRate::Hz48000,
+        ] {
+            let config = ClientConfig {
+                audio: ClientAudioConfig {
+                    default_delivery_format: AudioFormat {
+                        sample_rate: rate,
+                        bit_depth: BitDepth::I16,
+                        channel_layout: ChannelLayout::StereoInOut,
+                        frame_ms: 20,
+                    },
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            assert!(
+                config.validate().is_ok(),
+                "sample rate {rate:?} must pass §42 validation"
+            );
+        }
     }
 
     // ── Error: Validation ───────────────────────────────────────────
