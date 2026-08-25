@@ -23,6 +23,11 @@ use crate::state::m20_native_event_conv::{convert_native_event_to_payload, Nativ
 use crate::state::registr_wiring::{
     apply_registration_command_state, process_registration_state_changed,
 };
+use crate::state::shutdown_specification::ShutdownSpec;
+use crate::state::shutdown_wiring::{
+    client_shutdown_event, execute_shutdown_sequence, gate_command, reject_command,
+    shutdown_phase_timeout, ShutdownGate,
+};
 
 /// Name of the reactor OS thread. Used for diagnostics and by the FFI
 /// thread-lifecycle observer (P8-21) to correlate thread ids with the reactor.
@@ -99,7 +104,7 @@ type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -146,6 +151,11 @@ impl CoreReactor {
         // [::TICKET::] P15-2: the RFC §10 ClientConfig has no dtmf field; the timeout
         // is a dedicated BootConfig boot parameter (P7-2 O-002).
         let dtmf_sent_timeout_ms = boot_config.dtmf_sent_timeout_ms;
+        // [::TICKET::] P15-8: §62.7 — the reactor owns one ShutdownSpec whose
+        // per-phase timeout is sourced from TimeoutConfig::shutdown_timeout
+        // (default 15s). is_shutdown_started() drives the M20 command gate and
+        // execute_sequence runs the §32 ordered shutdown.
+        let shutdown_spec = ShutdownSpec::new(shutdown_phase_timeout(&boot_config.config));
 
         // [::TICKET::] P11-6: the reactor owns a small tokio runtime that drives
         // the DtmfSent timeout fallback timers. It is built here (outside the
@@ -178,10 +188,40 @@ impl CoreReactor {
                 // `spawn_dtmf_sent_timeout` (which uses `tokio::spawn`) works
                 // without restructuring the loop.
                 let _timer_enter = timer_runtime.enter();
+                // §62.7: once the Shutdown arm has completed the §32 sequence, the
+                // reactor drains the channel — every queued command is rejected
+                // and the thread exits when the channel is empty or closed.
+                let mut draining = false;
 
                 loop {
+                    if draining {
+                        match rx.try_recv() {
+                            Ok(command) => reject_command(command),
+                            Err(_) => break,
+                        }
+                        continue;
+                    }
+
                     match rx.blocking_recv() {
                         Some(command) => {
+                            // M20 shutdown gate (N0044): while shutting down only
+                            // Shutdown and GetAccountInfo are permitted; every other
+                            // command is rejected with an error reply so its caller
+                            // never hangs. Rejected commands are consumed; permitted
+                            // commands are rebound for the dispatch match below.
+                            let command = match gate_command(
+                                command,
+                                shutdown_spec.is_shutdown_started(),
+                            ) {
+                                ShutdownGate::Rejected { command } => {
+                                    tracing::warn!(
+                                        command = %command,
+                                        "command dropped during shutdown"
+                                    );
+                                    continue;
+                                }
+                                ShutdownGate::Permit(command) => command,
+                            };
                             match command {
                                 DispatchCommand::Execute { f, reply } => {
                                     let result = std::panic::catch_unwind(
@@ -756,7 +796,23 @@ impl CoreReactor {
                                     );
                                 }
                                 DispatchCommand::Shutdown { reply } => {
-                                    let _ = backend.shutdown();
+                                    // §62.7 / C088: run the full §32 sequence
+                                    // (BYE/CANCEL → unregister → audio drain →
+                                    // pjsua_destroy) with the configured per-phase
+                                    // timeout, blocking the reactor thread on the
+                                    // already-entered timer runtime (§62.6 pattern).
+                                    let sequence_result = tokio::runtime::Handle::current()
+                                        .block_on(execute_shutdown_sequence(
+                                            &mut *backend,
+                                            &client_state,
+                                            &shutdown_spec,
+                                        ));
+                                    if let Err(err) = &sequence_result {
+                                        tracing::error!("shutdown sequence failed: {err}");
+                                    }
+                                    // §62.3 / C089: publish ClientShutdown on the
+                                    // single client-owned bus before replying.
+                                    event_bus.publish(client_shutdown_event());
                                     // Stop every per-call audio worker before exiting so no
                                     // blocking-pool task outlives the reactor (§62.6).
                                     shutdown_audio_workers(&mut audio_workers);
@@ -764,8 +820,15 @@ impl CoreReactor {
                                     // replying, so shutdown() callers observe is_terminated() == true
                                     // the moment shutdown() returns Ok (oneshot send orders the store).
                                     terminated.store(true, Ordering::Release);
-                                    send_reply(reply, Ok(()));
-                                    break;
+                                    send_reply(
+                                        reply,
+                                        sequence_result.map_err(|e| {
+                                            ReactorError::BackendError(e.to_string())
+                                        }),
+                                    );
+                                    // §62.7 / C090: enter drain mode — subsequent queued
+                                    // commands are rejected with an error reply.
+                                    draining = true;
                                 }
                             }
                         }
@@ -1925,6 +1988,65 @@ mod tests {
         assert!(
             handle.is_terminated(),
             "reactor must be terminated after shutdown"
+        );
+        join_reactor(handle, join);
+    }
+
+    #[tokio::test]
+    // @verifies C089
+    // [::TICKET::] P15-8: §62.7 — the Shutdown arm runs the §32 sequence and
+    // publishes ClientShutdown on the single client-owned bus before replying.
+    async fn reactor_shutdown_publishes_client_shutdown() {
+        let (handle, join) = spawn_reactor();
+        let mut rx = handle.event_bus().subscribe_control();
+        let (tx, rx_reply) = tokio::sync::oneshot::channel();
+        let cmd = DispatchCommand::Shutdown {
+            reply: Reply::new(tx),
+        };
+        handle.sender.send(cmd).ok();
+        assert!(rx_reply.await.is_ok(), "shutdown must complete");
+        let ev = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+            .await
+            .expect("ClientShutdown must be published within the bound")
+            .expect("the bus must yield an event");
+        assert!(
+            matches!(ev.payload, SipEventPayload::ClientShutdown),
+            "expected ClientShutdown, got {:?}",
+            ev.payload
+        );
+        assert!(
+            handle.is_terminated(),
+            "reactor must be terminated after shutdown"
+        );
+        join_reactor(handle, join);
+    }
+
+    #[tokio::test]
+    // @verifies C090
+    // [::TICKET::] P15-8: §62.7 — commands queued behind Shutdown are rejected
+    // via the M20 gate with an error reply, so the caller never hangs.
+    async fn reactor_rejects_commands_queued_during_shutdown() {
+        let (handle, join) = spawn_reactor();
+        let (tx_shutdown, _rx_shutdown) = tokio::sync::oneshot::channel();
+        handle
+            .sender
+            .send(DispatchCommand::Shutdown {
+                reply: Reply::new(tx_shutdown),
+            })
+            .ok();
+        let (tx_cmd, rx_cmd) = tokio::sync::oneshot::channel();
+        let cmd = DispatchCommand::Execute {
+            f: Box::new(|_: &mut dyn SipBackend| Ok(())),
+            reply: Reply::new(tx_cmd),
+        };
+        handle.sender.send(cmd).ok();
+        let reply = tokio::time::timeout(std::time::Duration::from_secs(1), rx_cmd)
+            .await
+            .expect("the gated command's reply must arrive within the bound")
+            .expect("the oneshot must resolve");
+        assert!(
+            matches!(reply, Err(ReactorError::BackendError(msg)) if msg.contains("shutting down")),
+            "the queued command must be rejected, not hang"
         );
         join_reactor(handle, join);
     }

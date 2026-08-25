@@ -726,6 +726,29 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    // @verifies C089
+    // [::TICKET::] P15-8: §62.7 — SipClient::shutdown() publishes ClientShutdown
+    // on the client bus (the reactor publishes before replying).
+    async fn sip_client_shutdown_publishes_client_shutdown() {
+// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+        let config = ClientConfig::default();
+        let (client, _rx) = SipClient::new(config).await.unwrap();
+        let mut subscribed = client.subscribe();
+        let result = client.shutdown().await;
+        assert!(result.is_ok(), "shutdown must complete");
+        let ev = tokio::time::timeout(std::time::Duration::from_secs(1), subscribed.recv())
+            .await
+            .expect("ClientShutdown must arrive within the bound")
+            .expect("the client bus must yield an event");
+        assert!(
+            matches!(ev.payload, SipEventPayload::ClientShutdown),
+            "expected ClientShutdown, got {:?}",
+            ev.payload
+        );
+        assert!(client.is_terminated(), "client must be terminated after shutdown");
+    }
+
     // ── Error ───────────────────────────────────────────────────────
 
     #[tokio::test]

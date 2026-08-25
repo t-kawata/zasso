@@ -12,6 +12,8 @@ pub mod m20_registr_cmd_pat;
 pub mod registr_state_machine;
 pub mod registr_wiring;
 pub mod shutdown_specification;
+pub mod shutdown_wiring;
+// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
 
 // Re-export public types at the state level
 pub use m20_callstate_mapping::{
