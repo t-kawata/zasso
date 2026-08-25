@@ -18,4 +18,3 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0020: §15.6-15.7 Event Bus Design Decisions & Delivery Guarantees

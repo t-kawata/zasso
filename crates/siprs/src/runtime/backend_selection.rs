@@ -18,4 +18,4 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0071: 62.2 バックエンド選択機構（PjsuaBackend 完全統一・MockBackend 削除）
+// [::STUB::] P15-3: implement NODE_ID=N0071: 62.2 バックエンド選択機構（PjsuaBackend 完全統一・MockBackend 削除）

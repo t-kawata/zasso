@@ -20,4 +20,4 @@
 pub struct Config {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0070: 62.1 公開設定 API の一本化（ClientConfig / STUN/TURN/ICE）
+// [::STUB::] P15-2: implement NODE_ID=N0070: 62.1 公開設定 API の一本化（ClientConfig / STUN/TURN/ICE）

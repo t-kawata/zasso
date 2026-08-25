@@ -20,4 +20,4 @@
 pub trait Service {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0074: 62.5 公開 API 拡充（通話 API 群）
+// [::STUB::] P15-6: implement NODE_ID=N0074: 62.5 公開 API 拡充（通話 API 群）

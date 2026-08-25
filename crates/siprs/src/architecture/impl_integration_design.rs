@@ -22,6 +22,6 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0068: §62 実装整合設計 — RESIDUE 解消のための設計判断確定
-// TODO: [::STUB::] MUST implement NODE_ID=N0069: 62.0 進化スコープと根因
-// TODO: [::STUB::] MUST implement NODE_ID=N0078: 62.9 I/O 境界参照情報（graphify / boundify 用）
+// [::STUB::] P15-1: implement NODE_ID=N0068: §62 実装整合設計 — RESIDUE 解消のための設計判断確定
+// [::STUB::] P15-1: implement NODE_ID=N0069: 62.0 進化スコープと根因
+// [::STUB::] P15-1: implement NODE_ID=N0078: 62.9 I/O 境界参照情報（graphify / boundify 用）

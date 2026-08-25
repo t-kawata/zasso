@@ -20,4 +20,4 @@
 pub enum State {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0073: 62.4 登録状態機械の production 配線
+// [::STUB::] P15-5: implement NODE_ID=N0073: 62.4 登録状態機械の production 配線

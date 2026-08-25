@@ -20,4 +20,4 @@
 pub enum Error {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0077: 62.8 エラー変換の native_status 保持
+// [::STUB::] P15-9: implement NODE_ID=N0077: 62.8 エラー変換の native_status 保持

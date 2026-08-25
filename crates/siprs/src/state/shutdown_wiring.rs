@@ -20,4 +20,4 @@
 pub enum State {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0076: 62.7 シャットダウン手順の production 配線
+// [::STUB::] P15-8: implement NODE_ID=N0076: 62.7 シャットダウン手順の production 配線
