@@ -818,7 +818,14 @@
       "Bash(grep -nE '^[a-zA-Z0-9._-]+:' /Users/sh01/shyme/zasso/Makefile 2>/dev/null | head -60)",
       "Bash(grep -nE 'warning|error' /tmp/siprs-check.log /tmp/siprs-test.log | grep -v '^.*warning: unused' | head -40; echo \"---counts---\"; grep -c 'warning' /tmp/siprs-check.log /tmp/siprs-test.log)",
       "Bash(echo \"EXIT_CODE=$?\")",
-      "Bash(echo \"VALIDATOR_EXIT=$?\")"
+      "Bash(echo \"VALIDATOR_EXIT=$?\")",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P14-3\")",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P14-3\")",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0052 --hops=1)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0053 --hops=1)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0054 --hops=1)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0055 --hops=1)",
+      "Bash(grep -n \"pub enum RuntimeCommand\\\\|pub enum DispatchCommand\\\\|Execute\\\\|enum RuntimeCommand\\\\|enum DispatchCommand\" src/runtime/command.rs | head -30; echo \"=== RuntimeCommand variants ===\"; sed -n '/pub enum RuntimeCommand/,/^}/p' src/runtime/command.rs | grep -n \"^\\\\s*[A-Za-z]\" | head -40)"
     ]
   }
 }
