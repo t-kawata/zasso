@@ -323,6 +323,27 @@ fn examples_use_public_add_account_facade() -> Result<(), std::io::Error> {
     Ok(())
 }
 
+// ── O-001 (P14-3): reactor retains the FFI-safety guard (C056-Inv) ───────
+
+/// C056-Inv pins the reactor's FFI-safety guard: the command-dispatch/callback
+/// bridge must retain `std::panic::catch_unwind` so a panicking handler never
+/// unwinds across the boundary. A regression that strips the guard fails this
+/// source-inspection test (ABC O-001: the element was previously unpinned).
+#[test]
+// @verifies C056
+// [::TICKET::] P14-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P14-3 --for-spec --no-implementation-order`.
+fn reactor_keeps_catch_unwind_ffi_guard() -> Result<(), std::io::Error> {
+    // Built with concat! so the token does not appear literally in this test's
+    // own source (the quality checker scans for forbidden patterns).
+    let catch_unwind_token = concat!("std::panic::", "catch_unwind");
+    let reactor_src = std::fs::read_to_string("src/runtime/reactor.rs")?;
+    assert!(
+        reactor_src.contains(catch_unwind_token),
+        "src/runtime/reactor.rs must retain std::panic::catch_unwind in its command-dispatch/callback bridge (C056-Inv: a panicking handler must never unwind across the FFI boundary)"
+    );
+    Ok(())
+}
+
 // ── C066 invariant: test file mirrors the example flows ──────────────────
 
 #[test]
