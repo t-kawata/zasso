@@ -791,7 +791,11 @@
       "Bash(git -C /Users/sh01/shyme/zasso add crates/siprs/Tickets.json crates/siprs/src/client.rs crates/siprs/src/runtime/reactor.rs crates/siprs/src/state/mod.rs crates/siprs/src/state/shutdown_wiring.rs crates/siprs/specs/P15-8.md)",
       "Bash(git -C /Users/sh01/shyme/zasso commit -m 'feat\\(siprs-P15-8\\): wire §32 ShutdownSpec.execute_sequence into reactor with M20 command gate *)",
       "Bash(git -C /Users/sh01/shyme/zasso add .claude/settings.local.json)",
-      "Bash(git -C /Users/sh01/shyme/zasso commit -m \"chore: extend local settings allowlist with P15-8 ticket tooling commands\")"
+      "Bash(git -C /Users/sh01/shyme/zasso commit -m \"chore: extend local settings allowlist with P15-8 ticket tooling commands\")",
+      "Bash(git -C /Users/sh01/shyme/zasso log -2 --oneline)",
+      "Bash(git -C /Users/sh01/shyme/zasso log -1 --oneline --stat)",
+      "Bash(git -C /Users/sh01/shyme/zasso diff .claude/settings.local.json)",
+      "Bash(git -C /Users/sh01/shyme/zasso commit -m \"chore: extend local settings allowlist with P15-8 review verification commands\")"
     ]
   }
 }
