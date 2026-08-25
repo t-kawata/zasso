@@ -34,10 +34,10 @@ pub struct RuntimeHandle {
     // a round-trip command. The single-writer rule still holds: only the reactor
     // thread mutates the mixer; callers must treat this as read-only.
     audio_mixer: Arc<AudioMixer>,
-    // [::TICKET::] P11-6: the reactor-owned default EventBus (O-001 pattern).
-    // This clone lets tests/observability subscribe to reactor-initiated events
-    // (e.g. the DtmfSent timeout) without a round-trip command.
-    default_event_bus: EventBus,
+    // [::TICKET::] P15-4: the single client-owned EventBus (O-001 pattern).
+    // This clone lets tests/observability subscribe to the same bus that
+    // SipClient::subscribe() reads — the reactor publishes directly to it.
+    event_bus: EventBus,
 }
 
 // [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4) --for-spec --no-implementation-order`.
@@ -55,21 +55,21 @@ impl std::fmt::Debug for RuntimeHandle {
     }
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7, P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7|P15-4) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
         terminated: Arc<AtomicBool>,
         join_handle: Arc<JoinHandle<()>>,
         audio_mixer: Arc<AudioMixer>,
-        default_event_bus: EventBus,
+        event_bus: EventBus,
     ) -> Self {
         Self {
             sender,
             terminated,
             join_handle,
             audio_mixer,
-            default_event_bus,
+            event_bus,
         }
     }
 
@@ -84,13 +84,15 @@ impl RuntimeHandle {
         self.audio_mixer.clone()
     }
 
-    /// Return a clone of the reactor-owned default `EventBus`.
+    /// Return a clone of the single client-owned `EventBus`.
     ///
     /// This is an observability/test accessor (O-001): it lets callers subscribe
-    /// to reactor-initiated events (e.g. the DtmfSent timeout fallback) without
-    /// a round-trip command. Publishing on any clone reaches all subscribers.
-    pub fn default_event_bus(&self) -> EventBus {
-        self.default_event_bus.clone()
+    /// to the same bus that `SipClient::subscribe()` reads. The reactor publishes
+    /// directly to this bus, so any subscriber sees reactor-initiated events
+    /// (e.g. the DtmfSent timeout fallback). Publishing on any clone reaches all
+    /// subscribers.
+    pub fn event_bus(&self) -> EventBus {
+        self.event_bus.clone()
     }
 
     /// Return the reactor thread's `JoinHandle` Arc (identity/liveness probe).
@@ -904,24 +906,24 @@ mod tests {
         );
     }
 
-    // ── P11-6: reactor-owned default EventBus exposure (O-001 pattern) ──
+    // ── P15-4: single-EventBus exposure (O-001 pattern) ──
 
     #[tokio::test]
     // @verifies C069
-    // [::TICKET::] P11-6: RuntimeHandle exposes the reactor-owned default_event_bus
-    async fn runtime_handle_exposes_default_event_bus() {
+    // [::TICKET::] P15-4: RuntimeHandle exposes the single client-owned EventBus
+    async fn runtime_handle_exposes_event_bus() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
-        let default_event_bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let event_bus = crate::api::eventbus_receiver::EventBus::new(16, None);
         let handle = RuntimeHandle::new(
             tx,
             terminated,
             completed_join_handle(),
             Arc::new(AudioMixer::new()),
-            default_event_bus.clone(),
+            event_bus.clone(),
         );
 
-        let bus = handle.default_event_bus();
+        let bus = handle.event_bus();
         let mut rx = bus.subscribe_control();
         bus.publish(crate::api::event_model_payload_bus::SipEvent {
             meta: crate::api::event_model_payload_bus::EventMeta::new(0, None, None),

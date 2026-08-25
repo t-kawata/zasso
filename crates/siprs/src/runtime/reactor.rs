@@ -39,15 +39,26 @@ pub struct BootConfig {
     /// this timeout from a dedicated boot parameter sourced at the
     /// `SipClient::new` boundary.
     pub dtmf_sent_timeout_ms: u64,
+    /// The single EventBus owned by `SipClient` (§62.3 / N0072).
+    ///
+    /// The reactor publishes every converted `SipEvent` directly to this bus —
+    /// there is no reactor-owned default bus and no per-account client bus map.
+    /// `SipClient::new` creates the bus (raw_sip capacity per
+    /// `RawSipEventConfig::enabled`) and passes a clone here.
+    pub event_bus: EventBus,
 }
 
 // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
 impl Default for BootConfig {
-// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-2, P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-2|P15-4) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             config: ClientConfig::default(),
             dtmf_sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
+            event_bus: EventBus::new(
+                crate::api::eventbus_receiver::DEFAULT_EVENT_BUS_CAPACITY,
+                None,
+            ),
         }
     }
 }
@@ -68,11 +79,12 @@ pub struct CoreReactor;
 
 /// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
 /// join handle, or a boxed spawn error.
+// [::TICKET::] P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-4 --for-spec --no-implementation-order`.
 type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -103,18 +115,11 @@ impl CoreReactor {
         // a round-trip command. The thread keeps its own Arc (single-writer rule).
         let mixer_for_handle = audio_mixer.clone();
 
-        // [::TICKET::] P11-6: the reactor owns the default EventBus (the publish
-        // target for reactor-initiated events such as the DtmfSent timeout) and the
-        // per-account client bus map. Client buses are registered later (P9-6); for
-        // this round the default bus is the only publish target.
-        let default_event_bus = EventBus::new(
-            crate::api::eventbus_receiver::DEFAULT_EVENT_BUS_CAPACITY,
-            None,
-        );
-        // [::TICKET::] P12-6: the thread closure takes ownership of the bus; the
+        // [::TICKET::] P15-4: §62.3 — the reactor publishes to the single EventBus
+        // owned by SipClient. The thread closure takes ownership of the bus; the
         // handle needs its own clone, taken BEFORE the thread spawn (thread-first).
-        let default_event_bus_for_handle = default_event_bus.clone();
-        let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
+        let event_bus = boot_config.event_bus;
+        let event_bus_for_handle = event_bus.clone();
         // [::TICKET::] P11-6: sent_timeout_ms drives the DtmfSent fallback timer (C030).
         // [::TICKET::] P15-2: the RFC §10 ClientConfig has no dtmf field; the timeout
         // is a dedicated BootConfig boot parameter (P7-2 O-002).
@@ -187,8 +192,7 @@ impl CoreReactor {
                                     let mut ctx = SendDtmfContext {
                                         backend: &mut *backend,
                                         client_state: &client_state,
-                                        client_event_buses: &client_event_buses,
-                                        default_event_bus: &default_event_bus,
+                                        event_bus: &event_bus,
                                         sent_timeout_ms: dtmf_sent_timeout_ms,
                                     };
                                     let result =
@@ -466,7 +470,7 @@ impl CoreReactor {
                                 }
                                 DispatchCommand::NativeEvent { event } => {
                                     // O-001: on a native event, convert it and publish
-                                    // to the owning EventBus. Backend errors surface as
+                                    // to the single EventBus. Backend errors surface as
                                     // SipEventPayload::Error — never crash the loop.
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
@@ -474,8 +478,7 @@ impl CoreReactor {
                                     };
                                     process_native_event(
                                         &*backend,
-                                        &client_event_buses,
-                                        &default_event_bus,
+                                        &event_bus,
                                         event,
                                         &mut call_state,
                                     );
@@ -506,7 +509,7 @@ impl CoreReactor {
             terminated_clone,
             reactor_join.clone(),
             mixer_for_handle,
-            default_event_bus_for_handle,
+            event_bus_for_handle,
         );
 
         Ok((handle, reactor_join))
@@ -529,10 +532,6 @@ fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
     }
 }
 
-/// Client buses keyed by logical account ID.
-// [::TICKET::] P9-6, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-6|P12-8) --for-spec --no-implementation-order`.
-type ClientEventBuses = std::collections::HashMap<AccountId, EventBus>;
-
 /// Active calls keyed by logical call ID (`ClientState.calls`).
 // [::TICKET::] P9-6, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-6|P12-8) --for-spec --no-implementation-order`.
 type CallTable = std::collections::BTreeMap<CallId, CallEntry>;
@@ -548,35 +547,19 @@ pub(crate) struct CallStateTables<'a> {
     pub call_directions: &'a mut BTreeMap<CallId, CallDirection>,
 }
 
-/// Route a `SipEvent` to the correct `EventBus` based on its `account_id` (N0038).
+/// Publish a `SipEvent` to the single client-owned `EventBus` (§62.3 / N0072).
 ///
-/// - `Some(account_id)` matching a registered client bus → that bus only.
-/// - `Some(account_id)` matching no registered client → the default bus.
-/// - `None` (client lifecycle events) → the default bus and every registered client bus.
+/// Replaces the pre-P15-4 account_id-based dispatch (per-account client buses +
+/// reactor default bus) with a direct publish to the one bus owned by
+/// `SipClient`. Subscribers filter on the receiving side:
+/// `subscribe_account` via `AccountEventReceiver`, `subscribe_raw_sip` via the
+/// isolated raw_sip channel.
 ///
-/// This is the production dual-client dispatch: the Reactor calls it whenever a
+/// This is the production publish path: the Reactor calls it whenever a
 /// NativeEvent has been converted to a `SipEvent` (O-003).
-// [::TICKET::] P7-2: O-003 — production account_id-based EventBus dispatch
-pub(crate) fn dispatch_event(
-    client_event_buses: &ClientEventBuses,
-    default_event_bus: &EventBus,
-    event: SipEvent,
-) {
-    match event.meta.account_id {
-        Some(account_id) => {
-            if let Some(client_bus) = client_event_buses.get(&account_id) {
-                client_bus.publish(event);
-            } else {
-                default_event_bus.publish(event);
-            }
-        }
-        None => {
-            default_event_bus.publish(event.clone());
-            for client_bus in client_event_buses.values() {
-                client_bus.publish(event.clone());
-            }
-        }
-    }
+// [::TICKET::] P15-4: O-003 — production single-bus EventBus dispatch
+pub(crate) fn dispatch_event(event_bus: &EventBus, event: SipEvent) {
+    event_bus.publish(event);
 }
 
 /// Convert a `NativeEvent` to a `SipEvent` and publish it via `dispatch_event` (N0021).
@@ -593,11 +576,10 @@ pub(crate) fn dispatch_event(
 /// events carry no `acc_id`, so the owning account is resolved from
 /// `calls[call_id].account_id` before conversion — this is what lets a
 /// `CONFIRMED` call publish a `CallConnected` payload with the real account.
-// [::TICKET::] P7-2: O-001 — production NativeEvent → SipEvent publication flow
+// [::TICKET::] P15-4: O-001 — production NativeEvent → SipEvent publication flow
 pub(crate) fn process_native_event(
     backend: &dyn SipBackend,
-    client_event_buses: &ClientEventBuses,
-    default_event_bus: &EventBus,
+    event_bus: &EventBus,
     event: NativeEvent,
     call_state: &mut CallStateTables<'_>,
 ) {
@@ -613,7 +595,7 @@ pub(crate) fn process_native_event(
                     meta: EventMeta::new(0, account_id, None),
                     payload,
                 };
-                dispatch_event(client_event_buses, default_event_bus, sip_event);
+                dispatch_event(event_bus, sip_event);
             }
         }
         other_event => {
@@ -650,7 +632,7 @@ pub(crate) fn process_native_event(
                     meta: EventMeta::new(0, account_id, call_id),
                     payload,
                 };
-                dispatch_event(client_event_buses, default_event_bus, sip_event);
+                dispatch_event(event_bus, sip_event);
             }
         }
     }
@@ -706,8 +688,7 @@ fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>)
 pub(crate) struct SendDtmfContext<'a> {
     backend: &'a mut dyn SipBackend,
     client_state: &'a ClientState,
-    client_event_buses: &'a ClientEventBuses,
-    default_event_bus: &'a EventBus,
+    event_bus: &'a EventBus,
     sent_timeout_ms: u64,
 }
 
@@ -743,8 +724,8 @@ pub(crate) fn handle_make_call(
 ///
 /// Reads as prose: send via the backend; on success resolve the owning account,
 /// convert the method, and spawn one `spawn_dtmf_sent_timeout` per digit that
-/// publishes `DtmfSent { Err(Timeout) }` to the reactor-owned bus; on backend
-/// error propagate and spawn nothing (two-phase C030 preserved).
+/// publishes `DtmfSent { Err(Timeout) }` to the single client-owned bus; on
+/// backend error propagate and spawn nothing (two-phase C030 preserved).
 pub(crate) fn handle_send_dtmf(
     ctx: &mut SendDtmfContext<'_>,
     call_id: u64,
@@ -759,9 +740,7 @@ pub(crate) fn handle_send_dtmf(
         .calls
         .get(&call_id_typed)
         .map(|entry| entry.account_id);
-    let target_bus = account_id
-        .and_then(|aid| ctx.client_event_buses.get(&aid).cloned())
-        .unwrap_or_else(|| ctx.default_event_bus.clone());
+    let target_bus = ctx.event_bus.clone();
     let m20_method = crate::api::m20_dtmfsent_twophase::DtmfMethod::from(method);
     for digit in digits.chars() {
         let _timer = crate::api::m20_dtmfsent_twophase::spawn_dtmf_sent_timeout(
@@ -786,7 +765,7 @@ mod tests {
     use crate::runtime::state::CallEntry;
     use crate::state::m20_callstate_mapping::pjsip_inv_state;
     use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
-    use std::collections::{BTreeMap, HashMap};
+    use std::collections::BTreeMap;
 
     /// Construct a test `CallId` from a non-zero value.
     // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
@@ -852,106 +831,40 @@ mod tests {
         }
     }
 
-    // ── O-003: production dispatch_event routing ───────────────────────
+    // ── P15-4: single-bus dispatch_event ───────────────────────────────
 
-    /// @verifies C039
+    /// @verifies C039, C084
     #[test]
-    // [::TICKET::] P7-2: O-003 — production dispatch routes to the matching client bus only
-    // [::TICKET::] P7-2, P9-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P12-7) --for-spec --no-implementation-order`.
-    fn dispatch_event_routes_to_matching_bus_only() {
-        let bus_a = EventBus::new(16, None);
-        let bus_b = EventBus::new(16, None);
-        let default_bus = EventBus::new(16, None);
-        let mut buses = HashMap::new();
-        buses.insert(test_account(1), bus_a.clone());
-        buses.insert(test_account(2), bus_b.clone());
+    // [::TICKET::] P15-4: O-003 — dispatch_event publishes directly to the single bus
+// [::TICKET::] P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-4 --for-spec --no-implementation-order`.
+    fn dispatch_event_publishes_to_single_bus() {
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
 
-        let mut rx_a = bus_a.subscribe_control();
-        let mut rx_b = bus_b.subscribe_control();
+        dispatch_event(&bus, make_disconnect_event(Some(test_account(1))));
 
-        dispatch_event(
-            &buses,
-            &default_bus,
-            make_disconnect_event(Some(test_account(1))),
-        );
-
-        assert!(
-            rx_a.try_recv().is_ok(),
-            "client A must receive the account-1 event"
-        );
-        assert!(
-            matches!(
-                rx_b.try_recv(),
-                Err(tokio::sync::broadcast::error::TryRecvError::Empty)
-            ),
-            "client B must NOT receive the account-1 event (C039 isolation invariant)"
-        );
+        let ev = rx
+            .try_recv()
+            .expect("single bus must deliver the account-scoped event");
+        assert_eq!(ev.meta.account_id, Some(test_account(1)));
     }
 
     /// @verifies C039
     #[test]
-    // [::TICKET::] P7-2: O-003 — production dispatch broadcasts account_id=None to every bus
-    // [::TICKET::] P7-2, P9-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P12-7) --for-spec --no-implementation-order`.
-    fn dispatch_event_none_account_broadcasts_to_all() {
-        let bus_a = EventBus::new(16, None);
-        let bus_b = EventBus::new(16, None);
-        let default_bus = EventBus::new(16, None);
-        let mut buses = HashMap::new();
-        buses.insert(test_account(1), bus_a.clone());
-        buses.insert(test_account(2), bus_b.clone());
-
-        let mut rx_a = bus_a.subscribe_control();
-        let mut rx_b = bus_b.subscribe_control();
-        let mut rx_default = default_bus.subscribe_control();
+    // [::TICKET::] P15-4: account_id=None lifecycle events also flow on the single bus
+// [::TICKET::] P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-4 --for-spec --no-implementation-order`.
+    fn dispatch_event_lifecycle_event_flows_to_single_bus() {
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
 
         let mut event = make_disconnect_event(None);
         event.meta.account_id = None;
-        dispatch_event(&buses, &default_bus, event);
+        dispatch_event(&bus, event);
 
-        assert!(
-            rx_a.try_recv().is_ok(),
-            "client A must receive lifecycle event"
-        );
-        assert!(
-            rx_b.try_recv().is_ok(),
-            "client B must receive lifecycle event"
-        );
-        assert!(
-            rx_default.try_recv().is_ok(),
-            "default bus must receive lifecycle event"
-        );
-    }
-
-    /// @verifies C039
-    #[test]
-    // [::TICKET::] P7-2: O-003 — production dispatch falls back to default_event_bus for unmatched account
-    // [::TICKET::] P7-2, P9-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P12-7) --for-spec --no-implementation-order`.
-    fn dispatch_event_unmatched_account_falls_back_to_default() {
-        let bus_a = EventBus::new(16, None);
-        let default_bus = EventBus::new(16, None);
-        let mut buses = HashMap::new();
-        buses.insert(test_account(1), bus_a.clone());
-
-        let mut rx_a = bus_a.subscribe_control();
-        let mut rx_default = default_bus.subscribe_control();
-
-        dispatch_event(
-            &buses,
-            &default_bus,
-            make_disconnect_event(Some(test_account(99))),
-        );
-
-        assert!(
-            rx_default.try_recv().is_ok(),
-            "unmatched account must fall back to default_event_bus"
-        );
-        assert!(
-            matches!(
-                rx_a.try_recv(),
-                Err(tokio::sync::broadcast::error::TryRecvError::Empty)
-            ),
-            "registered client bus must NOT receive the unmatched-account event"
-        );
+        let ev = rx
+            .try_recv()
+            .expect("lifecycle event must be delivered on the single bus");
+        assert_eq!(ev.meta.account_id, None);
     }
 
     // ── O-001: production process_native_event registration flow ───────
@@ -974,7 +887,6 @@ mod tests {
         backend.add_account(&config)?;
         backend.mark_registered(1);
         let bus = EventBus::new(16, None);
-        let buses = HashMap::new();
         let mut calls = BTreeMap::new();
         let mut rx = bus.subscribe_control();
 
@@ -984,7 +896,6 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -1011,7 +922,6 @@ mod tests {
         backend.get_account_info_result =
             Some(Err(ReactorError::BackendError("mock backend down".into())));
         let bus = EventBus::new(16, None);
-        let buses = HashMap::new();
         let mut calls = BTreeMap::new();
         let mut rx = bus.subscribe_control();
 
@@ -1021,7 +931,6 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -1058,7 +967,6 @@ mod tests {
             uri: "sip:alice@example.com".into(),
         }));
         let bus = EventBus::new(16, None);
-        let buses = HashMap::new();
         let mut calls = BTreeMap::new();
         let mut rx = bus.subscribe_control();
 
@@ -1068,7 +976,6 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -1093,7 +1000,6 @@ mod tests {
     async fn process_native_event_call_state_changed_publishes() {
         let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
-        let buses = HashMap::new();
         let mut calls = confirmed_calls();
         let mut rx = bus.subscribe_control();
 
@@ -1103,7 +1009,6 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 10,
@@ -1131,7 +1036,6 @@ mod tests {
         // owning CallEntry.account_id — never the hardcoded account 1.
         let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
-        let buses = HashMap::new();
         let mut calls = BTreeMap::from([
             (
                 test_call_id(10),
@@ -1162,7 +1066,6 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 10,
@@ -1176,7 +1079,6 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 11,
@@ -1209,7 +1111,6 @@ mod tests {
     async fn process_native_event_p1_drops_without_publish() {
         let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
-        let buses = HashMap::new();
         let mut calls = BTreeMap::new();
         let mut rx = bus.subscribe_control();
 
@@ -1219,7 +1120,6 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::TransportStateChanged {
                 transport_id: 1,
@@ -1267,7 +1167,6 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &HashMap::new(),
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 7,
@@ -1314,7 +1213,6 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &HashMap::new(),
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 7,
@@ -1359,7 +1257,6 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &HashMap::new(),
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 7,
@@ -1395,7 +1292,6 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &HashMap::new(),
             &bus,
             NativeEvent::IncomingCall {
                 acc_id: 42,
@@ -1603,14 +1499,14 @@ mod tests {
         join_reactor(handle, join);
     }
 
-    // ── P11-6: reactor-owned default_event_bus + SendDtmf two-phase wiring ──
+    // ── P15-4: single client-owned EventBus + SendDtmf two-phase wiring ──
 
     #[tokio::test]
     // @verifies C069
-    // [::TICKET::] P11-6: reactor exposes the owned default_event_bus on the RuntimeHandle
-    async fn reactor_exposes_default_event_bus() {
+    // [::TICKET::] P15-4: reactor exposes the single client-owned EventBus on the RuntimeHandle
+    async fn reactor_exposes_event_bus() {
         let (handle, join) = spawn_reactor();
-        let bus = handle.default_event_bus();
+        let bus = handle.event_bus();
         let mut rx = bus.subscribe_control();
         bus.publish(SipEvent {
             meta: EventMeta::new(0, None, Some(test_call_id(1))),
@@ -1621,7 +1517,7 @@ mod tests {
                 rx.try_recv().unwrap().payload,
                 SipEventPayload::CallDisconnected
             ),
-            "publishing on the reactor-owned bus must reach a subscriber"
+            "publishing on the single client-owned bus must reach a subscriber"
         );
         shutdown_reactor(handle, join).await;
     }
@@ -1634,9 +1530,13 @@ mod tests {
         let (handle, join) = CoreReactor::spawn(BootConfig {
             config,
             dtmf_sent_timeout_ms: 50,
+            event_bus: EventBus::new(
+                crate::api::eventbus_receiver::DEFAULT_EVENT_BUS_CAPACITY,
+                None,
+            ),
         })
         .unwrap();
-        let mut rx = handle.default_event_bus().subscribe_control();
+        let mut rx = handle.event_bus().subscribe_control();
 
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let result = handle
@@ -1678,13 +1578,11 @@ mod tests {
         let mut rx = bus.subscribe_control();
         let mut backend = TestBackend::new();
         let client_state = ClientState::default();
-        let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
 
         let mut ctx = SendDtmfContext {
             backend: &mut backend,
             client_state: &client_state,
-            client_event_buses: &client_event_buses,
-            default_event_bus: &bus,
+            event_bus: &bus,
             sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
         };
         let result = handle_send_dtmf(
@@ -1729,12 +1627,10 @@ mod tests {
                 media: "none".into(),
             },
         );
-        let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
         let mut ctx = SendDtmfContext {
             backend: &mut backend,
             client_state: &client_state,
-            client_event_buses: &client_event_buses,
-            default_event_bus: &bus,
+            event_bus: &bus,
             sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
         };
 
@@ -1768,13 +1664,11 @@ mod tests {
             "send failed".into(),
         )));
         let client_state = ClientState::default();
-        let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
 
         let mut ctx = SendDtmfContext {
             backend: &mut backend,
             client_state: &client_state,
-            client_event_buses: &client_event_buses,
-            default_event_bus: &bus,
+            event_bus: &bus,
             sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
         };
         let result = handle_send_dtmf(
@@ -2027,7 +1921,7 @@ mod tests {
     // @verifies C039, C046
     // [::TICKET::] P12-7: a NativeEvent injected through the handle's ingestion
     // receiver reaches process_native_event on the reactor thread and is published
-    // on the reactor-owned default_event_bus (O-001 production flow).
+    // on the single client-owned EventBus (O-001 production flow).
     // [::TICKET::] P15-3: add_account starts Disabled (§62.2), so a fresh account
     // derives the unregistered shape (status 0) and the ingestion publishes
     // RegistrationFailed. The Succeeded-via-ingestion flow for a Registered
@@ -2039,7 +1933,7 @@ mod tests {
         let account_id = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
             .await?;
-        let mut rx = handle.default_event_bus().subscribe_control();
+        let mut rx = handle.event_bus().subscribe_control();
 
         handle.enqueue_native_event(NativeEvent::RegistrationStateChanged {
             acc_id: account_id as u32,

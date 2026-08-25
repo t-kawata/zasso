@@ -247,7 +247,7 @@ impl std::fmt::Display for RuntimeCommand {
 }
 
 /// Type alias for the backend execution closure used in `DispatchCommand`.
-// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6, P12-1, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6|P12-1|P12-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6, P12-1, P12-7, P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6|P12-1|P12-7|P15-4) --for-spec --no-implementation-order`.
 type BackendFn =
     Box<dyn FnOnce(&mut dyn super::backend::SipBackend) -> Result<(), ReactorError> + Send>;
 
@@ -267,9 +267,9 @@ pub(crate) enum DispatchCommand {
     /// [::TICKET::] P11-6: Send DTMF digits on a call with the two-phase timeout.
     ///
     /// Dedicated variant (not an `Execute` closure) so the reactor loop can spawn
-    /// `spawn_dtmf_sent_timeout` against the reactor-owned `default_event_bus`
-    /// after `backend.send_dtmf` succeeds — an `Execute` closure only receives
-    /// `&mut dyn SipBackend` and cannot reach the EventBus.
+    /// `spawn_dtmf_sent_timeout` against the single client-owned EventBus
+    /// (P15-4 §62.3) after `backend.send_dtmf` succeeds — an `Execute` closure
+    /// only receives `&mut dyn SipBackend` and cannot reach the EventBus.
     SendDtmf {
         call_id: u64,
         method: crate::config::account_config_spec::DtmfMethod,

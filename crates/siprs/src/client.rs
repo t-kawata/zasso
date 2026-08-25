@@ -12,8 +12,9 @@ use tracing::instrument;
 use crate::api::audio_subscribe_bp::{
     tap_channel, validate_tap_capacity, AudioTapHandle, AudioTapMode, AudioTapSender,
 };
+use crate::api::event_bus_unify::raw_sip_capacity_for;
 use crate::api::event_model_payload_bus::{AccountId, EventMeta, SipEvent, SipEventPayload};
-use crate::api::eventbus_receiver::{EventBus, DEFAULT_EVENT_BUS_CAPACITY};
+use crate::api::eventbus_receiver::EventBus;
 use crate::config::observability_metrics::ClientCapabilities;
 use crate::config::ClientConfig;
 use crate::error::SipError;
@@ -76,7 +77,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1|P15-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1, P15-2, P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1|P15-2|P15-4) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -97,12 +98,23 @@ impl SipClient {
     ) -> Result<(Self, broadcast::Receiver<SipEvent>), SipError> {
         config.validate()?;
 
+        // §62.3 / N0072: SipClient owns the single EventBus. The raw_sip channel
+        // is created only when RawSipEventConfig.enabled (default true) — the
+        // capacity is `Some` exactly then. The bus must exist before the reactor
+        // spawn because a clone is handed to the reactor via BootConfig.
+        let event_bus = EventBus::new(
+            config.event_bus_capacity,
+            raw_sip_capacity_for(&config),
+        );
+        let event_rx = event_bus.subscribe_control();
+
         let (handle, _join) = CoreReactor::spawn(BootConfig {
             config: config.clone(),
             // The RFC §10 ClientConfig carries no DTMF field; the DtmfSent
             // fallback timeout is a reactor boot parameter sourced from the
             // module default (O-002, P7-2).
             dtmf_sent_timeout_ms: crate::config::DtmfConfig::default().sent_timeout_ms,
+            event_bus: event_bus.clone(),
         })
         .map_err(|e| {
             SipError::new(
@@ -110,10 +122,6 @@ impl SipClient {
                 format!("failed to spawn reactor: {e}"),
             )
         })?;
-
-        // Create EventBus for client lifecycle and SIP events.
-        let event_bus = EventBus::new(DEFAULT_EVENT_BUS_CAPACITY, None);
-        let event_rx = event_bus.subscribe_control();
 
         // Send Initialize command to the reactor.
         //
@@ -478,6 +486,60 @@ mod tests {
         let (client, _rx) = SipClient::new(config).await.unwrap();
         let handle = client.handle();
         assert!(!handle.is_terminated(), "RuntimeHandle must be accessible");
+    }
+
+    #[tokio::test]
+    // @verifies C084
+    // [::TICKET::] P15-4: single-bus wiring — handle.event_bus() is the client's bus
+    async fn sip_client_subscribe_receives_reactor_bus_events() {
+        // C084 postcondition: the reactor's EventBus (exposed on the handle) IS the
+        // single bus owned by SipClient. Publishing on the handle's bus must reach
+        // a subscriber of client.subscribe().
+        let config = ClientConfig::default();
+        let (client, _rx) = SipClient::new(config).await.unwrap();
+        let reactor_bus = client.handle().event_bus();
+        let mut subscribed = client.subscribe();
+
+        reactor_bus.publish(SipEvent::new(
+            EventMeta::new(1, None, None),
+            SipEventPayload::ClientShutdown,
+        ));
+
+        let ev = subscribed
+            .recv()
+            .await
+            .expect("reactor-published event must reach client.subscribe()");
+        assert!(
+            matches!(ev.payload, SipEventPayload::ClientShutdown),
+            "expected ClientShutdown, got {:?}",
+            ev.payload
+        );
+    }
+
+    #[tokio::test]
+    // @verifies C084
+    // [::TICKET::] P15-4: raw_sip channel follows RawSipEventConfig.enabled
+    async fn sip_client_subscribe_raw_sip_follows_config() {
+        // Postcondition: enabled=true → Some(receiver); enabled=false → None.
+        let enabled_config = ClientConfig::default(); // RawSipEventConfig::default().enabled == true
+        let (enabled_client, _rx) = SipClient::new(enabled_config).await.unwrap();
+        assert!(
+            enabled_client.subscribe_raw_sip().is_some(),
+            "raw_sip must be Some when enabled"
+        );
+
+        let disabled_config = ClientConfig {
+            raw_sip_events: crate::config::RawSipEventConfig {
+                enabled: false,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let (disabled_client, _rx) = SipClient::new(disabled_config).await.unwrap();
+        assert!(
+            disabled_client.subscribe_raw_sip().is_none(),
+            "raw_sip must be None when disabled"
+        );
     }
 
     #[tokio::test]

@@ -385,7 +385,7 @@ mod tests {
     #[test]
     // @verifies C069 @verifies C078 @verifies C079 @verifies C090  -- source consistency
 // [::TICKET::] P15-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-1 --for-spec --no-implementation-order`.
-// [::TICKET::] P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-2|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-2, P15-3, P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-2|P15-3|P15-4) --for-spec --no-implementation-order`.
     fn evidence_matches_actual_source() -> Result<(), std::io::Error> {
         // R1 (ConfigUnification) is resolved by P15-2: the legacy config.rs
         // ClientConfig and the TURN-as-STUN type bug are gone, and config.rs
@@ -404,8 +404,7 @@ mod tests {
             "R1 resolved: config.rs must re-export the RFC ClientConfig"
         );
         // R2 is resolved by P15-3: MockBackend is gone from reactor.rs and the
-        // backend is selected through create_backend. R3 remains open (P15-4):
-        // the split EventBus stays in the source tree.
+        // backend is selected through create_backend.
         let reactor_src = std::fs::read_to_string("src/runtime/reactor.rs")?;
         assert!(
             !reactor_src.contains("MockBackend"),
@@ -420,8 +419,23 @@ mod tests {
             !backend_src.contains("pub struct MockBackend"),
             "R2 resolved: backend.rs must not define the MockBackend struct"
         );
+        // R3 is resolved by P15-4: the event bus split is gone. The reactor no
+        // longer owns a separate `default_event_bus` (the single bus is owned by
+        // SipClient and handed over via BootConfig.event_bus), and the client
+        // computes the raw_sip capacity through the §62.3 helper.
+        assert!(
+            !reactor_src.contains("default_event_bus"),
+            "R3 resolved: reactor.rs must not reference a split default_event_bus"
+        );
+        assert!(
+            reactor_src.contains("boot_config.event_bus"),
+            "R3 resolved: reactor.rs must publish to the SipClient-owned EventBus"
+        );
         let client_src = std::fs::read_to_string("src/client.rs")?;
-        assert!(client_src.contains("EventBus::new"), "R3 still open: client.rs must still create its own EventBus");
+        assert!(
+            client_src.contains("raw_sip_capacity_for(&config)"),
+            "R3 resolved: client.rs must size the raw_sip channel via raw_sip_capacity_for"
+        );
         Ok(())
     }
 }
