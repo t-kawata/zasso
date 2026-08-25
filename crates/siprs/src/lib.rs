@@ -46,6 +46,11 @@ pub mod client;
 pub mod config;
 pub mod error;
 
+// [::TICKET::] P15-1: architecture/ — §62 implementation integration framework
+// (RESIDUE root causes, I/O boundary table, breaking-change order).
+pub mod architecture;
+// [::TICKET::] P15-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-1 --for-spec --no-implementation-order`.
+
 /// Account and Transport lifecycle types; Call is implemented (P9-3).
 ///
 /// Account lifecycle (add_account/remove_account/account/update_config/remove)
