@@ -353,7 +353,7 @@ todo ─(make)→ made ─(plan)→ planned ─(start)→ done ─(review)→ re
 **動作フロー**:
 1. `-w config.json` で起動すると `runWatcherMode` が呼ばれる
 2. 設定ファイルを読み込み、全フィールドをバリデーション（不正値はエラー終了）
-3. 現在時刻が時間枠外（または曜日不一致）なら即時終了
+3. 現在時刻が時間枠外（または曜日不一致）でもプロセスは生存し、初回 `runLoop` の `waitForWindow` が枠内に戻るまで待機する
 4. `CronScheduler` を起動 — `intervalMinutes` 間隔で `runLoop` を定期実行（発火時刻・曜日は `timezone` 基準で評価）
 5. 各 `runLoop` 内で**チケット境界および各フェーズ（make/plan/start/review/resolve/find）の直前**に時間枠チェックを実行 — 枠外なら枠内に戻るまで待機し、復帰後に続行する（`waitForWindow`、60秒間隔で再判定）
 6. 各フェーズは実行直前に `Tickets.json` の status を再読込する — 完了済みフェーズをスキップし、セッション再試行時も再実行されない

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "zasso",
-  "version": "0.24.626",
+  "version": "0.24.627",
   "identifier": "com.t-kawata.zasso",
   "build": {
     "beforeDevCommand": "cd ../fe && pnpm dev",

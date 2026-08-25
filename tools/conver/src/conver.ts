@@ -69,11 +69,11 @@ async function runWatcherMode(cli: CliOptions): Promise<void> {
     return;
   }
 
-  // Step 2: 初回時間枠チェック — 枠外なら即時終了
+  // Step 2: 初回時間枠チェック — 枠外でもプロセスは生存し、初回 runLoop の waitForWindow が待機する
   if (!isWithinTimeWindow(config)) {
-    process.stdout.write("Watcher mode: 現在時刻は時間枠外です。終了します。\n");
-    process.exit(0);
-    return;
+    process.stdout.write(
+      "Watcher mode: 現在時刻は時間枠外です。枠内に戻るまで待機します（cron 発火時に waitForWindow が再判定）\n",
+    );
   }
 
   // Step 3: ループオプションを構築し、CronScheduler を起動

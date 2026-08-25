@@ -301,7 +301,7 @@ describe("conver", () => {
     assert.strictEqual(mockState.exitCalls.length, 0);
   });
 
-  it("UT3: watcherConfig指定 + 時間枠外 → process.exit(0)（即時終了）", async () => {
+  it("UT3: watcherConfig指定 + 時間枠外 → プロセスは生存し CronScheduler が起動（初回 runLoop が waitForWindow で待機）", async () => {
     mockState.parseCliOptionsReturn = {
       ...baseOptions(),
       watcherConfig: "/tmp/watcher.json",
@@ -321,10 +321,11 @@ describe("conver", () => {
     const { main } = await import("./conver.js");
     await main();
 
-    // 時間枠外のため runLoop 未呼出、exit(0)
-    assert.strictEqual(mockState.runLoopOptions, null);
-    assert.strictEqual(mockState.exitCalls[0], 0);
-    assert.ok(!mockState.cronSchedulerStarted);
+    // 枠外でも exit せず、CronScheduler が起動する（waitForWindow が枠内まで待機するため）
+    assert.strictEqual(mockState.exitCalls.length, 0);
+    assert.ok(mockState.cronSchedulerStarted);
+    // CronScheduler モックは start() で即 callback() を呼ぶ → runLoop が呼ばれる
+    assert.notStrictEqual(mockState.runLoopOptions, null);
   });
 
   it("UT4: watcherConfig指定 + 設定ファイル不在 → process.exit(1)", async () => {
