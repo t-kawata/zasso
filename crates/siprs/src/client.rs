@@ -12,6 +12,7 @@ use tracing::instrument;
 use crate::api::audio_subscribe_bp::{
     tap_channel, validate_tap_capacity, AudioTapHandle, AudioTapMode, AudioTapSender,
 };
+use crate::audio::media_path_arch::ChannelSelector;
 use crate::api::event_bus_unify::raw_sip_capacity_for;
 use crate::api::event_model_payload_bus::{AccountId, EventMeta, SipEvent, SipEventPayload};
 use crate::api::eventbus_receiver::EventBus;
@@ -63,8 +64,11 @@ pub struct SipClient {
     /// Active audio tap producers keyed by call_id (RFC §22 subscribe_audio).
     ///
     /// Keeps each subscribed tap's producer alive so the consumer handle stays
-    /// open until the backend media path attaches (N0033/N0050).
-    tap_senders: Arc<Mutex<HashMap<CallId, AudioTapSender>>>,
+    /// open until the backend media path attaches (N0033/N0050). Each entry
+    /// carries the call's `AccountId` so the backend media callback can build a
+    /// real `AudioChunkPair`. This same Arc is shared with the reactor backend
+    /// via `BootConfig.audio_taps` (§62.6 tap push).
+    tap_senders: Arc<Mutex<HashMap<CallId, (AccountId, AudioTapSender)>>>,
 }
 
 use std::fmt;
@@ -80,7 +84,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1, P15-2, P15-4, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1|P15-2|P15-4|P15-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1, P15-2, P15-4, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1|P15-2|P15-4|P15-6|P15-7) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -111,6 +115,13 @@ impl SipClient {
         );
         let event_rx = event_bus.subscribe_control();
 
+        // [::TICKET::] P15-7: the shared subscribe_audio tap registry. A clone
+        // is handed to the reactor backend (BootConfig.audio_taps) so the media
+        // callback can drive the subscribed taps; the client keeps one for
+        // subscribe_audio to register producers.
+        let tap_senders: Arc<Mutex<HashMap<CallId, (AccountId, AudioTapSender)>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+
         let (handle, _join) = CoreReactor::spawn(BootConfig {
             config: config.clone(),
             // The RFC §10 ClientConfig carries no DTMF field; the DtmfSent
@@ -118,6 +129,7 @@ impl SipClient {
             // module default (O-002, P7-2).
             dtmf_sent_timeout_ms: crate::config::DtmfConfig::default().sent_timeout_ms,
             event_bus: event_bus.clone(),
+            audio_taps: tap_senders.clone(),
         })
         .map_err(|e| {
             SipError::new(
@@ -157,7 +169,7 @@ impl SipClient {
                 runtime: Arc::new(handle),
                 events: event_bus,
                 config,
-                tap_senders: Arc::new(Mutex::new(HashMap::new())),
+                tap_senders,
             },
             event_rx,
         ))
@@ -477,16 +489,44 @@ impl SipClient {
     ) -> Result<AudioTapHandle, SipError> {
         validate_tap_capacity(capacity)?;
         let calls = self.calls().await?;
-        if !calls.iter().any(|entry| entry.id == call_id.get().get()) {
-            return Err(SipError::not_found("call not found"));
-        }
+        let entry = calls
+            .iter()
+            .find(|entry| entry.id == call_id.get().get())
+            .ok_or_else(|| SipError::not_found("call not found"))?;
         let (sender, handle) = tap_channel(capacity, mode);
+        // Store the call's account_id alongside the producer so the backend
+        // media callback can build a real AudioChunkPair (P15-7 tap push).
         self.tap_senders
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .insert(call_id, sender);
+            .insert(call_id, (entry.account_id, sender));
         tracing::info!(%call_id, %capacity, ?mode, ?format, "subscribe_audio: tap created");
         Ok(handle)
+    }
+
+    /// Inject an audio source into a call's media path (§62.6).
+    ///
+    /// The `channels` selector routes the source to the received (IN), send-mix
+    /// (OUT), or both media paths of the call's per-call `AudioMixer`. Returns
+    /// the globally unique `source_id` assigned to the registration; for `Both`
+    /// this is the IN registration's id (the OUT registration shares the same
+    /// underlying source, C087).
+    #[instrument(skip(self, source), fields(call_id = call_id.0, channels = ?channels))]
+    pub async fn add_audio_source(
+        &self,
+        call_id: CallId,
+        source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource>,
+        channels: ChannelSelector,
+    ) -> Result<u64, SipError> {
+        self.runtime
+            .submit_add_audio_source(call_id.get().get(), source, channels)
+            .await
+            .map_err(|e| {
+                SipError::new(
+                    SipErrorKind::NativeError,
+                    format!("add_audio_source failed: {e}"),
+                )
+            })
     }
 
     /// Check whether the reactor thread has terminated.
@@ -949,7 +989,7 @@ mod tests {
 // [::TICKET::] P15-6: the list query is now calls(); the per-call query is call_state(call_id).
 // [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
         fn assert_calls_result(_: &Result<Vec<crate::runtime::state::CallEntry>, SipError>) {}
-// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P15-7) --for-spec --no-implementation-order`.
         fn assert_call_state_result(_: &Result<crate::state::call_state_model::CallState, SipError>) {}
         // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_subscribe_audio_result(
@@ -1126,9 +1166,11 @@ mod tests {
 
     #[test]
     // @verifies C051
-    // [::TICKET::] P0-3, P6-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P6-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1|P15-7) --for-spec --no-implementation-order`.
     fn microphone_is_optional_feature() -> Result<(), std::io::Error> {
         // C051 invariant: Microphone is optional via cpal-input feature flag.
+        // P15-7 (§62.6): cpal-input is a DEFAULT feature so the microphone
+        // source connects in the default build.
         let manifest = std::fs::read_to_string("Cargo.toml")?;
         assert!(
             manifest.contains("cpal-input"),
@@ -1140,7 +1182,7 @@ mod tests {
             .find(|l| l.trim().starts_with("default"))
             .map(|l| l.contains("cpal-input"))
             .unwrap_or(false);
-        assert!(!has_default_mic, "cpal-input must not be a default feature");
+        assert!(has_default_mic, "cpal-input must be a default feature (§62.6)");
         Ok(())
     }
 
@@ -1424,6 +1466,48 @@ mod tests {
     ) -> Result<(SipClient, broadcast::Receiver<SipEvent>), Box<dyn std::error::Error>> {
         let config = ClientConfig::default();
         Ok(SipClient::new(config).await?)
+    }
+
+    #[tokio::test]
+    // [::TICKET::] P15-7: SipClient::add_audio_source injects into the per-call
+    // mixer and returns a source_id (§62.6 / C087).
+    async fn add_audio_source_injects_into_per_call_mixer(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (client, _rx) = test_client().await?;
+        let call_id = CallId::from_u64(1).unwrap();
+        let source = Box::new(crate::runtime::audio_worker::MockAsyncAudioSource::new(
+            vec![0i16; 160],
+        ));
+        let source_id = client
+            .add_audio_source(call_id, source, ChannelSelector::Out)
+            .await?;
+        assert_eq!(source_id, 0, "first source on a fresh client gets id 0");
+        let mixer = client.handle().audio_mixer_for(1).expect("per-call mixer");
+        assert_eq!(mixer.out_source_count(), 1);
+        assert_eq!(mixer.in_source_count(), 0);
+        client.shutdown().await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // [::TICKET::] P15-7: add_audio_source with Both registers both paths (C087).
+    async fn add_audio_source_both_registers_in_and_out(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (client, _rx) = test_client().await?;
+        let call_id = CallId::from_u64(1).unwrap();
+        let source = Box::new(crate::runtime::audio_worker::MockAsyncAudioSource::new(
+            vec![0i16; 160],
+        ));
+        let source_id = client
+            .add_audio_source(call_id, source, ChannelSelector::Both)
+            .await?;
+        // Both returns the IN registration id (the first id on a fresh client).
+        assert_eq!(source_id, 0);
+        let mixer = client.handle().audio_mixer_for(1).expect("per-call mixer");
+        assert_eq!(mixer.in_source_count(), 1);
+        assert_eq!(mixer.out_source_count(), 1);
+        client.shutdown().await?;
+        Ok(())
     }
 
     #[tokio::test]

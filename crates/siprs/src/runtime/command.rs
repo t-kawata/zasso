@@ -209,12 +209,16 @@ pub enum RuntimeCommand {
         call_id: u64,
         reply: Reply<Result<(), ReactorError>>,
     },
-    /// [::TICKET::] P0-6: Add an audio source to the call's AudioMixer.
+    /// [::TICKET::] P0-6, P15-7: Add an audio source to the per-call AudioMixer.
     ///
-    /// The source is boxed and stored in the mixer. Returns the assigned
-    /// source_id via the oneshot channel.
+    /// The source is boxed and stored in the per-call mixer for `call_id`. The
+    /// `channels` selector routes it to the IN (received), OUT (send-mix), or
+    /// both media paths (§62.6 / C087). Returns the assigned source_id via the
+    /// oneshot channel.
     AddAudioSource {
+        call_id: u64,
         source: DebugBox<dyn crate::runtime::audio_worker::AsyncAudioSource + Send>,
+        channels: crate::audio::media_path_arch::ChannelSelector,
         reply: Reply<Result<u64, ReactorError>>,
     },
     /// [::TICKET::] P0-6: Remove an audio source from the call's AudioMixer.
@@ -272,7 +276,7 @@ impl std::fmt::Display for RuntimeCommand {
 }
 
 /// Type alias for the backend execution closure used in `DispatchCommand`.
-// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6, P12-1, P12-7, P15-4, P15-5, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6|P12-1|P12-7|P15-4|P15-5|P15-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-2, P7-2, P8-1, P10-3, P10-4, P11-6, P12-1, P12-7, P15-4, P15-5, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2|P7-2|P8-1|P10-3|P10-4|P11-6|P12-1|P12-7|P15-4|P15-5|P15-6|P15-7) --for-spec --no-implementation-order`.
 type BackendFn =
     Box<dyn FnOnce(&mut dyn super::backend::SipBackend) -> Result<(), ReactorError> + Send>;
 
@@ -301,12 +305,15 @@ pub(crate) enum DispatchCommand {
         digits: String,
         reply: Reply<Result<(), ReactorError>>,
     },
-    /// [::TICKET::] P0-6: Add an audio source with a typed source_id response.
+    /// [::TICKET::] P0-6, P15-7: Add an audio source with a typed source_id response.
     ///
     /// Separate from Execute because AddAudioSource returns Result<u64, ...>
     /// (the assigned source_id), which does not fit the Execute reply type.
+    /// Carries `call_id` (target per-call mixer) and `channels` (IN/OUT/BOTH).
     AddAudioSource {
+        call_id: u64,
         source: DebugBox<dyn crate::runtime::audio_worker::AsyncAudioSource + Send>,
+        channels: crate::audio::media_path_arch::ChannelSelector,
         reply: Reply<Result<u64, ReactorError>>,
     },
     // [::TICKET::] P8-1: O-003 — audio-lifecycle commands are dedicated dispatch
@@ -436,7 +443,7 @@ pub(crate) enum DispatchCommand {
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10, P11-11, P12-1, P15-5, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10|P11-11|P12-1|P15-5|P15-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10, P11-11, P12-1, P15-5, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10|P11-11|P12-1|P15-5|P15-6|P15-7) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
@@ -542,8 +549,18 @@ impl DispatchCommand {
             // DispatchCommand variants (O-003). They cannot be Execute closures: the
             // closure only receives `&mut dyn SipBackend`, while these commands mutate
             // the reactor-owned AudioMixer, so the reactor loop must dispatch them.
-            RuntimeCommand::AddAudioSource { source, reply } => {
-                Self::AddAudioSource { source, reply }
+            RuntimeCommand::AddAudioSource {
+                call_id,
+                source,
+                channels,
+                reply,
+            } => {
+                Self::AddAudioSource {
+                    call_id,
+                    source,
+                    channels,
+                    reply,
+                }
             }
             RuntimeCommand::RemoveAudioSource { source_id, reply } => {
                 Self::RemoveAudioSource { source_id, reply }
@@ -786,14 +803,16 @@ mod tests {
     // @verifies C011
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C011
-    // [::TICKET::] P0-6, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P10-4, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P10-4|P15-7) --for-spec --no-implementation-order`.
     fn add_audio_source_variant_constructs() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let source = Box::new(crate::runtime::audio_worker::MockAsyncAudioSource::new(
             vec![0i16; 160],
         ));
         let cmd = RuntimeCommand::AddAudioSource {
+            call_id: 42,
             source: DebugBox::new(source),
+            channels: crate::audio::media_path_arch::ChannelSelector::Out,
             reply: Reply::new(tx),
         };
         assert_eq!(format!("{cmd}"), "RuntimeCommand::AddAudioSource");
@@ -1015,13 +1034,15 @@ mod tests {
     // @verifies C035
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     // @verifies C035
-    // [::TICKET::] P0-6, P8-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P8-1|P10-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P8-1, P10-4, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P8-1|P10-4|P15-7) --for-spec --no-implementation-order`.
     fn from_runtime_command_converts_audio_source_variants() {
         let (tx1, _rx1) = tokio::sync::oneshot::channel();
         let cmd1 = RuntimeCommand::AddAudioSource {
+            call_id: 42,
             source: DebugBox::new(Box::new(
                 crate::runtime::audio_worker::MockAsyncAudioSource::new(vec![0i16; 160]),
             )),
+            channels: crate::audio::media_path_arch::ChannelSelector::Both,
             reply: Reply::new(tx1),
         };
         assert!(matches!(
@@ -1353,18 +1374,27 @@ mod tests {
 
     #[test]
     // @verifies C054
-    // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-4, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-4|P15-7) --for-spec --no-implementation-order`.
     fn from_runtime_command_preserves_reply_and_debugbox() {
         let (tx, _rx) = tokio::sync::oneshot::channel::<Result<u64, ReactorError>>();
         let source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send> = Box::new(
             crate::runtime::audio_worker::MockAsyncAudioSource::new(vec![0i16; 160]),
         );
         let cmd = RuntimeCommand::AddAudioSource {
+            call_id: 42,
             source: DebugBox::new(source),
+            channels: crate::audio::media_path_arch::ChannelSelector::Out,
             reply: Reply::new(tx),
         };
         match DispatchCommand::from_runtime_command(cmd) {
-            DispatchCommand::AddAudioSource { source, reply } => {
+            DispatchCommand::AddAudioSource {
+                call_id,
+                source,
+                channels,
+                reply,
+            } => {
+                assert_eq!(call_id, 42);
+                assert_eq!(channels, crate::audio::media_path_arch::ChannelSelector::Out);
                 let _b: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send> =
                     source.into_inner();
                 let _s: tokio::sync::oneshot::Sender<Result<u64, ReactorError>> =

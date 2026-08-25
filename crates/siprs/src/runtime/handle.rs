@@ -1,7 +1,8 @@
 // [::TICKET::] P0-2: RuntimeHandle — Send+Sync handle for submitting commands to reactor
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 
 use crate::api::eventbus_receiver::EventBus;
@@ -29,11 +30,12 @@ pub struct RuntimeHandle {
     // [::TICKET::] P12-6: the reactor thread's JoinHandle, shared with the spawn
     // caller via Arc so the FFI thread-lifecycle observer can query liveness.
     join_handle: Arc<JoinHandle<()>>,
-    // [::TICKET::] P11-3: O-001 — the reactor owns the default-call AudioMixer.
-    // This clone lets tests/observability read the reactor mixer state without
-    // a round-trip command. The single-writer rule still holds: only the reactor
-    // thread mutates the mixer; callers must treat this as read-only.
-    audio_mixer: Arc<AudioMixer>,
+    // [::TICKET::] P11-3, P15-7: O-001 — the reactor owns per-call AudioMixers
+    // keyed by call_id (§62.6). This shared map clone lets tests/observability
+    // read the per-call mixer state without a round-trip command. The
+    // single-writer rule still holds: only the reactor thread mutates mixers;
+    // callers must treat this as read-only.
+    audio_mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
     // [::TICKET::] P15-4: the single client-owned EventBus (O-001 pattern).
     // This clone lets tests/observability subscribe to the same bus that
     // SipClient::subscribe() reads — the reactor publishes directly to it.
@@ -55,33 +57,34 @@ impl std::fmt::Debug for RuntimeHandle {
     }
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7, P15-4, P15-5, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7|P15-4|P15-5|P15-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7, P15-4, P15-5, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7|P15-4|P15-5|P15-6|P15-7) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
         terminated: Arc<AtomicBool>,
         join_handle: Arc<JoinHandle<()>>,
-        audio_mixer: Arc<AudioMixer>,
+        audio_mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
         event_bus: EventBus,
     ) -> Self {
         Self {
             sender,
             terminated,
             join_handle,
-            audio_mixer,
+            audio_mixers,
             event_bus,
         }
     }
 
-    /// Return a clone of the reactor-owned `AudioMixer` Arc.
+    /// Return a clone of the reactor-owned per-call `AudioMixer` for `call_id`.
     ///
     /// This is an observability/test accessor (O-001): it lets callers read the
-    /// reactor mixer state (`source_count()`, `gains`, `mutes`) without a
-    /// round-trip command. The single-writer rule still applies — only the
-    /// reactor thread mutates the mixer; callers must not call the `*_source`
+    /// per-call mixer state (`source_count()`, `in_source_count()`, `gains`,
+    /// `mutes`) without a round-trip command. `None` when no mixer has been
+    /// created for the call yet. The single-writer rule still applies — only
+    /// the reactor thread mutates mixers; callers must not call the `*_source`
     /// mutators directly.
-    pub fn audio_mixer(&self) -> Arc<AudioMixer> {
-        self.audio_mixer.clone()
+    pub fn audio_mixer_for(&self, call_id: u64) -> Option<Arc<AudioMixer>> {
+        self.audio_mixers.read().unwrap_or_else(|e| e.into_inner()).get(&call_id).cloned()
     }
 
     /// Return a clone of the single client-owned `EventBus`.
@@ -481,12 +484,17 @@ impl RuntimeHandle {
 
     /// Submit an `AddAudioSource` command and await the assigned `source_id`.
     ///
+    /// The source is added to the per-call mixer for `call_id` on the path(s)
+    /// selected by `channels` (§62.6).
+    ///
     /// # Errors
     /// Returns `ReactorError::ReactorDown` if the reactor has terminated, or the
     /// reactor's backend error if the source could not be added.
     pub async fn submit_add_audio_source(
         &self,
+        call_id: u64,
         source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send>,
+        channels: crate::audio::media_path_arch::ChannelSelector,
     ) -> Result<u64, ReactorError> {
         if self.is_terminated() {
             return Err(ReactorError::ReactorDown);
@@ -494,7 +502,9 @@ impl RuntimeHandle {
 
         let (tx, rx) = tokio::sync::oneshot::channel();
         let dispatch = DispatchCommand::AddAudioSource {
+            call_id,
             source: DebugBox::new(source),
+            channels,
             reply: Reply::new(tx),
         };
 
@@ -637,7 +647,7 @@ mod tests {
 
     #[test]
     // @verifies C012
-    // [::TICKET::] P0-2, P11-3, P11-6, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6|P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P11-3, P11-6, P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6|P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn runtime_handle_is_clonable() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
@@ -645,7 +655,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -662,7 +672,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -675,7 +685,7 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P0-2, P11-3, P11-6, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6|P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P11-3, P11-6, P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6|P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn is_terminated_reflects_atomic_flag() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
@@ -683,7 +693,7 @@ mod tests {
             tx,
             terminated.clone(),
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -705,13 +715,23 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
         let consumer = tokio::spawn(async move {
             match rx.recv().await {
-                Some(DispatchCommand::AddAudioSource { source, reply }) => {
+                Some(DispatchCommand::AddAudioSource {
+                    call_id,
+                    source,
+                    channels,
+                    reply,
+                }) => {
+                    assert_eq!(call_id, 42);
+                    assert_eq!(
+                        channels,
+                        crate::audio::media_path_arch::ChannelSelector::Out
+                    );
                     drop(source);
                     reply.send(Ok(42u64)).unwrap();
                 }
@@ -720,7 +740,13 @@ mod tests {
         });
 
         let source = Box::new(MockAsyncAudioSource::new(vec![0i16; 160]));
-        let result = handle.submit_add_audio_source(source).await;
+        let result = handle
+            .submit_add_audio_source(
+                42,
+                source,
+                crate::audio::media_path_arch::ChannelSelector::Out,
+            )
+            .await;
         assert_eq!(
             result.unwrap(),
             42,
@@ -739,7 +765,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -768,7 +794,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -802,7 +828,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -838,7 +864,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -870,7 +896,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         let result = handle
@@ -894,7 +920,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -939,7 +965,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         let result = handle
@@ -981,7 +1007,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -1018,7 +1044,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         let result = handle.submit_make_call(7, test_call_request()).await;
@@ -1041,7 +1067,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             event_bus.clone(),
         );
 
@@ -1066,14 +1092,14 @@ mod tests {
     #[test]
     // @verifies C112
     // [::TICKET::] P12-6: thread_handle() must return the exact Arc passed to new().
-    // [::TICKET::] P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn thread_handle_returns_same_arc_allocation() {
         let join_arc = completed_join_handle();
         let handle = RuntimeHandle::new(
             create_channel().0,
             Arc::new(AtomicBool::new(false)),
             join_arc.clone(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         assert!(
@@ -1085,14 +1111,14 @@ mod tests {
     #[test]
     // @verifies C112
     // [::TICKET::] P12-6: a finished thread reports dead via is_thread_alive()/is_finished().
-    // [::TICKET::] P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn thread_inspection_reports_finished_after_thread_exits() {
         let join_arc = completed_join_handle(); // thread already finished, handle not joined
         let handle = RuntimeHandle::new(
             create_channel().0,
             Arc::new(AtomicBool::new(false)),
             join_arc,
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         assert!(
@@ -1108,13 +1134,13 @@ mod tests {
     #[test]
     // @verifies C012
     // [::TICKET::] P12-6: a cloned handle shares the identical Arc<JoinHandle> allocation.
-    // [::TICKET::] P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn cloned_handle_shares_same_arc_allocation() {
         let handle = RuntimeHandle::new(
             create_channel().0,
             Arc::new(AtomicBool::new(false)),
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         let cloned = handle.clone();
@@ -1145,13 +1171,14 @@ mod tests {
     // @verifies C038
     // [::TICKET::] P12-6: inspection on a panicked thread must report dead without
     // panicking the accessor — is_finished() is safe on a dead/panicked thread.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn inspection_on_panicked_thread_reports_dead_safely() {
         let join_arc = Arc::new(std::thread::spawn(|| panic!("deliberate test panic")));
         let handle = RuntimeHandle::new(
             create_channel().0,
             Arc::new(AtomicBool::new(false)),
             join_arc,
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         // The thread panics immediately and exits; poll deterministically for exit.
@@ -1183,7 +1210,7 @@ mod tests {
             tx,
             Arc::new(AtomicBool::new(false)),
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -1223,7 +1250,7 @@ mod tests {
             tx,
             Arc::new(AtomicBool::new(true)),
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         let result = handle
@@ -1246,7 +1273,7 @@ mod tests {
             tx,
             Arc::new(AtomicBool::new(false)),
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -1281,7 +1308,7 @@ mod tests {
             tx,
             Arc::new(AtomicBool::new(false)),
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -1318,7 +1345,7 @@ mod tests {
             tx,
             Arc::new(AtomicBool::new(false)),
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 

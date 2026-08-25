@@ -131,6 +131,20 @@ impl std::fmt::Debug for AudioTapHandle {
     }
 }
 
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+impl std::fmt::Debug for AudioTapSender {
+    // [::TICKET::] P15-7: needed so the shared tap registry (AudioTapRegistry)
+    // participates in `#[derive(Debug)]` on BootConfig/RuntimeHandle. The queue
+    // internals are not formatted (same finish_non_exhaustive pattern as
+    // AudioTapHandle/Reply/DebugBox).
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AudioTapSender")
+            .field("mode", &self.mode)
+            .finish_non_exhaustive()
+    }
+}
+
 /// Producer-side tap sender applying the mode's backpressure policy (RFC §22.1).
 ///
 /// A tap has exactly one producer (the backend media task), so the sender is
@@ -156,32 +170,23 @@ impl Drop for AudioTapSender {
     }
 }
 
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-2, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-2|P15-7) --for-spec --no-implementation-order`.
 impl AudioTapSender {
     // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
     fn new(tx: mpsc::Sender<AudioChunkPair>, queue: Arc<TapQueue>, mode: AudioTapMode) -> Self {
         Self { tx, queue, mode }
     }
 
-    /// Push one frame into the tap.
+    /// Push one frame into the tap, blocking only in Lossless mode.
     ///
-    /// In Realtime mode, a full queue evicts the oldest frame and returns it as
-    /// the overflow report; the newest frame is always admitted and the producer
-    /// never blocks. In Lossless mode the producer awaits queue space
-    /// (backpressure) and no frame is ever evicted, so `None` is returned.
+    /// In Realtime mode this delegates to [`AudioTapSender::try_push`]: a full
+    /// queue evicts the oldest frame and returns it as the overflow report, the
+    /// newest frame is always admitted, and the producer never blocks. In
+    /// Lossless mode the producer awaits queue space (backpressure) and no
+    /// frame is ever evicted, so `None` is returned.
     pub async fn push(&self, pair: AudioChunkPair) -> Option<AudioChunkPair> {
         match self.mode {
-            AudioTapMode::Realtime => {
-                let mut frames = lock_queue(&self.queue);
-                let dropped = if frames.len() >= self.queue.capacity {
-                    frames.pop_front()
-                } else {
-                    None
-                };
-                frames.push_back(pair);
-                self.queue.frame_available.notify_one();
-                dropped
-            }
+            AudioTapMode::Realtime => self.try_push(pair),
             AudioTapMode::Lossless => {
                 // `pair` moves into the queue exactly once, on the admitting
                 // iteration; holding it in an Option lets the loop body re-run
@@ -211,6 +216,26 @@ impl AudioTapSender {
                 }
             }
         }
+    }
+
+    /// Push one frame into the tap synchronously, Realtime mode only.
+    ///
+    /// Never blocks and never awaits: a full queue evicts the oldest frame and
+    /// returns it as the overflow report; the newest frame is always admitted.
+    /// This is the entry point for the RT media callback (conf port
+    /// `put_frame`) — an async `push` cannot be awaited on the RT thread
+    /// (§62.6 tap push, OMISSIONS F9 resolution). Lossless taps are not
+    /// driven from the RT callback (their producer would block).
+    pub fn try_push(&self, pair: AudioChunkPair) -> Option<AudioChunkPair> {
+        let mut frames = lock_queue(&self.queue);
+        let dropped = if frames.len() >= self.queue.capacity {
+            frames.pop_front()
+        } else {
+            None
+        };
+        frames.push_back(pair);
+        self.queue.frame_available.notify_one();
+        dropped
     }
 }
 
@@ -274,7 +299,7 @@ mod tests {
     fn audio_tap_mode_is_copyable_and_comparable() {
         // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
         fn assert_traits<T: Clone + Copy + std::fmt::Debug + PartialEq + Eq>() {}
-        // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-2, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-2|P15-7) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_traits::<AudioTapMode>();
         assert_send::<AudioTapHandle>();
@@ -312,6 +337,38 @@ mod tests {
             "oldest pair_a is evicted"
         );
         assert_eq!(handle.recv().await, Some(pair_b), "newest pair_b survives");
+        Ok(())
+    }
+
+    #[tokio::test]
+    // [::TICKET::] P15-7: try_push is the synchronous Realtime push — the RT
+    // media callback entry (§62.6 tap push). Never blocks, evicts oldest.
+    async fn try_push_is_synchronous_and_evicts_oldest() -> Result<(), IdError> {
+        let (sender, mut handle) = tap_channel(1, AudioTapMode::Realtime);
+        let pair_a = synthetic_pair(1)?;
+        let pair_b = synthetic_pair(2)?;
+        assert_eq!(sender.try_push(pair_a.clone()), None);
+        assert_eq!(
+            sender.try_push(pair_b.clone()),
+            Some(pair_a),
+            "oldest pair_a is evicted synchronously"
+        );
+        assert_eq!(handle.recv().await, Some(pair_b), "newest pair_b survives");
+        Ok(())
+    }
+
+    #[tokio::test]
+    // [::TICKET::] P15-7: async push in Realtime mode delegates to try_push.
+    async fn async_push_realtime_delegates_to_try_push() -> Result<(), IdError> {
+        let (sender, mut handle) = tap_channel(2, AudioTapMode::Realtime);
+        let pair_a = synthetic_pair(1)?;
+        let pair_b = synthetic_pair(2)?;
+        let pair_c = synthetic_pair(3)?;
+        assert_eq!(sender.push(pair_a.clone()).await, None);
+        assert_eq!(sender.push(pair_b.clone()).await, None);
+        assert_eq!(sender.push(pair_c.clone()).await, Some(pair_a));
+        assert_eq!(handle.recv().await, Some(pair_b));
+        assert_eq!(handle.recv().await, Some(pair_c));
         Ok(())
     }
 

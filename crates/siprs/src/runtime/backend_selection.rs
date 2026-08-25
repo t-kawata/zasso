@@ -21,7 +21,7 @@
 // MockBackend deletion, TestBackend (cfg test / test-util).
 
 use crate::config::ClientConfig;
-use crate::runtime::backend::SipBackend;
+use crate::runtime::backend::{AudioTapRegistry, SipBackend};
 use crate::runtime::command::ReactorError;
 
 #[cfg(feature = "pjsua-native")]
@@ -38,21 +38,32 @@ use crate::runtime::backend::TestBackend;
 /// tests never touch PJSUA. A build with neither the feature nor a test mode
 /// fails fast with an explicit error instead of silently running on a mock.
 ///
-/// `config` is currently unused (`_config`) — `PjsuaBackend::new()` and
-/// `TestBackend::default()` take no configuration, but the parameter keeps the
-/// RFC signature so a future backend that consumes config does not ripple here.
+/// `config` is currently unused (`_config`) — the backends take no
+/// configuration, but the parameter keeps the RFC signature so a future backend
+/// that consumes config does not ripple here. `audio_taps` is the shared
+/// `subscribe_audio` registry (§62.6) — `PjsuaBackend` needs it to drive taps;
+/// `TestBackend` records `push_media_frame` invocations and ignores it.
 #[cfg(feature = "pjsua-native")]
-pub(crate) fn create_backend(_config: &ClientConfig) -> Result<Box<dyn SipBackend>, ReactorError> {
-    Ok(Box::new(PjsuaBackend::new()))
+pub(crate) fn create_backend(
+    _config: &ClientConfig,
+    audio_taps: AudioTapRegistry,
+) -> Result<Box<dyn SipBackend>, ReactorError> {
+    Ok(Box::new(PjsuaBackend::with_taps(audio_taps)))
 }
 
 #[cfg(all(any(test, feature = "test-util"), not(feature = "pjsua-native")))]
-pub(crate) fn create_backend(_config: &ClientConfig) -> Result<Box<dyn SipBackend>, ReactorError> {
+pub(crate) fn create_backend(
+    _config: &ClientConfig,
+    _audio_taps: AudioTapRegistry,
+) -> Result<Box<dyn SipBackend>, ReactorError> {
     Ok(Box::new(TestBackend::default()))
 }
 
 #[cfg(all(not(any(test, feature = "test-util")), not(feature = "pjsua-native")))]
-pub(crate) fn create_backend(_config: &ClientConfig) -> Result<Box<dyn SipBackend>, ReactorError> {
+pub(crate) fn create_backend(
+    _config: &ClientConfig,
+    _audio_taps: AudioTapRegistry,
+) -> Result<Box<dyn SipBackend>, ReactorError> {
     Err(unsupported_backend_error())
 }
 
@@ -69,15 +80,18 @@ pub(crate) fn unsupported_backend_error() -> ReactorError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
     use crate::config::account_config_spec::AccountConfig;
     use crate::state::registr_state_machine::RegistrationState;
 
     #[test]
     // @verifies C083
     #[cfg(not(feature = "pjsua-native"))]
-// [::TICKET::] P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3, P15-5, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-5|P15-7) --for-spec --no-implementation-order`.
     fn create_backend_returns_test_backend_in_test_build() -> Result<(), Box<dyn std::error::Error>> {
-        let mut backend = create_backend(&ClientConfig::default())?;
+        let audio_taps = Arc::new(Mutex::new(HashMap::new()));
+        let mut backend = create_backend(&ClientConfig::default(), audio_taps)?;
         let config = AccountConfig::default();
         let (id, entry) = backend.add_account(&config)?;
         assert_eq!(id, 1, "dispatch proves the concrete TestBackend");

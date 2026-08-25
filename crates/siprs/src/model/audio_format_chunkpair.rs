@@ -225,6 +225,31 @@ pub struct AudioChunkPair {
     pub out_chunk: AudioChunk,
 }
 
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+impl AudioChunkPair {
+    /// Build a paired IN/OUT chunk from a processed stereo-interleaved frame.
+    ///
+    /// §62.6 media-path tap push: `ProcessedFrame.stereo_interleaved` is
+    /// `[L0, R0, L1, R1, ...]` with `L = IN` (received) and `R = OUT` (sent).
+    /// This splits it into the tap's mono `in_chunk` / `out_chunk` so
+    /// `subscribe_audio` consumers observe the real media flow.
+    pub fn from_processed_frame(
+        call_id: CallId,
+        account_id: AccountId,
+        frame: &crate::audio::pipeline::ProcessedFrame,
+    ) -> Self {
+        let (in_samples, out_samples) =
+            crate::audio::media_path_arch::split_stereo_interleaved(&frame.stereo_interleaved);
+        Self {
+            call_id,
+            account_id,
+            timestamp: SystemTime::now(),
+            in_chunk: AudioChunk::I16(in_samples),
+            out_chunk: AudioChunk::I16(out_samples),
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Validation helper
 // ---------------------------------------------------------------------------
@@ -355,6 +380,62 @@ mod tests {
         assert_eq!(pair.account_id, AccountId::from_u64(1).unwrap());
         assert!(!pair.in_chunk.is_empty());
         assert!(!pair.out_chunk.is_empty());
+    }
+
+    // ── P15-7: from_processed_frame (tap push conversion, §62.6) ─────────
+
+    /// from_processed_frame splits stereo [L,R,L,R,...] into IN=left / OUT=right.
+    #[test]
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn from_processed_frame_splits_lr_into_in_out() {
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2, 3, 4],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        let pair = AudioChunkPair::from_processed_frame(
+            CallId::from_u64(1).unwrap(),
+            AccountId::from_u64(1).unwrap(),
+            &frame,
+        );
+        assert_eq!(pair.in_chunk, AudioChunk::I16(vec![1, 3]));
+        assert_eq!(pair.out_chunk, AudioChunk::I16(vec![2, 4]));
+    }
+
+    /// from_processed_frame preserves the call/account context.
+    #[test]
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn from_processed_frame_preserves_call_and_account() {
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![5i16, 6],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        let pair = AudioChunkPair::from_processed_frame(
+            CallId::from_u64(9).unwrap(),
+            AccountId::from_u64(4).unwrap(),
+            &frame,
+        );
+        assert_eq!(pair.call_id, CallId::from_u64(9).unwrap());
+        assert_eq!(pair.account_id, AccountId::from_u64(4).unwrap());
+    }
+
+    /// from_processed_frame handles an empty stereo frame.
+    #[test]
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn from_processed_frame_empty_stereo_yields_empty_chunks() {
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        let pair = AudioChunkPair::from_processed_frame(
+            CallId::from_u64(1).unwrap(),
+            AccountId::from_u64(1).unwrap(),
+            &frame,
+        );
+        assert_eq!(pair.in_chunk, AudioChunk::I16(vec![]));
+        assert_eq!(pair.out_chunk, AudioChunk::I16(vec![]));
     }
 
     // ── Normal: trait derives ───────────────────────────────────────────

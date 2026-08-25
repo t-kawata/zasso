@@ -1,3 +1,5 @@
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-1: Layer 5 API integration tests for the example flows.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
@@ -201,7 +203,7 @@ async fn tts_source_flow_injects_source() -> Result<(), Box<dyn std::error::Erro
 
     let source_id = client
         .handle()
-        .submit_add_audio_source(Box::new(TtsStreamSource { rx }))
+        .submit_add_audio_source(1, Box::new(TtsStreamSource { rx }), siprs::audio::media_path_arch::ChannelSelector::Out)
         .await?;
     assert_eq!(source_id, 0, "first source on a fresh client gets id 0");
     client

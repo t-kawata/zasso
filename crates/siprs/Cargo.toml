@@ -8,7 +8,9 @@ rust-version = "1.95"
 license = "MIT OR Apache-2.0"
 
 [features]
-default = ["serde", "tls"]
+# [::TICKET::] P15-7: cpal-input is a default feature so open_default_microphone_source
+# connects to a real input device in the default build (§62.6).
+default = ["serde", "tls", "cpal-input"]
 serde = ["dep:serde", "dep:serde_json"]
 # [::TICKET::] P10-2: pjsua-native gates the bindgen-generated PJSIP FFI layer.
 # When enabled, build.rs detects a system PJSIP install and src/ffi/bindings.rs

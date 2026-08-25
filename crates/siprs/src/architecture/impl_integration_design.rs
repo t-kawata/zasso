@@ -383,6 +383,23 @@ mod tests {
     }
 
     #[test]
+    // @verifies C075 -- precondition: §62 親セクションが存在する — MediaPathArchitecture
+    // is a typed design decision with section()=="62.6" in BREAKING_CHANGE_ORDER.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn media_path_architecture_is_part_of_section_62() {
+        let decision = DesignDecisionId::MediaPathArchitecture;
+        assert_eq!(decision.section(), "62.6");
+        assert_eq!(
+            decision.label(),
+            "62.6 メディア経路アーキテクチャと統一音声注入"
+        );
+        assert!(
+            breaking_change_order().contains(&DesignDecisionId::MediaPathArchitecture),
+            "MediaPathArchitecture must be part of the §62 breaking-change order"
+        );
+    }
+
+    #[test]
     // @verifies C069 @verifies C078 @verifies C079 @verifies C090  -- source consistency
 // [::TICKET::] P15-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-1 --for-spec --no-implementation-order`.
 // [::TICKET::] P15-2, P15-3, P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-2|P15-3|P15-4) --for-spec --no-implementation-order`.

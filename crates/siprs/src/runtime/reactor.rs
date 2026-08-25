@@ -1,12 +1,12 @@
 // [::TICKET::] P0-2: CoreReactor — dedicated thread for serialized PJSUA command execution
 
-use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread::{self, JoinHandle};
 
 use crate::config::ClientConfig;
-use crate::runtime::audio_worker::AudioMixer;
+use crate::runtime::audio_worker::{AudioMixer, AudioWorkerTask};
 use crate::runtime::backend::SipBackend;
 use crate::runtime::backend_selection::create_backend;
 use crate::runtime::command::{send_reply, DispatchCommand, ReactorError};
@@ -17,6 +17,7 @@ use crate::api::event_model_payload_bus::{
     AccountId, CallId, ConnectedCallInfo, EventMeta, SipEvent, SipEventPayload,
 };
 use crate::api::eventbus_receiver::EventBus;
+use crate::audio::media_path_arch::ChannelSelector;
 use crate::state::m20_callstate_mapping::{convert_call_state_with_previous, CallDirection};
 use crate::state::m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
 use crate::state::registr_wiring::{
@@ -26,6 +27,12 @@ use crate::state::registr_wiring::{
 /// Name of the reactor OS thread. Used for diagnostics and by the FFI
 /// thread-lifecycle observer (P8-21) to correlate thread ids with the reactor.
 const REACTOR_THREAD_NAME: &str = "siprs-reactor";
+
+/// Default frame cadence for per-call audio workers (§62.6).
+///
+/// 20 ms matches the mixer frame model (160 samples at 8 kHz) and the
+/// `AudioWorkerTask` default pacing used by the existing worker tests.
+const DEFAULT_AUDIO_FRAME_DURATION: std::time::Duration = std::time::Duration::from_millis(20);
 
 /// Configuration passed to `CoreReactor::spawn()`.
 ///
@@ -48,11 +55,16 @@ pub struct BootConfig {
     /// `SipClient::new` creates the bus (raw_sip capacity per
     /// `RawSipEventConfig::enabled`) and passes a clone here.
     pub event_bus: EventBus,
+    /// The shared `subscribe_audio` tap producer registry (§62.6).
+    ///
+    /// `SipClient` owns the registry and passes a clone here so the backend's
+    /// `push_media_frame` can drive the subscribed taps from the media callback.
+    pub audio_taps: crate::runtime::backend::AudioTapRegistry,
 }
 
 // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
 impl Default for BootConfig {
-// [::TICKET::] P15-2, P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-2|P15-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-2, P15-4, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-2|P15-4|P15-7) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             config: ClientConfig::default(),
@@ -61,6 +73,7 @@ impl Default for BootConfig {
                 crate::api::eventbus_receiver::DEFAULT_EVENT_BUS_CAPACITY,
                 None,
             ),
+            audio_taps: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -81,12 +94,12 @@ pub struct CoreReactor;
 
 /// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
 /// join handle, or a boxed spawn error.
-// [::TICKET::] P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-4, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7) --for-spec --no-implementation-order`.
 type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -107,15 +120,22 @@ impl CoreReactor {
         // [::TICKET::] P15-3: §62.2 — the backend is selected by feature set:
         // PjsuaBackend (pjsua-native), TestBackend (test builds), or an explicit
         // unsupported error otherwise. TestBackend no longer exists in production.
-        let mut backend = create_backend(&boot_config.config)?;
-        // [::TICKET::] P8-1: O-003 — the reactor owns a default-call AudioMixer. Audio
-        // lifecycle commands (AddAudioSource / RemoveAudioSource / SetAudioSourceGain /
-        // MuteAudioSource) mutate this mixer on the reactor thread (single-writer rule).
-        let audio_mixer: Arc<AudioMixer> = Arc::new(AudioMixer::new());
-        // [::TICKET::] P11-3: O-001 — expose a clone of the reactor mixer to the
-        // handle so tests/observability can assert post-dispatch mixer state without
-        // a round-trip command. The thread keeps its own Arc (single-writer rule).
-        let mixer_for_handle = audio_mixer.clone();
+        let mut backend = create_backend(&boot_config.config, boot_config.audio_taps.clone())?;
+        // [::TICKET::] P8-1, P15-7: O-003 — the reactor owns per-call AudioMixers
+        // keyed by call_id (§62.6). Audio lifecycle commands (AddAudioSource /
+        // RemoveAudioSource / SetAudioSourceGain / MuteAudioSource) mutate the
+        // per-call mixer on the reactor thread (single-writer rule).
+        let audio_mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
+        // [::TICKET::] P11-3, P15-7: O-001 — expose a clone of the reactor mixer
+        // map to the handle so tests/observability can assert post-dispatch mixer
+        // state without a round-trip command. The thread keeps its own Arc
+        // (single-writer rule).
+        let audio_mixers_for_handle = audio_mixers.clone();
+        // [::TICKET::] P15-7: one global source-id counter shared by every
+        // per-call mixer so a source_id is unique across calls (the lifecycle
+        // commands address a source by id alone).
+        let source_id_counter: Arc<AtomicU64> = Arc::new(AtomicU64::new(0));
 
         // [::TICKET::] P15-4: §62.3 — the reactor publishes to the single EventBus
         // owned by SipClient. The thread closure takes ownership of the bus; the
@@ -148,6 +168,10 @@ impl CoreReactor {
                 // out of CallEntry so the C046 field set (id/native_id/account_id/
                 // state/media) stays fixed and conf_port_id remains absent.
                 let mut call_directions: BTreeMap<CallId, CallDirection> = BTreeMap::new();
+                // [::TICKET::] P15-7: per-call audio workers. One AudioWorkerTask
+                // drives each per-call AudioMixer's process_frame loop (§62.6);
+                // owned by the reactor thread and shut down on exit.
+                let mut audio_workers: HashMap<u64, AudioWorkerTask> = HashMap::new();
 
                 // [::TICKET::] P11-6: `enter()` installs the reactor-owned timer
                 // runtime as the current context on this std thread so
@@ -202,20 +226,57 @@ impl CoreReactor {
                                     send_reply(reply, result);
                                 }
                                 DispatchCommand::AddAudioSource {
+                                    call_id,
                                     source,
+                                    channels,
                                     reply,
                                 } => {
-                                    // [::TICKET::] P8-1: O-003 — the reactor owns the
-                                    // AudioMixer; audio lifecycle commands mutate it here
-                                    // on the reactor thread (single-writer rule).
-                                    let source_id = audio_mixer.add_source(source.into_inner());
+                                    // [::TICKET::] P8-1, P15-7: O-003 — the reactor owns
+                                    // per-call AudioMixers; audio lifecycle commands
+                                    // mutate them here on the reactor thread
+                                    // (single-writer rule). §62.6: branch the source into
+                                    // the IN / OUT / both media paths via ChannelSelector.
+                                    let mixer =
+                                        get_or_create_mixer(&audio_mixers, &source_id_counter, call_id);
+                                    // Spawn the per-call worker the first time a mixer is
+                                    // created so its process_frame loop drives the paths.
+                                    if !audio_workers.contains_key(&call_id) {
+                                        let worker = AudioWorkerTask::spawn(
+                                            mixer.clone(),
+                                            call_id,
+                                            DEFAULT_AUDIO_FRAME_DURATION,
+                                        );
+                                        audio_workers.insert(call_id, worker);
+                                    }
+                                    let source = source.into_inner();
+                                    let source_id = match channels {
+                                        ChannelSelector::In => mixer.add_in_source(source),
+                                        ChannelSelector::Out => mixer.add_out_source(source),
+                                        ChannelSelector::Both => {
+                                            // AudioMixer guards sources with a tokio Mutex
+                                            // (async next_chunk), so the shared wrapper must
+                                            // be tokio::sync::Mutex too.
+                                            let shared =
+                                                Arc::new(tokio::sync::Mutex::new(source));
+                                            let in_id =
+                                                mixer.add_in_source_shared(shared.clone());
+                                            mixer.add_out_source_shared(shared);
+                                            in_id
+                                        }
+                                    };
                                     send_reply(reply, Ok(source_id));
                                 }
                                 DispatchCommand::RemoveAudioSource {
                                     source_id,
                                     reply,
                                 } => {
-                                    let result = audio_mixer.remove_source(source_id);
+                                    let result = match mixer_owning_source(&audio_mixers, source_id)
+                                    {
+                                        Some(mixer) => mixer.remove_source(source_id),
+                                        None => Err(ReactorError::BackendError(format!(
+                                            "source {source_id} not found"
+                                        ))),
+                                    };
                                     send_reply(reply, result);
                                 }
                                 DispatchCommand::SetAudioSourceGain {
@@ -223,7 +284,13 @@ impl CoreReactor {
                                     gain,
                                     reply,
                                 } => {
-                                    let result = audio_mixer.set_gain(source_id, gain);
+                                    let result = match mixer_owning_source(&audio_mixers, source_id)
+                                    {
+                                        Some(mixer) => mixer.set_gain(source_id, gain),
+                                        None => Err(ReactorError::BackendError(format!(
+                                            "source {source_id} not found"
+                                        ))),
+                                    };
                                     send_reply(reply, result);
                                 }
                                 DispatchCommand::MuteAudioSource {
@@ -231,7 +298,13 @@ impl CoreReactor {
                                     muted,
                                     reply,
                                 } => {
-                                    let result = audio_mixer.mute(source_id, muted);
+                                    let result = match mixer_owning_source(&audio_mixers, source_id)
+                                    {
+                                        Some(mixer) => mixer.mute(source_id, muted),
+                                        None => Err(ReactorError::BackendError(format!(
+                                            "source {source_id} not found"
+                                        ))),
+                                    };
                                     send_reply(reply, result);
                                 }
                                 DispatchCommand::GetAccountInfo {
@@ -684,6 +757,9 @@ impl CoreReactor {
                                 }
                                 DispatchCommand::Shutdown { reply } => {
                                     let _ = backend.shutdown();
+                                    // Stop every per-call audio worker before exiting so no
+                                    // blocking-pool task outlives the reactor (§62.6).
+                                    shutdown_audio_workers(&mut audio_workers);
                                     // C044 postcondition: publish the terminated flag before
                                     // replying, so shutdown() callers observe is_terminated() == true
                                     // the moment shutdown() returns Ok (oneshot send orders the store).
@@ -694,7 +770,9 @@ impl CoreReactor {
                             }
                         }
                         None => {
-                            // All senders dropped — channel closed, exit.
+                            // All senders dropped — channel closed, exit. Stop the
+                            // per-call workers so they do not outlive the reactor.
+                            shutdown_audio_workers(&mut audio_workers);
                             terminated.store(true, Ordering::Release);
                             break;
                         }
@@ -707,11 +785,68 @@ impl CoreReactor {
             tx,
             terminated_clone,
             reactor_join.clone(),
-            mixer_for_handle,
+            audio_mixers_for_handle,
             event_bus_for_handle,
         );
 
         Ok((handle, reactor_join))
+    }
+}
+
+/// Get (or create) the per-call `AudioMixer` for `call_id` (§62.6).
+///
+/// The first `AddAudioSource` for a call creates its mixer with the shared
+/// global source-id counter, so ids stay unique across calls. The reactor is
+/// the single writer of the map (single-writer rule); callers hold a read
+/// guard only while cloning the matching `Arc`.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+fn get_or_create_mixer(
+    audio_mixers: &Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
+    source_id_counter: &Arc<AtomicU64>,
+    call_id: u64,
+) -> Arc<AudioMixer> {
+    if let Some(mixer) = audio_mixers
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(&call_id)
+    {
+        return mixer.clone();
+    }
+    let mixer = Arc::new(AudioMixer::with_shared_id_source(source_id_counter.clone()));
+    audio_mixers
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(call_id, mixer.clone());
+    mixer
+}
+
+/// Find the per-call mixer that owns `source_id`, if any.
+///
+/// The lifecycle commands address a source by id alone, so the reactor scans
+/// the per-call mixers to locate the owner (ids are globally unique).
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+fn mixer_owning_source(
+    audio_mixers: &Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
+    source_id: u64,
+) -> Option<Arc<AudioMixer>> {
+    audio_mixers
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .values()
+        .find(|mixer| mixer.has_source(source_id))
+        .cloned()
+}
+
+/// Gracefully stop every per-call audio worker.
+///
+/// Called on reactor shutdown / channel-close so no blocking-pool task
+/// outlives the reactor (§62.6). The reactor thread has the timer runtime
+/// entered, so `Handle::current().block_on` drives each async shutdown.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+fn shutdown_audio_workers(workers: &mut HashMap<u64, AudioWorkerTask>) {
+    for (call_id, mut worker) in workers.drain() {
+        tracing::info!(call_id, "shutting down audio worker");
+        tokio::runtime::Handle::current().block_on(worker.shutdown());
     }
 }
 
@@ -1848,6 +1983,7 @@ mod tests {
                 crate::api::eventbus_receiver::DEFAULT_EVENT_BUS_CAPACITY,
                 None,
             ),
+            audio_taps: Arc::new(Mutex::new(HashMap::new())),
         })
         .unwrap();
         let mut rx = handle.event_bus().subscribe_control();

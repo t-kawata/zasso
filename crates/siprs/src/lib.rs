@@ -1,3 +1,5 @@
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -137,7 +139,9 @@ pub use call::{HangupReason, SipCall};
 // [::TICKET::] P9-2: Audio Subscribe API re-exports
 pub use api::audio_subscribe_bp::{AudioTapHandle, AudioTapMode, AudioTapSender};
 // [::TICKET::] P11-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-12 --for-spec --no-implementation-order`.
-pub use audio::{AudioOrchestrationError, AudioPipeline, AudioPipelineConfig, ProcessedFrame};
+pub use audio::{
+    AudioOrchestrationError, AudioPipeline, AudioPipelineConfig, ChannelSelector, ProcessedFrame,
+};
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 pub use config::account_config_spec::{

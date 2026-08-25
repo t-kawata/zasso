@@ -3,12 +3,23 @@
 
 #[cfg(any(test, feature = "test-util"))]
 use std::collections::BTreeMap;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use crate::ffi::bindings;
 #[cfg(any(test, feature = "test-util"))]
 use crate::model::AccountId;
 use crate::runtime::command::ReactorError;
 use crate::runtime::state::{AccountEntry, CallEntry};
+
+/// Shared `subscribe_audio` tap producer registry (§62.6).
+///
+/// Each entry pairs the call's `AccountId` with its tap producer so
+/// `push_media_frame` can build a real `AudioChunkPair`. The `SipClient` owns
+/// the registry and shares a clone with the backend at reactor boot.
+pub(crate) type AudioTapRegistry = Arc<
+    Mutex<HashMap<crate::model::CallId, (crate::model::AccountId, crate::api::audio_subscribe_bp::AudioTapSender)>>,
+>;
 
 // [::TICKET::] P0-5: re-export needed for SipBackend::get_account_info
 use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
@@ -114,12 +125,25 @@ pub trait SipBackend: Send {
     fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError>;
 
     /// Connect a call's media to the conference bridge.
-// [::TICKET::] P3-2, P11-10, P11-11, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10, P11-11, P15-3, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P15-3|P15-7) --for-spec --no-implementation-order`.
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6|P15-7) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
+
+    /// Push a processed media frame into the call's audio tap (subscribe_audio).
+    ///
+    /// §62.6 tap push (OMISSIONS F9 resolution): the backend media callback
+    /// drives the tap with real data. `call_id` is the public `CallId` value
+    /// (not the native id). Implementations must be non-blocking — this is
+    /// invoked from the RT media callback context.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn push_media_frame(
+        &mut self,
+        call_id: u64,
+        frame: crate::audio::pipeline::ProcessedFrame,
+    ) -> Result<(), ReactorError>;
 }
 
 // ---------------------------------------------------------------------------
@@ -180,6 +204,8 @@ pub struct TestBackend {
     pub hangup_calls: Vec<i32>,
     /// Recorded `(native_call_id, target)` pairs from every `transfer_call` (P15-6).
     pub transfer_calls: Vec<(i32, String)>,
+    /// Recorded `(call_id, frame)` pairs from every `push_media_frame` (P15-7).
+    pub push_media_frame_calls: Vec<(u64, crate::audio::pipeline::ProcessedFrame)>,
 }
 
 #[cfg(any(test, feature = "test-util"))]
@@ -219,7 +245,7 @@ impl TestBackend {
 
 // [::TICKET::] P8-1, P10-3, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-3|P11-11) --for-spec --no-implementation-order`.
 #[cfg(any(test, feature = "test-util"))]
-// [::TICKET::] P15-3, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-6|P15-7) --for-spec --no-implementation-order`.
 impl SipBackend for TestBackend {
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
@@ -423,6 +449,16 @@ impl SipBackend for TestBackend {
         self.conf_disconnect_calls.push((source, sink));
         Ok(())
     }
+
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn push_media_frame(
+        &mut self,
+        call_id: u64,
+        frame: crate::audio::pipeline::ProcessedFrame,
+    ) -> Result<(), ReactorError> {
+        self.push_media_frame_calls.push((call_id, frame));
+        Ok(())
+    }
 }
 
 /// Derive an `AccountInfoSnapshot` from a stored `AccountEntry`.
@@ -478,19 +514,47 @@ pub(crate) fn map_pjsua_status(status: i32, operation: &str) -> Result<(), React
 /// [`map_pjsua_status`]. Without the feature the backend cannot drive PJSUA and
 /// each method returns a clear precondition error — the crate still compiles
 /// (RFC §28, C058) and tests use the deterministic `TestBackend`.
-#[derive(Default)]
-pub struct PjsuaBackend;
+///
+/// `audio_taps` is the shared `subscribe_audio` producer registry (§62.6): the
+/// media callback pushes a frame into the call's tap via `push_media_frame`.
+/// Each entry carries the call's `AccountId` so a pushed frame can build an
+/// `AudioChunkPair` with real account context.
+pub struct PjsuaBackend {
+    /// Shared tap producer registry keyed by public `CallId`.
+    audio_taps: AudioTapRegistry,
+}
 
-// [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7) --for-spec --no-implementation-order`.
 impl PjsuaBackend {
     pub fn new() -> Self {
-        Self
+        Self {
+            audio_taps: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Construct the backend sharing a `subscribe_audio` tap registry.
+    ///
+    /// `SipClient` owns the registry and hands a clone to the backend at
+    /// reactor boot so `push_media_frame` can drive the subscribed taps.
+    /// The production path constructs `PjsuaBackend` under `pjsua-native`;
+    /// test builds use it to exercise the tap-push wiring on Layer 2.
+    #[cfg(any(test, feature = "pjsua-native"))]
+    pub(crate) fn with_taps(audio_taps: AudioTapRegistry) -> Self {
+        Self { audio_taps }
+    }
+}
+
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+impl Default for PjsuaBackend {
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
-// [::TICKET::] P3-2, P10-3, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P10-3, P11-11, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-11|P15-7) --for-spec --no-implementation-order`.
 impl SipBackend for PjsuaBackend {
     // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
@@ -848,6 +912,36 @@ impl SipBackend for PjsuaBackend {
             ))
         }
     }
+
+    /// Push a processed frame into the call's subscribed tap, if any.
+    ///
+    /// Looks up the shared `subscribe_audio` registry by public `CallId`, builds
+    /// an `AudioChunkPair` (IN = left, OUT = right of the stereo frame) using the
+    /// stored `AccountId`, and pushes it synchronously via
+    /// `AudioTapSender::try_push` (Realtime, never blocks). An unsubscribed call
+    /// is a no-op — the RT callback must never block or error (§62.6 tap push).
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn push_media_frame(
+        &mut self,
+        call_id: u64,
+        frame: crate::audio::pipeline::ProcessedFrame,
+    ) -> Result<(), ReactorError> {
+        let call_id = crate::model::CallId::from_u64(call_id)
+            .map_err(|_| ReactorError::BackendError(format!("invalid CallId {call_id}")))?;
+        let taps = self
+            .audio_taps
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some((account_id, tap)) = taps.get(&call_id) {
+            let pair = crate::model::AudioChunkPair::from_processed_frame(
+                call_id,
+                *account_id,
+                &frame,
+            );
+            tap.try_push(pair);
+        }
+        Ok(())
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -1068,6 +1162,63 @@ mod tests {
             vec![(7i32, 8i32)],
             "conf_disconnect must record each (source, sink)"
         );
+    }
+
+    #[test]
+    // [::TICKET::] P15-7: push_media_frame records (call_id, frame) on TestBackend.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn test_backend_push_media_frame_records_invocation() {
+        let mut backend = TestBackend::new();
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        backend.push_media_frame(42, frame.clone()).unwrap();
+        assert_eq!(backend.push_media_frame_calls.len(), 1);
+        assert_eq!(backend.push_media_frame_calls[0].0, 42);
+        assert_eq!(backend.push_media_frame_calls[0].1, frame);
+    }
+
+    #[test]
+    // [::TICKET::] P15-7: push_media_frame on an unsubscribed call is a no-op Ok.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn pjsua_push_media_frame_unsubscribed_call_is_noop() {
+        let mut backend = PjsuaBackend::new();
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        // No tap registered — must return Ok(()) without panicking (RT safety).
+        assert!(backend.push_media_frame(42, frame).is_ok());
+    }
+
+    #[tokio::test]
+    // [::TICKET::] P15-7: tap push drives subscribe_audio's AudioTapHandle with a
+    // real AudioChunkPair (OMISSIONS F9 resolution, §62.6).
+    async fn push_media_frame_drives_subscribed_tap() -> Result<(), Box<dyn std::error::Error>> {
+        let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let mut backend = PjsuaBackend::with_taps(registry.clone());
+        let (sender, mut handle) =
+            crate::api::audio_subscribe_bp::tap_channel(4, crate::api::audio_subscribe_bp::AudioTapMode::Realtime);
+        registry
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .insert(
+                crate::model::CallId::from_u64(42)?,
+                (crate::model::AccountId::from_u64(1)?, sender),
+            );
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2, 3, 4],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        backend.push_media_frame(42, frame)?;
+        let pair = handle.recv().await.expect("tap must receive the pushed pair");
+        assert_eq!(pair.in_chunk, crate::model::AudioChunk::I16(vec![1, 3]));
+        assert_eq!(pair.out_chunk, crate::model::AudioChunk::I16(vec![2, 4]));
+        Ok(())
     }
 
     #[test]

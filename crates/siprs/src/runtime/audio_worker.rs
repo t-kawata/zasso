@@ -136,19 +136,29 @@ impl MixerSourceEntry {
 /// Manages a collection of `AsyncAudioSource` instances for a single call.
 ///
 /// Each source is identified by a monotonically increasing `u64` source_id.
-/// Sources are stored in a `DashMap` for lock-free concurrent reads/writes.
+/// Sources are stored in two `DashMap`s — one per media path — for lock-free
+/// concurrent reads/writes. The IN path carries received audio (受話取得), the
+/// OUT path carries the send-mix (送話 mix & 送信); a single id space is shared
+/// across both paths so a source_id is globally unique (C087 invariant).
 /// Per-source gain and mute state are stored in separate DashMaps.
 ///
 /// The `out_queue` provides lock-free communication with the PJSIP RT callback
 /// (RustMediaPort) via a bounded, non-blocking `crossbeam_queue::ArrayQueue`.
 pub struct AudioMixer {
-    pub sources: dashmap::DashMap<u64, Arc<Mutex<Box<dyn AsyncAudioSource + Send>>>>,
+    /// Sources on the received-audio (IN) path — pulled by `process_frame`
+    /// and pushed to `in_queue`.
+    pub in_sources: dashmap::DashMap<u64, Arc<Mutex<Box<dyn AsyncAudioSource + Send>>>>,
+    /// Sources on the send-mix (OUT) path — pulled by `process_frame`,
+    /// mixed, and pushed to `out_queue` for the RT callback.
+    pub out_sources: dashmap::DashMap<u64, Arc<Mutex<Box<dyn AsyncAudioSource + Send>>>>,
     pub gains: dashmap::DashMap<u64, f32>,
     pub mutes: dashmap::DashMap<u64, bool>,
-    next_source_id: AtomicU64,
+    /// Shared source-id counter — per-call mixers share one Arc so source_ids
+    /// stay globally unique across calls (RemoveAudioSource is source_id-only).
+    next_source_id: Arc<AtomicU64>,
     /// Lock-free queue for mixed OUT frames destined for the RT callback.
     pub out_queue: crossbeam_queue::ArrayQueue<Vec<i16>>,
-    /// Lock-free queue for IN frames received from the RT callback.
+    /// Lock-free queue for mixed IN frames (received-audio path).
     pub in_queue: crossbeam_queue::ArrayQueue<Vec<i16>>,
 }
 
@@ -160,7 +170,7 @@ pub struct AudioMixer {
 /// (async producer) and the PJSIP RT callback (consumer).
 pub const DEFAULT_QUEUE_CAPACITY: usize = 64;
 
-// [::TICKET::] P3-2, P8-1, P12-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P8-1|P12-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P8-1, P12-5, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P8-1|P12-5|P15-7) --for-spec --no-implementation-order`.
 impl AudioMixer {
     /// Create a new empty `AudioMixer` with default queue capacity.
     pub fn new() -> Self {
@@ -170,34 +180,99 @@ impl AudioMixer {
     /// Create a new empty `AudioMixer` with a specified queue capacity.
     pub fn with_queue_capacity(queue_capacity: usize) -> Self {
         Self {
-            sources: dashmap::DashMap::new(),
+            in_sources: dashmap::DashMap::new(),
+            out_sources: dashmap::DashMap::new(),
             gains: dashmap::DashMap::new(),
             mutes: dashmap::DashMap::new(),
-            next_source_id: AtomicU64::new(0),
+            next_source_id: Arc::new(AtomicU64::new(0)),
             out_queue: crossbeam_queue::ArrayQueue::<Vec<i16>>::new(queue_capacity),
             in_queue: crossbeam_queue::ArrayQueue::<Vec<i16>>::new(queue_capacity),
         }
     }
 
-    /// Add a new audio source and expose its assigned `source_id`.
+    /// Create a per-call mixer that shares a global source-id counter.
+    ///
+    /// All per-call mixers created by the reactor share one counter so a
+    /// source_id is unique across calls — required because the lifecycle
+    /// commands (`RemoveAudioSource` / `SetAudioSourceGain` / `MuteAudioSource`)
+    /// address a source by id alone (§62.6 / C087).
+    pub(crate) fn with_shared_id_source(counter: Arc<AtomicU64>) -> Self {
+        Self {
+            in_sources: dashmap::DashMap::new(),
+            out_sources: dashmap::DashMap::new(),
+            gains: dashmap::DashMap::new(),
+            mutes: dashmap::DashMap::new(),
+            next_source_id: counter,
+            out_queue: crossbeam_queue::ArrayQueue::<Vec<i16>>::new(DEFAULT_QUEUE_CAPACITY),
+            in_queue: crossbeam_queue::ArrayQueue::<Vec<i16>>::new(DEFAULT_QUEUE_CAPACITY),
+        }
+    }
+
+    /// Add a source to the received-audio (IN) path and return its `source_id`.
     ///
     /// The source is stored with default gain (1.0) and unmuted state.
-    /// `source_id` increments monotonically.
-    pub fn add_source(&self, source: Box<dyn AsyncAudioSource + Send>) -> u64 {
+    /// `source_id` increments monotonically across both paths (single id space).
+    pub fn add_in_source(&self, source: Box<dyn AsyncAudioSource + Send>) -> u64 {
+        self.add_in_source_shared(Arc::new(Mutex::new(source)))
+    }
+
+    /// Add an already-shared source to the received-audio (IN) path.
+    ///
+    /// `ChannelSelector::Both` reuses one `Arc<Mutex<...>>` on both paths so
+    /// both registrations observe the same underlying source (C087).
+    pub(crate) fn add_in_source_shared(
+        &self,
+        shared: Arc<Mutex<Box<dyn AsyncAudioSource + Send>>>,
+    ) -> u64 {
         let id = self.next_source_id.fetch_add(1, Ordering::Relaxed);
-        self.sources.insert(id, Arc::new(Mutex::new(source)));
+        self.in_sources.insert(id, shared);
         self.gains.insert(id, 1.0);
         self.mutes.insert(id, false);
         id
     }
 
-    /// Remove an audio source by `source_id`.
+    /// Add a source to the send-mix (OUT) path and return its `source_id`.
+    ///
+    /// The source is stored with default gain (1.0) and unmuted state.
+    /// `source_id` increments monotonically across both paths (single id space).
+    pub fn add_out_source(&self, source: Box<dyn AsyncAudioSource + Send>) -> u64 {
+        self.add_out_source_shared(Arc::new(Mutex::new(source)))
+    }
+
+    /// Add an already-shared source to the send-mix (OUT) path.
+    ///
+    /// `ChannelSelector::Both` reuses one `Arc<Mutex<...>>` on both paths so
+    /// both registrations observe the same underlying source (C087).
+    pub(crate) fn add_out_source_shared(
+        &self,
+        shared: Arc<Mutex<Box<dyn AsyncAudioSource + Send>>>,
+    ) -> u64 {
+        let id = self.next_source_id.fetch_add(1, Ordering::Relaxed);
+        self.out_sources.insert(id, shared);
+        self.gains.insert(id, 1.0);
+        self.mutes.insert(id, false);
+        id
+    }
+
+    /// Add a new audio source to the send-mix (OUT) path.
+    ///
+    /// Legacy alias of [`AudioMixer::add_out_source`] kept for callers that
+    /// predate the §62.6 IN/OUT split (P0-6 API).
+    pub fn add_source(&self, source: Box<dyn AsyncAudioSource + Send>) -> u64 {
+        self.add_out_source(source)
+    }
+
+    /// Remove an audio source by `source_id`, whichever path it lives on.
     ///
     /// Returns `ReactorError::BackendError` if the source does not exist.
     pub fn remove_source(&self, source_id: u64) -> Result<(), ReactorError> {
-        self.sources
-            .remove(&source_id)
-            .ok_or_else(|| ReactorError::BackendError(format!("source {source_id} not found")))?;
+        let removed_in = self.in_sources.remove(&source_id).is_some();
+        let removed_out = self.out_sources.remove(&source_id).is_some();
+        if !removed_in && !removed_out {
+            return Err(ReactorError::BackendError(format!(
+                "source {source_id} not found"
+            )));
+        }
         self.gains.remove(&source_id);
         self.mutes.remove(&source_id);
         Ok(())
@@ -205,7 +280,7 @@ impl AudioMixer {
 
     /// Set the gain for a source. Gain is clamped to [0.0, 2.0].
     pub fn set_gain(&self, source_id: u64, gain: f32) -> Result<(), ReactorError> {
-        if !self.sources.contains_key(&source_id) {
+        if !self.has_source(source_id) {
             return Err(ReactorError::BackendError(format!(
                 "source {source_id} not found"
             )));
@@ -217,7 +292,7 @@ impl AudioMixer {
 
     /// Mute or unmute a source.
     pub fn mute(&self, source_id: u64, muted: bool) -> Result<(), ReactorError> {
-        if !self.sources.contains_key(&source_id) {
+        if !self.has_source(source_id) {
             return Err(ReactorError::BackendError(format!(
                 "source {source_id} not found"
             )));
@@ -226,9 +301,24 @@ impl AudioMixer {
         Ok(())
     }
 
-    /// Return the number of active sources.
+    /// Return `true` when the source_id is registered on either media path.
+    pub(crate) fn has_source(&self, source_id: u64) -> bool {
+        self.in_sources.contains_key(&source_id) || self.out_sources.contains_key(&source_id)
+    }
+
+    /// Return the number of active sources across both media paths.
     pub fn source_count(&self) -> usize {
-        self.sources.len()
+        self.in_sources.len() + self.out_sources.len()
+    }
+
+    /// Return the number of sources on the received-audio (IN) path.
+    pub fn in_source_count(&self) -> usize {
+        self.in_sources.len()
+    }
+
+    /// Return the number of sources on the send-mix (OUT) path.
+    pub fn out_source_count(&self) -> usize {
+        self.out_sources.len()
     }
 
     /// Return the next source_id that will be assigned.
@@ -373,7 +463,7 @@ struct AudioWorkerInner {
     shutdown_signal: Arc<AtomicBool>,
 }
 
-// [::TICKET::] P0-6, P3-2, P8-1, P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P3-2|P8-1|P12-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P3-2, P8-1, P12-4, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P3-2|P8-1|P12-4|P15-7) --for-spec --no-implementation-order`.
 impl AudioWorkerInner {
     /// Return the mixer the inner loop drives.
     // [::TICKET::] P12-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-4 --for-spec --no-implementation-order`.
@@ -404,21 +494,35 @@ impl AudioWorkerInner {
         }
     }
 
-    /// Process one frame: collect source samples, apply gain/mute, mix.
+    /// Process one frame across both media paths: collect source samples,
+    /// apply gain/mute, mix, and push to the path's lock-free queue.
     ///
     /// # Invariant
     /// - Does not panic with 0 sources (produces an empty/silent buffer).
-    /// - Source iteration uses `source_ids` snapshot to avoid DashMap
+    /// - Source iteration uses a `source_ids` snapshot to avoid DashMap
     ///   invalidation during iteration.
-    /// - Mixed frame is pushed to `out_queue` for the RT callback consumer.
+    /// - OUT-path mix is pushed to `out_queue` for the RT callback consumer
+    ///   (send to remote); IN-path mix is pushed to `in_queue` (received audio).
     async fn process_frame(&mut self) {
         let mixer = self.mixer();
-        // Snapshot source IDs to avoid concurrent modification during iteration
-        let source_ids: Vec<u64> = mixer.sources.iter().map(|e| *e.key()).collect();
+        // OUT path — send-mix sources feed the RT callback (send to remote).
+        let out_mixed = self.collect_mixed_frame(&mixer.out_sources).await;
+        let _ = mixer.out_queue.push(out_mixed);
+        // IN path — received-audio sources feed the received path.
+        let in_mixed = self.collect_mixed_frame(&mixer.in_sources).await;
+        let _ = mixer.in_queue.push(in_mixed);
+    }
 
+    /// Pull one media path's source buffers, apply gain/mute, and mix them
+    /// into a single frame using the overflow-safe i32 accumulation.
+    async fn collect_mixed_frame(
+        &self,
+        sources: &dashmap::DashMap<u64, Arc<Mutex<Box<dyn AsyncAudioSource + Send>>>>,
+    ) -> Vec<i16> {
+        let mixer = self.mixer();
+        // Snapshot source IDs to avoid concurrent modification during iteration.
+        let source_ids: Vec<u64> = sources.iter().map(|e| *e.key()).collect();
         let mut mixed_frame = vec![0i16; MIXER_FRAME_SAMPLES];
-
-        // Collect gain-adjusted source buffers
         let mut source_buffers: Vec<Vec<i16>> = Vec::with_capacity(source_ids.len());
 
         for id in &source_ids {
@@ -429,7 +533,7 @@ impl AudioWorkerInner {
                 }
             }
 
-            if let Some(entry) = mixer.sources.get(id) {
+            if let Some(entry) = sources.get(id) {
                 let mut guard = entry.lock().await;
                 let mut buf = vec![0i16; MIXER_FRAME_SAMPLES];
                 let samples_written = guard.next_chunk(&mut buf).await;
@@ -445,14 +549,10 @@ impl AudioWorkerInner {
             }
         }
 
-        // Mix all source buffers using the overflow-safe algorithm
-        {
-            let input_refs: Vec<&[i16]> = source_buffers.iter().map(|b| b.as_slice()).collect();
-            mix_i16_frame(&input_refs, &mut mixed_frame);
-        }
-
-        // Push the mixed frame to the lock-free out_queue for RT callback
-        let _ = mixer.out_queue.push(mixed_frame);
+        // Mix all source buffers using the overflow-safe algorithm.
+        let input_refs: Vec<&[i16]> = source_buffers.iter().map(|b| b.as_slice()).collect();
+        mix_i16_frame(&input_refs, &mut mixed_frame);
+        mixed_frame
     }
 }
 
@@ -494,7 +594,9 @@ mod tests {
         fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
         fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
         fn event(&self, _: &tracing::Event<'_>) {}
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
         fn enter(&self, _: &tracing::span::Id) {}
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
         fn exit(&self, _: &tracing::span::Id) {}
         fn register_callsite(&self, _: &tracing::Metadata<'_>) -> tracing::subscriber::Interest {
             tracing::subscriber::Interest::always()
@@ -708,6 +810,89 @@ mod tests {
         assert_eq!(id1, 0, "first source gets ID 0");
         assert_eq!(id2, 1, "second source gets ID 1");
         assert_eq!(mixer.source_count(), 2, "two sources added");
+    }
+
+    // ── P15-7: IN/OUT path separation (C087 invariant) ────────────────────
+
+    #[test]
+    // [::TICKET::] P15-7: add_in_source registers only on the IN path.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn audio_mixer_add_in_source_registers_on_in_path() {
+        let mixer = AudioMixer::new();
+        let id = mixer.add_in_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
+        assert_eq!(id, 0);
+        assert_eq!(mixer.in_source_count(), 1);
+        assert_eq!(mixer.out_source_count(), 0);
+        assert_eq!(mixer.source_count(), 1);
+    }
+
+    #[test]
+    // [::TICKET::] P15-7: add_out_source registers only on the OUT path.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn audio_mixer_add_out_source_registers_on_out_path() {
+        let mixer = AudioMixer::new();
+        let id = mixer.add_out_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
+        assert_eq!(id, 0);
+        assert_eq!(mixer.out_source_count(), 1);
+        assert_eq!(mixer.in_source_count(), 0);
+        assert_eq!(mixer.source_count(), 1);
+    }
+
+    #[test]
+    // @verifies C087 -- invariant: IN/OUT/BOTH が独立経路として分岐する
+    // [::TICKET::] P15-7: Both registration shares one id space; the legacy
+    // add_source alias routes to the OUT path.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn audio_mixer_both_registrations_share_id_space() {
+        let mixer = AudioMixer::new();
+        let in_id = mixer.add_in_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
+        let out_id = mixer.add_out_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
+        let alias_id = mixer.add_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
+        assert_eq!((in_id, out_id, alias_id), (0, 1, 2));
+        assert_eq!(mixer.in_source_count(), 1);
+        assert_eq!(mixer.out_source_count(), 2);
+        assert_eq!(mixer.source_count(), 3);
+    }
+
+    #[test]
+    // [::TICKET::] P15-7: remove_source finds the owning path.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn audio_mixer_remove_source_removes_from_either_path() {
+        let mixer = AudioMixer::new();
+        let in_id = mixer.add_in_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
+        mixer.add_out_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
+        assert!(mixer.remove_source(in_id).is_ok());
+        assert_eq!(mixer.in_source_count(), 0);
+        assert_eq!(mixer.out_source_count(), 1);
+    }
+
+    #[test]
+    // [::TICKET::] P15-7: remove_source on a missing id still errors.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    fn audio_mixer_remove_source_missing_id_errors() {
+        let mixer = AudioMixer::new();
+        assert!(mixer.remove_source(7).is_err());
+    }
+
+    #[tokio::test]
+    // [::TICKET::] P15-7: process_frame pulls OUT sources into out_queue and
+    // IN sources into in_queue (independent media paths).
+    async fn process_frame_pulls_both_paths_into_their_queues() -> Result<(), Box<dyn std::error::Error>> {
+        let mixer = Arc::new(AudioMixer::new());
+        mixer.add_out_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));
+        mixer.add_in_source(Box::new(MockAsyncAudioSource::new(vec![7i16; 160])));
+        let mut worker = AudioWorkerInner {
+            mixer,
+            call_id: 42,
+            frame_duration: Duration::from_millis(1),
+            shutdown_signal: Arc::new(AtomicBool::new(false)),
+        };
+        worker.process_frame().await;
+        let out_frame = worker.mixer().out_queue.pop().ok_or("out_queue empty")?;
+        let in_frame = worker.mixer().in_queue.pop().ok_or("in_queue empty")?;
+        assert_eq!(out_frame, vec![100i16; 160], "OUT path mixes send sources");
+        assert_eq!(in_frame, vec![7i16; 160], "IN path mixes received sources");
+        Ok(())
     }
 
     #[test]
