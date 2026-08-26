@@ -670,12 +670,12 @@ impl Default for PjsuaBackend {
 // [::TICKET::] P3-2, P10-3, P11-11, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-11|P15-7) --for-spec --no-implementation-order`.
 // [::TICKET::] P16-6, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-6|P16-7) --for-spec --no-implementation-order`.
 impl SipBackend for PjsuaBackend {
-    // [::TICKET::] P3-2, P11-10, P11-11, P16-2, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-2|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10, P11-11, P16-2, P16-3, P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-2|P16-3|P16-8) --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
             let config = _config;
-            map_pjsua_status(crate::ffi::backend_calls::initialize(), "initialize")?;
+            map_pjsua_status(crate::ffi::backend_calls::initialize(config), "initialize")?;
             let ids =
                 crate::ffi::transport_wiring::wire_transports(&config.transports, |transport| {
                     let (status, native_id) =

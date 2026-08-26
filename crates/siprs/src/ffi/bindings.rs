@@ -372,12 +372,134 @@ mod stub_aliases {
         >,
     }
 
-    /// PJSUA global configuration — only the `cb` callback registry is modelled.
+    /// PJSUA global configuration — callback registry plus the STUN/TURN wiring
+    /// surface (§62.17 / P16-8). Field names mirror the vendored `pjsua.h` so the
+    /// wiring compiles identically under bindgen (`pjsua-native`).
     #[repr(C)]
     #[derive(Debug)]
+// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     pub struct pjsua_config {
         /// Application callback registry (`pjsua_callback`).
         pub cb: pjsua_callback,
+        /// Number of STUN server entries in `stun_srv` (at most 8).
+        pub stun_srv_cnt: u32,
+        /// STUN server URIs (`stun:host:port`).
+        pub stun_srv: [pj_str_t; 8],
+        /// TURN config selector (`PJSUA_TURN_CONFIG_USE_*`).
+        pub turn_cfg_use: pjsua_turn_config_use,
+        /// Custom TURN configuration (used when `turn_cfg_use == USE_CUSTOM`).
+        pub turn_cfg: pjsua_turn_config,
+    }
+
+    // ---------------------------------------------------------------------------
+    // STUN/TURN/ICE — pjsua_config / pjsua_media_config wiring surface (P16-8).
+    // Field names and values mirror the vendored `pjsua.h` / `pjnath` headers.
+    // ---------------------------------------------------------------------------
+
+    /// TURN server connection type (`pj_turn_tp_type`, IANA protocol numbers).
+    pub type pj_turn_tp_type = u32;
+
+    /// UDP transport to the TURN server (`PJ_TURN_TP_UDP` = IANA UDP = 17).
+    pub const PJ_TURN_TP_UDP: pj_turn_tp_type = 17;
+    /// TCP transport to the TURN server (`PJ_TURN_TP_TCP` = IANA TCP = 6).
+    pub const PJ_TURN_TP_TCP: pj_turn_tp_type = 6;
+    /// TLS transport to the TURN server (`PJ_TURN_TP_TLS` = IANA TLS = 56).
+    pub const PJ_TURN_TP_TLS: pj_turn_tp_type = 56;
+
+    /// TURN config selector (`pjsua_turn_config_use`).
+    pub type pjsua_turn_config_use = u32;
+
+    /// Use the global TURN setting in `pjsua_media_config`.
+    pub const PJSUA_TURN_CONFIG_USE_DEFAULT: pjsua_turn_config_use = 0;
+    /// Use the custom `turn_cfg` below.
+    pub const PJSUA_TURN_CONFIG_USE_CUSTOM: pjsua_turn_config_use = 1;
+
+    /// STUN auth credential type (`pj_stun_auth_cred_type`).
+    pub type pj_stun_auth_cred_type = u32;
+
+    /// Static credential (realm / username / password).
+    pub const PJ_STUN_AUTH_CRED_STATIC: pj_stun_auth_cred_type = 0;
+
+    /// STUN password data type (`pj_stun_passwd_type`).
+    pub type pj_stun_passwd_type = u32;
+
+    /// Plaintext password in `static_cred.data`.
+    pub const PJ_STUN_PASSWD_PLAIN: pj_stun_passwd_type = 0;
+
+    /// Static long-term credential — the `static_cred` member of `pj_stun_auth_cred`.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pj_stun_auth_cred_static {
+        /// Non-empty realm selects long-term credential.
+        pub realm: pj_str_t,
+        /// Authentication username.
+        pub username: pj_str_t,
+        /// Password data type (`PJ_STUN_PASSWD_PLAIN`).
+        pub data_type: pj_stun_passwd_type,
+        /// Password data (plaintext when `data_type == PLAIN`).
+        pub data: pj_str_t,
+        /// Optional NONCE (left empty for static credentials).
+        pub nonce: pj_str_t,
+    }
+
+    /// Anonymous union of credential variants — bindgen names the union field
+    /// `cred`; the stub models only the `static_cred` member.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pj_stun_auth_cred_union {
+        /// Static credential variant.
+        pub static_cred: pj_stun_auth_cred_static,
+    }
+
+    /// STUN authentication credential (`pj_stun_auth_cred`).
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pj_stun_auth_cred {
+        /// Credential variant (`PJ_STUN_AUTH_CRED_STATIC`).
+        pub type_: pj_stun_auth_cred_type,
+        /// Credential payload union.
+        pub cred: pj_stun_auth_cred_union,
+    }
+
+    /// Custom TURN configuration (`pjsua_turn_config`) — the `turn_cfg` member
+    /// of `pjsua_config`. TLS settings are a zero-length placeholder deferred
+    /// to the native bindings (`turn_tls_setting` is only read for TLS).
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    pub struct pjsua_turn_config {
+        /// Enable the TURN candidate in ICE.
+        pub enable_turn: pj_bool_t,
+        /// TURN server in `DOMAIN:PORT` or `HOST:PORT` format.
+        pub turn_server: pj_str_t,
+        /// Connection type to the TURN server (`PJ_TURN_TP_*`).
+        pub turn_conn_type: pj_turn_tp_type,
+        /// Credential to authenticate with the TURN server.
+        pub turn_auth_cred: pj_stun_auth_cred,
+        /// TLS settings for TURN-TLS (zero-length stub; native bindings carry it).
+        pub turn_tls_setting: [u8; 0],
+    }
+
+    /// ICE session options (`pj_ice_sess_options`) — only `aggressive` is modelled.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pj_ice_sess_options {
+        /// Use aggressive nomination (only when trickle ICE is disabled).
+        pub aggressive: pj_bool_t,
+    }
+
+    /// PJSUA media configuration (`pjsua_media_config`) — the ICE fields §62.17
+    /// wires. Other media defaults are left to PJSIP.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    pub struct pjsua_media_config {
+        /// Enable ICE for media transport.
+        pub enable_ice: pj_bool_t,
+        /// Maximum number of host candidates to gather.
+        pub ice_max_host_cands: i32,
+        /// ICE session options (`ice_opt.aggressive`).
+        pub ice_opt: pj_ice_sess_options,
     }
 
     // ---------------------------------------------------------------------------

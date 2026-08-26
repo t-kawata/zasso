@@ -75,6 +75,17 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     "pj_pool_t",
     "pj_grp_lock_t",
     "pjsua_conf_port_info",
+    // P16-8 §62.17: STUN/TURN/ICE wiring — the pjsua_config STUN/TURN members
+    // and the pjsua_media_config ICE members the wiring reflects into.
+    "pjsua_media_config",
+    "pjsua_turn_config",
+    "pjsua_turn_config_use",
+    "pj_ice_sess_options",
+    "pj_stun_auth_cred",
+    "pj_stun_auth_cred_static",
+    "pj_stun_auth_cred_type",
+    "pj_stun_passwd_type",
+    "pj_turn_tp_type",
 ];
 
 /// Fixed allowlist of PJSIP calls siprs references.
@@ -168,6 +179,15 @@ pub const BINDGEN_ALLOWLIST_VARS: &[&str] = &[
     "PJSUA_REG_STATE_FAILED",
     // P11-10: plain-password credential data type used by add_account/update_account.
     "PJ_CRED_DATA_PLAIN_PASSWD",
+    // P16-8 §62.17: TURN connection-type constants and config-selector / auth
+    // constants the STUN/TURN wiring references.
+    "PJ_TURN_TP_UDP",
+    "PJ_TURN_TP_TCP",
+    "PJ_TURN_TP_TLS",
+    "PJSUA_TURN_CONFIG_USE_DEFAULT",
+    "PJSUA_TURN_CONFIG_USE_CUSTOM",
+    "PJ_STUN_AUTH_CRED_STATIC",
+    "PJ_STUN_PASSWD_PLAIN",
 ];
 
 /// Resolves the PJSIP header root per RFC §28.1 search order:
@@ -321,6 +341,44 @@ mod tests {
         assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsua_call_info"));
         assert!(BINDGEN_ALLOWLIST_FUNCTIONS.contains(&"pjsua_call_get_info"));
         assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_CONFIRMED"));
+    }
+
+    #[test]
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    fn allowlist_covers_stun_turn_ice_surface() {
+        // P16-8 §62.17: every STUN/TURN/ICE type and constant the wiring
+        // references must be bindgen-allowlisted so the generated bindings
+        // expose them under pjsua-native.
+        for ty in [
+            "pjsua_media_config",
+            "pjsua_turn_config",
+            "pjsua_turn_config_use",
+            "pj_ice_sess_options",
+            "pj_stun_auth_cred",
+            "pj_stun_auth_cred_static",
+            "pj_stun_auth_cred_type",
+            "pj_stun_passwd_type",
+            "pj_turn_tp_type",
+        ] {
+            assert!(
+                BINDGEN_ALLOWLIST_TYPES.contains(&ty),
+                "BINDGEN_ALLOWLIST_TYPES must include {ty}"
+            );
+        }
+        for sym in [
+            "PJ_TURN_TP_UDP",
+            "PJ_TURN_TP_TCP",
+            "PJ_TURN_TP_TLS",
+            "PJSUA_TURN_CONFIG_USE_DEFAULT",
+            "PJSUA_TURN_CONFIG_USE_CUSTOM",
+            "PJ_STUN_AUTH_CRED_STATIC",
+            "PJ_STUN_PASSWD_PLAIN",
+        ] {
+            assert!(
+                BINDGEN_ALLOWLIST_VARS.contains(&sym),
+                "BINDGEN_ALLOWLIST_VARS must include {sym}"
+            );
+        }
     }
 
     // [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.

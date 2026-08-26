@@ -42,6 +42,10 @@ pub mod client_config_unify;
 // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
 pub mod codec_policy_fallback;
 
+/// STUN/TURN/ICE wiring — §62.17 / N0086 (ClientConfig → pjsua_config / pjsua_media_config).
+// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+pub mod stun_turn_ice_wiring;
+
 /// Credentials for SIP authentication.
 ///
 /// The `password` field uses `SecretString` (via `zeroize`) to ensure

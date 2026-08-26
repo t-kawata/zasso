@@ -24,23 +24,39 @@ use std::net::SocketAddr;
 /// Initialize the PJSUA stack: `pjsua_create` → `pjsua_init` → `pjsua_start`.
 ///
 /// Reads as prose: create the stack, install the pre-allocated NativeEvent queue
-/// and register every PJSIP callback into `pjsua_config.cb`, initialize with the
-/// callback-enabled config, then start. Returns the first non-success status, or
-/// `PJ_SUCCESS`.
+/// and register every PJSIP callback into `pjsua_config.cb`, reflect the
+/// `ClientConfig` STUN/TURN settings into the same config and the ICE settings
+/// into a real `pjsua_media_config`, initialize with both, then start. Returns
+/// the first non-success status, or `PJ_SUCCESS`.
 #[cfg(feature = "pjsua-native")]
-pub fn initialize() -> i32 {
+// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+pub fn initialize(config: &crate::config::ClientConfig) -> i32 {
     // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
     let create = unsafe { bindings::pjsua_create() };
     if create != bindings::PJ_SUCCESS {
         return create;
     }
     let queue = crossbeam_queue::ArrayQueue::new(crate::ffi::callback::NATIVE_EVENT_QUEUE_CAPACITY);
-    let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
-    crate::ffi::callback::register_callbacks(&mut config, queue);
-    // SAFETY: config is a valid, initialized pjsua_config carrying the callback
-    // registry; null log/media configs select PJSIP defaults.
-    let init =
-        unsafe { bindings::pjsua_init(&mut config, std::ptr::null_mut(), std::ptr::null_mut()) };
+    let mut pjsua_cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
+    crate::ffi::callback::register_callbacks(&mut pjsua_cfg, queue);
+    // Reflect STUN/TURN into the config; the owned strings back the `pj_str_t`
+    // pointers and must stay alive through `pjsua_init` below (§62.17 / P16-8).
+    let owned = match crate::config::stun_turn_ice_wiring::apply_stun_turn(&mut pjsua_cfg, config) {
+        Ok(owned) => owned,
+        // A config-level wiring error (e.g. >8 STUN servers) is an invalid
+        // operation; the caller maps it to a NativeError via map_pjsua_status.
+        Err(_) => return bindings::PJ_EINVALIDOP,
+    };
+    let mut media_cfg: bindings::pjsua_media_config = unsafe { std::mem::zeroed() };
+    crate::config::stun_turn_ice_wiring::apply_ice(&mut media_cfg, &config.ice);
+    // SAFETY: pjsua_cfg is a valid, initialized pjsua_config carrying the
+    // callback registry and STUN/TURN fields whose strings are backed by
+    // `owned` (alive for this call); media_cfg is a valid, initialized
+    // pjsua_media_config carrying the ICE settings; null log config selects the
+    // PJSIP default.
+    let init = unsafe {
+        bindings::pjsua_init(&mut pjsua_cfg, std::ptr::null_mut(), &mut media_cfg)
+    };
     if init != bindings::PJ_SUCCESS {
         return init;
     }
