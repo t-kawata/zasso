@@ -719,12 +719,12 @@ mod tests {
     #[test]
     // @verifies C069
     // [::TICKET::] P11-6: RuntimeCommand::SendDtmf carries the method into DispatchCommand::SendDtmf
-    // [::TICKET::] P11-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P11-6, P11-11, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-11|P16-6) --for-spec --no-implementation-order`.
     fn runtime_command_send_dtmf_carries_method() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::SendDtmf {
             call_id: 1,
-            method: crate::config::account_config_spec::DtmfMethod::Rfc2833,
+            method: crate::config::account_config_spec::DtmfMethod::Rfc4733,
             digits: "5".into(),
             reply: Reply::new(tx),
         };
@@ -739,7 +739,7 @@ mod tests {
                 assert_eq!(call_id, 1);
                 assert_eq!(
                     method,
-                    crate::config::account_config_spec::DtmfMethod::Rfc2833
+                    crate::config::account_config_spec::DtmfMethod::Rfc4733
                 );
                 assert_eq!(digits, "5");
             }

@@ -1284,11 +1284,12 @@ pub(crate) fn handle_transfer(
 
 /// Handle a `RuntimeCommand::SendDtmf` on the reactor thread.
 ///
-/// Reads as prose: send via the backend; on success resolve the owning account,
-/// convert the method, and spawn one `spawn_dtmf_sent_timeout` per digit that
-/// publishes `DtmfSent { Err(Timeout) }` to the single client-owned bus; on
-/// backend error propagate and spawn nothing (two-phase C030 preserved).
+/// Reads as prose: send via the backend with the unified method; on success
+/// resolve the owning account, and spawn one `spawn_dtmf_sent_timeout` per digit
+/// that publishes `DtmfSent { Ok(()) }` to the single client-owned bus; on
+/// backend error propagate and spawn nothing (two-phase C030 preserved, §62.15).
 pub(crate) fn handle_send_dtmf(
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     ctx: &mut SendDtmfContext<'_>,
     call_id: u64,
     method: crate::config::account_config_spec::DtmfMethod,
@@ -1303,13 +1304,12 @@ pub(crate) fn handle_send_dtmf(
         .get(&call_id_typed)
         .map(|entry| entry.account_id);
     let target_bus = ctx.event_bus.clone();
-    let m20_method = crate::api::m20_dtmfsent_twophase::DtmfMethod::from(method);
     for digit in digits.chars() {
         let _timer = crate::api::m20_dtmfsent_twophase::spawn_dtmf_sent_timeout(
             crate::api::m20_dtmfsent_twophase::DtmfSentTimeoutRequest {
                 call_id: call_id_typed,
                 account_id,
-                method: m20_method,
+                method,
                 digit,
                 timeout_ms: ctx.sent_timeout_ms,
                 event_bus: target_bus.clone(),
@@ -2217,7 +2217,7 @@ mod tests {
         let result = handle
             .submit(crate::runtime::command::RuntimeCommand::SendDtmf {
                 call_id: 1,
-                method: crate::config::account_config_spec::DtmfMethod::Rfc2833,
+                method: crate::config::account_config_spec::DtmfMethod::Rfc4733,
                 digits: "5".into(),
                 reply: crate::runtime::command::Reply::new(tx),
             })
@@ -2229,14 +2229,14 @@ mod tests {
 
         let ev = tokio::time::timeout(std::time::Duration::from_millis(1000), rx.recv())
             .await
-            .expect("DtmfSent Timeout must arrive on the reactor bus")
+            .expect("DtmfSent must arrive on the reactor bus")
             .unwrap();
         match ev.payload {
             SipEventPayload::DtmfSent(info) => {
-                assert!(matches!(
-                    info.status,
-                    Err(crate::api::m20_dtmfsent_twophase::SentDtmfError::Timeout)
-                ));
+                assert!(
+                    info.status.is_ok(),
+                    "timeout fallback treats the send as complete (§62.15 Q5)"
+                );
                 assert_eq!(info.digit, '5');
             }
             _ => panic!("expected DtmfSent, got {:?}", ev.payload),
@@ -2263,7 +2263,7 @@ mod tests {
         let result = handle_send_dtmf(
             &mut ctx,
             1,
-            crate::config::account_config_spec::DtmfMethod::Rfc2833,
+            crate::config::account_config_spec::DtmfMethod::Rfc4733,
             "5",
         );
         assert!(result.is_ok(), "backend success must return Ok(())");
@@ -2271,14 +2271,44 @@ mod tests {
         tokio::time::advance(std::time::Duration::from_millis(500)).await;
         let ev = rx.recv().await.unwrap();
         if let SipEventPayload::DtmfSent(info) = ev.payload {
-            assert!(matches!(
-                info.status,
-                Err(crate::api::m20_dtmfsent_twophase::SentDtmfError::Timeout)
-            ));
+            assert!(
+                info.status.is_ok(),
+                "timeout fallback treats the send as complete (§62.15 Q5)"
+            );
             assert_eq!(info.digit, '5');
         } else {
             panic!("expected DtmfSent, got {:?}", ev.payload);
         }
+    }
+
+    #[tokio::test]
+    // @verifies C106
+    // [::TICKET::] P16-6: handle_send_dtmf passes the unified method through to the backend
+    async fn handle_send_dtmf_passes_unified_method_to_backend() {
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+        tokio::time::pause();
+        let bus = EventBus::new(16, None);
+        let mut backend = TestBackend::new();
+        let client_state = ClientState::default();
+
+        let mut ctx = SendDtmfContext {
+            backend: &mut backend,
+            client_state: &client_state,
+            event_bus: &bus,
+            sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
+        };
+        let result = handle_send_dtmf(
+            &mut ctx,
+            1,
+            crate::config::account_config_spec::DtmfMethod::Inband,
+            "5",
+        );
+        assert!(result.is_ok(), "backend success must return Ok(())");
+        assert_eq!(
+            backend.last_dtmf_method,
+            Some(crate::config::account_config_spec::DtmfMethod::Inband),
+            "the unified method must reach the backend unchanged (§62.15 Q5)"
+        );
     }
 
     #[tokio::test]
@@ -2314,7 +2344,7 @@ mod tests {
         let result = handle_send_dtmf(
             &mut ctx,
             1,
-            crate::config::account_config_spec::DtmfMethod::Rfc2833,
+            crate::config::account_config_spec::DtmfMethod::Rfc4733,
             "5",
         );
         assert!(result.is_ok());
@@ -2351,7 +2381,7 @@ mod tests {
         let result = handle_send_dtmf(
             &mut ctx,
             1,
-            crate::config::account_config_spec::DtmfMethod::Rfc2833,
+            crate::config::account_config_spec::DtmfMethod::Rfc4733,
             "5",
         );
         assert!(result.is_err(), "backend error must propagate");
@@ -2362,7 +2392,7 @@ mod tests {
                 rx.try_recv(),
                 Err(tokio::sync::broadcast::error::TryRecvError::Empty)
             ),
-            "a failed backend.send_dtmf must never spawn a DtmfSent Timeout"
+            "a failed backend.send_dtmf must never spawn a DtmfSent"
         );
     }
 

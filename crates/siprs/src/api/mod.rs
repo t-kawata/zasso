@@ -26,6 +26,9 @@ pub mod m20_dtmfsent_twophase;
 pub mod standalone_server_config;
 // [::TICKET::] P5-2: DTMF spec — DtmfReceivedInfo method field, DtmfPolicy helpers
 pub mod dtmf_spec_received;
+// [::TICKET::] P16-6: DTMF unification — §62.15 DtmfMethod single definition + PJSIP API mapping
+pub mod dtmf_unification;
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
 // [::TICKET::] P5-2: AsyncAudioSource adapter types — ErasedAudioSource, SyncAudioSource, SyncSourceAdapter
 pub mod asyncaudiosrc_adapter;
 // [::TICKET::] P5-2: Incoming call and REFER/transfer types — IncomingCall, IncomingCallConfig
@@ -51,6 +54,9 @@ pub use event_model_payload_bus::{
 };
 pub use eventbus_receiver::{AccountEventReceiver, EventBus};
 pub use m20_dtmfsent_twophase::{DtmfSentInfo, SentDtmfError};
+// [::TICKET::] P16-6: unified DtmfMethod — single definition from model::dtmf_spec
+pub use dtmf_unification::DtmfMethod;
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
 // [::TICKET::] P5-2: Audio source adapter re-exports
 pub use asyncaudiosrc_adapter::{ErasedAudioSource, SyncAudioSource, SyncSourceAdapter};
 // [::TICKET::] P5-2: Incoming call re-exports

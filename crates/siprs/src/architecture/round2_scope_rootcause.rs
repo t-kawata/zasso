@@ -449,7 +449,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P16-1, P16-2, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-1|P16-2|P16-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P16-1, P16-2, P16-5, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-1|P16-2|P16-5|P16-6) --for-spec --no-implementation-order`.
     fn round2_evidence_matches_actual_source() -> Result<(), std::io::Error> {
         let backend_calls = std::fs::read_to_string("src/ffi/backend_calls.rs")?;
         // RC1 resolved by §62.11 (P16-2): the null transport config is gone and
@@ -469,17 +469,25 @@ mod tests {
         let account_spec = std::fs::read_to_string("src/config/account_config_spec.rs")?;
         let obs_metrics = std::fs::read_to_string("src/config/observability_metrics.rs")?;
         let dtmf_twophase = std::fs::read_to_string("src/api/m20_dtmfsent_twophase.rs")?;
+        let model_dtmf = std::fs::read_to_string("src/model/dtmf_spec.rs")?;
+        // RC3 resolved by §62.15 (P16-6): DtmfMethod is a single definition in
+        // model/dtmf_spec; the former duplicate enums in the three modules are gone.
         assert!(
-            account_spec.contains("pub enum DtmfMethod"),
-            "RC3: DtmfMethod defined in account_config_spec"
+            model_dtmf.contains("pub enum DtmfMethod"),
+            "RC3 resolved (P16-6): DtmfMethod single definition in model/dtmf_spec"
         );
         assert!(
-            obs_metrics.contains("pub enum DtmfMethod"),
-            "RC3: DtmfMethod defined in observability_metrics"
+            !account_spec.contains("pub enum DtmfMethod")
+                && account_spec.contains("pub use crate::model::dtmf_spec::DtmfMethod"),
+            "RC3 resolved (P16-6): account_config_spec re-exports the unified DtmfMethod"
         );
         assert!(
-            dtmf_twophase.contains("pub enum DtmfMethod"),
-            "RC3: DtmfMethod defined in m20_dtmfsent_twophase"
+            !obs_metrics.contains("pub enum DtmfMethod"),
+            "RC3 resolved (P16-6): observability_metrics no longer defines DtmfMethod"
+        );
+        assert!(
+            !dtmf_twophase.contains("pub enum DtmfMethod"),
+            "RC3 resolved (P16-6): m20_dtmfsent_twophase no longer defines DtmfMethod"
         );
         let payload_bus = std::fs::read_to_string("src/api/event_model_payload_bus.rs")?;
         assert!(

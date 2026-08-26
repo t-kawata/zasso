@@ -153,7 +153,7 @@ pub trait SipBackend: Send {
     /// drives the tap with real data. `call_id` is the public `CallId` value
     /// (not the native id). Implementations must be non-blocking — this is
     /// invoked from the RT media callback context.
-// [::TICKET::] P15-7, P15-9, P16-3, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P15-9|P16-3|P16-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-7, P15-9, P16-3, P16-5, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P15-9|P16-3|P16-5|P16-6) --for-spec --no-implementation-order`.
     fn push_media_frame(
         &mut self,
         call_id: u64,
@@ -191,6 +191,9 @@ pub struct TestBackend {
     /// default `Ok(())` so tests can inject a backend failure and prove the
     /// reactor SendDtmf handler spawns no timeout timer on error.
     pub send_dtmf_result: Option<Result<(), ReactorError>>,
+    /// The method most recently received by `send_dtmf` (P16-6 §62.15). Lets
+    /// tests prove the reactor passes the unified method through to the backend.
+    pub last_dtmf_method: Option<crate::config::account_config_spec::DtmfMethod>,
     /// Configurable result for `make_call` (P12-1). `Some` short-circuits the
     /// default incrementing-id path so tests can inject a canned
     /// `(native_call_id, CallEntry)` pair or a backend failure.
@@ -283,6 +286,7 @@ impl TestBackend {
 // [::TICKET::] P8-1, P10-3, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-3|P11-11) --for-spec --no-implementation-order`.
 #[cfg(any(test, feature = "test-util"))]
 // [::TICKET::] P15-3, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-6|P15-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
 impl SipBackend for TestBackend {
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
@@ -426,12 +430,15 @@ impl SipBackend for TestBackend {
     }
 
     // [::TICKET::] P3-2, P11-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-6|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-6: records the unified method for method-transparency tests.
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     fn send_dtmf(
         &mut self,
         _native_call_id: i32,
-        _method: &crate::config::account_config_spec::DtmfMethod,
+        method: &crate::config::account_config_spec::DtmfMethod,
         _digits: &str,
     ) -> Result<(), ReactorError> {
+        self.last_dtmf_method = Some(*method);
         self.send_dtmf_result.take().unwrap_or(Ok(()))
     }
 
@@ -642,6 +649,7 @@ impl Default for PjsuaBackend {
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 // [::TICKET::] P3-2, P10-3, P11-11, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-11|P15-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
 impl SipBackend for PjsuaBackend {
     // [::TICKET::] P3-2, P11-10, P11-11, P16-2, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-2|P16-3) --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
@@ -841,6 +849,8 @@ impl SipBackend for PjsuaBackend {
     }
 
     // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-6: the unified method now reaches the FFI dispatch (§62.15 Q5).
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     fn send_dtmf(
         &mut self,
         _native_call_id: i32,
@@ -850,7 +860,7 @@ impl SipBackend for PjsuaBackend {
         #[cfg(feature = "pjsua-native")]
         {
             map_pjsua_status(
-                crate::ffi::backend_calls::send_dtmf(_native_call_id, _digits),
+                crate::ffi::backend_calls::send_dtmf(_native_call_id, *_method, _digits),
                 "send_dtmf",
             )
         }

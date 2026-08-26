@@ -58,6 +58,13 @@ pub mod raw_sip_message_spec;
 
 pub use raw_sip_message_spec::{RawSipMessage, SipMessageDirection};
 
+/// DTMF signaling method — single definition shared across §20 / public API / M20.
+/// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+pub mod dtmf_spec;
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+
+pub use dtmf_spec::DtmfMethod;
+
 /// Memory ownership model and default policies — RFC §47/§48 (N0056).
 // [::TICKET::] P12-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-3 --for-spec --no-implementation-order`.
 pub mod memory_ownership_defaults;

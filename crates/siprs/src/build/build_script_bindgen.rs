@@ -87,6 +87,8 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
     "pjsua_call_answer",
     "pjsua_call_hangup",
     "pjsua_call_send_dtmf",
+    // P16-6: pjsua_call_dial_dtmf sends DTMF as an RFC 2833 payload (Inband).
+    "pjsua_call_dial_dtmf",
     "pjsua_call_xfer",
     "pjsua_codec_set_priority",
     "pjsua_conf_connect",
@@ -322,7 +324,7 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-11, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P16-6) --for-spec --no-implementation-order`.
     fn allowlist_covers_p11_11_callback_bridge_surface() {
         // Every callback-bridge type and hold/unhold symbol register_callbacks /
         // PjsuaBackend reference must be bindgen-allowlisted so the generated
@@ -342,7 +344,13 @@ mod tests {
                 "BINDGEN_ALLOWLIST_TYPES must include {ty}"
             );
         }
-        for sym in ["pjsua_call_set_hold", "pjsua_call_reinvite"] {
+        for sym in [
+            "pjsua_call_set_hold",
+            "pjsua_call_reinvite",
+            // P16-6: both DTMF send entry points (§62.15 Q5) must be generated.
+            "pjsua_call_send_dtmf",
+            "pjsua_call_dial_dtmf",
+        ] {
             assert!(
                 BINDGEN_ALLOWLIST_FUNCTIONS.contains(&sym),
                 "BINDGEN_ALLOWLIST_FUNCTIONS must include {sym}"

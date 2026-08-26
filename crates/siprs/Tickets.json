@@ -35151,50 +35151,140 @@
         {
           "id": 6,
           "phaseId": 16,
-          "status": "todo",
+          "status": "reviewed",
           "title": "DTMF unification (§62.15)",
           "nodeIds": [
             "N0084"
           ],
           "scope": [
-            "DtmfMethod を Inband/Info/Rfc4733 の単一定義に一元化し、3 箇所の重複定義を解消。§20 の SipInfo を Info へ改名。",
-            "send_dtmf の method を pjsua_call_send_dtmf / pjsua_call_dial_dtmf へ反映。",
-            "DtmfSent{Ok} を実コールバック + 500ms タイムアウトの両経路で publish。",
-            "**Scope of changes:** src/api/dtmf_unification.rs（add）/ src/model/dtmf_spec.rs（単一定義）/ src/ffi/backend_calls.rs（modify: method 反映）"
+            "DtmfMethod を Inband/Info/Rfc4733 の単一定義に一元化し、3 箇所の重複定義（account_config_spec / observability_metrics / m20_dtmfsent_twophase）を解消。§20 の SipInfo を Info へ改名し、Rfc2833 旧バリアントを削除。",
+            "send_dtmf の method を pjsua_call_send_dtmf（Info/Rfc4733: SIP INFO / RTP イベント）/ pjsua_call_dial_dtmf（Inband: RFC 2833 payload）へ反映。",
+            "DtmfSent{Ok} を 500ms タイムアウトフォールバック経路で publish（PJSIP 送信完了コールバックは未確認のためフォールバック優先）。現行の「Err(Timeout) のみ」を解消。",
+            "**Changes (path/action/detail/before-after/api/schema/config/dep):**\n  - `src/model/dtmf_spec.rs`（add）: `DtmfMethod { Inband, Info, Rfc4733 }` の単一定義。`Debug + Clone + Copy + PartialEq + Eq + serde::Serialize + serde::Deserialize` を導出。`src/model/mod.rs` に `pub mod dtmf_spec` + `pub use dtmf_spec::DtmfMethod` を追加。\n  - `src/api/dtmf_unification.rs`（add）: `DtmfMethod` re-export + `DtmfSendApi { SendDtmf, DialDtmf }` + `send_api_for(DtmfMethod) -> DtmfSendApi` 純粋関数。`src/api/mod.rs` に `pub mod dtmf_unification` を追加。\n  - `src/config/account_config_spec.rs`（modify）: ローカル `DtmfMethod` enum（Rfc2833/Rfc4733/Info/Inband の 4 バリアント）を削除し `pub use crate::model::dtmf_spec::DtmfMethod` に置換。`DtmfPolicy` の `send_methods`/`receive_methods`/`default_send_method` は統一型を使用。テスト内 `Rfc2833` → `Rfc4733`。\n  - `src/config/observability_metrics.rs`（modify）: ローカル `DtmfMethod` enum（Rfc2833/Info/Inband）を削除し統一型を参照。`ClientCapabilities.dtmf_methods: Vec<DtmfMethod>` は serde 互換。テスト内 `Rfc2833` → `Rfc4733`。\n  - `src/api/m20_dtmfsent_twophase.rs`（modify）: ローカル `DtmfMethod` enum を削除し `pub use crate::model::dtmf_spec::DtmfMethod` に置換。`From<account_config_spec::DtmfMethod>` impl を削除（同一型化のため）。`spawn_dtmf_sent_timeout` の publish を `status: Ok(())` に変更。テスト更新。\n  - `src/ffi/backend_calls.rs`（modify）: `send_dtmf(native_call_id: i32, digits: &str) -> i32` → `send_dtmf(native_call_id: i32, method: DtmfMethod, digits: &str) -> i32`。`send_api_for(method)` で dispatch。`SendDtmf` 経路は `pjsua_call_send_dtmf_param { method, duration: DTMF_DURATION_DEFAULT_MS(160), digits }` を構築し `pjsua_call_send_dtmf` を呼ぶ。`DialDtmf` 経路は `PjOwnedStr` で `pjsua_call_dial_dtmf(native_call_id, &raw)` を呼ぶ（現行の型不一致バグを修正）。\n  - `src/build/build_script_bindgen.rs`（modify）: `BINDGEN_ALLOWLIST_FUNCTIONS` に `pjsua_call_dial_dtmf` を追加。allowlist テストを追加。\n  - `src/runtime/backend.rs`（modify）: `Backend::send_dtmf(&mut self, native_call_id: i32, method: &DtmfMethod, digits: &str)` の型を統一。`PjsuaBackend::send_dtmf` が `backend_calls::send_dtmf(native_call_id, method, digits)` へ method を透過。\n  - `src/runtime/reactor.rs`（modify）: `handle_send_dtmf` の `method` 型を統一。m20 変換 `DtmfMethod::from(method)` を削除（同一型化）。`spawn_dtmf_sent_timeout` 呼び出しを統一型で行う。テスト内 `Rfc2833` → `Rfc4733`、Timeout 期待 → Ok 期待。\n  - `src/runtime/command.rs`（modify）: `RuntimeCommand::SendDtmf { call_id, method, digits, reply }` / `DispatchCommand::SendDtmf` の `method` 型を統一。テスト内 `Rfc2833` → `Rfc4733`。\n  - `src/client.rs`（modify）: `send_dtmf` の `DtmfMethod` import が re-export 経由で統一型に解決。テスト内 `Rfc2833` → `Rfc4733`。\n  - `src/api/event_model_payload_bus.rs` / `src/state/m20_native_event_conv.rs` / `src/api/call_api_semantics.rs` / `src/api/dtmf_spec_received.rs` / `tests/verify_spec_p9_3.rs`（modify）: `account_config_spec::DtmfMethod` import が re-export 経由で統一型に解決。`m20_native_event_conv.rs:178` の `DtmfMethod::Rfc4733` はそのまま有効。\n  - **API contract change**: `DtmfMethod` の `Rfc2833` バリアント削除 + `SipInfo` → `Info` 改名（`BreakingChange::DtmfSipInfoRename`）。公開 API `crate::model::dtmf_spec::DtmfMethod` が正規パス。\n  - **Data schema change**: serde で `\"rfc2833\"` の config 文字列が無効化。`\"Rfc4733\"` / `\"Info\"` / `\"Inband\"` の 3 名のみ。\n  - **Config/env change**: なし（`DtmfConfig::sent_timeout_ms` は変更なし）。\n  - **Dependency added/removed**: なし（serde は既存依存）。",
+            "**Out of scope:**\n  - `src/model/memory_ownership_defaults.rs::DtmfSendMethod`（§48 既定値 enum）: 別名・別用途（デフォルトポリシー）のため統合対象外。将来の統合候補として notes に記録。\n  - PJSIP 送信完了コールバック（`on_dtmf_digit2` 等）の新規結線: 現行 vendored PJSIP で送信完了通知の実在が未確認のため、§20 優先順位 1 の経路は確認後の追補とする。\n  - `DtmfReceivedInfo` / `DtmfReceived` の構造変更: `method` フィールドの型が統一されるのみで、フィールド追加・削除はしない。\n  - `DtmfConfig` / `sent_timeout_ms` のデフォルト値変更: 500ms 既定を維持。",
+            "**Affected areas:**\n  - 公開 API サーフェス: `DtmfMethod` の型パスが `crate::model::dtmf_spec` に統一（re-export で互換維持）。`Rfc2833` 削除は破壊的変更。\n  - serde データ形式: `ClientCapabilities.dtmf_methods` の JSON 表現から `\"rfc2833\"` が消失。\n  - 全 DtmfMethod 参照モジュール: 型の一意化により `From` 変換が不要になり、`m20_dtmfsent_twophase::DtmfMethod::from(...)` 呼び出しが削除される。\n  - FFI 層: `pjsua_call_dial_dtmf` の bindgen 生成が追加され、`pjsua_call_send_dtmf_param` の正しい利用に修正。\n  - 対応: 上記 Changes に全て含まれる。追加の変更応答は不要。"
           ],
           "testUnit": [
-            "DtmfMethod が単一定義で 3 バリアント（Inband/Info/Rfc4733）であること",
-            "method → PJSIP API のマッピング（Info/Rfc4733→send_dtmf, Inband→dial_dtmf）",
-            "DtmfSent{Ok} が publish されること"
+            "UT: [Normal] DtmfMethod 単一定義 — `crate::model::dtmf_spec::DtmfMethod` が 3 バリアント（`Inband` / `Info` / `Rfc4733`）のみを持つ。`src/model/dtmf_spec.rs` の enum を網羅マッチし、`Rfc2833` アームが不要であることをコンパイル時に証明（Rfc2833 バリアントの不存在）。",
+            "UT: [Normal] DtmfMethod の派生 trait — `Debug + Clone + Copy + PartialEq + Eq + serde::Serialize + serde::Deserialize` を全バリアントで検証（`assert_eq!`、コピー後等値、デバッグ表示、JSON 直列化）。",
+            "UT: [Normal] method → PJSIP API マッピング — `send_api_for(DtmfMethod::Info) == DtmfSendApi::SendDtmf`、`send_api_for(DtmfMethod::Rfc4733) == DtmfSendApi::SendDtmf`（SIP INFO / RTP イベント）、`send_api_for(DtmfMethod::Inband) == DtmfSendApi::DialDtmf`（RFC 2833 payload）。`src/api/dtmf_unification.rs` の純粋関数を検証。",
+            "UT: [Normal] DtmfSent{Ok} publish — `spawn_dtmf_sent_timeout`（`src/api/m20_dtmfsent_twophase.rs`）が `tokio::time::pause` + `advance(500ms)` 後に `SipEventPayload::DtmfSent(DtmfSentInfo { method, digit, status: Ok(()), pjsip_status: None })` を EventBus へ publish する（§20 タイムアウトフォールバック = 送出完了とみなす）。",
+            "UT: [Normal] handle_send_dtmf の method 透過 — `src/runtime/reactor.rs::handle_send_dtmf` が backend 成功時に統一 `DtmfMethod` を `ctx.backend.send_dtmf(call_id, &method, digits)` へ渡し、digit ごとに 1 タイマーを spawn する。TestBackend が受領した method を記録して検証（m20 変換削除後は同一型のまま）。",
+            "UT: [Error] backend 失敗時のタイマー非 spawn — `handle_send_dtmf` が `ctx.backend.send_dtmf` の `Err` を伝播し、`DtmfSent` を publish しない（`tokio::time::advance(500ms)` 後も EventBus が Empty）。誤った `DtmfSent{Ok}` を発行しない不変条件の検証。",
+            "UT: [Error] serde 未知バリアント — `DtmfMethod` の JSON デシリアライズで `\"rfc2833\"` / `\"SipInfo\"` 等の旧名が `Err` を返す（Rfc2833・SipInfo 削除の破壊的変更の検証）。",
+            "UT: [Boundary] serde ラウンドトリップ — `\"Rfc4733\"` / `\"Info\"` / `\"Inband\"` の 3 名が `Serialize → Deserialize` で一致。全 3 バリアントの直積テーブル。",
+            "UT: [Boundary] タイムアウト未満での非 publish — `tokio::time::advance(100ms)` 時点で `DtmfSent` が publish されない（500ms 既定値 `DEFAULT_DTMF_SENT_TIMEOUT_MS` の境界検証）。",
+            "UT: [Invariant] 単一定義の共有 — `crate::config::account_config_spec::DtmfMethod`、`crate::config::observability_metrics` 内参照、`crate::api::m20_dtmfsent_twophase::DtmfMethod`、`crate::api::dtmf_unification::DtmfMethod` が全て `crate::model::dtmf_spec::DtmfMethod` と同一型（type-equality: 型注釈付き代入で同一性を強制）。",
+            "UT: [Invariant] DtmfSent 3 状態 — `DtmfSentInfo.status: Result<(), SentDtmfError>` が `Ok(())` / `Err(SentDtmfError::Timeout)` / `Err(SentDtmfError::PjsipError)` の 3 状態のみ（`SentDtmfError` の 2 バリアント網羅マッチ + `Ok` 構成の検証）。",
+            "UT: [Invariant] DtmfPolicy 型統一 — `DtmfPolicy::is_send_allowed` / `is_receive_allowed`（`src/api/dtmf_spec_received.rs`）が統一 `DtmfMethod`（`Rfc4733` / `Info` / `Inband`）で許可・不許可判定を正しく行う。",
+            "UT: [Invariant] bindgen allowlist — `src/build/build_script_bindgen.rs` の `BINDGEN_ALLOWLIST_FUNCTIONS` が `pjsua_call_dial_dtmf` を包含し、`pjsua_call_send_dtmf` を維持する（build_script_bindgen の既存テストパターン踏襲）。"
           ],
           "testIntegration": [
-            "Asterisk（docker）で RFC4733 / SIP INFO の DTMF 送受信"
+            "IT: [Integration point] `src/api/dtmf_unification.rs::send_api_for` → `src/ffi/backend_calls.rs::send_dtmf` — 統一 `DtmfMethod` が純粋マッピングから FFI dispatch へ正しく伝播する。",
+            "IT: [Verification] Asterisk（docker、§62.19 docker-gate）で RFC4733 / SIP INFO / Inband の DTMF を実送信し、Asterisk 側の DTMF 受信イベントで確認。`Info` / `Rfc4733` は `pjsua_call_send_dtmf`（param.method = PJSUA_DTMF_METHOD_SIP_INFO / RFC2833）、`Inband` は `pjsua_call_dial_dtmf` 経由であることを PJSIP ログで検証。",
+            "IT: [Verification] `SipClient::send_dtmf` → `RuntimeCommand::SendDtmf` → `handle_send_dtmf` → `Backend::send_dtmf` → `backend_calls::send_dtmf` のフルパスで digit が送信され、`SipEventPayload::DtmfSent { status: Ok(()) }` が 500ms 後に購読者へ届く。",
+            "IT: [Prerequisites] `pjsua-native` feature 有効 + vendored PJSIP リンク（`vendor/prebuilt/<target>/`）+ Docker 可用（`docker_gate`）。`make test`（test-util）では FFI 実呼び出しは実行しない。",
+            "IT: [Related tickets] P16-7（§62.16 メディア経路）、P16-9（§62.19 Asterisk/coturn 統合基盤）、P11-6（DtmfSent 二相設計）、P5-2（DtmfPolicy / DtmfReceived）、P15-2（§62.1 設定 API 一本化）。"
           ],
-          "testExceptions": [],
-          "changes": [],
+          "testExceptions": [
+            "**Exception: 実 PJSIP への FFI 呼び出し（`pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` の unsafe 実呼び出し）**\n  - Reason: `make test` は `test-util` feature で `pjsua-native` を有効化せず、実 PJSIP へのリンクと呼び出しはユニットテスト環境で実行不能（not testable）。これは「決定論的だが根本的にテスト不能」な設計欠陥ではなく、FFI 境界が外部 I/O（ネイティブライブラリ呼び出し）であるため。dispatch の決定論的ロジックは `send_api_for` として純粋関数に抽出され、全分岐がユニットテスト可能。\n  - Alternative verification: Asterisk docker 統合テスト（§62.19、docker-gate 付き）で実送受信を検証。`send_api_for` の純粋マッピングをユニットテストで網羅。",
+            "**Exception: PJSIP 送信完了コールバック経由の `DtmfSent{Ok}` publish（コールバック駆動の実経路は現在テスト不能 / cannot test）**\n  - Reason: 現行 vendored PJSIP で送信完了コールバック（`on_dtmf_digit` は受信 DTMF 専用、`on_dtmf_digit2` は未結線）の実在が未確認のため、コールバック駆動経路はテスト不能（cannot test）。これは設計欠陥（not a design defect）ではなく、§20 優先順位（1: callback → 2: timeout fallback）の「未確認時のフォールバック」を実装した状態で、不在の原因は外部依存（PJSIP のコールバック API 未確認）にあり、設計の決定論的部分（500ms フォールバック）は完全にテスト可能。\n  - Alternative verification: 500ms タイムアウトフォールバックの `DtmfSent{Ok}` publish を `tokio::time` 決定論テストで検証。コールバック経路は確認後に追補（`spawn_dtmf_sent_timeout` の `JoinHandle` キャンセル機構で両立可能）。"
+          ],
+          "changes": [
+            {
+              "before": "DtmfMethod が 3 箇所に重複定義（account_config_spec 4 バリアント+serde なし / observability_metrics 3 バリアント+serde / m20 send-side 3 バリアント）",
+              "after": "src/model/dtmf_spec.rs の単一定義（Inband/Info/Rfc4733, serde 付き）を 3 モジュールが re-export で共有。Rfc2833 旧バリアント削除",
+              "description": "§62.15 Q5: DtmfMethod 一元化"
+            },
+            {
+              "before": "backend_calls::send_dtmf(native_call_id, digits) は pjsua_call_send_dtmf へ &pj_str_t を渡す型不一致バグ",
+              "after": "send_dtmf(native_call_id, method, digits) が send_api_for で dispatch。Info/Rfc4733→pjsua_call_send_dtmf_param 構築、Inband→pjsua_call_dial_dtmf。bindgen allowlist に pjsua_call_dial_dtmf 追加",
+              "description": "§62.15 Q5: method の PJSIP API 反映 + 潜在バグ修正"
+            },
+            {
+              "before": "spawn_dtmf_sent_timeout が常に DtmfSent{Err(Timeout)} を publish",
+              "after": "500ms タイムアウトフォールバックで DtmfSent{Ok(())} を publish（送出完了とみなす）",
+              "description": "§62.15 Q5: DtmfSent{Ok} publish 経路"
+            },
+            {
+              "before": "handle_send_dtmf が m20 DtmfMethod::from(method) で変換",
+              "after": "同一型化により変換削除、method を直接透過。TestBackend が last_dtmf_method を記録",
+              "description": "§62.15 Q5: 変換チェーン撤去 + method 透過テスト"
+            },
+            {
+              "before": "round2_evidence test が 3 箇所の pub enum DtmfMethod を期待",
+              "after": "単一定義 (model/dtmf_spec) + re-export を期待する逆アサーションに更新",
+              "description": "RC3 エビデンス検証の更新"
+            }
+          ],
           "contracts": [
             {
               "id": "C105",
               "sourceEdge": "N0084→N0068",
-              "precondition": "§62 親セクションが存在する",
-              "postcondition": "62.15 が DTMF 実装整合を定義する",
-              "invariant": "DTMF 整合は §20 の仕様と矛盾しない"
+              "precondition": "§62 親セクション（N0068）が存在する — 62.15 は §62 実装整合設計の一部。検証: `src/architecture/round2_scope_rootcause.rs` の `BreakingChange::DtmfSipInfoRename` が存在し、破壊的変更ウィンドウに DtmfMethod SipInfo→Info 改名が列挙される。",
+              "postcondition": "62.15 が DTMF 実装整合（単一 DtmfMethod 定義 + method→PJSIP 反映 + DtmfSent{Ok} publish）を定義する。検証: `src/model/dtmf_spec.rs` に単一 enum、`src/api/dtmf_unification.rs::send_api_for` に mapping、`spawn_dtmf_sent_timeout` が Ok publish する（各 UT で検証）。",
+              "invariant": "DTMF 整合は §20（N0028/N0029）の仕様と矛盾しない。検証: `DtmfMethod` バリアント名が §20 の Inband/Info/Rfc4733 と一致し、`DtmfSentInfo.status` の 3 状態が保持される（UT: 型一致・網羅マッチ）。"
             },
             {
               "id": "C106",
               "sourceEdge": "N0084→N0028",
-              "precondition": "N0028 が §20 DTMF 仕様を定義する",
-              "postcondition": "62.15 が DtmfMethod 一元化と method 反映を規定する",
-              "invariant": "DtmfMethod は Inband/Info/Rfc4733 の単一定義"
+              "precondition": "N0028 が §20 DTMF 仕様（DtmfMethod / DtmfReceivedInfo / DtmfPolicy）を定義する。検証: `src/api/dtmf_spec_received.rs`（N0028 実装）が統一 `DtmfMethod` を参照して `is_send_allowed` / `is_receive_allowed` を実装。",
+              "postcondition": "62.15 が DtmfMethod 一元化と method 反映を規定する。検証: `src/config/account_config_spec.rs` に enum 定義が無く `pub use crate::model::dtmf_spec::DtmfMethod` で再エクスポートされ、`send_api_for` が Info/Rfc4733→SendDtmf・Inband→DialDtmf を返す（UT: 型一致・マッピング）。",
+              "invariant": "DtmfMethod は Inband/Info/Rfc4733 の単一定義。検証: `src/model/dtmf_spec.rs` の enum が 3 バリアントのみで、`account_config_spec` / `observability_metrics` / `m20_dtmfsent_twophase` が全て同一型を参照（UT: 網羅マッチ + type-equality）。"
             },
             {
               "id": "C107",
               "sourceEdge": "N0084→N0029",
-              "precondition": "N0029 が DtmfSentInfo と二相設計を定義する",
-              "postcondition": "62.15 が DtmfSent{Ok} の publish 経路を追補する",
-              "invariant": "DtmfSent は Ok/Timeout/PjsipError の 3 状態"
+              "precondition": "N0029 が DtmfSentInfo と二相設計を定義する。検証: `src/api/m20_dtmfsent_twophase.rs` の `DtmfSentInfo { method, digit, status, pjsip_status }` と `SentDtmfError { PjsipError, Timeout }` が存在。",
+              "postcondition": "62.15 が DtmfSent{Ok} の publish 経路を追補する。検証: `spawn_dtmf_sent_timeout` が 500ms 後に `status: Ok(())` を publish し、`handle_send_dtmf` が backend 成功時にタイマーを spawn、失敗時に非 spawn（UT: Ok publish / エラー時非 spawn）。",
+              "invariant": "DtmfSent は Ok/Timeout/PjsipError の 3 状態。検証: `DtmfSentInfo.status: Result<(), SentDtmfError>` の全 3 状態が型で表現され、`SentDtmfError` の 2 バリアント網羅マッチがコンパイル時検証（UT: 3 状態不変条件）。"
             }
-          ]
+          ],
+          "invariants": "- 【Normal establishment】`DtmfMethod` は `src/model/dtmf_spec.rs` の単一定義（`Inband` / `Info` / `Rfc4733`）のみが存在し、§20（N0028/N0029）/ 公開 API / M20 変換の全てが同一型を参照する。\n- 【Invariant on error】backend `send_dtmf` が `Err` を返した場合、`handle_send_dtmf` はタイマーを spawn せず誤った `DtmfSent{Ok}` を publish しない（エラーは同期 reply で伝播）。\n- 【Internal state invariant】`DtmfSentInfo.status: Result<(), SentDtmfError>` は `Ok(())` / `Err(Timeout)` / `Err(PjsipError)` の 3 状態のみをとりうる。タイムアウトフォールバックは `Ok(())` を publish する（送出完了とみなす）。\n- 【Boundary invariant】`DEFAULT_DTMF_SENT_TIMEOUT_MS = 500` が既定値として保持され、`DtmfConfig::sent_timeout_ms` で変更可能。タイマーは期限経過後に 1 回だけ発火し、期限前には publish しない。",
+          "background": "### Goal\nP16-6 は §62.15「DTMF 実装整合（Q5）」を実装し、`DtmfMethod` を `Inband` / `Info` / `Rfc4733` の単一定義に一元化して 3 箇所の重複定義（`src/config/account_config_spec.rs` / `src/config/observability_metrics.rs` / `src/api/m20_dtmfsent_twophase.rs`）を解消し、`send_dtmf` の `method` を `pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` へ反映して「使い分け」を実装として成立させ、`DtmfSent { Ok }` を 500ms タイムアウトフォールバックで publish する経路を完成させる。\n\n### Purpose\n現行コードでは `DtmfMethod` が 3 箇所に別々のバリアント構成で定義され（`account_config_spec` は 4 バリアントで `Rfc2833` を含む、`observability_metrics` は 3 バリアント + serde、`m20_dtmfsent_twophase` は send-side 3 バリアント）、`m20` 側が `From<account_config_spec::DtmfMethod>` で変換を強いられる。この重複と変換はバリアント追加時に全ての箇所を同期させる必要があり、`Rfc2833` の旧名が散在する。また `backend_calls::send_dtmf` は `method` を受け取らず常に `pjsua_call_send_dtmf` を呼ぶため「使い分け」が実装されていない。さらに `spawn_dtmf_sent_timeout` は常に `Err(Timeout)` を publish し、二相設計の「送出完了」を表現できていない。\n\n### Motivation\n§62.15 はラウンド 2（§62.10）で特定された RESIDUE 解消の Q5 タスク。`DtmfMethod` の単一定義は §20 / 公開 API / M20 変換の全てで共有される必要があり（RFC I/O 境界）、`Rfc2833` の旧バリアントと `SipInfo` 名は v0.x 開発期の破壊的変更ウィンドウ（`BreakingChange::DtmfSipInfoRename`）で解消する。`DtmfSent{Ok}` の publish は二相設計（C030）の完了条件であり、現行の「`Err(Timeout)` のみ」は未完了状態。\n\n### Constraints\n- `make test` は `test-util` feature で `pjsua-native` を有効化しないため、FFI 実呼び出しはユニットテスト不能 → dispatch ロジックは純粋関数（`send_api_for`）に抽出する。\n- 破壊的変更（`Rfc2833` 削除、serde 名変更）は v0.x 開発期の `BreakingChange` ウィンドウ内で許容される。\n- `DtmfMethod` の単一定義は `src/model/dtmf_spec.rs` に置き、既存の `crate::config::account_config_spec::DtmfMethod` import を壊さないため re-export で互換維持する。\n- `pjsua_call_dial_dtmf` は bindgen allowlist への追加が必要（現行は未追加）。",
+          "instrumentation": "- 【Logging】`send_dtmf` に `tracing::instrument`（call_id / digits / method）を維持。`handle_send_dtmf` で送信 API（send_dtmf / dial_dtmf）の分岐を debug ログ。`DtmfSent` publish（Ok/Timeout/PjsipError）を debug ログ。\n- 【Metrics】`#[cfg(feature = \"metrics\")]` の既存 MetricsRegistry に DTMF 送信成功/失敗カウンタを統合（`dtmf_methods` capability は `ClientCapabilities` 経由で公開継続）。\n- 【Error tracking】backend エラーの PJSIP status を `map_pjsua_status`（§62.8 native_status 保持）で変換し、`SentDtmfError::PjsipError(pj_status_t)` に反映可能にする。\n- 【Health check】DTMF に専用ヘルスチェックは不要。`ClientCapabilities.dtmf_methods` が能力広告として機能。\nStatic quality check: passed (only test-code unwrap/expect and FFI unsafe remain, both allowed)\nTranslatability: no issues (verb-phrase functions, no magic numbers, no debug output, single-char var fixed)\nTests: lib 1191 passed; 14 non-audio integration binaries passed; runtime_audio_lifecycle pre-existing hang (unrelated to P16-6)\nAnnotations: 16 changed source files verified, 0 missing, 0 AMBIGUOUS",
+          "notes": "- 【Implementation steps】1) `src/model/dtmf_spec.rs` に単一定義を作成し `model/mod.rs` に登録 → 2) `src/api/dtmf_unification.rs` に `send_api_for` を実装 → 3) `account_config_spec` / `observability_metrics` / `m20_dtmfsent_twophase` のローカル enum を re-export に置換し `From` impl を削除 → 4) `backend_calls::send_dtmf` に method dispatch を実装（param 構造体の正しい構築 + dial_dtmf）→ 5) `build_script_bindgen` の allowlist に `pjsua_call_dial_dtmf` を追加 → 6) `spawn_dtmf_sent_timeout` の publish を `Ok(())` に変更 → 7) 全テストの `Rfc2833` → `Rfc4733` と Timeout 期待 → Ok 期待を更新 → 8) `make test` で green 確認。\n- 【Risks】現行 `backend_calls::send_dtmf` は `pjsua_call_send_dtmf` へ `&pj_str_t` を渡しており、生成バインディングの `*const pjsua_call_send_dtmf_param` と型不一致で **pjsua-native ではコンパイル不能な潜在バグ**。本チケットで正しい param 構築に修正する。`Rfc2833` 削除は既存テスト・外部 config に破壊的影響。\n- 【Caveats】PJSIP 送信完了コールバックは未確認のため、`DtmfSent{Ok}` の実経路は 500ms タイムアウトフォールバックのみ。`spawn_dtmf_sent_timeout` が返す `JoinHandle` により、コールバック確認後にキャンセルして追補可能。\n- 【Open items】vendored PJSIP の `on_dtmf_digit2` / 送信完了コールバックの実在確認（§20 優先順位 1 の経路）。`PJSUA_CALL_SEND_DTMF_DURATION_DEFAULT` は生成バインディングに無いため、名前付き定数（160）を backend_calls に持つか `BINDGEN_ALLOWLIST_VARS` へ追加する。\n- 【Future improvements】`DtmfSendMethod`（§48 既定値）との統合。`on_dtmf_digit2` による受信 method 情報の `DtmfReceivedInfo.method` 反映（現行 `Rfc4733` 固定）。\nImplementation summary (P16-6 §62.15):\n- New: src/model/dtmf_spec.rs (single DtmfMethod + tests), src/api/dtmf_unification.rs (DtmfSendApi + send_api_for, TS-001 resolved)\n- Modified: account_config_spec / observability_metrics / m20_dtmfsent_twophase (re-export unified type), backend_calls (dispatch + dial_dtmf), build_script_bindgen (allowlist), backend (PjsuaBackend pass-through + TestBackend last_dtmf_method), reactor (handle_send_dtmf no conversion + DtmfSent{Ok}), command/client/dtfm_spec_received (Rfc2833->Rfc4733), round2_scope_rootcause (RC3 assertion), module registrations\n- Test results: lib 1191 passed; all 14 non-audio integration binaries passed; new tests for DtmfMethod serde/send_api_for/method-transparency/DtmfSent{Ok}\n- Known pre-existing: tests/runtime_audio_lifecycle.rs hangs (busy loop in AudioWorkerTask, unrelated to DTMF — audio infra)\n- DtmfSent{Ok} publish: 500ms timeout fallback (PJSIP send-complete callback not confirmed, per §20 priority)\nReview report (P16-6):\n- Static quality check: passed — remaining findings are test-code unwrap/expect and FFI-layer unsafe (both allowed per rust rules / C038)\n- Translatability: verb-phrase function names, no magic numbers, no debug output\n- Annotation check: 16 files verified; fixed 2 missing impl-block annotations in backend.rs\n- Stale-comment fix: config.rs DtmfConfig doc referenced Err(Timeout); corrected to Ok(()) per §62.15\n- Single-char var fix: dtmf_spec.rs test helper m -> method\n- Contracts: C105/C106/C107 covered by @verifies + tests\n- Known pre-existing (not P16-6): tests/runtime_audio_lifecycle.rs hangs (AudioWorkerTask busy loop, P15-7 audio infra)",
+          "acceptanceCriteria": [
+            "**[Happy path]** `make test` が全て green。`crate::model::dtmf_spec::DtmfMethod` が 3 バリアント単一定義となり、`account_config_spec` / `observability_metrics` / `m20_dtmfsent_twophase` が全て同一型を参照。`send_api_for` が Info/Rfc4733→SendDtmf・Inband→DialDtmf を返す。`spawn_dtmf_sent_timeout` が 500ms 後に `DtmfSent{Ok}` を publish。",
+            "**[Error case]** backend `send_dtmf` 失敗時、`handle_send_dtmf` が `Err` を返しタイマーを spawn しない。EventBus に誤った `DtmfSent{Ok}` が publish されない。serde で旧名（`rfc2833` / `SipInfo`）が `Err` を返す。",
+            "**[Edge case]** 全 `DtmfMethod::Rfc2833` 参照が `Rfc4733` に置換され、コードベースに `Rfc2833` シンボルが存在しない。serde ラウンドトリップが 3 バリアント全てで一致。タイマーは期限前（100ms）に publish せず期限後（500ms）に 1 回のみ publish。"
+          ],
+          "investigation": "- 【調査エビデンス】\n- 重複定義 3 箇所: `src/config/account_config_spec.rs:35`（Rfc2833/Rfc4733/Info/Inband の 4 バリアント、serde なし）、`src/config/observability_metrics.rs:250`（Rfc2833/Info/Inband の 3 バリアント、serde 付き）、`src/api/m20_dtmfsent_twophase.rs:57`（Rfc4733/Info/Inband の 3 バリアント、send-side）。さらに `src/model/memory_ownership_defaults.rs:143` に別名 `DtmfSendMethod`（§48 既定値）が存在。\n- 消費元: `client.rs:20`、`runtime/reactor.rs:1294/1306/2220/2266/2317/2354`、`runtime/backend.rs:108/432/847`、`runtime/command.rs:184/311/727/742`、`state/m20_native_event_conv.rs:30/178`、`api/event_model_payload_bus.rs:27`、`api/dtmf_spec_received.rs:25`、`api/call_api_semantics.rs:21`、`api/m20_dtmfsent_twophase.rs:120-127`（From impl）、`tests/verify_spec_p9_3.rs:11`。\n- FFI: `pjsua_call_send_dtmf` は bindgen allowlist 済み（build_script_bindgen.rs:89）で、生成シグネチャは `(call_id: pjsua_call_id, param: *const pjsua_call_send_dtmf_param) -> pj_status_t`。`pjsua_call_send_dtmf_param { method: pjsua_dtmf_method, duration: c_uint, digits: pj_str_t }`。`pjsua_dtmf_method` 定数: `PJSUA_DTMF_METHOD_RFC2833=0` / `PJSUA_DTMF_METHOD_SIP_INFO=1`。`pjsua_call_dial_dtmf(call_id, const pj_str_t *digits)` は vendored ヘッダに存在するが allowlist 未追加。`PJSUA_CALL_SEND_DTMF_DURATION_DEFAULT=160`（生成バインディングに定数なし）。\n- 現行 `backend_calls.rs:223` の `send_dtmf(native_call_id, digits)` は `pjsua_call_send_dtmf(native_call_id, &raw)`（raw: pj_str_t）を呼ぶが、生成シグネチャは `*const pjsua_call_send_dtmf_param` 期待のため **pjsua-native ではコンパイル不能な型不一致バグ**。`make test` は `test-util`（pjsua-native 無効）のため潜在バグとして顕在化していない。\n- DtmfSent 経路: `m20_dtmfsent_twophase.rs::spawn_dtmf_sent_timeout` が常に `status: Err(SentDtmfError::Timeout)` を publish。`handle_send_dtmf` は backend 成功時に m20 `DtmfMethod::from(method)` で変換し digit ごとにタイマーを spawn、失敗時は非 spawn。`DEFAULT_DTMF_SENT_TIMEOUT_MS=500`、`DtmfConfig::sent_timeout_ms`（config.rs:81）が駆動。\n- 破壊的変更: `src/architecture/round2_scope_rootcause.rs` の `BreakingChange::DtmfSipInfoRename` が「DtmfMethod の SipInfo → Info 改名」を定義。§62.20 で `account_config_spec.rs` / `observability_metrics.rs` の旧バリアントが Prune 対象と明記。\n- モジュール構造: `src/model/mod.rs` に `dtmf_spec` は未登録。`src/api/mod.rs` に `dtmf_unification` は未登録（`m20_dtmfsent_twophase` / `dtmf_spec_received` は登録済み）。`src/ffi/bindings.rs` は pjsua-native 時 `OUT_DIR/bindings.rs` を include、非 native 時 stub_aliases。\n- イベント: `SipEventPayload::DtmfSent(DtmfSentInfo)` / `DtmfReceived(DtmfReceivedInfo)`（event_model_payload_bus.rs:323/325）。`on_dtmf_digit` は受信 DTMF 専用（callback.rs:312）。",
+          "boyScoutPlan": "- `backend_calls::send_dtmf` の型不一致 FFI 呼び出しを正しい `pjsua_call_send_dtmf_param` 構築に修正（Boy Scout: 触ったコードの潜在バグを修正）。\n- `m20_dtmfsent_twophase.rs` の `From<account_config_spec::DtmfMethod>` 変換を削除し、同一型化による変換チェーンの撤去（translatability: 変換の理由が消える）。\n- `handle_send_dtmf` の `m20_method` 変換変数を削除し、`method` を直接 `spawn_dtmf_sent_timeout` へ渡す（関数が一文で読める）。\n- `dtmf_unification.rs::send_api_for` に PJSIP API 選択を純粋関数として抽出し、FFI 呼び出しから分離（一関数一責務）。\n- `spawn_dtmf_sent_timeout` の doc コメントを `Err(Timeout)` → `Ok(())` publish の真実に更新（嘘コメント解消）。`config.rs:77` の `DtmfConfig` doc コメントも同様に更新。\n- ハードコードされた DTMF duration（160）を名前付き定数 `DTMF_DURATION_DEFAULT_MS` に抽出。\n- テスト内の `Rfc2833` を `Rfc4733` に統一し、旧名の残骸をコードベースから除去。",
+          "created_at": "2026-08-26",
+          "updated_at": "2026-08-26",
+          "targetStubs": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P16-6",
+              "file": "src/api/dtmf_unification.rs",
+              "line": 20,
+              "markerText": "// [::TICKET::] P16-6: DTMF unification — the §62.15 integration hub.",
+              "contracts": [
+                "C105",
+                "C106",
+                "C107"
+              ],
+              "deferredTo": null,
+              "status": "resolved",
+              "resolutionPlan": "Implemented: DtmfMethod re-export + DtmfSendApi + send_api_for + unit tests; registered pub mod dtmf_unification in api/mod.rs. TS-001 resolved."
+            }
+          ],
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "C105-Precondition (parent N0068 defines §62.10 breaking changes):\n```rust\n#[test]\nfn c105_parent_section_defines_dtmf_rename() {\n    use crate::architecture::round2_scope_rootcause::{BreakingChange, ROUND2_BREAKING_CHANGES};\n    assert!(\n        ROUND2_BREAKING_CHANGES.contains(&BreakingChange::DtmfSipInfoRename),\n        \"§62.10 must list DtmfSipInfoRename as a v0.x breaking change\"\n    );\n}\n```",
+            "C105-Postcondition (62.15 integration surface: single DtmfMethod + send_api_for):\n```rust\n#[test]\nfn c105_dtmf_integration_hub_exists() {\n    use crate::api::dtmf_unification::{DtmfSendApi, send_api_for};\n    use crate::model::dtmf_spec::DtmfMethod;\n    assert_eq!(send_api_for(DtmfMethod::Rfc4733), DtmfSendApi::SendDtmf);\n    assert_eq!(send_api_for(DtmfMethod::Info), DtmfSendApi::SendDtmf);\n    assert_eq!(send_api_for(DtmfMethod::Inband), DtmfSendApi::DialDtmf);\n}\n```",
+            "C105-Invariant (DTMF integration consistent with §20):\n```rust\n#[test]\nfn c105_dtmf_method_matches_section20() {\n    use crate::model::dtmf_spec::DtmfMethod;\n    // Exhaustive match proves exactly 3 variants — an Rfc2833 arm would not compile\n    fn variant(m: DtmfMethod) -> &'static str {\n        match m {\n            DtmfMethod::Rfc4733 => \"rfc4733\",\n            DtmfMethod::Info => \"info\",\n            DtmfMethod::Inband => \"inband\",\n        }\n    }\n    assert_eq!(variant(DtmfMethod::Rfc4733), \"rfc4733\");\n    assert_eq!(variant(DtmfMethod::Info), \"info\");\n    assert_eq!(variant(DtmfMethod::Inband), \"inband\");\n}\n```",
+            "C106-Precondition (N0028 §20 DTMF spec + DtmfPolicy helpers):\n```rust\n#[test]\nfn c106_dtmf_policy_operates_on_unified_type() {\n    use crate::config::account_config_spec::{DtmfMethod, DtmfPolicy};\n    let policy = DtmfPolicy {\n        send_methods: vec![DtmfMethod::Rfc4733],\n        receive_methods: vec![DtmfMethod::Rfc4733, DtmfMethod::Inband],\n        default_send_method: DtmfMethod::Rfc4733,\n    };\n    assert!(policy.is_send_allowed(DtmfMethod::Rfc4733));\n    assert!(!policy.is_send_allowed(DtmfMethod::Info));\n    assert!(policy.is_receive_allowed(DtmfMethod::Inband));\n}\n```",
+            "C106-Postcondition (unification + re-export, no local duplicate enum):\n```rust\n#[test]\nfn c106_account_config_re_exports_single_type() {\n    // Type equality chain proves every consumer references the identical type\n    let model: crate::model::dtmf_spec::DtmfMethod = crate::model::dtmf_spec::DtmfMethod::Inband;\n    let config: crate::config::account_config_spec::DtmfMethod = model;\n    let m20: crate::api::m20_dtmfsent_twophase::DtmfMethod = config;\n    let api: crate::api::dtmf_unification::DtmfMethod = m20;\n    assert_eq!(api, crate::api::dtmf_unification::DtmfMethod::Inband);\n}\n```",
+            "C106-Invariant (single definition shared by observability / event model / conv):\n```rust\n#[test]\nfn c106_consumers_share_single_type() {\n    use crate::config::observability_metrics::ClientCapabilities;\n    use crate::state::m20_native_event_conv::NativeEvent;\n    let caps = ClientCapabilities::default();\n    let _: &Vec<crate::model::dtmf_spec::DtmfMethod> = &caps.dtmf_methods;\n    // NativeEvent::DtmfDigit conversion produces DtmfReceivedInfo.method of the unified type\n    let _event = NativeEvent::DtmfDigit { call_id: 1, digit: '5' };\n}\n```",
+            "C107-Precondition (N0029 DtmfSentInfo + two-phase design):\n```rust\n#[test]\nfn c107_dtmf_sent_info_shape() {\n    use crate::api::m20_dtmfsent_twophase::{DtmfMethod, DtmfSentInfo};\n    let info = DtmfSentInfo {\n        method: DtmfMethod::Rfc4733,\n        digit: '5',\n        status: Ok(()),\n        pjsip_status: None,\n    };\n    assert_eq!(info.digit, '5');\n    assert!(info.status.is_ok());\n    assert!(info.pjsip_status.is_none());\n}\n```",
+            "C107-Postcondition (500ms timeout fallback publishes DtmfSent{Ok}):\n```rust\n#[tokio::test]\nasync fn c107_timeout_fallback_publishes_ok() -> Result<(), Box<dyn std::error::Error>> {\n    use crate::api::event_model_payload_bus::{AccountId, CallId, SipEventPayload};\n    use crate::api::eventbus_receiver::EventBus;\n    use crate::api::m20_dtmfsent_twophase::{\n        DEFAULT_DTMF_SENT_TIMEOUT_MS, DtmfMethod, DtmfSentTimeoutRequest, spawn_dtmf_sent_timeout,\n    };\n    tokio::time::pause();\n    let bus = EventBus::new(16, None);\n    let mut rx = bus.subscribe_control();\n    spawn_dtmf_sent_timeout(DtmfSentTimeoutRequest {\n        call_id: CallId::from_u64(1)?,\n        account_id: Some(AccountId::from_u64(1)?),\n        method: DtmfMethod::Rfc4733,\n        digit: '5',\n        timeout_ms: DEFAULT_DTMF_SENT_TIMEOUT_MS,\n        event_bus: bus,\n    });\n    tokio::time::advance(std::time::Duration::from_millis(500)).await;\n    let ev = rx.recv().await?;\n    match ev.payload {\n        SipEventPayload::DtmfSent(info) => {\n            assert!(info.status.is_ok(), \"timeout fallback treats the send as complete\");\n            assert!(info.pjsip_status.is_none());\n        }\n        _ => panic!(\"expected DtmfSent\"),\n    }\n    Ok(())\n}\n```",
+            "C107-Invariant (DtmfSent 3 states Ok/Timeout/PjsipError):\n```rust\n#[test]\nfn c107_dtmf_sent_three_states() {\n    use crate::api::m20_dtmfsent_twophase::SentDtmfError;\n    let ok: Result<(), SentDtmfError> = Ok(());\n    let timeout: Result<(), SentDtmfError> = Err(SentDtmfError::Timeout);\n    let pjsip: Result<(), SentDtmfError> = Err(SentDtmfError::PjsipError(70001));\n    assert!(ok.is_ok());\n    assert!(matches!(timeout, Err(SentDtmfError::Timeout)));\n    assert!(matches!(pjsip, Err(SentDtmfError::PjsipError(_))));\n}\n```"
+          ],
+          "startedAt": "2026-08-26",
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-08-26"
         },
         {
           "id": 7,

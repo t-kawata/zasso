@@ -53,15 +53,12 @@ pub enum SentDtmfError {
 }
 
 /// DTMF transmission method.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DtmfMethod {
-    /// RFC 2833 / RFC 4733 out-of-band DTMF (RTP event).
-    Rfc4733,
-    /// SIP INFO in-band DTMF.
-    Info,
-    /// In-band DTMF tone.
-    Inband,
-}
+///
+/// Single definition from `crate::model::dtmf_spec` (§62.15 Q5) — this
+/// re-export keeps `crate::api::m20_dtmfsent_twophase::DtmfMethod` working while
+/// eliminating the former send-side duplicate enum.
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+pub use crate::model::dtmf_spec::DtmfMethod;
 
 /// Default timeout (ms) for DtmfSent fallback when PJSIP callback is unavailable.
 pub const DEFAULT_DTMF_SENT_TIMEOUT_MS: u64 = 500;
@@ -85,17 +82,19 @@ pub(crate) struct DtmfSentTimeoutRequest {
     pub event_bus: EventBus,
 }
 
-/// Spawn a fallback timer that publishes a `DtmfSent { Err(Timeout) }` event
-/// after `timeout_ms` when the PJSIP send-complete callback does not arrive.
+/// Spawn a fallback timer that publishes a `DtmfSent { Ok(()) }` event after
+/// `timeout_ms` when no PJSIP send-complete callback is available.
 ///
-/// This realises the two-phase design's fallback: `send_dtmf()` returning
-/// `Ok(())` confirms the command was accepted, and this timer guarantees the
-/// async `DtmfSent` event is eventually published even when PJSIP never fires
-/// the completion callback.
+/// This realises the two-phase design's fallback (§20, §62.15 Q5):
+/// `send_dtmf()` returning `Ok(())` confirms the command was accepted, and this
+/// timer publishes the async `DtmfSent` event treating the send as complete.
+/// The former `Err(Timeout)`-only publication is replaced by completion-as-Ok;
+/// `Err(Timeout)` remains a type-level state for the future callback path.
 ///
-/// The returned `JoinHandle` lets the caller cancel the timer if the real
+/// The returned `JoinHandle` lets the caller cancel the timer if a real
 /// callback fires first.
 // [::TICKET::] P7-2: O-002 — 500ms timeout fallback for the DtmfSent two-phase design
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
 pub(crate) fn spawn_dtmf_sent_timeout(
     request: DtmfSentTimeoutRequest,
 ) -> tokio::task::JoinHandle<()> {
@@ -106,27 +105,11 @@ pub(crate) fn spawn_dtmf_sent_timeout(
             payload: SipEventPayload::DtmfSent(DtmfSentInfo {
                 method: request.method,
                 digit: request.digit,
-                status: Err(SentDtmfError::Timeout),
+                status: Ok(()),
                 pjsip_status: None,
             }),
         });
     })
-}
-
-/// Map a config-level `DtmfMethod` (Rfc2833/Rfc4733/Info/Inband) to the
-/// send-side `DtmfMethod`. `Rfc2833` is the predecessor of RFC 4733 and maps
-/// to the same out-of-band RTP event.
-// [::TICKET::] P11-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-6 --for-spec --no-implementation-order`.
-impl From<crate::config::account_config_spec::DtmfMethod> for DtmfMethod {
-    // [::TICKET::] P11-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P12-7) --for-spec --no-implementation-order`.
-    fn from(method: crate::config::account_config_spec::DtmfMethod) -> Self {
-        match method {
-            crate::config::account_config_spec::DtmfMethod::Rfc2833
-            | crate::config::account_config_spec::DtmfMethod::Rfc4733 => DtmfMethod::Rfc4733,
-            crate::config::account_config_spec::DtmfMethod::Info => DtmfMethod::Info,
-            crate::config::account_config_spec::DtmfMethod::Inband => DtmfMethod::Inband,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -138,9 +121,11 @@ mod tests {
     // ── O-002: DtmfSent 500ms timeout fallback ─────────────────────────
 
     /// @verifies C030
+    /// @verifies C107
     #[tokio::test]
-    // [::TICKET::] P7-2: O-002 — deterministic timeout publishes DtmfSent{Err(Timeout)} after 500ms
-    async fn dtmf_sent_timeout_fallback_publishes_timeout() -> Result<(), Box<dyn std::error::Error>>
+    // [::TICKET::] P7-2: O-002 — deterministic timeout publishes DtmfSent{Ok} after 500ms
+    // [::TICKET::] P16-6: §62.15 — the timeout fallback publishes Ok (send treated as complete)
+    async fn dtmf_sent_timeout_fallback_publishes_ok() -> Result<(), Box<dyn std::error::Error>>
     {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
@@ -173,7 +158,10 @@ mod tests {
             SipEventPayload::DtmfSent(info) => {
                 assert_eq!(info.digit, '5');
                 assert_eq!(info.method, DtmfMethod::Rfc4733);
-                assert!(matches!(info.status, Err(SentDtmfError::Timeout)));
+                assert!(
+                    info.status.is_ok(),
+                    "timeout fallback treats the send as complete (§62.15 Q5)"
+                );
                 assert!(info.pjsip_status.is_none());
             }
             _ => panic!("expected DtmfSent, got {:?}", ev.payload),
@@ -317,12 +305,12 @@ mod tests {
     /// @verifies C029
     #[test]
     // [::TICKET::] P11-6: m20 DtmfMethod gains the Inband variant (C029 3-category set)
-    // [::TICKET::] P11-6, P11-13, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13|P12-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P11-6, P11-13, P12-7, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13|P12-7|P16-6) --for-spec --no-implementation-order`.
     fn dtmf_method_inband_variant() {
         let inband = DtmfMethod::Inband;
         let info = DtmfMethod::Info;
         let rfc4733 = DtmfMethod::Rfc4733;
-        // [::TICKET::] P11-6, P11-13, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13|P12-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P11-6, P11-13, P12-7, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13|P12-7|P16-6) --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<DtmfMethod>();
         assert_ne!(inband, rfc4733);
@@ -330,20 +318,8 @@ mod tests {
     }
 
     /// @verifies C030
-    #[test]
-    // [::TICKET::] P11-6: From<account_config_spec::DtmfMethod> is total (Rfc2833 is an alias of Rfc4733)
-    // [::TICKET::] P11-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P12-7) --for-spec --no-implementation-order`.
-    fn dtmf_method_conversion_is_total() {
-        use crate::config::account_config_spec::DtmfMethod as ConfigDtmf;
-        assert_eq!(DtmfMethod::from(ConfigDtmf::Rfc2833), DtmfMethod::Rfc4733);
-        assert_eq!(DtmfMethod::from(ConfigDtmf::Rfc4733), DtmfMethod::Rfc4733);
-        assert_eq!(DtmfMethod::from(ConfigDtmf::Info), DtmfMethod::Info);
-        assert_eq!(DtmfMethod::from(ConfigDtmf::Inband), DtmfMethod::Inband);
-    }
-
-    /// @verifies C030
     #[tokio::test]
-    // [::TICKET::] P11-6: at-most-once invariant — aborting the returned JoinHandle suppresses the Timeout event
+    // [::TICKET::] P11-6: at-most-once invariant — aborting the returned JoinHandle suppresses publication
     async fn aborting_timeout_handle_suppresses_publication(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let bus = EventBus::new(16, None);
@@ -363,14 +339,14 @@ mod tests {
         timer.abort();
 
         // Wait well past the 500ms deadline in real time. An aborted task must be
-        // dropped at its next poll and must never publish a DtmfSent Timeout event.
+        // dropped at its next poll and must never publish a DtmfSent event.
         tokio::time::sleep(std::time::Duration::from_millis(600)).await;
         assert!(
             matches!(
                 rx.try_recv(),
                 Err(tokio::sync::broadcast::error::TryRecvError::Empty)
             ),
-            "aborted timer must not publish a DtmfSent Timeout event"
+            "aborted timer must not publish a DtmfSent event"
         );
         Ok(())
     }

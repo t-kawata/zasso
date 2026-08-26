@@ -13,7 +13,11 @@
 
 use crate::ffi::bindings;
 #[cfg(feature = "pjsua-native")]
+use crate::api::dtmf_unification::{send_api_for, DtmfSendApi};
+#[cfg(feature = "pjsua-native")]
 use crate::ffi::pj_str::PjOwnedStr;
+#[cfg(feature = "pjsua-native")]
+use crate::model::dtmf_spec::DtmfMethod;
 #[cfg(feature = "pjsua-native")]
 use std::net::SocketAddr;
 
@@ -218,14 +222,61 @@ pub fn hangup_call(native_call_id: i32) -> i32 {
     unsafe { bindings::pjsua_call_hangup(native_call_id, 0, std::ptr::null(), std::ptr::null()) }
 }
 
-/// Send DTMF digits via `pjsua_call_send_dtmf`.
+/// Send DTMF digits, dispatching on the method (§62.15 Q5).
+///
+/// `Info` / `Rfc4733` go through `pjsua_call_send_dtmf` with the correct
+/// `pjsua_call_send_dtmf_param`; `Inband` goes through `pjsua_call_dial_dtmf`.
+/// The dispatch decision lives in `send_api_for` so the mapping is unit-tested
+/// without `pjsua-native`.
 #[cfg(feature = "pjsua-native")]
-pub fn send_dtmf(native_call_id: i32, digits: &str) -> i32 {
+pub fn send_dtmf(native_call_id: i32, method: DtmfMethod, digits: &str) -> i32 {
+    match send_api_for(method) {
+        DtmfSendApi::DialDtmf => dial_dtmf(native_call_id, digits),
+        DtmfSendApi::SendDtmf => send_dtmf_with_param(native_call_id, method, digits),
+    }
+}
+
+/// Send DTMF as an RFC 2833 payload via `pjsua_call_dial_dtmf`.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+fn dial_dtmf(native_call_id: i32, digits: &str) -> i32 {
     let digits_owned = PjOwnedStr::new(digits);
     let raw = digits_owned.as_raw();
     // SAFETY: raw points to digits_owned's live buffer for the call.
-    unsafe { bindings::pjsua_call_send_dtmf(native_call_id, &raw) }
+    unsafe { bindings::pjsua_call_dial_dtmf(native_call_id, &raw) }
 }
+
+/// Send DTMF via `pjsua_call_send_dtmf` with the method selected in `param`.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+fn send_dtmf_with_param(native_call_id: i32, method: DtmfMethod, digits: &str) -> i32 {
+    let digits_owned = PjOwnedStr::new(digits);
+    let param = bindings::pjsua_call_send_dtmf_param {
+        method: native_dtmf_method(method),
+        duration: DTMF_DURATION_DEFAULT_MS,
+        digits: digits_owned.as_raw(),
+    };
+    // SAFETY: param.digits references digits_owned's live buffer for the call.
+    unsafe { bindings::pjsua_call_send_dtmf(native_call_id, &param) }
+}
+
+/// Map a unified `DtmfMethod` to the PJSIP `pjsua_dtmf_method` enum.
+///
+/// Only `Info` and `Rfc4733` reach here — `send_api_for` routes `Inband` to
+/// `dial_dtmf`, so the `Inband` arm is unreachable by construction.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+fn native_dtmf_method(method: DtmfMethod) -> bindings::pjsua_dtmf_method {
+    match method {
+        DtmfMethod::Info => bindings::pjsua_dtmf_method_PJSUA_DTMF_METHOD_SIP_INFO,
+        DtmfMethod::Rfc4733 => bindings::pjsua_dtmf_method_PJSUA_DTMF_METHOD_RFC2833,
+        DtmfMethod::Inband => unreachable!("send_api_for routes Inband to pjsua_call_dial_dtmf"),
+    }
+}
+
+/// `PJSUA_CALL_SEND_DTMF_DURATION_DEFAULT` — not emitted by bindgen.
+#[cfg(feature = "pjsua-native")]
+const DTMF_DURATION_DEFAULT_MS: u32 = 160;
 
 /// Transfer a call via `pjsua_call_xfer`.
 #[cfg(feature = "pjsua-native")]

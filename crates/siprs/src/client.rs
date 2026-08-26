@@ -961,6 +961,7 @@ mod tests {
     // [::TICKET::] P15-6: all six call-control commands are wired — the full
     // facade → runtime → reactor → TestBackend path completes with Ok.
     async fn sip_client_call_control_commands_are_wired() -> Result<(), Box<dyn std::error::Error>>
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     {
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
@@ -972,7 +973,7 @@ mod tests {
         client
             .transfer(call_id, "sip:bob@example.com".into())
             .await?;
-        client.send_dtmf(call_id, "5", DtmfMethod::Rfc2833).await?;
+        client.send_dtmf(call_id, "5", DtmfMethod::Rfc4733).await?;
         Ok(())
     }
 
@@ -986,7 +987,7 @@ mod tests {
         let call_id = CallId::from_u64(1)?;
 
         let err = client
-            .send_dtmf(call_id, "1x2", DtmfMethod::Rfc2833)
+            .send_dtmf(call_id, "1x2", DtmfMethod::Rfc4733)
             .await
             .unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InvalidArgument);

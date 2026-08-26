@@ -108,7 +108,7 @@ pub struct ClientCapabilities {
     pub mixer_max_sources: usize,
 }
 
-// [::TICKET::] P1-2, P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P11-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P11-8, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P11-8|P16-6) --for-spec --no-implementation-order`.
 impl ClientCapabilities {
     /// Create a new `ClientCapabilities` with default values.
     ///
@@ -143,7 +143,7 @@ impl ClientCapabilities {
             turn_supported: false,
 
             // DTMF
-            dtmf_methods: vec![DtmfMethod::Rfc2833],
+            dtmf_methods: vec![DtmfMethod::Rfc4733],
 
             // SIP extensions
             supports_refer: false,
@@ -246,15 +246,11 @@ fn enumerate_available_codecs() -> Vec<Codec> {
 }
 
 /// DTMF signaling method.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum DtmfMethod {
-    /// RFC 2833 — RTP event payload.
-    Rfc2833,
-    /// SIP INFO method.
-    Info,
-    /// In-band audio tones.
-    Inband,
-}
+///
+/// Single definition from `crate::model::dtmf_spec` (§62.15 Q5) — the unified
+/// type carries the serde derives this module needs for `ClientCapabilities`.
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+pub use crate::model::dtmf_spec::DtmfMethod;
 
 /// Audio device capabilities.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -468,7 +464,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P16-6) --for-spec --no-implementation-order`.
     fn client_capabilities_new_has_defaults() {
         let caps = ClientCapabilities::new();
         assert_eq!(caps.max_calls, u32::MAX, "max_calls defaults to MAX");
@@ -486,7 +482,7 @@ mod tests {
             "event_bus_capacity defaults to 2048"
         );
         assert_eq!(caps.mixer_max_sources, 16);
-        assert_eq!(caps.dtmf_methods, vec![DtmfMethod::Rfc2833]);
+        assert_eq!(caps.dtmf_methods, vec![DtmfMethod::Rfc4733]);
     }
 
     /// @verifies C047
@@ -716,9 +712,9 @@ mod tests {
 
     /// @verifies C047
     #[test]
-    // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P16-6) --for-spec --no-implementation-order`.
     fn dtmf_method_variants() {
-        assert_ne!(DtmfMethod::Rfc2833 as u8, DtmfMethod::Info as u8);
+        assert_ne!(DtmfMethod::Rfc4733 as u8, DtmfMethod::Info as u8);
         assert_ne!(DtmfMethod::Info as u8, DtmfMethod::Inband as u8);
     }
 
