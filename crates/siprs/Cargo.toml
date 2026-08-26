@@ -135,3 +135,10 @@ required-features = ["test-util"]
 [[test]]
 name = "verify_spec_p9_2"
 required-features = ["test-util"]
+
+# [::TICKET::] P16-10: the real-SIP integration suite runs only under
+# pjsua-native (docker Asterisk/coturn, §62.19 Q9a). `make test-integration`
+# supplies this feature; `make test` (test-util) skips the target cleanly.
+[[test]]
+name = "sip_integration"
+required-features = ["pjsua-native"]

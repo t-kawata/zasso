@@ -1075,19 +1075,19 @@ impl SipBackend for PjsuaBackend {
         Ok(())
     }
 
-    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-7, P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P16-10) --for-spec --no-implementation-order`.
     fn register_conf_callback(&mut self) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
-            // [::STUB::] P16-10: the RustMediaPort must be registered into the
-            // pjsua conf bridge via pjsua_conf_add_port (vendored PJSIP has no
-            // pjsua_conf_set_callback). The bindgen surface for pjmedia_port is
-            // not resolvable in the current build environment (pjsua-native is
-            // pre-broken on 40+ unrelated symbols), so the FFI registration is
-            // deferred to the Asterisk docker integration base (P16-10), which
-            // cannot run without a working media port.
+            // [::STUB::] PX-3: register the RustMediaPort into the pjsua conf
+            // bridge via pjsua_conf_add_port (vendored PJSIP has no
+            // pjsua_conf_set_callback), then connect each call's conf slot
+            // (pjsua_call_get_conf_port / pjsua_conf_connect). The work needs a
+            // working pjsua-native bindgen surface plus threading the per-call
+            // AudioMixer map into PjsuaBackend. PX-3 owns this FFI registration
+            // now that P16-10 establishes the docker integration test base.
             Err(ReactorError::BackendError(
-                "register_conf_callback: pjsua-native media-port registration deferred to P16-10"
+                "register_conf_callback: pjsua-native media-port registration tracked in PX-3"
                     .into(),
             ))
         }
