@@ -292,13 +292,10 @@ pub struct AccountSnapshot {
 #[non_exhaustive]
 // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 pub enum SipEventPayload {
+    // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
     // ── Registration (P0) ──
     /// Registration process started (initial REGISTER sent).
     RegistrationStarted(RegistrationInfo),
-    /// Registration succeeded (200 OK received).
-    RegistrationSucceeded(RegistrationInfo),
-    /// Registration failed (error response or timeout).
-    RegistrationFailed(RegistrationFailure),
     /// Unregistration completed successfully.
     UnregistrationSucceeded,
     /// Unregistration failed.
@@ -539,49 +536,10 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
-    fn payload_registration_succeeded() -> Result<(), &'static str> {
-        let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
-        let info = RegistrationInfo {
-            account_id,
-            renew: true,
-        };
-        let payload = SipEventPayload::RegistrationSucceeded(info);
-        match payload {
-            SipEventPayload::RegistrationSucceeded(reg_info) => {
-                assert_eq!(reg_info.account_id, account_id);
-                assert!(reg_info.renew);
-            }
-            _ => panic!("unexpected payload variant"),
-        }
-        Ok(())
-    }
-
-    #[test]
-    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
-    fn payload_registration_failed() -> Result<(), &'static str> {
-        let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
-        let failure = RegistrationFailure {
-            account_id,
-            status_code: 403,
-            reason: "Forbidden".into(),
-        };
-        let payload = SipEventPayload::RegistrationFailed(failure);
-        match payload {
-            SipEventPayload::RegistrationFailed(f) => {
-                assert_eq!(f.status_code, 403);
-                assert_eq!(f.reason, "Forbidden");
-            }
-            _ => panic!("unexpected payload variant"),
-        }
-        Ok(())
-    }
-
     /// @verifies C073
     /// The typed §17 state machine outcome variant constructs and matches.
     #[test]
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-5|P16-3) --for-spec --no-implementation-order`.
     fn payload_registration_state_changed() {
         let payload = SipEventPayload::RegistrationStateChanged(RegistrationState::Registered);
         assert!(matches!(

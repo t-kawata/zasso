@@ -9,6 +9,8 @@ pub mod call_state_model;
 pub mod m20_callstate_mapping;
 pub mod m20_native_event_conv;
 pub mod m20_registr_cmd_pat;
+pub mod reg_account_lifecycle;
+// [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
 pub mod registr_state_machine;
 pub mod registr_wiring;
 pub mod shutdown_specification;

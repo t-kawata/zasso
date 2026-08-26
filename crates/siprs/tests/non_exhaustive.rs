@@ -22,7 +22,7 @@
 use siprs::SipEventPayload;
 
 #[test]
-// [::TICKET::] P8-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P8-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-3|P16-3) --for-spec --no-implementation-order`.
 fn sip_event_payload_matches_with_wildcard_arm() {
     // Construct one payload to drive the exhaustive match below.
     let payload = SipEventPayload::OutgoingCallStarted;
@@ -31,11 +31,10 @@ fn sip_event_payload_matches_with_wildcard_arm() {
     // ONLY because the enum is #[non_exhaustive].
     match payload {
         SipEventPayload::RegistrationStarted(_) => {}
-        SipEventPayload::RegistrationSucceeded(_) => {}
-        SipEventPayload::RegistrationFailed(_) => {}
         SipEventPayload::UnregistrationSucceeded => {}
         SipEventPayload::UnregistrationFailed(_) => {}
         SipEventPayload::RegistrationExpired => {}
+        SipEventPayload::RegistrationStateChanged(_) => {}
         SipEventPayload::OutgoingCallStarted => {}
         SipEventPayload::OutgoingCallTrying => {}
         SipEventPayload::OutgoingCallRinging => {}

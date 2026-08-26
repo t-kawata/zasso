@@ -42,7 +42,7 @@ pub enum M20TestLayer {
     Layer3,
 }
 
-// [::TICKET::] P1-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P1-3, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3|P16-3) --for-spec --no-implementation-order`.
 impl M20FeatureTestEntry {
     /// Returns the full 11-entry M20 feature test mapping table as defined
     /// in RFC §43 M20 Test Layer Mapping.
@@ -57,7 +57,7 @@ impl M20FeatureTestEntry {
             Self {
                 feature_name: "RegistrationStateChanged",
                 layer: M20TestLayer::Layer2,
-                validation_description: "GetAccountInfo → RegistrationSucceeded/Failed firing",
+                validation_description: "GetAccountInfo → RegistrationStateChanged firing",
                 notes: "Layer 3 verifies real registration state transitions",
             },
             Self {
@@ -144,7 +144,7 @@ mod tests {
     // ── C054-Precondition: TestBackend exists for DualClientContext ─
     // @verifies C054
     #[test]
-// [::TICKET::] P1-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3|P16-3) --for-spec --no-implementation-order`.
     fn test_dual_client_presupposes_backend() {
         // DualClientContext depends on TestBackend from runtime::backend
         let _mock = crate::runtime::backend::TestBackend::new();

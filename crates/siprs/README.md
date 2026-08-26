@@ -115,15 +115,15 @@ register() / unregister() / set_registration_enabled() の使い分けと、regi
 
 ### 証拠（欠落・矛盾・危険）
 
-- `register()` / `unregister()` / `set_registration_enabled()` は存在し、`RuntimeCommand::SetRegistration` を submit する（`src/api/public_api_design.rs:56-112`）。reactor の `SetRegistration` アームは `backend.set_registration` + 状態遷移（`Registering`/`Unregistering`）を実行する（`src/runtime/reactor.rs:678-731`）。
-- しかし確認済み内容の**「register_on_start による自動登録設定」は現コードに存在しない**。`register_on_start` は `update_config` のパッチデルタとしてのみ消費され（`src/runtime/reactor.rs:610`）、`add_account` 時・`SipClient::new` 時・reactor 起動時には一切読まれない。`PjsuaBackend::add_account` も `pjsua_acc_add` に `register_on_acc_add` を設定しない（`src/ffi/backend_calls.rs:68-100`）。P15-5 も「AddAccount での自動登録は将来チケット」と明記（`specs/P15-5.md:91`）。
-- **登録結果イベントが本番で publish されない**: 本番が publish するのは `RegistrationStateChanged` のみ（`src/runtime/reactor.rs:990-993`、`src/state/registr_wiring.rs:53-88`）。`RegistrationSucceeded` / `RegistrationFailed` は enum に定義されるが、`#[cfg(test)]` 内でしか構築されない（`src/api/event_model_payload_bus.rs:544-579`）。
-- 参照例 `examples/account_register.rs:79-87` は `RegistrationSucceeded` / `RegistrationFailed` を待つため、**本番ではタイムアウトまで待機して失敗する**（壊れた例）。
+- `register()` / `unregister()` / `set_registration_enabled()` は存在し、`RuntimeCommand::SetRegistration` を submit する（`src/api/public_api_design.rs:56-112`）。reactor の `SetRegistration` アームは `backend.set_registration` + 状態遷移（`Registering`/`Unregistering`）を実行する（`src/runtime/reactor.rs`）。
+- `register_on_start` による自動登録は **P16-3（§62.12）で実装済み**。`add_account` 時に `register_on_start: true` を消費して自動 REGISTER を発行し、ClientState を `Registering` に進める（`src/state/reg_account_lifecycle.rs::should_auto_register`、`src/runtime/reactor.rs` AddAccount アーム）。クライアント起動時のアカウント復元（UpdateAccount パス）も同様に消費する（`src/runtime/reactor.rs`）。
+- 登録結果イベントは **`RegistrationStateChanged` に統一済み（P16-3）**。`RegistrationSucceeded` / `RegistrationFailed` は `SipEventPayload` から完全削除された（`src/api/event_model_payload_bus.rs`）。`remove_account` は unregister 先行 → `backend.remove_account` → ClientState 除去 → `AccountRemoved(AccountSnapshot)` publish の順で実行される（`src/state/reg_account_lifecycle.rs::remove_account_sequence`）。
+- 参照例 `examples/account_register.rs` は **P16-3 で `RegistrationStateChanged(Registered / Failed)` 待ちに修正済み**。
 
 ### 実装補強設計（完全記述への条件）
 
-1. `register_on_start` の自動登録を実装（`add_account` 時 / クライアント起動時のアカウント復元で消費。P15-5 の未完了項目、`specs/P15-5.md:91`）。
-2. README / 例が待つイベントを `RegistrationStateChanged` に統一し、`examples/account_register.rs` を修正（`RegistrationSucceeded`/`Failed` は API 互換用に留保、`specs/P15-5.md:92`）。
+1. ✅ **実装済み（P16-3）**: `register_on_start` の自動登録を `add_account` 時に消費（クライアント起動時のアカウント復元は UpdateAccount パスで既に消費）。
+2. ✅ **実装済み（P16-3）**: 登録結果イベントを `RegistrationStateChanged` に統一し、`RegistrationSucceeded`/`Failed` を enum から完全削除。`examples/account_register.rs` を修正。
 3. 実 REGISTER の成否を状態機械（`Registered` / `Failed`）へ反映する経路を `pjsua-native` 上で配線（本番バックエンドのビルド修復が前提、H1 参照）。
 
 # 登録状態の参照（registration_state と RegistrationState）
@@ -405,7 +405,7 @@ READ ME の 17 セクション中 10 セクション（H1 / H5 / H7 / H8 / H10 /
 - **本番バックエンドがビルド不能**: `cargo build --features pjsua-native` は 39 エラー（bindgen 定数 `PJ_SUCCESS` 等の欠如、`pjsua_acc_config.registrar_uri` 欠如、`SecretString::expose_secret` 未実装、`pjsip_inv_state` / `pjsua_call_media_status` の constified enum 未適用等）。→ 実 SIP 通信を伴う example は成立しない。
 - **既定ビルドでは `SipClient::new` が実行時失敗**: `cargo run --example client_init` は `"failed to spawn reactor: backend error: SipClient requires the `pjsua-native` feature"` で即失敗（`src/runtime/backend_selection.rs:62-68`）。examples はコンパイル可能だが、既定ビルドではどの example も起動できない。
 - **TestBackend（`--features test-util`）では `client_init` のみ完走**: `cargo run --example client_init --features test-util` は `ClientInitialized` 受信まで成功する。しかし他の example は以下で失敗する。
-- **account_register は確実に失敗する**: `examples/account_register.rs:79-87` は `RegistrationSucceeded` / `RegistrationFailed` を待つが、本番が publish するのは `RegistrationStateChanged` のみ（`src/runtime/reactor.rs:990-993`、`src/state/registr_wiring.rs:53-88`）。`RegistrationSucceeded` / `Failed` は `#[cfg(test)]` 内でのみ構築される（`src/api/event_model_payload_bus.rs:544-579`）。30 秒の `REGISTRATION_TIMEOUT` 後にタイムアウト失敗する（H5 参照）。
+- **account_register は TestBackend では完了しない**: `examples/account_register.rs` は P16-3（§62.12）で `RegistrationStateChanged(Registered / Failed)` 待ちに修正済み（旧 `RegistrationSucceeded`/`Failed` は enum から削除）。しかし TestBackend はネイティブ登録イベント（`NativeEvent::RegistrationStateChanged`）を発火しないため、`pjsua-native` 上で実 REGISTER コールバックが届くまで 30 秒の `REGISTRATION_TIMEOUT` 後にタイムアウトする（H5 参照）。
 - **make_call もイベント待ちで失敗する**: `examples/make_call.rs` は `OutgoingCallRinging` / `CallConnected` / `CallRejected` を待つが、`CallRejected` は一切生成されず（H11 参照）、`OutgoingCallRinging` / `CallConnected` は `pjsua-native` のコールバック専用（`src/state/m20_callstate_mapping.rs:109-122`、`src/ffi/callback.rs:167`）。TestBackend では発火しない。
 - **audio_tap は永久待機する**: `subscribe_audio` は `AudioTapSender` を tap レジストリへ登録するが、`push_media_frame` を呼ぶ生産コードが存在しない（`src/runtime/backend.rs:143-147`、P15-7 が conf-port コールバックを先送り）。`AudioTapHandle::recv()` はブロックし続ける（H13 参照）。
 - **tts_source は音声が流れない**: `AudioWorkerInner::process_frame` は `out_queue` / `in_queue` へ push するが、pop する消費経路が存在しない（`src/runtime/audio_worker.rs:506-514`）。メディアは `conf_connect` されない（H14 参照）。
@@ -418,7 +418,7 @@ Examples が「確実に動作する」には、以下が先に実装される�
 
 1. **本番バックエンドのビルド修復**: `pjsua-native` の 39 エラー解消（bindgen allowlist とコード期待の整合、`pjsua_acc_config.registrar_uri`、`SecretString::expose_secret`、constified enum モジュール）。チケット: `P8-16` / `P10-2` / `P11-5` / `P13-4`。
 2. **トランスポート / STUN/TURN/ICE の実配線**: `config.transports` の自動生成と `pjsua_transport_create` への反映、`stun_servers` / `turn_servers` / `ice` の `pjsua_config` への反映（H1 / H15）。
-3. **イベント経路の完成**: FFI コールバックキューのドレイン（P8-21）、raw SIP パブリッシャ（P0-5 / P9-4）、`RegistrationStateChanged` への統一（P15-5）。
+3. **イベント経路の完成**: FFI コールバックキューのドレイン（P8-21）、raw SIP パブリッシャ（P0-5 / P9-4）、`RegistrationStateChanged` への統一（P15-5 で型付きバリアント追加、P16-3 で `RegistrationSucceeded`/`Failed` 削除の完了）。
 4. **着信 / 通話イベントの完成**: 着信 `CallEntry` 登録と `answer(200)` → `CallConnected` の publish（P15-6 / P12-8）、`CallRejected` の生成か記述修正（P15-6）。
 5. **DTMF の完成**: `DtmfMethod` 一元化と実 PJSIP 送信への反映、`DtmfSent { Ok }` 経路（P11-6）。
 6. **メディア経路の完成**: conf-port メディアコールバック → `push_media_frame`、`out_queue` / `in_queue` の消費（P15-7 Layer 3+）、WAV / ファイル source の実装。

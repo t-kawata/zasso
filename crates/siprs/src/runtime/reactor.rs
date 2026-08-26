@@ -20,6 +20,9 @@ use crate::api::eventbus_receiver::EventBus;
 use crate::audio::media_path_arch::ChannelSelector;
 use crate::state::m20_callstate_mapping::{convert_call_state_with_previous, CallDirection};
 use crate::state::m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
+use crate::state::reg_account_lifecycle::{
+    add_account_and_apply_auto_register, remove_account_sequence,
+};
 use crate::state::registr_wiring::{
     apply_registration_command_state, process_registration_state_changed,
 };
@@ -69,7 +72,7 @@ pub struct BootConfig {
 
 // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
 impl Default for BootConfig {
-// [::TICKET::] P15-2, P15-4, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-2|P15-4|P15-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-2, P15-4, P15-7, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-2|P15-4|P15-7|P16-3) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             config: ClientConfig::default(),
@@ -104,7 +107,7 @@ type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -379,16 +382,17 @@ impl CoreReactor {
                                 DispatchCommand::AddAccount { config, reply } => {
                                     let result = std::panic::catch_unwind(
                                         std::panic::AssertUnwindSafe(|| {
-                                            backend.add_account(&config)
+                                            // §62.12: backend add → ClientState tracking →
+                                            // optional auto REGISTER (register_on_start).
+                                            add_account_and_apply_auto_register(
+                                                &mut *backend,
+                                                &mut client_state,
+                                                &config,
+                                            )
                                         }),
                                     );
                                     match result {
-                                        Ok(Ok((_native_id, entry))) => {
-                                            let entry_id = entry.id;
-                                            // Track the account in authoritative ClientState (O-004).
-                                            if let Ok(account_id) = AccountId::from_u64(entry_id) {
-                                                client_state.accounts.insert(account_id, entry);
-                                            }
+                                        Ok(Ok(entry_id)) => {
                                             // Reply with the assigned logical id so the facade
                                             // can build a real SipAccountHandle (P10-3).
                                             let _ = reply.send(Ok(entry_id));
@@ -648,14 +652,39 @@ impl CoreReactor {
                                 DispatchCommand::RemoveAccount { account_id, reply } => {
                                     let result = std::panic::catch_unwind(
                                         std::panic::AssertUnwindSafe(|| {
-                                            backend.remove_account(account_id as i32)
+                                            let aid = AccountId::from_u64(account_id).map_err(
+                                                |_| {
+                                                    ReactorError::NotInitialized(
+                                                        "invalid account id".into(),
+                                                    )
+                                                },
+                                            )?;
+                                            // §62.12: unregister-first → backend removal →
+                                            // ClientState removal, returning the snapshot to
+                                            // publish as AccountRemoved.
+                                            remove_account_sequence(
+                                                &mut *backend,
+                                                &mut client_state,
+                                                aid,
+                                            )
                                         }),
                                     );
                                     match result {
-                                        Ok(Ok(())) => {
-                                            // Keep the authoritative ClientState in lockstep (C021).
-                                            if let Ok(aid) = AccountId::from_u64(account_id) {
-                                                client_state.accounts.remove(&aid);
+                                        Ok(Ok(snapshot)) => {
+                                            // §62.12: publish AccountRemoved with the removed
+                                            // account's snapshot on the single client-owned
+                                            // EventBus (P15-4).
+                                            if let Some(snapshot) = snapshot {
+                                                let aid = AccountId::from_u64(account_id).ok();
+                                                dispatch_event(
+                                                    &event_bus,
+                                                    SipEvent {
+                                                        meta: EventMeta::new(0, aid, None),
+                                                        payload: SipEventPayload::AccountRemoved(
+                                                            snapshot,
+                                                        ),
+                                                    },
+                                                );
                                             }
                                             let _ = reply.send(Ok(()));
                                         }
@@ -1325,7 +1354,7 @@ mod tests {
     /// @verifies C039, C084
     #[test]
     // [::TICKET::] P15-4: O-003 — dispatch_event publishes directly to the single bus
-// [::TICKET::] P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-4, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P16-3) --for-spec --no-implementation-order`.
     fn dispatch_event_publishes_to_single_bus() {
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -1341,7 +1370,7 @@ mod tests {
     /// @verifies C039
     #[test]
     // [::TICKET::] P15-4: account_id=None lifecycle events also flow on the single bus
-// [::TICKET::] P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-4, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P16-3) --for-spec --no-implementation-order`.
     fn dispatch_event_lifecycle_event_flows_to_single_bus() {
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -1446,7 +1475,7 @@ mod tests {
 
     /// @verifies C024
     #[tokio::test]
-    // [::TICKET::] P10-6: O-001 — non-200 Ok snapshot (403) publishes RegistrationFailed via the production flow
+    // [::TICKET::] P10-6: O-001 — non-200 Ok snapshot (403) publishes RegistrationStateChanged(Failed) via the production flow
     // [::TICKET::] P10-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-6 --for-spec --no-implementation-order`.
     async fn process_native_event_registration_403_publishes_registration_state_changed_failed() {
         // C024/C085: a non-200 registration status drives Registering → Failed and
@@ -1833,7 +1862,7 @@ mod tests {
     /// @verifies C070, C046
     #[test]
     // [::TICKET::] P12-8: a MakeCall command records the outgoing direction by origin
-// [::TICKET::] P12-8, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P15-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-8, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P15-3|P16-3) --for-spec --no-implementation-order`.
     fn handle_make_call_records_outgoing_direction() {
         let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
@@ -2304,7 +2333,7 @@ mod tests {
     // @verifies C070, C046
     // [::TICKET::] P12-1: handle_make_call delegates to the backend, registers the
     // returned CallEntry in the authoritative ClientState, and returns the CallId.
-// [::TICKET::] P12-1, P12-8, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-1, P12-8, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P16-3) --for-spec --no-implementation-order`.
     fn handle_make_call_registers_entry_and_returns_id() {
         let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
@@ -2328,7 +2357,7 @@ mod tests {
     // @verifies C070
     // [::TICKET::] P12-1: a failing backend.make_call must propagate Err and
     // register no CallEntry — never a fabricated id.
-// [::TICKET::] P12-1, P12-8, P15-3, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P15-9) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-1, P12-8, P15-3, P15-9, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P15-9|P16-3) --for-spec --no-implementation-order`.
     fn handle_make_call_error_registers_nothing() {
         let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));
@@ -2352,7 +2381,7 @@ mod tests {
     // @verifies C089, C090
     // [::TICKET::] P15-9: a failing backend.make_call carrying a NativeError must
     // propagate through the reactor handler while preserving native_status.
-// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-9, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-9|P16-3) --for-spec --no-implementation-order`.
     fn handle_make_call_native_error_preserves_status() {
         let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::NativeError {
@@ -2425,6 +2454,155 @@ mod tests {
         assert!(
             state.accounts.is_empty(),
             "RemoveAccount must remove the entry from the authoritative ClientState"
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C096
+    // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
+    async fn reactor_add_account_with_register_on_start_issues_auto_register(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let mut config = crate::config::account_config_spec::AccountConfig::default();
+        config.register_on_start = true;
+        let id = handle.submit_add_account(config).await?;
+        let state = handle.query_state().await?;
+        let aid = AccountId::from_u64(id)?;
+        assert_eq!(
+            state.accounts[&aid].registration,
+            RegistrationState::Registering,
+            "register_on_start=true must advance ClientState to Registering"
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C096
+    // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
+    async fn reactor_add_account_without_register_on_start_skips_auto_register(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let mut config = crate::config::account_config_spec::AccountConfig::default();
+        config.register_on_start = false;
+        let id = handle.submit_add_account(config).await?;
+        let state = handle.query_state().await?;
+        let aid = AccountId::from_u64(id)?;
+        assert_eq!(
+            state.accounts[&aid].registration,
+            RegistrationState::Disabled,
+            "register_on_start=false must not advance ClientState"
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C097
+    // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
+    async fn reactor_remove_account_publishes_account_removed(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        let mut rx = handle.event_bus().subscribe_control();
+        let (_tx, _rx) = tokio::sync::oneshot::channel();
+        handle
+            .submit(crate::runtime::command::RuntimeCommand::RemoveAccount {
+                account_id: id,
+                reply: Reply::new(_tx),
+            })
+            .await?;
+        let state = handle.query_state().await?;
+        assert!(
+            state.accounts.is_empty(),
+            "RemoveAccount must remove the entry from the authoritative ClientState"
+        );
+        let mut account_removed = false;
+        for _ in 0..8 {
+            let ev = tokio::time::timeout(std::time::Duration::from_secs(2), rx.recv())
+                .await
+                .map_err(|_| "timed out waiting for AccountRemoved event".to_string())?
+                .map_err(|e| format!("event bus closed: {e}"))?;
+            if matches!(ev.payload, SipEventPayload::AccountRemoved(_)) {
+                account_removed = true;
+                break;
+            }
+        }
+        assert!(
+            account_removed,
+            "RemoveAccount must publish SipEventPayload::AccountRemoved on the single bus"
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C097
+    // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
+    async fn reactor_remove_account_publishes_account_removed_exactly_once(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        let mut rx = handle.event_bus().subscribe_control();
+        let (_tx, _rx) = tokio::sync::oneshot::channel();
+        handle
+            .submit(crate::runtime::command::RuntimeCommand::RemoveAccount {
+                account_id: id,
+                reply: Reply::new(_tx),
+            })
+            .await?;
+
+        // The reactor dispatches AccountRemoved before replying, so the event is
+        // already queued when submit returns — drain it and count occurrences.
+        let mut account_removed_count = 0;
+        let mut drained = 0;
+        while let Ok(ev) = rx.try_recv() {
+            drained += 1;
+            if matches!(ev.payload, SipEventPayload::AccountRemoved(_)) {
+                account_removed_count += 1;
+            }
+            if drained > 16 {
+                break;
+            }
+        }
+        assert_eq!(
+            account_removed_count, 1,
+            "RemoveAccount of the last account must publish AccountRemoved exactly once"
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C095
+    // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
+    async fn reactor_remove_account_zero_id_replies_err_without_backend_or_publish(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let (_tx, _rx) = tokio::sync::oneshot::channel();
+        let result = handle
+            .submit(crate::runtime::command::RuntimeCommand::RemoveAccount {
+                account_id: 0,
+                reply: Reply::new(_tx),
+            })
+            .await;
+
+        // id boundary: AccountId::from_u64(0) is invalid, so the arm rejects the
+        // command before any backend call or AccountRemoved publish.
+        assert!(
+            result.is_err(),
+            "RemoveAccount with account_id 0 must be rejected before backend calls"
+        );
+        let state = handle.query_state().await?;
+        assert!(
+            state.accounts.is_empty(),
+            "ClientState must be unchanged when account_id 0 is rejected"
         );
         shutdown_reactor(handle, join).await;
         Ok(())
@@ -2539,7 +2717,12 @@ mod tests {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (handle, join) = spawn_reactor();
         let account_id = handle
-            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .submit_add_account(crate::config::account_config_spec::AccountConfig {
+                // P16-3 §62.12: disable auto-register so the account stays Disabled —
+                // the C085 invariant under test requires a Disabled starting state.
+                register_on_start: false,
+                ..Default::default()
+            })
             .await?;
         let mut rx = handle.event_bus().subscribe_control();
 
@@ -2565,7 +2748,7 @@ mod tests {
 
     /// Build an `accounts` map with a single account whose registration is
     /// `state` and whose native id matches `acc_id` (TestBackend id == logical id).
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-5|P16-3) --for-spec --no-implementation-order`.
     fn account_with_registration(
         acc_id: u32,
         state: RegistrationState,
@@ -2699,7 +2882,8 @@ mod tests {
 
     /// @verifies C086
     #[tokio::test]
-    async fn handle_answer_200_publishes_call_connected() -> Result<(), Box<dyn std::error::Error>> {
+    async fn handle_answer_200_publishes_call_connected() -> Result<(), Box<dyn std::error::Error>>
+    {
         let mut backend = TestBackend::new();
         let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -2729,8 +2913,7 @@ mod tests {
             "backend.answer_call must be invoked with (native_call_id, code)"
         );
         assert_eq!(
-            client_state.calls[&call_id].state,
-            "Active",
+            client_state.calls[&call_id].state, "Active",
             "a 200 answer must mark the call Active"
         );
 
@@ -2747,8 +2930,8 @@ mod tests {
 
     /// @verifies C086
     #[tokio::test]
-    async fn handle_answer_486_publishes_call_disconnected() -> Result<(), Box<dyn std::error::Error>>
-    {
+    async fn handle_answer_486_publishes_call_disconnected(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::new();
         let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -2774,8 +2957,7 @@ mod tests {
         handle_answer(&mut backend, &bus, &mut call_state, 1, 486)?;
         assert_eq!(backend.answer_calls, vec![(1, 486)]);
         assert_eq!(
-            client_state.calls[&call_id].state,
-            "Disconnected",
+            client_state.calls[&call_id].state, "Disconnected",
             "a 486 decline must mark the call Disconnected"
         );
 
@@ -2790,8 +2972,8 @@ mod tests {
 
     /// @verifies C086
     #[tokio::test]
-    async fn handle_answer_180_publishes_no_terminal_event() -> Result<(), Box<dyn std::error::Error>>
-    {
+    async fn handle_answer_180_publishes_no_terminal_event(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::new();
         let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -2817,8 +2999,7 @@ mod tests {
         handle_answer(&mut backend, &bus, &mut call_state, 1, 180)?;
         assert_eq!(backend.answer_calls, vec![(1, 180)]);
         assert_eq!(
-            client_state.calls[&call_id].state,
-            "Connecting",
+            client_state.calls[&call_id].state, "Connecting",
             "a provisional 180 answer must leave the call Connecting"
         );
 
@@ -2864,8 +3045,7 @@ mod tests {
         )?;
         assert_eq!(backend.hangup_calls, vec![1]);
         assert_eq!(
-            client_state.calls[&call_id].state,
-            "Disconnected",
+            client_state.calls[&call_id].state, "Disconnected",
             "hangup must mark the call Disconnected"
         );
 
@@ -2909,8 +3089,7 @@ mod tests {
             "backend.transfer_call must be invoked with (native_call_id, target)"
         );
         assert_eq!(
-            client_state.calls[&call_id].state,
-            "Transferring",
+            client_state.calls[&call_id].state, "Transferring",
             "transfer must mark the call Transferring"
         );
         Ok(())
@@ -2925,7 +3104,9 @@ mod tests {
         let account_id = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
             .await?;
-        let call_id = handle.submit_make_call(account_id, test_call_request()).await?;
+        let call_id = handle
+            .submit_make_call(account_id, test_call_request())
+            .await?;
         handle.submit_answer(call_id, 200).await?;
 
         let ev = rx.recv().await?;
