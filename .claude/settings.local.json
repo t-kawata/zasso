@@ -1262,7 +1262,11 @@
       "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"PX-3\" --for-spec)",
       "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"PX-3\" --phase=plan)",
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"PX-3\" --for-spec --plan)",
-      "Bash(node .claude/scripts/tickets/scan-incomplete-implementations.js --dir=tests)"
+      "Bash(node .claude/scripts/tickets/scan-incomplete-implementations.js --dir=tests)",
+      "Bash(node .claude/scripts/tickets/remove-stub.js --file=Cargo.toml --line=43)",
+      "Bash(node .claude/scripts/tickets/review/run-quality-checks.js src/model/audio_aligner.rs)",
+      "Bash(git commit -m 'chore\\(PX-3\\): resolve dependency stub markers and record tooling allowlist *)",
+      "Bash(git commit -m 'chore\\(PX-3\\): record permission allowlist for remove-stub and quality tooling *)"
     ]
   }
 }
