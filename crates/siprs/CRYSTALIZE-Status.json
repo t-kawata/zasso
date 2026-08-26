@@ -1,12 +1,12 @@
 {
-  "sourceFile": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT.md",
-  "graphFile": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json",
-  "currentStep": 2,
+  "sourceFile": "/Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "graphFile": "/Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json",
+  "currentStep": 4,
   "steps": {
     "0": "pending",
     "1": "done",
-    "2": "pending",
-    "3": "pending"
+    "2": "done",
+    "3": "done"
   },
   "grill": {
     "tocApproved": false,
@@ -144,19 +144,19 @@
       {
         "id": "H2",
         "heading": "ClientConfig の設定項目（transports・STUN/TURN・音声・タイムアウト）",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": "ClientConfig の全フィールド（transports, stun_servers, turn_servers, ice, audio, timeouts, raw_sip_events）を既定値と併せて表形式で解説"
       },
       {
         "id": "H3",
         "heading": "初期化のバリデーション規則とエラー処理",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": "§42 のバリデーション規則（event_bus_capacity>=16、sample rate 制限、raw_sip 容量制約等）と失敗時の SipError 処理をコード付きで解説"
       },
       {
         "id": "H4",
         "heading": "アカウントの追加と設定更新（add_account / update_config）",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": "add_account の最小コードと、update_config(AccountConfigPatch) による設定更新および更新時に走る register/unregister の挙動を併せて解説"
       },
       {
@@ -168,7 +168,7 @@
       {
         "id": "H6",
         "heading": "登録状態の参照（registration_state と RegistrationState）",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": "registration_state() の呼び出しと、RegistrationState（Disabled/Idle/Registering/Registered/Unregistering/Failed/Expired）の各状態の意味を表形式で解説"
       },
       {
@@ -186,7 +186,7 @@
       {
         "id": "H9",
         "heading": "発信（make_call と OutgoingCallRequest）",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": "make_call の最小コード（target_uri のみ指定）と、発信後のキャンセル（hangup）方法を併せて解説"
       },
       {
@@ -228,7 +228,7 @@
       {
         "id": "H16",
         "heading": "シャットダウン",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": "shutdown() の呼び出しコードと、その際のイベント（ClientShutdown）の受信、べき等性の説明を解説"
       },
       {

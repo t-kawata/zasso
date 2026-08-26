@@ -1,0 +1,9 @@
+Q9b（Q9 の子決定）: Asterisk/coturn コンテナのオーケストレーション方式を確定します。
+
+【背景と理由】統合テストが使う Asterisk / coturn コンテナをどう起動・破棄するか。Asterisk は sip.conf / extensions.conf 等の設定ファイルをマウントする必要があり、coturn も turnserver.conf の設定が必要です。候補は、(1) Rust の testcontainers クレートでプログラム的に起動・破棄、(2) docker-compose.yml でサービス定義し Makefile ターゲットで up/down、(3) テスト内で docker run CLI を直接実行、の 3 通りです。コンテナ設定の複雑さとライフサイクル管理のしやすさが判断軸です。
+
+A) Rust の `testcontainers` クレートでコンテナをテスト内から起動・破棄する（ライフサイクル自動管理）
+B) `docker-compose.yml` で Asterisk / coturn を定義し、Makefile ターゲット（例: `make test-integration`）で `docker compose up -d` → テスト → `down` を実行する
+C) テスト内で `docker run` CLI を直接実行する（シンプルだがライフサイクル管理は手動）
+
+【推奨】B を推奨します。Asterisk / coturn は設定ファイルのマウントが必要で、docker-compose が宣言的に定義でき保守しやすいです。Makefile ターゲットで up → test → down の手順を固定すれば、ローカルと CI で同一の実行になります。選択肢 A の testcontainers は設定マウントの記述コストと依存追加が重く、選択肢 C は破棄漏れリスクがあります。なおテストコード内の docker 可用性チェック（Q9c）は B と併存し、コンテナ未起動時の明示スキップを担います。

@@ -1,0 +1,9 @@
+Q7a coturn による TURN/STUN プロトコルレベルテストの検証範囲を確定します。
+
+【背景と理由】Q7 の指示で、STUN/TURN/ICE 配線の検証は Docker で coturn を起動しプロトコルレベルでテストすることが必須になりました。coturn は TURN/STUN サーバ実装で、Docker イメージが公開されています。検証範囲の選択肢は、STUN binding 応答（UDP エコー）から TURN allocate 成功、さらには relay 経由の実メディア転送まで段階があります。siprs の ICE 実装（§13）は、ローカル candidate と coturn の relay candidate を収集し、メディアを転送します。プロトコルレベルテストがどこまでを保証するかでテスト設計の規模が変わります。
+
+A) STUN binding 成功 + TURN allocate 成功 + relay candidate 経由のメディア転送確認まで含むプロトコルレベル統合テストを設計する
+B) STUN binding 成功 + TURN allocate 成功までを今回設計し、relay 経由の実メディア転送は CI の実機試験（§43.4 Layer 4）に委ねる
+C) coturn 統合テストは今回スコープ外とし、STUN/TURN は設定反映の単体テスト（pjsua_config への値写像）のみとする
+
+【推奨】A を推奨します。あなたは「プロトコルレベルでテストされなければならない」「テストコードは完全な動作を保証しなければならない」と明示しており、relay 転送まで含めなければ ICE の完全な動作は保証できません。coturn は Docker で起動可能で、allocate レスポンスの relayed address 取得と、その relay 経由の UDP 転送は決定的にテストできます。B は部分的な保証で要件に不足し、C は指示に反します。

@@ -34271,14 +34271,14 @@
           "contracts": [
             {
               "id": "C076",
-              "sourceEdge": "N0076 → N0068 (refines §62 Implementation-integration design)",
+              "sourceEdge": "N0076→N0068",
               "precondition": "The §62 parent section exists (N0068). Testable form: shutdown_wiring.rs is declared in crate::state::mod and its §62.7 wiring functions (execute_shutdown_sequence, gate_command, client_shutdown_event, shutdown_phase_timeout, native_account_ids, native_call_ids) are importable from the crate.",
               "postcondition": "§62.7 is described as part of §62: shutdown_wiring.rs hosts the production wiring of the reactor shutdown arm. Testable form: a compile-time test imports every documented §62.7 function from crate::state::shutdown_wiring.",
               "invariant": "The shutdown procedure remains consistent with §32. Testable form: execute_shutdown_sequence must route through ShutdownSpec.execute_sequence, proven by spec.is_shutdown_started() == true after a run."
             },
             {
               "id": "C088",
-              "sourceEdge": "N0076 → N0043 (refines §32 Shutdown Specification)",
+              "sourceEdge": "N0076→N0043",
               "precondition": "N0043 defines the §32 Shutdown specification. Testable form: ShutdownPhase::all() yields exactly [StopCommands, CancelCalls, UnregisterAccounts, DrainAudio, InvokeDestroy] — the order execute_shutdown_sequence relies on.",
               "postcondition": "§62.7 wires ShutdownSpec.execute_sequence for production. Testable form: execute_shutdown_sequence(backend, client_state, spec) awaits spec.execute_sequence(backend, &native_account_ids(client_state), &native_call_ids(client_state)) and returns its Result.",
               "invariant": "The §32 order BYE/CANCEL → unregister → audio drain → pjsua_destroy is guaranteed. Testable form: after execute_shutdown_sequence, TestBackend.hangup_calls records the call native ids (CancelCalls), and backend.initialized == false (InvokeDestroy) with UnregisterAccounts between them per ShutdownPhase::all() ordering."
@@ -34429,6 +34429,520 @@
           ],
           "startedAt": "2026-08-26",
           "completedAt": "2026-08-26"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "name": "Implementation Integration — RESIDUE Resolution Round 2 (§62.10-62.20)",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Implementation Integration Blueprint — Round 2 Scope (§62.10)",
+          "nodeIds": [
+            "N0079"
+          ],
+          "scope": [
+            "§62.10 の5根因（本番FFI未配線 / ライフサイクル未接続 / 重複不一致 / メディア未接続 / 検証基盤未定義）を round 2 実装整合の基準として文書化する。",
+            "全体方針（完全実装 + v0.x 破壊的変更受容 + 実 Asterisk/coturn 相互接続検証）を src/architecture/round2_scope_rootcause.rs に符号化する。",
+            "**Scope of changes:** src/architecture/round2_scope_rootcause.rs（add）/ src/architecture/mod.rs（add: pub mod round2_scope_rootcause;）"
+          ],
+          "testUnit": [
+            "ResidueRootCause 構造体が5根因を保持すること"
+          ],
+          "testIntegration": [],
+          "testExceptions": [
+            "実装コードなし（設計基準の符号化のみ）"
+          ],
+          "changes": [],
+          "contracts": [
+            {
+              "id": "C091",
+              "sourceEdge": "N0079→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.10 がラウンド 2 スコープを定義する",
+              "invariant": "進化スコープは §62.1–62.9 と矛盾しない"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Transport wiring & bindgen alignment (§62.11)",
+          "nodeIds": [
+            "N0080"
+          ],
+          "scope": [
+            "PjsuaBackend::initialize が config.transports を列挙し、TransportConfig の種別（UDP/TCP/TLS）と bind_addr ポートを pjsua_transport_create へ反映する（null config を廃止）。",
+            "生成した pjsua_transport_id を PjsuaBackend.transport_ids に保持し、シャットダウン（§32 手順5）で破棄する。",
+            "bindgen allowlist とコード期待の整合方針（PJ_SUCCESS 等の定数、pjsua_acc_config.registrar_uri、SecretString::expose_secret、constified enum モジュール）を §27/§28 追補として文書化する。",
+            "**Scope of changes:** src/ffi/transport_wiring.rs（add）/ src/ffi/mod.rs（add）/ src/runtime/backend.rs（modify: initialize で配線）"
+          ],
+          "testUnit": [
+            "TransportConfig → (kind, bind_addr) 変換が §12 の enum に従うこと",
+            "transport_create が種別・ポートを pjsua_transport_config へ反映すること"
+          ],
+          "testIntegration": [
+            "Asterisk（docker）上で UDP(5060) トランスポート生成の実機確認"
+          ],
+          "testExceptions": [
+            "TLS トランスポートは feature=tls 時のみ"
+          ],
+          "changes": [],
+          "contracts": [
+            {
+              "id": "C092",
+              "sourceEdge": "N0080→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.11 がトランスポート配線と bindgen 方針を定義する",
+              "invariant": "トランスポート配線は §12/§27 と矛盾しない"
+            },
+            {
+              "id": "C093",
+              "sourceEdge": "N0080→N0037",
+              "precondition": "N0037 が §27 PJSIP FFI 層を定義する",
+              "postcondition": "62.11 が pjsua_transport_create への反映を規定する",
+              "invariant": "FFI 呼び出しは §62.8 の native_status 保持に従う"
+            },
+            {
+              "id": "C094",
+              "sourceEdge": "N0080→N0015",
+              "precondition": "N0015 が §12 TransportConfig を定義する",
+              "postcondition": "62.11 が config.transports の列挙と種別/ポート反映を規定する",
+              "invariant": "UDP/TCP/TLS の種別選択は §12 の enum に従う"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Registration & account lifecycle (§62.12)",
+          "nodeIds": [
+            "N0081"
+          ],
+          "scope": [
+            "register_on_start: true を add_account 時に消費し、アカウント追加直後に自動 REGISTER を発行する。",
+            "RegistrationSucceeded / RegistrationFailed を SipEventPayload から完全削除し RegistrationStateChanged に統一する（example/README 修正含む）。",
+            "remove_account は unregister 先行 → backend.remove_account → ClientState 除去 → AccountRemoved(AccountSnapshot) publish。",
+            "**Scope of changes:** src/state/reg_account_lifecycle.rs（add）/ src/runtime/reactor.rs（modify: AddAccount/RemoveAccount アーム）"
+          ],
+          "testUnit": [
+            "AddAccount で register_on_start=true のとき set_registration(true) が発行されること",
+            "RemoveAccount で set_registration(false) → remove_account → AccountRemoved の順に実行されること",
+            "RegistrationSucceeded/Failed が enum に存在しないこと"
+          ],
+          "testIntegration": [
+            "Asterisk（docker）で register_on_start による自動 REGISTER 成功（RegistrationStateChanged==Registered）",
+            "remove_account 後の unregister と AccountRemoved 受信"
+          ],
+          "testExceptions": [],
+          "changes": [],
+          "contracts": [
+            {
+              "id": "C095",
+              "sourceEdge": "N0081→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.12 が登録・アカウント経路を定義する",
+              "invariant": "登録経路は §17 の状態遷移と矛盾しない"
+            },
+            {
+              "id": "C096",
+              "sourceEdge": "N0081→N0025",
+              "precondition": "N0025 が §17 登録状態機械を定義する",
+              "postcondition": "62.12 が register_on_start 自動登録とイベント統一を規定する",
+              "invariant": "実 REGISTER 成功時のみ Registered へ遷移する"
+            },
+            {
+              "id": "C097",
+              "sourceEdge": "N0081→N0073",
+              "precondition": "N0073 が 62.4 登録状態機械の production 配線を定義する",
+              "postcondition": "62.12 が add_account 時の自動登録と AccountRemoved を追補する",
+              "invariant": "RegistrationSucceeded/Failed は残さない"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Event path completion — FFI drain / raw SIP / P1-P2 (§62.13)",
+          "nodeIds": [
+            "N0082"
+          ],
+          "scope": [
+            "FFI lock-free キューの drain タスクを reactor に追加し、NativeEvent を M20 変換器経由でイベントバスへ統合する。",
+            "subscribe_raw_sip() の受信チャネルへ RawSipMessage を供給する raw SIP publisher を実装する（on_rx_msg から）。",
+            "P1/P2 系イベント変換器（m20_native_event_conv.rs）を Some() 化する。",
+            "**Scope of changes:** src/runtime/event_path_wiring.rs（add）/ src/runtime/reactor.rs（modify: drain タスク spawn）/ src/state/m20_native_event_conv.rs（modify: Some() 化）"
+          ],
+          "testUnit": [
+            "P1/P2 変換器が Some() を返すイベント系列",
+            "raw SIP redact 規則（§16）"
+          ],
+          "testIntegration": [
+            "Asterisk（docker）からのイベント系列がバスへ publish される"
+          ],
+          "testExceptions": [
+            "raw SIP パーサの詳細出力は P0-5 スコープ"
+          ],
+          "changes": [],
+          "contracts": [
+            {
+              "id": "C098",
+              "sourceEdge": "N0082→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.13 がイベント経路の完成を定義する",
+              "invariant": "イベント経路は §15 のバス一元化と矛盾しない"
+            },
+            {
+              "id": "C099",
+              "sourceEdge": "N0082→N0037",
+              "precondition": "N0037 が §27 FFI 層を定義する",
+              "postcondition": "62.13 が FFI キュー drain タスクを規定する",
+              "invariant": "NativeEvent は M20 変換器経由でバスへ統合される"
+            },
+            {
+              "id": "C100",
+              "sourceEdge": "N0082→N0018",
+              "precondition": "N0018 が §15 イベントモデルを定義する",
+              "postcondition": "62.13 が raw SIP publisher と P1/P2 変換を規定する",
+              "invariant": "raw SIP は §16 の redact 規則に従う"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Incoming call & call events (§62.14)",
+          "nodeIds": [
+            "N0083"
+          ],
+          "scope": [
+            "IncomingCall を ClientState.calls に CallEntry（CallDirection::Incoming、account 解決）として登録する。",
+            "handle_answer を修正し、CallEntry から account_id を解決して 200 応答で CallState::Active 遷移 + CallConnected publish。",
+            "CallRejected を削除し、reject（486/603）は CallDisconnected で観測することを確定。SipCall の偽ドキュメント修正。",
+            "convert_call_state を拡張し CallState 全 13 状態へマップ。",
+            "**Scope of changes:** src/api/incoming_call_events.rs（add）/ src/runtime/reactor.rs（modify: process_incoming_call / handle_answer）/ src/state/m20_callstate_mapping.rs（modify）"
+          ],
+          "testUnit": [
+            "IncomingCall が CallEntry として登録され calls() に現れること",
+            "answer(200) が CallConnected を publish すること",
+            "reject(486/603) が CallDisconnected を publish すること",
+            "convert_call_state が CallState 全 13 状態へマップすること"
+          ],
+          "testIntegration": [
+            "Asterisk（docker）Originate/Callfile で着信 → answer(200) → CallConnected を受信"
+          ],
+          "testExceptions": [],
+          "changes": [],
+          "contracts": [
+            {
+              "id": "C101",
+              "sourceEdge": "N0083→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.14 が着信・通話イベントを定義する",
+              "invariant": "着信処理は §18/§19 の状態モデルと矛盾しない"
+            },
+            {
+              "id": "C102",
+              "sourceEdge": "N0083→N0027",
+              "precondition": "N0027 が §19 Call API を定義する",
+              "postcondition": "62.14 が answer の account 解決と CallConnected publish を規定する",
+              "invariant": "answer は 180/183/200/486/603 を受理する"
+            },
+            {
+              "id": "C103",
+              "sourceEdge": "N0083→N0048",
+              "precondition": "N0048 が §37 着信と §38 REFER を定義する",
+              "postcondition": "62.14 が IncomingCall の CallEntry 登録を追補する",
+              "invariant": "着信 call は calls() と call_state() で解決できる"
+            },
+            {
+              "id": "C104",
+              "sourceEdge": "N0083→N0022",
+              "precondition": "N0022 が M20 CallState 変換を定義する",
+              "postcondition": "62.14 が CallState 全遷移の Some() 化を参照する",
+              "invariant": "CallRejected は CallDisconnected に統一される"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "DTMF unification (§62.15)",
+          "nodeIds": [
+            "N0084"
+          ],
+          "scope": [
+            "DtmfMethod を Inband/Info/Rfc4733 の単一定義に一元化し、3 箇所の重複定義を解消。§20 の SipInfo を Info へ改名。",
+            "send_dtmf の method を pjsua_call_send_dtmf / pjsua_call_dial_dtmf へ反映。",
+            "DtmfSent{Ok} を実コールバック + 500ms タイムアウトの両経路で publish。",
+            "**Scope of changes:** src/api/dtmf_unification.rs（add）/ src/model/dtmf_spec.rs（単一定義）/ src/ffi/backend_calls.rs（modify: method 反映）"
+          ],
+          "testUnit": [
+            "DtmfMethod が単一定義で 3 バリアント（Inband/Info/Rfc4733）であること",
+            "method → PJSIP API のマッピング（Info/Rfc4733→send_dtmf, Inband→dial_dtmf）",
+            "DtmfSent{Ok} が publish されること"
+          ],
+          "testIntegration": [
+            "Asterisk（docker）で RFC4733 / SIP INFO の DTMF 送受信"
+          ],
+          "testExceptions": [],
+          "changes": [],
+          "contracts": [
+            {
+              "id": "C105",
+              "sourceEdge": "N0084→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.15 が DTMF 実装整合を定義する",
+              "invariant": "DTMF 整合は §20 の仕様と矛盾しない"
+            },
+            {
+              "id": "C106",
+              "sourceEdge": "N0084→N0028",
+              "precondition": "N0028 が §20 DTMF 仕様を定義する",
+              "postcondition": "62.15 が DtmfMethod 一元化と method 反映を規定する",
+              "invariant": "DtmfMethod は Inband/Info/Rfc4733 の単一定義"
+            },
+            {
+              "id": "C107",
+              "sourceEdge": "N0084→N0029",
+              "precondition": "N0029 が DtmfSentInfo と二相設計を定義する",
+              "postcondition": "62.15 が DtmfSent{Ok} の publish 経路を追補する",
+              "invariant": "DtmfSent は Ok/Timeout/PjsipError の 3 状態"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Media path completion — conf port / queue / WAV (§62.16)",
+          "nodeIds": [
+            "N0085"
+          ],
+          "scope": [
+            "conf port メディアコールバック（pjsua_conf_set_callback / put_frame）を実装し、キャプチャフレームを AudioTapSender::push 経由で tap レジストリへ供給。",
+            "AudioWorker の out/in_queue を消費する実 conf port コンシューマ（RustMediaPort）を実装。",
+            "make_call / answer の call connect 時に conf_connect を実行。",
+            "AudioChunkPair → WAV 変換ユーティリティ（WavWriter）と WAV ベースの AsyncAudioSource（WavFileSource）を実装。",
+            "open_default_microphone_source を独立キャプチャ source として明記。",
+            "**Scope of changes:** src/audio/media_path_wiring.rs（add）/ src/runtime/backend.rs（modify: conf callback）/ src/runtime/audio_worker.rs（modify: キュー消費）"
+          ],
+          "testUnit": [
+            "AudioChunkPair → WAV 変換（bit/hz/channel）",
+            "out/in_queue 消費と conf_connect の発行"
+          ],
+          "testIntegration": [
+            "Asterisk（docker）RTP 経由で tap 駆動と WAV 書き出し"
+          ],
+          "testExceptions": [
+            "実メディア転送は pjsua-native ビルド修復（P16-2）が前提"
+          ],
+          "changes": [],
+          "contracts": [
+            {
+              "id": "C108",
+              "sourceEdge": "N0085→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.16 がメディア経路の完成を定義する",
+              "invariant": "メディア経路は §21–§24 と矛盾しない"
+            },
+            {
+              "id": "C109",
+              "sourceEdge": "N0085→N0049",
+              "precondition": "N0049 が §39 Media Bridge を定義する",
+              "postcondition": "62.16 が conf port コールバック配線を規定する",
+              "invariant": "push_media_frame は tap を駆動する"
+            },
+            {
+              "id": "C110",
+              "sourceEdge": "N0085→N0033",
+              "precondition": "N0033 が §24 AudioMixer RT 境界を定義する",
+              "postcondition": "62.16 が out/in_queue 消費と conf_connect を規定する",
+              "invariant": "RustMediaPort がキュー唯一の消費点である"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "STUN/TURN/ICE wiring & coturn verification (§62.17)",
+          "nodeIds": [
+            "N0086"
+          ],
+          "scope": [
+            "stun_servers → pjsua_config.stun_srv、turn_servers → pjsua_config.turn_cfg、ice → pjsua_media_config の ICE 設定へ反映。",
+            "coturn（docker）で STUN binding + TURN allocate + relay メディア転送のプロトコルレベル統合テスト。",
+            "**Scope of changes:** src/config/stun_turn_ice_wiring.rs（add）/ src/ffi/backend_calls.rs（modify: apply_stun_turn / apply_ice）"
+          ],
+          "testUnit": [
+            "apply_stun_turn が stun_srv/turn_cfg へ反映すること",
+            "apply_ice が enable_ice/ice_max_host_cands/ice_aggressive へ反映すること"
+          ],
+          "testIntegration": [
+            "coturn（docker）で STUN binding + TURN allocate + relay 転送"
+          ],
+          "testExceptions": [
+            "TURN は実サーバ依存のため構造検証中心 + coturn 統合テスト"
+          ],
+          "changes": [],
+          "contracts": [
+            {
+              "id": "C111",
+              "sourceEdge": "N0086→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.17 が STUN/TURN/ICE 配線を定義する",
+              "invariant": "STUN/TURN/ICE 配線は §13 と矛盾しない"
+            },
+            {
+              "id": "C112",
+              "sourceEdge": "N0086→N0015",
+              "precondition": "N0015 が §12/§13 Transport/ICE 仕様を定義する",
+              "postcondition": "62.17 が pjsua_config への反映を規定する",
+              "invariant": "stun_srv/turn_cfg/ICE 設定は §13 の既定値に従う"
+            },
+            {
+              "id": "C113",
+              "sourceEdge": "N0086→N0070",
+              "precondition": "N0070 が 62.1 設定一本化を定義する",
+              "postcondition": "62.17 が STUN/TURN/ICE の実配線を追補する",
+              "invariant": "単一の StunServerConfig/TurnServerConfig/IceConfig を使用する"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Examples E1-E5 (§62.18)",
+          "nodeIds": [
+            "N0087"
+          ],
+          "scope": [
+            "E1 client_init / E2 account_register / E3 make_call / E4 audio_tap / E5 tts_source の 5 example を契約付きで実装。",
+            "examples/common/cli.rs（CLI パース）と examples/common/client.rs（add_account ヘルパー + AccountConfig::for_sip_uri）を実装。",
+            "**Scope of changes:** src/architecture/examples_e1e5.rs（設計）/ examples/common/cli.rs・examples/common/client.rs（add）/ examples/E1-E5（add）"
+          ],
+          "testUnit": [
+            "AccountConfig::for_sip_uri が §11.1 validation を満たすこと"
+          ],
+          "testIntegration": [
+            "Asterisk（docker）で E2 登録 / E3 発着信 / E4 tap / E5 source が完走すること"
+          ],
+          "testExceptions": [
+            "E4/E5 はメディア配線（P16-7）完了が前提"
+          ],
+          "changes": [],
+          "contracts": [
+            {
+              "id": "C114",
+              "sourceEdge": "N0087→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.18 が Examples 設計を定義する",
+              "invariant": "Examples は §41 の使用例と矛盾しない"
+            },
+            {
+              "id": "C115",
+              "sourceEdge": "N0087→N0050",
+              "precondition": "N0050 が §40/§41 使用例を定義する",
+              "postcondition": "62.18 が E1-E5 の契約を参照する",
+              "invariant": "各 example は実 Asterisk / TestBackend で検証可能"
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Docker/Asterisk integration test base (§62.19)",
+          "nodeIds": [
+            "N0088"
+          ],
+          "scope": [
+            "tests/ に #![cfg(feature = \"pjsua-native\")] ゲート付き統合テストを配置。",
+            "docker-compose.yml で Asterisk/coturn を定義し、Makefile target（make test-integration）で up → test → down。",
+            "docker 可用性ゲート（docker_available()）を実装し、不可時 [SKIPPED: docker unavailable] でスキップ。",
+            "**Scope of changes:** src/tests/docker_asterisk_it.rs（add）/ tests/sip_integration.rs（add）/ docker-compose.yml（add）/ Makefile（modify: test-integration）"
+          ],
+          "testUnit": [
+            "docker_available() が docker info の成否を返すこと"
+          ],
+          "testIntegration": [
+            "Asterisk 登録 / Originate 着信 / coturn STUN-TURN-ICE の相互接続"
+          ],
+          "testExceptions": [
+            "docker 不可時はスキップ（Q9c）"
+          ],
+          "changes": [],
+          "contracts": [
+            {
+              "id": "C116",
+              "sourceEdge": "N0088→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.19 が統合テスト基盤を定義する",
+              "invariant": "統合テスト基盤は §43/§44 と矛盾しない"
+            },
+            {
+              "id": "C117",
+              "sourceEdge": "N0088→N0052",
+              "precondition": "N0052 が §43 テスト戦略を定義する",
+              "postcondition": "62.19 が docker ゲート付き統合テストを規定する",
+              "invariant": "Layer 3/4 の実 SIP 相互接続を保証する"
+            },
+            {
+              "id": "C118",
+              "sourceEdge": "N0088→N0054",
+              "precondition": "N0054 が §44 CI/CD を定義する",
+              "postcondition": "62.19 が Asterisk/coturn コンテナ構成を規定する",
+              "invariant": "CI では docker が常に使用可能で実質必須ゲート"
+            }
+          ]
+        },
+        {
+          "id": 11,
+          "phaseId": 16,
+          "status": "todo",
+          "title": "Round-2 I/O boundary reference (§62.20)",
+          "nodeIds": [
+            "N0089"
+          ],
+          "scope": [
+            "§62.20 の I/O 境界表（10 設計判断）を IoBoundaryRow として符号化。",
+            "削除対象（RegistrationSucceeded/Failed dead code、CallRejected 経路、DtmfMethod 重複定義）を整理。",
+            "**Scope of changes:** src/architecture/io_boundary_round2.rs（add）"
+          ],
+          "testUnit": [
+            "IoBoundaryRow が各設計判断の入出力を保持すること"
+          ],
+          "testIntegration": [],
+          "testExceptions": [
+            "実装コードなし（設計基準の符号化のみ）"
+          ],
+          "changes": [],
+          "contracts": [
+            {
+              "id": "C119",
+              "sourceEdge": "N0089→N0068",
+              "precondition": "§62 親セクションが存在する",
+              "postcondition": "62.20 がラウンド 2 の I/O 境界を定義する",
+              "invariant": "I/O 境界は §61/§62.9 と整合する"
+            },
+            {
+              "id": "C120",
+              "sourceEdge": "N0089→N0078",
+              "precondition": "N0078 が 62.9 I/O 境界を定義する",
+              "postcondition": "62.20 がラウンド 2 の I/O 境界を参照する",
+              "invariant": "graphify/boundify が分割判断に使用する"
+            }
+          ]
         }
       ]
     }

@@ -1,91 +1,107 @@
 {
   "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
-  "newTickets": [
+  "newTickets": [],
+  "editedTickets": [
     {
       "id": 1,
-      "title": "Implementation Integration Framework — §62 RESIDUE resolution blueprint",
-      "nodeIds": [
-        "N0068",
-        "N0069",
-        "N0078"
-      ],
-      "status": "todo",
-      "phaseId": 15
+      "nodeId": "N0079",
+      "path": null,
+      "changes": {
+        "title": "Implementation Integration Blueprint — Round 2 Scope (§62.10)",
+        "status": "todo"
+      }
     },
     {
       "id": 2,
-      "title": "Config unification — RFC §10 ClientConfig promotion, STUN/TURN/ICE type unification, Vec-ization",
-      "nodeIds": [
-        "N0070"
-      ],
-      "status": "todo",
-      "phaseId": 15
+      "nodeId": "N0080",
+      "path": null,
+      "changes": {
+        "title": "Transport wiring & bindgen alignment (§62.11)",
+        "status": "todo"
+      }
     },
     {
       "id": 3,
-      "title": "Backend selection — PjsuaBackend full unification, MockBackend deletion, TestBackend (cfg test)",
-      "nodeIds": [
-        "N0071"
-      ],
-      "status": "todo",
-      "phaseId": 15
+      "nodeId": "N0081",
+      "path": null,
+      "changes": {
+        "title": "Registration & account lifecycle (§62.12)",
+        "status": "todo"
+      }
     },
     {
       "id": 4,
-      "title": "Event bus unification — single EventBus owned by SipClient, reactor dispatch_event direct publish",
-      "nodeIds": [
-        "N0072"
-      ],
-      "status": "todo",
-      "phaseId": 15
+      "nodeId": "N0082",
+      "path": null,
+      "changes": {
+        "title": "Event path completion — FFI drain / raw SIP / P1-P2 (§62.13)",
+        "status": "todo"
+      }
     },
     {
       "id": 5,
-      "title": "Registration state machine production wiring — typed RegistrationState, M20 converter drive, register_on_start consumption",
-      "nodeIds": [
-        "N0073"
-      ],
-      "status": "todo",
-      "phaseId": 15
+      "nodeId": "N0083",
+      "path": null,
+      "changes": {
+        "title": "Incoming call & call events (§62.14)",
+        "status": "todo"
+      }
     },
     {
       "id": 6,
-      "title": "Call API expansion — answer/hangup/hold/unhold/transfer/send_dtmf/call_state(call_id), calls() rename",
-      "nodeIds": [
-        "N0074"
-      ],
-      "status": "todo",
-      "phaseId": 15
+      "nodeId": "N0084",
+      "path": null,
+      "changes": {
+        "title": "DTMF unification (§62.15)",
+        "status": "todo"
+      }
     },
     {
       "id": 7,
-      "title": "Media path architecture — per-call AudioMixer, AudioWorkerTask spawn, ChannelSelector injection, tap push, mic source",
-      "nodeIds": [
-        "N0075"
-      ],
-      "status": "todo",
-      "phaseId": 15
+      "nodeId": "N0085",
+      "path": null,
+      "changes": {
+        "title": "Media path completion — conf port / queue / WAV (§62.16)",
+        "status": "todo"
+      }
     },
     {
       "id": 8,
-      "title": "Shutdown wiring — ShutdownSpec.execute_sequence production wiring, ClientShutdown publish, command router gate",
-      "nodeIds": [
-        "N0076"
-      ],
-      "status": "todo",
-      "phaseId": 15
+      "nodeId": "N0086",
+      "path": null,
+      "changes": {
+        "title": "STUN/TURN/ICE wiring & coturn verification (§62.17)",
+        "status": "todo"
+      }
     },
     {
       "id": 9,
-      "title": "Error native_status preservation — SipError.native_status i32, M20 converter unification on production path",
-      "nodeIds": [
-        "N0077"
-      ],
-      "status": "todo",
-      "phaseId": 15
+      "nodeId": "N0087",
+      "path": null,
+      "changes": {
+        "title": "Examples E1-E5 (§62.18)",
+        "status": "todo"
+      }
+    },
+    {
+      "id": 10,
+      "nodeId": "N0088",
+      "path": null,
+      "changes": {
+        "title": "Docker/Asterisk integration test base (§62.19)",
+        "status": "todo"
+      }
+    },
+    {
+      "id": 11,
+      "nodeId": "N0089",
+      "path": null,
+      "changes": {
+        "title": "Round-2 I/O boundary reference (§62.20)",
+        "status": "todo"
+      }
     }
   ],
-  "editedTickets": [],
   "existingStatuses": [
     {
       "id": 1,
@@ -505,6 +521,54 @@
     },
     {
       "id": 1,
+      "status": "reviewed"
+    },
+    {
+      "id": 2,
+      "status": "reviewed"
+    },
+    {
+      "id": 3,
+      "status": "reviewed"
+    },
+    {
+      "id": 1,
+      "status": "reviewed"
+    },
+    {
+      "id": 2,
+      "status": "reviewed"
+    },
+    {
+      "id": 3,
+      "status": "reviewed"
+    },
+    {
+      "id": 4,
+      "status": "reviewed"
+    },
+    {
+      "id": 5,
+      "status": "reviewed"
+    },
+    {
+      "id": 6,
+      "status": "reviewed"
+    },
+    {
+      "id": 7,
+      "status": "reviewed"
+    },
+    {
+      "id": 8,
+      "status": "reviewed"
+    },
+    {
+      "id": 9,
+      "status": "reviewed"
+    },
+    {
+      "id": 1,
       "status": "todo"
     },
     {
@@ -513,6 +577,38 @@
     },
     {
       "id": 3,
+      "status": "todo"
+    },
+    {
+      "id": 4,
+      "status": "todo"
+    },
+    {
+      "id": 5,
+      "status": "todo"
+    },
+    {
+      "id": 6,
+      "status": "todo"
+    },
+    {
+      "id": 7,
+      "status": "todo"
+    },
+    {
+      "id": 8,
+      "status": "todo"
+    },
+    {
+      "id": 9,
+      "status": "todo"
+    },
+    {
+      "id": 10,
+      "status": "todo"
+    },
+    {
+      "id": 11,
       "status": "todo"
     }
   ]

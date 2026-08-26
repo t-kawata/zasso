@@ -2,188 +2,188 @@
   "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
   "newNodes": [
     {
-      "id": "N0068",
-      "title": "§62 実装整合設計 — RESIDUE 解消のための設計判断確定",
+      "id": "N0079",
+      "title": "62.10 ラウンド 2 進化スコープと根因",
       "kind": "architecture",
-      "summary": "READ ME RESIDUE の3根因（公開API非RFC型 / Mock固定バックエンド / イベントバス分断）を解消する9設計判断の親セクション。破壊的変更を v0.x の今一度に完了させる方針。",
+      "slug": "round2_scope_rootcause",
+      "summary": "ラウンド 2 進化スコープ（H1/H5/H7/H8/H10-H15/EXAMPLES）と 5 つの根因、全体方針（完全実装 + v0.x 破壊的変更受容 + 実 Asterisk/coturn 相互接続検証）。",
       "language": "rust",
-      "slug": "impl_integration_design",
       "headingRefs": [
         {
-          "refId": "REF320",
-          "heading": 2,
-          "texts": [
-            "62. 実装整合設計 — RESIDUE 解消のための設計判断確定"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "N0069",
-      "title": "62.0 進化スコープと根因",
-      "kind": "architecture",
-      "summary": "RESIDUE 乖離の根因3点（公開 ClientConfig 非RFC型 / reactor の Mock 固定 / クライアント-react イベントバス分断）の記述。",
-      "language": "rust",
-      "slug": "evolution_scope",
-      "headingRefs": [
-        {
-          "refId": "REF321",
+          "refId": "REF364",
           "heading": 3,
           "texts": [
-            "62.0 進化スコープと根因"
+            "62.10 ラウンド 2 進化スコープと根因（H1 / H5 / H7 / H8 / H10–H15 / EXAMPLES）"
           ]
         }
       ]
     },
     {
-      "id": "N0070",
-      "title": "62.1 公開設定 API の一本化（ClientConfig / STUN/TURN/ICE）",
-      "kind": "config",
-      "summary": "RFC §10 準拠 ClientConfig を唯一の公開型に昇格し旧 config.rs 版を完全削除。StunServerConfig/TurnServerConfig の二重定義を一元化し stun_servers/turn_servers を Vec 化。§13 ICE 既定値に一致。",
-      "language": "rust",
-      "slug": "client_config_unify",
-      "headingRefs": [
-        {
-          "refId": "REF322",
-          "heading": 3,
-          "texts": [
-            "62.1 公開設定 API の一本化（ClientConfig / STUN/TURN/ICE）"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "N0071",
-      "title": "62.2 バックエンド選択機構（PjsuaBackend 完全統一・MockBackend 削除）",
+      "id": "N0080",
+      "title": "62.11 トランスポート生成配線と bindgen 整合方針",
       "kind": "architecture",
-      "summary": "本番バックエンドを pjsua-native feature 選択の PjsuaBackend に完全統一。MockBackend を削除し SipBackend trait は維持、テストは cfg(test) 専用 TestBackend で駆動。",
+      "slug": "transport_wiring",
+      "summary": "PjsuaBackend::initialize が config.transports を pjsua_transport_create へ反映し、bindgen allowlist とコード期待の整合方針を確定（Q1）。",
       "language": "rust",
-      "slug": "backend_selection",
       "headingRefs": [
         {
-          "refId": "REF323",
+          "refId": "REF365",
           "heading": 3,
           "texts": [
-            "62.2 バックエンド選択機構（PjsuaBackend 完全統一・MockBackend 削除）"
+            "62.11 本番バックエンド基盤: トランスポート生成配線と bindgen 整合方針（Q1）"
           ]
         }
       ]
     },
     {
-      "id": "N0072",
-      "title": "62.3 イベントバス一元化トポロジ",
-      "kind": "architecture",
-      "summary": "単一 EventBus を SipClient が所有し reactor の dispatch_event が直接 publish。RawSipEventConfig.enabled に応じた raw_sip チャネル生成、subscribe_account の account_id フィルタ死滅解消。",
-      "language": "rust",
-      "slug": "event_bus_unify",
-      "headingRefs": [
-        {
-          "refId": "REF324",
-          "heading": 3,
-          "texts": [
-            "62.3 イベントバス一元化トポロジ"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "N0073",
-      "title": "62.4 登録状態機械の production 配線",
+      "id": "N0081",
+      "title": "62.12 登録・アカウント経路（自動登録 / unregister 先行 / AccountRemoved）",
       "kind": "state_machine",
-      "summary": "AccountEntry.registration を typed RegistrationState に変更。M20 変換器が NativeEvent(RegistrationStateChanged) を消費し registr_state_machine を駆動。register_on_start をランタイム消費。",
+      "slug": "reg_account_lifecycle",
+      "summary": "register_on_start 自動登録の add_account 時消費、RegistrationSucceeded/Failed 削除、remove_account の unregister 先行と AccountRemoved publish（Q2）。",
       "language": "rust",
-      "slug": "registr_wiring",
       "headingRefs": [
         {
-          "refId": "REF325",
+          "refId": "REF366",
           "heading": 3,
           "texts": [
-            "62.4 登録状態機械の production 配線"
+            "62.12 登録・アカウント経路: register_on_start 自動登録 / remove_account unregister 先行 / AccountRemoved publish（Q2）"
           ]
         }
       ]
     },
     {
-      "id": "N0074",
-      "title": "62.5 公開 API 拡充（通話 API 群）",
+      "id": "N0082",
+      "title": "62.13 イベント経路の完成（FFI drain / raw SIP / P1/P2）",
+      "kind": "architecture",
+      "slug": "event_path_wiring",
+      "summary": "FFI lock-free キュー drain タスク、raw SIP publisher、P1/P2 変換器 Some() 化（Q3）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF367",
+          "heading": 3,
+          "texts": [
+            "62.13 イベント経路の完成: FFI キュー drain / raw SIP publisher / P1/P2 変換器（Q3）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0083",
+      "title": "62.14 着信・通話イベント（CallEntry / answer / CallRejected / CallState）",
       "kind": "api_contract",
-      "summary": "SipClient に answer(180/183/200/486/603)/hangup/hold/unhold/transfer/send_dtmf/call_state(call_id) を追加。旧 call_state() は calls() に改名。unsubscribe は drop 依存を明文化。",
+      "slug": "incoming_call_events",
+      "summary": "IncomingCall の CallEntry 登録、handle_answer の account 解決と CallConnected publish、CallRejected 統一、CallState 全遷移マッピング（Q4）。",
       "language": "rust",
-      "slug": "call_api_expansion",
       "headingRefs": [
         {
-          "refId": "REF326",
+          "refId": "REF368",
           "heading": 3,
           "texts": [
-            "62.5 公開 API 拡充（通話 API 群）"
+            "62.14 着信・通話イベント: IncomingCall CallEntry 登録 / answer 修正 / CallRejected 統一 / CallState 全遷移（Q4）"
           ]
         }
       ]
     },
     {
-      "id": "N0075",
-      "title": "62.6 メディア経路アーキテクチャと統一音声注入",
+      "id": "N0084",
+      "title": "62.15 DTMF 実装整合（DtmfMethod 一元化 / method / DtmfSent）",
+      "kind": "api_contract",
+      "slug": "dtmf_unification",
+      "summary": "DtmfMethod 単一定義（Inband/Info/Rfc4733）、method の PJSIP 送信反映、DtmfSent{Ok} publish 経路（Q5）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF369",
+          "heading": 3,
+          "texts": [
+            "62.15 DTMF 実装整合: DtmfMethod 一元化 / method 反映 / DtmfSent{Ok} 経路（Q5）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0085",
+      "title": "62.16 メディア経路の完成（conf port / キュー消費 / WAV）",
       "kind": "architecture",
-      "summary": "per-call AudioMixer + 初期化時 AudioWorkerTask spawn。AddAudioSource に call_id と channels: ChannelSelector(IN/OUT/BOTH) を付与し統一注入 API 化。tap push を production から呼ぶ。",
+      "slug": "media_path_wiring",
+      "summary": "conf port コールバック→push_media_frame、out/in_queue 消費（RustMediaPort）、conf_connect、WAV/ファイル source（Q6）。",
       "language": "rust",
-      "slug": "media_path_arch",
       "headingRefs": [
         {
-          "refId": "REF327",
+          "refId": "REF370",
           "heading": 3,
           "texts": [
-            "62.6 メディア経路アーキテクチャと統一音声注入"
+            "62.16 メディア経路の完成: conf port コールバック / キュー消費 / conf_connect / WAV・ファイル source（Q6）"
           ]
         }
       ]
     },
     {
-      "id": "N0076",
-      "title": "62.7 シャットダウン手順の production 配線",
-      "kind": "state_machine",
-      "summary": "reactor Shutdown アームから ShutdownSpec.execute_sequence を実行（BYE/CANCEL→unregister→audio drain→pjsua_destroy）。ClientShutdown publish、ShutdownCommandRouter を is_shutting_down ゲートで接続。",
+      "id": "N0086",
+      "title": "62.17 STUN/TURN/ICE 配線と coturn 検証",
+      "kind": "config",
+      "slug": "stun_turn_ice_wiring",
+      "summary": "stun_servers/turn_servers/ice の pjsua_config/pjsua_media_config 反映と coturn プロトコルレベル検証（Q7/Q7a）。",
       "language": "rust",
-      "slug": "shutdown_wiring",
       "headingRefs": [
         {
-          "refId": "REF328",
+          "refId": "REF371",
           "heading": 3,
           "texts": [
-            "62.7 シャットダウン手順の production 配線"
+            "62.17 STUN/TURN/ICE 配線と coturn プロトコルレベル検証（Q7 / Q7a）"
           ]
         }
       ]
     },
     {
-      "id": "N0077",
-      "title": "62.8 エラー変換の native_status 保持",
-      "kind": "error_policy",
-      "summary": "SipError に native_status: Option<i32> を保持。M20 converter を reactor 経路で呼び出し pjsua_status→native_status 写像を §14.1 準拠で一元化。文字列埋め込み排除。",
-      "language": "rust",
-      "slug": "error_native_status",
-      "headingRefs": [
-        {
-          "refId": "REF329",
-          "heading": 3,
-          "texts": [
-            "62.8 エラー変換の native_status 保持"
-          ]
-        }
-      ]
-    },
-    {
-      "id": "N0078",
-      "title": "62.9 I/O 境界参照情報（graphify / boundify 用）",
+      "id": "N0087",
+      "title": "62.18 Examples 設計（E1–E5）",
       "kind": "architecture",
-      "summary": "各設計判断の入力/出力境界と関連 GRAPH ノード、boundify が Prune する削除対象ファイルの一覧。",
+      "slug": "examples_e1e5",
+      "summary": "E1-E5 の 5 example バイナリ定義、共通 cli.rs/client.rs、各契約と検証（Q8）。",
       "language": "rust",
-      "slug": "io_boundary_62",
       "headingRefs": [
         {
-          "refId": "REF330",
+          "refId": "REF372",
           "heading": 3,
           "texts": [
-            "62.9 I/O 境界参照情報（graphify / boundify 用）"
+            "62.18 Examples 設計: E1–E5 の確定（Q8）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0088",
+      "title": "62.19 Docker/Asterisk 実 SIP 統合テスト基盤",
+      "kind": "test_policy",
+      "slug": "docker_asterisk_it",
+      "summary": "pjsua-native feature ゲートの統合テスト、docker-compose の Asterisk/coturn、docker 可用性ゲートのスキップ意味論（Q9/Q9a-c）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF373",
+          "heading": 3,
+          "texts": [
+            "62.19 Docker/Asterisk 実 SIP 統合テスト基盤（Q9 / Q9a-c）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0089",
+      "title": "62.20 I/O 境界参照情報",
+      "kind": "architecture",
+      "slug": "io_boundary_round2",
+      "summary": "ラウンド 2 の各設計判断の I/O 境界と関連ノード/ファイル候補、boundify が Prune する削除対象。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF374",
+          "heading": 3,
+          "texts": [
+            "62.20 I/O 境界参照情報（graphify / boundify 用）"
           ]
         }
       ]
@@ -192,7 +192,7 @@
   "modifiedNodes": [],
   "newEdges": [
     {
-      "from": "N0069",
+      "from": "N0079",
       "to": "N0068",
       "type": "part_of",
       "attributes": {
@@ -201,32 +201,15 @@
       },
       "contracts": [
         {
-          "id": "C069",
-          "precondition": "§62 進化スコープが定義される",
-          "postcondition": "62.0 が §62 の一部として記述される",
-          "invariant": "根因3点の記述は §62 の他の節と整合する"
-        }
-      ]
-    },
-    {
-      "from": "N0070",
-      "to": "N0068",
-      "type": "part_of",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      },
-      "contracts": [
-        {
-          "id": "C070",
+          "id": "C091",
           "precondition": "§62 親セクションが存在する",
-          "postcondition": "62.1 が §62 の一部として記述される",
-          "invariant": "設定一本化は §10/§13 と矛盾しない"
+          "postcondition": "62.10 がラウンド 2 スコープを定義する",
+          "invariant": "進化スコープは §62.1–62.9 と矛盾しない"
         }
       ]
     },
     {
-      "from": "N0071",
+      "from": "N0080",
       "to": "N0068",
       "type": "part_of",
       "attributes": {
@@ -235,152 +218,16 @@
       },
       "contracts": [
         {
-          "id": "C071",
+          "id": "C092",
           "precondition": "§62 親セクションが存在する",
-          "postcondition": "62.2 が §62 の一部として記述される",
-          "invariant": "バックエンド選択は §3.1/§27a と整合する"
+          "postcondition": "62.11 がトランスポート配線と bindgen 方針を定義する",
+          "invariant": "トランスポート配線は §12/§27 と矛盾しない"
         }
       ]
     },
     {
-      "from": "N0072",
-      "to": "N0068",
-      "type": "part_of",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      },
-      "contracts": [
-        {
-          "id": "C072",
-          "precondition": "§62 親セクションが存在する",
-          "postcondition": "62.3 が §62 の一部として記述される",
-          "invariant": "イベントバス一元化は §15.6 と整合する"
-        }
-      ]
-    },
-    {
-      "from": "N0073",
-      "to": "N0068",
-      "type": "part_of",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      },
-      "contracts": [
-        {
-          "id": "C073",
-          "precondition": "§62 親セクションが存在する",
-          "postcondition": "62.4 が §62 の一部として記述される",
-          "invariant": "登録状態機械は §17/§33 と整合する"
-        }
-      ]
-    },
-    {
-      "from": "N0074",
-      "to": "N0068",
-      "type": "part_of",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      },
-      "contracts": [
-        {
-          "id": "C074",
-          "precondition": "§62 親セクションが存在する",
-          "postcondition": "62.5 が §62 の一部として記述される",
-          "invariant": "公開 API 拡充は §19/§20 と整合する"
-        }
-      ]
-    },
-    {
-      "from": "N0075",
-      "to": "N0068",
-      "type": "part_of",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      },
-      "contracts": [
-        {
-          "id": "C075",
-          "precondition": "§62 親セクションが存在する",
-          "postcondition": "62.6 が §62 の一部として記述される",
-          "invariant": "メディア経路は §22/§24 と整合する"
-        }
-      ]
-    },
-    {
-      "from": "N0076",
-      "to": "N0068",
-      "type": "part_of",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      },
-      "contracts": [
-        {
-          "id": "C076",
-          "precondition": "§62 親セクションが存在する",
-          "postcondition": "62.7 が §62 の一部として記述される",
-          "invariant": "シャットダウン手順は §32 と整合する"
-        }
-      ]
-    },
-    {
-      "from": "N0077",
-      "to": "N0068",
-      "type": "part_of",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      },
-      "contracts": [
-        {
-          "id": "C077",
-          "precondition": "§62 親セクションが存在する",
-          "postcondition": "62.8 が §62 の一部として記述される",
-          "invariant": "エラー変換は §14.1 と整合する"
-        }
-      ]
-    },
-    {
-      "from": "N0078",
-      "to": "N0068",
-      "type": "part_of",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      },
-      "contracts": [
-        {
-          "id": "C078",
-          "precondition": "§62 親セクションが存在する",
-          "postcondition": "62.9 が §62 の一部として記述される",
-          "invariant": "I/O 境界参照は §61 の情報と整合する"
-        }
-      ]
-    },
-    {
-      "from": "N0069",
-      "to": "N0013",
-      "type": "references",
-      "attributes": {
-        "strength": "soft",
-        "bidirectional": false
-      },
-      "contracts": [
-        {
-          "id": "C079",
-          "precondition": "進化スコープが設定乖離を言及する",
-          "postcondition": "62.0 が N0013 の乖離を参照する",
-          "invariant": "公開 ClientConfig が RFC 型でない根因が記述される"
-        }
-      ]
-    },
-    {
-      "from": "N0070",
-      "to": "N0013",
+      "from": "N0080",
+      "to": "N0037",
       "type": "extends",
       "attributes": {
         "strength": "soft",
@@ -388,15 +235,15 @@
       },
       "contracts": [
         {
-          "id": "C080",
-          "precondition": "N0013 が §10 ClientConfig を定義する",
-          "postcondition": "62.1 が ClientConfig 一本化を規定する",
-          "invariant": "RFC §10 型が唯一の公開型として残る"
+          "id": "C093",
+          "precondition": "N0037 が §27 PJSIP FFI 層を定義する",
+          "postcondition": "62.11 が pjsua_transport_create への反映を規定する",
+          "invariant": "FFI 呼び出しは §62.8 の native_status 保持に従う"
         }
       ]
     },
     {
-      "from": "N0070",
+      "from": "N0080",
       "to": "N0015",
       "type": "extends",
       "attributes": {
@@ -405,16 +252,50 @@
       },
       "contracts": [
         {
-          "id": "C081",
-          "precondition": "N0015 が §12/§13 の transport/ICE/STUN/TURN を定義する",
-          "postcondition": "62.1 が StunServerConfig/TurnServerConfig 一元化と Vec 化を規定する",
-          "invariant": "二重定義が解消され §13 既定値と一致する"
+          "id": "C094",
+          "precondition": "N0015 が §12 TransportConfig を定義する",
+          "postcondition": "62.11 が config.transports の列挙と種別/ポート反映を規定する",
+          "invariant": "UDP/TCP/TLS の種別選択は §12 の enum に従う"
         }
       ]
     },
     {
-      "from": "N0071",
-      "to": "N0037",
+      "from": "N0081",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C095",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.12 が登録・アカウント経路を定義する",
+          "invariant": "登録経路は §17 の状態遷移と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0081",
+      "to": "N0025",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C096",
+          "precondition": "N0025 が §17 登録状態機械を定義する",
+          "postcondition": "62.12 が register_on_start 自動登録とイベント統一を規定する",
+          "invariant": "実 REGISTER 成功時のみ Registered へ遷移する"
+        }
+      ]
+    },
+    {
+      "from": "N0081",
+      "to": "N0073",
       "type": "refines",
       "attributes": {
         "strength": "soft",
@@ -422,32 +303,49 @@
       },
       "contracts": [
         {
-          "id": "C082",
-          "precondition": "N0037 が §27 PJSIP FFI 層と SipBackend を定義する",
-          "postcondition": "62.2 が PjsuaBackend 完全統一と MockBackend 削除を規定する",
-          "invariant": "SipBackend trait は維持される"
+          "id": "C097",
+          "precondition": "N0073 が 62.4 登録状態機械の production 配線を定義する",
+          "postcondition": "62.12 が add_account 時の自動登録と AccountRemoved を追補する",
+          "invariant": "RegistrationSucceeded/Failed は残さない"
         }
       ]
     },
     {
-      "from": "N0071",
-      "to": "N0052",
-      "type": "references",
+      "from": "N0082",
+      "to": "N0068",
+      "type": "part_of",
       "attributes": {
         "strength": "soft",
         "bidirectional": false
       },
       "contracts": [
         {
-          "id": "C083",
-          "precondition": "N0052 が §43 4層テスト戦略を定義する",
-          "postcondition": "62.2 が MockBackend 削除後の TestBackend 戦略を参照する",
-          "invariant": "Layer 2 決定性テストが PJSIP 不要のまま維持される"
+          "id": "C098",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.13 がイベント経路の完成を定義する",
+          "invariant": "イベント経路は §15 のバス一元化と矛盾しない"
         }
       ]
     },
     {
-      "from": "N0072",
+      "from": "N0082",
+      "to": "N0037",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C099",
+          "precondition": "N0037 が §27 FFI 層を定義する",
+          "postcondition": "62.13 が FFI キュー drain タスクを規定する",
+          "invariant": "NativeEvent は M20 変換器経由でバスへ統合される"
+        }
+      ]
+    },
+    {
+      "from": "N0082",
       "to": "N0018",
       "type": "extends",
       "attributes": {
@@ -456,32 +354,32 @@
       },
       "contracts": [
         {
-          "id": "C084",
-          "precondition": "N0018 が §15 イベントモデルと EventBus を定義する",
-          "postcondition": "62.3 が単一 EventBus 一元化と dispatch_event 直 publish を規定する",
-          "invariant": "subscribe_account のフィルタ死滅が解消される"
+          "id": "C100",
+          "precondition": "N0018 が §15 イベントモデルを定義する",
+          "postcondition": "62.13 が raw SIP publisher と P1/P2 変換を規定する",
+          "invariant": "raw SIP は §16 の redact 規則に従う"
         }
       ]
     },
     {
-      "from": "N0073",
-      "to": "N0025",
-      "type": "refines",
+      "from": "N0083",
+      "to": "N0068",
+      "type": "part_of",
       "attributes": {
         "strength": "soft",
         "bidirectional": false
       },
       "contracts": [
         {
-          "id": "C085",
-          "precondition": "N0025 が §17 登録状態機械を定義する",
-          "postcondition": "62.4 が typed RegistrationState と M20 変換器駆動を規定する",
-          "invariant": "実 REGISTER 成功時のみ Registered へ遷移する"
+          "id": "C101",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.14 が着信・通話イベントを定義する",
+          "invariant": "着信処理は §18/§19 の状態モデルと矛盾しない"
         }
       ]
     },
     {
-      "from": "N0074",
+      "from": "N0083",
       "to": "N0027",
       "type": "extends",
       "attributes": {
@@ -490,15 +388,134 @@
       },
       "contracts": [
         {
-          "id": "C086",
-          "precondition": "N0027 が §19 発着信 API 詳細を定義する",
-          "postcondition": "62.5 が answer/hangup/hold/unhold/transfer/call_state(call_id) 追加を規定する",
-          "invariant": "answer が 180/183/200/486/603 を受理する"
+          "id": "C102",
+          "precondition": "N0027 が §19 Call API を定義する",
+          "postcondition": "62.14 が answer の account 解決と CallConnected publish を規定する",
+          "invariant": "answer は 180/183/200/486/603 を受理する"
         }
       ]
     },
     {
-      "from": "N0075",
+      "from": "N0083",
+      "to": "N0048",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C103",
+          "precondition": "N0048 が §37 着信と §38 REFER を定義する",
+          "postcondition": "62.14 が IncomingCall の CallEntry 登録を追補する",
+          "invariant": "着信 call は calls() と call_state() で解決できる"
+        }
+      ]
+    },
+    {
+      "from": "N0083",
+      "to": "N0022",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C104",
+          "precondition": "N0022 が M20 CallState 変換を定義する",
+          "postcondition": "62.14 が CallState 全遷移の Some() 化を参照する",
+          "invariant": "CallRejected は CallDisconnected に統一される"
+        }
+      ]
+    },
+    {
+      "from": "N0084",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C105",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.15 が DTMF 実装整合を定義する",
+          "invariant": "DTMF 整合は §20 の仕様と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0084",
+      "to": "N0028",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C106",
+          "precondition": "N0028 が §20 DTMF 仕様を定義する",
+          "postcondition": "62.15 が DtmfMethod 一元化と method 反映を規定する",
+          "invariant": "DtmfMethod は Inband/Info/Rfc4733 の単一定義"
+        }
+      ]
+    },
+    {
+      "from": "N0084",
+      "to": "N0029",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C107",
+          "precondition": "N0029 が DtmfSentInfo と二相設計を定義する",
+          "postcondition": "62.15 が DtmfSent{Ok} の publish 経路を追補する",
+          "invariant": "DtmfSent は Ok/Timeout/PjsipError の 3 状態"
+        }
+      ]
+    },
+    {
+      "from": "N0085",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C108",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.16 がメディア経路の完成を定義する",
+          "invariant": "メディア経路は §21–§24 と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0085",
+      "to": "N0049",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C109",
+          "precondition": "N0049 が §39 Media Bridge を定義する",
+          "postcondition": "62.16 が conf port コールバック配線を規定する",
+          "invariant": "push_media_frame は tap を駆動する"
+        }
+      ]
+    },
+    {
+      "from": "N0085",
       "to": "N0033",
       "type": "extends",
       "attributes": {
@@ -507,33 +524,33 @@
       },
       "contracts": [
         {
-          "id": "C087",
-          "precondition": "N0033 が §24 AudioMixer リアルタイム境界を定義する",
-          "postcondition": "62.6 が per-call AudioMixer と ChannelSelector 統一注入を規定する",
-          "invariant": "IN/OUT/BOTH が独立経路として分岐する"
+          "id": "C110",
+          "precondition": "N0033 が §24 AudioMixer RT 境界を定義する",
+          "postcondition": "62.16 が out/in_queue 消費と conf_connect を規定する",
+          "invariant": "RustMediaPort がキュー唯一の消費点である"
         }
       ]
     },
     {
-      "from": "N0076",
-      "to": "N0043",
-      "type": "refines",
+      "from": "N0086",
+      "to": "N0068",
+      "type": "part_of",
       "attributes": {
         "strength": "soft",
         "bidirectional": false
       },
       "contracts": [
         {
-          "id": "C088",
-          "precondition": "N0043 が §32 Shutdown 仕様を定義する",
-          "postcondition": "62.7 が ShutdownSpec.execute_sequence の production 配線を規定する",
-          "invariant": "BYE/CANCEL→unregister→audio drain→pjsua_destroy の順序が保証される"
+          "id": "C111",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.17 が STUN/TURN/ICE 配線を定義する",
+          "invariant": "STUN/TURN/ICE 配線は §13 と矛盾しない"
         }
       ]
     },
     {
-      "from": "N0077",
-      "to": "N0016",
+      "from": "N0086",
+      "to": "N0015",
       "type": "extends",
       "attributes": {
         "strength": "soft",
@@ -541,16 +558,50 @@
       },
       "contracts": [
         {
-          "id": "C089",
-          "precondition": "N0016 が §14 SipError を定義する",
-          "postcondition": "62.8 が native_status: Option<i32> 保持と M20 converter 一元化を規定する",
-          "invariant": "reactor 経路の変換で native_status が喪失しない"
+          "id": "C112",
+          "precondition": "N0015 が §12/§13 Transport/ICE 仕様を定義する",
+          "postcondition": "62.17 が pjsua_config への反映を規定する",
+          "invariant": "stun_srv/turn_cfg/ICE 設定は §13 の既定値に従う"
         }
       ]
     },
     {
-      "from": "N0078",
-      "to": "N0067",
+      "from": "N0086",
+      "to": "N0070",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C113",
+          "precondition": "N0070 が 62.1 設定一本化を定義する",
+          "postcondition": "62.17 が STUN/TURN/ICE の実配線を追補する",
+          "invariant": "単一の StunServerConfig/TurnServerConfig/IceConfig を使用する"
+        }
+      ]
+    },
+    {
+      "from": "N0087",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C114",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.18 が Examples 設計を定義する",
+          "invariant": "Examples は §41 の使用例と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0087",
+      "to": "N0050",
       "type": "references",
       "attributes": {
         "strength": "soft",
@@ -558,10 +609,95 @@
       },
       "contracts": [
         {
-          "id": "C090",
-          "precondition": "N0067 が §61 I/O 境界参照情報を定義する",
-          "postcondition": "62.9 が各設計判断の I/O 境界を参照可能にする",
-          "invariant": "分割判断が既存の境界情報と矛盾しない"
+          "id": "C115",
+          "precondition": "N0050 が §40/§41 使用例を定義する",
+          "postcondition": "62.18 が E1-E5 の契約を参照する",
+          "invariant": "各 example は実 Asterisk / TestBackend で検証可能"
+        }
+      ]
+    },
+    {
+      "from": "N0088",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C116",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.19 が統合テスト基盤を定義する",
+          "invariant": "統合テスト基盤は §43/§44 と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0088",
+      "to": "N0052",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C117",
+          "precondition": "N0052 が §43 テスト戦略を定義する",
+          "postcondition": "62.19 が docker ゲート付き統合テストを規定する",
+          "invariant": "Layer 3/4 の実 SIP 相互接続を保証する"
+        }
+      ]
+    },
+    {
+      "from": "N0088",
+      "to": "N0054",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C118",
+          "precondition": "N0054 が §44 CI/CD を定義する",
+          "postcondition": "62.19 が Asterisk/coturn コンテナ構成を規定する",
+          "invariant": "CI では docker が常に使用可能で実質必須ゲート"
+        }
+      ]
+    },
+    {
+      "from": "N0089",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C119",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.20 がラウンド 2 の I/O 境界を定義する",
+          "invariant": "I/O 境界は §61/§62.9 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0089",
+      "to": "N0078",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C120",
+          "precondition": "N0078 が 62.9 I/O 境界を定義する",
+          "postcondition": "62.20 がラウンド 2 の I/O 境界を参照する",
+          "invariant": "graphify/boundify が分割判断に使用する"
         }
       ]
     }

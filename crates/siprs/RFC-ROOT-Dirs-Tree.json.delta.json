@@ -2,136 +2,70 @@
   "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
   "newFiles": [
     {
-      "path": "src/config/client_config_unify.rs",
+      "path": "src/config/stun_turn_ice_wiring.rs",
       "kind": "config",
-      "nodeId": "N0070",
-      "title": "62.1 公開設定 API の一本化（ClientConfig / STUN/TURN/ICE）"
+      "nodeId": "N0086",
+      "title": "62.17 STUN/TURN/ICE 配線と coturn 検証"
     },
     {
-      "path": "src/api/event_bus_guarantees.rs",
-      "kind": "architecture",
-      "nodeId": "N0020",
-      "title": "§15.6-15.7 Event Bus Design Decisions & Delivery Guarantees"
-    },
-    {
-      "path": "src/api/http_ws_crate_split.rs",
-      "kind": "architecture",
-      "nodeId": "N0059",
-      "title": "§52 HTTP/WebSocket API Layer & Crate Split"
-    },
-    {
-      "path": "src/api/event_bus_unify.rs",
-      "kind": "architecture",
-      "nodeId": "N0072",
-      "title": "62.3 イベントバス一元化トポロジ"
-    },
-    {
-      "path": "src/api/call_api_expansion.rs",
+      "path": "src/api/incoming_call_events.rs",
       "kind": "api_contract",
-      "nodeId": "N0074",
-      "title": "62.5 公開 API 拡充（通話 API 群）"
+      "nodeId": "N0083",
+      "title": "62.14 着信・通話イベント"
     },
     {
-      "path": "src/model/audio_aligner.rs",
-      "kind": "architecture",
-      "nodeId": "N0035",
-      "title": "§25 IN/OUT Pair Alignment Algorithm"
+      "path": "src/api/dtmf_unification.rs",
+      "kind": "api_contract",
+      "nodeId": "N0084",
+      "title": "62.15 DTMF 実装整合"
     },
     {
-      "path": "src/model/audio_resampler.rs",
-      "kind": "architecture",
-      "nodeId": "N0036",
-      "title": "§26 Resampler Design & Stereo Mapping"
-    },
-    {
-      "path": "src/model/media_bridge.rs",
-      "kind": "architecture",
-      "nodeId": "N0049",
-      "title": "§39 Media Bridge & PJSUA Conference Port"
-    },
-    {
-      "path": "src/error/error_native_status.rs",
-      "kind": "error_policy",
-      "nodeId": "N0077",
-      "title": "62.8 エラー変換の native_status 保持"
-    },
-    {
-      "path": "src/state/registr_wiring.rs",
+      "path": "src/state/reg_account_lifecycle.rs",
       "kind": "state_machine",
-      "nodeId": "N0073",
-      "title": "62.4 登録状態機械の production 配線"
+      "nodeId": "N0081",
+      "title": "62.12 登録・アカウント経路"
     },
     {
-      "path": "src/state/shutdown_wiring.rs",
-      "kind": "state_machine",
-      "nodeId": "N0076",
-      "title": "62.7 シャットダウン手順の production 配線"
+      "path": "src/tests/docker_asterisk_it.rs",
+      "kind": "test_policy",
+      "nodeId": "N0088",
+      "title": "62.19 Docker/Asterisk 実 SIP 統合テスト基盤"
     },
     {
-      "path": "src/runtime/mod.rs",
+      "path": "src/runtime/event_path_wiring.rs",
       "kind": "architecture",
-      "nodeId": "N0009",
-      "title": "§7 Concurrency Model & Execution Contexts"
+      "nodeId": "N0082",
+      "title": "62.13 イベント経路の完成"
     },
     {
-      "path": "src/runtime/audioworker_lifecycle.rs",
+      "path": "src/audio/media_path_wiring.rs",
       "kind": "architecture",
-      "nodeId": "N0034",
-      "title": "§24.3 AudioWorkerTask & Source Lifecycle"
+      "nodeId": "N0085",
+      "title": "62.16 メディア経路の完成"
     },
     {
-      "path": "src/runtime/runtime_state_lock_rules.rs",
+      "path": "src/ffi/transport_wiring.rs",
       "kind": "architecture",
-      "nodeId": "N0045",
-      "title": "§33 Runtime Internal State & Lock Rules"
+      "nodeId": "N0080",
+      "title": "62.11 トランスポート生成配線と bindgen 整合方針"
     },
     {
-      "path": "src/runtime/backend_selection.rs",
+      "path": "src/architecture/round2_scope_rootcause.rs",
       "kind": "architecture",
-      "nodeId": "N0071",
-      "title": "62.2 バックエンド選択機構（PjsuaBackend 完全統一・MockBackend 削除）"
+      "nodeId": "N0079",
+      "title": "62.10 ラウンド 2 進化スコープと根因"
     },
     {
-      "path": "src/audio/audiomixer_rt_boundary.rs",
+      "path": "src/architecture/examples_e1e5.rs",
       "kind": "architecture",
-      "nodeId": "N0033",
-      "title": "§24 AudioMixer Design & Real-Time Boundary"
+      "nodeId": "N0087",
+      "title": "62.18 Examples 設計"
     },
     {
-      "path": "src/audio/media_path_arch.rs",
+      "path": "src/architecture/io_boundary_round2.rs",
       "kind": "architecture",
-      "nodeId": "N0075",
-      "title": "62.6 メディア経路アーキテクチャと統一音声注入"
-    },
-    {
-      "path": "src/ffi/pjsip_ffi_layer.rs",
-      "kind": "architecture",
-      "nodeId": "N0037",
-      "title": "§27 PJSIP FFI Layer Architecture"
-    },
-    {
-      "path": "src/ffi/m20_dual_client_routing.rs",
-      "kind": "architecture",
-      "nodeId": "N0038",
-      "title": "§27 M20 Dual Client PJSIP Callback Routing"
-    },
-    {
-      "path": "src/architecture/crate_scope.rs",
-      "kind": "architecture",
-      "nodeId": "N0001",
-      "title": "§1 Purpose — Responsibilities of this crate"
-    },
-    {
-      "path": "src/architecture/policy_reference.rs",
-      "kind": "architecture",
-      "nodeId": "N0060",
-      "title": "§52.2-52.4 License & Multi-Instance Policy"
-    },
-    {
-      "path": "src/architecture/impl_integration_design.rs",
-      "kind": "architecture",
-      "nodeId": "N0068",
-      "title": "§62 実装整合設計 — RESIDUE 解消のための設計判断確定"
+      "nodeId": "N0089",
+      "title": "62.20 I/O 境界参照情報"
     }
   ],
   "modifiedFiles": [],
@@ -178,6 +112,10 @@
     },
     {
       "path": "src/config/client_config_unify.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/config/stun_turn_ice_wiring.rs",
       "kind": "missing"
     },
     {
@@ -238,6 +176,14 @@
     },
     {
       "path": "src/api/call_api_expansion.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/incoming_call_events.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/dtmf_unification.rs",
       "kind": "missing"
     },
     {
@@ -325,6 +271,10 @@
       "kind": "missing"
     },
     {
+      "path": "src/state/reg_account_lifecycle.rs",
+      "kind": "missing"
+    },
+    {
       "path": "src/build/build_strategy_os_deps.rs",
       "kind": "missing"
     },
@@ -353,6 +303,10 @@
       "kind": "missing"
     },
     {
+      "path": "src/tests/docker_asterisk_it.rs",
+      "kind": "missing"
+    },
+    {
       "path": "src/runtime/mod.rs",
       "kind": "missing"
     },
@@ -369,6 +323,10 @@
       "kind": "missing"
     },
     {
+      "path": "src/runtime/event_path_wiring.rs",
+      "kind": "missing"
+    },
+    {
       "path": "src/audio/audiomixer_rt_boundary.rs",
       "kind": "missing"
     },
@@ -377,11 +335,19 @@
       "kind": "missing"
     },
     {
+      "path": "src/audio/media_path_wiring.rs",
+      "kind": "missing"
+    },
+    {
       "path": "src/ffi/pjsip_ffi_layer.rs",
       "kind": "missing"
     },
     {
       "path": "src/ffi/m20_dual_client_routing.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/ffi/transport_wiring.rs",
       "kind": "missing"
     },
     {
@@ -397,6 +363,18 @@
       "kind": "missing"
     },
     {
+      "path": "src/architecture/round2_scope_rootcause.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/examples_e1e5.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/io_boundary_round2.rs",
+      "kind": "missing"
+    },
+    {
       "path": "account.rs",
       "kind": "extra"
     },
@@ -406,6 +384,10 @@
     },
     {
       "path": "api/audio_subscribe_bp.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/call_api_expansion.rs",
       "kind": "extra"
     },
     {
@@ -421,11 +403,23 @@
       "kind": "extra"
     },
     {
+      "path": "api/event_bus_guarantees.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/event_bus_unify.rs",
+      "kind": "extra"
+    },
+    {
       "path": "api/event_model_payload_bus.rs",
       "kind": "extra"
     },
     {
       "path": "api/eventbus_receiver.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/http_ws_crate_split.rs",
       "kind": "extra"
     },
     {
@@ -450,6 +444,30 @@
     },
     {
       "path": "api/standalone_server_config.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/crate_scope.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/impl_integration_design.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/mod.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/policy_reference.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "audio/audiomixer_rt_boundary.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "audio/media_path_arch.rs",
       "kind": "extra"
     },
     {
@@ -485,11 +503,19 @@
       "kind": "extra"
     },
     {
+      "path": "concurrency_contexts/command_serialization.rs",
+      "kind": "extra"
+    },
+    {
       "path": "config/account_config_spec.rs",
       "kind": "extra"
     },
     {
       "path": "config/client_config_spec.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config/client_config_unify.rs",
       "kind": "extra"
     },
     {
@@ -533,6 +559,10 @@
       "kind": "extra"
     },
     {
+      "path": "error/error_native_status.rs",
+      "kind": "extra"
+    },
+    {
       "path": "error/m20_runtime_command_error.rs",
       "kind": "extra"
     },
@@ -561,11 +591,19 @@
       "kind": "extra"
     },
     {
+      "path": "ffi/m20_dual_client_routing.rs",
+      "kind": "extra"
+    },
+    {
       "path": "ffi/mod.rs",
       "kind": "extra"
     },
     {
       "path": "ffi/pj_str.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/pjsip_ffi_layer.rs",
       "kind": "extra"
     },
     {
@@ -613,7 +651,15 @@
       "kind": "extra"
     },
     {
+      "path": "runtime/audioworker_lifecycle.rs",
+      "kind": "extra"
+    },
+    {
       "path": "runtime/backend.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/backend_selection.rs",
       "kind": "extra"
     },
     {
@@ -630,6 +676,10 @@
     },
     {
       "path": "runtime/reactor.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/runtime_state_lock_rules.rs",
       "kind": "extra"
     },
     {
@@ -673,7 +723,15 @@
       "kind": "extra"
     },
     {
+      "path": "state/registr_wiring.rs",
+      "kind": "extra"
+    },
+    {
       "path": "state/shutdown_specification.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "state/shutdown_wiring.rs",
       "kind": "extra"
     },
     {

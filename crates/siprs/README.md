@@ -1,361 +1,397 @@
 # RFC-ROOT
 
-> 対象 RFC: /Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT.md
-> 生成グラフ: /Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json
+> 対象 RFC: /Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT.md
+> 生成グラフ: /Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json
 
 # クイックスタート（SipClient 初期化と最初のステップ）
 
 トランスポート（UDP/TCP/TLS）と STUN を設定した実用的な初期化コード
 
 <::README-RESIDUE::>
-
 ## RESIDUE — 完全記述の作成不可
 
 ### 証拠（欠落・矛盾・危険）
 
-- 確認済み内容は「トランスポート（UDP/TCP/TLS）と STUN を設定した実用的な初期化コード」。RFC §41.1 の使用例は `TransportConfig::udp(5060)` と `stun_servers: vec![...]` を用いるが、**公開 `ClientConfig`（`src/config.rs:141-170`）には `transports` Vec・`stun_servers` Vec が存在しない**。実フィールドは `sip_proxy_host` / `sip_proxy_port` / `credentials` / `stun_server: Option<String>` / `turn_server: Option<StunServerConfig>` / `ice_enabled` / `srtp_enabled` / `tls_enabled` / `log_level` / `dtmf` のみ。→ 書こうとするコードはコンパイル不能な API を参照する（OMISSIONS F3 / §6.6）。
-- RFC 準拠の `ClientConfig`（`src/config/client_config_spec.rs:137`）は `lib.rs` に `ClientConfig` として再公開されておらず、`SipClient::new` は旧 config 型を受理する（`lib.rs:98` vs `lib.rs:132`）。
-- `SipClient::new` 自体は成功し `ClientInitialized` を受信できるが（`src/client.rs:110-138`）、reactor は `MockBackend` を無条件生成（`src/runtime/reactor.rs:74-75`）するため実 SIP ネットワークへの接続は発生しない。
+- 確認済み内容は「トランスポート（UDP/TCP/TLS）と STUN を設定した実用的な初期化コード」。しかし `TransportConfig::udp(5060)` / `tcp(5060)` は存在するものの（`src/config/transport_ice_spec.rs:38-51`）、**`config.transports` は初期化時に一切処理されない**。`PjsuaBackend::initialize` は `_config` を無視して `ffi::backend_calls::initialize()` を呼ぶのみ（`src/runtime/backend.rs:576-587`）。クイックスタートの「トランスポートを設定した初期化」は実トランスポートを生成しない。
+- `add_transport` も PJSIP に届かない。`PjsuaBackend::create_transport` は config を無視し、`pjsua_transport_create` に **null config** を渡す（`src/runtime/backend.rs:590-605`、`src/ffi/backend_calls.rs:55-62`）。ポート番号・UDP/TCP/TLS の選択が破棄される。
+- **既定ビルドでは `SipClient::new` が実行時失敗**する。`CoreReactor::spawn` → `create_backend(...)?`（`src/runtime/reactor.rs:128`）が `pjsua-native`/`test-util` なしで `Err("SipClient requires the `pjsua-native` feature")` を返す（`src/runtime/backend_selection.rs:62-68, 77`）。
+- **本番バックエンドがビルド不能**: `cargo build --features pjsua-native` は 39 エラー（bindgen 定数 `PJ_SUCCESS` 等の欠如、`pjsua_acc_config.registrar_uri` 欠如、`SecretString::expose_secret` 未実装、enum の constified モジュール未適用等）。
 
 ### 実装補強設計（完全記述への条件）
 
-1. RFC §10 準拠 `ClientConfig`（`client_config_spec` 版）を公開 API に昇格し、旧 `config.rs` 版を削除・`SipClient::new` のシグネチャを移行（lib.rs 再公開）。
-2. `reactor.rs:74-75` に `#[cfg(feature="pjsua-native")] PjsuaBackend` 選択を追加し、実トランスポート（UDP/TCP/TLS）生成と STUN 設定を PJSIP へ反映。
-3. `TransportConfig`（`transport_ice_spec`）を公開設定経路に接続（現在 `CreateTransport` アームは状態記録のみ、`reactor.rs:394-440`）。
+1. `Initialize` 時に `config.transports` を列挙し、`TransportConfig` の種別（UDP/TCP/TLS）とポートを `pjsua_transport_create` へ反映する配線を実装（新規チケット。現行の P3-2 / P11-10 は FFI 呼び出しの stub のみ）。
+2. `pjsua-native` のビルド修復: bindgen の allowlist とコード期待の整合（`PJ_SUCCESS` 等の定数、`pjsua_acc_config.registrar_uri`、`SecretString::expose_secret`、`pjsip_inv_state` / `pjsua_call_media_status` の constified enum モジュール）。（P8-16 / P10-2 / P11-5 / P13-4）
+3. STUN 設定を PJSIP へ反映（`pjsua_config.stun_srv`）。→ H15 の補強設計と共通。
 
 # ClientConfig の設定項目（transports・STUN/TURN・音声・タイムアウト）
 
 ClientConfig の全フィールド（transports, stun_servers, turn_servers, ice, audio, timeouts, raw_sip_events）を既定値と併せて表形式で解説
 
-<::README-RESIDUE::>
+`ClientConfig` は `SipClient::new` に渡す初期化設定です（RFC §10 / P15-2 で一本化された唯一の公開設定型）。全フィールドと既定値は以下のとおりです。
 
-## RESIDUE — 完全記述の作成不可
+| フィールド | 型 | 既定値 | 説明 |
+|---|---|---|---|
+| `user_agent` | `String` | `"tauri-siprs/0.1"` | SIP `User-Agent` ヘッダ |
+| `log_level` | `LogLevel` | `Info` | ログレベル |
+| `max_calls` | `usize` | `32` | 同時通話数の上限 |
+| `event_bus_capacity` | `usize` | `2048` | イベントバス（control）容量 |
+| `raw_sip_event_capacity` | `usize` | `4096` | raw SIP イベント容量 |
+| `audio` | `ClientAudioConfig` | 16kHz / i16 / ステレオ / 20ms フレーム（pair_align 120ms・jitter 60ms・mixer 20ms・max_sources 16） | 音声フォーマットとバッファ設定 |
+| `transports` | `Vec<TransportConfig>` | `[udp(5060), tcp(5060)]` | SIP トランスポート一覧 |
+| `stun_servers` | `Vec<StunServerConfig>` | `[]` | STUN サーバ一覧 |
+| `turn_servers` | `Vec<TurnServerConfig>` | `[]` | TURN サーバ一覧 |
+| `ice` | `IceConfig` | enabled=true / aggressive_nomination=true / max_host_candidates=16 | ICE 設定 |
+| `raw_sip_events` | `RawSipEventConfig` | enabled=true / max_body_bytes=64KiB / 機微ヘッダ redact | raw SIP イベント購読設定 |
+| `timeouts` | `TimeoutConfig` | 登録 10s / 応答 15s / DTMF 15s / シャットダウン 90s | 各種タイムアウト |
 
-### 証拠（欠落・矛盾）
-
-- 確認済み内容は RFC §10 の全フィールドを既定値付きで解説するもの。しかし `ClientConfig` が 2 つ存在し（旧 `src/config.rs:141` と RFC 準拠 `src/config/client_config_spec.rs:137`）、**公開 API は旧型**（`lib.rs:98`）。RFC §10 の `max_calls` / `event_bus_capacity` / `transports: Vec` / `stun_servers: Vec` / `turn_servers: Vec` / `timeouts` は公開型に存在しない（OMISSIONS §6.6a）。
-- `client_config_spec::ClientConfig` は生産コードから一切参照されない（dead config）。
-- `IceConfig` 既定値が RFC §10（enabled=true / aggressive_nomination=true / max_host_candidates=16）と実装（false / false / 5）で乖離（RFC §13 とも不一致、RFC-DESIGN-DEFECT RD-5）。
-
-### 実装補強設計（完全記述への条件）
-
-1. 旧 `config.rs` 版を廃止し RFC 版へ一本化（lib.rs 再公開 + 呼び出し側移行）。
-2. ICE / STUN / TURN の形状と既定値を §13 と一致させる。
-3. 各設定を実 PJSIP 設定（stun_srv / turn_cfg / media_ice / pjsua_acc_config）へ反映するバックエンド配線を実装（§3.1 の `PjsuaBackend`）。
+> **注意（現在の実装状態）**: `transports` / `stun_servers` / `turn_servers` / `ice` は現時点では**設定サーフェスのみ**です（reactor の状態には記録されますが、実 PJSIP のトランスポート生成・STUN/TURN/ICE 適用には未接続。H15 参照）。また実 SIP 通信には `pjsua-native` feature が必要ですが、現在この feature はビルド不能です（`cargo build --features pjsua-native` が 39 エラー）。既定 feature ビルドでは `SipClient::new` が `"SipClient requires the pjsua-native feature"` で失敗します。設定の構築・既定値・バリデーションは `make test`（`--features test-util` の TestBackend）上で検証可能です。
 
 # 初期化のバリデーション規則とエラー処理
 
 §42 のバリデーション規則（event_bus_capacity>=16、sample rate 制限、raw_sip 容量制約等）と失敗時の SipError 処理をコード付きで解説
 
-<::README-RESIDUE::>
+`ClientConfig::validate()` は `SipClient::new` の冒頭で fail-fast 実行され、不正な設定はバックエンド起動前に `Err(InvalidConfig)` として拒否されます（RFC §42 / P15-2）。`add_account` も同様に `AccountConfig::validate()` を実行します。
 
-## RESIDUE — 完全記述の作成不可
+主なバリデーション規則:
 
-### 証拠（欠落・矛盾）
+| 規則 | 内容 |
+|---|---|
+| `event_bus_capacity >= 16` | イベントバス容量は最小 16 |
+| `raw_sip_event_capacity >= event_bus_capacity` | raw_sip 有効時はイベントバス容量以上 |
+| `max_calls > 0` | 同時通話数は 1 以上 |
+| トランスポートが 1 以上 | `transports` は空にできない |
+| サンプルレート | `audio.default_delivery_format.sample_rate` は 8 / 16 / 24 / 48kHz のいずれか |
 
-- 確認済み内容は RFC §42 の規則（`event_bus_capacity>=16` / `raw_sip_event_capacity>=event_bus_capacity` / sample rate 8/16/24/48k のみ等）をコード付きで解説するもの。しかし §42 の対象は RFC 型 `ClientConfig` であり、**公開 API の旧 `ClientConfig` には `event_bus_capacity` 等のフィールドが存在しない**（`src/config.rs:141-170`）。
-- RFC 型の `validate()` は `client_config_spec.rs` に実装があるが、`SipClient::new`（`src/client.rs:100-138`）の生産経路から呼ばれない（dead）。
-- `SipError.native_status` は変換経路で喪失（`src/error.rs:299-307` が `None` を設定、`backend.rs::map_pjsua_status` は文字列埋め込み）→ エラー解説が数値ステータスと乖離（OMISSIONS §6.3c）。
+```rust
+use siprs::{ClientConfig, SipClient, SipErrorKind};
 
-### 実装補強設計（完全記述への条件）
+let mut config = ClientConfig::default();
+config.event_bus_capacity = 8; // 16 未満 → バリデーション失敗
 
-1. RFC 型 `ClientConfig` への移行後、`SipClient::new` 冒頭で `validate()` を fail-fast 実行（§42 の各規則をテストで固定）。
-2. `native_status` を保持するエラー変換を §14.1 テーブルに沿って reactor 経路に実装（`m20_runtime_command_error.rs` の converters を生産経路から呼び出す）。
+let result = SipClient::new(config).await;
+assert!(matches!(result, Err(e) if e.kind == SipErrorKind::InvalidConfig));
+```
+
+エラーは `SipError` で返されます。`SipError` は `kind: SipErrorKind` と `native_status: Option<i32>` を保持し、PJSIP 由来の失敗では `native_status` に PJ ステータス（`PJ_SUCCESS`=0 等）が入ります（§62.8 / P15-9）。
+
+> **注意**: サンプルレート規則は `audio.default_delivery_format.sample_rate`（既定配信フォーマット）にのみ適用されます。バリデーションはバックエンド起動前に行われるため、既定ビルドでも検証できます。実 SIP の初期化には `pjsua-native` feature が必要ですが、現在ビルド不能です（H2 参照）。
 
 # アカウントの追加と設定更新（add_account / update_config）
 
 add_account の最小コードと、update_config(AccountConfigPatch) による設定更新および更新時に走る register/unregister の挙動を併せて解説
 
-<::README-RESIDUE::>
+`SipClient::add_account` でアカウントを追加し、`SipAccountHandle` を取得します（RFC §11 / §17）。
 
-## RESIDUE — 完全記述の作成不可
+```rust
+use siprs::{AccountConfig, SipClient};
 
-### 証拠（欠落・矛盾）
+let config = AccountConfig::default();
+let account = client.add_account(config).await?; // SipAccountHandle
+assert_eq!(account.registration_state().await?, RegistrationState::Disabled);
+```
 
-- `add_account` は構造上動作する（`reactor.rs:237-269` が `backend.add_account` → `ClientState` 登録 → handle 返却）。`update_config` も配線済み（`public_api_design.rs:165-198` → `reactor.rs:313-363` が `backend.update_account` + `entry.config` 更新）。
-- しかし確認済み内容の**「更新時に走る register/unregister の挙動」は存在しない**。`register_on_start` はランタイム未消費（`src/config/account_config_spec.rs:171` 定義のみ、grep で参照ゼロ）、`MockBackend::set_registration` は no-op（`src/runtime/backend.rs:232-238`）。設定更新で再登録が走るコードはない（OMISSIONS F4/F5）。
-- `MockBackend::add_account` は registration を `"Registered"` にハードコード（`backend.rs:206`）→ 未登録でも Registered を返す（§17 の初期状態 Disabled と矛盾）。
+追加直後の登録状態は `Disabled` です（§17 / P15-5）。`update_config` で設定を更新できます。
 
-### 実装補強設計（完全記述への条件）
+```rust
+use siprs::config::account_config_spec::AccountConfigPatch;
 
-1. reactor の `UpdateAccount` アームで、設定更新後に `register_on_start` に応じて `backend.set_registration(native_id, enabled)` を発行（更新→再登録/解除の手順を確定）。
-2. `MockBackend::set_registration` を状態変更する実装にし、`NativeEvent::RegistrationStateChanged` を emit（P0 変換 `state/m20_registr_cmd_pat.rs` 経由で publish）。
-3. `register_on_start` / `allow_outbound_without_register` のランタイム消費を実装（§3.1 の `PjsuaBackend` で実 REGISTER へ接続）。
+let patch = AccountConfigPatch {
+    register_on_start: Some(true), // 更新後に再登録を走らせる
+    ..AccountConfigPatch::default()
+};
+account.update_config(patch).await?;
+```
+
+**更新時の register / unregister の挙動（C026）**: `update_config` は、パッチが `register_on_start: Some(enabled)` を明示的に運ぶ場合に限り、設定更新後に `set_registration(native_id, enabled)` を発行します。`Some(true)` は `Registering`、`Some(false)` は `Unregistering` へ遷移します。パッチが `register_on_start` を含まない（`None`）場合は**登録状態は変化しません**（テスト `update_config_preserves_registration_state` で固定）。
+
+> **注意**: `register_on_start` は現時点では「update_config 時のデルタ」としてのみ消費されます。`add_account` 時・クライアント起動時の自動登録はまだ実装されていません（P15-5 の未完了項目）。実 SIP の登録には `pjsua-native` feature が必要ですが、現在ビルド不能です。上記コードは `make test`（TestBackend）上で検証可能です。
 
 # 登録と登録解除（register / unregister / set_registration_enabled）
 
 register() / unregister() / set_registration_enabled() の使い分けと、register_on_start による自動登録設定を併せて解説
 
 <::README-RESIDUE::>
-
 ## RESIDUE — 完全記述の作成不可
 
-### 証拠（欠落・危険）
+### 証拠（欠落・矛盾・危険）
 
-- `register()` / `unregister()` / `set_registration_enabled()` は `RuntimeCommand::SetRegistration` を submit する（`public_api_design.rs:56-112`）。
-- 受けた `MockBackend::set_registration` は **no-op**（`src/runtime/backend.rs:232-238`、状態を変更せず `Ok(())` を返す）。→ 実登録・解除は発生しない（OMISSIONS F4）。
-- `MockBackend::add_account` が registration を `"Registered"` にハードコード（`backend.rs:206`）。
-- 登録系イベント（`RegistrationStarted` / `RegistrationSucceeded` / `RegistrationFailed` 等）は発火しない（イベントバス分断、OMISSIONS §3.2）。
-- `register_on_start` による自動登録も未実装（`account_config_spec.rs:171` 未消費）。
+- `register()` / `unregister()` / `set_registration_enabled()` は存在し、`RuntimeCommand::SetRegistration` を submit する（`src/api/public_api_design.rs:56-112`）。reactor の `SetRegistration` アームは `backend.set_registration` + 状態遷移（`Registering`/`Unregistering`）を実行する（`src/runtime/reactor.rs:678-731`）。
+- しかし確認済み内容の**「register_on_start による自動登録設定」は現コードに存在しない**。`register_on_start` は `update_config` のパッチデルタとしてのみ消費され（`src/runtime/reactor.rs:610`）、`add_account` 時・`SipClient::new` 時・reactor 起動時には一切読まれない。`PjsuaBackend::add_account` も `pjsua_acc_add` に `register_on_acc_add` を設定しない（`src/ffi/backend_calls.rs:68-100`）。P15-5 も「AddAccount での自動登録は将来チケット」と明記（`specs/P15-5.md:91`）。
+- **登録結果イベントが本番で publish されない**: 本番が publish するのは `RegistrationStateChanged` のみ（`src/runtime/reactor.rs:990-993`、`src/state/registr_wiring.rs:53-88`）。`RegistrationSucceeded` / `RegistrationFailed` は enum に定義されるが、`#[cfg(test)]` 内でしか構築されない（`src/api/event_model_payload_bus.rs:544-579`）。
+- 参照例 `examples/account_register.rs:79-87` は `RegistrationSucceeded` / `RegistrationFailed` を待つため、**本番ではタイムアウトまで待機して失敗する**（壊れた例）。
 
 ### 実装補強設計（完全記述への条件）
 
-1. reactor `SetRegistration` アーム → 実 backend（PJSIP `acc_modify` / 登録処理）へ接続。
-2. P0 変換マッピング（`state/m20_registr_cmd_pat.rs`）で `RegistrationStateChanged` を `SipEventPayload` に変換し、クライアント側 EventBus に publish（§15.6 のバス一元化）。
-3. Mock の初期状態を §17 どおり `Disabled` に修正し、実 REGISTER 成功時のみ `Registered` に遷移させる状態機械を配線。
+1. `register_on_start` の自動登録を実装（`add_account` 時 / クライアント起動時のアカウント復元で消費。P15-5 の未完了項目、`specs/P15-5.md:91`）。
+2. README / 例が待つイベントを `RegistrationStateChanged` に統一し、`examples/account_register.rs` を修正（`RegistrationSucceeded`/`Failed` は API 互換用に留保、`specs/P15-5.md:92`）。
+3. 実 REGISTER の成否を状態機械（`Registered` / `Failed`）へ反映する経路を `pjsua-native` 上で配線（本番バックエンドのビルド修復が前提、H1 参照）。
 
 # 登録状態の参照（registration_state と RegistrationState）
 
 registration_state() の呼び出しと、RegistrationState（Disabled/Idle/Registering/Registered/Unregistering/Failed/Expired）の各状態の意味を表形式で解説
 
-<::README-RESIDUE::>
+`SipAccountHandle::registration_state()` で現在の登録状態を取得します（RFC §17 / P15-5）。
 
-## RESIDUE — 完全記述の作成不可
+```rust
+use siprs::{RegistrationState, SipClient};
 
-### 証拠（欠落・矛盾）
+let state = account.registration_state().await?;
+match state {
+    RegistrationState::Registered => println!("registered"),
+    RegistrationState::Registering => println!("registering..."),
+    _ => println!("{state:?}"),
+}
+```
 
-- `registration_state()` は `ClientState` の `AccountEntry.registration`（**String**）を `RegistrationState::from_storage_str` で変換する（`public_api_design.rs:120-133`、`src/runtime/state.rs:66-68`）。§33 は typed 状態を要求するが保存は String。
-- `MockBackend::add_account` が `"Registered"` をハードコード（`backend.rs:206`）→ **未登録でも `Registered` を返す**。RFC §17 の初期状態 `Disabled` と矛盾（OMISSIONS F4）。
-- 実状態遷移（Disabled→Registering→Registered→...）を駆動する実装がなく、状態表を正確に解説できない。
+`RegistrationState` は以下の 7 状態を持つ enum です。
 
-### 実装補強設計（完全記述への条件）
+| 状態 | 意味 |
+|---|---|
+| `Disabled` | 登録が無効（アカウント追加直後の初期状態） |
+| `Idle` | 登録は有効だが未試行 |
+| `Registering` | REGISTER 送信中・応答待ち |
+| `Registered` | レジストラへの登録成功 |
+| `Unregistering` | UNREGISTER 送信中・応答待ち |
+| `Failed` | 直前の登録試行が失敗 |
+| `Expired` | 登録期間が期限切れ |
 
-1. `AccountEntry.registration` を `RegistrationState`（typed）に変更（§33、`state.rs`）。
-2. Mock の初期値を `Disabled` / `Idle` に修正。
-3. `set_registration` / 実 backend の登録結果を状態機械（`state/registr_state_machine.rs`）と連動させ、実 REGISTER 成功時のみ `Registered` へ遷移。
+状態遷移は §17.1 の遷移表（`registr_state_machine.rs`）で検証されます。TestBackend 上では、`register()` → `Registering`、ネイティブ成功イベント → `Registered`、ネイティブ 4xx → `Failed` が観測できます。
+
+> **注意**: `Expired` は enum 上は定義されていますが、現在**実イベント源が未配線**です（P15-5 の未完了項目）。実フローで `Expired` が発火することはまだありません。実 SIP の登録には `pjsua-native` feature が必要ですが、現在ビルド不能です。
 
 # アカウントの取得・一覧・削除（account / accounts / remove_account）
 
 remove_account(id) の呼び出しと、削除時に走る unregister の挙動・関連イベントを併せて解説
 
 <::README-RESIDUE::>
-
 ## RESIDUE — 完全記述の作成不可
 
-### 証拠（欠落・矛盾）
+### 証拠（欠落・矛盾・危険）
 
-- `account` / `accounts` / `remove_account` は配線済み。`remove_account` → `reactor.rs:364-393` が `backend.remove_account` + `ClientState` から除去。
-- 確認済み内容の**「削除時に走る unregister の挙動・関連イベント」は存在しない**: `MockBackend::remove_account` はエントリ除去のみで、unregister 手続・`AccountRemoved` イベント発火なし（イベントバス分断 OMISSIONS §3.2）。
-- 複数アカウント運用は Mock 上のメモリ状態のみで、実 REGISTER/UNREGISTER を伴わない（OMISSIONS F1）。
+- `account(id)` / `accounts()` / `remove_account(id)` は存在する（`src/client.rs:225-237, 269-329`）。`remove_account` は `AccountNotFound` で fail-fast し、reactor の `RemoveAccount` アームが `backend.remove_account` + `ClientState` からの除去を実行する（`src/runtime/reactor.rs:648-677`）。
+- しかし確認済み内容の**「削除時に走る unregister の挙動・関連イベント」は存在しない**。reactor の `RemoveAccount` アームに `set_registration(false)` / unregister 手順はなく、`TestBackend::remove_account` はエントリ削除のみ（`src/runtime/backend.rs:288-291`）、`PjsuaBackend` は `pjsua_acc_del` へ委譲するだけ（`src/ffi/backend_calls.rs:104-107`）。ドメイン層で観測可能な `Unregistering` 遷移や unregister イベントは発生しない。
+- **`AccountRemoved` イベントは本番で一切 publish されない**。enum に定義される（`src/api/event_model_payload_bus.rs:377`）が、非テストコードでの構築箇所はゼロ。
 
 ### 実装補強設計（完全記述への条件）
 
-1. `remove_account` 時に unregister を先行実行し、その成否を反映する手順を reactor に実装。
-2. `AccountRemoved` イベントを実 backend 経由で publish（§15.1 の account 系イベント配線）。
-3. §3.1 の `PjsuaBackend` で実アカウント管理へ接続。
+1. `remove_account` 時に unregister を先行実行し、その成否を反映する手順を reactor に実装（新規チケット。既存チケットなし — ギャップ）。
+2. `AccountRemoved` イベントを実バックエンド経由で publish（§15.1 の account 系イベント配線）。
+3. または README を検証可能な挙動に限定（「remove_account は一覧から除去する。イベントは emit しない」）とする選択肢も、実装補強ではなく記述範囲の縮小として併記する。
 
 # イベントの購読と受信（subscribe / subscribe_account / subscribe_raw_sip）
 
 subscribe() / subscribe_account(id) / subscribe_raw_sip() の 3 つの購読方法の違いと、購読解除（unsubscribe）の方法、SipEventPayload の主要バリアントの受信コードを解説
 
 <::README-RESIDUE::>
-
 ## RESIDUE — 完全記述の作成不可
 
-### 証拠（欠落・危険）
+### 証拠（欠落・矛盾・危険）
 
-- `SipClient` は自身の `EventBus` を生成（`src/client.rs:111`、`EventBus::new(DEFAULT_EVENT_BUS_CAPACITY, None)` — **raw_sip チャネルは None**）。reactor は**別の** `EventBus` を持ち（`src/runtime/reactor.rs:88-96`）、reactor 側の publish はクライアント側バスに転送されない（OMISSIONS §3.2）。
-- クライアント側バスで発火するのは `ClientInitialized` のみ（`client.rs:135-138`）。
-- `subscribe_account` は `meta.account_id` でフィルタするが（`src/api/eventbus_receiver.rs:121-160`）、全イベントの `account_id` が None のため **0 件受信**（フィルタ死滅）。
-- `subscribe_raw_sip` は raw_sip チャネルが None のため **常に None**（`client.rs:186-190`）。RFC §15.6「無効時のみ None」と矛盾。
-- **unsubscribe API は存在しない**（broadcast `Receiver` の drop のみ。RFC にも明示 API なし）。
+- `SipClient` は単一 `EventBus` を所有し（`src/client.rs:61, 112-115`）、reactor は別バスを持たない（P15-4）。`subscribe()`（`client.rs:192-194`）と `subscribe_account(id)`（`client.rs:201-209`、`meta.account_id` フィルタは `src/api/eventbus_receiver.rs:140`）は単一バス上で動作する。
+- しかし確認済み内容の**「subscribe_raw_sip() の受信コード」は dead code**。`subscribe_raw_sip()` はチャネルを返す（有効時 `Some`、`src/client.rs:213-217`）が、**`publish_raw_sip` の呼び出し箇所はコードベース全体でゼロ**。raw SIP メッセージは一切 publish されない（P0-5 が raw SIP 解析を先送り、`specs/P0-5.md:118`）。
+- **`unsubscribe` API は存在しない**。購読解除は broadcast `Receiver` の drop のみ（明示 API なし）。
+- **P1/P2 系のイベントバリアントは一切発火しない**。`TransportStateChanged` / `IceTransportError` / `CallTsxStateChanged` / `CallRedirected` / `CallTransferStatus` / `CallReplaced` / `NatDetected` はすべて `None` を返す（`src/state/m20_native_event_conv.rs:184-201`）。「主要バリアントの受信コード」と謳えるのは P0 系 + ライフサイクル/エラーに限られる。
+- **本番 FFI イベント経路が未接続**: PJSIP コールバックは lock-free キューへ push する（`src/ffi/callback.rs:36, 63-74`）が、**このキューをドレインするコードが存在しない**（P12-7 が「ブリッジ↔reactor 接続は P8-21 のスコープ」と明記、`specs/P12-7.md:127`）。
 
 ### 実装補強設計（完全記述への条件）
 
-1. reactor の `dispatch_event` をクライアントのバスへ転送（§15.6 `subscribe()` → `subscribe_control()` 一元化、`P12-7` の `dispatch_event` 配線）。
-2. `RawSipEventConfig.enabled`（default true）に応じて raw_sip チャネルを生成。
-3. **設計確定（§62.5 / P15-6）**: 明示的な unsubscribe API は追加しない。購読解除は broadcast `Receiver` の drop による（RFC §8.3）。`subscribe()` / `subscribe_account()` / `subscribe_raw_sip()` が返す Receiver を drop すれば購読が自動解除される。
-4. `SipEventPayload` 36 バリアントのうち P1/P2 系を M20 変換器で `Some()` 化（OMISSIONS F8）。
-
-# 通話制御 API（answer / hangup / hold / unhold / transfer / send_dtmf / call_state / calls）
-
-RFC §19 / §20 の通話制御 API を `SipClient` に追加した（§62.5、P15-6）。全メソッドは `CallId` を入力に取り、非同期 `Result<_, SipError>` を返す。
-
-- `answer(call_id, code)` — 着信応答。`180 / 183 / 200 / 486 / 603` を受理（§19.1）。`486`=Busy、`603`=Decline が reject 経路（独立 reject API は無い）。不正 code は `Err(InvalidArgument)` で dispatch 前に拒否（fail-fast）。
-- `hangup(call_id, reason)` — 切断。`HangupReason` を受理し、reactor が `CallDisconnected` を publish。
-- `hold(call_id)` / `unhold(call_id)` — 保留・復帰。
-- `transfer(call_id, target)` — ブラインド転送（`sip:` URI）。
-- `send_dtmf(call_id, digits, method)` — DTMF 送信。戻り値は「Reactor が PJSIP へ受理した」ことのみを意味し、配送は二相タイムアウトの `DtmfSent` で監視（§20）。
-- `call_state(call_id)` — per-call の `CallState`（§18 の 13 状態 enum）。未知の call_id は `Err(CallNotFound)`。
-- `calls()` — 全 `CallEntry` 一覧。**旧 `call_state()`（`Vec<CallEntry>` を返していた）の改名**。per-call 参照は上記 `call_state(call_id)` を使用。
-
-`make_call`（`SipAccountHandle`）で取得した `CallId` をこれらに渡す発着信フローが成立する。
+1. raw SIP パブリッシャを実装し、`RawSipMessage` を `publish_raw_sip` へ供給（P0-5 / P9-4 のスコープ）。
+2. FFI コールバックキューのドレインを `RuntimeHandle::enqueue_native_event` 経由で reactor へ接続（P8-21、`specs/P12-7.md:127`）。
+3. 購読解除は drop ベースである旨を README に明記（RFC §8.3 / P15-6 の設計判断）。明示 unsubscribe API は追加しない。
+4. P1/P2 イベントの M20 変換器を `Some()` 化（本番コールバックからの発火に必要）。
 
 # 発信（make_call と OutgoingCallRequest）
 
 make_call の最小コード（target_uri のみ指定）と、発信後のキャンセル（hangup）方法を併せて解説
 
-<::README-RESIDUE::>
+`SipAccountHandle::make_call` で発信します。`OutgoingCallRequest` は RFC §8.5 の全フィールドを明示的に指定します（`Default` 実装はなく、全フィールド必須です）。
 
-## RESIDUE — 完全記述の作成不可
+```rust
+use siprs::{CallId, OutgoingCallRequest, CallMediaPreferences, HangupReason, SipClient};
 
-### 証拠（欠落・危険）
+let request = OutgoingCallRequest {
+    target_uri: "sip:bob@example.com".to_string(),
+    headers: vec![],                              // 追加 SIP ヘッダ
+    auth_override: None,                          // 認証上書きなし
+    preferred_transport: None,                    // トランスポート指定なし
+    media: CallMediaPreferences::default(),       // メディア設定
+    auto_answer_refer: true,                      // REFER 自動応答
+};
+let call_id_u64 = account.make_call(request).await?; // u64 を返す
 
-- `make_call` → `submit_make_call` → `MakeCall` アーム → `handle_make_call`（`reactor.rs:701-721`）→ `MockBackend::make_call` はインクリメント ID を返すのみ。**発信系イベント（OutgoingCallStarted / Trying / Ringing / CallConnected）は一切発火しない**（`reactor.rs:270-312`、OMISSIONS F6）。
-- 確認済み内容の**「発信後のキャンセル（hangup）方法」を実現する公開 API が存在しない**。`SipCall::hangup`（`src/call.rs:160`）はローカル状態遷移のみで reactor/wire に届かない。`make_call` が返す CallId（u64）に対する cancel 経路がない。**（§62.5 / P15-6 で解消）**: `SipClient::hangup(call_id, HangupReason)` が `RuntimeCommand::Hangup` を submit し、reactor が backend へ dispatch して `CallDisconnected` を publish する。
-- §17 の「未登録でも make_call 可能」不変条件も Mock 上のみ。
+// u64 → CallId 変換（CallId::from_u64 は 0 を拒否）
+let call_id = CallId::from_u64(call_id_u64)?;
 
-### 実装補強設計（完全記述への条件）
+// 発信後のキャンセル（終話）
+client.hangup(call_id, HangupReason::LocalUser).await?;
+```
 
-1. 公開 API に CallId ベースのキャンセル/終話（`hangup` / `cancel`）を追加し、reactor の終話コマンドへ配線（`SipCall` の取得手段も §19 に沿って整備）。
-2. `MakeCall` アームで `OutgoingCallStarted → Trying → Ringing → Connected` のイベント系列を publish（M20 変換）。
-3. §3.1 の `PjsuaBackend` で実 INVITE 送信と CallId の実値返却（P12-1）。
+`hangup` は reactor 経由でバックエンドへ dispatch され、`CallDisconnected` イベントを publish します（P15-6）。
+
+> **注意**: `make_call` は `SipAccountHandle` 上のメソッドで、戻り値は `u64`（`CallId` ではありません）。実 SIP の発信（INVITE 送信・`OutgoingCallStarted → Ringing → Connected` のイベント系列）には `pjsua-native` feature と実 PJSIP コールバックが必要ですが、現在ビルド不能です。上記コードは `make test`（TestBackend）上で検証可能です。
 
 # 着信と応答（IncomingCall と answer）
 
 IncomingCall イベントの受信から answer(code) による応答、reject（486/603）による切断までの一連のコードを解説
 
 <::README-RESIDUE::>
-
 ## RESIDUE — 完全記述の作成不可
 
 ### 証拠（欠落・矛盾・危険）
 
-- `IncomingCall` イベントは `PjsuaBackend::on_incoming_call` で生成されるべきだが、実 backend が選択されない（§3.1）ため発火しない。
-- **`SipClient::answer` は存在しない**。`SipCall::answer`（`src/call.rs:147-157`）はローカル状態遷移のみ。`is_valid_answer_code`（`call.rs:127-142`）は 100-199/200 を許可し、**§19.1 の decline コード 486/603 を拒否**（OMISSIONS §6.9）。reject / busy を実現する公開 API がない。
-- `SipCall` のドキュメントは「`SipClient::make_call()` または `SipClient::answer_call()` で生成」と述べるが、**どちらも存在しない**（`src/call.rs:33-34`、ドキュメント偽り — `make_call` は `SipAccountHandle` 上、`answer_call` は不在）。
+- `SipClient::answer(call_id, code)` は存在し、`validate_answer_code` が `[180, 183, 200, 486, 603]` を受理する（`src/client.rs:378`、`src/api/call_api_semantics.rs:42-50`）。reject（486/603）は `CallDisconnected` を publish する（`src/runtime/reactor.rs:1144`）。**ただし `IncomingCall` イベントは `pjsua-native` の `on_incoming_call` コールバックでのみ生成される**（`src/ffi/callback.rs:120-125`）。TestBackend（`make test`）では `IncomingCall` は一切発火せず、確認済み内容の一連のコード（受信 → 応答 → 拒否）を実演できない。
+- **着信 call は `ClientState.calls` に登録されない**: 非テストの `calls.insert` は `handle_make_call` のみ（`src/runtime/reactor.rs:1108`）。`NativeEvent::IncomingCall` は `CallDirection::Incoming` を記録するだけ（`src/runtime/reactor.rs:998-1003`）。→ `calls()` に着信が現れず、`call_state(call_id)` は `Err(CallNotFound)`。さらに `answer(call_id, 200)` は `handle_answer` で `CallEntry` を解決できず `account_id = None` となり、**`CallConnected` が publish されない**（`src/runtime/reactor.rs:1139` の `(200, Some(_))` アームに不一致）。
+- `SipCall` のドキュメントは「`SipClient::make_call()` または `SipClient::answer_call()` で生成」と述べるが、`make_call` は `SipAccountHandle` 上、`answer_call` は不在（ドキュメント偽り）。
 
 ### 実装補強設計（完全記述への条件）
 
-1. `SipClient::answer(call_id, code)` / `reject(call_id)` を公開 API に追加し、reactor の Answer コマンドへ配線（`command.rs` に Answer バリアント追加）。
-2. 486/603 等の decline 応答を `is_valid_answer_code` で受理（§19.1 準拠）。
-3. §3.1 の `PjsuaBackend` で `on_incoming_call` → `IncomingCall` イベント生成と `IncomingCall` データ構造の配線（§37）。
+1. 着信 INVITE に対する `CallEntry` の登録（`IncomingCallInfo` から `ClientState.calls` へ追加）を実装（P15-6 / P12-8 を拡張する新規チケット）。
+2. `handle_answer` が `IncomingCallInfo` から account を解決し、200 応答で `CallConnected` を publish するよう修正。
+3. `pjsua-native` のビルド修復後、`on_incoming_call` → `IncomingCall` イベント → reactor 処理の経路を統合テストで固定。
 
 # 通話イベントと状態遷移（CallState の購読と判定）
 
 OutgoingCallRinging / CallConnected / CallRejected / CallDisconnected 等の通話イベント受信と、CallState（§18）との対応を解説
 
 <::README-RESIDUE::>
-
 ## RESIDUE — 完全記述の作成不可
 
-### 証拠（欠落）
+### 証拠（欠落・矛盾・危険）
 
-- `OutgoingCallRinging` / `CallConnected` / `CallRejected` / `CallDisconnected` 等は実パスで発火しない。発火するのは `ClientInitialized` のみ（§3.2、OMISSIONS F8）。
-- `convert_call_state`（`src/model/m20_callstate_mapping.rs:76-120`）は状態を CONNECTING にのみ分類し、Trying / Ringing 等の区別を実イベントとして生成しない。
-- `SipEventPayload` 36 バリアント中、生成可能なのは約 16 のみ（OMISSIONS F8）。
+- **`CallRejected` は一切生成されない**。enum には存在する（`src/api/event_model_payload_bus.rs:345`）が、reject 経路（486/603）は `CallDisconnected` を publish する（`src/runtime/reactor.rs:1144`）。確認済み内容の「`CallRejected` の受信」は事実と異なる。
+- `OutgoingCallStarted` / `Trying` / `Ringing` / リモート `CallConnected` / `CallDisconnected` は `NativeEvent::CallStateChanged` 経由でのみ生成される（`src/state/m20_callstate_mapping.rs:109-122`、`src/ffi/callback.rs:167`）— すなわち **`pjsua-native` 専用**。TestBackend では `make_call` はイベントを一切 publish しない（`handle_make_call` は登録のみ）。
+- `convert_call_state` は PJSIP inv_state の 5 状態（NULL/CALLING/CONNECTING/CONFIRMED/DISCONNECTED）のみをマップする（`src/state/m20_callstate_mapping.rs:76-98`）。`CallState` 13 状態の全遷移（Trying / Ringing / EarlyMedia / Active / Held / Disconnecting 等）には対応しない。
+- `CallHeld` / `CallResumed` は `CallMediaStateChanged` 経由（`src/state/m20_callstate_mapping.rs:125-139`）で、13 状態マッピングとは別系統。
 
 ### 実装補強設計（完全記述への条件）
 
-1. M20 変換器で CallState 全遷移（Trying / Ringing / EarlyMedia / Connecting / Active / Held / Disconnecting）を `Some()` 化し、`meta.call_id` を付与して publish。
-2. reactor の `NativeEvent` 処理（`dispatch_event` / `process_native_event`）を production 配線（`P12-7`）。
-3. 通話イベントの順序保証と `meta.call_id` による絞り込みを integration test（MockBackend）で固定。
+1. `CallRejected` を生成するか、記述を「reject は `CallDisconnected` で観測される」へ修正する設計判断を確定（P15-6）。
+2. M20 変換器で `CallState` 全遷移を `Some()` 化し、`meta.call_id` 付与で publish（P12-8）。
+3. `pjsua-native` のビルド修復後、実 PJSIP コールバックからのイベント系列を統合テスト（TestBackend + 注入）で固定。
 
 # DTMF 送受信（send_dtmf と DtmfSent / DtmfReceived）
 
 send_dtmf(digits, method) の呼び出しと、DtmfMethod（Inband / SipInfo / Rfc4733）の使い分け、DtmfSent / DtmfReceived イベントの受信を解説
 
 <::README-RESIDUE::>
-
 ## RESIDUE — 完全記述の作成不可
 
-### 証拠（欠落・矛盾）
+### 証拠（欠落・矛盾・危険）
 
-- **`SipClient::send_dtmf` は存在しない**（RFC §19 のシグネチャ未実装）。`SipCall::send_dtmf`（`src/call.rs:185-195`）は `validate_dtmf_digits` / `validate_dtmf_send_method` の検証のみで、`RuntimeCommand::SendDtmf` を submit しない（OMISSIONS F7）。
-- reactor の `SendDtmf` アーム（`reactor.rs:725-756`）と `spawn_dtmf_sent_timeout`（二相タイムアウト）は実装済みだが、**公開 API からの駆動経路がない**。
-- `DtmfMethod` が 3 箇所に重複定義（`account_config_spec` / `observability_metrics` / RFC の `SipInfo` vs 実装 `Info`/`Rfc2833`、OMISSIONS §6.9）。
+- **`SipInfo` という `DtmfMethod` バリアントは存在しない**。実装は `Info`（`src/config/account_config_spec.rs:35-40`）。確認済み内容の「Inband / SipInfo / Rfc4733」は名称誤り。
+- **`DtmfMethod` が 3 箇所に重複定義**され、バリアント集合も不一致: `account_config_spec.rs:35`（Rfc2833/Rfc4733/Info/Inband）、`observability_metrics.rs:250`（Rfc2833/Info/Inband）、`m20_dtmfsent_twophase.rs:57`（Rfc4733/Info/Inband）。
+- **`method` は PJSIP 送信に一切影響しない**: `backend_calls::send_dtmf(native_call_id, digits)` は digits のみを受け取る（`src/ffi/backend_calls.rs:194`）。「DtmfMethod の使い分け」の記述は実装と矛盾する（method はタイムアウトイベントのメタデータ装飾のみ）。
+- **`DtmfSent { Ok }` は一度も publish されない**: publish されるのは桁ごとの `Err(Timeout)` のみ（`src/api/m20_dtmfsent_twophase.rs:99-114`）。送信完了コールバックが存在しない。
+- `DtmfReceived` は `pjsua-native` の `on_dtmf_digit` コールバック専用（`src/ffi/callback.rs:213`）で、TestBackend では発火しない。
 
 ### 実装補強設計（完全記述への条件）
 
-1. `SipClient::send_dtmf(call_id, digits, method)` を公開 API に追加し、`RuntimeCommand::SendDtmf`（`command.rs:273`）を submit。
-2. `SipCall::send_dtmf` を検証後、reactor 経由の実送信 + `DtmfSent` 二相タイムアウト監視に変更。
-3. `DtmfMethod` の定義を一元化（RFC と実装の名称差を解消）。
+1. `DtmfMethod` の定義を一元化し、名称を RFC 準拠（Inband / Info / Rfc4733）に統一（P11-6 / P7-2）。
+2. `method` を実 PJSIP 送信（`pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf`）へ反映し、「使い分け」を実装として成立させる。
+3. `DtmfSent { Ok }` の publish 経路を実装するか、「観測可能なのは Timeout のみ」と明記する設計判断を確定（P11-6）。
 
 # 音声ストリームの取得（subscribe_audio と AudioChunkPair）
 
 AudioFormat（ビット深度・サンプルレート・チャンネル）とストリームデータの対応を解説し、指定 bit/hz のステレオ WAV ファイルへ書き出す方法まで示す
 
 <::README-RESIDUE::>
-
 ## RESIDUE — 完全記述の作成不可
 
-### 証拠（欠落・危険）
+### 証拠（欠落・矛盾・危険）
 
-- `subscribe_audio` は tap を作成し `AudioTapSender` を `tap_senders` に保存する（`src/client.rs:345-368`）が、**`AudioTapSender::push` を呼ぶ生産コードが存在しない**（grep でテスト内のみ確認）。→ `AudioTapHandle::recv()` は永久待機（OMISSIONS F9）。
-- §22 M20 の `SubscribeAudio` → `conf_connect` → tap task が未実装。`RuntimeCommand::ConfConnect`（`command.rs:178`）はテストからのみ生成。
-- 確認済み内容の**「指定 bit/hz のステレオ WAV ファイルへ書き出す方法」は、データ取得経路なしでは成立しない**。型（`AudioChunkPair` / `ChannelLayout::StereoInOut` = L=IN/R=OUT）は一致しているが、実データが流れない。
+- `subscribe_audio(call_id, format, capacity, mode)` は存在し、`AudioTapHandle::recv()` は `Option<AudioChunkPair>` を返す（`src/client.rs:483-489`、`src/api/audio_subscribe_bp.rs:113-123`）。`AudioChunkPair` / `ChannelLayout::StereoInOut`（L=IN / R=OUT）/ `AudioFormat` は公開型として一致する（`src/model/audio_format_chunkpair.rs`）。
+- しかし **`push_media_frame` を呼ぶ生産コードが存在しない**。`SipBackend::push_media_frame` は trait に定義され（`src/runtime/backend.rs:143-147`）、TestBackend は記録のみ（`backend.rs:455-462`）、PjsuaBackend は tap への push を実装するが（`backend.rs:940-960`）、**どのランタイム経路も呼ばない**。conf port のメディアコールバック（`pjsua_conf_set_callback` / `put_frame`）は P15-7 で明示的に先送り（`specs/P15-7.md:111-114`）。→ `AudioTapHandle::recv()` は実運用で**永久待機**する。
+- **WAV 書き出しユーティリティは存在しない**: `src/` / `examples/` / `tests/` に WAV / RIFF ヘッダ関連のコードはゼロ。確認済み内容の「指定 bit/hz のステレオ WAV ファイルへ書き出す方法」は実装根拠なし（未検証の手書きライタを README に記載せざるを得ない）。
+- 参照例 `examples/audio_tap.rs:41` は `while let Some(pair) = tap.recv().await` で**ブロックし続ける**。
 
 ### 実装補強設計（完全記述への条件）
 
-1. `PjsuaBackend` のメディアコールバック（`on_call_media_state` / conf port `put_frame`）から `AudioTapSender::push` を呼ぶ async tap/drain タスクを実装。
-2. `RuntimeCommand::SubscribeAudio` と reactor による `conf_connect`（RTP）確立手順を実装（§22 M20）。
-3. `AudioChunkPair` → WAV 変換（bit depth / sample rate / チャンネル対応）の検証を integration test で固定し、変換ロジックの例を README に記載。
+1. conf port の FFI メディアコールバック（`pjsua_conf_set_callback` / `put_frame`）を実装し、`SipBackend::push_media_frame` へ接続（P15-7 Layer 3+。現行のスコープ外明記を解消）。
+2. `pjsua-native` のビルド修復（H1 参照）後、実メディアコールバックで tap を駆動し、`AudioChunkPair` が連続生産されることを統合テストで固定。
+3. `AudioChunkPair` → WAV 変換（bit depth / sample rate / channel 対応）のユーティリティを実装（新規チケット。`specs/P8-8.md` / `P8-23.md` は存在しない — 欠落）。
 
 # 音声の注入（AsyncAudioSource と add_audio_source）
 
 2 者通話における IN / OUT / BOTH チャネルへの音声ファイル・ストリーム注入方法と、マイク入力 source の取得（open_default_microphone_source）を併せて解説
 
 <::README-RESIDUE::>
-
 ## RESIDUE — 完全記述の作成不可
 
 ### 証拠（欠落・矛盾・危険）
 
-- `add_audio_source` → `submit_add_audio_source`（`handle.rs:367-387`）→ `AddAudioSource` アーム → `AudioMixer::add_source` は配線済み。しかし **`AudioWorkerTask::spawn` は生産コードから一切呼ばれない**（grep で確認）→ `in_queue` に音声が積まれず、`out_queue` も drain されない（OMISSIONS F11）。
-- 実装は**グローバル単一 `AudioMixer`**（`reactor.rs:79`）で、RFC §24.4 の per-call スコープが失われている。`RuntimeCommand::AddAudioSource` に **`call_id` がない**（`command.rs:193`）。IN / OUT / BOTH チャネル指定は存在しない。
-- `open_default_microphone_source` は `cpal-input` feature 配下（`asyncaudiosrc_adapter.rs:174-179`）でデフォルト feature に含まれず、実 pjsua 入力機器に接続されない。
-- 確認済み内容の「2 者通話の IN/OUT/BOTH へのファイル・ストリーム注入」は、チャネルルーティングと worker が未実装のため書けない。
+- `add_audio_source(call_id, source, channels)` は存在し、`call_id` と `ChannelSelector`（In/Out/Both）を受け取り、per-call `AudioMixer` へ登録する（`src/client.rs:515-520`、`src/runtime/reactor.rs:268-308`）。`AudioWorkerTask::spawn` も reactor の生産経路で呼ばれる（`src/runtime/reactor.rs:284-289`）。
+- しかし **mix 結果を消費する経路が存在しない**: `AudioWorkerInner::process_frame` は `out_queue` / `in_queue` へ push する（`src/runtime/audio_worker.rs:506-514`）が、**これらのキューを pop するコードはゼロ**。RT 消費側（RustMediaPort → ネットワーク送信 / ローカル再生）が存在しない。`make_call` / `answer` は `conf_connect` を呼ばない（`src/runtime/reactor.rs:1099-1124`）。`conf_connect` は公開 API からも露出していない。
+- **「音声ファイル」source の実装がない**: ファイルベースの `AsyncAudioSource` は存在せず、唯一の例は mpsc チャネルの `TtsStreamSource`（`examples/tts_source.rs:34-51`）。
+- **`open_default_microphone_source` は「通話のマイク入力」ではない**: cpal による OS 既定入力デバイスの独立キャプチャであり（`src/api/asyncaudiosrc_adapter.rs:312-338`）、`add_audio_source` で注入する source の一種。2 者通話のマイク入力として記述すると事実と矛盾する。
 
 ### 実装補強設計（完全記述への条件）
 
-1. `SipClient::add_audio_source(call_id, source)` の公開形と `call_id` 付きコマンドを実装（RFC §24.4 と実装シグネチャの矛盾解消）。
-2. クライアント初期化で `AudioWorkerTask` を spawn し、`AudioMixer` を PJSUA conference port（`conf_connect`）へ接続。
-3. IN（受話取得）・OUT（送話 mix & 送信）を独立経路として実装し、ファイル / ストリーム source を BOTH / IN / OUT に注入可能にする。
-4. `cpal-input` のマイク source を実 pjsua 入力と接続し、デフォルト feature 方針を決定（`P8-7` / `P13-1` / `P14-1`）。
+1. `out_queue` / `in_queue` を消費する実 conf port コンシューマ（RustMediaPort）を実装し、メディアをネットワーク送信 / ローカル再生へ接続（P15-7 Layer 3+ / RustMediaPort）。
+2. `make_call` / `answer` の call connect 時に `conf_connect` を実行し、メディア経路を確立。
+3. ファイル / WAV ベースの `AsyncAudioSource` を実装（新規チケット）。
+4. `open_default_microphone_source` を「注入可能なキャプチャ source」として README に明記し、通話マイクとの混同を排除。
 
 # STUN/TURN/ICE とトランスポート設定
 
 ClientConfig への stun_servers / turn_servers / ice の設定方法と、TransportConfig（UDP/TCP/TLS）の選択を併せて解説
 
 <::README-RESIDUE::>
-
 ## RESIDUE — 完全記述の作成不可
 
-### 証拠（欠落・矛盾）
+### 証拠（欠落・矛盾・危険）
 
-- 公開 `ClientConfig` は `stun_server: Option<String>`（単一）・`turn_server: Option<StunServerConfig>`（単一かつ **TURN が STUN 型で型バグ**、`src/config.rs:152-157`）。`stun_servers` / `turn_servers` の Vec は公開 API に存在しない（OMISSIONS F3 / §6.6）。
-- RFC 準拠 Vec 版（`client_config_spec.rs:153-157`）は lib.rs 未再公開で dead。
-- STUN / TURN / ICE はランタイム / FFI から一切参照されない。`TransportConfig`（`transport_ice_spec`）は lib.rs:135-137 で再公開されるが、`CreateTransport` アーム（`reactor.rs:394-440`）は状態に記録するのみで実トランスポート生成しない（§6.10）。
-- `StunServerConfig` が `config.rs:71` と `transport_ice_spec.rs:143` に**二重定義**（同一クレート内の型重複）。
+- 型の一本化は実現している: 単一の `StunServerConfig`（`src/config/transport_ice_spec.rs:151-154`）、`TurnServerConfig`（`:170-179`）、`IceConfig`（`:117-144`）。P15-2 が旧重複を除去し `stun_servers` / `turn_servers` を Vec 化した（`specs/P15-2.md:53, 68`）。
+- しかし **`ClientConfig` の STUN/TURN/ICE 値は PJSUA 設定へ一切反映されない**。`ffi::backend_calls.rs:32` の `pjsua_config` はゼロ初期化され `cb`（コールバック）のみ設定される。`src/ffi/` / `src/runtime/backend.rs` / `src/build/` 全体で `stun_srv` / `turn_cfg` / `media_ice` への参照はゼロ。`PjsuaBackend::initialize` は `_config` を無視（`src/runtime/backend.rs:576-587`）。
+- **トランスポート選択も PJSIP に届かない**: `pjsua_transport_create` は null config で呼ばれ（`src/ffi/backend_calls.rs:55-62`）、UDP/TCP/TLS の種別とポートは破棄される。TestBackend では `ClientState` の状態記録のみ（`src/runtime/reactor.rs:752-759`）。
+- 本番（`pjsua-native`）はビルド不能（39 エラー）。
 
 ### 実装補強設計（完全記述への条件）
 
-1. RFC 型 `ClientConfig` への移行と `stun_servers` / `turn_servers` の Vec 化、`TurnServerConfig` の型修正。
-2. `StunServerConfig` / `TurnServerConfig` を一元化（二重定義解消）。
-3. §3.1 の `PjsuaBackend` で `stun_srv` / `turn_cfg` / `media_ice` を pjsua 設定へ反映（TLS/SRTP/ICE の実メディア設定配線、§6.10）。
+1. `ClientConfig.stun_servers` → `pjsua_config.stun_srv`、`turn_servers` → `pjsua_config.turn_cfg`、`ice` → media ICE 設定へ反映する配線を実装（新規チケット）。
+2. `TransportConfig` を `pjsua_transport_create` へ反映（種別 + ポート、H1 と共通）。
+3. `pjsua-native` のビルド修復（H1 参照）。
 
 # シャットダウン
 
 shutdown() の呼び出しコードと、その際のイベント（ClientShutdown）の受信、べき等性の説明を解説
 
-<::README-RESIDUE::>
+`SipClient::shutdown()` でクライアントを安全に終了します（RFC §32 / P15-8）。
 
-## RESIDUE — 完全記述の作成不可
+```rust
+client.shutdown().await?;
+```
 
-### 証拠（欠落・危険）
+`shutdown()` はべき等です（`is_terminated()` ガードにより二重実行しても安全。テスト `sip_client_shutdown_is_idempotent` で固定）。reactor は §32 の完全手順を `ShutdownSpec.execute_sequence` として実行します。
 
-- `shutdown()` はべき等（`is_terminated` ガード、`src/client.rs:388-410`、C044）で Mock 経由で `Ok` を返す — この部分は機能する。
-- しかし確認済み内容の**「ClientShutdown イベントの受信」は不可能**。`ClientShutdown` は `client.rs` / `reactor.rs` のどこからも publish されない（grep で該当 publish なし）。
-- reactor の `Shutdown` アーム（`reactor.rs:460-468`）は `backend.shutdown()` + `terminated=true` のみ。§32 の完全手順（BYE/CANCEL → unregister → audio drain → pjsua_destroy）は `ShutdownSpec`（`src/state/shutdown_specification.rs`）に実装があるが **テスト専用で production 経路から呼ばれない**（OMISSIONS §6.4）。
-- M20 の `ShutdownCommandRouter`（`src/error/m20_shutdown_routing.rs`）も reactor ループに接続されていない（shutdown 後コマンドのルーティングなし）。
+1. コマンド受付停止（StopCommands）
+2. 全通話の終了（CancelCalls）
+3. 全アカウントの登録解除（UnregisterAccounts）
+4. 音声バッファの破棄（DrainAudio）
+5. PJSIP スタック破棄（InvokeDestroy）
 
-### 実装補強設計（完全記述への条件）
+シャットダウン完了時に `SipEventPayload::ClientShutdown` がイベントバスへ publish されます。
 
-1. reactor `Shutdown` アームから `ShutdownSpec.execute_sequence` を呼び出し、通話終了 → 登録解除 → 音声破棄の順序を実行（`P8-32` の PhaseTimeout 含む）。
-2. `ClientShutdown` イベントを publish（§15.1 クライアントライフサイクル系）。
-3. `ShutdownCommandRouter` をコマンド受信ループに接続（`is_shutting_down` ゲート、M20 §32 追補）。
+```rust
+// ClientShutdown の受信
+let mut events = client.subscribe();
+client.shutdown().await?;
+while let Ok(event) = events.recv().await {
+    if matches!(event.payload, SipEventPayload::ClientShutdown) {
+        println!("shutdown complete");
+        break;
+    }
+}
+```
+
+> **注意**: 手順 1〜4 は TestBackend 上で検証可能です。手順 5 の実 `pjsua_destroy` は `pjsua-native` feature 配下にあり、現在ビルド不能なため実機では未検証です。
 
 # REST/WebSocket API（siprs-server クレートとの境界）
 
 クライアントライブラリの README には含めず、siprs-server の README に委ねる旨を記載
 
-## 境界の説明
+本 README は **siprs クライアントライブラリ** の利用方法を解説します。REST / WebSocket API による SIP 制御・イベント配信・音声ストリーミングは、**別クレート `siprs-server`** の責務です。
 
-本 README は **siprs クライアントライブラリ** の利用方法を解説します。REST / WebSocket API による SIP 制御・イベント配信・音声ストリーミングは、**別クレート `siprs-server` の責務**です。
-
-RFC §52.1 の設計判断により、siprs 自体には Axum 等の HTTP 依存は一切追加されず、`server` feature も定義されません。HTTP/WebSocket API を利用する場合は、`siprs-server` クレートの README およびドキュメントを参照してください。
-
-> **注意（現在の実装状態）**: `siprs-server` は実装途上です。`build_router` は `/api/v1/health` と `/api/v1/shutdown` の 2 ルートのみを登録し（`src/api/standalone_server_config.rs:335-336`）、RFC §54.1 の 18 エンドポイント中 16 は未登録です。また `run_server` は固定の `ClientConfig::default()` を使用し、`sip_proxy_host=""` のためバリデーションで `Err(InvalidConfig)` を返し**起動できません**（OMISSIONS F12）。サーバーを利用する際は上記の制約を前提にしてください。
+RFC §52.1 の設計判断により、siprs 自体には Axum 等の HTTP 依存は一切追加されず、`server` feature も定義されません。HTTP/WebSocket API を利用する場合は、`crates/siprs-server` クレートのドキュメントを参照してください。
 
 # Examples (implementation samples) spec and design
 
@@ -364,61 +400,62 @@ RFC §52.1 の設計判断により、siprs 自体には Axum 等の HTTP 依存
 
 ### 証拠（欠落・危険・矛盾）
 
-READ ME の 17 セクション中 16 セクション（H1-H16）が RESIDUE であり、必須 12 機能（F1-F12）は OMISSIONS-2026-08-16 により全て DEFICIENCY / OMISSION と判定されている。Examples が「単一実装例に全セクションを統合し、確実に動作する」ことは、その前提たる機能実装が存在しないため成立しない。
+READ ME の 17 セクション中 10 セクション（H1 / H5 / H7 / H8 / H10 / H11 / H12 / H13 / H14 / H15）が RESIDUE であり、Examples が「単一実装例に全セクションを統合し、確実に動作する」ことは、その前提たる機能実装が未完了のため成立しない。
 
-- **例バイナリは存在するが動作しない**: `examples/` に `client_init.rs` / `account_register.rs` / `make_call.rs` / `audio_tap.rs` / `tts_source.rs` が存在しコンパイル可能だが、すべて `MockBackend`（`src/runtime/reactor.rs:74-75`）上で動作し、実 SIP ネットワークとの通信・メディアフローが発生しない。
-- **account_register は確実に失敗する**: `examples/account_register.rs:33-42` は `subscribe_account` で登録イベントを待つが、イベントバス分断（§3.2、`client.rs:111` vs `reactor.rs:88-96`）により `account_id` 付きイベントは 0 件。30 秒の `REGISTRATION_TIMEOUT` 後に「timed out waiting for registration (reactor NativeEvent dispatch pending P12-7)」で失敗する。`register()` 自体も `MockBackend::set_registration`（`backend.rs:232-238`）の no-op を通るだけ。
-- **make_call もイベント待ちで失敗する**: `examples/make_call.rs` は `OutgoingCallRinging` / `CallConnected` / `CallRejected` を待つが、これらのイベントは実パスで発火しない（`reactor.rs:270-312`、OMISSIONS F6）。
-- **audio_tap は永久待機する**: `subscribe_audio` が `AudioTapSender` を保存するだけで、`push` を呼ぶ生産コードが存在しない（`client.rs:345-368`、OMISSIONS F9）。`AudioTapHandle::recv()` は `frame_available` 待ちでブロックし続ける。
-- **tts_source は音声が流れない**: `AudioWorkerTask::spawn` が生産コードから一切呼ばれず（grep 確認）、`in_queue`/`out_queue` が駆動しない（OMISSIONS F11）。
-- **唯一動作する例は client_init**: `SipClient::new` → `ClientInitialized` 受信 → `shutdown()` のみが Mock 上で完走する。
+- **本番バックエンドがビルド不能**: `cargo build --features pjsua-native` は 39 エラー（bindgen 定数 `PJ_SUCCESS` 等の欠如、`pjsua_acc_config.registrar_uri` 欠如、`SecretString::expose_secret` 未実装、`pjsip_inv_state` / `pjsua_call_media_status` の constified enum 未適用等）。→ 実 SIP 通信を伴う example は成立しない。
+- **既定ビルドでは `SipClient::new` が実行時失敗**: `cargo run --example client_init` は `"failed to spawn reactor: backend error: SipClient requires the `pjsua-native` feature"` で即失敗（`src/runtime/backend_selection.rs:62-68`）。examples はコンパイル可能だが、既定ビルドではどの example も起動できない。
+- **TestBackend（`--features test-util`）では `client_init` のみ完走**: `cargo run --example client_init --features test-util` は `ClientInitialized` 受信まで成功する。しかし他の example は以下で失敗する。
+- **account_register は確実に失敗する**: `examples/account_register.rs:79-87` は `RegistrationSucceeded` / `RegistrationFailed` を待つが、本番が publish するのは `RegistrationStateChanged` のみ（`src/runtime/reactor.rs:990-993`、`src/state/registr_wiring.rs:53-88`）。`RegistrationSucceeded` / `Failed` は `#[cfg(test)]` 内でのみ構築される（`src/api/event_model_payload_bus.rs:544-579`）。30 秒の `REGISTRATION_TIMEOUT` 後にタイムアウト失敗する（H5 参照）。
+- **make_call もイベント待ちで失敗する**: `examples/make_call.rs` は `OutgoingCallRinging` / `CallConnected` / `CallRejected` を待つが、`CallRejected` は一切生成されず（H11 参照）、`OutgoingCallRinging` / `CallConnected` は `pjsua-native` のコールバック専用（`src/state/m20_callstate_mapping.rs:109-122`、`src/ffi/callback.rs:167`）。TestBackend では発火しない。
+- **audio_tap は永久待機する**: `subscribe_audio` は `AudioTapSender` を tap レジストリへ登録するが、`push_media_frame` を呼ぶ生産コードが存在しない（`src/runtime/backend.rs:143-147`、P15-7 が conf-port コールバックを先送り）。`AudioTapHandle::recv()` はブロックし続ける（H13 参照）。
+- **tts_source は音声が流れない**: `AudioWorkerInner::process_frame` は `out_queue` / `in_queue` へ push するが、pop する消費経路が存在しない（`src/runtime/audio_worker.rs:506-514`）。メディアは `conf_connect` されない（H14 参照）。
 
 ### 実装補強設計（Examples が完全記述になるための条件）
 
-#### 前提: 機能実装の完了（各 README セクションの RESIDUE 解消）
+#### 前提: 各 README セクションの RESIDUE 解消
 
-Examples が「確実に動作する」には、以下が先に実装される必要がある（チケット化の素材）。
+Examples が「確実に動作する」には、以下が先に実装される必要がある（チケット化の素材。各セクション RESIDUE を参照）。
 
-1. **Phase 0 — ビルド可能化**（OMISSIONS §6.1）: `pjsua-native` feature がビルドできること（`SecretString::expose_secret()` 実装、bindgen enum の `constified_enum_module`、build.rs のリンク仕様修正、prebuilt パス修正、source build fallback）。チケット: `P8-16` / `P10-2` / `P13-4` / `P8-5` / `P11-5`。
-2. **Phase 1 — reactor → 実 backend**（§3.1）: `reactor.rs:74-75` で `#[cfg(feature="pjsua-native")] PjsuaBackend` を選択。チケット: `P3-2`。
-3. **Phase 2 — イベントバス一元化**（§3.2）: reactor の `dispatch_event` をクライアント側バスへ転送。`subscribe_account` / `subscribe_raw_sip` が実際にイベントを受信できること。チケット: `P0-5` / `P7-2` / `P12-7`。
-4. **Phase 3 — 公開 API の配線**: `SipClient::answer` / `send_dtmf` / `hangup` / `update_config` の再登録動作、`register_on_start` の消費。チケット: `P8-9` / `P8-11` / `P8-14` / `P9-3` / `P11-6` / `P11-7`。
-5. **Phase 4 — メディア経路**: `AudioWorkerTask` の spawn、`conf_connect`、tap push、IN/OUT/BOTH ルーティング。チケット: `P8-8` / `P9-2` / `P8-23` / `P11-12`。
-6. **Phase 5 — デバイス入力**: cpal マイク source の実接続。チケット: `P8-7` / `P13-1` / `P13-2` / `P14-1` / `P14-2`。
+1. **本番バックエンドのビルド修復**: `pjsua-native` の 39 エラー解消（bindgen allowlist とコード期待の整合、`pjsua_acc_config.registrar_uri`、`SecretString::expose_secret`、constified enum モジュール）。チケット: `P8-16` / `P10-2` / `P11-5` / `P13-4`。
+2. **トランスポート / STUN/TURN/ICE の実配線**: `config.transports` の自動生成と `pjsua_transport_create` への反映、`stun_servers` / `turn_servers` / `ice` の `pjsua_config` への反映（H1 / H15）。
+3. **イベント経路の完成**: FFI コールバックキューのドレイン（P8-21）、raw SIP パブリッシャ（P0-5 / P9-4）、`RegistrationStateChanged` への統一（P15-5）。
+4. **着信 / 通話イベントの完成**: 着信 `CallEntry` 登録と `answer(200)` → `CallConnected` の publish（P15-6 / P12-8）、`CallRejected` の生成か記述修正（P15-6）。
+5. **DTMF の完成**: `DtmfMethod` 一元化と実 PJSIP 送信への反映、`DtmfSent { Ok }` 経路（P11-6）。
+6. **メディア経路の完成**: conf-port メディアコールバック → `push_media_frame`、`out_queue` / `in_queue` の消費（P15-7 Layer 3+）、WAV / ファイル source の実装。
 
 #### Examples 設計（実装後に完全記述化する目標）
 
-5 つの例バイナリ（`examples/common/cli.rs` の CLI パースと `examples/common/client.rs` の add_account ヘルパーを共通利用）を以下に定義する。
+5 つの例バイナリ（`examples/common/cli.rs` の CLI パースと `examples/common/client.rs` の add_account ヘルパーを共通利用）を、各 README セクションの契約に沿って再定義する。
 
-**E1. client_init（RFC §41.1）**
-- 契約: 前 `ClientConfig` がバリデーション通過（§42）／後 `SipClient::new` が `Ok` を返し `ClientInitialized(ClientCapabilities)` が 1 回 publish される／不変: 初期化失敗時は `Err(InvalidConfig)` で fail-fast。
-- テスト: `SipClient::new` 成功・`ClientInitialized` 受信・不正 config で `InvalidConfig`（integration test、MockBackend）。
+**E1. client_init（RFC §41.1 / H1-H3）**
+- 契約: 前 `ClientConfig` がバリデーション通過（§42）／後 `SipClient::new` が `Ok` を返し `ClientInitialized(ClientCapabilities)` が publish される／不変: 初期化失敗は fail-fast `Err(InvalidConfig)`。※ TestBackend 上では現に完走（検証済み）。
+- テスト: `SipClient::new` 成功・`ClientInitialized` 受信・不正 config で `InvalidConfig`。
 
-**E2. account_register（RFC §41.2 / §17）**
-- 契約: 前 `register_on_start` または明示 `register()` が submit される／後 `RegistrationState` が `Registered` へ遷移し `RegistrationSucceeded` が受信できる／不変: 未登録時の初期状態は `Disabled`。
-- テスト: 登録成功・失敗（4xx）、`unregister()` で `Unregistering → Idle`、タイムアウト時の `RegistrationFailed`。
+**E2. account_register（RFC §41.2 / §17 / H4-H6）**
+- 契約: 前 `register_on_start` または明示 `register()` が submit される／後 `RegistrationState` が `Registered` へ遷移し、`RegistrationStateChanged` が受信できる／不変: 未登録時は `Disabled`。
+- テスト: 登録成功・失敗（4xx）、`unregister()` で `Unregistering → Idle`、タイムアウト時の `Failed`。
 
-**E3. make_call（RFC §41.3 / §18-19）**
-- 契約: 前 `OutgoingCallRequest` の codec 検証通過／後 `make_call` が実 `CallId` を返し、`OutgoingCallRinging` → `CallConnected`（または `CallRejected`）が `meta.call_id` 付きで受信できる／不変: 4xx-6xx で `Failed` 遷移、`hangup` で `Disconnecting → Disconnected`。
-- テスト: 発信成功・拒否（486/603）・キャンセル、イベント順序。
+**E3. make_call（RFC §41.3 / §18-19 / H9-H11）**
+- 契約: 前 `OutgoingCallRequest` の全 6 フィールドが検証通過／後 `make_call` が実 `CallId`（u64）を返し、`CallConnected`（または `CallDisconnected`）が `meta.call_id` 付きで受信できる／不変: reject（486/603）は `CallDisconnected` で観測。
+- テスト: 発信成功・拒否（486/603）・`hangup` での切断、イベント順序。
 
-**E4. audio_tap（RFC §22 / §21）**
-- 契約: 前 `subscribe_audio(call_id, format, capacity, mode)` が有効な tap を返す／後 `AudioChunkPair`（`in_chunk`=L=受話、`out_chunk`=R=送話）が交渉済み `AudioFormat` で連続生産される／不変: `Realtime` は最古破棄、`Lossless` は producer ブロック（§22.1）。
-- テスト: フレーム連続生産・フォーマット一致（bit depth / sample rate / channel）、backpressure 両モード、`AudioChunkPair` → 指定 bit/hz のステレオ WAV 変換（H13 の要求）。
+**E4. audio_tap（RFC §22 / §21 / H13）**
+- 契約: 前 `subscribe_audio(call_id, format, capacity, mode)` が有効な tap を返す／後 `AudioChunkPair`（L=IN / R=OUT）が交渉済み `AudioFormat` で連続生産される／不変: `Realtime` は最古破棄、`Lossless` は producer ブロック（§22.1）。
+- テスト: フレーム連続生産・フォーマット一致・backpressure 両モード・`AudioChunkPair` → 指定 bit/hz のステレオ WAV 変換。
 
-**E5. tts_source（RFC §23-24 / §41.5）**
-- 契約: 前 `AsyncAudioSource::next_chunk` が 20ms フレームを返す／後 `add_audio_source(call_id, source)` が source を登録し、`set_audio_source_gain(call_id, source_id, g)` でゲイン適用、IN/OUT/BOTH の指定チャネルに mix される／不変: source が閉じたら（`next_chunk` が 0 返し）自動除去。
-- テスト: ファイル / mpsc ストリーム source の注入、BOTH/IN/OUT 各チャネルへのルーティング、マイク source（`open_default_microphone_source`）の実接続。
+**E5. tts_source（RFC §23-24 / §41.5 / H14）**
+- 契約: 前 `AsyncAudioSource::next_chunk` が 20ms フレームを返す／後 `add_audio_source(call_id, source, channels)` が source を登録し、IN/OUT/BOTH の指定チャネルへ mix される／不変: source が閉じたら自動除去。
+- テスト: ストリーム source の注入、BOTH/IN/OUT 各チャネルへのルーティング、`open_default_microphone_source` の注入（通話マイクではなく独立キャプチャである点を明記）。
 
 #### 検証方法
 
-- `make test`（Makefile）で全 integration test（MockBackend 上）をグリーンに保つ。
-- `cargo test --features pjsua-native` がビルド・実行できること（Phase 0 の条件）。
-- 各例は `cargo run --example <name> -- --host ...` で実 PBX / ローカル SIP サーバに対して完走すること。
+- `make test`（`--features test-util`、TestBackend）で全 integration test をグリーンに保つ。
+- `cargo build --features pjsua-native` がビルド・実行できること（本番バックエンド修復の条件）。
+- 各 example は `cargo run --example <name> --features pjsua-native -- --host ...` で実 PBX / ローカル SIP サーバに対して完走すること。
 - 実機 SIP 相互接続試験（§43.4 Layer 4）を CI の Docker job（§44 M20）で実行。
 
 #### 実装チケットの依存関係
 
-- `P8-6` / `P9-1` / `P13-3` / `P14-3`（例バイナリ本体の実装）は、Phase 0-4 の機能実装が先に完了していることが前提。
-- `P8-8` / `P9-2`（audio subscribe）、`P8-23` / `P11-12`（audio orchestration）、`P8-7` / `P13-1` / `P14-1`（cpal）は E4/E5 の前提。
-- `P8-30` / `P12-8`（CallDirection）、`P12-7`（NativeEvent dispatch）は E2/E3 の前提。
+- 例バイナリ本体の実装（`P8-6` / `P9-1` / `P13-3` / `P14-3`）は、上記 Phase 1-6 の機能実装が先に完了していることが前提。
+- `P8-8` / `P9-2`（audio subscribe）、`P15-7` Layer 3+（メディア配線）は E4/E5 の前提。
+- `P12-7` / `P8-21`（NativeEvent dispatch / FFI キュー drain）、`P12-8`（CallDirection）は E2/E3 の前提。

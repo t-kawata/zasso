@@ -1,0 +1,1 @@
+{"contracts":[{"id":"C091","sourceEdge":"N0079→N0068","precondition":"§62 親セクションが存在する","postcondition":"62.10 がラウンド 2 スコープを定義する","invariant":"進化スコープは §62.1–62.9 と矛盾しない"}]}
