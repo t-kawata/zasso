@@ -32,3 +32,5 @@ pub mod policy_reference;
 pub mod round2_scope_rootcause;
 // [::TICKET::] P16-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-9 --for-spec --no-implementation-order`.
 pub mod examples_e1e5;
+pub mod io_boundary_round2;
+// [::TICKET::] P16-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-11 --for-spec --no-implementation-order`.
