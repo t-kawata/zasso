@@ -34821,7 +34821,7 @@
         {
           "id": 4,
           "phaseId": 16,
-          "status": "todo",
+          "status": "reviewed",
           "title": "Event path completion — FFI drain / raw SIP / P1-P2 (§62.13)",
           "nodeIds": [
             "N0082"
@@ -34830,42 +34830,147 @@
             "FFI lock-free キューの drain タスクを reactor に追加し、NativeEvent を M20 変換器経由でイベントバスへ統合する。",
             "subscribe_raw_sip() の受信チャネルへ RawSipMessage を供給する raw SIP publisher を実装する（on_rx_msg から）。",
             "P1/P2 系イベント変換器（m20_native_event_conv.rs）を Some() 化する。",
-            "**Scope of changes:** src/runtime/event_path_wiring.rs（add）/ src/runtime/reactor.rs（modify: drain タスク spawn）/ src/state/m20_native_event_conv.rs（modify: Some() 化）"
+            "**Scope of changes:** src/runtime/event_path_wiring.rs（add）/ src/runtime/reactor.rs（modify: drain タスク spawn）/ src/state/m20_native_event_conv.rs（modify: Some() 化）",
+            "**Scope of changes (describe each change comprehensively):**\n  - [File/module path] src/runtime/event_path_wiring.rs（新規追加）\n  - [Action] add — FFI drain タスクと raw SIP publisher の配線モジュール\n  - [Detail] `spawn_native_event_drain(sender: UnboundedSender<DispatchCommand>)` — NATIVE_EVENT_QUEUE を try_pop_native_event() でポーリングし DispatchCommand::NativeEvent として reactor に配送。`spawn_raw_sip_publisher(event_bus: EventBus, config: RawSipEventConfig)` — RAW_SIP_QUEUE の bytes を parse_with_config → publish_raw_sip。`src/runtime/mod.rs` + `src/lib.rs` に module 登録\n  - [Before → After] 孤立スタブ（[::STUB::] P16-4、未登録）→ 実装済み wiring モジュール。reactor 起動時に drain タスクが spawn される\n  - [API contract] 新規 pub(crate) 関数の追加。既存公開 API は不変。SipEventPayload への P2 新規バリアント追加のみ（#[non_exhaustive] のため互換）\n  - [Data schema] SipEventPayload に P2 バリアント 5 種追加: CallTsxStateChanged / CallRedirected / CallTransferStatus / CallReplaced / NatDetected\n  - [Config/env] 追加なし。RawSipEventConfig（既存）が raw SIP publisher の有効/無効を制御\n  - [Dependency] 追加なし（crossbeam-queue / tokio は既存依存）",
+            "**Additional change files (required by the above):**\n  - src/ffi/callback.rs（modify）: `try_pop_native_event()` / RAW_SIP_QUEUE / `enqueue_raw_sip_bytes()` / `try_pop_raw_sip_bytes()` / on_rx_msg 追加と register_callbacks への登録\n  - src/ffi/bindings.rs（modify）: スタブ pjsua_callback に on_rx_msg フィールド追加\n  - src/api/event_model_payload_bus.rs（modify）: SipEventPayload に P2 バリアント追加\n  - src/runtime/reactor.rs（modify）: CoreReactor::spawn で drain/publisher タスクを spawn、既存 P1 drop テストを新仕様へ更新\n  - src/runtime/handle.rs（modify 不要）: 既存 enqueue_native_event が配送経路として再利用される",
+            "**Out of scope (items intentionally excluded, with justification):**\n  - [Excluded item] P2 の実 FFI コールバック登録（on_call_tsx_state / on_call_replaced / on_nat_detect）\n  - [Why excluded] スタブ pjsua_callback に存在せず、bindgen 側も vendored PJSIP バージョン依存。変換器の Some() 化（純関数）は本チケットで完了し、コールバック登録は将来チケット\n  - [Excluded item] raw SIP パーサの詳細出力の拡張（ヘッダ正規化・SDP パース等）\n  - [Why excluded] P0-5 / P9-4 スコープ（ticket 初期記載どおり）。本チケットは RAW_SIP_QUEUE → publisher → bus の経路完成に集中",
+            "**Affected areas (components/systems impacted, even without direct modification):**\n  - [Affected component] src/ffi/callback.rs / src/ffi/bindings.rs（FFI 層）\n  - [Nature of impact] API 表面（pjsua_callback 構造体へのフィールド追加）、lock-free キューの追加、pjsua-native の bindgen 整合\n  - [Corresponding change needed Y/N + details] Y — on_rx_msg の bindgen 有無を確認し、スタブ構造体にフィールド追加\n  - [Affected component] src/runtime/reactor.rs / src/api/event_model_payload_bus.rs（イベント経路）\n  - [Nature of impact] 挙動変更（P1/P2 イベントが publish される）、公開 enum の拡張\n  - [Corresponding change needed Y/N + details] Y — process_native_event の P1 drop テスト更新、SipEventPayload バリアント追加\n  - [Affected component] src/runtime/state.rs / src/state/registr_wiring.rs（登録・コール状態機械）\n  - [Nature of impact] なし（既存 publish 経路をそのまま利用）\n  - [Corresponding change needed Y/N + details] N — 本チケットの変更で状態機械ロジックは不変"
           ],
           "testUnit": [
-            "P1/P2 変換器が Some() を返すイベント系列",
-            "raw SIP redact 規則（§16）"
+            "UT: [Normal] C099 — FFI キュー enqueue→try_pop が FIFO で取り出す: `enqueue_native_event(A)`→`enqueue_native_event(B)`→`try_pop_native_event()` が A→B→None を返す (src/ffi/callback.rs)",
+            "UT: [Normal] C099 — drain タスクが enqueue 済み NativeEvent を DispatchCommand::NativeEvent として配送する: テスト sender に event_path_wiring::spawn_native_event_drain を接続し、enqueue → 配送される (src/runtime/event_path_wiring.rs)",
+            "UT: [Normal] C098 — drain→reactor→process_native_event→EventBus publish が成立する: enqueue した RegistrationStarted が subscribe() で受信できる (src/runtime/reactor.rs)",
+            "UT: [Normal] P1 — TransportStateChanged が state に応じて Some(TransportConnected/TransportDisconnected/TransportError) を返す: CONNECTED→TransportConnected, DISCONNECTED→TransportDisconnected, 他→TransportError (m20_native_event_conv.rs)",
+            "UT: [Normal] P1 — IceTransportError が Some(IceNegotiationFailed(IceFailureInfo{call_id})) を返し、call_id が保持される (m20_native_event_conv.rs)",
+            "UT: [Normal] P2 — CallRedirected が Some(SipEventPayload::CallRedirected(info{call_id})) を返す (m20_native_event_conv.rs)",
+            "UT: [Normal] P2 — CallTransferStatus が Some(SipEventPayload::CallTransferStatus(info{call_id})) を返す (m20_native_event_conv.rs)",
+            "UT: [Normal] P2 — CallTsxStateChanged / CallReplaced / NatDetected が各 Some(SipEventPayload) を返す (m20_native_event_conv.rs)",
+            "UT: [Normal] C100 — raw SIP publisher: enqueue_raw_sip_bytes の bytes が RawSipMessage::parse_with_config 後に publish_raw_sip され、subscribe_raw_sip() で受信できる (src/runtime/event_path_wiring.rs)",
+            "UT: [Error] C100 — raw SIP 不正バイト列は parse 失敗で drop され、bus に不正データが流れない (publisher が log::warn + skip)",
+            "UT: [Error] — reactor 終了（sender drop）で drain タスクが停止する (event_path_wiring::spawn_native_event_drain)",
+            "UT: [Error] — RAW_SIP_QUEUE 満杯時は bytes が drop され、raw_sip_dropped_count が増加する",
+            "UT: [Boundary] — NATIVE_EVENT_QUEUE 容量 256 超えで drop + native_event_dropped_count 増加（既存 C052 テストの拡張）",
+            "UT: [Boundary] — raw SIP max_body_bytes（既定 64*1024）で body が truncate される (parse_with_config)",
+            "UT: [Boundary] — acc_id=0 / call_id=0 の無効センチネルは P1/P2 変換で None（skip）になる (m20_native_event_conv.rs)",
+            "UT: [Invariant] C098 — 全 SipEvent は単一 EventBus（dispatch_event, P15-4）経由で publish され、複数バスへの分断がない (src/runtime/reactor.rs)",
+            "UT: [Invariant] C099 — NativeEvent は M20 変換器（convert_native_event_to_payload）経由でバスへ統合され、enqueue は lock-free で満杯時 drop + NATIVE_EVENT_DROPPED 増加 (src/ffi/callback.rs)",
+            "UT: [Invariant] C100 — redact_authorization=true のとき Authorization/Proxy-Authorization の値が [REDACTED] になり生の資格情報がバスに漏れない (raw_sip_message_spec.rs + eventbus_receiver.rs)"
           ],
           "testIntegration": [
-            "Asterisk（docker）からのイベント系列がバスへ publish される"
+            "IT: [Integration point] — FFI キュー（src/ffi/callback.rs）→ event_path_wiring::spawn_native_event_drain → DispatchCommand::NativeEvent → reactor process_native_event → M20 変換 → EventBus control bus",
+            "IT: [Integration point] — RAW_SIP_QUEUE → event_path_wiring::spawn_raw_sip_publisher → RawSipMessage::parse_with_config（redact/truncate）→ EventBus::publish_raw_sip → subscribe_raw_sip() receiver",
+            "IT: [Verification] — `make test`（cargo test）で FFI キュー→bus の end-to-end 経路を検証: enqueue した NativeEvent 系列が control bus に、enqueue した raw bytes が raw_sip bus に publish される",
+            "IT: [Verification] — §62.19 の Asterisk（docker）からの実 SIP イベント系列が、drain→M20→control bus と raw SIP publisher→raw_sip bus に流れる",
+            "IT: [Prerequisites] — pjsua-native feature で PJSIP 実スタックビルド（on_rx_msg の実 read 検証用）、Asterisk docker 環境（§62.19）、RawSipEventConfig.enabled=true（既定）",
+            "IT: [Related tickets] — P0-5（EventBus split / raw_sip バス）、P8-21（FFI キュー）、P9-6 / P9-4（RawSipMessage）、P15-4（単一バス dispatch_event）、P16-3（登録ライフサイクル）、§62.19（Asterisk 統合基盤）"
           ],
           "testExceptions": [
-            "raw SIP パーサの詳細出力は P0-5 スコープ"
+            "Exception: 実 PJSIP スタック（pjsua-native）での on_rx_msg 実コールバックによる pjsip_rx_data からの生パケット読み取り — Reason: スタブビルドでは pjsip_rx_data が不透明（_private: [u8; 0]）でパケット bytes を取得できず、実スタックは CI/ローカルで常時稼働しないため、実 FFI 経路はテスト不能（cannot test）である。これは design defect ではない — 読み取り関数を feature ゲートで分離し、経路全体を注入可能に設計している — Alternative: enqueue_raw_sip_bytes による直接注入で RAW_SIP_QUEUE→publisher→bus 経路を検証し、pjsua-native の read 関数はレビューで担保",
+            "Exception: 実 PJSIP callback のリアルタイム発火タイミング（NATIVE_EVENT_QUEUE の実時間 drain 競合） — Reason: 外部スレッドの実行順序に依存し、実時間で決定的に再現できないためテスト不能（cannot test）である。これは design defect ではない — キュー注入+drain の順序検証に分解可能な設計であり、drain は決定論的にテストできる — Alternative: テストで enqueue_native_event を直接呼び、drain の FIFO 順序と drop 挙動を決定的に検証",
+            "Exception: P2 の CallTsxStateChanged / CallReplaced / NatDetected の実 FFI コールバック発火 — Reason: 対応コールバック（on_call_tsx_state / on_call_replaced / on_nat_detect）はスタブ pjsua_callback に未登録で、実スタックでの発火検証は本チケットの FFI 登録スコープ外のためテスト不能（cannot test）である。これは design defect ではない — 変換器は純関数で直接テスト可能に設計しており、コールバック登録は将来チケットで追加される — Alternative: convert_native_event_to_payload の直接呼び出しで Some() 変換を検証"
           ],
-          "changes": [],
+          "changes": [
+            {
+              "before": "event_path_wiring.rs: isolated [::STUB::] P16-4, not registered",
+              "after": "Implemented FFI drain + raw SIP publisher wiring; module registered in runtime/mod.rs",
+              "description": "Added drain_pending_native_events / spawn_native_event_drain / drain_and_publish_raw_sip / spawn_raw_sip_publisher"
+            },
+            {
+              "before": "ffi/callback.rs: NATIVE_EVENT_QUEUE produced but no consumer; no raw SIP queue",
+              "after": "Added try_pop_native_event, RAW_SIP_QUEUE (capacity 64), enqueue_raw_sip_bytes, try_pop_raw_sip_bytes, raw_sip_dropped_count; register_callbacks installs raw SIP queue",
+              "description": "P16-4 §62.13 FFI drain primitive + raw SIP capture queue"
+            },
+            {
+              "before": "bindings.rs stub pjsua_callback had no transport state constants",
+              "after": "Added pjsip_transport_state module (IDLE/CONNECTING/CONNECTED/DISCONNECTED/SHUTDOWN/DESTROYED)",
+              "description": "Symbolic constants for P1 TransportStateChanged mapping"
+            },
+            {
+              "before": "SipEventPayload had no P2 variants",
+              "after": "Added 5 unit variants: CallTsxStateChanged / CallRedirected / CallTransferStatus / CallReplaced / NatDetected",
+              "description": "#[non_exhaustive] additive P2 API"
+            },
+            {
+              "before": "convert_native_event_to_payload returned None for P1/P2",
+              "after": "P1 Transport→Transport{Connected|Disconnected|Error}, ICE→IceNegotiationFailed; P2 5 variants→Some()",
+              "description": "P1/P2 Some() 化 per §62.13"
+            },
+            {
+              "before": "reactor.rs: no drain task; P1 events dropped; lifecycle via channel-close",
+              "after": "spawn_native_event_drain + spawn_raw_sip_publisher on timer runtime; reactor terminates via Shutdown (drain task holds sender)",
+              "description": "P16-4 §62.13 event path wiring; lifecycle contract updated"
+            }
+          ],
           "contracts": [
             {
               "id": "C098",
               "sourceEdge": "N0082→N0068",
-              "precondition": "§62 親セクションが存在する",
-              "postcondition": "62.13 がイベント経路の完成を定義する",
-              "invariant": "イベント経路は §15 のバス一元化と矛盾しない"
+              "precondition": "§62 親セクション（N0068）が存在し、62.13 の決定 (1) FFI drain タスク (2) raw SIP publisher (3) P1/P2 変換器 Some() 化 が定義済みである。実装対象: src/runtime/event_path_wiring.rs（add）/ src/runtime/reactor.rs（modify）/ src/state/m20_native_event_conv.rs（modify）",
+              "postcondition": "FFI drain タスク・raw SIP publisher・P1/P2 変換器が実装され、enqueue した NativeEvent 系列と raw SIP 系列が単一 EventBus（control bus / raw_sip bus）に publish される。`spawn_native_event_drain` が reactor 起動時に spawn され、`try_pop_native_event` が FIFO で取り出す。テスト可能形: enqueue→drain→subscribe() で SipEvent 受信、subscribe_raw_sip() で RawSipMessage 受信",
+              "invariant": "イベント経路は §15 のバス一元化と矛盾しない — 全 SipEvent は dispatch_event（P15-4）経由で単一 EventBus に publish され、複数バスへの分断や reactor 外部への直接 publish がない。テスト可能形: process_native_event 経由の publish が event_bus.publish のみを通る"
             },
             {
               "id": "C099",
               "sourceEdge": "N0082→N0037",
-              "precondition": "N0037 が §27 FFI 層を定義する",
-              "postcondition": "62.13 が FFI キュー drain タスクを規定する",
-              "invariant": "NativeEvent は M20 変換器経由でバスへ統合される"
+              "precondition": "N0037 が §27 FFI 層を定義する — callback は lock-free キューへの enqueue のみ（割当・ブロック・パニック禁止）。NATIVE_EVENT_QUEUE は register_callbacks により install 済みで、容量 256（NATIVE_EVENT_QUEUE_CAPACITY）。テスト可能形: enqueue_native_event がロックを取らず、満杯時は drop のみ",
+              "postcondition": "62.13 が FFI キュー drain タスクを規定する — try_pop_native_event() がキューから FIFO で取り出し、drain タスクが DispatchCommand::NativeEvent 経由で reactor に配送し、process_native_event で M20 変換後に publish する。テスト可能形: enqueue A,B → try_pop が A→B→None、drain タスクが NativeEvent を reactor に配送する",
+              "invariant": "NativeEvent は M20 変換器（convert_native_event_to_payload）経由でバスへ統合される — enqueue は lock-free で、満杯時は drop + NATIVE_EVENT_DROPPED 増加（callback スレッドはブロック・パニックしない）。テスト可能形: 容量 1 で 2 つ push → dropped_count==1 かつ queue 先頭が保持"
             },
             {
               "id": "C100",
               "sourceEdge": "N0082→N0018",
-              "precondition": "N0018 が §15 イベントモデルを定義する",
-              "postcondition": "62.13 が raw SIP publisher と P1/P2 変換を規定する",
-              "invariant": "raw SIP は §16 の redact 規則に従う"
+              "precondition": "N0018 が §15 イベントモデルを定義する — EventBus は control/raw_sip 分割（P0-5）。RawSipEventConfig.enabled で raw_sip バス有効/無効。RawSipMessage は §16 redact 規則（redact_authorization）を持つ。テスト可能形: enabled=true で subscribe_raw_sip() が Some、false で None",
+              "postcondition": "62.13 が raw SIP publisher と P1/P2 変換を規定する — RAW_SIP_QUEUE の bytes が RawSipMessage::parse_with_config（redact/truncate）後に publish_raw_sip され、P1/P2 NativeEvent が Some(SipEventPayload) に変換される。テスト可能形: enqueue_raw_sip_bytes→publish→subscribe で redact 済みメッセージ受信、convert_native_event_to_payload(P1/P2) が Some を返す",
+              "invariant": "raw SIP は §16 の redact 規則に従う — redact_authorization=true のとき Authorization/Proxy-Authorization の値が [REDACTED] になり生の資格情報がバスに漏れない。テスト可能形: parse_with_config 後の text に [REDACTED] が含まれ、元パスワード文字列が含まれない"
             }
-          ]
+          ],
+          "invariants": "- 【Normal establishment】すべての NativeEvent（P0/P1/P2）は `convert_native_event_to_payload` を経由して SipEventPayload に変換され、`dispatch_event`（P15-4）経由で単一 EventBus の control bus に publish される。raw SIP は `RawSipEventConfig` に従い parse/redact/truncate 後に `publish_raw_sip` される。\n- 【Invariant on error】FFI キュー満杯時はイベントを drop し `NATIVE_EVENT_DROPPED` を増加（callback スレッドはブロック・パニックしない）。raw SIP の parse 失敗時はメッセージを drop し、bus に不正データを流さない。reactor 終了（sender drop）時は drain タスクが停止する。\n- 【Internal state invariant】NATIVE_EVENT_QUEUE / RAW_SIP_QUEUE は install 済みでなければ enqueue は no-op。drain は FIFO 順に消費する。P2 の新規 SipEventPayload バリアントは元 NativeEvent の call_id を失わない。\n- 【Boundary invariant】NATIVE_EVENT_QUEUE_CAPACITY=256 超えは drop。raw SIP max_body_bytes（既定 64*1024）で body は truncate。acc_id=0 / call_id=0 は PJSUA の無効センチネルとして変換で None（skip）。",
+          "background": "### Goal\nFFI コールバックが生成する `NativeEvent` を lock-free キュー（NATIVE_EVENT_QUEUE）から reactor が drain して M20 変換器（convert_native_event_to_payload）経由で単一 EventBus に統合し、`subscribe_raw_sip()` の受信チャネルへ `RawSipMessage` を供給し、P1/P2 イベント変換器を Some() 化して publish 可能にする。\n\n### Purpose\n現状 `NATIVE_EVENT_QUEUE` は producer（FFI callback）のみで consumer 不在 — 実コールバック由来のイベントが reactor に届かず、イベントバスが分断されている（§62 の RESIDUE 3 根因の 1 つ「イベントバス分断」）。FFI drain タスクと raw SIP publisher、P1/P2 変換を完成させ、コールバック → キュー → reactor → EventBus のイベント経路を end-to-end で閉じる。観測用途（C021）として、`subscribe()` / `subscribe_account()` / `subscribe_raw_sip()` の 3 種の receiver が実イベント系列を受信できるようにする。\n\n### Motivation\n- §62 実装整合設計ラウンド 2 の Q3（62.13）として、P8-21 で実装済みの FFI キューを drain タスクに接続するスコープが RFC 設計として確定した\n- 現状 P1/P2 イベントは `convert_native_event_to_payload` が None を返し、実コールバック由来のイベント（on_call_redirected → CallRedirected 等）が publish されない\n- Asterisk（docker）統合テスト（§62.19）の前提として、イベント経路の完成が必須\n\n### Constraints\n- FFI callback は lock-free・非割当・非ブロッキング（raw SIP パケットコピーは opt-in 観測経路の文書化例外）\n- `SipEventPayload` は `#[non_exhaustive]` — P2 バリアント追加は additive で破壊的変更不可\n- `RawSipEventConfig.enabled=false` 時は raw_sip バス無効（subscribe_raw_sip() が None、publish_raw_sip が no-op）\n- テストは Makefile 経由（`make test`）。pjsua-native は feature ゲート（スタブビルドで全ユニットテストが通ること）\n- 既存テスト（P1 が None を検証するもの等）は新仕様に合わせた更新が必要だが、実装を pass させるための弱化は禁止（TDD の Red で新挙動を指定）",
+          "instrumentation": "- 【Logging】drain タスクがキュー drop を検知したら `log::warn!`（native_event_dropped_count > 0 の差分）。raw SIP parse 失敗は `log::warn!`。raw SIP subscriber 不在（publish_raw_sip の send 失敗）は `log::warn!(\"raw SIP subscriber dropped; message discarded\")`（RFC 62.13 例示どおり）。\n- 【Metrics】`native_event_dropped_count()` を既存公開 API として維持し、drain 側で観測可能にする。RAW_SIP_QUEUE 用の drop カウンタ（raw_sip_dropped_count）を追加。\n- 【Error tracking】reactor 終了による drain タスク終了を `tracing::debug` で記録。parse エラーはメッセージ長・エラー種別を含む構造化ログ。\n- 【Health check】`native_event_dropped_count()` をヘルス観測の指標として公開（既存）。drain タスクの生存は reactor の `is_terminated()` と連動し、terminated 後に enqueue_native_event が ReactorDown を返す。\nStatic quality check: passed (61 findings all test-code unwrap/expect + FFI unsafe with SAFETY comments; no new production violations)\nTranslatability: no issues (verb-phrase fns, no magic numbers, no debug output)\nTests: all 1178 lib + integration + doc tests passed (0 failed)",
+          "notes": "- 【Implementation steps】(1) src/ffi/callback.rs に try_pop_native_event() / RAW_SIP_QUEUE / enqueue_raw_sip_bytes() / try_pop_raw_sip_bytes() を追加 (2) src/ffi/bindings.rs のスタブ pjsua_callback に on_rx_msg フィールド追加、register_callbacks に登録（on_rx_msg の実 read は pjsua-native feature ゲート）(3) src/runtime/event_path_wiring.rs に spawn_native_event_drain / spawn_raw_sip_publisher を実装し module 登録 (4) reactor.rs の CoreReactor::spawn で timer_runtime.spawn により drain/publisher タスク起動 (5) m20_native_event_conv.rs の P1/P2 を Some() 化、SipEventPayload に P2 バリアント追加 (6) 既存テスト更新（process_native_event_p1_drops_without_publish、native_event_transport_state_changed_returns_none、native_event_p2_variants_return_none 等）は TDD Red で新挙動に書き換え (7) make test で全テスト green 確認\n- 【Risks】on_rx_msg が pjsua-native の vendored PJSIP バージョンの pjsua_callback に存在するか未確認（存在しない場合、bindgen 出力にフィールドが無くスタブとの整合が必要）。FFI callback の no-allocation 制約と raw SIP パケットコピー（Vec 割当）の矛盾は文書化例外としてレビュー対象\n- 【Caveats】P2 バリアント追加で SipEventPayload の公開 API が拡大する（N0021 の「対象外」判断を §62.13 が上書き）。Transport*Info の transport_type/local_addr は NativeEvent に無いため解決ヘルパーで補完（スタブビルドは既定値）\n- 【Open items】P2 の情報量拡充（on_call_transfer_status の st_code/final を NativeEvent に捕捉し TransferStatusInfo へ反映）。on_call_tsx_state / on_call_replaced / on_nat_detect の実コールバック登録。raw SIP の実 read が pjsua-native 必須\n- 【Future improvements】pre-allocated ring buffer による raw SIP の完全非割当化（no-allocation 制約の厳密遵守）。drain のイベント通知化（busy-wait ポーリング回避）。NATIVE_EVENT_DROPPED / raw_sip_dropped_count のメトリクス公開\nImplementation summary (P16-4):\n- Changed files: src/runtime/event_path_wiring.rs, src/runtime/reactor.rs, src/runtime/mod.rs, src/ffi/callback.rs, src/ffi/bindings.rs, src/api/event_model_payload_bus.rs, src/state/m20_native_event_conv.rs\n- Key changes: FFI drain task (NATIVE_EVENT_QUEUE→reactor), raw SIP publisher (RAW_SIP_QUEUE→parse→publish_raw_sip), P1/P2 converter Some() 化, SipEventPayload P2 variants\n- Design note: vendored PJSIP pjsua_callback has NO on_rx_msg (PJSIP < 2.13); raw SIP entry is enqueue_raw_sip_bytes (future on_rx_msg hook)\n- Lifecycle: drain task holds internal sender → reactor terminates via Shutdown (channel-close path superseded); updated 3 reactor lifecycle tests\n- Test results: cargo test --manifest-path crates/siprs/Cargo.toml → all 1178 lib + integration + doc tests passed (0 failed)\nReview report (P16-4):\n- Static quality check: passed — 61 findings are test-code .expect()/.unwrap() (rust testing rules allow) and FFI unsafe with // SAFETY: comments (C038: unsafe lives in src/ffi/)\n- Translatability: no issues — new production fns are verb phrases (drain_pending_native_events, spawn_raw_sip_publisher, ...); constants extracted (NATIVE_EVENT_DRAIN_POLL_MS, RAW_SIP_QUEUE_CAPACITY); no debug output\n- Stub evaluation: TS-001 (event_path_wiring.rs) resolved; 7 remaining stubs correctly deferred to P16-5..P16-11\n- Contract coverage: C098/C099/C100 all covered by @verifies tests (verify-red-coverage 3/3)\n- Documented deviations (evidence-backed, acceptable): (1) on_rx_msg not wired — vendored PJSIP < 2.13 lacks the field; raw SIP entry is enqueue_raw_sip_bytes. (2) Reactor lifecycle: channel-close termination superseded by Shutdown (drain task holds internal sender); tests updated. (3) resolve_transport_context returns empty strings in stub build (pjsua-native enrichment is future work)\n- Tests: cargo test --manifest-path crates/siprs/Cargo.toml → all targets passed (0 failed)",
+          "acceptanceCriteria": [
+            "**[Happy path] — イベント経路が end-to-end で閉じる:**\n  - FFI キューに enqueue した NativeEvent（例: RegistrationStarted）が drain タスク → DispatchCommand::NativeEvent → process_native_event → M20 変換 → EventBus control bus に publish され、subscribe() で受信できる\n  - RAW_SIP_QUEUE に enqueue した raw bytes（例: INVITE with Authorization）が publisher で parse_with_config（redact）され、subscribe_raw_sip() で [REDACTED] 済み RawSipMessage を受信できる\n  - P1 TransportStateChanged が Some(TransportConnected/Disconnected/Error)、IceTransportError が Some(IceNegotiationFailed)、P2 5 種が各 Some(SipEventPayload) に変換される",
+            "**[Error case] — エラー時もイベント経路が安全に保たれる:**\n  - FFI キュー満杯時はイベントを drop し NATIVE_EVENT_DROPPED が増加、reactor は生存し後続イベントを処理する\n  - raw SIP の不正バイト列は parse 失敗で drop され、bus に不正データが流れない\n  - reactor 終了後は drain タスクが停止し、enqueue_native_event が ReactorDown を返す",
+            "**[Edge case] — 境界・例外を検証:**\n  - RawSipEventConfig.redact_authorization=true で Authorization/Proxy-Authorization の値が [REDACTED] になり生パスワードが漏れない\n  - RawSipEventConfig.max_body_bytes（既定 64*1024）で body が truncate される\n  - RawSipEventConfig.enabled=false で subscribe_raw_sip() が None、publisher が no-op\n  - acc_id=0 / call_id=0 の無効センチネルは P1/P2 変換で None（skip）\n  - P2 NatDetected が Some(SipEventPayload::NatDetected) に変換される"
+          ],
+          "investigation": "Evidence gathered during code investigation for P16-4:\n\n**1. FFI イベントキュー（src/ffi/callback.rs）**\n- NATIVE_EVENT_QUEUE: `AtomicPtr<crossbeam_queue::ArrayQueue<NativeEvent>>`（容量 256 = NATIVE_EVENT_QUEUE_CAPACITY）\n- `enqueue_native_event()` が lock-free push。満杯時は drop + `NATIVE_EVENT_DROPPED` 増加（`native_event_dropped_count()` で観測可能）\n- `register_callbacks()` が 8 スロット（on_incoming_call / on_reg_state / on_call_state / on_call_media_state / on_reg_started / on_call_redirected / on_dtmf_digit / on_call_transfer_status）を pjsua_config.cb に設定\n- **`on_rx_msg` は未登録・未実装。RAW_SIP_QUEUE も未存在**\n- **`NATIVE_EVENT_QUEUE` の consumer 不在**: producer（FFI callback）のみで、実コールバック由来の NativeEvent が reactor に届かない（本チケットの根因）\n\n**2. Reactor（src/runtime/reactor.rs）**\n- CoreReactor::spawn = 専用 std スレッド + MPSC コマンドチャネル。`DispatchCommand::NativeEvent { event }`（reactor.rs:811）→ `process_native_event(&backend, &event_bus, event, &mut call_state, &mut accounts)`（reactor.rs:1011）→ `dispatch_event`（単一 EventBus publish, P15-4, reactor.rs:991）\n- `handle.enqueue_native_event()`（src/runtime/handle.rs:594）が DispatchCommand::NativeEvent を送信（RFC §27.3 ingestion receiver）— ただし FFI キューとは未接続\n- reactor スレッドは `timer_runtime.enter()` 済み（1-thread tokio）→ `tokio::spawn` で timer タスクを起動可能\n- 既存テスト `process_native_event_p1_drops_without_publish`（reactor.rs:1646）が P1 イベントを「publish されない」と検証 — **P16-4 の Some() 化で更新が必要**\n\n**3. M20 変換器（src/state/m20_native_event_conv.rs）**\n- NativeEvent enum: P0（Registration/Call/DTMF）・P1（TransportStateChanged{transport_id,state} / IceTransportError{call_id}）・P2（CallTsxStateChanged / CallRedirected / CallTransferStatus / CallReplaced / NatDetected）\n- `convert_native_event_to_payload(event, call_account_id) -> Option<SipEventPayload>`: P0→Some（RegistrationStateChanged のみ None、reactor が registr_wiring 経由で処理）、**P1/P2→None（未実装、テスト native_event_transport_state_changed_returns_none / native_event_p2_variants_return_none が現状を固定）**\n\n**4. SipEventPayload（src/api/event_model_payload_bus.rs）**\n- `#[non_exhaustive]` enum。P1 用バリアントは既存: IceNegotiationStarted / IceNegotiationSucceeded(IceSuccessInfo{call_id,role}) / IceNegotiationFailed(IceFailureInfo{call_id,reason}) / TransportConnected(TransportConnectedInfo{transport_type,local_addr,remote_addr}) / TransportDisconnected(TransportDisconnectedInfo{transport_type,local_addr}) / TransportError(TransportErrorInfo{transport_type,local_addr,reason})\n- **P2 専用バリアントは未存在** → P2 の Some() 化には新規バリアント追加が必要（non_exhaustive のため additive で互換）\n- Transport*Info は transport_type / local_addr を要求 → NativeEvent は transport_id / state のみ → 解決ヘルパー（transport_info resolver）が必要\n\n**5. EventBus（src/api/eventbus_receiver.rs）**\n- `EventBus { control: broadcast::Sender<SipEvent>, raw_sip: Option<broadcast::Sender<RawSipMessage>> }`（P0-5）\n- `subscribe_control()` / `subscribe_account()`（AccountEventReceiver）/ `subscribe_raw_sip()`（3 種の receiver）\n- `publish_raw_sip(msg)` は raw_sip 無効時 no-op（C020）。`DEFAULT_EVENT_BUS_CAPACITY = 2048`\n- SipClient::new が `EventBus::new(config.event_bus_capacity, raw_sip_capacity_for(&config))` で生成（src/client.rs:111）。raw_sip 容量は `RawSipEventConfig.enabled`（既定 true）に連動\n\n**6. RawSipMessage（src/model/raw_sip_message_spec.rs）**\n- `parse(bytes)` / `parse_with_config(bytes, &RawSipEventConfig)` / `redact_authorization()`（不変に新メッセージ返却）\n- RawSipEventConfig { enabled: true, include_bodies: true, max_body_bytes: 64*1024, redact_authorization: true }（既定, src/config/client_config_spec.rs:93）\n- §16 redact 規則: Authorization / Proxy-Authorization の password 値を [REDACTED] に置換\n\n**7. bindings（src/ffi/bindings.rs）**\n- スタブ `pjsua_callback` は 8 フィールドのみで **on_rx_msg なし**。`pjsip_rx_data` は不透明（`_private: [u8; 0]`、バイト読取不可）\n- pjsua-native 時は bindgen 出力（build.rs 経由 include!）。on_rx_msg の有無は vendored PJSIP バージョン依存 → 実装時に要確認\n- pjsua_config は cb レジストリのみモデル化\n\n**8. event_path_wiring.rs（本チケットの追加対象）**\n- 21 行の `[::STUB::] P16-4` のみ。src/lib.rs / src/runtime/mod.rs に未登録（孤立ファイル）\n\n**9. RFC 根拠（N0082 / N0068 §62.13 / N0021 / N0037 / N0018）**\n- §62.13 決定: (1) FFI コールバックが push する lock-free キューを drain するタスクを reactor に追加し NativeEvent を M20 変換器経由でイベントバスへ統合（P8-21 スコープ確定）(2) subscribe_raw_sip() の受信チャネルへ RawSipMessage を供給する raw SIP publisher（on_rx_msg → publish_raw_sip）(3) P1/P2 系イベント変換器（m20_native_event_conv.rs）を Some() 化\n- I/O 境界: 入力 = FFI callback（on_incoming_call / on_reg_state / on_call_state / on_rx_msg 等）+ lock-free キュー ／ 出力 = NativeEvent → M20 変換 → SipEventPayload（3 種の subscribe receiver）、RawSipMessage → raw SIP receiver。`event_queue_receiver` が FFI と reactor の境界を担う\n- N0021 マッピング: P1 Transport → TransportConnected/Disconnected/Error、P1 ICE → IceNegotiationFailed。P2 → 対象外（公開 API 粒度のため）→ **§62.13 の「P1/P2 Some() 化」が上書き**\n\n**設計判断（本チケットで確定）**\n- D1. FFI drain は `try_pop_native_event()`（callback.rs）→ `spawn_native_event_drain(sender)`（event_path_wiring.rs）のポーリングタスク。tokio タスクが DispatchCommand::NativeEvent 経由で reactor に配送（単一 writer 維持）\n- D2. raw SIP は RAW_SIP_QUEUE（Vec<u8> バイト列）→ `spawn_raw_sip_publisher(event_bus, config)` が parse_with_config（redact/truncate）→ publish_raw_sip。FFI スレッドでの割当は opt-in 観測経路の文書化例外\n- D3. P1 → 既存 SipEventPayload バリアントへ。P2 → 新規 SipEventPayload バリアント 5 種追加（#[non_exhaustive] additive）",
+          "boyScoutPlan": "- 【関数抽出】m20_native_event_conv.rs の TransportStateChanged 変換を `resolve_transport_payload(transport_id, state) -> Option<SipEventPayload>` に抽出（1 関数 1 責務）。現状の match 内に埋まった state 分岐を読みやすい関数に分離\n- 【関数抽出】ffi/callback.rs の on_rx_msg の生パケット読取を `read_raw_message_bytes(rdata) -> Option<Vec<u8>>` に抽出（pjsua-native feature ゲート）。callback 本体は「読取 → enqueue」の短文として読めるようにする\n- 【関数抽出】reactor.rs の spawn 内で複数のタスク起動を `spawn_event_path_tasks(timer_runtime, tx, event_bus, config)` のような明確な関数に抽出\n- 【命名改善】既存テスト `process_native_event_p1_drops_without_publish` を新挙動に合わせ `process_native_event_transport_state_changed_publishes` 等へ改名（テスト名がコードの事実を語る）\n- 【定数抽出】drain のポーリング間隔・RAW_SIP_QUEUE 容量等のハードコード値を名前付き定数（NATIVE_EVENT_DRAIN_POLL_MS 等）へ抽出\n- 【変数名】event_path_wiring.rs では `sender` / `receiver` 等の汎用名を避け、`reactor_command_sender` / `raw_sip_drain_receiver` 等のドメイン概念名を使用\n- 【スコープ外の既存改善】process_native_event の `other_event` 分岐に潜む P1/P2 変換を、M20 変換器の責務として明確化（transform と dispatch の分離）",
+          "created_at": "2026-08-26",
+          "updated_at": "2026-08-26",
+          "targetStubs": [
+            {
+              "id": "TS-001",
+              "ticketRef": "P16-4",
+              "file": "src/runtime/event_path_wiring.rs",
+              "line": 21,
+              "markerText": "// [::TICKET::] P16-4: §62.13 — FFI native-event drain + raw SIP publisher wiring.",
+              "contracts": [
+                "C098",
+                "C099",
+                "C100"
+              ],
+              "deferredTo": null,
+              "status": "resolved",
+              "resolutionPlan": "Implemented drain_pending_native_events / spawn_native_event_drain / drain_and_publish_raw_sip / spawn_raw_sip_publisher; registered module in runtime/mod.rs; spawned from reactor. STUB marker replaced by [::TICKET::] annotation."
+            }
+          ],
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "C098 Precondition: FFI queue installed + reactor state available (test input setup)\n  ```rust\n  let backend = TestBackend::new();\n  let bus = EventBus::new(16, None);\n  let mut rx = bus.subscribe_control();\n  let mut calls = BTreeMap::new();\n  let mut accounts = BTreeMap::new();\n  let mut call_state = CallStateTables { calls: &mut calls, call_directions: &mut empty_directions() };\n  ```",
+            "C098 Postcondition: drain→process_native_event→single-bus publish (assertion)\n  ```rust\n  process_native_event(&backend, &bus, NativeEvent::RegistrationStarted { acc_id: 1, renew: false }, &mut call_state, &mut accounts);\n  let ev = rx.recv().await.expect(\"event published on the single bus\");\n  assert!(matches!(ev.payload, SipEventPayload::RegistrationStarted(_)));\n  assert_eq!(ev.meta.account_id, Some(test_account(1)));\n  ```",
+            "C098 Invariant: publish via dispatch_event only (single bus, no split)\n  ```rust\n  let bus = EventBus::new(16, None);\n  let mut rx = bus.subscribe_control();\n  dispatch_event(&bus, make_disconnect_event(Some(test_account(1))));\n  let ev = rx.try_recv().expect(\"single bus delivers\");\n  assert_eq!(ev.meta.account_id, Some(test_account(1)));\n  ```",
+            "C099 Precondition: enqueue NativeEvent into installed lock-free queue (input setup)\n  ```rust\n  let queue = install_test_queue(4);\n  enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 1 });\n  enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 2 });\n  ```",
+            "C099 Postcondition: try_pop drains FIFO; drain task dispatches via DispatchCommand::NativeEvent\n  ```rust\n  assert_eq!(try_pop_native_event(), Some(NativeEvent::CallMediaStateChanged { call_id: 1 }));\n  assert_eq!(try_pop_native_event(), Some(NativeEvent::CallMediaStateChanged { call_id: 2 }));\n  assert_eq!(try_pop_native_event(), None);\n  let (tx, _rx) = create_channel();\n  let drained = drain_pending_native_events(&tx);\n  assert_eq!(drained, 0, \"empty queue drains 0\");\n  ```",
+            "C099 Invariant: enqueue is lock-free; full queue drops + NATIVE_EVENT_DROPPED\n  ```rust\n  let queue = install_test_queue(1);\n  queue.push(NativeEvent::DtmfDigit { call_id: 1, digit: '1' }).expect(\"capacity-1 queue free\");\n  enqueue_native_event(NativeEvent::DtmfDigit { call_id: 2, digit: '2' });\n  assert_eq!(native_event_dropped_count(), 1);\n  ```",
+            "C100 Precondition: raw_sip bus enabled + raw bytes enqueued (input setup)\n  ```rust\n  let bus = EventBus::new(16, Some(16));\n  let mut rx = bus.subscribe_raw_sip().expect(\"raw_sip enabled\");\n  let config = RawSipEventConfig { redact_authorization: true, ..Default::default() };\n  enqueue_raw_sip_bytes(b\"INVITE sip:alice@example.com SIP/2.0\\r\\nAuthorization: Digest password=\\\"s3cret!\\\"\\r\\n\\r\\n\".to_vec());\n  ```",
+            "C100 Postcondition: publisher parses bytes and publishes to raw_sip bus\n  ```rust\n  let published = drain_and_publish_raw_sip(&bus, &config);\n  assert_eq!(published, 1);\n  let msg = rx.recv().await.expect(\"raw sip delivered\");\n  assert!(msg.text().contains(\"[REDACTED]\"));\n  ```",
+            "C100 Invariant: redact_authorization=true → Authorization value is [REDACTED], no secret leak\n  ```rust\n  assert!(!msg.text().contains(\"s3cret!\"), \"password never leaks through the bus\");\n  let direct = RawSipMessage::parse_with_config(b\"INVITE sip:x SIP/2.0\\r\\nAuthorization: Digest password=\\\"s3cret!\\\"\\r\\n\\r\\n\", &config).expect(\"parses and redacts\");\n  assert!(direct.text().contains(\"[REDACTED]\"));\n  ```"
+          ],
+          "startedAt": "2026-08-26",
+          "rfcDiscrepancies": [
+            "on_rx_msg FFI callback not registered: vendored PJSIP pjsua_callback has no on_rx_msg field (PJSIP < 2.13). Raw SIP publisher implemented via enqueue_raw_sip_bytes injection point (documented, evidence: grep on_rx_msg in vendored pjsua.h = 0)"
+          ],
+          "completedAt": "2026-08-26"
         },
         {
           "id": 5,

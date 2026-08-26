@@ -315,6 +315,28 @@ mod stub_aliases {
         pub const PJSIP_REDIRECT_STOP: u32 = 4;
     }
 
+    /// Transport state enum (`pjsip_transport_state`) — mirrors `pjsip/sip_transport.h`.
+    ///
+    /// P16-4 §62.13 maps `NativeEvent::TransportStateChanged` states to the
+    /// `SipEventPayload::Transport{Connected,Disconnected,Error}` payloads from
+    /// these values. The stub mirrors the bindgen consts-style so the mapping
+    /// compiles identically under both constant sources (P11-9 pattern).
+    pub mod pjsip_transport_state {
+// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+        /// No transport exists yet.
+        pub const IDLE: u32 = 0;
+        /// Transport is connecting.
+        pub const CONNECTING: u32 = 1;
+        /// Transport is connected and usable.
+        pub const CONNECTED: u32 = 2;
+        /// Transport has been disconnected.
+        pub const DISCONNECTED: u32 = 3;
+        /// Transport is shutting down.
+        pub const SHUTDOWN: u32 = 4;
+        /// Transport object has been destroyed.
+        pub const DESTROYED: u32 = 5;
+    }
+
     /// Application callback registry (`pjsua_callback`) — the fields P11-11 wires.
     ///
     /// Field names and their pointer types mirror the vendored `pjsua.h`

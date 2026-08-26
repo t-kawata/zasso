@@ -107,7 +107,7 @@ type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -144,6 +144,12 @@ impl CoreReactor {
         // per-call mixer so a source_id is unique across calls (the lifecycle
         // commands address a source by id alone).
         let source_id_counter: Arc<AtomicU64> = Arc::new(AtomicU64::new(0));
+
+        // [::TICKET::] P16-4: §62.13 — the FFI drain task needs its own clone of the
+        // reactor command sender (the original `tx` is moved into the RuntimeHandle
+        // below), and the raw SIP publisher needs the raw_sip event config.
+        let drain_tx = tx.clone();
+        let raw_sip_events = boot_config.config.raw_sip_events.clone();
 
         // [::TICKET::] P15-4: §62.3 — the reactor publishes to the single EventBus
         // owned by SipClient. The thread closure takes ownership of the bus; the
@@ -191,6 +197,23 @@ impl CoreReactor {
                 // `spawn_dtmf_sent_timeout` (which uses `tokio::spawn`) works
                 // without restructuring the loop.
                 let _timer_enter = timer_runtime.enter();
+
+                // [::TICKET::] P16-4: §62.13 — spawn the FFI native-event drain task
+                // (NATIVE_EVENT_QUEUE → reactor command channel) and the raw SIP
+                // publisher (RAW_SIP_QUEUE → raw_sip bus). Both run on the reactor's
+                // timer runtime and exit when the reactor terminates.
+                crate::runtime::event_path_wiring::spawn_native_event_drain(
+                    drain_tx,
+                    &timer_runtime,
+                    terminated.clone(),
+                );
+                crate::runtime::event_path_wiring::spawn_raw_sip_publisher(
+                    event_bus.clone(),
+                    raw_sip_events,
+                    &timer_runtime,
+                    terminated.clone(),
+                );
+
                 // §62.7: once the Shutdown arm has completed the §32 sequence, the
                 // reactor drains the channel — every queued command is rejected
                 // and the thread exits when the channel is empty or closed.
@@ -1643,7 +1666,7 @@ mod tests {
 
     #[tokio::test]
     // [::TICKET::] P7-2: O-001 — P1/P2 events are dropped without publication (documented rationale)
-    async fn process_native_event_p1_drops_without_publish() {
+    async fn process_native_event_transport_state_changed_publishes() {
         let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut calls = BTreeMap::new();
@@ -1659,21 +1682,21 @@ mod tests {
             &bus,
             NativeEvent::TransportStateChanged {
                 transport_id: 1,
-                state: 0,
+                state: crate::ffi::bindings::pjsip_transport_state::CONNECTED,
             },
             &mut call_state,
             &mut accounts,
         );
 
-        // P1/P2 convert to None — no event must be published on the bus.
-        let result = rx.try_recv();
+        // P16-4 §62.13: P1 events convert to Some and are published on the bus.
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("P1 event must be published: {error}"));
         assert!(
-            matches!(
-                result,
-                Err(tokio::sync::broadcast::error::TryRecvError::Empty)
-            ),
-            "P1 events must not be published, got {:?}",
-            result
+            matches!(ev.payload, SipEventPayload::TransportConnected(_)),
+            "CONNECTED must publish TransportConnected, got {:?}",
+            ev.payload
         );
     }
 
@@ -1917,12 +1940,11 @@ mod tests {
             handle.is_thread_alive(),
             "reactor thread must be alive right after spawn"
         );
-        drop(handle);
         // ABC O-004 closure: type-assert the std::thread model (not tokio::task)
-        // so a reactor refactor to tokio::spawn fails compilation.
+        // so a reactor refactor to tokio::spawn fails compilation. P16-4 §62.13:
+        // the FFI drain task keeps the channel open, so terminate via Shutdown.
         let join: Arc<std::thread::JoinHandle<()>> = join;
-        let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-        let _ = join.join();
+        shutdown_reactor(handle, join).await;
     }
 
     #[tokio::test]
@@ -1956,11 +1978,10 @@ mod tests {
             !join.is_finished(),
             "reactor must survive dropping a cloned RuntimeHandle"
         );
-        // Drop the last handle: the MPSC sender closes and the reactor loop exits
-        // via channel-close (None from blocking_recv), NOT via the Arc refcount.
-        drop(handle);
-        let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-        let _ = join.join();
+        // P16-4 §62.13: the persistent FFI drain task holds an internal command
+        // sender, so dropping the last external handle no longer closes the
+        // channel. The reactor terminates via the explicit Shutdown command.
+        shutdown_reactor(handle, join).await;
     }
 
     #[tokio::test]
@@ -1999,9 +2020,9 @@ mod tests {
             assert!(result.is_ok(), "concurrent submit must succeed");
         }
 
-        drop(handle);
-        let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-        let _ = join.join();
+        // P16-4 §62.13: the FFI drain task keeps the channel open, so terminate
+        // via Shutdown (not channel-close on handle drop).
+        shutdown_reactor(handle, join).await;
     }
 
     #[tokio::test]

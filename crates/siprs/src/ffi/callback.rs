@@ -39,6 +39,29 @@ static NATIVE_EVENT_QUEUE: AtomicPtr<crossbeam_queue::ArrayQueue<NativeEvent>> =
 /// Loss counter — incremented every time a full queue drops an event.
 static NATIVE_EVENT_DROPPED: AtomicUsize = AtomicUsize::new(0);
 
+/// Capacity of the pre-allocated raw SIP message queue (P16-4 §62.13).
+///
+/// The queue holds raw packet bytes (`Vec<u8>`) captured by the SIP stack's
+/// message hook; a full queue drops the newest packet and increments
+/// [`raw_sip_dropped_count`]. Sized to absorb a burst of inbound SIP traffic
+/// without blocking the transport thread.
+pub const RAW_SIP_QUEUE_CAPACITY: usize = 64;
+
+/// Compile-time invariant: the raw SIP queue capacity must be positive.
+const _: () = assert!(RAW_SIP_QUEUE_CAPACITY > 0);
+
+/// Process-wide raw SIP message queue (raw packet bytes), installed once.
+///
+/// `AtomicPtr` keeps the enqueue path lock-free (design constraint #1): the
+/// capture thread reads the pointer with `Acquire` and pushes the bytes onto
+/// the pre-allocated `ArrayQueue` with no locks. Parsing and redaction happen
+/// on the drain side, off the transport thread.
+static RAW_SIP_QUEUE: AtomicPtr<crossbeam_queue::ArrayQueue<Vec<u8>>> =
+    AtomicPtr::new(std::ptr::null_mut());
+
+/// Loss counter — incremented every time a full raw SIP queue drops a packet.
+static RAW_SIP_DROPPED: AtomicUsize = AtomicUsize::new(0);
+
 /// Install the pre-allocated event queue, replacing any previously installed one.
 ///
 /// `register_callbacks` calls this at init time, before any PJSIP callback can
@@ -78,6 +101,79 @@ pub fn native_event_dropped_count() -> usize {
     NATIVE_EVENT_DROPPED.load(Ordering::Relaxed)
 }
 
+/// Pop one `NativeEvent` from the installed lock-free queue, or `None` when empty.
+///
+/// This is the drain-side primitive for the reactor's FFI event drain task
+/// (P16-4 §62.13): the drain loop calls it until it returns `None`. Safe to
+/// call from any thread; the queue is never freed while a reader may hold the
+/// pointer (install-once + Acquire publish ordering).
+pub fn try_pop_native_event() -> Option<NativeEvent> {
+    let queue_ptr = NATIVE_EVENT_QUEUE.load(Ordering::Acquire);
+    if !queue_ptr.is_null() {
+        // SAFETY: queue_ptr is installed once by install_native_event_queue and
+        // is never freed while a reader may read it (Acquire publish ordering).
+        let queue = unsafe { &*queue_ptr };
+        queue.pop()
+    } else {
+        None
+    }
+}
+
+/// Install the pre-allocated raw SIP message queue, replacing any previous one.
+///
+/// `register_callbacks` calls this at init time. The swap is lock-free; the old
+/// queue is only dropped here (never from a capture thread), so the pointer
+/// handed to `enqueue_raw_sip_bytes` is always valid.
+// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+fn install_raw_sip_queue(queue: crossbeam_queue::ArrayQueue<Vec<u8>>) {
+    let new_ptr = Box::into_raw(Box::new(queue));
+    let old_ptr = RAW_SIP_QUEUE.swap(new_ptr, Ordering::AcqRel);
+    if !old_ptr.is_null() {
+        // SAFETY: old_ptr was created by Box::into_raw in a previous install and
+        // no capture thread reads it after this swap (AcqRel publish ordering).
+        unsafe { drop(Box::from_raw(old_ptr)) };
+    }
+    RAW_SIP_DROPPED.store(0, Ordering::Relaxed);
+}
+
+/// Enqueue raw SIP packet bytes for the raw SIP publisher (P16-4 §62.13).
+///
+/// Loss-tolerant: a full queue drops the newest packet and increments the
+/// atomic loss counter — the capture thread never blocks and never panics.
+/// This is the injection point a future `on_rx_msg` hook calls; the vendored
+/// PJSIP's `pjsua_callback` has no `on_rx_msg` field (PJSIP < 2.13).
+pub fn enqueue_raw_sip_bytes(bytes: Vec<u8>) {
+    let queue_ptr = RAW_SIP_QUEUE.load(Ordering::Acquire);
+    if !queue_ptr.is_null() {
+        // SAFETY: queue_ptr is installed once by install_raw_sip_queue and is
+        // never freed while a capture thread may read it (Acquire ordering).
+        let queue = unsafe { &*queue_ptr };
+        if queue.push(bytes).is_err() {
+            RAW_SIP_DROPPED.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
+/// Pop one raw SIP packet from the queue, or `None` when empty.
+///
+/// The drain-side primitive for the raw SIP publisher task.
+pub fn try_pop_raw_sip_bytes() -> Option<Vec<u8>> {
+    let queue_ptr = RAW_SIP_QUEUE.load(Ordering::Acquire);
+    if !queue_ptr.is_null() {
+        // SAFETY: queue_ptr is installed once by install_raw_sip_queue and is
+        // never freed while a reader may read it (Acquire ordering).
+        let queue = unsafe { &*queue_ptr };
+        queue.pop()
+    } else {
+        None
+    }
+}
+
+/// Number of raw SIP packets dropped because the queue was full.
+pub fn raw_sip_dropped_count() -> usize {
+    RAW_SIP_DROPPED.load(Ordering::Relaxed)
+}
+
 /// Register the PJSIP callbacks into `pjsua_config.cb` and install the event queue.
 ///
 /// Reads as prose: install the pre-allocated queue, then fill every callback
@@ -88,6 +184,9 @@ pub fn register_callbacks(
     queue: crossbeam_queue::ArrayQueue<NativeEvent>,
 ) {
     install_native_event_queue(queue);
+    // P16-4 §62.13: the raw SIP capture queue is installed alongside the event
+    // queue so `enqueue_raw_sip_bytes` is live from the first callback.
+    install_raw_sip_queue(crossbeam_queue::ArrayQueue::new(RAW_SIP_QUEUE_CAPACITY));
     config.cb.on_incoming_call = Some(on_incoming_call);
     config.cb.on_reg_state = Some(on_reg_state);
     config.cb.on_call_state = Some(on_call_state);
@@ -559,5 +658,73 @@ mod tests {
             })
         );
         assert_eq!(queue.len(), 0, "one event per invocation, no extras");
+    }
+
+    // ── try_pop_native_event (P16-4 §62.13 drain) ────────────────────
+
+    /// @verifies C099
+    #[test]
+    // [::TICKET::] P16-4: FFI drain — try_pop consumes the installed queue FIFO.
+// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn try_pop_native_event_drains_fifo() {
+        install_test_queue(4);
+        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 1 });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 2 });
+        assert_eq!(
+            try_pop_native_event(),
+            Some(NativeEvent::CallMediaStateChanged { call_id: 1 })
+        );
+        assert_eq!(
+            try_pop_native_event(),
+            Some(NativeEvent::CallMediaStateChanged { call_id: 2 })
+        );
+        assert_eq!(try_pop_native_event(), None);
+    }
+
+    // ── RAW_SIP_QUEUE (P16-4 §62.13 raw SIP publisher) ───────────────
+
+    /// Swap in a fresh raw-SIP queue with the given capacity.
+// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn install_test_raw_sip_queue(
+        capacity: usize,
+    ) -> &'static crossbeam_queue::ArrayQueue<Vec<u8>> {
+        install_raw_sip_queue(crossbeam_queue::ArrayQueue::new(capacity));
+        // SAFETY: the queue was just installed and never freed while this test runs.
+        unsafe { &*RAW_SIP_QUEUE.load(Ordering::Acquire) }
+    }
+
+    /// @verifies C100
+    #[test]
+    // [::TICKET::] P16-4: raw SIP — enqueue → try_pop round-trips the bytes.
+// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn enqueue_and_pop_raw_sip_bytes_roundtrip() {
+        install_test_raw_sip_queue(4);
+        enqueue_raw_sip_bytes(b"INVITE sip:x SIP/2.0\r\n\r\n".to_vec());
+        let popped = try_pop_raw_sip_bytes().expect("raw sip bytes popped");
+        assert_eq!(popped, b"INVITE sip:x SIP/2.0\r\n\r\n");
+        assert_eq!(try_pop_raw_sip_bytes(), None);
+    }
+
+    /// @verifies C100
+    #[test]
+    // [::TICKET::] P16-4: raw SIP — a full queue drops the newest bytes.
+// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn full_raw_sip_queue_drops_and_increments_counter() {
+        install_test_raw_sip_queue(1);
+        enqueue_raw_sip_bytes(b"first".to_vec());
+        enqueue_raw_sip_bytes(b"second".to_vec());
+        assert_eq!(raw_sip_dropped_count(), 1);
+        assert_eq!(try_pop_raw_sip_bytes().as_deref(), Some(&b"first"[..]));
+    }
+
+    /// @verifies C100
+    #[test]
+    // [::TICKET::] P16-4: raw SIP — register_callbacks installs the raw-SIP queue.
+// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn register_callbacks_installs_raw_sip_queue() {
+        let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
+        register_callbacks(&mut config, crossbeam_queue::ArrayQueue::new(2));
+        enqueue_raw_sip_bytes(b"x".to_vec());
+        assert_eq!(try_pop_raw_sip_bytes().as_deref(), Some(&b"x"[..]));
     }
 }

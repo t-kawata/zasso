@@ -291,6 +291,7 @@ pub struct AccountSnapshot {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
 pub enum SipEventPayload {
     // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
     // ── Registration (P0) ──
@@ -384,6 +385,21 @@ pub enum SipEventPayload {
     // ── Error (P1) ──
     /// An internal or protocol error occurred.
     Error(SipError),
+
+    // ── Supplemental (P2, P16-4 §62.13) ──
+    /// Call transaction state changed (internal PJSIP transaction detail).
+    ///
+    /// The owning `call_id` travels in `SipEvent.meta.call_id`, matching the
+    /// `CallDisconnected` pattern (unit payload + meta-scoped call id).
+    CallTsxStateChanged,
+    /// INVITE was redirected to a new target (`on_call_redirected`).
+    CallRedirected,
+    /// Call transfer progress was reported (`on_call_transfer_status`).
+    CallTransferStatus,
+    /// The call was replaced by another call.
+    CallReplaced,
+    /// NAT type was detected.
+    NatDetected,
 }
 
 // Forward-declare DtmfSentInfo from the dtmf module — it's defined in m20_dtmfsent_twophase.rs
