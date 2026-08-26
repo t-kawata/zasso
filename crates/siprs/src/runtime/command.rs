@@ -450,14 +450,18 @@ pub(crate) enum DispatchCommand {
     },
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10, P11-11, P12-1, P15-5, P15-6, P15-7, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10|P11-11|P12-1|P15-5|P15-6|P15-7|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P3-1, P3-2, P7-2, P8-1, P10-3, P11-3, P11-6, P11-10, P11-11, P12-1, P15-5, P15-6, P15-7, P16-3, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-1|P3-2|P7-2|P8-1|P10-3|P11-3|P11-6|P11-10|P11-11|P12-1|P15-5|P15-6|P15-7|P16-3|PX-3) --for-spec --no-implementation-order`.
 impl DispatchCommand {
     /// Convert a `RuntimeCommand` into a `DispatchCommand` by boxing the execution.
     pub fn from_runtime_command(cmd: RuntimeCommand) -> Self {
         match cmd {
             RuntimeCommand::Initialize { config, reply } => Self::Execute {
                 f: Box::new(move |backend| {
+                    // PX-3 / C119-post: initialize the PJSUA stack, then register
+                    // the conf-bridge media ports so the per-call RustMediaPort is
+                    // wired into the conference bridge at boot.
                     backend.initialize(&config)?;
+                    backend.register_conf_callback()?;
                     Ok(())
                 }),
                 reply,
@@ -719,7 +723,7 @@ mod tests {
     #[test]
     // @verifies C069
     // [::TICKET::] P11-6: RuntimeCommand::SendDtmf carries the method into DispatchCommand::SendDtmf
-// [::TICKET::] P11-6, P11-11, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-11|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-6, P11-11, P16-6, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-11|P16-6|PX-3) --for-spec --no-implementation-order`.
     fn runtime_command_send_dtmf_carries_method() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let cmd = RuntimeCommand::SendDtmf {

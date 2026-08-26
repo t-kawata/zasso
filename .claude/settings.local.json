@@ -1241,7 +1241,28 @@
       "Bash(node .claude/scripts/tickets/annotate-ticket-context-by-git-diff.js --ticket-key=\"P16-11\" --check-ambiguous)",
       "Bash(node .claude/scripts/tickets/resolve-ambiguous-markers.js --mode=list-definitions --file=\"src/architecture/mod.rs\" --ticket-key=\"P16-11\")",
       "Bash(node .claude/scripts/tickets/resolve-ambiguous-markers.js --mode=inject-at --file=\"src/architecture/mod.rs\" --ticket-key=\"P16-11\" --definition-line=36)",
-      "Bash(node .claude/scripts/tickets/verify-red-coverage.js --ticket-key=\"P16-11\")"
+      "Bash(node .claude/scripts/tickets/verify-red-coverage.js --ticket-key=\"P16-11\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3)",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); const tk=t.tickets&&t.tickets['PX-3']?t.tickets['PX-3']:\\(Array.isArray\\(t\\)?t.find\\(x=>x.key==='PX-3'||x.ticketKey==='PX-3'\\):null\\); console.log\\(JSON.stringify\\(tk,null,2\\)\\);\")",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); console.log\\('top-level type:', Array.isArray\\(t\\)?'array':'object'\\); console.log\\('keys:', Object.keys\\(t\\)\\); if\\(t.tickets\\){ console.log\\('tickets type:', Array.isArray\\(t.tickets\\)?'array':'object'\\); if\\(!Array.isArray\\(t.tickets\\)\\){ console.log\\('ticket keys:', Object.keys\\(t.tickets\\).slice\\(0,20\\)\\); const k=Object.keys\\(t.tickets\\).find\\(x=>x.includes\\('PX-3'\\)\\); console.log\\('PX-3 key found:', k\\); } }\")",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"PX-3\")",
+      "Bash(node -e \"const g=require\\('./RFC-ROOT-GRAPH.json'\\); console.log\\('keys:', Object.keys\\(g\\)\\); console.log\\('nodes type:', Array.isArray\\(g.nodes\\)?'array':'object'\\); if\\(Array.isArray\\(g.nodes\\)\\){ console.log\\('node count:', g.nodes.length\\); console.log\\('sample node:', JSON.stringify\\(g.nodes[0]\\).slice\\(0,500\\)\\); } else { console.log\\('node keys:', Object.keys\\(g.nodes\\).slice\\(0,20\\)\\); }\")",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=RFC-ROOT-GRAPH.json --source=RFC-ROOT.md --id=N0085,N0088 --hops=2 --dirs-tree=RFC-ROOT-Dirs-Tree.json)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=RFC-ROOT-GRAPH.json --source=RFC-ROOT.md --id=N0049,N0075,N0071 --hops=1)",
+      "Bash(awk '/struct pjmedia_port$/,/} pjmedia_port;/' vendor/pjsip/pjmedia/include/pjmedia/port.h)",
+      "Bash(awk '/struct pjmedia_frame$/,/} pjmedia_frame;/' vendor/pjsip/pjmedia/include/pjmedia/port.h)",
+      "Bash(awk '/struct pjmedia_port_info$/,/} pjmedia_port_info;/' vendor/pjsip/pjmedia/include/pjmedia/port.h)",
+      "Bash(grep -n \"contracts\" .claude/scripts/tickets/insert-field-template.js | head -20; echo \"===\"; sed -n '/const TEMPLATES = {/,/^};/p' .claude/scripts/tickets/insert-field-template.js | grep -A 12 \"contracts:\")",
+      "Bash(awk '/PJ_DEF\\\\\\(pj_status_t\\\\\\) pjmedia_conf_add_port/,/^}/' vendor/pjsip/pjmedia/src/pjmedia/conference.c)",
+      "Bash(node /tmp/px3_make_update.js)",
+      "Bash(node .claude/scripts/tickets/update-ticket.js \"Tickets.json\" \"PX-3\")",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"PX-3\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"PX-3\" --tickets=\"Tickets.json\")",
+      "Bash(node /tmp/px3_fix_exceptions.js)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"PX-3\" --for-spec)",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"PX-3\" --phase=plan)",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"PX-3\" --for-spec --plan)",
+      "Bash(node .claude/scripts/tickets/scan-incomplete-implementations.js --dir=tests)"
     ]
   }
 }

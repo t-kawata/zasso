@@ -19,7 +19,9 @@ use crate::api::event_model_payload_bus::{
 use crate::api::eventbus_receiver::EventBus;
 use crate::api::incoming_call_events::build_incoming_call_entry;
 use crate::audio::media_path_arch::ChannelSelector;
-use crate::state::m20_callstate_mapping::{convert_call_state_with_previous, CallDirection, CallState};
+use crate::state::m20_callstate_mapping::{
+    convert_call_state_with_previous, CallDirection, CallState,
+};
 use crate::state::m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
 use crate::state::reg_account_lifecycle::{
     add_account_and_apply_auto_register, remove_account_sequence,
@@ -108,7 +110,7 @@ type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7|PX-3) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -126,16 +128,25 @@ impl CoreReactor {
         let terminated = Arc::new(AtomicBool::new(false));
         let terminated_clone = terminated.clone();
 
-        // [::TICKET::] P15-3: §62.2 — the backend is selected by feature set:
-        // PjsuaBackend (pjsua-native), TestBackend (test builds), or an explicit
-        // unsupported error otherwise. TestBackend no longer exists in production.
-        let mut backend = create_backend(&boot_config.config, boot_config.audio_taps.clone())?;
         // [::TICKET::] P8-1, P15-7: O-003 — the reactor owns per-call AudioMixers
         // keyed by call_id (§62.6). Audio lifecycle commands (AddAudioSource /
         // RemoveAudioSource / SetAudioSourceGain / MuteAudioSource) mutate the
         // per-call mixer on the reactor thread (single-writer rule).
+        //
+        // PX-3 / C119-pre: the map is created BEFORE the backend so a clone can
+        // be threaded into PjsuaBackend (via create_backend) — the backend reads
+        // it in register_conf_callback to build a RustMediaPort per call.
         let audio_mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
             Arc::new(RwLock::new(HashMap::new()));
+        // [::TICKET::] P15-3, PX-3: §62.2 — the backend is selected by feature
+        // set: PjsuaBackend (pjsua-native), TestBackend (test builds), or an
+        // explicit unsupported error otherwise. The pjsua-native branch receives
+        // the shared audio_mixers map for conf-bridge registration.
+        let mut backend = create_backend(
+            &boot_config.config,
+            boot_config.audio_taps.clone(),
+            audio_mixers.clone(),
+        )?;
         // [::TICKET::] P11-3, P15-7: O-001 — expose a clone of the reactor mixer
         // map to the handle so tests/observability can assert post-dispatch mixer
         // state without a round-trip command. The thread keeps its own Arc
@@ -1328,7 +1339,7 @@ pub(crate) fn handle_transfer(
 /// that publishes `DtmfSent { Ok(()) }` to the single client-owned bus; on
 /// backend error propagate and spawn nothing (two-phase C030 preserved, §62.15).
 pub(crate) fn handle_send_dtmf(
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     ctx: &mut SendDtmfContext<'_>,
     call_id: u64,
     method: crate::config::account_config_spec::DtmfMethod,
@@ -1388,7 +1399,7 @@ mod tests {
 
     /// Build a calls table with a single confirmed call (CallId 10 → account 1).
     // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
-// [::TICKET::] P11-9, P11-11, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11|P16-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-9, P11-11, P16-5, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11|P16-5|PX-3) --for-spec --no-implementation-order`.
     fn confirmed_calls() -> CallTable {
         BTreeMap::from([(
             test_call_id(10),
@@ -1652,8 +1663,8 @@ mod tests {
     /// triggers `backend.conf_connect(call_id, call_id)` on the same path.
     #[tokio::test]
     // @verifies C110
-    async fn process_native_event_confirmed_triggers_conf_connect() -> Result<(), Box<dyn std::error::Error>>
-    {
+    async fn process_native_event_confirmed_triggers_conf_connect(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut calls = confirmed_calls();
@@ -2364,7 +2375,7 @@ mod tests {
     // @verifies C106
     // [::TICKET::] P16-6: handle_send_dtmf passes the unified method through to the backend
     async fn handle_send_dtmf_passes_unified_method_to_backend() {
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+        // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut backend = TestBackend::new();
@@ -2514,7 +2525,7 @@ mod tests {
     // @verifies C070, C046
     // [::TICKET::] P12-1: handle_make_call delegates to the backend, registers the
     // returned CallEntry in the authoritative ClientState, and returns the CallId.
-// [::TICKET::] P12-1, P12-8, P15-3, P16-3, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P16-3|P16-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-1, P12-8, P15-3, P16-3, P16-5, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P16-3|P16-5|PX-3) --for-spec --no-implementation-order`.
     fn handle_make_call_registers_entry_and_returns_id() {
         let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
@@ -3101,7 +3112,8 @@ mod tests {
             "a 200 answer must auto-issue conf_connect(call_id, call_id) (§62.16)"
         );
         assert_eq!(
-            client_state.calls[&call_id].state, CallState::Active,
+            client_state.calls[&call_id].state,
+            CallState::Active,
             "a 200 answer must mark the call Active"
         );
 
@@ -3147,7 +3159,8 @@ mod tests {
         handle_answer(&mut backend, &bus, &mut call_state, 1, 486)?;
         assert_eq!(backend.answer_calls, vec![(1, 486)]);
         assert_eq!(
-            client_state.calls[&call_id].state, CallState::Disconnected,
+            client_state.calls[&call_id].state,
+            CallState::Disconnected,
             "a 486 decline must mark the call Disconnected"
         );
 
@@ -3191,7 +3204,8 @@ mod tests {
         handle_answer(&mut backend, &bus, &mut call_state, 1, 180)?;
         assert_eq!(backend.answer_calls, vec![(1, 180)]);
         assert_eq!(
-            client_state.calls[&call_id].state, CallState::Connecting,
+            client_state.calls[&call_id].state,
+            CallState::Connecting,
             "a provisional 180 answer must leave the call Connecting"
         );
 
@@ -3207,8 +3221,8 @@ mod tests {
     #[tokio::test]
     // P16-5 §62.14: CallConnected must carry the CallEntry's remote_uri instead
     // of a hardcoded empty string — the incoming call's peer is preserved.
-    async fn handle_answer_200_carries_call_entry_remote_uri() -> Result<(), Box<dyn std::error::Error>>
-    {
+    async fn handle_answer_200_carries_call_entry_remote_uri(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::new();
         let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -3249,8 +3263,8 @@ mod tests {
     #[tokio::test]
     // P16-5 §62.14: answering an unknown call id must fail without calling the
     // backend — account resolution is the guard.
-    async fn handle_answer_missing_call_entry_returns_error() -> Result<(), Box<dyn std::error::Error>>
-    {
+    async fn handle_answer_missing_call_entry_returns_error(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::new();
         let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
         let mut client_state = ClientState::default();
@@ -3273,7 +3287,8 @@ mod tests {
     #[tokio::test]
     // P16-5 §62.14: a backend.answer_call failure must preserve the CallEntry
     // state and publish no event — error propagation without side effects.
-    async fn handle_answer_backend_error_preserves_state() -> Result<(), Box<dyn std::error::Error>> {
+    async fn handle_answer_backend_error_preserves_state() -> Result<(), Box<dyn std::error::Error>>
+    {
         let mut backend = TestBackend::new();
         backend.answer_call_result = Some(Err(ReactorError::BackendError("answer failed".into())));
         let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
@@ -3302,11 +3317,15 @@ mod tests {
         let result = handle_answer(&mut backend, &bus, &mut call_state, 1, 200);
         assert!(result.is_err(), "backend failure must propagate");
         assert_eq!(
-            client_state.calls[&call_id].state, CallState::Incoming,
+            client_state.calls[&call_id].state,
+            CallState::Incoming,
             "state must be unchanged on backend error"
         );
         let timeout = tokio::time::timeout(std::time::Duration::from_millis(50), rx.recv()).await;
-        assert!(timeout.is_err(), "no event may be published on backend error");
+        assert!(
+            timeout.is_err(),
+            "no event may be published on backend error"
+        );
         Ok(())
     }
 
@@ -3346,7 +3365,8 @@ mod tests {
         )?;
         assert_eq!(backend.hangup_calls, vec![1]);
         assert_eq!(
-            client_state.calls[&call_id].state, CallState::Disconnected,
+            client_state.calls[&call_id].state,
+            CallState::Disconnected,
             "hangup must mark the call Disconnected"
         );
 
@@ -3392,7 +3412,8 @@ mod tests {
             "backend.transfer_call must be invoked with (native_call_id, target)"
         );
         assert_eq!(
-            client_state.calls[&call_id].state, CallState::Transferring,
+            client_state.calls[&call_id].state,
+            CallState::Transferring,
             "transfer must mark the call Transferring"
         );
         Ok(())

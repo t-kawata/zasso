@@ -23,9 +23,9 @@ pub const BINDINGS_OUTPUT: &str = "bindings.rs";
 /// Covers the current stub surface: `src/ffi/bindings.rs` type aliases plus the
 /// struct/typedefs those aliases depend on (`pj_str_t`, `pjsua_call_info`).
 pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     "pjsua_acc_id",
     "pjsua_call_id",
     "pjsua_conf_port_id",
@@ -93,9 +93,9 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
 /// `pjsua_call_get_info` anchors the call-info surface; P11-10 adds the
 /// PjsuaBackend FFI symbols it drives.
 pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     "pjsua_call_get_info",
     "pjsua_enum_codecs",
     "pjsua_create",
@@ -129,6 +129,10 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
     "pjsua_conf_remove_port",
     "pjsua_conf_get_active_ports",
     "pjsua_call_get_conf_port",
+    // PX-3 §39/§62.16: pjsua_conf_add_port requires a non-NULL pj_pool_t
+    // (PJ_ASSERT_RETURN(conf && pool && strm_port, PJ_EINVAL)), so the native
+    // build must expose pjsua_pool_create to obtain the pool for registration.
+    "pjsua_pool_create",
     // P11-11: hold/unhold FFI — pjsua_call_set_hold puts a call on hold and
     // pjsua_call_reinvite (default options) resumes the media on unhold.
     // pjsua_call_set_inactive does NOT exist in the vendored pjsua.h.
@@ -142,7 +146,7 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
 /// PJ_EUNKNOWN, `PJSUA_CALL_*`, `PJSUA_REG_STATE_*`). P11-9 replaces the
 /// hand-coded duplicates in error/state modules from this generated set.
 pub const BINDGEN_ALLOWLIST_VARS: &[&str] = &[
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     "PJ_SUCCESS",
     "PJ_EUNKNOWN",
     // P11-9: pj_status_t error codes consumed by the error/state mapping.
@@ -160,6 +164,11 @@ pub const BINDGEN_ALLOWLIST_VARS: &[&str] = &[
     "PJSIP_INV_STATE_CONNECTING",
     "PJSIP_INV_STATE_CONFIRMED",
     "PJSIP_INV_STATE_DISCONNECTED",
+    // PX-3 §39/§62.16: pjmedia constants the RustMediaPort adapter uses to build
+    // a pjmedia_port_info.fmt (PCM, audio type, audio detail) for conf_add_port.
+    "PJMEDIA_FORMAT_PCM",
+    "PJMEDIA_TYPE_AUDIO",
+    "PJMEDIA_FORMAT_DETAIL_AUDIO",
     // P11-9: pjsua_call_media_status enumerators.
     "PJSUA_CALL_MEDIA_NONE",
     "PJSUA_CALL_MEDIA_ACTIVE",
@@ -407,7 +416,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P11-11, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11, P16-6, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P16-6|PX-3) --for-spec --no-implementation-order`.
     fn allowlist_covers_p11_11_callback_bridge_surface() {
         // Every callback-bridge type and hold/unhold symbol register_callbacks /
         // PjsuaBackend reference must be bindgen-allowlisted so the generated

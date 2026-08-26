@@ -53,6 +53,16 @@ pub use bindings::{enumerate_codecs, pjsua_codec_info};
 // [::TICKET::] P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-10 --for-spec --no-implementation-order`.
 pub mod backend_calls;
 
+/// pjmedia_port adapter — wraps a `RustMediaPort` into a `pjmedia_port` for
+/// `pjsua_conf_add_port` (PX-3 / N0049 §39, N0085 §62.16).
+///
+/// Compiled under test (default build) so the RT callbacks and the adapter
+/// construction are unit-testable against the deterministic stubs; the native
+/// build compiles it for the real conf-bridge registration.
+#[cfg(any(test, feature = "pjsua-native"))]
+// [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+pub mod media_port_adapter;
+
 /// Transport creation wiring — `TransportConfig` (§12) → PJSIP transport.
 ///
 /// Maps the domain transport kind + bind address, builds the

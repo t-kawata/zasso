@@ -20,7 +20,11 @@
 // [::TICKET::] P15-3: §62.2 backend selection — PjsuaBackend full unification,
 // MockBackend deletion, TestBackend (cfg test / test-util).
 
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
+
 use crate::config::ClientConfig;
+use crate::runtime::audio_worker::AudioMixer;
 use crate::runtime::backend::{AudioTapRegistry, SipBackend};
 use crate::runtime::command::ReactorError;
 
@@ -29,6 +33,12 @@ use crate::runtime::backend::PjsuaBackend;
 
 #[cfg(any(test, feature = "test-util"))]
 use crate::runtime::backend::TestBackend;
+
+/// The reactor-owned per-call `AudioMixer` map (§62.6 / PX-3).
+///
+/// `PjsuaBackend` needs a clone to build a `RustMediaPort` per call during
+/// `register_conf_callback`; the test/unsupported branches ignore it.
+pub(crate) type AudioMixerMap = Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>;
 
 /// Select the SIP backend for the reactor based on the active feature set.
 ///
@@ -47,14 +57,19 @@ use crate::runtime::backend::TestBackend;
 pub(crate) fn create_backend(
     _config: &ClientConfig,
     audio_taps: AudioTapRegistry,
+    audio_mixers: AudioMixerMap,
 ) -> Result<Box<dyn SipBackend>, ReactorError> {
-    Ok(Box::new(PjsuaBackend::with_taps(audio_taps)))
+    Ok(Box::new(PjsuaBackend::with_registries(
+        audio_taps,
+        audio_mixers,
+    )))
 }
 
 #[cfg(all(any(test, feature = "test-util"), not(feature = "pjsua-native")))]
 pub(crate) fn create_backend(
     _config: &ClientConfig,
     _audio_taps: AudioTapRegistry,
+    _audio_mixers: AudioMixerMap,
 ) -> Result<Box<dyn SipBackend>, ReactorError> {
     Ok(Box::new(TestBackend::default()))
 }
@@ -63,6 +78,7 @@ pub(crate) fn create_backend(
 pub(crate) fn create_backend(
     _config: &ClientConfig,
     _audio_taps: AudioTapRegistry,
+    _audio_mixers: AudioMixerMap,
 ) -> Result<Box<dyn SipBackend>, ReactorError> {
     Err(unsupported_backend_error())
 }
@@ -80,18 +96,20 @@ pub(crate) fn unsupported_backend_error() -> ReactorError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
-    use std::sync::{Arc, Mutex};
     use crate::config::account_config_spec::AccountConfig;
     use crate::state::registr_state_machine::RegistrationState;
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     // @verifies C083
     #[cfg(not(feature = "pjsua-native"))]
-// [::TICKET::] P15-3, P15-5, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-5|P15-7) --for-spec --no-implementation-order`.
-    fn create_backend_returns_test_backend_in_test_build() -> Result<(), Box<dyn std::error::Error>> {
+    // [::TICKET::] P15-3, P15-5, P15-7, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-5|P15-7|PX-3) --for-spec --no-implementation-order`.
+    fn create_backend_returns_test_backend_in_test_build() -> Result<(), Box<dyn std::error::Error>>
+    {
         let audio_taps = Arc::new(Mutex::new(HashMap::new()));
-        let mut backend = create_backend(&ClientConfig::default(), audio_taps)?;
+        let audio_mixers: AudioMixerMap = Arc::new(RwLock::new(HashMap::new()));
+        let mut backend = create_backend(&ClientConfig::default(), audio_taps, audio_mixers)?;
         let config = AccountConfig::default();
         let (id, entry) = backend.add_account(&config)?;
         assert_eq!(id, 1, "dispatch proves the concrete TestBackend");
@@ -104,8 +122,24 @@ mod tests {
     }
 
     #[test]
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn create_backend_accepts_audio_mixers_map() -> Result<(), Box<dyn std::error::Error>> {
+        // The signature change (PX-3 / C119-pre) must not break selection: the
+        // test build ignores the mixer map and still yields the TestBackend.
+        let audio_taps = Arc::new(Mutex::new(HashMap::new()));
+        let audio_mixers: AudioMixerMap = Arc::new(RwLock::new(HashMap::new()));
+        let mut backend = create_backend(&ClientConfig::default(), audio_taps, audio_mixers)?;
+        assert_eq!(
+            backend.add_account(&AccountConfig::default())?.0,
+            1,
+            "mixer map must not change backend selection"
+        );
+        Ok(())
+    }
+
+    #[test]
     // @verifies C082
-// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-3, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|PX-3) --for-spec --no-implementation-order`.
     fn unsupported_backend_error_matches_requirement() {
         let err = unsupported_backend_error();
         assert!(matches!(
@@ -117,7 +151,7 @@ mod tests {
     #[test]
     // @verifies C083
     #[cfg(not(feature = "pjsua-native"))]
-// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-3, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|PX-3) --for-spec --no-implementation-order`.
     fn test_backend_set_registration_transitions() -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::default();
         let config = AccountConfig::default();

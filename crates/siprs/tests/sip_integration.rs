@@ -79,9 +79,10 @@ async fn wait_for_event(
 
 /// A siprs client bound to an ephemeral UDP transport, registering to the
 /// docker Asterisk published on `127.0.0.1:5060`.
-async fn client_against_asterisk(
-) -> Result<(SipClient, tokio::sync::broadcast::Receiver<siprs::SipEvent>), Box<dyn std::error::Error>>
-{
+async fn client_against_asterisk() -> Result<
+    (SipClient, tokio::sync::broadcast::Receiver<siprs::SipEvent>),
+    Box<dyn std::error::Error>,
+> {
     let config = ClientConfig {
         // Port 0 asks the OS for a free ephemeral UDP port so the client never
         // collides with the docker-published Asterisk port 5060 on the host.
@@ -160,6 +161,19 @@ async fn outgoing_call_to_asterisk() -> Result<(), Box<dyn std::error::Error>> {
     })
     .await;
     assert!(matches!(connected, SipEventPayload::CallConnected(_)));
+
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    // PX-3 / C119-post: with register_conf_callback now wiring the per-call
+    // RustMediaPort into the PJSIP conf bridge at boot, an established call must
+    // reach MediaActive — media actually flowing through the conference bridge.
+    let media = wait_for_event(&mut events, |p| {
+        matches!(p, SipEventPayload::MediaActive(_))
+    })
+    .await;
+    assert!(
+        matches!(media, SipEventPayload::MediaActive(_)),
+        "media must flow through the conf bridge after the RustMediaPort registration"
+    );
 
     client.hangup(call_id, HangupReason::LocalUser).await?;
     wait_for_event(&mut events, |p| {

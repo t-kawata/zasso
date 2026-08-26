@@ -4,20 +4,28 @@
 #[cfg(any(test, feature = "test-util"))]
 use std::collections::BTreeMap;
 use std::collections::HashMap;
+#[cfg(any(test, feature = "pjsua-native"))]
+use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 
 use crate::error::error_design_siperror::SipError;
 use crate::ffi::bindings;
+#[cfg(any(test, feature = "pjsua-native"))]
+use crate::ffi::media_port_adapter::MediaPortAdapter;
 #[cfg(any(test, feature = "test-util"))]
 use crate::model::AccountId;
+// AudioMixer / RustMediaPort back the cfg-gated `audio_mixers` field and the
+// test/native conf-bridge registration path (PX-3).
+#[cfg(any(test, feature = "pjsua-native"))]
+use crate::runtime::audio_worker::{AudioMixer, RustMediaPort};
 // CallState / CallDirection are used by TestBackend::make_call (test/test-util)
 // and PjsuaBackend::make_call's pjsua-native branch.
+use crate::runtime::command::ReactorError;
+use crate::runtime::state::{AccountEntry, CallEntry};
 #[cfg(any(test, feature = "test-util", feature = "pjsua-native"))]
 use crate::state::call_state_model::CallState;
 #[cfg(any(test, feature = "test-util", feature = "pjsua-native"))]
 use crate::state::m20_callstate_mapping::CallDirection;
-use crate::runtime::command::ReactorError;
-use crate::runtime::state::{AccountEntry, CallEntry};
 
 /// Shared `subscribe_audio` tap producer registry (§62.6).
 ///
@@ -140,11 +148,11 @@ pub trait SipBackend: Send {
     fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError>;
 
     /// Connect a call's media to the conference bridge.
-// [::TICKET::] P3-2, P11-10, P11-11, P15-3, P15-7, P16-3, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P15-3|P15-7|P16-3|P16-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11, P15-3, P15-7, P16-3, P16-7, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P15-3|P15-7|P16-3|P16-7|PX-3) --for-spec --no-implementation-order`.
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6, P15-7, P15-9, P16-2, P16-3, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6|P15-7|P15-9|P16-2|P16-3|P16-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6, P15-7, P15-9, P16-2, P16-3, P16-7, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6|P15-7|P15-9|P16-2|P16-3|P16-7|PX-3) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Push a processed media frame into the call's audio tap (subscribe_audio).
@@ -153,7 +161,7 @@ pub trait SipBackend: Send {
     /// drives the tap with real data. `call_id` is the public `CallId` value
     /// (not the native id). Implementations must be non-blocking — this is
     /// invoked from the RT media callback context.
-// [::TICKET::] P15-7, P15-9, P16-3, P16-5, P16-6, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P15-9|P16-3|P16-5|P16-6|P16-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7, P15-9, P16-3, P16-5, P16-6, P16-7, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P15-9|P16-3|P16-5|P16-6|P16-7|PX-3) --for-spec --no-implementation-order`.
     fn push_media_frame(
         &mut self,
         call_id: u64,
@@ -390,7 +398,7 @@ impl SipBackend for TestBackend {
         Ok(())
     }
 
-// [::TICKET::] P3-2, P4-1, P12-1, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P12-1|P16-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P4-1, P12-1, P16-5, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P12-1|P16-5|PX-3) --for-spec --no-implementation-order`.
     fn make_call(
         &mut self,
         native_acc_id: i32,
@@ -422,7 +430,7 @@ impl SipBackend for TestBackend {
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     // [::TICKET::] P15-6: record every answer_call invocation so integration tests
     // can prove the reactor Answer handler dispatched to the backend.
-// [::TICKET::] P15-6, P16-3, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P16-3|P16-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-6, P16-3, P16-5, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P16-3|P16-5|PX-3) --for-spec --no-implementation-order`.
     fn answer_call(&mut self, native_call_id: i32, code: u16) -> Result<(), ReactorError> {
         self.answer_calls.push((native_call_id, code));
         // P16-5: an injected failure short-circuits the default Ok(()) so tests
@@ -444,7 +452,7 @@ impl SipBackend for TestBackend {
 
     // [::TICKET::] P3-2, P11-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-6|P11-11) --for-spec --no-implementation-order`.
     // [::TICKET::] P16-6: records the unified method for method-transparency tests.
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-6, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-6|PX-3) --for-spec --no-implementation-order`.
     fn send_dtmf(
         &mut self,
         _native_call_id: i32,
@@ -618,9 +626,33 @@ pub(crate) fn map_pjsua_status(status: i32, operation: &str) -> Result<(), React
 /// media callback pushes a frame into the call's tap via `push_media_frame`.
 /// Each entry carries the call's `AccountId` so a pushed frame can build an
 /// `AudioChunkPair` with real account context.
+///
+/// `audio_mixers` is the reactor-owned per-call [`AudioMixer`] map (PX-3 /
+/// §62.16): `register_conf_callback` reads it to build one [`RustMediaPort`]
+/// per call and register it into the PJSIP conf bridge.
 pub struct PjsuaBackend {
     /// Shared tap producer registry keyed by public `CallId`.
     audio_taps: AudioTapRegistry,
+    /// Shared per-call `AudioMixer` map keyed by public `CallId` (§62.6).
+    ///
+    /// A clone of the reactor's `Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>`
+    /// threaded through `create_backend` (PX-3 / C119-pre). Read-only from the
+    /// backend; the reactor is the single writer. Exists only where the
+    /// conf-bridge registration path is compiled (test builds / `pjsua-native`).
+    #[cfg(any(test, feature = "pjsua-native"))]
+    audio_mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
+    /// Number of media ports registered into the conf bridge (PX-3 / C119-post).
+    ///
+    /// Populated by `register_media_ports_for_calls`; observable by tests.
+    #[cfg(any(test, feature = "pjsua-native"))]
+    registered_port_count: usize,
+    /// Number of call conf slots connected (PX-3 / C119-post).
+    #[cfg(any(test, feature = "pjsua-native"))]
+    connected_call_count: usize,
+    /// Recorded `(port_slot, call_slot)` pairs from the conf-bridge registration
+    /// (PX-3 / C119-post) — the test observable for the per-call wiring.
+    #[cfg(any(test, feature = "pjsua-native"))]
+    conf_connect_pairs: Vec<(i32, i32)>,
     /// Native transport ids created from `ClientConfig.transports` (§62.11).
     ///
     /// Populated by `initialize` / `create_transport` and drained by `shutdown`
@@ -631,11 +663,19 @@ pub struct PjsuaBackend {
     transport_ids: Vec<bindings::pjsua_transport_id>,
 }
 
-// [::TICKET::] P3-2, P15-7, P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7|P16-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-7, P16-2, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7|P16-2|PX-3) --for-spec --no-implementation-order`.
 impl PjsuaBackend {
     pub fn new() -> Self {
         Self {
             audio_taps: Arc::new(Mutex::new(HashMap::new())),
+            #[cfg(any(test, feature = "pjsua-native"))]
+            audio_mixers: Arc::new(RwLock::new(HashMap::new())),
+            #[cfg(any(test, feature = "pjsua-native"))]
+            registered_port_count: 0,
+            #[cfg(any(test, feature = "pjsua-native"))]
+            connected_call_count: 0,
+            #[cfg(any(test, feature = "pjsua-native"))]
+            conf_connect_pairs: Vec::new(),
             #[cfg(feature = "pjsua-native")]
             transport_ids: Vec::new(),
         }
@@ -651,9 +691,108 @@ impl PjsuaBackend {
     pub(crate) fn with_taps(audio_taps: AudioTapRegistry) -> Self {
         Self {
             audio_taps,
+            audio_mixers: Arc::new(RwLock::new(HashMap::new())),
+            registered_port_count: 0,
+            connected_call_count: 0,
+            conf_connect_pairs: Vec::new(),
             #[cfg(feature = "pjsua-native")]
             transport_ids: Vec::new(),
         }
+    }
+
+    /// Construct the backend sharing the tap registry and the per-call
+    /// [`AudioMixer`] map (PX-3 / C119-pre).
+    ///
+    /// The reactor owns the mixer map (single-writer rule); the backend holds a
+    /// clone so `register_conf_callback` can build a [`RustMediaPort`] per call.
+    #[cfg(any(test, feature = "pjsua-native"))]
+    pub(crate) fn with_registries(
+        audio_taps: AudioTapRegistry,
+        audio_mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
+    ) -> Self {
+        Self {
+            audio_taps,
+            audio_mixers,
+            registered_port_count: 0,
+            connected_call_count: 0,
+            conf_connect_pairs: Vec::new(),
+            #[cfg(feature = "pjsua-native")]
+            transport_ids: Vec::new(),
+        }
+    }
+
+    /// The shared per-call [`AudioMixer`] map (PX-3 / C119-pre).
+    #[cfg(any(test, feature = "pjsua-native"))]
+    pub(crate) fn audio_mixers(&self) -> Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> {
+        self.audio_mixers.clone()
+    }
+
+    /// Number of media ports registered into the conf bridge (PX-3 / C119-post).
+    #[cfg(any(test, feature = "pjsua-native"))]
+    pub(crate) fn registered_port_count(&self) -> usize {
+        self.registered_port_count
+    }
+
+    /// Number of call conf slots connected (PX-3 / C119-post).
+    #[cfg(any(test, feature = "pjsua-native"))]
+    pub(crate) fn connected_call_count(&self) -> usize {
+        self.connected_call_count
+    }
+
+    /// Recorded `(port_slot, call_slot)` pairs from the conf-bridge registration
+    /// (PX-3 / C119-post).
+    #[cfg(any(test, feature = "pjsua-native"))]
+    pub(crate) fn conf_connect_pairs(&self) -> &[(i32, i32)] {
+        &self.conf_connect_pairs
+    }
+
+    /// Register one [`RustMediaPort`] per `audio_mixers` entry into the PJSIP
+    /// conf bridge and connect each call's conf slot (PX-3 / C119-post).
+    ///
+    /// Reads as prose: create a pool (native only), then for each `(call_id,
+    /// mixer)` build a `MediaPortAdapter`, register it via `pjsua_conf_add_port`
+    /// to obtain a port slot, resolve the call's slot via
+    /// `pjsua_call_get_conf_port`, guard a not-yet-established slot, and connect
+    /// the pair via `pjsua_conf_connect`. Any non-success status surfaces as
+    /// [`ReactorError::NativeError`] via `map_pjsua_status`.
+    ///
+    /// The default build exercises the same loop against the deterministic
+    /// conf-bridge stubs (test builds); the native build drives the real bridge.
+    #[cfg(any(test, feature = "pjsua-native"))]
+    pub(crate) fn register_media_ports_for_calls(&mut self) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        let pool: *mut std::ffi::c_void = crate::ffi::backend_calls::create_conf_pool();
+        #[cfg(not(feature = "pjsua-native"))]
+        let pool: *mut std::ffi::c_void = std::ptr::null_mut();
+
+        let mixers = self.audio_mixers.read().unwrap_or_else(|e| e.into_inner());
+        let mut registered = 0usize;
+        let mut connected = 0usize;
+        let mut pairs: Vec<(i32, i32)> = Vec::new();
+        for (call_id, mixer) in mixers.iter() {
+            let media_port = RustMediaPort::new(mixer.clone(), *call_id);
+            let mut adapter = MediaPortAdapter::new(media_port);
+            let mut port_slot: bindings::pjsua_conf_port_id = -1;
+            let status =
+                crate::ffi::backend_calls::conf_add_port(pool, adapter.port_mut(), &mut port_slot);
+            map_pjsua_status(status, "conf_add_port")?;
+            registered += 1;
+            let call_slot = crate::ffi::backend_calls::call_conf_port(*call_id as i32);
+            if call_slot < 0 {
+                // A call whose media is not established yet has no conf slot;
+                // its port stays registered for when media becomes active.
+                tracing::warn!(call_id, "call conf slot not established; skipping connect");
+                continue;
+            }
+            let status = crate::ffi::backend_calls::conf_connect(port_slot, call_slot);
+            map_pjsua_status(status, "conf_connect")?;
+            connected += 1;
+            pairs.push((port_slot, call_slot));
+        }
+        self.registered_port_count = registered;
+        self.connected_call_count = connected;
+        self.conf_connect_pairs = pairs;
+        Ok(())
     }
 }
 
@@ -670,7 +809,7 @@ impl Default for PjsuaBackend {
 // [::TICKET::] P3-2, P10-3, P11-11, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-11|P15-7) --for-spec --no-implementation-order`.
 // [::TICKET::] P16-6, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-6|P16-7) --for-spec --no-implementation-order`.
 impl SipBackend for PjsuaBackend {
-// [::TICKET::] P3-2, P11-10, P11-11, P16-2, P16-3, P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-2|P16-3|P16-8) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11, P16-2, P16-3, P16-8, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-2|P16-3|P16-8|PX-3) --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
@@ -800,7 +939,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-// [::TICKET::] P3-2, P11-10, P11-11, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11, P16-5, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-5|PX-3) --for-spec --no-implementation-order`.
     fn make_call(
         &mut self,
         _native_acc_id: i32,
@@ -869,7 +1008,7 @@ impl SipBackend for PjsuaBackend {
 
     // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
     // [::TICKET::] P16-6: the unified method now reaches the FFI dispatch (§62.15 Q5).
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-6, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-6|PX-3) --for-spec --no-implementation-order`.
     fn send_dtmf(
         &mut self,
         _native_call_id: i32,
@@ -1075,21 +1214,16 @@ impl SipBackend for PjsuaBackend {
         Ok(())
     }
 
-// [::TICKET::] P16-7, P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P16-10) --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7, P16-10, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P16-10|PX-3) --for-spec --no-implementation-order`.
     fn register_conf_callback(&mut self) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
-            // [::STUB::] PX-3: register the RustMediaPort into the pjsua conf
-            // bridge via pjsua_conf_add_port (vendored PJSIP has no
-            // pjsua_conf_set_callback), then connect each call's conf slot
-            // (pjsua_call_get_conf_port / pjsua_conf_connect). The work needs a
-            // working pjsua-native bindgen surface plus threading the per-call
-            // AudioMixer map into PjsuaBackend. PX-3 owns this FFI registration
-            // now that P16-10 establishes the docker integration test base.
-            Err(ReactorError::BackendError(
-                "register_conf_callback: pjsua-native media-port registration tracked in PX-3"
-                    .into(),
-            ))
+            // §62.16: the vendored PJSIP has no pjsua_conf_set_callback, so the
+            // RustMediaPort is registered as a custom pjmedia_port via
+            // pjsua_conf_add_port and each call's conf slot is connected via
+            // pjsua_call_get_conf_port + pjsua_conf_connect. Media then flows
+            // to the tap registry through the conf bridge.
+            self.register_media_ports_for_calls()
         }
         #[cfg(not(feature = "pjsua-native"))]
         {
@@ -1429,7 +1563,7 @@ mod tests {
     // TestBackend so dispatch-path tests can assert the method was reached.
     #[test]
     // @verifies C109
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|PX-3) --for-spec --no-implementation-order`.
     fn test_backend_register_conf_callback_records_invocation() -> Result<(), ReactorError> {
         let mut backend = TestBackend::new();
         assert_eq!(backend.register_conf_callback_calls, 0);
@@ -1439,12 +1573,102 @@ mod tests {
         Ok(())
     }
 
+    // ── PjsuaBackend conf-bridge registration (PX-3 / C119) ─────────────────
+
+    #[test]
+    // @verifies C119
+    // [::TICKET::] PX-3: C119-pre — with_registries threads the audio_mixers map.
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn pjsua_backend_with_registries_holds_audio_mixers_map() {
+        let mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
+        mixers
+            .write()
+            .unwrap()
+            .insert(1, Arc::new(AudioMixer::default()));
+        let taps: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let backend = PjsuaBackend::with_registries(taps, mixers.clone());
+        let audio_mixers_shared = backend.audio_mixers();
+        assert!(Arc::ptr_eq(&audio_mixers_shared, &mixers));
+        let read = audio_mixers_shared.read().unwrap();
+        assert!(read.get(&1).is_some(), "call 1 mixer reachable");
+        assert!(read.get(&2).is_none(), "absent call_id yields None");
+    }
+
+    #[test]
+    // @verifies C119
+    // [::TICKET::] PX-3: C119-post — one port per call, each conf slot connected.
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn register_media_ports_for_calls_registers_and_connects_every_audio_mixer_entry(
+    ) -> Result<(), ReactorError> {
+        let mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
+        mixers
+            .write()
+            .unwrap()
+            .insert(1, Arc::new(AudioMixer::default()));
+        mixers
+            .write()
+            .unwrap()
+            .insert(2, Arc::new(AudioMixer::default()));
+        let taps: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let mut backend = PjsuaBackend::with_registries(taps, mixers);
+        backend.register_media_ports_for_calls()?;
+        assert_eq!(backend.registered_port_count(), 2, "one conf port per call");
+        assert_eq!(
+            backend.connected_call_count(),
+            2,
+            "each call conf slot connected"
+        );
+        assert_eq!(backend.conf_connect_pairs().len(), 2);
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C119
+    // [::TICKET::] PX-3: C119-inv — non-success status surfaces as NativeError.
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn register_media_ports_for_calls_surfaces_native_error_on_conf_add_failure() {
+        bindings::stub_test_hooks::set_conf_add_port_status(bindings::PJ_EUNKNOWN);
+        let mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
+        mixers
+            .write()
+            .unwrap()
+            .insert(1, Arc::new(AudioMixer::default()));
+        let taps: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let mut backend = PjsuaBackend::with_registries(taps, mixers);
+        let err = backend.register_media_ports_for_calls().unwrap_err();
+        bindings::stub_test_hooks::set_conf_add_port_status(bindings::PJ_SUCCESS);
+        match err {
+            ReactorError::NativeError { native_status, .. } => {
+                assert_eq!(native_status, bindings::PJ_EUNKNOWN)
+            }
+            other => panic!("expected NativeError, got {other:?}"),
+        }
+    }
+
+    #[test]
+    // @verifies C119
+    // [::TICKET::] PX-3: C119-inv — default-build register_conf_callback is a no-op.
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn default_build_register_conf_callback_is_noop_ok() {
+        let mut backend = PjsuaBackend::new();
+        let result = backend.register_conf_callback();
+        assert!(result.is_ok(), "default build must keep the no-op");
+        assert_eq!(
+            backend.registered_port_count(),
+            0,
+            "no FFI registration in default build"
+        );
+    }
+
     // [::TICKET::] P16-7: C109 — register_conf_callback is invocable and
     // push_media_frame drives the subscribed tap (§62.6 conf-callback wiring).
     #[tokio::test]
     // @verifies C109
-    async fn conf_callback_and_push_media_frame_drive_subscribed_tap() -> Result<(), Box<dyn std::error::Error>>
-    {
+    async fn conf_callback_and_push_media_frame_drive_subscribed_tap(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
         let (sender, mut handle) = crate::api::audio_subscribe_bp::tap_channel(
             4,
@@ -1829,7 +2053,7 @@ mod tests {
 
     #[test]
     // @verifies C070
-// [::TICKET::] P12-1, P15-3, P16-3, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P15-3|P16-3|P16-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-1, P15-3, P16-3, P16-5, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P15-3|P16-3|P16-5|PX-3) --for-spec --no-implementation-order`.
     fn mock_make_call_increments_call_ids() {
         let mut backend = TestBackend::new();
         let (native_id1, entry1) = backend.make_call(1, &test_call_request()).unwrap();
@@ -1844,12 +2068,16 @@ mod tests {
             crate::model::AccountId::from_u64(1).unwrap(),
             "CallEntry.account_id derives from the native acc id"
         );
-        assert_eq!(entry2.state, CallState::Calling, "initial call state is Calling");
+        assert_eq!(
+            entry2.state,
+            CallState::Calling,
+            "initial call state is Calling"
+        );
     }
 
     #[test]
     // @verifies C070
-// [::TICKET::] P12-1, P15-3, P16-3, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P15-3|P16-3|P16-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-1, P15-3, P16-3, P16-5, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P15-3|P16-3|P16-5|PX-3) --for-spec --no-implementation-order`.
     fn mock_make_call_result_injection_ok() {
         let mut backend = TestBackend::new();
         let entry = CallEntry {

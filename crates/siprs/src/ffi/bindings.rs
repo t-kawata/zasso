@@ -73,7 +73,7 @@ mod stub_aliases {
     /// (`PJSIP_TRANSPORT_UNSPECIFIED` = 0 is the first enumerator). Typed `u32`
     /// to match bindgen's `c_uint`; the wiring casts to `i32` explicitly.
     pub const PJSIP_TRANSPORT_UDP: u32 = 1;
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     /// TCP transport (`PJSIP_TRANSPORT_TCP` = 2).
     pub const PJSIP_TRANSPORT_TCP: u32 = 2;
     /// TLS transport (`PJSIP_TRANSPORT_TLS` = 3).
@@ -196,6 +196,142 @@ mod stub_aliases {
     }
 
     // ---------------------------------------------------------------------------
+    // pjmedia_port family — media-port types for the conf-bridge registration
+    // (PX-3 / N0049 §39, N0085 §62.16). Field names mirror the bindgen output so
+    // the shared adapter code compiles identically under both bodies.
+    // ---------------------------------------------------------------------------
+
+    /// Media format id for 16-bit signed PCM (`PJMEDIA_FORMAT_PCM` = L16).
+    pub const PJMEDIA_FORMAT_PCM: u32 = 0;
+    /// Top-most media type for audio (`PJMEDIA_TYPE_AUDIO`).
+    pub const PJMEDIA_TYPE_AUDIO: u32 = 1;
+    /// Audio format detail selector (`PJMEDIA_FORMAT_DETAIL_AUDIO`).
+    pub const PJMEDIA_FORMAT_DETAIL_AUDIO: u32 = 1;
+
+    /// Pool handle — opaque in PJSIP; the stub models it as a void pointer.
+    pub type pj_pool_t = *mut std::ffi::c_void;
+    /// Byte size type used by PJSIP.
+    pub type pj_size_t = usize;
+    /// Result code type (`pj_status_t`); `PJ_SUCCESS` is 0.
+    pub type pj_status_t = i32;
+    /// Media direction (`pjmedia_dir`) — opaque u32 in the stub.
+    pub type pjmedia_dir = u32;
+    /// Frame type (`pjmedia_frame_type`) — opaque u32 in the stub.
+    pub type pjmedia_frame_type = u32;
+    /// Timestamp type (`pj_timestamp`) — opaque u32 in the stub.
+    pub type pj_timestamp = u32;
+
+    /// Audio format detail carried by `pjmedia_format.det.aud`.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjmedia_audio_format_detail {
+        /// Audio clock rate in samples per second.
+        pub clock_rate: std::ffi::c_uint,
+        /// Number of audio channels.
+        pub channel_count: std::ffi::c_uint,
+        /// Frame interval in microseconds.
+        pub frame_time_usec: std::ffi::c_uint,
+        /// Number of bits per sample.
+        pub bits_per_sample: std::ffi::c_uint,
+        /// Average bitrate.
+        pub avg_bps: u32,
+        /// Maximum bitrate.
+        pub max_bps: u32,
+    }
+
+    /// Stub representation of `pjmedia_format.det` — only the audio detail is
+    /// modelled (the adapter touches `det.aud` exclusively). The native build
+    /// replaces this with the bindgen union; the field path stays identical.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjmedia_format_det {
+        /// Audio detail.
+        pub aud: pjmedia_audio_format_detail,
+    }
+
+    /// Media format (`pjmedia_format`) — the stub models the fields the conf
+    /// bridge reads: format id, media type, detail selector, and audio detail.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjmedia_format {
+        /// Format id (e.g. `PJMEDIA_FORMAT_PCM`).
+        pub id: u32,
+        /// Top-most media type.
+        pub type_: u32,
+        /// Which detail member is active.
+        pub detail_type: u32,
+        /// Format detail (audio in this crate).
+        pub det: pjmedia_format_det,
+    }
+
+    /// Port information (`pjmedia_port_info`) — the name, signature, direction,
+    /// and format a `pjmedia_port` reports to the conference bridge.
+    #[repr(C)]
+    #[derive(Debug)]
+    pub struct pjmedia_port_info {
+        /// Port name.
+        pub name: pj_str_t,
+        /// Port signature.
+        pub signature: u32,
+        /// Port direction.
+        pub dir: pjmedia_dir,
+        /// Media format.
+        pub fmt: pjmedia_format,
+    }
+
+    /// The `port_data` member of `pjmedia_port` — arbitrary creator data.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjmedia_port_data {
+        /// Pointer data — the adapter stores the `Box<RustMediaPort>` here.
+        pub pdata: *mut std::ffi::c_void,
+        /// Long data.
+        pub ldata: std::ffi::c_long,
+    }
+
+    /// Custom media port (`pjmedia_port`) — the struct `pjsua_conf_add_port`
+    /// registers. The stub mirrors the bindgen field names so the adapter
+    /// compiles under both bodies.
+    #[repr(C)]
+    #[derive(Debug)]
+    pub struct pjmedia_port {
+        /// Port information.
+        pub info: pjmedia_port_info,
+        /// Arbitrary creator data — holds the boxed `RustMediaPort`.
+        pub port_data: pjmedia_port_data,
+        /// Optional group lock.
+        pub grp_lock: *mut std::ffi::c_void,
+        /// Clock-source accessor (unused by the adapter).
+        pub get_clock_src:
+            Option<unsafe extern "C" fn(*mut pjmedia_port, pjmedia_dir) -> *mut std::ffi::c_void>,
+        /// Sink interface — called by `pjmedia_port_put_frame`.
+        pub put_frame:
+            Option<unsafe extern "C" fn(*mut pjmedia_port, *mut pjmedia_frame) -> pj_status_t>,
+        /// Source interface — called by `pjmedia_port_get_frame`.
+        pub get_frame:
+            Option<unsafe extern "C" fn(*mut pjmedia_port, *mut pjmedia_frame) -> pj_status_t>,
+        /// Destructor — called by `pjmedia_port_destroy`.
+        pub on_destroy: Option<unsafe extern "C" fn(*mut pjmedia_port) -> pj_status_t>,
+    }
+
+    /// Media frame (`pjmedia_frame`) — the buffer the RT `get_frame`/`put_frame`
+    /// callbacks exchange.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjmedia_frame {
+        /// Frame type (audio).
+        pub type_: pjmedia_frame_type,
+        /// Pointer to the frame buffer.
+        pub buf: *mut std::ffi::c_void,
+        /// Frame size in bytes.
+        pub size: pj_size_t,
+        /// Frame timestamp.
+        pub timestamp: pj_timestamp,
+        /// Bit info of the frame.
+        pub bit_info: u32,
+    }
+
+    // ---------------------------------------------------------------------------
     // pjsua_codec_info — codec information struct (minimal mirror)
     // ---------------------------------------------------------------------------
 
@@ -229,7 +365,7 @@ mod stub_aliases {
     #[repr(C)]
     #[derive(Debug, Clone, Copy)]
     pub struct pjsua_transport_config {
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
         /// Local port to bind (0 selects a PJSIP-assigned port).
         pub port: u32,
         /// Local address to bind (empty string selects all interfaces).
@@ -327,7 +463,7 @@ mod stub_aliases {
     /// these values. The stub mirrors the bindgen consts-style so the mapping
     /// compiles identically under both constant sources (P11-9 pattern).
     pub mod pjsip_transport_state {
-// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+        // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
         /// No transport exists yet.
         pub const IDLE: u32 = 0;
         /// Transport is connecting.
@@ -377,7 +513,7 @@ mod stub_aliases {
     /// wiring compiles identically under bindgen (`pjsua-native`).
     #[repr(C)]
     #[derive(Debug)]
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     pub struct pjsua_config {
         /// Application callback registry (`pjsua_callback`).
         pub cb: pjsua_callback,
@@ -466,7 +602,7 @@ mod stub_aliases {
     /// to the native bindings (`turn_tls_setting` is only read for TLS).
     #[repr(C)]
     #[derive(Debug, Clone, Copy)]
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     pub struct pjsua_turn_config {
         /// Enable the TURN candidate in ICE.
         pub enable_turn: pj_bool_t,
@@ -492,7 +628,7 @@ mod stub_aliases {
     /// wires. Other media defaults are left to PJSIP.
     #[repr(C)]
     #[derive(Debug, Clone, Copy)]
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     pub struct pjsua_media_config {
         /// Enable ICE for media transport.
         pub enable_ice: pj_bool_t,
@@ -529,6 +665,76 @@ mod stub_aliases {
         PJ_SUCCESS
     }
 
+    /// Next conference slot assigned by the `pjsua_conf_add_port` stub.
+    ///
+    /// A static counter gives every registered port a distinct non-negative
+    /// slot so the default build can assert per-call registration (PX-3).
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn next_conf_slot() -> pjsua_conf_port_id {
+        static NEXT_SLOT: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(100);
+        NEXT_SLOT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Stub for `pjsua_conf_add_port`.
+    ///
+    /// The default build has no linked conference bridge, so the stub assigns a
+    /// deterministic slot and returns `PJ_SUCCESS`. A `#[cfg(test)]` hook
+    /// (`stub_test_hooks`) forces a non-success status for the error path.
+    ///
+    /// # Safety
+    /// `p_id` must be null or point to a valid `pjsua_conf_port_id`.
+    pub unsafe fn pjsua_conf_add_port(
+        _pool: *mut std::ffi::c_void,
+        _port: *mut pjmedia_port,
+        p_id: *mut pjsua_conf_port_id,
+    ) -> i32 {
+        #[cfg(test)]
+        {
+            let forced = crate::ffi::bindings::stub_test_hooks::conf_add_port_status();
+            if forced != PJ_SUCCESS {
+                return forced;
+            }
+        }
+        if !p_id.is_null() {
+            unsafe { *p_id = next_conf_slot() };
+        }
+        PJ_SUCCESS
+    }
+
+    /// Stub for `pjsua_call_get_conf_port` — echoes the call id as its slot.
+    ///
+    /// # Safety
+    /// The default build has no real call media; the echo keeps the value
+    /// deterministic for the conf-bridge registration loop (PX-3).
+    pub unsafe fn pjsua_call_get_conf_port(call_id: pjsua_call_id) -> pjsua_conf_port_id {
+        call_id as pjsua_conf_port_id
+    }
+
+    /// Stub for `pjsua_pool_create` — returns a non-null dummy pointer.
+    ///
+    /// # Safety
+    /// The returned pointer is not a real pool; the default build never
+    /// dereferences it (the conf-bridge stubs ignore the pool).
+    pub unsafe fn pjsua_pool_create(
+        _name: *const i8,
+        _init_size: pj_size_t,
+        _increment: pj_size_t,
+    ) -> *mut std::ffi::c_void {
+        std::ptr::NonNull::<u8>::dangling().as_ptr().cast()
+    }
+
+    /// Stub for `pjsua_conf_connect` — accepts the connection.
+    ///
+    /// # Safety
+    /// The default build has no real conference bridge; every connection is
+    /// accepted so the registration loop can be exercised end-to-end (PX-3).
+    pub unsafe fn pjsua_conf_connect(
+        _source: pjsua_conf_port_id,
+        _sink: pjsua_conf_port_id,
+    ) -> i32 {
+        PJ_SUCCESS
+    }
+
     /// Stub for `pjsua_enum_codecs`.
     ///
     /// The non-`pjsua-native` build has no linked PJSIP library, so no native
@@ -551,6 +757,28 @@ mod stub_aliases {
 
 #[cfg(not(feature = "pjsua-native"))]
 pub use stub_aliases::*;
+
+/// Test-only hooks for the default-build conf-bridge stubs (PX-3).
+///
+/// These let unit tests force a non-success status from the deterministic
+/// `pjsua_conf_add_port` stub so the `ReactorError::NativeError` propagation
+/// path is exercised without a real PJSIP stack.
+#[cfg(all(test, not(feature = "pjsua-native")))]
+pub(crate) mod stub_test_hooks {
+    use std::sync::atomic::{AtomicI32, Ordering};
+
+    static CONF_ADD_PORT_STATUS: AtomicI32 = AtomicI32::new(super::PJ_SUCCESS);
+
+    /// The status the `pjsua_conf_add_port` stub currently returns.
+    pub(crate) fn conf_add_port_status() -> i32 {
+        CONF_ADD_PORT_STATUS.load(Ordering::Relaxed)
+    }
+
+    /// Force `pjsua_conf_add_port` to return `status` in subsequent calls.
+    pub(crate) fn set_conf_add_port_status(status: i32) {
+        CONF_ADD_PORT_STATUS.store(status, Ordering::Relaxed);
+    }
+}
 
 // Shared — available in both modes: bindgen output and the stub aliases both
 // define `pj_str_t`, so the `null()` constructor is attached here once.
@@ -897,5 +1125,59 @@ mod tests {
     fn pjsua_enum_codecs_null_count_returns_error() {
         let status = unsafe { pjsua_enum_codecs(std::ptr::null_mut(), std::ptr::null_mut()) };
         assert_eq!(status, PJ_EUNKNOWN);
+    }
+
+    #[test]
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn pjsua_conf_add_port_stub_writes_slot_and_returns_success() {
+        let mut slot: pjsua_conf_port_id = -1;
+        let status =
+            unsafe { pjsua_conf_add_port(std::ptr::null_mut(), std::ptr::null_mut(), &mut slot) };
+        assert_eq!(status, PJ_SUCCESS, "stub must return success");
+        assert!(slot >= 0, "stub must write a non-negative conf slot");
+    }
+
+    #[test]
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn pjsua_conf_add_port_stub_accepts_null_id() {
+        let status = unsafe {
+            pjsua_conf_add_port(
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )
+        };
+        assert_eq!(status, PJ_SUCCESS, "stub must tolerate a null p_id");
+    }
+
+    #[test]
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn pjsua_call_get_conf_port_stub_echoes_call_id() {
+        let slot = unsafe { pjsua_call_get_conf_port(9) };
+        assert_eq!(slot, 9, "stub must echo the call id as its conf slot");
+    }
+
+    #[test]
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn pjsua_pool_create_stub_returns_non_null() {
+        let pool = unsafe { pjsua_pool_create(b"px3-test\0".as_ptr() as *const i8, 512, 512) };
+        assert!(!pool.is_null(), "stub pool must be non-null");
+    }
+
+    #[test]
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn stub_test_hooks_can_force_conf_add_port_failure() {
+        let mut slot: pjsua_conf_port_id = -1;
+        let ok =
+            unsafe { pjsua_conf_add_port(std::ptr::null_mut(), std::ptr::null_mut(), &mut slot) };
+        assert_eq!(ok, PJ_SUCCESS);
+        stub_test_hooks::set_conf_add_port_status(PJ_EUNKNOWN);
+        let forced =
+            unsafe { pjsua_conf_add_port(std::ptr::null_mut(), std::ptr::null_mut(), &mut slot) };
+        assert_eq!(
+            forced, PJ_EUNKNOWN,
+            "test hook must force a non-success status"
+        );
+        stub_test_hooks::set_conf_add_port_status(PJ_SUCCESS);
     }
 }
