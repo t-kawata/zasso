@@ -1018,7 +1018,19 @@
       "Bash(pkill -f 'runtime_audio_lifecycle')",
       "Bash(pkill -f 'cargo test')",
       "Bash(awk '{print $2}')",
-      "Bash(echo \"=== EXIT: $? \\(124=timeout/hang, 0=pass\\) ===\")"
+      "Bash(echo \"=== EXIT: $? \\(124=timeout/hang, 0=pass\\) ===\")",
+      "Bash(cd /Users/sh01/shyme/zasso && pwd && ls -la && echo \"---MAKEFILE---\" && ls Makefile 2>/dev/null && echo \"---SIPRS---\" && ls -la crates/siprs)",
+      "Bash(node -e \"const m=require\\('./Malfeasance.json'\\); console.log\\('keys:', Object.keys\\(m\\)\\); console.log\\('crimes count:', Array.isArray\\(m\\) ? m.length : \\(m.crimes?m.crimes.length:'?'\\)\\);\")",
+      "Bash(grep -nE '^[a-zA-Z0-9_-]+:' ../../Makefile | head -40)",
+      "Bash(node -e \"const m=require\\('./Malfeasance.json'\\); const recs=m.records||[]; console.log\\('total records:', recs.length\\); const unresolved=recs.filter\\(r=>r.status && r.status!=='resolved'\\); console.log\\('unresolved:', unresolved.length\\); const byStatus={}; recs.forEach\\(r=>byStatus[r.status]=\\(byStatus[r.status]||0\\)+1\\); console.log\\('byStatus:', byStatus\\);\")",
+      "Bash(awk 'NR>=2164 && NR<=2190' src/runtime/reactor.rs)",
+      "Bash(awk '{print $NF, $5\"B\"}')",
+      "Bash(rustfmt --check tests/runtime_audio_lifecycle.rs)",
+      "Bash(rustfmt --edition 2021 --check tests/runtime_audio_lifecycle.rs)",
+      "Bash(rustfmt --edition 2021 tests/runtime_audio_lifecycle.rs)",
+      "Bash(echo \"FMT_EXIT=$?\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('stub count:', j.count\\); j.stubs.forEach\\(s=>console.log\\(' ', s.file.split\\('/'\\).slice\\(-1\\)[0]+':'+s.line, '->', s.content\\)\\)}\\)\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('open crimes:', j.count\\)}\\)\")"
     ]
   }
 }

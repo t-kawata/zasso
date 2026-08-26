@@ -31,6 +31,30 @@ fn spawn_reactor() -> (RuntimeHandle, Arc<std::thread::JoinHandle<()>>) {
     CoreReactor::spawn(BootConfig::default()).expect("reactor must spawn")
 }
 
+/// Drive the explicit `Shutdown` command, then join the reactor thread.
+///
+/// [::TICKET::] P16-4 (§62.13): the FFI native-event drain task holds its own
+/// clone of the reactor command sender, so dropping the last `RuntimeHandle`
+/// no longer closes the command channel. The reactor therefore never observes
+/// channel-close and `join()` would block forever. Tests must drive the same
+/// explicit `RuntimeCommand::Shutdown` path that `SipClient::shutdown` uses.
+async fn shutdown_reactor(handle: RuntimeHandle, join: Arc<std::thread::JoinHandle<()>>) {
+    let (tx, _rx) = tokio::sync::oneshot::channel();
+    let result = handle
+        .submit(RuntimeCommand::Shutdown {
+            reply: Reply::new(tx),
+        })
+        .await;
+    assert!(
+        result.is_ok(),
+        "shutdown command must be accepted by the reactor, got {result:?}"
+    );
+
+    drop(handle);
+    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
+    let _ = join.join();
+}
+
 #[tokio::test]
 // @verifies C011
 // [::TICKET::] P8-1: O-001 — ConfConnect flows through MPSC to Backend and returns a oneshot reply.
@@ -49,9 +73,7 @@ async fn conf_connect_flows_through_reactor_and_returns_ok() {
         "ConfConnect must complete via backend.conf_connect, got {result:?}"
     );
 
-    drop(handle);
-    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-    let _ = join.join();
+    shutdown_reactor(handle, join).await;
 }
 
 #[tokio::test]
@@ -72,9 +94,7 @@ async fn conf_disconnect_flows_through_reactor_and_returns_ok() {
         "ConfDisconnect must complete via backend.conf_disconnect, got {result:?}"
     );
 
-    drop(handle);
-    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-    let _ = join.join();
+    shutdown_reactor(handle, join).await;
 }
 
 #[tokio::test]
@@ -92,7 +112,11 @@ async fn audio_source_lifecycle_sequence_through_reactor() {
     assert_eq!(source_id, 0, "reactor mixer assigns source_id 0 first");
 
     let second_id = handle
-        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![2i16; 160])), ChannelSelector::Out)
+        .submit_add_audio_source(
+            42,
+            Box::new(MockAsyncAudioSource::new(vec![2i16; 160])),
+            ChannelSelector::Out,
+        )
         .await
         .expect("second add must return a source_id");
     assert!(
@@ -113,9 +137,7 @@ async fn audio_source_lifecycle_sequence_through_reactor() {
         .await
         .expect("remove must succeed on existing source");
 
-    drop(handle);
-    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-    let _ = join.join();
+    shutdown_reactor(handle, join).await;
 }
 
 #[tokio::test]
@@ -126,25 +148,38 @@ async fn per_call_mixers_are_independent() {
     let (handle, join) = spawn_reactor();
 
     let source_a = handle
-        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![1i16; 160])), ChannelSelector::Out)
+        .submit_add_audio_source(
+            42,
+            Box::new(MockAsyncAudioSource::new(vec![1i16; 160])),
+            ChannelSelector::Out,
+        )
         .await
         .expect("call 42 add");
     let source_b = handle
-        .submit_add_audio_source(7, Box::new(MockAsyncAudioSource::new(vec![2i16; 160])), ChannelSelector::In)
+        .submit_add_audio_source(
+            7,
+            Box::new(MockAsyncAudioSource::new(vec![2i16; 160])),
+            ChannelSelector::In,
+        )
         .await
         .expect("call 7 add");
-    assert_ne!(source_a, source_b, "source ids stay globally unique across calls");
+    assert_ne!(
+        source_a, source_b,
+        "source ids stay globally unique across calls"
+    );
 
     let mixer_42 = handle.audio_mixer_for(42).expect("mixer for call 42");
     let mixer_7 = handle.audio_mixer_for(7).expect("mixer for call 7");
-    assert_eq!(mixer_42.out_source_count(), 1, "call 42 owns its OUT source");
+    assert_eq!(
+        mixer_42.out_source_count(),
+        1,
+        "call 42 owns its OUT source"
+    );
     assert_eq!(mixer_42.in_source_count(), 0);
     assert_eq!(mixer_7.in_source_count(), 1, "call 7 owns its IN source");
     assert_eq!(mixer_7.out_source_count(), 0);
 
-    drop(handle);
-    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-    let _ = join.join();
+    shutdown_reactor(handle, join).await;
 }
 
 #[tokio::test]
@@ -171,9 +206,7 @@ async fn audio_source_lifecycle_nonexistent_source_returns_error() {
         "mute on non-existent source must return Err"
     );
 
-    drop(handle);
-    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-    let _ = join.join();
+    shutdown_reactor(handle, join).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -247,7 +280,11 @@ async fn add_audio_source_updates_reactor_mixer_state() {
     let (handle, join) = spawn_reactor();
 
     let source_id = handle
-        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![1i16; 160])), ChannelSelector::Out)
+        .submit_add_audio_source(
+            42,
+            Box::new(MockAsyncAudioSource::new(vec![1i16; 160])),
+            ChannelSelector::Out,
+        )
         .await
         .expect("add must return a source_id");
 
@@ -262,9 +299,7 @@ async fn add_audio_source_updates_reactor_mixer_state() {
         "next_source_id must advance past the assigned id"
     );
 
-    drop(handle);
-    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-    let _ = join.join();
+    shutdown_reactor(handle, join).await;
 }
 
 #[tokio::test]
@@ -274,7 +309,11 @@ async fn set_audio_source_gain_updates_reactor_mixer_state() {
     let (handle, join) = spawn_reactor();
 
     let source_id = handle
-        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![1i16; 160])), ChannelSelector::Out)
+        .submit_add_audio_source(
+            42,
+            Box::new(MockAsyncAudioSource::new(vec![1i16; 160])),
+            ChannelSelector::Out,
+        )
         .await
         .expect("add must return a source_id");
     handle
@@ -289,9 +328,7 @@ async fn set_audio_source_gain_updates_reactor_mixer_state() {
         "set_audio_source_gain must store the clamped gain in the reactor mixer"
     );
 
-    drop(handle);
-    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-    let _ = join.join();
+    shutdown_reactor(handle, join).await;
 }
 
 #[tokio::test]
@@ -301,7 +338,11 @@ async fn mute_audio_source_updates_reactor_mixer_state() {
     let (handle, join) = spawn_reactor();
 
     let source_id = handle
-        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![1i16; 160])), ChannelSelector::Out)
+        .submit_add_audio_source(
+            42,
+            Box::new(MockAsyncAudioSource::new(vec![1i16; 160])),
+            ChannelSelector::Out,
+        )
         .await
         .expect("add must return a source_id");
     handle
@@ -316,9 +357,7 @@ async fn mute_audio_source_updates_reactor_mixer_state() {
         "mute_audio_source must toggle the reactor mixer mutes map"
     );
 
-    drop(handle);
-    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-    let _ = join.join();
+    shutdown_reactor(handle, join).await;
 }
 
 #[tokio::test]
@@ -328,7 +367,11 @@ async fn remove_audio_source_decrements_reactor_mixer_state() {
     let (handle, join) = spawn_reactor();
 
     let source_id = handle
-        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![1i16; 160])), ChannelSelector::Out)
+        .submit_add_audio_source(
+            42,
+            Box::new(MockAsyncAudioSource::new(vec![1i16; 160])),
+            ChannelSelector::Out,
+        )
         .await
         .expect("add must return a source_id");
     handle
@@ -342,9 +385,7 @@ async fn remove_audio_source_decrements_reactor_mixer_state() {
         "remove_audio_source must delete from the reactor mixer"
     );
 
-    drop(handle);
-    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-    let _ = join.join();
+    shutdown_reactor(handle, join).await;
 }
 
 #[tokio::test]
@@ -354,7 +395,11 @@ async fn failed_audio_lifecycle_op_leaves_reactor_mixer_unchanged() {
     let (handle, join) = spawn_reactor();
 
     let source_id = handle
-        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![1i16; 160])), ChannelSelector::Out)
+        .submit_add_audio_source(
+            42,
+            Box::new(MockAsyncAudioSource::new(vec![1i16; 160])),
+            ChannelSelector::Out,
+        )
         .await
         .expect("add must return a source_id");
 
@@ -368,12 +413,15 @@ async fn failed_audio_lifecycle_op_leaves_reactor_mixer_unchanged() {
         "failed ops must not mutate the reactor mixer"
     );
     assert_eq!(
-        handle.audio_mixer_for(42).unwrap().gains.get(&source_id).map(|g| *g),
+        handle
+            .audio_mixer_for(42)
+            .unwrap()
+            .gains
+            .get(&source_id)
+            .map(|g| *g),
         Some(1.0),
         "gain of the surviving source must stay at its default"
     );
 
-    drop(handle);
-    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-    let _ = join.join();
+    shutdown_reactor(handle, join).await;
 }
