@@ -17,6 +17,7 @@
 //   - crate_scope           (N0001 / N0003 / N0008)
 //   - impl_integration_design (N0068 / N0069 / N0078)
 //   - policy_reference      (N0060 / N0067)
+//   - round2_scope_rootcause (N0079)
 //
 // Full graph exploration:
 //   (cd ../.. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
@@ -27,3 +28,5 @@ pub mod crate_scope;
 // [::TICKET::] P15-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-1 --for-spec --no-implementation-order`.
 pub mod impl_integration_design;
 pub mod policy_reference;
+// [::TICKET::] P16-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-1 --for-spec --no-implementation-order`.
+pub mod round2_scope_rootcause;

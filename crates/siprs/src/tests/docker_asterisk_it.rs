@@ -17,15 +17,5 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-#[cfg(test)]
-mod tests {
-	use super::*;
 
-	#[test]
-	fn test_example() {
-		// TODO: write test
-	}
-}
-
-
-// TODO: [::STUB::] MUST implement NODE_ID=N0088: 62.19 Docker/Asterisk 実 SIP 統合テスト基盤
+// [::STUB::] P16-10: implement NODE_ID=N0088: 62.19 Docker/Asterisk 実 SIP 統合テスト基盤

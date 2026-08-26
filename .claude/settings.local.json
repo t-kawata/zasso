@@ -833,7 +833,30 @@
       "Bash(node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=\"/Users/sh01/shyme/zasso/crates/siprs\" --tickets=\"Tickets.json\")",
       "Bash(awk -F'ok. ' '{print $2}')",
       "Bash(awk -F';' '{pass+=$1} END {print \"PASS: \" pass}')",
-      "Bash(git commit -m 'chore: extend local settings allowlist with check and ticket verification commands *)"
+      "Bash(git commit -m 'chore: extend local settings allowlist with check and ticket verification commands *)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-1)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P16-1\")",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0079 --hops=2)",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P16-1\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P16-1\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"P16-1\" --tickets=\"Tickets.json\")",
+      "Bash(echo \"EXIT 8a: $?\")",
+      "Bash(node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=\"P16-1\" --tickets=\"Tickets.json\")",
+      "Bash(echo \"EXIT 8b: $?\")",
+      "Bash(echo \"EXIT 8c: $?\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P16-1\" --for-spec)",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P16-1\")",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P16-1\" --phase=plan)",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P16-1\" --for-spec --plan)",
+      "Bash(node .claude/scripts/tickets/scan-incomplete-implementations.js --dir=src/architecture)",
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P16-1\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P16-1\" --phase=start)",
+      "Bash(grep -n \"test\\\\|check\" Makefile 2>/dev/null | head -30; echo \"---\"; ls Makefile 2>/dev/null || echo \"no Makefile in cwd\"; ls ../../Makefile 2>/dev/null && echo \"Makefile at root\")",
+      "Bash(node .claude/scripts/tickets/remove-stub.js --file=src/architecture/round2_scope_rootcause.rs --line=21)",
+      "Bash(node .claude/scripts/tickets/verify-red-coverage.js --ticket-key=\"P16-1\")",
+      "Bash(node .claude/scripts/tickets/resolve-ambiguous-markers.js --mode=list-definitions --file=src/architecture/mod.rs --ticket-key=\"P16-1\")",
+      "Bash(grep -n \"function insertAnnotation\\\\|function buildAnnotation\\\\|function cleanAmbiguousArtifacts\" .claude/scripts/tickets/resolve-ambiguous-markers.js; echo \"---\"; sed -n '/function insertAnnotation/,/^}/p' .claude/scripts/tickets/resolve-ambiguous-markers.js | head -40)",
+      "Bash(grep -E '\\\\.rs$')"
     ]
   }
 }

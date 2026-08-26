@@ -20,4 +20,4 @@
 pub trait Service {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0084: 62.15 DTMF 実装整合
+// [::STUB::] P16-6: implement NODE_ID=N0084: 62.15 DTMF 実装整合

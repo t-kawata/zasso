@@ -20,4 +20,4 @@
 pub enum State {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0081: 62.12 登録・アカウント経路
+// [::STUB::] P16-3: implement NODE_ID=N0081: 62.12 登録・アカウント経路

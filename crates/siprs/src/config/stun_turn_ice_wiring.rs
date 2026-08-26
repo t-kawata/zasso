@@ -20,4 +20,4 @@
 pub struct Config {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0086: 62.17 STUN/TURN/ICE 配線と coturn 検証
+// [::STUB::] P16-8: implement NODE_ID=N0086: 62.17 STUN/TURN/ICE 配線と coturn 検証

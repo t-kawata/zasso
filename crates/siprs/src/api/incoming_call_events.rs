@@ -20,4 +20,4 @@
 pub trait Service {}
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0083: 62.14 着信・通話イベント
+// [::STUB::] P16-5: implement NODE_ID=N0083: 62.14 着信・通話イベント

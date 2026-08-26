@@ -24,4 +24,4 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0087: 62.18 Examples 設計
+// [::STUB::] P16-9: implement NODE_ID=N0087: 62.18 Examples 設計
