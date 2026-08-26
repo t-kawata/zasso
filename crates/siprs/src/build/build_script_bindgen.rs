@@ -23,6 +23,8 @@ pub const BINDINGS_OUTPUT: &str = "bindings.rs";
 /// Covers the current stub surface: `src/ffi/bindings.rs` type aliases plus the
 /// struct/typedefs those aliases depend on (`pj_str_t`, `pjsua_call_info`).
 pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     "pjsua_acc_id",
     "pjsua_call_id",
@@ -60,6 +62,19 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     "pjsip_transaction",
     "pjsua_reg_info",
     "pjsip_redirect_op",
+    // P16-7 §62.16: the custom media port (RustMediaPort) and the frame/format
+    // types its get_frame / put_frame callbacks exchange with the conf bridge.
+    "pjmedia_port",
+    "pjmedia_port_info",
+    "pjmedia_frame",
+    "pjmedia_format",
+    "pjmedia_dir",
+    "pjmedia_port_op",
+    "pjmedia_frame_type",
+    "pj_timestamp",
+    "pj_pool_t",
+    "pj_grp_lock_t",
+    "pjsua_conf_port_info",
 ];
 
 /// Fixed allowlist of PJSIP calls siprs references.
@@ -67,6 +82,8 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
 /// `pjsua_call_get_info` anchors the call-info surface; P11-10 adds the
 /// PjsuaBackend FFI symbols it drives.
 pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     "pjsua_call_get_info",
     "pjsua_enum_codecs",
@@ -93,6 +110,14 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
     "pjsua_codec_set_priority",
     "pjsua_conf_connect",
     "pjsua_conf_disconnect",
+    // P16-7 §62.16: the RustMediaPort (custom pjmedia_port) is registered into
+    // the conf bridge via pjsua_conf_add_port (vendored PJSIP has no
+    // pjsua_conf_set_callback). pjsua_call_get_conf_port resolves the call's
+    // conf slot for the media wiring.
+    "pjsua_conf_add_port",
+    "pjsua_conf_remove_port",
+    "pjsua_conf_get_active_ports",
+    "pjsua_call_get_conf_port",
     // P11-11: hold/unhold FFI — pjsua_call_set_hold puts a call on hold and
     // pjsua_call_reinvite (default options) resumes the media on unhold.
     // pjsua_call_set_inactive does NOT exist in the vendored pjsua.h.

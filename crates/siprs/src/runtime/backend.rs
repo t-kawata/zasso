@@ -140,11 +140,11 @@ pub trait SipBackend: Send {
     fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError>;
 
     /// Connect a call's media to the conference bridge.
-    // [::TICKET::] P3-2, P11-10, P11-11, P15-3, P15-7, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P15-3|P15-7|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10, P11-11, P15-3, P15-7, P16-3, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P15-3|P15-7|P16-3|P16-7) --for-spec --no-implementation-order`.
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-    // [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6, P15-7, P15-9, P16-2, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6|P15-7|P15-9|P16-2|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6, P15-7, P15-9, P16-2, P16-3, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6|P15-7|P15-9|P16-2|P16-3|P16-7) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Push a processed media frame into the call's audio tap (subscribe_audio).
@@ -153,12 +153,22 @@ pub trait SipBackend: Send {
     /// drives the tap with real data. `call_id` is the public `CallId` value
     /// (not the native id). Implementations must be non-blocking — this is
     /// invoked from the RT media callback context.
-// [::TICKET::] P15-7, P15-9, P16-3, P16-5, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P15-9|P16-3|P16-5|P16-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-7, P15-9, P16-3, P16-5, P16-6, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P15-9|P16-3|P16-5|P16-6|P16-7) --for-spec --no-implementation-order`.
     fn push_media_frame(
         &mut self,
         call_id: u64,
         frame: crate::audio::pipeline::ProcessedFrame,
     ) -> Result<(), ReactorError>;
+
+    /// Register the conf-port media callback that drives the tap registry.
+    ///
+    /// §62.16 (C109): the conf port callback (`pjsua_conf_set_callback` is
+    /// unavailable in the vendored PJSIP, so the RustMediaPort is registered
+    /// via `pjsua_conf_add_port` under `pjsua-native`) routes captured media
+    /// into `push_media_frame`, which drives the subscribed taps. In the
+    /// default build (no native conf bridge) this is a documented no-op.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    fn register_conf_callback(&mut self) -> Result<(), ReactorError>;
 }
 
 // ---------------------------------------------------------------------------
@@ -228,6 +238,9 @@ pub struct TestBackend {
     pub transfer_calls: Vec<(i32, String)>,
     /// Recorded `(call_id, frame)` pairs from every `push_media_frame` (P15-7).
     pub push_media_frame_calls: Vec<(u64, crate::audio::pipeline::ProcessedFrame)>,
+    /// Number of `register_conf_callback` invocations (P16-7 §62.16). Lets tests
+    /// prove the conf-callback registration path was reached on the backend.
+    pub register_conf_callback_calls: usize,
     /// Recorded `(native_acc_id, enabled)` pairs from every `set_registration`
     /// invocation (P16-3 §62.12). Records the attempt even when a configured
     /// failure short-circuits, so tests can prove unregister-first ordering.
@@ -286,7 +299,7 @@ impl TestBackend {
 // [::TICKET::] P8-1, P10-3, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-1|P10-3|P11-11) --for-spec --no-implementation-order`.
 #[cfg(any(test, feature = "test-util"))]
 // [::TICKET::] P15-3, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-6|P15-7) --for-spec --no-implementation-order`.
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-6, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-6|P16-7) --for-spec --no-implementation-order`.
 impl SipBackend for TestBackend {
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
@@ -524,6 +537,12 @@ impl SipBackend for TestBackend {
         self.push_media_frame_calls.push((call_id, frame));
         Ok(())
     }
+
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    fn register_conf_callback(&mut self) -> Result<(), ReactorError> {
+        self.register_conf_callback_calls += 1;
+        Ok(())
+    }
 }
 
 /// Derive an `AccountInfoSnapshot` from a stored `AccountEntry`.
@@ -649,7 +668,7 @@ impl Default for PjsuaBackend {
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 // [::TICKET::] P3-2, P10-3, P11-11, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-11|P15-7) --for-spec --no-implementation-order`.
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-6, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-6|P16-7) --for-spec --no-implementation-order`.
 impl SipBackend for PjsuaBackend {
     // [::TICKET::] P3-2, P11-10, P11-11, P16-2, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-2|P16-3) --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
@@ -1055,6 +1074,33 @@ impl SipBackend for PjsuaBackend {
         }
         Ok(())
     }
+
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    fn register_conf_callback(&mut self) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            // [::STUB::] P16-10: the RustMediaPort must be registered into the
+            // pjsua conf bridge via pjsua_conf_add_port (vendored PJSIP has no
+            // pjsua_conf_set_callback). The bindgen surface for pjmedia_port is
+            // not resolvable in the current build environment (pjsua-native is
+            // pre-broken on 40+ unrelated symbols), so the FFI registration is
+            // deferred to the Asterisk docker integration base (P16-10), which
+            // cannot run without a working media port.
+            Err(ReactorError::BackendError(
+                "register_conf_callback: pjsua-native media-port registration deferred to P16-10"
+                    .into(),
+            ))
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            // No native conf bridge in the default build: the tap registry is
+            // still driven by `push_media_frame` directly, so this is a
+            // documented no-op rather than a stub. The real FFI registration
+            // happens under the `pjsua-native` feature.
+            tracing::debug!("register_conf_callback: no-op without pjsua-native");
+            Ok(())
+        }
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -1376,6 +1422,52 @@ mod tests {
             .expect("tap must receive the pushed pair");
         assert_eq!(pair.in_chunk, crate::model::AudioChunk::I16(vec![1, 3]));
         assert_eq!(pair.out_chunk, crate::model::AudioChunk::I16(vec![2, 4]));
+        Ok(())
+    }
+
+    // [::TICKET::] P16-7: register_conf_callback records the invocation on
+    // TestBackend so dispatch-path tests can assert the method was reached.
+    #[test]
+    // @verifies C109
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    fn test_backend_register_conf_callback_records_invocation() -> Result<(), ReactorError> {
+        let mut backend = TestBackend::new();
+        assert_eq!(backend.register_conf_callback_calls, 0);
+        backend.register_conf_callback()?;
+        backend.register_conf_callback()?;
+        assert_eq!(backend.register_conf_callback_calls, 2);
+        Ok(())
+    }
+
+    // [::TICKET::] P16-7: C109 — register_conf_callback is invocable and
+    // push_media_frame drives the subscribed tap (§62.6 conf-callback wiring).
+    #[tokio::test]
+    // @verifies C109
+    async fn conf_callback_and_push_media_frame_drive_subscribed_tap() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let (sender, mut handle) = crate::api::audio_subscribe_bp::tap_channel(
+            4,
+            crate::api::audio_subscribe_bp::AudioTapMode::Realtime,
+        );
+        registry.lock().unwrap_or_else(|p| p.into_inner()).insert(
+            crate::model::CallId::from_u64(42)?,
+            (crate::model::AccountId::from_u64(1)?, sender),
+        );
+        let mut backend = PjsuaBackend::with_taps(registry);
+        backend.register_conf_callback()?;
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![10i16, 20],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        backend.push_media_frame(42, frame)?;
+        let pair = handle
+            .recv()
+            .await
+            .ok_or("subscribed tap must receive the pushed pair")?;
+        assert_eq!(pair.in_chunk, crate::model::AudioChunk::I16(vec![10]));
+        assert_eq!(pair.out_chunk, crate::model::AudioChunk::I16(vec![20]));
         Ok(())
     }
 

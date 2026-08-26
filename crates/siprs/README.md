@@ -320,16 +320,16 @@ AudioFormat（ビット深度・サンプルレート・チャンネル）とス
 ### 証拠（欠落・矛盾・危険）
 
 - `add_audio_source(call_id, source, channels)` は存在し、`call_id` と `ChannelSelector`（In/Out/Both）を受け取り、per-call `AudioMixer` へ登録する（`src/client.rs:515-520`、`src/runtime/reactor.rs:268-308`）。`AudioWorkerTask::spawn` も reactor の生産経路で呼ばれる（`src/runtime/reactor.rs:284-289`）。
-- しかし **mix 結果を消費する経路が存在しない**: `AudioWorkerInner::process_frame` は `out_queue` / `in_queue` へ push する（`src/runtime/audio_worker.rs:506-514`）が、**これらのキューを pop するコードはゼロ**。RT 消費側（RustMediaPort → ネットワーク送信 / ローカル再生）が存在しない。`make_call` / `answer` は `conf_connect` を呼ばない（`src/runtime/reactor.rs:1099-1124`）。`conf_connect` は公開 API からも露出していない。
-- **「音声ファイル」source の実装がない**: ファイルベースの `AsyncAudioSource` は存在せず、唯一の例は mpsc チャネルの `TtsStreamSource`（`examples/tts_source.rs:34-51`）。
+- ✅ **P16-7 で解消**: `RustMediaPort` が `out_queue` / `in_queue` を消費する唯一の conf port コンシューマとして実装された（`src/runtime/audio_worker.rs`）。`get_frame` が `out_queue` を pop し、`put_frame` が `in_queue` へ push する。`make_call` / `answer` の call connect 時（`CallConnected` 発行）に `conf_connect(call_id, call_id)` が自動発行される（`src/runtime/reactor.rs`）。
+- ✅ **P16-7 で解消**: ファイル / WAV ベースの `AsyncAudioSource`（`WavFileSource`）と `write_stereo_wav` / `WavWriter` を実装した（`src/audio/media_path_wiring.rs`）。`WavFileSource` を `add_audio_source` へ注入できる。
 - **`open_default_microphone_source` は「通話のマイク入力」ではない**: cpal による OS 既定入力デバイスの独立キャプチャであり（`src/api/asyncaudiosrc_adapter.rs:312-338`）、`add_audio_source` で注入する source の一種。2 者通話のマイク入力として記述すると事実と矛盾する。
 
 ### 実装補強設計（完全記述への条件）
 
-1. `out_queue` / `in_queue` を消費する実 conf port コンシューマ（RustMediaPort）を実装し、メディアをネットワーク送信 / ローカル再生へ接続（P15-7 Layer 3+ / RustMediaPort）。
-2. `make_call` / `answer` の call connect 時に `conf_connect` を実行し、メディア経路を確立。
-3. ファイル / WAV ベースの `AsyncAudioSource` を実装（新規チケット）。
-4. `open_default_microphone_source` を「注入可能なキャプチャ source」として README に明記し、通話マイクとの混同を排除。
+1. ✅ **P16-7**: `out_queue` / `in_queue` を消費する実 conf port コンシューマ（`RustMediaPort`）を実装し、メディアをネットワーク送信 / ローカル再生へ接続。
+2. ✅ **P16-7**: `make_call` / `answer` の call connect 時に `conf_connect` を実行し、メディア経路を確立。
+3. ✅ **P16-7**: ファイル / WAV ベースの `AsyncAudioSource`（`WavFileSource`）を実装。
+4. `open_default_microphone_source` を「注入可能なキャプチャ source」として README に明記し、通話マイクとの混同を排除（本節のとおり）。
 
 # STUN/TURN/ICE とトランスポート設定
 

@@ -103,12 +103,12 @@ pub struct CoreReactor;
 
 /// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
 /// join handle, or a boxed spawn error.
-// [::TICKET::] P15-4, P15-7, P15-9, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-4, P15-7, P15-9, P16-5, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5|P16-7) --for-spec --no-implementation-order`.
 type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -841,7 +841,7 @@ impl CoreReactor {
                                         call_directions: &mut call_directions,
                                     };
                                     process_native_event(
-                                        &*backend,
+                                        &mut *backend,
                                         &event_bus,
                                         event,
                                         &mut call_state,
@@ -1033,7 +1033,7 @@ pub(crate) fn dispatch_event(event_bus: &EventBus, event: SipEvent) {
 /// `CONFIRMED` call publish a `CallConnected` payload with the real account.
 // [::TICKET::] P15-4: O-001 — production NativeEvent → SipEvent publication flow
 pub(crate) fn process_native_event(
-    backend: &dyn SipBackend,
+    backend: &mut dyn SipBackend,
     event_bus: &EventBus,
     event: NativeEvent,
     call_state: &mut CallStateTables<'_>,
@@ -1083,11 +1083,28 @@ pub(crate) fn process_native_event(
                 other => convert_native_event_to_payload(other, account_id),
             };
             if let Some(payload) = payload {
+                let is_connected = matches!(payload, SipEventPayload::CallConnected(_));
                 let sip_event = SipEvent {
                     meta: EventMeta::new(0, account_id, call_id),
                     payload,
                 };
                 dispatch_event(event_bus, sip_event);
+                // §62.16 / C110: when a call reaches CONFIRMED (outgoing connect
+                // or remote confirm), establish the media path. A conf_connect
+                // failure is logged, never propagated — event delivery must not
+                // be blocked by media setup.
+                if is_connected {
+                    if let Some(connected_call_id) = call_id {
+                        let connected_call_id_u64 = connected_call_id.get().get();
+                        if let Err(error) = connect_media_for_call(backend, connected_call_id_u64) {
+                            tracing::warn!(
+                                call_id = connected_call_id_u64,
+                                %error,
+                                "conf_connect after CONFIRMED failed"
+                            );
+                        }
+                    }
+                }
             }
         }
     }
@@ -1175,6 +1192,20 @@ pub(crate) fn handle_make_call(
     Ok(entry_id)
 }
 
+/// Establish the media path for a newly connected call (§62.16 / C110).
+///
+/// The crate's conf_connect convention is `(call_id, call_id)` — the logical
+/// call id doubles as the conf port id (the contract P8-1 established on
+/// TestBackend). Callers decide how to surface a failure: `handle_answer` and
+/// the native-event path log it (media-connect problems never block event
+/// delivery), while tests can assert the returned error.
+pub(crate) fn connect_media_for_call(
+    backend: &mut dyn SipBackend,
+    call_id: u64,
+) -> Result<(), ReactorError> {
+    backend.conf_connect(call_id as i32, call_id as i32)
+}
+
 /// Handle a `RuntimeCommand::Answer` on the reactor thread (§19.1 / N0027).
 ///
 /// Reads as prose: answer via the backend; on success record the resulting call
@@ -1220,6 +1251,14 @@ pub(crate) fn handle_answer(
         _ => None,
     };
     if let Some(payload) = payload {
+        // §62.16 / C110: when a 200 answer connects the call, establish the
+        // media path. A conf_connect failure is logged, never propagated —
+        // the call state and event delivery must not be blocked by media setup.
+        if code == 200 {
+            if let Err(error) = connect_media_for_call(backend, call_id) {
+                tracing::warn!(call_id, %error, "conf_connect after answer failed");
+            }
+        }
         dispatch_event(
             event_bus,
             SipEvent {
@@ -1454,7 +1493,7 @@ mod tests {
             call_directions: &mut empty_directions(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -1499,7 +1538,7 @@ mod tests {
             call_directions: &mut empty_directions(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -1546,7 +1585,7 @@ mod tests {
             call_directions: &mut empty_directions(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -1576,7 +1615,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P7-2: O-001 — non-registration P0 events convert and publish through dispatch_event
     async fn process_native_event_call_state_changed_publishes() {
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut calls = confirmed_calls();
         let mut rx = bus.subscribe_control();
@@ -1587,7 +1626,7 @@ mod tests {
             call_directions: &mut empty_directions(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 10,
@@ -1609,12 +1648,52 @@ mod tests {
         }
     }
 
+    /// §62.16 / C110: a CONFIRMED native event publishes CallConnected AND
+    /// triggers `backend.conf_connect(call_id, call_id)` on the same path.
+    #[tokio::test]
+    // @verifies C110
+    async fn process_native_event_confirmed_triggers_conf_connect() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut calls = confirmed_calls();
+        let mut rx = bus.subscribe_control();
+
+        let mut accounts = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+        };
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 10,
+                state: pjsip_inv_state::CONFIRMED,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        let ev = rx.recv().await?;
+        assert!(
+            matches!(ev.payload, SipEventPayload::CallConnected(_)),
+            "a CONFIRMED call must publish CallConnected"
+        );
+        assert_eq!(
+            backend.conf_connect_calls,
+            vec![(10, 10)],
+            "conf_connect(call_id, call_id) must be auto-issued on connect"
+        );
+        Ok(())
+    }
+
     /// @verifies C029, C031
     #[tokio::test]
     async fn process_native_event_multi_account_call_connected() {
         // Two calls, one per account: each CallConnected payload must carry the
         // owning CallEntry.account_id — never the hardcoded account 1.
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut calls = BTreeMap::from([
             (
@@ -1650,7 +1729,7 @@ mod tests {
             call_directions: &mut empty_directions(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 10,
@@ -1664,7 +1743,7 @@ mod tests {
             call_directions: &mut empty_directions(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 11,
@@ -1696,7 +1775,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P7-2: O-001 — P1/P2 events are dropped without publication (documented rationale)
     async fn process_native_event_transport_state_changed_publishes() {
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut calls = BTreeMap::new();
         let mut accounts = BTreeMap::new();
@@ -1707,7 +1786,7 @@ mod tests {
             call_directions: &mut empty_directions(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::TransportStateChanged {
                 transport_id: 1,
@@ -1735,7 +1814,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: inbound CONNECTING discriminates to OutgoingCallRinging
     async fn process_native_event_incoming_connecting_rings() {
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::from([(
@@ -1758,7 +1837,7 @@ mod tests {
             call_directions: &mut directions,
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 7,
@@ -1785,7 +1864,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: outbound CONNECTING discriminates to OutgoingCallTrying
     async fn process_native_event_outgoing_connecting_tries() {
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::from([(
@@ -1808,7 +1887,7 @@ mod tests {
             call_directions: &mut directions,
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 7,
@@ -1833,7 +1912,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: CONNECTING with no recorded direction falls back to Trying (outgoing assumption)
     async fn process_native_event_connecting_no_direction_falls_back_to_trying() {
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::from([(
@@ -1856,7 +1935,7 @@ mod tests {
             call_directions: &mut directions,
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 7,
@@ -1885,7 +1964,7 @@ mod tests {
     // Incoming direction AND registers a CallEntry so the call resolves via
     // calls()/call_state() and is answerable (§62.14).
     async fn process_native_event_incoming_call_records_direction() {
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::new();
@@ -1897,7 +1976,7 @@ mod tests {
             call_directions: &mut directions,
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::IncomingCall {
                 acc_id: 42,
@@ -2887,7 +2966,7 @@ mod tests {
             call_directions: &mut empty_directions(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -2933,7 +3012,7 @@ mod tests {
             call_directions: &mut empty_directions(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -3015,6 +3094,11 @@ mod tests {
             backend.answer_calls,
             vec![(1, 200)],
             "backend.answer_call must be invoked with (native_call_id, code)"
+        );
+        assert_eq!(
+            backend.conf_connect_calls,
+            vec![(1, 1)],
+            "a 200 answer must auto-issue conf_connect(call_id, call_id) (§62.16)"
         );
         assert_eq!(
             client_state.calls[&call_id].state, CallState::Active,

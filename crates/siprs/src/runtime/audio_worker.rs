@@ -345,6 +345,81 @@ impl Default for AudioMixer {
 }
 
 // ---------------------------------------------------------------------------
+// RustMediaPort — the conf-port consumer of the mixer queues (§62.16 / C110)
+// ---------------------------------------------------------------------------
+
+use crate::audio::media_path_wiring::BYTES_PER_I16;
+
+/// The conf-port consumer of the `AudioMixer` lock-free queues (§62.16).
+///
+/// `get_frame` pops the mixed send-mix from `out_queue` — the audio PJSUA
+/// transmits to the remote party. `put_frame` pushes received audio into
+/// `in_queue`, the received/playback path. Both operations are non-blocking
+/// and lock-free, so they are safe to call from the PJSUA RT callback thread
+/// (§24.0). `RustMediaPort` is the *only* consumer of `out_queue` (C110
+/// invariant): `AudioWorkerInner::process_frame` only ever pushes.
+///
+/// # RT-boundary note
+/// `put_frame` builds a `Vec<i16>` for the queue push; the real RT path is
+/// intended to use the pre-allocated `MediaFrame` / `AudioBridge` (P4-3)
+/// instead. The queue-facing surface is kept allocation-light and testable.
+pub struct RustMediaPort {
+    mixer: Arc<AudioMixer>,
+    call_id: u64,
+}
+
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+impl RustMediaPort {
+    /// Create a port bound to the given per-call mixer.
+    pub fn new(mixer: Arc<AudioMixer>, call_id: u64) -> Self {
+        Self { mixer, call_id }
+    }
+
+    /// Pop the next OUT frame from `out_queue` and copy it into `buf` as
+    /// little-endian i16 PCM. On underrun the buffer is zero-filled (silence).
+    /// Returns the number of bytes written (bounded by `capacity`).
+    pub fn get_frame(&self, buf: &mut [u8], capacity: usize) -> usize {
+        let write_len = capacity.min(buf.len());
+        match self.mixer.out_queue.pop() {
+            Some(samples) => {
+                let byte_len = (samples.len() * BYTES_PER_I16).min(write_len);
+                for (index, byte) in buf[..write_len].iter_mut().enumerate() {
+                    if index < byte_len {
+                        let sample_bytes = samples[index / BYTES_PER_I16].to_le_bytes();
+                        *byte = sample_bytes[index % BYTES_PER_I16];
+                    } else {
+                        *byte = 0;
+                    }
+                }
+                write_len
+            }
+            None => {
+                buf[..write_len].fill(0);
+                write_len
+            }
+        }
+    }
+
+    /// Push received audio (`data[..size]`, little-endian i16 PCM) into
+    /// `in_queue`. Returns `false` when the queue is full — the frame is
+    /// dropped with latest-priority semantics. Never blocks.
+    pub fn put_frame(&self, data: &[u8], size: usize) -> bool {
+        let size = size.min(data.len());
+        let sample_count = size / BYTES_PER_I16;
+        let mut samples = Vec::with_capacity(sample_count);
+        for pair in data[..size].chunks_exact(BYTES_PER_I16) {
+            samples.push(i16::from_le_bytes([pair[0], pair[1]]));
+        }
+        self.mixer.in_queue.push(samples).is_ok()
+    }
+
+    /// The logical call id this port is bound to.
+    pub fn call_id(&self) -> u64 {
+        self.call_id
+    }
+}
+
+// ---------------------------------------------------------------------------
 // AudioWorkerTask — per-call blocking-pool audio processing
 // ---------------------------------------------------------------------------
 
@@ -1516,7 +1591,7 @@ mod tests {
     // @verifies C036
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn async_audio_source_trait_requires_send() {
-        // [::TICKET::] P0-6, P12-5, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P12-5, P12-7, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7|P16-7) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<MockAsyncAudioSource>();
     }
@@ -1616,5 +1691,85 @@ mod tests {
             !worker.is_running(),
             "worker must be stopped after shutdown"
         );
+    }
+
+    // ── P16-7: RustMediaPort — out_queue consumption / in_queue feeding ────
+
+    /// C110-Post-1: get_frame pops out_queue and copies the PCM frame (LE i16).
+    #[test]
+    // @verifies C110
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    fn rust_media_port_get_frame_pops_out_queue() {
+        let mixer = Arc::new(AudioMixer::new());
+        mixer.out_queue.push(vec![7i16; MIXER_FRAME_SAMPLES]).ok();
+        let port = RustMediaPort::new(mixer, 1);
+        let mut buf = vec![0u8; MIXER_FRAME_SAMPLES * 2];
+        let capacity = buf.len();
+        let bytes_written = port.get_frame(&mut buf, capacity);
+        assert_eq!(bytes_written, MIXER_FRAME_SAMPLES * 2);
+        assert_eq!(buf[0], 7, "i16 LE low byte");
+        assert_eq!(buf[1], 0, "i16 LE high byte");
+    }
+
+    /// C110-Post-2: put_frame pushes received audio into in_queue.
+    #[test]
+    // @verifies C110
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    fn rust_media_port_put_frame_pushes_in_queue() {
+        let mixer = Arc::new(AudioMixer::new());
+        let port = RustMediaPort::new(mixer.clone(), 1);
+        let data = vec![0u8, 0, 7, 0]; // two i16 samples (0, 7)
+        assert!(port.put_frame(&data, data.len()));
+        assert_eq!(mixer.in_queue.len(), 1);
+    }
+
+    /// C110-Boundary-1: an empty out_queue yields a zero-filled (silent) frame.
+    #[test]
+    // @verifies C110
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    fn rust_media_port_get_frame_underrun_zero_fills() {
+        let mixer = Arc::new(AudioMixer::new());
+        let port = RustMediaPort::new(mixer, 1);
+        let mut buf = vec![0xFFu8; MIXER_FRAME_SAMPLES * 2];
+        let capacity = buf.len();
+        let bytes_written = port.get_frame(&mut buf, capacity);
+        assert_eq!(bytes_written, MIXER_FRAME_SAMPLES * 2);
+        assert!(buf.iter().all(|&b| b == 0), "underrun → silence");
+    }
+
+    /// C110-Boundary-2: a full in_queue drops the frame (latest-priority).
+    #[test]
+    // @verifies C110
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    fn rust_media_port_put_frame_full_queue_drops() {
+        let mixer = Arc::new(AudioMixer::with_queue_capacity(1));
+        let port = RustMediaPort::new(mixer.clone(), 1);
+        assert!(port.put_frame(&vec![0u8, 0], 2));
+        assert!(!port.put_frame(&vec![1u8, 0], 2), "full → drop");
+        assert_eq!(mixer.in_queue.len(), 1);
+    }
+
+    /// C110-Inv: RustMediaPort is the only consumer of out_queue — get_frame drains it.
+    #[test]
+    // @verifies C110
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    fn out_queue_consumed_only_by_rust_media_port() {
+        let mixer = Arc::new(AudioMixer::new());
+        mixer.out_queue.push(vec![1i16; MIXER_FRAME_SAMPLES]).ok();
+        assert_eq!(mixer.out_queue.len(), 1);
+        let port = RustMediaPort::new(mixer.clone(), 1);
+        let mut buf = vec![0u8; MIXER_FRAME_SAMPLES * 2];
+        let capacity = buf.len();
+        let _bytes_written = port.get_frame(&mut buf, capacity);
+        assert!(mixer.out_queue.is_empty(), "get_frame must drain out_queue");
+    }
+
+    /// The port retains its logical call id (used for tap / conf wiring).
+    #[test]
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    fn rust_media_port_retains_call_id() {
+        let mixer = Arc::new(AudioMixer::new());
+        let port = RustMediaPort::new(mixer, 42);
+        assert_eq!(port.call_id(), 42);
     }
 }
