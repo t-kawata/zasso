@@ -856,7 +856,13 @@
       "Bash(node .claude/scripts/tickets/verify-red-coverage.js --ticket-key=\"P16-1\")",
       "Bash(node .claude/scripts/tickets/resolve-ambiguous-markers.js --mode=list-definitions --file=src/architecture/mod.rs --ticket-key=\"P16-1\")",
       "Bash(grep -n \"function insertAnnotation\\\\|function buildAnnotation\\\\|function cleanAmbiguousArtifacts\" .claude/scripts/tickets/resolve-ambiguous-markers.js; echo \"---\"; sed -n '/function insertAnnotation/,/^}/p' .claude/scripts/tickets/resolve-ambiguous-markers.js | head -40)",
-      "Bash(grep -E '\\\\.rs$')"
+      "Bash(grep -E '\\\\.rs$')",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P16-2\")",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0080 --hops=2)",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); const keys=Object.keys\\(t.tickets||t\\); console.log\\('total tickets:',keys.length\\); for\\(const k of keys\\){ if\\(k.startsWith\\('P16'\\)\\) console.log\\(JSON.stringify\\(t.tickets[k],null,1\\).slice\\(0,1500\\)\\); }\")",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); console.log\\(JSON.stringify\\(t,null,1\\).slice\\(0,2000\\)\\);\")",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); console.log\\(Object.keys\\(t\\)\\); const tickets = t.tickets || t; if\\(Array.isArray\\(tickets\\)\\){ console.log\\('array, entries:', tickets.length\\); } else { console.log\\('keys:', Object.keys\\(tickets\\).slice\\(0,20\\)\\); }\")"
     ]
   }
 }

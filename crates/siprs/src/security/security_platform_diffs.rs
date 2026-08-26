@@ -54,7 +54,7 @@ const REDACTED_DISPLAY: &str = "[REDACTED]";
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct SecretString(String);
 
-// [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P1-2, P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P16-2) --for-spec --no-implementation-order`.
 impl SecretString {
     /// Create a new `SecretString` wrapping the given value.
     ///
@@ -70,6 +70,17 @@ impl SecretString {
     /// (e.g., passing to PJSIP auth callback). Avoid logging or persisting
     /// the returned value.
     pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Expose the inner secret value to a PJSIP FFI consumer (RFC §28 addendum).
+    ///
+    /// This is the explicit accessor the FFI marshalling layer uses when a
+    /// secret (e.g. a TURN password or account digest credential) must be handed
+    /// to a PJSIP config struct. It is an alias of [`Self::as_str`] whose name
+    /// makes the sensitive boundary explicit at the call site; the value is never
+    /// logged or persisted through this path.
+    pub fn expose_secret(&self) -> &str {
         &self.0
     }
 }

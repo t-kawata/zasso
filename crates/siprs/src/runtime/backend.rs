@@ -130,7 +130,7 @@ pub trait SipBackend: Send {
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6, P15-7, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6|P15-7|P15-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6, P15-7, P15-9, P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6|P15-7|P15-9|P16-2) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Push a processed media frame into the call's audio tap (subscribe_audio).
@@ -538,13 +538,23 @@ pub(crate) fn map_pjsua_status(status: i32, operation: &str) -> Result<(), React
 pub struct PjsuaBackend {
     /// Shared tap producer registry keyed by public `CallId`.
     audio_taps: AudioTapRegistry,
+    /// Native transport ids created from `ClientConfig.transports` (§62.11).
+    ///
+    /// Populated by `initialize` / `create_transport` and drained by `shutdown`
+    /// (§32 step 5) before `pjsua_destroy`. The field exists only under
+    /// `pjsua-native`, where the FFI creates and destroys transports; the
+    /// default build has no native transports to track.
+    #[cfg(feature = "pjsua-native")]
+    transport_ids: Vec<bindings::pjsua_transport_id>,
 }
 
-// [::TICKET::] P3-2, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-7, P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7|P16-2) --for-spec --no-implementation-order`.
 impl PjsuaBackend {
     pub fn new() -> Self {
         Self {
             audio_taps: Arc::new(Mutex::new(HashMap::new())),
+            #[cfg(feature = "pjsua-native")]
+            transport_ids: Vec::new(),
         }
     }
 
@@ -556,7 +566,11 @@ impl PjsuaBackend {
     /// test builds use it to exercise the tap-push wiring on Layer 2.
     #[cfg(any(test, feature = "pjsua-native"))]
     pub(crate) fn with_taps(audio_taps: AudioTapRegistry) -> Self {
-        Self { audio_taps }
+        Self {
+            audio_taps,
+            #[cfg(feature = "pjsua-native")]
+            transport_ids: Vec::new(),
+        }
     }
 }
 
@@ -572,11 +586,20 @@ impl Default for PjsuaBackend {
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 // [::TICKET::] P3-2, P10-3, P11-11, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-11|P15-7) --for-spec --no-implementation-order`.
 impl SipBackend for PjsuaBackend {
-    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10, P11-11, P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-2) --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
-            map_pjsua_status(crate::ffi::backend_calls::initialize(), "initialize")
+            let config = _config;
+            map_pjsua_status(crate::ffi::backend_calls::initialize(), "initialize")?;
+            let ids = crate::ffi::transport_wiring::wire_transports(&config.transports, |transport| {
+                let (status, native_id) =
+                    crate::ffi::transport_wiring::native_transport_create(transport);
+                map_pjsua_status(status, "create_native_transport")?;
+                Ok(native_id)
+            })?;
+            self.transport_ids = ids;
+            Ok(())
         }
         #[cfg(not(feature = "pjsua-native"))]
         {
@@ -586,15 +609,18 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10, P11-11, P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-2) --for-spec --no-implementation-order`.
     fn create_transport(
         &mut self,
         _config: &crate::config::transport_ice_spec::TransportConfig,
     ) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
-            let (status, _transport_id) = crate::ffi::backend_calls::create_transport();
-            map_pjsua_status(status, "create_transport")
+            let config = _config;
+            let (status, native_id) = crate::ffi::transport_wiring::native_transport_create(config);
+            map_pjsua_status(status, "create_transport")?;
+            self.transport_ids.push(native_id);
+            Ok(())
         }
         #[cfg(not(feature = "pjsua-native"))]
         {
@@ -845,10 +871,15 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10, P11-11, P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-2) --for-spec --no-implementation-order`.
     fn shutdown(&mut self) -> Result<(), ReactorError> {
         #[cfg(feature = "pjsua-native")]
         {
+            let ids = std::mem::take(&mut self.transport_ids);
+            crate::ffi::transport_wiring::destroy_transports(&ids, |native_id| {
+                let (status, _) = crate::ffi::transport_wiring::destroy_native_transport(native_id);
+                map_pjsua_status(status, "close_transport")
+            })?;
             map_pjsua_status(crate::ffi::backend_calls::shutdown(), "shutdown")
         }
         #[cfg(not(feature = "pjsua-native"))]

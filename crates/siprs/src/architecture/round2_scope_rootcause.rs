@@ -449,12 +449,22 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P16-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-1, P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-1|P16-2) --for-spec --no-implementation-order`.
     fn round2_evidence_matches_actual_source() -> Result<(), std::io::Error> {
         let backend_calls = std::fs::read_to_string("src/ffi/backend_calls.rs")?;
+        // RC1 resolved by §62.11 (P16-2): the null transport config is gone and
+        // the port is reflected into a real pjsua_transport_config.
         assert!(
-            backend_calls.contains("pjsua_transport_create(std::ptr::null_mut()"),
-            "RC1: transport create must still use null config"
+            backend_calls.contains("pjsua_transport_create("),
+            "RC1: pjsua_transport_create still invoked"
+        );
+        assert!(
+            !backend_calls.contains("pjsua_transport_create(std::ptr::null_mut()"),
+            "RC1: transport create must no longer use a null config (§62.11)"
+        );
+        assert!(
+            backend_calls.contains("apply_transport_port"),
+            "RC1: transport port reflection wired (§62.11)"
         );
         let account_spec = std::fs::read_to_string("src/config/account_config_spec.rs")?;
         let obs_metrics = std::fs::read_to_string("src/config/observability_metrics.rs")?;

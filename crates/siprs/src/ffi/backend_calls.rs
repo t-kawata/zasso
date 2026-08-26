@@ -14,6 +14,8 @@
 use crate::ffi::bindings;
 #[cfg(feature = "pjsua-native")]
 use crate::ffi::pj_str::PjOwnedStr;
+#[cfg(feature = "pjsua-native")]
+use std::net::SocketAddr;
 
 /// Initialize the PJSUA stack: `pjsua_create` → `pjsua_init` → `pjsua_start`.
 ///
@@ -48,17 +50,44 @@ pub fn shutdown() -> i32 {
     unsafe { bindings::pjsua_destroy() }
 }
 
-/// Create a SIP transport with PJSIP defaults.
+/// Create a SIP transport of `kind` bound to `bind_addr`.
 ///
+/// Builds a real `pjsua_transport_config` (port + bound_addr) instead of passing
+/// a null config, so `ClientConfig.transports` reaches PJSIP (§62.11 / N0080).
 /// Returns `(status, transport_id)`.
 #[cfg(feature = "pjsua-native")]
-pub fn create_transport() -> (i32, i32) {
+pub fn transport_create(kind: i32, bind_addr: SocketAddr) -> (i32, i32) {
+// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    let mut cfg: bindings::pjsua_transport_config = unsafe { std::mem::zeroed() };
+    crate::ffi::transport_wiring::apply_transport_port(&mut cfg, bind_addr.port());
+    let bound_addr = crate::ffi::transport_wiring::resolve_bound_addr_string(bind_addr);
+    let bound_owned = PjOwnedStr::new(&bound_addr);
+    cfg.bound_addr = bound_owned.as_raw();
     let mut transport_id: bindings::pjsua_transport_id = 0;
-    // SAFETY: a null transport config selects PJSIP defaults; transport_id is a
-    // valid out-pointer written by the call.
-    let status =
-        unsafe { bindings::pjsua_transport_create(std::ptr::null_mut(), &mut transport_id) };
+    // SAFETY: cfg is a valid, initialized pjsua_transport_config carrying the
+    // resolved port and a live bound_addr string (bound_owned lives for this
+    // call); transport_id is a valid out-pointer written by the call.
+    let status = unsafe {
+        bindings::pjsua_transport_create(
+            kind as bindings::pjsip_transport_type_e,
+            &mut cfg,
+            &mut transport_id,
+        )
+    };
     (status, transport_id)
+}
+
+/// Close a SIP transport via `pjsua_transport_close`.
+///
+/// `force = 0` lets PJSIP drain the transport gracefully; the caller (the
+/// shutdown sequence §32 step 5) has already unregistered accounts and hung up
+/// calls so the transport is idle.
+#[cfg(feature = "pjsua-native")]
+pub fn close_transport(transport_id: i32) -> i32 {
+// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // SAFETY: transport_id is a valid pjsua_transport_id; force = 0 (pj_bool_t)
+    // requests a graceful close.
+    unsafe { bindings::pjsua_transport_close(transport_id, 0) }
 }
 
 /// Register a SIP account from the domain `AccountConfig`.

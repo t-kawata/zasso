@@ -23,6 +23,7 @@ pub const BINDINGS_OUTPUT: &str = "bindings.rs";
 /// Covers the current stub surface: `src/ffi/bindings.rs` type aliases plus the
 /// struct/typedefs those aliases depend on (`pj_str_t`, `pjsua_call_info`).
 pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
+// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     "pjsua_acc_id",
     "pjsua_call_id",
     "pjsua_conf_port_id",
@@ -40,6 +41,9 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     "pjsua_cred_info",
     "pjsua_acc_info",
     "pjsua_transport_config",
+    // P16-2: the transport kind enum — `pjsua_transport_create` takes it as the
+    // first argument and the `PJSIP_TRANSPORT_*` values are allowlisted below.
+    "pjsip_transport_type_e",
     "pjsua_call_setting",
     "pjsua_msg_data",
     "pjsip_media_type",
@@ -63,6 +67,7 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
 /// `pjsua_call_get_info` anchors the call-info surface; P11-10 adds the
 /// PjsuaBackend FFI symbols it drives.
 pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
+// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     "pjsua_call_get_info",
     "pjsua_enum_codecs",
     "pjsua_create",
@@ -70,6 +75,9 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
     "pjsua_start",
     "pjsua_destroy",
     "pjsua_transport_create",
+    // P16-2: transport teardown — pjsua_transport_close destroys a transport at
+    // shutdown (§32 step 5).
+    "pjsua_transport_close",
     "pjsua_acc_add",
     "pjsua_acc_del",
     "pjsua_acc_modify",
@@ -96,12 +104,18 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
 /// PJ_EUNKNOWN, `PJSUA_CALL_*`, `PJSUA_REG_STATE_*`). P11-9 replaces the
 /// hand-coded duplicates in error/state modules from this generated set.
 pub const BINDGEN_ALLOWLIST_VARS: &[&str] = &[
+// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     "PJ_SUCCESS",
     "PJ_EUNKNOWN",
     // P11-9: pj_status_t error codes consumed by the error/state mapping.
     "PJ_ENOMEM",
     "PJ_EINVALIDOP",
     "PJ_EBUSY",
+    // P16-2: pjsip_transport_type_e enumerators — the transport-kind constants
+    // the wiring maps `TransportKind` into before calling pjsua_transport_create.
+    "PJSIP_TRANSPORT_UDP",
+    "PJSIP_TRANSPORT_TCP",
+    "PJSIP_TRANSPORT_TLS",
     // P11-9: pjsip_inv_state enumerators (bindgen consts-style strips the prefix).
     "PJSIP_INV_STATE_NULL",
     "PJSIP_INV_STATE_CALLING",

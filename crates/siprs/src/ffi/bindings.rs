@@ -60,6 +60,25 @@ mod stub_aliases {
     pub const PJ_EBUSY: i32 = 70011;
 
     // ---------------------------------------------------------------------------
+    // pjsip_transport_type_e — SIP transport protocol constants (P16-2).
+    // The enum value order matches `enum pjsip_transport_type_e` in
+    // `pjsip/sip_transport.h`; the stub mirrors the bindgen consts-style so the
+    // `TransportKind → c_int` mapping compiles identically under both sources.
+    // ---------------------------------------------------------------------------
+
+    /// UDP transport (`PJSIP_TRANSPORT_UDP` = 1).
+    ///
+    /// Values match `enum pjsip_transport_type_e` in `pjsip/sip_transport.h`
+    /// (`PJSIP_TRANSPORT_UNSPECIFIED` = 0 is the first enumerator). Typed `u32`
+    /// to match bindgen's `c_uint`; the wiring casts to `i32` explicitly.
+    pub const PJSIP_TRANSPORT_UDP: u32 = 1;
+// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    /// TCP transport (`PJSIP_TRANSPORT_TCP` = 2).
+    pub const PJSIP_TRANSPORT_TCP: u32 = 2;
+    /// TLS transport (`PJSIP_TRANSPORT_TLS` = 3).
+    pub const PJSIP_TRANSPORT_TLS: u32 = 3;
+
+    // ---------------------------------------------------------------------------
     // pjsip_inv_state — invite-session state constants (bindgen consts-style:
     // the PJSIP_INV_STATE_ prefix is stripped, so `CONFIRMED` == PJSIP_INV_STATE_CONFIRMED).
     // ---------------------------------------------------------------------------
@@ -190,6 +209,26 @@ mod stub_aliases {
         pub clock_rate: u32,
         /// Number of channels (e.g., 2).
         pub channel_cnt: u32,
+    }
+
+    // ---------------------------------------------------------------------------
+    // pjsua_transport_config — transport configuration (P16-2)
+    // ---------------------------------------------------------------------------
+
+    /// Mirror of PJSIP's `pjsua_transport_config` struct.
+    ///
+    /// Exposes the two fields the transport wiring consumes — `port` and
+    /// `bound_addr` — matching the bindgen-generated struct's field names so
+    /// shared code compiles under both modes. The full struct comes from bindgen
+    /// when `pjsua-native` is enabled.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjsua_transport_config {
+// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+        /// Local port to bind (0 selects a PJSIP-assigned port).
+        pub port: u32,
+        /// Local address to bind (empty string selects all interfaces).
+        pub bound_addr: pj_str_t,
     }
 
     // ---------------------------------------------------------------------------
