@@ -1,0 +1,9 @@
+Q2 登録・アカウント経路の設計方針（H5: 登録と登録解除 / H7: アカウント削除）を確定します。
+
+【背景と理由】H5 と H7 は登録状態機械とアカウントライフサイクルの実装整合に関する乖離です。H5 では `register_on_start` が `update_config` のパッチデルタとしてのみ消費され（`src/runtime/reactor.rs:610`）、`add_account` 時・クライアント起動時には一切読まれません。また `RegistrationSucceeded` / `RegistrationFailed` は enum に定義されるものの `#[cfg(test)]` 内でのみ構築され、本番が publish するのは `RegistrationStateChanged` のみです（`src/runtime/reactor.rs:990-993`）。参照例 `examples/account_register.rs:79-87` は成功/失敗イベントを待つため本番ではタイムアウト失敗します。H7 では `remove_account` に unregister 先行手順がなく（`src/runtime/reactor.rs:648-677`）、`AccountRemoved` が本番で publish されません。確認済み内容は「削除時に走る unregister の挙動・関連イベントを併せて解説」で、現状は記述不能です。選択肢とトレードオフは以下のとおりです。
+
+A) `register_on_start` 自動登録を `add_account` 時に消費 + `RegistrationSucceeded`/`RegistrationFailed` を enum から完全削除して `RegistrationStateChanged` に統一 + `remove_account` は unregister 先行 + `AccountRemoved` を publish
+B) `register_on_start` 自動登録を `add_account` 時に消費 + `RegistrationSucceeded`/`RegistrationFailed` は API 互換用に留保（publish は `RegistrationStateChanged` のみ、README と example を修正）+ `remove_account` は unregister 先行 + `AccountRemoved` を publish
+C) 自動登録と AccountRemoved は今回設計せず、README を「自動登録は未実装・`update_config` パッチ時のみ」「remove_account は一覧から除去のみ」と明記して記述範囲を限定する
+
+【推奨】B を推奨します。`register_on_start` の自動登録と `remove_account` の unregister 先行は、各セクションの confirmedContent（「register_on_start による自動登録設定」「削除時に走る unregister の挙動・関連イベント」）に直結するため必須です。`RegistrationSucceeded`/`Failed` の enum 完全削除（A）は破壊的変更で、v0.x でも公開 API の互換性リスクがあります。B は留保して README/example を `RegistrationStateChanged` に統一するのが安全です。C は confirmedContent を実質放棄するため不適切です。

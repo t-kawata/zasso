@@ -28,6 +28,35 @@ use crate::state::call_state_model::CallState;
 /// accepted and normalised to uppercase by `validate_dtmf_digits`.
 const DTMF_ALPHABET: &str = "0123456789ABCD*#";
 
+/// Answer codes accepted by `answer()` per RFC §19.1 (N0027).
+///
+/// - `180` Ringing — incoming call continues (provisional).
+/// - `183` Session Progress — SDP provisional answer allowed.
+/// - `200` OK — call accepted.
+/// - `486` Busy Here — reject path.
+/// - `603` Decline — reject path.
+///
+/// Every other code is rejected at the API boundary with
+/// `SipErrorKind::InvalidArgument` before any `RuntimeCommand` is submitted
+/// (fail-fast, C086 Invariant).
+const ANSWER_CODES: [u16; 5] = [180, 183, 200, 486, 603];
+
+/// Validate an answer code against the RFC §19.1 accepted set.
+///
+/// Accepts exactly `180 / 183 / 200 / 486 / 603`; rejects every other code with
+/// `SipErrorKind::InvalidArgument`. This is the single gate `SipClient::answer`
+/// applies before dispatch — it replaces any boolean `is_valid_answer_code`
+/// style check so the reject path (486/603) is not a separate API.
+pub fn validate_answer_code(code: u16) -> Result<(), SipError> {
+    if ANSWER_CODES.contains(&code) {
+        Ok(())
+    } else {
+        Err(SipError::invalid_argument(
+            "answer code must be 180/183/200/486/603",
+        ))
+    }
+}
+
 /// Call lifecycle contract (RFC §19, N0027).
 ///
 /// Implemented by [`crate::call::SipCall`]. Every method validates the current
@@ -121,7 +150,7 @@ mod tests {
     #[test]
     // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn sip_call_implements_call_api_semantics() -> Result<(), Box<dyn std::error::Error>> {
-        // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-3, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-3|P15-6) --for-spec --no-implementation-order`.
         fn assert_trait<T: CallApiSemantics>() {}
         assert_trait::<SipCall>();
         let mut call = sip_call(CallState::Incoming)?;
@@ -183,5 +212,47 @@ mod tests {
         assert!(call.hangup(HangupReason::RemoteHangup).is_ok());
         assert_eq!(call.state(), CallState::Disconnecting);
         Ok(())
+    }
+
+    // ── P15-6: validate_answer_code (RFC §19.1 / N0027) ─────────────────
+
+    /// @verifies C086
+    #[test]
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn validate_answer_code_accepts_rfc191_codes() {
+        for code in [180u16, 183, 200, 486, 603] {
+            assert!(
+                validate_answer_code(code).is_ok(),
+                "answer code {code} must be accepted (RFC §19.1)"
+            );
+        }
+    }
+
+    /// @verifies C086
+    #[test]
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn validate_answer_code_rejects_non_rfc191_codes() {
+        for code in [0u16, 100, 179, 181, 404, 500, 604, 65535] {
+            let err = validate_answer_code(code).expect_err("must reject");
+            assert_eq!(
+                err.kind,
+                SipErrorKind::InvalidArgument,
+                "rejected code {code} must be InvalidArgument"
+            );
+        }
+    }
+
+    /// @verifies C086
+    #[test]
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    fn validate_answer_code_boundary_values() {
+        // Minimum accepted is 180 (provisional Ringing); maximum accepted is
+        // 603 (Decline). Just outside both sides and the u16 extremes reject.
+        assert!(validate_answer_code(180).is_ok());
+        assert!(validate_answer_code(603).is_ok());
+        assert!(validate_answer_code(179).is_err());
+        assert!(validate_answer_code(604).is_err());
+        assert!(validate_answer_code(u16::MIN).is_err());
+        assert!(validate_answer_code(u16::MAX).is_err());
     }
 }

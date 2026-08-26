@@ -1,3 +1,5 @@
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
@@ -45,6 +47,11 @@
 pub mod client;
 pub mod config;
 pub mod error;
+
+// [::TICKET::] P15-1: architecture/ — §62 implementation integration framework
+// (RESIDUE root causes, I/O boundary table, breaking-change order).
+pub mod architecture;
+// [::TICKET::] P15-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-1 --for-spec --no-implementation-order`.
 
 /// Account and Transport lifecycle types; Call is implemented (P9-3).
 ///
@@ -94,9 +101,19 @@ pub mod model;
 // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
 // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
 pub use client::SipClient;
-pub use config::{
-    AuthConfig, AuthCredentials, AuthMode, ClientConfig, ClientConfigBuilder, ConfigError,
-    LogLevel, ServerConfig, StunServerConfig,
+pub use config::{AuthConfig, AuthCredentials, AuthMode, ConfigError, ServerConfig};
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-2: RFC §10 ClientConfig promoted to the only public config type.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+pub use config::client_config_spec::{
+    ClientAudioConfig, ClientConfig, LogLevel, RawSipEventConfig, TimeoutConfig,
+};
+// [::TICKET::] P15-2: §13 STUN/TURN/ICE types unified and re-exported.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+pub use config::transport_ice_spec::{
+    IceConfig, StunServerConfig, TcpTransportConfig, TransportConfig, TurnServerConfig,
+    TurnTransport, UdpTransportConfig,
 };
 pub use error::SipError;
 pub use error::SipErrorKind;
@@ -122,21 +139,19 @@ pub use call::{HangupReason, SipCall};
 // [::TICKET::] P9-2: Audio Subscribe API re-exports
 pub use api::audio_subscribe_bp::{AudioTapHandle, AudioTapMode, AudioTapSender};
 // [::TICKET::] P11-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-12 --for-spec --no-implementation-order`.
-pub use audio::{AudioOrchestrationError, AudioPipeline, AudioPipelineConfig, ProcessedFrame};
+pub use audio::{
+    AudioOrchestrationError, AudioPipeline, AudioPipelineConfig, ChannelSelector, ProcessedFrame,
+};
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 pub use config::account_config_spec::{
     AccountCodecPolicy, AccountConfig, AccountMediaConfig, AccountTransportPolicy, DtmfMethod,
     DtmfPolicy, OpusConfig, SrtpPolicy,
 };
-pub use config::client_config_spec::{ClientAudioConfig, RawSipEventConfig, TimeoutConfig};
 #[cfg(feature = "tls")]
 pub use config::transport_ice_spec::TlsConfig;
-pub use config::transport_ice_spec::{
-    IceConfig, TcpTransportConfig, TransportConfig, TurnServerConfig, TurnTransport,
-    UdpTransportConfig,
-};
 // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
-// StunServerConfig is NOT re-exported from transport_ice_spec to avoid name collision
-// with the existing config::StunServerConfig. Use the transport_ice_spec version
-// via `siprs::config::transport_ice_spec::StunServerConfig` for the RFC definition.
+// [::TICKET::] P15-2: StunServerConfig collision comment removed — the legacy
+// config::StunServerConfig is gone and transport_ice_spec::StunServerConfig is
+// the single unified definition re-exported above.
+// Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.

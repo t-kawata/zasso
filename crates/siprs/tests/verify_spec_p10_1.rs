@@ -5,7 +5,7 @@
 //   - SipAccountHandle::registration_state() returns the real RegistrationState
 //     mapped from the AccountEntry stored by the AddAccount handler (no hardcoded Idle).
 //   - The GetAccountInfo dispatch derives its AccountInfoSnapshot from the
-//     MockBackend account registry (no canned sip:user{native}@mock.example.com).
+//     TestBackend account registry (no canned sip:user{native}@mock.example.com).
 //
 // Contracts verified: C012 (query_state round-trip), C013 (NonZeroU64 AccountId),
 // C017 (Result<T, SipError> on the public account-info surface), C026
@@ -19,16 +19,18 @@ use siprs::SipAccountHandle;
 use siprs::SipClient;
 
 /// Build the minimal ClientConfig the reactor accepts.
-// [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P15-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
 fn test_config() -> ClientConfig {
-    ClientConfig::builder()
-        .sip_proxy_host("sip.example.com")
-        .build()
+    ClientConfig::default()
 }
 
-/// Register an account with the given username and hand back the client plus
-/// the backend-assigned logical account id.
-async fn client_with_registered_account(
+/// Add an account with the given username and hand back the client plus the
+/// backend-assigned logical account id.
+///
+/// [::TICKET::] P15-3: the account starts Disabled (§62.2); the full
+/// Registering→Registered transition is production-wired by P15-5 (§62.4).
+async fn client_with_account(
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     username: &str,
 ) -> Result<(SipClient, u64), Box<dyn std::error::Error>> {
@@ -50,12 +52,13 @@ async fn client_with_registered_account(
 async fn registration_state_round_trips_added_account() -> Result<(), Box<dyn std::error::Error>> {
     // The AddAccount handler stores the entry in ClientState.accounts
     // (reactor.rs AddAccount arm) — registration_state() must observe it.
-    let (client, account_id) = client_with_registered_account("alice").await?;
+    // [::TICKET::] P15-3: §62.2 — add_account starts Disabled.
+    let (client, account_id) = client_with_account("alice").await?;
     let handle = SipAccountHandle::new(client.clone(), account_id);
     assert_eq!(
         handle.registration_state().await?,
-        RegistrationState::Registered,
-        "registration_state must return the reactor's Registered state, not a hardcoded Idle"
+        RegistrationState::Disabled,
+        "registration_state must return the reactor's Disabled state, not a hardcoded Idle"
     );
     client.shutdown().await?;
     Ok(())
@@ -68,7 +71,8 @@ async fn registration_state_round_trips_added_account() -> Result<(), Box<dyn st
 async fn registration_state_and_accounts_query_agree() -> Result<(), Box<dyn std::error::Error>> {
     // Both SipClient::accounts() (query_state → account_snapshot_from_entry)
     // and SipAccountHandle::registration_state() read the same ClientState clone.
-    let (client, account_id) = client_with_registered_account("alice").await?;
+    // [::TICKET::] P15-3: §62.2 — add_account starts Disabled.
+    let (client, account_id) = client_with_account("alice").await?;
     let accounts = client.accounts().await?;
     assert_eq!(
         accounts.len(),
@@ -76,14 +80,14 @@ async fn registration_state_and_accounts_query_agree() -> Result<(), Box<dyn std
         "exactly one account after one AddAccount"
     );
     assert!(
-        accounts[0].registered,
-        "the stored Registered entry must be registered"
+        !accounts[0].registered,
+        "the stored Disabled entry must not report registered"
     );
 
     let handle = SipAccountHandle::new(client.clone(), account_id);
     assert_eq!(
         handle.registration_state().await?,
-        RegistrationState::Registered
+        RegistrationState::Disabled
     );
 
     client.shutdown().await?;
@@ -97,7 +101,7 @@ async fn registration_state_and_accounts_query_agree() -> Result<(), Box<dyn std
 async fn registration_state_does_not_block_the_reactor() -> Result<(), Box<dyn std::error::Error>> {
     // registration_state() → RuntimeHandle::query_state() → DispatchCommand::QueryState
     // → reactor client_state.clone(). The query completes while the reactor stays alive.
-    let (client, account_id) = client_with_registered_account("alice").await?;
+    let (client, account_id) = client_with_account("alice").await?;
     let handle = SipAccountHandle::new(client.clone(), account_id);
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(2),
@@ -120,20 +124,23 @@ async fn registration_state_does_not_block_the_reactor() -> Result<(), Box<dyn s
 
 #[tokio::test]
 // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3: §62.2 — add_account starts Disabled, so the registry-derived
+// snapshot is the unregistered shape (0, None, offline). The Registered→200
+// mapping is verified in-crate by TestBackend::mark_registered + get_account_info.
 async fn get_account_info_dispatch_derives_snapshot_from_registry(
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let (client, account_id) = client_with_registered_account("alice").await?;
+    let (client, account_id) = client_with_account("alice").await?;
     let snapshot = client
         .handle()
         .submit_get_account_info(account_id as u32)
         .await?;
     assert_eq!(snapshot.acc_id, AccountId::from_u64(1)?);
     assert_eq!(
-        snapshot.registration_status, 200,
-        "Registered entry must derive registration_status=200"
+        snapshot.registration_status, 0,
+        "a Disabled entry must derive registration_status=0"
     );
-    assert_eq!(snapshot.registration_expires, Some(3600));
-    assert!(snapshot.online_status);
+    assert_eq!(snapshot.registration_expires, None);
+    assert!(!snapshot.online_status);
     assert_eq!(
         snapshot.uri, "sip:alice@example.com",
         "uri must be derived from the stored entry.config (the mock stores username)"
@@ -146,7 +153,7 @@ async fn get_account_info_dispatch_derives_snapshot_from_registry(
 // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
 async fn get_account_info_unknown_native_id_returns_error() -> Result<(), Box<dyn std::error::Error>>
 {
-    let (client, _account_id) = client_with_registered_account("alice").await?;
+    let (client, _account_id) = client_with_account("alice").await?;
     let result = client.handle().submit_get_account_info(99).await;
     assert!(
         result.is_err(),

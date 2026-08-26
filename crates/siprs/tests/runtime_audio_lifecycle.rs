@@ -1,9 +1,11 @@
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P8-1: Runtime Infrastructure — ABC closure integration tests.
 //
 // This integration test file closes the O-001 and O-003 ABC inspection gaps:
 //
 //   O-001: No test submitted RuntimeCommand::ConfConnect / ConfDisconnect
-//          end-to-end through a live CoreReactor + MockBackend.
+//          end-to-end through a live CoreReactor + TestBackend.
 //   O-003: No test submitted AddAudioSource / RemoveAudioSource /
 //          SetAudioSourceGain / MuteAudioSource through the reactor.
 //
@@ -16,6 +18,7 @@ use std::time::Duration;
 
 use siprs::runtime::reactor::BootConfig;
 // [::TICKET::] P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-4 --for-spec --no-implementation-order`.
+use siprs::audio::media_path_arch::ChannelSelector;
 use siprs::runtime::{
     AudioMixer, AudioWorkerTask, CoreReactor, MockAsyncAudioSource, Reply, RuntimeCommand,
     RuntimeHandle,
@@ -23,6 +26,7 @@ use siprs::runtime::{
 
 // [::TICKET::] P8-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-1 --for-spec --no-implementation-order`.
 // [::TICKET::] P11-3, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-3|P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
 fn spawn_reactor() -> (RuntimeHandle, Arc<std::thread::JoinHandle<()>>) {
     CoreReactor::spawn(BootConfig::default()).expect("reactor must spawn")
 }
@@ -82,13 +86,13 @@ async fn audio_source_lifecycle_sequence_through_reactor() {
 
     let source = Box::new(MockAsyncAudioSource::new(vec![1i16; 160]));
     let source_id = handle
-        .submit_add_audio_source(source)
+        .submit_add_audio_source(42, source, ChannelSelector::Out)
         .await
         .expect("add must return a source_id");
     assert_eq!(source_id, 0, "reactor mixer assigns source_id 0 first");
 
     let second_id = handle
-        .submit_add_audio_source(Box::new(MockAsyncAudioSource::new(vec![2i16; 160])))
+        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![2i16; 160])), ChannelSelector::Out)
         .await
         .expect("second add must return a source_id");
     assert!(
@@ -108,6 +112,35 @@ async fn audio_source_lifecycle_sequence_through_reactor() {
         .submit_remove_audio_source(source_id)
         .await
         .expect("remove must succeed on existing source");
+
+    drop(handle);
+    let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
+    let _ = join.join();
+}
+
+#[tokio::test]
+// @verifies C035
+// [::TICKET::] P15-7: per-call mixers are independent — sources added to one
+// call never leak into another (C087 invariant).
+async fn per_call_mixers_are_independent() {
+    let (handle, join) = spawn_reactor();
+
+    let source_a = handle
+        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![1i16; 160])), ChannelSelector::Out)
+        .await
+        .expect("call 42 add");
+    let source_b = handle
+        .submit_add_audio_source(7, Box::new(MockAsyncAudioSource::new(vec![2i16; 160])), ChannelSelector::In)
+        .await
+        .expect("call 7 add");
+    assert_ne!(source_a, source_b, "source ids stay globally unique across calls");
+
+    let mixer_42 = handle.audio_mixer_for(42).expect("mixer for call 42");
+    let mixer_7 = handle.audio_mixer_for(7).expect("mixer for call 7");
+    assert_eq!(mixer_42.out_source_count(), 1, "call 42 owns its OUT source");
+    assert_eq!(mixer_42.in_source_count(), 0);
+    assert_eq!(mixer_7.in_source_count(), 1, "call 7 owns its IN source");
+    assert_eq!(mixer_7.out_source_count(), 0);
 
     drop(handle);
     let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
@@ -201,11 +234,11 @@ async fn multiple_audio_workers_use_independent_mixers() {
 
 // ── O-001: reactor-owned AudioMixer state assertions ────────────────────────
 //
-// The reactor thread owns the default-call AudioMixer (reactor.rs:73). These
+// The reactor thread owns per-call AudioMixers keyed by call_id (reactor.rs). These
 // tests assert that each audio-lifecycle dispatch actually mutates that mixer
 // (source_count / gains / mutes), so a regression that hardcodes the payload
 // or target source_id in the reactor dispatch arms cannot pass. They rely on
-// `RuntimeHandle::audio_mixer()`, which exposes the reactor-owned mixer Arc.
+// `RuntimeHandle::audio_mixer_for(call_id)`, which exposes the per-call mixer Arc.
 
 #[tokio::test]
 // @verifies C035
@@ -214,17 +247,17 @@ async fn add_audio_source_updates_reactor_mixer_state() {
     let (handle, join) = spawn_reactor();
 
     let source_id = handle
-        .submit_add_audio_source(Box::new(MockAsyncAudioSource::new(vec![1i16; 160])))
+        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![1i16; 160])), ChannelSelector::Out)
         .await
         .expect("add must return a source_id");
 
     assert_eq!(
-        handle.audio_mixer().source_count(),
+        handle.audio_mixer_for(42).unwrap().source_count(),
         1,
         "add_audio_source must insert into the reactor mixer"
     );
     assert_eq!(
-        handle.audio_mixer().next_source_id(),
+        handle.audio_mixer_for(42).unwrap().next_source_id(),
         source_id + 1,
         "next_source_id must advance past the assigned id"
     );
@@ -241,7 +274,7 @@ async fn set_audio_source_gain_updates_reactor_mixer_state() {
     let (handle, join) = spawn_reactor();
 
     let source_id = handle
-        .submit_add_audio_source(Box::new(MockAsyncAudioSource::new(vec![1i16; 160])))
+        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![1i16; 160])), ChannelSelector::Out)
         .await
         .expect("add must return a source_id");
     handle
@@ -249,7 +282,7 @@ async fn set_audio_source_gain_updates_reactor_mixer_state() {
         .await
         .expect("set_gain must succeed on existing source");
 
-    let mixer = handle.audio_mixer();
+    let mixer = handle.audio_mixer_for(42).unwrap();
     let stored_gain = mixer.gains.get(&source_id).expect("gain entry");
     assert_eq!(
         *stored_gain, 0.5,
@@ -268,7 +301,7 @@ async fn mute_audio_source_updates_reactor_mixer_state() {
     let (handle, join) = spawn_reactor();
 
     let source_id = handle
-        .submit_add_audio_source(Box::new(MockAsyncAudioSource::new(vec![1i16; 160])))
+        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![1i16; 160])), ChannelSelector::Out)
         .await
         .expect("add must return a source_id");
     handle
@@ -276,7 +309,7 @@ async fn mute_audio_source_updates_reactor_mixer_state() {
         .await
         .expect("mute must succeed on existing source");
 
-    let mixer = handle.audio_mixer();
+    let mixer = handle.audio_mixer_for(42).unwrap();
     let stored_mute = mixer.mutes.get(&source_id).expect("mute entry");
     assert!(
         *stored_mute,
@@ -295,7 +328,7 @@ async fn remove_audio_source_decrements_reactor_mixer_state() {
     let (handle, join) = spawn_reactor();
 
     let source_id = handle
-        .submit_add_audio_source(Box::new(MockAsyncAudioSource::new(vec![1i16; 160])))
+        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![1i16; 160])), ChannelSelector::Out)
         .await
         .expect("add must return a source_id");
     handle
@@ -304,7 +337,7 @@ async fn remove_audio_source_decrements_reactor_mixer_state() {
         .expect("remove must succeed on existing source");
 
     assert_eq!(
-        handle.audio_mixer().source_count(),
+        handle.audio_mixer_for(42).unwrap().source_count(),
         0,
         "remove_audio_source must delete from the reactor mixer"
     );
@@ -321,7 +354,7 @@ async fn failed_audio_lifecycle_op_leaves_reactor_mixer_unchanged() {
     let (handle, join) = spawn_reactor();
 
     let source_id = handle
-        .submit_add_audio_source(Box::new(MockAsyncAudioSource::new(vec![1i16; 160])))
+        .submit_add_audio_source(42, Box::new(MockAsyncAudioSource::new(vec![1i16; 160])), ChannelSelector::Out)
         .await
         .expect("add must return a source_id");
 
@@ -330,12 +363,12 @@ async fn failed_audio_lifecycle_op_leaves_reactor_mixer_unchanged() {
     assert!(handle.submit_remove_audio_source(999).await.is_err());
 
     assert_eq!(
-        handle.audio_mixer().source_count(),
+        handle.audio_mixer_for(42).unwrap().source_count(),
         1,
         "failed ops must not mutate the reactor mixer"
     );
     assert_eq!(
-        handle.audio_mixer().gains.get(&source_id).map(|g| *g),
+        handle.audio_mixer_for(42).unwrap().gains.get(&source_id).map(|g| *g),
         Some(1.0),
         "gain of the surviving source must stay at its default"
     );

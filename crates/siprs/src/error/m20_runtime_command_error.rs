@@ -23,7 +23,7 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-use crate::error::error_design_siperror::{SipError, SipErrorKind};
+use crate::error::error_design_siperror::{convert_pj_status, SipError, SipErrorKind};
 use crate::model::AccountId;
 use crate::runtime::state::AccountEntry;
 use crate::state::registr_state_machine::RegistrationState;
@@ -35,6 +35,16 @@ use crate::ffi::bindings::{PJ_EINVALIDOP, PJ_SUCCESS};
 // ---------------------------------------------------------------------------
 // M20 RuntimeCommand error converters
 // ---------------------------------------------------------------------------
+
+/// §14.1 写像の単一入口 — map a PJSUA `pj_status_t` to a semantic `SipErrorKind`.
+///
+/// Reads as prose: convert the status, collapsing the non-error `PJ_SUCCESS`
+/// answer to `NativeError` so the mapping is total over all `i32`. Known codes
+/// map per the §14.1 table; unknown codes fall back to `NativeError`.
+// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+pub(crate) fn classify(status: i32) -> SipErrorKind {
+    convert_pj_status(status).unwrap_or(SipErrorKind::NativeError)
+}
 
 /// Build a `NativeError` `SipError` that preserves the PJSUA diagnostic code.
 ///
@@ -121,7 +131,7 @@ pub struct AccountInfo {
     pub registered: bool,
 }
 
-// [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-5) --for-spec --no-implementation-order`.
 impl AccountInfo {
     /// Build an `AccountInfo` from the reactor's authoritative `AccountEntry`.
     ///
@@ -141,8 +151,7 @@ impl AccountInfo {
             account_id,
             display_name: entry.config.display_name.clone().unwrap_or_default(),
             sip_uri: format!("sip:{}@{}", entry.config.username, entry.config.domain),
-            registered: RegistrationState::from_storage_str(&entry.registration)
-                == RegistrationState::Registered,
+            registered: entry.registration == RegistrationState::Registered,
         })
     }
 }
@@ -184,13 +193,14 @@ pub fn convert_get_account_info_error(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ffi::bindings::{PJ_EBUSY, PJ_EINVALIDOP, PJ_SUCCESS};
+    use crate::ffi::bindings::{PJ_EBUSY, PJ_EINVALIDOP, PJ_ENOMEM, PJ_EUNKNOWN, PJ_SUCCESS};
     use crate::model::{AccountId, CallId};
     use crate::runtime::state::AccountEntry;
     use crate::state::registr_state_machine::RegistrationState;
 
-    // A registered account entry as stored by MockBackend::add_account.
+    // A registered account entry as stored by TestBackend::add_account.
     // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|P15-5) --for-spec --no-implementation-order`.
     fn registered_entry() -> AccountEntry {
         AccountEntry {
             id: 1,
@@ -200,7 +210,7 @@ mod tests {
                 domain: "example.com".into(),
                 ..Default::default()
             },
-            registration: "Registered".into(),
+            registration: RegistrationState::Registered,
         }
     }
 
@@ -330,6 +340,32 @@ mod tests {
         assert_eq!(err.account_id, None);
         assert_eq!(err.call_id, None);
         assert!(err.retryable);
+    }
+
+    // ── P15-9: classify — unified §14.1 mapping (C077) ───────────────
+
+    #[test]
+    // @verifies C077
+    // [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    fn classify_maps_known_codes_to_native_error() {
+        // C077 postcondition: known pj_status_t values map per the §14.1 table.
+        assert_eq!(classify(PJ_EUNKNOWN), SipErrorKind::NativeError);
+        assert_eq!(classify(PJ_ENOMEM), SipErrorKind::NativeError);
+        assert_eq!(classify(PJ_EINVALIDOP), SipErrorKind::NativeError);
+        assert_eq!(classify(PJ_EBUSY), SipErrorKind::NativeError);
+    }
+
+    #[test]
+    // @verifies C077
+    // [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    fn classify_is_total_over_all_i32_values() {
+        // C077 invariant: classify is total — PJ_SUCCESS, unknown codes, and the
+        // i32 extremes all map deterministically to NativeError without panicking.
+        assert_eq!(classify(PJ_SUCCESS), SipErrorKind::NativeError);
+        assert_eq!(classify(-9999), SipErrorKind::NativeError);
+        assert_eq!(classify(999_999), SipErrorKind::NativeError);
+        assert_eq!(classify(i32::MIN), SipErrorKind::NativeError);
+        assert_eq!(classify(i32::MAX), SipErrorKind::NativeError);
     }
 
     // ── Error: native_status / retryable preservation (O-003) ────────
@@ -474,22 +510,21 @@ mod tests {
 
     #[test]
     // @verifies C013
-    // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P15-5) --for-spec --no-implementation-order`.
     fn account_info_from_entry_maps_id_and_registered() -> Result<(), Box<dyn std::error::Error>> {
         let info = AccountInfo::from_entry(&registered_entry())?;
         let _: AccountId = info.account_id; // compile-time: field is AccountId, not u64
         assert_eq!(info.account_id, AccountId::from_u64(1)?);
         assert_eq!(
             info.registered,
-            RegistrationState::from_storage_str(&registered_entry().registration)
-                == RegistrationState::Registered
+            registered_entry().registration == RegistrationState::Registered
         );
         Ok(())
     }
 
     #[test]
     // @verifies C013
-    // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P10-1, P10-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-5) --for-spec --no-implementation-order`.
     fn account_info_from_entry_zero_id_returns_account_not_found() {
         // C013 invariant: AccountId::from_u64(0) is Err (NonZeroU64) — a zero
         // entry.id must map to Err(AccountNotFound), never a stored 0 sentinel.
@@ -497,7 +532,7 @@ mod tests {
             id: 0,
             native_id: 0,
             config: crate::config::account_config_spec::AccountConfig::default(),
-            registration: "Registered".into(),
+            registration: RegistrationState::Registered,
         };
         let err = AccountInfo::from_entry(&zero_entry).expect_err("zero id must fail");
         assert_eq!(err.kind, SipErrorKind::AccountNotFound);

@@ -1,7 +1,8 @@
 // [::TICKET::] P0-2: RuntimeHandle — Send+Sync handle for submitting commands to reactor
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::thread::JoinHandle;
 
 use crate::api::eventbus_receiver::EventBus;
@@ -29,15 +30,16 @@ pub struct RuntimeHandle {
     // [::TICKET::] P12-6: the reactor thread's JoinHandle, shared with the spawn
     // caller via Arc so the FFI thread-lifecycle observer can query liveness.
     join_handle: Arc<JoinHandle<()>>,
-    // [::TICKET::] P11-3: O-001 — the reactor owns the default-call AudioMixer.
-    // This clone lets tests/observability read the reactor mixer state without
-    // a round-trip command. The single-writer rule still holds: only the reactor
-    // thread mutates the mixer; callers must treat this as read-only.
-    audio_mixer: Arc<AudioMixer>,
-    // [::TICKET::] P11-6: the reactor-owned default EventBus (O-001 pattern).
-    // This clone lets tests/observability subscribe to reactor-initiated events
-    // (e.g. the DtmfSent timeout) without a round-trip command.
-    default_event_bus: EventBus,
+    // [::TICKET::] P11-3, P15-7: O-001 — the reactor owns per-call AudioMixers
+    // keyed by call_id (§62.6). This shared map clone lets tests/observability
+    // read the per-call mixer state without a round-trip command. The
+    // single-writer rule still holds: only the reactor thread mutates mixers;
+    // callers must treat this as read-only.
+    audio_mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
+    // [::TICKET::] P15-4: the single client-owned EventBus (O-001 pattern).
+    // This clone lets tests/observability subscribe to the same bus that
+    // SipClient::subscribe() reads — the reactor publishes directly to it.
+    event_bus: EventBus,
 }
 
 // [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4) --for-spec --no-implementation-order`.
@@ -55,42 +57,45 @@ impl std::fmt::Debug for RuntimeHandle {
     }
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7, P15-4, P15-5, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7|P15-4|P15-5|P15-6|P15-7) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
         terminated: Arc<AtomicBool>,
         join_handle: Arc<JoinHandle<()>>,
-        audio_mixer: Arc<AudioMixer>,
-        default_event_bus: EventBus,
+        audio_mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
+        event_bus: EventBus,
     ) -> Self {
         Self {
             sender,
             terminated,
             join_handle,
-            audio_mixer,
-            default_event_bus,
+            audio_mixers,
+            event_bus,
         }
     }
 
-    /// Return a clone of the reactor-owned `AudioMixer` Arc.
+    /// Return a clone of the reactor-owned per-call `AudioMixer` for `call_id`.
     ///
     /// This is an observability/test accessor (O-001): it lets callers read the
-    /// reactor mixer state (`source_count()`, `gains`, `mutes`) without a
-    /// round-trip command. The single-writer rule still applies — only the
-    /// reactor thread mutates the mixer; callers must not call the `*_source`
+    /// per-call mixer state (`source_count()`, `in_source_count()`, `gains`,
+    /// `mutes`) without a round-trip command. `None` when no mixer has been
+    /// created for the call yet. The single-writer rule still applies — only
+    /// the reactor thread mutates mixers; callers must not call the `*_source`
     /// mutators directly.
-    pub fn audio_mixer(&self) -> Arc<AudioMixer> {
-        self.audio_mixer.clone()
+    pub fn audio_mixer_for(&self, call_id: u64) -> Option<Arc<AudioMixer>> {
+        self.audio_mixers.read().unwrap_or_else(|e| e.into_inner()).get(&call_id).cloned()
     }
 
-    /// Return a clone of the reactor-owned default `EventBus`.
+    /// Return a clone of the single client-owned `EventBus`.
     ///
     /// This is an observability/test accessor (O-001): it lets callers subscribe
-    /// to reactor-initiated events (e.g. the DtmfSent timeout fallback) without
-    /// a round-trip command. Publishing on any clone reaches all subscribers.
-    pub fn default_event_bus(&self) -> EventBus {
-        self.default_event_bus.clone()
+    /// to the same bus that `SipClient::subscribe()` reads. The reactor publishes
+    /// directly to this bus, so any subscriber sees reactor-initiated events
+    /// (e.g. the DtmfSent timeout fallback). Publishing on any clone reaches all
+    /// subscribers.
+    pub fn event_bus(&self) -> EventBus {
+        self.event_bus.clone()
     }
 
     /// Return the reactor thread's `JoinHandle` Arc (identity/liveness probe).
@@ -155,11 +160,26 @@ impl RuntimeHandle {
             DispatchCommand::MakeCall { .. } => {
                 unreachable!("use submit_make_call instead")
             }
+            // [::TICKET::] P15-6: call-control commands need reactor-side state
+            // updates + event publish, so they have dedicated submit_* methods.
+            DispatchCommand::Answer { .. } => {
+                unreachable!("use submit_answer instead")
+            }
+            DispatchCommand::Hangup { .. } => {
+                unreachable!("use submit_hangup instead")
+            }
+            DispatchCommand::Transfer { .. } => {
+                unreachable!("use submit_transfer instead")
+            }
             DispatchCommand::UpdateAccount {
-                account_id, config, ..
+                account_id,
+                config,
+                register_on_start,
+                ..
             } => DispatchCommand::UpdateAccount {
                 account_id,
                 config,
+                register_on_start,
                 reply: Reply::new(tx),
             },
             DispatchCommand::RemoveAccount { account_id, .. } => DispatchCommand::RemoveAccount {
@@ -168,6 +188,15 @@ impl RuntimeHandle {
             },
             DispatchCommand::CreateTransport { config, .. } => DispatchCommand::CreateTransport {
                 config,
+                reply: Reply::new(tx),
+            },
+            DispatchCommand::SetRegistration {
+                account_id,
+                enabled,
+                ..
+            } => DispatchCommand::SetRegistration {
+                account_id,
+                enabled,
                 reply: Reply::new(tx),
             },
             // Audio-lifecycle commands with a Result<()> reply are handled directly;
@@ -323,11 +352,103 @@ impl RuntimeHandle {
         rx.await.map_err(|_| ReactorError::ReactorDown)?
     }
 
+    /// [::TICKET::] P15-6: submit an `Answer` command and await the reactor's reply.
+    ///
+    /// Separate from `submit()` because the reactor needs the dedicated
+    /// `DispatchCommand::Answer` variant (state update + event publish). The code
+    /// has already passed `validate_answer_code` at the facade.
+    pub async fn submit_answer(&self, call_id: u64, code: u16) -> Result<(), ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::Answer {
+            call_id,
+            code,
+            reply: Reply::new(tx),
+        };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// [::TICKET::] P15-6: submit a `Hangup` command carrying the reason.
+    pub async fn submit_hangup(
+        &self,
+        call_id: u64,
+        reason: crate::call::HangupReason,
+    ) -> Result<(), ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::Hangup {
+            call_id,
+            reason,
+            reply: Reply::new(tx),
+        };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// [::TICKET::] P15-6: submit a `Transfer` command and await the reactor's reply.
+    pub async fn submit_transfer(
+        &self,
+        call_id: u64,
+        target: String,
+    ) -> Result<(), ReactorError> {
+        if self.is_terminated() {
+            return Err(ReactorError::ReactorDown);
+        }
+
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let dispatch = DispatchCommand::Transfer {
+            call_id,
+            target,
+            reply: Reply::new(tx),
+        };
+
+        self.sender
+            .send(dispatch)
+            .map_err(|_| ReactorError::ReactorDown)?;
+
+        rx.await.map_err(|_| ReactorError::ReactorDown)?
+    }
+
+    /// [::TICKET::] P15-6: query a single call's signalling state.
+    ///
+    /// Reads the authoritative `ClientState` via `query_state` (C021), maps the
+    /// `CallEntry.state` string to the public `CallState` enum, and returns
+    /// `BackendError("call not found")` when the call id is unknown.
+    pub async fn call_state(
+        &self,
+        call_id: crate::model::CallId,
+    ) -> Result<crate::state::call_state_model::CallState, ReactorError> {
+        let state = self.query_state().await?;
+        state
+            .calls
+            .get(&call_id)
+            .map(|entry| crate::api::call_api_expansion::call_state_from_entry_state(&entry.state))
+            .ok_or_else(|| ReactorError::BackendError("call not found".into()))
+    }
+
     /// Submit an `UpdateAccount` command and await the reactor's reply.
     ///
     /// Builds the oneshot channel itself and returns the reactor's
     /// `Result<(), ReactorError>` directly, so callers never need a dummy reply
     /// channel — the reactor's outcome is always surfaced.
+    ///
+    /// `register_on_start` is the patch delta (§62.4): when `Some`, the reactor
+    /// re-issues registration after the config update.
     ///
     /// # Errors
     /// Returns `ReactorError::ReactorDown` if the reactor has terminated, or the
@@ -336,6 +457,7 @@ impl RuntimeHandle {
         &self,
         account_id: u64,
         config: crate::config::account_config_spec::AccountConfig,
+        register_on_start: Option<bool>,
     ) -> Result<(), ReactorError> {
         if self.is_terminated() {
             return Err(ReactorError::ReactorDown);
@@ -345,6 +467,7 @@ impl RuntimeHandle {
         let dispatch = DispatchCommand::UpdateAccount {
             account_id,
             config,
+            register_on_start,
             reply: Reply::new(tx),
         };
 
@@ -361,12 +484,17 @@ impl RuntimeHandle {
 
     /// Submit an `AddAudioSource` command and await the assigned `source_id`.
     ///
+    /// The source is added to the per-call mixer for `call_id` on the path(s)
+    /// selected by `channels` (§62.6).
+    ///
     /// # Errors
     /// Returns `ReactorError::ReactorDown` if the reactor has terminated, or the
     /// reactor's backend error if the source could not be added.
     pub async fn submit_add_audio_source(
         &self,
+        call_id: u64,
         source: Box<dyn crate::runtime::audio_worker::AsyncAudioSource + Send>,
+        channels: crate::audio::media_path_arch::ChannelSelector,
     ) -> Result<u64, ReactorError> {
         if self.is_terminated() {
             return Err(ReactorError::ReactorDown);
@@ -374,7 +502,9 @@ impl RuntimeHandle {
 
         let (tx, rx) = tokio::sync::oneshot::channel();
         let dispatch = DispatchCommand::AddAudioSource {
+            call_id,
             source: DebugBox::new(source),
+            channels,
             reply: Reply::new(tx),
         };
 
@@ -517,7 +647,7 @@ mod tests {
 
     #[test]
     // @verifies C012
-    // [::TICKET::] P0-2, P11-3, P11-6, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6|P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P11-3, P11-6, P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6|P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn runtime_handle_is_clonable() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
@@ -525,7 +655,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -542,7 +672,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -555,7 +685,7 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P0-2, P11-3, P11-6, P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6|P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P11-3, P11-6, P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6|P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn is_terminated_reflects_atomic_flag() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
@@ -563,7 +693,7 @@ mod tests {
             tx,
             terminated.clone(),
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -585,13 +715,23 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
         let consumer = tokio::spawn(async move {
             match rx.recv().await {
-                Some(DispatchCommand::AddAudioSource { source, reply }) => {
+                Some(DispatchCommand::AddAudioSource {
+                    call_id,
+                    source,
+                    channels,
+                    reply,
+                }) => {
+                    assert_eq!(call_id, 42);
+                    assert_eq!(
+                        channels,
+                        crate::audio::media_path_arch::ChannelSelector::Out
+                    );
                     drop(source);
                     reply.send(Ok(42u64)).unwrap();
                 }
@@ -600,7 +740,13 @@ mod tests {
         });
 
         let source = Box::new(MockAsyncAudioSource::new(vec![0i16; 160]));
-        let result = handle.submit_add_audio_source(source).await;
+        let result = handle
+            .submit_add_audio_source(
+                42,
+                source,
+                crate::audio::media_path_arch::ChannelSelector::Out,
+            )
+            .await;
         assert_eq!(
             result.unwrap(),
             42,
@@ -619,7 +765,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -627,7 +773,7 @@ mod tests {
             match rx.recv().await {
                 Some(DispatchCommand::RemoveAudioSource { source_id, reply }) => {
                     assert_eq!(source_id, 7);
-                    reply.send(Ok(())).unwrap();
+                    let _ = reply.send(Ok(()));
                 }
                 other => panic!("expected RemoveAudioSource, got {other:?}"),
             }
@@ -648,7 +794,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -661,7 +807,7 @@ mod tests {
                 }) => {
                     assert_eq!(source_id, 3);
                     assert!((gain - 0.5).abs() < f32::EPSILON);
-                    reply.send(Ok(())).unwrap();
+                    let _ = reply.send(Ok(()));
                 }
                 other => panic!("expected SetAudioSourceGain, got {other:?}"),
             }
@@ -682,7 +828,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -695,7 +841,7 @@ mod tests {
                 }) => {
                     assert_eq!(source_id, 5);
                     assert!(muted);
-                    reply.send(Ok(())).unwrap();
+                    let _ = reply.send(Ok(()));
                 }
                 other => panic!("expected MuteAudioSource, got {other:?}"),
             }
@@ -718,7 +864,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -750,7 +896,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         let result = handle
@@ -774,7 +920,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -782,11 +928,13 @@ mod tests {
             match rx.recv().await {
                 Some(DispatchCommand::UpdateAccount {
                     account_id,
-                    config: _,
+                    register_on_start,
                     reply,
+                    ..
                 }) => {
                     assert_eq!(account_id, 7);
-                    reply.send(Ok(())).unwrap();
+                    assert_eq!(register_on_start, None);
+                    let _ = reply.send(Ok(()));
                 }
                 other => panic!("expected UpdateAccount, got {other:?}"),
             }
@@ -796,6 +944,7 @@ mod tests {
             .submit_update_account(
                 7,
                 crate::config::account_config_spec::AccountConfig::default(),
+                None,
             )
             .await;
         assert_eq!(
@@ -816,13 +965,14 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         let result = handle
             .submit_update_account(
                 1,
                 crate::config::account_config_spec::AccountConfig::default(),
+                None,
             )
             .await;
         assert!(
@@ -857,7 +1007,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -894,7 +1044,7 @@ mod tests {
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         let result = handle.submit_make_call(7, test_call_request()).await;
@@ -904,24 +1054,24 @@ mod tests {
         );
     }
 
-    // ── P11-6: reactor-owned default EventBus exposure (O-001 pattern) ──
+    // ── P15-4: single-EventBus exposure (O-001 pattern) ──
 
     #[tokio::test]
     // @verifies C069
-    // [::TICKET::] P11-6: RuntimeHandle exposes the reactor-owned default_event_bus
-    async fn runtime_handle_exposes_default_event_bus() {
+    // [::TICKET::] P15-4: RuntimeHandle exposes the single client-owned EventBus
+    async fn runtime_handle_exposes_event_bus() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
-        let default_event_bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let event_bus = crate::api::eventbus_receiver::EventBus::new(16, None);
         let handle = RuntimeHandle::new(
             tx,
             terminated,
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
-            default_event_bus.clone(),
+            Arc::new(RwLock::new(HashMap::new())),
+            event_bus.clone(),
         );
 
-        let bus = handle.default_event_bus();
+        let bus = handle.event_bus();
         let mut rx = bus.subscribe_control();
         bus.publish(crate::api::event_model_payload_bus::SipEvent {
             meta: crate::api::event_model_payload_bus::EventMeta::new(0, None, None),
@@ -942,14 +1092,14 @@ mod tests {
     #[test]
     // @verifies C112
     // [::TICKET::] P12-6: thread_handle() must return the exact Arc passed to new().
-    // [::TICKET::] P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn thread_handle_returns_same_arc_allocation() {
         let join_arc = completed_join_handle();
         let handle = RuntimeHandle::new(
             create_channel().0,
             Arc::new(AtomicBool::new(false)),
             join_arc.clone(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         assert!(
@@ -961,14 +1111,14 @@ mod tests {
     #[test]
     // @verifies C112
     // [::TICKET::] P12-6: a finished thread reports dead via is_thread_alive()/is_finished().
-    // [::TICKET::] P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn thread_inspection_reports_finished_after_thread_exits() {
         let join_arc = completed_join_handle(); // thread already finished, handle not joined
         let handle = RuntimeHandle::new(
             create_channel().0,
             Arc::new(AtomicBool::new(false)),
             join_arc,
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         assert!(
@@ -984,13 +1134,13 @@ mod tests {
     #[test]
     // @verifies C012
     // [::TICKET::] P12-6: a cloned handle shares the identical Arc<JoinHandle> allocation.
-    // [::TICKET::] P12-6, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn cloned_handle_shares_same_arc_allocation() {
         let handle = RuntimeHandle::new(
             create_channel().0,
             Arc::new(AtomicBool::new(false)),
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         let cloned = handle.clone();
@@ -1021,13 +1171,14 @@ mod tests {
     // @verifies C038
     // [::TICKET::] P12-6: inspection on a panicked thread must report dead without
     // panicking the accessor — is_finished() is safe on a dead/panicked thread.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn inspection_on_panicked_thread_reports_dead_safely() {
         let join_arc = Arc::new(std::thread::spawn(|| panic!("deliberate test panic")));
         let handle = RuntimeHandle::new(
             create_channel().0,
             Arc::new(AtomicBool::new(false)),
             join_arc,
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         // The thread panics immediately and exits; poll deterministically for exit.
@@ -1059,7 +1210,7 @@ mod tests {
             tx,
             Arc::new(AtomicBool::new(false)),
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
 
@@ -1099,7 +1250,7 @@ mod tests {
             tx,
             Arc::new(AtomicBool::new(true)),
             completed_join_handle(),
-            Arc::new(AudioMixer::new()),
+            Arc::new(RwLock::new(HashMap::new())),
             crate::api::eventbus_receiver::EventBus::new(16, None),
         );
         let result = handle
@@ -1108,5 +1259,116 @@ mod tests {
             matches!(result, Err(ReactorError::ReactorDown)),
             "a terminated reactor must map to ReactorDown"
         );
+    }
+
+    // ── P15-6: submit_answer / submit_hangup / submit_transfer ─────────
+
+    #[tokio::test]
+    // @verifies C086
+    // [::TICKET::] P15-6: submit_answer sends DispatchCommand::Answer with the
+    // (call_id, code) payload and delivers the reactor reply.
+    async fn submit_answer_sends_dispatch_answer() -> Result<(), Box<dyn std::error::Error>> {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
+        let handle = RuntimeHandle::new(
+            tx,
+            Arc::new(AtomicBool::new(false)),
+            completed_join_handle(),
+            Arc::new(RwLock::new(HashMap::new())),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
+
+        let consumer = tokio::spawn(async move {
+            match rx.recv().await {
+                Some(DispatchCommand::Answer {
+                    call_id,
+                    code,
+                    reply,
+                }) => {
+                    assert_eq!(call_id, 7);
+                    assert_eq!(code, 200);
+                    let _ = reply.send(Ok(()));
+                }
+                other => panic!("expected DispatchCommand::Answer, got {other:?}"),
+            }
+        });
+
+        let result = handle.submit_answer(7, 200).await;
+        assert!(result.is_ok(), "the reactor reply must be surfaced");
+        consumer.await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C074
+    // [::TICKET::] P15-6: submit_hangup sends DispatchCommand::Hangup carrying the
+    // caller-supplied reason.
+    async fn submit_hangup_sends_dispatch_hangup() -> Result<(), Box<dyn std::error::Error>> {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
+        let handle = RuntimeHandle::new(
+            tx,
+            Arc::new(AtomicBool::new(false)),
+            completed_join_handle(),
+            Arc::new(RwLock::new(HashMap::new())),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
+
+        let consumer = tokio::spawn(async move {
+            match rx.recv().await {
+                Some(DispatchCommand::Hangup {
+                    call_id,
+                    reason,
+                    reply,
+                }) => {
+                    assert_eq!(call_id, 9);
+                    assert_eq!(reason, crate::call::HangupReason::LocalUser);
+                    let _ = reply.send(Ok(()));
+                }
+                other => panic!("expected DispatchCommand::Hangup, got {other:?}"),
+            }
+        });
+
+        let result = handle
+            .submit_hangup(9, crate::call::HangupReason::LocalUser)
+            .await;
+        assert!(result.is_ok(), "the reactor reply must be surfaced");
+        consumer.await?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C074
+    // [::TICKET::] P15-6: submit_transfer sends DispatchCommand::Transfer with the
+    // target URI.
+    async fn submit_transfer_sends_dispatch_transfer() -> Result<(), Box<dyn std::error::Error>> {
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<DispatchCommand>();
+        let handle = RuntimeHandle::new(
+            tx,
+            Arc::new(AtomicBool::new(false)),
+            completed_join_handle(),
+            Arc::new(RwLock::new(HashMap::new())),
+            crate::api::eventbus_receiver::EventBus::new(16, None),
+        );
+
+        let consumer = tokio::spawn(async move {
+            match rx.recv().await {
+                Some(DispatchCommand::Transfer {
+                    call_id,
+                    target,
+                    reply,
+                }) => {
+                    assert_eq!(call_id, 3);
+                    assert_eq!(target, "sip:bob@example.com");
+                    let _ = reply.send(Ok(()));
+                }
+                other => panic!("expected DispatchCommand::Transfer, got {other:?}"),
+            }
+        });
+
+        let result = handle
+            .submit_transfer(3, "sip:bob@example.com".into())
+            .await;
+        assert!(result.is_ok(), "the reactor reply must be surfaced");
+        consumer.await?;
+        Ok(())
     }
 }

@@ -22,6 +22,3 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0001: §1 Purpose — Responsibilities of this crate
-// TODO: [::STUB::] MUST implement NODE_ID=N0003: §2 Non-goals & Tauri Integration Boundary
-// TODO: [::STUB::] MUST implement NODE_ID=N0008: §6 Module Structure & Crate Responsibility

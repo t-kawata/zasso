@@ -1,0 +1,1 @@
+{"contracts":[{"id":"C114","sourceEdge":"N0087→N0068","precondition":"§62 親セクションが存在する","postcondition":"62.18 が Examples 設計を定義する","invariant":"Examples は §41 の使用例と矛盾しない"},{"id":"C115","sourceEdge":"N0087→N0050","precondition":"N0050 が §40/§41 使用例を定義する","postcondition":"62.18 が E1-E5 の契約を参照する","invariant":"各 example は実 Asterisk / TestBackend で検証可能"}]}

@@ -18,12 +18,9 @@ use siprs::runtime::audio_worker::{AsyncAudioSource, MockAsyncAudioSource};
 use siprs::{ClientConfig, SipClient, SipErrorKind};
 
 /// Build a valid client config for the headless reactor.
-// [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-2, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-2|P15-2) --for-spec --no-implementation-order`.
 fn client_config() -> ClientConfig {
-    ClientConfig::builder()
-        .sip_proxy_host("sip.example.com")
-        .sip_proxy_port(5060)
-        .build()
+    ClientConfig::default()
 }
 
 /// 20 ms mono 8 kHz I16 audio format used across the tests.

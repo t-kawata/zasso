@@ -1,0 +1,9 @@
+Q3 イベント経路の完成方針（H8: イベントの購読と受信）を確定します。
+
+【背景と理由】H8 の根因は 4 点です。(1) `subscribe_raw_sip()` はチャネルを返す（有効時 `Some`、`src/client.rs:213-217`）が、`publish_raw_sip` の呼び出し箇所はコードベース全体でゼロで、raw SIP メッセージは一切 publish されません（P0-5 が raw SIP 解析を先送り）。(2) PJSIP コールバックは lock-free キューへ push する（`src/ffi/callback.rs:36, 63-74`）が、このキューをドレインするコードが存在しません（P12-7 が「ブリッジ↔reactor 接続は P8-21 のスコープ」と明記）。(3) P1/P2 系イベント変換器（`src/state/m20_native_event_conv.rs:184-201`）が全て `None` を返します。(4) 明示 unsubscribe API はなく broadcast `Receiver` の drop のみです（§62.5 で確定済み）。確認済み内容は「3 つの購読方法の違いと、SipEventPayload の主要バリアントの受信コード」です。選択肢とトレードオフは以下のとおりです。
+
+A) 全配線を今回設計する（FFI キュー drain → reactor 接続の設計確定 + raw SIP publisher 実装 + P1/P2 変換器を Some() 化）
+B) イベント経路の背骨（FFI キュー drain タスクの配置・reactor への統合・変換器の役割）まで設計し、raw SIP パーサ（P0-5）と P1/P2 変換器の具体的な出力仕様は別チケットに委ねる。README は「subscribe()/subscribe_account() は動作、subscribe_raw_sip() の受信は将来実装」と明記
+C) README を購読 API の形状と drop ベース unsubscribe の明記に限定し、raw SIP 受信コードは記載しない
+
+【推奨】B を推奨します。FFI キュー drain とバス統合はイベント経路の背骨であり、RFC 設計として確定すべきです（P8-21 / P12-7 のスコープ境界を RFC に明文化することで、graphify/boundify が分割判断できます）。一方、raw SIP パーサの詳細出力と P1/P2 変換器の具体的仕様は、実 PJSIP コールバックのイベント系列が未知の状態で先に設計すると過剰仕様になります。A は未知の入力を前提に全配線を設計するため危険です。C は「主要バリアントの受信コード」を放棄しすぎです。

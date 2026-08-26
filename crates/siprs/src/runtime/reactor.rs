@@ -1,36 +1,86 @@
 // [::TICKET::] P0-2: CoreReactor — dedicated thread for serialized PJSUA command execution
 
-use std::collections::BTreeMap;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::collections::{BTreeMap, HashMap};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread::{self, JoinHandle};
 
 use crate::config::ClientConfig;
-use crate::runtime::audio_worker::AudioMixer;
-use crate::runtime::backend::{MockBackend, SipBackend};
+use crate::runtime::audio_worker::{AudioMixer, AudioWorkerTask};
+use crate::runtime::backend::SipBackend;
+use crate::runtime::backend_selection::create_backend;
 use crate::runtime::command::{send_reply, DispatchCommand, ReactorError};
 use crate::runtime::handle::{self, RuntimeHandle};
-use crate::runtime::state::{CallEntry, ClientState};
+use crate::runtime::state::{AccountEntry, CallEntry, ClientState};
 
 use crate::api::event_model_payload_bus::{
-    AccountId, CallId, EventMeta, SipEvent, SipEventPayload,
+    AccountId, CallId, ConnectedCallInfo, EventMeta, SipEvent, SipEventPayload,
 };
 use crate::api::eventbus_receiver::EventBus;
+use crate::audio::media_path_arch::ChannelSelector;
 use crate::state::m20_callstate_mapping::{convert_call_state_with_previous, CallDirection};
 use crate::state::m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
-use crate::state::m20_registr_cmd_pat::registration_status_to_payload;
+use crate::state::registr_wiring::{
+    apply_registration_command_state, process_registration_state_changed,
+};
+use crate::state::shutdown_specification::ShutdownSpec;
+use crate::state::shutdown_wiring::{
+    client_shutdown_event, execute_shutdown_sequence, gate_command, reject_command,
+    shutdown_phase_timeout, ShutdownGate,
+};
 
 /// Name of the reactor OS thread. Used for diagnostics and by the FFI
 /// thread-lifecycle observer (P8-21) to correlate thread ids with the reactor.
 const REACTOR_THREAD_NAME: &str = "siprs-reactor";
 
+/// Default frame cadence for per-call audio workers (§62.6).
+///
+/// 20 ms matches the mixer frame model (160 samples at 8 kHz) and the
+/// `AudioWorkerTask` default pacing used by the existing worker tests.
+const DEFAULT_AUDIO_FRAME_DURATION: std::time::Duration = std::time::Duration::from_millis(20);
+
 /// Configuration passed to `CoreReactor::spawn()`.
 ///
-/// This is now the real `ClientConfig` type defined in `src/config.rs`.
-#[derive(Debug, Clone, Default)]
+/// `config` resolves to the RFC §10 `ClientConfig` re-exported from
+/// `src/config.rs` (P15-2 ConfigUnification).
+#[derive(Debug, Clone)]
 pub struct BootConfig {
     /// The client configuration that drives PJSUA initialization.
     pub config: ClientConfig,
+    /// DtmfSent fallback timeout in milliseconds (O-002, P7-2).
+    ///
+    /// The RFC §10 `ClientConfig` carries no DTMF field, so the reactor reads
+    /// this timeout from a dedicated boot parameter sourced at the
+    /// `SipClient::new` boundary.
+    pub dtmf_sent_timeout_ms: u64,
+    /// The single EventBus owned by `SipClient` (§62.3 / N0072).
+    ///
+    /// The reactor publishes every converted `SipEvent` directly to this bus —
+    /// there is no reactor-owned default bus and no per-account client bus map.
+    /// `SipClient::new` creates the bus (raw_sip capacity per
+    /// `RawSipEventConfig::enabled`) and passes a clone here.
+    pub event_bus: EventBus,
+    /// The shared `subscribe_audio` tap producer registry (§62.6).
+    ///
+    /// `SipClient` owns the registry and passes a clone here so the backend's
+    /// `push_media_frame` can drive the subscribed taps from the media callback.
+    pub audio_taps: crate::runtime::backend::AudioTapRegistry,
+}
+
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+impl Default for BootConfig {
+// [::TICKET::] P15-2, P15-4, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-2|P15-4|P15-7) --for-spec --no-implementation-order`.
+    fn default() -> Self {
+        Self {
+            config: ClientConfig::default(),
+            dtmf_sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
+            event_bus: EventBus::new(
+                crate::api::eventbus_receiver::DEFAULT_EVENT_BUS_CAPACITY,
+                None,
+            ),
+            audio_taps: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
 }
 
 /// The core reactor that owns the PJSUA control thread.
@@ -49,11 +99,12 @@ pub struct CoreReactor;
 
 /// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
 /// join handle, or a boxed spawn error.
+// [::TICKET::] P15-4, P15-7, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9) --for-spec --no-implementation-order`.
 type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -71,31 +122,40 @@ impl CoreReactor {
         let terminated = Arc::new(AtomicBool::new(false));
         let terminated_clone = terminated.clone();
 
-        // [::TICKET::] P3-2: MockBackend is used until PjsuaBackend is implemented.
-        let mut backend: Box<dyn SipBackend> = Box::new(MockBackend::new());
-        // [::TICKET::] P8-1: O-003 — the reactor owns a default-call AudioMixer. Audio
-        // lifecycle commands (AddAudioSource / RemoveAudioSource / SetAudioSourceGain /
-        // MuteAudioSource) mutate this mixer on the reactor thread (single-writer rule).
-        let audio_mixer: Arc<AudioMixer> = Arc::new(AudioMixer::new());
-        // [::TICKET::] P11-3: O-001 — expose a clone of the reactor mixer to the
-        // handle so tests/observability can assert post-dispatch mixer state without
-        // a round-trip command. The thread keeps its own Arc (single-writer rule).
-        let mixer_for_handle = audio_mixer.clone();
+        // [::TICKET::] P15-3: §62.2 — the backend is selected by feature set:
+        // PjsuaBackend (pjsua-native), TestBackend (test builds), or an explicit
+        // unsupported error otherwise. TestBackend no longer exists in production.
+        let mut backend = create_backend(&boot_config.config, boot_config.audio_taps.clone())?;
+        // [::TICKET::] P8-1, P15-7: O-003 — the reactor owns per-call AudioMixers
+        // keyed by call_id (§62.6). Audio lifecycle commands (AddAudioSource /
+        // RemoveAudioSource / SetAudioSourceGain / MuteAudioSource) mutate the
+        // per-call mixer on the reactor thread (single-writer rule).
+        let audio_mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
+        // [::TICKET::] P11-3, P15-7: O-001 — expose a clone of the reactor mixer
+        // map to the handle so tests/observability can assert post-dispatch mixer
+        // state without a round-trip command. The thread keeps its own Arc
+        // (single-writer rule).
+        let audio_mixers_for_handle = audio_mixers.clone();
+        // [::TICKET::] P15-7: one global source-id counter shared by every
+        // per-call mixer so a source_id is unique across calls (the lifecycle
+        // commands address a source by id alone).
+        let source_id_counter: Arc<AtomicU64> = Arc::new(AtomicU64::new(0));
 
-        // [::TICKET::] P11-6: the reactor owns the default EventBus (the publish
-        // target for reactor-initiated events such as the DtmfSent timeout) and the
-        // per-account client bus map. Client buses are registered later (P9-6); for
-        // this round the default bus is the only publish target.
-        let default_event_bus = EventBus::new(
-            crate::api::eventbus_receiver::DEFAULT_EVENT_BUS_CAPACITY,
-            None,
-        );
-        // [::TICKET::] P12-6: the thread closure takes ownership of the bus; the
+        // [::TICKET::] P15-4: §62.3 — the reactor publishes to the single EventBus
+        // owned by SipClient. The thread closure takes ownership of the bus; the
         // handle needs its own clone, taken BEFORE the thread spawn (thread-first).
-        let default_event_bus_for_handle = default_event_bus.clone();
-        let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
+        let event_bus = boot_config.event_bus;
+        let event_bus_for_handle = event_bus.clone();
         // [::TICKET::] P11-6: sent_timeout_ms drives the DtmfSent fallback timer (C030).
-        let dtmf_sent_timeout_ms = boot_config.config.dtmf.sent_timeout_ms;
+        // [::TICKET::] P15-2: the RFC §10 ClientConfig has no dtmf field; the timeout
+        // is a dedicated BootConfig boot parameter (P7-2 O-002).
+        let dtmf_sent_timeout_ms = boot_config.dtmf_sent_timeout_ms;
+        // [::TICKET::] P15-8: §62.7 — the reactor owns one ShutdownSpec whose
+        // per-phase timeout is sourced from TimeoutConfig::shutdown_timeout
+        // (default 15s). is_shutdown_started() drives the M20 command gate and
+        // execute_sequence runs the §32 ordered shutdown.
+        let shutdown_spec = ShutdownSpec::new(shutdown_phase_timeout(&boot_config.config));
 
         // [::TICKET::] P11-6: the reactor owns a small tokio runtime that drives
         // the DtmfSent timeout fallback timers. It is built here (outside the
@@ -118,16 +178,50 @@ impl CoreReactor {
                 // out of CallEntry so the C046 field set (id/native_id/account_id/
                 // state/media) stays fixed and conf_port_id remains absent.
                 let mut call_directions: BTreeMap<CallId, CallDirection> = BTreeMap::new();
+                // [::TICKET::] P15-7: per-call audio workers. One AudioWorkerTask
+                // drives each per-call AudioMixer's process_frame loop (§62.6);
+                // owned by the reactor thread and shut down on exit.
+                let mut audio_workers: HashMap<u64, AudioWorkerTask> = HashMap::new();
 
                 // [::TICKET::] P11-6: `enter()` installs the reactor-owned timer
                 // runtime as the current context on this std thread so
                 // `spawn_dtmf_sent_timeout` (which uses `tokio::spawn`) works
                 // without restructuring the loop.
                 let _timer_enter = timer_runtime.enter();
+                // §62.7: once the Shutdown arm has completed the §32 sequence, the
+                // reactor drains the channel — every queued command is rejected
+                // and the thread exits when the channel is empty or closed.
+                let mut draining = false;
 
                 loop {
+                    if draining {
+                        match rx.try_recv() {
+                            Ok(command) => reject_command(command),
+                            Err(_) => break,
+                        }
+                        continue;
+                    }
+
                     match rx.blocking_recv() {
                         Some(command) => {
+                            // M20 shutdown gate (N0044): while shutting down only
+                            // Shutdown and GetAccountInfo are permitted; every other
+                            // command is rejected with an error reply so its caller
+                            // never hangs. Rejected commands are consumed; permitted
+                            // commands are rebound for the dispatch match below.
+                            let command = match gate_command(
+                                command,
+                                shutdown_spec.is_shutdown_started(),
+                            ) {
+                                ShutdownGate::Rejected { command } => {
+                                    tracing::warn!(
+                                        command = %command,
+                                        "command dropped during shutdown"
+                                    );
+                                    continue;
+                                }
+                                ShutdownGate::Permit(command) => command,
+                            };
                             match command {
                                 DispatchCommand::Execute { f, reply } => {
                                     let result = std::panic::catch_unwind(
@@ -164,8 +258,7 @@ impl CoreReactor {
                                     let mut ctx = SendDtmfContext {
                                         backend: &mut *backend,
                                         client_state: &client_state,
-                                        client_event_buses: &client_event_buses,
-                                        default_event_bus: &default_event_bus,
+                                        event_bus: &event_bus,
                                         sent_timeout_ms: dtmf_sent_timeout_ms,
                                     };
                                     let result =
@@ -173,20 +266,57 @@ impl CoreReactor {
                                     send_reply(reply, result);
                                 }
                                 DispatchCommand::AddAudioSource {
+                                    call_id,
                                     source,
+                                    channels,
                                     reply,
                                 } => {
-                                    // [::TICKET::] P8-1: O-003 — the reactor owns the
-                                    // AudioMixer; audio lifecycle commands mutate it here
-                                    // on the reactor thread (single-writer rule).
-                                    let source_id = audio_mixer.add_source(source.into_inner());
+                                    // [::TICKET::] P8-1, P15-7: O-003 — the reactor owns
+                                    // per-call AudioMixers; audio lifecycle commands
+                                    // mutate them here on the reactor thread
+                                    // (single-writer rule). §62.6: branch the source into
+                                    // the IN / OUT / both media paths via ChannelSelector.
+                                    let mixer =
+                                        get_or_create_mixer(&audio_mixers, &source_id_counter, call_id);
+                                    // Spawn the per-call worker the first time a mixer is
+                                    // created so its process_frame loop drives the paths.
+                                    if !audio_workers.contains_key(&call_id) {
+                                        let worker = AudioWorkerTask::spawn(
+                                            mixer.clone(),
+                                            call_id,
+                                            DEFAULT_AUDIO_FRAME_DURATION,
+                                        );
+                                        audio_workers.insert(call_id, worker);
+                                    }
+                                    let source = source.into_inner();
+                                    let source_id = match channels {
+                                        ChannelSelector::In => mixer.add_in_source(source),
+                                        ChannelSelector::Out => mixer.add_out_source(source),
+                                        ChannelSelector::Both => {
+                                            // AudioMixer guards sources with a tokio Mutex
+                                            // (async next_chunk), so the shared wrapper must
+                                            // be tokio::sync::Mutex too.
+                                            let shared =
+                                                Arc::new(tokio::sync::Mutex::new(source));
+                                            let in_id =
+                                                mixer.add_in_source_shared(shared.clone());
+                                            mixer.add_out_source_shared(shared);
+                                            in_id
+                                        }
+                                    };
                                     send_reply(reply, Ok(source_id));
                                 }
                                 DispatchCommand::RemoveAudioSource {
                                     source_id,
                                     reply,
                                 } => {
-                                    let result = audio_mixer.remove_source(source_id);
+                                    let result = match mixer_owning_source(&audio_mixers, source_id)
+                                    {
+                                        Some(mixer) => mixer.remove_source(source_id),
+                                        None => Err(ReactorError::BackendError(format!(
+                                            "source {source_id} not found"
+                                        ))),
+                                    };
                                     send_reply(reply, result);
                                 }
                                 DispatchCommand::SetAudioSourceGain {
@@ -194,7 +324,13 @@ impl CoreReactor {
                                     gain,
                                     reply,
                                 } => {
-                                    let result = audio_mixer.set_gain(source_id, gain);
+                                    let result = match mixer_owning_source(&audio_mixers, source_id)
+                                    {
+                                        Some(mixer) => mixer.set_gain(source_id, gain),
+                                        None => Err(ReactorError::BackendError(format!(
+                                            "source {source_id} not found"
+                                        ))),
+                                    };
                                     send_reply(reply, result);
                                 }
                                 DispatchCommand::MuteAudioSource {
@@ -202,7 +338,13 @@ impl CoreReactor {
                                     muted,
                                     reply,
                                 } => {
-                                    let result = audio_mixer.mute(source_id, muted);
+                                    let result = match mixer_owning_source(&audio_mixers, source_id)
+                                    {
+                                        Some(mixer) => mixer.mute(source_id, muted),
+                                        None => Err(ReactorError::BackendError(format!(
+                                            "source {source_id} not found"
+                                        ))),
+                                    };
                                     send_reply(reply, result);
                                 }
                                 DispatchCommand::GetAccountInfo {
@@ -310,9 +452,139 @@ impl CoreReactor {
                                         }
                                     }
                                 }
+                                DispatchCommand::Answer {
+                                    call_id,
+                                    code,
+                                    reply,
+                                } => {
+                                    // [::TICKET::] P15-6: answer the call, update
+                                    // CallEntry.state, and publish CallConnected /
+                                    // decline events (§19.1). The reply is sent exactly
+                                    // once on every outcome.
+                                    let mut call_state = CallStateTables {
+                                        calls: &mut client_state.calls,
+                                        call_directions: &mut call_directions,
+                                    };
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            handle_answer(
+                                                &mut *backend,
+                                                &event_bus,
+                                                &mut call_state,
+                                                call_id,
+                                                code,
+                                            )
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(())) => {
+                                            let _ = reply.send(Ok(()));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = panic_message(&panic_payload);
+                                            tracing::error!(panic_msg = %msg, "reactor answer panicked");
+                                            let _ = reply.send(Err(
+                                                ReactorError::BackendError(
+                                                    format!("reactor panic: {msg}")
+                                                )
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                DispatchCommand::Hangup {
+                                    call_id,
+                                    reason,
+                                    reply,
+                                } => {
+                                    // [::TICKET::] P15-6: hang up the call, mark it
+                                    // disconnected in ClientState, and publish
+                                    // CallDisconnected. The reply is sent exactly once.
+                                    let mut call_state = CallStateTables {
+                                        calls: &mut client_state.calls,
+                                        call_directions: &mut call_directions,
+                                    };
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            handle_hangup(
+                                                &mut *backend,
+                                                &event_bus,
+                                                &mut call_state,
+                                                call_id,
+                                                reason,
+                                            )
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(())) => {
+                                            let _ = reply.send(Ok(()));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = panic_message(&panic_payload);
+                                            tracing::error!(panic_msg = %msg, "reactor hangup panicked");
+                                            let _ = reply.send(Err(
+                                                ReactorError::BackendError(
+                                                    format!("reactor panic: {msg}")
+                                                )
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                DispatchCommand::Transfer {
+                                    call_id,
+                                    target,
+                                    reply,
+                                } => {
+                                    // [::TICKET::] P15-6: blind-transfer the call and
+                                    // mark it Transferring in ClientState. The reply is
+                                    // sent exactly once.
+                                    let mut call_state = CallStateTables {
+                                        calls: &mut client_state.calls,
+                                        call_directions: &mut call_directions,
+                                    };
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            handle_transfer(
+                                                &mut *backend,
+                                                &mut call_state,
+                                                call_id,
+                                                &target,
+                                            )
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(())) => {
+                                            let _ = reply.send(Ok(()));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = panic_message(&panic_payload);
+                                            tracing::error!(panic_msg = %msg, "reactor transfer panicked");
+                                            let _ = reply.send(Err(
+                                                ReactorError::BackendError(
+                                                    format!("reactor panic: {msg}")
+                                                )
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
                                 DispatchCommand::UpdateAccount {
                                     account_id,
                                     config,
+                                    register_on_start,
                                     reply,
                                 } => {
                                     let result = std::panic::catch_unwind(
@@ -331,7 +603,19 @@ impl CoreReactor {
                                                     )
                                                 })?
                                                 .native_id;
-                                            backend.update_account(native_id, &config)
+                                            backend.update_account(native_id, &config)?;
+                                            // §62.4: consume the register_on_start delta —
+                                            // re-issue registration/unregistration after the
+                                            // config update.
+                                            if let Some(enabled) = register_on_start {
+                                                backend.set_registration(native_id, enabled)?;
+                                                apply_registration_command_state(
+                                                    &mut client_state,
+                                                    aid,
+                                                    enabled,
+                                                );
+                                            }
+                                            Ok(())
                                         }),
                                     );
                                     match result {
@@ -382,6 +666,60 @@ impl CoreReactor {
                                             terminated.store(true, Ordering::Release);
                                             let msg = panic_message(&panic_payload);
                                             tracing::error!(panic_msg = %msg, "reactor remove_account panicked");
+                                            let _ = reply.send(Err(
+                                                ReactorError::BackendError(format!(
+                                                    "reactor panic: {msg}"
+                                                ))
+                                            ));
+                                            break;
+                                        }
+                                    }
+                                }
+                                DispatchCommand::SetRegistration {
+                                    account_id,
+                                    enabled,
+                                    reply,
+                                } => {
+                                    let result = std::panic::catch_unwind(
+                                        std::panic::AssertUnwindSafe(|| {
+                                            let aid = AccountId::from_u64(account_id).map_err(
+                                                |_| {
+                                                    ReactorError::NotInitialized(
+                                                        "invalid account id".into(),
+                                                    )
+                                                },
+                                            )?;
+                                            let native_id = client_state
+                                                .accounts
+                                                .get(&aid)
+                                                .ok_or_else(|| {
+                                                    ReactorError::NotInitialized(
+                                                        "account not found".into(),
+                                                    )
+                                                })?
+                                                .native_id;
+                                            backend.set_registration(native_id, enabled)?;
+                                            // §17.1 command edge: advance ClientState to
+                                            // Registering/Unregistering alongside the backend.
+                                            apply_registration_command_state(
+                                                &mut client_state,
+                                                aid,
+                                                enabled,
+                                            );
+                                            Ok(())
+                                        }),
+                                    );
+                                    match result {
+                                        Ok(Ok(())) => {
+                                            let _ = reply.send(Ok(()));
+                                        }
+                                        Ok(Err(e)) => {
+                                            let _ = reply.send(Err(e));
+                                        }
+                                        Err(panic_payload) => {
+                                            terminated.store(true, Ordering::Release);
+                                            let msg = panic_message(&panic_payload);
+                                            tracing::error!(panic_msg = %msg, "reactor set_registration panicked");
                                             let _ = reply.send(Err(
                                                 ReactorError::BackendError(format!(
                                                     "reactor panic: {msg}"
@@ -443,7 +781,7 @@ impl CoreReactor {
                                 }
                                 DispatchCommand::NativeEvent { event } => {
                                     // O-001: on a native event, convert it and publish
-                                    // to the owning EventBus. Backend errors surface as
+                                    // to the single EventBus. Backend errors surface as
                                     // SipEventPayload::Error — never crash the loop.
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
@@ -451,25 +789,53 @@ impl CoreReactor {
                                     };
                                     process_native_event(
                                         &*backend,
-                                        &client_event_buses,
-                                        &default_event_bus,
+                                        &event_bus,
                                         event,
                                         &mut call_state,
+                                        &mut client_state.accounts,
                                     );
                                 }
                                 DispatchCommand::Shutdown { reply } => {
-                                    let _ = backend.shutdown();
+                                    // §62.7 / C088: run the full §32 sequence
+                                    // (BYE/CANCEL → unregister → audio drain →
+                                    // pjsua_destroy) with the configured per-phase
+                                    // timeout, blocking the reactor thread on the
+                                    // already-entered timer runtime (§62.6 pattern).
+                                    let sequence_result = tokio::runtime::Handle::current()
+                                        .block_on(execute_shutdown_sequence(
+                                            &mut *backend,
+                                            &client_state,
+                                            &shutdown_spec,
+                                        ));
+                                    if let Err(err) = &sequence_result {
+                                        tracing::error!("shutdown sequence failed: {err}");
+                                    }
+                                    // §62.3 / C089: publish ClientShutdown on the
+                                    // single client-owned bus before replying.
+                                    event_bus.publish(client_shutdown_event());
+                                    // Stop every per-call audio worker before exiting so no
+                                    // blocking-pool task outlives the reactor (§62.6).
+                                    shutdown_audio_workers(&mut audio_workers);
                                     // C044 postcondition: publish the terminated flag before
                                     // replying, so shutdown() callers observe is_terminated() == true
                                     // the moment shutdown() returns Ok (oneshot send orders the store).
                                     terminated.store(true, Ordering::Release);
-                                    send_reply(reply, Ok(()));
-                                    break;
+                                    send_reply(
+                                        reply,
+                                        sequence_result.map_err(|e| {
+                                            ReactorError::BackendError(e.to_string())
+                                        }),
+                                    );
+                                    // §62.7 / C090: enter drain mode — subsequent queued
+                                    // commands are rejected with an error reply.
+                                    draining = true;
                                 }
                             }
                         }
                         None => {
-                            // All senders dropped — channel closed, exit.
+                            // All senders dropped — channel closed, exit. Stop the
+                            // per-call workers so they do not outlive the reactor.
+                            shutdown_audio_workers(&mut audio_workers);
                             terminated.store(true, Ordering::Release);
                             break;
                         }
@@ -482,11 +848,68 @@ impl CoreReactor {
             tx,
             terminated_clone,
             reactor_join.clone(),
-            mixer_for_handle,
-            default_event_bus_for_handle,
+            audio_mixers_for_handle,
+            event_bus_for_handle,
         );
 
         Ok((handle, reactor_join))
+    }
+}
+
+/// Get (or create) the per-call `AudioMixer` for `call_id` (§62.6).
+///
+/// The first `AddAudioSource` for a call creates its mixer with the shared
+/// global source-id counter, so ids stay unique across calls. The reactor is
+/// the single writer of the map (single-writer rule); callers hold a read
+/// guard only while cloning the matching `Arc`.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+fn get_or_create_mixer(
+    audio_mixers: &Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
+    source_id_counter: &Arc<AtomicU64>,
+    call_id: u64,
+) -> Arc<AudioMixer> {
+    if let Some(mixer) = audio_mixers
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(&call_id)
+    {
+        return mixer.clone();
+    }
+    let mixer = Arc::new(AudioMixer::with_shared_id_source(source_id_counter.clone()));
+    audio_mixers
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(call_id, mixer.clone());
+    mixer
+}
+
+/// Find the per-call mixer that owns `source_id`, if any.
+///
+/// The lifecycle commands address a source by id alone, so the reactor scans
+/// the per-call mixers to locate the owner (ids are globally unique).
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+fn mixer_owning_source(
+    audio_mixers: &Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
+    source_id: u64,
+) -> Option<Arc<AudioMixer>> {
+    audio_mixers
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .values()
+        .find(|mixer| mixer.has_source(source_id))
+        .cloned()
+}
+
+/// Gracefully stop every per-call audio worker.
+///
+/// Called on reactor shutdown / channel-close so no blocking-pool task
+/// outlives the reactor (§62.6). The reactor thread has the timer runtime
+/// entered, so `Handle::current().block_on` drives each async shutdown.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+fn shutdown_audio_workers(workers: &mut HashMap<u64, AudioWorkerTask>) {
+    for (call_id, mut worker) in workers.drain() {
+        tracing::info!(call_id, "shutting down audio worker");
+        tokio::runtime::Handle::current().block_on(worker.shutdown());
     }
 }
 
@@ -506,13 +929,13 @@ fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
     }
 }
 
-/// Client buses keyed by logical account ID.
-// [::TICKET::] P9-6, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-6|P12-8) --for-spec --no-implementation-order`.
-type ClientEventBuses = std::collections::HashMap<AccountId, EventBus>;
-
 /// Active calls keyed by logical call ID (`ClientState.calls`).
-// [::TICKET::] P9-6, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-6|P12-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P9-6, P12-8, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-6|P12-8|P15-9) --for-spec --no-implementation-order`.
 type CallTable = std::collections::BTreeMap<CallId, CallEntry>;
+
+/// Accounts keyed by account ID, passed to native-event processing.
+// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+type AccountTable = std::collections::BTreeMap<AccountId, AccountEntry>;
 
 /// Reactor-owned call-state tables passed to call-state handlers.
 ///
@@ -525,43 +948,28 @@ pub(crate) struct CallStateTables<'a> {
     pub call_directions: &'a mut BTreeMap<CallId, CallDirection>,
 }
 
-/// Route a `SipEvent` to the correct `EventBus` based on its `account_id` (N0038).
+/// Publish a `SipEvent` to the single client-owned `EventBus` (§62.3 / N0072).
 ///
-/// - `Some(account_id)` matching a registered client bus → that bus only.
-/// - `Some(account_id)` matching no registered client → the default bus.
-/// - `None` (client lifecycle events) → the default bus and every registered client bus.
+/// Replaces the pre-P15-4 account_id-based dispatch (per-account client buses +
+/// reactor default bus) with a direct publish to the one bus owned by
+/// `SipClient`. Subscribers filter on the receiving side:
+/// `subscribe_account` via `AccountEventReceiver`, `subscribe_raw_sip` via the
+/// isolated raw_sip channel.
 ///
-/// This is the production dual-client dispatch: the Reactor calls it whenever a
+/// This is the production publish path: the Reactor calls it whenever a
 /// NativeEvent has been converted to a `SipEvent` (O-003).
-// [::TICKET::] P7-2: O-003 — production account_id-based EventBus dispatch
-pub(crate) fn dispatch_event(
-    client_event_buses: &ClientEventBuses,
-    default_event_bus: &EventBus,
-    event: SipEvent,
-) {
-    match event.meta.account_id {
-        Some(account_id) => {
-            if let Some(client_bus) = client_event_buses.get(&account_id) {
-                client_bus.publish(event);
-            } else {
-                default_event_bus.publish(event);
-            }
-        }
-        None => {
-            default_event_bus.publish(event.clone());
-            for client_bus in client_event_buses.values() {
-                client_bus.publish(event.clone());
-            }
-        }
-    }
+// [::TICKET::] P15-4: O-003 — production single-bus EventBus dispatch
+pub(crate) fn dispatch_event(event_bus: &EventBus, event: SipEvent) {
+    event_bus.publish(event);
 }
 
 /// Convert a `NativeEvent` to a `SipEvent` and publish it via `dispatch_event` (N0021).
 ///
-/// `RegistrationStateChanged` is special: it queries the backend via
-/// `get_account_info()` and publishes `RegistrationSucceeded`/`RegistrationFailed`
-/// (or `Error`) — this is the production publication path that previously had no
-/// call site for `registration_status_to_payload` (O-001).
+/// `RegistrationStateChanged` is special (§62.4): it delegates to
+/// `registr_wiring::process_registration_state_changed`, which queries the
+/// backend via `get_account_info()`, drives the §17 state machine, updates
+/// `ClientState`, and produces `SipEventPayload::RegistrationStateChanged`
+/// (or `Error` on backend failure).
 ///
 /// Other P0 events flow through `convert_native_event_to_payload`; P1/P2 events
 /// convert to `None` and are silently not published (documented rationale).
@@ -570,27 +978,18 @@ pub(crate) fn dispatch_event(
 /// events carry no `acc_id`, so the owning account is resolved from
 /// `calls[call_id].account_id` before conversion — this is what lets a
 /// `CONFIRMED` call publish a `CallConnected` payload with the real account.
-// [::TICKET::] P7-2: O-001 — production NativeEvent → SipEvent publication flow
+// [::TICKET::] P15-4: O-001 — production NativeEvent → SipEvent publication flow
 pub(crate) fn process_native_event(
     backend: &dyn SipBackend,
-    client_event_buses: &ClientEventBuses,
-    default_event_bus: &EventBus,
+    event_bus: &EventBus,
     event: NativeEvent,
     call_state: &mut CallStateTables<'_>,
+    accounts: &mut AccountTable,
 ) {
     match event {
         NativeEvent::RegistrationStateChanged { acc_id } => {
-            let account_id = AccountId::from_u64(acc_id as u64).ok();
-            let payload = match backend.get_account_info(acc_id) {
-                Ok(snapshot) => registration_status_to_payload(&snapshot),
-                Err(reactor_error) => Some(SipEventPayload::Error(reactor_error.into())),
-            };
-            if let Some(payload) = payload {
-                let sip_event = SipEvent {
-                    meta: EventMeta::new(0, account_id, None),
-                    payload,
-                };
-                dispatch_event(client_event_buses, default_event_bus, sip_event);
+            if let Some(sip_event) = process_registration_state_changed(backend, acc_id, accounts) {
+                dispatch_event(event_bus, sip_event);
             }
         }
         other_event => {
@@ -627,7 +1026,7 @@ pub(crate) fn process_native_event(
                     meta: EventMeta::new(0, account_id, call_id),
                     payload,
                 };
-                dispatch_event(client_event_buses, default_event_bus, sip_event);
+                dispatch_event(event_bus, sip_event);
             }
         }
     }
@@ -683,8 +1082,7 @@ fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>)
 pub(crate) struct SendDtmfContext<'a> {
     backend: &'a mut dyn SipBackend,
     client_state: &'a ClientState,
-    client_event_buses: &'a ClientEventBuses,
-    default_event_bus: &'a EventBus,
+    event_bus: &'a EventBus,
     sent_timeout_ms: u64,
 }
 
@@ -693,7 +1091,7 @@ pub(crate) struct SendDtmfContext<'a> {
 /// Delegates to the backend, registers the returned `CallEntry` in the reactor's
 /// authoritative `ClientState.calls` (C046), and returns the assigned logical
 /// CallId. Extracted as a helper so the error path is unit-testable with a
-/// failing MockBackend (mirrors `handle_send_dtmf`).
+/// failing TestBackend (mirrors `handle_send_dtmf`).
 ///
 /// Reads as prose: place the call via the backend; on success register the call
 /// entry under its CallId, record its outgoing origin, and returns that id; on
@@ -716,12 +1114,105 @@ pub(crate) fn handle_make_call(
     Ok(entry_id)
 }
 
+/// Handle a `RuntimeCommand::Answer` on the reactor thread (§19.1 / N0027).
+///
+/// Reads as prose: answer via the backend; on success record the resulting call
+/// state in the authoritative `ClientState.calls`, publish `CallConnected` for a
+/// `200` accept or `CallDisconnected` for a `486`/`603` decline (the reject path),
+/// and leave provisional answers (`180`/`183`) without a terminal event; on
+/// backend error propagate without mutating state.
+pub(crate) fn handle_answer(
+    backend: &mut dyn SipBackend,
+    event_bus: &EventBus,
+    call_state: &mut CallStateTables<'_>,
+    call_id: u64,
+    code: u16,
+) -> Result<(), ReactorError> {
+    let call_id_typed = CallId::from_u64(call_id)
+        .map_err(|_| ReactorError::BackendError("invalid call id 0".into()))?;
+    backend.answer_call(call_id as i32, code)?;
+    let account_id = call_state.calls.get(&call_id_typed).map(|e| e.account_id);
+    if let Some(entry) = call_state.calls.get_mut(&call_id_typed) {
+        entry.state = crate::api::call_api_expansion::answer_state_string(code).to_string();
+    }
+    let payload = match (code, account_id) {
+        (200, Some(account_id)) => Some(SipEventPayload::CallConnected(ConnectedCallInfo {
+            call_id: call_id_typed,
+            account_id,
+            remote_uri: String::new(),
+        })),
+        (486 | 603, _) => Some(SipEventPayload::CallDisconnected),
+        _ => None,
+    };
+    if let Some(payload) = payload {
+        dispatch_event(
+            event_bus,
+            SipEvent {
+                meta: EventMeta::new(0, account_id, Some(call_id_typed)),
+                payload,
+            },
+        );
+    }
+    Ok(())
+}
+
+/// Handle a `RuntimeCommand::Hangup` on the reactor thread.
+///
+/// Reads as prose: hang up via the backend; on success mark the call
+/// `Disconnected` in the authoritative `ClientState.calls` and publish
+/// `CallDisconnected`; on backend error propagate. The caller-supplied reason is
+/// logged for observability — the backend `hangup` API takes only the native id.
+pub(crate) fn handle_hangup(
+    backend: &mut dyn SipBackend,
+    event_bus: &EventBus,
+    call_state: &mut CallStateTables<'_>,
+    call_id: u64,
+    reason: crate::call::HangupReason,
+) -> Result<(), ReactorError> {
+    let call_id_typed = CallId::from_u64(call_id)
+        .map_err(|_| ReactorError::BackendError("invalid call id 0".into()))?;
+    backend.hangup(call_id as i32)?;
+    tracing::info!(%call_id_typed, ?reason, "call hung up");
+    let account_id = call_state.calls.get(&call_id_typed).map(|e| e.account_id);
+    if let Some(entry) = call_state.calls.get_mut(&call_id_typed) {
+        entry.state = "Disconnected".to_string();
+    }
+    dispatch_event(
+        event_bus,
+        SipEvent {
+            meta: EventMeta::new(0, account_id, Some(call_id_typed)),
+            payload: SipEventPayload::CallDisconnected,
+        },
+    );
+    Ok(())
+}
+
+/// Handle a `RuntimeCommand::Transfer` on the reactor thread.
+///
+/// Reads as prose: blind-transfer via the backend; on success record the target
+/// and mark the call `Transferring` in the authoritative `ClientState.calls`;
+/// on backend error propagate.
+pub(crate) fn handle_transfer(
+    backend: &mut dyn SipBackend,
+    call_state: &mut CallStateTables<'_>,
+    call_id: u64,
+    target: &str,
+) -> Result<(), ReactorError> {
+    let call_id_typed = CallId::from_u64(call_id)
+        .map_err(|_| ReactorError::BackendError("invalid call id 0".into()))?;
+    backend.transfer_call(call_id as i32, target)?;
+    if let Some(entry) = call_state.calls.get_mut(&call_id_typed) {
+        entry.state = "Transferring".to_string();
+    }
+    Ok(())
+}
+
 /// Handle a `RuntimeCommand::SendDtmf` on the reactor thread.
 ///
 /// Reads as prose: send via the backend; on success resolve the owning account,
 /// convert the method, and spawn one `spawn_dtmf_sent_timeout` per digit that
-/// publishes `DtmfSent { Err(Timeout) }` to the reactor-owned bus; on backend
-/// error propagate and spawn nothing (two-phase C030 preserved).
+/// publishes `DtmfSent { Err(Timeout) }` to the single client-owned bus; on
+/// backend error propagate and spawn nothing (two-phase C030 preserved).
 pub(crate) fn handle_send_dtmf(
     ctx: &mut SendDtmfContext<'_>,
     call_id: u64,
@@ -736,9 +1227,7 @@ pub(crate) fn handle_send_dtmf(
         .calls
         .get(&call_id_typed)
         .map(|entry| entry.account_id);
-    let target_bus = account_id
-        .and_then(|aid| ctx.client_event_buses.get(&aid).cloned())
-        .unwrap_or_else(|| ctx.default_event_bus.clone());
+    let target_bus = ctx.event_bus.clone();
     let m20_method = crate::api::m20_dtmfsent_twophase::DtmfMethod::from(method);
     for digit in digits.chars() {
         let _timer = crate::api::m20_dtmfsent_twophase::spawn_dtmf_sent_timeout(
@@ -758,11 +1247,14 @@ pub(crate) fn handle_send_dtmf(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::event_model_payload_bus::SipEventPayload;
+    use crate::runtime::backend::TestBackend;
     use crate::runtime::command::Reply;
-    use crate::runtime::state::CallEntry;
+    use crate::runtime::state::{AccountEntry, CallEntry};
     use crate::state::m20_callstate_mapping::pjsip_inv_state;
     use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
-    use std::collections::{BTreeMap, HashMap};
+    use crate::state::registr_state_machine::RegistrationState;
+    use std::collections::BTreeMap;
 
     /// Construct a test `CallId` from a non-zero value.
     // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
@@ -828,127 +1320,56 @@ mod tests {
         }
     }
 
-    // ── O-003: production dispatch_event routing ───────────────────────
+    // ── P15-4: single-bus dispatch_event ───────────────────────────────
 
-    /// @verifies C039
+    /// @verifies C039, C084
     #[test]
-    // [::TICKET::] P7-2: O-003 — production dispatch routes to the matching client bus only
-    // [::TICKET::] P7-2, P9-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P12-7) --for-spec --no-implementation-order`.
-    fn dispatch_event_routes_to_matching_bus_only() {
-        let bus_a = EventBus::new(16, None);
-        let bus_b = EventBus::new(16, None);
-        let default_bus = EventBus::new(16, None);
-        let mut buses = HashMap::new();
-        buses.insert(test_account(1), bus_a.clone());
-        buses.insert(test_account(2), bus_b.clone());
+    // [::TICKET::] P15-4: O-003 — dispatch_event publishes directly to the single bus
+// [::TICKET::] P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-4 --for-spec --no-implementation-order`.
+    fn dispatch_event_publishes_to_single_bus() {
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
 
-        let mut rx_a = bus_a.subscribe_control();
-        let mut rx_b = bus_b.subscribe_control();
+        dispatch_event(&bus, make_disconnect_event(Some(test_account(1))));
 
-        dispatch_event(
-            &buses,
-            &default_bus,
-            make_disconnect_event(Some(test_account(1))),
-        );
-
-        assert!(
-            rx_a.try_recv().is_ok(),
-            "client A must receive the account-1 event"
-        );
-        assert!(
-            matches!(
-                rx_b.try_recv(),
-                Err(tokio::sync::broadcast::error::TryRecvError::Empty)
-            ),
-            "client B must NOT receive the account-1 event (C039 isolation invariant)"
-        );
+        let ev = rx
+            .try_recv()
+            .expect("single bus must deliver the account-scoped event");
+        assert_eq!(ev.meta.account_id, Some(test_account(1)));
     }
 
     /// @verifies C039
     #[test]
-    // [::TICKET::] P7-2: O-003 — production dispatch broadcasts account_id=None to every bus
-    // [::TICKET::] P7-2, P9-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P12-7) --for-spec --no-implementation-order`.
-    fn dispatch_event_none_account_broadcasts_to_all() {
-        let bus_a = EventBus::new(16, None);
-        let bus_b = EventBus::new(16, None);
-        let default_bus = EventBus::new(16, None);
-        let mut buses = HashMap::new();
-        buses.insert(test_account(1), bus_a.clone());
-        buses.insert(test_account(2), bus_b.clone());
-
-        let mut rx_a = bus_a.subscribe_control();
-        let mut rx_b = bus_b.subscribe_control();
-        let mut rx_default = default_bus.subscribe_control();
+    // [::TICKET::] P15-4: account_id=None lifecycle events also flow on the single bus
+// [::TICKET::] P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-4 --for-spec --no-implementation-order`.
+    fn dispatch_event_lifecycle_event_flows_to_single_bus() {
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
 
         let mut event = make_disconnect_event(None);
         event.meta.account_id = None;
-        dispatch_event(&buses, &default_bus, event);
+        dispatch_event(&bus, event);
 
-        assert!(
-            rx_a.try_recv().is_ok(),
-            "client A must receive lifecycle event"
-        );
-        assert!(
-            rx_b.try_recv().is_ok(),
-            "client B must receive lifecycle event"
-        );
-        assert!(
-            rx_default.try_recv().is_ok(),
-            "default bus must receive lifecycle event"
-        );
-    }
-
-    /// @verifies C039
-    #[test]
-    // [::TICKET::] P7-2: O-003 — production dispatch falls back to default_event_bus for unmatched account
-    // [::TICKET::] P7-2, P9-6, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P12-7) --for-spec --no-implementation-order`.
-    fn dispatch_event_unmatched_account_falls_back_to_default() {
-        let bus_a = EventBus::new(16, None);
-        let default_bus = EventBus::new(16, None);
-        let mut buses = HashMap::new();
-        buses.insert(test_account(1), bus_a.clone());
-
-        let mut rx_a = bus_a.subscribe_control();
-        let mut rx_default = default_bus.subscribe_control();
-
-        dispatch_event(
-            &buses,
-            &default_bus,
-            make_disconnect_event(Some(test_account(99))),
-        );
-
-        assert!(
-            rx_default.try_recv().is_ok(),
-            "unmatched account must fall back to default_event_bus"
-        );
-        assert!(
-            matches!(
-                rx_a.try_recv(),
-                Err(tokio::sync::broadcast::error::TryRecvError::Empty)
-            ),
-            "registered client bus must NOT receive the unmatched-account event"
-        );
+        let ev = rx
+            .try_recv()
+            .expect("lifecycle event must be delivered on the single bus");
+        assert_eq!(ev.meta.account_id, None);
     }
 
     // ── O-001: production process_native_event registration flow ───────
 
-    /// @verifies C024
+    /// @verifies C024, C073
     #[tokio::test]
-    // [::TICKET::] P7-2: O-001 — status 200 publishes RegistrationSucceeded via dispatch_event
-    async fn process_native_event_registration_200_publishes_succeeded(
+    // [::TICKET::] P15-5: §62.4 — a status 200 native event drives the state machine
+    // from Registering to Registered and publishes RegistrationStateChanged(Registered).
+    async fn process_native_event_registration_200_publishes_registration_state_changed_registered(
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // [::TICKET::] P10-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-1 --for-spec --no-implementation-order`.
-        // P10-1: the snapshot is registry-derived — register an account first so
-        // get_account_info(1) yields the Ok(200) success shape.
-        let mut backend = MockBackend::new();
-        let config = crate::config::account_config_spec::AccountConfig {
-            username: "alice".into(),
-            ..crate::config::account_config_spec::AccountConfig::default()
-        };
-        backend.add_account(&config)?;
+        let mut backend = TestBackend::new();
+        backend.add_account(&crate::config::account_config_spec::AccountConfig::default())?;
+        backend.mark_registered(1); // get_account_info -> status 200
         let bus = EventBus::new(16, None);
-        let buses = HashMap::new();
         let mut calls = BTreeMap::new();
+        let mut accounts = account_with_registration(1, RegistrationState::Registering);
         let mut rx = bus.subscribe_control();
 
         let mut call_state = CallStateTables {
@@ -957,47 +1378,10 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
-        );
-
-        let ev = rx
-            .recv()
-            .await
-            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
-        assert!(
-            matches!(ev.payload, SipEventPayload::RegistrationSucceeded(_)),
-            "expected RegistrationSucceeded, got {:?}",
-            ev.payload
-        );
-        assert_eq!(ev.meta.account_id, Some(test_account(1)));
-        Ok(())
-    }
-
-    /// @verifies C024
-    #[tokio::test]
-    // [::TICKET::] P7-2: O-001 — get_account_info Err publishes a failure event (no silent drop)
-    async fn process_native_event_registration_err_publishes_failure() {
-        let mut backend = MockBackend::new();
-        backend.get_account_info_result =
-            Some(Err(ReactorError::BackendError("mock backend down".into())));
-        let bus = EventBus::new(16, None);
-        let buses = HashMap::new();
-        let mut calls = BTreeMap::new();
-        let mut rx = bus.subscribe_control();
-
-        let mut call_state = CallStateTables {
-            calls: &mut calls,
-            call_directions: &mut empty_directions(),
-        };
-        process_native_event(
-            &backend,
-            &buses,
-            &bus,
-            NativeEvent::RegistrationStateChanged { acc_id: 1 },
-            &mut call_state,
+            &mut accounts,
         );
 
         let ev = rx
@@ -1007,10 +1391,56 @@ mod tests {
         assert!(
             matches!(
                 ev.payload,
-                SipEventPayload::RegistrationFailed(_) | SipEventPayload::Error(_)
+                SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
             ),
-            "expected RegistrationFailed or Error, got {:?}",
+            "expected RegistrationStateChanged(Registered), got {:?}",
             ev.payload
+        );
+        assert_eq!(ev.meta.account_id, Some(test_account(1)));
+        assert_eq!(
+            accounts[&test_account(1)].registration,
+            RegistrationState::Registered
+        );
+        Ok(())
+    }
+
+    /// @verifies C024
+    #[tokio::test]
+    // [::TICKET::] P15-5: §62.4 — get_account_info Err publishes SipEventPayload::Error
+    // and leaves ClientState unchanged (no silent drop, no state corruption).
+    async fn process_native_event_registration_err_publishes_error() {
+        let mut backend = TestBackend::new();
+        backend.get_account_info_result =
+            Some(Err(ReactorError::BackendError("mock backend down".into())));
+        let bus = EventBus::new(16, None);
+        let mut calls = BTreeMap::new();
+        let mut accounts = account_with_registration(1, RegistrationState::Registering);
+        let mut rx = bus.subscribe_control();
+
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+        };
+        process_native_event(
+            &backend,
+            &bus,
+            NativeEvent::RegistrationStateChanged { acc_id: 1 },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+        assert!(
+            matches!(ev.payload, SipEventPayload::Error(_)),
+            "expected Error, got {:?}",
+            ev.payload
+        );
+        assert_eq!(
+            accounts[&test_account(1)].registration,
+            RegistrationState::Registering
         );
     }
 
@@ -1018,11 +1448,10 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P10-6: O-001 — non-200 Ok snapshot (403) publishes RegistrationFailed via the production flow
     // [::TICKET::] P10-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-6 --for-spec --no-implementation-order`.
-    async fn process_native_event_registration_403_publishes_failed() {
-        // C024: a non-200 registration status must be published as RegistrationFailed
-        // through the production path, not just the isolated status mapping
-        // exercised by the registration_status_to_payload unit tests (ABC O-001).
-        let mut backend = MockBackend::new();
+    async fn process_native_event_registration_403_publishes_registration_state_changed_failed() {
+        // C024/C085: a non-200 registration status drives Registering → Failed and
+        // publishes RegistrationStateChanged(Failed) via the production path.
+        let mut backend = TestBackend::new();
         backend.get_account_info_result = Some(Ok(AccountInfoSnapshot {
             acc_id: test_account(1),
             registration_status: 403,
@@ -1031,8 +1460,8 @@ mod tests {
             uri: "sip:alice@example.com".into(),
         }));
         let bus = EventBus::new(16, None);
-        let buses = HashMap::new();
         let mut calls = BTreeMap::new();
+        let mut accounts = account_with_registration(1, RegistrationState::Registering);
         let mut rx = bus.subscribe_control();
 
         let mut call_state = CallStateTables {
@@ -1041,48 +1470,54 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
+            &mut accounts,
         );
 
         let ev = rx
             .recv()
             .await
             .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
-        match &ev.payload {
-            SipEventPayload::RegistrationFailed(failure) => {
-                assert_eq!(failure.status_code, 403);
-                assert_eq!(ev.meta.account_id, Some(test_account(1)));
-            }
-            other => panic!("expected RegistrationFailed, got {other:?}"),
-        }
+        assert!(
+            matches!(
+                ev.payload,
+                SipEventPayload::RegistrationStateChanged(RegistrationState::Failed)
+            ),
+            "expected RegistrationStateChanged(Failed), got {:?}",
+            ev.payload
+        );
+        assert_eq!(ev.meta.account_id, Some(test_account(1)));
+        assert_eq!(
+            accounts[&test_account(1)].registration,
+            RegistrationState::Failed
+        );
     }
 
     /// @verifies C022
     #[tokio::test]
     // [::TICKET::] P7-2: O-001 — non-registration P0 events convert and publish through dispatch_event
     async fn process_native_event_call_state_changed_publishes() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
-        let buses = HashMap::new();
         let mut calls = confirmed_calls();
         let mut rx = bus.subscribe_control();
 
+        let mut accounts = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 10,
                 state: pjsip_inv_state::CONFIRMED,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         let ev = rx
@@ -1102,9 +1537,8 @@ mod tests {
     async fn process_native_event_multi_account_call_connected() {
         // Two calls, one per account: each CallConnected payload must carry the
         // owning CallEntry.account_id — never the hardcoded account 1.
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
-        let buses = HashMap::new();
         let mut calls = BTreeMap::from([
             (
                 test_call_id(10),
@@ -1129,19 +1563,20 @@ mod tests {
         ]);
         let mut rx = bus.subscribe_control();
 
+        let mut accounts = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 10,
                 state: pjsip_inv_state::CONFIRMED,
             },
             &mut call_state,
+            &mut accounts,
         );
         let mut call_state = CallStateTables {
             calls: &mut calls,
@@ -1149,13 +1584,13 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 11,
                 state: pjsip_inv_state::CONFIRMED,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         let first = rx
@@ -1180,10 +1615,10 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P7-2: O-001 — P1/P2 events are dropped without publication (documented rationale)
     async fn process_native_event_p1_drops_without_publish() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
-        let buses = HashMap::new();
         let mut calls = BTreeMap::new();
+        let mut accounts = BTreeMap::new();
         let mut rx = bus.subscribe_control();
 
         let mut call_state = CallStateTables {
@@ -1192,13 +1627,13 @@ mod tests {
         };
         process_native_event(
             &backend,
-            &buses,
             &bus,
             NativeEvent::TransportStateChanged {
                 transport_id: 1,
                 state: 0,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         // P1/P2 convert to None — no event must be published on the bus.
@@ -1219,7 +1654,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: inbound CONNECTING discriminates to OutgoingCallRinging
     async fn process_native_event_incoming_connecting_rings() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::from([(
@@ -1234,19 +1669,20 @@ mod tests {
         )]);
         let mut directions = BTreeMap::from([(test_call_id(7), CallDirection::Incoming)]);
 
+        let mut accounts = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
         };
         process_native_event(
             &backend,
-            &HashMap::new(),
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 7,
                 state: pjsip_inv_state::CONNECTING,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         let ev = rx
@@ -1266,7 +1702,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: outbound CONNECTING discriminates to OutgoingCallTrying
     async fn process_native_event_outgoing_connecting_tries() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::from([(
@@ -1281,19 +1717,20 @@ mod tests {
         )]);
         let mut directions = BTreeMap::from([(test_call_id(7), CallDirection::Outgoing)]);
 
+        let mut accounts = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
         };
         process_native_event(
             &backend,
-            &HashMap::new(),
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 7,
                 state: pjsip_inv_state::CONNECTING,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         let ev = rx
@@ -1311,7 +1748,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: CONNECTING with no recorded direction falls back to Trying (outgoing assumption)
     async fn process_native_event_connecting_no_direction_falls_back_to_trying() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::from([(
@@ -1326,19 +1763,20 @@ mod tests {
         )]);
         let mut directions = BTreeMap::new();
 
+        let mut accounts = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
         };
         process_native_event(
             &backend,
-            &HashMap::new(),
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 7,
                 state: pjsip_inv_state::CONNECTING,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         let ev = rx
@@ -1356,25 +1794,26 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: processing NativeEvent::IncomingCall records the Incoming direction
     async fn process_native_event_incoming_call_records_direction() {
-        let backend = MockBackend::new();
+        let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::new();
         let mut directions = empty_directions();
 
+        let mut accounts = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
         };
         process_native_event(
             &backend,
-            &HashMap::new(),
             &bus,
             NativeEvent::IncomingCall {
                 acc_id: 42,
                 call_id: 7,
             },
             &mut call_state,
+            &mut accounts,
         );
 
         // The IncomingCall event must be published (existing behavior) AND the
@@ -1394,9 +1833,9 @@ mod tests {
     /// @verifies C070, C046
     #[test]
     // [::TICKET::] P12-8: a MakeCall command records the outgoing direction by origin
-    // [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P12-8, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P15-3) --for-spec --no-implementation-order`.
     fn handle_make_call_records_outgoing_direction() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
         let mut directions = empty_directions();
         let mut call_state = CallStateTables {
@@ -1557,6 +1996,65 @@ mod tests {
         join_reactor(handle, join);
     }
 
+    #[tokio::test]
+    // @verifies C089
+    // [::TICKET::] P15-8: §62.7 — the Shutdown arm runs the §32 sequence and
+    // publishes ClientShutdown on the single client-owned bus before replying.
+    async fn reactor_shutdown_publishes_client_shutdown() {
+        let (handle, join) = spawn_reactor();
+        let mut rx = handle.event_bus().subscribe_control();
+        let (tx, rx_reply) = tokio::sync::oneshot::channel();
+        let cmd = DispatchCommand::Shutdown {
+            reply: Reply::new(tx),
+        };
+        handle.sender.send(cmd).ok();
+        assert!(rx_reply.await.is_ok(), "shutdown must complete");
+        let ev = tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
+            .await
+            .expect("ClientShutdown must be published within the bound")
+            .expect("the bus must yield an event");
+        assert!(
+            matches!(ev.payload, SipEventPayload::ClientShutdown),
+            "expected ClientShutdown, got {:?}",
+            ev.payload
+        );
+        assert!(
+            handle.is_terminated(),
+            "reactor must be terminated after shutdown"
+        );
+        join_reactor(handle, join);
+    }
+
+    #[tokio::test]
+    // @verifies C090
+    // [::TICKET::] P15-8: §62.7 — commands queued behind Shutdown are rejected
+    // via the M20 gate with an error reply, so the caller never hangs.
+    async fn reactor_rejects_commands_queued_during_shutdown() {
+        let (handle, join) = spawn_reactor();
+        let (tx_shutdown, _rx_shutdown) = tokio::sync::oneshot::channel();
+        handle
+            .sender
+            .send(DispatchCommand::Shutdown {
+                reply: Reply::new(tx_shutdown),
+            })
+            .ok();
+        let (tx_cmd, rx_cmd) = tokio::sync::oneshot::channel();
+        let cmd = DispatchCommand::Execute {
+            f: Box::new(|_: &mut dyn SipBackend| Ok(())),
+            reply: Reply::new(tx_cmd),
+        };
+        handle.sender.send(cmd).ok();
+        let reply = tokio::time::timeout(std::time::Duration::from_secs(1), rx_cmd)
+            .await
+            .expect("the gated command's reply must arrive within the bound")
+            .expect("the oneshot must resolve");
+        assert!(
+            matches!(reply, Err(ReactorError::BackendError(msg)) if msg.contains("shutting down")),
+            "the queued command must be rejected, not hang"
+        );
+        join_reactor(handle, join);
+    }
+
     // ── P10-3: account/transport lifecycle dispatch keeps ClientState authoritative ──
 
     /// Shut the reactor down cleanly (used by the lifecycle tests below).
@@ -1576,14 +2074,14 @@ mod tests {
         join_reactor(handle, join);
     }
 
-    // ── P11-6: reactor-owned default_event_bus + SendDtmf two-phase wiring ──
+    // ── P15-4: single client-owned EventBus + SendDtmf two-phase wiring ──
 
     #[tokio::test]
     // @verifies C069
-    // [::TICKET::] P11-6: reactor exposes the owned default_event_bus on the RuntimeHandle
-    async fn reactor_exposes_default_event_bus() {
+    // [::TICKET::] P15-4: reactor exposes the single client-owned EventBus on the RuntimeHandle
+    async fn reactor_exposes_event_bus() {
         let (handle, join) = spawn_reactor();
-        let bus = handle.default_event_bus();
+        let bus = handle.event_bus();
         let mut rx = bus.subscribe_control();
         bus.publish(SipEvent {
             meta: EventMeta::new(0, None, Some(test_call_id(1))),
@@ -1594,7 +2092,7 @@ mod tests {
                 rx.try_recv().unwrap().payload,
                 SipEventPayload::CallDisconnected
             ),
-            "publishing on the reactor-owned bus must reach a subscriber"
+            "publishing on the single client-owned bus must reach a subscriber"
         );
         shutdown_reactor(handle, join).await;
     }
@@ -1603,10 +2101,18 @@ mod tests {
     // @verifies C030
     // [::TICKET::] P11-6: SendDtmf dispatch spawns the timeout after backend success
     async fn send_dtmf_dispatch_spawns_timeout_after_backend_ok() {
-        let mut config = ClientConfig::default();
-        config.dtmf.sent_timeout_ms = 50;
-        let (handle, join) = CoreReactor::spawn(BootConfig { config }).unwrap();
-        let mut rx = handle.default_event_bus().subscribe_control();
+        let config = ClientConfig::default();
+        let (handle, join) = CoreReactor::spawn(BootConfig {
+            config,
+            dtmf_sent_timeout_ms: 50,
+            event_bus: EventBus::new(
+                crate::api::eventbus_receiver::DEFAULT_EVENT_BUS_CAPACITY,
+                None,
+            ),
+            audio_taps: Arc::new(Mutex::new(HashMap::new())),
+        })
+        .unwrap();
+        let mut rx = handle.event_bus().subscribe_control();
 
         let (tx, _rx) = tokio::sync::oneshot::channel();
         let result = handle
@@ -1646,15 +2152,13 @@ mod tests {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let client_state = ClientState::default();
-        let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
 
         let mut ctx = SendDtmfContext {
             backend: &mut backend,
             client_state: &client_state,
-            client_event_buses: &client_event_buses,
-            default_event_bus: &bus,
+            event_bus: &bus,
             sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
         };
         let result = handle_send_dtmf(
@@ -1685,7 +2189,7 @@ mod tests {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let call_id = CallId::from_u64(1).unwrap();
         let account_id = AccountId::from_u64(5).unwrap();
         let mut client_state = ClientState::default();
@@ -1699,12 +2203,10 @@ mod tests {
                 media: "none".into(),
             },
         );
-        let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
         let mut ctx = SendDtmfContext {
             backend: &mut backend,
             client_state: &client_state,
-            client_event_buses: &client_event_buses,
-            default_event_bus: &bus,
+            event_bus: &bus,
             sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
         };
 
@@ -1733,18 +2235,16 @@ mod tests {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.send_dtmf_result = Some(Err(crate::runtime::command::ReactorError::BackendError(
             "send failed".into(),
         )));
         let client_state = ClientState::default();
-        let client_event_buses: ClientEventBuses = std::collections::HashMap::new();
 
         let mut ctx = SendDtmfContext {
             backend: &mut backend,
             client_state: &client_state,
-            client_event_buses: &client_event_buses,
-            default_event_bus: &bus,
+            event_bus: &bus,
             sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
         };
         let result = handle_send_dtmf(
@@ -1774,7 +2274,7 @@ mod tests {
         let id = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
             .await?;
-        assert_eq!(id, 1, "MockBackend assigns the first account id 1");
+        assert_eq!(id, 1, "TestBackend assigns the first account id 1");
         let state = handle.query_state().await?;
         assert_eq!(
             state.accounts.len(),
@@ -1804,9 +2304,9 @@ mod tests {
     // @verifies C070, C046
     // [::TICKET::] P12-1: handle_make_call delegates to the backend, registers the
     // returned CallEntry in the authoritative ClientState, and returns the CallId.
-    // [::TICKET::] P12-1, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P12-8, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3) --for-spec --no-implementation-order`.
     fn handle_make_call_registers_entry_and_returns_id() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
@@ -1814,7 +2314,7 @@ mod tests {
         };
         let id = handle_make_call(&mut backend, &mut call_state, 1, &test_call_request())
             .unwrap_or_else(|error| panic!("make_call must succeed: {error}"));
-        assert_eq!(id, 1, "MockBackend assigns the first call id 1");
+        assert_eq!(id, 1, "TestBackend assigns the first call id 1");
         let entry = client_state
             .calls
             .get(&test_call_id(1))
@@ -1828,9 +2328,9 @@ mod tests {
     // @verifies C070
     // [::TICKET::] P12-1: a failing backend.make_call must propagate Err and
     // register no CallEntry — never a fabricated id.
-    // [::TICKET::] P12-1, P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P12-8, P15-3, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P15-9) --for-spec --no-implementation-order`.
     fn handle_make_call_error_registers_nothing() {
-        let mut backend = MockBackend::new();
+        let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));
         let mut client_state = ClientState::default();
         let mut call_state = CallStateTables {
@@ -1841,6 +2341,39 @@ mod tests {
         assert!(
             matches!(result, Err(ReactorError::BackendError(_))),
             "backend error must propagate"
+        );
+        assert!(
+            client_state.calls.is_empty(),
+            "no CallEntry may be registered on a failed MakeCall"
+        );
+    }
+
+    #[test]
+    // @verifies C089, C090
+    // [::TICKET::] P15-9: a failing backend.make_call carrying a NativeError must
+    // propagate through the reactor handler while preserving native_status.
+// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+    fn handle_make_call_native_error_preserves_status() {
+        let mut backend = TestBackend::new();
+        backend.make_call_result = Some(Err(ReactorError::NativeError {
+            message: "invite rejected".into(),
+            native_status: crate::ffi::bindings::PJ_EUNKNOWN,
+        }));
+        let mut client_state = ClientState::default();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut empty_directions(),
+        };
+        let result = handle_make_call(&mut backend, &mut call_state, 1, &test_call_request());
+        assert!(
+            matches!(
+                result,
+                Err(ReactorError::NativeError {
+                    native_status: crate::ffi::bindings::PJ_EUNKNOWN,
+                    ..
+                })
+            ),
+            "NativeError must propagate with the raw pj_status preserved"
         );
         assert!(
             client_state.calls.is_empty(),
@@ -1861,7 +2394,7 @@ mod tests {
         let call_id = handle
             .submit_make_call(account_id, test_call_request())
             .await?;
-        assert_eq!(call_id, 1, "MockBackend assigns the first call id 1");
+        assert_eq!(call_id, 1, "TestBackend assigns the first call id 1");
         let state = handle.query_state().await?;
         assert_eq!(state.calls.len(), 1, "ClientState must reflect the call");
         assert!(
@@ -1918,6 +2451,7 @@ mod tests {
             .submit(crate::runtime::command::RuntimeCommand::UpdateAccount {
                 account_id: id,
                 config: new_config.clone(),
+                register_on_start: None,
                 reply: Reply::new(_tx),
             })
             .await?;
@@ -1955,6 +2489,7 @@ mod tests {
             .submit(crate::runtime::command::RuntimeCommand::UpdateAccount {
                 account_id: 999, // not registered in ClientState
                 config,
+                register_on_start: None,
                 reply: Reply::new(_tx),
             })
             .await;
@@ -1994,31 +2529,411 @@ mod tests {
     // ── P12-7: reactor-loop NativeEvent ingestion round-trip ───────────
 
     #[tokio::test]
-    // @verifies C039, C046
+    // @verifies C039, C046, C085
     // [::TICKET::] P12-7: a NativeEvent injected through the handle's ingestion
-    // receiver reaches process_native_event on the reactor thread and is published
-    // on the reactor-owned default_event_bus (O-001 production flow).
-    async fn reactor_enqueued_registration_state_changed_publishes(
+    // receiver reaches process_native_event on the reactor thread.
+    // [::TICKET::] P15-5: §62.4 — a fresh Disabled account receiving a native
+    // registration event is an invalid §17.1 edge (Disabled→Idle), so no event is
+    // published and ClientState stays Disabled (C085 invariant).
+    async fn reactor_enqueued_registration_state_changed_for_disabled_account_stays_disabled(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (handle, join) = spawn_reactor();
-        // Register an account so MockBackend::get_account_info(1) yields the
-        // Ok(200) success shape (P10-1 registry-derived snapshot).
         let account_id = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
             .await?;
-        let mut rx = handle.default_event_bus().subscribe_control();
+        let mut rx = handle.event_bus().subscribe_control();
 
         handle.enqueue_native_event(NativeEvent::RegistrationStateChanged {
             acc_id: account_id as u32,
         })?;
 
-        let ev = rx.recv().await?;
+        let timeout = tokio::time::timeout(std::time::Duration::from_millis(50), rx.recv()).await;
         assert!(
-            matches!(ev.payload, SipEventPayload::RegistrationSucceeded(_)),
-            "expected RegistrationSucceeded, got {:?}",
+            timeout.is_err(),
+            "a Disabled account must not publish a registration event (invalid edge)"
+        );
+        let state = handle.query_state().await?;
+        assert_eq!(
+            state.accounts[&test_account(1)].registration,
+            RegistrationState::Disabled
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    // ── P15-5: §62.4 registration state machine production wiring ──────
+
+    /// Build an `accounts` map with a single account whose registration is
+    /// `state` and whose native id matches `acc_id` (TestBackend id == logical id).
+// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    fn account_with_registration(
+        acc_id: u32,
+        state: RegistrationState,
+    ) -> BTreeMap<AccountId, AccountEntry> {
+        BTreeMap::from([(
+            test_account(acc_id as u64),
+            AccountEntry {
+                id: acc_id as u64,
+                native_id: acc_id as i32,
+                config: crate::config::account_config_spec::AccountConfig::default(),
+                registration: state,
+            },
+        )])
+    }
+
+    /// @verifies C073, C085
+    /// P15-5: a native 200 registration event drives the §17 state machine from
+    /// Registering to Registered, updates ClientState, and publishes
+    /// `SipEventPayload::RegistrationStateChanged(Registered)`.
+    #[tokio::test]
+    async fn process_native_event_drives_registration_state_machine(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.add_account(&crate::config::account_config_spec::AccountConfig::default())?;
+        backend.mark_registered(1); // get_account_info -> status 200
+
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut calls = BTreeMap::new();
+        let mut accounts = account_with_registration(1, RegistrationState::Registering);
+
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+        };
+        process_native_event(
+            &backend,
+            &bus,
+            NativeEvent::RegistrationStateChanged { acc_id: 1 },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|e| panic!("expected registration event: {e}"));
+        assert!(
+            matches!(
+                ev.payload,
+                SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+            ),
+            "expected RegistrationStateChanged(Registered), got {:?}",
             ev.payload
         );
-        assert_eq!(ev.meta.account_id, Some(test_account(1)));
+        assert_eq!(
+            accounts[&test_account(1)].registration,
+            RegistrationState::Registered
+        );
+        Ok(())
+    }
+
+    /// @verifies C085
+    /// P15-5: a success event for a Disabled account is an invalid §17 edge —
+    /// no event is published, ClientState stays Disabled, reactor stays alive.
+    #[tokio::test]
+    async fn process_native_event_ignores_invalid_registration_transition(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.add_account(&crate::config::account_config_spec::AccountConfig::default())?;
+        backend.mark_registered(1); // native reports 200, but current is Disabled
+
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut calls = BTreeMap::new();
+        let mut accounts = account_with_registration(1, RegistrationState::Disabled);
+
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+        };
+        process_native_event(
+            &backend,
+            &bus,
+            NativeEvent::RegistrationStateChanged { acc_id: 1 },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        let timeout = tokio::time::timeout(std::time::Duration::from_millis(50), rx.recv()).await;
+        assert!(
+            timeout.is_err(),
+            "invalid transition must not publish an event"
+        );
+        assert_eq!(
+            accounts[&test_account(1)].registration,
+            RegistrationState::Disabled
+        );
+        Ok(())
+    }
+
+    /// @verifies C073
+    /// P15-5: an UpdateAccount carrying `register_on_start: Some(true)` consumes
+    /// the flag at runtime — the reactor advances ClientState to Registering
+    /// (via backend.set_registration) after updating the config.
+    #[tokio::test]
+    async fn update_account_register_on_start_consumes_set_registration(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let account_id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        handle
+            .submit_update_account(
+                account_id,
+                crate::config::account_config_spec::AccountConfig::default(),
+                Some(true),
+            )
+            .await?;
+
+        let state = handle.query_state().await?;
+        assert_eq!(
+            state.accounts[&test_account(1)].registration,
+            RegistrationState::Registering
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    // ── P15-6: handle_answer / handle_hangup / handle_transfer ─────────
+
+    /// @verifies C086
+    #[tokio::test]
+    async fn handle_answer_200_publishes_call_connected() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: "Incoming".into(),
+                media: "none".into(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        handle_answer(&mut backend, &bus, &mut call_state, 1, 200)?;
+        assert_eq!(
+            backend.answer_calls,
+            vec![(1, 200)],
+            "backend.answer_call must be invoked with (native_call_id, code)"
+        );
+        assert_eq!(
+            client_state.calls[&call_id].state,
+            "Active",
+            "a 200 answer must mark the call Active"
+        );
+
+        let ev = rx.recv().await?;
+        assert!(
+            matches!(ev.payload, SipEventPayload::CallConnected(_)),
+            "a 200 answer must publish CallConnected, got {:?}",
+            ev.payload
+        );
+        assert_eq!(ev.meta.account_id, Some(account_id));
+        assert_eq!(ev.meta.call_id, Some(call_id));
+        Ok(())
+    }
+
+    /// @verifies C086
+    #[tokio::test]
+    async fn handle_answer_486_publishes_call_disconnected() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut backend = TestBackend::new();
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: "Incoming".into(),
+                media: "none".into(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        handle_answer(&mut backend, &bus, &mut call_state, 1, 486)?;
+        assert_eq!(backend.answer_calls, vec![(1, 486)]);
+        assert_eq!(
+            client_state.calls[&call_id].state,
+            "Disconnected",
+            "a 486 decline must mark the call Disconnected"
+        );
+
+        let ev = rx.recv().await?;
+        assert!(
+            matches!(ev.payload, SipEventPayload::CallDisconnected),
+            "a 486 decline must publish CallDisconnected, got {:?}",
+            ev.payload
+        );
+        Ok(())
+    }
+
+    /// @verifies C086
+    #[tokio::test]
+    async fn handle_answer_180_publishes_no_terminal_event() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut backend = TestBackend::new();
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: "Incoming".into(),
+                media: "none".into(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        handle_answer(&mut backend, &bus, &mut call_state, 1, 180)?;
+        assert_eq!(backend.answer_calls, vec![(1, 180)]);
+        assert_eq!(
+            client_state.calls[&call_id].state,
+            "Connecting",
+            "a provisional 180 answer must leave the call Connecting"
+        );
+
+        let timeout = tokio::time::timeout(std::time::Duration::from_millis(50), rx.recv()).await;
+        assert!(
+            timeout.is_err(),
+            "a provisional answer must publish no terminal event"
+        );
+        Ok(())
+    }
+
+    /// @verifies C074
+    #[tokio::test]
+    async fn handle_hangup_publishes_call_disconnected() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: "Active".into(),
+                media: "none".into(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        handle_hangup(
+            &mut backend,
+            &bus,
+            &mut call_state,
+            1,
+            crate::call::HangupReason::LocalUser,
+        )?;
+        assert_eq!(backend.hangup_calls, vec![1]);
+        assert_eq!(
+            client_state.calls[&call_id].state,
+            "Disconnected",
+            "hangup must mark the call Disconnected"
+        );
+
+        let ev = rx.recv().await?;
+        assert!(
+            matches!(ev.payload, SipEventPayload::CallDisconnected),
+            "hangup must publish CallDisconnected, got {:?}",
+            ev.payload
+        );
+        assert_eq!(ev.meta.account_id, Some(account_id));
+        Ok(())
+    }
+
+    /// @verifies C074
+    #[tokio::test]
+    async fn handle_transfer_marks_call_transferring() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: "Active".into(),
+                media: "none".into(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        handle_transfer(&mut backend, &mut call_state, 1, "sip:bob@example.com")?;
+        assert_eq!(
+            backend.transfer_calls,
+            vec![(1, "sip:bob@example.com".to_string())],
+            "backend.transfer_call must be invoked with (native_call_id, target)"
+        );
+        assert_eq!(
+            client_state.calls[&call_id].state,
+            "Transferring",
+            "transfer must mark the call Transferring"
+        );
+        Ok(())
+    }
+
+    /// @verifies C086
+    #[tokio::test]
+    async fn answer_dispatch_publishes_call_connected() -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let bus = handle.event_bus();
+        let mut rx = bus.subscribe_control();
+        let account_id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        let call_id = handle.submit_make_call(account_id, test_call_request()).await?;
+        handle.submit_answer(call_id, 200).await?;
+
+        let ev = rx.recv().await?;
+        assert!(
+            matches!(ev.payload, SipEventPayload::CallConnected(_)),
+            "answer(200) dispatch must publish CallConnected, got {:?}",
+            ev.payload
+        );
         shutdown_reactor(handle, join).await;
         Ok(())
     }

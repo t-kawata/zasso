@@ -1,0 +1,9 @@
+Q9a（Q9 の子決定）: Docker/Asterisk 統合テストの配置と実行方式を確定します。
+
+【背景と理由】実 SIP（pjsua-native）統合テストをどこに配置しどう実行するか。統合テストは pjsua-native feature（現在ビルド不能、Q1 で修復）が必要で、docker 可用時のみ実行します。配置候補は、(1) siprs の tests/ に feature ゲート付きで置く、(2) 独立 integration-test クレートとして置く、(3) #[ignore] 属性で明示実行のみにする、の 3 通りです。make test は TestBackend（test-util）で走るため、既定実行を壊さない配置が前提です。
+
+A) siprs の tests/ に `#![cfg(feature = "pjsua-native")]` ゲート付きで配置し、各テスト冒頭で docker 可用性チェック（不可時は明示スキップ）。実行は `cargo test --features pjsua-native`
+B) 独立の integration-test クレート（例: crates/siprs-it）として配置し、siprs に pjsua-native を付与した専用テストバイナリとして実行
+C) tests/ に `#[ignore]` 属性付きで配置し、docker 可用時のみ `--ignored` で明示実行
+
+【推奨】A を推奨します。feature ゲート（コンパイル時）+ docker 可用性チェック（実行時）の二段構えは、make test の既定実行を壊さず、docker 可用時のみ実 SIP テストを走らせる要件と一致します。選択肢 B の独立クレートはワークスペース構成と CI を重くします。選択肢 C の #[ignore] は実行時ゲートではなく、あなたが求めた「テストコードで docker をチェック」という設計と重複します。

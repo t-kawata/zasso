@@ -9,6 +9,9 @@
 // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
 pub mod event_model_payload_bus;
 pub mod eventbus_receiver;
+// [::TICKET::] P15-4: Event bus unification — §62.3 single EventBus topology (N0072)
+pub mod event_bus_unify;
+// [::TICKET::] P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P3-1: Call types — OutgoingCallRequest, CallMediaPreferences, Codec
 pub mod call_types;
 // [::TICKET::] P3-1: Public API design — SipAccountHandle, OutgoingCallRequest
@@ -31,6 +34,9 @@ pub mod audio_subscribe_bp;
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-3: Call API & Answer Semantics — CallApiSemantics trait (RFC N0027)
 pub mod call_api_semantics;
+// [::TICKET::] P15-6: Call API expansion — §62.5 public call-control surface (N0074)
+pub mod call_api_expansion;
+// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
 

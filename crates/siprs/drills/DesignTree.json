@@ -1,163 +1,162 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-24T04:12:12.932Z",
+  "updatedAt": "2026-08-26T01:50:12.633Z",
   "nodes": [
     {
       "id": "Q1",
-      "title": "Public ClientConfig unification policy (RFC §10 type promoted, legacy config.rs retired)",
+      "title": "本番バックエンド基盤: pjsua-native ビルド修復 + トランスポート生成配線",
       "status": "resolved",
       "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-08-24T04:01:13.447Z",
-          "answer": "A: RFC §10 準拠 ClientConfig（client_config_spec 版）を唯一の公開型に昇格し、旧 config.rs 版を完全削除。lib.rs で再公開し SipClient::new のシグネチャを移行。"
+          "resolvedAt": "2026-08-26T01:41:13.006Z",
+          "answer": "A: トランスポート配線（Initialize で config.transports 列挙 → pjsua_transport_create へ種別+ポート反映）+ bindgen allowlist 整合方針を今回の RFC 追補で完全設計する。ビルド修復（39 エラー）も設計スコープに含む。"
         }
       ]
     },
     {
       "id": "Q2",
-      "title": "STUN/TURN/ICE config type unification and Vec-ization",
+      "title": "登録・アカウント経路: register_on_start 自動登録 + remove_account の unregister 先行 + AccountRemoved publish",
       "status": "resolved",
       "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-08-24T04:01:13.512Z",
-          "answer": "A: StunServerConfig/TurnServerConfig を一元化（二重定義解消）、stun_servers/turn_servers を Vec 化、TurnServerConfig の型バグ修正。§13 の既定値（ICE enabled=true 等）に一致させる。"
+          "resolvedAt": "2026-08-26T01:41:13.037Z",
+          "answer": "A: register_on_start 自動登録を add_account 時に消費 + RegistrationSucceeded/RegistrationFailed を enum から完全削除して RegistrationStateChanged に統一 + remove_account は unregister 先行 + AccountRemoved を publish。破壊的変更は v0.x で受容。"
         }
       ]
     },
     {
       "id": "Q3",
-      "title": "Backend selection mechanism (MockBackend vs PjsuaBackend feature gate)",
+      "title": "イベント経路の完成: FFI キュー drain + raw SIP publisher + P1/P2 変換器",
       "status": "resolved",
-      "children": [
-        {
-          "id": "Q3a",
-          "title": "Test double strategy after MockBackend deletion (cfg(test) SipBackend double vs module removal)",
-          "status": "resolved",
-          "children": [],
-          "questions": [
-            {
-              "resolvedAt": "2026-08-24T04:12:12.796Z",
-              "answer": "A: MockBackend 生産コードを完全削除。SipBackend trait（§27a）実装の TestBackend を cfg(test) 専用（src/runtime/backend.rs 内 #[cfg(test)] mod または tests/）として配置。Layer 2 決定性テストを PJSIP 不要のまま維持。mock-backend feature は作らない。"
-            }
-          ]
-        }
-      ],
+      "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-08-24T04:01:13.578Z",
-          "answer": "A+ユーザー指示: pjsua-native へ完全統一。MockBackend は実装過程の残骸（ゴミ）と判断し削除。SipBackend trait（§27a）は維持し、テストは trait 実装のテストダブルのみで駆動。reactor.rs:74-75 の無条件 Mock 生成を排除。"
+          "resolvedAt": "2026-08-26T01:41:13.067Z",
+          "answer": "A: 全配線を今回設計する。FFI キュー drain → reactor 接続 + raw SIP publisher 実装 + P1/P2 変換器を Some() 化。subscribe_raw_sip の受信コードまで完全記述。"
         }
       ]
     },
     {
       "id": "Q4",
-      "title": "Event bus unification topology (reactor dispatch into client bus)",
+      "title": "着信・通話イベント: IncomingCall CallEntry 登録 + answer 修正 + CallRejected 判断 + CallState 全遷移",
       "status": "resolved",
       "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-08-24T04:01:13.648Z",
-          "answer": "A+ユーザー指示: 単一 EventBus を SipClient が所有し、reactor は dispatch_event で直接 publish する完全配線。subscribe_account の account_id フィルタ死滅・subscribe_raw_sip の None 問題を構造的に解決。RawSipEventConfig.enabled に応じた raw_sip チャネル生成。"
+          "resolvedAt": "2026-08-26T01:41:13.096Z",
+          "answer": "A + Docker/Asterisk 統合テスト必須: 着信 CallEntry 登録 + handle_answer 修正（200 で CallConnected publish）+ CallRejected を統一（reject は CallDisconnected）+ CallState 全 13 遷移を Some() 化。検証は実 Asterisk との相互接続テストで保証。docker 起動確認 → Asterisk を Docker で起動し、siprs→Asterisk の発信と Callfile/Originate による Asterisk→siprs の着信の両方向をテストコードで保証。"
         }
       ]
     },
     {
       "id": "Q5",
-      "title": "Registration state machine production wiring (typed state, register_on_start consumption)",
+      "title": "DTMF 実装整合: DtmfMethod 一元化 + method 反映 + DtmfSent{Ok} 経路",
       "status": "resolved",
       "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-08-24T04:12:12.595Z",
-          "answer": "A: AccountEntry.registration を typed RegistrationState 化。Mock 初期値 Disabled/Idle 修正。M20 変換器（m20_registr_cmd_pat.rs）が NativeEvent(RegistrationStateChanged) を消費し registr_state_machine.rs を駆動。実 REGISTER 成功時のみ Registered へ遷移。register_on_start をランタイムで消費（更新後再登録/解除）。"
+          "resolvedAt": "2026-08-26T01:46:29.711Z",
+          "answer": "A: DtmfMethod を §20 準拠（Inband/Info/Rfc4733）の単一定義に一元化 + method を pjsua_call_send_dtmf/pjsua_call_dial_dtmf へ反映 + DtmfSent{Ok} を実コールバック/タイムアウト両経路で publish。"
         }
       ]
     },
     {
       "id": "Q6",
-      "title": "Public API expansion scope (answer/reject, send_dtmf, hangup/cancel, unsubscribe)",
+      "title": "メディア経路の完成: conf port コールバック + キュー消費/conf_connect + WAV・ファイル source",
       "status": "resolved",
-      "children": [
-        {
-          "id": "Q6a",
-          "title": "API audit findings: add answer/hangup/hold/unhold/transfer/send_dtmf/call_state(call_id), unsubscribe decision",
-          "status": "resolved",
-          "children": [],
-          "questions": [
-            {
-              "resolvedAt": "2026-08-24T04:02:08.421Z",
-              "answer": "監査結果: SipClient に answer(call_id,code 180/183/200/486/603)/hangup(call_id,reason)/hold/unhold/transfer(call_id,target)/send_dtmf(call_id,digits,method)/call_state(call_id)->CallState を追加。現行 call_state()->Vec<CallEntry> とシグネチャ衝突 → 整合が必要。unsubscribe は明示 API or drop 依存を設計判断。"
-            }
-          ]
-        },
-        {
-          "id": "Q6b",
-          "title": "call_state signature reconciliation (RFC per-call call_state(call_id) vs existing list call_state())",
-          "status": "resolved",
-          "children": [],
-          "questions": [
-            {
-              "resolvedAt": "2026-08-24T04:12:12.931Z",
-              "answer": "A: 現行 call_state() -> Vec<CallEntry> を calls() に改名。新設 call_state(call_id) -> Result<CallState, SipError> が §19 の正名を引き継ぐ。"
-            }
-          ]
-        }
-      ],
+      "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-08-24T04:01:13.713Z",
-          "answer": "A+ユーザー指示: 公開 API を全追加（SipClient::answer/reject/send_dtmf/hangup/unsubscribe）。decline 486/603 を受理。API 漏れの完全性監査を実施し必要分を追加。"
+          "resolvedAt": "2026-08-26T01:46:29.741Z",
+          "answer": "A: メディア経路を完全設計。conf port メディアコールバック → push_media_frame → tap 駆動 + out/in_queue 消費（RustMediaPort）+ conf_connect を call connect 時に実行 + WAV/ファイル source 実装 + マイク source の位置づけ明記。"
         }
       ]
     },
     {
       "id": "Q7",
-      "title": "Media path architecture (per-call AudioMixer, IN/OUT/BOTH routing, tap push, mic source)",
+      "title": "STUN/TURN/ICE 配線: stun_srv / turn_cfg / media_ice 反映",
       "status": "resolved",
       "children": [
         {
           "id": "Q7a",
-          "title": "Unified audio injection API with channel-direction flag (IN/OUT/BOTH)",
+          "title": "coturn による TURN/STUN プロトコルレベルテスト設計",
           "status": "resolved",
           "children": [],
           "questions": [
             {
-              "resolvedAt": "2026-08-24T04:12:12.864Z",
-              "answer": "A: SipClient::add_audio_source(call_id, source, channels: ChannelSelector) を公開。ChannelSelector ∈ {In, Out, Both}。単一コマンド AddAudioSource{call_id, channels} を submit し、reactor 内部で IN 経路（受話取得）と OUT 経路（送話 mix&送信）に分岐。"
+              "resolvedAt": "2026-08-26T01:50:12.540Z",
+              "answer": "A: STUN binding 成功 + TURN allocate 成功 + relay candidate 経由のメディア転送確認まで含むプロトコルレベル統合テストを設計。coturn を Docker で起動。"
             }
           ]
         }
       ],
       "questions": [
         {
-          "resolvedAt": "2026-08-24T04:01:13.784Z",
-          "answer": "A+ユーザー指示: per-call AudioMixer + 初期化時 AudioWorkerTask spawn + AddAudioSource に call_id 付与。IN/OUT/BOTH は独立経路だが、注入方法はチャネルフラグ（IN/OUT/BOTH）で切替可能な統一 API を採用。"
+          "resolvedAt": "2026-08-26T01:46:29.770Z",
+          "answer": "A + coturn 必須: stun_servers → pjsua_config.stun_srv、turn_servers → pjsua_config.turn_cfg、ice → media ICE へ反映する配線を今回設計。検証は Docker で coturn を起動しプロトコルレベルでテスト。docker 使用可能時のみ実行。"
         }
       ]
     },
     {
       "id": "Q8",
-      "title": "Shutdown sequence production wiring (ShutdownSpec, ClientShutdown event, command router)",
+      "title": "Examples 設計: E1-E5 の確定",
       "status": "resolved",
       "children": [],
       "questions": [
         {
-          "resolvedAt": "2026-08-24T04:12:12.660Z",
-          "answer": "A: reactor Shutdown アームから ShutdownSpec.execute_sequence を非同期呼び出し（PhaseTimeout 含む BYE/CANCEL→unregister→audio drain→pjsua_destroy）。ClientShutdown イベントを publish。ShutdownCommandRouter を is_shutting_down ゲート付きでコマンド受信ループに接続。"
+          "resolvedAt": "2026-08-26T01:46:29.800Z",
+          "answer": "A: E1-E5 を本ラウンドで完全設計（契約・テスト・Asterisk 検証手順を含む）。共通 examples/common/cli.rs と client.rs を利用。"
         }
       ]
     },
     {
       "id": "Q9",
-      "title": "Error conversion native_status preservation (M20 converters on production path)",
+      "title": "Docker/Asterisk 実 SIP 統合テスト基盤（Layer 4 検証の必須化）",
       "status": "resolved",
-      "children": [],
+      "children": [
+        {
+          "id": "Q9a",
+          "title": "統合テストの配置と実行方式（crate/feature/ignore）",
+          "status": "resolved",
+          "children": [],
+          "questions": [
+            {
+              "resolvedAt": "2026-08-26T01:50:12.571Z",
+              "answer": "A: siprs の tests/ に #![cfg(feature = \"pjsua-native\")] ゲート付きで配置し、各テスト冒頭で docker 可用性チェック（不可時は明示スキップ）。実行は cargo test --features pjsua-native。"
+            }
+          ]
+        },
+        {
+          "id": "Q9b",
+          "title": "Docker オーケストレーション方式（docker CLI/compose/testcontainers）",
+          "status": "resolved",
+          "children": [],
+          "questions": [
+            {
+              "resolvedAt": "2026-08-26T01:50:12.602Z",
+              "answer": "B: docker-compose.yml で Asterisk/coturn を定義し、Makefile ターゲット（make test-integration）で docker compose up -d → テスト → down。"
+            }
+          ]
+        },
+        {
+          "id": "Q9c",
+          "title": "docker 可用性ゲートのスキップ意味論",
+          "status": "resolved",
+          "children": [],
+          "questions": [
+            {
+              "resolvedAt": "2026-08-26T01:50:12.633Z",
+              "answer": "A: docker 不可時は [SKIPPED: docker unavailable] を明示ログ出力してスキップ（成功扱い）。CI では docker があるため常に実行され実質ゲート。"
+            }
+          ]
+        }
+      ],
       "questions": [
         {
-          "resolvedAt": "2026-08-24T04:12:12.731Z",
-          "answer": "A: SipError.native_status を i32 保持。reactor 経路のエラー変換で m20_runtime_command_error.rs の M20 converter を呼び出し pjsua_status→native_status 写像を §14.1 テーブル準拠で一元化。backend.rs の文字列埋め込みを排除。"
+          "resolvedAt": "2026-08-26T01:46:29.832Z",
+          "answer": "A + docker ゲート: Docker/Asterisk 実 SIP 統合テスト基盤を RFC に設計追補。テストコードは docker が使用可能状態かをチェックし、使用可能な場合のみ実行する。CI では必須ゲート。coturn も同様のゲートで TURN プロトコルレベルテスト。"
         }
       ]
     }

@@ -4150,3 +4150,398 @@ fn map_native_error(status: pjsip_status_code, detail: &str) -> SipError {
 | 62.8 エラー変換 | `pjsip_status_code` | `SipError{native_status}` | N0016 error_design_siperror, N0017 m20_runtime_command_error |
 
 **削除対象の整理（boundify が Prune するファイル）**: 旧 `src/config.rs` の `ClientConfig` / `StunServerConfig`、`src/runtime/backend.rs` の `MockBackend` 生産実装、`reactor.rs:74-75` の Mock 無条件生成。`src/config/client_config_spec.rs` と `src/config/transport_ice_spec.rs` が唯一の設定型定義となる。
+
+### 62.10 ラウンド 2 進化スコープと根因（H1 / H5 / H7 / H8 / H10–H15 / EXAMPLES）
+
+> 本節はラウンド 1（§62.1–62.8）で解決しきれなかった RESIDUE（H1 / H5 / H7 / H8 / H10–H15 / EXAMPLES）を解消する設計判断を記す。ラウンド 1 が「公開 API の一本化・バックエンド選択・イベントバス統合」を確定したのに対し、ラウンド 2 は「**本番 FFI 経路の実配線**」と「**実 SIP / TURN サーバによる相互接続検証**」を確定する。設計コンテキストの取得コマンド: `node .claude/scripts/drill-rfc-down/tree-query.js drills tree`（drills/DesignTree.json に全決定の根拠が残る）。
+
+残る RESIDUE の根因は 5 つに集約される:
+
+1. **本番 FFI 経路の未配線** — `config.transports` / `stun_servers` / `turn_servers` / `ice` が `pjsua_config` / `pjsua_transport_create` へ一切反映されない（H1 / H15）。FFI コールバックは lock-free キューへ push するが drain するコードが存在しない（H8）。
+2. **ライフサイクル未接続** — `register_on_start` が `add_account` 時・起動時に読まれない（H5）。`remove_account` に unregister 先行手順がなく `AccountRemoved` が publish されない（H7）。着信 `IncomingCall` が `ClientState.calls` に登録されない（H10）。
+3. **重複・不一致** — `DtmfMethod` が 3 箇所に重複定義されバリアントが不一致（H12）。`CallRejected` が一切生成されない（H11）。`convert_call_state` が inv_state 5 状態のみ（H11）。P1/P2 変換器が全て `None`（H8）。
+4. **メディア経路未接続** — conf port メディアコールバックが未配線で `push_media_frame` を呼ぶコードがゼロ（H13）。`out_queue` / `in_queue` を消費する経路がゼロ（H14）。
+5. **検証基盤の未定義** — 実 SIP / TURN サーバとの相互接続テスト基盤が設計されていない（EXAMPLES / 本ラウンド確定）。
+
+**全体方針**: 本ラウンドの設計判断は「**完全実装 + v0.x で破壊的変更を受容した統一 + 実 Asterisk / coturn との相互接続テストで完全動作を保証**」である。破壊的変更（`RegistrationSucceeded`/`Failed` 削除、`CallRejected` 削除、`DtmfMethod` の `SipInfo`→`Info` 改名）は v0.x 開発期の今一度に完了させ、後方互換のための残骸を残さない。統合テストは docker 可用性ゲート付きとし、docker が使用可能な場合のみ実行する（ローカル開発を壊さず CI では実質必須ゲート）。
+
+### 62.11 本番バックエンド基盤: トランスポート生成配線と bindgen 整合方針（Q1）
+
+**決定**: `PjsuaBackend::initialize` が `config.transports` を列挙し、各 `TransportConfig`（§12）の種別（UDP / TCP / TLS）と bind_addr ポートを `pjsua_transport_create` へ反映する。生成した `pjsua_transport_id` は `PjsuaBackend.transport_ids` に保持し、シャットダウン（§32 手順 5）で破棄する。`pjsua-native` ビルド修復（39 エラー）は、bindgen allowlist とコード期待の整合方針（§27 / §28 追補）として RFC に明記し、具体エラーの対処は実装チケットで解決する。
+
+```rust
+// src/runtime/backend.rs — PjsuaBackend::initialize のトランスポート配線（Q1）
+fn initialize(&mut self, config: &ClientConfig) -> Result<(), SipError> {
+    ffi::backend_calls::initialize()?;
+    for transport in &config.transports {
+        let native_transport_id = self.create_native_transport(transport)?;
+        self.transport_ids.push(native_transport_id);
+    }
+    Ok(())
+}
+
+fn create_native_transport(&self, transport: &TransportConfig) -> Result<pjsua_transport_id, SipError> {
+    let (kind, bind_addr) = match transport {
+        TransportConfig::Udp(cfg)  => (ffi::PJSIP_TRANSPORT_UDP, cfg.bind_addr),
+        TransportConfig::Tcp(cfg)  => (ffi::PJSIP_TRANSPORT_TCP, cfg.bind_addr),
+        #[cfg(feature = "tls")]
+        TransportConfig::Tls(cfg)  => (ffi::PJSIP_TRANSPORT_TLS, cfg.bind_addr),
+    };
+    ffi::backend_calls::transport_create(kind, bind_addr)
+}
+
+// src/ffi/backend_calls.rs — pjsua_transport_create へ種別・ポートを反映（null config を廃止）
+pub fn transport_create(kind: c_int, bind_addr: SocketAddr) -> Result<pjsua_transport_id, SipError> {
+    let mut cfg = pjsua_transport_config::default();
+    cfg.port = bind_addr.port();
+    cfg.bound_addr = if bind_addr.ip().is_unspecified() {
+        CString::new("").map_err(|_| SipError::invalid_argument("empty bound_addr"))?
+    } else {
+        CString::new(bind_addr.ip().to_string())
+            .map_err(|_| SipError::invalid_argument("invalid bound_addr"))?
+    };
+    let mut tid: pjsua_transport_id = -1;
+    let status = unsafe { pjsua_transport_create(kind, &mut cfg, &mut tid) };
+    map_pjsua_status(status, "pjsua_transport_create")?;   // §62.8: native_status 保持
+    Ok(tid)
+}
+```
+
+**bindgen 整合方針（§28 追補）**: ビルド修復は以下の 4 項目の allowlist / コード期待の整合で構成する。(1) 定数 `PJ_SUCCESS` 等を bindgen allowlist に追加し、コード側の期待（`c_int` 定数）と一致させる。(2) `pjsua_acc_config` に `registrar_uri` が現れるよう struct のフィールド allowlist を拡張する。(3) `SecretString::expose_secret` を実装し、TURN パスワード等の機微値を PJSIP へ渡す経路を確立する。(4) `pjsip_inv_state` / `pjsua_call_media_status` を constified enum モジュールとして適用し、§18 / §20 の状態変換（§62.14 / §62.15）が定数を参照できるようにする。
+
+**I/O 境界**: 入力 = `ClientConfig.transports: Vec<TransportConfig>`（§12）／出力 = `Vec<pjsua_transport_id>`（native transport id 一覧、シャットダウンで破棄）。`transport_create` が種別・ポートを PJSIP へ反映し、失敗時は `SipError`（`native_status` 付き、§62.8）を返す。`pjsua-native` ビルド修復は §27 / §28 の build.rs 戦略に属する。
+
+### 62.12 登録・アカウント経路: register_on_start 自動登録 / remove_account unregister 先行 / AccountRemoved publish（Q2）
+
+**決定**: (1) `register_on_start: true` を `add_account` 時にも消費し、アカウント追加直後に自動 REGISTER を発行する（クライアント起動時のアカウント復元でも同様に消費する）。(2) `RegistrationSucceeded` / `RegistrationFailed` を `SipEventPayload` enum から完全削除し、登録結果の通知は `RegistrationStateChanged`（`Registered` / `Failed` 遷移）に統一する。`examples/account_register.rs` と README の待ち受けイベントを `RegistrationStateChanged` へ修正する。(3) `remove_account` は unregister を先行実行してから `backend.remove_account` → `ClientState` からの除去を行い、`AccountRemoved(AccountSnapshot)` を publish する。
+
+```rust
+// src/runtime/reactor.rs — AddAccount アーム: register_on_start の自動登録（Q2）
+async fn handle_add_account(&self, config: AccountConfig) -> Result<AccountId, SipError> {
+    let native_id = self.backend.add_account(&config)?;
+    let account_id = self.state.write().await.insert_account(config.clone(), native_id)?;
+    if config.register_on_start {
+        self.backend.set_registration(account_id, true)?;   // 自動登録（§17.1）
+    }
+    Ok(account_id)
+}
+
+// src/runtime/reactor.rs — RemoveAccount アーム: unregister 先行 → 除去 → AccountRemoved（Q2）
+async fn handle_remove_account(&self, id: AccountId) -> Result<(), SipError> {
+    self.backend.set_registration(id, false)?;                       // ① unregister 先行
+    self.backend.remove_account(id)?;                                // ② backend 除去
+    let snapshot = self.state.write().await.remove_account(id)?;     // ③ ClientState 除去
+    self.dispatch_event(SipEvent {
+        meta: EventMeta::account(id),
+        payload: SipEventPayload::AccountRemoved(snapshot),
+    }).await;                                                         // ④ AccountRemoved publish
+    Ok(())
+}
+```
+
+**破壊的変更の影響範囲**: `SipEventPayload` から `RegistrationSucceeded(RegistrationInfo)` / `RegistrationFailed(RegistrationInfo)` を削除する。これらのバリアントを参照する README / example / テストは `RegistrationStateChanged` へ統一する。API 互換のための残骸（deprecated 別名等）は残さない。
+
+**I/O 境界**: 入力 = `AccountConfig.register_on_start`（§11）+ `RuntimeCommand::AddAccount` / `RemoveAccount` ／出力 = `backend.set_registration(id, enabled)` 呼び出し、`AccountRemoved(AccountSnapshot)` publish、`RegistrationStateChanged` へのイベント統一。`registr_state_machine::transition`（§62.4）が登録状態遷移を引き続き一元的に決定する。
+
+### 62.13 イベント経路の完成: FFI キュー drain / raw SIP publisher / P1/P2 変換器（Q3）
+
+**決定**: (1) FFI コールバックが push する lock-free キュー（§27）をドレインするタスクを reactor に追加し、`NativeEvent` を M20 変換器経由でイベントバスへ統合する（P8-21 のスコープを RFC 設計として確定）。(2) `subscribe_raw_sip()` の受信チャネルへ `RawSipMessage`（§16）を供給する raw SIP publisher を実装する。FFI の `on_rx_msg` コールバックから生メッセージを読み取り、`publish_raw_sip` 経由で受信者へ配信する。(3) P1/P2 系イベント変換器（`m20_native_event_conv.rs`）を `Some()` 化し、実コールバック由来のイベント系列を publish できるようにする。
+
+```rust
+// src/runtime/reactor.rs — FFI キュー drain タスク（P8-21 スコープ確定）
+async fn spawn_native_event_drain(&self) {
+    let receiver = ffi::callback::event_queue_receiver();
+    while let Some(native_event) = receiver.recv().await {
+        self.process_native_event(native_event).await;   // M20 変換 + dispatch（§62.4）
+    }
+}
+
+// src/runtime/reactor.rs — raw SIP publisher（Q3）
+async fn process_raw_sip(&self, raw: RawSipMessage) {
+    if self.raw_sip_publisher.send(raw).await.is_err() {
+        log::warn!("raw SIP subscriber dropped; message discarded");
+    }
+}
+
+// src/ffi/callback.rs — on_rx_msg: 生メッセージを raw SIP キューへ供給（§16）
+extern "C" fn on_rx_msg(rdata: *mut pjsip_rx_data) {
+    let raw = read_raw_message(rdata);   // 生 SIP メッセージ（ヘッダ + body、§16 の redact 規則）
+    let _ = RAW_SIP_QUEUE.try_push(raw);
+}
+```
+
+**I/O 境界**: 入力 = FFI コールバック（`on_incoming_call` / `on_reg_state` / `on_call_state` / `on_rx_msg` 等）+ lock-free キュー ／出力 = `NativeEvent` → M20 変換 → `SipEventPayload`（3 種の subscribe receiver）、`RawSipMessage` → raw SIP receiver。`event_queue_receiver` が FFI と reactor の境界を担う。
+
+### 62.14 着信・通話イベント: IncomingCall CallEntry 登録 / answer 修正 / CallRejected 統一 / CallState 全遷移（Q4）
+
+**決定**: (1) `on_incoming_call` コールバック由来の `NativeEvent::IncomingCall` を reactor が `ClientState.calls` に `CallEntry`（`CallDirection::Incoming`、account 解決済み）として登録する。(2) `handle_answer` を修正し、`CallEntry` から account_id を解決して `backend.answer` を呼び、200 応答で `CallState::Active` へ遷移させ `CallConnected` を publish する。(3) `CallRejected` を `SipEventPayload` から削除し、reject（486 / 603）は `CallDisconnected` として観測されることを確定する。`SipCall` の偽ドキュメント（「`answer_call()` で生成」）を「`make_call()` で生成、着信は `IncomingCall` イベントで通知」に修正する。(4) `convert_call_state` を拡張し、PJSIP inv_state の 5 状態 + `CallMediaStateChanged` から `CallState` 全 13 状態（§18）へのマッピングを `Some()` 化する。
+
+```rust
+// src/runtime/reactor.rs — IncomingCall: ClientState.calls への登録（Q4）
+async fn process_incoming_call(&self, info: IncomingCallInfo) {
+    let entry = CallEntry {
+        id: info.call_id,
+        account_id: info.account_id,
+        direction: CallDirection::Incoming,
+        state: CallState::Incoming,
+        remote_uri: info.remote_uri,
+        native_id: Some(info.native_call_id),
+    };
+    self.state.write().await.insert_call(entry);
+    self.dispatch_event(SipEvent {
+        meta: EventMeta::call(info.account_id, info.call_id),
+        payload: SipEventPayload::IncomingCall(IncomingCallEvent {
+            call_id: info.call_id,
+            account_id: info.account_id,
+            remote_uri: info.remote_uri,
+        }),
+    }).await;
+}
+
+// src/runtime/reactor.rs — handle_answer: account 解決 + 200 で CallConnected publish（Q4）
+async fn handle_answer(&self, call_id: CallId, code: u16) -> Result<(), SipError> {
+    let account_id = self.state.read().await.call_entry(&call_id)?.account_id;  // 着信も解決可能に
+    self.backend.answer(account_id, call_id, code)?;
+    if code == 200 {
+        self.state.write().await.set_call_state(call_id, CallState::Active)?;
+        self.dispatch_event(SipEvent {
+            meta: EventMeta::call(account_id, call_id),
+            payload: SipEventPayload::CallConnected(CallConnectedInfo { call_id }),
+        }).await;
+    }
+    Ok(())
+}
+```
+
+**I/O 境界**: 入力 = `NativeEvent::IncomingCall`（`on_incoming_call` 由来）/ `RuntimeCommand::Answer{call_id, code}` ／出力 = `ClientState.calls` への登録、`IncomingCall` / `CallConnected` / `CallDisconnected` publish、`CallState` 遷移（§18）。`CallEntry` の `account_id` が常に解決されることが、`calls()` / `call_state(call_id)` / `answer` の整合の前提となる。
+
+### 62.15 DTMF 実装整合: DtmfMethod 一元化 / method 反映 / DtmfSent{Ok} 経路（Q5）
+
+**決定**: (1) `DtmfMethod` を `Inband` / `Info` / `Rfc4733` の単一定義に一元化する。§20 の `SipInfo` は SIP INFO method（RFC 2976）の正名である `Info` へ改名する。3 箇所の重複定義（`account_config_spec` / `observability_metrics` / `m20_dtmfsent_twophase`）を単一の `src/model/dtmf_spec.rs` へ集約する。(2) `send_dtmf` の `method` を `pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` へ反映し、「使い分け」を実装として成立させる。`Info` / `Rfc4733` は `pjsua_call_send_dtmf`（SIP INFO / RTP イベント）、`Inband` は `pjsua_call_dial_dtmf`（Inband RFC 2833）へ割り当てる。(3) `DtmfSent { Ok }` を publish する経路を実装する。PJSIP の送信完了コールバックが確認できる場合はそれを優先し、未確認時は §20 の 500ms タイムアウトフォールバックで送出完了とみなして `DtmfSent { Ok }` を発行する（現行の「`Err(Timeout)` のみ」を解消）。
+
+```rust
+// src/model/dtmf_spec.rs — 単一定義（§20 準拠、SipInfo → Info 改名）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DtmfMethod { Inband, Info, Rfc4733 }
+
+// src/ffi/backend_calls.rs — method を PJSIP 送信へ反映（Q5）
+pub fn send_dtmf(native_call_id: pjsua_call_id, method: DtmfMethod, digits: &str) -> Result<(), SipError> {
+    let status = match method {
+        DtmfMethod::Rfc4733 | DtmfMethod::Info =>
+            unsafe { pjsua_call_send_dtmf(native_call_id, cstr(digits)) },
+        DtmfMethod::Inband =>
+            unsafe { pjsua_call_dial_dtmf(native_call_id, cstr(digits)) },
+    };
+    map_pjsua_status(status, "pjsua_call_send_dtmf")   // §62.8: native_status 保持
+}
+
+// src/api/m20_dtmfsent_twophase.rs — DtmfSent { Ok } の publish 経路（Q5）
+// PJSIP 送信完了コールバック優先、未確認時は §20 の 500ms タイムアウトで Ok とみなす。
+// → DtmfSent(DtmfSentInfo { method, digit, status: Ok(()), .. }) を publish
+```
+
+**I/O 境界**: 入力 = `RuntimeCommand::SendDtmf{call_id, digits, method}` ／出力 = `pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` 呼び出し、`DtmfSent(DtmfSentInfo)` publish（`Ok(())` / `Err(Timeout)` / `Err(PjsipError)`）。`DtmfMethod` の単一定義が §20 / 公開 API / M20 変換の全てで共有される。
+
+### 62.16 メディア経路の完成: conf port コールバック / キュー消費 / conf_connect / WAV・ファイル source（Q6）
+
+**決定**: (1) conf port メディアコールバック（`pjsua_conf_set_callback` / `put_frame`）を実装し、キャプチャフレームを `AudioTapSender::push` 経由で tap レジストリへ供給する（§62.6 の `push_media_frame` 接続を実現）。(2) `AudioWorkerInner::process_frame` が push する `out_queue` / `in_queue` を消費する実 conf port コンシューマ（RustMediaPort）を実装し、メディアをネットワーク送信 / ローカル再生へ接続する。(3) `make_call` / `answer` の call connect 時に `conf_connect` を実行し、メディア経路を確立する。(4) `AudioChunkPair` → 指定 bit / hz のステレオ WAV 変換ユーティリティ（`WavWriter`）を実装する。(5) ファイル / WAV ベースの `AsyncAudioSource`（`WavFileSource`）を実装する。(6) `open_default_microphone_source` を「注入可能なキャプチャ source（cpal による OS 既定入力の独立キャプチャ）」として明記し、2 者通話のマイク入力と混同しないことを README に明文化する。
+
+```rust
+// src/runtime/backend.rs — conf port メディアコールバック（P15-7 Layer 3+ 解消）
+fn register_conf_callback(&mut self) {
+    let ctx = Box::into_raw(Box::new(self.tap_registry.clone())) as *mut c_void;
+    unsafe {
+        pjsua_conf_set_callback(Some(conf_capture_cb), None, ctx);
+    }
+}
+
+extern "C" fn conf_capture_cb(frame: *const pjmedia_frame, ctx: *mut c_void) {
+    let registry = unsafe { &*(ctx as *const TapRegistry) };
+    registry.push_frame(frame);   // AudioTapSender::push（§62.6）→ subscribe_audio の tap を駆動
+}
+
+// 公開ユーティリティ — AudioChunkPair → WAV（H13）
+pub fn write_stereo_wav(path: &Path, chunks: &[AudioChunkPair], format: AudioFormat) -> Result<(), SipError> {
+    let mut writer = WavWriter::create(path, format)?;   // RIFF/WAVE ヘッダ + PCM16
+    for pair in chunks {
+        writer.write_stereo_pair(pair)?;                  // L=IN, R=OUT（§22 の AudioChunkPair）
+    }
+    writer.finalize()?;
+    Ok(())
+}
+```
+
+**I/O 境界**: 入力 = conf port のキャプチャ / プレイバックフレーム（`pjsua_conf_set_callback`）+ `AudioWorker` の `out_queue` / `in_queue` ／出力 = `AudioTapSender::push`（subscribe_audio の tap）、ネットワーク送信 / ローカル再生フレーム、WAV ファイル。`RustMediaPort` が `out_queue` / `in_queue` の唯一の消費点であり、`conf_connect` が call ごとのメディア接続を確立する。
+
+### 62.17 STUN/TURN/ICE 配線と coturn プロトコルレベル検証（Q7 / Q7a）
+
+**決定**: (1) `ClientConfig.stun_servers` → `pjsua_config.stun_srv`、`turn_servers` → `pjsua_config.turn_cfg`、`ice` → `pjsua_media_config` の ICE 設定（`enable_ice` / `ice_max_host_cands` / `ice_aggressive`）へ反映する配線を実装する。(2) 検証は Docker で coturn を起動し、プロトコルレベルで STUN binding 成功 + TURN allocate 成功 + relay candidate 経由のメディア転送確認まで行う（Q7a）。テストは docker 可用性ゲート付き（§62.19）。
+
+```rust
+// src/ffi/backend_calls.rs — pjsua_config への STUN/TURN 反映（Q7）
+fn apply_stun_turn(cfg: &mut pjsua_config, config: &ClientConfig) -> Result<(), SipError> {
+    if let Some(stun) = config.stun_servers.first() {
+        cfg.stun_srv = cstring(stun.uri.clone())?;            // STUN server 反映
+    }
+    if let Some(turn) = config.turn_servers.first() {
+        cfg.turn_cfg_srv = cstring(turn.uri.clone())?;        // TURN server 反映
+        cfg.turn_cfg_user = turn.username.clone().map(cstring).transpose()?;
+        cfg.turn_cfg_pass = turn.password.as_ref().map(|s| cstring(s.expose_secret().to_string())).transpose()?;
+        cfg.turn_cfg_conn_type = match turn.transport {        // UDP / TCP / TLS
+            TurnTransport::Udp => ffi::PJ_TURN_TP_UDP,
+            TurnTransport::Tcp => ffi::PJ_TURN_TP_TCP,
+            TurnTransport::Tls => ffi::PJ_TURN_TP_TLS,
+        };
+    }
+    Ok(())
+}
+
+// src/ffi/backend_calls.rs — pjsua_media_config への ICE 反映（Q7）
+fn apply_ice(cfg: &mut pjsua_media_config, ice: &IceConfig) {
+    cfg.enable_ice = ice.enabled as c_int;
+    cfg.ice_max_host_cands = ice.max_host_candidates as c_int;
+    cfg.ice_aggressive = ice.aggressive_nomination as c_int;
+}
+```
+
+**coturn 検証（Q7a）のスコープ**: Docker で coturn を起動し、(1) STUN binding（UDP エコー）が成功すること、(2) TURN allocate で relayed address が返ること、(3) 2 クライアント間で relay candidate 経由のメディア転送が成立すること、を統合テストで確認する。テスト構成は §62.19 の docker-compose（`services: coturn`）と共通基盤を使用する。
+
+**I/O 境界**: 入力 = `ClientConfig.stun_servers` / `turn_servers` / `ice`（§13）／出力 = `pjsua_config.stun_srv` / `turn_cfg_*`、`pjsua_media_config` の ICE 設定。`SecretString::expose_secret`（Q1 の bindgen 修復項目）が TURN パスワードの PJSIP への受け渡しに使用される。coturn（Docker）が検証対象サーバ。
+
+### 62.18 Examples 設計: E1–E5 の確定（Q8）
+
+**決定**: 5 つの example バイナリを確定する。`examples/common/cli.rs`（CLI パース）と `examples/common/client.rs`（add_account ヘルパー）を共通利用する。各 example は本ラウンドの実装完了（§62.11–62.17）を前提とし、実 Asterisk / TestBackend 上で検証可能な契約を持つ。`examples/common/client.rs` は `AccountConfig::for_sip_uri` を提供する（`sip:user@host` 形式の URI から `username` / `domain` を導出し、§11.1 の validation を通過する最小構成を返す）。実運用では §41.2 のとおり全フィールドを明示することもできる。
+
+```rust
+// examples/common/client.rs — 共通ヘルパー: URI から AccountConfig を構築
+impl AccountConfig {
+    /// `sip:user@host[:port]` を `username` / `domain` へ分解し、
+    /// §11.1 の validation（username / domain / password 非空）を満たす構成を返す。
+    /// ローカル Asterisk（認証なし）を対象とする example のため、password は非空のプレースホルダ。
+    pub fn for_sip_uri(uri: &str) -> Self {
+        let (username, domain) = uri
+            .strip_prefix("sip:")
+            .and_then(|rest| rest.split_once('@'))
+            .expect("expected sip:user@host");
+        Self {
+            display_name: None,
+            username: username.to_string(),
+            auth_username: None,
+            password: SecretString::new("example-secret".to_string()), // §41.2 と同様の example 値
+            domain: domain.to_string(),
+            registrar_uri: None,                   // §11.1: sip:{domain} を自動導出
+            outbound_proxy: vec![],
+            contact_params: vec![],
+            transport: AccountTransportPolicy::Prefer(TransportKind::Udp),
+            register_on_start: false,
+            allow_outbound_without_register: true,
+            registration_expires: std::time::Duration::from_secs(300),
+            codecs: AccountCodecPolicy::default_voice(),
+            dtmf: DtmfPolicy::all_methods(),
+            media: AccountMediaConfig::default(),
+            headers: vec![],
+        }
+    }
+}
+```
+
+| Example | 契約（Pre / Post / Invariant） | 検証 |
+|---------|-------------------------------|------|
+| **E1 client_init**（§41.1） | Pre: `ClientConfig` が §42 検証通過 / Post: `SipClient::new` が `Ok` を返し `ClientInitialized(ClientCapabilities)` が publish / Inv: 失敗は fail-fast `Err(InvalidConfig)` | TestBackend で完走（検証済み） |
+| **E2 account_register**（§41.2 / §17） | Pre: `register_on_start` または明示 `register()` が submit / Post: `RegistrationStateChanged == Registered` を受信 / Inv: 未登録時は `Disabled` | Asterisk（docker）で REGISTER 成功・失敗（4xx） |
+| **E3 make_call**（§41.3 / §18-19） | Pre: `OutgoingCallRequest` 全 6 フィールド検証 / Post: `make_call` が `CallId`（u64）を返し `CallConnected` を `meta.call_id` 付きで受信 / Inv: reject（486/603）は `CallDisconnected` で観測 | Asterisk（docker）で発信 + Originate/Callfile 着信 |
+| **E4 audio_tap**（§22 / §21） | Pre: `subscribe_audio(call_id, format, capacity, mode)` が tap を返す / Post: `AudioChunkPair`（L=IN / R=OUT）が交渉済み `AudioFormat` で連続生産 / Inv: `Realtime` は最古破棄、`Lossless` は producer ブロック（§22.1） | Asterisk（docker）RTP 経由で tap 駆動 + WAV 書き出し |
+| **E5 tts_source**（§23-24 / §41.5） | Pre: `AsyncAudioSource::next_chunk` が 20ms フレームを返す / Post: `add_audio_source(call_id, source, channels)` が登録し IN/OUT/BOTH へ mix / Inv: source が閉じたら自動除去 | Asterisk（docker）RTP 経由で mix 出力確認 |
+
+```rust
+// examples/E3_make_call.rs（骨子）— E3 の契約を実装
+async fn run(host: &str) -> Result<(), Box<dyn Error>> {
+    let client = SipClient::new(ClientConfig::default()).await?;
+    let account = client.add_account(AccountConfig::for_sip_uri(&format!("sip:1001@{host}"))).await?;
+    let mut events = client.subscribe();
+    let call_id = CallId::from_u64(account.make_call(OutgoingCallRequest {
+        target_uri: format!("sip:1002@{host}"),
+        ..OutgoingCallRequest::default()
+    }).await?)?;
+    loop {
+        match events.recv().await? {
+            SipEventPayload::CallConnected(_) => break,          // Post 成立
+            SipEventPayload::CallDisconnected(_) => break,       // reject 486/603 もここで観測
+            _ => {}
+        }
+    }
+    Ok(())
+}
+```
+
+**I/O 境界**: 入力 = CLI 引数（`--host` 等）+ 各 API の引数／出力 = 各イベント受信 + 終了コード。`examples/common/cli.rs` が host / 資格情報のパースを、`examples/common/client.rs` が add_account とイベント購読の共通手順を担う。
+
+### 62.19 Docker/Asterisk 実 SIP 統合テスト基盤（Q9 / Q9a-c）
+
+**決定**: (1) 実 SIP（pjsua-native）統合テストを siprs の `tests/` に `#![cfg(feature = "pjsua-native")]` ゲート付きで配置する（Q9a）。(2) Asterisk / coturn を `docker-compose.yml` で定義し、Makefile ターゲット `make test-integration` が `docker compose up -d` → テスト実行 → `docker compose down` を実行する（Q9b）。(3) 各統合テストの冒頭で docker 可用性をチェックし、不可時は `[SKIPPED: docker unavailable]` を明示ログ出力してスキップする（Q9c）。CI では docker が常に使用可能なため実質必須ゲートとなる。(4) Asterisk との相互接続は、siprs→Asterisk の発信と、Callfile / `channel originate` による Asterisk→siprs の着信の両方向をテストする（Q4 の着信 CallEntry 登録を実機で検証）。(5) coturn は STUN binding + TURN allocate + relay メディア転送をプロトコルレベルで検証する（Q7a）。
+
+```rust
+// tests/sip_integration.rs — docker 可用性ゲート（Q9c）
+fn docker_available() -> bool {
+    let ok = Command::new("docker")
+        .args(["info"]).stdout(Stdio::null()).stderr(Stdio::null())
+        .status().map(|s| s.success()).unwrap_or(false);
+    if !ok { eprintln!("[SKIPPED: docker unavailable]"); }
+    ok
+}
+
+// tests/sip_integration.rs — Asterisk への登録（Q9 + H5）
+#[tokio::test]
+#[cfg(feature = "pjsua-native")]
+async fn register_against_asterisk() {
+    if !docker_available() { return; }
+    let client = SipClient::new(ClientConfig { transports: vec![TransportConfig::udp(5060)], ..Default::default() }).await.unwrap();
+    let mut events = client.subscribe();
+    let account = client.add_account(AccountConfig {
+        register_on_start: true,
+        ..AccountConfig::for_sip_uri("sip:1001@127.0.0.1")
+    }).await.unwrap();
+    assert!(matches!(account.registration_state().await.unwrap(), RegistrationState::Registering));
+    loop {   // RegistrationStateChanged == Registered を待つ
+        if let SipEventPayload::RegistrationStateChanged(RegistrationState::Registered) = events.recv().await.unwrap().payload { break; }
+    }
+}
+
+// tests/sip_integration.rs — Asterisk → siprs の着信（Q4 / Q9 + H10）
+#[tokio::test]
+#[cfg(feature = "pjsua-native")]
+async fn incoming_call_via_originate() {
+    if !docker_available() { return; }
+    let client = SipClient::new(ClientConfig::default()).await.unwrap();
+    let account = client.add_account(AccountConfig::for_sip_uri("sip:1002@127.0.0.1")).await.unwrap();
+    let mut events = client.subscribe();
+    originate_call_to("sip:1002@127.0.0.1");   // Asterisk CLI: channel originate（着信生成）
+    if let SipEventPayload::IncomingCall(call) = events.recv().await.unwrap().payload {
+        client.answer(call.call_id, 200).await.unwrap();   // Q4: account 解決 + CallConnected
+    }
+}
+```
+
+**docker-compose.yml（骨子）**: サービス `asterisk`（PJSIP チャネル設定 sip.conf / extensions.conf をマウント、`services: asterisk`）と `coturn`（turnserver.conf をマウント、`services: coturn`）を定義する。Makefile の `test-integration` ターゲットが `docker compose up -d` → `cargo test --features pjsua-native --test sip_integration` → `docker compose down` を実行する。テストコードの docker 可用性チェック（Q9c）は、compose 未起動時の明示スキップを担う。
+
+**I/O 境界**: 入力 = docker 可用性（`docker info`）+ Asterisk 設定（sip.conf / extensions.conf）+ coturn 設定（turnserver.conf）+ Callfile / `channel originate` CLI ／出力 = 統合テスト結果（PASS / SKIPPED）、実 SIP イベント系列（`RegistrationStateChanged` / `IncomingCall` / `CallConnected` / `CallDisconnected` / `AudioChunkPair`）。`#![cfg(feature = "pjsua-native")]` がコンパイル時ゲート、`docker_available()` が実行時ゲートとして二段構えで統合テストを制御する。
+
+### 62.20 I/O 境界参照情報（graphify / boundify 用）
+
+本ラウンドの各設計判断が graphify / boundify の分割判断に使う I/O 境界を下表に示す。
+
+| 設計判断 | 入力（consumes） | 出力（produces） | 関連 GRAPH ノード / ファイル候補 |
+|---------|-----------------|-----------------|------------------|
+| 62.11 トランスポート配線 | `ClientConfig.transports`（§12） | `pjsua_transport_id` 一覧、`transport_create` | backend.rs / backend_calls.rs / transport wiring |
+| 62.11 bindgen 整合方針 | bindgen allowlist + コード期待 | `pjsua_config` / `pjsua_acc_config` / 定数・enum の解決 | build.rs / ffi 層 |
+| 62.12 登録・アカウント経路 | `AccountConfig.register_on_start` / `RemoveAccount` | `set_registration` / `AccountRemoved` / `RegistrationStateChanged` | reactor.rs / registr_wiring.rs |
+| 62.13 イベント経路 | FFI lock-free キュー / `on_rx_msg` | `NativeEvent` → `SipEventPayload`、`RawSipMessage` | callback.rs / m20_native_event_conv.rs / raw sip |
+| 62.14 着信・通話イベント | `IncomingCall` / `Answer{call_id, code}` | `ClientState.calls` 登録、`CallConnected` / `CallDisconnected` | reactor.rs / m20_callstate_mapping.rs |
+| 62.15 DTMF 整合 | `SendDtmf{call_id, digits, method}` | `pjsua_call_send_dtmf` / `dial_dtmf`、`DtmfSent` | dtmf_spec.rs / m20_dtmfsent_twophase.rs |
+| 62.16 メディア経路 | conf port フレーム / `out_queue` / `in_queue` | `AudioTapSender::push`、RTP 送受信、WAV ファイル | backend.rs / audio_worker.rs / wav ユーティリティ |
+| 62.17 STUN/TURN/ICE 配線 | `stun_servers` / `turn_servers` / `ice`（§13） | `pjsua_config.stun_srv` / `turn_cfg_*`、ICE 設定 | backend_calls.rs / coturn 統合テスト |
+| 62.18 Examples E1-E5 | CLI 引数 + API 引数 | イベント受信、終了コード | examples/common/cli.rs / client.rs / E1-E5 |
+| 62.19 統合テスト基盤 | docker 可用性 + Asterisk/coturn 設定 | 統合テスト結果（PASS / SKIPPED） | tests/sip_integration.rs / docker-compose.yml / Makefile |
+
+**削除対象の整理（boundify が Prune するファイル）**: `RegistrationSucceeded` / `RegistrationFailed` を参照する dead code と `CallRejected` を publish する経路、`DtmfMethod` の重複定義（`account_config_spec.rs` / `observability_metrics.rs` の旧バリアント）。`src/model/dtmf_spec.rs` が `DtmfMethod` の単一定義となる。
+

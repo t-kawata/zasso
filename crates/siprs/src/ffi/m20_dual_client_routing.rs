@@ -18,4 +18,3 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0038: §27 M20 Dual Client PJSIP Callback Routing

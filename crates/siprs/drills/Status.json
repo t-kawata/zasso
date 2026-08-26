@@ -1,10 +1,10 @@
 {
   "state": "DONE",
-  "researchPath": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT.md",
-  "rfcPath": "/Users/kawata/shyme/zasso/crates/siprs/RFC-ROOT.md",
-  "rfcDir": "/Users/kawata/shyme/zasso/crates/siprs",
+  "researchPath": "/Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "rfcPath": "/Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "rfcDir": "/Users/sh01/shyme/zasso/crates/siprs",
   "reviewLoopCount": 0,
-  "createdAt": "2026-08-24T03:46:35.531Z",
-  "updatedAt": "2026-08-24T04:17:26.102Z",
+  "createdAt": "2026-08-26T01:21:46.412Z",
+  "updatedAt": "2026-08-26T01:55:48.496Z",
   "currentStep": "1-12"
 }

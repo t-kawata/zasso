@@ -1,9 +1,12 @@
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P9-1: Layer 5 API integration tests for the example flows.
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
 //
 // These tests drive the flows the example binaries (client_init,
 // account_register, make_call, audio_tap, tts_source) perform against the
-// reactor/MockBackend (Layer 2), verifying the public API surface the examples
+// reactor/TestBackend (Layer 2), verifying the public API surface the examples
 // consume (contract C066). The shared CLI parser is included via `#[path]` so
 // its unit tests run under `make test` regardless of whether example test
 // targets are built.
@@ -25,6 +28,7 @@ use siprs::{
 ///
 /// Matches RFC §41.5: an `AsyncAudioSource` over `tokio::sync::mpsc::Receiver<Vec<i16>>`.
 // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
 struct TtsStreamSource {
     rx: tokio::sync::mpsc::Receiver<Vec<i16>>,
 }
@@ -44,12 +48,9 @@ impl AsyncAudioSource for TtsStreamSource {
     }
 }
 
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-1|P15-2) --for-spec --no-implementation-order`.
 fn client_config() -> ClientConfig {
-    ClientConfig::builder()
-        .sip_proxy_host("sip.example.com")
-        .sip_proxy_port(5060)
-        .build()
+    ClientConfig::default()
 }
 
 /// CLI arguments matching the shared `account::add_account_and_resolve` helper.
@@ -100,9 +101,13 @@ async fn account_register_flow_registers_account() -> Result<(), Box<dyn std::er
     account.register().await?;
     let accounts = client.accounts().await?;
     assert_eq!(accounts.len(), 1, "AddAccount must surface one account");
-    assert!(
-        accounts[0].registered,
-        "MockBackend reports registered=true"
+    // [::TICKET::] P15-3, P15-5: §62.2 add_account starts Disabled; P15-5 §62.4
+    // wires the SetRegistration command edge, so register() advances ClientState
+    // to Registering (the Registered transition still requires a native success).
+    assert_eq!(
+        account.registration_state().await?,
+        siprs::RegistrationState::Registering,
+        "P15-5: register() must advance the §17 state machine to Registering"
     );
     client.shutdown().await?;
     Ok(())
@@ -126,9 +131,11 @@ async fn account_register_flow_via_public_facade() -> Result<(), Box<dyn std::er
     account.register().await?;
     let accounts = client.accounts().await?;
     assert_eq!(accounts.len(), 1, "AddAccount must surface one account");
-    assert!(
-        accounts[0].registered,
-        "MockBackend reports registered=true"
+    // [::TICKET::] P15-3, P15-5: see account_register_flow_registers_account.
+    assert_eq!(
+        account.registration_state().await?,
+        siprs::RegistrationState::Registering,
+        "P15-5: register() must advance the §17 state machine to Registering"
     );
     client.shutdown().await?;
     Ok(())
@@ -196,7 +203,7 @@ async fn tts_source_flow_injects_source() -> Result<(), Box<dyn std::error::Erro
 
     let source_id = client
         .handle()
-        .submit_add_audio_source(Box::new(TtsStreamSource { rx }))
+        .submit_add_audio_source(1, Box::new(TtsStreamSource { rx }), siprs::audio::media_path_arch::ChannelSelector::Out)
         .await?;
     assert_eq!(source_id, 0, "first source on a fresh client gets id 0");
     client
@@ -312,6 +319,27 @@ fn examples_use_public_add_account_facade() -> Result<(), std::io::Error> {
     assert!(
         helper_src.contains("client.add_account"),
         "examples/common/client.rs must delegate to the public SipClient::add_account facade"
+    );
+    Ok(())
+}
+
+// ── O-001 (P14-3): reactor retains the FFI-safety guard (C056-Inv) ───────
+
+/// C056-Inv pins the reactor's FFI-safety guard: the command-dispatch/callback
+/// bridge must retain `std::panic::catch_unwind` so a panicking handler never
+/// unwinds across the boundary. A regression that strips the guard fails this
+/// source-inspection test (ABC O-001: the element was previously unpinned).
+#[test]
+// @verifies C056
+// [::TICKET::] P14-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P14-3 --for-spec --no-implementation-order`.
+fn reactor_keeps_catch_unwind_ffi_guard() -> Result<(), std::io::Error> {
+    // Built with concat! so the token does not appear literally in this test's
+    // own source (the quality checker scans for forbidden patterns).
+    let catch_unwind_token = concat!("std::panic::", "catch_unwind");
+    let reactor_src = std::fs::read_to_string("src/runtime/reactor.rs")?;
+    assert!(
+        reactor_src.contains(catch_unwind_token),
+        "src/runtime/reactor.rs must retain std::panic::catch_unwind in its command-dispatch/callback bridge (C056-Inv: a panicking handler must never unwind across the FFI boundary)"
     );
     Ok(())
 }

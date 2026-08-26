@@ -233,6 +233,17 @@
                   "title": "62.1 公開設定 API の一本化（ClientConfig / STUN/TURN/ICE）"
                 }
               ]
+            },
+            {
+              "name": "stun_turn_ice_wiring.rs",
+              "type": "file",
+              "kind": "config",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0086",
+                  "title": "62.17 STUN/TURN/ICE 配線と coturn 検証"
+                }
+              ]
             }
           ]
         },
@@ -460,6 +471,28 @@
                 {
                   "nodeId": "N0074",
                   "title": "62.5 公開 API 拡充（通話 API 群）"
+                }
+              ]
+            },
+            {
+              "name": "incoming_call_events.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0083",
+                  "title": "62.14 着信・通話イベント"
+                }
+              ]
+            },
+            {
+              "name": "dtmf_unification.rs",
+              "type": "file",
+              "kind": "api_contract",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0084",
+                  "title": "62.15 DTMF 実装整合"
                 }
               ]
             }
@@ -795,6 +828,17 @@
                   "title": "62.7 シャットダウン手順の production 配線"
                 }
               ]
+            },
+            {
+              "name": "reg_account_lifecycle.rs",
+              "type": "file",
+              "kind": "state_machine",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0081",
+                  "title": "62.12 登録・アカウント経路"
+                }
+              ]
             }
           ]
         },
@@ -934,6 +978,17 @@
                 }
               ],
               "declarationStub": "#[cfg(test)]\nmod tests {\n\tuse super::*;\n\n\t#[test]\n\tfn test_example() {\n\t\t// TODO: write test\n\t}\n}"
+            },
+            {
+              "name": "docker_asterisk_it.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0088",
+                  "title": "62.19 Docker/Asterisk 実 SIP 統合テスト基盤"
+                }
+              ]
             }
           ]
         },
@@ -986,6 +1041,17 @@
                   "title": "62.2 バックエンド選択機構（PjsuaBackend 完全統一・MockBackend 削除）"
                 }
               ]
+            },
+            {
+              "name": "event_path_wiring.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0082",
+                  "title": "62.13 イベント経路の完成"
+                }
+              ]
             }
           ]
         },
@@ -1016,6 +1082,17 @@
                   "title": "62.6 メディア経路アーキテクチャと統一音声注入"
                 }
               ]
+            },
+            {
+              "name": "media_path_wiring.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0085",
+                  "title": "62.16 メディア経路の完成"
+                }
+              ]
             }
           ]
         },
@@ -1044,6 +1121,17 @@
                 {
                   "nodeId": "N0038",
                   "title": "§27 M20 Dual Client PJSIP Callback Routing"
+                }
+              ]
+            },
+            {
+              "name": "transport_wiring.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0080",
+                  "title": "62.11 トランスポート生成配線と bindgen 整合方針"
                 }
               ]
             }
@@ -1105,6 +1193,39 @@
                 {
                   "nodeId": "N0078",
                   "title": "62.9 I/O 境界参照情報（graphify / boundify 用）"
+                }
+              ]
+            },
+            {
+              "name": "round2_scope_rootcause.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0079",
+                  "title": "62.10 ラウンド 2 進化スコープと根因"
+                }
+              ]
+            },
+            {
+              "name": "examples_e1e5.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0087",
+                  "title": "62.18 Examples 設計"
+                }
+              ]
+            },
+            {
+              "name": "io_boundary_round2.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0089",
+                  "title": "62.20 I/O 境界参照情報"
                 }
               ]
             }

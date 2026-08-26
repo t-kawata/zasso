@@ -8,7 +8,7 @@
 
 use std::fmt;
 
-use siprs::ClientConfig;
+use siprs::{ClientConfig, StunServerConfig};
 
 /// The shared usage message printed when arguments are missing or invalid.
 pub const USAGE_TEMPLATE: &str =
@@ -105,17 +105,16 @@ pub fn parse<S: Into<String>>(args: impl IntoIterator<Item = S>) -> Result<CliAr
 
 /// Build a `ClientConfig` from the shared CLI arguments.
 ///
-/// `--host` and `--port` always parse to a config that passes
-/// `config.validate()`; `--stun` is forwarded to the builder when present.
+/// `--stun` is forwarded to `stun_servers` (RFC §13). The legacy
+/// `--host`/`--port` SIP-proxy fields have no RFC §10 `ClientConfig`
+/// equivalent — the SIP proxy is configured per-account via `AccountConfig` —
+/// so the remaining fields use the RFC defaults (which pass §42 validation).
 pub fn build_client_config(args: &CliArgs) -> ClientConfig {
-    let builder = ClientConfig::builder()
-        .sip_proxy_host(args.host.clone())
-        .sip_proxy_port(args.port);
-    match &args.stun {
-        Some(uri) => builder.stun_server(uri.clone()),
-        None => builder,
+    let mut config = ClientConfig::default();
+    if let Some(uri) = &args.stun {
+        config.stun_servers.push(StunServerConfig { uri: uri.clone() });
     }
-    .build()
+    config
 }
 
 /// Reject an empty `--host` before any network I/O.
@@ -241,7 +240,8 @@ mod tests {
 
     #[test]
     // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
-    fn build_client_config_maps_host_port_stun() {
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+    fn build_client_config_maps_stun_to_stun_servers() {
         let cli = CliArgs {
             host: "sip.example.com".into(),
             port: 5060,
@@ -249,11 +249,18 @@ mod tests {
             ..CliArgs::default()
         };
         let config = build_client_config(&cli);
-        assert_eq!(config.sip_proxy_host, "sip.example.com");
-        assert_eq!(config.sip_proxy_port, 5060);
         assert_eq!(
-            config.stun_server.as_deref(),
-            Some("stun:stun.l.google.com:19302")
+            config.stun_servers.len(),
+            1,
+            "RFC §13 stun_servers must carry the --stun URI"
+        );
+        assert_eq!(
+            config.stun_servers[0].uri,
+            "stun:stun.l.google.com:19302"
+        );
+        assert!(
+            config.validate().is_ok(),
+            "RFC §10 ClientConfig built from CLI args must pass §42 validation"
         );
     }
 

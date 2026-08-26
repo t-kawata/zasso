@@ -1,3 +1,5 @@
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
 // AI TTS source injection (RFC §41.5): implement a TtsStreamSource that yields
 // PCM frames from an mpsc channel, add it to the client's audio mixer, and set
 // its gain.
@@ -57,7 +59,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, rx) = tokio::sync::mpsc::channel::<Vec<i16>>(FRAME_QUEUE_CAPACITY);
     let source_id = client
         .handle()
-        .submit_add_audio_source(Box::new(TtsStreamSource { rx }))
+        .submit_add_audio_source(
+            1,
+            Box::new(TtsStreamSource { rx }),
+            siprs::audio::media_path_arch::ChannelSelector::Out,
+        )
         .await?;
     let gain = args.gain.unwrap_or(DEFAULT_GAIN);
     client

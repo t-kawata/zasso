@@ -18,4 +18,3 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0037: §27 PJSIP FFI Layer Architecture

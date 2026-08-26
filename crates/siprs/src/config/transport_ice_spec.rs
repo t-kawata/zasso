@@ -110,6 +110,9 @@ impl Default for TlsConfig {
 }
 
 /// ICE (Interactive Connectivity Establishment) configuration.
+///
+/// Defaults follow RFC §13 (RFC-ROOT.md L584-593): ICE enabled with aggressive
+/// nomination and up to 16 host candidates.
 #[derive(Debug, Clone, PartialEq)]
 pub struct IceConfig {
     /// Enable ICE for media transport negotiation.
@@ -121,30 +124,33 @@ pub struct IceConfig {
     /// Enable ICE renomination (re-nominate on candidate changes).
     pub renomination: bool,
     /// Maximum number of host candidates to gather.
-    pub max_host_candidates: u8,
+    pub max_host_candidates: usize,
 }
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
 impl Default for IceConfig {
     // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
-            enabled: false,
-            aggressive_nomination: false,
+            enabled: true,
+            aggressive_nomination: true,
             trickle_ice: false,
             renomination: false,
-            max_host_candidates: 5,
+            max_host_candidates: 16,
         }
     }
 }
 
 /// A STUN server configuration for NAT traversal.
+///
+/// RFC §13 (RFC-ROOT.md L596-598): a STUN server is identified by a single URI
+/// (e.g. `stun:stun.example.com:3478`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct StunServerConfig {
-    /// Server hostname or IP address.
-    pub host: String,
-    /// Server port (typically 3478 for STUN).
-    pub port: u16,
+    /// Server URI (e.g. `stun:stun.example.com:3478`).
+    pub uri: String,
 }
 
 /// Transport protocol for TURN relay connections.
@@ -156,16 +162,18 @@ pub enum TurnTransport {
 }
 
 /// A TURN server configuration for relay-based NAT traversal.
+///
+/// RFC §13 (RFC-ROOT.md L600-605): a TURN server is identified by a URI with
+/// optional credentials. The username/password are optional so that a TURN
+/// server can be configured without authentication.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TurnServerConfig {
-    /// Server hostname or IP address.
-    pub host: String,
-    /// Server port (typically 3478 for TURN).
-    pub port: u16,
+    /// Server URI (e.g. `turn:turn.example.com:3478`).
+    pub uri: String,
     /// TURN authentication username.
-    pub username: String,
+    pub username: Option<String>,
     /// TURN authentication password (zeroed on drop when zeroize feature is active).
-    pub password: SecretString,
+    pub password: Option<SecretString>,
     /// Transport protocol for TURN relay.
     pub transport: TurnTransport,
 }
@@ -248,14 +256,16 @@ mod tests {
 
     #[test]
     // @verifies C016
+    // @verifies C081  -- invariant: §13 ICE defaults (enabled/aggressive_nomination/max_host_candidates)
     // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
     fn ice_config_default_values() {
         let ice = IceConfig::default();
-        assert!(!ice.enabled);
-        assert!(!ice.aggressive_nomination);
-        assert!(!ice.trickle_ice);
-        assert!(!ice.renomination);
-        assert_eq!(ice.max_host_candidates, 5);
+        assert!(ice.enabled, "RFC §13: enabled=true");
+        assert!(ice.aggressive_nomination, "RFC §13: aggressive_nomination=true");
+        assert!(!ice.trickle_ice, "RFC §13: trickle_ice=false");
+        assert!(!ice.renomination, "RFC §13: renomination=false");
+        assert_eq!(ice.max_host_candidates, 16, "RFC §13: max_host_candidates=16");
     }
 
     #[test]
@@ -290,29 +300,31 @@ mod tests {
 
     #[test]
     // @verifies C016
+    // @verifies C081  -- precondition: N0015 defines §12/§13 shapes
     // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
     fn stun_server_config_constructs() {
         let stun = StunServerConfig {
-            host: "stun.example.com".into(),
-            port: 3478,
+            uri: "stun:stun.example.com:3478".into(),
         };
-        assert_eq!(stun.host, "stun.example.com");
-        assert_eq!(stun.port, 3478);
+        assert_eq!(stun.uri, "stun:stun.example.com:3478");
     }
 
     #[test]
     // @verifies C016
+    // @verifies C081  -- postcondition: unified §13 TurnServerConfig shape
     // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
     fn turn_server_config_constructs() {
         let turn = TurnServerConfig {
-            host: "turn.example.com".into(),
-            port: 3478,
-            username: "user".into(),
-            password: SecretString::new("pass"),
+            uri: "turn:turn.example.com:3478".into(),
+            username: Some("user".into()),
+            password: Some(SecretString::new("pass")),
             transport: TurnTransport::Udp,
         };
-        assert_eq!(turn.host, "turn.example.com");
+        assert_eq!(turn.uri, "turn:turn.example.com:3478");
         assert_eq!(turn.transport, TurnTransport::Udp);
+        assert_eq!(turn.username.as_deref(), Some("user"));
     }
 
     #[test]

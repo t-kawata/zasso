@@ -1,21 +1,22 @@
-// [::TICKET::] P13-2: O-001 closure — feature-additive build-graph invariant.
+// [::TICKET::] P13-2, P15-7: feature-additive build-graph invariant.
 //
 // The RFC §40 microphone source is gated behind the optional `cpal-input`
-// feature (Contract C051-Pre). This integration test enforces the
-// feature-additive invariant at the RESOLVED GRAPH level:
+// feature (Contract C051-Pre). P15-7 (§62.6) promotes `cpal-input` to a
+// DEFAULT feature so the microphone source connects in the default build.
+// This integration test enforces the invariant at the RESOLVED GRAPH level:
 //
-//   (1) the default build graph must resolve no `cpal` package;
-//   (2) enabling `--features cpal-input` must add `cpal` to the graph.
+//   (1) `cpal` stays an optional dependency wired only through `cpal-input`;
+//   (2) the DEFAULT build graph includes `cpal` (because cpal-input is default).
 //
 // The file is deliberately NOT gated by `#![cfg(feature = "cpal-input")]`
 // (unlike tests/verify_spec_p8_7.rs) so it compiles and runs in the DEFAULT
-// feature-off build — exactly the state whose graph must be cpal-free.
+// build — exactly the state whose graph must include cpal.
 //
 // Run:
-//   make test                          — both tests run in the feature-off build
-//   cargo test --features cpal-input    — both tests still pass
+//   make test                          — both tests run in the default build
+//   cargo test --no-default-features    — still validates the manifest wiring
 //
-// See specs/P13-2.md §Contracts C051 for the contract mapping.
+// See specs/P15-7.md §Contracts C051/C087 for the contract mapping.
 
 use std::path::Path;
 use std::process::Command;
@@ -42,28 +43,22 @@ fn cargo_toml_keeps_cpal_optional_behind_cpal_input() -> Result<(), String> {
     Ok(())
 }
 
-/// C051-Pre (O-001) — dynamic half: the resolved default graph contains no cpal,
-/// and `--features cpal-input` adds it.
+/// C051-Pre (O-001) — dynamic half: the resolved default graph includes cpal
+/// because `cpal-input` is a default feature (§62.6).
 ///
 /// Runs `cargo tree -e normal --offline --locked` against the crate manifest
 /// and inspects the resolved package nodes. `--locked` prevents Cargo.lock
 /// churn; `--offline` works because `make test` has already resolved the
 /// default graph, populating the registry cache.
 #[test]
-// [::TICKET::] P13-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P13-2 --for-spec --no-implementation-order`.
-fn default_build_graph_is_cpal_free_and_feature_adds_it() -> Result<(), String> {
+// [::TICKET::] P13-2, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P13-2|P15-7) --for-spec --no-implementation-order`.
+fn default_build_graph_includes_cpal_via_default_cpal_input() -> Result<(), String> {
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
 
     let default_tree = run_cargo_tree(&manifest, &[])?;
     assert!(
-        !contains_cpal(&default_tree),
-        "default build graph must not resolve the cpal crate; cargo tree output:\n{default_tree}"
-    );
-
-    let feature_tree = run_cargo_tree(&manifest, &["--features", "cpal-input"])?;
-    assert!(
-        contains_cpal(&feature_tree),
-        "cpal-input must add the cpal crate to the graph; cargo tree output:\n{feature_tree}"
+        contains_cpal(&default_tree),
+        "default build graph must resolve the cpal crate (cpal-input is a default feature, §62.6); cargo tree output:\n{default_tree}"
     );
     Ok(())
 }
