@@ -30,3 +30,5 @@ pub mod impl_integration_design;
 pub mod policy_reference;
 // [::TICKET::] P16-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-1 --for-spec --no-implementation-order`.
 pub mod round2_scope_rootcause;
+// [::TICKET::] P16-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-9 --for-spec --no-implementation-order`.
+pub mod examples_e1e5;
