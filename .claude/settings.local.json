@@ -919,7 +919,15 @@
       "Bash(node .claude/scripts/tickets/verify-final-contracts.js --ticket-key=\"P16-3\" --tickets=\"Tickets.json\")",
       "Bash(grep -v \"^$\")",
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P16-3\" --no-implementation-order)",
-      "Bash(git log *)"
+      "Bash(git log *)",
+      "Bash(git commit -m 'feat\\(P16-3\\): implement §62.12 registration & account lifecycle *)",
+      "Bash(grep -nE \"warning|^error\" /tmp/siprs_check.log | head -40; echo \"---COUNT---\"; grep -cE \"warning\" /tmp/siprs_check.log)",
+      "Bash(tee /Users/sh01/shyme/zasso/crates/siprs/target/stubs_scan.log)",
+      "Bash(node -e 'let d=\"\";process.stdin.on\\(\"data\",c=>d+=c\\);process.stdin.on\\(\"end\",\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(\"stub count:\", j.count\\)}\\)')",
+      "Bash(node -e 'let d=\"\";process.stdin.on\\(\"data\",c=>d+=c\\);process.stdin.on\\(\"end\",\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(\"crime count:\", j.count\\)}\\)')",
+      "Bash(node -e 'let d=\"\";process.stdin.on\\(\"data\",c=>d+=c\\);process.stdin.on\\(\"end\",\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(\"stubs:\", j.count\\)}\\)')",
+      "Bash(node -e 'let d=\"\";process.stdin.on\\(\"data\",c=>d+=c\\);process.stdin.on\\(\"end\",\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\(\"crimes:\", j.count\\)}\\)')",
+      "Bash(git fetch *)"
     ]
   }
 }
