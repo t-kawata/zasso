@@ -1,3 +1,4 @@
+// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P3-2: PJSUA FFI binding type aliases.
 //
 // When `pjsua-native` feature is enabled, this module is replaced by
@@ -85,13 +86,17 @@ mod stub_aliases {
 
     /// Initial state.
     ///
-    /// Values match `enum pjsip_inv_state` in `pjsip-ua/sip_inv.h`; the full enum
-    /// also has INCOMING=2 and EARLY=3, which no mapping consumes yet.
+    /// Values match `enum pjsip_inv_state` in `pjsip-ua/sip_inv.h`. P16-5 (§62.14)
+    /// consumes INCOMING=2 and EARLY=3 in `convert_call_state`.
     pub mod pjsip_inv_state {
         /// Before INVITE is sent or received.
         pub const NULL: u32 = 0;
         /// After INVITE is sent (outgoing).
         pub const CALLING: u32 = 1;
+        /// Incoming INVITE received (inbound call offered).
+        pub const INCOMING: u32 = 2;
+        /// Early media (183 Session Progress) received.
+        pub const EARLY: u32 = 3;
         /// After a 2xx is sent/received.
         pub const CONNECTING: u32 = 4;
         /// After ACK is sent/received.

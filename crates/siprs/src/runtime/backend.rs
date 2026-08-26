@@ -10,6 +10,12 @@ use crate::error::error_design_siperror::SipError;
 use crate::ffi::bindings;
 #[cfg(any(test, feature = "test-util"))]
 use crate::model::AccountId;
+// CallState / CallDirection are used by TestBackend::make_call (test/test-util)
+// and PjsuaBackend::make_call's pjsua-native branch.
+#[cfg(any(test, feature = "test-util", feature = "pjsua-native"))]
+use crate::state::call_state_model::CallState;
+#[cfg(any(test, feature = "test-util", feature = "pjsua-native"))]
+use crate::state::m20_callstate_mapping::CallDirection;
 use crate::runtime::command::ReactorError;
 use crate::runtime::state::{AccountEntry, CallEntry};
 
@@ -147,7 +153,7 @@ pub trait SipBackend: Send {
     /// drives the tap with real data. `call_id` is the public `CallId` value
     /// (not the native id). Implementations must be non-blocking — this is
     /// invoked from the RT media callback context.
-    // [::TICKET::] P15-7, P15-9, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P15-9|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-7, P15-9, P16-3, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P15-9|P16-3|P16-5) --for-spec --no-implementation-order`.
     fn push_media_frame(
         &mut self,
         call_id: u64,
@@ -189,6 +195,10 @@ pub struct TestBackend {
     /// default incrementing-id path so tests can inject a canned
     /// `(native_call_id, CallEntry)` pair or a backend failure.
     pub make_call_result: Option<Result<(i32, CallEntry), ReactorError>>,
+    /// Configurable result for `answer_call` (P16-5 §62.14). `Some` short-circuits
+    /// the default `Ok(())` so tests can inject a backend failure and prove the
+    /// reactor Answer handler preserves state and publishes no event on error.
+    pub answer_call_result: Option<Result<(), ReactorError>>,
     /// Account registry keyed by native_acc_id — the source from which
     /// `get_account_info` derives its snapshot (P10-1).
     pub accounts: BTreeMap<i32, AccountEntry>,
@@ -363,7 +373,7 @@ impl SipBackend for TestBackend {
         Ok(())
     }
 
-    // [::TICKET::] P3-2, P4-1, P12-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P12-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P4-1, P12-1, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P12-1|P16-5) --for-spec --no-implementation-order`.
     fn make_call(
         &mut self,
         native_acc_id: i32,
@@ -384,8 +394,10 @@ impl SipBackend for TestBackend {
             id: id as u64,
             native_id: id,
             account_id,
-            state: "Calling".into(),
+            state: CallState::Calling,
             media: "none".into(),
+            direction: CallDirection::Outgoing,
+            remote_uri: String::new(),
         };
         Ok((id, entry))
     }
@@ -393,9 +405,14 @@ impl SipBackend for TestBackend {
     // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
     // [::TICKET::] P15-6: record every answer_call invocation so integration tests
     // can prove the reactor Answer handler dispatched to the backend.
-    // [::TICKET::] P15-6, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-6, P16-3, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P16-3|P16-5) --for-spec --no-implementation-order`.
     fn answer_call(&mut self, native_call_id: i32, code: u16) -> Result<(), ReactorError> {
         self.answer_calls.push((native_call_id, code));
+        // P16-5: an injected failure short-circuits the default Ok(()) so tests
+        // can prove the Answer handler preserves state and publishes nothing.
+        if let Some(result) = self.answer_call_result.take() {
+            return result;
+        }
         Ok(())
     }
 
@@ -756,7 +773,7 @@ impl SipBackend for PjsuaBackend {
         }
     }
 
-    // [::TICKET::] P3-2, P11-10, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P11-10, P11-11, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-5) --for-spec --no-implementation-order`.
     fn make_call(
         &mut self,
         _native_acc_id: i32,
@@ -774,8 +791,10 @@ impl SipBackend for PjsuaBackend {
                 id: call_id as u64,
                 native_id: call_id,
                 account_id,
-                state: "Calling".into(),
+                state: CallState::Calling,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             };
             Ok((call_id, entry))
         }
@@ -1708,7 +1727,7 @@ mod tests {
 
     #[test]
     // @verifies C070
-    // [::TICKET::] P12-1, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P15-3|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P15-3, P16-3, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P15-3|P16-3|P16-5) --for-spec --no-implementation-order`.
     fn mock_make_call_increments_call_ids() {
         let mut backend = TestBackend::new();
         let (native_id1, entry1) = backend.make_call(1, &test_call_request()).unwrap();
@@ -1723,20 +1742,22 @@ mod tests {
             crate::model::AccountId::from_u64(1).unwrap(),
             "CallEntry.account_id derives from the native acc id"
         );
-        assert_eq!(entry2.state, "Calling", "initial call state is Calling");
+        assert_eq!(entry2.state, CallState::Calling, "initial call state is Calling");
     }
 
     #[test]
     // @verifies C070
-    // [::TICKET::] P12-1, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P15-3|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P15-3, P16-3, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P15-3|P16-3|P16-5) --for-spec --no-implementation-order`.
     fn mock_make_call_result_injection_ok() {
         let mut backend = TestBackend::new();
         let entry = CallEntry {
             id: 42,
             native_id: 42,
             account_id: crate::model::AccountId::from_u64(1).unwrap(),
-            state: "Calling".into(),
+            state: CallState::Calling,
             media: "none".into(),
+            direction: CallDirection::Outgoing,
+            remote_uri: String::new(),
         };
         backend.make_call_result = Some(Ok((42, entry.clone())));
         let (native_id, got) = backend.make_call(1, &test_call_request()).unwrap();

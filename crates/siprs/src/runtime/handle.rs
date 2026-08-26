@@ -57,7 +57,7 @@ impl std::fmt::Debug for RuntimeHandle {
     }
 }
 
-// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7, P15-4, P15-5, P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7|P15-4|P15-5|P15-6|P15-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P0-5, P0-6, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-7, P12-6, P12-1, P12-7, P15-4, P15-5, P15-6, P15-7, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-7|P12-6|P12-1|P12-7|P15-4|P15-5|P15-6|P15-7|P16-5) --for-spec --no-implementation-order`.
 impl RuntimeHandle {
     pub(crate) fn new(
         sender: tokio::sync::mpsc::UnboundedSender<DispatchCommand>,
@@ -426,9 +426,10 @@ impl RuntimeHandle {
 
     /// [::TICKET::] P15-6: query a single call's signalling state.
     ///
-    /// Reads the authoritative `ClientState` via `query_state` (C021), maps the
-    /// `CallEntry.state` string to the public `CallState` enum, and returns
-    /// `BackendError("call not found")` when the call id is unknown.
+    /// Reads the authoritative `ClientState` via `query_state` (C021). The
+    /// `CallEntry.state` is a typed `CallState` since P16-5 (§62.14), so it is
+    /// returned directly; unknown call ids yield
+    /// `BackendError("call not found")`.
     pub async fn call_state(
         &self,
         call_id: crate::model::CallId,
@@ -437,7 +438,7 @@ impl RuntimeHandle {
         state
             .calls
             .get(&call_id)
-            .map(|entry| crate::api::call_api_expansion::call_state_from_entry_state(&entry.state))
+            .map(|entry| entry.state)
             .ok_or_else(|| ReactorError::BackendError("call not found".into()))
     }
 

@@ -214,6 +214,7 @@ mod tests {
     use crate::client::SipClient;
     use crate::config::ClientConfig;
     use crate::model::id_design_newtype::CallId;
+    use crate::state::call_state_model::CallState;
 
     #[test]
     // @verifies C012, C026
@@ -644,6 +645,7 @@ mod tests {
     // [::TICKET::] P12-1: make_call registers a CallEntry with the initial call
     // state and the owning account id under the returned CallId.
     async fn make_call_registers_call_entry_state_calling() -> Result<(), Box<dyn std::error::Error>>
+// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
     {
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
@@ -656,7 +658,7 @@ mod tests {
         let call_id = handle.make_call(test_call_request()).await?;
         let state = client.handle().query_state().await?;
         let entry = &state.calls[&CallId::from_u64(call_id)?];
-        assert_eq!(entry.state, "Calling", "initial call state is Calling");
+        assert_eq!(entry.state, CallState::Calling, "initial call state is Calling");
         assert_eq!(entry.account_id, AccountId::from_u64(account_id)?);
         client.shutdown().await?;
         Ok(())

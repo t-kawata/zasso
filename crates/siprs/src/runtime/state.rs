@@ -4,6 +4,8 @@
 use std::collections::BTreeMap;
 
 use crate::model::id_design_newtype::{AccountId, CallId};
+use crate::state::call_state_model::CallState;
+use crate::state::m20_callstate_mapping::CallDirection;
 use crate::state::registr_state_machine::RegistrationState;
 
 // [::TICKET::] P3-2: TransportRuntimeState — tracks active transport configuration.
@@ -80,10 +82,15 @@ pub struct CallEntry {
     pub native_id: i32,
     /// The account this call belongs to.
     pub account_id: AccountId,
-    /// Placeholder for `CallState` — replaced in P4-1.
-    pub state: String,
+    /// The typed 13-state signalling state (RFC §18, P16-5 §62.14).
+    pub state: CallState,
     /// Placeholder for media runtime state — replaced in P1+.
     pub media: String,
+    /// Call origin — `Incoming` for `on_incoming_call`, `Outgoing` for `make_call`
+    /// (P16-5 §62.14, C039 provenance — never read from the event payload).
+    pub direction: CallDirection,
+    /// Remote party URI — empty until the FFI layer resolves it (P16-5 §62.14).
+    pub remote_uri: String,
 }
 
 /// Snapshot of the client state, guarded by `tokio::sync::RwLock`.
@@ -174,7 +181,7 @@ mod tests {
 
     #[test]
     // @verifies C048
-    // [::TICKET::] P0-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P4-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-2, P4-1, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P4-1|P16-5) --for-spec --no-implementation-order`.
     fn call_entry_has_no_conf_port_id() {
         // Contract-C048: CallEntry must NOT contain a conf_port_id field.
         // Verification: construct without conf_port_id — compiler error if field existed.
@@ -182,8 +189,10 @@ mod tests {
             id: 1,
             native_id: 100,
             account_id: create_account_id(1),
-            state: "Idle".to_string(),
+            state: CallState::New,
             media: "none".to_string(),
+            direction: CallDirection::Outgoing,
+            remote_uri: String::new(),
         };
         assert_eq!(entry.id, 1);
         assert_eq!(entry.native_id, 100);
@@ -282,7 +291,7 @@ mod tests {
 
     #[test]
     // @verifies C046
-    // [::TICKET::] P3-2, P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P4-1, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P16-5) --for-spec --no-implementation-order`.
     fn client_state_after_call_add_calls_populated() {
         let mut state = ClientState::default();
         let cid = create_call_id(1);
@@ -292,8 +301,10 @@ mod tests {
                 id: 1,
                 native_id: 200,
                 account_id: create_account_id(1),
-                state: "Calling".into(),
+                state: CallState::Calling,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         );
         assert_eq!(state.calls.len(), 1, "one call must be stored");

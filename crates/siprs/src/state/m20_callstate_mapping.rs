@@ -47,9 +47,12 @@ pub enum CallMediaState {
 ///
 /// Derived from the call's origin — `on_incoming_call` implies `Incoming`;
 /// `make_call` implies `Outgoing`. Never read from the event payload.
+///
+/// Public since `CallEntry` carries a `direction` field that `SipClient::calls()`
+/// exposes (P16-5 §62.14).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
-pub(crate) enum CallDirection {
+// [::TICKET::] P12-8, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P16-5) --for-spec --no-implementation-order`.
+pub enum CallDirection {
     Outgoing,
     Incoming,
 }
@@ -81,6 +84,20 @@ pub fn convert_call_state(
     match state {
         pjsip_inv_state::NULL => None,
         pjsip_inv_state::CALLING => Some(SipEventPayload::OutgoingCallStarted),
+        pjsip_inv_state::INCOMING => Some(SipEventPayload::IncomingCall(
+            crate::api::event_model_payload_bus::IncomingCallInfo {
+                call_id,
+                account_id: account_id?,
+                caller_uri: String::new(),
+                caller_name: None,
+            },
+        )),
+        pjsip_inv_state::EARLY => Some(SipEventPayload::EarlyMediaReceived(
+            crate::api::event_model_payload_bus::EarlyMediaInfo {
+                call_id,
+                media_description: None,
+            },
+        )),
         pjsip_inv_state::CONNECTING => {
             // Without context, default to Trying (outgoing assumption).
             Some(SipEventPayload::OutgoingCallTrying)
@@ -205,6 +222,45 @@ mod tests {
         assert!(matches!(result, Some(SipEventPayload::OutgoingCallTrying)));
     }
 
+    /// @verifies C104
+    #[test]
+    // P16-5 §62.14: INCOMING (2) maps to Some(IncomingCall) with the resolved
+    // account — the converter is total over the full inv_state enum.
+// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
+    fn inv_state_incoming_returns_incoming_call() {
+        let result = convert_call_state(
+            test_call_id(1),
+            Some(test_account_id()),
+            pjsip_inv_state::INCOMING,
+        );
+        match result {
+            Some(SipEventPayload::IncomingCall(info)) => {
+                assert_eq!(info.call_id, test_call_id(1));
+                assert_eq!(info.account_id, test_account_id());
+            }
+            other => panic!("expected IncomingCall, got {other:?}"),
+        }
+    }
+
+    /// @verifies C104
+    #[test]
+    // P16-5 §62.14: EARLY (3) maps to Some(EarlyMediaReceived) — early media is
+    // observable instead of being dropped as an unknown state.
+// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
+    fn inv_state_early_returns_early_media_received() {
+        let result = convert_call_state(
+            test_call_id(1),
+            Some(test_account_id()),
+            pjsip_inv_state::EARLY,
+        );
+        match result {
+            Some(SipEventPayload::EarlyMediaReceived(info)) => {
+                assert_eq!(info.call_id, test_call_id(1));
+            }
+            other => panic!("expected EarlyMediaReceived, got {other:?}"),
+        }
+    }
+
     /// @verifies C023
     #[test]
     // [::TICKET::] P0-5, P4-1, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P9-6) --for-spec --no-implementation-order`.
@@ -282,15 +338,18 @@ mod tests {
         }
     }
 
-    /// @verifies C030
+    /// @verifies C030, C104
     #[test]
-    // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-6, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-6|P16-5) --for-spec --no-implementation-order`.
     fn inv_state_conversion_is_total() {
         // The conversion is total over pjsip_inv_state: every input maps to
-        // Some(payload-with-valid-account) or None, never a panic.
+        // Some(payload-with-valid-account) or None, never a panic. P16-5 adds
+        // INCOMING/EARLY to the covered set.
         let states = [
             pjsip_inv_state::NULL,
             pjsip_inv_state::CALLING,
+            pjsip_inv_state::INCOMING,
+            pjsip_inv_state::EARLY,
             pjsip_inv_state::CONNECTING,
             pjsip_inv_state::CONFIRMED,
             pjsip_inv_state::DISCONNECTED,
@@ -414,14 +473,16 @@ mod tests {
 
     // ── Invariant: exhaustive match (all 5 values) ─────────────────────
 
-    /// @verifies C023
+    /// @verifies C023, C104
     #[test]
-    // [::TICKET::] P0-5, P4-1, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P9-6) --for-spec --no-implementation-order`.
-    fn all_five_inv_state_values_covered() {
-        // Verify all 5 pjsip_inv_state values [0..5) are handled without panic.
-        for raw in 0u32..5 {
+    // [::TICKET::] P0-5, P4-1, P9-6, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P9-6|P16-5) --for-spec --no-implementation-order`.
+    fn all_inv_state_values_covered() {
+        // Verify all 7 pjsip_inv_state values [0..7) plus the unknown sentinel 99
+        // are handled without panic (P16-5 adds INCOMING=2 and EARLY=3).
+        for raw in 0u32..8 {
             let _ = convert_call_state(test_call_id(1), Some(test_account_id()), raw);
         }
+        let _ = convert_call_state(test_call_id(1), Some(test_account_id()), 99);
     }
 
     // ── Invariant: Clone + Debug ──────────────────────────────────────
@@ -439,13 +500,15 @@ mod tests {
     // ── Constant values ────────────────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P0-5, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-9) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P11-9, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-9|P16-5) --for-spec --no-implementation-order`.
     fn pjsip_inv_state_constants_match_pjsua_header() {
         // P11-9: values come from the vendored pjsua.h (`enum pjsip_inv_state` in
-        // pjsip-ua/sip_inv.h) via ffi::bindings. The full enum also has
-        // INCOMING=2 and EARLY=3, which no mapping consumes yet.
+        // pjsip-ua/sip_inv.h) via ffi::bindings. P16-5 consumes INCOMING=2 and
+        // EARLY=3 in convert_call_state.
         assert_eq!(pjsip_inv_state::NULL, 0);
         assert_eq!(pjsip_inv_state::CALLING, 1);
+        assert_eq!(pjsip_inv_state::INCOMING, 2);
+        assert_eq!(pjsip_inv_state::EARLY, 3);
         assert_eq!(pjsip_inv_state::CONNECTING, 4);
         assert_eq!(pjsip_inv_state::CONFIRMED, 5);
         assert_eq!(pjsip_inv_state::DISCONNECTED, 6);

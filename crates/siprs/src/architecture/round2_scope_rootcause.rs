@@ -449,7 +449,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P16-1, P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-1|P16-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P16-1, P16-2, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-1|P16-2|P16-5) --for-spec --no-implementation-order`.
     fn round2_evidence_matches_actual_source() -> Result<(), std::io::Error> {
         let backend_calls = std::fs::read_to_string("src/ffi/backend_calls.rs")?;
         // RC1 resolved by §62.11 (P16-2): the null transport config is gone and
@@ -483,8 +483,8 @@ mod tests {
         );
         let payload_bus = std::fs::read_to_string("src/api/event_model_payload_bus.rs")?;
         assert!(
-            payload_bus.contains("CallRejected(RejectInfo)"),
-            "RC3: CallRejected variant still defined"
+            !payload_bus.contains("CallRejected(RejectInfo)"),
+            "RC3 resolved (P16-5 §62.14): CallRejected variant must be removed — reject (486/603) is observed as CallDisconnected"
         );
         Ok(())
     }

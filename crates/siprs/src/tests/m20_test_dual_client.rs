@@ -42,7 +42,7 @@ pub enum M20TestLayer {
     Layer3,
 }
 
-// [::TICKET::] P1-3, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P1-3, P15-3, P16-3, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3|P16-3|P16-5) --for-spec --no-implementation-order`.
 impl M20FeatureTestEntry {
     /// Returns the full 11-entry M20 feature test mapping table as defined
     /// in RFC §43 M20 Test Layer Mapping.
@@ -63,8 +63,10 @@ impl M20FeatureTestEntry {
             Self {
                 feature_name: "CallStateChanged (pjsip_inv_state full coverage)",
                 layer: M20TestLayer::Layer2,
-                validation_description: "All state values (0-4) map to correct CallState",
-                notes: "state=2 CONNECTING → Trying/Ringing branching logic",
+                // P16-5 §62.14: bindings constants are NULL=0 CALLING=1 INCOMING=2
+                // EARLY=3 CONNECTING=4 CONFIRMED=5 DISCONNECTED=6.
+                validation_description: "All state values (0-6) map to correct CallState",
+                notes: "state=4 CONNECTING → Trying/Ringing branching logic",
             },
             Self {
                 feature_name: "CallMediaStateChanged",

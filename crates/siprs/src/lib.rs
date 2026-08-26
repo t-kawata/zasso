@@ -1,3 +1,4 @@
+// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
@@ -122,10 +123,10 @@ pub use security::SecretString;
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-5: event types and EventBus re-exports
 pub use event::{
-    AccountEventReceiver, AccountInfoSnapshot, CallMediaState, CallState, ConnectedCallInfo,
-    DtmfReceivedInfo, DtmfSentInfo, EventBus, EventDirection, EventMeta, EventTimestamp,
-    MediaActiveInfo, MediaErrorInfo, NativeEvent, RegistrationFailure, RegistrationInfo,
-    RegistrationState, SentDtmfError, SipEvent, SipEventPayload,
+    AccountEventReceiver, AccountInfoSnapshot, CallDirection, CallMediaState, CallState,
+    ConnectedCallInfo, DtmfReceivedInfo, DtmfSentInfo, EventBus, EventDirection, EventMeta,
+    EventTimestamp, MediaActiveInfo, MediaErrorInfo, NativeEvent, RegistrationFailure,
+    RegistrationInfo, RegistrationState, SentDtmfError, SipEvent, SipEventPayload,
 };
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.

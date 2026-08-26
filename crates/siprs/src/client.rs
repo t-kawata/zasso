@@ -934,9 +934,21 @@ mod tests {
     // @verifies C086
     // [::TICKET::] P15-6: answer accepts every §19.1 code through the facade.
     async fn sip_client_answer_accepts_valid_codes() -> Result<(), Box<dyn std::error::Error>> {
+// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
-        let call_id = CallId::from_u64(1)?;
+        // P16-5 §62.14: answer resolves the owning account from a registered
+        // CallEntry, so a call must be placed before answering.
+        let account = client.add_account(valid_account_config()).await?;
+        let request = crate::api::call_types::OutgoingCallRequest {
+            target_uri: "sip:bob@example.com".into(),
+            headers: vec![],
+            auth_override: None,
+            preferred_transport: None,
+            media: crate::api::call_types::CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        };
+        let call_id = CallId::from_u64(account.make_call(request).await?)?;
 
         for code in [180u16, 183, 200, 486, 603] {
             client.answer(call_id, code).await?;

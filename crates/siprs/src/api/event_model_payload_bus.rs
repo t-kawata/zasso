@@ -1,3 +1,4 @@
+// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 
 // ============================================================================
@@ -197,15 +198,6 @@ pub struct CancelInfo {
     pub account_id: AccountId,
 }
 
-/// Rejection details for a call rejected with 4xx/5xx/6xx.
-#[derive(Debug, Clone)]
-pub struct RejectInfo {
-    pub call_id: CallId,
-    pub account_id: AccountId,
-    pub status_code: u16,
-    pub reason: String,
-}
-
 /// An incoming REFER request (call transfer).
 ///
 /// # Contract (C049)
@@ -339,8 +331,6 @@ pub enum SipEventPayload {
     IncomingCall(IncomingCallInfo),
     /// Call was cancelled before being established (CANCEL received).
     CallCancelled(CancelInfo),
-    /// Call was rejected (4xx/5xx/6xx rejection).
-    CallRejected(RejectInfo),
     /// Call was resumed after being held.
     CallResumed,
     /// REFER request received (call transfer initiation).

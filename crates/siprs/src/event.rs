@@ -1,3 +1,4 @@
+// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
@@ -25,7 +26,7 @@ pub use crate::api::asyncaudiosrc_adapter::{
 pub use crate::api::incoming_call_refer::{IncomingCall, IncomingCallConfig};
 
 // Re-export from state layer (call state, native event, registration)
-pub use crate::state::m20_callstate_mapping::{CallMediaState, CallState};
+pub use crate::state::m20_callstate_mapping::{CallDirection, CallMediaState, CallState};
 pub use crate::state::m20_native_event_conv::NativeEvent;
 pub use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
 pub use crate::state::registr_state_machine::RegistrationState;

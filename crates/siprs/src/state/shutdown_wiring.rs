@@ -179,6 +179,8 @@ mod tests {
     use crate::runtime::backend::TestBackend;
     use crate::runtime::command::{DispatchCommand, ReactorError, Reply};
     use crate::runtime::state::{AccountEntry, CallEntry, ClientState};
+    use crate::state::call_state_model::CallState;
+    use crate::state::m20_callstate_mapping::CallDirection;
     use crate::state::registr_state_machine::RegistrationState;
     use crate::state::shutdown_specification::{ShutdownPhase, ShutdownSpec};
     use std::time::Duration;
@@ -195,14 +197,16 @@ mod tests {
     }
 
     /// Build a `CallEntry` whose native id and logical id match `id`.
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-8, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-8|P16-5) --for-spec --no-implementation-order`.
     fn call_entry(native_id: i32, id: u64) -> CallEntry {
         CallEntry {
             id,
             native_id,
             account_id: AccountId::from_u64(id).unwrap(),
-            state: "Active".into(),
+            state: CallState::Active,
             media: "none".into(),
+            direction: CallDirection::Outgoing,
+            remote_uri: String::new(),
         }
     }
 

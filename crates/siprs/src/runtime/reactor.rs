@@ -17,8 +17,9 @@ use crate::api::event_model_payload_bus::{
     AccountId, CallId, ConnectedCallInfo, EventMeta, SipEvent, SipEventPayload,
 };
 use crate::api::eventbus_receiver::EventBus;
+use crate::api::incoming_call_events::build_incoming_call_entry;
 use crate::audio::media_path_arch::ChannelSelector;
-use crate::state::m20_callstate_mapping::{convert_call_state_with_previous, CallDirection};
+use crate::state::m20_callstate_mapping::{convert_call_state_with_previous, CallDirection, CallState};
 use crate::state::m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
 use crate::state::reg_account_lifecycle::{
     add_account_and_apply_auto_register, remove_account_sequence,
@@ -102,7 +103,7 @@ pub struct CoreReactor;
 
 /// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
 /// join handle, or a boxed spawn error.
-// [::TICKET::] P15-4, P15-7, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-4, P15-7, P15-9, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5) --for-spec --no-implementation-order`.
 type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
@@ -1045,10 +1046,18 @@ pub(crate) fn process_native_event(
             }
         }
         other_event => {
-            // Record the call origin before conversion: an inbound INVITE implies
-            // CallDirection::Incoming (C039 provenance — never read from payload).
-            if let NativeEvent::IncomingCall { call_id, .. } = &other_event {
-                if let Ok(cid) = CallId::from_u64(*call_id as u64) {
+            // P16-5 §62.14: an inbound INVITE implies CallDirection::Incoming
+            // (C039 provenance — never read from the payload). Register the
+            // incoming call as a CallEntry so it resolves via calls()/call_state()
+            // and is answerable, then record the direction for CONNECTING
+            // discrimination (Trying vs Ringing).
+            if let NativeEvent::IncomingCall { acc_id, call_id } = &other_event {
+                if let (Ok(aid), Ok(cid)) = (
+                    AccountId::from_u64(*acc_id as u64),
+                    CallId::from_u64(*call_id as u64),
+                ) {
+                    let entry = build_incoming_call_entry(aid, cid, *call_id, String::new());
+                    call_state.calls.insert(cid, entry);
                     call_state
                         .call_directions
                         .insert(cid, CallDirection::Incoming);
@@ -1182,25 +1191,39 @@ pub(crate) fn handle_answer(
 ) -> Result<(), ReactorError> {
     let call_id_typed = CallId::from_u64(call_id)
         .map_err(|_| ReactorError::BackendError("invalid call id 0".into()))?;
+    // P16-5 §62.14: resolve the owning account from the CallEntry before the
+    // backend call — an unknown call must fail without any side effect.
+    let account_id = call_state
+        .calls
+        .get(&call_id_typed)
+        .map(|entry| entry.account_id)
+        .ok_or_else(|| ReactorError::BackendError("call not found".into()))?;
     backend.answer_call(call_id as i32, code)?;
-    let account_id = call_state.calls.get(&call_id_typed).map(|e| e.account_id);
+    // P16-5 §62.14: transition the CallEntry to the typed CallState for the
+    // answered code (200 → Active, 486/603 → Disconnected, provisional → Connecting).
     if let Some(entry) = call_state.calls.get_mut(&call_id_typed) {
-        entry.state = crate::api::call_api_expansion::answer_state_string(code).to_string();
+        entry.state = crate::api::call_api_expansion::answer_call_state(code);
     }
-    let payload = match (code, account_id) {
-        (200, Some(account_id)) => Some(SipEventPayload::CallConnected(ConnectedCallInfo {
+    let payload = match code {
+        200 => Some(SipEventPayload::CallConnected(ConnectedCallInfo {
             call_id: call_id_typed,
             account_id,
-            remote_uri: String::new(),
+            // P16-5 §62.14: carry the CallEntry's remote_uri instead of a
+            // hardcoded empty string — the incoming call's peer is preserved.
+            remote_uri: call_state
+                .calls
+                .get(&call_id_typed)
+                .map(|entry| entry.remote_uri.clone())
+                .unwrap_or_default(),
         })),
-        (486 | 603, _) => Some(SipEventPayload::CallDisconnected),
+        486 | 603 => Some(SipEventPayload::CallDisconnected),
         _ => None,
     };
     if let Some(payload) = payload {
         dispatch_event(
             event_bus,
             SipEvent {
-                meta: EventMeta::new(0, account_id, Some(call_id_typed)),
+                meta: EventMeta::new(0, Some(account_id), Some(call_id_typed)),
                 payload,
             },
         );
@@ -1227,7 +1250,7 @@ pub(crate) fn handle_hangup(
     tracing::info!(%call_id_typed, ?reason, "call hung up");
     let account_id = call_state.calls.get(&call_id_typed).map(|e| e.account_id);
     if let Some(entry) = call_state.calls.get_mut(&call_id_typed) {
-        entry.state = "Disconnected".to_string();
+        entry.state = CallState::Disconnected;
     }
     dispatch_event(
         event_bus,
@@ -1254,7 +1277,7 @@ pub(crate) fn handle_transfer(
         .map_err(|_| ReactorError::BackendError("invalid call id 0".into()))?;
     backend.transfer_call(call_id as i32, target)?;
     if let Some(entry) = call_state.calls.get_mut(&call_id_typed) {
-        entry.state = "Transferring".to_string();
+        entry.state = CallState::Transferring;
     }
     Ok(())
 }
@@ -1326,7 +1349,7 @@ mod tests {
 
     /// Build a calls table with a single confirmed call (CallId 10 → account 1).
     // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
-    // [::TICKET::] P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P11-9, P11-11, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11|P16-5) --for-spec --no-implementation-order`.
     fn confirmed_calls() -> CallTable {
         BTreeMap::from([(
             test_call_id(10),
@@ -1334,8 +1357,10 @@ mod tests {
                 id: 10,
                 native_id: 1,
                 account_id: test_account(1),
-                state: "Confirmed".into(),
+                state: CallState::Active,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         )])
     }
@@ -1598,8 +1623,10 @@ mod tests {
                     id: 10,
                     native_id: 1,
                     account_id: test_account(1),
-                    state: "Confirmed".into(),
+                    state: CallState::Active,
                     media: "none".into(),
+                    direction: CallDirection::Outgoing,
+                    remote_uri: String::new(),
                 },
             ),
             (
@@ -1608,8 +1635,10 @@ mod tests {
                     id: 11,
                     native_id: 2,
                     account_id: test_account(2),
-                    state: "Confirmed".into(),
+                    state: CallState::Active,
                     media: "none".into(),
+                    direction: CallDirection::Outgoing,
+                    remote_uri: String::new(),
                 },
             ),
         ]);
@@ -1715,8 +1744,10 @@ mod tests {
                 id: 7,
                 native_id: 1,
                 account_id: test_account(42),
-                state: "Connecting".into(),
+                state: CallState::Connecting,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         )]);
         let mut directions = BTreeMap::from([(test_call_id(7), CallDirection::Incoming)]);
@@ -1763,8 +1794,10 @@ mod tests {
                 id: 7,
                 native_id: 1,
                 account_id: test_account(42),
-                state: "Connecting".into(),
+                state: CallState::Connecting,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         )]);
         let mut directions = BTreeMap::from([(test_call_id(7), CallDirection::Outgoing)]);
@@ -1809,8 +1842,10 @@ mod tests {
                 id: 7,
                 native_id: 1,
                 account_id: test_account(42),
-                state: "Connecting".into(),
+                state: CallState::Connecting,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         )]);
         let mut directions = BTreeMap::new();
@@ -1843,8 +1878,12 @@ mod tests {
     }
 
     /// @verifies C039
+    /// @verifies C101
+    /// @verifies C103
     #[tokio::test]
-    // [::TICKET::] P12-8: processing NativeEvent::IncomingCall records the Incoming direction
+    // [::TICKET::] P12-8, P16-5: processing NativeEvent::IncomingCall records the
+    // Incoming direction AND registers a CallEntry so the call resolves via
+    // calls()/call_state() and is answerable (§62.14).
     async fn process_native_event_incoming_call_records_direction() {
         let backend = TestBackend::new();
         let bus = EventBus::new(16, None);
@@ -1880,6 +1919,16 @@ mod tests {
             Some(&CallDirection::Incoming),
             "IncomingCall origin must be recorded as Incoming (C039 provenance)"
         );
+
+        // P16-5 §62.14 (C101/C103): the incoming call is registered as a CallEntry
+        // with the resolved account, Incoming direction, and CallState::Incoming.
+        let entry = calls
+            .get(&test_call_id(7))
+            .expect("incoming call must be registered in ClientState.calls");
+        assert_eq!(entry.account_id, test_account(42));
+        assert_eq!(entry.state, CallState::Incoming);
+        assert_eq!(entry.direction, CallDirection::Incoming);
+        assert_eq!(entry.native_id, 7);
     }
 
     /// @verifies C070, C046
@@ -2249,8 +2298,10 @@ mod tests {
                 id: 1,
                 native_id: 1,
                 account_id,
-                state: "Active".into(),
+                state: CallState::Active,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         );
         let mut ctx = SendDtmfContext {
@@ -2354,7 +2405,7 @@ mod tests {
     // @verifies C070, C046
     // [::TICKET::] P12-1: handle_make_call delegates to the backend, registers the
     // returned CallEntry in the authoritative ClientState, and returns the CallId.
-    // [::TICKET::] P12-1, P12-8, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P12-8, P15-3, P16-3, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P16-3|P16-5) --for-spec --no-implementation-order`.
     fn handle_make_call_registers_entry_and_returns_id() {
         let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
@@ -2371,7 +2422,7 @@ mod tests {
             .unwrap_or_else(|| panic!("CallEntry must be registered under the returned CallId"));
         assert_eq!(entry.id, 1);
         assert_eq!(entry.account_id, test_account(1));
-        assert_eq!(entry.state, "Calling");
+        assert_eq!(entry.state, CallState::Calling);
     }
 
     #[test]
@@ -2917,8 +2968,10 @@ mod tests {
                 id: 1,
                 native_id: 1,
                 account_id,
-                state: "Incoming".into(),
+                state: CallState::Incoming,
                 media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: String::new(),
             },
         );
         let mut call_directions = BTreeMap::new();
@@ -2934,7 +2987,7 @@ mod tests {
             "backend.answer_call must be invoked with (native_call_id, code)"
         );
         assert_eq!(
-            client_state.calls[&call_id].state, "Active",
+            client_state.calls[&call_id].state, CallState::Active,
             "a 200 answer must mark the call Active"
         );
 
@@ -2965,8 +3018,10 @@ mod tests {
                 id: 1,
                 native_id: 1,
                 account_id,
-                state: "Incoming".into(),
+                state: CallState::Incoming,
                 media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: String::new(),
             },
         );
         let mut call_directions = BTreeMap::new();
@@ -2978,7 +3033,7 @@ mod tests {
         handle_answer(&mut backend, &bus, &mut call_state, 1, 486)?;
         assert_eq!(backend.answer_calls, vec![(1, 486)]);
         assert_eq!(
-            client_state.calls[&call_id].state, "Disconnected",
+            client_state.calls[&call_id].state, CallState::Disconnected,
             "a 486 decline must mark the call Disconnected"
         );
 
@@ -3007,8 +3062,10 @@ mod tests {
                 id: 1,
                 native_id: 1,
                 account_id,
-                state: "Incoming".into(),
+                state: CallState::Incoming,
                 media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: String::new(),
             },
         );
         let mut call_directions = BTreeMap::new();
@@ -3020,7 +3077,7 @@ mod tests {
         handle_answer(&mut backend, &bus, &mut call_state, 1, 180)?;
         assert_eq!(backend.answer_calls, vec![(1, 180)]);
         assert_eq!(
-            client_state.calls[&call_id].state, "Connecting",
+            client_state.calls[&call_id].state, CallState::Connecting,
             "a provisional 180 answer must leave the call Connecting"
         );
 
@@ -3029,6 +3086,113 @@ mod tests {
             timeout.is_err(),
             "a provisional answer must publish no terminal event"
         );
+        Ok(())
+    }
+
+    /// @verifies C102
+    #[tokio::test]
+    // P16-5 §62.14: CallConnected must carry the CallEntry's remote_uri instead
+    // of a hardcoded empty string — the incoming call's peer is preserved.
+    async fn handle_answer_200_carries_call_entry_remote_uri() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut backend = TestBackend::new();
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: CallState::Incoming,
+                media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: "sip:1001@127.0.0.1".into(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        handle_answer(&mut backend, &bus, &mut call_state, 1, 200)?;
+
+        let ev = rx.recv().await?;
+        match ev.payload {
+            SipEventPayload::CallConnected(info) => {
+                assert_eq!(info.remote_uri, "sip:1001@127.0.0.1");
+            }
+            other => panic!("expected CallConnected, got {other:?}"),
+        }
+        Ok(())
+    }
+
+    /// @verifies C101
+    #[tokio::test]
+    // P16-5 §62.14: answering an unknown call id must fail without calling the
+    // backend — account resolution is the guard.
+    async fn handle_answer_missing_call_entry_returns_error() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut backend = TestBackend::new();
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut client_state = ClientState::default();
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        let result = handle_answer(&mut backend, &bus, &mut call_state, 99, 200);
+        assert!(result.is_err(), "unknown call id must yield an error");
+        assert!(
+            backend.answer_calls.is_empty(),
+            "backend.answer_call must not be invoked for an unknown call id"
+        );
+        Ok(())
+    }
+
+    /// @verifies C101
+    #[tokio::test]
+    // P16-5 §62.14: a backend.answer_call failure must preserve the CallEntry
+    // state and publish no event — error propagation without side effects.
+    async fn handle_answer_backend_error_preserves_state() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.answer_call_result = Some(Err(ReactorError::BackendError("answer failed".into())));
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: CallState::Incoming,
+                media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: String::new(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+        };
+
+        let result = handle_answer(&mut backend, &bus, &mut call_state, 1, 200);
+        assert!(result.is_err(), "backend failure must propagate");
+        assert_eq!(
+            client_state.calls[&call_id].state, CallState::Incoming,
+            "state must be unchanged on backend error"
+        );
+        let timeout = tokio::time::timeout(std::time::Duration::from_millis(50), rx.recv()).await;
+        assert!(timeout.is_err(), "no event may be published on backend error");
         Ok(())
     }
 
@@ -3047,8 +3211,10 @@ mod tests {
                 id: 1,
                 native_id: 1,
                 account_id,
-                state: "Active".into(),
+                state: CallState::Active,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         );
         let mut call_directions = BTreeMap::new();
@@ -3066,7 +3232,7 @@ mod tests {
         )?;
         assert_eq!(backend.hangup_calls, vec![1]);
         assert_eq!(
-            client_state.calls[&call_id].state, "Disconnected",
+            client_state.calls[&call_id].state, CallState::Disconnected,
             "hangup must mark the call Disconnected"
         );
 
@@ -3093,8 +3259,10 @@ mod tests {
                 id: 1,
                 native_id: 1,
                 account_id,
-                state: "Active".into(),
+                state: CallState::Active,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         );
         let mut call_directions = BTreeMap::new();
@@ -3110,7 +3278,7 @@ mod tests {
             "backend.transfer_call must be invoked with (native_call_id, target)"
         );
         assert_eq!(
-            client_state.calls[&call_id].state, "Transferring",
+            client_state.calls[&call_id].state, CallState::Transferring,
             "transfer must mark the call Transferring"
         );
         Ok(())
