@@ -1485,7 +1485,15 @@
       "Bash(node .claude/scripts/tickets/verify-final-contracts.js --ticket-key=\"P17-6\" --tickets=\"Tickets.json\")",
       "Bash(echo \"FC=$?\")",
       "Bash(echo \"VT=$?\")",
-      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const m=d.match\\(/\\\\\"status\\\\\":\\\\\"\\(\\\\w+\\)\\\\\"/\\);const m2=d.match\\(/\\\\\"completedAt\\\\\":\\\\\"\\([^\\\\\"]+\\)\\\\\"/\\);console.log\\('status:', m?m[1]:'?'\\); console.log\\('completedAt:', m2?m2[1]:'?'\\)}\\)\")"
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const m=d.match\\(/\\\\\"status\\\\\":\\\\\"\\(\\\\w+\\)\\\\\"/\\);const m2=d.match\\(/\\\\\"completedAt\\\\\":\\\\\"\\([^\\\\\"]+\\)\\\\\"/\\);console.log\\('status:', m?m[1]:'?'\\); console.log\\('completedAt:', m2?m2[1]:'?'\\)}\\)\")",
+      "Bash(awk '{passed+=$4; failed+=$6; ignored+=$8} END {printf \"TOTAL: %d passed, %d failed, %d ignored\\\\n\", passed, failed, ignored}')",
+      "Bash(echo \"---exit: $?---\")",
+      "Bash(node .claude/scripts/tickets/scan-incomplete-implementations.js .)",
+      "Bash(node .claude/scripts/tickets/validate-stub-format.js .)",
+      "Bash(node .claude/scripts/tickets/validate-stub-format.js --help)",
+      "Bash(node .claude/scripts/tickets/validate-stub-format.js --scan .)",
+      "Bash(echo \"---check exit: $?---\")",
+      "Bash(node .claude/scripts/tickets/malfeasance-all.js)"
     ]
   }
 }
