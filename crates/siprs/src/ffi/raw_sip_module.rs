@@ -134,6 +134,13 @@ mod tests {
     use super::*;
     use crate::ffi::callback::{install_raw_sip_queue, try_pop_raw_sip_bytes};
 
+    /// Serializes tests that swap the shared raw-SIP queue. Rust runs tests in
+    /// parallel by default, so two tests calling `install_test_raw_sip_queue`
+    /// race and leak queue state into a sibling test (flaky). Acquiring this
+    /// guard makes them mutually exclusive (P17-4, boy-scout: test-isolation fix
+    /// for a pre-existing race).
+    static RAW_SIP_QUEUE_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     /// Swap in a fresh raw-SIP queue with the given capacity (P16-4 §62.13).
     // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
     fn install_test_raw_sip_queue(capacity: usize) {
@@ -164,8 +171,13 @@ mod tests {
 
     /// @verifies C122
     #[test]
-    // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-2, P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P17-2|P17-4) --for-spec --no-implementation-order`.
     fn capture_raw_sip_message_roundtrips_packet_bytes() {
+        // P17-4 (boy-scout): guard the shared queue so a parallel sibling test
+        // swapping it cannot leak state into this roundtrip.
+        let _queue_guard = RAW_SIP_QUEUE_GUARD
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         // Postcondition: pkt_info.packet[0..len] flows into the raw SIP queue.
         install_test_raw_sip_queue(4);
         let mut rdata: bindings::pjsip_rx_data = unsafe { std::mem::zeroed() };
@@ -227,8 +239,13 @@ mod tests {
 
     /// @verifies C122
     #[test]
-    // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-2, P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P17-2|P17-4) --for-spec --no-implementation-order`.
     fn capture_skips_non_positive_length_without_panic() {
+        // P17-4 (boy-scout): guard the shared queue so a parallel sibling test
+        // swapping it cannot leak state into this boundary check.
+        let _queue_guard = RAW_SIP_QUEUE_GUARD
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         // Boundary: len <= 0 must not panic and must not enqueue.
         install_test_raw_sip_queue(2);
         let mut rdata: bindings::pjsip_rx_data = unsafe { std::mem::zeroed() };

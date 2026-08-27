@@ -96,6 +96,9 @@ async fn client_init_flow_reports_capabilities() -> Result<(), Box<dyn std::erro
 #[tokio::test]
 // @verifies C066
 async fn account_register_flow_registers_account() -> Result<(), Box<dyn std::error::Error>> {
+// [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
     let (client, _events) = SipClient::new(client_config()).await?;
     let account = account::add_account_and_resolve(&client, &test_cli_args()).await?;
     account.register().await?;
@@ -103,11 +106,13 @@ async fn account_register_flow_registers_account() -> Result<(), Box<dyn std::er
     assert_eq!(accounts.len(), 1, "AddAccount must surface one account");
     // [::TICKET::] P15-3, P15-5: §62.2 add_account starts Disabled; P15-5 §62.4
     // wires the SetRegistration command edge, so register() advances ClientState
-    // to Registering (the Registered transition still requires a native success).
+    // to Registering. [::TICKET::] P17-4 §62.24: TestBackend now fires the
+    // registration event synchronously inside the SetRegistration arm, so the
+    // simulator's success outcome drives ClientState to Registered.
     assert_eq!(
         account.registration_state().await?,
-        siprs::RegistrationState::Registering,
-        "P15-5: register() must advance the §17 state machine to Registering"
+        siprs::RegistrationState::Registered,
+        "P17-4: register() must drive the §17 state machine to Registered on the TestBackend"
     );
     client.shutdown().await?;
     Ok(())
@@ -132,10 +137,46 @@ async fn account_register_flow_via_public_facade() -> Result<(), Box<dyn std::er
     let accounts = client.accounts().await?;
     assert_eq!(accounts.len(), 1, "AddAccount must surface one account");
     // [::TICKET::] P15-3, P15-5: see account_register_flow_registers_account.
+    // [::TICKET::] P17-4 §62.24: see account_register_flow_registers_account —
+    // the TestBackend's synchronous success event drives ClientState to Registered.
     assert_eq!(
         account.registration_state().await?,
-        siprs::RegistrationState::Registering,
-        "P15-5: register() must advance the §17 state machine to Registering"
+        siprs::RegistrationState::Registered,
+        "P17-4: register() must drive the §17 state machine to Registered on the TestBackend"
+    );
+    client.shutdown().await?;
+    Ok(())
+}
+
+/// C066 + C128 Layer 5: the account_register flow receives the unified
+/// `RegistrationStateChanged(Registered)` event on the TestBackend. P17-4 §62.24
+/// wires `TestBackend::set_registration` to fire the native event synchronously,
+/// so subscribe-before-register observes it — the exact sequence the example
+/// binary now uses.
+#[tokio::test]
+// @verifies C066, C128
+async fn account_register_receives_registered_event() -> Result<(), Box<dyn std::error::Error>> {
+    let (client, _events) = SipClient::new(client_config()).await?;
+    let account = account::add_account_and_resolve(&client, &test_cli_args()).await?;
+    let account_id = siprs::model::AccountId::from_u64(account.id())?;
+    // P17-4 §62.24: subscribe BEFORE register() — the event publishes
+    // synchronously inside the SetRegistration arm and a broadcast receiver
+    // does not replay past events to new subscribers.
+    let mut account_events = client.subscribe_account(account_id);
+    account.register().await?;
+    let ev = tokio::time::timeout(std::time::Duration::from_secs(30), account_events.recv())
+        .await
+        .map_err(|_| "timed out waiting for RegistrationStateChanged".to_string())?
+        .map_err(|e| format!("event channel closed: {e:?}"))?;
+    assert!(
+        matches!(
+            ev.payload,
+            siprs::SipEventPayload::RegistrationStateChanged(
+                siprs::RegistrationState::Registered
+            )
+        ),
+        "expected RegistrationStateChanged(Registered), got {:?}",
+        ev.payload
     );
     client.shutdown().await?;
     Ok(())

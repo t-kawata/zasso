@@ -149,22 +149,25 @@ mod tests {
     }
 
     #[test]
-    // @verifies C083
+    // @verifies C083, C126, C127
     #[cfg(not(feature = "pjsua-native"))]
-    // [::TICKET::] P15-3, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|PX-3) --for-spec --no-implementation-order`.
-    fn test_backend_set_registration_transitions() -> Result<(), Box<dyn std::error::Error>> {
+    // [::TICKET::] P15-3, PX-3, P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|PX-3|P17-4) --for-spec --no-implementation-order`.
+    fn test_backend_set_registration_reaches_outcome_state() -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::default();
         let config = AccountConfig::default();
         let (id, _) = backend.add_account(&config)?;
+        // P17-4 §62.24: the deterministic simulator reports the OUTCOME state
+        // (Registered for enable / Idle for disable) so get_account_info returns
+        // a publishable status.
         backend.set_registration(id, true)?;
         assert_eq!(
             backend.registration_state(id),
-            Some(RegistrationState::Registering)
+            Some(RegistrationState::Registered)
         );
         backend.set_registration(id, false)?;
         assert_eq!(
             backend.registration_state(id),
-            Some(RegistrationState::Unregistering)
+            Some(RegistrationState::Idle)
         );
         Ok(())
     }

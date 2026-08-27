@@ -935,8 +935,18 @@ pub use stub_aliases::*;
 #[cfg(all(test, not(feature = "pjsua-native")))]
 pub(crate) mod stub_test_hooks {
     use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
+    use std::sync::Mutex;
 
     static CONF_ADD_PORT_STATUS: AtomicI32 = AtomicI32::new(super::PJ_SUCCESS);
+
+    /// Serializes tests that force `CONF_ADD_PORT_STATUS` away from the default.
+    ///
+    /// Rust runs tests in parallel by default, so a test that forces
+    /// `PJ_EUNKNOWN` can race with a sibling test that expects `PJ_SUCCESS`,
+    /// leaking the forced status and failing the sibling (flaky). All tests
+    /// that read or write the hook must go through [`with_conf_add_port_status`].
+    // [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+    static CONF_ADD_PORT_HOOK_GUARD: Mutex<()> = Mutex::new(());
 
     /// The status the `pjsua_conf_add_port` stub currently returns.
     pub(crate) fn conf_add_port_status() -> i32 {
@@ -946,6 +956,20 @@ pub(crate) mod stub_test_hooks {
     /// Force `pjsua_conf_add_port` to return `status` in subsequent calls.
     pub(crate) fn set_conf_add_port_status(status: i32) {
         CONF_ADD_PORT_STATUS.store(status, Ordering::Relaxed);
+    }
+
+    /// Run `f` with the conf-add-port hook forced to `status`, restoring
+    /// `PJ_SUCCESS` afterwards. The module-wide mutex makes every hook-touching
+    /// test mutually exclusive, removing the parallel-test race on the global.
+    // [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+    pub(crate) fn with_conf_add_port_status<T>(status: i32, f: impl FnOnce() -> T) -> T {
+        let _guard = CONF_ADD_PORT_HOOK_GUARD
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        set_conf_add_port_status(status);
+        let result = f();
+        set_conf_add_port_status(super::PJ_SUCCESS);
+        result
     }
 
     /// The status the `pjsip_endpt_register_module` stub currently returns.
@@ -1360,19 +1384,22 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-3, P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-4) --for-spec --no-implementation-order`.
     fn stub_test_hooks_can_force_conf_add_port_failure() {
         let mut slot: pjsua_conf_port_id = -1;
         let ok =
             unsafe { pjsua_conf_add_port(std::ptr::null_mut(), std::ptr::null_mut(), &mut slot) };
         assert_eq!(ok, PJ_SUCCESS);
-        stub_test_hooks::set_conf_add_port_status(PJ_EUNKNOWN);
-        let forced =
-            unsafe { pjsua_conf_add_port(std::ptr::null_mut(), std::ptr::null_mut(), &mut slot) };
-        assert_eq!(
-            forced, PJ_EUNKNOWN,
-            "test hook must force a non-success status"
-        );
-        stub_test_hooks::set_conf_add_port_status(PJ_SUCCESS);
+        // P17-4 (boy-scout): route through the mutex-guarded helper so the forced
+        // status never leaks into a parallel sibling test.
+        stub_test_hooks::with_conf_add_port_status(PJ_EUNKNOWN, || {
+            let forced = unsafe {
+                pjsua_conf_add_port(std::ptr::null_mut(), std::ptr::null_mut(), &mut slot)
+            };
+            assert_eq!(
+                forced, PJ_EUNKNOWN,
+                "test hook must force a non-success status"
+            );
+        });
     }
 }

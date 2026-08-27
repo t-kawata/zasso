@@ -24,14 +24,20 @@ const REGISTRATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+// [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
     let args = cli::parse(std::env::args().skip(1))?;
     client::require(&args, &["--username", "--domain", "--password"])?;
     let config = build_client_config(&args);
     let (client, _events) = SipClient::new(config).await?;
     let account = add_account_and_resolve(&client, &args).await?;
+    // P17-4 §62.24: subscribe before register() — the TestBackend fires the
+    // registration event synchronously inside the SetRegistration arm, and a
+    // broadcast receiver does not replay past events to new subscribers.
+    let mut account_events = client.subscribe_account(resolve_account_id(&account)?);
     account.register().await?;
 
-    let mut account_events = client.subscribe_account(resolve_account_id(&account)?);
     let outcome = tokio::time::timeout(
         REGISTRATION_TIMEOUT,
         await_registration(&mut account_events),

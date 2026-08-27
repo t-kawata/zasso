@@ -110,7 +110,7 @@ type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7|PX-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7, PX-3, P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7|PX-3|P17-4) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -769,6 +769,26 @@ impl CoreReactor {
                                                 aid,
                                                 enabled,
                                             );
+                                            // P17-4 §62.24: drain events the backend fired
+                                            // (TestBackend's buffer stands in for the §62.13
+                                            // FFI queue) and process them on the reactor thread.
+                                            // The drain must follow apply_registration_command_state
+                                            // so ClientState is Registering before
+                                            // process_registration_state_changed validates the
+                                            // Registering→Registered edge.
+                                            let mut call_state = CallStateTables {
+                                                calls: &mut client_state.calls,
+                                                call_directions: &mut call_directions,
+                                            };
+                                            for native_event in backend.take_native_events() {
+                                                process_native_event(
+                                                    &mut *backend,
+                                                    &event_bus,
+                                                    native_event,
+                                                    &mut call_state,
+                                                    &mut client_state.accounts,
+                                                );
+                                            }
                                             Ok(())
                                         }),
                                     );
@@ -3068,6 +3088,55 @@ mod tests {
         assert_eq!(
             state.accounts[&test_account(1)].registration,
             RegistrationState::Registering
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    /// @verifies C128
+    /// P17-4 §62.24: the SetRegistration arm drains `backend.take_native_events()`
+    /// after `apply_registration_command_state` and processes each buffered event
+    /// via `process_native_event`, publishing `RegistrationStateChanged(Registered)`
+    /// on the single EventBus — the TestBackend buffer stands in for the §62.13 FFI queue.
+    #[tokio::test]
+    async fn set_registration_arm_drains_and_publishes_registered(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        // register_on_start:false keeps the account Disabled after AddAccount so
+        // the only registration event is the one fired by the explicit SetRegistration.
+        let account_id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig {
+                register_on_start: false,
+                ..Default::default()
+            })
+            .await?;
+        let mut rx = handle.event_bus().subscribe_control();
+        let (_tx, _rx) = tokio::sync::oneshot::channel();
+        handle
+            .submit(crate::runtime::command::RuntimeCommand::SetRegistration {
+                account_id,
+                enabled: true,
+                reply: Reply::new(_tx),
+            })
+            .await?;
+
+        let ev = tokio::time::timeout(std::time::Duration::from_secs(30), rx.recv())
+            .await
+            .map_err(|_| "timed out waiting for RegistrationStateChanged".to_string())?
+            .map_err(|e| format!("event bus closed: {e}"))?;
+        assert!(
+            matches!(
+                ev.payload,
+                SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+            ),
+            "expected RegistrationStateChanged(Registered), got {:?}",
+            ev.payload
+        );
+        let state = handle.query_state().await?;
+        assert_eq!(
+            state.accounts[&test_account(1)].registration,
+            RegistrationState::Registered,
+            "the drained event must drive ClientState to Registered"
         );
         shutdown_reactor(handle, join).await;
         Ok(())
