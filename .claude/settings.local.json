@@ -1608,7 +1608,11 @@
       "Bash(echo \"EXIT_5b=$?\")",
       "Bash(echo \"EXIT_5c=$?\")",
       "Bash(node -e \"const t=require\\('./Tickets.json'\\); const f=t.phases.find\\(p=>p.id===17\\).tickets.find\\(x=>x.id===10\\); console.log\\('TS-001 status:', f.targetStubs[0].status\\);\")",
-      "Bash(echo \"\\(exit=$? no match = clean\\)\")"
+      "Bash(echo \"\\(exit=$? no match = clean\\)\")",
+      "Bash(cd /Users/sh01/shyme/zasso && ls -la && echo \"---MAKEFILE---\" && ls Makefile 2>/dev/null || echo \"No Makefile at repo root\")",
+      "Bash(node .claude/scripts/tickets/scan-incomplete-implementations.js src)",
+      "Bash(awk -F'[ ;]' '{p+=$3; f+=$6} END {print \"total passed:\",p,\" total failed:\",f}')",
+      "Bash(awk '{p+=$2; f+=$3; if\\($1==\"FAILED\"\\) fail++;} END {print \"passed:\",p,\" failed:\",f,\" FAILED_suites:\",fail+0}')"
     ]
   }
 }
