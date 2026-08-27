@@ -18,4 +18,5 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0091: 62.22 raw SIP 生産経路: pjsip_module フックによる配線（Q1 / Q1a）
+// [::STUB::] P17-2: implement NODE_ID=N0091: 62.22 raw SIP 生産経路: pjsip_module フックによる配線（Q1 / Q1a）
+// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.

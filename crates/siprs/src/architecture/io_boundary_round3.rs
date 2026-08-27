@@ -18,4 +18,5 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0099: 62.30 I/O 境界参照情報（graphify / boundify 用）— round 3
+// [::STUB::] P17-10: implement NODE_ID=N0099: 62.30 I/O 境界参照情報（graphify / boundify 用）— round 3
+// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.

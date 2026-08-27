@@ -1266,7 +1266,18 @@
       "Bash(node .claude/scripts/tickets/remove-stub.js --file=Cargo.toml --line=43)",
       "Bash(node .claude/scripts/tickets/review/run-quality-checks.js src/model/audio_aligner.rs)",
       "Bash(git commit -m 'chore\\(PX-3\\): resolve dependency stub markers and record tooling allowlist *)",
-      "Bash(git commit -m 'chore\\(PX-3\\): record permission allowlist for remove-stub and quality tooling *)"
+      "Bash(git commit -m 'chore\\(PX-3\\): record permission allowlist for remove-stub and quality tooling *)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P17-1\")",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0090 --hops=2)",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); const arr=Array.isArray\\(t\\)?t:\\(t.tickets||[]\\); const tk=arr.find\\(x=>x.ticketKey==='P17-1'||x.key==='P17-1'\\); if\\(!tk\\){console.log\\('NOT FOUND'\\); process.exit\\(0\\)} console.log\\(JSON.stringify\\(tk,null,2\\)\\);\")",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); console.log\\('top keys:', Object.keys\\(t\\)\\); if\\(t.tickets\\){console.log\\('tickets type:', Array.isArray\\(t.tickets\\)?'array':'object'\\); if\\(Array.isArray\\(t.tickets\\)\\){console.log\\('first ticket keys:', Object.keys\\(t.tickets[0]\\)\\); const tk=t.tickets.find\\(x=>x.ticketKey==='P17-1'||x.key==='P17-1'\\); if\\(tk\\){console.log\\('FOUND'\\); console.log\\(JSON.stringify\\(tk,null,2\\)\\);} else {console.log\\('ticket not in array, keys sample:', t.tickets.map\\(x=>x.ticketKey||x.key\\).slice\\(0,30\\)\\);}} else {console.log\\('tickets object keys sample:', Object.keys\\(t.tickets\\).slice\\(0,30\\)\\);}}\")",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); const phases=t.phases; console.log\\('phases type:', Array.isArray\\(phases\\)?'array':'object'\\); if\\(Array.isArray\\(phases\\)\\){console.log\\('phase 0 keys:', Object.keys\\(phases[0]\\)\\); console.log\\('phase count:', phases.length\\);} else {console.log\\('phases keys:', Object.keys\\(phases\\)\\);} \")",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); const s=JSON.stringify\\(t\\); const idx=s.indexOf\\('P17-1'\\); console.log\\('P17-1 found at char:', idx\\);\")",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); t.phases.forEach\\(p=>{const ids=\\(p.tickets||[]\\).map\\(x=>x.ticketKey||x.key||x.id\\); if\\(ids.some\\(i=>String\\(i\\).includes\\('17'\\)\\)\\) console.log\\('phase', p.id, 'tickets:', ids.filter\\(i=>String\\(i\\).includes\\('17'\\)\\)\\);}\\);\")",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); t.phases.forEach\\(p=>console.log\\(p.id, ':', \\(p.tickets||[]\\).length, 'tickets'\\)\\);\")",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); const p17=t.phases.find\\(p=>p.id===17\\); console.log\\('phase 17 tickets:', \\(p17.tickets||[]\\).map\\(x=>x.ticketKey||x.key||JSON.stringify\\(x\\).slice\\(0,80\\)\\)\\);\")",
+      "Bash(node -e \"const t=require\\('./Tickets.json'\\); const p8=t.phases.find\\(p=>p.id===8\\); p8.tickets.forEach\\(x=>{const k=x.ticketKey||x.key; if\\(String\\(k\\).includes\\('17'\\)\\) console.log\\(JSON.stringify\\(x\\).slice\\(0,200\\)\\);}\\);\")"
     ]
   }
 }
