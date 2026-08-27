@@ -22,6 +22,7 @@ pub const BINDINGS_OUTPUT: &str = "bindings.rs";
 ///
 /// Covers the current stub surface: `src/ffi/bindings.rs` type aliases plus the
 /// struct/typedefs those aliases depend on (`pj_str_t`, `pjsua_call_info`).
+// [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
 pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
@@ -62,6 +63,13 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     "pjsip_transaction",
     "pjsua_reg_info",
     "pjsip_redirect_op",
+    // P17-3 §62.23: P1/P2 callback types — on_transport_state reads the
+    // transport id; the transport-state enum and info/result structs appear in
+    // the P1/P2 callback signatures.
+    "pjsip_transport",
+    "pjsip_transport_state",
+    "pjsip_transport_state_info",
+    "pj_stun_nat_detect_result",
     // P17-2 §62.22: raw SIP capture module — the pjsip_module extension point
     // and the opaque endpoint / tx_data types its registration references.
     "pjsip_module",
@@ -484,7 +492,7 @@ mod tests {
 
     /// @verifies C123
     #[test]
-// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
     fn allowlist_includes_raw_sip_module_symbols() {
         // Precondition: the raw SIP module's FFI surface is covered by the fixed allowlist.
         assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsip_module"));

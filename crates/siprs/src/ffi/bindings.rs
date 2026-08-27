@@ -52,7 +52,7 @@ mod stub_aliases {
     /// Maximum SIP packet length (`PJSIP_MAX_PKT_LEN`, sip_config.h:372).
     ///
     /// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
-// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
     pub const PJSIP_MAX_PKT_LEN: usize = 4000;
 
     /// Application-layer module priority (sip_module.h:210) — the raw SIP
@@ -486,6 +486,37 @@ mod stub_aliases {
         _private: [u8; 0],
     }
 
+    /// Minimal mirror of `pjsip_transport` exposing the `id` member the
+    /// `on_transport_state` handler reads (P17-3 §62.23).
+    ///
+    /// The vendored `pjsip_transport` struct (sip_transport.h L837-935) has no
+    /// `id` member; this stub mirror exposes the id accessor path the handler
+    /// compiles against. Native transport-id resolution (H1 restoration) is an
+    /// open item tracked in the P17-3 spec.
+    #[repr(C)]
+    #[derive(Debug, Clone)]
+    // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
+    pub struct pjsip_transport {
+        /// Transport id read by `on_transport_state`.
+        pub id: u32,
+    }
+
+    /// Opaque transport state info (`pjsip_transport_state_info`) — never read
+    /// by the P17-3 handler; passed through as a null pointer in tests.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjsip_transport_state_info {
+        _private: [u8; 0],
+    }
+
+    /// Opaque STUN NAT detection result (`pj_stun_nat_detect_result`) — never
+    /// read by the P17-3 handler; passed through as a null pointer in tests.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pj_stun_nat_detect_result {
+        _private: [u8; 0],
+    }
+
     /// Opaque registration info (`pjsua_reg_info`) — the `on_reg_state2`
     /// argument; P11-11 uses the legacy `on_reg_state(pjsua_acc_id)` instead.
     #[repr(C)]
@@ -569,6 +600,7 @@ mod stub_aliases {
     /// the bindgen output under `pjsua-native`.
     #[repr(C)]
     #[derive(Debug, Clone)]
+    // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
     pub struct pjsua_callback {
         /// `on_call_state` — call invite-session state changed.
         pub on_call_state: Option<unsafe extern "C" fn(pjsua_call_id, *mut pjsip_event)>,
@@ -590,6 +622,21 @@ mod stub_aliases {
         pub on_call_redirected: Option<
             unsafe extern "C" fn(pjsua_call_id, *const pjsip_uri, *const pjsip_event) -> u32,
         >,
+        /// `on_transport_state` — transport state changed (P17-3 §62.23).
+        ///
+        /// The `state` argument is typed `u32` to match the `pjsip_transport_state`
+        /// module-consts surface (P11-9 pattern); bindgen under `pjsua-native`
+        /// emits the same C enum as an unsigned int.
+        pub on_transport_state: Option<
+            unsafe extern "C" fn(*mut pjsip_transport, u32, *const pjsip_transport_state_info),
+        >,
+        /// `on_call_tsx_state` — transaction state changed (P17-3 §62.23).
+        pub on_call_tsx_state:
+            Option<unsafe extern "C" fn(pjsua_call_id, *mut pjsip_transaction, *mut pjsip_event)>,
+        /// `on_call_replaced` — call replaced by a new call (P17-3 §62.23).
+        pub on_call_replaced: Option<unsafe extern "C" fn(pjsua_call_id, pjsua_call_id)>,
+        /// `on_nat_detect` — STUN NAT detection result (P17-3 §62.23).
+        pub on_nat_detect: Option<unsafe extern "C" fn(*const pj_stun_nat_detect_result)>,
     }
 
     /// PJSUA global configuration — callback registry plus the STUN/TURN wiring
