@@ -17,7 +17,8 @@ pub use crate::api::event_model_payload_bus::{
     EventTimestamp, MediaActiveInfo, MediaErrorInfo, RegistrationFailure, RegistrationInfo,
     SipEvent, SipEventPayload,
 };
-pub use crate::api::eventbus_receiver::{AccountEventReceiver, EventBus};
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+pub use crate::api::eventbus_receiver::{AccountEventReceiver, EventBus, Subscription};
 pub use crate::api::m20_dtmfsent_twophase::{DtmfSentInfo, SentDtmfError};
 // [::TICKET::] P5-2: Audio source adapter types
 pub use crate::api::asyncaudiosrc_adapter::{

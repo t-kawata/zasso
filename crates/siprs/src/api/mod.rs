@@ -53,7 +53,8 @@ pub use event_model_payload_bus::{
     EventTimestamp, MediaActiveInfo, MediaErrorInfo, RegistrationFailure, RegistrationInfo,
     SipEvent, SipEventPayload,
 };
-pub use eventbus_receiver::{AccountEventReceiver, EventBus};
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+pub use eventbus_receiver::{AccountEventReceiver, EventBus, Subscription};
 pub use m20_dtmfsent_twophase::{DtmfSentInfo, SentDtmfError};
 // [::TICKET::] P16-6: unified DtmfMethod — single definition from model::dtmf_spec
 pub use dtmf_unification::DtmfMethod;

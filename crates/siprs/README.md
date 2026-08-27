@@ -200,7 +200,9 @@ client.remove_account(account_id).await?;
 
 # イベントの購読と受信（subscribe / subscribe_account / subscribe_raw_sip）
 
-subscribe() / subscribe_account(id) / subscribe_raw_sip() の 3 つの購読方法の違いと、購読解除（unsubscribe）の方法、SipEventPayload の主要バリアントの受信コードを解説
+subscribe() / subscribe_account(id) / subscribe_raw_sip() の 3 つの購読方法の違いと、購読解除（unsubscribe()）の方法、SipEventPayload の主要バリアントの受信コードを解説
+
+購読 API はすべて `Subscription<T>` ハンドルを返します。`recv()` / `try_recv()` でイベントを受信し、`unsubscribe()` で明示的に購読解除できます（§62.29）。`unsubscribe()` は冪等で、以後の `recv()` は `RecvError::Closed` を返します。ハンドルを drop した場合も購読解除されます（RFC §8.3 の drop ベース契約を明示 API として公開）。
 
 <::README-RESIDUE::>
 ## RESIDUE — 完全記述の作成不可
@@ -210,14 +212,14 @@ subscribe() / subscribe_account(id) / subscribe_raw_sip() の 3 つの購読方�
 - `SipClient` は単一 `EventBus` を所有し（`src/client.rs`）、`subscribe()`（`client.rs`）と `subscribe_account(id)`（`client.rs`、`meta.account_id` フィルタは `src/api/eventbus_receiver.rs`）は単一バス上で動作する。
 - **P16-4 で FFI ネイティブイベントの drain は実装済み**: `spawn_native_event_drain` が lock-free キューを 5ms ポーリングし reactor へ転送する（`src/runtime/event_path_wiring.rs:42-82`）。P0 系（Registration / Call / DTMF）は実 PJSIP から流れる前提。
 - しかし確認済み内容の **「subscribe_raw_sip() の受信コード」は依然として成立しない**。`subscribe_raw_sip()` は `RawSipEventConfig::enabled` に応じて `Some`/`None` を返す（`client.rs`）が、**生産コードで `enqueue_raw_sip_bytes` を呼ぶ FFI コールバックが存在しない**。`register_callbacks` は 8 コールバックを登録するが `on_rx_msg` を含まず、vendored PJSIP の `pjsua_callback` に `on_rx_msg` フィールドがない（PJSIP &lt; 2.13、`src/ffi/callback.rs:143-144`）。`enqueue_raw_sip_bytes` の呼び出し元はユニットテストのみ。
-- **`unsubscribe` API は存在しない**。購読解除は broadcast `Receiver` の drop のみ（明示 API なし。RFC §8.3 にも明示 API なし）。
+- ✅ **P17-9 で解消**: `Subscription<T>` ハンドル型と明示 `unsubscribe()` API を追加（§62.29）。`subscribe()` / `subscribe_account()` / `subscribe_raw_sip()` は `Subscription<T>` を返し、`unsubscribe()` で明示購読解除できる（冪等、以後 `recv()` は `Closed`）。drop ベース契約（RFC §8.3）は Subscription の drop として維持。
 - **P1/P2 系イベントは部分的にしか発火しない**: `CallRedirected` / `CallTransferStatus` は FFI コールバック登録あり。`TransportStateChanged` / `IceTransportError` / `CallTsxStateChanged` / `CallReplaced` / `NatDetected` はコールバック未登録で発火しない。`src/state/m20_native_event_conv.rs` の「P1/P2 returns None」という doc comment はコード（`Some()` 化済み）と矛盾する stale comment。
 - 本番 FFI 経路は pjsua-native ビルド修復が前提（H1 参照）。
 
 ### 実装補強設計（完全記述への条件）
 
 1. **raw SIP publisher の生産経路**: vendored PJSIP が `on_rx_msg`（または `on_rx_request` / `on_rx_response`）フィールドを公開する場合、それを `register_callbacks` に登録し `enqueue_raw_sip_bytes` へ接続する（P16-4 の未完項目）。フィールドが存在しない場合は PJSIP 2.13+ への更新か、README に「raw SIP 受信は未配線」と明記する。
-2. 購読解除は drop ベースである旨を README に明記（RFC §8.3 / P15-6 の設計判断）。明示 unsubscribe API は追加しない。
+2. ✅ **P17-9 で解消**: `Subscription<T>::unsubscribe()` を明示 API として提供（§62.29）。drop ベース契約（RFC §8.3）は Subscription の drop として維持。
 3. 未発火の P1/P2 イベント（`TransportStateChanged` 等）の FFI コールバック登録を追加し、stale doc comment を修正。
 4. pjsua-native のビルド修復（H1 参照）。
 
@@ -358,6 +360,8 @@ AudioFormat（ビット深度・サンプルレート・チャンネル）とス
 
 2 者通話における IN / OUT / BOTH チャネルへの音声ファイル・ストリーム注入方法と、マイク入力 source の取得（open_default_microphone_source）を併せて解説
 
+`open_default_microphone_source` は **通話マイクではない独立キャプチャ source** です（§62.29）。OS 既定入力デバイス（cpal）の独立キャプチャを `AsyncAudioSource` として返し、`add_audio_source` の注入 source として利用できますが、通話の送話入力（call microphone）とは無関係です。
+
 <::README-RESIDUE::>
 ## RESIDUE — 完全記述の作成不可
 
@@ -366,6 +370,7 @@ AudioFormat（ビット深度・サンプルレート・チャンネル）とス
 - `add_audio_source(call_id, source, channels)` は存在し、`call_id` と `ChannelSelector`（In/Out/Both）を受け取り per-call `AudioMixer` へ登録する（`src/client.rs:509-521`、`src/runtime/reactor.rs:306-346`）。`AudioWorkerTask::spawn` も reactor の生産経路で呼ばれる。
 - ✅ **P16-7 で解消**: `RustMediaPort` が `out_queue` / `in_queue` を消費する conf port コンシューマとして実装された（`src/runtime/audio_worker.rs:381-414`）。`make_call` / `answer` の call connect 時（`CallConnected` 発行）に `conf_connect(call_id, call_id)` が自動発行される（`src/runtime/reactor.rs:1213-1218`）。
 - ✅ **P16-7 で解消**: `WavFileSource`（PCM16 WAV のみ、リサンプルなし）と `open_default_microphone_source`（cpal、OS 既定入力デバイスの独立キャプチャ）が実装された。
+- ✅ **P17-9 で解消**: `open_default_microphone_source` は「注入可能なキャプチャ source」であり通話マイクではない独立キャプチャである旨を本節に明記（上記段落）。
 - **しかし `RustMediaPort` が実通話の conf bridge に登録されない**: `register_conf_callback`（`pjsua_conf_add_port` で `RustMediaPort` を登録する唯一の箇所）は **`Initialize` 時に一度だけ**呼ばれ、その時点で `audio_mixers` は空である（`src/runtime/command.rs:464`、`src/runtime/backend.rs:762-796`）。`AddAudioSource` 後には再実行されないため、実通話で `RustMediaPort` は登録されず、注入音声は `out_queue`（64 フレーム ≈ 1.28 秒）に溜まり**破棄される**。
 - 実装は `#[async_trait]` ベースであり、RFC §23 の RPITIT とは異なる（`ErasedAudioSource` が object-safe ラッパー、`src/api/asyncaudiosrc_adapter.rs`）。
 
@@ -373,7 +378,7 @@ AudioFormat（ビット深度・サンプルレート・チャンネル）とス
 
 1. **`AddAudioSource` で mixer 生成時に conf bridge への `RustMediaPort` 登録を再実行**する（`register_media_ports_for_calls` 相当を mixer 作成経路で呼ぶ。新規チケット。ギャップ）。
 2. pjsua-native のビルド修復（H1 参照）後、実通話で注入音声がネットワーク送信 / ローカル再生に届くことを統合テストで固定。
-3. `open_default_microphone_source` は「注入可能なキャプチャ source」であり通話マイクではない旨を README に明記。
+3. ✅ **P17-9 で解消**: `open_default_microphone_source` は「注入可能なキャプチャ source」であり通話マイクではない旨を README に明記（上記段落で解消）。
 
 # STUN/TURN/ICE とトランスポート設定
 

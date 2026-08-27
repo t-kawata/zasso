@@ -94,8 +94,9 @@ enum CallOutcome {
 
 /// Await the call outcome, printing the ringing signal and skipping unrelated
 /// events.
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
 async fn await_call_events(
-    events: &mut siprs::AccountEventReceiver,
+    events: &mut siprs::Subscription<siprs::SipEvent>,
 ) -> Result<CallOutcome, Box<dyn std::error::Error>> {
     loop {
         match events.recv().await {

@@ -82,8 +82,9 @@ enum RegistrationOutcome {
 /// §62.12 (P16-3): registration results are notified solely through the unified
 /// `RegistrationStateChanged` event — the old `RegistrationSucceeded` /
 /// `RegistrationFailed` variants were removed from `SipEventPayload`.
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
 async fn await_registration(
-    events: &mut siprs::AccountEventReceiver,
+    events: &mut siprs::Subscription<siprs::SipEvent>,
 ) -> Result<RegistrationOutcome, Box<dyn std::error::Error>> {
     loop {
         match events.recv().await {

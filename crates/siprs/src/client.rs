@@ -13,8 +13,8 @@ use crate::api::audio_subscribe_bp::{
     tap_channel, validate_tap_capacity, AudioTapHandle, AudioTapMode, AudioTapSender,
 };
 use crate::api::event_bus_unify::raw_sip_capacity_for;
-use crate::api::event_model_payload_bus::{AccountId, EventMeta, SipEvent, SipEventPayload};
-use crate::api::eventbus_receiver::EventBus;
+use crate::api::event_model_payload_bus::{AccountId, EventMeta, RawSipMessage, SipEvent, SipEventPayload};
+use crate::api::eventbus_receiver::{AccountEventReceiver, EventBus, Subscription};
 use crate::audio::media_path_arch::ChannelSelector;
 use crate::call::HangupReason;
 use crate::config::account_config_spec::DtmfMethod;
@@ -83,7 +83,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1, P15-2, P15-4, P15-6, P15-7, P15-9, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1|P15-2|P15-4|P15-6|P15-7|P15-9|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1, P15-2, P15-4, P15-6, P15-7, P15-9, P16-3, P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1|P15-2|P15-4|P15-6|P15-7|P15-9|P16-3|P17-9) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -182,34 +182,34 @@ impl SipClient {
 
     /// Subscribe to the control event bus for all SIP events.
     ///
-    /// Returns a `broadcast::Receiver<SipEvent>` that receives all published
-    /// events for this client. Use `subscribe_account()` to filter by account.
+    /// Returns a `Subscription<SipEvent>` that receives all published events
+    /// for this client. Use `subscribe_account()` to filter by account, and
+    /// `Subscription::unsubscribe()` to cancel explicitly (§62.29).
     #[instrument(skip(self))]
-    pub fn subscribe(&self) -> broadcast::Receiver<SipEvent> {
-        self.events.subscribe_control()
+    pub fn subscribe(&self) -> Subscription<SipEvent> {
+        Subscription::new(Box::new(self.events.subscribe_control()))
     }
 
     /// Subscribe to events filtered to a specific account.
     ///
-    /// Returns an `AccountEventReceiver` that only yields events matching
-    /// the given `account_id`.
+    /// Returns a `Subscription<SipEvent>` that only yields events matching the
+    /// given `account_id`; the account filter is preserved inside the handle.
     #[instrument(skip(self), fields(account_id = account_id.0))]
-    pub fn subscribe_account(
-        &self,
-        account_id: AccountId,
-    ) -> crate::api::eventbus_receiver::AccountEventReceiver {
-        crate::api::eventbus_receiver::AccountEventReceiver::new(
+    pub fn subscribe_account(&self, account_id: AccountId) -> Subscription<SipEvent> {
+        Subscription::new(Box::new(AccountEventReceiver::new(
             account_id,
             self.events.subscribe_control(),
-        )
+        )))
     }
 
     /// Subscribe to the raw SIP message bus, if enabled.
+    ///
+    /// Returns `None` if the raw SIP bus was not created.
     #[instrument(skip(self))]
-    pub fn subscribe_raw_sip(
-        &self,
-    ) -> Option<broadcast::Receiver<crate::api::event_model_payload_bus::RawSipMessage>> {
-        self.events.subscribe_raw_sip()
+    pub fn subscribe_raw_sip(&self) -> Option<Subscription<RawSipMessage>> {
+        self.events
+            .subscribe_raw_sip()
+            .map(|rx| Subscription::new(Box::new(rx)))
     }
 
     /// Query the authoritative list of accounts (C021 source of truth).
@@ -1032,7 +1032,7 @@ mod tests {
             _: &Result<Vec<crate::api::event_model_payload_bus::AccountSnapshot>, SipError>,
         ) {
         }
-        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-15, P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-15|P17-9) --for-spec --no-implementation-order`.
         fn assert_add_account_result(_: &Result<crate::account::SipAccountHandle, SipError>) {}
         // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_remove_account_result(_: &Result<(), SipError>) {}
@@ -1685,5 +1685,47 @@ mod tests {
         assert_eq!(state.transports[0].port, 5070);
         client.shutdown().await?;
         Ok(())
+    }
+
+    // ── P17-9 §62.29: Subscription unsubscribe + mic source docs (C135) ──
+
+    /// @verifies C135
+    #[test]
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn call_api_surface_compiles() {
+        // C135 precondition — the §62.5 call API surface exists on SipClient.
+        // Taking each async method as a value is a compile-time existence
+        // check; behavioral coverage lives in the P17-4..P17-8 tests.
+        // send_dtmf is generic over `impl Into<String>`, so it is exercised by
+        // the P17-7 DtmfSent integration tests rather than listed here.
+        let _ = SipClient::answer;
+        let _ = SipClient::hangup;
+        let _ = SipClient::hold;
+        let _ = SipClient::unhold;
+        let _ = SipClient::transfer;
+        let _ = SipClient::call_state;
+        let _ = SipClient::calls;
+    }
+
+    /// @verifies C135
+    #[test]
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn readme_documents_mic_source_and_unsubscribe() {
+        // C135 postcondition — the README documents the explicit unsubscribe
+        // API and states that open_default_microphone_source is an independent
+        // capture source distinct from the call microphone.
+        let readme = include_str!("../README.md");
+        assert!(
+            readme.contains("unsubscribe()"),
+            "README must document the explicit Subscription::unsubscribe() API"
+        );
+        assert!(
+            !readme.contains("unsubscribe API は存在しない"),
+            "README must no longer claim that an explicit unsubscribe API does not exist (P15-6 decision reversed by §62.29)"
+        );
+        assert!(
+            readme.contains("通話マイクではない独立キャプチャ"),
+            "README must state open_default_microphone_source is an independent capture source, not the call microphone"
+        );
     }
 }
