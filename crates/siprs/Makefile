@@ -54,3 +54,8 @@ crimes:
 
 sections:
 	node .claude/scripts/crystalize-readme/list-sections.js
+
+crystalized-rate:
+	A=$$(cat README.md | grep "\-RESIDUE::>" | wc -l); \
+	B=$$(cat README.md | grep "^# " | wc -l); \
+	awk -v a="$$A" -v b="$$B" 'BEGIN{printf "===========\n-> %.2f %%\n===========\n", ((b-1-a)/(b-1))*100}'

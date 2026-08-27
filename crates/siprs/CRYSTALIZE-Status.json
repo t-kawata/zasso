@@ -3,13 +3,13 @@
   "graphFile": "/Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json",
   "currentStep": 4,
   "steps": {
-    "0": "pending",
+    "0": "done",
     "1": "done",
     "2": "done",
     "3": "done"
   },
   "grill": {
-    "tocApproved": false,
+    "tocApproved": true,
     "examplesApproved": false,
     "toc": {
       "nodes": [
@@ -59,7 +59,7 @@
           "id": "H7",
           "heading": "アカウントの取得・一覧・削除（account / accounts / remove_account）",
           "level": 1,
-          "confirmedContent": "remove_account(id) の呼び出しと、削除時に走る unregister の挙動・関連イベントを併せて解説",
+          "confirmedContent": "account(id) / accounts() / remove_account(id) の呼び出しと、削除時に走る unregister の挙動・関連イベントを併せて解説",
           "status": "confirmed"
         },
         {
@@ -174,8 +174,8 @@
       {
         "id": "H7",
         "heading": "アカウントの取得・一覧・削除（account / accounts / remove_account）",
-        "state": "residue",
-        "confirmedContent": "remove_account(id) の呼び出しと、削除時に走る unregister の挙動・関連イベントを併せて解説"
+        "state": "complete",
+        "confirmedContent": "account(id) / accounts() / remove_account(id) の呼び出しと、削除時に走る unregister の挙動・関連イベントを併せて解説"
       },
       {
         "id": "H8",
@@ -192,7 +192,7 @@
       {
         "id": "H10",
         "heading": "着信と応答（IncomingCall と answer）",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": "IncomingCall イベントの受信から answer(code) による応答、reject（486/603）による切断までの一連のコードを解説"
       },
       {
