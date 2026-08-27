@@ -1,0 +1,10 @@
+Q2: P1/P2 イベントの FFI コールバック登録スコープ
+
+背景: §62.13（round 2 Q3）は P1/P2 変換器（m20_native_event_conv.rs）を Some() 化した。しかし register_callbacks（src/ffi/callback.rs:182-193）は on_call_media_state のみを登録しており、on_transport_state（TransportStateChanged）/ on_call_tsx_state（CallTsxStateChanged）/ on_call_replaced（CallReplaced）/ on_nat_detect（NatDetected）は登録されていない。変換器が Some() を返しても、対応コールバックが登録されない限りイベントは発火しない（H8 RESIDUE）。選択の観点は、変換器の価値を生かす登録範囲と、PJSIP バージョン依存フィールドの扱いである。
+
+選択肢:
+A) 今回、未登録の 4 コールバック（on_transport_state / on_call_tsx_state / on_call_replaced / on_nat_detect）を全て register_callbacks に追加し、対応イベントを publish する
+B) 変換器が Some() を返し、かつ pjsua_callback にフィールドが存在するもののみ登録し、存在しないフィールドは PJSIP 更新まで保留する
+C) 今回の登録は on_call_media_state に留め、P1/P2 の実登録は pjsua-native ビルド修復後にまとめて行う
+
+推奨: A を推奨。変換器は既に Some() 化されており、コールバック登録は pjsua_callback のフィールドにハンドラを設定する機械的な作業で、テスト容易性も高い。登録しない限り変換器の価値が無く、RESIDUE の「P1/P2 は部分的にしか発火しない」を解消できない。フィールドが存在しない場合はコンパイル時に判明するため、A の前提（フィールド存在）が崩れた場合のみ B へ縮退する設計とする。

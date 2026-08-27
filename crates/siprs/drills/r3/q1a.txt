@@ -1,0 +1,10 @@
+Q1a: raw SIP キャプチャ機構の選択 — PJSIP 2.17 で利用可能なフック
+
+背景: Q1 の調査で判明したとおり、vendored PJSIP は 2.17.0 で、pjsua_callback.on_rx_msg は 2.17 にも存在しない（pjsua_callback の全 on_* フィールドを実ヘッダで検証済み）。しかし PJSIP 2.17 には 2 つのサポート済み raw SIP フックが存在する。(1) pjsip_module の on_rx_request / on_rx_response（sip_module.h:131,142）を pjsip_endpt_register_module（sip_endpoint.h:238）で登録する方式。パース済み pjsip_rx_data を受け取り、pkt_info.msg から raw バイトを取り出せる。PJSIP 1.x から安定。(2) pjsip_tpmgr_set_recv_data_cb（sip_transport.c:3062）によるトランスポートレベル raw データコールバック（pjsip_tp_on_rx_data_cb、sip_transport.h:1762）。PJSIP 2.13 で追加。tpmgr は pjsip_endpt_get_tpmgr（sip_endpoint.h:450）で取得し、パース前の真の raw データを受け取る。選択の観点は、標準性と安定性 vs 真の raw 性と FFI リスクである。
+
+選択肢:
+A) pjsip_module の on_rx_request / on_rx_response を登録し、パース済み pjsip_rx_data の pkt_info.msg から raw バイトを enqueue_raw_sip_bytes へ供給する（標準的で安定、バージョン横断）
+B) pjsip_tpmgr_set_recv_data_cb を登録し、トランスポートレベルの raw データコールバックから pjsip_tp_rx_data の raw バッファを enqueue_raw_sip_bytes へ供給する（2.13+、パース前の真の raw）
+C) 現在の注入点（enqueue_raw_sip_bytes + RAW_SIP_QUEUE）を維持し、実際の FFI 接続は将来の PJSIP 更新に委ねて「未配線」と明記する
+
+推奨: A を推奨。pjsip_module は PJSIP の標準拡張点（mod_msg_print 自体がモジュール）で、全 2.x で安定しており、パース済み rdata の pkt_info.msg から raw バイトも取得できる。B は 2.13+ の新 API で真の raw だが、パース前の不完全なデータも捕捉され、tpmgr 内部構造への FFI 追加が必要でリスクが高い。C は H8 の解消にならない。

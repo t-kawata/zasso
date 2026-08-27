@@ -1,655 +1,552 @@
 {
   "sourceFile": "/Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT.md",
-  "generatedAt": "2026-08-26T01:55:26.574Z",
+  "generatedAt": "2026-08-27T02:29:23.578Z",
   "appendOnly": true,
   "sections": [
     {
-      "heading": "### 62.10 ラウンド 2 進化スコープと根因（H1 / H5 / H7 / H8 / H10–H15 / EXAMPLES）",
-      "startLine": 4154,
+      "heading": "### 62.21 ラウンド 3 進化スコープと根因（H5 / H8 / H11 / H12 / H13 / H14 の残存ギャップ）",
+      "startLine": 4549,
       "lines": [
-        "### 62.10 ラウンド 2 進化スコープと根因（H1 / H5 / H7 / H8 / H10–H15 / EXAMPLES）",
+        "### 62.21 ラウンド 3 進化スコープと根因（H5 / H8 / H11 / H12 / H13 / H14 の残存ギャップ）",
         "",
-        "> 本節はラウンド 1（§62.1–62.8）で解決しきれなかった RESIDUE（H1 / H5 / H7 / H8 / H10–H15 / EXAMPLES）を解消する設計判断を記す。ラウンド 1 が「公開 API の一本化・バックエンド選択・イベントバス統合」を確定したのに対し、ラウンド 2 は「**本番 FFI 経路の実配線**」と「**実 SIP / TURN サーバによる相互接続検証**」を確定する。設計コンテキストの取得コマンド: `node .claude/scripts/drill-rfc-down/tree-query.js drills tree`（drills/DesignTree.json に全決定の根拠が残る）。",
+        "> 本節はラウンド 2（§62.10–62.20）で設計・実装された経路のうち、実装後に RESIDUE として残ったギャップを解消する設計判断を記す。ラウンド 2 が「本番 FFI 経路の実配線」と「実 SIP / TURN サーバによる相互接続検証」を確定したのに対し、ラウンド 3 は「**vendored PJSIP 2.17 の API 実態に基づく配線の確定**」と「**イベントの網羅的実装・契約の確定**」を行う。設計コンテキストの取得コマンド: `node .claude/scripts/drill-rfc-down/tree-query.js drills tree`（drills/DesignTree.json に全決定の根拠が残る）。",
         "",
-        "残る RESIDUE の根因は 5 つに集約される:",
+        "**vendored PJSIP のバージョン確定**: 本ラウンドの前提として、vendored PJSIP（`vendor/pjsip` および `vendor/prebuilt/aarch64-apple-darwin`）は **2.17.0** であることを実ヘッダで確認した（`vendor/pjsip/pjlib/include/pj/config.h:1671-1677` の `PJ_VERSION_NUM_MINOR 17`）。このため「PJSIP 2.13+ で `pjsua_callback.on_rx_msg` が利用可能になる」という従来の前提は成立しない。`pjsua_callback` には `on_rx_msg` フィールドはどの 2.x にも存在せず（`pjsua.h:1300-2100` の全 `on_*` フィールドを検証済み）、raw SIP の取得はモジュール層 / トランスポート層のフックによる。",
         "",
-        "1. **本番 FFI 経路の未配線** — `config.transports` / `stun_servers` / `turn_servers` / `ice` が `pjsua_config` / `pjsua_transport_create` へ一切反映されない（H1 / H15）。FFI コールバックは lock-free キューへ push するが drain するコードが存在しない（H8）。",
-        "2. **ライフサイクル未接続** — `register_on_start` が `add_account` 時・起動時に読まれない（H5）。`remove_account` に unregister 先行手順がなく `AccountRemoved` が publish されない（H7）。着信 `IncomingCall` が `ClientState.calls` に登録されない（H10）。",
-        "3. **重複・不一致** — `DtmfMethod` が 3 箇所に重複定義されバリアントが不一致（H12）。`CallRejected` が一切生成されない（H11）。`convert_call_state` が inv_state 5 状態のみ（H11）。P1/P2 変換器が全て `None`（H8）。",
-        "4. **メディア経路未接続** — conf port メディアコールバックが未配線で `push_media_frame` を呼ぶコードがゼロ（H13）。`out_queue` / `in_queue` を消費する経路がゼロ（H14）。",
-        "5. **検証基盤の未定義** — 実 SIP / TURN サーバとの相互接続テスト基盤が設計されていない（EXAMPLES / 本ラウンド確定）。",
+        "残る RESIDUE の根因は 6 つに集約される:",
         "",
-        "**全体方針**: 本ラウンドの設計判断は「**完全実装 + v0.x で破壊的変更を受容した統一 + 実 Asterisk / coturn との相互接続テストで完全動作を保証**」である。破壊的変更（`RegistrationSucceeded`/`Failed` 削除、`CallRejected` 削除、`DtmfMethod` の `SipInfo`→`Info` 改名）は v0.x 開発期の今一度に完了させ、後方互換のための残骸を残さない。統合テストは docker 可用性ゲート付きとし、docker が使用可能な場合のみ実行する（ローカル開発を壊さず CI では実質必須ゲート）。",
+        "1. **raw SIP の配線不能（H8）** — §62.13 は `pjsua_callback.on_rx_msg` を想定したが 2.17 にも存在しない。`enqueue_raw_sip_bytes` の生産コードがゼロのまま。→ §62.22",
+        "2. **P1/P2 コールバック未登録（H8）** — `register_callbacks` は 8 コールバックのみで、`on_transport_state` / `on_call_tsx_state` / `on_call_replaced` / `on_nat_detect` が未登録。変換器は `Some()` でも発火しない。→ §62.23",
+        "3. **TestBackend が登録イベントを発火しない（H5）** — `TestBackend::set_registration` は内部状態更新のみで `NativeEvent::RegistrationStateChanged` を生成しない。`account_register` example が 30 秒タイムアウト。→ §62.24",
+        "4. **`CallEntry.state` がネイティブ遷移で更新されない（H11）** — `process_native_event` は publish のみで `CallEntry.state` を変更しない。リモート切断後に `call_state()` が stale。→ §62.25",
+        "5. **`CallResumed` 未実装（H11）** — enum に unit variant として存在するが構築箇所ゼロ。resume の観測手段が未確定。→ §62.26",
+        "6. **`DtmfSent` の契約未確定（H12）** — 実装は 500ms タイムアウト由来だが §62.15 は「コールバック優先」と記し、契約が曖昧。PJSIP に送信完了コールバックは存在しない（実ヘッダ検証済み）。→ §62.27",
+        "7. **tap 駆動の生産経路未確定（H13）** — §62.16 は `pjsua_conf_set_callback` を想定したが 2.17 にも存在しない（実ヘッダ検証済み）。`RustMediaPort` の port ops からの tap 供給を確定。→ §62.28",
+        "8. **文書化ギャップ（H8 / H14）** — マイク source の位置づけと unsubscribe の API が未確定。→ §62.29",
+        "",
+        "**全体方針**: 本ラウンドの設計判断は「**vendored PJSIP 2.17 の実 API に基づく配線の確定**」と「**イベントの網羅的実装 + v0.x で破壊的変更を受容した統一**」である。`pjsua_callback.on_rx_msg` のような存在しない API に依存せず、標準拡張点（`pjsip_module`）と実装済みの注入点（`enqueue_raw_sip_bytes`）を接続する。破壊的変更（`CallResumed` のペイロード化、subscribe 系 API の `Subscription<T>` 化）は v0.x 開発期のうちに完了させる。",
         ""
       ]
     },
     {
-      "heading": "### 62.11 本番バックエンド基盤: トランスポート生成配線と bindgen 整合方針（Q1）",
-      "startLine": 4168,
+      "heading": "### 62.22 raw SIP 生産経路: pjsip_module フックによる配線（Q1 / Q1a）",
+      "startLine": 4568,
       "lines": [
-        "### 62.11 本番バックエンド基盤: トランスポート生成配線と bindgen 整合方針（Q1）",
+        "### 62.22 raw SIP 生産経路: pjsip_module フックによる配線（Q1 / Q1a）",
         "",
-        "**決定**: `PjsuaBackend::initialize` が `config.transports` を列挙し、各 `TransportConfig`（§12）の種別（UDP / TCP / TLS）と bind_addr ポートを `pjsua_transport_create` へ反映する。生成した `pjsua_transport_id` は `PjsuaBackend.transport_ids` に保持し、シャットダウン（§32 手順 5）で破棄する。`pjsua-native` ビルド修復（39 エラー）は、bindgen allowlist とコード期待の整合方針（§27 / §28 追補）として RFC に明記し、具体エラーの対処は実装チケットで解決する。",
+        "**決定**: raw SIP は `pjsip_module`（`on_rx_request` / `on_rx_response`）として実装し、`pjsip_endpt_register_module` で endpoint に登録する。各ハンドラは `pjsip_rx_data.pkt_info.msg` / `pkt_info.len` から raw バイトを読み取り、`enqueue_raw_sip_bytes` へ供給する。モジュールは観測専用（ハンドラは `PJ_FALSE` を返し、メッセージを消費しない）。`pjsua_callback.on_rx_msg` への依存を完全に排除し、既存の `enqueue_raw_sip_bytes` / `RAW_SIP_QUEUE` / `subscribe_raw_sip()` を生産経路へ接続する。",
         "",
         "```rust",
-        "// src/runtime/backend.rs — PjsuaBackend::initialize のトランスポート配線（Q1）",
-        "fn initialize(&mut self, config: &ClientConfig) -> Result<(), SipError> {",
-        "    ffi::backend_calls::initialize()?;",
-        "    for transport in &config.transports {",
-        "        let native_transport_id = self.create_native_transport(transport)?;",
-        "        self.transport_ids.push(native_transport_id);",
-        "    }",
-        "    Ok(())",
+        "// src/ffi/raw_sip_module.rs — pjsip_module による raw SIP キャプチャ（Q1a）",
+        "//",
+        "// pjsua_callback に on_rx_msg は存在しない（PJSIP 2.17 でも検証済み）。PJSIP の",
+        "// 標準拡張点である pjsip_module の on_rx_request / on_rx_response を登録し、",
+        "// pkt_info.msg の raw バイトを enqueue_raw_sip_bytes へ供給する。",
+        "",
+        "static mut RAW_SIP_MODULE: pjsip_module = pjsip_module {",
+        "    name: b\"mod_siprs_raw_sip\\0\".as_ptr() as *const c_char,",
+        "    id: -1,",
+        "    priority: PJSIP_MOD_PRIORITY_APPLICATION - 1,",
+        "    on_rx_request: Some(raw_sip_on_rx_request),",
+        "    on_rx_response: Some(raw_sip_on_rx_response),",
+        "    ..pjsip_module::const_default()",
+        "};",
+        "",
+        "/// 観測専用ハンドラ。`PJ_FALSE` を返し、メッセージを消費しない。",
+        "unsafe extern \"C\" fn raw_sip_on_rx_request(rdata: *mut pjsip_rx_data) -> pj_bool_t {",
+        "    capture_raw_sip_message(rdata);",
+        "    PJ_FALSE",
         "}",
         "",
-        "fn create_native_transport(&self, transport: &TransportConfig) -> Result<pjsua_transport_id, SipError> {",
-        "    let (kind, bind_addr) = match transport {",
-        "        TransportConfig::Udp(cfg)  => (ffi::PJSIP_TRANSPORT_UDP, cfg.bind_addr),",
-        "        TransportConfig::Tcp(cfg)  => (ffi::PJSIP_TRANSPORT_TCP, cfg.bind_addr),",
-        "        #[cfg(feature = \"tls\")]",
-        "        TransportConfig::Tls(cfg)  => (ffi::PJSIP_TRANSPORT_TLS, cfg.bind_addr),",
-        "    };",
-        "    ffi::backend_calls::transport_create(kind, bind_addr)",
+        "unsafe extern \"C\" fn raw_sip_on_rx_response(rdata: *mut pjsip_rx_data) -> pj_bool_t {",
+        "    capture_raw_sip_message(rdata);",
+        "    PJ_FALSE",
         "}",
         "",
-        "// src/ffi/backend_calls.rs — pjsua_transport_create へ種別・ポートを反映（null config を廃止）",
-        "pub fn transport_create(kind: c_int, bind_addr: SocketAddr) -> Result<pjsua_transport_id, SipError> {",
-        "    let mut cfg = pjsua_transport_config::default();",
-        "    cfg.port = bind_addr.port();",
-        "    cfg.bound_addr = if bind_addr.ip().is_unspecified() {",
-        "        CString::new(\"\").map_err(|_| SipError::invalid_argument(\"empty bound_addr\"))?",
-        "    } else {",
-        "        CString::new(bind_addr.ip().to_string())",
-        "            .map_err(|_| SipError::invalid_argument(\"invalid bound_addr\"))?",
-        "    };",
-        "    let mut tid: pjsua_transport_id = -1;",
-        "    let status = unsafe { pjsua_transport_create(kind, &mut cfg, &mut tid) };",
-        "    map_pjsua_status(status, \"pjsua_transport_create\")?;   // §62.8: native_status 保持",
-        "    Ok(tid)",
+        "/// `rdata->pkt_info.msg[0..len]` の raw バイトを raw SIP キューへ供給する。",
+        "unsafe fn capture_raw_sip_message(rdata: *mut pjsip_rx_data) {",
+        "    let pkt = &(*rdata).pkt_info;",
+        "    let raw = std::slice::from_raw_parts(pkt.msg as *const u8, pkt.len);",
+        "    enqueue_raw_sip_bytes(raw.to_vec());",
+        "}",
+        "",
+        "/// endpoint へのモジュール登録（PjsuaBackend::initialize から呼ぶ）。",
+        "pub fn register(endpt: *mut pjsip_endpoint) -> Result<(), SipError> {",
+        "    // SAFETY: `endpt` は pjsua_get_pjsip_endpt 由来の生きた endpoint ポインタで、",
+        "    // モジュールは静的生命を持つため参照期間中に解放されない。",
+        "    let status = unsafe { pjsip_endpt_register_module(endpt, &mut RAW_SIP_MODULE) };",
+        "    map_pjsua_status(status, \"pjsip_endpt_register_module\")",
         "}",
         "```",
         "",
-        "**bindgen 整合方針（§28 追補）**: ビルド修復は以下の 4 項目の allowlist / コード期待の整合で構成する。(1) 定数 `PJ_SUCCESS` 等を bindgen allowlist に追加し、コード側の期待（`c_int` 定数）と一致させる。(2) `pjsua_acc_config` に `registrar_uri` が現れるよう struct のフィールド allowlist を拡張する。(3) `SecretString::expose_secret` を実装し、TURN パスワード等の機微値を PJSIP へ渡す経路を確立する。(4) `pjsip_inv_state` / `pjsua_call_media_status` を constified enum モジュールとして適用し、§18 / §20 の状態変換（§62.14 / §62.15）が定数を参照できるようにする。",
-        "",
-        "**I/O 境界**: 入力 = `ClientConfig.transports: Vec<TransportConfig>`（§12）／出力 = `Vec<pjsua_transport_id>`（native transport id 一覧、シャットダウンで破棄）。`transport_create` が種別・ポートを PJSIP へ反映し、失敗時は `SipError`（`native_status` 付き、§62.8）を返す。`pjsua-native` ビルド修復は §27 / §28 の build.rs 戦略に属する。",
+        "**I/O 境界**: 入力 = PJSIP endpoint が受信する生 SIP メッセージ（`pjsip_rx_data.pkt_info`）／出力 = `enqueue_raw_sip_bytes` → `RAW_SIP_QUEUE` → `EventBus::publish_raw_sip`（§16 の redact 規則適用）→ `subscribe_raw_sip()` の `RawSipMessage` チャネル。`pjsip_module` が FFI と raw SIP キューの中継点であり、`PJ_FALSE` 返却により観測専用であることを保証する。bindgen allowlist に `pjsip_module` 構造体と `pjsip_endpt_register_module` を追加する（§62.11 の bindgen 整合方針に含める）。",
         ""
       ]
     },
     {
-      "heading": "### 62.12 登録・アカウント経路: register_on_start 自動登録 / remove_account unregister 先行 / AccountRemoved publish（Q2）",
-      "startLine": 4214,
+      "heading": "### 62.23 P1/P2 FFI コールバック登録の完了（Q2）",
+      "startLine": 4617,
       "lines": [
-        "### 62.12 登録・アカウント経路: register_on_start 自動登録 / remove_account unregister 先行 / AccountRemoved publish（Q2）",
+        "### 62.23 P1/P2 FFI コールバック登録の完了（Q2）",
         "",
-        "**決定**: (1) `register_on_start: true` を `add_account` 時にも消費し、アカウント追加直後に自動 REGISTER を発行する（クライアント起動時のアカウント復元でも同様に消費する）。(2) `RegistrationSucceeded` / `RegistrationFailed` を `SipEventPayload` enum から完全削除し、登録結果の通知は `RegistrationStateChanged`（`Registered` / `Failed` 遷移）に統一する。`examples/account_register.rs` と README の待ち受けイベントを `RegistrationStateChanged` へ修正する。(3) `remove_account` は unregister を先行実行してから `backend.remove_account` → `ClientState` からの除去を行い、`AccountRemoved(AccountSnapshot)` を publish する。",
+        "**決定**: `register_callbacks` に `on_transport_state`（`TransportStateChanged`）/ `on_call_tsx_state`（`CallTsxStateChanged`）/ `on_call_replaced`（`CallReplaced`）/ `on_nat_detect`（`NatDetected`）の 4 コールバックを追加登録する。PJSIP 2.17 の `pjsua_callback` に全フィールドが存在することを実ヘッダで確認済み（`pjsua.h:1345,1606,1998,2077`）。各ハンドラは対応する `NativeEvent` をネイティブキューへ enqueue し、既存の M20 変換器（`Some()` 化済み）が publish する。`m20_native_event_conv.rs` の「P1/P2 returns None」という stale doc comment を実際の挙動（`Some()` 化）に合わせて修正する。",
         "",
         "```rust",
-        "// src/runtime/reactor.rs — AddAccount アーム: register_on_start の自動登録（Q2）",
-        "async fn handle_add_account(&self, config: AccountConfig) -> Result<AccountId, SipError> {",
-        "    let native_id = self.backend.add_account(&config)?;",
-        "    let account_id = self.state.write().await.insert_account(config.clone(), native_id)?;",
-        "    if config.register_on_start {",
-        "        self.backend.set_registration(account_id, true)?;   // 自動登録（§17.1）",
-        "    }",
-        "    Ok(account_id)",
+        "// src/ffi/callback.rs — register_callbacks の追加登録（Q2）",
+        "pub fn register_callbacks(",
+        "    config: &mut bindings::pjsua_config,",
+        "    queue: crossbeam_queue::ArrayQueue<NativeEvent>,",
+        ") {",
+        "    install_native_event_queue(queue);",
+        "    install_raw_sip_queue(crossbeam_queue::ArrayQueue::new(RAW_SIP_QUEUE_CAPACITY));",
+        "    // ── 既存（P11-11 / P16-4）──",
+        "    config.cb.on_incoming_call = Some(on_incoming_call);",
+        "    config.cb.on_reg_state = Some(on_reg_state);",
+        "    config.cb.on_call_state = Some(on_call_state);",
+        "    config.cb.on_call_media_state = Some(on_call_media_state);",
+        "    config.cb.on_reg_started = Some(on_reg_started);",
+        "    config.cb.on_call_redirected = Some(on_call_redirected);",
+        "    config.cb.on_dtmf_digit = Some(on_dtmf_digit);",
+        "    config.cb.on_call_transfer_status = Some(on_call_transfer_status);",
+        "    // ── round 3 追加（Q2）──",
+        "    config.cb.on_transport_state = Some(on_transport_state);",
+        "    config.cb.on_call_tsx_state = Some(on_call_tsx_state);",
+        "    config.cb.on_call_replaced = Some(on_call_replaced);",
+        "    config.cb.on_nat_detect = Some(on_nat_detect);",
         "}",
         "",
-        "// src/runtime/reactor.rs — RemoveAccount アーム: unregister 先行 → 除去 → AccountRemoved（Q2）",
-        "async fn handle_remove_account(&self, id: AccountId) -> Result<(), SipError> {",
-        "    self.backend.set_registration(id, false)?;                       // ① unregister 先行",
-        "    self.backend.remove_account(id)?;                                // ② backend 除去",
-        "    let snapshot = self.state.write().await.remove_account(id)?;     // ③ ClientState 除去",
-        "    self.dispatch_event(SipEvent {",
-        "        meta: EventMeta::account(id),",
-        "        payload: SipEventPayload::AccountRemoved(snapshot),",
-        "    }).await;                                                         // ④ AccountRemoved publish",
-        "    Ok(())",
+        "// 各ハンドラ: ネイティブキューへ対応 NativeEvent を enqueue する。",
+        "unsafe extern \"C\" fn on_transport_state(",
+        "    tp: *mut bindings::pjsip_transport,",
+        "    state: bindings::pjsip_transport_state,",
+        "    _info: *const bindings::pjsip_transport_state_info,",
+        ") {",
+        "    // SAFETY: tp は PJSIP が有効な transport インスタンスへ渡す。",
+        "    let transport_id = unsafe { (*tp).id } as u32;",
+        "    enqueue_native_event(NativeEvent::TransportStateChanged {",
+        "        transport_id,",
+        "        state: state as u32,",
+        "    });",
+        "}",
+        "",
+        "unsafe extern \"C\" fn on_call_tsx_state(",
+        "    call_id: bindings::pjsua_call_id,",
+        "    _tsx: *mut bindings::pjsip_transaction,",
+        "    _e: *mut bindings::pjsip_event,",
+        ") {",
+        "    enqueue_native_event(NativeEvent::CallTsxStateChanged {",
+        "        call_id: call_id as u32,",
+        "    });",
+        "}",
+        "",
+        "unsafe extern \"C\" fn on_call_replaced(",
+        "    old_call_id: bindings::pjsua_call_id,",
+        "    new_call_id: bindings::pjsua_call_id,",
+        ") {",
+        "    enqueue_native_event(NativeEvent::CallReplaced {",
+        "        call_id: new_call_id as u32,",
+        "    });",
+        "}",
+        "",
+        "unsafe extern \"C\" fn on_nat_detect(_res: *const bindings::pj_stun_nat_detect_result) {",
+        "    enqueue_native_event(NativeEvent::NatDetected);",
         "}",
         "```",
         "",
-        "**破壊的変更の影響範囲**: `SipEventPayload` から `RegistrationSucceeded(RegistrationInfo)` / `RegistrationFailed(RegistrationInfo)` を削除する。これらのバリアントを参照する README / example / テストは `RegistrationStateChanged` へ統一する。API 互換のための残骸（deprecated 別名等）は残さない。",
-        "",
-        "**I/O 境界**: 入力 = `AccountConfig.register_on_start`（§11）+ `RuntimeCommand::AddAccount` / `RemoveAccount` ／出力 = `backend.set_registration(id, enabled)` 呼び出し、`AccountRemoved(AccountSnapshot)` publish、`RegistrationStateChanged` へのイベント統一。`registr_state_machine::transition`（§62.4）が登録状態遷移を引き続き一元的に決定する。",
+        "**I/O 境界**: 入力 = PJSIP のトランスポート状態 / トランザクション状態 / call replace / NAT 検出イベント ／出力 = `NativeEvent` → M20 変換 → `SipEventPayload`（`TransportStateChanged` / `CallTsxStateChanged` / `CallReplaced` / `NatDetected`）。`register_callbacks` が FFI コールバックとネイティブキューを接続し、drain（§62.13）が reactor へ転送する。P1/P2 変換器の `Some()` 化（round 2）と本登録で、P1/P2 イベント系列が実コールバックから発火する。",
         ""
       ]
     },
     {
-      "heading": "### 62.13 イベント経路の完成: FFI キュー drain / raw SIP publisher / P1/P2 変換器（Q3）",
-      "startLine": 4246,
+      "heading": "### 62.24 TestBackend 登録イベント発火と account_register example 完走（Q3）",
+      "startLine": 4685,
       "lines": [
-        "### 62.13 イベント経路の完成: FFI キュー drain / raw SIP publisher / P1/P2 変換器（Q3）",
+        "### 62.24 TestBackend 登録イベント発火と account_register example 完走（Q3）",
         "",
-        "**決定**: (1) FFI コールバックが push する lock-free キュー（§27）をドレインするタスクを reactor に追加し、`NativeEvent` を M20 変換器経由でイベントバスへ統合する（P8-21 のスコープを RFC 設計として確定）。(2) `subscribe_raw_sip()` の受信チャネルへ `RawSipMessage`（§16）を供給する raw SIP publisher を実装する。FFI の `on_rx_msg` コールバックから生メッセージを読み取り、`publish_raw_sip` 経由で受信者へ配信する。(3) P1/P2 系イベント変換器（`m20_native_event_conv.rs`）を `Some()` 化し、実コールバック由来のイベント系列を publish できるようにする。",
+        "**決定**: `TestBackend::set_registration` は、登録状態遷移（enabled → `Registering` / disabled → `Unregistering`）に加えて、対応する `NativeEvent::RegistrationStateChanged` を自前のネイティブイベントバッファへ追加する。reactor の `SetRegistration` アームは `backend.set_registration` の直後に `backend.take_native_events()` で発火イベントを回収し、`process_native_event` で処理する。これにより実 FFI 経路（`on_reg_state2` → キュー → drain → reactor）と同じイベント系列が TestBackend 上でも成立し、`account_register` example が `RegistrationStateChanged(Registered / Failed)` を受信して完走する。`SipBackend` trait に `take_native_events`（既定は空）を追加する。",
         "",
         "```rust",
-        "// src/runtime/reactor.rs — FFI キュー drain タスク（P8-21 スコープ確定）",
-        "async fn spawn_native_event_drain(&self) {",
-        "    let receiver = ffi::callback::event_queue_receiver();",
-        "    while let Some(native_event) = receiver.recv().await {",
-        "        self.process_native_event(native_event).await;   // M20 変換 + dispatch（§62.4）",
+        "// src/runtime/backend.rs — SipBackend trait にネイティブイベント回収口を追加（Q3）",
+        "pub trait SipBackend {",
+        "    // ...",
+        "    /// バックエンドが生成したネイティブイベントを回収する。",
+        "    /// 実 FFI 経路ではキュー drain（§62.13）が担うため既定は空。TestBackend は",
+        "    /// シミュレータとして自身が生成したイベントをここで返す。",
+        "    fn take_native_events(&mut self) -> Vec<NativeEvent> {",
+        "        Vec::new()",
         "    }",
         "}",
         "",
-        "// src/runtime/reactor.rs — raw SIP publisher（Q3）",
-        "async fn process_raw_sip(&self, raw: RawSipMessage) {",
-        "    if self.raw_sip_publisher.send(raw).await.is_err() {",
-        "        log::warn!(\"raw SIP subscriber dropped; message discarded\");",
-        "    }",
-        "}",
-        "",
-        "// src/ffi/callback.rs — on_rx_msg: 生メッセージを raw SIP キューへ供給（§16）",
-        "extern \"C\" fn on_rx_msg(rdata: *mut pjsip_rx_data) {",
-        "    let raw = read_raw_message(rdata);   // 生 SIP メッセージ（ヘッダ + body、§16 の redact 規則）",
-        "    let _ = RAW_SIP_QUEUE.try_push(raw);",
-        "}",
-        "```",
-        "",
-        "**I/O 境界**: 入力 = FFI コールバック（`on_incoming_call` / `on_reg_state` / `on_call_state` / `on_rx_msg` 等）+ lock-free キュー ／出力 = `NativeEvent` → M20 変換 → `SipEventPayload`（3 種の subscribe receiver）、`RawSipMessage` → raw SIP receiver。`event_queue_receiver` が FFI と reactor の境界を担う。",
-        ""
-      ]
-    },
-    {
-      "heading": "### 62.14 着信・通話イベント: IncomingCall CallEntry 登録 / answer 修正 / CallRejected 統一 / CallState 全遷移（Q4）",
-      "startLine": 4275,
-      "lines": [
-        "### 62.14 着信・通話イベント: IncomingCall CallEntry 登録 / answer 修正 / CallRejected 統一 / CallState 全遷移（Q4）",
-        "",
-        "**決定**: (1) `on_incoming_call` コールバック由来の `NativeEvent::IncomingCall` を reactor が `ClientState.calls` に `CallEntry`（`CallDirection::Incoming`、account 解決済み）として登録する。(2) `handle_answer` を修正し、`CallEntry` から account_id を解決して `backend.answer` を呼び、200 応答で `CallState::Active` へ遷移させ `CallConnected` を publish する。(3) `CallRejected` を `SipEventPayload` から削除し、reject（486 / 603）は `CallDisconnected` として観測されることを確定する。`SipCall` の偽ドキュメント（「`answer_call()` で生成」）を「`make_call()` で生成、着信は `IncomingCall` イベントで通知」に修正する。(4) `convert_call_state` を拡張し、PJSIP inv_state の 5 状態 + `CallMediaStateChanged` から `CallState` 全 13 状態（§18）へのマッピングを `Some()` 化する。",
-        "",
-        "```rust",
-        "// src/runtime/reactor.rs — IncomingCall: ClientState.calls への登録（Q4）",
-        "async fn process_incoming_call(&self, info: IncomingCallInfo) {",
-        "    let entry = CallEntry {",
-        "        id: info.call_id,",
-        "        account_id: info.account_id,",
-        "        direction: CallDirection::Incoming,",
-        "        state: CallState::Incoming,",
-        "        remote_uri: info.remote_uri,",
-        "        native_id: Some(info.native_call_id),",
-        "    };",
-        "    self.state.write().await.insert_call(entry);",
-        "    self.dispatch_event(SipEvent {",
-        "        meta: EventMeta::call(info.account_id, info.call_id),",
-        "        payload: SipEventPayload::IncomingCall(IncomingCallEvent {",
-        "            call_id: info.call_id,",
-        "            account_id: info.account_id,",
-        "            remote_uri: info.remote_uri,",
-        "        }),",
-        "    }).await;",
-        "}",
-        "",
-        "// src/runtime/reactor.rs — handle_answer: account 解決 + 200 で CallConnected publish（Q4）",
-        "async fn handle_answer(&self, call_id: CallId, code: u16) -> Result<(), SipError> {",
-        "    let account_id = self.state.read().await.call_entry(&call_id)?.account_id;  // 着信も解決可能に",
-        "    self.backend.answer(account_id, call_id, code)?;",
-        "    if code == 200 {",
-        "        self.state.write().await.set_call_state(call_id, CallState::Active)?;",
-        "        self.dispatch_event(SipEvent {",
-        "            meta: EventMeta::call(account_id, call_id),",
-        "            payload: SipEventPayload::CallConnected(CallConnectedInfo { call_id }),",
-        "        }).await;",
-        "    }",
-        "    Ok(())",
-        "}",
-        "```",
-        "",
-        "**I/O 境界**: 入力 = `NativeEvent::IncomingCall`（`on_incoming_call` 由来）/ `RuntimeCommand::Answer{call_id, code}` ／出力 = `ClientState.calls` への登録、`IncomingCall` / `CallConnected` / `CallDisconnected` publish、`CallState` 遷移（§18）。`CallEntry` の `account_id` が常に解決されることが、`calls()` / `call_state(call_id)` / `answer` の整合の前提となる。",
-        ""
-      ]
-    },
-    {
-      "heading": "### 62.15 DTMF 実装整合: DtmfMethod 一元化 / method 反映 / DtmfSent{Ok} 経路（Q5）",
-      "startLine": 4318,
-      "lines": [
-        "### 62.15 DTMF 実装整合: DtmfMethod 一元化 / method 反映 / DtmfSent{Ok} 経路（Q5）",
-        "",
-        "**決定**: (1) `DtmfMethod` を `Inband` / `Info` / `Rfc4733` の単一定義に一元化する。§20 の `SipInfo` は SIP INFO method（RFC 2976）の正名である `Info` へ改名する。3 箇所の重複定義（`account_config_spec` / `observability_metrics` / `m20_dtmfsent_twophase`）を単一の `src/model/dtmf_spec.rs` へ集約する。(2) `send_dtmf` の `method` を `pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` へ反映し、「使い分け」を実装として成立させる。`Info` / `Rfc4733` は `pjsua_call_send_dtmf`（SIP INFO / RTP イベント）、`Inband` は `pjsua_call_dial_dtmf`（Inband RFC 2833）へ割り当てる。(3) `DtmfSent { Ok }` を publish する経路を実装する。PJSIP の送信完了コールバックが確認できる場合はそれを優先し、未確認時は §20 の 500ms タイムアウトフォールバックで送出完了とみなして `DtmfSent { Ok }` を発行する（現行の「`Err(Timeout)` のみ」を解消）。",
-        "",
-        "```rust",
-        "// src/model/dtmf_spec.rs — 単一定義（§20 準拠、SipInfo → Info 改名）",
-        "#[derive(Debug, Clone, Copy, PartialEq, Eq)]",
-        "pub enum DtmfMethod { Inband, Info, Rfc4733 }",
-        "",
-        "// src/ffi/backend_calls.rs — method を PJSIP 送信へ反映（Q5）",
-        "pub fn send_dtmf(native_call_id: pjsua_call_id, method: DtmfMethod, digits: &str) -> Result<(), SipError> {",
-        "    let status = match method {",
-        "        DtmfMethod::Rfc4733 | DtmfMethod::Info =>",
-        "            unsafe { pjsua_call_send_dtmf(native_call_id, cstr(digits)) },",
-        "        DtmfMethod::Inband =>",
-        "            unsafe { pjsua_call_dial_dtmf(native_call_id, cstr(digits)) },",
-        "    };",
-        "    map_pjsua_status(status, \"pjsua_call_send_dtmf\")   // §62.8: native_status 保持",
-        "}",
-        "",
-        "// src/api/m20_dtmfsent_twophase.rs — DtmfSent { Ok } の publish 経路（Q5）",
-        "// PJSIP 送信完了コールバック優先、未確認時は §20 の 500ms タイムアウトで Ok とみなす。",
-        "// → DtmfSent(DtmfSentInfo { method, digit, status: Ok(()), .. }) を publish",
-        "```",
-        "",
-        "**I/O 境界**: 入力 = `RuntimeCommand::SendDtmf{call_id, digits, method}` ／出力 = `pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` 呼び出し、`DtmfSent(DtmfSentInfo)` publish（`Ok(())` / `Err(Timeout)` / `Err(PjsipError)`）。`DtmfMethod` の単一定義が §20 / 公開 API / M20 変換の全てで共有される。",
-        ""
-      ]
-    },
-    {
-      "heading": "### 62.16 メディア経路の完成: conf port コールバック / キュー消費 / conf_connect / WAV・ファイル source（Q6）",
-      "startLine": 4345,
-      "lines": [
-        "### 62.16 メディア経路の完成: conf port コールバック / キュー消費 / conf_connect / WAV・ファイル source（Q6）",
-        "",
-        "**決定**: (1) conf port メディアコールバック（`pjsua_conf_set_callback` / `put_frame`）を実装し、キャプチャフレームを `AudioTapSender::push` 経由で tap レジストリへ供給する（§62.6 の `push_media_frame` 接続を実現）。(2) `AudioWorkerInner::process_frame` が push する `out_queue` / `in_queue` を消費する実 conf port コンシューマ（RustMediaPort）を実装し、メディアをネットワーク送信 / ローカル再生へ接続する。(3) `make_call` / `answer` の call connect 時に `conf_connect` を実行し、メディア経路を確立する。(4) `AudioChunkPair` → 指定 bit / hz のステレオ WAV 変換ユーティリティ（`WavWriter`）を実装する。(5) ファイル / WAV ベースの `AsyncAudioSource`（`WavFileSource`）を実装する。(6) `open_default_microphone_source` を「注入可能なキャプチャ source（cpal による OS 既定入力の独立キャプチャ）」として明記し、2 者通話のマイク入力と混同しないことを README に明文化する。",
-        "",
-        "```rust",
-        "// src/runtime/backend.rs — conf port メディアコールバック（P15-7 Layer 3+ 解消）",
-        "fn register_conf_callback(&mut self) {",
-        "    let ctx = Box::into_raw(Box::new(self.tap_registry.clone())) as *mut c_void;",
-        "    unsafe {",
-        "        pjsua_conf_set_callback(Some(conf_capture_cb), None, ctx);",
-        "    }",
-        "}",
-        "",
-        "extern \"C\" fn conf_capture_cb(frame: *const pjmedia_frame, ctx: *mut c_void) {",
-        "    let registry = unsafe { &*(ctx as *const TapRegistry) };",
-        "    registry.push_frame(frame);   // AudioTapSender::push（§62.6）→ subscribe_audio の tap を駆動",
-        "}",
-        "",
-        "// 公開ユーティリティ — AudioChunkPair → WAV（H13）",
-        "pub fn write_stereo_wav(path: &Path, chunks: &[AudioChunkPair], format: AudioFormat) -> Result<(), SipError> {",
-        "    let mut writer = WavWriter::create(path, format)?;   // RIFF/WAVE ヘッダ + PCM16",
-        "    for pair in chunks {",
-        "        writer.write_stereo_pair(pair)?;                  // L=IN, R=OUT（§22 の AudioChunkPair）",
-        "    }",
-        "    writer.finalize()?;",
-        "    Ok(())",
-        "}",
-        "```",
-        "",
-        "**I/O 境界**: 入力 = conf port のキャプチャ / プレイバックフレーム（`pjsua_conf_set_callback`）+ `AudioWorker` の `out_queue` / `in_queue` ／出力 = `AudioTapSender::push`（subscribe_audio の tap）、ネットワーク送信 / ローカル再生フレーム、WAV ファイル。`RustMediaPort` が `out_queue` / `in_queue` の唯一の消費点であり、`conf_connect` が call ごとのメディア接続を確立する。",
-        ""
-      ]
-    },
-    {
-      "heading": "### 62.17 STUN/TURN/ICE 配線と coturn プロトコルレベル検証（Q7 / Q7a）",
-      "startLine": 4376,
-      "lines": [
-        "### 62.17 STUN/TURN/ICE 配線と coturn プロトコルレベル検証（Q7 / Q7a）",
-        "",
-        "**決定**: (1) `ClientConfig.stun_servers` → `pjsua_config.stun_srv`、`turn_servers` → `pjsua_config.turn_cfg`、`ice` → `pjsua_media_config` の ICE 設定（`enable_ice` / `ice_max_host_cands` / `ice_aggressive`）へ反映する配線を実装する。(2) 検証は Docker で coturn を起動し、プロトコルレベルで STUN binding 成功 + TURN allocate 成功 + relay candidate 経由のメディア転送確認まで行う（Q7a）。テストは docker 可用性ゲート付き（§62.19）。",
-        "",
-        "```rust",
-        "// src/ffi/backend_calls.rs — pjsua_config への STUN/TURN 反映（Q7）",
-        "fn apply_stun_turn(cfg: &mut pjsua_config, config: &ClientConfig) -> Result<(), SipError> {",
-        "    if let Some(stun) = config.stun_servers.first() {",
-        "        cfg.stun_srv = cstring(stun.uri.clone())?;            // STUN server 反映",
-        "    }",
-        "    if let Some(turn) = config.turn_servers.first() {",
-        "        cfg.turn_cfg_srv = cstring(turn.uri.clone())?;        // TURN server 反映",
-        "        cfg.turn_cfg_user = turn.username.clone().map(cstring).transpose()?;",
-        "        cfg.turn_cfg_pass = turn.password.as_ref().map(|s| cstring(s.expose_secret().to_string())).transpose()?;",
-        "        cfg.turn_cfg_conn_type = match turn.transport {        // UDP / TCP / TLS",
-        "            TurnTransport::Udp => ffi::PJ_TURN_TP_UDP,",
-        "            TurnTransport::Tcp => ffi::PJ_TURN_TP_TCP,",
-        "            TurnTransport::Tls => ffi::PJ_TURN_TP_TLS,",
+        "// TestBackend: set_registration でイベントを発火する（Q3）",
+        "impl SipBackend for TestBackend {",
+        "    fn set_registration(&mut self, native_acc_id: i32, enabled: bool) -> Result<(), ReactorError> {",
+        "        self.set_registration_calls.push((native_acc_id, enabled));",
+        "        if let Some(result) = self.set_registration_result.take() {",
+        "            return result;",
+        "        }",
+        "        let next = if enabled {",
+        "            RegistrationState::Registering",
+        "        } else {",
+        "            RegistrationState::Unregistering",
         "        };",
-        "    }",
-        "    Ok(())",
-        "}",
-        "",
-        "// src/ffi/backend_calls.rs — pjsua_media_config への ICE 反映（Q7）",
-        "fn apply_ice(cfg: &mut pjsua_media_config, ice: &IceConfig) {",
-        "    cfg.enable_ice = ice.enabled as c_int;",
-        "    cfg.ice_max_host_cands = ice.max_host_candidates as c_int;",
-        "    cfg.ice_aggressive = ice.aggressive_nomination as c_int;",
-        "}",
-        "```",
-        "",
-        "**coturn 検証（Q7a）のスコープ**: Docker で coturn を起動し、(1) STUN binding（UDP エコー）が成功すること、(2) TURN allocate で relayed address が返ること、(3) 2 クライアント間で relay candidate 経由のメディア転送が成立すること、を統合テストで確認する。テスト構成は §62.19 の docker-compose（`services: coturn`）と共通基盤を使用する。",
-        "",
-        "**I/O 境界**: 入力 = `ClientConfig.stun_servers` / `turn_servers` / `ice`（§13）／出力 = `pjsua_config.stun_srv` / `turn_cfg_*`、`pjsua_media_config` の ICE 設定。`SecretString::expose_secret`（Q1 の bindgen 修復項目）が TURN パスワードの PJSIP への受け渡しに使用される。coturn（Docker）が検証対象サーバ。",
-        ""
-      ]
-    },
-    {
-      "heading": "### 62.18 Examples 設計: E1–E5 の確定（Q8）",
-      "startLine": 4411,
-      "lines": [
-        "### 62.18 Examples 設計: E1–E5 の確定（Q8）",
-        "",
-        "**決定**: 5 つの example バイナリを確定する。`examples/common/cli.rs`（CLI パース）と `examples/common/client.rs`（add_account ヘルパー）を共通利用する。各 example は本ラウンドの実装完了（§62.11–62.17）を前提とし、実 Asterisk / TestBackend 上で検証可能な契約を持つ。`examples/common/client.rs` は `AccountConfig::for_sip_uri` を提供する（`sip:user@host` 形式の URI から `username` / `domain` を導出し、§11.1 の validation を通過する最小構成を返す）。実運用では §41.2 のとおり全フィールドを明示することもできる。",
-        "",
-        "```rust",
-        "// examples/common/client.rs — 共通ヘルパー: URI から AccountConfig を構築",
-        "impl AccountConfig {",
-        "    /// `sip:user@host[:port]` を `username` / `domain` へ分解し、",
-        "    /// §11.1 の validation（username / domain / password 非空）を満たす構成を返す。",
-        "    /// ローカル Asterisk（認証なし）を対象とする example のため、password は非空のプレースホルダ。",
-        "    pub fn for_sip_uri(uri: &str) -> Self {",
-        "        let (username, domain) = uri",
-        "            .strip_prefix(\"sip:\")",
-        "            .and_then(|rest| rest.split_once('@'))",
-        "            .expect(\"expected sip:user@host\");",
-        "        Self {",
-        "            display_name: None,",
-        "            username: username.to_string(),",
-        "            auth_username: None,",
-        "            password: SecretString::new(\"example-secret\".to_string()), // §41.2 と同様の example 値",
-        "            domain: domain.to_string(),",
-        "            registrar_uri: None,                   // §11.1: sip:{domain} を自動導出",
-        "            outbound_proxy: vec![],",
-        "            contact_params: vec![],",
-        "            transport: AccountTransportPolicy::Prefer(TransportKind::Udp),",
-        "            register_on_start: false,",
-        "            allow_outbound_without_register: true,",
-        "            registration_expires: std::time::Duration::from_secs(300),",
-        "            codecs: AccountCodecPolicy::default_voice(),",
-        "            dtmf: DtmfPolicy::all_methods(),",
-        "            media: AccountMediaConfig::default(),",
-        "            headers: vec![],",
+        "        if let Some(entry) = self.accounts.get_mut(&native_acc_id) {",
+        "            entry.registration = next;",
         "        }",
+        "        // 実 FFI 経路と同じイベント系列: 登録状態の変化をネイティブイベントとして発火する。",
+        "        self.native_events.push(NativeEvent::RegistrationStateChanged {",
+        "            acc_id: native_acc_id as u32,",
+        "        });",
+        "        Ok(())",
+        "    }",
+        "",
+        "    fn take_native_events(&mut self) -> Vec<NativeEvent> {",
+        "        std::mem::take(&mut self.native_events)",
         "    }",
         "}",
-        "```",
         "",
-        "| Example | 契約（Pre / Post / Invariant） | 検証 |",
-        "|---------|-------------------------------|------|",
-        "| **E1 client_init**（§41.1） | Pre: `ClientConfig` が §42 検証通過 / Post: `SipClient::new` が `Ok` を返し `ClientInitialized(ClientCapabilities)` が publish / Inv: 失敗は fail-fast `Err(InvalidConfig)` | TestBackend で完走（検証済み） |",
-        "| **E2 account_register**（§41.2 / §17） | Pre: `register_on_start` または明示 `register()` が submit / Post: `RegistrationStateChanged == Registered` を受信 / Inv: 未登録時は `Disabled` | Asterisk（docker）で REGISTER 成功・失敗（4xx） |",
-        "| **E3 make_call**（§41.3 / §18-19） | Pre: `OutgoingCallRequest` 全 6 フィールド検証 / Post: `make_call` が `CallId`（u64）を返し `CallConnected` を `meta.call_id` 付きで受信 / Inv: reject（486/603）は `CallDisconnected` で観測 | Asterisk（docker）で発信 + Originate/Callfile 着信 |",
-        "| **E4 audio_tap**（§22 / §21） | Pre: `subscribe_audio(call_id, format, capacity, mode)` が tap を返す / Post: `AudioChunkPair`（L=IN / R=OUT）が交渉済み `AudioFormat` で連続生産 / Inv: `Realtime` は最古破棄、`Lossless` は producer ブロック（§22.1） | Asterisk（docker）RTP 経由で tap 駆動 + WAV 書き出し |",
-        "| **E5 tts_source**（§23-24 / §41.5） | Pre: `AsyncAudioSource::next_chunk` が 20ms フレームを返す / Post: `add_audio_source(call_id, source, channels)` が登録し IN/OUT/BOTH へ mix / Inv: source が閉じたら自動除去 | Asterisk（docker）RTP 経由で mix 出力確認 |",
-        "",
-        "```rust",
-        "// examples/E3_make_call.rs（骨子）— E3 の契約を実装",
-        "async fn run(host: &str) -> Result<(), Box<dyn Error>> {",
-        "    let client = SipClient::new(ClientConfig::default()).await?;",
-        "    let account = client.add_account(AccountConfig::for_sip_uri(&format!(\"sip:1001@{host}\"))).await?;",
-        "    let mut events = client.subscribe();",
-        "    let call_id = CallId::from_u64(account.make_call(OutgoingCallRequest {",
-        "        target_uri: format!(\"sip:1002@{host}\"),",
-        "        ..OutgoingCallRequest::default()",
-        "    }).await?)?;",
-        "    loop {",
-        "        match events.recv().await? {",
-        "            SipEventPayload::CallConnected(_) => break,          // Post 成立",
-        "            SipEventPayload::CallDisconnected(_) => break,       // reject 486/603 もここで観測",
-        "            _ => {}",
-        "        }",
+        "// src/runtime/reactor.rs — SetRegistration アーム（Q3）",
+        "// backend.set_registration の直後に発火イベントを回収して処理する。",
+        "async fn handle_set_registration(&self, native_id: i32, enabled: bool) -> Result<(), SipError> {",
+        "    self.backend.set_registration(native_id, enabled)?;",
+        "    for native_event in self.backend.take_native_events() {",
+        "        self.process_native_event(native_event).await;",
         "    }",
         "    Ok(())",
         "}",
         "```",
         "",
-        "**I/O 境界**: 入力 = CLI 引数（`--host` 等）+ 各 API の引数／出力 = 各イベント受信 + 終了コード。`examples/common/cli.rs` が host / 資格情報のパースを、`examples/common/client.rs` が add_account とイベント購読の共通手順を担う。",
+        "**I/O 境界**: 入力 = `RuntimeCommand::SetRegistration{native_id, enabled}` ／出力 = `NativeEvent::RegistrationStateChanged` → `process_native_event` → `SipEventPayload::RegistrationStateChanged`（§62.12 の統一イベント）。TestBackend の `native_events` バッファが FFI キュー（§62.13）の代役を担い、`take_native_events` が reactor との回収境界になる。`account_register` example（E2）は TestBackend 上で完走し、実 FFI 経路でも同一系列で動作する。",
         ""
       ]
     },
     {
-      "heading": "### 62.19 Docker/Asterisk 実 SIP 統合テスト基盤（Q9 / Q9a-c）",
-      "startLine": 4479,
+      "heading": "### 62.25 CallEntry.state のネイティブ遷移反映（Q4）",
+      "startLine": 4741,
       "lines": [
-        "### 62.19 Docker/Asterisk 実 SIP 統合テスト基盤（Q9 / Q9a-c）",
+        "### 62.25 CallEntry.state のネイティブ遷移反映（Q4）",
         "",
-        "**決定**: (1) 実 SIP（pjsua-native）統合テストを siprs の `tests/` に `#![cfg(feature = \"pjsua-native\")]` ゲート付きで配置する（Q9a）。(2) Asterisk / coturn を `docker-compose.yml` で定義し、Makefile ターゲット `make test-integration` が `docker compose up -d` → テスト実行 → `docker compose down` を実行する（Q9b）。(3) 各統合テストの冒頭で docker 可用性をチェックし、不可時は `[SKIPPED: docker unavailable]` を明示ログ出力してスキップする（Q9c）。CI では docker が常に使用可能なため実質必須ゲートとなる。(4) Asterisk との相互接続は、siprs→Asterisk の発信と、Callfile / `channel originate` による Asterisk→siprs の着信の両方向をテストする（Q4 の着信 CallEntry 登録を実機で検証）。(5) coturn は STUN binding + TURN allocate + relay メディア転送をプロトコルレベルで検証する（Q7a）。",
+        "**決定**: `process_native_event` の `CallStateChanged` アームは、`convert_call_state_with_previous` の変換結果（`SipEventPayload`）を publish に使うだけでなく、同じ変換から導出される `CallState` で `CallEntry.state` を更新する。`convert_call_state_with_previous` が publish 用 payload と state 更新用 `CallState` の両方を返すよう拡張し、単一の変換結果を publish と state 更新の両方に使用する。これによりリモート切断（DISCONNECTED → `CallDisconnected`）後も `call_state(call_id)` が整合した状態を返す。",
         "",
         "```rust",
-        "// tests/sip_integration.rs — docker 可用性ゲート（Q9c）",
-        "fn docker_available() -> bool {",
-        "    let ok = Command::new(\"docker\")",
-        "        .args([\"info\"]).stdout(Stdio::null()).stderr(Stdio::null())",
-        "        .status().map(|s| s.success()).unwrap_or(false);",
-        "    if !ok { eprintln!(\"[SKIPPED: docker unavailable]\"); }",
-        "    ok",
+        "// src/state/m20_callstate_mapping.rs — 変換結果に state 更新値を追加（Q4）",
+        "pub(crate) struct CallStateTransition {",
+        "    pub payload: SipEventPayload,",
+        "    pub state: CallState,",
         "}",
         "",
-        "// tests/sip_integration.rs — Asterisk への登録（Q9 + H5）",
-        "#[tokio::test]",
-        "#[cfg(feature = \"pjsua-native\")]",
-        "async fn register_against_asterisk() {",
-        "    if !docker_available() { return; }",
-        "    let client = SipClient::new(ClientConfig { transports: vec![TransportConfig::udp(5060)], ..Default::default() }).await.unwrap();",
-        "    let mut events = client.subscribe();",
-        "    let account = client.add_account(AccountConfig {",
-        "        register_on_start: true,",
-        "        ..AccountConfig::for_sip_uri(\"sip:1001@127.0.0.1\")",
-        "    }).await.unwrap();",
-        "    assert!(matches!(account.registration_state().await.unwrap(), RegistrationState::Registering));",
-        "    loop {   // RegistrationStateChanged == Registered を待つ",
-        "        if let SipEventPayload::RegistrationStateChanged(RegistrationState::Registered) = events.recv().await.unwrap().payload { break; }",
+        "/// PJSIP inv_state → `SipEventPayload` + `CallState` の両方を返す。",
+        "pub(crate) fn convert_call_state_with_previous(",
+        "    call_id: CallId,",
+        "    account_id: Option<AccountId>,",
+        "    state: u32,",
+        "    direction: CallDirection,",
+        ") -> Option<CallStateTransition> {",
+        "    let payload = convert_call_state(call_id, account_id, state, direction)?;",
+        "    let call_state = map_inv_state_to_call_state(state, direction); // §18 の 13 状態",
+        "    Some(CallStateTransition { payload, state: call_state })",
+        "}",
+        "",
+        "// src/runtime/reactor.rs — process_native_event の CallStateChanged アーム（Q4）",
+        "NativeEvent::CallStateChanged { call_id, state } => {",
+        "    CallId::from_u64(call_id as u64).ok().and_then(|cid| {",
+        "        let direction = resolve_call_direction(cid, call_state.call_directions);",
+        "        convert_call_state_with_previous(cid, account_id, state, direction).map(|transition| {",
+        "            // publish と state 更新の両方に単一の変換結果を使用する。",
+        "            if let Some(entry) = call_state.calls.get_mut(&cid) {",
+        "                entry.state = transition.state;",
+        "            }",
+        "            transition.payload",
+        "        })",
+        "    })",
+        "}",
+        "```",
+        "",
+        "**I/O 境界**: 入力 = `NativeEvent::CallStateChanged { call_id, state }` ／出力 = publish 用 `SipEventPayload` + `CallStateTables.calls[call_id].state` の更新。`convert_call_state_with_previous` が「イベント publish」と「状態更新」の単一変換点となり、`call_state()` がネイティブ遷移後も整合する。命令経路（answer / hangup / transfer）の `CallEntry.state` 更新（既存）と共存し、両経路で同一の state 定義（§18）を参照する。",
+        ""
+      ]
+    },
+    {
+      "heading": "### 62.26 CallResumed の実装機構（Q5 / Q5a）",
+      "startLine": 4781,
+      "lines": [
+        "### 62.26 CallResumed の実装機構（Q5 / Q5a）",
+        "",
+        "**決定**: `CallResumed` を unit variant から `CallResumed(CallResumedInfo { call_id })` へ変更し、構築経路を実装する。`NativeEvent::CallMediaStateChanged` に `pjsua_call_media_status` の値（`status: u32`）を追加し、FFI ハンドラが `pjsua_call_get_media_status(call_id)` で status を取得して enqueue する。reactor は per-call の直前 media status を追跡し、`PJSUA_CALL_MEDIA_LOCAL_HOLD` / `PJSUA_CALL_MEDIA_REMOTE_HOLD` → `PJSUA_CALL_MEDIA_ACTIVE` の遷移を `CallResumed` として publish する。`ACTIVE` 自体は従来どおり `MediaActive` を publish する（resume と active を区別する）。",
+        "",
+        "```rust",
+        "// src/state/m20_native_event_conv.rs — NativeEvent に media status を追加（Q5a）",
+        "NativeEvent::CallMediaStateChanged {",
+        "    call_id: u32,",
+        "    status: u32,   // pjsua_call_media_status（ACTIVE / LOCAL_HOLD / REMOTE_HOLD / ...）",
+        "}",
+        "",
+        "// src/ffi/callback.rs — on_call_media_state が status を取得して enqueue する（Q5a）",
+        "unsafe extern \"C\" fn on_call_media_state(call_id: bindings::pjsua_call_id) {",
+        "    let status = unsafe { bindings::pjsua_call_get_media_status(call_id) };",
+        "    enqueue_native_event(NativeEvent::CallMediaStateChanged {",
+        "        call_id: call_id as u32,",
+        "        status: status as u32,",
+        "    });",
+        "}",
+        "",
+        "// src/api/event_model_payload_bus.rs — CallResumed に call_id ペイロードを付与（Q5）",
+        "pub struct CallResumedInfo {",
+        "    pub call_id: CallId,",
+        "}",
+        "",
+        "pub enum SipEventPayload {",
+        "    // ...",
+        "    CallResumed(CallResumedInfo),",
+        "}",
+        "",
+        "// src/runtime/reactor.rs — per-call media status 追跡 + hold→ACTIVE で CallResumed（Q5a）",
+        "NativeEvent::CallMediaStateChanged { call_id, status } => {",
+        "    let cid = CallId::from_u64(call_id as u64)?;",
+        "    let previous = call_state.media_statuses.get(&cid).copied();",
+        "    call_state.media_statuses.insert(cid, status);",
+        "    if let Some(prev) = previous {",
+        "        let was_held = matches!(prev, MEDIA_LOCAL_HOLD | MEDIA_REMOTE_HOLD);",
+        "        if was_held && status == MEDIA_ACTIVE {",
+        "            return Some(SipEventPayload::CallResumed(CallResumedInfo { call_id: cid }));",
+        "        }",
+        "    }",
+        "    Some(SipEventPayload::MediaActive(MediaActiveInfo { call_id: cid }))",
+        "}",
+        "```",
+        "",
+        "**I/O 境界**: 入力 = `pjsua_call_media_status`（`on_call_media_state` 由来、`pjsua_call_get_media_status` で取得）／出力 = `CallResumed(CallResumedInfo)`（hold → ACTIVE 遷移時）または `MediaActive(MediaActiveInfo)`（ACTIVE 継続時）。`CallStateTables.media_statuses`（per-call 直前 status）が hold 検出の状態源となり、resume の観測手段を `CallResumed` として確定する。`on_dtmf_digit` 等の受信専用コールバックとは独立して、メディア状態機械（§18 / §20）と整合する。",
+        ""
+      ]
+    },
+    {
+      "heading": "### 62.27 DtmfSent 送出完了契約の確定（Q6）",
+      "startLine": 4828,
+      "lines": [
+        "### 62.27 DtmfSent 送出完了契約の確定（Q6）",
+        "",
+        "**決定**: `DtmfSent { status: Ok(()) }` の意味論を「**backend 受理 + 500ms タイムアウト経過で送出完了とみなす**」として正式契約に確定する。PJSIP に DTMF 送信完了コールバックは存在しない（`pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` は同期 `pj_status_t` を返すのみ、`on_dtmf_digit` は受信専用）ため、§62.15 の「コールバック優先」を撤回し、タイムアウト設計を唯一の契約とする。`DtmfSentInfo.status` は `Ok(())` / `Err(SipErrorKind::Timeout)` / `Err(SipErrorKind::PjsipError)` を保持する。",
+        "",
+        "```rust",
+        "// src/api/m20_dtmfsent_twophase.rs — DtmfSent の送出完了契約（Q6）",
+        "//",
+        "// DtmfSent { status } の契約:",
+        "//   Ok(Ok(()))        — backend が send_dtmf を受理し、500ms 経過（送出完了とみなす）",
+        "//   Ok(Err(Timeout))  — タイムアウト到達前に backend が Err を返した場合",
+        "//   Err(PjsipError)   — backend が pj_status_t エラーを返した場合",
+        "pub struct DtmfSentInfo {",
+        "    pub call_id: CallId,",
+        "    pub method: DtmfMethod,",
+        "    pub digit: char,",
+        "    pub status: Result<(), DtmfSentError>,",
+        "}",
+        "",
+        "// src/runtime/reactor.rs — handle_send_dtmf（Q6 / P11-6 を正式契約へ昇格）",
+        "pub(crate) fn handle_send_dtmf(",
+        "    ctx: &mut ReactorCtx<'_>,",
+        "    call_id: CallId,",
+        "    method: DtmfMethod,",
+        "    digits: &str,",
+        ") -> Result<(), SipError> {",
+        "    ctx.backend.send_dtmf(call_id.as_i32(), &method, digits)?;   // 同期受理",
+        "    let account_id = ctx.resolve_account_id(call_id)?;",
+        "    // 500ms タイマー: 送出完了とみなして DtmfSent{Ok} を publish する。",
+        "    ctx.spawn_dtmf_sent_timeout(DtmfSentTimeoutRequest {",
+        "        account_id,",
+        "        call_id,",
+        "        method,",
+        "        digits: digits.to_string(),",
+        "    });",
+        "    Ok(())",
+        "}",
+        "```",
+        "",
+        "**I/O 境界**: 入力 = `RuntimeCommand::SendDtmf { call_id, digits, method }` ／出力 = `pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` 呼び出し、`DtmfSent(DtmfSentInfo)` publish。送出完了の観測は 500ms タイマー（O-002 / P7-2 実装）のみとし、README / RFC に「PJSIP には送信完了コールバックが存在しないため、500ms タイムアウトを送出完了とみなす」ことを明記する（H12 の解消）。",
+        ""
+      ]
+    },
+    {
+      "heading": "### 62.28 tap 駆動の生産経路: RustMediaPort port ops（Q7）",
+      "startLine": 4868,
+      "lines": [
+        "### 62.28 tap 駆動の生産経路: RustMediaPort port ops（Q7）",
+        "",
+        "**決定**: `RustMediaPort` を custom `pjmedia_port` として `pjsua_conf_add_port` で登録し、各 call の conf slot を `conf_connect` で接続する（§62.16 / P16-7 の実装方針）。tap への供給は `RustMediaPort` の port ops（`get_frame` / `put_frame`）が conf bridge のフレームを受けるたびに、`PjsuaBackend::push_media_frame` と同一の共有ヘルパー `push_frame_to_tap` を呼んで `AudioTapSender::try_push`（非ブロック）で `AudioChunkPair` を連続供給する。`pjsua_conf_set_callback` は vendored PJSIP 2.17 に存在しない（実ヘッダ検証済み）ため、この方針に一本化する。",
+        "",
+        "```rust",
+        "// src/runtime/backend.rs — tap 供給を一本化する共有ヘルパー（Q7）",
+        "pub(crate) fn push_frame_to_tap(",
+        "    call_id: CallId,",
+        "    frame: &ProcessedFrame,",
+        "    taps: &Mutex<HashMap<CallId, (AccountId, AudioTapSender)>>,",
+        ") {",
+        "    let lock = taps.lock().unwrap_or_else(|poisoned| poisoned.into_inner());",
+        "    if let Some((account_id, tap)) = lock.get(&call_id) {",
+        "        let pair = AudioChunkPair::from_processed_frame(call_id, *account_id, frame);",
+        "        tap.try_push(pair);   // Realtime: 最古破棄、ブロックしない",
         "    }",
         "}",
         "",
-        "// tests/sip_integration.rs — Asterisk → siprs の着信（Q4 / Q9 + H10）",
-        "#[tokio::test]",
-        "#[cfg(feature = \"pjsua-native\")]",
-        "async fn incoming_call_via_originate() {",
-        "    if !docker_available() { return; }",
-        "    let client = SipClient::new(ClientConfig::default()).await.unwrap();",
-        "    let account = client.add_account(AccountConfig::for_sip_uri(\"sip:1002@127.0.0.1\")).await.unwrap();",
-        "    let mut events = client.subscribe();",
-        "    originate_call_to(\"sip:1002@127.0.0.1\");   // Asterisk CLI: channel originate（着信生成）",
-        "    if let SipEventPayload::IncomingCall(call) = events.recv().await.unwrap().payload {",
-        "        client.answer(call.call_id, 200).await.unwrap();   // Q4: account 解決 + CallConnected",
+        "// PjsuaBackend::push_media_frame は push_frame_to_tap を呼ぶ（既存実装と同一）。",
+        "",
+        "// src/runtime/audio_worker.rs — RustMediaPort: port ops から tap へ供給（Q7）",
+        "impl RustMediaPort {",
+        "    /// pjmedia_port の get_frame（キャプチャ方向）: conf bridge がフレームを要求する",
+        "    /// たびに呼ばれ、tap レジストリへ AudioChunkPair を供給する。",
+        "    pub unsafe extern \"C\" fn port_get_frame(port: *mut pjmedia_port, frame: *mut pjmedia_frame) -> pj_status_t {",
+        "        let this = &mut *(*port).port_data.pdata as *mut RustMediaPort;",
+        "        let this = &mut *this;",
+        "        let pcm = std::slice::from_raw_parts((*frame).buf as *const i16, (*frame).size as usize / 2);",
+        "        let processed = ProcessedFrame::from_i16_stereo(pcm, this.call_id);",
+        "        push_frame_to_tap(this.call_id, &processed, &this.tap_registry);",
+        "        PJ_SUCCESS",
         "    }",
         "}",
         "```",
         "",
-        "**docker-compose.yml（骨子）**: サービス `asterisk`（PJSIP チャネル設定 sip.conf / extensions.conf をマウント、`services: asterisk`）と `coturn`（turnserver.conf をマウント、`services: coturn`）を定義する。Makefile の `test-integration` ターゲットが `docker compose up -d` → `cargo test --features pjsua-native --test sip_integration` → `docker compose down` を実行する。テストコードの docker 可用性チェック（Q9c）は、compose 未起動時の明示スキップを担う。",
-        "",
-        "**I/O 境界**: 入力 = docker 可用性（`docker info`）+ Asterisk 設定（sip.conf / extensions.conf）+ coturn 設定（turnserver.conf）+ Callfile / `channel originate` CLI ／出力 = 統合テスト結果（PASS / SKIPPED）、実 SIP イベント系列（`RegistrationStateChanged` / `IncomingCall` / `CallConnected` / `CallDisconnected` / `AudioChunkPair`）。`#![cfg(feature = \"pjsua-native\")]` がコンパイル時ゲート、`docker_available()` が実行時ゲートとして二段構えで統合テストを制御する。",
+        "**I/O 境界**: 入力 = conf bridge が供給するメディアフレーム（`pjsua_conf_add_port` で登録した `RustMediaPort` の port ops）／出力 = `AudioTapSender::try_push`（`subscribe_audio` の tap へ `AudioChunkPair` 連続供給）。`push_frame_to_tap` が `PjsuaBackend::push_media_frame` と port ops の共通供給点となり、`AudioTapHandle::recv()` が実通話で永久待機しない（H13 の解消）。`conf_connect`（§62.16）が call ごとのメディア接続を確立する。",
         ""
       ]
     },
     {
-      "heading": "### 62.20 I/O 境界参照情報（graphify / boundify 用）",
-      "startLine": 4529,
+      "heading": "### 62.29 文書化決定: マイク source / Subscription unsubscribe（Q8 / Q8a）",
+      "startLine": 4905,
       "lines": [
-        "### 62.20 I/O 境界参照情報（graphify / boundify 用）",
+        "### 62.29 文書化決定: マイク source / Subscription unsubscribe（Q8 / Q8a）",
+        "",
+        "**決定**: (1) `open_default_microphone_source` は「注入可能なキャプチャ source（cpal による OS 既定入力デバイスの独立キャプチャ）」であり、**通話マイクではない**旨を README に明記する。`add_audio_source` の `AsyncAudioSource` として注入可能だが、通話の送話入力とは無関係である。(2) unsubscribe は drop 代替の解釈ではなく、`Subscription<T>` ハンドル型を導入して明示的な `unsubscribe()` API を提供する。`subscribe()` / `subscribe_account()` / `subscribe_raw_sip()` は `Subscription<T>` を返し、`recv()` / `recv_async()` を委譲する。",
+        "",
+        "```rust",
+        "// src/api/eventbus_receiver.rs — Subscription ハンドル型（Q8a）",
+        "pub struct Subscription<T> {",
+        "    inner: broadcast::Receiver<T>,",
+        "}",
+        "",
+        "impl<T> Subscription<T> {",
+        "    fn new(inner: broadcast::Receiver<T>) -> Self {",
+        "        Self { inner }",
+        "    }",
+        "",
+        "    /// 購読を明示的に解除する。内部 receiver を drop し、以後のメッセージを",
+        "    /// 受信しない（RFC §8.3 の drop ベース契約を明示 API として公開する）。",
+        "    pub fn unsubscribe(self) {",
+        "        drop(self.inner);",
+        "    }",
+        "",
+        "    pub async fn recv(&mut self) -> Result<T, broadcast::error::RecvError> {",
+        "        self.inner.recv().await",
+        "    }",
+        "}",
+        "",
+        "// src/client.rs — subscribe 系 API が Subscription を返す（Q8a）",
+        "pub fn subscribe(&self) -> Subscription<SipEvent> {",
+        "    Subscription::new(self.events.subscribe_control())",
+        "}",
+        "",
+        "pub fn subscribe_account(&self, account_id: AccountId) -> Subscription<SipEvent> {",
+        "    Subscription::new(AccountEventReceiver::new(account_id, self.events.subscribe_control()).into_inner())",
+        "}",
+        "",
+        "pub fn subscribe_raw_sip(&self) -> Option<Subscription<RawSipMessage>> {",
+        "    self.events.subscribe_raw_sip().map(Subscription::new)",
+        "}",
+        "```",
+        "",
+        "**I/O 境界**: 入力 = 購読 API（`subscribe` / `subscribe_account` / `subscribe_raw_sip`）／出力 = `Subscription<T>`（`recv()` 受信 + `unsubscribe()` 明示解除）。`Subscription<T>` が broadcast receiver の公開境界となり、`AccountEventReceiver` のアカウントフィルタを内部に保持する。マイク source の明文化は README（H14）と RFC §23-24 に反映する。",
+        ""
+      ]
+    },
+    {
+      "heading": "### 62.30 I/O 境界参照情報（graphify / boundify 用）— round 3",
+      "startLine": 4947,
+      "lines": [
+        "### 62.30 I/O 境界参照情報（graphify / boundify 用）— round 3",
         "",
         "本ラウンドの各設計判断が graphify / boundify の分割判断に使う I/O 境界を下表に示す。",
         "",
         "| 設計判断 | 入力（consumes） | 出力（produces） | 関連 GRAPH ノード / ファイル候補 |",
         "|---------|-----------------|-----------------|------------------|",
-        "| 62.11 トランスポート配線 | `ClientConfig.transports`（§12） | `pjsua_transport_id` 一覧、`transport_create` | backend.rs / backend_calls.rs / transport wiring |",
-        "| 62.11 bindgen 整合方針 | bindgen allowlist + コード期待 | `pjsua_config` / `pjsua_acc_config` / 定数・enum の解決 | build.rs / ffi 層 |",
-        "| 62.12 登録・アカウント経路 | `AccountConfig.register_on_start` / `RemoveAccount` | `set_registration` / `AccountRemoved` / `RegistrationStateChanged` | reactor.rs / registr_wiring.rs |",
-        "| 62.13 イベント経路 | FFI lock-free キュー / `on_rx_msg` | `NativeEvent` → `SipEventPayload`、`RawSipMessage` | callback.rs / m20_native_event_conv.rs / raw sip |",
-        "| 62.14 着信・通話イベント | `IncomingCall` / `Answer{call_id, code}` | `ClientState.calls` 登録、`CallConnected` / `CallDisconnected` | reactor.rs / m20_callstate_mapping.rs |",
-        "| 62.15 DTMF 整合 | `SendDtmf{call_id, digits, method}` | `pjsua_call_send_dtmf` / `dial_dtmf`、`DtmfSent` | dtmf_spec.rs / m20_dtmfsent_twophase.rs |",
-        "| 62.16 メディア経路 | conf port フレーム / `out_queue` / `in_queue` | `AudioTapSender::push`、RTP 送受信、WAV ファイル | backend.rs / audio_worker.rs / wav ユーティリティ |",
-        "| 62.17 STUN/TURN/ICE 配線 | `stun_servers` / `turn_servers` / `ice`（§13） | `pjsua_config.stun_srv` / `turn_cfg_*`、ICE 設定 | backend_calls.rs / coturn 統合テスト |",
-        "| 62.18 Examples E1-E5 | CLI 引数 + API 引数 | イベント受信、終了コード | examples/common/cli.rs / client.rs / E1-E5 |",
-        "| 62.19 統合テスト基盤 | docker 可用性 + Asterisk/coturn 設定 | 統合テスト結果（PASS / SKIPPED） | tests/sip_integration.rs / docker-compose.yml / Makefile |",
+        "| 62.22 raw SIP 生産経路 | `pjsip_rx_data.pkt_info`（endpoint 受信） | `enqueue_raw_sip_bytes` → `RawSipMessage` → `subscribe_raw_sip()` | raw_sip_module.rs / callback.rs / eventbus_receiver.rs |",
+        "| 62.23 P1/P2 コールバック登録 | PJSIP トランスポート / tx / replace / NAT イベント | `NativeEvent`（4 種）→ `SipEventPayload` | callback.rs / m20_native_event_conv.rs |",
+        "| 62.24 TestBackend 登録イベント | `SetRegistration{native_id, enabled}` | `NativeEvent::RegistrationStateChanged` → reactor | backend.rs / reactor.rs / registr_wiring.rs |",
+        "| 62.25 CallEntry.state 整合 | `NativeEvent::CallStateChanged` | `CallStateTransition`（publish + state 更新） | m20_callstate_mapping.rs / reactor.rs |",
+        "| 62.26 CallResumed 実装 | `pjsua_call_media_status`（on_call_media_state 由来） | `CallResumed(CallResumedInfo)` / `MediaActive` | m20_native_event_conv.rs / event_model_payload_bus.rs |",
+        "| 62.27 DtmfSent 契約 | `SendDtmf{call_id, digits, method}` | `pjsua_call_send_dtmf` / `dial_dtmf`、500ms 後 `DtmfSent{Ok}` | reactor.rs / m20_dtmfsent_twophase.rs |",
+        "| 62.28 tap 駆動 | conf bridge フレーム（`RustMediaPort` port ops） | `AudioTapSender::try_push`（`AudioChunkPair`） | audio_worker.rs / backend.rs / audio_subscribe_bp.rs |",
+        "| 62.29 Subscription unsubscribe | 購読 API 呼び出し | `Subscription<T>`（`recv()` / `unsubscribe()`） | client.rs / eventbus_receiver.rs |",
         "",
-        "**削除対象の整理（boundify が Prune するファイル）**: `RegistrationSucceeded` / `RegistrationFailed` を参照する dead code と `CallRejected` を publish する経路、`DtmfMethod` の重複定義（`account_config_spec.rs` / `observability_metrics.rs` の旧バリアント）。`src/model/dtmf_spec.rs` が `DtmfMethod` の単一定義となる。",
-        "",
+        "**削除対象の整理（boundify が Prune / 更新するファイル）**: `pjsua_callback.on_rx_msg` への言及（`src/ffi/callback.rs:143-144` の stale コメントを `pjsip_module` 方式へ更新）、`m20_native_event_conv.rs` の「P1/P2 returns None」stale doc comment、`CallResumed` の unit variant 参照（ペイロード化）、`DtmfSent` の「コールバック優先」記述（§62.15 の該当文）。`src/ffi/raw_sip_module.rs` が新規ファイルとして追加される。",
         ""
       ]
     }
   ],
-  "addedLineCount": 395,
+  "addedLineCount": 415,
   "contradictionCandidates": [
     {
       "kind": "graph",
-      "target": "N0050",
-      "context": "§40 Audio Device Policy & §41 Usage Examples",
+      "target": "N0071",
+      "context": "62.2 バックエンド選択機構（PjsuaBackend 完全統一・MockBackend 削除）",
       "matchedBy": [
-        "examples"
+        "testbackend"
       ]
     },
     {
       "kind": "graph",
-      "target": "N0065",
-      "context": "§57 Test Strategy Layer 5 — API Integration",
+      "target": "N0087",
+      "context": "62.18 Examples 設計（E1–E5）",
       "matchedBy": [
-        "examples"
+        "example"
+      ]
+    },
+    {
+      "kind": "ticket",
+      "target": 6,
+      "context": "Implement full example binaries (account_register, audio_tap, client_init, make_call, tts_source) with PJSIP backend, CLI args, and integration tests",
+      "matchedBy": [
+        "account_register",
+        "example"
+      ]
+    },
+    {
+      "kind": "ticket",
+      "target": 1,
+      "context": "Implement full example binaries (account_register, audio_tap, client_init, make_call, tts_source) with PJSIP backend, CLI args, and integration tests",
+      "matchedBy": [
+        "account_register",
+        "example"
+      ]
+    },
+    {
+      "kind": "ticket",
+      "target": 3,
+      "context": "Implement full example binaries (account_register, audio_tap, client_init, make_call, tts_source) with PJSIP backend, CLI args, and integration tests",
+      "matchedBy": [
+        "account_register",
+        "example"
+      ]
+    },
+    {
+      "kind": "ticket",
+      "target": 3,
+      "context": "Implement full example binaries (account_register, audio_tap, client_init, make_call, tts_source) with PJSIP backend, CLI args, and integration tests",
+      "matchedBy": [
+        "account_register",
+        "example"
+      ]
+    },
+    {
+      "kind": "ticket",
+      "target": 3,
+      "context": "Backend selection — PjsuaBackend full unification, MockBackend deletion, TestBackend (cfg test)",
+      "matchedBy": [
+        "testbackend"
       ]
     },
     {
       "kind": "graph",
-      "target": "N0037",
-      "context": "§27 PJSIP FFI Layer Architecture",
+      "target": "N0025",
+      "context": "§17 Registration State Machine",
       "matchedBy": [
-        "bindgen"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 5,
-      "context": "Generate PJSIP bindings via bindgen behind the pjsua-native feature once PJSIP headers are available in the build environment, and uncomment the wrapper.h includes",
-      "matchedBy": [
-        "bindgen"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 17,
-      "context": "Replace the placeholder codec list and Codec type with runtime codec enumeration via the pjsua codec API using FFI-defined pjsua_codec_info types once bindgen generates them",
-      "matchedBy": [
-        "bindgen"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 18,
-      "context": "Replace hand-coded PJSIP constants with the bindgen-generated constants from pjsua.h once the pjsua-native feature enables FFI",
-      "matchedBy": [
-        "bindgen"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 20,
-      "context": "Replace canned or unimplemented PJSIP FFI call sites (pjsua_call_get_info and other backend calls) with real bindgen-generated calls and obtain actual media_status once the pjsua-native feature and library linkage are ready",
-      "matchedBy": [
-        "bindgen"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 5,
-      "context": "Generate PJSIP bindings via bindgen behind the pjsua-native feature once PJSIP headers are available in the build environment, and uncomment the wrapper.h includes",
-      "matchedBy": [
-        "bindgen"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 8,
-      "context": "Replace the placeholder codec list and Codec type with runtime codec enumeration via the pjsua codec API using FFI-defined pjsua_codec_info types once bindgen generates them",
-      "matchedBy": [
-        "bindgen"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 9,
-      "context": "Replace hand-coded PJSIP constants with the bindgen-generated constants from pjsua.h once the pjsua-native feature enables FFI",
-      "matchedBy": [
-        "bindgen"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 10,
-      "context": "Replace canned or unimplemented PJSIP FFI call sites (pjsua_call_get_info and other backend calls) with real bindgen-generated calls and obtain actual media_status once the pjsua-native feature and library linkage are ready",
-      "matchedBy": [
-        "bindgen"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0019",
-      "context": "§15.4 EventBus Implementation & §15.5 AccountEventReceiver",
-      "matchedBy": [
-        "publish"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0023",
-      "context": "§15 M20 RegistrationStateChanged RuntimeCommand Pattern",
-      "matchedBy": [
-        "publish"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0043",
-      "context": "§32 Shutdown Specification",
-      "matchedBy": [
-        "unregister"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0072",
-      "context": "62.3 イベントバス一元化トポロジ",
-      "matchedBy": [
-        "publish"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0073",
-      "context": "62.4 登録状態機械の production 配線",
-      "matchedBy": [
-        "register_on_start"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0076",
-      "context": "62.7 シャットダウン手順の production 配線",
-      "matchedBy": [
-        "unregister",
-        "publish"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 4,
-      "context": "Event bus unification — single EventBus owned by SipClient, reactor dispatch_event direct publish",
-      "matchedBy": [
-        "publish"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 5,
-      "context": "Registration state machine production wiring — typed RegistrationState, M20 converter drive, register_on_start consumption",
-      "matchedBy": [
-        "register_on_start"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 8,
-      "context": "Shutdown wiring — ShutdownSpec.execute_sequence production wiring, ClientShutdown publish, command router gate",
-      "matchedBy": [
-        "publish"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0043",
-      "context": "§32 Shutdown Specification",
-      "matchedBy": [
-        "drain"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0076",
-      "context": "62.7 シャットダウン手順の production 配線",
-      "matchedBy": [
-        "drain"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0022",
-      "context": "§15 M20 CallState & CallMediaState Mapping",
-      "matchedBy": [
-        "callstate"
+        "state"
       ]
     },
     {
@@ -657,15 +554,7 @@
       "target": "N0026",
       "context": "§18 Call State Model",
       "matchedBy": [
-        "callstate"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0027",
-      "context": "§19 Call API & Answer Semantics",
-      "matchedBy": [
-        "answer"
+        "state"
       ]
     },
     {
@@ -673,48 +562,64 @@
       "target": "N0045",
       "context": "§33 Runtime Internal State & Lock Rules",
       "matchedBy": [
+        "callentry",
+        "state"
+      ]
+    },
+    {
+      "kind": "graph",
+      "target": "N0052",
+      "context": "§43 Test Strategy — 4-Layer Architecture",
+      "matchedBy": [
+        "state"
+      ]
+    },
+    {
+      "kind": "graph",
+      "target": "N0083",
+      "context": "62.14 着信・通話イベント（CallEntry / answer / CallRejected / CallState）",
+      "matchedBy": [
         "callentry"
       ]
     },
     {
-      "kind": "graph",
-      "target": "N0048",
-      "context": "§37 Incoming Call & §38 REFER/Transfer",
+      "kind": "ticket",
+      "target": 2,
+      "context": "PJSIP FFI Layer, Runtime State & AudioMixer Architecture",
       "matchedBy": [
-        "incomingcall"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0074",
-      "context": "62.5 公開 API 拡充（通話 API 群）",
-      "matchedBy": [
-        "answer"
+        "state"
       ]
     },
     {
       "kind": "ticket",
-      "target": 9,
-      "context": "Implement SipCall with private fields and accessors and call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (NODE_ID=N0027)",
+      "target": 1,
+      "context": "ID Design, Event Model & State Machines",
       "matchedBy": [
-        "answer"
+        "state"
       ]
     },
     {
       "kind": "ticket",
-      "target": 21,
-      "context": "Register all PJSIP callbacks via pjsua_config.cb and enqueue NativeEvents (IncomingCall, RegState, CallState, CallMediaState, plus reg_started/call_redirected/dtmf_digit/call_transfer_status) through the reactor channel once PJSIP is linked",
+      "target": 3,
+      "context": "ID Design, Event Model & State Machines",
       "matchedBy": [
-        "incomingcall",
-        "callstate"
+        "state"
       ]
     },
     {
       "kind": "ticket",
-      "target": 22,
-      "context": "Implement account and transport configuration lifecycle methods (make, answer, hangup) per the P3-1 specification",
+      "target": 12,
+      "context": "Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented",
       "matchedBy": [
-        "answer"
+        "state"
+      ]
+    },
+    {
+      "kind": "ticket",
+      "target": 25,
+      "context": "Expose AudioWorker state (mixer, call_id, frame_duration) via inspection/query accessors and wire call_id into logging and metrics correlation once call lifecycle is active",
+      "matchedBy": [
+        "state"
       ]
     },
     {
@@ -727,14 +632,6 @@
     },
     {
       "kind": "ticket",
-      "target": 3,
-      "context": "Implement SipCall with private fields and accessors and call lifecycle methods (make, answer, hangup, hold, transfer, send_dtmf) per the Call API & Answer Semantics spec (NODE_ID=N0027)",
-      "matchedBy": [
-        "answer"
-      ]
-    },
-    {
-      "kind": "ticket",
       "target": 6,
       "context": "Replace the hardcoded account_id with the actual account_id from CallEntry context",
       "matchedBy": [
@@ -743,61 +640,26 @@
     },
     {
       "kind": "ticket",
-      "target": 3,
-      "context": "Implement account and transport configuration lifecycle methods (make, answer, hangup) per the P3-1 specification",
+      "target": 1,
+      "context": "Implement real account info retrieval and return it from get_account_info and GetAccountInfo, and return real RegistrationState from SipAccountHandle, once the reactor account state machine (N0025) is implemented",
       "matchedBy": [
-        "answer"
+        "state"
       ]
     },
     {
       "kind": "ticket",
-      "target": 11,
-      "context": "Register all PJSIP callbacks via pjsua_config.cb and enqueue NativeEvents (IncomingCall, RegState, CallState, CallMediaState, plus reg_started/call_redirected/dtmf_digit/call_transfer_status) through the reactor channel once PJSIP is linked",
+      "target": 4,
+      "context": "Expose AudioWorker state (mixer, call_id, frame_duration) via inspection/query accessors and wire call_id into logging and metrics correlation once call lifecycle is active",
       "matchedBy": [
-        "incomingcall",
-        "callstate"
+        "state"
       ]
     },
     {
       "kind": "ticket",
-      "target": 6,
-      "context": "Call API expansion — answer/hangup/hold/unhold/transfer/send_dtmf/call_state(call_id), calls() rename",
+      "target": 5,
+      "context": "Registration state machine production wiring — typed RegistrationState, M20 converter drive, register_on_start consumption",
       "matchedBy": [
-        "answer"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0007",
-      "context": "§5 Functional Requirements — Normative Scope",
-      "matchedBy": [
-        "dtmf"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0018",
-      "context": "§15 Event Model — SipEventPayload & EventBus",
-      "matchedBy": [
-        "dtmf"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0021",
-      "context": "§15 M20 NativeEvent to SipEventPayload Conversion",
-      "matchedBy": [
-        "dtmf"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0028",
-      "context": "§20 DTMF Specification & DtmfReceived",
-      "matchedBy": [
-        "dtmf",
-        "dtmfmethod",
-        "method"
+        "state"
       ]
     },
     {
@@ -810,58 +672,53 @@
     },
     {
       "kind": "graph",
-      "target": "N0056",
-      "context": "§47 Memory Ownership & §48 Default Policies",
+      "target": "N0084",
+      "context": "62.15 DTMF 実装整合（DtmfMethod 一元化 / method / DtmfSent）",
       "matchedBy": [
-        "dtmf"
+        "dtmfsent"
       ]
     },
     {
       "kind": "graph",
-      "target": "N0057",
-      "context": "§49 lib.rs Template & §50 Acceptance Criteria",
+      "target": "N0033",
+      "context": "§24 AudioMixer Design & Real-Time Boundary",
       "matchedBy": [
-        "dtmf"
+        "rustmediaport"
+      ]
+    },
+    {
+      "kind": "graph",
+      "target": "N0049",
+      "context": "§39 Media Bridge & PJSUA Conference Port",
+      "matchedBy": [
+        "rustmediaport",
+        "port"
+      ]
+    },
+    {
+      "kind": "graph",
+      "target": "N0085",
+      "context": "62.16 メディア経路の完成（conf port / キュー消費 / WAV）",
+      "matchedBy": [
+        "rustmediaport",
+        "port"
       ]
     },
     {
       "kind": "ticket",
-      "target": 2,
-      "context": "DTMF Specification, AsyncAudioSource & Incoming Call/Transfer",
+      "target": 3,
+      "context": "Media port conf-bridge FFI registration (RustMediaPort → pjsua_conf_add_port)",
       "matchedBy": [
-        "dtmf"
+        "rustmediaport",
+        "port"
       ]
     },
     {
       "kind": "ticket",
-      "target": 4,
-      "context": "DTMF Specification, AsyncAudioSource & Incoming Call/Transfer",
+      "target": 7,
+      "context": "Media path completion — conf port / queue / WAV (§62.16)",
       "matchedBy": [
-        "dtmf"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 11,
-      "context": "Wire spawn_dtmf_sent_timeout into the reactor SendDtmf handler and implement the two-phase DTMF-sent timeout once the reactor owns an EventBus",
-      "matchedBy": [
-        "dtmf"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 6,
-      "context": "Wire spawn_dtmf_sent_timeout into the reactor SendDtmf handler and implement the two-phase DTMF-sent timeout once the reactor owns an EventBus",
-      "matchedBy": [
-        "dtmf"
-      ]
-    },
-    {
-      "kind": "ticket",
-      "target": 13,
-      "context": "DTMF Specification, AsyncAudioSource & Incoming Call/Transfer",
-      "matchedBy": [
-        "dtmf"
+        "port"
       ]
     },
     {
@@ -882,14 +739,6 @@
     },
     {
       "kind": "graph",
-      "target": "N0031",
-      "context": "§22 Audio Subscribe API & Backpressure Policy",
-      "matchedBy": [
-        "conf_connect"
-      ]
-    },
-    {
-      "kind": "graph",
       "target": "N0034",
       "context": "§24.3 AudioWorkerTask & Source Lifecycle",
       "matchedBy": [
@@ -902,14 +751,6 @@
       "context": "§28 Build Strategy & OS Dependencies",
       "matchedBy": [
         "source"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0049",
-      "context": "§39 Media Bridge & PJSUA Conference Port",
-      "matchedBy": [
-        "port"
       ]
     },
     {
@@ -937,71 +778,27 @@
       ]
     },
     {
-      "kind": "ticket",
-      "target": 7,
-      "context": "Media path architecture — per-call AudioMixer, AudioWorkerTask spawn, ChannelSelector injection, tap push, mic source",
+      "kind": "graph",
+      "target": "N0074",
+      "context": "62.5 公開 API 拡充（通話 API 群）",
+      "matchedBy": [
+        "unsubscribe"
+      ]
+    },
+    {
+      "kind": "graph",
+      "target": "N0085",
+      "context": "62.16 メディア経路の完成（conf port / キュー消費 / WAV）",
       "matchedBy": [
         "source"
       ]
     },
     {
-      "kind": "graph",
-      "target": "N0015",
-      "context": "§12 TransportConfig & §13 ICE/STUN/TURN Spec",
-      "matchedBy": [
-        "stun",
-        "turn"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0070",
-      "context": "62.1 公開設定 API の一本化（ClientConfig / STUN/TURN/ICE）",
-      "matchedBy": [
-        "stun",
-        "turn"
-      ]
-    },
-    {
       "kind": "ticket",
-      "target": 2,
-      "context": "Config unification — RFC §10 ClientConfig promotion, STUN/TURN/ICE type unification, Vec-ization",
+      "target": 7,
+      "context": "Media path architecture — per-call AudioMixer, AudioWorkerTask spawn, ChannelSelector injection, tap push, mic source",
       "matchedBy": [
-        "stun",
-        "turn"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0050",
-      "context": "§40 Audio Device Policy & §41 Usage Examples",
-      "matchedBy": [
-        "examples"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0065",
-      "context": "§57 Test Strategy Layer 5 — API Integration",
-      "matchedBy": [
-        "examples"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0052",
-      "context": "§43 Test Strategy — 4-Layer Architecture",
-      "matchedBy": [
-        "docker"
-      ]
-    },
-    {
-      "kind": "graph",
-      "target": "N0054",
-      "context": "§44 CI/CD & M20 Docker/Prebuilt Pipeline",
-      "matchedBy": [
-        "docker",
-        "asterisk"
+        "source"
       ]
     },
     {
@@ -1028,6 +825,30 @@
       "matchedBy": [
         "graphify",
         "boundify"
+      ]
+    },
+    {
+      "kind": "graph",
+      "target": "N0089",
+      "context": "62.20 I/O 境界参照情報",
+      "matchedBy": [
+        "boundify"
+      ]
+    },
+    {
+      "kind": "ticket",
+      "target": 1,
+      "context": "Implementation Integration Blueprint — Round 2 Scope (§62.10)",
+      "matchedBy": [
+        "round"
+      ]
+    },
+    {
+      "kind": "ticket",
+      "target": 11,
+      "context": "Round-2 I/O boundary reference (§62.20)",
+      "matchedBy": [
+        "round"
       ]
     }
   ]

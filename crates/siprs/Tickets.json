@@ -36029,6 +36029,461 @@
           "completedAt": "2026-08-27"
         }
       ]
+    },
+    {
+      "id": 17,
+      "name": "Implementation Integration — RESIDUE Resolution Round 3 (§62.21-62.30)",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 17,
+          "status": "todo",
+          "title": "Implementation Integration Blueprint — Round 3 Scope (§62.21)",
+          "nodeIds": [
+            "N0090"
+          ],
+          "scope": [
+            "round 3 の進化スコープと根因を src/architecture/round3_scope_rootcause.rs に記録する（§62.21）。",
+            "vendored PJSIP 2.17.0 の確定（pjsua_callback.on_rx_msg はどの 2.x にも存在しない）を検証コードで固定する。",
+            "残存ギャップ（H5 / H8 / H11 / H12 / H13 / H14）と §62.22–62.29 の対応表を提供する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] round3_scope_rootcause::Round3Section が各セクション（62.21..62.30）をノード ID（N0090..N0099）へ解決する。",
+            "UT: [Normal] vendored PJSIP の config.h に PJ_VERSION_NUM_MINOR == 17 が含まれることを確認する（PJSIP 2.17 前提）。"
+          ],
+          "testIntegration": [],
+          "testExceptions": [],
+          "changes": [],
+          "background": "round 3 のスコープ確定。round 2（§62.10-62.20）で設計・実装された経路の残存ギャップを列挙し、各ギャップを §62.22-62.29 の設計判断へ割り当てる。",
+          "invariants": "Round3Section の解決表が RFC 見出しと完全一致する。",
+          "acceptanceCriteria": [
+            "Round3Section が 62.21→N0090 … 62.30→N0099 を解決し、vendored PJSIP 2.17 を検証する。"
+          ],
+          "contracts": [
+            {
+              "id": "C121",
+              "sourceEdge": "N0090→N0089",
+              "precondition": "Round 2 evolution settled (§62.10–62.20)",
+              "postcondition": "Round 3 scope derives the remaining RESIDUE gaps from round 2 outcomes",
+              "invariant": "Round 3 never re-decides a settled round 2 design"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "phaseId": 17,
+          "status": "todo",
+          "title": "Raw SIP production path — pjsip_module hook (§62.22)",
+          "nodeIds": [
+            "N0091"
+          ],
+          "scope": [
+            "src/ffi/raw_sip_module.rs を実装し、pjsip_module（on_rx_request / on_rx_response）を pjsip_endpt_register_module で登録する。",
+            "各ハンドラで pjsip_rx_data.pkt_info.msg[0..len] の raw バイトを enqueue_raw_sip_bytes へ供給する（観測専用、PJ_FALSE 返却）。",
+            "PjsuaBackend::initialize で pjsua_get_pjsip_endpt を取得し、raw SIP モジュールを登録する。",
+            "bindgen allowlist に pjsip_module / pjsip_endpt_register_module / pjsua_get_pjsip_endpt を追加する。",
+            "src/ffi/callback.rs:143-144 の stale コメント（PJSIP < 2.13）を実態（2.17 にも on_rx_msg なし）へ修正する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] raw_sip_module のモジュール静的初期化 — name / priority / on_rx_request / on_rx_response が設定される。",
+            "UT: [Normal] capture_raw_sip_message — 構築した pjsip_rx_data の pkt_info.msg バイトが enqueue_raw_sip_bytes へ渡り、RAW_SIP_QUEUE から回収できる。",
+            "UT: [Normal] ハンドラが PJ_FALSE を返し、メッセージを消費しない（観測専用）。"
+          ],
+          "testIntegration": [
+            "IT: [pjsua-native] PjsuaBackend::initialize が raw SIP モジュールを登録し、subscribe_raw_sip() チャネルに受信 SIP メッセージが流れる（実 FFI）。"
+          ],
+          "testExceptions": [],
+          "changes": [
+            {
+              "before": "src/ffi/raw_sip_module.rs は存在しない",
+              "after": "pjsip_module ベースの raw SIP キャプチャモジュールを実装"
+            }
+          ],
+          "background": "§62.13 は pjsua_callback.on_rx_msg を想定したが、vendored PJSIP 2.17 の pjsua_callback に on_rx_msg は存在しない（実ヘッダ検証済み）。pjsip_module の標準拡張点で raw SIP を取得する（Q1 / Q1a）。",
+          "invariants": "raw SIP モジュールは観測専用（PJ_FALSE）であり、PJSIP のメッセージ処理を妨げない。",
+          "acceptanceCriteria": [
+            "subscribe_raw_sip() チャネルに生 SIP メッセージが供給され、H8 の「raw SIP 受信は無音」を解消する。"
+          ],
+          "contracts": [
+            {
+              "id": "C122",
+              "sourceEdge": "N0091→N0038",
+              "precondition": "pjsip_module registration available on the PJSIP endpoint",
+              "postcondition": "Raw SIP bytes flow from pkt_info.msg into enqueue_raw_sip_bytes",
+              "invariant": "The raw SIP module is observation-only (PJ_FALSE)"
+            },
+            {
+              "id": "C123",
+              "sourceEdge": "N0091→N0080",
+              "precondition": "bindgen allowlist covers pjsip_module and pjsip_endpt_register_module",
+              "postcondition": "The raw SIP module compiles under pjsua-native",
+              "invariant": "Allowlist stays fixed and duplicate-free"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "phaseId": 17,
+          "status": "todo",
+          "title": "P1/P2 FFI callback registration (§62.23)",
+          "nodeIds": [
+            "N0092"
+          ],
+          "scope": [
+            "src/ffi/callback.rs の register_callbacks に on_transport_state / on_call_tsx_state / on_call_replaced / on_nat_detect を追加登録する。",
+            "各ハンドラを実装し、対応 NativeEvent（TransportStateChanged / CallTsxStateChanged / CallReplaced / NatDetected）を enqueue する。",
+            "src/state/m20_native_event_conv.rs の「P1/P2 returns None」stale doc comment を Some() 実態へ修正する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] register_callbacks が 4 コールバック（on_transport_state 等）を config.cb へ設定する。",
+            "UT: [Normal] on_transport_state が pjsip_transport.id から NativeEvent::TransportStateChanged を enqueue する。",
+            "UT: [Normal] on_call_tsx_state / on_call_replaced / on_nat_detect が対応 NativeEvent を enqueue する。"
+          ],
+          "testIntegration": [],
+          "testExceptions": [
+            "Exception 1 — [Item] 実 PJSIP コールバックの発火確認。 [Reason] pjsua-native ビルド修復（H1）が前提。デフォルトビルドでは FFI コールバックは実機から発火しない。"
+          ],
+          "changes": [
+            {
+              "before": "register_callbacks は 8 コールバックのみ",
+              "after": "P1/P2 4 コールバックを追加登録し、P1/P2 イベントが実コールバックから発火"
+            }
+          ],
+          "background": "M20 変換器は Some() 化済みだが、register_callbacks が 4 コールバックを未登録のため P1/P2 イベントが発火しない（H8）。PJSIP 2.17 の pjsua_callback に全フィールド存在を確認済み（Q2）。",
+          "invariants": "各ハンドラは対応 NativeEvent を 1:1 で enqueue し、変換器の Some() 経路で publish される。",
+          "acceptanceCriteria": [
+            "TransportStateChanged / CallTsxStateChanged / CallReplaced / NatDetected が実コールバックから publish される。"
+          ],
+          "contracts": [
+            {
+              "id": "C124",
+              "sourceEdge": "N0092→N0038",
+              "precondition": "pjsua_callback exposes the four P1/P2 fields in PJSIP 2.17",
+              "postcondition": "register_callbacks wires on_transport_state / on_call_tsx_state / on_call_replaced / on_nat_detect",
+              "invariant": "Each handler enqueues the corresponding NativeEvent"
+            },
+            {
+              "id": "C125",
+              "sourceEdge": "N0092→N0021",
+              "precondition": "M20 converters return Some for the four P1/P2 events",
+              "postcondition": "P1/P2 events publish from real callbacks",
+              "invariant": "Converter doc comments match the Some() behavior"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "phaseId": 17,
+          "status": "todo",
+          "title": "TestBackend registration event firing (§62.24)",
+          "nodeIds": [
+            "N0093"
+          ],
+          "scope": [
+            "SipBackend trait に take_native_events（既定空）を追加する。",
+            "TestBackend::set_registration が NativeEvent::RegistrationStateChanged を自前バッファへ追加し、take_native_events で回収できるようにする。",
+            "reactor の SetRegistration アームが backend.set_registration 直後に take_native_events を回収して process_native_event で処理する。",
+            "examples/account_register.rs が TestBackend 上で RegistrationStateChanged(Registered/Failed) を受信して完走することを検証する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] TestBackend::set_registration(true) が NativeEvent::RegistrationStateChanged を native_events に追加する。",
+            "UT: [Normal] take_native_events が発火イベントを返し、バッファを空にする。",
+            "UT: [Normal] 実 FFI 経路（PjsuaBackend）の take_native_events は既定空（キュー drain が担う）。"
+          ],
+          "testIntegration": [
+            "IT: [test-util] account_register example が TestBackend 上で RegistrationStateChanged を受信して 30 秒タイムアウトせずに完走する。"
+          ],
+          "testExceptions": [],
+          "changes": [
+            {
+              "before": "TestBackend::set_registration は内部状態更新のみでイベント非発火",
+              "after": "NativeEvent::RegistrationStateChanged を発火し、example が TestBackend 上で完走"
+            }
+          ],
+          "background": "TestBackend は set_registration 時にネイティブ登録イベントを発火しないため account_register example がタイムアウトする（H5）。実 FFI 経路と同じイベント系列を TestBackend 上で成立させる（Q3）。",
+          "invariants": "take_native_events は実 FFI 経路で既定空のまま（キュー drain §62.13 が担う）。",
+          "acceptanceCriteria": [
+            "account_register example が TestBackend 上で RegistrationStateChanged を受信して完走する。"
+          ],
+          "contracts": [
+            {
+              "id": "C126",
+              "sourceEdge": "N0093→N0071",
+              "precondition": "TestBackend is the deterministic simulator for test-util builds",
+              "postcondition": "TestBackend::set_registration fires NativeEvent::RegistrationStateChanged",
+              "invariant": "take_native_events defaults empty for the real FFI path"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "phaseId": 17,
+          "status": "todo",
+          "title": "CallEntry.state native transition reflection (§62.25)",
+          "nodeIds": [
+            "N0094"
+          ],
+          "scope": [
+            "m20_callstate_mapping.rs の convert_call_state_with_previous を、publish 用 payload と state 更新用 CallState の両方を返す CallStateTransition へ拡張する。",
+            "process_native_event の CallStateChanged アームで、変換結果を publish と CallEntry.state 更新の両方に使用する。",
+            "リモート切断（DISCONNECTED → CallDisconnected）後に call_state() が整合した状態を返すことを検証する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] convert_call_state_with_previous が CallStateTransition { payload, state } を返す。",
+            "UT: [Normal] process_native_event の CallStateChanged が CallEntry.state を変換後の CallState で更新する。",
+            "UT: [Normal] リモート DISCONNECTED イベント後、call_state(call_id) が Disconnected を返す（stale 解消）。"
+          ],
+          "testIntegration": [],
+          "testExceptions": [],
+          "changes": [
+            {
+              "before": "CallEntry.state は命令経路（answer/hangup/transfer）のみ更新",
+              "after": "process_native_event の CallStateChanged でも変換結果で更新"
+            }
+          ],
+          "background": "process_native_event は publish のみで CallEntry.state を更新せず、リモート切断後に call_state() が stale を返す（H11）。§62.14 の整合性の前提に state も含めて一貫させる（Q4）。",
+          "invariants": "publish と state 更新が同一の変換結果（単一の source of truth）を使用する。",
+          "acceptanceCriteria": [
+            "ネイティブ遷移後も call_state() が整合し、H11 の stale 指摘を解消する。"
+          ],
+          "contracts": [
+            {
+              "id": "C127",
+              "sourceEdge": "N0094→N0083",
+              "precondition": "CallEntry registration established in round 2 (§62.14)",
+              "postcondition": "CallEntry.state updates on native CallStateChanged",
+              "invariant": "call_state() matches the latest native transition"
+            },
+            {
+              "id": "C128",
+              "sourceEdge": "N0094→N0045",
+              "precondition": "Runtime internal state tables (§33) hold CallStateTables",
+              "postcondition": "The state update shares the single conversion result with publish",
+              "invariant": "Update ordering is explicit and deterministic"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "phaseId": 17,
+          "status": "todo",
+          "title": "CallResumed implementation via media status tracking (§62.26)",
+          "nodeIds": [
+            "N0095"
+          ],
+          "scope": [
+            "SipEventPayload::CallResumed を unit variant から CallResumed(CallResumedInfo { call_id }) へ変更する。",
+            "NativeEvent::CallMediaStateChanged に status: u32（pjsua_call_media_status）を追加する。",
+            "FFI on_call_media_state ハンドラで pjsua_call_get_media_status(call_id) を呼び、status を enqueue する。",
+            "reactor が per-call の直前 media status を追跡し、LOCAL_HOLD / REMOTE_HOLD → ACTIVE 遷移を CallResumed として publish する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] m20 変換が hold→ACTIVE 遷移を CallResumed(CallResumedInfo) へ、ACTIVE 継続を MediaActive へ変換する。",
+            "UT: [Normal] reactor の media_statuses 追跡が hold からの復帰を正しく判定する。"
+          ],
+          "testIntegration": [],
+          "testExceptions": [
+            "Exception 1 — [Item] 実 PJSIP の hold/unhold による CallResumed 発火確認。 [Reason] pjsua-native ビルド修復（H1）が前提。"
+          ],
+          "changes": [
+            {
+              "before": "CallResumed は unit variant で構築箇所ゼロ",
+              "after": "CallResumed(CallResumedInfo{call_id}) を hold→ACTIVE 遷移で publish"
+            }
+          ],
+          "background": "CallResumed は構築箇所ゼロで resume の観測手段が未確定（H11）。イベントを網羅的に実装し、media status 追跡で hold 解除を CallResumed として確定する（Q5 / Q5a）。",
+          "invariants": "resume（hold→ACTIVE）は CallResumed、ACTIVE 継続は MediaActive と 1:1 に区別される。",
+          "acceptanceCriteria": [
+            "hold 解除が CallResumed(CallResumedInfo) として publish され、イベント捕捉が網羅的になる。"
+          ],
+          "contracts": [
+            {
+              "id": "C129",
+              "sourceEdge": "N0095→N0026",
+              "precondition": "CallState 13-state model defined (§18)",
+              "postcondition": "CallResumed publishes on hold→ACTIVE media transition",
+              "invariant": "CallResumed carries a call_id payload"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "phaseId": 17,
+          "status": "todo",
+          "title": "DtmfSent timeout contract formalization (§62.27)",
+          "nodeIds": [
+            "N0096"
+          ],
+          "scope": [
+            "DtmfSent{Ok} の意味論を「backend 受理 + 500ms タイムアウト経過で送出完了とみなす」として確定する。",
+            "src/state/m20_dtmfsent_twophase.rs の DtmfSentInfo 契約（Ok / Timeout / PjsipError）を README / RFC に明記する。",
+            "PJSIP に DTMF 送信完了コールバックが存在しない旨を文書化し、§62.15 の「コールバック優先」を撤回する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] handle_send_dtmf が backend 受理後に 500ms タイマーを起動し DtmfSent{Ok} を publish する。",
+            "UT: [Normal] DtmfSentInfo.status が Ok(()) / Err(Timeout) / Err(PjsipError) を保持できる。"
+          ],
+          "testIntegration": [],
+          "testExceptions": [],
+          "changes": [
+            {
+              "before": "§62.15 は「コールバック優先」と記し契約が曖昧",
+              "after": "500ms タイムアウトを唯一の送出完了契約として確定"
+            }
+          ],
+          "background": "PJSIP に DTMF 送信完了コールバックは存在しない（pjsua_call_send_dtmf / dial_dtmf は同期 pj_status_t 返却のみ、実ヘッダ検証済み）。500ms タイムアウトを正式契約とする（Q6）。",
+          "invariants": "DtmfSent の送出完了は 500ms タイムアウトのみで観測される。",
+          "acceptanceCriteria": [
+            "H12 の「タイムアウト設計を明記」が満たされ、README / RFC に契約が明記される。"
+          ],
+          "contracts": [
+            {
+              "id": "C130",
+              "sourceEdge": "N0096→N0084",
+              "precondition": "DtmfMethod unification settled in round 2 (§62.15)",
+              "postcondition": "DtmfSent semantics formalize as backend-accept + 500ms timeout",
+              "invariant": "No PJSIP send-completion callback dependency"
+            },
+            {
+              "id": "C131",
+              "sourceEdge": "N0096→N0029",
+              "precondition": "Two-phase DtmfSent design (§20) defines the fallback timer",
+              "postcondition": "The timeout contract becomes the sole documented completion signal",
+              "invariant": "DtmfSentInfo.status keeps Ok/Timeout/PjsipError outcomes"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "phaseId": 17,
+          "status": "todo",
+          "title": "Tap driving via RustMediaPort port ops (§62.28)",
+          "nodeIds": [
+            "N0097"
+          ],
+          "scope": [
+            "push_frame_to_tap 共有ヘルパー（PjsuaBackend::push_media_frame と共通）を実装する。",
+            "RustMediaPort の port ops（get_frame / put_frame）が conf bridge フレームを受けるたびに push_frame_to_tap を呼び、tap へ AudioChunkPair を連続供給する。",
+            "audio_worker.rs の RustMediaPort に tap_registry 参照を持たせ、conf bridge 経由メディアを供給する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] push_frame_to_tap が ProcessedFrame から AudioChunkPair を構築し、購読済み tap へ try_push する。",
+            "UT: [Normal] RustMediaPort の port_get_frame が conf bridge フレームを tap へ供給する（RT コールバックでブロックしない）。"
+          ],
+          "testIntegration": [
+            "IT: [pjsua-native] subscribe_audio した通話で AudioChunkPair が連続生産され、AudioTapHandle::recv() が永久待機しない。"
+          ],
+          "testExceptions": [],
+          "changes": [
+            {
+              "before": "push_media_frame を呼ぶ生産コードがゼロ",
+              "after": "RustMediaPort port ops が push_frame_to_tap で tap へ連続供給"
+            }
+          ],
+          "background": "vendored PJSIP 2.17 に pjsua_conf_set_callback は存在しない（実ヘッダ検証済み）。RustMediaPort を custom pjmedia_port として登録し、port ops から tap を駆動する（Q7）。",
+          "invariants": "RT コールバック内で tap push は非ブロック（try_push）であり、最古破棄（Realtime）に従う。",
+          "acceptanceCriteria": [
+            "audio_tap example の AudioTapHandle::recv() が AudioChunkPair を受信し、H13 を解消する。"
+          ],
+          "contracts": [
+            {
+              "id": "C132",
+              "sourceEdge": "N0097→N0085",
+              "precondition": "Media path design settled in round 2 (§62.16)",
+              "postcondition": "RustMediaPort port ops drive the tap registry via push_frame_to_tap",
+              "invariant": "Tap push never blocks the RT callback"
+            },
+            {
+              "id": "C133",
+              "sourceEdge": "N0097→N0049",
+              "precondition": "PJSUA conference port model (§39) provides pjsua_conf_add_port",
+              "postcondition": "RustMediaPort registers as a custom pjmedia_port per call",
+              "invariant": "pjsua_conf_set_callback is not required (absent in 2.17)"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "phaseId": 17,
+          "status": "todo",
+          "title": "Subscription unsubscribe API & mic source documentation (§62.29)",
+          "nodeIds": [
+            "N0098"
+          ],
+          "scope": [
+            "Subscription<T> ハンドル型を eventbus_receiver.rs に実装し、unsubscribe()（内部 receiver drop）と recv() / recv_async()（委譲）を提供する。",
+            "subscribe() / subscribe_account() / subscribe_raw_sip() の戻り値を Subscription<T> へ変更する。",
+            "AccountEventReceiver のアカウントフィルタを Subscription 内部に維持する。",
+            "open_default_microphone_source が通話マイクでない独立キャプチャ source である旨を README / RFC に明文化する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] Subscription::unsubscribe() が内部 receiver を drop し、以後 recv() が Closed を返す。",
+            "UT: [Normal] subscribe_account の Subscription がアカウントフィルタを維持する。"
+          ],
+          "testIntegration": [],
+          "testExceptions": [],
+          "changes": [
+            {
+              "before": "subscribe 系は broadcast::Receiver を返し明示 unsubscribe なし",
+              "after": "Subscription<T> を返し unsubscribe() を提供"
+            }
+          ],
+          "background": "unsubscribe の明示 API がなく drop のみだった（H8）。ユーザーフレンドリーなラッピング（Subscription<T>）で明示解除を提供する（Q8 / Q8a）。",
+          "invariants": "Subscription<T> が受信 API の公開境界となり、recv() は非同期受信、unsubscribe() は冪等に購読解除する。",
+          "acceptanceCriteria": [
+            "ユーザーが subscription.unsubscribe() で明示購読解除でき、マイク source の位置づけが README に明記される。"
+          ],
+          "contracts": [
+            {
+              "id": "C134",
+              "sourceEdge": "N0098→N0031",
+              "precondition": "subscribe / subscribe_account / subscribe_raw_sip exist on SipClient",
+              "postcondition": "The three APIs return Subscription<T> with recv() and unsubscribe()",
+              "invariant": "AccountEventReceiver filtering is preserved inside Subscription"
+            },
+            {
+              "id": "C135",
+              "sourceEdge": "N0098→N0074",
+              "precondition": "Public call API surface extended in §62.5",
+              "postcondition": "The mic source and unsubscribe contracts are documented in README / RFC",
+              "invariant": "open_default_microphone_source stays distinct from the call microphone"
+            }
+          ]
+        },
+        {
+          "id": 10,
+          "phaseId": 17,
+          "status": "todo",
+          "title": "Round-3 I/O boundary reference (§62.30)",
+          "nodeIds": [
+            "N0099"
+          ],
+          "scope": [
+            "round 3 の各設計判断（§62.22–62.29）の I/O 境界と関連ノード / ファイル候補を src/architecture/io_boundary_round3.rs に記録する。",
+            "boundify が Prune / 更新するファイル（stale コメント、unit variant、§62.15 の該当文）を列挙する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] Round3IoBoundary テーブルが全セクション（62.22..62.29）を consumes / produces / file_hints に解決する。"
+          ],
+          "testIntegration": [],
+          "testExceptions": [],
+          "changes": [],
+          "background": "graphify / boundify の分割判断に使う round 3 の I/O 境界参照情報（§62.30）。",
+          "invariants": "round 3 の全設計判断が I/O 境界テーブルに網羅される。",
+          "acceptanceCriteria": [
+            "§62.22–62.29 の全判断が I/O 境界テーブルに含まれる。"
+          ],
+          "contracts": [
+            {
+              "id": "C136",
+              "sourceEdge": "N0099→N0089",
+              "precondition": "Round 2 I/O boundary reference exists (§62.20)",
+              "postcondition": "Round 3 I/O boundaries are listed for graphify / boundify partitioning",
+              "invariant": "Every round-3 decision maps to consumes / produces / file hints"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

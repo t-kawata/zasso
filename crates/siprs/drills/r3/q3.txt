@@ -1,0 +1,10 @@
+Q3: TestBackend の登録イベント発火と account_register example 完走
+
+背景: TestBackend::set_registration は内部マップの更新と set_registration_calls への記録のみで、NativeEvent::RegistrationStateChanged を発火しない（src/runtime/backend.rs:379-383）。P16-3 で examples/account_register.rs は RegistrationStateChanged（Registered / Failed）待ちに修正済みだが、TestBackend ではネイティブ登録イベントが発火しないため 30 秒の REGISTRATION_TIMEOUT 後にタイムアウトする（H5 RESIDUE）。実 FFI 経路では pjsua_callback.on_reg_state2 がネイティブキューへ push し、drain が reactor へ転送する。選択の観点は、TestBackend を「より忠実なシミュレータ」にするか「命令記録器」に留めるかである。
+
+選択肢:
+A) TestBackend::set_registration が登録結果 NativeEvent（RegistrationStateChanged / Registered 相当）を発火し、reactor がそれを process_native_event で処理して例が TestBackend 上で完走するようにする
+B) TestBackend は命令記録のみとし、account_register example を「set_registration の命令受付まで確認」に変更してイベント待ちをやめる
+C) TestBackend に登録結果を注入するテスト専用ヘルパーを公開し、example はヘルパーでネイティブイベントを注入する形に変更する
+
+推奨: A を推奨。§62.12 は RegistrationStateChanged への統一を確定しており、TestBackend がネイティブ登録イベントを発火できれば、example は実 FFI 経路と同じイベント系列を TestBackend 上で検証でき、H5 の「どの構成でも登録フローが完走しない」を解消する。B は example の検証価値を弱め、C は example がテスト専用 API に依存して非対称になる。

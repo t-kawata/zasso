@@ -4545,3 +4545,418 @@ async fn incoming_call_via_originate() {
 
 **削除対象の整理（boundify が Prune するファイル）**: `RegistrationSucceeded` / `RegistrationFailed` を参照する dead code と `CallRejected` を publish する経路、`DtmfMethod` の重複定義（`account_config_spec.rs` / `observability_metrics.rs` の旧バリアント）。`src/model/dtmf_spec.rs` が `DtmfMethod` の単一定義となる。
 
+
+### 62.21 ラウンド 3 進化スコープと根因（H5 / H8 / H11 / H12 / H13 / H14 の残存ギャップ）
+
+> 本節はラウンド 2（§62.10–62.20）で設計・実装された経路のうち、実装後に RESIDUE として残ったギャップを解消する設計判断を記す。ラウンド 2 が「本番 FFI 経路の実配線」と「実 SIP / TURN サーバによる相互接続検証」を確定したのに対し、ラウンド 3 は「**vendored PJSIP 2.17 の API 実態に基づく配線の確定**」と「**イベントの網羅的実装・契約の確定**」を行う。設計コンテキストの取得コマンド: `node .claude/scripts/drill-rfc-down/tree-query.js drills tree`（drills/DesignTree.json に全決定の根拠が残る）。
+
+**vendored PJSIP のバージョン確定**: 本ラウンドの前提として、vendored PJSIP（`vendor/pjsip` および `vendor/prebuilt/aarch64-apple-darwin`）は **2.17.0** であることを実ヘッダで確認した（`vendor/pjsip/pjlib/include/pj/config.h:1671-1677` の `PJ_VERSION_NUM_MINOR 17`）。このため「PJSIP 2.13+ で `pjsua_callback.on_rx_msg` が利用可能になる」という従来の前提は成立しない。`pjsua_callback` には `on_rx_msg` フィールドはどの 2.x にも存在せず（`pjsua.h:1300-2100` の全 `on_*` フィールドを検証済み）、raw SIP の取得はモジュール層 / トランスポート層のフックによる。
+
+残る RESIDUE の根因は 6 つに集約される:
+
+1. **raw SIP の配線不能（H8）** — §62.13 は `pjsua_callback.on_rx_msg` を想定したが 2.17 にも存在しない。`enqueue_raw_sip_bytes` の生産コードがゼロのまま。→ §62.22
+2. **P1/P2 コールバック未登録（H8）** — `register_callbacks` は 8 コールバックのみで、`on_transport_state` / `on_call_tsx_state` / `on_call_replaced` / `on_nat_detect` が未登録。変換器は `Some()` でも発火しない。→ §62.23
+3. **TestBackend が登録イベントを発火しない（H5）** — `TestBackend::set_registration` は内部状態更新のみで `NativeEvent::RegistrationStateChanged` を生成しない。`account_register` example が 30 秒タイムアウト。→ §62.24
+4. **`CallEntry.state` がネイティブ遷移で更新されない（H11）** — `process_native_event` は publish のみで `CallEntry.state` を変更しない。リモート切断後に `call_state()` が stale。→ §62.25
+5. **`CallResumed` 未実装（H11）** — enum に unit variant として存在するが構築箇所ゼロ。resume の観測手段が未確定。→ §62.26
+6. **`DtmfSent` の契約未確定（H12）** — 実装は 500ms タイムアウト由来だが §62.15 は「コールバック優先」と記し、契約が曖昧。PJSIP に送信完了コールバックは存在しない（実ヘッダ検証済み）。→ §62.27
+7. **tap 駆動の生産経路未確定（H13）** — §62.16 は `pjsua_conf_set_callback` を想定したが 2.17 にも存在しない（実ヘッダ検証済み）。`RustMediaPort` の port ops からの tap 供給を確定。→ §62.28
+8. **文書化ギャップ（H8 / H14）** — マイク source の位置づけと unsubscribe の API が未確定。→ §62.29
+
+**全体方針**: 本ラウンドの設計判断は「**vendored PJSIP 2.17 の実 API に基づく配線の確定**」と「**イベントの網羅的実装 + v0.x で破壊的変更を受容した統一**」である。`pjsua_callback.on_rx_msg` のような存在しない API に依存せず、標準拡張点（`pjsip_module`）と実装済みの注入点（`enqueue_raw_sip_bytes`）を接続する。破壊的変更（`CallResumed` のペイロード化、subscribe 系 API の `Subscription<T>` 化）は v0.x 開発期のうちに完了させる。
+
+### 62.22 raw SIP 生産経路: pjsip_module フックによる配線（Q1 / Q1a）
+
+**決定**: raw SIP は `pjsip_module`（`on_rx_request` / `on_rx_response`）として実装し、`pjsip_endpt_register_module` で endpoint に登録する。各ハンドラは `pjsip_rx_data.pkt_info.msg` / `pkt_info.len` から raw バイトを読み取り、`enqueue_raw_sip_bytes` へ供給する。モジュールは観測専用（ハンドラは `PJ_FALSE` を返し、メッセージを消費しない）。`pjsua_callback.on_rx_msg` への依存を完全に排除し、既存の `enqueue_raw_sip_bytes` / `RAW_SIP_QUEUE` / `subscribe_raw_sip()` を生産経路へ接続する。
+
+```rust
+// src/ffi/raw_sip_module.rs — pjsip_module による raw SIP キャプチャ（Q1a）
+//
+// pjsua_callback に on_rx_msg は存在しない（PJSIP 2.17 でも検証済み）。PJSIP の
+// 標準拡張点である pjsip_module の on_rx_request / on_rx_response を登録し、
+// pkt_info.msg の raw バイトを enqueue_raw_sip_bytes へ供給する。
+
+static mut RAW_SIP_MODULE: pjsip_module = pjsip_module {
+    name: b"mod_siprs_raw_sip\0".as_ptr() as *const c_char,
+    id: -1,
+    priority: PJSIP_MOD_PRIORITY_APPLICATION - 1,
+    on_rx_request: Some(raw_sip_on_rx_request),
+    on_rx_response: Some(raw_sip_on_rx_response),
+    ..pjsip_module::const_default()
+};
+
+/// 観測専用ハンドラ。`PJ_FALSE` を返し、メッセージを消費しない。
+unsafe extern "C" fn raw_sip_on_rx_request(rdata: *mut pjsip_rx_data) -> pj_bool_t {
+    capture_raw_sip_message(rdata);
+    PJ_FALSE
+}
+
+unsafe extern "C" fn raw_sip_on_rx_response(rdata: *mut pjsip_rx_data) -> pj_bool_t {
+    capture_raw_sip_message(rdata);
+    PJ_FALSE
+}
+
+/// `rdata->pkt_info.msg[0..len]` の raw バイトを raw SIP キューへ供給する。
+unsafe fn capture_raw_sip_message(rdata: *mut pjsip_rx_data) {
+    let pkt = &(*rdata).pkt_info;
+    let raw = std::slice::from_raw_parts(pkt.msg as *const u8, pkt.len);
+    enqueue_raw_sip_bytes(raw.to_vec());
+}
+
+/// endpoint へのモジュール登録（PjsuaBackend::initialize から呼ぶ）。
+pub fn register(endpt: *mut pjsip_endpoint) -> Result<(), SipError> {
+    // SAFETY: `endpt` は pjsua_get_pjsip_endpt 由来の生きた endpoint ポインタで、
+    // モジュールは静的生命を持つため参照期間中に解放されない。
+    let status = unsafe { pjsip_endpt_register_module(endpt, &mut RAW_SIP_MODULE) };
+    map_pjsua_status(status, "pjsip_endpt_register_module")
+}
+```
+
+**I/O 境界**: 入力 = PJSIP endpoint が受信する生 SIP メッセージ（`pjsip_rx_data.pkt_info`）／出力 = `enqueue_raw_sip_bytes` → `RAW_SIP_QUEUE` → `EventBus::publish_raw_sip`（§16 の redact 規則適用）→ `subscribe_raw_sip()` の `RawSipMessage` チャネル。`pjsip_module` が FFI と raw SIP キューの中継点であり、`PJ_FALSE` 返却により観測専用であることを保証する。bindgen allowlist に `pjsip_module` 構造体と `pjsip_endpt_register_module` を追加する（§62.11 の bindgen 整合方針に含める）。
+
+### 62.23 P1/P2 FFI コールバック登録の完了（Q2）
+
+**決定**: `register_callbacks` に `on_transport_state`（`TransportStateChanged`）/ `on_call_tsx_state`（`CallTsxStateChanged`）/ `on_call_replaced`（`CallReplaced`）/ `on_nat_detect`（`NatDetected`）の 4 コールバックを追加登録する。PJSIP 2.17 の `pjsua_callback` に全フィールドが存在することを実ヘッダで確認済み（`pjsua.h:1345,1606,1998,2077`）。各ハンドラは対応する `NativeEvent` をネイティブキューへ enqueue し、既存の M20 変換器（`Some()` 化済み）が publish する。`m20_native_event_conv.rs` の「P1/P2 returns None」という stale doc comment を実際の挙動（`Some()` 化）に合わせて修正する。
+
+```rust
+// src/ffi/callback.rs — register_callbacks の追加登録（Q2）
+pub fn register_callbacks(
+    config: &mut bindings::pjsua_config,
+    queue: crossbeam_queue::ArrayQueue<NativeEvent>,
+) {
+    install_native_event_queue(queue);
+    install_raw_sip_queue(crossbeam_queue::ArrayQueue::new(RAW_SIP_QUEUE_CAPACITY));
+    // ── 既存（P11-11 / P16-4）──
+    config.cb.on_incoming_call = Some(on_incoming_call);
+    config.cb.on_reg_state = Some(on_reg_state);
+    config.cb.on_call_state = Some(on_call_state);
+    config.cb.on_call_media_state = Some(on_call_media_state);
+    config.cb.on_reg_started = Some(on_reg_started);
+    config.cb.on_call_redirected = Some(on_call_redirected);
+    config.cb.on_dtmf_digit = Some(on_dtmf_digit);
+    config.cb.on_call_transfer_status = Some(on_call_transfer_status);
+    // ── round 3 追加（Q2）──
+    config.cb.on_transport_state = Some(on_transport_state);
+    config.cb.on_call_tsx_state = Some(on_call_tsx_state);
+    config.cb.on_call_replaced = Some(on_call_replaced);
+    config.cb.on_nat_detect = Some(on_nat_detect);
+}
+
+// 各ハンドラ: ネイティブキューへ対応 NativeEvent を enqueue する。
+unsafe extern "C" fn on_transport_state(
+    tp: *mut bindings::pjsip_transport,
+    state: bindings::pjsip_transport_state,
+    _info: *const bindings::pjsip_transport_state_info,
+) {
+    // SAFETY: tp は PJSIP が有効な transport インスタンスへ渡す。
+    let transport_id = unsafe { (*tp).id } as u32;
+    enqueue_native_event(NativeEvent::TransportStateChanged {
+        transport_id,
+        state: state as u32,
+    });
+}
+
+unsafe extern "C" fn on_call_tsx_state(
+    call_id: bindings::pjsua_call_id,
+    _tsx: *mut bindings::pjsip_transaction,
+    _e: *mut bindings::pjsip_event,
+) {
+    enqueue_native_event(NativeEvent::CallTsxStateChanged {
+        call_id: call_id as u32,
+    });
+}
+
+unsafe extern "C" fn on_call_replaced(
+    old_call_id: bindings::pjsua_call_id,
+    new_call_id: bindings::pjsua_call_id,
+) {
+    enqueue_native_event(NativeEvent::CallReplaced {
+        call_id: new_call_id as u32,
+    });
+}
+
+unsafe extern "C" fn on_nat_detect(_res: *const bindings::pj_stun_nat_detect_result) {
+    enqueue_native_event(NativeEvent::NatDetected);
+}
+```
+
+**I/O 境界**: 入力 = PJSIP のトランスポート状態 / トランザクション状態 / call replace / NAT 検出イベント ／出力 = `NativeEvent` → M20 変換 → `SipEventPayload`（`TransportStateChanged` / `CallTsxStateChanged` / `CallReplaced` / `NatDetected`）。`register_callbacks` が FFI コールバックとネイティブキューを接続し、drain（§62.13）が reactor へ転送する。P1/P2 変換器の `Some()` 化（round 2）と本登録で、P1/P2 イベント系列が実コールバックから発火する。
+
+### 62.24 TestBackend 登録イベント発火と account_register example 完走（Q3）
+
+**決定**: `TestBackend::set_registration` は、登録状態遷移（enabled → `Registering` / disabled → `Unregistering`）に加えて、対応する `NativeEvent::RegistrationStateChanged` を自前のネイティブイベントバッファへ追加する。reactor の `SetRegistration` アームは `backend.set_registration` の直後に `backend.take_native_events()` で発火イベントを回収し、`process_native_event` で処理する。これにより実 FFI 経路（`on_reg_state2` → キュー → drain → reactor）と同じイベント系列が TestBackend 上でも成立し、`account_register` example が `RegistrationStateChanged(Registered / Failed)` を受信して完走する。`SipBackend` trait に `take_native_events`（既定は空）を追加する。
+
+```rust
+// src/runtime/backend.rs — SipBackend trait にネイティブイベント回収口を追加（Q3）
+pub trait SipBackend {
+    // ...
+    /// バックエンドが生成したネイティブイベントを回収する。
+    /// 実 FFI 経路ではキュー drain（§62.13）が担うため既定は空。TestBackend は
+    /// シミュレータとして自身が生成したイベントをここで返す。
+    fn take_native_events(&mut self) -> Vec<NativeEvent> {
+        Vec::new()
+    }
+}
+
+// TestBackend: set_registration でイベントを発火する（Q3）
+impl SipBackend for TestBackend {
+    fn set_registration(&mut self, native_acc_id: i32, enabled: bool) -> Result<(), ReactorError> {
+        self.set_registration_calls.push((native_acc_id, enabled));
+        if let Some(result) = self.set_registration_result.take() {
+            return result;
+        }
+        let next = if enabled {
+            RegistrationState::Registering
+        } else {
+            RegistrationState::Unregistering
+        };
+        if let Some(entry) = self.accounts.get_mut(&native_acc_id) {
+            entry.registration = next;
+        }
+        // 実 FFI 経路と同じイベント系列: 登録状態の変化をネイティブイベントとして発火する。
+        self.native_events.push(NativeEvent::RegistrationStateChanged {
+            acc_id: native_acc_id as u32,
+        });
+        Ok(())
+    }
+
+    fn take_native_events(&mut self) -> Vec<NativeEvent> {
+        std::mem::take(&mut self.native_events)
+    }
+}
+
+// src/runtime/reactor.rs — SetRegistration アーム（Q3）
+// backend.set_registration の直後に発火イベントを回収して処理する。
+async fn handle_set_registration(&self, native_id: i32, enabled: bool) -> Result<(), SipError> {
+    self.backend.set_registration(native_id, enabled)?;
+    for native_event in self.backend.take_native_events() {
+        self.process_native_event(native_event).await;
+    }
+    Ok(())
+}
+```
+
+**I/O 境界**: 入力 = `RuntimeCommand::SetRegistration{native_id, enabled}` ／出力 = `NativeEvent::RegistrationStateChanged` → `process_native_event` → `SipEventPayload::RegistrationStateChanged`（§62.12 の統一イベント）。TestBackend の `native_events` バッファが FFI キュー（§62.13）の代役を担い、`take_native_events` が reactor との回収境界になる。`account_register` example（E2）は TestBackend 上で完走し、実 FFI 経路でも同一系列で動作する。
+
+### 62.25 CallEntry.state のネイティブ遷移反映（Q4）
+
+**決定**: `process_native_event` の `CallStateChanged` アームは、`convert_call_state_with_previous` の変換結果（`SipEventPayload`）を publish に使うだけでなく、同じ変換から導出される `CallState` で `CallEntry.state` を更新する。`convert_call_state_with_previous` が publish 用 payload と state 更新用 `CallState` の両方を返すよう拡張し、単一の変換結果を publish と state 更新の両方に使用する。これによりリモート切断（DISCONNECTED → `CallDisconnected`）後も `call_state(call_id)` が整合した状態を返す。
+
+```rust
+// src/state/m20_callstate_mapping.rs — 変換結果に state 更新値を追加（Q4）
+pub(crate) struct CallStateTransition {
+    pub payload: SipEventPayload,
+    pub state: CallState,
+}
+
+/// PJSIP inv_state → `SipEventPayload` + `CallState` の両方を返す。
+pub(crate) fn convert_call_state_with_previous(
+    call_id: CallId,
+    account_id: Option<AccountId>,
+    state: u32,
+    direction: CallDirection,
+) -> Option<CallStateTransition> {
+    let payload = convert_call_state(call_id, account_id, state, direction)?;
+    let call_state = map_inv_state_to_call_state(state, direction); // §18 の 13 状態
+    Some(CallStateTransition { payload, state: call_state })
+}
+
+// src/runtime/reactor.rs — process_native_event の CallStateChanged アーム（Q4）
+NativeEvent::CallStateChanged { call_id, state } => {
+    CallId::from_u64(call_id as u64).ok().and_then(|cid| {
+        let direction = resolve_call_direction(cid, call_state.call_directions);
+        convert_call_state_with_previous(cid, account_id, state, direction).map(|transition| {
+            // publish と state 更新の両方に単一の変換結果を使用する。
+            if let Some(entry) = call_state.calls.get_mut(&cid) {
+                entry.state = transition.state;
+            }
+            transition.payload
+        })
+    })
+}
+```
+
+**I/O 境界**: 入力 = `NativeEvent::CallStateChanged { call_id, state }` ／出力 = publish 用 `SipEventPayload` + `CallStateTables.calls[call_id].state` の更新。`convert_call_state_with_previous` が「イベント publish」と「状態更新」の単一変換点となり、`call_state()` がネイティブ遷移後も整合する。命令経路（answer / hangup / transfer）の `CallEntry.state` 更新（既存）と共存し、両経路で同一の state 定義（§18）を参照する。
+
+### 62.26 CallResumed の実装機構（Q5 / Q5a）
+
+**決定**: `CallResumed` を unit variant から `CallResumed(CallResumedInfo { call_id })` へ変更し、構築経路を実装する。`NativeEvent::CallMediaStateChanged` に `pjsua_call_media_status` の値（`status: u32`）を追加し、FFI ハンドラが `pjsua_call_get_media_status(call_id)` で status を取得して enqueue する。reactor は per-call の直前 media status を追跡し、`PJSUA_CALL_MEDIA_LOCAL_HOLD` / `PJSUA_CALL_MEDIA_REMOTE_HOLD` → `PJSUA_CALL_MEDIA_ACTIVE` の遷移を `CallResumed` として publish する。`ACTIVE` 自体は従来どおり `MediaActive` を publish する（resume と active を区別する）。
+
+```rust
+// src/state/m20_native_event_conv.rs — NativeEvent に media status を追加（Q5a）
+NativeEvent::CallMediaStateChanged {
+    call_id: u32,
+    status: u32,   // pjsua_call_media_status（ACTIVE / LOCAL_HOLD / REMOTE_HOLD / ...）
+}
+
+// src/ffi/callback.rs — on_call_media_state が status を取得して enqueue する（Q5a）
+unsafe extern "C" fn on_call_media_state(call_id: bindings::pjsua_call_id) {
+    let status = unsafe { bindings::pjsua_call_get_media_status(call_id) };
+    enqueue_native_event(NativeEvent::CallMediaStateChanged {
+        call_id: call_id as u32,
+        status: status as u32,
+    });
+}
+
+// src/api/event_model_payload_bus.rs — CallResumed に call_id ペイロードを付与（Q5）
+pub struct CallResumedInfo {
+    pub call_id: CallId,
+}
+
+pub enum SipEventPayload {
+    // ...
+    CallResumed(CallResumedInfo),
+}
+
+// src/runtime/reactor.rs — per-call media status 追跡 + hold→ACTIVE で CallResumed（Q5a）
+NativeEvent::CallMediaStateChanged { call_id, status } => {
+    let cid = CallId::from_u64(call_id as u64)?;
+    let previous = call_state.media_statuses.get(&cid).copied();
+    call_state.media_statuses.insert(cid, status);
+    if let Some(prev) = previous {
+        let was_held = matches!(prev, MEDIA_LOCAL_HOLD | MEDIA_REMOTE_HOLD);
+        if was_held && status == MEDIA_ACTIVE {
+            return Some(SipEventPayload::CallResumed(CallResumedInfo { call_id: cid }));
+        }
+    }
+    Some(SipEventPayload::MediaActive(MediaActiveInfo { call_id: cid }))
+}
+```
+
+**I/O 境界**: 入力 = `pjsua_call_media_status`（`on_call_media_state` 由来、`pjsua_call_get_media_status` で取得）／出力 = `CallResumed(CallResumedInfo)`（hold → ACTIVE 遷移時）または `MediaActive(MediaActiveInfo)`（ACTIVE 継続時）。`CallStateTables.media_statuses`（per-call 直前 status）が hold 検出の状態源となり、resume の観測手段を `CallResumed` として確定する。`on_dtmf_digit` 等の受信専用コールバックとは独立して、メディア状態機械（§18 / §20）と整合する。
+
+### 62.27 DtmfSent 送出完了契約の確定（Q6）
+
+**決定**: `DtmfSent { status: Ok(()) }` の意味論を「**backend 受理 + 500ms タイムアウト経過で送出完了とみなす**」として正式契約に確定する。PJSIP に DTMF 送信完了コールバックは存在しない（`pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` は同期 `pj_status_t` を返すのみ、`on_dtmf_digit` は受信専用）ため、§62.15 の「コールバック優先」を撤回し、タイムアウト設計を唯一の契約とする。`DtmfSentInfo.status` は `Ok(())` / `Err(SipErrorKind::Timeout)` / `Err(SipErrorKind::PjsipError)` を保持する。
+
+```rust
+// src/api/m20_dtmfsent_twophase.rs — DtmfSent の送出完了契約（Q6）
+//
+// DtmfSent { status } の契約:
+//   Ok(Ok(()))        — backend が send_dtmf を受理し、500ms 経過（送出完了とみなす）
+//   Ok(Err(Timeout))  — タイムアウト到達前に backend が Err を返した場合
+//   Err(PjsipError)   — backend が pj_status_t エラーを返した場合
+pub struct DtmfSentInfo {
+    pub call_id: CallId,
+    pub method: DtmfMethod,
+    pub digit: char,
+    pub status: Result<(), DtmfSentError>,
+}
+
+// src/runtime/reactor.rs — handle_send_dtmf（Q6 / P11-6 を正式契約へ昇格）
+pub(crate) fn handle_send_dtmf(
+    ctx: &mut ReactorCtx<'_>,
+    call_id: CallId,
+    method: DtmfMethod,
+    digits: &str,
+) -> Result<(), SipError> {
+    ctx.backend.send_dtmf(call_id.as_i32(), &method, digits)?;   // 同期受理
+    let account_id = ctx.resolve_account_id(call_id)?;
+    // 500ms タイマー: 送出完了とみなして DtmfSent{Ok} を publish する。
+    ctx.spawn_dtmf_sent_timeout(DtmfSentTimeoutRequest {
+        account_id,
+        call_id,
+        method,
+        digits: digits.to_string(),
+    });
+    Ok(())
+}
+```
+
+**I/O 境界**: 入力 = `RuntimeCommand::SendDtmf { call_id, digits, method }` ／出力 = `pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` 呼び出し、`DtmfSent(DtmfSentInfo)` publish。送出完了の観測は 500ms タイマー（O-002 / P7-2 実装）のみとし、README / RFC に「PJSIP には送信完了コールバックが存在しないため、500ms タイムアウトを送出完了とみなす」ことを明記する（H12 の解消）。
+
+### 62.28 tap 駆動の生産経路: RustMediaPort port ops（Q7）
+
+**決定**: `RustMediaPort` を custom `pjmedia_port` として `pjsua_conf_add_port` で登録し、各 call の conf slot を `conf_connect` で接続する（§62.16 / P16-7 の実装方針）。tap への供給は `RustMediaPort` の port ops（`get_frame` / `put_frame`）が conf bridge のフレームを受けるたびに、`PjsuaBackend::push_media_frame` と同一の共有ヘルパー `push_frame_to_tap` を呼んで `AudioTapSender::try_push`（非ブロック）で `AudioChunkPair` を連続供給する。`pjsua_conf_set_callback` は vendored PJSIP 2.17 に存在しない（実ヘッダ検証済み）ため、この方針に一本化する。
+
+```rust
+// src/runtime/backend.rs — tap 供給を一本化する共有ヘルパー（Q7）
+pub(crate) fn push_frame_to_tap(
+    call_id: CallId,
+    frame: &ProcessedFrame,
+    taps: &Mutex<HashMap<CallId, (AccountId, AudioTapSender)>>,
+) {
+    let lock = taps.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some((account_id, tap)) = lock.get(&call_id) {
+        let pair = AudioChunkPair::from_processed_frame(call_id, *account_id, frame);
+        tap.try_push(pair);   // Realtime: 最古破棄、ブロックしない
+    }
+}
+
+// PjsuaBackend::push_media_frame は push_frame_to_tap を呼ぶ（既存実装と同一）。
+
+// src/runtime/audio_worker.rs — RustMediaPort: port ops から tap へ供給（Q7）
+impl RustMediaPort {
+    /// pjmedia_port の get_frame（キャプチャ方向）: conf bridge がフレームを要求する
+    /// たびに呼ばれ、tap レジストリへ AudioChunkPair を供給する。
+    pub unsafe extern "C" fn port_get_frame(port: *mut pjmedia_port, frame: *mut pjmedia_frame) -> pj_status_t {
+        let this = &mut *(*port).port_data.pdata as *mut RustMediaPort;
+        let this = &mut *this;
+        let pcm = std::slice::from_raw_parts((*frame).buf as *const i16, (*frame).size as usize / 2);
+        let processed = ProcessedFrame::from_i16_stereo(pcm, this.call_id);
+        push_frame_to_tap(this.call_id, &processed, &this.tap_registry);
+        PJ_SUCCESS
+    }
+}
+```
+
+**I/O 境界**: 入力 = conf bridge が供給するメディアフレーム（`pjsua_conf_add_port` で登録した `RustMediaPort` の port ops）／出力 = `AudioTapSender::try_push`（`subscribe_audio` の tap へ `AudioChunkPair` 連続供給）。`push_frame_to_tap` が `PjsuaBackend::push_media_frame` と port ops の共通供給点となり、`AudioTapHandle::recv()` が実通話で永久待機しない（H13 の解消）。`conf_connect`（§62.16）が call ごとのメディア接続を確立する。
+
+### 62.29 文書化決定: マイク source / Subscription unsubscribe（Q8 / Q8a）
+
+**決定**: (1) `open_default_microphone_source` は「注入可能なキャプチャ source（cpal による OS 既定入力デバイスの独立キャプチャ）」であり、**通話マイクではない**旨を README に明記する。`add_audio_source` の `AsyncAudioSource` として注入可能だが、通話の送話入力とは無関係である。(2) unsubscribe は drop 代替の解釈ではなく、`Subscription<T>` ハンドル型を導入して明示的な `unsubscribe()` API を提供する。`subscribe()` / `subscribe_account()` / `subscribe_raw_sip()` は `Subscription<T>` を返し、`recv()` / `recv_async()` を委譲する。
+
+```rust
+// src/api/eventbus_receiver.rs — Subscription ハンドル型（Q8a）
+pub struct Subscription<T> {
+    inner: broadcast::Receiver<T>,
+}
+
+impl<T> Subscription<T> {
+    fn new(inner: broadcast::Receiver<T>) -> Self {
+        Self { inner }
+    }
+
+    /// 購読を明示的に解除する。内部 receiver を drop し、以後のメッセージを
+    /// 受信しない（RFC §8.3 の drop ベース契約を明示 API として公開する）。
+    pub fn unsubscribe(self) {
+        drop(self.inner);
+    }
+
+    pub async fn recv(&mut self) -> Result<T, broadcast::error::RecvError> {
+        self.inner.recv().await
+    }
+}
+
+// src/client.rs — subscribe 系 API が Subscription を返す（Q8a）
+pub fn subscribe(&self) -> Subscription<SipEvent> {
+    Subscription::new(self.events.subscribe_control())
+}
+
+pub fn subscribe_account(&self, account_id: AccountId) -> Subscription<SipEvent> {
+    Subscription::new(AccountEventReceiver::new(account_id, self.events.subscribe_control()).into_inner())
+}
+
+pub fn subscribe_raw_sip(&self) -> Option<Subscription<RawSipMessage>> {
+    self.events.subscribe_raw_sip().map(Subscription::new)
+}
+```
+
+**I/O 境界**: 入力 = 購読 API（`subscribe` / `subscribe_account` / `subscribe_raw_sip`）／出力 = `Subscription<T>`（`recv()` 受信 + `unsubscribe()` 明示解除）。`Subscription<T>` が broadcast receiver の公開境界となり、`AccountEventReceiver` のアカウントフィルタを内部に保持する。マイク source の明文化は README（H14）と RFC §23-24 に反映する。
+
+### 62.30 I/O 境界参照情報（graphify / boundify 用）— round 3
+
+本ラウンドの各設計判断が graphify / boundify の分割判断に使う I/O 境界を下表に示す。
+
+| 設計判断 | 入力（consumes） | 出力（produces） | 関連 GRAPH ノード / ファイル候補 |
+|---------|-----------------|-----------------|------------------|
+| 62.22 raw SIP 生産経路 | `pjsip_rx_data.pkt_info`（endpoint 受信） | `enqueue_raw_sip_bytes` → `RawSipMessage` → `subscribe_raw_sip()` | raw_sip_module.rs / callback.rs / eventbus_receiver.rs |
+| 62.23 P1/P2 コールバック登録 | PJSIP トランスポート / tx / replace / NAT イベント | `NativeEvent`（4 種）→ `SipEventPayload` | callback.rs / m20_native_event_conv.rs |
+| 62.24 TestBackend 登録イベント | `SetRegistration{native_id, enabled}` | `NativeEvent::RegistrationStateChanged` → reactor | backend.rs / reactor.rs / registr_wiring.rs |
+| 62.25 CallEntry.state 整合 | `NativeEvent::CallStateChanged` | `CallStateTransition`（publish + state 更新） | m20_callstate_mapping.rs / reactor.rs |
+| 62.26 CallResumed 実装 | `pjsua_call_media_status`（on_call_media_state 由来） | `CallResumed(CallResumedInfo)` / `MediaActive` | m20_native_event_conv.rs / event_model_payload_bus.rs |
+| 62.27 DtmfSent 契約 | `SendDtmf{call_id, digits, method}` | `pjsua_call_send_dtmf` / `dial_dtmf`、500ms 後 `DtmfSent{Ok}` | reactor.rs / m20_dtmfsent_twophase.rs |
+| 62.28 tap 駆動 | conf bridge フレーム（`RustMediaPort` port ops） | `AudioTapSender::try_push`（`AudioChunkPair`） | audio_worker.rs / backend.rs / audio_subscribe_bp.rs |
+| 62.29 Subscription unsubscribe | 購読 API 呼び出し | `Subscription<T>`（`recv()` / `unsubscribe()`） | client.rs / eventbus_receiver.rs |
+
+**削除対象の整理（boundify が Prune / 更新するファイル）**: `pjsua_callback.on_rx_msg` への言及（`src/ffi/callback.rs:143-144` の stale コメントを `pjsip_module` 方式へ更新）、`m20_native_event_conv.rs` の「P1/P2 returns None」stale doc comment、`CallResumed` の unit variant 参照（ペイロード化）、`DtmfSent` の「コールバック優先」記述（§62.15 の該当文）。`src/ffi/raw_sip_module.rs` が新規ファイルとして追加される。
