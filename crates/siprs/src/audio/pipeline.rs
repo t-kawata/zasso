@@ -99,7 +99,7 @@ impl AudioFormatSpec {
 
 // [::TICKET::] P11-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-12 --for-spec --no-implementation-order`.
 impl TryFrom<AudioFormatSpec> for AudioFormat {
-    // [::TICKET::] P11-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-12 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-12, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-12|P17-8) --for-spec --no-implementation-order`.
     type Error = AudioFormatError;
 
     /// Validate the spec into a concrete `AudioFormat`.
@@ -168,6 +168,24 @@ pub struct ProcessedFrame {
     pub negotiated_codec: NegotiatedCodec,
     /// Alignment timestamp — the later of the paired IN/OUT frames.
     pub timestamp: Instant,
+}
+
+// [::TICKET::] P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-8 --for-spec --no-implementation-order`.
+impl ProcessedFrame {
+    /// Build a frame from raw i16 PCM samples for the RT tap-supply path.
+    ///
+    /// The conf-bridge port ops (`RustMediaPort` get_frame / put_frame) receive
+    /// raw PCM without a negotiated codec — the codec is unknown at the RT
+    /// boundary, so a deterministic default (`Pcmu`) is used. Tap consumers
+    /// (`AudioChunkPair::from_processed_frame`) only read `stereo_interleaved`,
+    /// so the codec value does not affect tap output.
+    pub(crate) fn from_i16_stereo(samples: &[i16]) -> Self {
+        Self {
+            stereo_interleaved: samples.to_vec(),
+            negotiated_codec: NegotiatedCodec::Pcmu,
+            timestamp: Instant::now(),
+        }
+    }
 }
 
 /// Higher-level audio orchestration — aligns IN/OUT frames, maps the stereo

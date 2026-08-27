@@ -26,6 +26,11 @@ use crate::runtime::state::{AccountEntry, CallEntry};
 use crate::state::call_state_model::CallState;
 #[cfg(any(test, feature = "test-util", feature = "pjsua-native"))]
 use crate::state::m20_callstate_mapping::CallDirection;
+// [::TICKET::] P17-8: shared tap-supply helper operates on the pipeline frame
+// and the model pair types.
+use crate::audio::pipeline::ProcessedFrame;
+use crate::model::AudioChunkPair;
+use crate::model::CallId;
 
 /// Shared `subscribe_audio` tap producer registry (§62.6).
 ///
@@ -49,6 +54,23 @@ use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
 // [::TICKET::] P17-4: NativeEvent is the backend→reactor event boundary —
 // `take_native_events` returns a `Vec<NativeEvent>`.
 use crate::state::m20_native_event_conv::NativeEvent;
+
+/// Push a processed frame into the call's subscribed tap, if any.
+///
+/// The single supply point for `subscribe_audio` taps (§62.28 / Q7): both
+/// `PjsuaBackend::push_media_frame` and the `RustMediaPort` port ops delegate
+/// here. Looks up the shared registry by public `CallId`, builds an
+/// `AudioChunkPair` (IN = left, OUT = right of the stereo frame) using the
+/// stored `AccountId`, and pushes it synchronously via
+/// `AudioTapSender::try_push` (Realtime, never blocks — §62.6). An
+/// unsubscribed call is a no-op — the RT callback must never block or error.
+pub(crate) fn push_frame_to_tap(call_id: CallId, frame: &ProcessedFrame, taps: &AudioTapRegistry) {
+    let lock = taps.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some((account_id, tap)) = lock.get(&call_id) {
+        let pair = AudioChunkPair::from_processed_frame(call_id, *account_id, frame);
+        tap.try_push(pair);
+    }
+}
 
 /// Abstract interface for SIP operations that the reactor dispatches.
 ///
@@ -147,15 +169,15 @@ pub trait SipBackend: Send {
     fn resolve_conf_port(&self, native_call_id: i32) -> Result<i32, ReactorError>;
 
     /// Get account info for registration state retrieval.
-    // [::TICKET::] P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P17-8) --for-spec --no-implementation-order`.
     fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError>;
 
     /// Connect a call's media to the conference bridge.
-    // [::TICKET::] P3-2, P11-10, P11-11, P15-3, P15-7, P16-3, P16-7, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P15-3|P15-7|P16-3|P16-7|PX-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P11-10, P11-11, P15-3, P15-7, P16-3, P16-7, PX-3, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P15-3|P15-7|P16-3|P16-7|PX-3|P17-8) --for-spec --no-implementation-order`.
     fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Disconnect a call's media from the conference bridge.
-    // [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6, P15-7, P15-9, P16-2, P16-3, P16-7, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6|P15-7|P15-9|P16-2|P16-3|P16-7|PX-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P7-2, P8-1, P10-1, P11-6, P11-10, P11-11, P12-1, P15-3, P15-5, P15-6, P15-7, P15-9, P16-2, P16-3, P16-7, PX-3, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P7-2|P8-1|P10-1|P11-6|P11-10|P11-11|P12-1|P15-3|P15-5|P15-6|P15-7|P15-9|P16-2|P16-3|P16-7|PX-3|P17-8) --for-spec --no-implementation-order`.
     fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
 
     /// Push a processed media frame into the call's audio tap (subscribe_audio).
@@ -715,7 +737,7 @@ pub struct PjsuaBackend {
     transport_ids: Vec<bindings::pjsua_transport_id>,
 }
 
-// [::TICKET::] P3-2, P15-7, P16-2, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7|P16-2|PX-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-7, P16-2, PX-3, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7|P16-2|PX-3|P17-8) --for-spec --no-implementation-order`.
 impl PjsuaBackend {
     pub fn new() -> Self {
         Self {
@@ -822,7 +844,9 @@ impl PjsuaBackend {
         let mut connected = 0usize;
         let mut pairs: Vec<(i32, i32)> = Vec::new();
         for (call_id, mixer) in mixers.iter() {
-            let media_port = RustMediaPort::new(mixer.clone(), *call_id);
+            // P17-8: the port shares the tap registry so its RT port ops can
+            // supply the conf-bridge media to subscribed taps (C132-post).
+            let media_port = RustMediaPort::new(mixer.clone(), *call_id, self.audio_taps.clone());
             let mut adapter = MediaPortAdapter::new(media_port);
             let mut port_slot: bindings::pjsua_conf_port_id = -1;
             let status =
@@ -859,7 +883,7 @@ impl Default for PjsuaBackend {
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 // [::TICKET::] P3-2, P10-3, P11-11, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-11|P15-7) --for-spec --no-implementation-order`.
-// [::TICKET::] P16-6, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-6|P16-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P16-6, P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-6|P16-7|P17-8) --for-spec --no-implementation-order`.
 impl SipBackend for PjsuaBackend {
     // [::TICKET::] P3-2, P11-10, P11-11, P16-2, P16-3, P16-8, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-2|P16-3|P16-8|PX-3) --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
@@ -1241,28 +1265,20 @@ impl SipBackend for PjsuaBackend {
 
     /// Push a processed frame into the call's subscribed tap, if any.
     ///
-    /// Looks up the shared `subscribe_audio` registry by public `CallId`, builds
-    /// an `AudioChunkPair` (IN = left, OUT = right of the stereo frame) using the
-    /// stored `AccountId`, and pushes it synchronously via
-    /// `AudioTapSender::try_push` (Realtime, never blocks). An unsubscribed call
-    /// is a no-op — the RT callback must never block or error (§62.6 tap push).
-    // [::TICKET::] P15-7, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P16-3) --for-spec --no-implementation-order`.
+    /// Validates the public `CallId` and delegates the tap supply to the shared
+    /// [`push_frame_to_tap`] helper (§62.28 / Q7), keeping this method the
+    /// trait-boundary entry point and the helper the single supply point.
+    /// An unsubscribed call is a no-op — the RT callback must never block or
+    /// error (§62.6 tap push).
+    // [::TICKET::] P15-7, P16-3, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P16-3|P17-8) --for-spec --no-implementation-order`.
     fn push_media_frame(
         &mut self,
         call_id: u64,
         frame: crate::audio::pipeline::ProcessedFrame,
     ) -> Result<(), ReactorError> {
-        let call_id = crate::model::CallId::from_u64(call_id)
+        let call_id = CallId::from_u64(call_id)
             .map_err(|_| ReactorError::BackendError(format!("invalid CallId {call_id}")))?;
-        let taps = self
-            .audio_taps
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some((account_id, tap)) = taps.get(&call_id) {
-            let pair =
-                crate::model::AudioChunkPair::from_processed_frame(call_id, *account_id, &frame);
-            tap.try_push(pair);
-        }
+        push_frame_to_tap(call_id, &frame, &self.audio_taps);
         Ok(())
     }
 
@@ -1747,6 +1763,132 @@ mod tests {
         assert_eq!(pair.in_chunk, crate::model::AudioChunk::I16(vec![1, 3]));
         assert_eq!(pair.out_chunk, crate::model::AudioChunk::I16(vec![2, 4]));
         Ok(())
+    }
+
+    // ── P17-8: shared push_frame_to_tap helper (C132) ──────────────────────
+
+    #[tokio::test]
+    // @verifies C132
+    // [::TICKET::] P17-8: C132-pre — the shared helper builds a real pair from a
+    // ProcessedFrame (IN=L, OUT=R) and drives the subscribed tap.
+    async fn push_frame_to_tap_builds_pair_and_drives_subscribed_tap(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let (sender, mut handle) = crate::api::audio_subscribe_bp::tap_channel(
+            4,
+            crate::api::audio_subscribe_bp::AudioTapMode::Realtime,
+        );
+        registry
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(CallId::from_u64(42)?, (AccountId::from_u64(1)?, sender));
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2, 3, 4],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        push_frame_to_tap(CallId::from_u64(42)?, &frame, &registry);
+        let pair = handle
+            .recv()
+            .await
+            .expect("tap must receive the pushed pair");
+        assert_eq!(pair.in_chunk, crate::model::AudioChunk::I16(vec![1, 3]));
+        assert_eq!(pair.out_chunk, crate::model::AudioChunk::I16(vec![2, 4]));
+        assert_eq!(pair.call_id, CallId::from_u64(42)?);
+        assert_eq!(pair.account_id, AccountId::from_u64(1)?);
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C132
+    // [::TICKET::] P17-8: C132-inv — a full Realtime queue evicts the oldest
+    // frame; the push path never blocks (try_push, §62.6).
+    async fn push_frame_to_tap_never_blocks_on_full_queue() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let (sender, mut handle) = crate::api::audio_subscribe_bp::tap_channel(
+            2,
+            crate::api::audio_subscribe_bp::AudioTapMode::Realtime,
+        );
+        registry
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(CallId::from_u64(1)?, (AccountId::from_u64(1)?, sender));
+        let frame = |n: i16| crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![n, n],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        push_frame_to_tap(CallId::from_u64(1)?, &frame(1), &registry);
+        push_frame_to_tap(CallId::from_u64(1)?, &frame(2), &registry);
+        // Third push on a full queue returns synchronously and evicts frame 1.
+        push_frame_to_tap(CallId::from_u64(1)?, &frame(3), &registry);
+        let first = handle.recv().await.expect("frame 2 admitted");
+        assert_eq!(first.in_chunk, crate::model::AudioChunk::I16(vec![2]));
+        let second = handle.recv().await.expect("frame 3 admitted");
+        assert_eq!(second.in_chunk, crate::model::AudioChunk::I16(vec![3]));
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C132
+    // [::TICKET::] P17-8: C132-inv — an unsubscribed call is a safe no-op.
+    // [::TICKET::] P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-8 --for-spec --no-implementation-order`.
+    fn push_frame_to_tap_unsubscribed_call_is_noop() -> Result<(), Box<dyn std::error::Error>> {
+        let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        // No tap registered for call 99: the push is a clean no-op.
+        push_frame_to_tap(CallId::from_u64(99)?, &frame, &registry);
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C132
+    // [::TICKET::] P17-8: C132-inv — a poisoned registry mutex is recovered
+    // via into_inner and the RT push path does not panic.
+    fn push_frame_to_tap_recovers_from_poisoned_registry() -> Result<(), Box<dyn std::error::Error>> {
+        let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let poisoned = Arc::clone(&registry);
+        let handle = std::thread::spawn(move || {
+            let _guard = poisoned.lock().unwrap();
+            panic!("poison the registry mutex");
+        });
+        assert!(handle.join().is_err(), "panic must poison the mutex");
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        // The helper recovers via into_inner and completes without panicking.
+        push_frame_to_tap(CallId::from_u64(99)?, &frame, &registry);
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C133
+    // [::TICKET::] P17-8: C133-inv — the media path must not depend on
+    // pjsua_conf_set_callback (absent in vendored PJSIP 2.17). The bare name
+    // may appear in comments documenting its absence; only a real call would
+    // create a dependency, so the test scans for the call pattern. The needle
+    // is built in two pieces so the test does not match its own source.
+    // [::TICKET::] P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-8 --for-spec --no-implementation-order`.
+    fn pjsua_conf_set_callback_is_not_referenced_in_media_path() {
+        let call_pattern = format!("pjsua_conf_set_callback{}", "(");
+        for path in [
+            "src/runtime/backend.rs",
+            "src/runtime/audio_worker.rs",
+            "src/ffi/media_port_adapter.rs",
+        ] {
+            let src = std::fs::read_to_string(path).unwrap_or_default();
+            assert!(
+                !src.contains(&call_pattern),
+                "{path} must not call pjsua_conf_set_callback"
+            );
+        }
     }
 
     // [::TICKET::] P16-7: register_conf_callback records the invocation on

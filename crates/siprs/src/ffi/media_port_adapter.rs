@@ -203,30 +203,35 @@ unsafe extern "C" fn media_port_on_destroy(
 mod tests {
     use super::*;
     use crate::audio::media_path_wiring::BYTES_PER_I16;
+    // [::TICKET::] P17-8: the port now carries a tap registry (C133-post).
     use crate::runtime::audio_worker::{AudioMixer, DEFAULT_QUEUE_CAPACITY, MIXER_FRAME_SAMPLES};
+    use crate::runtime::backend::AudioTapRegistry;
     use std::sync::Arc;
 
     #[test]
-    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    // @verifies C133
+    // [::TICKET::] PX-3, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-8) --for-spec --no-implementation-order`.
     fn media_port_adapter_builds_pjmedia_port_with_rt_callbacks() {
         let mixer = Arc::new(AudioMixer::default());
-        let port = RustMediaPort::new(mixer, 1);
+        let port = RustMediaPort::new(mixer, 1, AudioTapRegistry::default());
         let mut adapter = MediaPortAdapter::new(port);
         let raw = adapter.port_mut();
         assert!(!raw.is_null());
         let pj = unsafe { &*raw };
         assert!(pj.get_frame.is_some(), "adapter must wire get_frame");
         assert!(pj.put_frame.is_some(), "adapter must wire put_frame");
+        assert!(pj.on_destroy.is_some(), "adapter must wire on_destroy");
         assert_eq!(pj.info.fmt.det.aud.clock_rate, CLOCK_RATE_HZ);
         assert_eq!(pj.info.fmt.det.aud.channel_count, CHANNEL_COUNT);
         assert_eq!(pj.info.fmt.det.aud.bits_per_sample, BITS_PER_SAMPLE);
+        assert_eq!(pj.info.fmt.det.aud.frame_time_usec, FRAME_TIME_USEC);
     }
 
     #[test]
-    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] PX-3, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-8) --for-spec --no-implementation-order`.
     fn media_port_get_frame_pops_out_queue_as_le_i16() {
         let mixer = Arc::new(AudioMixer::default());
-        let port = RustMediaPort::new(mixer.clone(), 7);
+        let port = RustMediaPort::new(mixer.clone(), 7, AudioTapRegistry::default());
         let mut adapter = MediaPortAdapter::new(port);
         let raw = adapter.port_mut();
         assert!(
@@ -256,10 +261,10 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] PX-3, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-8) --for-spec --no-implementation-order`.
     fn media_port_put_frame_pushes_in_queue_as_le_i16() {
         let mixer = Arc::new(AudioMixer::default());
-        let port = RustMediaPort::new(mixer.clone(), 7);
+        let port = RustMediaPort::new(mixer.clone(), 7, AudioTapRegistry::default());
         let mut adapter = MediaPortAdapter::new(port);
         let raw = adapter.port_mut();
         let data = [0u8, 0x00, 0x00, 0x80]; // LE i16: 0, -32768
@@ -280,10 +285,10 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] PX-3, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-8) --for-spec --no-implementation-order`.
     fn media_port_rt_callbacks_do_not_block_on_full_or_empty_queues() {
         let mixer = Arc::new(AudioMixer::default());
-        let port = RustMediaPort::new(mixer.clone(), 1);
+        let port = RustMediaPort::new(mixer.clone(), 1, AudioTapRegistry::default());
         let mut adapter = MediaPortAdapter::new(port);
         let raw = adapter.port_mut();
         // Fill in_queue to capacity; put_frame must drop (return success), never block.

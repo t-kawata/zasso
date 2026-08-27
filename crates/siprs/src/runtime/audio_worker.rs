@@ -6,6 +6,11 @@ use std::time::Duration;
 
 use tokio::sync::Mutex;
 
+// [::TICKET::] P17-8: the conf-port consumer drives the shared tap registry
+// (AudioTapRegistry / push_frame_to_tap) from its RT port ops.
+use crate::audio::pipeline::ProcessedFrame;
+use crate::model::CallId;
+use crate::runtime::backend::{push_frame_to_tap, AudioTapRegistry};
 use crate::runtime::command::ReactorError;
 
 // ---------------------------------------------------------------------------
@@ -366,21 +371,43 @@ use crate::audio::media_path_wiring::BYTES_PER_I16;
 pub struct RustMediaPort {
     mixer: Arc<AudioMixer>,
     call_id: u64,
+    /// Shared `subscribe_audio` tap producer registry (§62.28 / Q7). Each
+    /// port op feeds a frame here so conf-bridge media reaches the tap.
+    tap_registry: AudioTapRegistry,
 }
 
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-8) --for-spec --no-implementation-order`.
 impl RustMediaPort {
-    /// Create a port bound to the given per-call mixer.
-    pub fn new(mixer: Arc<AudioMixer>, call_id: u64) -> Self {
-        Self { mixer, call_id }
+    /// Create a port bound to the given per-call mixer and tap registry.
+    pub fn new(mixer: Arc<AudioMixer>, call_id: u64, tap_registry: AudioTapRegistry) -> Self {
+        Self {
+            mixer,
+            call_id,
+            tap_registry,
+        }
+    }
+
+    /// Feed one processed frame to the call's subscribed tap, if any.
+    ///
+    /// Non-blocking by construction: [`push_frame_to_tap`] uses
+    /// `AudioTapSender::try_push` (Realtime, never blocks — §62.6). An invalid
+    /// `call_id` cannot normally occur (the port is built from a valid
+    /// `CallId`), but the RT callback must never panic, so a failed conversion
+    /// is a no-op.
+    // [::TICKET::] P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-8 --for-spec --no-implementation-order`.
+    fn supply_frame_to_tap(&self, frame: &ProcessedFrame) {
+        if let Ok(call_id) = CallId::from_u64(self.call_id) {
+            push_frame_to_tap(call_id, frame, &self.tap_registry);
+        }
     }
 
     /// Pop the next OUT frame from `out_queue` and copy it into `buf` as
     /// little-endian i16 PCM. On underrun the buffer is zero-filled (silence).
-    /// Returns the number of bytes written (bounded by `capacity`).
+    /// Returns the number of bytes written (bounded by `capacity`). The same
+    /// frame is supplied to the tap registry (§62.28).
     pub fn get_frame(&self, buf: &mut [u8], capacity: usize) -> usize {
         let write_len = capacity.min(buf.len());
-        match self.mixer.out_queue.pop() {
+        let processed = match self.mixer.out_queue.pop() {
             Some(samples) => {
                 let byte_len = (samples.len() * BYTES_PER_I16).min(write_len);
                 for (index, byte) in buf[..write_len].iter_mut().enumerate() {
@@ -391,18 +418,22 @@ impl RustMediaPort {
                         *byte = 0;
                     }
                 }
-                write_len
+                ProcessedFrame::from_i16_stereo(&samples[..byte_len / BYTES_PER_I16])
             }
             None => {
                 buf[..write_len].fill(0);
-                write_len
+                ProcessedFrame::from_i16_stereo(&[])
             }
-        }
+        };
+        self.supply_frame_to_tap(&processed);
+        write_len
     }
 
     /// Push received audio (`data[..size]`, little-endian i16 PCM) into
     /// `in_queue`. Returns `false` when the queue is full — the frame is
-    /// dropped with latest-priority semantics. Never blocks.
+    /// dropped with latest-priority semantics. Never blocks. The received
+    /// frame is supplied to the tap registry even when the queue drops it
+    /// (§62.28).
     pub fn put_frame(&self, data: &[u8], size: usize) -> bool {
         let size = size.min(data.len());
         let sample_count = size / BYTES_PER_I16;
@@ -410,6 +441,8 @@ impl RustMediaPort {
         for pair in data[..size].chunks_exact(BYTES_PER_I16) {
             samples.push(i16::from_le_bytes([pair[0], pair[1]]));
         }
+        let processed = ProcessedFrame::from_i16_stereo(&samples);
+        self.supply_frame_to_tap(&processed);
         self.mixer.in_queue.push(samples).is_ok()
     }
 
@@ -647,6 +680,12 @@ const _: () = {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // `super::*` re-exports `tokio::sync::Mutex`; the tap registry needs the
+    // standard mutex, so alias it to avoid ambiguity in the new-tap setup.
+    use std::collections::HashMap;
+    use std::sync::Mutex as StdMutex;
+    // Test-only model imports for the P17-8 tap-supply setup.
+    use crate::model::AccountId;
 
     // A process-wide default subscriber whose `register_callsite` always
     // reports `Interest::always`. `tracing` caches one `Interest` per callsite
@@ -1592,7 +1631,7 @@ mod tests {
     // @verifies C036
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn async_audio_source_trait_requires_send() {
-        // [::TICKET::] P0-6, P12-5, P12-7, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7|P16-7) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-6, P12-5, P12-7, P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7|P16-7|P17-8) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<MockAsyncAudioSource>();
     }
@@ -1699,11 +1738,11 @@ mod tests {
     /// C110-Post-1: get_frame pops out_queue and copies the PCM frame (LE i16).
     #[test]
     // @verifies C110
-    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-8) --for-spec --no-implementation-order`.
     fn rust_media_port_get_frame_pops_out_queue() {
         let mixer = Arc::new(AudioMixer::new());
         mixer.out_queue.push(vec![7i16; MIXER_FRAME_SAMPLES]).ok();
-        let port = RustMediaPort::new(mixer, 1);
+        let port = RustMediaPort::new(mixer, 1, AudioTapRegistry::default());
         let mut buf = vec![0u8; MIXER_FRAME_SAMPLES * 2];
         let capacity = buf.len();
         let bytes_written = port.get_frame(&mut buf, capacity);
@@ -1715,10 +1754,10 @@ mod tests {
     /// C110-Post-2: put_frame pushes received audio into in_queue.
     #[test]
     // @verifies C110
-    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-8) --for-spec --no-implementation-order`.
     fn rust_media_port_put_frame_pushes_in_queue() {
         let mixer = Arc::new(AudioMixer::new());
-        let port = RustMediaPort::new(mixer.clone(), 1);
+        let port = RustMediaPort::new(mixer.clone(), 1, AudioTapRegistry::default());
         let data = vec![0u8, 0, 7, 0]; // two i16 samples (0, 7)
         assert!(port.put_frame(&data, data.len()));
         assert_eq!(mixer.in_queue.len(), 1);
@@ -1727,10 +1766,10 @@ mod tests {
     /// C110-Boundary-1: an empty out_queue yields a zero-filled (silent) frame.
     #[test]
     // @verifies C110
-    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-8) --for-spec --no-implementation-order`.
     fn rust_media_port_get_frame_underrun_zero_fills() {
         let mixer = Arc::new(AudioMixer::new());
-        let port = RustMediaPort::new(mixer, 1);
+        let port = RustMediaPort::new(mixer, 1, AudioTapRegistry::default());
         let mut buf = vec![0xFFu8; MIXER_FRAME_SAMPLES * 2];
         let capacity = buf.len();
         let bytes_written = port.get_frame(&mut buf, capacity);
@@ -1741,10 +1780,10 @@ mod tests {
     /// C110-Boundary-2: a full in_queue drops the frame (latest-priority).
     #[test]
     // @verifies C110
-    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-8) --for-spec --no-implementation-order`.
     fn rust_media_port_put_frame_full_queue_drops() {
         let mixer = Arc::new(AudioMixer::with_queue_capacity(1));
-        let port = RustMediaPort::new(mixer.clone(), 1);
+        let port = RustMediaPort::new(mixer.clone(), 1, AudioTapRegistry::default());
         assert!(port.put_frame(&[0u8, 0], 2));
         assert!(!port.put_frame(&[1u8, 0], 2), "full → drop");
         assert_eq!(mixer.in_queue.len(), 1);
@@ -1753,12 +1792,12 @@ mod tests {
     /// C110-Inv: RustMediaPort is the only consumer of out_queue — get_frame drains it.
     #[test]
     // @verifies C110
-    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-8) --for-spec --no-implementation-order`.
     fn out_queue_consumed_only_by_rust_media_port() {
         let mixer = Arc::new(AudioMixer::new());
         mixer.out_queue.push(vec![1i16; MIXER_FRAME_SAMPLES]).ok();
         assert_eq!(mixer.out_queue.len(), 1);
-        let port = RustMediaPort::new(mixer.clone(), 1);
+        let port = RustMediaPort::new(mixer.clone(), 1, AudioTapRegistry::default());
         let mut buf = vec![0u8; MIXER_FRAME_SAMPLES * 2];
         let capacity = buf.len();
         let _bytes_written = port.get_frame(&mut buf, capacity);
@@ -1767,10 +1806,65 @@ mod tests {
 
     /// The port retains its logical call id (used for tap / conf wiring).
     #[test]
-    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-8) --for-spec --no-implementation-order`.
     fn rust_media_port_retains_call_id() {
         let mixer = Arc::new(AudioMixer::new());
-        let port = RustMediaPort::new(mixer, 42);
+        let port = RustMediaPort::new(mixer, 42, AudioTapRegistry::default());
         assert_eq!(port.call_id(), 42);
+    }
+
+    // ── P17-8: RustMediaPort port ops drive the tap registry (C132-post) ────
+
+    #[tokio::test]
+    // @verifies C132
+    // [::TICKET::] P17-8: C132-post — get_frame supplies the subscribed tap
+    // with the conf-bridge OUT frame (never blocks).
+    async fn rust_media_port_get_frame_drives_tap_registry(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let registry: AudioTapRegistry = Arc::new(StdMutex::new(HashMap::new()));
+        let (sender, mut handle) = crate::api::audio_subscribe_bp::tap_channel(
+            4,
+            crate::api::audio_subscribe_bp::AudioTapMode::Realtime,
+        );
+        registry
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(CallId::from_u64(42)?, (AccountId::from_u64(1)?, sender));
+        let mixer = Arc::new(AudioMixer::new());
+        mixer.out_queue.push(vec![7i16; MIXER_FRAME_SAMPLES]).ok();
+        let port = RustMediaPort::new(mixer, 42, registry);
+        let mut buf = vec![0u8; MIXER_FRAME_SAMPLES * BYTES_PER_I16];
+        let capacity = buf.len();
+        let written = port.get_frame(&mut buf, capacity);
+        assert_eq!(written, MIXER_FRAME_SAMPLES * BYTES_PER_I16);
+        assert_eq!(i16::from_le_bytes([buf[0], buf[1]]), 7);
+        let pair = handle.recv().await.expect("get_frame must drive the tap");
+        assert_eq!(pair.call_id, CallId::from_u64(42)?);
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C132
+    // [::TICKET::] P17-8: C132-post — put_frame supplies the subscribed tap
+    // with the conf-bridge IN frame (never blocks).
+    async fn rust_media_port_put_frame_drives_tap_registry(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let registry: AudioTapRegistry = Arc::new(StdMutex::new(HashMap::new()));
+        let (sender, mut handle) = crate::api::audio_subscribe_bp::tap_channel(
+            4,
+            crate::api::audio_subscribe_bp::AudioTapMode::Realtime,
+        );
+        registry
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(CallId::from_u64(42)?, (AccountId::from_u64(1)?, sender));
+        let mixer = Arc::new(AudioMixer::new());
+        let port = RustMediaPort::new(mixer.clone(), 42, registry);
+        let data = vec![0u8, 0, 7, 0]; // two i16 samples (0, 7)
+        assert!(port.put_frame(&data, data.len()));
+        assert_eq!(mixer.in_queue.len(), 1);
+        let pair = handle.recv().await.expect("put_frame must drive the tap");
+        assert_eq!(pair.call_id, CallId::from_u64(42)?);
+        Ok(())
     }
 }
