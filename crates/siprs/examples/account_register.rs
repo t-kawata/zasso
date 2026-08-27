@@ -24,9 +24,9 @@ const REGISTRATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-// [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
     let args = cli::parse(std::env::args().skip(1))?;
     client::require(&args, &["--username", "--domain", "--password"])?;
     let config = build_client_config(&args);
@@ -64,6 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// `subscribe_account`. A non-zero id always converts; a zero id is invalid
 /// by the newtype contract and surfaces as an error.
 // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-5 --for-spec --no-implementation-order`.
 fn resolve_account_id(account: &SipAccountHandle) -> Result<AccountId, Box<dyn std::error::Error>> {
     AccountId::from_u64(account.id())
         .map_err(|e| format!("account id {} is invalid: {e}", account.id()).into())

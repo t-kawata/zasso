@@ -29,6 +29,7 @@ use siprs::{
 /// Matches RFC §41.5: an `AsyncAudioSource` over `tokio::sync::mpsc::Receiver<Vec<i16>>`.
 // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
 // [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-5 --for-spec --no-implementation-order`.
 struct TtsStreamSource {
     rx: tokio::sync::mpsc::Receiver<Vec<i16>>,
 }
@@ -96,9 +97,9 @@ async fn client_init_flow_reports_capabilities() -> Result<(), Box<dyn std::erro
 #[tokio::test]
 // @verifies C066
 async fn account_register_flow_registers_account() -> Result<(), Box<dyn std::error::Error>> {
-// [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
-// [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
     let (client, _events) = SipClient::new(client_config()).await?;
     let account = account::add_account_and_resolve(&client, &test_cli_args()).await?;
     account.register().await?;
@@ -171,9 +172,7 @@ async fn account_register_receives_registered_event() -> Result<(), Box<dyn std:
     assert!(
         matches!(
             ev.payload,
-            siprs::SipEventPayload::RegistrationStateChanged(
-                siprs::RegistrationState::Registered
-            )
+            siprs::SipEventPayload::RegistrationStateChanged(siprs::RegistrationState::Registered)
         ),
         "expected RegistrationStateChanged(Registered), got {:?}",
         ev.payload

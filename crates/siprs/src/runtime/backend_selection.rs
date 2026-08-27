@@ -151,8 +151,9 @@ mod tests {
     #[test]
     // @verifies C083, C126, C127
     #[cfg(not(feature = "pjsua-native"))]
-    // [::TICKET::] P15-3, PX-3, P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|PX-3|P17-4) --for-spec --no-implementation-order`.
-    fn test_backend_set_registration_reaches_outcome_state() -> Result<(), Box<dyn std::error::Error>> {
+    // [::TICKET::] P15-3, PX-3, P17-4, P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-3|PX-3|P17-4|P17-5) --for-spec --no-implementation-order`.
+    fn test_backend_set_registration_reaches_outcome_state(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::default();
         let config = AccountConfig::default();
         let (id, _) = backend.add_account(&config)?;

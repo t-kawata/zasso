@@ -171,7 +171,7 @@ mod tests {
 
     /// @verifies C122
     #[test]
-// [::TICKET::] P17-2, P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P17-2|P17-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-2, P17-4, P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P17-2|P17-4|P17-5) --for-spec --no-implementation-order`.
     fn capture_raw_sip_message_roundtrips_packet_bytes() {
         // P17-4 (boy-scout): guard the shared queue so a parallel sibling test
         // swapping it cannot leak state into this roundtrip.
@@ -239,7 +239,7 @@ mod tests {
 
     /// @verifies C122
     #[test]
-// [::TICKET::] P17-2, P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P17-2|P17-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-2, P17-4, P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P17-2|P17-4|P17-5) --for-spec --no-implementation-order`.
     fn capture_skips_non_positive_length_without_panic() {
         // P17-4 (boy-scout): guard the shared queue so a parallel sibling test
         // swapping it cannot leak state into this boundary check.

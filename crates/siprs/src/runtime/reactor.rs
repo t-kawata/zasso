@@ -105,7 +105,7 @@ pub struct CoreReactor;
 
 /// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
 /// join handle, or a boxed spawn error.
-// [::TICKET::] P15-4, P15-7, P15-9, P16-5, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5|P16-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-4, P15-7, P15-9, P16-5, P16-7, P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5|P16-7|P17-5) --for-spec --no-implementation-order`.
 type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
@@ -1107,7 +1107,16 @@ pub(crate) fn process_native_event(
                 NativeEvent::CallStateChanged { call_id, state } => {
                     CallId::from_u64(call_id as u64).ok().and_then(|cid| {
                         let direction = resolve_call_direction(cid, call_state.call_directions);
-                        convert_call_state_with_previous(cid, account_id, state, direction)
+                        convert_call_state_with_previous(cid, account_id, state, direction).map(
+                            |transition| {
+                                // Publish and CallEntry.state share the single
+                                // conversion result (RFC N0094 §62.25 / C128).
+                                if let Some(entry) = call_state.calls.get_mut(&cid) {
+                                    entry.state = transition.state;
+                                }
+                                transition.payload
+                            },
+                        )
                     })
                 }
                 other => convert_native_event_to_payload(other, account_id),
@@ -1984,6 +1993,277 @@ mod tests {
             "unknown direction must fall back to OutgoingCallTrying, got {:?}",
             ev.payload
         );
+    }
+
+    // ── P17-5: native CallStateChanged reflects into CallEntry.state ─────
+
+    /// @verifies C127
+    #[tokio::test]
+    // [::TICKET::] P17-5: remote DISCONNECTED must update CallEntry.state to
+    // Disconnected — the H11 stale call_state() fix (RFC N0094 §62.25).
+    async fn process_native_event_disconnected_updates_call_state() {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        // confirmed_calls() seeds CallEntry { id: 10, state: Active, .. }.
+        let mut calls = confirmed_calls();
+        let mut accounts = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+        };
+
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 10,
+                state: pjsip_inv_state::DISCONNECTED,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        // C127 Postcondition: the native transition reflects into the entry.
+        assert_eq!(
+            calls[&test_call_id(10)].state,
+            CallState::Disconnected,
+            "CallEntry.state must be updated by the native DISCONNECTED event"
+        );
+        // The publish still happens on the same single conversion result.
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+        assert!(matches!(ev.payload, SipEventPayload::CallDisconnected));
+    }
+
+    /// @verifies C127, C110
+    #[tokio::test]
+    // [::TICKET::] P17-5: CONFIRMED must reflect state Active while the
+    // existing CallConnected publish and conf_connect side-effect survive.
+    async fn process_native_event_confirmed_updates_call_state_active() {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut calls = confirmed_calls();
+        let mut accounts = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+        };
+
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 10,
+                state: pjsip_inv_state::CONFIRMED,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        assert_eq!(calls[&test_call_id(10)].state, CallState::Active);
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+        assert!(matches!(ev.payload, SipEventPayload::CallConnected(_)));
+        assert_eq!(
+            backend.conf_connect_calls,
+            vec![(10, 10)],
+            "conf_connect(call_id, call_id) must still be auto-issued"
+        );
+    }
+
+    /// @verifies C127, C128
+    #[tokio::test]
+    // [::TICKET::] P17-5: inbound CONNECTING reflects state Ringing (C039
+    // direction provenance) and publishes OutgoingCallRinging.
+    async fn process_native_event_connecting_incoming_updates_state_ringing() {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut calls = BTreeMap::from([(
+            test_call_id(7),
+            CallEntry {
+                id: 7,
+                native_id: 1,
+                account_id: test_account(42),
+                state: CallState::Incoming,
+                media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: String::new(),
+            },
+        )]);
+        let mut directions = BTreeMap::from([(test_call_id(7), CallDirection::Incoming)]);
+        let mut accounts = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut directions,
+        };
+
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 7,
+                state: pjsip_inv_state::CONNECTING,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        assert_eq!(calls[&test_call_id(7)].state, CallState::Ringing);
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("CONNECTING event must be published: {error}"));
+        assert!(matches!(ev.payload, SipEventPayload::OutgoingCallRinging));
+    }
+
+    /// @verifies C127
+    #[tokio::test]
+    // [::TICKET::] P17-5: DISCONNECTED with no registered CallEntry still
+    // publishes CallDisconnected but must not fabricate an entry nor panic.
+    async fn process_native_event_disconnected_no_entry_publishes_without_state_update() {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut calls = BTreeMap::new(); // no CallEntry for call_id 10
+        let mut accounts = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+        };
+
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 10,
+                state: pjsip_inv_state::DISCONNECTED,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        assert!(
+            calls.is_empty(),
+            "a missing CallEntry must not be fabricated by state reflection"
+        );
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+        assert!(matches!(ev.payload, SipEventPayload::CallDisconnected));
+    }
+
+    /// @verifies C127, C128
+    #[tokio::test]
+    // [::TICKET::] P17-5: the full native lifecycle INCOMING → CONNECTING →
+    // CONFIRMED → DISCONNECTED reflects into CallEntry.state step by step
+    // (Incoming → Ringing → Active → Disconnected) through the production
+    // process_native_event path — the end-to-end H11 stale-resolution check.
+    async fn process_native_event_full_lifecycle_reflects_each_transition() {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut calls = BTreeMap::from([(
+            test_call_id(7),
+            CallEntry {
+                id: 7,
+                native_id: 1,
+                account_id: test_account(42),
+                state: CallState::Incoming,
+                media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: String::new(),
+            },
+        )]);
+        let mut directions = BTreeMap::from([(test_call_id(7), CallDirection::Incoming)]);
+        let mut accounts = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut directions,
+        };
+
+        // Read the entry state through the CallStateTables bundle so the
+        // immutable assertion borrow does not collide with the `&mut calls`
+        // held by call_state between the process_native_event calls.
+        let entry_state = |call_state: &CallStateTables<'_>| -> Option<CallState> {
+            call_state
+                .calls
+                .get(&test_call_id(7))
+                .map(|entry| entry.state)
+        };
+
+        // INCOMING keeps the entry Incoming.
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 7,
+                state: pjsip_inv_state::INCOMING,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+        assert_eq!(entry_state(&call_state), Some(CallState::Incoming));
+
+        // CONNECTING (inbound) → Ringing.
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 7,
+                state: pjsip_inv_state::CONNECTING,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+        assert_eq!(entry_state(&call_state), Some(CallState::Ringing));
+
+        // CONFIRMED → Active.
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 7,
+                state: pjsip_inv_state::CONFIRMED,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+        assert_eq!(entry_state(&call_state), Some(CallState::Active));
+
+        // DISCONNECTED → Disconnected (the H11 fix end-to-end).
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 7,
+                state: pjsip_inv_state::DISCONNECTED,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+        assert_eq!(entry_state(&call_state), Some(CallState::Disconnected));
+
+        // Every transition published its payload on the single bus, in order.
+        let mut payloads = Vec::new();
+        for _ in 0..4 {
+            let ev = rx
+                .recv()
+                .await
+                .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+            payloads.push(ev.payload);
+        }
+        assert!(matches!(payloads[0], SipEventPayload::IncomingCall(_)));
+        assert!(matches!(payloads[1], SipEventPayload::OutgoingCallRinging));
+        assert!(matches!(payloads[2], SipEventPayload::CallConnected(_)));
+        assert!(matches!(payloads[3], SipEventPayload::CallDisconnected));
     }
 
     /// @verifies C039

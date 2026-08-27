@@ -1384,7 +1384,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] PX-3, P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-4) --for-spec --no-implementation-order`.
+    // [::TICKET::] PX-3, P17-4, P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-4|P17-5) --for-spec --no-implementation-order`.
     fn stub_test_hooks_can_force_conf_add_port_failure() {
         let mut slot: pjsua_conf_port_id = -1;
         let ok =
