@@ -191,7 +191,8 @@ pub const ROUND3_POLICY: Round3Policy = Round3Policy {
     real_api_wiring: "vendored PJSIP 2.17 の実 API に基づく配線の確定",
     event_completeness: "イベントの網羅的実装 + v0.x で破壊的変更を受容した統一",
     no_missing_api_dependency: "pjsua_callback.on_rx_msg のような存在しない API に依存しない",
-    extension_point_wiring: "標準拡張点（pjsip_module）と実装済みの注入点（enqueue_raw_sip_bytes）を接続する",
+    extension_point_wiring:
+        "標準拡張点（pjsip_module）と実装済みの注入点（enqueue_raw_sip_bytes）を接続する",
 };
 
 /// One breaking change to be completed in the v0.x window (RFC §62.21).
@@ -255,7 +256,7 @@ mod tests {
 
     // @verifies C121 -- precondition: Round 2 evolution settled (§62.10–62.20)
     #[test]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn round2_evolution_is_settled() {
         assert_eq!(
             round2_scope_rootcause::ROUND2_ROOT_CAUSES.len(),
@@ -271,7 +272,7 @@ mod tests {
 
     // @verifies C121 -- postcondition: round 3 scope derives the remaining RESIDUE gaps
     #[test]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn round3_scope_derives_from_round2() {
         for cause in &ROUND3_ROOT_CAUSES {
             let references_round2 = cause.rfc_ref.contains("62.1")
@@ -292,7 +293,7 @@ mod tests {
 
     // @verifies C121 -- invariant: round 3 never re-decides a settled round 2 design
     #[test]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn round3_scope_does_not_overlap_round2() {
         let round1_sections: [&str; 8] = [
             "62.1", "62.2", "62.3", "62.4", "62.5", "62.6", "62.7", "62.8",
@@ -306,17 +307,20 @@ mod tests {
                 assert!(
                     !round1_sections.contains(&section.section()),
                     "cause {} resolving section {} must not overlap round 1",
-                    cause.id, section.section()
+                    cause.id,
+                    section.section()
                 );
                 assert!(
                     !round2_section_numbers.contains(&section.section()),
                     "cause {} resolving section {} must not re-decide round 2 (§62.11-62.20)",
-                    cause.id, section.section()
+                    cause.id,
+                    section.section()
                 );
                 assert!(
                     section.section() >= "62.22" && section.section() <= "62.29",
                     "cause {} resolving section {} must be within 62.22..62.29",
-                    cause.id, section.section()
+                    cause.id,
+                    section.section()
                 );
             }
         }
@@ -324,7 +328,7 @@ mod tests {
 
     // @verifies C122 -- precondition: vendored PJSIP 2.17 headers present
     #[test]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn vendored_pjsip_is_2_17() -> Result<(), std::io::Error> {
         let config_h = std::fs::read_to_string("vendor/pjsip/pjlib/include/pj/config.h")?;
         assert!(
@@ -345,7 +349,7 @@ mod tests {
 
     // @verifies C122 -- postcondition: round 3 sections map to graph node IDs
     #[test]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn round3_sections_map_to_graph_nodes() {
         let sections = round3_sections();
         assert_eq!(sections.len(), 10, "round 3 spans sections 62.21..62.30");
@@ -371,7 +375,7 @@ mod tests {
 
     // @verifies C122 -- invariant: resolution table exactly matches RFC headings
     #[test]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn round3_section_labels_match_rfc_headings() {
         let expected_labels = [
             "62.21 ラウンド 3 進化スコープと根因（H5 / H8 / H11 / H12 / H13 / H14 の残存ギャップ）",
@@ -406,7 +410,7 @@ mod tests {
 
     // @verifies C121 -- invariant: no out-of-range resolving section reference
     #[test]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn round3_root_causes_reject_out_of_range_sections() {
         let all_round3_sections: Vec<&str> =
             round3_sections().iter().map(|s| s.section()).collect();
@@ -424,7 +428,7 @@ mod tests {
 
     // @verifies C122 -- invariant: node_id references stay within the known graph set
     #[test]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn round3_section_node_ids_are_known() {
         let known = known_graph_node_ids();
         for section in round3_sections() {
@@ -438,7 +442,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn known_nodes_cover_round3_graph() {
         let known = known_graph_node_ids();
         for node in [
@@ -450,7 +454,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn round3_root_causes_are_defined() {
         let root_causes: &[Round3RootCause] = &ROUND3_ROOT_CAUSES;
         assert_eq!(
@@ -472,7 +476,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "must cover exactly the 6 RFC §62.21 root causes")]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn round3_root_causes_reject_wrong_count() {
         let mut causes = ROUND3_ROOT_CAUSES.to_vec();
         causes.truncate(5);
@@ -484,7 +488,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn round3_scope_defines_policy_and_breaking_changes() {
         let policy = ROUND3_POLICY;
         assert!(!policy.real_api_wiring.is_empty());
@@ -505,7 +509,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
     fn round3_evidence_matches_actual_source() -> Result<(), std::io::Error> {
         let callback = std::fs::read_to_string("src/ffi/callback.rs")?;
         assert!(

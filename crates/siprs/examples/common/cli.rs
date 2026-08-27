@@ -112,7 +112,9 @@ pub fn parse<S: Into<String>>(args: impl IntoIterator<Item = S>) -> Result<CliAr
 pub fn build_client_config(args: &CliArgs) -> ClientConfig {
     let mut config = ClientConfig::default();
     if let Some(uri) = &args.stun {
-        config.stun_servers.push(StunServerConfig { uri: uri.clone() });
+        config
+            .stun_servers
+            .push(StunServerConfig { uri: uri.clone() });
     }
     config
 }
@@ -254,10 +256,7 @@ mod tests {
             1,
             "RFC §13 stun_servers must carry the --stun URI"
         );
-        assert_eq!(
-            config.stun_servers[0].uri,
-            "stun:stun.l.google.com:19302"
-        );
+        assert_eq!(config.stun_servers[0].uri, "stun:stun.l.google.com:19302");
         assert!(
             config.validate().is_ok(),
             "RFC §10 ClientConfig built from CLI args must pass §42 validation"

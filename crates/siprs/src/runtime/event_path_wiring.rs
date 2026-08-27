@@ -86,10 +86,7 @@ pub(crate) fn spawn_native_event_drain(
 /// Returns the number of messages published. Malformed packets are logged and
 /// skipped — the bus never carries invalid data (§16 redact rules apply via
 /// `RawSipMessage::parse_with_config`).
-pub(crate) fn drain_and_publish_raw_sip(
-    event_bus: &EventBus,
-    config: &RawSipEventConfig,
-) -> usize {
+pub(crate) fn drain_and_publish_raw_sip(event_bus: &EventBus, config: &RawSipEventConfig) -> usize {
     let mut published = 0;
     while let Some(bytes) = crate::ffi::callback::try_pop_raw_sip_bytes() {
         match RawSipMessage::parse_with_config(&bytes, config) {
@@ -141,7 +138,7 @@ mod tests {
 
     /// Install both lock-free queues via `register_callbacks` (the same init
     /// path production uses), so the drain primitives have live targets.
-// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
     fn install_queues() {
         let mut config: crate::ffi::bindings::pjsua_config = unsafe { std::mem::zeroed() };
         register_callbacks(&mut config, crossbeam_queue::ArrayQueue::new(4));
@@ -150,7 +147,7 @@ mod tests {
     /// @verifies C098, C099
     #[test]
     // [::TICKET::] P16-4: drain forwards queued NativeEvents FIFO to the reactor channel.
-// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
     fn drain_pending_native_events_forwards_fifo() {
         install_queues();
         enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 1 });
@@ -178,7 +175,7 @@ mod tests {
     /// @verifies C099
     #[test]
     // [::TICKET::] P16-4: an empty queue drains zero events.
-// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
     fn drain_pending_native_events_empty_queue_drains_zero() {
         install_queues();
         let (tx, _rx) = create_channel();
@@ -215,7 +212,7 @@ mod tests {
     /// @verifies C100
     #[test]
     // [::TICKET::] P16-4: malformed raw SIP bytes are dropped, never published.
-// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
     fn drain_and_publish_raw_sip_skips_malformed() {
         install_queues();
         let bus = EventBus::new(16, Some(16));

@@ -204,19 +204,19 @@ mod tests {
     use crate::runtime::backend::map_pjsua_status;
     use crate::runtime::command::ReactorError;
 
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn udp(port: u16) -> TransportConfig {
         TransportConfig::udp(port)
     }
 
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn tcp(port: u16) -> TransportConfig {
         TransportConfig::tcp(port)
     }
 
     #[test]
     // @verifies C092  -- precondition: §62 parent exists; 62.11 resolves to N0080
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn round2_section_resolves_62_11_to_n0080() {
         assert_eq!(Round2Section::TransportWiring.section(), "62.11");
         assert_eq!(Round2Section::TransportWiring.node_id(), "N0080");
@@ -224,7 +224,7 @@ mod tests {
 
     #[test]
     // @verifies C094  -- invariant: UDP kind selection follows §12 enum
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn resolve_transport_kind_and_bind_addr_maps_udp_to_udp_kind() {
         let (kind, bind_addr) = resolve_transport_kind_and_bind_addr(&udp(5060));
         assert_eq!(kind, TransportKind::Udp);
@@ -232,7 +232,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn resolve_transport_kind_and_bind_addr_maps_tcp_to_tcp_kind() {
         let (kind, bind_addr) = resolve_transport_kind_and_bind_addr(&tcp(5061));
         assert_eq!(kind, TransportKind::Tcp);
@@ -241,7 +241,7 @@ mod tests {
 
     #[cfg(feature = "tls")]
     #[test]
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn resolve_transport_kind_and_bind_addr_maps_tls_to_tls_kind() {
         let tls = TransportConfig::Tls(crate::config::transport_ice_spec::TlsTransportConfig {
             bind_addr: "0.0.0.0:5062".parse().unwrap(),
@@ -254,7 +254,7 @@ mod tests {
 
     #[test]
     // @verifies C093  -- postcondition: real config reflects port (no null config)
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn apply_transport_port_reflects_port_into_config() {
         let mut cfg: bindings::pjsua_transport_config = unsafe { std::mem::zeroed() };
         apply_transport_port(&mut cfg, 5060);
@@ -262,13 +262,16 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn resolve_bound_addr_string_unspecified_ipv4_is_empty() {
-        assert_eq!(resolve_bound_addr_string("0.0.0.0:5060".parse().unwrap()), "");
+        assert_eq!(
+            resolve_bound_addr_string("0.0.0.0:5060".parse().unwrap()),
+            ""
+        );
     }
 
     #[test]
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn resolve_bound_addr_string_specific_ip_returns_ip_string() {
         assert_eq!(
             resolve_bound_addr_string("192.168.0.5:5060".parse().unwrap()),
@@ -277,13 +280,13 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn resolve_bound_addr_string_unspecified_ipv6_is_empty() {
         assert_eq!(resolve_bound_addr_string("[::]:5060".parse().unwrap()), "");
     }
 
     #[test]
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn transport_kind_label_returns_kind_strings() {
         assert_eq!(transport_kind_label(TransportKind::Udp), "udp");
         assert_eq!(transport_kind_label(TransportKind::Tcp), "tcp");
@@ -293,7 +296,7 @@ mod tests {
 
     #[test]
     // @verifies C094  -- invariant: UDP/TCP/TLS kind mapping follows §12 enum
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn to_pjsua_transport_type_maps_kinds_to_constants() {
         assert_eq!(to_pjsua_transport_type(TransportKind::Udp), 1);
         assert_eq!(to_pjsua_transport_type(TransportKind::Tcp), 2);
@@ -304,7 +307,7 @@ mod tests {
     #[test]
     // @verifies C092  -- postcondition: 62.11 defines transport wiring (enumerate + collect)
     // @verifies C094  -- postcondition: config.transports enumeration collects native ids
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn wire_transports_collects_ids_for_each_transport() {
         let transports = vec![udp(5060), tcp(5061)];
         let ids = wire_transports(&transports, |_| Ok::<i32, &str>(42)).unwrap();
@@ -312,7 +315,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn wire_transports_stops_at_first_error() {
         let transports = vec![udp(5060), tcp(5061), tcp(5062)];
         let mut calls = 0;
@@ -329,7 +332,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn destroy_transports_destroys_each_id() {
         let mut destroyed = Vec::new();
         destroy_transports(&[1, 2], |id| {
@@ -341,7 +344,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn destroy_transports_propagates_error() {
         let result = destroy_transports(&[1, 2], |id| {
             if id == 2 {
@@ -355,12 +358,15 @@ mod tests {
 
     #[test]
     // @verifies C093  -- invariant: FFI calls preserve native_status (§62.8)
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     fn map_pjsua_status_preserves_native_status() {
         let err = map_pjsua_status(70013, "transport_create").unwrap_err();
         assert!(matches!(
             err,
-            ReactorError::NativeError { native_status: 70013, .. }
+            ReactorError::NativeError {
+                native_status: 70013,
+                ..
+            }
         ));
         assert!(map_pjsua_status(0, "transport_create").is_ok());
     }

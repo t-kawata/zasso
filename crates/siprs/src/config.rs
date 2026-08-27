@@ -123,13 +123,13 @@ pub use client_config_spec::{
     ClientAudioConfig, ClientConfig, LogLevel, RawSipEventConfig, TimeoutConfig,
 };
 // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+#[cfg(feature = "tls")]
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+pub use transport_ice_spec::TlsConfig;
 pub use transport_ice_spec::{
     IceConfig, StunServerConfig, TcpTransportConfig, TransportConfig, TurnServerConfig,
     TurnTransport, UdpTransportConfig,
 };
-#[cfg(feature = "tls")]
-// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
-pub use transport_ice_spec::TlsConfig;
 
 #[cfg(test)]
 mod tests {
@@ -162,7 +162,7 @@ mod tests {
     #[test]
     // @verifies C030
     // [::TICKET::] P7-2: O-002 — default DtmfConfig::sent_timeout_ms is the module default
-// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
     fn dtmf_config_default_sent_timeout() {
         assert_eq!(
             DtmfConfig::default().sent_timeout_ms,

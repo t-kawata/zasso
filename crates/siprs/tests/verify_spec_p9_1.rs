@@ -203,7 +203,11 @@ async fn tts_source_flow_injects_source() -> Result<(), Box<dyn std::error::Erro
 
     let source_id = client
         .handle()
-        .submit_add_audio_source(1, Box::new(TtsStreamSource { rx }), siprs::audio::media_path_arch::ChannelSelector::Out)
+        .submit_add_audio_source(
+            1,
+            Box::new(TtsStreamSource { rx }),
+            siprs::audio::media_path_arch::ChannelSelector::Out,
+        )
         .await?;
     assert_eq!(source_id, 0, "first source on a fresh client gets id 0");
     client

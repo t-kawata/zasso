@@ -131,7 +131,7 @@ mod tests {
 
     /// @verifies C029
     #[test]
-// [::TICKET::] P5-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P5-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P5-2|P16-6) --for-spec --no-implementation-order`.
     fn dtmf_policy_single_method_send_and_receive() {
         let policy = DtmfPolicy {
             send_methods: vec![DtmfMethod::Rfc4733],

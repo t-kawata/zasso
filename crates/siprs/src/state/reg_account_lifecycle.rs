@@ -163,10 +163,15 @@ mod tests {
     // @verifies C096
     // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
     fn should_auto_register_consumes_register_on_start() {
-        let mut config = AccountConfig::default();
-        config.register_on_start = true;
+        let config = AccountConfig {
+            register_on_start: true,
+            ..Default::default()
+        };
         assert!(should_auto_register(&config));
-        config.register_on_start = false;
+        let config = AccountConfig {
+            register_on_start: false,
+            ..Default::default()
+        };
         assert!(!should_auto_register(&config));
     }
 
@@ -309,8 +314,10 @@ mod tests {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::new();
         let mut client_state = crate::runtime::state::ClientState::default();
-        let mut config = AccountConfig::default();
-        config.register_on_start = true;
+        let config = AccountConfig {
+            register_on_start: true,
+            ..Default::default()
+        };
 
         let entry_id =
             add_account_and_apply_auto_register(&mut backend, &mut client_state, &config)?;
@@ -336,8 +343,10 @@ mod tests {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::new();
         let mut client_state = crate::runtime::state::ClientState::default();
-        let mut config = AccountConfig::default();
-        config.register_on_start = false;
+        let config = AccountConfig {
+            register_on_start: false,
+            ..Default::default()
+        };
 
         let entry_id =
             add_account_and_apply_auto_register(&mut backend, &mut client_state, &config)?;
@@ -384,8 +393,10 @@ mod tests {
             "set_registration failed".into(),
         )));
         let mut client_state = crate::runtime::state::ClientState::default();
-        let mut config = AccountConfig::default();
-        config.register_on_start = true;
+        let config = AccountConfig {
+            register_on_start: true,
+            ..Default::default()
+        };
 
         let result = add_account_and_apply_auto_register(&mut backend, &mut client_state, &config);
 

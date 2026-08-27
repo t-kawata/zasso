@@ -51,7 +51,7 @@ mod tests {
     use crate::model::id_design_newtype::{AccountId, CallId};
 
     /// Construct a test `CallId` from a non-zero value.
-// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
     fn test_call_id(value: u64) -> CallId {
         CallId::from_u64(value).unwrap_or_else(|error| {
             panic!("test CallId requires a non-zero value, got {value}: {error}")
@@ -59,7 +59,7 @@ mod tests {
     }
 
     /// Construct a test `AccountId` from a non-zero value.
-// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
     fn test_account(value: u64) -> AccountId {
         AccountId::from_u64(value).unwrap_or_else(|error| {
             panic!("test AccountId requires a non-zero value, got {value}: {error}")
@@ -71,7 +71,7 @@ mod tests {
     #[test]
     // [::TICKET::] P16-5: §62.14 — build_incoming_call_entry registers an
     // Incoming-direction CallEntry in CallState::Incoming with the resolved account.
-// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
     fn build_incoming_call_entry_registers_incoming_call() {
         let entry = build_incoming_call_entry(
             test_account(5),
@@ -92,7 +92,7 @@ mod tests {
     #[test]
     // [::TICKET::] P16-5: §62.14 — remote_uri may be empty (FFI no-allocation
     // constraint); the entry is still answerable via the resolved account.
-// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
     fn build_incoming_call_entry_accepts_empty_remote_uri() {
         let entry = build_incoming_call_entry(test_account(5), test_call_id(42), 42, String::new());
         assert!(entry.remote_uri.is_empty());

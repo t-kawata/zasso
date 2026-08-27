@@ -137,7 +137,7 @@ impl std::fmt::Debug for AudioTapSender {
     // participates in `#[derive(Debug)]` on BootConfig/RuntimeHandle. The queue
     // internals are not formatted (same finish_non_exhaustive pattern as
     // AudioTapHandle/Reply/DebugBox).
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AudioTapSender")
             .field("mode", &self.mode)
@@ -299,7 +299,7 @@ mod tests {
     fn audio_tap_mode_is_copyable_and_comparable() {
         // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
         fn assert_traits<T: Clone + Copy + std::fmt::Debug + PartialEq + Eq>() {}
-// [::TICKET::] P9-2, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-2|P15-7) --for-spec --no-implementation-order`.
+        // [::TICKET::] P9-2, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-2|P15-7) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_traits::<AudioTapMode>();
         assert_send::<AudioTapHandle>();

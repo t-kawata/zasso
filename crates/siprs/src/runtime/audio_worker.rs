@@ -669,9 +669,9 @@ mod tests {
         fn record(&self, _: &tracing::span::Id, _: &tracing::span::Record<'_>) {}
         fn record_follows_from(&self, _: &tracing::span::Id, _: &tracing::span::Id) {}
         fn event(&self, _: &tracing::Event<'_>) {}
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+        // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
         fn enter(&self, _: &tracing::span::Id) {}
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+        // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
         fn exit(&self, _: &tracing::span::Id) {}
         fn register_callsite(&self, _: &tracing::Metadata<'_>) -> tracing::subscriber::Interest {
             tracing::subscriber::Interest::always()
@@ -891,7 +891,7 @@ mod tests {
 
     #[test]
     // [::TICKET::] P15-7: add_in_source registers only on the IN path.
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn audio_mixer_add_in_source_registers_on_in_path() {
         let mixer = AudioMixer::new();
         let id = mixer.add_in_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -903,7 +903,7 @@ mod tests {
 
     #[test]
     // [::TICKET::] P15-7: add_out_source registers only on the OUT path.
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn audio_mixer_add_out_source_registers_on_out_path() {
         let mixer = AudioMixer::new();
         let id = mixer.add_out_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -917,7 +917,7 @@ mod tests {
     // @verifies C087 -- invariant: IN/OUT/BOTH が独立経路として分岐する
     // [::TICKET::] P15-7: Both registration shares one id space; the legacy
     // add_source alias routes to the OUT path.
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn audio_mixer_both_registrations_share_id_space() {
         let mixer = AudioMixer::new();
         let in_id = mixer.add_in_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -931,7 +931,7 @@ mod tests {
 
     #[test]
     // [::TICKET::] P15-7: remove_source finds the owning path.
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn audio_mixer_remove_source_removes_from_either_path() {
         let mixer = AudioMixer::new();
         let in_id = mixer.add_in_source(Box::new(MockAsyncAudioSource::new(vec![0i16; 160])));
@@ -943,7 +943,7 @@ mod tests {
 
     #[test]
     // [::TICKET::] P15-7: remove_source on a missing id still errors.
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn audio_mixer_remove_source_missing_id_errors() {
         let mixer = AudioMixer::new();
         assert!(mixer.remove_source(7).is_err());
@@ -952,7 +952,8 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P15-7: process_frame pulls OUT sources into out_queue and
     // IN sources into in_queue (independent media paths).
-    async fn process_frame_pulls_both_paths_into_their_queues() -> Result<(), Box<dyn std::error::Error>> {
+    async fn process_frame_pulls_both_paths_into_their_queues(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mixer = Arc::new(AudioMixer::new());
         mixer.add_out_source(Box::new(MockAsyncAudioSource::new(vec![100i16; 160])));
         mixer.add_in_source(Box::new(MockAsyncAudioSource::new(vec![7i16; 160])));
@@ -1591,7 +1592,7 @@ mod tests {
     // @verifies C036
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn async_audio_source_trait_requires_send() {
-// [::TICKET::] P0-6, P12-5, P12-7, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7|P16-7) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-6, P12-5, P12-7, P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7|P16-7) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<MockAsyncAudioSource>();
     }
@@ -1698,7 +1699,7 @@ mod tests {
     /// C110-Post-1: get_frame pops out_queue and copies the PCM frame (LE i16).
     #[test]
     // @verifies C110
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn rust_media_port_get_frame_pops_out_queue() {
         let mixer = Arc::new(AudioMixer::new());
         mixer.out_queue.push(vec![7i16; MIXER_FRAME_SAMPLES]).ok();
@@ -1714,7 +1715,7 @@ mod tests {
     /// C110-Post-2: put_frame pushes received audio into in_queue.
     #[test]
     // @verifies C110
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn rust_media_port_put_frame_pushes_in_queue() {
         let mixer = Arc::new(AudioMixer::new());
         let port = RustMediaPort::new(mixer.clone(), 1);
@@ -1726,7 +1727,7 @@ mod tests {
     /// C110-Boundary-1: an empty out_queue yields a zero-filled (silent) frame.
     #[test]
     // @verifies C110
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn rust_media_port_get_frame_underrun_zero_fills() {
         let mixer = Arc::new(AudioMixer::new());
         let port = RustMediaPort::new(mixer, 1);
@@ -1740,19 +1741,19 @@ mod tests {
     /// C110-Boundary-2: a full in_queue drops the frame (latest-priority).
     #[test]
     // @verifies C110
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn rust_media_port_put_frame_full_queue_drops() {
         let mixer = Arc::new(AudioMixer::with_queue_capacity(1));
         let port = RustMediaPort::new(mixer.clone(), 1);
-        assert!(port.put_frame(&vec![0u8, 0], 2));
-        assert!(!port.put_frame(&vec![1u8, 0], 2), "full → drop");
+        assert!(port.put_frame(&[0u8, 0], 2));
+        assert!(!port.put_frame(&[1u8, 0], 2), "full → drop");
         assert_eq!(mixer.in_queue.len(), 1);
     }
 
     /// C110-Inv: RustMediaPort is the only consumer of out_queue — get_frame drains it.
     #[test]
     // @verifies C110
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn out_queue_consumed_only_by_rust_media_port() {
         let mixer = Arc::new(AudioMixer::new());
         mixer.out_queue.push(vec![1i16; MIXER_FRAME_SAMPLES]).ok();
@@ -1766,7 +1767,7 @@ mod tests {
 
     /// The port retains its logical call id (used for tap / conf wiring).
     #[test]
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn rust_media_port_retains_call_id() {
         let mixer = Arc::new(AudioMixer::new());
         let port = RustMediaPort::new(mixer, 42);

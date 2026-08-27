@@ -226,7 +226,7 @@ mod tests {
     #[test]
     // P16-5 §62.14: INCOMING (2) maps to Some(IncomingCall) with the resolved
     // account — the converter is total over the full inv_state enum.
-// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
     fn inv_state_incoming_returns_incoming_call() {
         let result = convert_call_state(
             test_call_id(1),
@@ -246,7 +246,7 @@ mod tests {
     #[test]
     // P16-5 §62.14: EARLY (3) maps to Some(EarlyMediaReceived) — early media is
     // observable instead of being dropped as an unknown state.
-// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
     fn inv_state_early_returns_early_media_received() {
         let result = convert_call_state(
             test_call_id(1),

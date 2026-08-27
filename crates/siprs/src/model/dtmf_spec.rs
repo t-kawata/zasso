@@ -41,12 +41,12 @@ mod tests {
 
     /// @verifies C105
     #[test]
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     fn dtmf_method_matches_section20_three_variants() {
         // Exhaustive match proves exactly Inband/Info/Rfc4733 — an Rfc2833
         // arm would fail to compile, making the removed legacy variant a
         // compile-time invariant (§62.15, C106).
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+        // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
         fn variant(method: DtmfMethod) -> &'static str {
             match method {
                 DtmfMethod::Rfc4733 => "rfc4733",
@@ -63,13 +63,14 @@ mod tests {
 
     /// @verifies C106
     #[test]
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     fn dtmf_method_derives_equality_and_copy() {
         let first = DtmfMethod::Info;
         let copied = first; // Copy
         assert_eq!(first, copied); // PartialEq + Eq
         assert_ne!(first, DtmfMethod::Inband);
-        let cloned = DtmfMethod::Rfc4733.clone(); // Clone
+        // Copy is a subtrait of Clone, so a Copy value also satisfies Clone.
+        let cloned = DtmfMethod::Rfc4733;
         assert_eq!(cloned, DtmfMethod::Rfc4733);
     }
 
@@ -77,7 +78,7 @@ mod tests {
 
     /// @verifies C106
     #[test]
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     fn dtmf_method_serde_round_trip() {
         let cases = [
             (DtmfMethod::Rfc4733, "\"Rfc4733\""),
@@ -97,7 +98,7 @@ mod tests {
 
     /// @verifies C106
     #[test]
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     fn dtmf_method_serde_rejects_legacy_names() {
         for legacy in ["\"Rfc2833\"", "\"SipInfo\""] {
             let result: Result<DtmfMethod, _> = serde_json::from_str(legacy);

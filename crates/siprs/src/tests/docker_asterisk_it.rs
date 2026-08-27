@@ -106,7 +106,7 @@ pub struct DockerItPolicy {
 // [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
 impl DockerItPolicy {
     /// The §62.19 policy instance.
-    pub const fn docker_it_policy() -> Self {
+    pub const fn policy() -> Self {
         Self {
             test_file: "tests/sip_integration.rs",
             compose_file: DOCKER_COMPOSE_FILE,
@@ -187,7 +187,7 @@ mod tests {
     /// C116-Pre: §62 parent section resolves N0088 into §62.19.
     // @verifies C116-pre
     #[test]
-// [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
     fn c116_pre_parent_section_resolves_n0088() {
         assert!(known_graph_node_ids().contains(&"N0088"));
         assert_eq!(Round2Section::DockerAsteriskBase.section(), "62.19");
@@ -197,9 +197,9 @@ mod tests {
     /// C116-Post: DockerItPolicy encodes the five Q9 decisions.
     // @verifies C116-post
     #[test]
-// [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
     fn c116_post_policy_encodes_q9_decisions() {
-        let policy = DockerItPolicy::docker_it_policy();
+        let policy = DockerItPolicy::policy();
         assert_eq!(policy.test_file, "tests/sip_integration.rs");
         assert_eq!(policy.compose_file, "docker-compose.yml");
         assert_eq!(policy.make_target, "test-integration");
@@ -212,9 +212,9 @@ mod tests {
     /// C116-Inv: the base is consistent with §43 (Layer 3) and §44 (docker job).
     // @verifies C116-inv
     #[test]
-// [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
     fn c116_inv_consistent_with_layer3_and_docker_job() {
-        let policy = DockerItPolicy::docker_it_policy();
+        let policy = DockerItPolicy::policy();
         assert_eq!(policy.test_layer, TestLayer::Layer3SipIntegration);
         let job = DockerIntegrationJob::asterisk_job();
         assert_eq!(ASTERISK_IMAGE, job.image);
@@ -227,7 +227,7 @@ mod tests {
     /// C117-Pre: §43 defines Layer 3 (docker SIP) and Layer 4 (real PBX interop).
     // @verifies C117-pre
     #[test]
-// [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
     fn c117_pre_layer3_and_layer4_defined() {
         assert!(!TestLayer::Layer3SipIntegration.is_pjsip_free());
         assert!(TestLayer::Layer3SipIntegration.is_ci_runnable());
@@ -241,11 +241,11 @@ mod tests {
     /// skip message is exactly `[SKIPPED: docker unavailable]` (Q9c).
     // @verifies C117-post
     #[test]
-// [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
     fn c117_post_docker_gate_and_skip_semantics() {
-        assert_eq!(docker_info_succeeds(Some(ExitStatus::from_raw(0))), true);
-        assert_eq!(docker_info_succeeds(Some(ExitStatus::from_raw(1))), false);
-        assert_eq!(docker_info_succeeds(None), false);
+        assert!(docker_info_succeeds(Some(ExitStatus::from_raw(0))));
+        assert!(!docker_info_succeeds(Some(ExitStatus::from_raw(1))));
+        assert!(!docker_info_succeeds(None));
         assert_eq!(SKIP_MESSAGE, "[SKIPPED: docker unavailable]");
     }
 
@@ -253,9 +253,9 @@ mod tests {
     /// inbound (Asterisk→siprs) real-SIP interop.
     // @verifies C117-inv
     #[test]
-// [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
     fn c117_inv_matrix_covers_both_directions() {
-        let policy = DockerItPolicy::docker_it_policy();
+        let policy = DockerItPolicy::policy();
         let outbound = policy
             .integration_tests
             .iter()
@@ -275,7 +275,7 @@ mod tests {
     /// C118-Pre: §44 defines the docker integration job (Asterisk image + ports).
     // @verifies C118-pre
     #[test]
-// [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
     fn c118_pre_docker_job_defined() {
         let job = DockerIntegrationJob::asterisk_job();
         assert_eq!(job.image, "asterisk:20.6.0");
@@ -285,9 +285,9 @@ mod tests {
     /// C118-Post: compose services (asterisk/coturn) and their ports are defined.
     // @verifies C118-post
     #[test]
-// [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
     fn c118_post_compose_services_defined() {
-        let policy = DockerItPolicy::docker_it_policy();
+        let policy = DockerItPolicy::policy();
         assert_eq!(policy.services, &["asterisk", "coturn"]);
         assert_eq!(ASTERISK_IMAGE, "asterisk:20.6.0");
         assert_eq!(COTURN_IMAGE, "coturn/coturn:4.6");
@@ -297,9 +297,9 @@ mod tests {
     /// C118-Inv: CI always has docker; the gate is a local skip only.
     // @verifies C118-inv
     #[test]
-// [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
     fn c118_inv_ci_requires_docker() {
-        let policy = DockerItPolicy::docker_it_policy();
+        let policy = DockerItPolicy::policy();
         assert!(
             policy.ci_requires_docker,
             "CI treats docker as a mandatory gate"

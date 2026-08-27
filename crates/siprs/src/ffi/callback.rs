@@ -388,7 +388,7 @@ pub unsafe extern "C" fn on_transport_state(
     } else {
         // SAFETY: PJSIP passes a valid transport instance for the callback
         // duration; the stub mirror exposes the `id` member.
-        unsafe { (*tp).id as u32 }
+        unsafe { (*tp).id }
     };
     enqueue_native_event(NativeEvent::TransportStateChanged {
         transport_id,

@@ -150,7 +150,7 @@ mod tests {
     #[test]
     // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
     fn sip_call_implements_call_api_semantics() -> Result<(), Box<dyn std::error::Error>> {
-// [::TICKET::] P9-3, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-3|P15-6) --for-spec --no-implementation-order`.
+        // [::TICKET::] P9-3, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-3|P15-6) --for-spec --no-implementation-order`.
         fn assert_trait<T: CallApiSemantics>() {}
         assert_trait::<SipCall>();
         let mut call = sip_call(CallState::Incoming)?;
@@ -218,7 +218,7 @@ mod tests {
 
     /// @verifies C086
     #[test]
-// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
     fn validate_answer_code_accepts_rfc191_codes() {
         for code in [180u16, 183, 200, 486, 603] {
             assert!(
@@ -230,7 +230,7 @@ mod tests {
 
     /// @verifies C086
     #[test]
-// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
     fn validate_answer_code_rejects_non_rfc191_codes() {
         for code in [0u16, 100, 179, 181, 404, 500, 604, 65535] {
             let err = validate_answer_code(code).expect_err("must reject");
@@ -244,7 +244,7 @@ mod tests {
 
     /// @verifies C086
     #[test]
-// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
     fn validate_answer_code_boundary_values() {
         // Minimum accepted is 180 (provisional Ringing); maximum accepted is
         // 603 (Decline). Just outside both sides and the u16 extremes reject.

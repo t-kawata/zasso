@@ -17,7 +17,6 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-
 // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
 
 use crate::ffi::bindings;
@@ -136,21 +135,24 @@ mod tests {
     use crate::ffi::callback::{install_raw_sip_queue, try_pop_raw_sip_bytes};
 
     /// Swap in a fresh raw-SIP queue with the given capacity (P16-4 §62.13).
-// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
     fn install_test_raw_sip_queue(capacity: usize) {
         install_raw_sip_queue(crossbeam_queue::ArrayQueue::new(capacity));
     }
 
     /// @verifies C122
     #[test]
-// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
     fn raw_sip_module_static_init_sets_name_id_priority_handlers() {
         // Precondition: RAW_SIP_MODULE is statically initialized for registration.
         // `addr_of!` + deref avoids the `static_mut_refs` lint (no reference to
         // the mutable static is ever formed).
         let module = unsafe { &*std::ptr::addr_of!(RAW_SIP_MODULE) };
         assert_eq!(module.id, -1);
-        assert_eq!(module.priority, bindings::PJSIP_MOD_PRIORITY_APPLICATION - 1);
+        assert_eq!(
+            module.priority,
+            bindings::PJSIP_MOD_PRIORITY_APPLICATION - 1
+        );
         assert!(module.on_rx_request.is_some());
         assert!(module.on_rx_response.is_some());
         assert_eq!(
@@ -162,7 +164,7 @@ mod tests {
 
     /// @verifies C122
     #[test]
-// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
     fn capture_raw_sip_message_roundtrips_packet_bytes() {
         // Postcondition: pkt_info.packet[0..len] flows into the raw SIP queue.
         install_test_raw_sip_queue(4);
@@ -179,13 +181,14 @@ mod tests {
 
     /// @verifies C122
     #[test]
-// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
     fn handlers_return_false_and_do_not_mutate_rdata() {
         // Invariant: observation-only — PJ_FALSE and no pkt_info mutation.
         let mut rdata: bindings::pjsip_rx_data = unsafe { std::mem::zeroed() };
         let before_len = rdata.pkt_info.len;
         let before_packet = rdata.pkt_info.packet;
-        let handled = unsafe { (*std::ptr::addr_of!(RAW_SIP_MODULE)).on_rx_request.unwrap()(&mut rdata) };
+        let handled =
+            unsafe { (*std::ptr::addr_of!(RAW_SIP_MODULE)).on_rx_request.unwrap()(&mut rdata) };
         assert_eq!(handled, bindings::PJ_FALSE);
         assert_eq!(rdata.pkt_info.len, before_len);
         assert_eq!(rdata.pkt_info.packet, before_packet);
@@ -193,7 +196,7 @@ mod tests {
 
     /// @verifies C122
     #[test]
-// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
     fn register_success_records_module_pointer() {
         // Precondition: pjsip_module registration is available on the endpoint.
         bindings::stub_test_hooks::set_register_module_status(bindings::PJ_SUCCESS);
@@ -207,7 +210,7 @@ mod tests {
 
     /// @verifies C123
     #[test]
-// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
     fn register_maps_non_success_to_native_error() {
         // Postcondition (failure): non-success status maps to ReactorError::NativeError.
         bindings::stub_test_hooks::set_register_module_status(bindings::PJ_EINVALIDOP);
@@ -224,7 +227,7 @@ mod tests {
 
     /// @verifies C122
     #[test]
-// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
     fn capture_skips_non_positive_length_without_panic() {
         // Boundary: len <= 0 must not panic and must not enqueue.
         install_test_raw_sip_queue(2);

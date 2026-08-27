@@ -54,7 +54,7 @@ mod tests {
 
     /// @verifies C106
     #[test]
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     fn send_api_for_maps_rfc4733_and_info_to_send_dtmf() {
         assert_eq!(send_api_for(DtmfMethod::Rfc4733), DtmfSendApi::SendDtmf);
         assert_eq!(send_api_for(DtmfMethod::Info), DtmfSendApi::SendDtmf);
@@ -62,7 +62,7 @@ mod tests {
 
     /// @verifies C106
     #[test]
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     fn send_api_for_maps_inband_to_dial_dtmf() {
         assert_eq!(send_api_for(DtmfMethod::Inband), DtmfSendApi::DialDtmf);
     }
@@ -71,7 +71,7 @@ mod tests {
 
     /// @verifies C106
     #[test]
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     fn dtmf_method_is_the_model_single_definition() {
         let model: crate::model::dtmf_spec::DtmfMethod = DtmfMethod::Inband;
         assert_eq!(model, DtmfMethod::Inband);

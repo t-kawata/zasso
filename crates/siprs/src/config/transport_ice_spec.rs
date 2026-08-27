@@ -262,10 +262,16 @@ mod tests {
     fn ice_config_default_values() {
         let ice = IceConfig::default();
         assert!(ice.enabled, "RFC §13: enabled=true");
-        assert!(ice.aggressive_nomination, "RFC §13: aggressive_nomination=true");
+        assert!(
+            ice.aggressive_nomination,
+            "RFC §13: aggressive_nomination=true"
+        );
         assert!(!ice.trickle_ice, "RFC §13: trickle_ice=false");
         assert!(!ice.renomination, "RFC §13: renomination=false");
-        assert_eq!(ice.max_host_candidates, 16, "RFC §13: max_host_candidates=16");
+        assert_eq!(
+            ice.max_host_candidates, 16,
+            "RFC §13: max_host_candidates=16"
+        );
     }
 
     #[test]

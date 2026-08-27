@@ -125,8 +125,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P7-2: O-002 — deterministic timeout publishes DtmfSent{Ok} after 500ms
     // [::TICKET::] P16-6: §62.15 — the timeout fallback publishes Ok (send treated as complete)
-    async fn dtmf_sent_timeout_fallback_publishes_ok() -> Result<(), Box<dyn std::error::Error>>
-    {
+    async fn dtmf_sent_timeout_fallback_publishes_ok() -> Result<(), Box<dyn std::error::Error>> {
         tokio::time::pause();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -305,12 +304,12 @@ mod tests {
     /// @verifies C029
     #[test]
     // [::TICKET::] P11-6: m20 DtmfMethod gains the Inband variant (C029 3-category set)
-// [::TICKET::] P11-6, P11-13, P12-7, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13|P12-7|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-6, P11-13, P12-7, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13|P12-7|P16-6) --for-spec --no-implementation-order`.
     fn dtmf_method_inband_variant() {
         let inband = DtmfMethod::Inband;
         let info = DtmfMethod::Info;
         let rfc4733 = DtmfMethod::Rfc4733;
-// [::TICKET::] P11-6, P11-13, P12-7, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13|P12-7|P16-6) --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-6, P11-13, P12-7, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-6|P11-13|P12-7|P16-6) --for-spec --no-implementation-order`.
         fn assert_clone_debug<T: Clone + std::fmt::Debug>() {}
         assert_clone_debug::<DtmfMethod>();
         assert_ne!(inband, rfc4733);

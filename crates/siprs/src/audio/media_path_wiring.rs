@@ -17,7 +17,6 @@
 //   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
 // ============================================================================
 
-
 // ---------------------------------------------------------------------------
 // WAV constants — named values for the RIFF/WAVE format (H13, §62.16)
 // ---------------------------------------------------------------------------
@@ -40,7 +39,9 @@ use std::io::{BufWriter, Seek, SeekFrom, Write};
 use std::path::Path;
 
 use crate::error::{SipError, SipErrorKind};
-use crate::model::audio_format_chunkpair::{AudioChunk, AudioChunkPair, AudioFormat, ChannelLayout};
+use crate::model::audio_format_chunkpair::{
+    AudioChunk, AudioChunkPair, AudioFormat, ChannelLayout,
+};
 use crate::runtime::audio_worker::AsyncAudioSource;
 
 /// Map an I/O failure into a `SipError` carrying the path context.
@@ -184,8 +185,9 @@ impl WavWriter {
     /// Patch the RIFF and data sizes and flush the underlying file.
     pub fn finalize(&mut self) -> Result<(), SipError> {
         let file = self.writer.get_mut();
-        file.seek(SeekFrom::Start(4))
-            .map_err(|e| SipError::new(SipErrorKind::InvalidState, format!("seek riff size: {e}")))?;
+        file.seek(SeekFrom::Start(4)).map_err(|e| {
+            SipError::new(SipErrorKind::InvalidState, format!("seek riff size: {e}"))
+        })?;
         write_u32_le(file, FMT_CHUNK_LEN + 20 + self.data_bytes)?;
         file.seek(SeekFrom::Start(40)).map_err(|e| {
             SipError::new(SipErrorKind::InvalidState, format!("seek data size: {e}"))
@@ -259,8 +261,7 @@ impl AsyncAudioSource for WavFileSource {
         let remaining = self.samples.len() - self.position;
         let to_copy = remaining.min(buf.len());
         if to_copy > 0 {
-            buf[..to_copy]
-                .copy_from_slice(&self.samples[self.position..self.position + to_copy]);
+            buf[..to_copy].copy_from_slice(&self.samples[self.position..self.position + to_copy]);
             self.position += to_copy;
         }
         to_copy
@@ -314,9 +315,12 @@ fn parse_wav_header(bytes: &[u8]) -> Result<ParsedWav, SipError> {
     let mut offset = 12usize;
     let mut data: Option<&[u8]> = None;
     while offset + 8 <= bytes.len() {
-        let chunk_len =
-            u32::from_le_bytes([bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7]])
-                as usize;
+        let chunk_len = u32::from_le_bytes([
+            bytes[offset + 4],
+            bytes[offset + 5],
+            bytes[offset + 6],
+            bytes[offset + 7],
+        ]) as usize;
         let data_start = offset + 8;
         if &bytes[offset..offset + 4] == b"data" {
             data = Some(&bytes[data_start..data_start + chunk_len]);
@@ -325,15 +329,17 @@ fn parse_wav_header(bytes: &[u8]) -> Result<ParsedWav, SipError> {
         // Chunks are word-aligned (padded to even length).
         offset = data_start + chunk_len + (chunk_len % 2);
     }
-    let data = data.ok_or_else(|| {
-        SipError::new(SipErrorKind::InvalidArgument, "missing data chunk")
-    })?;
+    let data =
+        data.ok_or_else(|| SipError::new(SipErrorKind::InvalidArgument, "missing data chunk"))?;
 
     let mut samples = Vec::with_capacity(data.len() / BYTES_PER_I16);
     for pair in data.chunks_exact(BYTES_PER_I16) {
         samples.push(i16::from_le_bytes([pair[0], pair[1]]));
     }
-    Ok(ParsedWav { sample_rate, samples })
+    Ok(ParsedWav {
+        sample_rate,
+        samples,
+    })
 }
 
 #[cfg(test)]
@@ -341,7 +347,7 @@ mod tests {
     use super::*;
     use crate::error::{SipError, SipErrorKind};
     use crate::model::{
-        AccountId, AudioChunk, AudioChunkPair, AudioFormat, BitDepth, ChannelLayout, CallId,
+        AccountId, AudioChunk, AudioChunkPair, AudioFormat, BitDepth, CallId, ChannelLayout,
         SampleRate,
     };
     use crate::runtime::audio_worker::AsyncAudioSource;
@@ -349,7 +355,7 @@ mod tests {
 
     /// Construct an `AudioFormat`, mapping `AudioFormatError` into `SipError`
     /// so tests can use `?` without a `From` impl on the error type.
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn make_format(
         sample_rate: SampleRate,
         bit_depth: BitDepth,
@@ -361,7 +367,7 @@ mod tests {
     }
 
     /// Build a paired IN/OUT chunk from raw i16 sample vectors.
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn make_pair(in_samples: Vec<i16>, out_samples: Vec<i16>) -> Result<AudioChunkPair, SipError> {
         Ok(AudioChunkPair {
             call_id: CallId::from_u64(1)
@@ -375,7 +381,7 @@ mod tests {
     }
 
     /// Build a paired chunk carrying raw F32 sample vectors.
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn make_f32_pair(
         in_samples: Vec<f32>,
         out_samples: Vec<f32>,
@@ -392,18 +398,15 @@ mod tests {
     }
 
     /// Unique temp path per test (PID + test tag) to avoid cross-test collisions.
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn temp_wav_path(tag: &str) -> std::path::PathBuf {
-        std::env::temp_dir().join(format!(
-            "siprs_p16_7_{tag}_{}.wav",
-            std::process::id()
-        ))
+        std::env::temp_dir().join(format!("siprs_p16_7_{tag}_{}.wav", std::process::id()))
     }
 
     /// C108-Pre: the §62.16 implementation surface compiles and is reachable.
     #[test]
     // @verifies C108
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn media_path_wiring_surface_is_reachable() {
         let _ = core::mem::size_of::<WavWriter>();
         let _ = core::mem::size_of::<WavFileSource>();
@@ -412,7 +415,7 @@ mod tests {
     /// C108-Post: write_stereo_wav writes a canonical RIFF/WAVE stereo PCM16 file.
     #[test]
     // @verifies C108
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn write_stereo_wav_writes_valid_riff_wave() -> Result<(), SipError> {
         let path = temp_wav_path("riff");
         let fmt = make_format(
@@ -423,17 +426,27 @@ mod tests {
         )?;
         let pair = make_pair(vec![100i16; 160], vec![200i16; 160])?;
         write_stereo_wav(&path, &[pair], fmt)?;
-        let bytes = std::fs::read(&path).map_err(|e| SipError::new(SipErrorKind::InvalidState, format!("read {:?}: {e}", path)))?;
+        let bytes = std::fs::read(&path).map_err(|e| {
+            SipError::new(SipErrorKind::InvalidState, format!("read {:?}: {e}", path))
+        })?;
         assert_eq!(&bytes[0..4], b"RIFF");
         assert_eq!(&bytes[8..12], b"WAVE");
         assert_eq!(&bytes[12..16], b"fmt ");
-        assert_eq!(u16::from_le_bytes([bytes[20], bytes[21]]), PCM_FORMAT_TAG, "PCM");
+        assert_eq!(
+            u16::from_le_bytes([bytes[20], bytes[21]]),
+            PCM_FORMAT_TAG,
+            "PCM"
+        );
         assert_eq!(u16::from_le_bytes([bytes[22], bytes[23]]), 2, "stereo");
         assert_eq!(
             u32::from_le_bytes([bytes[24], bytes[25], bytes[26], bytes[27]]),
             8_000
         );
-        assert_eq!(u16::from_le_bytes([bytes[34], bytes[35]]), 16, "bits/sample");
+        assert_eq!(
+            u16::from_le_bytes([bytes[34], bytes[35]]),
+            16,
+            "bits/sample"
+        );
         assert_eq!(&bytes[36..40], b"data");
         assert_eq!(
             u32::from_le_bytes([bytes[40], bytes[41], bytes[42], bytes[43]]),
@@ -484,7 +497,7 @@ mod tests {
     /// Boundary: an empty chunk list yields a 44-byte header with data size 0.
     #[test]
     // @verifies C108
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn write_stereo_wav_empty_chunks_writes_zero_data() -> Result<(), SipError> {
         let path = temp_wav_path("empty");
         let fmt = make_format(
@@ -494,7 +507,9 @@ mod tests {
             20,
         )?;
         write_stereo_wav(&path, &[], fmt)?;
-        let bytes = std::fs::read(&path).map_err(|e| SipError::new(SipErrorKind::InvalidState, format!("read {:?}: {e}", path)))?;
+        let bytes = std::fs::read(&path).map_err(|e| {
+            SipError::new(SipErrorKind::InvalidState, format!("read {:?}: {e}", path))
+        })?;
         assert_eq!(bytes.len(), WAV_HEADER_LEN);
         assert_eq!(
             u32::from_le_bytes([bytes[40], bytes[41], bytes[42], bytes[43]]),
@@ -513,7 +528,7 @@ mod tests {
     /// Error: writing to an unwritable path returns SipError, never panics.
     #[test]
     // @verifies C108
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn write_stereo_wav_invalid_path_returns_error() -> Result<(), SipError> {
         let fmt = make_format(
             SampleRate::Hz8000,
@@ -563,12 +578,7 @@ mod tests {
     // @verifies C033
     async fn wav_file_source_reads_samples_and_exhausts() -> Result<(), SipError> {
         let path = temp_wav_path("src");
-        let fmt = make_format(
-            SampleRate::Hz8000,
-            BitDepth::I16,
-            ChannelLayout::Mono,
-            20,
-        )?;
+        let fmt = make_format(SampleRate::Hz8000, BitDepth::I16, ChannelLayout::Mono, 20)?;
         let pair = make_pair(vec![5i16; 160], Vec::new())?;
         write_stereo_wav(&path, &[pair], fmt)?;
         let mut src = WavFileSource::new(&path, fmt)?;
@@ -585,18 +595,11 @@ mod tests {
     /// Error: a missing WAV file makes WavFileSource::new return SipError.
     #[test]
     // @verifies C033
-// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     fn wav_file_source_rejects_missing_file() -> Result<(), SipError> {
-        let fmt = make_format(
-            SampleRate::Hz8000,
-            BitDepth::I16,
-            ChannelLayout::Mono,
-            20,
-        )?;
-        let path = std::env::temp_dir().join(format!(
-            "siprs_p16_7_missing_{}.wav",
-            std::process::id()
-        ));
+        let fmt = make_format(SampleRate::Hz8000, BitDepth::I16, ChannelLayout::Mono, 20)?;
+        let path =
+            std::env::temp_dir().join(format!("siprs_p16_7_missing_{}.wav", std::process::id()));
         assert!(WavFileSource::new(&path, fmt).is_err());
         Ok(())
     }

@@ -159,9 +159,14 @@ pub fn apply_stun_turn(
 
     let turn = config.turn_servers.first();
     let turn_server = turn.map(|server| PjOwnedStr::new(&server.uri));
-    let turn_username = turn.and_then(|server| server.username.as_ref().map(|u| PjOwnedStr::new(u)));
-    let turn_password = turn
-        .and_then(|server| server.password.as_ref().map(|p| PjOwnedStr::new(p.expose_secret())));
+    let turn_username =
+        turn.and_then(|server| server.username.as_ref().map(|u| PjOwnedStr::new(u)));
+    let turn_password = turn.and_then(|server| {
+        server
+            .password
+            .as_ref()
+            .map(|p| PjOwnedStr::new(p.expose_secret()))
+    });
 
     if let Some(turn) = turn {
         cfg.turn_cfg_use = turn_config_custom();
@@ -217,7 +222,7 @@ mod tests {
 
     #[test]
     // @verifies C111-pre
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn round2_section_resolves_62_17_to_n0086() {
         assert_eq!(Round2Section::StunTurnIceWiring.section(), "62.17");
         assert_eq!(Round2Section::StunTurnIceWiring.node_id(), "N0086");
@@ -227,7 +232,7 @@ mod tests {
 
     #[test]
     // @verifies C111-post
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn stun_turn_ice_wiring_surface_is_reachable() -> Result<(), SipError> {
         let mut cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
         let config = ClientConfig::default();
@@ -241,7 +246,7 @@ mod tests {
 
     #[test]
     // @verifies C112-pre
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn ice_config_default_matches_section_13() {
         let ice = IceConfig::default();
         assert!(ice.enabled);
@@ -255,12 +260,14 @@ mod tests {
 
     #[test]
     // @verifies C112-post
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn apply_stun_turn_reflects_stun_uri_into_config() -> Result<(), SipError> {
-        let mut config = ClientConfig::default();
-        config.stun_servers = vec![StunServerConfig {
-            uri: "stun:stun.example.com:3478".into(),
-        }];
+        let config = ClientConfig {
+            stun_servers: vec![StunServerConfig {
+                uri: "stun:stun.example.com:3478".into(),
+            }],
+            ..Default::default()
+        };
         let mut cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
         let _owned = apply_stun_turn(&mut cfg, &config)?;
         assert_eq!(cfg.stun_srv_cnt, 1);
@@ -273,15 +280,17 @@ mod tests {
 
     #[test]
     // @verifies C112-post
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn apply_stun_turn_reflects_turn_server_into_config() -> Result<(), SipError> {
-        let mut config = ClientConfig::default();
-        config.turn_servers = vec![TurnServerConfig {
-            uri: "turn:turn.example.com:3478".into(),
-            username: Some("user".into()),
-            password: Some(SecretString::new("pass")),
-            transport: TurnTransport::Udp,
-        }];
+        let config = ClientConfig {
+            turn_servers: vec![TurnServerConfig {
+                uri: "turn:turn.example.com:3478".into(),
+                username: Some("user".into()),
+                password: Some(SecretString::new("pass")),
+                transport: TurnTransport::Udp,
+            }],
+            ..Default::default()
+        };
         let mut cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
         let _owned = apply_stun_turn(&mut cfg, &config)?;
         assert_eq!(cfg.turn_cfg_use, bindings::PJSUA_TURN_CONFIG_USE_CUSTOM);
@@ -298,15 +307,17 @@ mod tests {
 
     #[test]
     // @verifies C113-post
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn apply_stun_turn_reflects_turn_auth_cred() -> Result<(), SipError> {
-        let mut config = ClientConfig::default();
-        config.turn_servers = vec![TurnServerConfig {
-            uri: "turn:turn.example.com:3478".into(),
-            username: Some("alice".into()),
-            password: Some(SecretString::new("s3cret")),
-            transport: TurnTransport::Tcp,
-        }];
+        let config = ClientConfig {
+            turn_servers: vec![TurnServerConfig {
+                uri: "turn:turn.example.com:3478".into(),
+                username: Some("alice".into()),
+                password: Some(SecretString::new("s3cret")),
+                transport: TurnTransport::Tcp,
+            }],
+            ..Default::default()
+        };
         let mut cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
         let _owned = apply_stun_turn(&mut cfg, &config)?;
         let cred = &cfg.turn_cfg.turn_auth_cred.cred.static_cred;
@@ -318,7 +329,7 @@ mod tests {
 
     #[test]
     // @verifies C112-post
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn apply_ice_reflects_ice_settings_into_media_config() {
         let ice = IceConfig {
             enabled: true,
@@ -336,7 +347,7 @@ mod tests {
 
     #[test]
     // @verifies C112-post
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn resolve_turn_conn_type_maps_transport_to_pj_turn_tp() {
         assert_eq!(
             resolve_turn_conn_type(TurnTransport::Udp),
@@ -356,14 +367,16 @@ mod tests {
 
     #[test]
     // @verifies C112-post
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn apply_stun_turn_rejects_more_than_eight_stun_servers() -> Result<(), SipError> {
-        let mut config = ClientConfig::default();
-        config.stun_servers = (0..9)
-            .map(|i| StunServerConfig {
-                uri: format!("stun:s{i}.example.com:3478"),
-            })
-            .collect();
+        let config = ClientConfig {
+            stun_servers: (0..9)
+                .map(|i| StunServerConfig {
+                    uri: format!("stun:s{i}.example.com:3478"),
+                })
+                .collect(),
+            ..Default::default()
+        };
         let mut cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
         let result = apply_stun_turn(&mut cfg, &config);
         assert!(result.is_err());
@@ -380,23 +393,20 @@ mod tests {
 
     #[test]
     // @verifies C112-inv
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn apply_stun_turn_with_no_servers_is_noop() -> Result<(), SipError> {
         let config = ClientConfig::default();
         let mut cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
         let _owned = apply_stun_turn(&mut cfg, &config)?;
         assert_eq!(cfg.stun_srv_cnt, 0);
-        assert_eq!(
-            cfg.turn_cfg_use,
-            bindings::PJSUA_TURN_CONFIG_USE_DEFAULT
-        );
+        assert_eq!(cfg.turn_cfg_use, bindings::PJSUA_TURN_CONFIG_USE_DEFAULT);
         assert_eq!(cfg.turn_cfg.enable_turn, 0);
         Ok(())
     }
 
     #[test]
     // @verifies C111-inv + C112-inv
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn apply_ice_default_reflects_section_13_defaults() {
         let ice = IceConfig::default();
         let mut media: bindings::pjsua_media_config = unsafe { std::mem::zeroed() };
@@ -408,9 +418,9 @@ mod tests {
 
     #[test]
     // @verifies C113-inv
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn wiring_accepts_unified_config_types() {
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+        // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
         fn assert_unified<T>() {}
         assert_unified::<StunServerConfig>();
         assert_unified::<TurnServerConfig>();
@@ -423,7 +433,7 @@ mod tests {
 
     #[test]
     // @verifies C113-pre
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
     fn client_config_exposes_unified_stun_turn_ice_fields() {
         let config = ClientConfig::default();
         assert!(config.stun_servers.is_empty());

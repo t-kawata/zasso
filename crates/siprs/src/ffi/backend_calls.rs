@@ -408,13 +408,23 @@ pub fn get_account_info(native_acc_id: u32) -> (i32, u32, bool, String) {
 /// default build can exercise the registration loop (PX-3 / C119).
 ///
 /// `slot` receives the assigned conference slot on success.
-pub fn conf_add_port(
+///
+/// `pub(crate)` keeps this FFI plumbing out of the exported API — the C038
+/// isolation rule requires `src/runtime` to stay `unsafe`-free, and clippy's
+/// `not_unsafe_ptr_arg_deref` only guards exported functions, so the raw
+/// pointers stay encapsulated here behind the safe wrapper.
+///
+/// Compiled only where its caller (`register_media_ports_for_calls`) exists —
+/// the default lib build has no conf-bridge registration loop.
+#[cfg(any(test, feature = "pjsua-native"))]
+pub(crate) fn conf_add_port(
     pool: *mut std::ffi::c_void,
     port: *mut bindings::pjmedia_port,
     slot: &mut bindings::pjsua_conf_port_id,
 ) -> i32 {
     // SAFETY: pool/port/slot point to valid FFI structures for the call duration;
-    // the caller owns the pool and the port lifetime.
+    // the caller owns the pool and the port lifetime. The stub mode tolerates
+    // null pool/port (it never dereferences them).
     unsafe { bindings::pjsua_conf_add_port(pool, port, slot) }
 }
 
@@ -434,7 +444,7 @@ pub fn call_conf_port(call_id: i32) -> i32 {
 #[cfg(feature = "pjsua-native")]
 pub fn create_conf_pool() -> *mut std::ffi::c_void {
     // SAFETY: the name literal is a valid NUL-terminated C string for the call.
-    unsafe { bindings::pjsua_pool_create(b"siprs-conf-bridge\0".as_ptr() as *const i8, 512, 512) }
+    unsafe { bindings::pjsua_pool_create(c"siprs-conf-bridge".as_ptr(), 512, 512) }
 }
 
 /// Connect a call's media to the conference bridge via `pjsua_conf_connect`.

@@ -110,9 +110,9 @@ mod tests {
     // ── Clone + Debug ─────────────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P0-5, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P15-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P15-5) --for-spec --no-implementation-order`.
     fn account_info_snapshot_clone_and_debug() {
-// [::TICKET::] P0-5, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P15-5) --for-spec --no-implementation-order`.
+        // [::TICKET::] P0-5, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P15-5) --for-spec --no-implementation-order`.
         fn assert_cd<T: Clone + std::fmt::Debug>() {}
         assert_cd::<AccountInfoSnapshot>();
     }
@@ -120,7 +120,7 @@ mod tests {
     // ── P15-5: M20 converter drives the §17 state machine (C073/C085) ──
 
     /// Helper: build an `AccountInfoSnapshot` carrying a native registration status.
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
     fn snapshot_with_status(status: u32) -> AccountInfoSnapshot {
         AccountInfoSnapshot {
             acc_id: AccountId::from_u64(1).unwrap(),
@@ -146,7 +146,7 @@ mod tests {
     /// M20 converter maps native status → §17 state: 200→Registered, 0→Idle,
     /// every other status→Failed (boundary: 199/201/1/u32::MAX are not success).
     #[test]
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
     fn registration_state_from_status_maps_200_0_else() {
         assert_eq!(
             registration_state_from_status(200),
@@ -161,10 +161,7 @@ mod tests {
             registration_state_from_status(503),
             RegistrationState::Failed
         );
-        assert_eq!(
-            registration_state_from_status(1),
-            RegistrationState::Failed
-        );
+        assert_eq!(registration_state_from_status(1), RegistrationState::Failed);
         assert_eq!(
             registration_state_from_status(199),
             RegistrationState::Failed
@@ -183,7 +180,7 @@ mod tests {
     /// The converter drives the §17.1 state machine: valid edges produce Ok(next),
     /// invalid edges (Disabled/Idle → Registered) produce Err(TransitionError).
     #[test]
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
     fn registration_transition_drives_state_machine() {
         let ok = snapshot_with_status(200);
         let idle = snapshot_with_status(0);
@@ -218,7 +215,7 @@ mod tests {
     /// C085 invariant — only a real REGISTER success (current=Registering, status=200)
     /// yields Registered. Table-driven over all 7 states × representative statuses.
     #[test]
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
     fn only_real_register_success_yields_registered() {
         for current in ALL_STATES {
             for status in [200u32, 0, 403] {

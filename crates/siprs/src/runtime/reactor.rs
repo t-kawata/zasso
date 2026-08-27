@@ -258,7 +258,7 @@ impl CoreReactor {
                                     );
                                     continue;
                                 }
-                                ShutdownGate::Permit(command) => command,
+                                ShutdownGate::Permit(command) => *command,
                             };
                             match command {
                                 DispatchCommand::Execute { f, reply } => {
@@ -318,14 +318,13 @@ impl CoreReactor {
                                         get_or_create_mixer(&audio_mixers, &source_id_counter, call_id);
                                     // Spawn the per-call worker the first time a mixer is
                                     // created so its process_frame loop drives the paths.
-                                    if !audio_workers.contains_key(&call_id) {
-                                        let worker = AudioWorkerTask::spawn(
+                                    audio_workers.entry(call_id).or_insert_with(|| {
+                                        AudioWorkerTask::spawn(
                                             mixer.clone(),
                                             call_id,
                                             DEFAULT_AUDIO_FRAME_DURATION,
-                                        );
-                                        audio_workers.insert(call_id, worker);
-                                    }
+                                        )
+                                    });
                                     let source = source.into_inner();
                                     let source_id = match channels {
                                         ChannelSelector::In => mixer.add_in_source(source),
@@ -2657,8 +2656,10 @@ mod tests {
     async fn reactor_add_account_with_register_on_start_issues_auto_register(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (handle, join) = spawn_reactor();
-        let mut config = crate::config::account_config_spec::AccountConfig::default();
-        config.register_on_start = true;
+        let config = crate::config::account_config_spec::AccountConfig {
+            register_on_start: true,
+            ..Default::default()
+        };
         let id = handle.submit_add_account(config).await?;
         let state = handle.query_state().await?;
         let aid = AccountId::from_u64(id)?;
@@ -2677,8 +2678,10 @@ mod tests {
     async fn reactor_add_account_without_register_on_start_skips_auto_register(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (handle, join) = spawn_reactor();
-        let mut config = crate::config::account_config_spec::AccountConfig::default();
-        config.register_on_start = false;
+        let config = crate::config::account_config_spec::AccountConfig {
+            register_on_start: false,
+            ..Default::default()
+        };
         let id = handle.submit_add_account(config).await?;
         let state = handle.query_state().await?;
         let aid = AccountId::from_u64(id)?;

@@ -464,7 +464,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P16-6) --for-spec --no-implementation-order`.
     fn client_capabilities_new_has_defaults() {
         let caps = ClientCapabilities::new();
         assert_eq!(caps.max_calls, u32::MAX, "max_calls defaults to MAX");
@@ -712,7 +712,7 @@ mod tests {
 
     /// @verifies C047
     #[test]
-// [::TICKET::] P1-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-2|P16-6) --for-spec --no-implementation-order`.
     fn dtmf_method_variants() {
         assert_ne!(DtmfMethod::Rfc4733 as u8, DtmfMethod::Info as u8);
         assert_ne!(DtmfMethod::Info as u8, DtmfMethod::Inband as u8);

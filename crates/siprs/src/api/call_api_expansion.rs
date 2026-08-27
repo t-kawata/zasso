@@ -58,7 +58,7 @@ mod tests {
 
     /// @verifies C074
     #[test]
-// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
     fn call_api_methods_matches_rfc_n0027_surface() {
         // The §62.5 method set must equal the RFC N0027 call-control surface.
         assert_eq!(
@@ -78,7 +78,7 @@ mod tests {
 
     /// @verifies C086
     #[test]
-// [::TICKET::] P15-6, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P16-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-6, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P16-5) --for-spec --no-implementation-order`.
     fn answer_call_state_maps_codes() {
         assert_eq!(answer_call_state(200), CallState::Active);
         assert_eq!(answer_call_state(486), CallState::Disconnected);

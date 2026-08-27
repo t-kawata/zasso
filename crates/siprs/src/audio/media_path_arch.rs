@@ -64,9 +64,13 @@ mod tests {
     /// C087 invariant: a selector is exactly one of the three values — an
     /// exhaustive match covers every possible selector.
     #[test]
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn channel_selector_has_exactly_three_variants() {
-        let selectors = [ChannelSelector::In, ChannelSelector::Out, ChannelSelector::Both];
+        let selectors = [
+            ChannelSelector::In,
+            ChannelSelector::Out,
+            ChannelSelector::Both,
+        ];
         for sel in selectors {
             match sel {
                 ChannelSelector::In | ChannelSelector::Out | ChannelSelector::Both => {}
@@ -77,7 +81,7 @@ mod tests {
 
     /// ChannelSelector is Copy — it can be passed by value multiple times.
     #[test]
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn channel_selector_is_copy() {
         let sel = ChannelSelector::Both;
         let copy = sel; // Copy, not move
@@ -86,7 +90,7 @@ mod tests {
 
     /// split_stereo_interleaved splits [L0,R0,L1,R1,...] into L and R mono.
     #[test]
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn split_stereo_interleaved_separates_left_and_right() {
         let stereo = vec![1i16, 2, 3, 4];
         let (left, right) = split_stereo_interleaved(&stereo);
@@ -96,7 +100,7 @@ mod tests {
 
     /// split_stereo_interleaved handles an empty input.
     #[test]
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn split_stereo_interleaved_empty_input() {
         let (left, right) = split_stereo_interleaved(&[]);
         assert!(left.is_empty());
@@ -105,7 +109,7 @@ mod tests {
 
     /// split_stereo_interleaved discards a trailing odd sample.
     #[test]
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn split_stereo_interleaved_discards_odd_trailing_sample() {
         let stereo = vec![1i16, 2, 3];
         let (left, right) = split_stereo_interleaved(&stereo);

@@ -449,7 +449,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P16-1, P16-2, P16-5, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-1|P16-2|P16-5|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-1, P16-2, P16-5, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-1|P16-2|P16-5|P16-6) --for-spec --no-implementation-order`.
     fn round2_evidence_matches_actual_source() -> Result<(), std::io::Error> {
         let backend_calls = std::fs::read_to_string("src/ffi/backend_calls.rs")?;
         // RC1 resolved by §62.11 (P16-2): the null transport config is gone and

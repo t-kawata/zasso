@@ -473,7 +473,7 @@ mod tests {
     // @verifies C044
     // [::TICKET::] P4-3, P12-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P12-9) --for-spec --no-implementation-order`.
     fn shutdown_error_is_send() {
-// [::TICKET::] P4-3, P12-9, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P12-9|P15-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P4-3, P12-9, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P4-3|P12-9|P15-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<ShutdownError>();
     }

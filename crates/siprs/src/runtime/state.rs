@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     // @verifies C048
-// [::TICKET::] P0-2, P4-1, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P4-1|P16-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P4-1, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P4-1|P16-5) --for-spec --no-implementation-order`.
     fn call_entry_has_no_conf_port_id() {
         // Contract-C048: CallEntry must NOT contain a conf_port_id field.
         // Verification: construct without conf_port_id — compiler error if field existed.
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     // @verifies C046
-// [::TICKET::] P0-2, P10-1, P10-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P10-1|P10-3|P15-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P10-1, P10-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P10-1|P10-3|P15-5) --for-spec --no-implementation-order`.
     fn account_entry_links_id_to_native_id() {
         // Contract-C046 invariant: AccountEntry maps logical id to native id.
         let entry = AccountEntry {
@@ -253,7 +253,7 @@ mod tests {
 
     #[test]
     // @verifies C046
-// [::TICKET::] P3-2, P4-1, P10-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P10-3|P15-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P4-1, P10-3, P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P10-3|P15-5) --for-spec --no-implementation-order`.
     fn client_state_after_account_add_accounts_populated() {
         let mut state = ClientState::default();
         let acc1 = create_account_id(1);
@@ -291,7 +291,7 @@ mod tests {
 
     #[test]
     // @verifies C046
-// [::TICKET::] P3-2, P4-1, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P16-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-2, P4-1, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P4-1|P16-5) --for-spec --no-implementation-order`.
     fn client_state_after_call_add_calls_populated() {
         let mut state = ClientState::default();
         let cid = create_call_id(1);

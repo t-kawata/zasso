@@ -262,7 +262,7 @@ mod tests {
         let port = RustMediaPort::new(mixer.clone(), 7);
         let mut adapter = MediaPortAdapter::new(port);
         let raw = adapter.port_mut();
-        let data = vec![0u8, 0x00, 0x00, 0x80]; // LE i16: 0, -32768
+        let data = [0u8, 0x00, 0x00, 0x80]; // LE i16: 0, -32768
         let mut frame = bindings::pjmedia_frame {
             type_: bindings::PJMEDIA_TYPE_AUDIO,
             buf: data.as_ptr() as *mut std::ffi::c_void,

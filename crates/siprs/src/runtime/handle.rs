@@ -84,7 +84,11 @@ impl RuntimeHandle {
     /// the reactor thread mutates mixers; callers must not call the `*_source`
     /// mutators directly.
     pub fn audio_mixer_for(&self, call_id: u64) -> Option<Arc<AudioMixer>> {
-        self.audio_mixers.read().unwrap_or_else(|e| e.into_inner()).get(&call_id).cloned()
+        self.audio_mixers
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&call_id)
+            .cloned()
     }
 
     /// Return a clone of the single client-owned `EventBus`.
@@ -401,11 +405,7 @@ impl RuntimeHandle {
     }
 
     /// [::TICKET::] P15-6: submit a `Transfer` command and await the reactor's reply.
-    pub async fn submit_transfer(
-        &self,
-        call_id: u64,
-        target: String,
-    ) -> Result<(), ReactorError> {
+    pub async fn submit_transfer(&self, call_id: u64, target: String) -> Result<(), ReactorError> {
         if self.is_terminated() {
             return Err(ReactorError::ReactorDown);
         }
@@ -648,7 +648,7 @@ mod tests {
 
     #[test]
     // @verifies C012
-// [::TICKET::] P0-2, P11-3, P11-6, P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6|P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P11-3, P11-6, P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6|P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn runtime_handle_is_clonable() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
@@ -686,7 +686,7 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P0-2, P11-3, P11-6, P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6|P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-2, P11-3, P11-6, P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P11-3|P11-6|P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn is_terminated_reflects_atomic_flag() {
         let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
         let terminated = Arc::new(AtomicBool::new(false));
@@ -1093,7 +1093,7 @@ mod tests {
     #[test]
     // @verifies C112
     // [::TICKET::] P12-6: thread_handle() must return the exact Arc passed to new().
-// [::TICKET::] P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn thread_handle_returns_same_arc_allocation() {
         let join_arc = completed_join_handle();
         let handle = RuntimeHandle::new(
@@ -1112,7 +1112,7 @@ mod tests {
     #[test]
     // @verifies C112
     // [::TICKET::] P12-6: a finished thread reports dead via is_thread_alive()/is_finished().
-// [::TICKET::] P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn thread_inspection_reports_finished_after_thread_exits() {
         let join_arc = completed_join_handle(); // thread already finished, handle not joined
         let handle = RuntimeHandle::new(
@@ -1135,7 +1135,7 @@ mod tests {
     #[test]
     // @verifies C012
     // [::TICKET::] P12-6: a cloned handle shares the identical Arc<JoinHandle> allocation.
-// [::TICKET::] P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-6, P12-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-6|P12-1|P15-7) --for-spec --no-implementation-order`.
     fn cloned_handle_shares_same_arc_allocation() {
         let handle = RuntimeHandle::new(
             create_channel().0,
@@ -1172,7 +1172,7 @@ mod tests {
     // @verifies C038
     // [::TICKET::] P12-6: inspection on a panicked thread must report dead without
     // panicking the accessor — is_finished() is safe on a dead/panicked thread.
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
     fn inspection_on_panicked_thread_reports_dead_safely() {
         let join_arc = Arc::new(std::thread::spawn(|| panic!("deliberate test panic")));
         let handle = RuntimeHandle::new(

@@ -266,7 +266,7 @@ impl AccountConfig {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for AccountConfig {
-// [::TICKET::] P3-1, P5-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P5-2|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P5-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P5-2|P16-6) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             display_name: None,
@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     // @verifies C015
-// [::TICKET::] P3-1, P5-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P5-2|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P5-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P5-2|P16-6) --for-spec --no-implementation-order`.
     fn account_config_accepts_valid_fields() {
         let config = AccountConfig {
             display_name: Some("Alice".into()),
@@ -433,7 +433,7 @@ mod tests {
 
     #[test]
     // @verifies C015
-// [::TICKET::] P3-1, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P16-6) --for-spec --no-implementation-order`.
     fn account_config_validate_passes_for_valid_config() {
         let config = AccountConfig {
             username: "bob".into(),
@@ -484,7 +484,7 @@ mod tests {
 
     #[test]
     // @verifies C041
-// [::TICKET::] P3-1, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P16-6) --for-spec --no-implementation-order`.
     fn dtmf_policy_with_single_method_passes() {
         let config = AccountConfig {
             username: "a".into(),
@@ -590,7 +590,7 @@ mod tests {
 
     #[test]
     // @verifies C041, C052
-// [::TICKET::] P3-1, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P16-6) --for-spec --no-implementation-order`.
     fn account_config_rejects_empty_dtmf_send_methods() {
         let config = AccountConfig {
             username: "u".into(),
@@ -610,7 +610,7 @@ mod tests {
 
     #[test]
     // @verifies C041, C052
-// [::TICKET::] P3-1, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P16-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P16-6) --for-spec --no-implementation-order`.
     fn account_config_rejects_empty_dtmf_receive_methods() {
         let config = AccountConfig {
             username: "u".into(),

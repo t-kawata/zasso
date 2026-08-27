@@ -60,7 +60,7 @@ mod tests {
 
     #[test]
     // @verifies C070  -- postcondition: 62.1 is recorded as part of §62
-// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
     fn config_unification_decision_is_62_1() {
         let decision = ConfigUnificationDecision::record();
         assert_eq!(decision.section(), "62.1");
@@ -69,7 +69,7 @@ mod tests {
 
     #[test]
     // @verifies C070  -- precondition: §62 parent section defines the decision id
-// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
     fn config_unification_decision_id_is_known_to_parent() {
         let decision = ConfigUnificationDecision::record();
         let order = crate::architecture::impl_integration_design::breaking_change_order();
@@ -79,5 +79,3 @@ mod tests {
         );
     }
 }
-
-

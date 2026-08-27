@@ -658,7 +658,11 @@ mod tests {
         let call_id = handle.make_call(test_call_request()).await?;
         let state = client.handle().query_state().await?;
         let entry = &state.calls[&CallId::from_u64(call_id)?];
-        assert_eq!(entry.state, CallState::Calling, "initial call state is Calling");
+        assert_eq!(
+            entry.state,
+            CallState::Calling,
+            "initial call state is Calling"
+        );
         assert_eq!(entry.account_id, AccountId::from_u64(account_id)?);
         client.shutdown().await?;
         Ok(())

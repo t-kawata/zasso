@@ -145,7 +145,6 @@ impl RegistrationState {
     pub fn is_terminal(self) -> bool {
         matches!(self, RegistrationState::Failed | RegistrationState::Expired)
     }
-
 }
 
 // [::TICKET::] P4-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-1 --for-spec --no-implementation-order`.

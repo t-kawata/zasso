@@ -934,7 +934,7 @@ mod tests {
     // @verifies C086
     // [::TICKET::] P15-6: answer accepts every §19.1 code through the facade.
     async fn sip_client_answer_accepts_valid_codes() -> Result<(), Box<dyn std::error::Error>> {
-// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
+        // [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         // P16-5 §62.14: answer resolves the owning account from a registered

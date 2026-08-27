@@ -1355,7 +1355,7 @@ mod tests {
     #[test]
     // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
     fn pjsua_pool_create_stub_returns_non_null() {
-        let pool = unsafe { pjsua_pool_create(b"px3-test\0".as_ptr() as *const i8, 512, 512) };
+        let pool = unsafe { pjsua_pool_create(c"px3-test".as_ptr(), 512, 512) };
         assert!(!pool.is_null(), "stub pool must be non-null");
     }
 
