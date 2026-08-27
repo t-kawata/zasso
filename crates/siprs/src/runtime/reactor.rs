@@ -20,7 +20,8 @@ use crate::api::eventbus_receiver::EventBus;
 use crate::api::incoming_call_events::build_incoming_call_entry;
 use crate::audio::media_path_arch::ChannelSelector;
 use crate::state::m20_callstate_mapping::{
-    convert_call_state_with_previous, CallDirection, CallState,
+    convert_call_media_state_with_previous, convert_call_state_with_previous, CallDirection,
+    CallState,
 };
 use crate::state::m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
 use crate::state::reg_account_lifecycle::{
@@ -105,12 +106,12 @@ pub struct CoreReactor;
 
 /// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
 /// join handle, or a boxed spawn error.
-// [::TICKET::] P15-4, P15-7, P15-9, P16-5, P16-7, P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5|P16-7|P17-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-4, P15-7, P15-9, P16-5, P16-7, P17-5, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5|P16-7|P17-5|P17-6) --for-spec --no-implementation-order`.
 type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7, PX-3, P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7|PX-3|P17-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7, PX-3, P17-4, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7|PX-3|P17-4|P17-6) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -199,6 +200,9 @@ impl CoreReactor {
                 // out of CallEntry so the C046 field set (id/native_id/account_id/
                 // state/media) stays fixed and conf_port_id remains absent.
                 let mut call_directions: BTreeMap<CallId, CallDirection> = BTreeMap::new();
+                // [::TICKET::] P17-6: reactor-owned per-call previous media status,
+                // the state source for detecting hold→ACTIVE → CallResumed (§62.26).
+                let mut media_statuses: BTreeMap<CallId, u32> = BTreeMap::new();
                 // [::TICKET::] P15-7: per-call audio workers. One AudioWorkerTask
                 // drives each per-call AudioMixer's process_frame loop (§62.6);
                 // owned by the reactor thread and shut down on exit.
@@ -459,6 +463,7 @@ impl CoreReactor {
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
                                         call_directions: &mut call_directions,
+                                        media_statuses: &mut media_statuses,
                                     };
                                     let result = std::panic::catch_unwind(
                                         std::panic::AssertUnwindSafe(|| {
@@ -502,6 +507,7 @@ impl CoreReactor {
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
                                         call_directions: &mut call_directions,
+                                        media_statuses: &mut media_statuses,
                                     };
                                     let result = std::panic::catch_unwind(
                                         std::panic::AssertUnwindSafe(|| {
@@ -545,6 +551,7 @@ impl CoreReactor {
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
                                         call_directions: &mut call_directions,
+                                        media_statuses: &mut media_statuses,
                                     };
                                     let result = std::panic::catch_unwind(
                                         std::panic::AssertUnwindSafe(|| {
@@ -588,6 +595,7 @@ impl CoreReactor {
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
                                         call_directions: &mut call_directions,
+                                        media_statuses: &mut media_statuses,
                                     };
                                     let result = std::panic::catch_unwind(
                                         std::panic::AssertUnwindSafe(|| {
@@ -779,6 +787,7 @@ impl CoreReactor {
                                             let mut call_state = CallStateTables {
                                                 calls: &mut client_state.calls,
                                                 call_directions: &mut call_directions,
+                                                media_statuses: &mut media_statuses,
                                             };
                                             for native_event in backend.take_native_events() {
                                                 process_native_event(
@@ -869,6 +878,7 @@ impl CoreReactor {
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
                                         call_directions: &mut call_directions,
+                                        media_statuses: &mut media_statuses,
                                     };
                                     process_native_event(
                                         &mut *backend,
@@ -1017,18 +1027,23 @@ fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
 type CallTable = std::collections::BTreeMap<CallId, CallEntry>;
 
 /// Accounts keyed by account ID, passed to native-event processing.
-// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-9, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-9|P17-6) --for-spec --no-implementation-order`.
 type AccountTable = std::collections::BTreeMap<AccountId, AccountEntry>;
 
 /// Reactor-owned call-state tables passed to call-state handlers.
 ///
-/// Bundles the `CallId`-keyed `calls` table and the call-origin `call_directions`
-/// map so handler signatures stay under the param-count limit — the same
-/// bundling precedent as `SendDtmfContext`.
+/// Bundles the `CallId`-keyed `calls` table, the call-origin `call_directions`
+/// map, and the per-call previous media status map so handler signatures stay
+/// under the param-count limit — the same bundling precedent as
+/// `SendDtmfContext`.
 // [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
 pub(crate) struct CallStateTables<'a> {
     pub calls: &'a mut CallTable,
     pub call_directions: &'a mut BTreeMap<CallId, CallDirection>,
+    /// Latest `pjsua_call_media_status` observed per call, the state source
+    /// for detecting hold→ACTIVE → CallResumed (§62.26).
+    pub media_statuses: &'a mut BTreeMap<CallId, u32>,
 }
 
 /// Publish a `SipEvent` to the single client-owned `EventBus` (§62.3 / N0072).
@@ -1119,6 +1134,16 @@ pub(crate) fn process_native_event(
                         )
                     })
                 }
+                // Media status changes are stateful: record the new status as the
+                // per-call latest, then publish CallResumed only on hold→ACTIVE
+                // (§62.26 / C129 / C130 / C131).
+                NativeEvent::CallMediaStateChanged { call_id, status } => {
+                    CallId::from_u64(call_id as u64).ok().and_then(|cid| {
+                        let previous_status = call_state.media_statuses.get(&cid).copied();
+                        call_state.media_statuses.insert(cid, status);
+                        convert_call_media_state_with_previous(cid, status, previous_status)
+                    })
+                }
                 other => convert_native_event_to_payload(other, account_id),
             };
             if let Some(payload) = payload {
@@ -1168,7 +1193,7 @@ fn resolve_call_direction(
 /// Call/DTMF events carry only a `call_id`; the owning `account_id` is resolved
 /// from the reactor's call-state table by `process_native_event`. Registration
 /// events carry the `acc_id`.
-// [::TICKET::] P7-2, P9-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P7-2, P9-6, P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P11-11|P17-6) --for-spec --no-implementation-order`.
 fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>) {
     match event {
         NativeEvent::RegistrationStarted { acc_id, .. } => {
@@ -1179,7 +1204,7 @@ fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>)
             CallId::from_u64(*call_id as u64).ok(),
         ),
         NativeEvent::CallStateChanged { call_id, .. }
-        | NativeEvent::CallMediaStateChanged { call_id }
+        | NativeEvent::CallMediaStateChanged { call_id, .. }
         | NativeEvent::DtmfDigit { call_id, .. }
         | NativeEvent::IceTransportError { call_id }
         | NativeEvent::CallTsxStateChanged { call_id }
@@ -1404,7 +1429,7 @@ mod tests {
     use crate::runtime::backend::TestBackend;
     use crate::runtime::command::Reply;
     use crate::runtime::state::{AccountEntry, CallEntry};
-    use crate::state::m20_callstate_mapping::pjsip_inv_state;
+    use crate::state::m20_callstate_mapping::{pjsip_inv_state, pjsua_call_media_status};
     use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
     use crate::state::registr_state_machine::RegistrationState;
     use std::collections::BTreeMap;
@@ -1446,6 +1471,12 @@ mod tests {
     /// An empty call-origin direction map, shared by process_native_event tests.
     // [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
     fn empty_directions() -> BTreeMap<CallId, CallDirection> {
+        BTreeMap::new()
+    }
+
+    /// An empty per-call media-status map, shared by process_native_event tests.
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn empty_media_statuses() -> BTreeMap<CallId, u32> {
         BTreeMap::new()
     }
 
@@ -1530,6 +1561,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -1575,6 +1607,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -1622,6 +1655,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -1663,6 +1697,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -1702,6 +1737,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -1725,6 +1761,81 @@ mod tests {
             "conf_connect(call_id, call_id) must be auto-issued on connect"
         );
         Ok(())
+    }
+
+    /// §62.26 / C129 / C130 / C131: per-call media status tracking publishes
+    /// CallResumed exactly once on the hold→ACTIVE transition.
+    #[tokio::test]
+    // @verifies C129
+    // @verifies C130
+    // @verifies C131
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    async fn process_native_event_media_hold_resume_publishes_sequence() {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut calls = confirmed_calls();
+        let mut rx = bus.subscribe_control();
+
+        let mut accounts = BTreeMap::new();
+        let mut media_statuses: BTreeMap<CallId, u32> = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+            media_statuses: &mut media_statuses,
+        };
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallMediaStateChanged {
+                call_id: 10,
+                status: pjsua_call_media_status::ACTIVE,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallMediaStateChanged {
+                call_id: 10,
+                status: pjsua_call_media_status::LOCAL_HOLD,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallMediaStateChanged {
+                call_id: 10,
+                status: pjsua_call_media_status::ACTIVE,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        let first = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected MediaActive on bus: {error}"));
+        assert!(matches!(first.payload, SipEventPayload::MediaActive(_)));
+        let second = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected CallHeld on bus: {error}"));
+        assert!(matches!(second.payload, SipEventPayload::CallHeld));
+        let third = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected CallResumed on bus: {error}"));
+        assert!(matches!(third.payload, SipEventPayload::CallResumed(_)));
+
+        // C130 invariant: the media_statuses entry equals the most recent status.
+        assert_eq!(
+            media_statuses.get(&test_call_id(10)),
+            Some(&pjsua_call_media_status::ACTIVE),
+            "media_statuses entry must equal the most recent status observed"
+        );
     }
 
     /// @verifies C029, C031
@@ -1766,6 +1877,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -1780,6 +1892,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -1823,6 +1936,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -1874,6 +1988,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -1924,6 +2039,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -1972,6 +2088,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -2011,6 +2128,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
 
         process_native_event(
@@ -2051,6 +2169,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
 
         process_native_event(
@@ -2102,6 +2221,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         process_native_event(
@@ -2136,6 +2256,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
 
         process_native_event(
@@ -2187,6 +2308,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         // Read the entry state through the CallStateTables bundle so the
@@ -2284,6 +2406,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -2323,7 +2446,7 @@ mod tests {
     /// @verifies C070, C046
     #[test]
     // [::TICKET::] P12-8: a MakeCall command records the outgoing direction by origin
-    // [::TICKET::] P12-8, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P15-3|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-8, P15-3, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P15-3|P16-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_records_outgoing_direction() {
         let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
@@ -2331,6 +2454,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
         };
         let id = handle_make_call(&mut backend, &mut call_state, 1, &test_call_request())
             .unwrap_or_else(|error| panic!("make_call must succeed: {error}"));
@@ -2824,13 +2948,14 @@ mod tests {
     // @verifies C070, C046
     // [::TICKET::] P12-1: handle_make_call delegates to the backend, registers the
     // returned CallEntry in the authoritative ClientState, and returns the CallId.
-    // [::TICKET::] P12-1, P12-8, P15-3, P16-3, P16-5, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P16-3|P16-5|PX-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P12-8, P15-3, P16-3, P16-5, PX-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P16-3|P16-5|PX-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_registers_entry_and_returns_id() {
         let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         let id = handle_make_call(&mut backend, &mut call_state, 1, &test_call_request())
             .unwrap_or_else(|error| panic!("make_call must succeed: {error}"));
@@ -2848,7 +2973,7 @@ mod tests {
     // @verifies C070
     // [::TICKET::] P12-1: a failing backend.make_call must propagate Err and
     // register no CallEntry — never a fabricated id.
-    // [::TICKET::] P12-1, P12-8, P15-3, P15-9, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P15-9|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P12-8, P15-3, P15-9, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P15-9|P16-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_error_registers_nothing() {
         let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));
@@ -2856,6 +2981,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         let result = handle_make_call(&mut backend, &mut call_state, 1, &test_call_request());
         assert!(
@@ -2872,7 +2998,7 @@ mod tests {
     // @verifies C089, C090
     // [::TICKET::] P15-9: a failing backend.make_call carrying a NativeError must
     // propagate through the reactor handler while preserving native_status.
-    // [::TICKET::] P15-9, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-9|P16-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-9, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-9|P16-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_native_error_preserves_status() {
         let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::NativeError {
@@ -2883,6 +3009,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         let result = handle_make_call(&mut backend, &mut call_state, 1, &test_call_request());
         assert!(
@@ -3278,6 +3405,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -3324,6 +3452,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
             &mut backend,
@@ -3450,6 +3579,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         handle_answer(&mut backend, &bus, &mut call_state, 1, 200)?;
@@ -3506,6 +3636,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         handle_answer(&mut backend, &bus, &mut call_state, 1, 486)?;
@@ -3551,6 +3682,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         handle_answer(&mut backend, &bus, &mut call_state, 1, 180)?;
@@ -3597,6 +3729,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         handle_answer(&mut backend, &bus, &mut call_state, 1, 200)?;
@@ -3624,6 +3757,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         let result = handle_answer(&mut backend, &bus, &mut call_state, 99, 200);
@@ -3664,6 +3798,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         let result = handle_answer(&mut backend, &bus, &mut call_state, 1, 200);
@@ -3706,6 +3841,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         handle_hangup(
@@ -3755,6 +3891,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         handle_transfer(&mut backend, &mut call_state, 1, "sip:bob@example.com")?;

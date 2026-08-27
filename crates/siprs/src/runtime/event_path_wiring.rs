@@ -132,6 +132,7 @@ pub(crate) fn spawn_raw_sip_publisher(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ffi::bindings::pjsua_call_media_status;
     use crate::ffi::callback::{enqueue_native_event, enqueue_raw_sip_bytes, register_callbacks};
     use crate::runtime::handle::create_channel;
     use crate::state::m20_native_event_conv::NativeEvent;
@@ -147,11 +148,17 @@ mod tests {
     /// @verifies C098, C099
     #[test]
     // [::TICKET::] P16-4: drain forwards queued NativeEvents FIFO to the reactor channel.
-    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-4, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P17-6) --for-spec --no-implementation-order`.
     fn drain_pending_native_events_forwards_fifo() {
         install_queues();
-        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 1 });
-        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 2 });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 1,
+            status: pjsua_call_media_status::NONE,
+        });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 2,
+            status: pjsua_call_media_status::ACTIVE,
+        });
 
         let (tx, mut rx) = create_channel();
         let drained = drain_pending_native_events(&tx);
@@ -159,13 +166,25 @@ mod tests {
 
         match rx.try_recv().expect("first event") {
             DispatchCommand::NativeEvent { event } => {
-                assert_eq!(event, NativeEvent::CallMediaStateChanged { call_id: 1 });
+                assert_eq!(
+                    event,
+                    NativeEvent::CallMediaStateChanged {
+                        call_id: 1,
+                        status: pjsua_call_media_status::NONE,
+                    }
+                );
             }
             other => panic!("expected NativeEvent, got {other:?}"),
         }
         match rx.try_recv().expect("second event") {
             DispatchCommand::NativeEvent { event } => {
-                assert_eq!(event, NativeEvent::CallMediaStateChanged { call_id: 2 });
+                assert_eq!(
+                    event,
+                    NativeEvent::CallMediaStateChanged {
+                        call_id: 2,
+                        status: pjsua_call_media_status::ACTIVE,
+                    }
+                );
             }
             other => panic!("expected NativeEvent, got {other:?}"),
         }

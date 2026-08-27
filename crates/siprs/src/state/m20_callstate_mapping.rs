@@ -201,8 +201,33 @@ pub fn convert_call_media_state(call_id: CallId, media_status: u32) -> Option<Si
                 reason: None,
             },
         )),
+        // P17-6: PJSIP may add future media statuses; ignoring them here keeps
+        // the mapping total and deterministic (§62.26).
         _ => None,
     }
+}
+
+/// Convert a media status change using the call's previous status.
+///
+/// The hold→ACTIVE transition (LOCAL_HOLD or REMOTE_HOLD → ACTIVE) is the
+/// single resume signal and publishes `CallResumed`; every other change falls
+/// back to the standard [`convert_call_media_state`] mapping so a resumed call
+/// is distinguishable from an ACTIVE continuation (§62.26 / C129 / C131).
+pub fn convert_call_media_state_with_previous(
+    call_id: CallId,
+    status: u32,
+    previous_status: Option<u32>,
+) -> Option<SipEventPayload> {
+    if matches!(
+        previous_status,
+        Some(pjsua_call_media_status::LOCAL_HOLD | pjsua_call_media_status::REMOTE_HOLD)
+    ) && status == pjsua_call_media_status::ACTIVE
+    {
+        return Some(SipEventPayload::CallResumed(
+            crate::api::event_model_payload_bus::CallResumedInfo { call_id },
+        ));
+    }
+    convert_call_media_state(call_id, status)
 }
 
 #[cfg(test)]
@@ -696,6 +721,93 @@ mod tests {
     fn media_state_unknown_returns_none() {
         let result = convert_call_media_state(test_call_id(1), 99); // invalid value
         assert!(result.is_none());
+    }
+
+    // ── CallMediaState transition (P17-6 §62.26) ───────────────────────
+
+    /// @verifies C129
+    #[test]
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn media_transition_hold_to_active_publishes_call_resumed() {
+        let call_id = test_call_id(7);
+        let resumed = convert_call_media_state_with_previous(
+            call_id,
+            pjsua_call_media_status::ACTIVE,
+            Some(pjsua_call_media_status::LOCAL_HOLD),
+        );
+        // C129 postcondition: hold→ACTIVE publishes CallResumed.
+        assert!(matches!(resumed, Some(SipEventPayload::CallResumed(_))));
+        // C129 invariant: CallResumed carries the originating call_id payload.
+        if let Some(SipEventPayload::CallResumed(info)) = resumed {
+            assert_eq!(info.call_id, call_id);
+        }
+    }
+
+    /// @verifies C129
+    #[test]
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn media_transition_remote_hold_to_active_publishes_call_resumed() {
+        let call_id = test_call_id(7);
+        let resumed = convert_call_media_state_with_previous(
+            call_id,
+            pjsua_call_media_status::ACTIVE,
+            Some(pjsua_call_media_status::REMOTE_HOLD),
+        );
+        assert!(matches!(resumed, Some(SipEventPayload::CallResumed(_))));
+    }
+
+    /// @verifies C131
+    #[test]
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn media_transition_first_active_is_media_active_not_resumed() {
+        let call_id = test_call_id(7);
+        let first = convert_call_media_state_with_previous(
+            call_id,
+            pjsua_call_media_status::ACTIVE,
+            None,
+        );
+        // C131 postcondition: no previous status → standard mapping (MediaActive).
+        assert!(matches!(first, Some(SipEventPayload::MediaActive(_))));
+    }
+
+    /// @verifies C131
+    #[test]
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn media_transition_active_continuation_stays_media_active() {
+        let call_id = test_call_id(7);
+        let continued = convert_call_media_state_with_previous(
+            call_id,
+            pjsua_call_media_status::ACTIVE,
+            Some(pjsua_call_media_status::ACTIVE),
+        );
+        // C131 postcondition: ACTIVE continuation is MediaActive, not CallResumed.
+        assert!(matches!(continued, Some(SipEventPayload::MediaActive(_))));
+    }
+
+    /// @verifies C131
+    #[test]
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn media_transition_hold_to_error_is_media_error_not_resumed() {
+        let call_id = test_call_id(7);
+        let err = convert_call_media_state_with_previous(
+            call_id,
+            pjsua_call_media_status::ERROR,
+            Some(pjsua_call_media_status::LOCAL_HOLD),
+        );
+        assert!(matches!(err, Some(SipEventPayload::MediaError(_))));
+    }
+
+    /// @verifies C131
+    #[test]
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn media_transition_hold_to_none_yields_no_event() {
+        let call_id = test_call_id(7);
+        let none = convert_call_media_state_with_previous(
+            call_id,
+            pjsua_call_media_status::NONE,
+            Some(pjsua_call_media_status::LOCAL_HOLD),
+        );
+        assert!(none.is_none());
     }
 
     // ── CallState enum ─────────────────────────────────────────────────

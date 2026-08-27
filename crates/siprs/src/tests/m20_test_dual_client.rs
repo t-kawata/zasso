@@ -42,7 +42,7 @@ pub enum M20TestLayer {
     Layer3,
 }
 
-// [::TICKET::] P1-3, P15-3, P16-3, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3|P16-3|P16-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P1-3, P15-3, P16-3, P16-5, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3|P16-3|P16-5|P17-6) --for-spec --no-implementation-order`.
 impl M20FeatureTestEntry {
     /// Returns the full 11-entry M20 feature test mapping table as defined
     /// in RFC §43 M20 Test Layer Mapping.
@@ -71,8 +71,9 @@ impl M20FeatureTestEntry {
             Self {
                 feature_name: "CallMediaStateChanged",
                 layer: M20TestLayer::Layer2,
-                validation_description: "media_status maps to MediaActive/Held/Error",
-                notes: "",
+                // P17-6 §62.26: media status tracking adds the hold→ACTIVE → CallResumed transition.
+                validation_description: "media_status maps to MediaActive/Held/Error + hold→ACTIVE → CallResumed",
+                notes: "Layer 3 verifies real hold/resume via re-INVITE",
             },
             Self {
                 feature_name: "DtmfSent dual layer (return + event)",

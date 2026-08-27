@@ -509,7 +509,7 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-1, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P17-1|P17-6) --for-spec --no-implementation-order`.
     fn round3_evidence_matches_actual_source() -> Result<(), std::io::Error> {
         let callback = std::fs::read_to_string("src/ffi/callback.rs")?;
         assert!(
@@ -527,8 +527,8 @@ mod tests {
         );
         let payload_bus = std::fs::read_to_string("src/api/event_model_payload_bus.rs")?;
         assert!(
-            payload_bus.contains("CallResumed,"),
-            "RC4: CallResumed unit variant exists"
+            payload_bus.contains("CallResumed(CallResumedInfo)"),
+            "RC4: CallResumed payload-ized (resolved by P17-6 §62.26)"
         );
         let dtmf = std::fs::read_to_string("src/api/m20_dtmfsent_twophase.rs")?;
         assert!(

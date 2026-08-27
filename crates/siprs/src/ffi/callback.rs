@@ -283,16 +283,22 @@ pub unsafe extern "C" fn on_call_state(
 /// Callback for call media state changes.
 ///
 /// Called by PJSUA when a call's media state changes (e.g., media established
-/// or deactivated). The `CallMediaStateChanged` event carries only the call id;
-/// the reactor reads the actual media status via `pjsua_call_get_info`.
+/// or deactivated). Resolves the current media status via
+/// `pjsua_call_get_info` (C110) and carries it on the event so the reactor can
+/// detect hold→ACTIVE transitions.
 ///
 /// # Safety
 /// Must only be invoked from a PJSIP callback context; no pointer arguments are
 /// dereferenced, so the sole requirement is the `extern "C"` ABI contract.
 #[no_mangle]
 pub unsafe extern "C" fn on_call_media_state(call_id: bindings::pjsua_call_id) {
+    // C110: media status is resolved via pjsua_call_get_info; a resolution
+    // failure surfaces MediaError rather than a canned success.
+    let status = bindings::resolve_call_media_status(call_id)
+        .unwrap_or(bindings::pjsua_call_media_status::ERROR);
     enqueue_native_event(NativeEvent::CallMediaStateChanged {
         call_id: call_id as u32,
+        status,
     });
 }
 
@@ -489,7 +495,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
     fn register_callbacks_installs_the_event_queue() {
         let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
         register_callbacks(&mut config, crossbeam_queue::ArrayQueue::new(2));
@@ -497,9 +503,18 @@ mod tests {
         // drop the third event — proving the queue is the live enqueue target.
         // (With no queue installed, enqueue_native_event silently no-ops and the
         // loss counter would stay 0.)
-        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 1 });
-        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 2 });
-        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 3 });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 1,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 2,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 3,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
         assert_eq!(
             native_event_dropped_count(),
             1,
@@ -609,13 +624,18 @@ mod tests {
 
     #[test]
     // @verifies C050
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
     fn on_call_media_state_enqueues_media_state_changed() {
         let queue = install_test_queue(2);
         unsafe { on_call_media_state(9) };
+        // C110: status must come from resolve_call_media_status (stub → NONE),
+        // never a hardcoded value.
         assert_eq!(
             queue.pop(),
-            Some(NativeEvent::CallMediaStateChanged { call_id: 9 })
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 9,
+                status: bindings::pjsua_call_media_status::NONE,
+            })
         );
     }
 
@@ -717,22 +737,28 @@ mod tests {
 
     #[test]
     // @verifies C050, C052
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
     fn queue_capacity_is_positive_and_pre_allocated() {
         // The capacity is a compile-time constant (statically asserted at module
         // scope); this test proves the enqueue path works on an installed,
         // pre-allocated queue.
         let queue = install_test_queue(4);
-        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 1 });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 1,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
         assert_eq!(
             queue.pop(),
-            Some(NativeEvent::CallMediaStateChanged { call_id: 1 })
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 1,
+                status: bindings::pjsua_call_media_status::NONE,
+            })
         );
     }
 
     #[test]
     // @verifies C050
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
     fn every_callback_enqueues_exactly_one_event() {
         let queue = install_test_queue(8);
         unsafe { on_reg_state(1) };
@@ -744,7 +770,10 @@ mod tests {
         );
         assert_eq!(
             queue.pop(),
-            Some(NativeEvent::CallMediaStateChanged { call_id: 2 })
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 2,
+                status: bindings::pjsua_call_media_status::NONE,
+            })
         );
         assert_eq!(
             queue.pop(),
@@ -891,18 +920,30 @@ mod tests {
     /// @verifies C099
     #[test]
     // [::TICKET::] P16-4: FFI drain — try_pop consumes the installed queue FIFO.
-    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-4, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P17-6) --for-spec --no-implementation-order`.
     fn try_pop_native_event_drains_fifo() {
         install_test_queue(4);
-        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 1 });
-        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 2 });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 1,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 2,
+            status: bindings::pjsua_call_media_status::ACTIVE,
+        });
         assert_eq!(
             try_pop_native_event(),
-            Some(NativeEvent::CallMediaStateChanged { call_id: 1 })
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 1,
+                status: bindings::pjsua_call_media_status::NONE,
+            })
         );
         assert_eq!(
             try_pop_native_event(),
-            Some(NativeEvent::CallMediaStateChanged { call_id: 2 })
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 2,
+                status: bindings::pjsua_call_media_status::ACTIVE,
+            })
         );
         assert_eq!(try_pop_native_event(), None);
     }

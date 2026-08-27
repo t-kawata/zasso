@@ -162,6 +162,13 @@ pub struct MediaActiveInfo {
     pub call_id: CallId,
 }
 
+/// Call resumed after being held.
+#[derive(Debug, Clone)]
+pub struct CallResumedInfo {
+// [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    pub call_id: CallId,
+}
+
 /// Media stream error details.
 #[derive(Debug, Clone)]
 pub struct MediaErrorInfo {
@@ -332,7 +339,7 @@ pub enum SipEventPayload {
     /// Call was cancelled before being established (CANCEL received).
     CallCancelled(CancelInfo),
     /// Call was resumed after being held.
-    CallResumed,
+    CallResumed(CallResumedInfo),
     /// REFER request received (call transfer initiation).
     ReferReceived(ReferRequest),
     /// Call transfer completed.

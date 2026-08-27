@@ -23,7 +23,7 @@ use siprs::SipEventPayload;
 
 #[test]
 // [::TICKET::] P8-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-3|P16-3) --for-spec --no-implementation-order`.
-// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-5, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-5|P17-6) --for-spec --no-implementation-order`.
 fn sip_event_payload_matches_with_wildcard_arm() {
     // Construct one payload to drive the exhaustive match below.
     let payload = SipEventPayload::OutgoingCallStarted;
@@ -49,7 +49,7 @@ fn sip_event_payload_matches_with_wildcard_arm() {
         SipEventPayload::EarlyMediaReceived(_) => {}
         SipEventPayload::IncomingCall(_) => {}
         SipEventPayload::CallCancelled(_) => {}
-        SipEventPayload::CallResumed => {}
+        SipEventPayload::CallResumed(_) => {}
         SipEventPayload::ReferReceived(_) => {}
         SipEventPayload::TransferCompleted(_) => {}
         SipEventPayload::MediaStopped(_) => {}

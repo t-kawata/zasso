@@ -70,6 +70,8 @@ pub enum NativeEvent {
     },
     CallMediaStateChanged {
         call_id: u32,
+        /// pjsua_call_media_status value resolved by the FFI callback (C110).
+        status: u32,
     },
 
     // ── P0: DTMF ──
@@ -157,16 +159,12 @@ pub fn convert_native_event_to_payload(
             let cid = CallId::from_u64(call_id as u64).ok()?;
             crate::state::m20_callstate_mapping::convert_call_state(cid, call_account_id, state)
         }
-        NativeEvent::CallMediaStateChanged { call_id } => {
+        NativeEvent::CallMediaStateChanged { call_id, status } => {
             let cid = CallId::from_u64(call_id as u64).ok()?;
-            // media_status always comes from pjsua_call_get_info (C110) — the
-            // stub build reports NONE, the pjsua-native build reports the real
-            // call media status. On an FFI failure fall back to ERROR so the
-            // event bus surfaces MediaError rather than a canned success.
-            let media_status = crate::ffi::bindings::resolve_call_media_status(call_id as i32)
-                .unwrap_or(crate::ffi::bindings::pjsua_call_media_status::ERROR);
-            crate::state::m20_callstate_mapping::convert_call_media_state(cid, media_status)
-            // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+            // The status is resolved by the FFI callback (C110) and carried on
+            // the event; the converter maps it without re-querying the backend
+            // so tests can inject deterministic status values.
+            crate::state::m20_callstate_mapping::convert_call_media_state(cid, status)
         }
 
         // ── P0: DTMF ──
@@ -255,6 +253,7 @@ mod tests {
     // P11-9: assert through the symbolic constants (real pjsua.h values), not raw
     // numbers that drift when the constant source changes.
     use crate::ffi::bindings::pjsip_transport_state;
+    use crate::ffi::bindings::pjsua_call_media_status;
     use crate::state::m20_callstate_mapping::pjsip_inv_state;
 
     /// Construct a test `CallId` from a non-zero value.
@@ -436,17 +435,40 @@ mod tests {
         assert!(result.is_none(), "zero call_id should be skipped");
     }
 
+    /// @verifies C022, C110, C130
+    #[test]
+    // [::TICKET::] P0-5, P9-6, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-10) --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn native_event_call_media_state_changed_uses_event_status() {
+        // C130 precondition: CallMediaStateChanged carries a pjsua_call_media_status.
+        // The converter must read status from the event — re-resolving via
+        // resolve_call_media_status in stub mode would yield NONE and fail this
+        // assert (disguised-green guard).
+        let result = convert_native_event_to_payload(
+            NativeEvent::CallMediaStateChanged {
+                call_id: 10,
+                status: pjsua_call_media_status::ACTIVE,
+            },
+            None,
+        );
+        assert!(
+            matches!(result, Some(SipEventPayload::MediaActive(_))),
+            "event.status=ACTIVE must map to MediaActive, got {result:?}"
+        );
+    }
+
     /// @verifies C022, C110
     #[test]
     // [::TICKET::] P0-5, P9-6, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-10) --for-spec --no-implementation-order`.
-    fn native_event_call_media_state_changed() {
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn native_event_call_media_state_changed_none_yields_no_event() {
         let result = convert_native_event_to_payload(
-            NativeEvent::CallMediaStateChanged { call_id: 10 },
+            NativeEvent::CallMediaStateChanged {
+                call_id: 10,
+                status: pjsua_call_media_status::NONE,
+            },
             None,
         );
-        // The handler must read media_status from pjsua_call_get_info (C110). In
-        // stub mode pjsua_call_get_info writes NONE, so a correctly-wired handler
-        // yields no event — never a hardcoded ACTIVE(1).
         assert!(
             result.is_none(),
             "stub media_status=NONE must yield no event, got {result:?}"
