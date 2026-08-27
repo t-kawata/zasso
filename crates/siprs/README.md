@@ -323,20 +323,16 @@ OutgoingCallRinging / CallConnected / CallRejected / CallDisconnected 等の通�
 send_dtmf(digits, method) の呼び出しと、DtmfMethod（Inband / SipInfo / Rfc4733）の使い分け、DtmfSent / DtmfReceived イベントの受信を解説
 
 <::README-RESIDUE::>
-## RESIDUE — 完全記述の作成不可
+## DTMF 送出の完了契約（§62.27）
 
-### 証拠（欠落・矛盾・危険）
-
-- **`SipInfo` という `DtmfMethod` バリアントは存在しない**。P16-6（§62.15）で単一定義 `Inband` / `Info` / `Rfc4733` に一元化され、RFC §20 の `SipInfo` は SIP INFO method の正名 `Info` へ改名された（`src/model/dtmf_spec.rs:26-34`）。確認済み内容の「Inband / SipInfo / Rfc4733」は名称誤り。
-- **`method` は実 PJSIP 送信に反映される（P16-6）**: `Info` / `Rfc4733` → `pjsua_call_send_dtmf`、`Inband` → `pjsua_call_dial_dtmf`（`src/ffi/backend_calls.rs:247-276`）。「使い分け」は実装として成立。
-- **`DtmfSent { Ok }` は publish されるが、タイムアウトベースで常に Ok**: reactor の `handle_send_dtmf` が桁ごとに 500ms タイマーを起動し `DtmfSent { status: Ok(()), pjsip_status: None }` を publish する（`src/runtime/reactor.rs`、`src/api/m20_dtmfsent_twophase.rs:98-113`）。PJSIP の送信完了コールバックは確認されておらず、実送信結果ではない。タイマーはキャンセルされないため必ず発火する。
+- **`DtmfMethod` は単一定義 `Inband` / `Info` / `Rfc4733`**: P16-6（§62.15）で一元化され、旧 `SipInfo` は SIP INFO method の正名 `Info` へ改名された（`src/model/dtmf_spec.rs`）。
+- **`method` は実 PJSIP 送信へ反映**: `Info` / `Rfc4733` → `pjsua_call_send_dtmf`、`Inband` → `pjsua_call_dial_dtmf`（`src/ffi/backend_calls.rs:256-289`）。「使い分け」は実装として成立。
+- **`DtmfSent { Ok }` の送出完了契約（§62.27）**: PJSIP に DTMF 送信完了コールバックは存在しない（`pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` は同期 `pj_status_t` を返すのみ、`on_dtmf_digit` は受信専用）。そのため reactor の `handle_send_dtmf` が backend 受理（`send_dtmf` の同期 Ok）後に桁ごとに 500ms タイマーを起動し、`DtmfSent { status: Ok(()), pjsip_status: None }` を publish する。**500ms タイムアウト経過が唯一の送出完了シグナル**である（H12 解消）。
 - `DtmfReceived` は `pjsua-native` の `on_dtmf_digit` コールバック専用（`src/ffi/callback.rs:312-319`）で、TestBackend / 既定ビルドでは発火しない（pjsua-native はビルド不能、H1 参照）。
 
-### 実装補強設計（完全記述への条件）
+### 残存 RESIDUE（完全記述への条件）
 
-1. バリアント名を `Info`（`SipInfo` でなく）に修正した上で記述する（名称のみの修正で記述可能になる部分を含む）。
-2. `DtmfSent` を「PJSIP 送信完了コールバック由来」に置き換えるか、「500ms タイムアウトで送出完了とみなす」設計を README に明記する（P11-6 / P16-6）。
-3. `DtmfReceived` の受信記述は pjsua-native ビルド修復後（H1 参照）に実コールバックで固定する。TestBackend では `NativeEvent::DtmfDigit` 注入で検証可能。
+1. `DtmfReceived` の受信記述は pjsua-native ビルド修復後（H1 参照）に実コールバックで固定する。TestBackend では `NativeEvent::DtmfDigit` 注入で検証可能。
 
 # 音声ストリームの取得（subscribe_audio と AudioChunkPair）
 

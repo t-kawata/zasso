@@ -25,30 +25,47 @@ use crate::api::event_model_payload_bus::{
 };
 use crate::api::eventbus_receiver::EventBus;
 
-/// Result of a DTMF send attempt.
+/// Result of a DTMF send attempt (§62.27 contract).
 ///
-/// Separates synchronous command acceptance (`send_dtmf()` returning `Ok(())`)
-/// from asynchronous completion (DtmfSent event). This two-phase design allows
-/// callers to confirm the command was queued immediately while receiving the
-/// actual send result asynchronously via the EventBus.
+/// The two-phase design separates synchronous command acceptance
+/// (`send_dtmf()` returning `Ok(())`) from asynchronous completion (the
+/// `DtmfSent` event). The completion contract is **backend accept + 500ms
+/// timeout**: PJSIP exposes no send-completion callback (`on_dtmf_digit` is
+/// receive-only, and `pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` only
+/// expose a synchronous `pj_status_t`), so the 500ms timer is the sole
+/// completion signal.
+///
+/// `status` semantics:
+/// - `Ok(())` — backend accepted `send_dtmf` and 500ms elapsed (the send is
+///   treated as complete). This is the only outcome the publish path emits.
+/// - `Err(SentDtmfError::PjsipError(code))` — backend returned a synchronous
+///   `pj_status_t` error.
+/// - `Err(SentDtmfError::Timeout)` — type-level state retained for
+///   completeness; the current publish path never emits it.
 #[derive(Debug, Clone, PartialEq, Eq)]
+// [::TICKET::] P17-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-7 --for-spec --no-implementation-order`.
 pub struct DtmfSentInfo {
     /// The DTMF method used for sending.
     pub method: DtmfMethod,
     /// The digit that was sent.
     pub digit: char,
-    /// Whether the send succeeded or failed.
+    /// Whether the send attempt completed (`Ok`) or failed (`Err`).
     pub status: Result<(), SentDtmfError>,
-    /// Raw PJSIP error code, if applicable.
+    /// Raw PJSIP error code, present only when `status` is
+    /// `Err(SentDtmfError::PjsipError)`.
     pub pjsip_status: Option<u32>,
 }
 
-/// Errors that can occur during DTMF sending.
+/// Errors that can occur during a DTMF send attempt.
+///
+/// §62.27: PJSIP exposes no send-completion callback, so `Timeout` is a
+/// type-level state only — the timeout path publishes `Ok` (completion-as-Ok).
 #[derive(Debug, Clone, PartialEq, Eq)]
+// [::TICKET::] P17-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-7 --for-spec --no-implementation-order`.
 pub enum SentDtmfError {
-    /// PJSIP returned an error code.
+    /// PJSIP returned a synchronous `pj_status_t` error.
     PjsipError(u32),
-    /// The PJSIP callback did not fire within the timeout window.
+    /// Type-level timeout outcome; the publish path emits `Ok` instead (§62.27).
     Timeout,
 }
 
@@ -60,7 +77,8 @@ pub enum SentDtmfError {
 // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
 pub use crate::model::dtmf_spec::DtmfMethod;
 
-/// Default timeout (ms) for DtmfSent fallback when PJSIP callback is unavailable.
+/// Default timeout (ms) after which a DtmfSent send is treated as complete (§62.27).
+// [::TICKET::] P17-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-7 --for-spec --no-implementation-order`.
 pub const DEFAULT_DTMF_SENT_TIMEOUT_MS: u64 = 500;
 
 /// The full description of a DtmfSent fallback timer.
@@ -82,19 +100,20 @@ pub(crate) struct DtmfSentTimeoutRequest {
     pub event_bus: EventBus,
 }
 
-/// Spawn a fallback timer that publishes a `DtmfSent { Ok(()) }` event after
-/// `timeout_ms` when no PJSIP send-complete callback is available.
+/// Spawn the timeout timer that publishes a `DtmfSent { Ok(()) }` event after
+/// `timeout_ms`.
 ///
-/// This realises the two-phase design's fallback (§20, §62.15 Q5):
-/// `send_dtmf()` returning `Ok(())` confirms the command was accepted, and this
-/// timer publishes the async `DtmfSent` event treating the send as complete.
-/// The former `Err(Timeout)`-only publication is replaced by completion-as-Ok;
-/// `Err(Timeout)` remains a type-level state for the future callback path.
+/// This realises the §62.27 completion contract (the sole completion signal):
+/// `send_dtmf()` returning `Ok(())` confirms the backend accepted the command,
+/// and this timer publishes the async `DtmfSent` event treating the send as
+/// complete after the timeout elapses. PJSIP exposes no send-completion
+/// callback, so this timer is the only producer of `DtmfSent`.
 ///
-/// The returned `JoinHandle` lets the caller cancel the timer if a real
-/// callback fires first.
+/// The returned `JoinHandle` lets the caller cancel the timer (e.g. when the
+/// owning call is torn down before the deadline).
 // [::TICKET::] P7-2: O-002 — 500ms timeout fallback for the DtmfSent two-phase design
 // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-7 --for-spec --no-implementation-order`.
 pub(crate) fn spawn_dtmf_sent_timeout(
     request: DtmfSentTimeoutRequest,
 ) -> tokio::task::JoinHandle<()> {
@@ -122,6 +141,7 @@ mod tests {
 
     /// @verifies C030
     /// @verifies C107
+    /// @verifies C130
     #[tokio::test]
     // [::TICKET::] P7-2: O-002 — deterministic timeout publishes DtmfSent{Ok} after 500ms
     // [::TICKET::] P16-6: §62.15 — the timeout fallback publishes Ok (send treated as complete)
@@ -169,6 +189,7 @@ mod tests {
     }
 
     /// @verifies C030
+    /// @verifies C131
     #[tokio::test]
     // [::TICKET::] P7-2: O-002 — timeout does not fire before the deadline elapses
     async fn dtmf_sent_timeout_not_before_deadline() -> Result<(), Box<dyn std::error::Error>> {
@@ -202,6 +223,7 @@ mod tests {
     // ── DtmfSentInfo Normal ────────────────────────────────────────────
 
     /// @verifies C030
+    /// @verifies C131
     #[test]
     // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn dtmf_sent_info_ok_status() {
@@ -217,6 +239,7 @@ mod tests {
     }
 
     /// @verifies C030
+    /// @verifies C131
     #[test]
     // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn dtmf_sent_info_pjsip_error() {
@@ -234,6 +257,7 @@ mod tests {
     }
 
     /// @verifies C030
+    /// @verifies C131
     #[test]
     // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn dtmf_sent_info_timeout() {
@@ -267,6 +291,7 @@ mod tests {
 
     // ── Default timeout constant ───────────────────────────────────────
 
+    /// @verifies C131
     #[test]
     // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
     fn default_dtmf_timeout_is_500ms() {

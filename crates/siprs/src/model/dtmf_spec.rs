@@ -40,8 +40,10 @@ mod tests {
     // ── Normal: exactly three variants ─────────────────────────────────
 
     /// @verifies C105
+    /// @verifies C130
     #[test]
     // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-7 --for-spec --no-implementation-order`.
     fn dtmf_method_matches_section20_three_variants() {
         // Exhaustive match proves exactly Inband/Info/Rfc4733 — an Rfc2833
         // arm would fail to compile, making the removed legacy variant a

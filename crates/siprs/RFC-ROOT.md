@@ -4317,7 +4317,7 @@ async fn handle_answer(&self, call_id: CallId, code: u16) -> Result<(), SipError
 
 ### 62.15 DTMF 実装整合: DtmfMethod 一元化 / method 反映 / DtmfSent{Ok} 経路（Q5）
 
-**決定**: (1) `DtmfMethod` を `Inband` / `Info` / `Rfc4733` の単一定義に一元化する。§20 の `SipInfo` は SIP INFO method（RFC 2976）の正名である `Info` へ改名する。3 箇所の重複定義（`account_config_spec` / `observability_metrics` / `m20_dtmfsent_twophase`）を単一の `src/model/dtmf_spec.rs` へ集約する。(2) `send_dtmf` の `method` を `pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` へ反映し、「使い分け」を実装として成立させる。`Info` / `Rfc4733` は `pjsua_call_send_dtmf`（SIP INFO / RTP イベント）、`Inband` は `pjsua_call_dial_dtmf`（Inband RFC 2833）へ割り当てる。(3) `DtmfSent { Ok }` を publish する経路を実装する。PJSIP の送信完了コールバックが確認できる場合はそれを優先し、未確認時は §20 の 500ms タイムアウトフォールバックで送出完了とみなして `DtmfSent { Ok }` を発行する（現行の「`Err(Timeout)` のみ」を解消）。
+**決定**: (1) `DtmfMethod` を `Inband` / `Info` / `Rfc4733` の単一定義に一元化する。§20 の `SipInfo` は SIP INFO method（RFC 2976）の正名である `Info` へ改名する。3 箇所の重複定義（`account_config_spec` / `observability_metrics` / `m20_dtmfsent_twophase`）を単一の `src/model/dtmf_spec.rs` へ集約する。(2) `send_dtmf` の `method` を `pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` へ反映し、「使い分け」を実装として成立させる。`Info` / `Rfc4733` は `pjsua_call_send_dtmf`（SIP INFO / RTP イベント）、`Inband` は `pjsua_call_dial_dtmf`（Inband RFC 2833）へ割り当てる。(3) `DtmfSent { Ok }` を publish する経路を実装する。PJSIP には送信完了コールバックが存在しない（`pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` は同期 `pj_status_t` を返すのみ、`on_dtmf_digit` は受信専用）ため、§20 の 500ms タイムアウトを唯一の送出完了契約として `DtmfSent { Ok }` を発行する（現行の「`Err(Timeout)` のみ」を解消）。本項の「コールバック優先」は §62.27 で撤回する。
 
 ```rust
 // src/model/dtmf_spec.rs — 単一定義（§20 準拠、SipInfo → Info 改名）
@@ -4335,8 +4335,8 @@ pub fn send_dtmf(native_call_id: pjsua_call_id, method: DtmfMethod, digits: &str
     map_pjsua_status(status, "pjsua_call_send_dtmf")   // §62.8: native_status 保持
 }
 
-// src/api/m20_dtmfsent_twophase.rs — DtmfSent { Ok } の publish 経路（Q5）
-// PJSIP 送信完了コールバック優先、未確認時は §20 の 500ms タイムアウトで Ok とみなす。
+// src/api/m20_dtmfsent_twophase.rs — DtmfSent { Ok } の publish 経路（Q5 / §62.27）
+// §62.27: PJSIP に送信完了コールバックは存在しないため、500ms タイムアウトで送出完了とみなす。
 // → DtmfSent(DtmfSentInfo { method, digit, status: Ok(()), .. }) を publish
 ```
 
@@ -4827,38 +4827,42 @@ NativeEvent::CallMediaStateChanged { call_id, status } => {
 
 ### 62.27 DtmfSent 送出完了契約の確定（Q6）
 
-**決定**: `DtmfSent { status: Ok(()) }` の意味論を「**backend 受理 + 500ms タイムアウト経過で送出完了とみなす**」として正式契約に確定する。PJSIP に DTMF 送信完了コールバックは存在しない（`pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` は同期 `pj_status_t` を返すのみ、`on_dtmf_digit` は受信専用）ため、§62.15 の「コールバック優先」を撤回し、タイムアウト設計を唯一の契約とする。`DtmfSentInfo.status` は `Ok(())` / `Err(SipErrorKind::Timeout)` / `Err(SipErrorKind::PjsipError)` を保持する。
+**決定**: `DtmfSent { status: Ok(()) }` の意味論を「**backend 受理 + 500ms タイムアウト経過で送出完了とみなす**」として正式契約に確定する。PJSIP に DTMF 送信完了コールバックは存在しない（`pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` は同期 `pj_status_t` を返すのみ、`on_dtmf_digit` は受信専用）ため、§62.15 の「コールバック優先」を撤回し、タイムアウト設計を唯一の契約とする。`DtmfSentInfo.status` は `Ok(())` / `Err(SentDtmfError::Timeout)` / `Err(SentDtmfError::PjsipError)` を保持する（`SentDtmfError` は実コードの公開型）。
 
 ```rust
-// src/api/m20_dtmfsent_twophase.rs — DtmfSent の送出完了契約（Q6）
+// src/api/m20_dtmfsent_twophase.rs — DtmfSent の送出完了契約（Q6 / §62.27）
 //
-// DtmfSent { status } の契約:
-//   Ok(Ok(()))        — backend が send_dtmf を受理し、500ms 経過（送出完了とみなす）
-//   Ok(Err(Timeout))  — タイムアウト到達前に backend が Err を返した場合
-//   Err(PjsipError)   — backend が pj_status_t エラーを返した場合
+// DtmfSentInfo.status の契約（call_id は EventMeta が保持）:
+//   Ok(())                           — backend が send_dtmf を受理し、500ms 経過（送出完了とみなす）
+//   Err(SentDtmfError::PjsipError)   — backend が pj_status_t エラーを返した場合
+//   Err(SentDtmfError::Timeout)      — 型レベル状態（publish 経路は Ok のみ）
 pub struct DtmfSentInfo {
-    pub call_id: CallId,
     pub method: DtmfMethod,
     pub digit: char,
-    pub status: Result<(), DtmfSentError>,
+    pub status: Result<(), SentDtmfError>,
+    pub pjsip_status: Option<u32>,
 }
 
 // src/runtime/reactor.rs — handle_send_dtmf（Q6 / P11-6 を正式契約へ昇格）
 pub(crate) fn handle_send_dtmf(
-    ctx: &mut ReactorCtx<'_>,
-    call_id: CallId,
+    ctx: &mut SendDtmfContext<'_>,
+    call_id: u64,
     method: DtmfMethod,
     digits: &str,
-) -> Result<(), SipError> {
-    ctx.backend.send_dtmf(call_id.as_i32(), &method, digits)?;   // 同期受理
+) -> Result<(), ReactorError> {
+    ctx.backend.send_dtmf(call_id as i32, &method, digits)?;   // 同期受理
     let account_id = ctx.resolve_account_id(call_id)?;
-    // 500ms タイマー: 送出完了とみなして DtmfSent{Ok} を publish する。
-    ctx.spawn_dtmf_sent_timeout(DtmfSentTimeoutRequest {
-        account_id,
-        call_id,
-        method,
-        digits: digits.to_string(),
-    });
+    // 500ms タイマー: 送出完了とみなして DtmfSent{Ok} を publish する（桁ごと）。
+    for digit in digits.chars() {
+        ctx.spawn_dtmf_sent_timeout(DtmfSentTimeoutRequest {
+            account_id,
+            call_id,
+            method,
+            digit,
+            timeout_ms: DEFAULT_DTMF_SENT_TIMEOUT_MS,
+            event_bus: ctx.event_bus.clone(),
+        });
+    }
     Ok(())
 }
 ```

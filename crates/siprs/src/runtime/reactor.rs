@@ -1389,8 +1389,10 @@ pub(crate) fn handle_transfer(
 ///
 /// Reads as prose: send via the backend with the unified method; on success
 /// resolve the owning account, and spawn one `spawn_dtmf_sent_timeout` per digit
-/// that publishes `DtmfSent { Ok(()) }` to the single client-owned bus; on
-/// backend error propagate and spawn nothing (two-phase C030 preserved, §62.15).
+/// that publishes `DtmfSent { Ok(()) }` to the single client-owned bus — the
+/// §62.27 completion signal (backend accept + 500ms timeout); on backend error
+/// propagate and spawn nothing (two-phase C030 preserved).
+// [::TICKET::] P17-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-7 --for-spec --no-implementation-order`.
 pub(crate) fn handle_send_dtmf(
     // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     ctx: &mut SendDtmfContext<'_>,
@@ -2759,6 +2761,7 @@ mod tests {
 
     #[tokio::test]
     // @verifies C030
+    // @verifies C130
     // [::TICKET::] P11-6: handle_send_dtmf spawns the timeout on backend success (deterministic)
     async fn handle_send_dtmf_spawns_timeout_on_backend_ok() {
         tokio::time::pause();
@@ -2874,6 +2877,7 @@ mod tests {
 
     #[tokio::test]
     // @verifies C030
+    // @verifies C130
     // [::TICKET::] P11-6: handle_send_dtmf propagates backend error and spawns no timer
     async fn handle_send_dtmf_returns_err_without_timer_on_backend_err() {
         tokio::time::pause();
