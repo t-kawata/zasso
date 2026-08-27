@@ -19,6 +19,8 @@ use crate::ffi::pj_str::PjOwnedStr;
 #[cfg(feature = "pjsua-native")]
 use crate::model::dtmf_spec::DtmfMethod;
 #[cfg(feature = "pjsua-native")]
+use crate::runtime::command::ReactorError;
+#[cfg(feature = "pjsua-native")]
 use std::net::SocketAddr;
 
 /// Initialize the PJSUA stack: `pjsua_create` → `pjsua_init` → `pjsua_start`.
@@ -30,6 +32,7 @@ use std::net::SocketAddr;
 /// the first non-success status, or `PJ_SUCCESS`.
 #[cfg(feature = "pjsua-native")]
 // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
 pub fn initialize(config: &crate::config::ClientConfig) -> i32 {
     // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
     let create = unsafe { bindings::pjsua_create() };
@@ -58,6 +61,17 @@ pub fn initialize(config: &crate::config::ClientConfig) -> i32 {
         unsafe { bindings::pjsua_init(&mut pjsua_cfg, std::ptr::null_mut(), &mut media_cfg) };
     if init != bindings::PJ_SUCCESS {
         return init;
+    }
+    // P17-2 §62.22: register the observation-only raw SIP module. The endpoint
+    // from pjsua_get_pjsip_endpt is valid only after pjsua_init; a registration
+    // failure aborts startup (no canned Ok — C111).
+    let endpt = unsafe { bindings::pjsua_get_pjsip_endpt() };
+    // SAFETY: endpt is the live endpoint from pjsua_get_pjsip_endpt after
+    // pjsua_init; the raw SIP module registers once per initialize.
+    if let Err(ReactorError::NativeError { native_status, .. }) =
+        unsafe { crate::ffi::raw_sip_module::register(endpt) }
+    {
+        return native_status;
     }
     unsafe { bindings::pjsua_start() }
 }

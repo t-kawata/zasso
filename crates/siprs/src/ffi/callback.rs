@@ -124,8 +124,11 @@ pub fn try_pop_native_event() -> Option<NativeEvent> {
 /// `register_callbacks` calls this at init time. The swap is lock-free; the old
 /// queue is only dropped here (never from a capture thread), so the pointer
 /// handed to `enqueue_raw_sip_bytes` is always valid.
+///
+/// `pub(crate)` so the raw SIP module tests (P17-2) can install a fresh queue.
 // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
-fn install_raw_sip_queue(queue: crossbeam_queue::ArrayQueue<Vec<u8>>) {
+// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+pub(crate) fn install_raw_sip_queue(queue: crossbeam_queue::ArrayQueue<Vec<u8>>) {
     let new_ptr = Box::into_raw(Box::new(queue));
     let old_ptr = RAW_SIP_QUEUE.swap(new_ptr, Ordering::AcqRel);
     if !old_ptr.is_null() {
@@ -140,8 +143,9 @@ fn install_raw_sip_queue(queue: crossbeam_queue::ArrayQueue<Vec<u8>>) {
 ///
 /// Loss-tolerant: a full queue drops the newest packet and increments the
 /// atomic loss counter — the capture thread never blocks and never panics.
-/// This is the injection point a future `on_rx_msg` hook calls; the vendored
-/// PJSIP's `pjsua_callback` has no `on_rx_msg` field (PJSIP < 2.13).
+/// This is the injection point the raw SIP module (P17-2 §62.22) calls; the
+/// vendored PJSIP 2.17 `pjsua_callback` has no `on_rx_msg` field, so capture
+/// goes through the standard `pjsip_module` extension point instead.
 pub fn enqueue_raw_sip_bytes(bytes: Vec<u8>) {
     let queue_ptr = RAW_SIP_QUEUE.load(Ordering::Acquire);
     if !queue_ptr.is_null() {

@@ -53,6 +53,14 @@ pub use bindings::{enumerate_codecs, pjsua_codec_info};
 // [::TICKET::] P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-10 --for-spec --no-implementation-order`.
 pub mod backend_calls;
 
+/// Raw SIP capture module — observation-only `pjsip_module` hook (P17-2 / N0091).
+///
+/// Registered on the PJSIP endpoint after `pjsua_init`; its handlers feed
+/// `pjsip_rx_data.pkt_info.packet` bytes into the raw SIP queue via
+/// [`callback::enqueue_raw_sip_bytes`] and return `PJ_FALSE` (observation-only).
+// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+pub mod raw_sip_module;
+
 /// pjmedia_port adapter — wraps a `RustMediaPort` into a `pjmedia_port` for
 /// `pjsua_conf_add_port` (PX-3 / N0049 §39, N0085 §62.16).
 ///

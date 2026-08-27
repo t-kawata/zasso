@@ -49,6 +49,22 @@ mod stub_aliases {
     /// Generic PJSUA error indicator (`PJ_ERRNO_START_STATUS + 1` = 70001).
     pub const PJ_EUNKNOWN: i32 = 70001;
 
+    /// Maximum SIP packet length (`PJSIP_MAX_PKT_LEN`, sip_config.h:372).
+    ///
+    /// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+    pub const PJSIP_MAX_PKT_LEN: usize = 4000;
+
+    /// Application-layer module priority (sip_module.h:210) — the raw SIP
+    /// module registers one below so it observes before UA modules.
+    pub const PJSIP_MOD_PRIORITY_APPLICATION: i32 = 64;
+
+    /// PJSIP boolean true (`PJ_TRUE`).
+    pub const PJ_TRUE: i32 = 1;
+
+    /// PJSIP boolean false (`PJ_FALSE`) — returned by observation-only handlers.
+    pub const PJ_FALSE: i32 = 0;
+
     /// Not enough memory (`PJ_ERRNO_START_STATUS + 7` = 70007).
     ///
     /// [::TICKET::] P11-9: the stub mirrors the pjsua.h values (vendored
@@ -379,12 +395,80 @@ mod stub_aliases {
     /// PJSIP boolean — maps to `pj_bool_t` (int).
     pub type pj_bool_t = i32;
 
-    /// Opaque incoming SIP message (`pjsip_rx_data`) — only ever a pointer
-    /// passthrough; `on_incoming_call` never dereferences it.
+    /// Mirror of `pjsip_rx_data.pkt_info` — the transport-received packet fields
+    /// the raw SIP capture module reads (P17-2 / §62.22). Matches the vendored
+    /// `sip_transport.h` layout: `packet` holds the original raw bytes and `len`
+    /// is the received length (`pj_ssize_t`).
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjsip_rx_data_pkt_info {
+        /// Original raw packet bytes (`char packet[PJSIP_MAX_PKT_LEN]`).
+        pub packet: [std::ffi::c_char; PJSIP_MAX_PKT_LEN],
+        /// Length of the received packet.
+        pub len: std::os::raw::c_long,
+    }
+
+    /// Mirror of PJSIP's `pjsip_rx_data` exposing the raw packet fields the raw
+    /// SIP capture module reads. Under `pjsua-native` the bindgen struct exposes
+    /// the same `pkt_info.packet[0..len]` field path.
     #[repr(C)]
     #[derive(Debug, Clone, Copy)]
     pub struct pjsip_rx_data {
+        /// Transport-received packet info (raw SIP bytes + length).
+        pub pkt_info: pjsip_rx_data_pkt_info,
+    }
+
+    /// Opaque PJSIP endpoint (`pjsip_endpoint`) — only ever a pointer passthrough
+    /// to `pjsip_endpt_register_module` (P17-2).
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjsip_endpoint {
         _private: [u8; 0],
+    }
+
+    /// Opaque outgoing SIP message (`pjsip_tx_data`) — completes the
+    /// `pjsip_module` struct mirror; the raw SIP module never wires TX handlers.
+    #[repr(C)]
+    #[derive(Debug, Clone, Copy)]
+    pub struct pjsip_tx_data {
+        _private: [u8; 0],
+    }
+
+    /// Mirror of PJSIP's `pjsip_module` — the standard extension point the raw
+    /// SIP capture module registers (sip_module.h:60-180). Field names and
+    /// pointer types match the vendored header so the static initializer
+    /// compiles identically under bindgen (`pjsua-native`).
+    #[repr(C)]
+    #[derive(Debug)]
+    pub struct pjsip_module {
+        /// Module name (`pj_str_t`), e.g. "mod_siprs_raw_sip".
+        pub name: pj_str_t,
+        /// Module ID — must be -1 before registration; PJSIP assigns a unique ID.
+        pub id: i32,
+        /// Initialization/start order relative to other modules.
+        pub priority: i32,
+        /// Optional load callback (NULL = PJ_SUCCESS).
+        pub load: Option<unsafe extern "C" fn(*mut pjsip_endpoint) -> i32>,
+        /// Optional start callback (NULL = PJ_SUCCESS).
+        pub start: Option<unsafe extern "C" fn() -> i32>,
+        /// Optional stop callback (NULL = PJ_SUCCESS).
+        pub stop: Option<unsafe extern "C" fn() -> i32>,
+        /// Optional unload callback (NULL = PJ_SUCCESS).
+        pub unload: Option<unsafe extern "C" fn() -> i32>,
+        /// Incoming request observer — return PJ_TRUE to consume, PJ_FALSE to defer.
+        pub on_rx_request: Option<unsafe extern "C" fn(*mut pjsip_rx_data) -> pj_bool_t>,
+        /// Incoming response observer — return PJ_TRUE to consume, PJ_FALSE to defer.
+        pub on_rx_response: Option<unsafe extern "C" fn(*mut pjsip_rx_data) -> pj_bool_t>,
+        /// Outgoing request observer (unused — P17-2 is RX-only).
+        pub on_tx_request: Option<unsafe extern "C" fn(*mut pjsip_tx_data) -> i32>,
+        /// Outgoing response observer (unused — P17-2 is RX-only).
+        pub on_tx_response: Option<unsafe extern "C" fn(*mut pjsip_tx_data) -> i32>,
+        /// Transaction-state observer (unused by the raw SIP module).
+        pub on_tsx_state: Option<unsafe extern "C" fn(*mut pjsip_transaction, *mut pjsip_event)>,
+        /// Module list linkage (next module) — null before registration.
+        pub next: *mut pjsip_module,
+        /// Module list linkage (previous module) — null before registration.
+        pub prev: *mut pjsip_module,
     }
 
     /// Opaque SIP URI (`pjsip_uri`) — only ever a pointer passthrough.
@@ -701,6 +785,44 @@ mod stub_aliases {
         PJ_SUCCESS
     }
 
+    /// Stub for `pjsip_endpt_register_module` (P17-2 / §62.22).
+    ///
+    /// The default build has no real endpoint, so the stub records the module
+    /// pointer for tests and returns `PJ_SUCCESS` — or a forced non-success
+    /// status via `stub_test_hooks` to exercise the error branch.
+    ///
+    /// # Safety
+    /// `module` must be a valid, initialized `pjsip_module` pointer.
+    pub unsafe fn pjsip_endpt_register_module(
+        _endpt: *mut pjsip_endpoint,
+        module: *mut pjsip_module,
+    ) -> i32 {
+        #[cfg(test)]
+        {
+            let forced = crate::ffi::bindings::stub_test_hooks::register_module_status();
+            if forced != PJ_SUCCESS {
+                return forced;
+            }
+            crate::ffi::bindings::stub_test_hooks::record_registered_module(module);
+        }
+        #[cfg(not(test))]
+        let _ = module;
+        PJ_SUCCESS
+    }
+
+    /// Stub for `pjsua_get_pjsip_endpt`.
+    ///
+    /// The default build has no PJSUA stack, so it returns null; the native
+    /// build returns the real endpoint after `pjsua_init` (pjsua.h:2991).
+    ///
+    /// # Safety
+    ///
+    /// The returned pointer is only valid after `pjsua_init` in the native
+    /// build; the caller must not dereference a null stub pointer.
+    pub unsafe fn pjsua_get_pjsip_endpt() -> *mut pjsip_endpoint {
+        std::ptr::null_mut()
+    }
+
     /// Stub for `pjsua_call_get_conf_port` — echoes the call id as its slot.
     ///
     /// # Safety
@@ -765,7 +887,7 @@ pub use stub_aliases::*;
 /// path is exercised without a real PJSIP stack.
 #[cfg(all(test, not(feature = "pjsua-native")))]
 pub(crate) mod stub_test_hooks {
-    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 
     static CONF_ADD_PORT_STATUS: AtomicI32 = AtomicI32::new(super::PJ_SUCCESS);
 
@@ -777,6 +899,32 @@ pub(crate) mod stub_test_hooks {
     /// Force `pjsua_conf_add_port` to return `status` in subsequent calls.
     pub(crate) fn set_conf_add_port_status(status: i32) {
         CONF_ADD_PORT_STATUS.store(status, Ordering::Relaxed);
+    }
+
+    /// The status the `pjsip_endpt_register_module` stub currently returns.
+    static REGISTER_MODULE_STATUS: AtomicI32 = AtomicI32::new(super::PJ_SUCCESS);
+
+    /// The last module pointer handed to `pjsip_endpt_register_module` (as usize).
+    static LAST_REGISTERED_MODULE: AtomicUsize = AtomicUsize::new(0);
+
+    /// The status the `pjsip_endpt_register_module` stub currently returns.
+    pub(crate) fn register_module_status() -> i32 {
+        REGISTER_MODULE_STATUS.load(Ordering::Relaxed)
+    }
+
+    /// Force `pjsip_endpt_register_module` to return `status` in subsequent calls.
+    pub(crate) fn set_register_module_status(status: i32) {
+        REGISTER_MODULE_STATUS.store(status, Ordering::Relaxed);
+    }
+
+    /// Record the module pointer passed to `pjsip_endpt_register_module`.
+    pub(crate) fn record_registered_module(module: *mut super::pjsip_module) {
+        LAST_REGISTERED_MODULE.store(module as usize, Ordering::SeqCst);
+    }
+
+    /// The last module pointer handed to `pjsip_endpt_register_module`, or 0.
+    pub(crate) fn last_registered_module() -> usize {
+        LAST_REGISTERED_MODULE.load(Ordering::SeqCst)
     }
 }
 

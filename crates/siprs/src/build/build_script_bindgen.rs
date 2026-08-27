@@ -62,6 +62,11 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     "pjsip_transaction",
     "pjsua_reg_info",
     "pjsip_redirect_op",
+    // P17-2 §62.22: raw SIP capture module — the pjsip_module extension point
+    // and the opaque endpoint / tx_data types its registration references.
+    "pjsip_module",
+    "pjsip_endpoint",
+    "pjsip_tx_data",
     // P16-7 §62.16: the custom media port (RustMediaPort) and the frame/format
     // types its get_frame / put_frame callbacks exchange with the conf bridge.
     "pjmedia_port",
@@ -138,6 +143,11 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
     // pjsua_call_set_inactive does NOT exist in the vendored pjsua.h.
     "pjsua_call_set_hold",
     "pjsua_call_reinvite",
+    // P17-2 §62.22: raw SIP module registration — pjsua_get_pjsip_endpt returns
+    // the endpoint after pjsua_init; pjsip_endpt_register_module registers the
+    // observation-only module.
+    "pjsip_endpt_register_module",
+    "pjsua_get_pjsip_endpt",
 ];
 
 /// Fixed allowlist of PJSIP constants siprs references.
@@ -197,6 +207,12 @@ pub const BINDGEN_ALLOWLIST_VARS: &[&str] = &[
     "PJSUA_TURN_CONFIG_USE_CUSTOM",
     "PJ_STUN_AUTH_CRED_STATIC",
     "PJ_STUN_PASSWD_PLAIN",
+    // P17-2 §62.22: pjsip_module priority / packet-length boundary constants,
+    // plus the pj_bool_t truth values the observation-only handlers return.
+    "PJSIP_MOD_PRIORITY_APPLICATION",
+    "PJSIP_MAX_PKT_LEN",
+    "PJ_TRUE",
+    "PJ_FALSE",
 ];
 
 /// Resolves the PJSIP header root per RFC §28.1 search order:
@@ -464,6 +480,19 @@ mod tests {
         all.dedup();
         assert_eq!(all.len(), total_count, "allowlist must be duplicate-free");
         assert!(!all.is_empty(), "allowlist must not be empty");
+    }
+
+    /// @verifies C123
+    #[test]
+// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+    fn allowlist_includes_raw_sip_module_symbols() {
+        // Precondition: the raw SIP module's FFI surface is covered by the fixed allowlist.
+        assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsip_module"));
+        assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsip_endpoint"));
+        assert!(BINDGEN_ALLOWLIST_FUNCTIONS.contains(&"pjsip_endpt_register_module"));
+        assert!(BINDGEN_ALLOWLIST_FUNCTIONS.contains(&"pjsua_get_pjsip_endpt"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_MOD_PRIORITY_APPLICATION"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_MAX_PKT_LEN"));
     }
 
     #[test]
