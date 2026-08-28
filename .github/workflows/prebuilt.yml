@@ -1,0 +1,44 @@
+# Prebuilt producer pipeline (§62.37 Q15).
+#
+# Runs the standalone producer crate on a 3-OS matrix, then commits the staged
+# `vendor/prebuilt` directly (no PR-based refresh ceremony). This guarantees
+# §5.1: after `git clone`, the prebuilt libraries are already present and
+# `cargo build --features pjsua-native` needs no extra PJSIP acquisition step.
+#
+# The push filter only watches the vendored source and the producer crate, so
+# the auto-commit of `vendor/prebuilt` never re-triggers this workflow.
+#
+# [::TICKET::] P18-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-2 --for-spec --no-implementation-order`
+
+name: Prebuilt
+
+on:
+  push:
+    branches: [master, siprs]
+    paths:
+      - "crates/siprs/vendor/pjsip/**"
+      - "crates/pjsip-prebuilt/**"
+
+jobs:
+  prebuilt:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # pjsip-prebuilt is a standalone crate (no workspace, §62.36), so the
+      # runner invokes it with --manifest-path from the repo root.
+      - name: Build all host targets
+        run: cargo run --manifest-path crates/pjsip-prebuilt/Cargo.toml -- build-all
+
+      - name: Verify all staged targets
+        run: cargo run --manifest-path crates/pjsip-prebuilt/Cargo.toml -- verify-all
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: refresh vendor/prebuilt (§62.37)"
+          file_pattern: vendor/prebuilt
