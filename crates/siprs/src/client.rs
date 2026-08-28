@@ -12,10 +12,10 @@ use tracing::instrument;
 use crate::api::audio_subscribe_bp::{
     tap_channel, validate_tap_capacity, AudioTapHandle, AudioTapMode, AudioTapSender,
 };
-use crate::audio::media_path_arch::ChannelSelector;
 use crate::api::event_bus_unify::raw_sip_capacity_for;
-use crate::api::event_model_payload_bus::{AccountId, EventMeta, SipEvent, SipEventPayload};
-use crate::api::eventbus_receiver::EventBus;
+use crate::api::event_model_payload_bus::{AccountId, EventMeta, RawSipMessage, SipEvent, SipEventPayload};
+use crate::api::eventbus_receiver::{AccountEventReceiver, EventBus, Subscription};
+use crate::audio::media_path_arch::ChannelSelector;
 use crate::call::HangupReason;
 use crate::config::account_config_spec::DtmfMethod;
 use crate::config::observability_metrics::ClientCapabilities;
@@ -27,7 +27,6 @@ use crate::runtime::command::{ReactorError, Reply, RuntimeCommand};
 use crate::runtime::handle::RuntimeHandle;
 use crate::runtime::reactor::{BootConfig, CoreReactor};
 use crate::state::call_state_model::CallState;
-use crate::state::registr_state_machine::RegistrationState;
 
 /// The top-level facade for the siprs SIP client.
 ///
@@ -84,7 +83,7 @@ impl fmt::Debug for SipClient {
     }
 }
 
-// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1, P15-2, P15-4, P15-6, P15-7, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1|P15-2|P15-4|P15-6|P15-7|P15-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-3, P0-4, P0-5, P1-2, P7-1, P7-2, P8-2, P9-2, P10-1, P10-3, P10-4, P10-6, P12-6, P12-1, P15-2, P15-4, P15-6, P15-7, P15-9, P16-3, P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P0-4|P0-5|P1-2|P7-1|P7-2|P8-2|P9-2|P10-1|P10-3|P10-4|P10-6|P12-6|P12-1|P15-2|P15-4|P15-6|P15-7|P15-9|P16-3|P17-9) --for-spec --no-implementation-order`.
 impl SipClient {
     /// Create a new SIP client with the given configuration.
     ///
@@ -109,10 +108,7 @@ impl SipClient {
         // is created only when RawSipEventConfig.enabled (default true) — the
         // capacity is `Some` exactly then. The bus must exist before the reactor
         // spawn because a clone is handed to the reactor via BootConfig.
-        let event_bus = EventBus::new(
-            config.event_bus_capacity,
-            raw_sip_capacity_for(&config),
-        );
+        let event_bus = EventBus::new(config.event_bus_capacity, raw_sip_capacity_for(&config));
         let event_rx = event_bus.subscribe_control();
 
         // [::TICKET::] P15-7: the shared subscribe_audio tap registry. A clone
@@ -186,34 +182,34 @@ impl SipClient {
 
     /// Subscribe to the control event bus for all SIP events.
     ///
-    /// Returns a `broadcast::Receiver<SipEvent>` that receives all published
-    /// events for this client. Use `subscribe_account()` to filter by account.
+    /// Returns a `Subscription<SipEvent>` that receives all published events
+    /// for this client. Use `subscribe_account()` to filter by account, and
+    /// `Subscription::unsubscribe()` to cancel explicitly (§62.29).
     #[instrument(skip(self))]
-    pub fn subscribe(&self) -> broadcast::Receiver<SipEvent> {
-        self.events.subscribe_control()
+    pub fn subscribe(&self) -> Subscription<SipEvent> {
+        Subscription::new(Box::new(self.events.subscribe_control()))
     }
 
     /// Subscribe to events filtered to a specific account.
     ///
-    /// Returns an `AccountEventReceiver` that only yields events matching
-    /// the given `account_id`.
+    /// Returns a `Subscription<SipEvent>` that only yields events matching the
+    /// given `account_id`; the account filter is preserved inside the handle.
     #[instrument(skip(self), fields(account_id = account_id.0))]
-    pub fn subscribe_account(
-        &self,
-        account_id: AccountId,
-    ) -> crate::api::eventbus_receiver::AccountEventReceiver {
-        crate::api::eventbus_receiver::AccountEventReceiver::new(
+    pub fn subscribe_account(&self, account_id: AccountId) -> Subscription<SipEvent> {
+        Subscription::new(Box::new(AccountEventReceiver::new(
             account_id,
             self.events.subscribe_control(),
-        )
+        )))
     }
 
     /// Subscribe to the raw SIP message bus, if enabled.
+    ///
+    /// Returns `None` if the raw SIP bus was not created.
     #[instrument(skip(self))]
-    pub fn subscribe_raw_sip(
-        &self,
-    ) -> Option<broadcast::Receiver<crate::api::event_model_payload_bus::RawSipMessage>> {
-        self.events.subscribe_raw_sip()
+    pub fn subscribe_raw_sip(&self) -> Option<Subscription<RawSipMessage>> {
+        self.events
+            .subscribe_raw_sip()
+            .map(|rx| Subscription::new(Box::new(rx)))
     }
 
     /// Query the authoritative list of accounts (C021 source of truth).
@@ -427,9 +423,7 @@ impl SipClient {
         self.runtime
             .submit_transfer(call_id.get().get(), target)
             .await
-            .map_err(|e| {
-                SipError::new(SipErrorKind::NativeError, format!("transfer failed: {e}"))
-            })
+            .map_err(|e| SipError::new(SipErrorKind::NativeError, format!("transfer failed: {e}")))
     }
 
     /// Send DTMF digits out-of-band (RFC §20).
@@ -586,18 +580,14 @@ impl SipClient {
 ///
 /// A missing call id surfaces as `CallNotFound`; a down reactor as `NativeError`.
 /// `NotInitialized` maps to its public counterpart.
-// [::TICKET::] P15-6, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P15-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-6, P15-9, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P15-9|P16-3) --for-spec --no-implementation-order`.
 fn map_call_state_query_error(e: ReactorError) -> SipError {
     match e {
         ReactorError::BackendError(_) => {
             SipError::new(SipErrorKind::CallNotFound, "call not found")
         }
-        ReactorError::ReactorDown => {
-            SipError::new(SipErrorKind::NativeError, "reactor is down")
-        }
-        ReactorError::NotInitialized(msg) => {
-            SipError::new(SipErrorKind::NotInitialized, msg)
-        }
+        ReactorError::ReactorDown => SipError::new(SipErrorKind::NativeError, "reactor is down"),
+        ReactorError::NotInitialized(msg) => SipError::new(SipErrorKind::NotInitialized, msg),
         ReactorError::NativeError {
             message,
             native_status,
@@ -610,16 +600,11 @@ fn map_call_state_query_error(e: ReactorError) -> SipError {
     }
 }
 
-// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-6, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P16-3) --for-spec --no-implementation-order`.
 fn account_snapshot_from_entry(
     entry: &crate::runtime::state::AccountEntry,
 ) -> Option<crate::api::event_model_payload_bus::AccountSnapshot> {
-    Some(crate::api::event_model_payload_bus::AccountSnapshot {
-        account_id: crate::model::AccountId::from_u64(entry.id).ok()?,
-        display_name: entry.config.display_name.clone(),
-        uri: format!("sip:{}@{}", entry.config.username, entry.config.domain),
-        registered: entry.registration == RegistrationState::Registered,
-    })
+    crate::state::reg_account_lifecycle::build_account_snapshot(entry)
 }
 
 // Safety: SipClient holds Arc<RuntimeHandle>, EventBus, and ClientConfig —
@@ -758,7 +743,7 @@ mod tests {
     // [::TICKET::] P15-8: §62.7 — SipClient::shutdown() publishes ClientShutdown
     // on the client bus (the reactor publishes before replying).
     async fn sip_client_shutdown_publishes_client_shutdown() {
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+        // [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await.unwrap();
         let mut subscribed = client.subscribe();
@@ -773,7 +758,10 @@ mod tests {
             "expected ClientShutdown, got {:?}",
             ev.payload
         );
-        assert!(client.is_terminated(), "client must be terminated after shutdown");
+        assert!(
+            client.is_terminated(),
+            "client must be terminated after shutdown"
+        );
     }
 
     // ── Error ───────────────────────────────────────────────────────
@@ -812,14 +800,14 @@ mod tests {
 
     #[test]
     // @verifies C002
-// [::TICKET::] P0-3, P6-1, P7-2, P10-1, P10-3, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1|P7-2|P10-1|P10-3|P15-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P6-1, P7-2, P10-1, P10-3, P15-6, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1|P7-2|P10-1|P10-3|P15-6|P16-3) --for-spec --no-implementation-order`.
     fn sip_client_is_send_and_sync() {
         // C002 invariant: SipClient must be Send + Sync for use with tokio tasks.
         // ABC O-001 closure: the Sync half was previously unenforced — a non-Sync
         // field (e.g. RefCell) would have passed every test.
-// [::TICKET::] P6-1, P7-2, P10-1, P10-3, P11-15, P15-2, P15-6, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P10-1|P10-3|P11-15|P15-2|P15-6|P15-9) --for-spec --no-implementation-order`.
+        // [::TICKET::] P6-1, P7-2, P10-1, P10-3, P11-15, P15-2, P15-6, P15-9, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P10-1|P10-3|P11-15|P15-2|P15-6|P15-9|P16-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P6-1, P6-2, P7-2, P10-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2|P7-2|P10-1|P15-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P6-1, P6-2, P7-2, P10-1, P15-2, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P6-2|P7-2|P10-1|P15-2|P16-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<SipClient>();
         assert_sync::<SipClient>();
@@ -925,8 +913,8 @@ mod tests {
     // @verifies C086
     // [::TICKET::] P15-6: answer rejects a non-§19.1 code fail-fast with
     // InvalidArgument (no dispatch — the validator runs before submit).
-    async fn sip_client_answer_rejects_invalid_code_fail_fast() -> Result<(), Box<dyn std::error::Error>>
-    {
+    async fn sip_client_answer_rejects_invalid_code_fail_fast(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let call_id = CallId::from_u64(1)?;
@@ -946,9 +934,21 @@ mod tests {
     // @verifies C086
     // [::TICKET::] P15-6: answer accepts every §19.1 code through the facade.
     async fn sip_client_answer_accepts_valid_codes() -> Result<(), Box<dyn std::error::Error>> {
+        // [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
-        let call_id = CallId::from_u64(1)?;
+        // P16-5 §62.14: answer resolves the owning account from a registered
+        // CallEntry, so a call must be placed before answering.
+        let account = client.add_account(valid_account_config()).await?;
+        let request = crate::api::call_types::OutgoingCallRequest {
+            target_uri: "sip:bob@example.com".into(),
+            headers: vec![],
+            auth_override: None,
+            preferred_transport: None,
+            media: crate::api::call_types::CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        };
+        let call_id = CallId::from_u64(account.make_call(request).await?)?;
 
         for code in [180u16, 183, 200, 486, 603] {
             client.answer(call_id, code).await?;
@@ -960,7 +960,9 @@ mod tests {
     // @verifies C074
     // [::TICKET::] P15-6: all six call-control commands are wired — the full
     // facade → runtime → reactor → TestBackend path completes with Ok.
-    async fn sip_client_call_control_commands_are_wired() -> Result<(), Box<dyn std::error::Error>> {
+    async fn sip_client_call_control_commands_are_wired() -> Result<(), Box<dyn std::error::Error>>
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+    {
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let call_id = CallId::from_u64(1)?;
@@ -968,21 +970,24 @@ mod tests {
         client.hangup(call_id, HangupReason::LocalUser).await?;
         client.hold(call_id).await?;
         client.unhold(call_id).await?;
-        client.transfer(call_id, "sip:bob@example.com".into()).await?;
-        client.send_dtmf(call_id, "5", DtmfMethod::Rfc2833).await?;
+        client
+            .transfer(call_id, "sip:bob@example.com".into())
+            .await?;
+        client.send_dtmf(call_id, "5", DtmfMethod::Rfc4733).await?;
         Ok(())
     }
 
     #[tokio::test]
     // @verifies C074
     // [::TICKET::] P15-6: send_dtmf rejects invalid digits fail-fast.
-    async fn sip_client_send_dtmf_rejects_invalid_digits() -> Result<(), Box<dyn std::error::Error>> {
+    async fn sip_client_send_dtmf_rejects_invalid_digits() -> Result<(), Box<dyn std::error::Error>>
+    {
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let call_id = CallId::from_u64(1)?;
 
         let err = client
-            .send_dtmf(call_id, "1x2", DtmfMethod::Rfc2833)
+            .send_dtmf(call_id, "1x2", DtmfMethod::Rfc4733)
             .await
             .unwrap_err();
         assert_eq!(err.kind, SipErrorKind::InvalidArgument);
@@ -1027,26 +1032,29 @@ mod tests {
             _: &Result<Vec<crate::api::event_model_payload_bus::AccountSnapshot>, SipError>,
         ) {
         }
-        // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-15, P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-15|P17-9) --for-spec --no-implementation-order`.
         fn assert_add_account_result(_: &Result<crate::account::SipAccountHandle, SipError>) {}
         // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_remove_account_result(_: &Result<(), SipError>) {}
         // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_account_result(_: &Result<crate::account::SipAccountHandle, SipError>) {}
-// [::TICKET::] P11-15, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-15|P15-6) --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15, P15-6, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-15|P15-6|P16-3) --for-spec --no-implementation-order`.
         fn assert_add_transport_result(_: &Result<(), SipError>) {}
-// [::TICKET::] P11-15, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-15|P15-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P15-6: the list query is now calls(); the per-call query is call_state(call_id).
-// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-15|P15-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P15-6: the list query is now calls(); the per-call query is call_state(call_id).
+        // [::TICKET::] P15-6, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P16-3) --for-spec --no-implementation-order`.
         fn assert_calls_result(_: &Result<Vec<crate::runtime::state::CallEntry>, SipError>) {}
-// [::TICKET::] P15-6, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P15-7) --for-spec --no-implementation-order`.
-        fn assert_call_state_result(_: &Result<crate::state::call_state_model::CallState, SipError>) {}
+        // [::TICKET::] P15-6, P15-7, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-6|P15-7|P16-3) --for-spec --no-implementation-order`.
+        fn assert_call_state_result(
+            _: &Result<crate::state::call_state_model::CallState, SipError>,
+        ) {
+        }
         // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_subscribe_audio_result(
             _: &Result<crate::api::audio_subscribe_bp::AudioTapHandle, SipError>,
         ) {
         }
-// [::TICKET::] P11-15, P15-2, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-15|P15-2|P15-6) --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15, P15-2, P15-6, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-15|P15-2|P15-6|P16-3) --for-spec --no-implementation-order`.
         fn assert_shutdown_result(_: &Result<(), SipError>) {}
         let config = ClientConfig::default();
         let new_result = SipClient::new(config).await;
@@ -1216,7 +1224,7 @@ mod tests {
 
     #[test]
     // @verifies C051
-// [::TICKET::] P0-3, P6-1, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1|P15-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-3, P6-1, P15-7, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-3|P6-1|P15-7|P16-3) --for-spec --no-implementation-order`.
     fn microphone_is_optional_feature() -> Result<(), std::io::Error> {
         // C051 invariant: Microphone is optional via cpal-input feature flag.
         // P15-7 (§62.6): cpal-input is a DEFAULT feature so the microphone
@@ -1232,7 +1240,10 @@ mod tests {
             .find(|l| l.trim().starts_with("default"))
             .map(|l| l.contains("cpal-input"))
             .unwrap_or(false);
-        assert!(has_default_mic, "cpal-input must be a default feature (§62.6)");
+        assert!(
+            has_default_mic,
+            "cpal-input must be a default feature (§62.6)"
+        );
         Ok(())
     }
 
@@ -1387,7 +1398,7 @@ mod tests {
 
     #[test]
     // @verifies C047
-// [::TICKET::] P8-2, P9-2, P10-1, P11-4, P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P9-2|P10-1|P11-4|P15-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P8-2, P9-2, P10-1, P11-4, P15-6, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-2|P9-2|P10-1|P11-4|P15-6|P16-3) --for-spec --no-implementation-order`.
     fn all_public_client_methods_are_instrumented() -> Result<(), std::io::Error> {
         // O-001 closure: C047 postcondition — tracing spans specified for all
         // public operations. This source-inspection test asserts every public
@@ -1521,8 +1532,8 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P15-7: SipClient::add_audio_source injects into the per-call
     // mixer and returns a source_id (§62.6 / C087).
-    async fn add_audio_source_injects_into_per_call_mixer(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn add_audio_source_injects_into_per_call_mixer() -> Result<(), Box<dyn std::error::Error>>
+    {
         let (client, _rx) = test_client().await?;
         let call_id = CallId::from_u64(1).unwrap();
         let source = Box::new(crate::runtime::audio_worker::MockAsyncAudioSource::new(
@@ -1541,8 +1552,8 @@ mod tests {
 
     #[tokio::test]
     // [::TICKET::] P15-7: add_audio_source with Both registers both paths (C087).
-    async fn add_audio_source_both_registers_in_and_out(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn add_audio_source_both_registers_in_and_out() -> Result<(), Box<dyn std::error::Error>>
+    {
         let (client, _rx) = test_client().await?;
         let call_id = CallId::from_u64(1).unwrap();
         let source = Box::new(crate::runtime::audio_worker::MockAsyncAudioSource::new(
@@ -1674,5 +1685,47 @@ mod tests {
         assert_eq!(state.transports[0].port, 5070);
         client.shutdown().await?;
         Ok(())
+    }
+
+    // ── P17-9 §62.29: Subscription unsubscribe + mic source docs (C135) ──
+
+    /// @verifies C135
+    #[test]
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn call_api_surface_compiles() {
+        // C135 precondition — the §62.5 call API surface exists on SipClient.
+        // Taking each async method as a value is a compile-time existence
+        // check; behavioral coverage lives in the P17-4..P17-8 tests.
+        // send_dtmf is generic over `impl Into<String>`, so it is exercised by
+        // the P17-7 DtmfSent integration tests rather than listed here.
+        let _ = SipClient::answer;
+        let _ = SipClient::hangup;
+        let _ = SipClient::hold;
+        let _ = SipClient::unhold;
+        let _ = SipClient::transfer;
+        let _ = SipClient::call_state;
+        let _ = SipClient::calls;
+    }
+
+    /// @verifies C135
+    #[test]
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn readme_documents_mic_source_and_unsubscribe() {
+        // C135 postcondition — the README documents the explicit unsubscribe
+        // API and states that open_default_microphone_source is an independent
+        // capture source distinct from the call microphone.
+        let readme = include_str!("../README.md");
+        assert!(
+            readme.contains("unsubscribe()"),
+            "README must document the explicit Subscription::unsubscribe() API"
+        );
+        assert!(
+            !readme.contains("unsubscribe API は存在しない"),
+            "README must no longer claim that an explicit unsubscribe API does not exist (P15-6 decision reversed by §62.29)"
+        );
+        assert!(
+            readme.contains("通話マイクではない独立キャプチャ"),
+            "README must state open_default_microphone_source is an independent capture source, not the call microphone"
+        );
     }
 }

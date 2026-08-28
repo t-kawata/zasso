@@ -11,32 +11,67 @@
 // `pjsua_call_get_info`, which exists as a deterministic stub in the default
 // build and as the real symbol under `pjsua-native`.
 
+#[cfg(feature = "pjsua-native")]
+use crate::api::dtmf_unification::{send_api_for, DtmfSendApi};
 use crate::ffi::bindings;
 #[cfg(feature = "pjsua-native")]
 use crate::ffi::pj_str::PjOwnedStr;
+#[cfg(feature = "pjsua-native")]
+use crate::model::dtmf_spec::DtmfMethod;
+#[cfg(feature = "pjsua-native")]
+use crate::runtime::command::ReactorError;
+#[cfg(feature = "pjsua-native")]
+use std::net::SocketAddr;
 
 /// Initialize the PJSUA stack: `pjsua_create` → `pjsua_init` → `pjsua_start`.
 ///
 /// Reads as prose: create the stack, install the pre-allocated NativeEvent queue
-/// and register every PJSIP callback into `pjsua_config.cb`, initialize with the
-/// callback-enabled config, then start. Returns the first non-success status, or
-/// `PJ_SUCCESS`.
+/// and register every PJSIP callback into `pjsua_config.cb`, reflect the
+/// `ClientConfig` STUN/TURN settings into the same config and the ICE settings
+/// into a real `pjsua_media_config`, initialize with both, then start. Returns
+/// the first non-success status, or `PJ_SUCCESS`.
 #[cfg(feature = "pjsua-native")]
-pub fn initialize() -> i32 {
+// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+pub fn initialize(config: &crate::config::ClientConfig) -> i32 {
     // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
     let create = unsafe { bindings::pjsua_create() };
     if create != bindings::PJ_SUCCESS {
         return create;
     }
     let queue = crossbeam_queue::ArrayQueue::new(crate::ffi::callback::NATIVE_EVENT_QUEUE_CAPACITY);
-    let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
-    crate::ffi::callback::register_callbacks(&mut config, queue);
-    // SAFETY: config is a valid, initialized pjsua_config carrying the callback
-    // registry; null log/media configs select PJSIP defaults.
+    let mut pjsua_cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
+    crate::ffi::callback::register_callbacks(&mut pjsua_cfg, queue);
+    // Reflect STUN/TURN into the config; the owned strings back the `pj_str_t`
+    // pointers and must stay alive through `pjsua_init` below (§62.17 / P16-8).
+    let owned = match crate::config::stun_turn_ice_wiring::apply_stun_turn(&mut pjsua_cfg, config) {
+        Ok(owned) => owned,
+        // A config-level wiring error (e.g. >8 STUN servers) is an invalid
+        // operation; the caller maps it to a NativeError via map_pjsua_status.
+        Err(_) => return bindings::PJ_EINVALIDOP,
+    };
+    let mut media_cfg: bindings::pjsua_media_config = unsafe { std::mem::zeroed() };
+    crate::config::stun_turn_ice_wiring::apply_ice(&mut media_cfg, &config.ice);
+    // SAFETY: pjsua_cfg is a valid, initialized pjsua_config carrying the
+    // callback registry and STUN/TURN fields whose strings are backed by
+    // `owned` (alive for this call); media_cfg is a valid, initialized
+    // pjsua_media_config carrying the ICE settings; null log config selects the
+    // PJSIP default.
     let init =
-        unsafe { bindings::pjsua_init(&mut config, std::ptr::null_mut(), std::ptr::null_mut()) };
+        unsafe { bindings::pjsua_init(&mut pjsua_cfg, std::ptr::null_mut(), &mut media_cfg) };
     if init != bindings::PJ_SUCCESS {
         return init;
+    }
+    // P17-2 §62.22: register the observation-only raw SIP module. The endpoint
+    // from pjsua_get_pjsip_endpt is valid only after pjsua_init; a registration
+    // failure aborts startup (no canned Ok — C111).
+    let endpt = unsafe { bindings::pjsua_get_pjsip_endpt() };
+    // SAFETY: endpt is the live endpoint from pjsua_get_pjsip_endpt after
+    // pjsua_init; the raw SIP module registers once per initialize.
+    if let Err(ReactorError::NativeError { native_status, .. }) =
+        unsafe { crate::ffi::raw_sip_module::register(endpt) }
+    {
+        return native_status;
     }
     unsafe { bindings::pjsua_start() }
 }
@@ -48,17 +83,44 @@ pub fn shutdown() -> i32 {
     unsafe { bindings::pjsua_destroy() }
 }
 
-/// Create a SIP transport with PJSIP defaults.
+/// Create a SIP transport of `kind` bound to `bind_addr`.
 ///
+/// Builds a real `pjsua_transport_config` (port + bound_addr) instead of passing
+/// a null config, so `ClientConfig.transports` reaches PJSIP (§62.11 / N0080).
 /// Returns `(status, transport_id)`.
 #[cfg(feature = "pjsua-native")]
-pub fn create_transport() -> (i32, i32) {
+pub fn transport_create(kind: i32, bind_addr: SocketAddr) -> (i32, i32) {
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    let mut cfg: bindings::pjsua_transport_config = unsafe { std::mem::zeroed() };
+    crate::ffi::transport_wiring::apply_transport_port(&mut cfg, bind_addr.port());
+    let bound_addr = crate::ffi::transport_wiring::resolve_bound_addr_string(bind_addr);
+    let bound_owned = PjOwnedStr::new(&bound_addr);
+    cfg.bound_addr = bound_owned.as_raw();
     let mut transport_id: bindings::pjsua_transport_id = 0;
-    // SAFETY: a null transport config selects PJSIP defaults; transport_id is a
-    // valid out-pointer written by the call.
-    let status =
-        unsafe { bindings::pjsua_transport_create(std::ptr::null_mut(), &mut transport_id) };
+    // SAFETY: cfg is a valid, initialized pjsua_transport_config carrying the
+    // resolved port and a live bound_addr string (bound_owned lives for this
+    // call); transport_id is a valid out-pointer written by the call.
+    let status = unsafe {
+        bindings::pjsua_transport_create(
+            kind as bindings::pjsip_transport_type_e,
+            &mut cfg,
+            &mut transport_id,
+        )
+    };
     (status, transport_id)
+}
+
+/// Close a SIP transport via `pjsua_transport_close`.
+///
+/// `force = 0` lets PJSIP drain the transport gracefully; the caller (the
+/// shutdown sequence §32 step 5) has already unregistered accounts and hung up
+/// calls so the transport is idle.
+#[cfg(feature = "pjsua-native")]
+pub fn close_transport(transport_id: i32) -> i32 {
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+    // SAFETY: transport_id is a valid pjsua_transport_id; force = 0 (pj_bool_t)
+    // requests a graceful close.
+    unsafe { bindings::pjsua_transport_close(transport_id, 0) }
 }
 
 /// Register a SIP account from the domain `AccountConfig`.
@@ -189,14 +251,61 @@ pub fn hangup_call(native_call_id: i32) -> i32 {
     unsafe { bindings::pjsua_call_hangup(native_call_id, 0, std::ptr::null(), std::ptr::null()) }
 }
 
-/// Send DTMF digits via `pjsua_call_send_dtmf`.
+/// Send DTMF digits, dispatching on the method (§62.15 Q5).
+///
+/// `Info` / `Rfc4733` go through `pjsua_call_send_dtmf` with the correct
+/// `pjsua_call_send_dtmf_param`; `Inband` goes through `pjsua_call_dial_dtmf`.
+/// The dispatch decision lives in `send_api_for` so the mapping is unit-tested
+/// without `pjsua-native`.
 #[cfg(feature = "pjsua-native")]
-pub fn send_dtmf(native_call_id: i32, digits: &str) -> i32 {
+pub fn send_dtmf(native_call_id: i32, method: DtmfMethod, digits: &str) -> i32 {
+    match send_api_for(method) {
+        DtmfSendApi::DialDtmf => dial_dtmf(native_call_id, digits),
+        DtmfSendApi::SendDtmf => send_dtmf_with_param(native_call_id, method, digits),
+    }
+}
+
+/// Send DTMF as an RFC 2833 payload via `pjsua_call_dial_dtmf`.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+fn dial_dtmf(native_call_id: i32, digits: &str) -> i32 {
     let digits_owned = PjOwnedStr::new(digits);
     let raw = digits_owned.as_raw();
     // SAFETY: raw points to digits_owned's live buffer for the call.
-    unsafe { bindings::pjsua_call_send_dtmf(native_call_id, &raw) }
+    unsafe { bindings::pjsua_call_dial_dtmf(native_call_id, &raw) }
 }
+
+/// Send DTMF via `pjsua_call_send_dtmf` with the method selected in `param`.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+fn send_dtmf_with_param(native_call_id: i32, method: DtmfMethod, digits: &str) -> i32 {
+    let digits_owned = PjOwnedStr::new(digits);
+    let param = bindings::pjsua_call_send_dtmf_param {
+        method: native_dtmf_method(method),
+        duration: DTMF_DURATION_DEFAULT_MS,
+        digits: digits_owned.as_raw(),
+    };
+    // SAFETY: param.digits references digits_owned's live buffer for the call.
+    unsafe { bindings::pjsua_call_send_dtmf(native_call_id, &param) }
+}
+
+/// Map a unified `DtmfMethod` to the PJSIP `pjsua_dtmf_method` enum.
+///
+/// Only `Info` and `Rfc4733` reach here — `send_api_for` routes `Inband` to
+/// `dial_dtmf`, so the `Inband` arm is unreachable by construction.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+fn native_dtmf_method(method: DtmfMethod) -> bindings::pjsua_dtmf_method {
+    match method {
+        DtmfMethod::Info => bindings::pjsua_dtmf_method_PJSUA_DTMF_METHOD_SIP_INFO,
+        DtmfMethod::Rfc4733 => bindings::pjsua_dtmf_method_PJSUA_DTMF_METHOD_RFC2833,
+        DtmfMethod::Inband => unreachable!("send_api_for routes Inband to pjsua_call_dial_dtmf"),
+    }
+}
+
+/// `PJSUA_CALL_SEND_DTMF_DURATION_DEFAULT` — not emitted by bindgen.
+#[cfg(feature = "pjsua-native")]
+const DTMF_DURATION_DEFAULT_MS: u32 = 160;
 
 /// Transfer a call via `pjsua_call_xfer`.
 #[cfg(feature = "pjsua-native")]
@@ -292,8 +401,53 @@ pub fn get_account_info(native_acc_id: u32) -> (i32, u32, bool, String) {
     )
 }
 
-/// Connect a call's media to the conference bridge via `pjsua_conf_connect`.
+/// Register a custom media port (`pjmedia_port`) into the conference bridge.
+///
+/// Available in both modes: the real bindgen symbol under `pjsua-native`, the
+/// deterministic stub (writes a slot, returns `PJ_SUCCESS`) otherwise — so the
+/// default build can exercise the registration loop (PX-3 / C119).
+///
+/// `slot` receives the assigned conference slot on success.
+///
+/// `pub(crate)` keeps this FFI plumbing out of the exported API — the C038
+/// isolation rule requires `src/runtime` to stay `unsafe`-free, and clippy's
+/// `not_unsafe_ptr_arg_deref` only guards exported functions, so the raw
+/// pointers stay encapsulated here behind the safe wrapper.
+///
+/// Compiled only where its caller (`register_media_ports_for_calls`) exists —
+/// the default lib build has no conf-bridge registration loop.
+#[cfg(any(test, feature = "pjsua-native"))]
+pub(crate) fn conf_add_port(
+    pool: *mut std::ffi::c_void,
+    port: *mut bindings::pjmedia_port,
+    slot: &mut bindings::pjsua_conf_port_id,
+) -> i32 {
+    // SAFETY: pool/port/slot point to valid FFI structures for the call duration;
+    // the caller owns the pool and the port lifetime. The stub mode tolerates
+    // null pool/port (it never dereferences them).
+    unsafe { bindings::pjsua_conf_add_port(pool, port, slot) }
+}
+
+/// Resolve a call's conference slot via `pjsua_call_get_conf_port`.
+///
+/// Available in both modes: the real bindgen symbol under `pjsua-native`, the
+/// deterministic stub (echoes the call id) otherwise (PX-3 / C119).
+pub fn call_conf_port(call_id: i32) -> i32 {
+    // SAFETY: call_id is a valid pjsua_call_id.
+    unsafe { bindings::pjsua_call_get_conf_port(call_id) }
+}
+
+/// Create a PJSIP memory pool for conf-bridge registration.
+///
+/// `pjsua_conf_add_port` requires a non-NULL `pj_pool_t`; the pool backs the
+/// bridge's per-port allocation and must outlive the registered ports.
 #[cfg(feature = "pjsua-native")]
+pub fn create_conf_pool() -> *mut std::ffi::c_void {
+    // SAFETY: the name literal is a valid NUL-terminated C string for the call.
+    unsafe { bindings::pjsua_pool_create(c"siprs-conf-bridge".as_ptr(), 512, 512) }
+}
+
+/// Connect a call's media to the conference bridge via `pjsua_conf_connect`.
 pub fn conf_connect(source: i32, sink: i32) -> i32 {
     // SAFETY: source and sink are valid pjsua_conf_port_id values.
     unsafe { bindings::pjsua_conf_connect(source, sink) }
@@ -304,4 +458,47 @@ pub fn conf_connect(source: i32, sink: i32) -> i32 {
 pub fn conf_disconnect(source: i32, sink: i32) -> i32 {
     // SAFETY: source and sink are valid pjsua_conf_port_id values.
     unsafe { bindings::pjsua_conf_disconnect(source, sink) }
+}
+
+#[cfg(all(test, not(feature = "pjsua-native")))]
+mod tests {
+    use super::*;
+
+    #[test]
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn conf_add_port_wrapper_delegates_to_stub() {
+        let mut slot: bindings::pjsua_conf_port_id = -1;
+        let status = conf_add_port(
+            std::ptr::null_mut::<std::ffi::c_void>(),
+            std::ptr::null_mut::<bindings::pjmedia_port>(),
+            &mut slot,
+        );
+        assert_eq!(
+            status,
+            bindings::PJ_SUCCESS,
+            "wrapper must route to the stub"
+        );
+        assert!(slot >= 0, "stub must write a non-negative conf slot");
+    }
+
+    #[test]
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn call_conf_port_wrapper_delegates_to_stub() {
+        let slot = call_conf_port(12);
+        assert_eq!(
+            slot, 12,
+            "wrapper must route to the stub which echoes call_id"
+        );
+    }
+
+    #[test]
+    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    fn conf_connect_wrapper_returns_success_in_default_build() {
+        let status = conf_connect(1, 2);
+        assert_eq!(
+            status,
+            bindings::PJ_SUCCESS,
+            "default build stub must accept connects"
+        );
+    }
 }

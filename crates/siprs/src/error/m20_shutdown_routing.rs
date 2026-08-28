@@ -128,7 +128,7 @@ mod tests {
     /// Helper to build a non-M20 command (e.g., Hangup) for testing.
     // [::TICKET::] P1-1, P10-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-1|P10-4) --for-spec --no-implementation-order`.
     // [::TICKET::] P15-6: RuntimeCommand::Hangup now carries a reason field.
-// [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-6 --for-spec --no-implementation-order`.
     fn make_other_command() -> RuntimeCommand {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         RuntimeCommand::Hangup {

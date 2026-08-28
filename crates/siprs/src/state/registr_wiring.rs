@@ -122,14 +122,14 @@ mod tests {
     use crate::runtime::backend::TestBackend;
     use crate::runtime::state::AccountEntry;
 
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
     fn test_account(value: u64) -> AccountId {
         AccountId::from_u64(value).unwrap_or_else(|error| {
             panic!("test AccountId requires a non-zero value, got {value}: {error}")
         })
     }
 
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
     fn account_with_registration(
         acc_id: u32,
         state: RegistrationState,
@@ -149,7 +149,7 @@ mod tests {
     /// A native 200 event drives Registering → Registered, updates ClientState,
     /// and yields SipEventPayload::RegistrationStateChanged(Registered).
     #[test]
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
     fn registration_state_changed_drives_registering_to_registered(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::new();
@@ -175,7 +175,7 @@ mod tests {
     /// A success event for a Disabled account is an invalid §17.1 edge — no event
     /// is produced and ClientState stays Disabled (never jumps to Registered).
     #[test]
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
     fn registration_state_changed_ignores_invalid_disabled_edge(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::new();
@@ -197,7 +197,7 @@ mod tests {
     /// The SetRegistration command edge advances ClientState to Registering, and
     /// a spurious re-enable while already Registering is ignored.
     #[test]
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
     fn set_registration_command_edge_advances_client_state() {
         let mut state = ClientState::default();
         let aid = test_account(1);
@@ -212,7 +212,10 @@ mod tests {
         );
 
         apply_registration_command_state(&mut state, aid, true);
-        assert_eq!(state.accounts[&aid].registration, RegistrationState::Registering);
+        assert_eq!(
+            state.accounts[&aid].registration,
+            RegistrationState::Registering
+        );
 
         // Advance to Registered (as if a native 200 arrived), then disable —
         // Registered → Unregistering is the §17.1 edge the command drives.
@@ -220,6 +223,9 @@ mod tests {
             entry.registration = RegistrationState::Registered;
         }
         apply_registration_command_state(&mut state, aid, false);
-        assert_eq!(state.accounts[&aid].registration, RegistrationState::Unregistering);
+        assert_eq!(
+            state.accounts[&aid].registration,
+            RegistrationState::Unregistering
+        );
     }
 }

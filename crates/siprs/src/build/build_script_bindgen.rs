@@ -22,7 +22,11 @@ pub const BINDINGS_OUTPUT: &str = "bindings.rs";
 ///
 /// Covers the current stub surface: `src/ffi/bindings.rs` type aliases plus the
 /// struct/typedefs those aliases depend on (`pj_str_t`, `pjsua_call_info`).
+// [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
 pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     "pjsua_acc_id",
     "pjsua_call_id",
     "pjsua_conf_port_id",
@@ -40,6 +44,9 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     "pjsua_cred_info",
     "pjsua_acc_info",
     "pjsua_transport_config",
+    // P16-2: the transport kind enum — `pjsua_transport_create` takes it as the
+    // first argument and the `PJSIP_TRANSPORT_*` values are allowlisted below.
+    "pjsip_transport_type_e",
     "pjsua_call_setting",
     "pjsua_msg_data",
     "pjsip_media_type",
@@ -56,6 +63,42 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     "pjsip_transaction",
     "pjsua_reg_info",
     "pjsip_redirect_op",
+    // P17-3 §62.23: P1/P2 callback types — on_transport_state reads the
+    // transport id; the transport-state enum and info/result structs appear in
+    // the P1/P2 callback signatures.
+    "pjsip_transport",
+    "pjsip_transport_state",
+    "pjsip_transport_state_info",
+    "pj_stun_nat_detect_result",
+    // P17-2 §62.22: raw SIP capture module — the pjsip_module extension point
+    // and the opaque endpoint / tx_data types its registration references.
+    "pjsip_module",
+    "pjsip_endpoint",
+    "pjsip_tx_data",
+    // P16-7 §62.16: the custom media port (RustMediaPort) and the frame/format
+    // types its get_frame / put_frame callbacks exchange with the conf bridge.
+    "pjmedia_port",
+    "pjmedia_port_info",
+    "pjmedia_frame",
+    "pjmedia_format",
+    "pjmedia_dir",
+    "pjmedia_port_op",
+    "pjmedia_frame_type",
+    "pj_timestamp",
+    "pj_pool_t",
+    "pj_grp_lock_t",
+    "pjsua_conf_port_info",
+    // P16-8 §62.17: STUN/TURN/ICE wiring — the pjsua_config STUN/TURN members
+    // and the pjsua_media_config ICE members the wiring reflects into.
+    "pjsua_media_config",
+    "pjsua_turn_config",
+    "pjsua_turn_config_use",
+    "pj_ice_sess_options",
+    "pj_stun_auth_cred",
+    "pj_stun_auth_cred_static",
+    "pj_stun_auth_cred_type",
+    "pj_stun_passwd_type",
+    "pj_turn_tp_type",
 ];
 
 /// Fixed allowlist of PJSIP calls siprs references.
@@ -63,6 +106,9 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
 /// `pjsua_call_get_info` anchors the call-info surface; P11-10 adds the
 /// PjsuaBackend FFI symbols it drives.
 pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     "pjsua_call_get_info",
     "pjsua_enum_codecs",
     "pjsua_create",
@@ -70,6 +116,9 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
     "pjsua_start",
     "pjsua_destroy",
     "pjsua_transport_create",
+    // P16-2: transport teardown — pjsua_transport_close destroys a transport at
+    // shutdown (§32 step 5).
+    "pjsua_transport_close",
     "pjsua_acc_add",
     "pjsua_acc_del",
     "pjsua_acc_modify",
@@ -79,15 +128,34 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
     "pjsua_call_answer",
     "pjsua_call_hangup",
     "pjsua_call_send_dtmf",
+    // P16-6: pjsua_call_dial_dtmf sends DTMF as an RFC 2833 payload (Inband).
+    "pjsua_call_dial_dtmf",
     "pjsua_call_xfer",
     "pjsua_codec_set_priority",
     "pjsua_conf_connect",
     "pjsua_conf_disconnect",
+    // P16-7 §62.16: the RustMediaPort (custom pjmedia_port) is registered into
+    // the conf bridge via pjsua_conf_add_port (vendored PJSIP has no
+    // pjsua_conf_set_callback). pjsua_call_get_conf_port resolves the call's
+    // conf slot for the media wiring.
+    "pjsua_conf_add_port",
+    "pjsua_conf_remove_port",
+    "pjsua_conf_get_active_ports",
+    "pjsua_call_get_conf_port",
+    // PX-3 §39/§62.16: pjsua_conf_add_port requires a non-NULL pj_pool_t
+    // (PJ_ASSERT_RETURN(conf && pool && strm_port, PJ_EINVAL)), so the native
+    // build must expose pjsua_pool_create to obtain the pool for registration.
+    "pjsua_pool_create",
     // P11-11: hold/unhold FFI — pjsua_call_set_hold puts a call on hold and
     // pjsua_call_reinvite (default options) resumes the media on unhold.
     // pjsua_call_set_inactive does NOT exist in the vendored pjsua.h.
     "pjsua_call_set_hold",
     "pjsua_call_reinvite",
+    // P17-2 §62.22: raw SIP module registration — pjsua_get_pjsip_endpt returns
+    // the endpoint after pjsua_init; pjsip_endpt_register_module registers the
+    // observation-only module.
+    "pjsip_endpt_register_module",
+    "pjsua_get_pjsip_endpt",
 ];
 
 /// Fixed allowlist of PJSIP constants siprs references.
@@ -96,18 +164,29 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
 /// PJ_EUNKNOWN, `PJSUA_CALL_*`, `PJSUA_REG_STATE_*`). P11-9 replaces the
 /// hand-coded duplicates in error/state modules from this generated set.
 pub const BINDGEN_ALLOWLIST_VARS: &[&str] = &[
+    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
     "PJ_SUCCESS",
     "PJ_EUNKNOWN",
     // P11-9: pj_status_t error codes consumed by the error/state mapping.
     "PJ_ENOMEM",
     "PJ_EINVALIDOP",
     "PJ_EBUSY",
+    // P16-2: pjsip_transport_type_e enumerators — the transport-kind constants
+    // the wiring maps `TransportKind` into before calling pjsua_transport_create.
+    "PJSIP_TRANSPORT_UDP",
+    "PJSIP_TRANSPORT_TCP",
+    "PJSIP_TRANSPORT_TLS",
     // P11-9: pjsip_inv_state enumerators (bindgen consts-style strips the prefix).
     "PJSIP_INV_STATE_NULL",
     "PJSIP_INV_STATE_CALLING",
     "PJSIP_INV_STATE_CONNECTING",
     "PJSIP_INV_STATE_CONFIRMED",
     "PJSIP_INV_STATE_DISCONNECTED",
+    // PX-3 §39/§62.16: pjmedia constants the RustMediaPort adapter uses to build
+    // a pjmedia_port_info.fmt (PCM, audio type, audio detail) for conf_add_port.
+    "PJMEDIA_FORMAT_PCM",
+    "PJMEDIA_TYPE_AUDIO",
+    "PJMEDIA_FORMAT_DETAIL_AUDIO",
     // P11-9: pjsua_call_media_status enumerators.
     "PJSUA_CALL_MEDIA_NONE",
     "PJSUA_CALL_MEDIA_ACTIVE",
@@ -127,6 +206,21 @@ pub const BINDGEN_ALLOWLIST_VARS: &[&str] = &[
     "PJSUA_REG_STATE_FAILED",
     // P11-10: plain-password credential data type used by add_account/update_account.
     "PJ_CRED_DATA_PLAIN_PASSWD",
+    // P16-8 §62.17: TURN connection-type constants and config-selector / auth
+    // constants the STUN/TURN wiring references.
+    "PJ_TURN_TP_UDP",
+    "PJ_TURN_TP_TCP",
+    "PJ_TURN_TP_TLS",
+    "PJSUA_TURN_CONFIG_USE_DEFAULT",
+    "PJSUA_TURN_CONFIG_USE_CUSTOM",
+    "PJ_STUN_AUTH_CRED_STATIC",
+    "PJ_STUN_PASSWD_PLAIN",
+    // P17-2 §62.22: pjsip_module priority / packet-length boundary constants,
+    // plus the pj_bool_t truth values the observation-only handlers return.
+    "PJSIP_MOD_PRIORITY_APPLICATION",
+    "PJSIP_MAX_PKT_LEN",
+    "PJ_TRUE",
+    "PJ_FALSE",
 ];
 
 /// Resolves the PJSIP header root per RFC §28.1 search order:
@@ -282,6 +376,44 @@ mod tests {
         assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_CONFIRMED"));
     }
 
+    #[test]
+    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    fn allowlist_covers_stun_turn_ice_surface() {
+        // P16-8 §62.17: every STUN/TURN/ICE type and constant the wiring
+        // references must be bindgen-allowlisted so the generated bindings
+        // expose them under pjsua-native.
+        for ty in [
+            "pjsua_media_config",
+            "pjsua_turn_config",
+            "pjsua_turn_config_use",
+            "pj_ice_sess_options",
+            "pj_stun_auth_cred",
+            "pj_stun_auth_cred_static",
+            "pj_stun_auth_cred_type",
+            "pj_stun_passwd_type",
+            "pj_turn_tp_type",
+        ] {
+            assert!(
+                BINDGEN_ALLOWLIST_TYPES.contains(&ty),
+                "BINDGEN_ALLOWLIST_TYPES must include {ty}"
+            );
+        }
+        for sym in [
+            "PJ_TURN_TP_UDP",
+            "PJ_TURN_TP_TCP",
+            "PJ_TURN_TP_TLS",
+            "PJSUA_TURN_CONFIG_USE_DEFAULT",
+            "PJSUA_TURN_CONFIG_USE_CUSTOM",
+            "PJ_STUN_AUTH_CRED_STATIC",
+            "PJ_STUN_PASSWD_PLAIN",
+        ] {
+            assert!(
+                BINDGEN_ALLOWLIST_VARS.contains(&sym),
+                "BINDGEN_ALLOWLIST_VARS must include {sym}"
+            );
+        }
+    }
+
     // [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.
     #[test]
     // [::TICKET::] P11-9, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11|P12-7) --for-spec --no-implementation-order`.
@@ -308,7 +440,7 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11, P16-6, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P16-6|PX-3) --for-spec --no-implementation-order`.
     fn allowlist_covers_p11_11_callback_bridge_surface() {
         // Every callback-bridge type and hold/unhold symbol register_callbacks /
         // PjsuaBackend reference must be bindgen-allowlisted so the generated
@@ -328,7 +460,13 @@ mod tests {
                 "BINDGEN_ALLOWLIST_TYPES must include {ty}"
             );
         }
-        for sym in ["pjsua_call_set_hold", "pjsua_call_reinvite"] {
+        for sym in [
+            "pjsua_call_set_hold",
+            "pjsua_call_reinvite",
+            // P16-6: both DTMF send entry points (§62.15 Q5) must be generated.
+            "pjsua_call_send_dtmf",
+            "pjsua_call_dial_dtmf",
+        ] {
             assert!(
                 BINDGEN_ALLOWLIST_FUNCTIONS.contains(&sym),
                 "BINDGEN_ALLOWLIST_FUNCTIONS must include {sym}"
@@ -350,6 +488,19 @@ mod tests {
         all.dedup();
         assert_eq!(all.len(), total_count, "allowlist must be duplicate-free");
         assert!(!all.is_empty(), "allowlist must not be empty");
+    }
+
+    /// @verifies C123
+    #[test]
+    // [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+    fn allowlist_includes_raw_sip_module_symbols() {
+        // Precondition: the raw SIP module's FFI surface is covered by the fixed allowlist.
+        assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsip_module"));
+        assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsip_endpoint"));
+        assert!(BINDGEN_ALLOWLIST_FUNCTIONS.contains(&"pjsip_endpt_register_module"));
+        assert!(BINDGEN_ALLOWLIST_FUNCTIONS.contains(&"pjsua_get_pjsip_endpt"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_MOD_PRIORITY_APPLICATION"));
+        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_MAX_PKT_LEN"));
     }
 
     #[test]

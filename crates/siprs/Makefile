@@ -1,4 +1,4 @@
-.PHONY: list-tickets list-active-tickets build test push push-branch
+.PHONY: list-tickets list-active-tickets build test test-integration push push-branch
 
 list-tickets:
 	node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json
@@ -18,6 +18,15 @@ build:
 # pjsua-native (RFC §62.2).
 test:
 	cargo test --features test-util
+
+# [::TICKET::] P16-10: real-SIP integration tests against docker Asterisk/
+# coturn (§62.19 Q9b). Brings the services up, runs the pjsua-native-gated
+# suite (tests/sip_integration.rs), and always tears the stack down — the
+# trap guarantees `docker compose down` even when the tests fail.
+test-integration:
+	docker compose up -d
+	@trap 'docker compose down' EXIT; \
+	cargo test --features pjsua-native --test sip_integration
 
 # ═══════════════════════════════════════════════
 #  commit / push（親 Makefile へ透過委譲）
@@ -45,3 +54,8 @@ crimes:
 
 sections:
 	node .claude/scripts/crystalize-readme/list-sections.js
+
+crystalized-rate:
+	A=$$(cat README.md | grep "\-RESIDUE::>" | wc -l); \
+	B=$$(cat README.md | grep "^# " | wc -l); \
+	awk -v a="$$A" -v b="$$B" 'BEGIN{printf "===========\n-> %.2f %%\n===========\n", ((b-1-a)/(b-1))*100}'

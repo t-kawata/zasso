@@ -44,8 +44,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         CallOutcome::Connected => {
             writeln!(std::io::stdout(), "call connected")?;
         }
-        CallOutcome::Rejected(code, reason) => {
-            return Err(format!("call rejected: {code} {reason}").into());
+        // P16-5 §62.14: reject (486/603) is observed as CallDisconnected — the
+        // CallRejected variant was removed.
+        CallOutcome::Disconnected => {
+            return Err("call disconnected before connecting".into());
         }
     }
     client.shutdown().await?;
@@ -84,16 +86,17 @@ fn build_call_request(
 }
 
 /// The observable result of an outgoing call attempt.
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-1, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-1|P16-5) --for-spec --no-implementation-order`.
 enum CallOutcome {
     Connected,
-    Rejected(u16, String),
+    Disconnected,
 }
 
 /// Await the call outcome, printing the ringing signal and skipping unrelated
 /// events.
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
 async fn await_call_events(
-    events: &mut siprs::AccountEventReceiver,
+    events: &mut siprs::Subscription<siprs::SipEvent>,
 ) -> Result<CallOutcome, Box<dyn std::error::Error>> {
     loop {
         match events.recv().await {
@@ -102,12 +105,8 @@ async fn await_call_events(
                     writeln!(std::io::stdout(), "ringing")?;
                 }
                 SipEventPayload::CallConnected(_) => return Ok(CallOutcome::Connected),
-                SipEventPayload::CallRejected(rejection) => {
-                    return Ok(CallOutcome::Rejected(
-                        rejection.status_code,
-                        rejection.reason,
-                    ));
-                }
+                // P16-5 §62.14: reject (486/603) is observed as CallDisconnected.
+                SipEventPayload::CallDisconnected => return Ok(CallOutcome::Disconnected),
                 _ => {}
             },
             Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,

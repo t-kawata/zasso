@@ -24,9 +24,11 @@
 // [::TICKET::] P0-5: NativeEvent enum + conversion to SipEventPayload
 
 use crate::api::event_model_payload_bus::{
-    AccountId, CallId, DtmfReceivedInfo, IncomingCallInfo, RegistrationInfo, SipEventPayload,
+    AccountId, CallId, DtmfReceivedInfo, IceFailureInfo, IncomingCallInfo, RegistrationInfo,
+    SipEventPayload, TransportConnectedInfo, TransportDisconnectedInfo, TransportErrorInfo,
 };
 use crate::config::account_config_spec::DtmfMethod;
+use crate::ffi::bindings::pjsip_transport_state;
 
 // ── NativeEvent ─────────────────────────────────────────────────────────
 
@@ -37,12 +39,12 @@ use crate::config::account_config_spec::DtmfMethod;
 ///
 /// # Priority levels
 /// - **P0** (implemented): Registration, Call, DTMF
-/// - **P1** (future): Transport, ICE
-/// - **P2** (future): CallTsx, CallRedirected, CallTransferStatus, CallReplaced, NatDetected
+/// - **P1** (implemented, P16-4 §62.13): Transport, ICE
+/// - **P2** (implemented, P16-4 §62.13): CallTsx, CallRedirected, CallTransferStatus, CallReplaced, NatDetected
 ///
-/// P1/P2 variants are declared but `convert_native_event_to_payload` returns
-/// `None` for them, deferring implementation to later tickets.
+/// P1/P2 variants convert to `Some(SipEventPayload)` since P16-4 §62.13.
 #[derive(Debug, Clone, PartialEq, Eq)]
+// [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
 pub enum NativeEvent {
     // ── P0: Registration ──
     RegistrationStateChanged {
@@ -68,6 +70,8 @@ pub enum NativeEvent {
     },
     CallMediaStateChanged {
         call_id: u32,
+        /// pjsua_call_media_status value resolved by the FFI callback (C110).
+        status: u32,
     },
 
     // ── P0: DTMF ──
@@ -76,7 +80,7 @@ pub enum NativeEvent {
         digit: char,
     },
 
-    // ── P1: Transport/ICE (deferred) ──
+    // ── P1: Transport/ICE (P16-4 §62.13 Some() 化) ──
     TransportStateChanged {
         transport_id: u32,
         state: u32,
@@ -85,7 +89,7 @@ pub enum NativeEvent {
         call_id: u32,
     },
 
-    // ── P2: Supplemental (deferred) ──
+    // ── P2: Supplemental (P16-4 §62.13 Some() 化) ──
     CallTsxStateChanged {
         call_id: u32,
     },
@@ -103,13 +107,11 @@ pub enum NativeEvent {
 
 /// Convert a `NativeEvent` to a `SipEventPayload`.
 ///
-/// P0 variants produce `Some(SipEventPayload)`.
-/// P1/P2 variants produce `None` with documented rationale.
-///
-/// RegistrationStateChanged follows a special pattern: it issues a
-/// `RuntimeCommand::GetAccountInfo` to query registration status.
-/// The actual event publication happens after the backend responds.
-/// RegistrationStateChanged yields `None` here — the
+/// P0/P1/P2 variants produce `Some(SipEventPayload)` (P1/P2 since P16-4
+/// §62.13). The sole exception is `RegistrationStateChanged`, which follows a
+/// special pattern: it issues a `RuntimeCommand::GetAccountInfo` to query
+/// registration status. The actual event publication happens after the
+/// backend responds. `RegistrationStateChanged` yields `None` here — the
 /// caller (Reactor) must handle the GetAccountInfo flow.
 ///
 /// # Arguments
@@ -118,6 +120,7 @@ pub enum NativeEvent {
 ///   from the call's `CallEntry`. Used by `CallStateChanged`/`CONFIRMED` so
 ///   `CallConnected` carries the real account; `None` for events that carry
 ///   their own `acc_id` (Registration) or that need no account.
+// [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
 pub fn convert_native_event_to_payload(
     event: NativeEvent,
     call_account_id: Option<AccountId>,
@@ -156,16 +159,12 @@ pub fn convert_native_event_to_payload(
             let cid = CallId::from_u64(call_id as u64).ok()?;
             crate::state::m20_callstate_mapping::convert_call_state(cid, call_account_id, state)
         }
-        NativeEvent::CallMediaStateChanged { call_id } => {
+        NativeEvent::CallMediaStateChanged { call_id, status } => {
             let cid = CallId::from_u64(call_id as u64).ok()?;
-            // media_status always comes from pjsua_call_get_info (C110) — the
-            // stub build reports NONE, the pjsua-native build reports the real
-            // call media status. On an FFI failure fall back to ERROR so the
-            // event bus surfaces MediaError rather than a canned success.
-            let media_status = crate::ffi::bindings::resolve_call_media_status(call_id as i32)
-                .unwrap_or(crate::ffi::bindings::pjsua_call_media_status::ERROR);
-            crate::state::m20_callstate_mapping::convert_call_media_state(cid, media_status)
-            // [::TICKET::] P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P5-2 --for-spec --no-implementation-order`.
+            // The status is resolved by the FFI callback (C110) and carried on
+            // the event; the converter maps it without re-querying the backend
+            // so tests can inject deterministic status values.
+            crate::state::m20_callstate_mapping::convert_call_media_state(cid, status)
         }
 
         // ── P0: DTMF ──
@@ -180,26 +179,72 @@ pub fn convert_native_event_to_payload(
             }))
         }
 
-        // ── P1: Transport/ICE (deferred — returns None) ──
-        NativeEvent::TransportStateChanged { .. } | NativeEvent::IceTransportError { .. } => {
-            // P1: Transport/ICE events — deferred to later ticket.
-            // Rationale: Transport monitoring is not required for audio-only calls.
-            None
+        // ── P1: Transport/ICE (P16-4 §62.13 Some() 化) ──
+        NativeEvent::TransportStateChanged {
+            transport_id,
+            state,
+        } => {
+            let (transport_type, local_addr) = resolve_transport_context(transport_id);
+            match state {
+                pjsip_transport_state::CONNECTED => Some(SipEventPayload::TransportConnected(
+                    TransportConnectedInfo {
+                        transport_type,
+                        local_addr,
+                        remote_addr: None,
+                    },
+                )),
+                pjsip_transport_state::DISCONNECTED | pjsip_transport_state::SHUTDOWN => Some(
+                    SipEventPayload::TransportDisconnected(TransportDisconnectedInfo {
+                        transport_type,
+                        local_addr,
+                    }),
+                ),
+                other_state => Some(SipEventPayload::TransportError(TransportErrorInfo {
+                    transport_type,
+                    local_addr,
+                    reason: format!("transport state {other_state}"),
+                })),
+            }
+        }
+        NativeEvent::IceTransportError { call_id } => {
+            let cid = CallId::from_u64(call_id as u64).ok()?;
+            Some(SipEventPayload::IceNegotiationFailed(IceFailureInfo {
+                call_id: cid,
+                reason: String::new(),
+            }))
         }
 
-        // ── P2: Supplemental (deferred — returns None) ──
-        NativeEvent::CallTsxStateChanged { .. }
-        | NativeEvent::CallRedirected { .. }
-        | NativeEvent::CallTransferStatus { .. }
-        | NativeEvent::CallReplaced { .. }
-        | NativeEvent::NatDetected => {
-            // P2: Supplemental events — deferred to later ticket.
-            // Rationale: These events provide internal PJSIP transaction details
-            // at a granularity finer than the public SipEventPayload API.
-            // Consumers needing this data can use `subscribe_raw_sip()`.
-            None
+        // ── P2: Supplemental (P16-4 §62.13 Some() 化) ──
+        NativeEvent::CallTsxStateChanged { call_id } => {
+            CallId::from_u64(call_id as u64).ok()?;
+            Some(SipEventPayload::CallTsxStateChanged)
         }
+        NativeEvent::CallRedirected { call_id } => {
+            CallId::from_u64(call_id as u64).ok()?;
+            Some(SipEventPayload::CallRedirected)
+        }
+        NativeEvent::CallTransferStatus { call_id } => {
+            CallId::from_u64(call_id as u64).ok()?;
+            Some(SipEventPayload::CallTransferStatus)
+        }
+        NativeEvent::CallReplaced { call_id } => {
+            CallId::from_u64(call_id as u64).ok()?;
+            Some(SipEventPayload::CallReplaced)
+        }
+        NativeEvent::NatDetected => Some(SipEventPayload::NatDetected),
     }
+}
+
+/// Resolve the transport context (type + local address) for a transport id.
+///
+/// The stub build has no real transport to query, so the context resolves to
+/// empty defaults; the payload's variant is decided by `state`, which the
+/// `pjsip_transport_state` mapping already carries. Enriching the strings via
+/// `pjsua_transport_get_info` under `pjsua-native` is future work.
+// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+fn resolve_transport_context(transport_id: u32) -> (String, String) {
+    let _ = transport_id;
+    (String::new(), String::new())
 }
 
 #[cfg(test)]
@@ -207,6 +252,8 @@ mod tests {
     use super::*;
     // P11-9: assert through the symbolic constants (real pjsua.h values), not raw
     // numbers that drift when the constant source changes.
+    use crate::ffi::bindings::pjsip_transport_state;
+    use crate::ffi::bindings::pjsua_call_media_status;
     use crate::state::m20_callstate_mapping::pjsip_inv_state;
 
     /// Construct a test `CallId` from a non-zero value.
@@ -388,17 +435,40 @@ mod tests {
         assert!(result.is_none(), "zero call_id should be skipped");
     }
 
+    /// @verifies C022, C110, C130
+    #[test]
+    // [::TICKET::] P0-5, P9-6, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-10) --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn native_event_call_media_state_changed_uses_event_status() {
+        // C130 precondition: CallMediaStateChanged carries a pjsua_call_media_status.
+        // The converter must read status from the event — re-resolving via
+        // resolve_call_media_status in stub mode would yield NONE and fail this
+        // assert (disguised-green guard).
+        let result = convert_native_event_to_payload(
+            NativeEvent::CallMediaStateChanged {
+                call_id: 10,
+                status: pjsua_call_media_status::ACTIVE,
+            },
+            None,
+        );
+        assert!(
+            matches!(result, Some(SipEventPayload::MediaActive(_))),
+            "event.status=ACTIVE must map to MediaActive, got {result:?}"
+        );
+    }
+
     /// @verifies C022, C110
     #[test]
     // [::TICKET::] P0-5, P9-6, P11-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6|P11-10) --for-spec --no-implementation-order`.
-    fn native_event_call_media_state_changed() {
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn native_event_call_media_state_changed_none_yields_no_event() {
         let result = convert_native_event_to_payload(
-            NativeEvent::CallMediaStateChanged { call_id: 10 },
+            NativeEvent::CallMediaStateChanged {
+                call_id: 10,
+                status: pjsua_call_media_status::NONE,
+            },
             None,
         );
-        // The handler must read media_status from pjsua_call_get_info (C110). In
-        // stub mode pjsua_call_get_info writes NONE, so a correctly-wired handler
-        // yields no event — never a hardcoded ACTIVE(1).
         assert!(
             result.is_none(),
             "stub media_status=NONE must yield no event, got {result:?}"
@@ -443,56 +513,124 @@ mod tests {
         }
     }
 
-    // ── P1 Transport/ICE (returns None) ────────────────────────────────
+    // ── P1 Transport/ICE (returns Some, P16-4 §62.13) ────────────────
 
     /// @verifies C022
     #[test]
-    // [::TICKET::] P0-5, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6) --for-spec --no-implementation-order`.
-    fn native_event_transport_state_changed_returns_none() {
+    // [::TICKET::] P16-4: P1 — TransportStateChanged CONNECTED → TransportConnected.
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn native_event_transport_state_changed_connected() {
         let result = convert_native_event_to_payload(
             NativeEvent::TransportStateChanged {
                 transport_id: 1,
-                state: 0,
+                state: pjsip_transport_state::CONNECTED,
             },
             None,
         );
-        assert!(result.is_none(), "P1 transport events must return None");
+        assert!(
+            matches!(result, Some(SipEventPayload::TransportConnected(_))),
+            "CONNECTED must map to TransportConnected, got {result:?}"
+        );
     }
 
     /// @verifies C022
     #[test]
-    // [::TICKET::] P0-5, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6) --for-spec --no-implementation-order`.
-    fn native_event_ice_transport_error_returns_none() {
+    // [::TICKET::] P16-4: P1 — TransportStateChanged DISCONNECTED → TransportDisconnected.
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn native_event_transport_state_changed_disconnected() {
+        let result = convert_native_event_to_payload(
+            NativeEvent::TransportStateChanged {
+                transport_id: 1,
+                state: pjsip_transport_state::DISCONNECTED,
+            },
+            None,
+        );
+        assert!(
+            matches!(result, Some(SipEventPayload::TransportDisconnected(_))),
+            "DISCONNECTED must map to TransportDisconnected, got {result:?}"
+        );
+    }
+
+    /// @verifies C022
+    #[test]
+    // [::TICKET::] P16-4: P1 — any non-terminal state maps to TransportError (Some).
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn native_event_transport_state_changed_error_for_other_states() {
+        let result = convert_native_event_to_payload(
+            NativeEvent::TransportStateChanged {
+                transport_id: 1,
+                state: pjsip_transport_state::IDLE,
+            },
+            None,
+        );
+        assert!(
+            matches!(result, Some(SipEventPayload::TransportError(_))),
+            "IDLE must map to TransportError, got {result:?}"
+        );
+    }
+
+    /// @verifies C022
+    #[test]
+    // [::TICKET::] P16-4: P1 — IceTransportError → IceNegotiationFailed (Some).
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn native_event_ice_transport_error_maps_to_failure() {
         let result =
             convert_native_event_to_payload(NativeEvent::IceTransportError { call_id: 5 }, None);
-        assert!(result.is_none(), "P1 ICE events must return None");
+        match result {
+            Some(SipEventPayload::IceNegotiationFailed(info)) => {
+                assert_eq!(info.call_id, test_call_id(5));
+            }
+            other => panic!("expected IceNegotiationFailed, got {other:?}"),
+        }
     }
 
-    // ── P2 Supplemental (returns None) ─────────────────────────────────
+    // ── P2 Supplemental (returns Some, P16-4 §62.13) ──────────────────
 
     /// @verifies C022
     #[test]
-    // [::TICKET::] P0-5, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P9-6) --for-spec --no-implementation-order`.
-    fn native_event_p2_variants_return_none() {
+    // [::TICKET::] P16-4: P2 — all five supplemental variants convert to Some.
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn native_event_p2_variants_return_some() {
+        assert!(matches!(
+            convert_native_event_to_payload(NativeEvent::CallTsxStateChanged { call_id: 1 }, None),
+            Some(SipEventPayload::CallTsxStateChanged)
+        ));
+        assert!(matches!(
+            convert_native_event_to_payload(NativeEvent::CallRedirected { call_id: 1 }, None),
+            Some(SipEventPayload::CallRedirected)
+        ));
+        assert!(matches!(
+            convert_native_event_to_payload(NativeEvent::CallTransferStatus { call_id: 1 }, None),
+            Some(SipEventPayload::CallTransferStatus)
+        ));
+        assert!(matches!(
+            convert_native_event_to_payload(NativeEvent::CallReplaced { call_id: 1 }, None),
+            Some(SipEventPayload::CallReplaced)
+        ));
+        assert!(matches!(
+            convert_native_event_to_payload(NativeEvent::NatDetected, None),
+            Some(SipEventPayload::NatDetected)
+        ));
+    }
+
+    /// @verifies C022
+    #[test]
+    // [::TICKET::] P16-4: P2 — call_id=0 is PJSUA's invalid sentinel → None.
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn native_event_p2_zero_call_id_skipped() {
+        assert!(
+            convert_native_event_to_payload(NativeEvent::CallRedirected { call_id: 0 }, None)
+                .is_none()
+        );
         assert!(convert_native_event_to_payload(
-            NativeEvent::CallTsxStateChanged { call_id: 1 },
+            NativeEvent::CallTsxStateChanged { call_id: 0 },
             None
         )
         .is_none());
         assert!(
-            convert_native_event_to_payload(NativeEvent::CallRedirected { call_id: 1 }, None)
+            convert_native_event_to_payload(NativeEvent::CallReplaced { call_id: 0 }, None)
                 .is_none()
         );
-        assert!(convert_native_event_to_payload(
-            NativeEvent::CallTransferStatus { call_id: 1 },
-            None
-        )
-        .is_none());
-        assert!(
-            convert_native_event_to_payload(NativeEvent::CallReplaced { call_id: 1 }, None)
-                .is_none()
-        );
-        assert!(convert_native_event_to_payload(NativeEvent::NatDetected, None).is_none());
     }
 
     // ── NativeEvent enum invariants ────────────────────────────────────

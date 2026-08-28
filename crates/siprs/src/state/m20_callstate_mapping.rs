@@ -47,9 +47,12 @@ pub enum CallMediaState {
 ///
 /// Derived from the call's origin — `on_incoming_call` implies `Incoming`;
 /// `make_call` implies `Outgoing`. Never read from the event payload.
+///
+/// Public since `CallEntry` carries a `direction` field that `SipClient::calls()`
+/// exposes (P16-5 §62.14).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-// [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
-pub(crate) enum CallDirection {
+// [::TICKET::] P12-8, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P16-5) --for-spec --no-implementation-order`.
+pub enum CallDirection {
     Outgoing,
     Incoming,
 }
@@ -63,6 +66,42 @@ pub(crate) enum CallDirection {
 pub use crate::ffi::bindings::{pjsip_inv_state, pjsua_call_media_status};
 
 // ── Conversion ──────────────────────────────────────────────────────────
+
+/// The single result of converting a native `pjsip_inv_state` — both the
+/// publish payload and the §18 13-state update value derive from the same
+/// conversion, so publish and `CallEntry.state` never diverge (C128).
+// [::TICKET::] P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-5 --for-spec --no-implementation-order`.
+#[derive(Debug)]
+pub(crate) struct CallStateTransition {
+    /// The `SipEventPayload` published to the EventBus.
+    pub payload: SipEventPayload,
+    /// The §18 `CallState` written to `CallEntry.state`.
+    pub state: CallState,
+}
+
+/// Map a raw `pjsip_inv_state` to the §18 13-state `CallState`.
+///
+/// `CONNECTING` discriminates by direction: outgoing → `Trying`, incoming →
+/// `Ringing`. `NULL` and unknown values map to `New` — the initial state —
+/// so the mapping is total and deterministic (C128); callers that need to
+/// drop the event entirely (NULL/unknown) do so via `convert_call_state`
+/// before reaching this point.
+// [::TICKET::] P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-5 --for-spec --no-implementation-order`.
+pub(crate) fn map_inv_state_to_call_state(state: u32, direction: CallDirection) -> CallState {
+    match state {
+        pjsip_inv_state::NULL => CallState::New,
+        pjsip_inv_state::CALLING => CallState::Calling,
+        pjsip_inv_state::INCOMING => CallState::Incoming,
+        pjsip_inv_state::EARLY => CallState::EarlyMedia,
+        pjsip_inv_state::CONNECTING => match direction {
+            CallDirection::Outgoing => CallState::Trying,
+            CallDirection::Incoming => CallState::Ringing,
+        },
+        pjsip_inv_state::CONFIRMED => CallState::Active,
+        pjsip_inv_state::DISCONNECTED => CallState::Disconnected,
+        _ => CallState::New,
+    }
+}
 
 /// Convert a raw `pjsip_inv_state` to an optional `SipEventPayload`.
 ///
@@ -81,6 +120,20 @@ pub fn convert_call_state(
     match state {
         pjsip_inv_state::NULL => None,
         pjsip_inv_state::CALLING => Some(SipEventPayload::OutgoingCallStarted),
+        pjsip_inv_state::INCOMING => Some(SipEventPayload::IncomingCall(
+            crate::api::event_model_payload_bus::IncomingCallInfo {
+                call_id,
+                account_id: account_id?,
+                caller_uri: String::new(),
+                caller_name: None,
+            },
+        )),
+        pjsip_inv_state::EARLY => Some(SipEventPayload::EarlyMediaReceived(
+            crate::api::event_model_payload_bus::EarlyMediaInfo {
+                call_id,
+                media_description: None,
+            },
+        )),
         pjsip_inv_state::CONNECTING => {
             // Without context, default to Trying (outgoing assumption).
             Some(SipEventPayload::OutgoingCallTrying)
@@ -99,26 +152,37 @@ pub fn convert_call_state(
 
 /// Convert a raw `pjsip_inv_state` with call direction context.
 ///
+/// Returns a `CallStateTransition` carrying both the publish payload and the
+/// §18 state update value, so publish and `CallEntry.state` share one result.
+///
 /// When `state == CONNECTING`:
-/// - `CallDirection::Outgoing` → `OutgoingCallTrying`
-/// - `CallDirection::Incoming` → `OutgoingCallRinging`
+/// - `CallDirection::Outgoing` → payload `OutgoingCallTrying`, state `Trying`
+/// - `CallDirection::Incoming` → payload `OutgoingCallRinging`, state `Ringing`
 ///
 /// Non-CONNECTING states delegate to `convert_call_state`, forwarding the
 /// owning `account_id` so `CONFIRMED` emits the real per-account payload.
-// [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
+/// Returns `None` when there is no payload to publish (NULL/unknown state,
+/// or `CONFIRMED` without a resolved account) — in that case no state update
+/// occurs either.
+// [::TICKET::] P12-8, P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P17-5) --for-spec --no-implementation-order`.
 pub(crate) fn convert_call_state_with_previous(
     call_id: CallId,
     account_id: Option<AccountId>,
     state: u32,
     direction: CallDirection,
-) -> Option<SipEventPayload> {
-    match state {
+) -> Option<CallStateTransition> {
+    let payload = match state {
         pjsip_inv_state::CONNECTING => match direction {
             CallDirection::Outgoing => Some(SipEventPayload::OutgoingCallTrying),
             CallDirection::Incoming => Some(SipEventPayload::OutgoingCallRinging),
         },
         _ => convert_call_state(call_id, account_id, state),
-    }
+    }?;
+    let call_state = map_inv_state_to_call_state(state, direction);
+    Some(CallStateTransition {
+        payload,
+        state: call_state,
+    })
 }
 
 /// Convert a raw `pjsua_call_media_status` to an optional `SipEventPayload`.
@@ -137,8 +201,33 @@ pub fn convert_call_media_state(call_id: CallId, media_status: u32) -> Option<Si
                 reason: None,
             },
         )),
+        // P17-6: PJSIP may add future media statuses; ignoring them here keeps
+        // the mapping total and deterministic (§62.26).
         _ => None,
     }
+}
+
+/// Convert a media status change using the call's previous status.
+///
+/// The hold→ACTIVE transition (LOCAL_HOLD or REMOTE_HOLD → ACTIVE) is the
+/// single resume signal and publishes `CallResumed`; every other change falls
+/// back to the standard [`convert_call_media_state`] mapping so a resumed call
+/// is distinguishable from an ACTIVE continuation (§62.26 / C129 / C131).
+pub fn convert_call_media_state_with_previous(
+    call_id: CallId,
+    status: u32,
+    previous_status: Option<u32>,
+) -> Option<SipEventPayload> {
+    if matches!(
+        previous_status,
+        Some(pjsua_call_media_status::LOCAL_HOLD | pjsua_call_media_status::REMOTE_HOLD)
+    ) && status == pjsua_call_media_status::ACTIVE
+    {
+        return Some(SipEventPayload::CallResumed(
+            crate::api::event_model_payload_bus::CallResumedInfo { call_id },
+        ));
+    }
+    convert_call_media_state(call_id, status)
 }
 
 #[cfg(test)]
@@ -205,9 +294,48 @@ mod tests {
         assert!(matches!(result, Some(SipEventPayload::OutgoingCallTrying)));
     }
 
+    /// @verifies C104
+    #[test]
+    // P16-5 §62.14: INCOMING (2) maps to Some(IncomingCall) with the resolved
+    // account — the converter is total over the full inv_state enum.
+    // [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
+    fn inv_state_incoming_returns_incoming_call() {
+        let result = convert_call_state(
+            test_call_id(1),
+            Some(test_account_id()),
+            pjsip_inv_state::INCOMING,
+        );
+        match result {
+            Some(SipEventPayload::IncomingCall(info)) => {
+                assert_eq!(info.call_id, test_call_id(1));
+                assert_eq!(info.account_id, test_account_id());
+            }
+            other => panic!("expected IncomingCall, got {other:?}"),
+        }
+    }
+
+    /// @verifies C104
+    #[test]
+    // P16-5 §62.14: EARLY (3) maps to Some(EarlyMediaReceived) — early media is
+    // observable instead of being dropped as an unknown state.
+    // [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
+    fn inv_state_early_returns_early_media_received() {
+        let result = convert_call_state(
+            test_call_id(1),
+            Some(test_account_id()),
+            pjsip_inv_state::EARLY,
+        );
+        match result {
+            Some(SipEventPayload::EarlyMediaReceived(info)) => {
+                assert_eq!(info.call_id, test_call_id(1));
+            }
+            other => panic!("expected EarlyMediaReceived, got {other:?}"),
+        }
+    }
+
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5, P4-1, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P9-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P9-6, P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P9-6|P17-5) --for-spec --no-implementation-order`.
     fn inv_state_connecting_outgoing_direction() {
         let result = convert_call_state_with_previous(
             test_call_id(1),
@@ -215,12 +343,21 @@ mod tests {
             pjsip_inv_state::CONNECTING,
             CallDirection::Outgoing,
         );
-        assert!(matches!(result, Some(SipEventPayload::OutgoingCallTrying)));
+        match result {
+            Some(transition) => {
+                assert!(matches!(
+                    transition.payload,
+                    SipEventPayload::OutgoingCallTrying
+                ));
+                assert_eq!(transition.state, CallState::Trying);
+            }
+            other => panic!("expected CONNECTING/Outgoing transition, got {:?}", other),
+        }
     }
 
     /// @verifies C023
     #[test]
-    // [::TICKET::] P0-5, P4-1, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P9-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P4-1, P9-6, P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P9-6|P17-5) --for-spec --no-implementation-order`.
     fn inv_state_connecting_incoming_direction() {
         let result = convert_call_state_with_previous(
             test_call_id(1),
@@ -228,7 +365,16 @@ mod tests {
             pjsip_inv_state::CONNECTING,
             CallDirection::Incoming,
         );
-        assert!(matches!(result, Some(SipEventPayload::OutgoingCallRinging)));
+        match result {
+            Some(transition) => {
+                assert!(matches!(
+                    transition.payload,
+                    SipEventPayload::OutgoingCallRinging
+                ));
+                assert_eq!(transition.state, CallState::Ringing);
+            }
+            other => panic!("expected CONNECTING/Incoming transition, got {:?}", other),
+        }
     }
 
     /// @verifies C023
@@ -264,7 +410,7 @@ mod tests {
 
     /// @verifies C029, C030
     #[test]
-    // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P9-6, P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-6|P17-5) --for-spec --no-implementation-order`.
     fn inv_state_with_previous_forwards_account_for_confirmed() {
         // convert_call_state_with_previous must forward the account context to
         // convert_call_state for the non-CONNECTING delegation arm.
@@ -275,22 +421,222 @@ mod tests {
             CallDirection::Outgoing,
         );
         match result {
-            Some(SipEventPayload::CallConnected(info)) => {
-                assert_eq!(info.account_id, test_account_id());
+            Some(transition) => {
+                match transition.payload {
+                    SipEventPayload::CallConnected(info) => {
+                        assert_eq!(info.account_id, test_account_id());
+                    }
+                    other => panic!("expected CallConnected, got {:?}", other),
+                }
+                assert_eq!(transition.state, CallState::Active);
             }
-            other => panic!("expected CallConnected, got {:?}", other),
+            other => panic!("expected CONFIRMED transition, got {:?}", other),
         }
     }
 
-    /// @verifies C030
+    /// @verifies C127
     #[test]
-    // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-5 --for-spec --no-implementation-order`.
+    fn inv_state_disconnected_returns_transition_with_disconnected_state() {
+        // The remote-hangup mapping: DISCONNECTED yields a CallDisconnected
+        // payload AND a Disconnected state — the pair that resolves H11.
+        let result = convert_call_state_with_previous(
+            test_call_id(1),
+            Some(test_account_id()),
+            pjsip_inv_state::DISCONNECTED,
+            CallDirection::Outgoing,
+        );
+        match result {
+            Some(transition) => {
+                assert!(matches!(
+                    transition.payload,
+                    SipEventPayload::CallDisconnected
+                ));
+                assert_eq!(transition.state, CallState::Disconnected);
+            }
+            other => panic!("expected DISCONNECTED transition, got {:?}", other),
+        }
+    }
+
+    /// @verifies C128
+    #[test]
+    // [::TICKET::] P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-5 --for-spec --no-implementation-order`.
+    fn map_inv_state_to_call_state_is_total_and_deterministic() {
+        // Total over the 7 real pjsip_inv_state values plus the unknown
+        // sentinel: every input maps without panic and the same input always
+        // yields the same CallState (single source of truth for the state side).
+        assert_eq!(
+            map_inv_state_to_call_state(pjsip_inv_state::NULL, CallDirection::Outgoing),
+            CallState::New
+        );
+        assert_eq!(
+            map_inv_state_to_call_state(pjsip_inv_state::CALLING, CallDirection::Outgoing),
+            CallState::Calling
+        );
+        assert_eq!(
+            map_inv_state_to_call_state(pjsip_inv_state::INCOMING, CallDirection::Incoming),
+            CallState::Incoming
+        );
+        assert_eq!(
+            map_inv_state_to_call_state(pjsip_inv_state::EARLY, CallDirection::Outgoing),
+            CallState::EarlyMedia
+        );
+        assert_eq!(
+            map_inv_state_to_call_state(pjsip_inv_state::CONNECTING, CallDirection::Outgoing),
+            CallState::Trying
+        );
+        assert_eq!(
+            map_inv_state_to_call_state(pjsip_inv_state::CONNECTING, CallDirection::Incoming),
+            CallState::Ringing
+        );
+        assert_eq!(
+            map_inv_state_to_call_state(pjsip_inv_state::CONFIRMED, CallDirection::Outgoing),
+            CallState::Active
+        );
+        assert_eq!(
+            map_inv_state_to_call_state(pjsip_inv_state::DISCONNECTED, CallDirection::Outgoing),
+            CallState::Disconnected
+        );
+        assert_eq!(
+            map_inv_state_to_call_state(99, CallDirection::Outgoing),
+            CallState::New
+        );
+        for raw in 0u32..8 {
+            let _ = map_inv_state_to_call_state(raw, CallDirection::Outgoing);
+        }
+    }
+
+    /// @verifies C127
+    #[test]
+    // [::TICKET::] P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-5 --for-spec --no-implementation-order`.
+    fn convert_call_state_with_previous_null_and_unknown_return_none() {
+        // NULL and unknown states produce no payload and therefore no state
+        // computation — the `?` short-circuit drops the transition entirely.
+        assert!(convert_call_state_with_previous(
+            test_call_id(1),
+            Some(test_account_id()),
+            pjsip_inv_state::NULL,
+            CallDirection::Outgoing,
+        )
+        .is_none());
+        assert!(convert_call_state_with_previous(
+            test_call_id(1),
+            Some(test_account_id()),
+            99,
+            CallDirection::Outgoing,
+        )
+        .is_none());
+    }
+
+    /// @verifies C030, C127
+    #[test]
+    // [::TICKET::] P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-5 --for-spec --no-implementation-order`.
+    fn convert_call_state_with_previous_confirmed_none_account_returns_none() {
+        // A missing CallEntry (account_id None) must not fabricate an account
+        // nor compute a state update: CONFIRMED with None yields None.
+        let result = convert_call_state_with_previous(
+            test_call_id(1),
+            None,
+            pjsip_inv_state::CONFIRMED,
+            CallDirection::Outgoing,
+        );
+        assert!(
+            result.is_none(),
+            "CONFIRMED with unknown account must yield None"
+        );
+    }
+
+    /// @verifies C128
+    #[test]
+    // [::TICKET::] P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-5 --for-spec --no-implementation-order`.
+    fn call_state_transition_payload_and_state_share_single_conversion() {
+        // The payload and the state come from the SAME input — the transition
+        // is the single source of truth for publish and CallEntry.state update.
+        // Table-driven over every publishable pjsip_inv_state so CALLING,
+        // INCOMING, EARLY, CONFIRMED and DISCONNECTED all carry the correct
+        // payload-and-state pair through convert_call_state_with_previous.
+        for (state, direction, expected_payload_kind, expected_state) in [
+            (
+                pjsip_inv_state::CALLING,
+                CallDirection::Outgoing,
+                "started",
+                CallState::Calling,
+            ),
+            (
+                pjsip_inv_state::INCOMING,
+                CallDirection::Incoming,
+                "incoming",
+                CallState::Incoming,
+            ),
+            (
+                pjsip_inv_state::EARLY,
+                CallDirection::Outgoing,
+                "early",
+                CallState::EarlyMedia,
+            ),
+            (
+                pjsip_inv_state::CONFIRMED,
+                CallDirection::Outgoing,
+                "connected",
+                CallState::Active,
+            ),
+            (
+                pjsip_inv_state::DISCONNECTED,
+                CallDirection::Outgoing,
+                "disconnected",
+                CallState::Disconnected,
+            ),
+        ] {
+            let transition = match convert_call_state_with_previous(
+                test_call_id(1),
+                Some(test_account_id()),
+                state,
+                direction,
+            ) {
+                Some(transition) => transition,
+                None => panic!("valid native state must convert"),
+            };
+            match expected_payload_kind {
+                "started" => assert!(matches!(
+                    transition.payload,
+                    SipEventPayload::OutgoingCallStarted
+                )),
+                "incoming" => assert!(matches!(
+                    transition.payload,
+                    SipEventPayload::IncomingCall(_)
+                )),
+                "early" => assert!(matches!(
+                    transition.payload,
+                    SipEventPayload::EarlyMediaReceived(_)
+                )),
+                "connected" => assert!(matches!(
+                    transition.payload,
+                    SipEventPayload::CallConnected(_)
+                )),
+                "disconnected" => {
+                    assert!(matches!(
+                        transition.payload,
+                        SipEventPayload::CallDisconnected
+                    ))
+                }
+                _ => unreachable!("unknown payload kind"),
+            }
+            assert_eq!(transition.state, expected_state);
+        }
+    }
+
+    /// @verifies C030, C104
+    #[test]
+    // [::TICKET::] P9-6, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-6|P16-5) --for-spec --no-implementation-order`.
     fn inv_state_conversion_is_total() {
         // The conversion is total over pjsip_inv_state: every input maps to
-        // Some(payload-with-valid-account) or None, never a panic.
+        // Some(payload-with-valid-account) or None, never a panic. P16-5 adds
+        // INCOMING/EARLY to the covered set.
         let states = [
             pjsip_inv_state::NULL,
             pjsip_inv_state::CALLING,
+            pjsip_inv_state::INCOMING,
+            pjsip_inv_state::EARLY,
             pjsip_inv_state::CONNECTING,
             pjsip_inv_state::CONFIRMED,
             pjsip_inv_state::DISCONNECTED,
@@ -377,6 +723,93 @@ mod tests {
         assert!(result.is_none());
     }
 
+    // ── CallMediaState transition (P17-6 §62.26) ───────────────────────
+
+    /// @verifies C129
+    #[test]
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn media_transition_hold_to_active_publishes_call_resumed() {
+        let call_id = test_call_id(7);
+        let resumed = convert_call_media_state_with_previous(
+            call_id,
+            pjsua_call_media_status::ACTIVE,
+            Some(pjsua_call_media_status::LOCAL_HOLD),
+        );
+        // C129 postcondition: hold→ACTIVE publishes CallResumed.
+        assert!(matches!(resumed, Some(SipEventPayload::CallResumed(_))));
+        // C129 invariant: CallResumed carries the originating call_id payload.
+        if let Some(SipEventPayload::CallResumed(info)) = resumed {
+            assert_eq!(info.call_id, call_id);
+        }
+    }
+
+    /// @verifies C129
+    #[test]
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn media_transition_remote_hold_to_active_publishes_call_resumed() {
+        let call_id = test_call_id(7);
+        let resumed = convert_call_media_state_with_previous(
+            call_id,
+            pjsua_call_media_status::ACTIVE,
+            Some(pjsua_call_media_status::REMOTE_HOLD),
+        );
+        assert!(matches!(resumed, Some(SipEventPayload::CallResumed(_))));
+    }
+
+    /// @verifies C131
+    #[test]
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn media_transition_first_active_is_media_active_not_resumed() {
+        let call_id = test_call_id(7);
+        let first = convert_call_media_state_with_previous(
+            call_id,
+            pjsua_call_media_status::ACTIVE,
+            None,
+        );
+        // C131 postcondition: no previous status → standard mapping (MediaActive).
+        assert!(matches!(first, Some(SipEventPayload::MediaActive(_))));
+    }
+
+    /// @verifies C131
+    #[test]
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn media_transition_active_continuation_stays_media_active() {
+        let call_id = test_call_id(7);
+        let continued = convert_call_media_state_with_previous(
+            call_id,
+            pjsua_call_media_status::ACTIVE,
+            Some(pjsua_call_media_status::ACTIVE),
+        );
+        // C131 postcondition: ACTIVE continuation is MediaActive, not CallResumed.
+        assert!(matches!(continued, Some(SipEventPayload::MediaActive(_))));
+    }
+
+    /// @verifies C131
+    #[test]
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn media_transition_hold_to_error_is_media_error_not_resumed() {
+        let call_id = test_call_id(7);
+        let err = convert_call_media_state_with_previous(
+            call_id,
+            pjsua_call_media_status::ERROR,
+            Some(pjsua_call_media_status::LOCAL_HOLD),
+        );
+        assert!(matches!(err, Some(SipEventPayload::MediaError(_))));
+    }
+
+    /// @verifies C131
+    #[test]
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn media_transition_hold_to_none_yields_no_event() {
+        let call_id = test_call_id(7);
+        let none = convert_call_media_state_with_previous(
+            call_id,
+            pjsua_call_media_status::NONE,
+            Some(pjsua_call_media_status::LOCAL_HOLD),
+        );
+        assert!(none.is_none());
+    }
+
     // ── CallState enum ─────────────────────────────────────────────────
 
     #[test]
@@ -414,14 +847,16 @@ mod tests {
 
     // ── Invariant: exhaustive match (all 5 values) ─────────────────────
 
-    /// @verifies C023
+    /// @verifies C023, C104
     #[test]
-    // [::TICKET::] P0-5, P4-1, P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P9-6) --for-spec --no-implementation-order`.
-    fn all_five_inv_state_values_covered() {
-        // Verify all 5 pjsip_inv_state values [0..5) are handled without panic.
-        for raw in 0u32..5 {
+    // [::TICKET::] P0-5, P4-1, P9-6, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P9-6|P16-5) --for-spec --no-implementation-order`.
+    fn all_inv_state_values_covered() {
+        // Verify all 7 pjsip_inv_state values [0..7) plus the unknown sentinel 99
+        // are handled without panic (P16-5 adds INCOMING=2 and EARLY=3).
+        for raw in 0u32..8 {
             let _ = convert_call_state(test_call_id(1), Some(test_account_id()), raw);
         }
+        let _ = convert_call_state(test_call_id(1), Some(test_account_id()), 99);
     }
 
     // ── Invariant: Clone + Debug ──────────────────────────────────────
@@ -439,13 +874,15 @@ mod tests {
     // ── Constant values ────────────────────────────────────────────────
 
     #[test]
-    // [::TICKET::] P0-5, P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-9) --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P11-9, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P11-9|P16-5) --for-spec --no-implementation-order`.
     fn pjsip_inv_state_constants_match_pjsua_header() {
         // P11-9: values come from the vendored pjsua.h (`enum pjsip_inv_state` in
-        // pjsip-ua/sip_inv.h) via ffi::bindings. The full enum also has
-        // INCOMING=2 and EARLY=3, which no mapping consumes yet.
+        // pjsip-ua/sip_inv.h) via ffi::bindings. P16-5 consumes INCOMING=2 and
+        // EARLY=3 in convert_call_state.
         assert_eq!(pjsip_inv_state::NULL, 0);
         assert_eq!(pjsip_inv_state::CALLING, 1);
+        assert_eq!(pjsip_inv_state::INCOMING, 2);
+        assert_eq!(pjsip_inv_state::EARLY, 3);
         assert_eq!(pjsip_inv_state::CONNECTING, 4);
         assert_eq!(pjsip_inv_state::CONFIRMED, 5);
         assert_eq!(pjsip_inv_state::DISCONNECTED, 6);

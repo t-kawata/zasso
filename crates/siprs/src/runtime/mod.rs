@@ -32,6 +32,9 @@ pub mod backend;
 pub mod backend_selection;
 // [::TICKET::] P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-3 --for-spec --no-implementation-order`.
 pub mod command;
+// [::TICKET::] P16-4: §62.13 — FFI native-event drain + raw SIP publisher wiring.
+pub mod event_path_wiring;
+// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
 pub mod handle;
 pub mod reactor;
 pub mod state;

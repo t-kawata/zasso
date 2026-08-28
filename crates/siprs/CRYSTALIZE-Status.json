@@ -3,13 +3,13 @@
   "graphFile": "/Users/sh01/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json",
   "currentStep": 4,
   "steps": {
-    "0": "pending",
+    "0": "done",
     "1": "done",
     "2": "done",
     "3": "done"
   },
   "grill": {
-    "tocApproved": false,
+    "tocApproved": true,
     "examplesApproved": false,
     "toc": {
       "nodes": [
@@ -59,7 +59,7 @@
           "id": "H7",
           "heading": "アカウントの取得・一覧・削除（account / accounts / remove_account）",
           "level": 1,
-          "confirmedContent": "remove_account(id) の呼び出しと、削除時に走る unregister の挙動・関連イベントを併せて解説",
+          "confirmedContent": "account(id) / accounts() / remove_account(id) の呼び出しと、削除時に走る unregister の挙動・関連イベントを併せて解説",
           "status": "confirmed"
         },
         {
@@ -87,14 +87,14 @@
           "id": "H11",
           "heading": "通話イベントと状態遷移（CallState の購読と判定）",
           "level": 1,
-          "confirmedContent": "OutgoingCallRinging / CallConnected / CallRejected / CallDisconnected 等の通話イベント受信と、CallState（§18）との対応を解説",
+          "confirmedContent": "OutgoingCallRinging / CallConnected / CallDisconnected 等の通話イベント受信と、CallState（§18）との対応を解説（CallRejected は設計判断で CallDisconnected へ統一済み）",
           "status": "confirmed"
         },
         {
           "id": "H12",
           "heading": "DTMF 送受信（send_dtmf と DtmfSent / DtmfReceived）",
           "level": 1,
-          "confirmedContent": "send_dtmf(digits, method) の呼び出しと、DtmfMethod（Inband / SipInfo / Rfc4733）の使い分け、DtmfSent / DtmfReceived イベントの受信を解説",
+          "confirmedContent": "send_dtmf(digits, method) の呼び出しと、DtmfMethod（Inband / Info / Rfc4733）の使い分け、DtmfSent / DtmfReceived イベントの受信を解説",
           "status": "confirmed"
         },
         {
@@ -136,12 +136,6 @@
     },
     "sections": [
       {
-        "id": "H1",
-        "heading": "クイックスタート（SipClient 初期化と最初のステップ）",
-        "state": "residue",
-        "confirmedContent": "トランスポート（UDP/TCP/TLS）と STUN を設定した実用的な初期化コード"
-      },
-      {
         "id": "H2",
         "heading": "ClientConfig の設定項目（transports・STUN/TURN・音声・タイムアウト）",
         "state": "complete",
@@ -162,7 +156,7 @@
       {
         "id": "H5",
         "heading": "登録と登録解除（register / unregister / set_registration_enabled）",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": "register() / unregister() / set_registration_enabled() の使い分けと、register_on_start による自動登録設定を併せて解説"
       },
       {
@@ -174,14 +168,8 @@
       {
         "id": "H7",
         "heading": "アカウントの取得・一覧・削除（account / accounts / remove_account）",
-        "state": "residue",
-        "confirmedContent": "remove_account(id) の呼び出しと、削除時に走る unregister の挙動・関連イベントを併せて解説"
-      },
-      {
-        "id": "H8",
-        "heading": "イベントの購読と受信（subscribe / subscribe_account / subscribe_raw_sip）",
-        "state": "residue",
-        "confirmedContent": "subscribe() / subscribe_account(id) / subscribe_raw_sip() の 3 つの購読方法の違いと、購読解除（unsubscribe）の方法、SipEventPayload の主要バリアントの受信コードを解説"
+        "state": "complete",
+        "confirmedContent": "account(id) / accounts() / remove_account(id) の呼び出しと、削除時に走る unregister の挙動・関連イベントを併せて解説"
       },
       {
         "id": "H9",
@@ -192,20 +180,44 @@
       {
         "id": "H10",
         "heading": "着信と応答（IncomingCall と answer）",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": "IncomingCall イベントの受信から answer(code) による応答、reject（486/603）による切断までの一連のコードを解説"
       },
       {
         "id": "H11",
         "heading": "通話イベントと状態遷移（CallState の購読と判定）",
-        "state": "residue",
-        "confirmedContent": "OutgoingCallRinging / CallConnected / CallRejected / CallDisconnected 等の通話イベント受信と、CallState（§18）との対応を解説"
+        "state": "complete",
+        "confirmedContent": "OutgoingCallRinging / CallConnected / CallDisconnected 等の通話イベント受信と、CallState（§18）との対応を解説（CallRejected は設計判断で CallDisconnected へ統一済み）"
       },
       {
         "id": "H12",
         "heading": "DTMF 送受信（send_dtmf と DtmfSent / DtmfReceived）",
+        "state": "complete",
+        "confirmedContent": "send_dtmf(digits, method) の呼び出しと、DtmfMethod（Inband / Info / Rfc4733）の使い分け、DtmfSent / DtmfReceived イベントの受信を解説"
+      },
+      {
+        "id": "H16",
+        "heading": "シャットダウン",
+        "state": "complete",
+        "confirmedContent": "shutdown() の呼び出しコードと、その際のイベント（ClientShutdown）の受信、べき等性の説明を解説"
+      },
+      {
+        "id": "H17",
+        "heading": "REST/WebSocket API（siprs-server クレートとの境界）",
+        "state": "complete",
+        "confirmedContent": "クライアントライブラリの README には含めず、siprs-server の README に委ねる旨を記載"
+      },
+      {
+        "id": "H1",
+        "heading": "クイックスタート（SipClient 初期化と最初のステップ）",
         "state": "residue",
-        "confirmedContent": "send_dtmf(digits, method) の呼び出しと、DtmfMethod（Inband / SipInfo / Rfc4733）の使い分け、DtmfSent / DtmfReceived イベントの受信を解説"
+        "confirmedContent": "トランスポート（UDP/TCP/TLS）と STUN を設定した実用的な初期化コード"
+      },
+      {
+        "id": "H8",
+        "heading": "イベントの購読と受信（subscribe / subscribe_account / subscribe_raw_sip）",
+        "state": "residue",
+        "confirmedContent": "subscribe() / subscribe_account(id) / subscribe_raw_sip() の 3 つの購読方法の違いと、購読解除（unsubscribe）の方法、SipEventPayload の主要バリアントの受信コードを解説"
       },
       {
         "id": "H13",
@@ -224,18 +236,6 @@
         "heading": "STUN/TURN/ICE とトランスポート設定",
         "state": "residue",
         "confirmedContent": "ClientConfig への stun_servers / turn_servers / ice の設定方法と、TransportConfig（UDP/TCP/TLS）の選択を併せて解説"
-      },
-      {
-        "id": "H16",
-        "heading": "シャットダウン",
-        "state": "complete",
-        "confirmedContent": "shutdown() の呼び出しコードと、その際のイベント（ClientShutdown）の受信、べき等性の説明を解説"
-      },
-      {
-        "id": "H17",
-        "heading": "REST/WebSocket API（siprs-server クレートとの境界）",
-        "state": "complete",
-        "confirmedContent": "クライアントライブラリの README には含めず、siprs-server の README に委ねる旨を記載"
       },
       {
         "id": "EXAMPLES",

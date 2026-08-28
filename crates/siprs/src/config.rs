@@ -42,6 +42,10 @@ pub mod client_config_unify;
 // [::TICKET::] P4-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P4-2 --for-spec --no-implementation-order`.
 pub mod codec_policy_fallback;
 
+/// STUN/TURN/ICE wiring — §62.17 / N0086 (ClientConfig → pjsua_config / pjsua_media_config).
+// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+pub mod stun_turn_ice_wiring;
+
 /// Credentials for SIP authentication.
 ///
 /// The `password` field uses `SecretString` (via `zeroize`) to ensure
@@ -75,8 +79,10 @@ pub use self::semver_sip_networking::{TlsCertInfo, VERSIONING_POLICY};
 /// Configuration for DTMF transmission behavior (N0029).
 ///
 /// [::TICKET::] P7-2: O-002 — `sent_timeout_ms` drives the DtmfSent two-phase
-/// fallback timer: if PJSIP does not fire the send-complete callback within
-/// this window, a `DtmfSent { Err(Timeout) }` event is published.
+/// fallback timer: when no PJSIP send-complete callback is available, this
+/// window elapses and a `DtmfSent { Ok(()) }` event is published, treating the
+/// send as complete (§62.15 Q5).
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct DtmfConfig {
     /// Timeout in milliseconds for the DtmfSent fallback when the PJSIP
@@ -117,13 +123,13 @@ pub use client_config_spec::{
     ClientAudioConfig, ClientConfig, LogLevel, RawSipEventConfig, TimeoutConfig,
 };
 // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+#[cfg(feature = "tls")]
+// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+pub use transport_ice_spec::TlsConfig;
 pub use transport_ice_spec::{
     IceConfig, StunServerConfig, TcpTransportConfig, TransportConfig, TurnServerConfig,
     TurnTransport, UdpTransportConfig,
 };
-#[cfg(feature = "tls")]
-// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
-pub use transport_ice_spec::TlsConfig;
 
 #[cfg(test)]
 mod tests {
@@ -156,7 +162,7 @@ mod tests {
     #[test]
     // @verifies C030
     // [::TICKET::] P7-2: O-002 — default DtmfConfig::sent_timeout_ms is the module default
-// [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
     fn dtmf_config_default_sent_timeout() {
         assert_eq!(
             DtmfConfig::default().sent_timeout_ms,

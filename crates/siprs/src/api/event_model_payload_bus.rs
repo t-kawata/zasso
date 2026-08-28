@@ -1,3 +1,4 @@
+// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
 
 // ============================================================================
@@ -161,6 +162,13 @@ pub struct MediaActiveInfo {
     pub call_id: CallId,
 }
 
+/// Call resumed after being held.
+#[derive(Debug, Clone)]
+pub struct CallResumedInfo {
+// [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    pub call_id: CallId,
+}
+
 /// Media stream error details.
 #[derive(Debug, Clone)]
 pub struct MediaErrorInfo {
@@ -195,15 +203,6 @@ pub struct IncomingCallInfo {
 pub struct CancelInfo {
     pub call_id: CallId,
     pub account_id: AccountId,
-}
-
-/// Rejection details for a call rejected with 4xx/5xx/6xx.
-#[derive(Debug, Clone)]
-pub struct RejectInfo {
-    pub call_id: CallId,
-    pub account_id: AccountId,
-    pub status_code: u16,
-    pub reason: String,
 }
 
 /// An incoming REFER request (call transfer).
@@ -291,14 +290,12 @@ pub struct AccountSnapshot {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 // [::TICKET::] P8-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
 pub enum SipEventPayload {
+    // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
     // ── Registration (P0) ──
     /// Registration process started (initial REGISTER sent).
     RegistrationStarted(RegistrationInfo),
-    /// Registration succeeded (200 OK received).
-    RegistrationSucceeded(RegistrationInfo),
-    /// Registration failed (error response or timeout).
-    RegistrationFailed(RegistrationFailure),
     /// Unregistration completed successfully.
     UnregistrationSucceeded,
     /// Unregistration failed.
@@ -341,10 +338,8 @@ pub enum SipEventPayload {
     IncomingCall(IncomingCallInfo),
     /// Call was cancelled before being established (CANCEL received).
     CallCancelled(CancelInfo),
-    /// Call was rejected (4xx/5xx/6xx rejection).
-    CallRejected(RejectInfo),
     /// Call was resumed after being held.
-    CallResumed,
+    CallResumed(CallResumedInfo),
     /// REFER request received (call transfer initiation).
     ReferReceived(ReferRequest),
     /// Call transfer completed.
@@ -387,6 +382,21 @@ pub enum SipEventPayload {
     // ── Error (P1) ──
     /// An internal or protocol error occurred.
     Error(SipError),
+
+    // ── Supplemental (P2, P16-4 §62.13) ──
+    /// Call transaction state changed (internal PJSIP transaction detail).
+    ///
+    /// The owning `call_id` travels in `SipEvent.meta.call_id`, matching the
+    /// `CallDisconnected` pattern (unit payload + meta-scoped call id).
+    CallTsxStateChanged,
+    /// INVITE was redirected to a new target (`on_call_redirected`).
+    CallRedirected,
+    /// Call transfer progress was reported (`on_call_transfer_status`).
+    CallTransferStatus,
+    /// The call was replaced by another call.
+    CallReplaced,
+    /// NAT type was detected.
+    NatDetected,
 }
 
 // Forward-declare DtmfSentInfo from the dtmf module — it's defined in m20_dtmfsent_twophase.rs
@@ -539,49 +549,10 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
-    fn payload_registration_succeeded() -> Result<(), &'static str> {
-        let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
-        let info = RegistrationInfo {
-            account_id,
-            renew: true,
-        };
-        let payload = SipEventPayload::RegistrationSucceeded(info);
-        match payload {
-            SipEventPayload::RegistrationSucceeded(reg_info) => {
-                assert_eq!(reg_info.account_id, account_id);
-                assert!(reg_info.renew);
-            }
-            _ => panic!("unexpected payload variant"),
-        }
-        Ok(())
-    }
-
-    #[test]
-    // [::TICKET::] P0-5, P4-1, P8-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P4-1|P8-4) --for-spec --no-implementation-order`.
-    fn payload_registration_failed() -> Result<(), &'static str> {
-        let account_id = AccountId::from_u64(1).map_err(|_| "invalid account id")?;
-        let failure = RegistrationFailure {
-            account_id,
-            status_code: 403,
-            reason: "Forbidden".into(),
-        };
-        let payload = SipEventPayload::RegistrationFailed(failure);
-        match payload {
-            SipEventPayload::RegistrationFailed(f) => {
-                assert_eq!(f.status_code, 403);
-                assert_eq!(f.reason, "Forbidden");
-            }
-            _ => panic!("unexpected payload variant"),
-        }
-        Ok(())
-    }
-
     /// @verifies C073
     /// The typed §17 state machine outcome variant constructs and matches.
     #[test]
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-5|P16-3) --for-spec --no-implementation-order`.
     fn payload_registration_state_changed() {
         let payload = SipEventPayload::RegistrationStateChanged(RegistrationState::Registered);
         assert!(matches!(

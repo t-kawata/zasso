@@ -39,6 +39,29 @@ static NATIVE_EVENT_QUEUE: AtomicPtr<crossbeam_queue::ArrayQueue<NativeEvent>> =
 /// Loss counter — incremented every time a full queue drops an event.
 static NATIVE_EVENT_DROPPED: AtomicUsize = AtomicUsize::new(0);
 
+/// Capacity of the pre-allocated raw SIP message queue (P16-4 §62.13).
+///
+/// The queue holds raw packet bytes (`Vec<u8>`) captured by the SIP stack's
+/// message hook; a full queue drops the newest packet and increments
+/// [`raw_sip_dropped_count`]. Sized to absorb a burst of inbound SIP traffic
+/// without blocking the transport thread.
+pub const RAW_SIP_QUEUE_CAPACITY: usize = 64;
+
+/// Compile-time invariant: the raw SIP queue capacity must be positive.
+const _: () = assert!(RAW_SIP_QUEUE_CAPACITY > 0);
+
+/// Process-wide raw SIP message queue (raw packet bytes), installed once.
+///
+/// `AtomicPtr` keeps the enqueue path lock-free (design constraint #1): the
+/// capture thread reads the pointer with `Acquire` and pushes the bytes onto
+/// the pre-allocated `ArrayQueue` with no locks. Parsing and redaction happen
+/// on the drain side, off the transport thread.
+static RAW_SIP_QUEUE: AtomicPtr<crossbeam_queue::ArrayQueue<Vec<u8>>> =
+    AtomicPtr::new(std::ptr::null_mut());
+
+/// Loss counter — incremented every time a full raw SIP queue drops a packet.
+static RAW_SIP_DROPPED: AtomicUsize = AtomicUsize::new(0);
+
 /// Install the pre-allocated event queue, replacing any previously installed one.
 ///
 /// `register_callbacks` calls this at init time, before any PJSIP callback can
@@ -78,16 +101,97 @@ pub fn native_event_dropped_count() -> usize {
     NATIVE_EVENT_DROPPED.load(Ordering::Relaxed)
 }
 
+/// Pop one `NativeEvent` from the installed lock-free queue, or `None` when empty.
+///
+/// This is the drain-side primitive for the reactor's FFI event drain task
+/// (P16-4 §62.13): the drain loop calls it until it returns `None`. Safe to
+/// call from any thread; the queue is never freed while a reader may hold the
+/// pointer (install-once + Acquire publish ordering).
+pub fn try_pop_native_event() -> Option<NativeEvent> {
+    let queue_ptr = NATIVE_EVENT_QUEUE.load(Ordering::Acquire);
+    if !queue_ptr.is_null() {
+        // SAFETY: queue_ptr is installed once by install_native_event_queue and
+        // is never freed while a reader may read it (Acquire publish ordering).
+        let queue = unsafe { &*queue_ptr };
+        queue.pop()
+    } else {
+        None
+    }
+}
+
+/// Install the pre-allocated raw SIP message queue, replacing any previous one.
+///
+/// `register_callbacks` calls this at init time. The swap is lock-free; the old
+/// queue is only dropped here (never from a capture thread), so the pointer
+/// handed to `enqueue_raw_sip_bytes` is always valid.
+///
+/// `pub(crate)` so the raw SIP module tests (P17-2) can install a fresh queue.
+// [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-2 --for-spec --no-implementation-order`.
+pub(crate) fn install_raw_sip_queue(queue: crossbeam_queue::ArrayQueue<Vec<u8>>) {
+    let new_ptr = Box::into_raw(Box::new(queue));
+    let old_ptr = RAW_SIP_QUEUE.swap(new_ptr, Ordering::AcqRel);
+    if !old_ptr.is_null() {
+        // SAFETY: old_ptr was created by Box::into_raw in a previous install and
+        // no capture thread reads it after this swap (AcqRel publish ordering).
+        unsafe { drop(Box::from_raw(old_ptr)) };
+    }
+    RAW_SIP_DROPPED.store(0, Ordering::Relaxed);
+}
+
+/// Enqueue raw SIP packet bytes for the raw SIP publisher (P16-4 §62.13).
+///
+/// Loss-tolerant: a full queue drops the newest packet and increments the
+/// atomic loss counter — the capture thread never blocks and never panics.
+/// This is the injection point the raw SIP module (P17-2 §62.22) calls; the
+/// vendored PJSIP 2.17 `pjsua_callback` has no `on_rx_msg` field, so capture
+/// goes through the standard `pjsip_module` extension point instead.
+pub fn enqueue_raw_sip_bytes(bytes: Vec<u8>) {
+    let queue_ptr = RAW_SIP_QUEUE.load(Ordering::Acquire);
+    if !queue_ptr.is_null() {
+        // SAFETY: queue_ptr is installed once by install_raw_sip_queue and is
+        // never freed while a capture thread may read it (Acquire ordering).
+        let queue = unsafe { &*queue_ptr };
+        if queue.push(bytes).is_err() {
+            RAW_SIP_DROPPED.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
+/// Pop one raw SIP packet from the queue, or `None` when empty.
+///
+/// The drain-side primitive for the raw SIP publisher task.
+pub fn try_pop_raw_sip_bytes() -> Option<Vec<u8>> {
+    let queue_ptr = RAW_SIP_QUEUE.load(Ordering::Acquire);
+    if !queue_ptr.is_null() {
+        // SAFETY: queue_ptr is installed once by install_raw_sip_queue and is
+        // never freed while a reader may read it (Acquire ordering).
+        let queue = unsafe { &*queue_ptr };
+        queue.pop()
+    } else {
+        None
+    }
+}
+
+/// Number of raw SIP packets dropped because the queue was full.
+pub fn raw_sip_dropped_count() -> usize {
+    RAW_SIP_DROPPED.load(Ordering::Relaxed)
+}
+
 /// Register the PJSIP callbacks into `pjsua_config.cb` and install the event queue.
 ///
 /// Reads as prose: install the pre-allocated queue, then fill every callback
-/// slot P11-11 owns. Callers must invoke this before `pjsua_init` so the stack
-/// dispatches events through the bridge from the very first callback.
+/// slot P11-11 and P17-3 own (the P0 set plus the P1/P2 set). Callers must
+/// invoke this before `pjsua_init` so the stack dispatches events through the
+/// bridge from the very first callback.
 pub fn register_callbacks(
     config: &mut bindings::pjsua_config,
     queue: crossbeam_queue::ArrayQueue<NativeEvent>,
 ) {
     install_native_event_queue(queue);
+    // P16-4 §62.13: the raw SIP capture queue is installed alongside the event
+    // queue so `enqueue_raw_sip_bytes` is live from the first callback.
+    install_raw_sip_queue(crossbeam_queue::ArrayQueue::new(RAW_SIP_QUEUE_CAPACITY));
     config.cb.on_incoming_call = Some(on_incoming_call);
     config.cb.on_reg_state = Some(on_reg_state);
     config.cb.on_call_state = Some(on_call_state);
@@ -96,6 +200,12 @@ pub fn register_callbacks(
     config.cb.on_call_redirected = Some(on_call_redirected);
     config.cb.on_dtmf_digit = Some(on_dtmf_digit);
     config.cb.on_call_transfer_status = Some(on_call_transfer_status);
+    // P17-3 §62.23: the P1/P2 callbacks — transport / transaction state, call
+    // replacement, and STUN NAT detection.
+    config.cb.on_transport_state = Some(on_transport_state);
+    config.cb.on_call_tsx_state = Some(on_call_tsx_state);
+    config.cb.on_call_replaced = Some(on_call_replaced);
+    config.cb.on_nat_detect = Some(on_nat_detect);
 }
 
 /// Convert a PJSUA DTMF digit (ASCII int) into a `char`, skipping non-ASCII.
@@ -173,16 +283,22 @@ pub unsafe extern "C" fn on_call_state(
 /// Callback for call media state changes.
 ///
 /// Called by PJSUA when a call's media state changes (e.g., media established
-/// or deactivated). The `CallMediaStateChanged` event carries only the call id;
-/// the reactor reads the actual media status via `pjsua_call_get_info`.
+/// or deactivated). Resolves the current media status via
+/// `pjsua_call_get_info` (C110) and carries it on the event so the reactor can
+/// detect hold→ACTIVE transitions.
 ///
 /// # Safety
 /// Must only be invoked from a PJSIP callback context; no pointer arguments are
 /// dereferenced, so the sole requirement is the `extern "C"` ABI contract.
 #[no_mangle]
 pub unsafe extern "C" fn on_call_media_state(call_id: bindings::pjsua_call_id) {
+    // C110: media status is resolved via pjsua_call_get_info; a resolution
+    // failure surfaces MediaError rather than a canned success.
+    let status = bindings::resolve_call_media_status(call_id)
+        .unwrap_or(bindings::pjsua_call_media_status::ERROR);
     enqueue_native_event(NativeEvent::CallMediaStateChanged {
         call_id: call_id as u32,
+        status,
     });
 }
 
@@ -258,9 +374,89 @@ pub unsafe extern "C" fn on_call_redirected(
     bindings::pjsip_redirect_op::PJSIP_REDIRECT_STOP
 }
 
+/// Callback for transport state changes (P1, P17-3 §62.23).
+///
+/// Enqueues `TransportStateChanged` carrying the transport id read from the
+/// transport instance and the transport state (CONNECTED / DISCONNECTED / …).
+///
+/// # Safety
+/// `tp` may be null on an abnormal path; it is only dereferenced when non-null
+/// (guarded, so the handler never dereferences a null transport pointer).
+/// `info` is never dereferenced here.
+#[no_mangle]
+pub unsafe extern "C" fn on_transport_state(
+    tp: *mut bindings::pjsip_transport,
+    state: u32,
+    _info: *const bindings::pjsip_transport_state_info,
+) {
+    let transport_id = if tp.is_null() {
+        0
+    } else {
+        // SAFETY: PJSIP passes a valid transport instance for the callback
+        // duration; the stub mirror exposes the `id` member.
+        unsafe { (*tp).id }
+    };
+    enqueue_native_event(NativeEvent::TransportStateChanged {
+        transport_id,
+        state,
+    });
+}
+
+/// Callback for transaction state changes (P2, P17-3 §62.23).
+///
+/// Enqueues `CallTsxStateChanged` carrying the call id; the transaction and
+/// event pointers are only passed through and never dereferenced.
+///
+/// # Safety
+/// Must only be invoked from a PJSIP callback context; the pointer arguments
+/// are never dereferenced, so the sole requirement is the `extern "C"` ABI.
+#[no_mangle]
+pub unsafe extern "C" fn on_call_tsx_state(
+    call_id: bindings::pjsua_call_id,
+    _tsx: *mut bindings::pjsip_transaction,
+    _e: *mut bindings::pjsip_event,
+) {
+    enqueue_native_event(NativeEvent::CallTsxStateChanged {
+        call_id: call_id as u32,
+    });
+}
+
+/// Callback for call replacement (P2, P17-3 §62.23).
+///
+/// Enqueues `CallReplaced` carrying the new call id; the old call id is
+/// intentionally discarded — the replacement is identified by its successor.
+///
+/// # Safety
+/// Must only be invoked from a PJSIP callback context; no pointer arguments are
+/// dereferenced, so the sole requirement is the `extern "C"` ABI contract.
+#[no_mangle]
+pub unsafe extern "C" fn on_call_replaced(
+    _old_call_id: bindings::pjsua_call_id,
+    new_call_id: bindings::pjsua_call_id,
+) {
+    enqueue_native_event(NativeEvent::CallReplaced {
+        call_id: new_call_id as u32,
+    });
+}
+
+/// Callback for STUN NAT detection completion (P2, P17-3 §62.23).
+///
+/// Enqueues the unit `NatDetected` event; the result pointer is passed through
+/// and never dereferenced (the NAT mapping details are future work).
+///
+/// # Safety
+/// Must only be invoked from a PJSIP callback context; the pointer argument is
+/// never dereferenced, so the sole requirement is the `extern "C"` ABI.
+#[no_mangle]
+pub unsafe extern "C" fn on_nat_detect(_res: *const bindings::pj_stun_nat_detect_result) {
+    enqueue_native_event(NativeEvent::NatDetected);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::api::event_model_payload_bus::SipEventPayload;
+    use crate::state::m20_native_event_conv::convert_native_event_to_payload;
 
     /// Swap in a fresh queue with the given capacity and reset the loss counter.
     ///
@@ -277,7 +473,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11, P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-3) --for-spec --no-implementation-order`.
     fn register_callbacks_fills_all_callback_pointers() {
         let queue = crossbeam_queue::ArrayQueue::new(8);
         let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
@@ -290,11 +486,16 @@ mod tests {
         assert!(config.cb.on_call_redirected.is_some());
         assert!(config.cb.on_dtmf_digit.is_some());
         assert!(config.cb.on_call_transfer_status.is_some());
+        // P17-3 §62.23: the four P1/P2 callbacks must be wired as well (C124).
+        assert!(config.cb.on_transport_state.is_some());
+        assert!(config.cb.on_call_tsx_state.is_some());
+        assert!(config.cb.on_call_replaced.is_some());
+        assert!(config.cb.on_nat_detect.is_some());
     }
 
     #[test]
     // @verifies C050
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
     fn register_callbacks_installs_the_event_queue() {
         let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
         register_callbacks(&mut config, crossbeam_queue::ArrayQueue::new(2));
@@ -302,9 +503,18 @@ mod tests {
         // drop the third event — proving the queue is the live enqueue target.
         // (With no queue installed, enqueue_native_event silently no-ops and the
         // loss counter would stay 0.)
-        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 1 });
-        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 2 });
-        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 3 });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 1,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 2,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 3,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
         assert_eq!(
             native_event_dropped_count(),
             1,
@@ -414,13 +624,18 @@ mod tests {
 
     #[test]
     // @verifies C050
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
     fn on_call_media_state_enqueues_media_state_changed() {
         let queue = install_test_queue(2);
         unsafe { on_call_media_state(9) };
+        // C110: status must come from resolve_call_media_status (stub → NONE),
+        // never a hardcoded value.
         assert_eq!(
             queue.pop(),
-            Some(NativeEvent::CallMediaStateChanged { call_id: 9 })
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 9,
+                status: bindings::pjsua_call_media_status::NONE,
+            })
         );
     }
 
@@ -522,22 +737,28 @@ mod tests {
 
     #[test]
     // @verifies C050, C052
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
     fn queue_capacity_is_positive_and_pre_allocated() {
         // The capacity is a compile-time constant (statically asserted at module
         // scope); this test proves the enqueue path works on an installed,
         // pre-allocated queue.
         let queue = install_test_queue(4);
-        enqueue_native_event(NativeEvent::CallMediaStateChanged { call_id: 1 });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 1,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
         assert_eq!(
             queue.pop(),
-            Some(NativeEvent::CallMediaStateChanged { call_id: 1 })
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 1,
+                status: bindings::pjsua_call_media_status::NONE,
+            })
         );
     }
 
     #[test]
     // @verifies C050
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
     fn every_callback_enqueues_exactly_one_event() {
         let queue = install_test_queue(8);
         unsafe { on_reg_state(1) };
@@ -549,7 +770,10 @@ mod tests {
         );
         assert_eq!(
             queue.pop(),
-            Some(NativeEvent::CallMediaStateChanged { call_id: 2 })
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 2,
+                status: bindings::pjsua_call_media_status::NONE,
+            })
         );
         assert_eq!(
             queue.pop(),
@@ -559,5 +783,215 @@ mod tests {
             })
         );
         assert_eq!(queue.len(), 0, "one event per invocation, no extras");
+    }
+
+    // ── P1/P2 callbacks (P17-3 §62.23) ───────────────────────────────
+
+    /// @verifies C124
+    #[test]
+    // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
+    fn on_transport_state_enqueues_transport_state_changed() {
+        let queue = install_test_queue(2);
+        let mut tp = bindings::pjsip_transport { id: 7 };
+        unsafe {
+            on_transport_state(
+                &mut tp,
+                bindings::pjsip_transport_state::CONNECTED,
+                std::ptr::null(),
+            )
+        };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::TransportStateChanged {
+                transport_id: 7,
+                state: bindings::pjsip_transport_state::CONNECTED,
+            })
+        );
+        assert_eq!(queue.pop(), None);
+    }
+
+    /// @verifies C126
+    #[test]
+    // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
+    fn on_transport_state_null_transport_enqueues_id_zero() {
+        let queue = install_test_queue(2);
+        unsafe {
+            on_transport_state(
+                std::ptr::null_mut(),
+                bindings::pjsip_transport_state::DISCONNECTED,
+                std::ptr::null(),
+            )
+        };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::TransportStateChanged {
+                transport_id: 0,
+                state: bindings::pjsip_transport_state::DISCONNECTED,
+            })
+        );
+    }
+
+    /// @verifies C124
+    #[test]
+    // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
+    fn on_call_tsx_state_enqueues_call_tsx_state_changed() {
+        let queue = install_test_queue(2);
+        unsafe { on_call_tsx_state(3, std::ptr::null_mut(), std::ptr::null_mut()) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallTsxStateChanged { call_id: 3 })
+        );
+    }
+
+    /// @verifies C124
+    #[test]
+    // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
+    fn on_call_replaced_enqueues_new_call_id() {
+        let queue = install_test_queue(2);
+        unsafe { on_call_replaced(1, 9) };
+        assert_eq!(queue.pop(), Some(NativeEvent::CallReplaced { call_id: 9 }));
+    }
+
+    /// @verifies C124
+    #[test]
+    // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
+    fn on_nat_detect_enqueues_nat_detected() {
+        let queue = install_test_queue(2);
+        unsafe { on_nat_detect(std::ptr::null()) };
+        assert_eq!(queue.pop(), Some(NativeEvent::NatDetected));
+    }
+
+    /// @verifies C127
+    #[test]
+    // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
+    fn on_call_tsx_state_call_id_boundary_values() {
+        let queue = install_test_queue(4);
+        unsafe { on_call_tsx_state(0, std::ptr::null_mut(), std::ptr::null_mut()) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallTsxStateChanged { call_id: 0 })
+        );
+        unsafe { on_call_tsx_state(i32::MAX, std::ptr::null_mut(), std::ptr::null_mut()) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallTsxStateChanged {
+                call_id: i32::MAX as u32,
+            })
+        );
+    }
+
+    /// @verifies C127
+    #[test]
+    // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
+    fn on_call_replaced_new_call_id_boundary() {
+        let queue = install_test_queue(2);
+        unsafe { on_call_replaced(0, i32::MAX) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallReplaced {
+                call_id: i32::MAX as u32
+            })
+        );
+    }
+
+    /// @verifies C125
+    #[test]
+    // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
+    fn p1_event_publishes_from_callback_to_payload() {
+        install_test_queue(2);
+        let mut tp = bindings::pjsip_transport { id: 7 };
+        unsafe {
+            on_transport_state(
+                &mut tp,
+                bindings::pjsip_transport_state::CONNECTED,
+                std::ptr::null(),
+            )
+        };
+        let payload =
+            try_pop_native_event().and_then(|ev| convert_native_event_to_payload(ev, None));
+        assert!(matches!(
+            payload,
+            Some(SipEventPayload::TransportConnected(_))
+        ));
+    }
+
+    // ── try_pop_native_event (P16-4 §62.13 drain) ────────────────────
+
+    /// @verifies C099
+    #[test]
+    // [::TICKET::] P16-4: FFI drain — try_pop consumes the installed queue FIFO.
+// [::TICKET::] P16-4, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P17-6) --for-spec --no-implementation-order`.
+    fn try_pop_native_event_drains_fifo() {
+        install_test_queue(4);
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 1,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 2,
+            status: bindings::pjsua_call_media_status::ACTIVE,
+        });
+        assert_eq!(
+            try_pop_native_event(),
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 1,
+                status: bindings::pjsua_call_media_status::NONE,
+            })
+        );
+        assert_eq!(
+            try_pop_native_event(),
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 2,
+                status: bindings::pjsua_call_media_status::ACTIVE,
+            })
+        );
+        assert_eq!(try_pop_native_event(), None);
+    }
+
+    // ── RAW_SIP_QUEUE (P16-4 §62.13 raw SIP publisher) ───────────────
+
+    /// Swap in a fresh raw-SIP queue with the given capacity.
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn install_test_raw_sip_queue(
+        capacity: usize,
+    ) -> &'static crossbeam_queue::ArrayQueue<Vec<u8>> {
+        install_raw_sip_queue(crossbeam_queue::ArrayQueue::new(capacity));
+        // SAFETY: the queue was just installed and never freed while this test runs.
+        unsafe { &*RAW_SIP_QUEUE.load(Ordering::Acquire) }
+    }
+
+    /// @verifies C100
+    #[test]
+    // [::TICKET::] P16-4: raw SIP — enqueue → try_pop round-trips the bytes.
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn enqueue_and_pop_raw_sip_bytes_roundtrip() {
+        install_test_raw_sip_queue(4);
+        enqueue_raw_sip_bytes(b"INVITE sip:x SIP/2.0\r\n\r\n".to_vec());
+        let popped = try_pop_raw_sip_bytes().expect("raw sip bytes popped");
+        assert_eq!(popped, b"INVITE sip:x SIP/2.0\r\n\r\n");
+        assert_eq!(try_pop_raw_sip_bytes(), None);
+    }
+
+    /// @verifies C100
+    #[test]
+    // [::TICKET::] P16-4: raw SIP — a full queue drops the newest bytes.
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn full_raw_sip_queue_drops_and_increments_counter() {
+        install_test_raw_sip_queue(1);
+        enqueue_raw_sip_bytes(b"first".to_vec());
+        enqueue_raw_sip_bytes(b"second".to_vec());
+        assert_eq!(raw_sip_dropped_count(), 1);
+        assert_eq!(try_pop_raw_sip_bytes().as_deref(), Some(&b"first"[..]));
+    }
+
+    /// @verifies C100
+    #[test]
+    // [::TICKET::] P16-4: raw SIP — register_callbacks installs the raw-SIP queue.
+    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    fn register_callbacks_installs_raw_sip_queue() {
+        let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
+        register_callbacks(&mut config, crossbeam_queue::ArrayQueue::new(2));
+        enqueue_raw_sip_bytes(b"x".to_vec());
+        assert_eq!(try_pop_raw_sip_bytes().as_deref(), Some(&b"x"[..]));
     }
 }

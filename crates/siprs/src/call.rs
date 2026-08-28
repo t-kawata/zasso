@@ -38,8 +38,9 @@ pub enum HangupReason {
 /// A single SIP call session.
 ///
 /// Each `SipCall` tracks the call signalling state, media state, and owning
-/// account. It is created by `SipClient::make_call()` or accepted via
-/// `SipClient::answer_call()` and exposes the RFC §19 lifecycle operations.
+/// account. It is created by `SipClient::make_call()`; incoming calls are
+/// delivered as `SipEventPayload::IncomingCall` and answered via
+/// `SipClient::answer()`. Exposes the RFC §19 lifecycle operations.
 ///
 /// The fields are private and only mutated through the lifecycle methods, so
 /// illegal call states cannot be represented externally (C028 invariant).
@@ -60,6 +61,7 @@ pub struct SipCall {
 }
 
 // [::TICKET::] P9-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
 impl SipCall {
     /// Create a new call session.
     ///

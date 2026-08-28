@@ -2396,6 +2396,414 @@
           ]
         }
       ]
+    },
+    {
+      "id": "N0090",
+      "title": "62.21 ラウンド 3 進化スコープと根因（H5 / H8 / H11 / H12 / H13 / H14 の残存ギャップ）",
+      "kind": "architecture",
+      "summary": "ラウンド 3 の進化スコープと根因。vendored PJSIP 2.17.0 確定（on_rx_msg はどの 2.x の pjsua_callback にも存在しない）。H5 / H8 / H11 / H12 / H13 / H14 の 8 残存ギャップを §62.22–62.29 に割り当てる。",
+      "language": "rust",
+      "slug": "round3_scope_rootcause",
+      "headingRefs": [
+        {
+          "refId": "REF385",
+          "heading": 3,
+          "texts": [
+            "62.21 ラウンド 3 進化スコープと根因（H5 / H8 / H11 / H12 / H13 / H14 の残存ギャップ）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0091",
+      "title": "62.22 raw SIP 生産経路: pjsip_module フックによる配線（Q1 / Q1a）",
+      "kind": "architecture",
+      "summary": "raw SIP を pjsip_module の on_rx_request / on_rx_response（pjsip_endpt_register_module 登録）で取得し、pkt_info.msg の raw バイトを enqueue_raw_sip_bytes へ供給。観測専用（PJ_FALSE）。",
+      "language": "rust",
+      "slug": "raw_sip_pjsip_module",
+      "headingRefs": [
+        {
+          "refId": "REF386",
+          "heading": 3,
+          "texts": [
+            "62.22 raw SIP 生産経路: pjsip_module フックによる配線（Q1 / Q1a）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0092",
+      "title": "62.23 P1/P2 FFI コールバック登録の完了（Q2）",
+      "kind": "architecture",
+      "summary": "register_callbacks に on_transport_state / on_call_tsx_state / on_call_replaced / on_nat_detect を追加登録。PJSIP 2.17 の pjsua_callback に全フィールド存在を確認済み。",
+      "language": "rust",
+      "slug": "p1p2_callbacks",
+      "headingRefs": [
+        {
+          "refId": "REF387",
+          "heading": 3,
+          "texts": [
+            "62.23 P1/P2 FFI コールバック登録の完了（Q2）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0093",
+      "title": "62.24 TestBackend 登録イベント発火と account_register example 完走（Q3）",
+      "kind": "test_policy",
+      "summary": "TestBackend::set_registration が NativeEvent::RegistrationStateChanged を発火。SipBackend::take_native_events（既定空）で回収し reactor が process_native_event で処理。account_register example が TestBackend 上で完走。",
+      "language": "rust",
+      "slug": "testbackend_reg_evt",
+      "headingRefs": [
+        {
+          "refId": "REF388",
+          "heading": 3,
+          "texts": [
+            "62.24 TestBackend 登録イベント発火と account_register example 完走（Q3）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0094",
+      "title": "62.25 CallEntry.state のネイティブ遷移反映（Q4）",
+      "kind": "state_machine",
+      "summary": "process_native_event の CallStateChanged アームで、変換結果（CallStateTransition）を publish と CallEntry.state 更新の両方に使用。call_state() の stale を解消。",
+      "language": "rust",
+      "slug": "callentry_state",
+      "headingRefs": [
+        {
+          "refId": "REF389",
+          "heading": 3,
+          "texts": [
+            "62.25 CallEntry.state のネイティブ遷移反映（Q4）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0095",
+      "title": "62.26 CallResumed の実装機構（Q5 / Q5a）",
+      "kind": "api_contract",
+      "summary": "CallResumed を unit variant から CallResumed(CallResumedInfo{call_id}) へ変更。NativeEvent::CallMediaStateChanged に media status を追加し、hold→ACTIVE 遷移を CallResumed として publish。",
+      "language": "rust",
+      "slug": "callresumed_media_status",
+      "headingRefs": [
+        {
+          "refId": "REF390",
+          "heading": 3,
+          "texts": [
+            "62.26 CallResumed の実装機構（Q5 / Q5a）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0096",
+      "title": "62.27 DtmfSent 送出完了契約の確定（Q6）",
+      "kind": "api_contract",
+      "summary": "DtmfSent{Ok} を backend 受理 + 500ms タイムアウト経過で送出完了とみなす正式契約に確定。PJSIP に送信完了コールバックは存在しない（検証済み）。",
+      "language": "rust",
+      "slug": "dtmfsent_timeout_contract",
+      "headingRefs": [
+        {
+          "refId": "REF391",
+          "heading": 3,
+          "texts": [
+            "62.27 DtmfSent 送出完了契約の確定（Q6）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0097",
+      "title": "62.28 tap 駆動の生産経路: RustMediaPort port ops（Q7）",
+      "kind": "architecture",
+      "summary": "RustMediaPort の port ops（get_frame / put_frame）が push_frame_to_tap を呼び、conf bridge 経由メディアを AudioTapSender::try_push で tap へ連続供給。pjsua_conf_set_callback は 2.17 にも存在しない。",
+      "language": "rust",
+      "slug": "tap_driving_rustmediaport",
+      "headingRefs": [
+        {
+          "refId": "REF392",
+          "heading": 3,
+          "texts": [
+            "62.28 tap 駆動の生産経路: RustMediaPort port ops（Q7）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0098",
+      "title": "62.29 文書化決定: マイク source / Subscription unsubscribe（Q8 / Q8a）",
+      "kind": "api_contract",
+      "summary": "open_default_microphone_source は通話マイクでない独立キャプチャ source と明文化。Subscription<T> ハンドル型で subscribe / subscribe_account / subscribe_raw_sip をラップし unsubscribe() を提供。",
+      "language": "rust",
+      "slug": "mic_source_subscription",
+      "headingRefs": [
+        {
+          "refId": "REF393",
+          "heading": 3,
+          "texts": [
+            "62.29 文書化決定: マイク source / Subscription unsubscribe（Q8 / Q8a）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0099",
+      "title": "62.30 I/O 境界参照情報（graphify / boundify 用）— round 3",
+      "kind": "architecture",
+      "summary": "ラウンド 3 の各設計判断（§62.22–62.29）の I/O 境界と関連ノード / ファイル候補、boundify が Prune / 更新するファイル。",
+      "language": "rust",
+      "slug": "io_boundary_round3",
+      "headingRefs": [
+        {
+          "refId": "REF394",
+          "heading": 3,
+          "texts": [
+            "62.30 I/O 境界参照情報（graphify / boundify 用）— round 3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0100",
+      "title": "62.31 ラウンド 4 進化スコープと根因（Q9–Q22）",
+      "kind": "architecture",
+      "summary": "ラウンド 4 の進化スコープと根因。pjsua-native の 69 エラー（7 カテゴリ）と prebuilt producer/consumer パイプラインを最優先で解決し、その後 H8/H13/H14/H15/EXAMPLES の RESIDUE ギャップを解消する。設計方針は docs/PJSUA-NATIVE-PREBUILT-DESIGN-BRIEF.md（拘束方針）。チケット順序は A/B 最優先、ギャップは後に連ねる。",
+      "language": "rust",
+      "slug": "round4_scope_rootcause",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.31 ラウンド 4 進化スコープと根因（Q9–Q22）"
+          ],
+          "refId": "REF395"
+        }
+      ]
+    },
+    {
+      "id": "N0101",
+      "title": "62.32 vendored PJSIP バージョン戦略（Q9）",
+      "kind": "architecture",
+      "summary": "vendored PJSIP 2.17.0 を維持しコード適応修正（Q9）。PJSUA_CALL_NULL はクレート内定数（src/ffi/constants.rs）へ、PJ_CRED_DATA_PLAIN_PASSWD は PJSIP_CRED_DATA_PLAIN_PASSWD（sip_auth.h:109）へ、pjsua_codec_info の encoding_name/clock_rate は codec_id パースで導出。",
+      "language": "rust",
+      "slug": "vendored_pjsip_strategy",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.32 vendored PJSIP バージョン戦略（Q9）"
+          ],
+          "refId": "REF396"
+        }
+      ]
+    },
+    {
+      "id": "N0102",
+      "title": "62.33 bindgen enum/const 生成戦略（Q10）",
+      "kind": "build_ci",
+      "summary": "bindgen enum/const 生成戦略（Q10）。pjsip_inv_state / pjsip_tsx_state / pj_status_t 等の enum 型を allowlist し default_enum_style=rust + prepend_enum_name(false) で Rust enum 生成。PJ_SUCCESS 等の列挙子を emit。pjsua_config 構造体全体も allowlist。",
+      "language": "rust",
+      "slug": "bindgen_enum_generation",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.33 bindgen enum/const 生成戦略（Q10）"
+          ],
+          "refId": "REF397"
+        }
+      ]
+    },
+    {
+      "id": "N0103",
+      "title": "62.34 静的ライブラリのリンク戦略（Q11 / Q11a）",
+      "kind": "build_ci",
+      "summary": "静的ライブラリのリンク戦略（Q11/Q11a）。リンクセットは解決済み lib/ ディレクトリから導出。libpjproject.a が存在すれば static=pjproject のみ、無ければ個別 lib*.a を全列挙し Linux のみ --start-group/--end-group で wrap。システム依存はターゲット別。",
+      "language": "rust",
+      "slug": "static_link_strategy",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.34 静的ライブラリのリンク戦略（Q11 / Q11a）"
+          ],
+          "refId": "REF398"
+        }
+      ]
+    },
+    {
+      "id": "N0104",
+      "title": "62.35 build.rs 4 段階解決パイプラインと vendored-source build フォールバック（Q12）",
+      "kind": "build_ci",
+      "summary": "build.rs 4 段階解決パイプライン（Q12）。prebuilt → system（pkg-config/env）→ vendored-source CMake ビルド → fail-stop（warning-and-continue 禁止）。SIPRS_STAGE_PREBUILT=1 時のみ vendor へ stage。",
+      "language": "rust",
+      "slug": "build_rs_resolution",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.35 build.rs 4 段階解決パイプラインと vendored-source build フォールバック（Q12）"
+          ],
+          "refId": "REF399"
+        }
+      ]
+    },
+    {
+      "id": "N0105",
+      "title": "62.36 producer ツール crates/pjsip-prebuilt（Q13 / Q14 / Q16）",
+      "kind": "build_ci",
+      "summary": "producer ツール crates/pjsip-prebuilt（Q13/Q14/Q16）。siprs 非依存の独立クレート。CLI は build/stage/verify <triple>。コミット済み Dockerfile + volume マウントで Linux-from-Mac ビルド。DoD 検証は file + nm + 最小 C リンクテスト。",
+      "language": "rust",
+      "slug": "prebuilt_producer",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.36 producer ツール crates/pjsip-prebuilt（Q13 / Q14 / Q16）"
+          ],
+          "refId": "REF400"
+        }
+      ]
+    },
+    {
+      "id": "N0106",
+      "title": "62.37 CI 運用と prebuilt コミット（Q15）",
+      "kind": "build_ci",
+      "summary": "CI 運用と prebuilt コミット（Q15）。GitHub Actions 3 OS マトリクス（macos/ubuntu/windows）で producer を実行し、vendor/prebuilt を通常 push で直接コミット（PR 儀式なし）。§5.1 の「clone 直後に prebuilt 存在」を保証。",
+      "language": "rust",
+      "slug": "prebuilt_ci_commit",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.37 CI 運用と prebuilt コミット（Q15）"
+          ],
+          "refId": "REF401"
+        }
+      ]
+    },
+    {
+      "id": "N0107",
+      "title": "62.38 raw SIP 実 PJSIP 検証経路（Q17）",
+      "kind": "test_policy",
+      "summary": "raw SIP 実 PJSIP 検証経路（Q17）。subscribe_raw_sip() は実 pjsua-native 経路（pjsip_module フック → enqueue_raw_sip_bytes → subscribe_raw_sip）の完全な統合テストで固定。TestBackend のテスト専用フック等のダミー実装は禁止。",
+      "language": "rust",
+      "slug": "raw_sip_real_test",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.38 raw SIP 実 PJSIP 検証経路（Q17）"
+          ],
+          "refId": "REF402"
+        }
+      ]
+    },
+    {
+      "id": "N0108",
+      "title": "62.39 on_ice_transport_error 登録（Q18）",
+      "kind": "architecture",
+      "summary": "on_ice_transport_error 登録（Q18）。pjsua_callback ミラーにフィールド追加、register_callbacks で登録、pjsip_error_info から NativeEvent::IceTransportError を生成して reactor へ enqueue（P17-3 残項目の解消）。",
+      "language": "rust",
+      "slug": "ice_transport_error",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.39 on_ice_transport_error 登録（Q18）"
+          ],
+          "refId": "REF403"
+        }
+      ]
+    },
+    {
+      "id": "N0109",
+      "title": "62.40 push_media_frame 生産経路配線（Q19）",
+      "kind": "architecture",
+      "summary": "push_media_frame 生産経路配線（Q19）。RustMediaPort の port ops（get_frame/put_frame）が push_frame_to_tap を呼ぶ既存構造（P17-8）を、実 PJSIP conf bridge 駆動で統合テスト固定。TestBackend フックは共有ヘルパーのユニット検証に限定。",
+      "language": "rust",
+      "slug": "push_media_frame",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.40 push_media_frame 生産経路配線（Q19）"
+          ],
+          "refId": "REF404"
+        }
+      ]
+    },
+    {
+      "id": "N0110",
+      "title": "62.41 AddAudioSource 時 RustMediaPort conf bridge 再登録（Q20）",
+      "kind": "architecture",
+      "summary": "AddAudioSource 時 RustMediaPort conf bridge 再登録（Q20）。mixer 生成・登録後に register_media_ports_for_calls を再実行し、注入音声が out_queue に滞留して破棄される H14 ギャップを解消。",
+      "language": "rust",
+      "slug": "add_audio_source",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.41 AddAudioSource 時 RustMediaPort conf bridge 再登録（Q20）"
+          ],
+          "refId": "REF405"
+        }
+      ]
+    },
+    {
+      "id": "N0111",
+      "title": "62.42 実 PJSIP 統合テストスコープ（Q21）",
+      "kind": "test_policy",
+      "summary": "実 PJSIP 統合テストスコープ（Q21）。sip_integration.rs / docker_asterisk_it.rs でプロトコルレベル（REGISTER→200 / INVITE→180/200 / BYE / SIP INFO / RFC4733 DTMF / STUN/TURN via coturn）と通信レベル（2 エンドポイント間 RTP）を CI で保証。",
+      "language": "rust",
+      "slug": "real_pjsip_itest",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.42 実 PJSIP 統合テストスコープ（Q21）"
+          ],
+          "refId": "REF406"
+        }
+      ]
+    },
+    {
+      "id": "N0112",
+      "title": "62.43 チケット構造とフェーズ割当（Q22）",
+      "kind": "architecture",
+      "summary": "チケット構造とフェーズ割当（Q22）。phase 18 に Ticket A（消費者/bindgen 整合）と Ticket B（生産者/prebuilt+CI+コミット）を最優先で並列配置し、phase 19 以降に H8/H13/H14/H15/EXAMPLES のギャップチケットを連ねる。",
+      "language": "rust",
+      "slug": "round4_tickets",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.43 チケット構造とフェーズ割当（Q22）"
+          ],
+          "refId": "REF407"
+        }
+      ]
+    },
+    {
+      "id": "N0113",
+      "title": "62.44 I/O 境界参照情報（graphify / boundify 用）— round 4",
+      "kind": "architecture",
+      "summary": "round 4 の I/O 境界参照情報。graphify/boundify の分割判断用。新規 crates/pjsip-prebuilt・Dockerfile・.github/workflows/prebuilt.yml と、更新ファイル群（build.rs / build_script_bindgen.rs / ffi 層 / runtime）を列挙。",
+      "language": "rust",
+      "slug": "io_boundary_round4",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.44 I/O 境界参照情報（graphify / boundify 用）— round 4"
+          ],
+          "refId": "REF408"
+        }
+      ]
     }
   ],
   "edges": [
@@ -4436,6 +4844,567 @@
           "precondition": "N0078 が 62.9 I/O 境界を定義する",
           "postcondition": "62.20 がラウンド 2 の I/O 境界を参照する",
           "invariant": "graphify/boundify が分割判断に使用する"
+        }
+      ]
+    },
+    {
+      "from": "N0090",
+      "to": "N0089",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C121",
+          "precondition": "Round 2 evolution settled (§62.10–62.20)",
+          "postcondition": "Round 3 scope derives the remaining RESIDUE gaps from round 2 outcomes",
+          "invariant": "Round 3 never re-decides a settled round 2 design"
+        }
+      ]
+    },
+    {
+      "from": "N0091",
+      "to": "N0038",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C122",
+          "precondition": "pjsip_module registration available on the PJSIP endpoint",
+          "postcondition": "Raw SIP bytes flow from pkt_info.msg into enqueue_raw_sip_bytes",
+          "invariant": "The raw SIP module is observation-only (PJ_FALSE)"
+        }
+      ]
+    },
+    {
+      "from": "N0091",
+      "to": "N0080",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C123",
+          "precondition": "bindgen allowlist covers pjsip_module and pjsip_endpt_register_module",
+          "postcondition": "The raw SIP module compiles under pjsua-native",
+          "invariant": "Allowlist stays fixed and duplicate-free"
+        }
+      ]
+    },
+    {
+      "from": "N0092",
+      "to": "N0038",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C124",
+          "precondition": "pjsua_callback exposes the four P1/P2 fields in PJSIP 2.17",
+          "postcondition": "register_callbacks wires on_transport_state / on_call_tsx_state / on_call_replaced / on_nat_detect",
+          "invariant": "Each handler enqueues the corresponding NativeEvent"
+        }
+      ]
+    },
+    {
+      "from": "N0092",
+      "to": "N0021",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C125",
+          "precondition": "M20 converters return Some for the four P1/P2 events",
+          "postcondition": "P1/P2 events publish from real callbacks",
+          "invariant": "Converter doc comments match the Some() behavior"
+        }
+      ]
+    },
+    {
+      "from": "N0093",
+      "to": "N0071",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C126",
+          "precondition": "TestBackend is the deterministic simulator for test-util builds",
+          "postcondition": "TestBackend::set_registration fires NativeEvent::RegistrationStateChanged",
+          "invariant": "take_native_events defaults empty for the real FFI path"
+        }
+      ]
+    },
+    {
+      "from": "N0094",
+      "to": "N0083",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C127",
+          "precondition": "CallEntry registration established in round 2 (§62.14)",
+          "postcondition": "CallEntry.state updates on native CallStateChanged",
+          "invariant": "call_state() matches the latest native transition"
+        }
+      ]
+    },
+    {
+      "from": "N0094",
+      "to": "N0045",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C128",
+          "precondition": "Runtime internal state tables (§33) hold CallStateTables",
+          "postcondition": "The state update shares the single conversion result with publish",
+          "invariant": "Update ordering is explicit and deterministic"
+        }
+      ]
+    },
+    {
+      "from": "N0095",
+      "to": "N0026",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C129",
+          "precondition": "CallState 13-state model defined (§18)",
+          "postcondition": "CallResumed publishes on hold→ACTIVE media transition",
+          "invariant": "CallResumed carries a call_id payload"
+        }
+      ]
+    },
+    {
+      "from": "N0096",
+      "to": "N0084",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C130",
+          "precondition": "DtmfMethod unification settled in round 2 (§62.15)",
+          "postcondition": "DtmfSent semantics formalize as backend-accept + 500ms timeout",
+          "invariant": "No PJSIP send-completion callback dependency"
+        }
+      ]
+    },
+    {
+      "from": "N0096",
+      "to": "N0029",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C131",
+          "precondition": "Two-phase DtmfSent design (§20) defines the fallback timer",
+          "postcondition": "The timeout contract becomes the sole documented completion signal",
+          "invariant": "DtmfSentInfo.status keeps Ok/Timeout/PjsipError outcomes"
+        }
+      ]
+    },
+    {
+      "from": "N0097",
+      "to": "N0085",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C132",
+          "precondition": "Media path design settled in round 2 (§62.16)",
+          "postcondition": "RustMediaPort port ops drive the tap registry via push_frame_to_tap",
+          "invariant": "Tap push never blocks the RT callback"
+        }
+      ]
+    },
+    {
+      "from": "N0097",
+      "to": "N0049",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C133",
+          "precondition": "PJSUA conference port model (§39) provides pjsua_conf_add_port",
+          "postcondition": "RustMediaPort registers as a custom pjmedia_port per call",
+          "invariant": "pjsua_conf_set_callback is not required (absent in 2.17)"
+        }
+      ]
+    },
+    {
+      "from": "N0098",
+      "to": "N0031",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C134",
+          "precondition": "subscribe / subscribe_account / subscribe_raw_sip exist on SipClient",
+          "postcondition": "The three APIs return Subscription<T> with recv() and unsubscribe()",
+          "invariant": "AccountEventReceiver filtering is preserved inside Subscription"
+        }
+      ]
+    },
+    {
+      "from": "N0098",
+      "to": "N0074",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C135",
+          "precondition": "Public call API surface extended in §62.5",
+          "postcondition": "The mic source and unsubscribe contracts are documented in README / RFC",
+          "invariant": "open_default_microphone_source stays distinct from the call microphone"
+        }
+      ]
+    },
+    {
+      "from": "N0099",
+      "to": "N0089",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C136",
+          "precondition": "Round 2 I/O boundary reference exists (§62.20)",
+          "postcondition": "Round 3 I/O boundaries are listed for graphify / boundify partitioning",
+          "invariant": "Every round-3 decision maps to consumes / produces / file hints"
+        }
+      ]
+    },
+    {
+      "from": "N0100",
+      "to": "N0090",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C137",
+          "precondition": "Round 3 evolution settled (§62.21–62.30)",
+          "postcondition": "Round 4 scope builds on round-3 residual gaps",
+          "invariant": "Round 4 never rewrites round-3 decisions"
+        }
+      ]
+    },
+    {
+      "from": "N0100",
+      "to": "N0039",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C138",
+          "precondition": "§28 build strategy defines search order",
+          "postcondition": "Round 4 consumer pipeline refines §28",
+          "invariant": "Prebuilt-first order preserved"
+        }
+      ]
+    },
+    {
+      "from": "N0101",
+      "to": "N0039",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C139",
+          "precondition": "§28 pins vendored PJSIP 2.17.0",
+          "postcondition": "Code adapts to 2.17.0 symbols",
+          "invariant": "No vendored PJSIP upgrade"
+        }
+      ]
+    },
+    {
+      "from": "N0102",
+      "to": "N0080",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C140",
+          "precondition": "N0080 defines bindgen alignment approach",
+          "postcondition": "Enum types generated as Rust enums",
+          "invariant": "Allowlist remains the single bindgen entry"
+        }
+      ]
+    },
+    {
+      "from": "N0103",
+      "to": "N0039",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C141",
+          "precondition": "§28.1 prebuilt-first search order",
+          "postcondition": "Link set derived from lib/ directory",
+          "invariant": "No hardcoded module list"
+        }
+      ]
+    },
+    {
+      "from": "N0104",
+      "to": "N0039",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C142",
+          "precondition": "§28.1 4-stage search order",
+          "postcondition": "build.rs implements all 4 stages",
+          "invariant": "Fail-stop, no warning-and-continue"
+        }
+      ]
+    },
+    {
+      "from": "N0105",
+      "to": "N0054",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C143",
+          "precondition": "§44 prebuilt pipeline defined",
+          "postcondition": "crates/pjsip-prebuilt produces prebuilts",
+          "invariant": "Producer independent of siprs compile"
+        }
+      ]
+    },
+    {
+      "from": "N0106",
+      "to": "N0054",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C144",
+          "precondition": "§44 CI/CD requirements",
+          "postcondition": "3-OS matrix commits prebuilt directly",
+          "invariant": "prebuilt present after git clone"
+        }
+      ]
+    },
+    {
+      "from": "N0107",
+      "to": "N0091",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C145",
+          "precondition": "N0091 defines pjsip_module hook",
+          "postcondition": "Real integration test verifies subscribe_raw_sip",
+          "invariant": "No TestBackend dummy hooks"
+        }
+      ]
+    },
+    {
+      "from": "N0107",
+      "to": "N0088",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C146",
+          "precondition": "N0088 defines docker integration base",
+          "postcondition": "raw SIP verified against real PJSIP in Docker",
+          "invariant": "make test-integration gate"
+        }
+      ]
+    },
+    {
+      "from": "N0108",
+      "to": "N0092",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C147",
+          "precondition": "N0092 registers P1/P2 callbacks",
+          "postcondition": "on_ice_transport_error added and registered",
+          "invariant": "Same pattern as registered callbacks"
+        }
+      ]
+    },
+    {
+      "from": "N0109",
+      "to": "N0097",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C148",
+          "precondition": "N0097 defines tap driving via port ops",
+          "postcondition": "Real conf bridge drives push_frame_to_tap",
+          "invariant": "push_frame_to_tap never blocks RT callback"
+        }
+      ]
+    },
+    {
+      "from": "N0110",
+      "to": "N0085",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C149",
+          "precondition": "N0085 defines conf port/queue wiring",
+          "postcondition": "register_media_ports_for_calls re-run on AddAudioSource",
+          "invariant": "No out_queue drop for injected audio"
+        }
+      ]
+    },
+    {
+      "from": "N0111",
+      "to": "N0088",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C150",
+          "precondition": "N0088 defines docker Asterisk/coturn base",
+          "postcondition": "protocol + RTP levels covered in CI",
+          "invariant": "make test-integration green"
+        }
+      ]
+    },
+    {
+      "from": "N0111",
+      "to": "N0052",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C151",
+          "precondition": "§43 4-layer test strategy",
+          "postcondition": "Layer 4 interop tests run real PJSIP",
+          "invariant": "TestBackend green ≠ real SIP verified"
+        }
+      ]
+    },
+    {
+      "from": "N0112",
+      "to": "N0100",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C152",
+          "precondition": "Round 4 scope settled",
+          "postcondition": "Tickets mapped to §62.31–62.44",
+          "invariant": "A/B tickets first, gaps after"
+        }
+      ]
+    },
+    {
+      "from": "N0113",
+      "to": "N0099",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C153",
+          "precondition": "N0099 provides round-3 I/O boundary",
+          "postcondition": "Round-4 boundary adds producer/consumer split",
+          "invariant": "All round-4 nodes mapped to files"
         }
       ]
     }

@@ -11,6 +11,7 @@ mod client;
 use std::io::Write;
 
 use siprs::model::AccountId;
+use siprs::RegistrationState;
 use siprs::SipAccountHandle;
 use siprs::SipClient;
 use siprs::SipEventPayload;
@@ -23,14 +24,20 @@ const REGISTRATION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-4 --for-spec --no-implementation-order`.
     let args = cli::parse(std::env::args().skip(1))?;
     client::require(&args, &["--username", "--domain", "--password"])?;
     let config = build_client_config(&args);
     let (client, _events) = SipClient::new(config).await?;
     let account = add_account_and_resolve(&client, &args).await?;
+    // P17-4 §62.24: subscribe before register() — the TestBackend fires the
+    // registration event synchronously inside the SetRegistration arm, and a
+    // broadcast receiver does not replay past events to new subscribers.
+    let mut account_events = client.subscribe_account(resolve_account_id(&account)?);
     account.register().await?;
 
-    let mut account_events = client.subscribe_account(resolve_account_id(&account)?);
     let outcome = tokio::time::timeout(
         REGISTRATION_TIMEOUT,
         await_registration(&mut account_events),
@@ -45,8 +52,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         RegistrationOutcome::Succeeded => {
             writeln!(std::io::stdout(), "registration succeeded")?;
         }
-        RegistrationOutcome::Failed(code, reason) => {
-            return Err(format!("registration failed: {code} {reason}").into());
+        RegistrationOutcome::Failed(reason) => {
+            return Err(format!("registration failed: {reason}").into());
         }
     }
     client.shutdown().await?;
@@ -57,32 +64,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// `subscribe_account`. A non-zero id always converts; a zero id is invalid
 /// by the newtype contract and surfaces as an error.
 // [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-5 --for-spec --no-implementation-order`.
 fn resolve_account_id(account: &SipAccountHandle) -> Result<AccountId, Box<dyn std::error::Error>> {
     AccountId::from_u64(account.id())
         .map_err(|e| format!("account id {} is invalid: {e}", account.id()).into())
 }
 
 /// The observable result of a registration attempt.
-// [::TICKET::] P9-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P9-1, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P9-1|P16-3) --for-spec --no-implementation-order`.
 enum RegistrationOutcome {
     Succeeded,
-    Failed(u16, String),
+    Failed(String),
 }
 
 /// Await the registration outcome, skipping unrelated events.
+///
+/// §62.12 (P16-3): registration results are notified solely through the unified
+/// `RegistrationStateChanged` event — the old `RegistrationSucceeded` /
+/// `RegistrationFailed` variants were removed from `SipEventPayload`.
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
 async fn await_registration(
-    events: &mut siprs::AccountEventReceiver,
+    events: &mut siprs::Subscription<siprs::SipEvent>,
 ) -> Result<RegistrationOutcome, Box<dyn std::error::Error>> {
     loop {
         match events.recv().await {
             Ok(event) => match event.payload {
-                SipEventPayload::RegistrationSucceeded(_) => {
+                SipEventPayload::RegistrationStateChanged(RegistrationState::Registered) => {
                     return Ok(RegistrationOutcome::Succeeded);
                 }
-                SipEventPayload::RegistrationFailed(failure) => {
+                SipEventPayload::RegistrationStateChanged(RegistrationState::Failed) => {
                     return Ok(RegistrationOutcome::Failed(
-                        failure.status_code,
-                        failure.reason,
+                        "registration failed (see server log for details)".into(),
                     ));
                 }
                 _ => {}

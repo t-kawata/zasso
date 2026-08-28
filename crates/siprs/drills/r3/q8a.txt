@@ -1,0 +1,10 @@
+Q8a: unsubscribe のユーザーフレンドリーな API 設計
+
+背景: 現在 subscribe() は broadcast::Receiver<SipEvent>、subscribe_account() は AccountEventReceiver、subscribe_raw_sip() は Option<broadcast::Receiver<RawSipMessage>> を返し、明示的な unsubscribe API は存在しない（購読解除は receiver の drop のみ、RFC §8.3 に明示 API なし）。Q8 の指示により、drop 代替解釈ではなくユーザーフレンドリーなラッピングが必要。選択の観点は、公開 API の形（ハンドル型 vs id 管理）と既存 subscribe 系 API との整合である。
+
+選択肢:
+A) Subscription<T> ハンドル型（内部に broadcast::Receiver<T> を保持）を導入し、subscribe() / subscribe_account() / subscribe_raw_sip() が Subscription を返す。unsubscribe() メソッドで明示購読解除（内部 receiver の drop）、recv() / recv_async() は委譲
+B) subscribe 系 API は現状の戻り値（receiver 等）を維持し、明示 unsubscribe は追加しない（drop ベースを README に明記のみ）
+C) SipClient 側に購読管理テーブルを持ち、subscribe が subscription id（u64）を返し、client.unsubscribe(subscription_id) で解除する
+
+推奨: A を推奨。Rust の慣用的なハンドル型で、ユーザーは subscription.unsubscribe() と subscription.recv().await の 2 操作のみを覚えればよく、最も分かりやすい。B は Q8 の指示（drop 代替ではなくラッピング）に反する。C はクライアントが id を管理する必要があり、SipClient に状態テーブルが増えて複雑化する。v0.x で破壊的変更を受容する round 2 方針とも整合する。

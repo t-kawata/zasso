@@ -308,7 +308,7 @@ mod tests {
 
     #[test]
     // @verifies C052
-// [::TICKET::] P3-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P15-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P15-2) --for-spec --no-implementation-order`.
     fn client_config_timeout_defaults() {
         let timeouts = TimeoutConfig::default();
         assert_eq!(timeouts.command_timeout, Duration::from_secs(10));

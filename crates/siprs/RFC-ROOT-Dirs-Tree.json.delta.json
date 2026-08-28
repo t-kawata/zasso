@@ -2,70 +2,88 @@
   "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
   "newFiles": [
     {
-      "path": "src/config/stun_turn_ice_wiring.rs",
-      "kind": "config",
-      "nodeId": "N0086",
-      "title": "62.17 STUN/TURN/ICE 配線と coturn 検証"
+      "path": "src/build/vendored_pjsip_strategy.rs",
+      "kind": "build_ci",
+      "nodeId": "N0101",
+      "title": "Vendored"
     },
     {
-      "path": "src/api/incoming_call_events.rs",
-      "kind": "api_contract",
-      "nodeId": "N0083",
-      "title": "62.14 着信・通話イベント"
+      "path": "src/build/bindgen_enum_generation.rs",
+      "kind": "build_ci",
+      "nodeId": "N0102",
+      "title": "Bindgen"
     },
     {
-      "path": "src/api/dtmf_unification.rs",
-      "kind": "api_contract",
-      "nodeId": "N0084",
-      "title": "62.15 DTMF 実装整合"
+      "path": "src/build/static_link_strategy.rs",
+      "kind": "build_ci",
+      "nodeId": "N0103",
+      "title": "Static"
     },
     {
-      "path": "src/state/reg_account_lifecycle.rs",
-      "kind": "state_machine",
-      "nodeId": "N0081",
-      "title": "62.12 登録・アカウント経路"
+      "path": "src/build/build_rs_resolution.rs",
+      "kind": "build_ci",
+      "nodeId": "N0104",
+      "title": "build.rs"
     },
     {
-      "path": "src/tests/docker_asterisk_it.rs",
+      "path": "src/build/prebuilt_producer.rs",
+      "kind": "build_ci",
+      "nodeId": "N0105",
+      "title": "Prebuilt"
+    },
+    {
+      "path": "src/build/prebuilt_ci_commit.rs",
+      "kind": "build_ci",
+      "nodeId": "N0106",
+      "title": "Prebuilt CI and commit"
+    },
+    {
+      "path": "src/tests/raw_sip_real_test.rs",
       "kind": "test_policy",
-      "nodeId": "N0088",
-      "title": "62.19 Docker/Asterisk 実 SIP 統合テスト基盤"
+      "nodeId": "N0107",
+      "title": "Raw SIP real test"
     },
     {
-      "path": "src/runtime/event_path_wiring.rs",
-      "kind": "architecture",
-      "nodeId": "N0082",
-      "title": "62.13 イベント経路の完成"
+      "path": "src/tests/real_pjsip_itest.rs",
+      "kind": "test_policy",
+      "nodeId": "N0111",
+      "title": "Real PJSIP integration test"
     },
     {
-      "path": "src/audio/media_path_wiring.rs",
+      "path": "src/runtime/push_media_frame.rs",
       "kind": "architecture",
-      "nodeId": "N0085",
-      "title": "62.16 メディア経路の完成"
+      "nodeId": "N0109",
+      "title": "push_media_frame wiring"
     },
     {
-      "path": "src/ffi/transport_wiring.rs",
+      "path": "src/runtime/add_audio_source.rs",
       "kind": "architecture",
-      "nodeId": "N0080",
-      "title": "62.11 トランスポート生成配線と bindgen 整合方針"
+      "nodeId": "N0110",
+      "title": "AddAudioSource re-register"
     },
     {
-      "path": "src/architecture/round2_scope_rootcause.rs",
+      "path": "src/ffi/ice_transport_error.rs",
       "kind": "architecture",
-      "nodeId": "N0079",
-      "title": "62.10 ラウンド 2 進化スコープと根因"
+      "nodeId": "N0108",
+      "title": "ICE transport error"
     },
     {
-      "path": "src/architecture/examples_e1e5.rs",
+      "path": "src/architecture/round4_scope_rootcause.rs",
       "kind": "architecture",
-      "nodeId": "N0087",
-      "title": "62.18 Examples 設計"
+      "nodeId": "N0100",
+      "title": "Round"
     },
     {
-      "path": "src/architecture/io_boundary_round2.rs",
+      "path": "src/architecture/round4_tickets.rs",
       "kind": "architecture",
-      "nodeId": "N0089",
-      "title": "62.20 I/O 境界参照情報"
+      "nodeId": "N0112",
+      "title": "Round 4 tickets"
+    },
+    {
+      "path": "src/architecture/io_boundary_round4.rs",
+      "kind": "architecture",
+      "nodeId": "N0113",
+      "title": "Round 4 I/O boundary"
     }
   ],
   "modifiedFiles": [],
@@ -283,6 +301,30 @@
       "kind": "missing"
     },
     {
+      "path": "src/build/vendored_pjsip_strategy.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/bindgen_enum_generation.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/static_link_strategy.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/build_rs_resolution.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/prebuilt_producer.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/prebuilt_ci_commit.rs",
+      "kind": "missing"
+    },
+    {
       "path": "src/security/security_platform_diffs.rs",
       "kind": "missing"
     },
@@ -307,6 +349,14 @@
       "kind": "missing"
     },
     {
+      "path": "src/tests/raw_sip_real_test.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/tests/real_pjsip_itest.rs",
+      "kind": "missing"
+    },
+    {
       "path": "src/runtime/mod.rs",
       "kind": "missing"
     },
@@ -324,6 +374,22 @@
     },
     {
       "path": "src/runtime/event_path_wiring.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/backend.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/audio_worker.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/push_media_frame.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/add_audio_source.rs",
       "kind": "missing"
     },
     {
@@ -351,6 +417,18 @@
       "kind": "missing"
     },
     {
+      "path": "src/ffi/raw_sip_module.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/ffi/callback.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/ffi/ice_transport_error.rs",
+      "kind": "missing"
+    },
+    {
       "path": "src/architecture/crate_scope.rs",
       "kind": "missing"
     },
@@ -372,6 +450,26 @@
     },
     {
       "path": "src/architecture/io_boundary_round2.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/round3_scope_rootcause.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/io_boundary_round3.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/round4_scope_rootcause.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/round4_tickets.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/io_boundary_round4.rs",
       "kind": "missing"
     },
     {
@@ -403,6 +501,10 @@
       "kind": "extra"
     },
     {
+      "path": "api/dtmf_unification.rs",
+      "kind": "extra"
+    },
+    {
       "path": "api/event_bus_guarantees.rs",
       "kind": "extra"
     },
@@ -424,6 +526,10 @@
     },
     {
       "path": "api/http_ws_protocol.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/incoming_call_events.rs",
       "kind": "extra"
     },
     {
@@ -451,7 +557,19 @@
       "kind": "extra"
     },
     {
+      "path": "architecture/examples_e1e5.rs",
+      "kind": "extra"
+    },
+    {
       "path": "architecture/impl_integration_design.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/io_boundary_round2.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/io_boundary_round3.rs",
       "kind": "extra"
     },
     {
@@ -463,11 +581,23 @@
       "kind": "extra"
     },
     {
+      "path": "architecture/round2_scope_rootcause.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/round3_scope_rootcause.rs",
+      "kind": "extra"
+    },
+    {
       "path": "audio/audiomixer_rt_boundary.rs",
       "kind": "extra"
     },
     {
       "path": "audio/media_path_arch.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "audio/media_path_wiring.rs",
       "kind": "extra"
     },
     {
@@ -539,6 +669,10 @@
       "kind": "extra"
     },
     {
+      "path": "config/stun_turn_ice_wiring.rs",
+      "kind": "extra"
+    },
+    {
       "path": "config/transport_ice_spec.rs",
       "kind": "extra"
     },
@@ -595,6 +729,10 @@
       "kind": "extra"
     },
     {
+      "path": "ffi/media_port_adapter.rs",
+      "kind": "extra"
+    },
+    {
       "path": "ffi/mod.rs",
       "kind": "extra"
     },
@@ -604,6 +742,14 @@
     },
     {
       "path": "ffi/pjsip_ffi_layer.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/raw_sip_module.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/transport_wiring.rs",
       "kind": "extra"
     },
     {
@@ -620,6 +766,10 @@
     },
     {
       "path": "model/audio_resampler.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "model/dtmf_spec.rs",
       "kind": "extra"
     },
     {
@@ -664,6 +814,10 @@
     },
     {
       "path": "runtime/command.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/event_path_wiring.rs",
       "kind": "extra"
     },
     {
@@ -719,6 +873,10 @@
       "kind": "extra"
     },
     {
+      "path": "state/reg_account_lifecycle.rs",
+      "kind": "extra"
+    },
+    {
       "path": "state/registr_state_machine.rs",
       "kind": "extra"
     },
@@ -732,6 +890,10 @@
     },
     {
       "path": "state/shutdown_wiring.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "tests/docker_asterisk_it.rs",
       "kind": "extra"
     },
     {

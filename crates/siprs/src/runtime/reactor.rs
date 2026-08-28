@@ -17,9 +17,16 @@ use crate::api::event_model_payload_bus::{
     AccountId, CallId, ConnectedCallInfo, EventMeta, SipEvent, SipEventPayload,
 };
 use crate::api::eventbus_receiver::EventBus;
+use crate::api::incoming_call_events::build_incoming_call_entry;
 use crate::audio::media_path_arch::ChannelSelector;
-use crate::state::m20_callstate_mapping::{convert_call_state_with_previous, CallDirection};
+use crate::state::m20_callstate_mapping::{
+    convert_call_media_state_with_previous, convert_call_state_with_previous, CallDirection,
+    CallState,
+};
 use crate::state::m20_native_event_conv::{convert_native_event_to_payload, NativeEvent};
+use crate::state::reg_account_lifecycle::{
+    add_account_and_apply_auto_register, remove_account_sequence,
+};
 use crate::state::registr_wiring::{
     apply_registration_command_state, process_registration_state_changed,
 };
@@ -69,7 +76,7 @@ pub struct BootConfig {
 
 // [::TICKET::] P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-2 --for-spec --no-implementation-order`.
 impl Default for BootConfig {
-// [::TICKET::] P15-2, P15-4, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-2|P15-4|P15-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-2, P15-4, P15-7, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-2|P15-4|P15-7|P16-3) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             config: ClientConfig::default(),
@@ -99,12 +106,12 @@ pub struct CoreReactor;
 
 /// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
 /// join handle, or a boxed spawn error.
-// [::TICKET::] P15-4, P15-7, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-4, P15-7, P15-9, P16-5, P16-7, P17-5, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5|P16-7|P17-5|P17-6) --for-spec --no-implementation-order`.
 type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7, PX-3, P17-4, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7|PX-3|P17-4|P17-6) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -122,16 +129,25 @@ impl CoreReactor {
         let terminated = Arc::new(AtomicBool::new(false));
         let terminated_clone = terminated.clone();
 
-        // [::TICKET::] P15-3: §62.2 — the backend is selected by feature set:
-        // PjsuaBackend (pjsua-native), TestBackend (test builds), or an explicit
-        // unsupported error otherwise. TestBackend no longer exists in production.
-        let mut backend = create_backend(&boot_config.config, boot_config.audio_taps.clone())?;
         // [::TICKET::] P8-1, P15-7: O-003 — the reactor owns per-call AudioMixers
         // keyed by call_id (§62.6). Audio lifecycle commands (AddAudioSource /
         // RemoveAudioSource / SetAudioSourceGain / MuteAudioSource) mutate the
         // per-call mixer on the reactor thread (single-writer rule).
+        //
+        // PX-3 / C119-pre: the map is created BEFORE the backend so a clone can
+        // be threaded into PjsuaBackend (via create_backend) — the backend reads
+        // it in register_conf_callback to build a RustMediaPort per call.
         let audio_mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
             Arc::new(RwLock::new(HashMap::new()));
+        // [::TICKET::] P15-3, PX-3: §62.2 — the backend is selected by feature
+        // set: PjsuaBackend (pjsua-native), TestBackend (test builds), or an
+        // explicit unsupported error otherwise. The pjsua-native branch receives
+        // the shared audio_mixers map for conf-bridge registration.
+        let mut backend = create_backend(
+            &boot_config.config,
+            boot_config.audio_taps.clone(),
+            audio_mixers.clone(),
+        )?;
         // [::TICKET::] P11-3, P15-7: O-001 — expose a clone of the reactor mixer
         // map to the handle so tests/observability can assert post-dispatch mixer
         // state without a round-trip command. The thread keeps its own Arc
@@ -141,6 +157,12 @@ impl CoreReactor {
         // per-call mixer so a source_id is unique across calls (the lifecycle
         // commands address a source by id alone).
         let source_id_counter: Arc<AtomicU64> = Arc::new(AtomicU64::new(0));
+
+        // [::TICKET::] P16-4: §62.13 — the FFI drain task needs its own clone of the
+        // reactor command sender (the original `tx` is moved into the RuntimeHandle
+        // below), and the raw SIP publisher needs the raw_sip event config.
+        let drain_tx = tx.clone();
+        let raw_sip_events = boot_config.config.raw_sip_events.clone();
 
         // [::TICKET::] P15-4: §62.3 — the reactor publishes to the single EventBus
         // owned by SipClient. The thread closure takes ownership of the bus; the
@@ -178,6 +200,9 @@ impl CoreReactor {
                 // out of CallEntry so the C046 field set (id/native_id/account_id/
                 // state/media) stays fixed and conf_port_id remains absent.
                 let mut call_directions: BTreeMap<CallId, CallDirection> = BTreeMap::new();
+                // [::TICKET::] P17-6: reactor-owned per-call previous media status,
+                // the state source for detecting hold→ACTIVE → CallResumed (§62.26).
+                let mut media_statuses: BTreeMap<CallId, u32> = BTreeMap::new();
                 // [::TICKET::] P15-7: per-call audio workers. One AudioWorkerTask
                 // drives each per-call AudioMixer's process_frame loop (§62.6);
                 // owned by the reactor thread and shut down on exit.
@@ -188,6 +213,23 @@ impl CoreReactor {
                 // `spawn_dtmf_sent_timeout` (which uses `tokio::spawn`) works
                 // without restructuring the loop.
                 let _timer_enter = timer_runtime.enter();
+
+                // [::TICKET::] P16-4: §62.13 — spawn the FFI native-event drain task
+                // (NATIVE_EVENT_QUEUE → reactor command channel) and the raw SIP
+                // publisher (RAW_SIP_QUEUE → raw_sip bus). Both run on the reactor's
+                // timer runtime and exit when the reactor terminates.
+                crate::runtime::event_path_wiring::spawn_native_event_drain(
+                    drain_tx,
+                    &timer_runtime,
+                    terminated.clone(),
+                );
+                crate::runtime::event_path_wiring::spawn_raw_sip_publisher(
+                    event_bus.clone(),
+                    raw_sip_events,
+                    &timer_runtime,
+                    terminated.clone(),
+                );
+
                 // §62.7: once the Shutdown arm has completed the §32 sequence, the
                 // reactor drains the channel — every queued command is rejected
                 // and the thread exits when the channel is empty or closed.
@@ -220,7 +262,7 @@ impl CoreReactor {
                                     );
                                     continue;
                                 }
-                                ShutdownGate::Permit(command) => command,
+                                ShutdownGate::Permit(command) => *command,
                             };
                             match command {
                                 DispatchCommand::Execute { f, reply } => {
@@ -280,14 +322,13 @@ impl CoreReactor {
                                         get_or_create_mixer(&audio_mixers, &source_id_counter, call_id);
                                     // Spawn the per-call worker the first time a mixer is
                                     // created so its process_frame loop drives the paths.
-                                    if !audio_workers.contains_key(&call_id) {
-                                        let worker = AudioWorkerTask::spawn(
+                                    audio_workers.entry(call_id).or_insert_with(|| {
+                                        AudioWorkerTask::spawn(
                                             mixer.clone(),
                                             call_id,
                                             DEFAULT_AUDIO_FRAME_DURATION,
-                                        );
-                                        audio_workers.insert(call_id, worker);
-                                    }
+                                        )
+                                    });
                                     let source = source.into_inner();
                                     let source_id = match channels {
                                         ChannelSelector::In => mixer.add_in_source(source),
@@ -379,16 +420,17 @@ impl CoreReactor {
                                 DispatchCommand::AddAccount { config, reply } => {
                                     let result = std::panic::catch_unwind(
                                         std::panic::AssertUnwindSafe(|| {
-                                            backend.add_account(&config)
+                                            // §62.12: backend add → ClientState tracking →
+                                            // optional auto REGISTER (register_on_start).
+                                            add_account_and_apply_auto_register(
+                                                &mut *backend,
+                                                &mut client_state,
+                                                &config,
+                                            )
                                         }),
                                     );
                                     match result {
-                                        Ok(Ok((_native_id, entry))) => {
-                                            let entry_id = entry.id;
-                                            // Track the account in authoritative ClientState (O-004).
-                                            if let Ok(account_id) = AccountId::from_u64(entry_id) {
-                                                client_state.accounts.insert(account_id, entry);
-                                            }
+                                        Ok(Ok(entry_id)) => {
                                             // Reply with the assigned logical id so the facade
                                             // can build a real SipAccountHandle (P10-3).
                                             let _ = reply.send(Ok(entry_id));
@@ -421,6 +463,7 @@ impl CoreReactor {
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
                                         call_directions: &mut call_directions,
+                                        media_statuses: &mut media_statuses,
                                     };
                                     let result = std::panic::catch_unwind(
                                         std::panic::AssertUnwindSafe(|| {
@@ -464,6 +507,7 @@ impl CoreReactor {
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
                                         call_directions: &mut call_directions,
+                                        media_statuses: &mut media_statuses,
                                     };
                                     let result = std::panic::catch_unwind(
                                         std::panic::AssertUnwindSafe(|| {
@@ -507,6 +551,7 @@ impl CoreReactor {
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
                                         call_directions: &mut call_directions,
+                                        media_statuses: &mut media_statuses,
                                     };
                                     let result = std::panic::catch_unwind(
                                         std::panic::AssertUnwindSafe(|| {
@@ -550,6 +595,7 @@ impl CoreReactor {
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
                                         call_directions: &mut call_directions,
+                                        media_statuses: &mut media_statuses,
                                     };
                                     let result = std::panic::catch_unwind(
                                         std::panic::AssertUnwindSafe(|| {
@@ -648,14 +694,39 @@ impl CoreReactor {
                                 DispatchCommand::RemoveAccount { account_id, reply } => {
                                     let result = std::panic::catch_unwind(
                                         std::panic::AssertUnwindSafe(|| {
-                                            backend.remove_account(account_id as i32)
+                                            let aid = AccountId::from_u64(account_id).map_err(
+                                                |_| {
+                                                    ReactorError::NotInitialized(
+                                                        "invalid account id".into(),
+                                                    )
+                                                },
+                                            )?;
+                                            // §62.12: unregister-first → backend removal →
+                                            // ClientState removal, returning the snapshot to
+                                            // publish as AccountRemoved.
+                                            remove_account_sequence(
+                                                &mut *backend,
+                                                &mut client_state,
+                                                aid,
+                                            )
                                         }),
                                     );
                                     match result {
-                                        Ok(Ok(())) => {
-                                            // Keep the authoritative ClientState in lockstep (C021).
-                                            if let Ok(aid) = AccountId::from_u64(account_id) {
-                                                client_state.accounts.remove(&aid);
+                                        Ok(Ok(snapshot)) => {
+                                            // §62.12: publish AccountRemoved with the removed
+                                            // account's snapshot on the single client-owned
+                                            // EventBus (P15-4).
+                                            if let Some(snapshot) = snapshot {
+                                                let aid = AccountId::from_u64(account_id).ok();
+                                                dispatch_event(
+                                                    &event_bus,
+                                                    SipEvent {
+                                                        meta: EventMeta::new(0, aid, None),
+                                                        payload: SipEventPayload::AccountRemoved(
+                                                            snapshot,
+                                                        ),
+                                                    },
+                                                );
                                             }
                                             let _ = reply.send(Ok(()));
                                         }
@@ -706,6 +777,27 @@ impl CoreReactor {
                                                 aid,
                                                 enabled,
                                             );
+                                            // P17-4 §62.24: drain events the backend fired
+                                            // (TestBackend's buffer stands in for the §62.13
+                                            // FFI queue) and process them on the reactor thread.
+                                            // The drain must follow apply_registration_command_state
+                                            // so ClientState is Registering before
+                                            // process_registration_state_changed validates the
+                                            // Registering→Registered edge.
+                                            let mut call_state = CallStateTables {
+                                                calls: &mut client_state.calls,
+                                                call_directions: &mut call_directions,
+                                                media_statuses: &mut media_statuses,
+                                            };
+                                            for native_event in backend.take_native_events() {
+                                                process_native_event(
+                                                    &mut *backend,
+                                                    &event_bus,
+                                                    native_event,
+                                                    &mut call_state,
+                                                    &mut client_state.accounts,
+                                                );
+                                            }
                                             Ok(())
                                         }),
                                     );
@@ -786,9 +878,10 @@ impl CoreReactor {
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
                                         call_directions: &mut call_directions,
+                                        media_statuses: &mut media_statuses,
                                     };
                                     process_native_event(
-                                        &*backend,
+                                        &mut *backend,
                                         &event_bus,
                                         event,
                                         &mut call_state,
@@ -934,18 +1027,23 @@ fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
 type CallTable = std::collections::BTreeMap<CallId, CallEntry>;
 
 /// Accounts keyed by account ID, passed to native-event processing.
-// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-9, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-9|P17-6) --for-spec --no-implementation-order`.
 type AccountTable = std::collections::BTreeMap<AccountId, AccountEntry>;
 
 /// Reactor-owned call-state tables passed to call-state handlers.
 ///
-/// Bundles the `CallId`-keyed `calls` table and the call-origin `call_directions`
-/// map so handler signatures stay under the param-count limit — the same
-/// bundling precedent as `SendDtmfContext`.
+/// Bundles the `CallId`-keyed `calls` table, the call-origin `call_directions`
+/// map, and the per-call previous media status map so handler signatures stay
+/// under the param-count limit — the same bundling precedent as
+/// `SendDtmfContext`.
 // [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
 pub(crate) struct CallStateTables<'a> {
     pub calls: &'a mut CallTable,
     pub call_directions: &'a mut BTreeMap<CallId, CallDirection>,
+    /// Latest `pjsua_call_media_status` observed per call, the state source
+    /// for detecting hold→ACTIVE → CallResumed (§62.26).
+    pub media_statuses: &'a mut BTreeMap<CallId, u32>,
 }
 
 /// Publish a `SipEvent` to the single client-owned `EventBus` (§62.3 / N0072).
@@ -980,7 +1078,7 @@ pub(crate) fn dispatch_event(event_bus: &EventBus, event: SipEvent) {
 /// `CONFIRMED` call publish a `CallConnected` payload with the real account.
 // [::TICKET::] P15-4: O-001 — production NativeEvent → SipEvent publication flow
 pub(crate) fn process_native_event(
-    backend: &dyn SipBackend,
+    backend: &mut dyn SipBackend,
     event_bus: &EventBus,
     event: NativeEvent,
     call_state: &mut CallStateTables<'_>,
@@ -993,10 +1091,18 @@ pub(crate) fn process_native_event(
             }
         }
         other_event => {
-            // Record the call origin before conversion: an inbound INVITE implies
-            // CallDirection::Incoming (C039 provenance — never read from payload).
-            if let NativeEvent::IncomingCall { call_id, .. } = &other_event {
-                if let Ok(cid) = CallId::from_u64(*call_id as u64) {
+            // P16-5 §62.14: an inbound INVITE implies CallDirection::Incoming
+            // (C039 provenance — never read from the payload). Register the
+            // incoming call as a CallEntry so it resolves via calls()/call_state()
+            // and is answerable, then record the direction for CONNECTING
+            // discrimination (Trying vs Ringing).
+            if let NativeEvent::IncomingCall { acc_id, call_id } = &other_event {
+                if let (Ok(aid), Ok(cid)) = (
+                    AccountId::from_u64(*acc_id as u64),
+                    CallId::from_u64(*call_id as u64),
+                ) {
+                    let entry = build_incoming_call_entry(aid, cid, *call_id, String::new());
+                    call_state.calls.insert(cid, entry);
                     call_state
                         .call_directions
                         .insert(cid, CallDirection::Incoming);
@@ -1016,17 +1122,53 @@ pub(crate) fn process_native_event(
                 NativeEvent::CallStateChanged { call_id, state } => {
                     CallId::from_u64(call_id as u64).ok().and_then(|cid| {
                         let direction = resolve_call_direction(cid, call_state.call_directions);
-                        convert_call_state_with_previous(cid, account_id, state, direction)
+                        convert_call_state_with_previous(cid, account_id, state, direction).map(
+                            |transition| {
+                                // Publish and CallEntry.state share the single
+                                // conversion result (RFC N0094 §62.25 / C128).
+                                if let Some(entry) = call_state.calls.get_mut(&cid) {
+                                    entry.state = transition.state;
+                                }
+                                transition.payload
+                            },
+                        )
+                    })
+                }
+                // Media status changes are stateful: record the new status as the
+                // per-call latest, then publish CallResumed only on hold→ACTIVE
+                // (§62.26 / C129 / C130 / C131).
+                NativeEvent::CallMediaStateChanged { call_id, status } => {
+                    CallId::from_u64(call_id as u64).ok().and_then(|cid| {
+                        let previous_status = call_state.media_statuses.get(&cid).copied();
+                        call_state.media_statuses.insert(cid, status);
+                        convert_call_media_state_with_previous(cid, status, previous_status)
                     })
                 }
                 other => convert_native_event_to_payload(other, account_id),
             };
             if let Some(payload) = payload {
+                let is_connected = matches!(payload, SipEventPayload::CallConnected(_));
                 let sip_event = SipEvent {
                     meta: EventMeta::new(0, account_id, call_id),
                     payload,
                 };
                 dispatch_event(event_bus, sip_event);
+                // §62.16 / C110: when a call reaches CONFIRMED (outgoing connect
+                // or remote confirm), establish the media path. A conf_connect
+                // failure is logged, never propagated — event delivery must not
+                // be blocked by media setup.
+                if is_connected {
+                    if let Some(connected_call_id) = call_id {
+                        let connected_call_id_u64 = connected_call_id.get().get();
+                        if let Err(error) = connect_media_for_call(backend, connected_call_id_u64) {
+                            tracing::warn!(
+                                call_id = connected_call_id_u64,
+                                %error,
+                                "conf_connect after CONFIRMED failed"
+                            );
+                        }
+                    }
+                }
             }
         }
     }
@@ -1051,7 +1193,7 @@ fn resolve_call_direction(
 /// Call/DTMF events carry only a `call_id`; the owning `account_id` is resolved
 /// from the reactor's call-state table by `process_native_event`. Registration
 /// events carry the `acc_id`.
-// [::TICKET::] P7-2, P9-6, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P11-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P7-2, P9-6, P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P11-11|P17-6) --for-spec --no-implementation-order`.
 fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>) {
     match event {
         NativeEvent::RegistrationStarted { acc_id, .. } => {
@@ -1062,7 +1204,7 @@ fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>)
             CallId::from_u64(*call_id as u64).ok(),
         ),
         NativeEvent::CallStateChanged { call_id, .. }
-        | NativeEvent::CallMediaStateChanged { call_id }
+        | NativeEvent::CallMediaStateChanged { call_id, .. }
         | NativeEvent::DtmfDigit { call_id, .. }
         | NativeEvent::IceTransportError { call_id }
         | NativeEvent::CallTsxStateChanged { call_id }
@@ -1114,6 +1256,20 @@ pub(crate) fn handle_make_call(
     Ok(entry_id)
 }
 
+/// Establish the media path for a newly connected call (§62.16 / C110).
+///
+/// The crate's conf_connect convention is `(call_id, call_id)` — the logical
+/// call id doubles as the conf port id (the contract P8-1 established on
+/// TestBackend). Callers decide how to surface a failure: `handle_answer` and
+/// the native-event path log it (media-connect problems never block event
+/// delivery), while tests can assert the returned error.
+pub(crate) fn connect_media_for_call(
+    backend: &mut dyn SipBackend,
+    call_id: u64,
+) -> Result<(), ReactorError> {
+    backend.conf_connect(call_id as i32, call_id as i32)
+}
+
 /// Handle a `RuntimeCommand::Answer` on the reactor thread (§19.1 / N0027).
 ///
 /// Reads as prose: answer via the backend; on success record the resulting call
@@ -1130,25 +1286,47 @@ pub(crate) fn handle_answer(
 ) -> Result<(), ReactorError> {
     let call_id_typed = CallId::from_u64(call_id)
         .map_err(|_| ReactorError::BackendError("invalid call id 0".into()))?;
+    // P16-5 §62.14: resolve the owning account from the CallEntry before the
+    // backend call — an unknown call must fail without any side effect.
+    let account_id = call_state
+        .calls
+        .get(&call_id_typed)
+        .map(|entry| entry.account_id)
+        .ok_or_else(|| ReactorError::BackendError("call not found".into()))?;
     backend.answer_call(call_id as i32, code)?;
-    let account_id = call_state.calls.get(&call_id_typed).map(|e| e.account_id);
+    // P16-5 §62.14: transition the CallEntry to the typed CallState for the
+    // answered code (200 → Active, 486/603 → Disconnected, provisional → Connecting).
     if let Some(entry) = call_state.calls.get_mut(&call_id_typed) {
-        entry.state = crate::api::call_api_expansion::answer_state_string(code).to_string();
+        entry.state = crate::api::call_api_expansion::answer_call_state(code);
     }
-    let payload = match (code, account_id) {
-        (200, Some(account_id)) => Some(SipEventPayload::CallConnected(ConnectedCallInfo {
+    let payload = match code {
+        200 => Some(SipEventPayload::CallConnected(ConnectedCallInfo {
             call_id: call_id_typed,
             account_id,
-            remote_uri: String::new(),
+            // P16-5 §62.14: carry the CallEntry's remote_uri instead of a
+            // hardcoded empty string — the incoming call's peer is preserved.
+            remote_uri: call_state
+                .calls
+                .get(&call_id_typed)
+                .map(|entry| entry.remote_uri.clone())
+                .unwrap_or_default(),
         })),
-        (486 | 603, _) => Some(SipEventPayload::CallDisconnected),
+        486 | 603 => Some(SipEventPayload::CallDisconnected),
         _ => None,
     };
     if let Some(payload) = payload {
+        // §62.16 / C110: when a 200 answer connects the call, establish the
+        // media path. A conf_connect failure is logged, never propagated —
+        // the call state and event delivery must not be blocked by media setup.
+        if code == 200 {
+            if let Err(error) = connect_media_for_call(backend, call_id) {
+                tracing::warn!(call_id, %error, "conf_connect after answer failed");
+            }
+        }
         dispatch_event(
             event_bus,
             SipEvent {
-                meta: EventMeta::new(0, account_id, Some(call_id_typed)),
+                meta: EventMeta::new(0, Some(account_id), Some(call_id_typed)),
                 payload,
             },
         );
@@ -1175,7 +1353,7 @@ pub(crate) fn handle_hangup(
     tracing::info!(%call_id_typed, ?reason, "call hung up");
     let account_id = call_state.calls.get(&call_id_typed).map(|e| e.account_id);
     if let Some(entry) = call_state.calls.get_mut(&call_id_typed) {
-        entry.state = "Disconnected".to_string();
+        entry.state = CallState::Disconnected;
     }
     dispatch_event(
         event_bus,
@@ -1202,18 +1380,21 @@ pub(crate) fn handle_transfer(
         .map_err(|_| ReactorError::BackendError("invalid call id 0".into()))?;
     backend.transfer_call(call_id as i32, target)?;
     if let Some(entry) = call_state.calls.get_mut(&call_id_typed) {
-        entry.state = "Transferring".to_string();
+        entry.state = CallState::Transferring;
     }
     Ok(())
 }
 
 /// Handle a `RuntimeCommand::SendDtmf` on the reactor thread.
 ///
-/// Reads as prose: send via the backend; on success resolve the owning account,
-/// convert the method, and spawn one `spawn_dtmf_sent_timeout` per digit that
-/// publishes `DtmfSent { Err(Timeout) }` to the single client-owned bus; on
-/// backend error propagate and spawn nothing (two-phase C030 preserved).
+/// Reads as prose: send via the backend with the unified method; on success
+/// resolve the owning account, and spawn one `spawn_dtmf_sent_timeout` per digit
+/// that publishes `DtmfSent { Ok(()) }` to the single client-owned bus — the
+/// §62.27 completion signal (backend accept + 500ms timeout); on backend error
+/// propagate and spawn nothing (two-phase C030 preserved).
+// [::TICKET::] P17-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-7 --for-spec --no-implementation-order`.
 pub(crate) fn handle_send_dtmf(
+    // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
     ctx: &mut SendDtmfContext<'_>,
     call_id: u64,
     method: crate::config::account_config_spec::DtmfMethod,
@@ -1228,13 +1409,12 @@ pub(crate) fn handle_send_dtmf(
         .get(&call_id_typed)
         .map(|entry| entry.account_id);
     let target_bus = ctx.event_bus.clone();
-    let m20_method = crate::api::m20_dtmfsent_twophase::DtmfMethod::from(method);
     for digit in digits.chars() {
         let _timer = crate::api::m20_dtmfsent_twophase::spawn_dtmf_sent_timeout(
             crate::api::m20_dtmfsent_twophase::DtmfSentTimeoutRequest {
                 call_id: call_id_typed,
                 account_id,
-                method: m20_method,
+                method,
                 digit,
                 timeout_ms: ctx.sent_timeout_ms,
                 event_bus: target_bus.clone(),
@@ -1251,7 +1431,7 @@ mod tests {
     use crate::runtime::backend::TestBackend;
     use crate::runtime::command::Reply;
     use crate::runtime::state::{AccountEntry, CallEntry};
-    use crate::state::m20_callstate_mapping::pjsip_inv_state;
+    use crate::state::m20_callstate_mapping::{pjsip_inv_state, pjsua_call_media_status};
     use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
     use crate::state::registr_state_machine::RegistrationState;
     use std::collections::BTreeMap;
@@ -1274,7 +1454,7 @@ mod tests {
 
     /// Build a calls table with a single confirmed call (CallId 10 → account 1).
     // [::TICKET::] P9-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-6 --for-spec --no-implementation-order`.
-    // [::TICKET::] P11-9, P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-9, P11-11, P16-5, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11|P16-5|PX-3) --for-spec --no-implementation-order`.
     fn confirmed_calls() -> CallTable {
         BTreeMap::from([(
             test_call_id(10),
@@ -1282,8 +1462,10 @@ mod tests {
                 id: 10,
                 native_id: 1,
                 account_id: test_account(1),
-                state: "Confirmed".into(),
+                state: CallState::Active,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         )])
     }
@@ -1291,6 +1473,12 @@ mod tests {
     /// An empty call-origin direction map, shared by process_native_event tests.
     // [::TICKET::] P12-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-8 --for-spec --no-implementation-order`.
     fn empty_directions() -> BTreeMap<CallId, CallDirection> {
+        BTreeMap::new()
+    }
+
+    /// An empty per-call media-status map, shared by process_native_event tests.
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    fn empty_media_statuses() -> BTreeMap<CallId, u32> {
         BTreeMap::new()
     }
 
@@ -1325,7 +1513,7 @@ mod tests {
     /// @verifies C039, C084
     #[test]
     // [::TICKET::] P15-4: O-003 — dispatch_event publishes directly to the single bus
-// [::TICKET::] P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-4, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P16-3) --for-spec --no-implementation-order`.
     fn dispatch_event_publishes_to_single_bus() {
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -1341,7 +1529,7 @@ mod tests {
     /// @verifies C039
     #[test]
     // [::TICKET::] P15-4: account_id=None lifecycle events also flow on the single bus
-// [::TICKET::] P15-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-4, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P16-3) --for-spec --no-implementation-order`.
     fn dispatch_event_lifecycle_event_flows_to_single_bus() {
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -1375,9 +1563,10 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -1420,9 +1609,10 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -1446,7 +1636,7 @@ mod tests {
 
     /// @verifies C024
     #[tokio::test]
-    // [::TICKET::] P10-6: O-001 — non-200 Ok snapshot (403) publishes RegistrationFailed via the production flow
+    // [::TICKET::] P10-6: O-001 — non-200 Ok snapshot (403) publishes RegistrationStateChanged(Failed) via the production flow
     // [::TICKET::] P10-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-6 --for-spec --no-implementation-order`.
     async fn process_native_event_registration_403_publishes_registration_state_changed_failed() {
         // C024/C085: a non-200 registration status drives Registering → Failed and
@@ -1467,9 +1657,10 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -1499,7 +1690,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P7-2: O-001 — non-registration P0 events convert and publish through dispatch_event
     async fn process_native_event_call_state_changed_publishes() {
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut calls = confirmed_calls();
         let mut rx = bus.subscribe_control();
@@ -1508,9 +1699,10 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 10,
@@ -1532,12 +1724,128 @@ mod tests {
         }
     }
 
+    /// §62.16 / C110: a CONFIRMED native event publishes CallConnected AND
+    /// triggers `backend.conf_connect(call_id, call_id)` on the same path.
+    #[tokio::test]
+    // @verifies C110
+    async fn process_native_event_confirmed_triggers_conf_connect(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut calls = confirmed_calls();
+        let mut rx = bus.subscribe_control();
+
+        let mut accounts = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
+        };
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 10,
+                state: pjsip_inv_state::CONFIRMED,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        let ev = rx.recv().await?;
+        assert!(
+            matches!(ev.payload, SipEventPayload::CallConnected(_)),
+            "a CONFIRMED call must publish CallConnected"
+        );
+        assert_eq!(
+            backend.conf_connect_calls,
+            vec![(10, 10)],
+            "conf_connect(call_id, call_id) must be auto-issued on connect"
+        );
+        Ok(())
+    }
+
+    /// §62.26 / C129 / C130 / C131: per-call media status tracking publishes
+    /// CallResumed exactly once on the hold→ACTIVE transition.
+    #[tokio::test]
+    // @verifies C129
+    // @verifies C130
+    // @verifies C131
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    async fn process_native_event_media_hold_resume_publishes_sequence() {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut calls = confirmed_calls();
+        let mut rx = bus.subscribe_control();
+
+        let mut accounts = BTreeMap::new();
+        let mut media_statuses: BTreeMap<CallId, u32> = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+            media_statuses: &mut media_statuses,
+        };
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallMediaStateChanged {
+                call_id: 10,
+                status: pjsua_call_media_status::ACTIVE,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallMediaStateChanged {
+                call_id: 10,
+                status: pjsua_call_media_status::LOCAL_HOLD,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallMediaStateChanged {
+                call_id: 10,
+                status: pjsua_call_media_status::ACTIVE,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        let first = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected MediaActive on bus: {error}"));
+        assert!(matches!(first.payload, SipEventPayload::MediaActive(_)));
+        let second = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected CallHeld on bus: {error}"));
+        assert!(matches!(second.payload, SipEventPayload::CallHeld));
+        let third = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected CallResumed on bus: {error}"));
+        assert!(matches!(third.payload, SipEventPayload::CallResumed(_)));
+
+        // C130 invariant: the media_statuses entry equals the most recent status.
+        assert_eq!(
+            media_statuses.get(&test_call_id(10)),
+            Some(&pjsua_call_media_status::ACTIVE),
+            "media_statuses entry must equal the most recent status observed"
+        );
+    }
+
     /// @verifies C029, C031
     #[tokio::test]
     async fn process_native_event_multi_account_call_connected() {
         // Two calls, one per account: each CallConnected payload must carry the
         // owning CallEntry.account_id — never the hardcoded account 1.
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut calls = BTreeMap::from([
             (
@@ -1546,8 +1854,10 @@ mod tests {
                     id: 10,
                     native_id: 1,
                     account_id: test_account(1),
-                    state: "Confirmed".into(),
+                    state: CallState::Active,
                     media: "none".into(),
+                    direction: CallDirection::Outgoing,
+                    remote_uri: String::new(),
                 },
             ),
             (
@@ -1556,8 +1866,10 @@ mod tests {
                     id: 11,
                     native_id: 2,
                     account_id: test_account(2),
-                    state: "Confirmed".into(),
+                    state: CallState::Active,
                     media: "none".into(),
+                    direction: CallDirection::Outgoing,
+                    remote_uri: String::new(),
                 },
             ),
         ]);
@@ -1567,9 +1879,10 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 10,
@@ -1581,9 +1894,10 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 11,
@@ -1614,8 +1928,8 @@ mod tests {
 
     #[tokio::test]
     // [::TICKET::] P7-2: O-001 — P1/P2 events are dropped without publication (documented rationale)
-    async fn process_native_event_p1_drops_without_publish() {
-        let backend = TestBackend::new();
+    async fn process_native_event_transport_state_changed_publishes() {
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut calls = BTreeMap::new();
         let mut accounts = BTreeMap::new();
@@ -1624,27 +1938,28 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::TransportStateChanged {
                 transport_id: 1,
-                state: 0,
+                state: crate::ffi::bindings::pjsip_transport_state::CONNECTED,
             },
             &mut call_state,
             &mut accounts,
         );
 
-        // P1/P2 convert to None — no event must be published on the bus.
-        let result = rx.try_recv();
+        // P16-4 §62.13: P1 events convert to Some and are published on the bus.
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("P1 event must be published: {error}"));
         assert!(
-            matches!(
-                result,
-                Err(tokio::sync::broadcast::error::TryRecvError::Empty)
-            ),
-            "P1 events must not be published, got {:?}",
-            result
+            matches!(ev.payload, SipEventPayload::TransportConnected(_)),
+            "CONNECTED must publish TransportConnected, got {:?}",
+            ev.payload
         );
     }
 
@@ -1654,7 +1969,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: inbound CONNECTING discriminates to OutgoingCallRinging
     async fn process_native_event_incoming_connecting_rings() {
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::from([(
@@ -1663,8 +1978,10 @@ mod tests {
                 id: 7,
                 native_id: 1,
                 account_id: test_account(42),
-                state: "Connecting".into(),
+                state: CallState::Connecting,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         )]);
         let mut directions = BTreeMap::from([(test_call_id(7), CallDirection::Incoming)]);
@@ -1673,9 +1990,10 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 7,
@@ -1702,7 +2020,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: outbound CONNECTING discriminates to OutgoingCallTrying
     async fn process_native_event_outgoing_connecting_tries() {
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::from([(
@@ -1711,8 +2029,10 @@ mod tests {
                 id: 7,
                 native_id: 1,
                 account_id: test_account(42),
-                state: "Connecting".into(),
+                state: CallState::Connecting,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         )]);
         let mut directions = BTreeMap::from([(test_call_id(7), CallDirection::Outgoing)]);
@@ -1721,9 +2041,10 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 7,
@@ -1748,7 +2069,7 @@ mod tests {
     #[tokio::test]
     // [::TICKET::] P12-8: CONNECTING with no recorded direction falls back to Trying (outgoing assumption)
     async fn process_native_event_connecting_no_direction_falls_back_to_trying() {
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::from([(
@@ -1757,8 +2078,10 @@ mod tests {
                 id: 7,
                 native_id: 1,
                 account_id: test_account(42),
-                state: "Connecting".into(),
+                state: CallState::Connecting,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         )]);
         let mut directions = BTreeMap::new();
@@ -1767,9 +2090,10 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::CallStateChanged {
                 call_id: 7,
@@ -1790,11 +2114,291 @@ mod tests {
         );
     }
 
-    /// @verifies C039
+    // ── P17-5: native CallStateChanged reflects into CallEntry.state ─────
+
+    /// @verifies C127
     #[tokio::test]
-    // [::TICKET::] P12-8: processing NativeEvent::IncomingCall records the Incoming direction
+    // [::TICKET::] P17-5: remote DISCONNECTED must update CallEntry.state to
+    // Disconnected — the H11 stale call_state() fix (RFC N0094 §62.25).
+    async fn process_native_event_disconnected_updates_call_state() {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        // confirmed_calls() seeds CallEntry { id: 10, state: Active, .. }.
+        let mut calls = confirmed_calls();
+        let mut accounts = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
+        };
+
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 10,
+                state: pjsip_inv_state::DISCONNECTED,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        // C127 Postcondition: the native transition reflects into the entry.
+        assert_eq!(
+            calls[&test_call_id(10)].state,
+            CallState::Disconnected,
+            "CallEntry.state must be updated by the native DISCONNECTED event"
+        );
+        // The publish still happens on the same single conversion result.
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+        assert!(matches!(ev.payload, SipEventPayload::CallDisconnected));
+    }
+
+    /// @verifies C127, C110
+    #[tokio::test]
+    // [::TICKET::] P17-5: CONFIRMED must reflect state Active while the
+    // existing CallConnected publish and conf_connect side-effect survive.
+    async fn process_native_event_confirmed_updates_call_state_active() {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut calls = confirmed_calls();
+        let mut accounts = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
+        };
+
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 10,
+                state: pjsip_inv_state::CONFIRMED,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        assert_eq!(calls[&test_call_id(10)].state, CallState::Active);
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+        assert!(matches!(ev.payload, SipEventPayload::CallConnected(_)));
+        assert_eq!(
+            backend.conf_connect_calls,
+            vec![(10, 10)],
+            "conf_connect(call_id, call_id) must still be auto-issued"
+        );
+    }
+
+    /// @verifies C127, C128
+    #[tokio::test]
+    // [::TICKET::] P17-5: inbound CONNECTING reflects state Ringing (C039
+    // direction provenance) and publishes OutgoingCallRinging.
+    async fn process_native_event_connecting_incoming_updates_state_ringing() {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut calls = BTreeMap::from([(
+            test_call_id(7),
+            CallEntry {
+                id: 7,
+                native_id: 1,
+                account_id: test_account(42),
+                state: CallState::Incoming,
+                media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: String::new(),
+            },
+        )]);
+        let mut directions = BTreeMap::from([(test_call_id(7), CallDirection::Incoming)]);
+        let mut accounts = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
+        };
+
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 7,
+                state: pjsip_inv_state::CONNECTING,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        assert_eq!(calls[&test_call_id(7)].state, CallState::Ringing);
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("CONNECTING event must be published: {error}"));
+        assert!(matches!(ev.payload, SipEventPayload::OutgoingCallRinging));
+    }
+
+    /// @verifies C127
+    #[tokio::test]
+    // [::TICKET::] P17-5: DISCONNECTED with no registered CallEntry still
+    // publishes CallDisconnected but must not fabricate an entry nor panic.
+    async fn process_native_event_disconnected_no_entry_publishes_without_state_update() {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut calls = BTreeMap::new(); // no CallEntry for call_id 10
+        let mut accounts = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
+        };
+
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 10,
+                state: pjsip_inv_state::DISCONNECTED,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+
+        assert!(
+            calls.is_empty(),
+            "a missing CallEntry must not be fabricated by state reflection"
+        );
+        let ev = rx
+            .recv()
+            .await
+            .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+        assert!(matches!(ev.payload, SipEventPayload::CallDisconnected));
+    }
+
+    /// @verifies C127, C128
+    #[tokio::test]
+    // [::TICKET::] P17-5: the full native lifecycle INCOMING → CONNECTING →
+    // CONFIRMED → DISCONNECTED reflects into CallEntry.state step by step
+    // (Incoming → Ringing → Active → Disconnected) through the production
+    // process_native_event path — the end-to-end H11 stale-resolution check.
+    async fn process_native_event_full_lifecycle_reflects_each_transition() {
+        let mut backend = TestBackend::new();
+        let bus = EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let mut calls = BTreeMap::from([(
+            test_call_id(7),
+            CallEntry {
+                id: 7,
+                native_id: 1,
+                account_id: test_account(42),
+                state: CallState::Incoming,
+                media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: String::new(),
+            },
+        )]);
+        let mut directions = BTreeMap::from([(test_call_id(7), CallDirection::Incoming)]);
+        let mut accounts = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut calls,
+            call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
+        };
+
+        // Read the entry state through the CallStateTables bundle so the
+        // immutable assertion borrow does not collide with the `&mut calls`
+        // held by call_state between the process_native_event calls.
+        let entry_state = |call_state: &CallStateTables<'_>| -> Option<CallState> {
+            call_state
+                .calls
+                .get(&test_call_id(7))
+                .map(|entry| entry.state)
+        };
+
+        // INCOMING keeps the entry Incoming.
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 7,
+                state: pjsip_inv_state::INCOMING,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+        assert_eq!(entry_state(&call_state), Some(CallState::Incoming));
+
+        // CONNECTING (inbound) → Ringing.
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 7,
+                state: pjsip_inv_state::CONNECTING,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+        assert_eq!(entry_state(&call_state), Some(CallState::Ringing));
+
+        // CONFIRMED → Active.
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 7,
+                state: pjsip_inv_state::CONFIRMED,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+        assert_eq!(entry_state(&call_state), Some(CallState::Active));
+
+        // DISCONNECTED → Disconnected (the H11 fix end-to-end).
+        process_native_event(
+            &mut backend,
+            &bus,
+            NativeEvent::CallStateChanged {
+                call_id: 7,
+                state: pjsip_inv_state::DISCONNECTED,
+            },
+            &mut call_state,
+            &mut accounts,
+        );
+        assert_eq!(entry_state(&call_state), Some(CallState::Disconnected));
+
+        // Every transition published its payload on the single bus, in order.
+        let mut payloads = Vec::new();
+        for _ in 0..4 {
+            let ev = rx
+                .recv()
+                .await
+                .unwrap_or_else(|error| panic!("expected event on bus: {error}"));
+            payloads.push(ev.payload);
+        }
+        assert!(matches!(payloads[0], SipEventPayload::IncomingCall(_)));
+        assert!(matches!(payloads[1], SipEventPayload::OutgoingCallRinging));
+        assert!(matches!(payloads[2], SipEventPayload::CallConnected(_)));
+        assert!(matches!(payloads[3], SipEventPayload::CallDisconnected));
+    }
+
+    /// @verifies C039
+    /// @verifies C101
+    /// @verifies C103
+    #[tokio::test]
+    // [::TICKET::] P12-8, P16-5: processing NativeEvent::IncomingCall records the
+    // Incoming direction AND registers a CallEntry so the call resolves via
+    // calls()/call_state() and is answerable (§62.14).
     async fn process_native_event_incoming_call_records_direction() {
-        let backend = TestBackend::new();
+        let mut backend = TestBackend::new();
         let bus = EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
         let mut calls = BTreeMap::new();
@@ -1804,9 +2408,10 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::IncomingCall {
                 acc_id: 42,
@@ -1828,12 +2433,22 @@ mod tests {
             Some(&CallDirection::Incoming),
             "IncomingCall origin must be recorded as Incoming (C039 provenance)"
         );
+
+        // P16-5 §62.14 (C101/C103): the incoming call is registered as a CallEntry
+        // with the resolved account, Incoming direction, and CallState::Incoming.
+        let entry = calls
+            .get(&test_call_id(7))
+            .expect("incoming call must be registered in ClientState.calls");
+        assert_eq!(entry.account_id, test_account(42));
+        assert_eq!(entry.state, CallState::Incoming);
+        assert_eq!(entry.direction, CallDirection::Incoming);
+        assert_eq!(entry.native_id, 7);
     }
 
     /// @verifies C070, C046
     #[test]
     // [::TICKET::] P12-8: a MakeCall command records the outgoing direction by origin
-// [::TICKET::] P12-8, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-8, P15-3, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P15-3|P16-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_records_outgoing_direction() {
         let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
@@ -1841,6 +2456,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut directions,
+            media_statuses: &mut empty_media_statuses(),
         };
         let id = handle_make_call(&mut backend, &mut call_state, 1, &test_call_request())
             .unwrap_or_else(|error| panic!("make_call must succeed: {error}"));
@@ -1888,12 +2504,11 @@ mod tests {
             handle.is_thread_alive(),
             "reactor thread must be alive right after spawn"
         );
-        drop(handle);
         // ABC O-004 closure: type-assert the std::thread model (not tokio::task)
-        // so a reactor refactor to tokio::spawn fails compilation.
+        // so a reactor refactor to tokio::spawn fails compilation. P16-4 §62.13:
+        // the FFI drain task keeps the channel open, so terminate via Shutdown.
         let join: Arc<std::thread::JoinHandle<()>> = join;
-        let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-        let _ = join.join();
+        shutdown_reactor(handle, join).await;
     }
 
     #[tokio::test]
@@ -1927,11 +2542,10 @@ mod tests {
             !join.is_finished(),
             "reactor must survive dropping a cloned RuntimeHandle"
         );
-        // Drop the last handle: the MPSC sender closes and the reactor loop exits
-        // via channel-close (None from blocking_recv), NOT via the Arc refcount.
-        drop(handle);
-        let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-        let _ = join.join();
+        // P16-4 §62.13: the persistent FFI drain task holds an internal command
+        // sender, so dropping the last external handle no longer closes the
+        // channel. The reactor terminates via the explicit Shutdown command.
+        shutdown_reactor(handle, join).await;
     }
 
     #[tokio::test]
@@ -1970,9 +2584,9 @@ mod tests {
             assert!(result.is_ok(), "concurrent submit must succeed");
         }
 
-        drop(handle);
-        let join = Arc::try_unwrap(join).expect("no other RuntimeHandle may hold the Arc");
-        let _ = join.join();
+        // P16-4 §62.13: the FFI drain task keeps the channel open, so terminate
+        // via Shutdown (not channel-close on handle drop).
+        shutdown_reactor(handle, join).await;
     }
 
     #[tokio::test]
@@ -2118,7 +2732,7 @@ mod tests {
         let result = handle
             .submit(crate::runtime::command::RuntimeCommand::SendDtmf {
                 call_id: 1,
-                method: crate::config::account_config_spec::DtmfMethod::Rfc2833,
+                method: crate::config::account_config_spec::DtmfMethod::Rfc4733,
                 digits: "5".into(),
                 reply: crate::runtime::command::Reply::new(tx),
             })
@@ -2130,14 +2744,14 @@ mod tests {
 
         let ev = tokio::time::timeout(std::time::Duration::from_millis(1000), rx.recv())
             .await
-            .expect("DtmfSent Timeout must arrive on the reactor bus")
+            .expect("DtmfSent must arrive on the reactor bus")
             .unwrap();
         match ev.payload {
             SipEventPayload::DtmfSent(info) => {
-                assert!(matches!(
-                    info.status,
-                    Err(crate::api::m20_dtmfsent_twophase::SentDtmfError::Timeout)
-                ));
+                assert!(
+                    info.status.is_ok(),
+                    "timeout fallback treats the send as complete (§62.15 Q5)"
+                );
                 assert_eq!(info.digit, '5');
             }
             _ => panic!("expected DtmfSent, got {:?}", ev.payload),
@@ -2147,6 +2761,7 @@ mod tests {
 
     #[tokio::test]
     // @verifies C030
+    // @verifies C130
     // [::TICKET::] P11-6: handle_send_dtmf spawns the timeout on backend success (deterministic)
     async fn handle_send_dtmf_spawns_timeout_on_backend_ok() {
         tokio::time::pause();
@@ -2164,7 +2779,7 @@ mod tests {
         let result = handle_send_dtmf(
             &mut ctx,
             1,
-            crate::config::account_config_spec::DtmfMethod::Rfc2833,
+            crate::config::account_config_spec::DtmfMethod::Rfc4733,
             "5",
         );
         assert!(result.is_ok(), "backend success must return Ok(())");
@@ -2172,14 +2787,44 @@ mod tests {
         tokio::time::advance(std::time::Duration::from_millis(500)).await;
         let ev = rx.recv().await.unwrap();
         if let SipEventPayload::DtmfSent(info) = ev.payload {
-            assert!(matches!(
-                info.status,
-                Err(crate::api::m20_dtmfsent_twophase::SentDtmfError::Timeout)
-            ));
+            assert!(
+                info.status.is_ok(),
+                "timeout fallback treats the send as complete (§62.15 Q5)"
+            );
             assert_eq!(info.digit, '5');
         } else {
             panic!("expected DtmfSent, got {:?}", ev.payload);
         }
+    }
+
+    #[tokio::test]
+    // @verifies C106
+    // [::TICKET::] P16-6: handle_send_dtmf passes the unified method through to the backend
+    async fn handle_send_dtmf_passes_unified_method_to_backend() {
+        // [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+        tokio::time::pause();
+        let bus = EventBus::new(16, None);
+        let mut backend = TestBackend::new();
+        let client_state = ClientState::default();
+
+        let mut ctx = SendDtmfContext {
+            backend: &mut backend,
+            client_state: &client_state,
+            event_bus: &bus,
+            sent_timeout_ms: crate::api::m20_dtmfsent_twophase::DEFAULT_DTMF_SENT_TIMEOUT_MS,
+        };
+        let result = handle_send_dtmf(
+            &mut ctx,
+            1,
+            crate::config::account_config_spec::DtmfMethod::Inband,
+            "5",
+        );
+        assert!(result.is_ok(), "backend success must return Ok(())");
+        assert_eq!(
+            backend.last_dtmf_method,
+            Some(crate::config::account_config_spec::DtmfMethod::Inband),
+            "the unified method must reach the backend unchanged (§62.15 Q5)"
+        );
     }
 
     #[tokio::test]
@@ -2199,8 +2844,10 @@ mod tests {
                 id: 1,
                 native_id: 1,
                 account_id,
-                state: "Active".into(),
+                state: CallState::Active,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         );
         let mut ctx = SendDtmfContext {
@@ -2213,7 +2860,7 @@ mod tests {
         let result = handle_send_dtmf(
             &mut ctx,
             1,
-            crate::config::account_config_spec::DtmfMethod::Rfc2833,
+            crate::config::account_config_spec::DtmfMethod::Rfc4733,
             "5",
         );
         assert!(result.is_ok());
@@ -2230,6 +2877,7 @@ mod tests {
 
     #[tokio::test]
     // @verifies C030
+    // @verifies C130
     // [::TICKET::] P11-6: handle_send_dtmf propagates backend error and spawns no timer
     async fn handle_send_dtmf_returns_err_without_timer_on_backend_err() {
         tokio::time::pause();
@@ -2250,7 +2898,7 @@ mod tests {
         let result = handle_send_dtmf(
             &mut ctx,
             1,
-            crate::config::account_config_spec::DtmfMethod::Rfc2833,
+            crate::config::account_config_spec::DtmfMethod::Rfc4733,
             "5",
         );
         assert!(result.is_err(), "backend error must propagate");
@@ -2261,7 +2909,7 @@ mod tests {
                 rx.try_recv(),
                 Err(tokio::sync::broadcast::error::TryRecvError::Empty)
             ),
-            "a failed backend.send_dtmf must never spawn a DtmfSent Timeout"
+            "a failed backend.send_dtmf must never spawn a DtmfSent"
         );
     }
 
@@ -2304,13 +2952,14 @@ mod tests {
     // @verifies C070, C046
     // [::TICKET::] P12-1: handle_make_call delegates to the backend, registers the
     // returned CallEntry in the authoritative ClientState, and returns the CallId.
-// [::TICKET::] P12-1, P12-8, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P12-8, P15-3, P16-3, P16-5, PX-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P16-3|P16-5|PX-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_registers_entry_and_returns_id() {
         let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         let id = handle_make_call(&mut backend, &mut call_state, 1, &test_call_request())
             .unwrap_or_else(|error| panic!("make_call must succeed: {error}"));
@@ -2321,14 +2970,14 @@ mod tests {
             .unwrap_or_else(|| panic!("CallEntry must be registered under the returned CallId"));
         assert_eq!(entry.id, 1);
         assert_eq!(entry.account_id, test_account(1));
-        assert_eq!(entry.state, "Calling");
+        assert_eq!(entry.state, CallState::Calling);
     }
 
     #[test]
     // @verifies C070
     // [::TICKET::] P12-1: a failing backend.make_call must propagate Err and
     // register no CallEntry — never a fabricated id.
-// [::TICKET::] P12-1, P12-8, P15-3, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P15-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P12-1, P12-8, P15-3, P15-9, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P15-9|P16-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_error_registers_nothing() {
         let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));
@@ -2336,6 +2985,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         let result = handle_make_call(&mut backend, &mut call_state, 1, &test_call_request());
         assert!(
@@ -2352,7 +3002,7 @@ mod tests {
     // @verifies C089, C090
     // [::TICKET::] P15-9: a failing backend.make_call carrying a NativeError must
     // propagate through the reactor handler while preserving native_status.
-// [::TICKET::] P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P15-9, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-9|P16-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_native_error_preserves_status() {
         let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::NativeError {
@@ -2363,6 +3013,7 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         let result = handle_make_call(&mut backend, &mut call_state, 1, &test_call_request());
         assert!(
@@ -2425,6 +3076,159 @@ mod tests {
         assert!(
             state.accounts.is_empty(),
             "RemoveAccount must remove the entry from the authoritative ClientState"
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C096
+    // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
+    async fn reactor_add_account_with_register_on_start_issues_auto_register(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let config = crate::config::account_config_spec::AccountConfig {
+            register_on_start: true,
+            ..Default::default()
+        };
+        let id = handle.submit_add_account(config).await?;
+        let state = handle.query_state().await?;
+        let aid = AccountId::from_u64(id)?;
+        assert_eq!(
+            state.accounts[&aid].registration,
+            RegistrationState::Registering,
+            "register_on_start=true must advance ClientState to Registering"
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C096
+    // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
+    async fn reactor_add_account_without_register_on_start_skips_auto_register(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let config = crate::config::account_config_spec::AccountConfig {
+            register_on_start: false,
+            ..Default::default()
+        };
+        let id = handle.submit_add_account(config).await?;
+        let state = handle.query_state().await?;
+        let aid = AccountId::from_u64(id)?;
+        assert_eq!(
+            state.accounts[&aid].registration,
+            RegistrationState::Disabled,
+            "register_on_start=false must not advance ClientState"
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C097
+    // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
+    async fn reactor_remove_account_publishes_account_removed(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        let mut rx = handle.event_bus().subscribe_control();
+        let (_tx, _rx) = tokio::sync::oneshot::channel();
+        handle
+            .submit(crate::runtime::command::RuntimeCommand::RemoveAccount {
+                account_id: id,
+                reply: Reply::new(_tx),
+            })
+            .await?;
+        let state = handle.query_state().await?;
+        assert!(
+            state.accounts.is_empty(),
+            "RemoveAccount must remove the entry from the authoritative ClientState"
+        );
+        let mut account_removed = false;
+        for _ in 0..8 {
+            let ev = tokio::time::timeout(std::time::Duration::from_secs(2), rx.recv())
+                .await
+                .map_err(|_| "timed out waiting for AccountRemoved event".to_string())?
+                .map_err(|e| format!("event bus closed: {e}"))?;
+            if matches!(ev.payload, SipEventPayload::AccountRemoved(_)) {
+                account_removed = true;
+                break;
+            }
+        }
+        assert!(
+            account_removed,
+            "RemoveAccount must publish SipEventPayload::AccountRemoved on the single bus"
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C097
+    // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
+    async fn reactor_remove_account_publishes_account_removed_exactly_once(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .await?;
+        let mut rx = handle.event_bus().subscribe_control();
+        let (_tx, _rx) = tokio::sync::oneshot::channel();
+        handle
+            .submit(crate::runtime::command::RuntimeCommand::RemoveAccount {
+                account_id: id,
+                reply: Reply::new(_tx),
+            })
+            .await?;
+
+        // The reactor dispatches AccountRemoved before replying, so the event is
+        // already queued when submit returns — drain it and count occurrences.
+        let mut account_removed_count = 0;
+        let mut drained = 0;
+        while let Ok(ev) = rx.try_recv() {
+            drained += 1;
+            if matches!(ev.payload, SipEventPayload::AccountRemoved(_)) {
+                account_removed_count += 1;
+            }
+            if drained > 16 {
+                break;
+            }
+        }
+        assert_eq!(
+            account_removed_count, 1,
+            "RemoveAccount of the last account must publish AccountRemoved exactly once"
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
+    #[tokio::test]
+    // @verifies C095
+    // [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
+    async fn reactor_remove_account_zero_id_replies_err_without_backend_or_publish(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        let (_tx, _rx) = tokio::sync::oneshot::channel();
+        let result = handle
+            .submit(crate::runtime::command::RuntimeCommand::RemoveAccount {
+                account_id: 0,
+                reply: Reply::new(_tx),
+            })
+            .await;
+
+        // id boundary: AccountId::from_u64(0) is invalid, so the arm rejects the
+        // command before any backend call or AccountRemoved publish.
+        assert!(
+            result.is_err(),
+            "RemoveAccount with account_id 0 must be rejected before backend calls"
+        );
+        let state = handle.query_state().await?;
+        assert!(
+            state.accounts.is_empty(),
+            "ClientState must be unchanged when account_id 0 is rejected"
         );
         shutdown_reactor(handle, join).await;
         Ok(())
@@ -2539,7 +3343,12 @@ mod tests {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (handle, join) = spawn_reactor();
         let account_id = handle
-            .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
+            .submit_add_account(crate::config::account_config_spec::AccountConfig {
+                // P16-3 §62.12: disable auto-register so the account stays Disabled —
+                // the C085 invariant under test requires a Disabled starting state.
+                register_on_start: false,
+                ..Default::default()
+            })
             .await?;
         let mut rx = handle.event_bus().subscribe_control();
 
@@ -2565,7 +3374,7 @@ mod tests {
 
     /// Build an `accounts` map with a single account whose registration is
     /// `state` and whose native id matches `acc_id` (TestBackend id == logical id).
-// [::TICKET::] P15-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-5, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-5|P16-3) --for-spec --no-implementation-order`.
     fn account_with_registration(
         acc_id: u32,
         state: RegistrationState,
@@ -2600,9 +3409,10 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -2646,9 +3456,10 @@ mod tests {
         let mut call_state = CallStateTables {
             calls: &mut calls,
             call_directions: &mut empty_directions(),
+            media_statuses: &mut empty_media_statuses(),
         };
         process_native_event(
-            &backend,
+            &mut backend,
             &bus,
             NativeEvent::RegistrationStateChanged { acc_id: 1 },
             &mut call_state,
@@ -2695,11 +3506,61 @@ mod tests {
         Ok(())
     }
 
+    /// @verifies C128
+    /// P17-4 §62.24: the SetRegistration arm drains `backend.take_native_events()`
+    /// after `apply_registration_command_state` and processes each buffered event
+    /// via `process_native_event`, publishing `RegistrationStateChanged(Registered)`
+    /// on the single EventBus — the TestBackend buffer stands in for the §62.13 FFI queue.
+    #[tokio::test]
+    async fn set_registration_arm_drains_and_publishes_registered(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (handle, join) = spawn_reactor();
+        // register_on_start:false keeps the account Disabled after AddAccount so
+        // the only registration event is the one fired by the explicit SetRegistration.
+        let account_id = handle
+            .submit_add_account(crate::config::account_config_spec::AccountConfig {
+                register_on_start: false,
+                ..Default::default()
+            })
+            .await?;
+        let mut rx = handle.event_bus().subscribe_control();
+        let (_tx, _rx) = tokio::sync::oneshot::channel();
+        handle
+            .submit(crate::runtime::command::RuntimeCommand::SetRegistration {
+                account_id,
+                enabled: true,
+                reply: Reply::new(_tx),
+            })
+            .await?;
+
+        let ev = tokio::time::timeout(std::time::Duration::from_secs(30), rx.recv())
+            .await
+            .map_err(|_| "timed out waiting for RegistrationStateChanged".to_string())?
+            .map_err(|e| format!("event bus closed: {e}"))?;
+        assert!(
+            matches!(
+                ev.payload,
+                SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+            ),
+            "expected RegistrationStateChanged(Registered), got {:?}",
+            ev.payload
+        );
+        let state = handle.query_state().await?;
+        assert_eq!(
+            state.accounts[&test_account(1)].registration,
+            RegistrationState::Registered,
+            "the drained event must drive ClientState to Registered"
+        );
+        shutdown_reactor(handle, join).await;
+        Ok(())
+    }
+
     // ── P15-6: handle_answer / handle_hangup / handle_transfer ─────────
 
     /// @verifies C086
     #[tokio::test]
-    async fn handle_answer_200_publishes_call_connected() -> Result<(), Box<dyn std::error::Error>> {
+    async fn handle_answer_200_publishes_call_connected() -> Result<(), Box<dyn std::error::Error>>
+    {
         let mut backend = TestBackend::new();
         let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -2712,14 +3573,17 @@ mod tests {
                 id: 1,
                 native_id: 1,
                 account_id,
-                state: "Incoming".into(),
+                state: CallState::Incoming,
                 media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: String::new(),
             },
         );
         let mut call_directions = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         handle_answer(&mut backend, &bus, &mut call_state, 1, 200)?;
@@ -2729,8 +3593,13 @@ mod tests {
             "backend.answer_call must be invoked with (native_call_id, code)"
         );
         assert_eq!(
+            backend.conf_connect_calls,
+            vec![(1, 1)],
+            "a 200 answer must auto-issue conf_connect(call_id, call_id) (§62.16)"
+        );
+        assert_eq!(
             client_state.calls[&call_id].state,
-            "Active",
+            CallState::Active,
             "a 200 answer must mark the call Active"
         );
 
@@ -2747,8 +3616,8 @@ mod tests {
 
     /// @verifies C086
     #[tokio::test]
-    async fn handle_answer_486_publishes_call_disconnected() -> Result<(), Box<dyn std::error::Error>>
-    {
+    async fn handle_answer_486_publishes_call_disconnected(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::new();
         let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -2761,21 +3630,24 @@ mod tests {
                 id: 1,
                 native_id: 1,
                 account_id,
-                state: "Incoming".into(),
+                state: CallState::Incoming,
                 media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: String::new(),
             },
         );
         let mut call_directions = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         handle_answer(&mut backend, &bus, &mut call_state, 1, 486)?;
         assert_eq!(backend.answer_calls, vec![(1, 486)]);
         assert_eq!(
             client_state.calls[&call_id].state,
-            "Disconnected",
+            CallState::Disconnected,
             "a 486 decline must mark the call Disconnected"
         );
 
@@ -2790,8 +3662,8 @@ mod tests {
 
     /// @verifies C086
     #[tokio::test]
-    async fn handle_answer_180_publishes_no_terminal_event() -> Result<(), Box<dyn std::error::Error>>
-    {
+    async fn handle_answer_180_publishes_no_terminal_event(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backend = TestBackend::new();
         let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
         let mut rx = bus.subscribe_control();
@@ -2804,21 +3676,24 @@ mod tests {
                 id: 1,
                 native_id: 1,
                 account_id,
-                state: "Incoming".into(),
+                state: CallState::Incoming,
                 media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: String::new(),
             },
         );
         let mut call_directions = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         handle_answer(&mut backend, &bus, &mut call_state, 1, 180)?;
         assert_eq!(backend.answer_calls, vec![(1, 180)]);
         assert_eq!(
             client_state.calls[&call_id].state,
-            "Connecting",
+            CallState::Connecting,
             "a provisional 180 answer must leave the call Connecting"
         );
 
@@ -2826,6 +3701,121 @@ mod tests {
         assert!(
             timeout.is_err(),
             "a provisional answer must publish no terminal event"
+        );
+        Ok(())
+    }
+
+    /// @verifies C102
+    #[tokio::test]
+    // P16-5 §62.14: CallConnected must carry the CallEntry's remote_uri instead
+    // of a hardcoded empty string — the incoming call's peer is preserved.
+    async fn handle_answer_200_carries_call_entry_remote_uri(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: CallState::Incoming,
+                media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: "sip:1001@127.0.0.1".into(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
+        };
+
+        handle_answer(&mut backend, &bus, &mut call_state, 1, 200)?;
+
+        let ev = rx.recv().await?;
+        match ev.payload {
+            SipEventPayload::CallConnected(info) => {
+                assert_eq!(info.remote_uri, "sip:1001@127.0.0.1");
+            }
+            other => panic!("expected CallConnected, got {other:?}"),
+        }
+        Ok(())
+    }
+
+    /// @verifies C101
+    #[tokio::test]
+    // P16-5 §62.14: answering an unknown call id must fail without calling the
+    // backend — account resolution is the guard.
+    async fn handle_answer_missing_call_entry_returns_error(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut client_state = ClientState::default();
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
+        };
+
+        let result = handle_answer(&mut backend, &bus, &mut call_state, 99, 200);
+        assert!(result.is_err(), "unknown call id must yield an error");
+        assert!(
+            backend.answer_calls.is_empty(),
+            "backend.answer_call must not be invoked for an unknown call id"
+        );
+        Ok(())
+    }
+
+    /// @verifies C101
+    #[tokio::test]
+    // P16-5 §62.14: a backend.answer_call failure must preserve the CallEntry
+    // state and publish no event — error propagation without side effects.
+    async fn handle_answer_backend_error_preserves_state() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut backend = TestBackend::new();
+        backend.answer_call_result = Some(Err(ReactorError::BackendError("answer failed".into())));
+        let bus = crate::api::eventbus_receiver::EventBus::new(16, None);
+        let mut rx = bus.subscribe_control();
+        let call_id = CallId::from_u64(1)?;
+        let account_id = AccountId::from_u64(5)?;
+        let mut client_state = ClientState::default();
+        client_state.calls.insert(
+            call_id,
+            CallEntry {
+                id: 1,
+                native_id: 1,
+                account_id,
+                state: CallState::Incoming,
+                media: "none".into(),
+                direction: CallDirection::Incoming,
+                remote_uri: String::new(),
+            },
+        );
+        let mut call_directions = BTreeMap::new();
+        let mut call_state = CallStateTables {
+            calls: &mut client_state.calls,
+            call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
+        };
+
+        let result = handle_answer(&mut backend, &bus, &mut call_state, 1, 200);
+        assert!(result.is_err(), "backend failure must propagate");
+        assert_eq!(
+            client_state.calls[&call_id].state,
+            CallState::Incoming,
+            "state must be unchanged on backend error"
+        );
+        let timeout = tokio::time::timeout(std::time::Duration::from_millis(50), rx.recv()).await;
+        assert!(
+            timeout.is_err(),
+            "no event may be published on backend error"
         );
         Ok(())
     }
@@ -2845,14 +3835,17 @@ mod tests {
                 id: 1,
                 native_id: 1,
                 account_id,
-                state: "Active".into(),
+                state: CallState::Active,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         );
         let mut call_directions = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         handle_hangup(
@@ -2865,7 +3858,7 @@ mod tests {
         assert_eq!(backend.hangup_calls, vec![1]);
         assert_eq!(
             client_state.calls[&call_id].state,
-            "Disconnected",
+            CallState::Disconnected,
             "hangup must mark the call Disconnected"
         );
 
@@ -2892,14 +3885,17 @@ mod tests {
                 id: 1,
                 native_id: 1,
                 account_id,
-                state: "Active".into(),
+                state: CallState::Active,
                 media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
             },
         );
         let mut call_directions = BTreeMap::new();
         let mut call_state = CallStateTables {
             calls: &mut client_state.calls,
             call_directions: &mut call_directions,
+            media_statuses: &mut empty_media_statuses(),
         };
 
         handle_transfer(&mut backend, &mut call_state, 1, "sip:bob@example.com")?;
@@ -2910,7 +3906,7 @@ mod tests {
         );
         assert_eq!(
             client_state.calls[&call_id].state,
-            "Transferring",
+            CallState::Transferring,
             "transfer must mark the call Transferring"
         );
         Ok(())
@@ -2925,7 +3921,9 @@ mod tests {
         let account_id = handle
             .submit_add_account(crate::config::account_config_spec::AccountConfig::default())
             .await?;
-        let call_id = handle.submit_make_call(account_id, test_call_request()).await?;
+        let call_id = handle
+            .submit_make_call(account_id, test_call_request())
+            .await?;
         handle.submit_answer(call_id, 200).await?;
 
         let ev = rx.recv().await?;

@@ -36,7 +36,10 @@ const SHUTDOWN_REJECT_MESSAGE: &str = "shutting down";
 /// resolved with the shutdown-reject error.
 pub(crate) enum ShutdownGate {
     /// The command is permitted — forward for normal dispatch.
-    Permit(DispatchCommand),
+    ///
+    /// Boxed so the enum stays small (`DispatchCommand` is much larger than the
+    /// `String` in `Rejected`); the box is unboxed at the single match site.
+    Permit(Box<DispatchCommand>),
     /// The command was rejected; it must not be dispatched.
     Rejected { command: String },
 }
@@ -58,7 +61,11 @@ pub(crate) fn native_account_ids(client_state: &ClientState) -> Vec<i32> {
 /// Reads "collect the native id of every tracked call" — the ordering is the
 /// deterministic `BTreeMap` iteration of the authoritative `ClientState`.
 pub(crate) fn native_call_ids(client_state: &ClientState) -> Vec<i32> {
-    client_state.calls.values().map(|entry| entry.native_id).collect()
+    client_state
+        .calls
+        .values()
+        .map(|entry| entry.native_id)
+        .collect()
 }
 
 /// The per-phase shutdown timeout sourced from `TimeoutConfig::shutdown_timeout`.
@@ -74,7 +81,10 @@ pub(crate) fn shutdown_phase_timeout(config: &ClientConfig) -> Duration {
 /// The meta is neutral (no account, no call) — the event signals the whole
 /// client's lifecycle, not a per-account/per-call transition (§62.3).
 pub(crate) fn client_shutdown_event() -> SipEvent {
-    SipEvent::new(EventMeta::new(0, None, None), SipEventPayload::ClientShutdown)
+    SipEvent::new(
+        EventMeta::new(0, None, None),
+        SipEventPayload::ClientShutdown,
+    )
 }
 
 /// Execute the §32 ordered shutdown sequence against the backend.
@@ -89,7 +99,8 @@ pub(crate) async fn execute_shutdown_sequence(
 ) -> Result<(), ShutdownError> {
     let account_ids = native_account_ids(client_state);
     let call_ids = native_call_ids(client_state);
-    spec.execute_sequence(backend, &account_ids, &call_ids).await
+    spec.execute_sequence(backend, &account_ids, &call_ids)
+        .await
 }
 
 /// Classify a `DispatchCommand` against the M20 shutdown gate.
@@ -121,9 +132,11 @@ pub(crate) fn gate_command(command: DispatchCommand, is_shutting_down: bool) -> 
     if is_gated(&command, is_shutting_down) {
         let command_name = format!("{command:?}");
         reject_command(command);
-        ShutdownGate::Rejected { command: command_name }
+        ShutdownGate::Rejected {
+            command: command_name,
+        }
     } else {
-        ShutdownGate::Permit(command)
+        ShutdownGate::Permit(Box::new(command))
     }
 }
 
@@ -170,7 +183,6 @@ fn reject_reply<T>(reply: Reply<Result<T, ReactorError>>) {
     );
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,12 +191,14 @@ mod tests {
     use crate::runtime::backend::TestBackend;
     use crate::runtime::command::{DispatchCommand, ReactorError, Reply};
     use crate::runtime::state::{AccountEntry, CallEntry, ClientState};
+    use crate::state::call_state_model::CallState;
+    use crate::state::m20_callstate_mapping::CallDirection;
     use crate::state::registr_state_machine::RegistrationState;
     use crate::state::shutdown_specification::{ShutdownPhase, ShutdownSpec};
     use std::time::Duration;
 
     /// Build an `AccountEntry` whose native id and logical id match `id`.
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
     fn account_entry(native_id: i32, id: u64) -> AccountEntry {
         AccountEntry {
             id,
@@ -195,19 +209,21 @@ mod tests {
     }
 
     /// Build a `CallEntry` whose native id and logical id match `id`.
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-8, P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-8|P16-5) --for-spec --no-implementation-order`.
     fn call_entry(native_id: i32, id: u64) -> CallEntry {
         CallEntry {
             id,
             native_id,
             account_id: AccountId::from_u64(id).unwrap(),
-            state: "Active".into(),
+            state: CallState::Active,
             media: "none".into(),
+            direction: CallDirection::Outgoing,
+            remote_uri: String::new(),
         }
     }
 
     /// Build a `ClientState` with one account (native 1) and one call (native 10).
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
     fn state_with_one_account_and_call() -> ClientState {
         let mut state = ClientState::default();
         state
@@ -220,7 +236,7 @@ mod tests {
     }
 
     /// A no-op backend closure for gate tests.
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
     fn noop_execute() -> DispatchCommand {
         let (tx, _rx) = tokio::sync::oneshot::channel();
         DispatchCommand::Execute {
@@ -233,7 +249,7 @@ mod tests {
     /// C076-Pre/Post: the §62.7 wiring module is declared in `state/mod.rs` and
     /// every documented function is importable from the crate.
     #[test]
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
     fn shutdown_wiring_module_is_declared() {
         // The `use super::*` above resolves only when `pub mod shutdown_wiring;`
         // is declared in src/state/mod.rs (C076-Pre/Post).
@@ -242,17 +258,14 @@ mod tests {
     /// @verifies C076
     /// C076-Post: the wiring functions are callable with the documented shapes.
     #[test]
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
     fn shutdown_wiring_functions_are_callable() {
         let config = crate::config::ClientConfig::default();
         let timeout = shutdown_phase_timeout(&config);
         assert_eq!(timeout, config.timeouts.shutdown_timeout);
 
         let event = client_shutdown_event();
-        assert!(matches!(
-            event.payload,
-            SipEventPayload::ClientShutdown
-        ));
+        assert!(matches!(event.payload, SipEventPayload::ClientShutdown));
 
         let empty = ClientState::default();
         assert!(native_account_ids(&empty).is_empty());
@@ -273,13 +286,16 @@ mod tests {
             spec.is_shutdown_started(),
             "the §32 orchestrator must have run"
         );
-        assert!(!backend.initialized, "InvokeDestroy must reach backend.shutdown()");
+        assert!(
+            !backend.initialized,
+            "InvokeDestroy must reach backend.shutdown()"
+        );
     }
 
     /// @verifies C088
     /// C088-Pre: `ShutdownPhase::all()` preserves the §32 order the wiring relies on.
     #[test]
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
     fn shutdown_phase_order_is_preserved() {
         assert_eq!(
             ShutdownPhase::all(),
@@ -309,7 +325,10 @@ mod tests {
             vec![10],
             "CancelCalls must target native call id 10"
         );
-        assert!(!backend.initialized, "InvokeDestroy must run (backend.shutdown)");
+        assert!(
+            !backend.initialized,
+            "InvokeDestroy must run (backend.shutdown)"
+        );
     }
 
     /// @verifies C088
@@ -330,7 +349,7 @@ mod tests {
     /// C089-Pre: `client_shutdown_event` yields a `ClientShutdown` SipEvent with
     /// neutral meta (no account, no call).
     #[test]
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
     fn client_shutdown_event_has_neutral_meta() {
         let ev = client_shutdown_event();
         assert!(matches!(ev.payload, SipEventPayload::ClientShutdown));
@@ -367,7 +386,7 @@ mod tests {
     /// @verifies C090
     /// C090-Pre: `gate_command` classifies a dispatch command against the M20 routing.
     #[test]
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
     fn gate_classifies_when_shutting_down() {
         let rejected = gate_command(noop_execute(), true);
         assert!(
@@ -386,7 +405,10 @@ mod tests {
             f: Box::new(|_: &mut dyn crate::runtime::backend::SipBackend| Ok(())),
             reply: Reply::new(tx),
         };
-        assert!(matches!(gate_command(cmd, true), ShutdownGate::Rejected { .. }));
+        assert!(matches!(
+            gate_command(cmd, true),
+            ShutdownGate::Rejected { .. }
+        ));
         let reply = rx.await.expect("the reply must be resolved exactly once");
         assert!(
             matches!(
@@ -400,11 +422,16 @@ mod tests {
     /// @verifies C090
     /// C090-Inv: `Shutdown` and `GetAccountInfo` are always permitted by the gate.
     #[test]
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
     fn gate_permits_shutdown_and_get_account_info() {
         let (tx, _rx) = tokio::sync::oneshot::channel();
-        let shutdown = DispatchCommand::Shutdown { reply: Reply::new(tx) };
-        assert!(matches!(gate_command(shutdown, true), ShutdownGate::Permit(_)));
+        let shutdown = DispatchCommand::Shutdown {
+            reply: Reply::new(tx),
+        };
+        assert!(matches!(
+            gate_command(shutdown, true),
+            ShutdownGate::Permit(_)
+        ));
 
         let (tx2, _rx2) = tokio::sync::oneshot::channel();
         let get_account_info = DispatchCommand::GetAccountInfo {
@@ -420,7 +447,7 @@ mod tests {
     /// @verifies C090
     /// C090-Boundary: `gate_command` permits every command when not shutting down.
     #[test]
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
     fn gate_permits_all_when_not_shutting_down() {
         let permitted = gate_command(noop_execute(), false);
         assert!(matches!(permitted, ShutdownGate::Permit(_)));
@@ -430,13 +457,21 @@ mod tests {
     /// C090-Pre/Inv: the pure classifier `is_gated` mirrors `gate_command` —
     /// only `Shutdown` and `GetAccountInfo` survive the gate during shutdown.
     #[test]
-// [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-8 --for-spec --no-implementation-order`.
     fn is_gated_classifies_commands() {
-        assert!(!is_gated(&noop_execute(), false), "normal operation permits all");
+        assert!(
+            !is_gated(&noop_execute(), false),
+            "normal operation permits all"
+        );
 
         let (tx, _rx) = tokio::sync::oneshot::channel();
-        let shutdown = DispatchCommand::Shutdown { reply: Reply::new(tx) };
-        assert!(!is_gated(&shutdown, true), "Shutdown must always reach its arm");
+        let shutdown = DispatchCommand::Shutdown {
+            reply: Reply::new(tx),
+        };
+        assert!(
+            !is_gated(&shutdown, true),
+            "Shutdown must always reach its arm"
+        );
 
         let (tx2, _rx2) = tokio::sync::oneshot::channel();
         let get_account_info = DispatchCommand::GetAccountInfo {
@@ -448,7 +483,10 @@ mod tests {
             "GetAccountInfo is the M20 read-only permit"
         );
 
-        assert!(is_gated(&noop_execute(), true), "other commands are rejected during shutdown");
+        assert!(
+            is_gated(&noop_execute(), true),
+            "other commands are rejected during shutdown"
+        );
     }
 
     /// @verifies C090
@@ -463,11 +501,9 @@ mod tests {
         };
         reject_command(cmd);
         let reply = rx.await.expect("the reply must be resolved exactly once");
-        assert!(
-            matches!(
-                reply,
-                Err(ReactorError::BackendError(msg)) if msg.contains("shutting down")
-            )
-        );
+        assert!(matches!(
+            reply,
+            Err(ReactorError::BackendError(msg)) if msg.contains("shutting down")
+        ));
     }
 }

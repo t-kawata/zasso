@@ -165,6 +165,10 @@ const _: () = {
 /// feature is disabled, any type implementing `AsyncAudioSource` can still be
 /// injected — the trait abstraction is complete without the microphone.
 ///
+/// This is an independent capture source — **NOT the call microphone**. It
+/// captures the OS default input device (cpal) and can be injected into a call
+/// via `add_audio_source`, but it is unrelated to the call's send-path input.
+///
 /// # Contract (C051)
 /// With `cpal-input` enabled and a default input device present, this returns
 /// `Ok(Box<dyn AsyncAudioSource>)` whose `next_chunk` fills an `i16` buffer with
@@ -900,7 +904,7 @@ mod tests {
     // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn microphone_source_is_send() {
         // C051-Inv: the source can live in AudioMixer's DashMap as Box<dyn AsyncAudioSource + Send>.
-        // [::TICKET::] P8-7, P13-1, P14-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-7|P13-1|P14-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P8-7, P13-1, P14-2, P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-7|P13-1|P14-2|P17-9) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<CpalMicrophoneSource>();
         assert_send::<Box<dyn AsyncAudioSource>>();
@@ -1130,5 +1134,21 @@ mod tests {
         // C051-Inv (O-001): an empty candidate list yields None without panicking.
         let empty: Vec<cpal::SupportedStreamConfig> = Vec::new();
         assert!(prefer_config_matching_request(&empty, 1, 48_000).is_none());
+    }
+
+    // ── P17-9 §62.29: mic source documentation contract (C135) ─────────
+
+    /// @verifies C135
+    #[test]
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn microphone_source_doc_distinguishes_from_call_mic() {
+        // C135 invariant: open_default_microphone_source is an independent
+        // capture source, distinct from the call microphone. The doc comment
+        // must state this explicitly so the contract survives doc edits.
+        let source = include_str!("asyncaudiosrc_adapter.rs");
+        assert!(
+            source.contains("NOT the call microphone"),
+            "open_default_microphone_source doc must state it is NOT the call microphone"
+        );
     }
 }

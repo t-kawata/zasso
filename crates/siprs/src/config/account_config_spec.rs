@@ -31,13 +31,13 @@ pub enum AccountTransportPolicy {
 }
 
 /// Method used to send or receive DTMF digits.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DtmfMethod {
-    Rfc2833,
-    Rfc4733,
-    Info,
-    Inband,
-}
+///
+/// Single definition from `crate::model::dtmf_spec` (§62.15 Q5) — this
+/// re-export keeps `crate::config::account_config_spec::DtmfMethod` working
+/// while eliminating the former duplicate enum (which had a legacy `Rfc2833`
+/// variant).
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+pub use crate::model::dtmf_spec::DtmfMethod;
 
 /// SRTP (Secure RTP) policy for media encryption.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -266,7 +266,7 @@ impl AccountConfig {
 
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 impl Default for AccountConfig {
-    // [::TICKET::] P3-1, P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P5-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P5-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P5-2|P16-6) --for-spec --no-implementation-order`.
     fn default() -> Self {
         Self {
             display_name: None,
@@ -283,9 +283,9 @@ impl Default for AccountConfig {
             registration_expires: Duration::from_secs(3600),
             codecs: AccountCodecPolicy::default(),
             dtmf: DtmfPolicy {
-                send_methods: vec![DtmfMethod::Rfc2833],
-                receive_methods: vec![DtmfMethod::Rfc2833],
-                default_send_method: DtmfMethod::Rfc2833,
+                send_methods: vec![DtmfMethod::Rfc4733],
+                receive_methods: vec![DtmfMethod::Rfc4733],
+                default_send_method: DtmfMethod::Rfc4733,
             },
             auto_reject_timer: None,
             media: AccountMediaConfig::default(),
@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     // @verifies C015
-    // [::TICKET::] P3-1, P5-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P5-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P5-2, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P5-2|P16-6) --for-spec --no-implementation-order`.
     fn account_config_accepts_valid_fields() {
         let config = AccountConfig {
             display_name: Some("Alice".into()),
@@ -418,9 +418,9 @@ mod tests {
                 opus: OpusConfig::default(),
             },
             dtmf: DtmfPolicy {
-                send_methods: vec![DtmfMethod::Rfc2833],
-                receive_methods: vec![DtmfMethod::Rfc2833],
-                default_send_method: DtmfMethod::Rfc2833,
+                send_methods: vec![DtmfMethod::Rfc4733],
+                receive_methods: vec![DtmfMethod::Rfc4733],
+                default_send_method: DtmfMethod::Rfc4733,
             },
             media: AccountMediaConfig::default(),
             auto_reject_timer: None,
@@ -433,7 +433,7 @@ mod tests {
 
     #[test]
     // @verifies C015
-    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P16-6) --for-spec --no-implementation-order`.
     fn account_config_validate_passes_for_valid_config() {
         let config = AccountConfig {
             username: "bob".into(),
@@ -445,9 +445,9 @@ mod tests {
                 opus: OpusConfig::default(),
             },
             dtmf: DtmfPolicy {
-                send_methods: vec![DtmfMethod::Rfc2833, DtmfMethod::Info],
-                receive_methods: vec![DtmfMethod::Rfc2833],
-                default_send_method: DtmfMethod::Rfc2833,
+                send_methods: vec![DtmfMethod::Rfc4733, DtmfMethod::Info],
+                receive_methods: vec![DtmfMethod::Rfc4733],
+                default_send_method: DtmfMethod::Rfc4733,
             },
             ..Default::default()
         };
@@ -484,16 +484,16 @@ mod tests {
 
     #[test]
     // @verifies C041
-    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P16-6) --for-spec --no-implementation-order`.
     fn dtmf_policy_with_single_method_passes() {
         let config = AccountConfig {
             username: "a".into(),
             domain: "d".into(),
             password: SecretString::new("p"),
             dtmf: DtmfPolicy {
-                send_methods: vec![DtmfMethod::Rfc2833],
+                send_methods: vec![DtmfMethod::Rfc4733],
                 receive_methods: vec![DtmfMethod::Info],
-                default_send_method: DtmfMethod::Rfc2833,
+                default_send_method: DtmfMethod::Rfc4733,
             },
             ..Default::default()
         };
@@ -590,7 +590,7 @@ mod tests {
 
     #[test]
     // @verifies C041, C052
-    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P16-6) --for-spec --no-implementation-order`.
     fn account_config_rejects_empty_dtmf_send_methods() {
         let config = AccountConfig {
             username: "u".into(),
@@ -598,8 +598,8 @@ mod tests {
             password: SecretString::new("p"),
             dtmf: DtmfPolicy {
                 send_methods: vec![],
-                receive_methods: vec![DtmfMethod::Rfc2833],
-                default_send_method: DtmfMethod::Rfc2833,
+                receive_methods: vec![DtmfMethod::Rfc4733],
+                default_send_method: DtmfMethod::Rfc4733,
             },
             ..Default::default()
         };
@@ -610,16 +610,16 @@ mod tests {
 
     #[test]
     // @verifies C041, C052
-    // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P16-6) --for-spec --no-implementation-order`.
     fn account_config_rejects_empty_dtmf_receive_methods() {
         let config = AccountConfig {
             username: "u".into(),
             domain: "d".into(),
             password: SecretString::new("p"),
             dtmf: DtmfPolicy {
-                send_methods: vec![DtmfMethod::Rfc2833],
+                send_methods: vec![DtmfMethod::Rfc4733],
                 receive_methods: vec![],
-                default_send_method: DtmfMethod::Rfc2833,
+                default_send_method: DtmfMethod::Rfc4733,
             },
             ..Default::default()
         };

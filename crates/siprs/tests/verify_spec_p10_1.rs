@@ -28,8 +28,11 @@ fn test_config() -> ClientConfig {
 /// Add an account with the given username and hand back the client plus the
 /// backend-assigned logical account id.
 ///
-/// [::TICKET::] P15-3: the account starts Disabled (§62.2); the full
-/// Registering→Registered transition is production-wired by P15-5 (§62.4).
+/// [::TICKET::] P15-3, P16-3: the account starts Disabled (§62.2) — with
+/// `register_on_start: false` the P16-3 §62.12 auto-register is disabled so the
+/// initial state stays Disabled; the full Registering→Registered transition is
+/// production-wired by P15-5 (§62.4).
+// [::TICKET::] P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-3 --for-spec --no-implementation-order`.
 async fn client_with_account(
     // [::TICKET::] P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-3 --for-spec --no-implementation-order`.
     username: &str,
@@ -39,6 +42,7 @@ async fn client_with_account(
     let account_config = AccountConfig {
         username: username.into(),
         domain: "example.com".into(),
+        register_on_start: false,
         ..Default::default()
     };
     let account_id = client.handle().submit_add_account(account_config).await?;

@@ -1,107 +1,86 @@
 {
   "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
-  "newTickets": [],
-  "editedTickets": [
+  "newTickets": [
     {
       "id": 1,
-      "nodeId": "N0079",
-      "path": null,
-      "changes": {
-        "title": "Implementation Integration Blueprint — Round 2 Scope (§62.10)",
-        "status": "todo"
-      }
+      "title": "Consumer/bindgen alignment — pjsua-native build repair (§62.31–62.35)",
+      "nodeIds": [
+        "N0100",
+        "N0101",
+        "N0102",
+        "N0103",
+        "N0104"
+      ],
+      "status": "todo",
+      "phaseId": 18
     },
     {
       "id": 2,
-      "nodeId": "N0080",
-      "path": null,
-      "changes": {
-        "title": "Transport wiring & bindgen alignment (§62.11)",
-        "status": "todo"
-      }
+      "title": "Producer: crates/pjsip-prebuilt + CI commit (§62.36–62.37)",
+      "nodeIds": [
+        "N0105",
+        "N0106"
+      ],
+      "status": "todo",
+      "phaseId": 18
+    },
+    {
+      "id": 1,
+      "title": "H8: raw SIP 実 PJSIP 検証経路（§62.38）",
+      "nodeIds": [
+        "N0107"
+      ],
+      "status": "todo",
+      "phaseId": 19
+    },
+    {
+      "id": 2,
+      "title": "H8: on_ice_transport_error 登録と IceTransportError 経路（§62.39）",
+      "nodeIds": [
+        "N0108"
+      ],
+      "status": "todo",
+      "phaseId": 19
     },
     {
       "id": 3,
-      "nodeId": "N0081",
-      "path": null,
-      "changes": {
-        "title": "Registration & account lifecycle (§62.12)",
-        "status": "todo"
-      }
+      "title": "H13: push_media_frame 生産経路の配線（§62.40）",
+      "nodeIds": [
+        "N0109"
+      ],
+      "status": "todo",
+      "phaseId": 19
     },
     {
       "id": 4,
-      "nodeId": "N0082",
-      "path": null,
-      "changes": {
-        "title": "Event path completion — FFI drain / raw SIP / P1-P2 (§62.13)",
-        "status": "todo"
-      }
+      "title": "H14: AddAudioSource 時 RustMediaPort conf bridge 再登録（§62.41）",
+      "nodeIds": [
+        "N0110"
+      ],
+      "status": "todo",
+      "phaseId": 19
     },
     {
       "id": 5,
-      "nodeId": "N0083",
-      "path": null,
-      "changes": {
-        "title": "Incoming call & call events (§62.14)",
-        "status": "todo"
-      }
+      "title": "H15/EXAMPLES: 実 PJSIP プロトコル + RTP 統合テスト（§62.42）",
+      "nodeIds": [
+        "N0111"
+      ],
+      "status": "todo",
+      "phaseId": 19
     },
     {
       "id": 6,
-      "nodeId": "N0084",
-      "path": null,
-      "changes": {
-        "title": "DTMF unification (§62.15)",
-        "status": "todo"
-      }
-    },
-    {
-      "id": 7,
-      "nodeId": "N0085",
-      "path": null,
-      "changes": {
-        "title": "Media path completion — conf port / queue / WAV (§62.16)",
-        "status": "todo"
-      }
-    },
-    {
-      "id": 8,
-      "nodeId": "N0086",
-      "path": null,
-      "changes": {
-        "title": "STUN/TURN/ICE wiring & coturn verification (§62.17)",
-        "status": "todo"
-      }
-    },
-    {
-      "id": 9,
-      "nodeId": "N0087",
-      "path": null,
-      "changes": {
-        "title": "Examples E1-E5 (§62.18)",
-        "status": "todo"
-      }
-    },
-    {
-      "id": 10,
-      "nodeId": "N0088",
-      "path": null,
-      "changes": {
-        "title": "Docker/Asterisk integration test base (§62.19)",
-        "status": "todo"
-      }
-    },
-    {
-      "id": 11,
-      "nodeId": "N0089",
-      "path": null,
-      "changes": {
-        "title": "Round-2 I/O boundary reference (§62.20)",
-        "status": "todo"
-      }
+      "title": "Round 4 チケット構造 & I/O 境界（§62.43–62.44）",
+      "nodeIds": [
+        "N0112",
+        "N0113"
+      ],
+      "status": "todo",
+      "phaseId": 19
     }
   ],
+  "editedTickets": [],
   "existingStatuses": [
     {
       "id": 1,
@@ -109,6 +88,10 @@
     },
     {
       "id": 2,
+      "status": "reviewed"
+    },
+    {
+      "id": 3,
       "status": "reviewed"
     },
     {
@@ -569,47 +552,87 @@
     },
     {
       "id": 1,
-      "status": "todo"
+      "status": "reviewed"
     },
     {
       "id": 2,
-      "status": "todo"
+      "status": "reviewed"
     },
     {
       "id": 3,
-      "status": "todo"
+      "status": "reviewed"
     },
     {
       "id": 4,
-      "status": "todo"
+      "status": "reviewed"
     },
     {
       "id": 5,
-      "status": "todo"
+      "status": "reviewed"
     },
     {
       "id": 6,
-      "status": "todo"
+      "status": "reviewed"
     },
     {
       "id": 7,
-      "status": "todo"
+      "status": "reviewed"
     },
     {
       "id": 8,
-      "status": "todo"
+      "status": "reviewed"
     },
     {
       "id": 9,
-      "status": "todo"
+      "status": "reviewed"
     },
     {
       "id": 10,
-      "status": "todo"
+      "status": "reviewed"
     },
     {
       "id": 11,
-      "status": "todo"
+      "status": "reviewed"
+    },
+    {
+      "id": 1,
+      "status": "reviewed"
+    },
+    {
+      "id": 2,
+      "status": "reviewed"
+    },
+    {
+      "id": 3,
+      "status": "reviewed"
+    },
+    {
+      "id": 4,
+      "status": "reviewed"
+    },
+    {
+      "id": 5,
+      "status": "reviewed"
+    },
+    {
+      "id": 6,
+      "status": "reviewed"
+    },
+    {
+      "id": 7,
+      "status": "reviewed"
+    },
+    {
+      "id": 8,
+      "status": "reviewed"
+    },
+    {
+      "id": 9,
+      "status": "reviewed"
+    },
+    {
+      "id": 10,
+      "status": "reviewed"
     }
   ]
 }

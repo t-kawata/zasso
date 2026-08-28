@@ -42,7 +42,7 @@ pub enum M20TestLayer {
     Layer3,
 }
 
-// [::TICKET::] P1-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P1-3, P15-3, P16-3, P16-5, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3|P16-3|P16-5|P17-6) --for-spec --no-implementation-order`.
 impl M20FeatureTestEntry {
     /// Returns the full 11-entry M20 feature test mapping table as defined
     /// in RFC §43 M20 Test Layer Mapping.
@@ -57,20 +57,23 @@ impl M20FeatureTestEntry {
             Self {
                 feature_name: "RegistrationStateChanged",
                 layer: M20TestLayer::Layer2,
-                validation_description: "GetAccountInfo → RegistrationSucceeded/Failed firing",
+                validation_description: "GetAccountInfo → RegistrationStateChanged firing",
                 notes: "Layer 3 verifies real registration state transitions",
             },
             Self {
                 feature_name: "CallStateChanged (pjsip_inv_state full coverage)",
                 layer: M20TestLayer::Layer2,
-                validation_description: "All state values (0-4) map to correct CallState",
-                notes: "state=2 CONNECTING → Trying/Ringing branching logic",
+                // P16-5 §62.14: bindings constants are NULL=0 CALLING=1 INCOMING=2
+                // EARLY=3 CONNECTING=4 CONFIRMED=5 DISCONNECTED=6.
+                validation_description: "All state values (0-6) map to correct CallState",
+                notes: "state=4 CONNECTING → Trying/Ringing branching logic",
             },
             Self {
                 feature_name: "CallMediaStateChanged",
                 layer: M20TestLayer::Layer2,
-                validation_description: "media_status maps to MediaActive/Held/Error",
-                notes: "",
+                // P17-6 §62.26: media status tracking adds the hold→ACTIVE → CallResumed transition.
+                validation_description: "media_status maps to MediaActive/Held/Error + hold→ACTIVE → CallResumed",
+                notes: "Layer 3 verifies real hold/resume via re-INVITE",
             },
             Self {
                 feature_name: "DtmfSent dual layer (return + event)",
@@ -144,7 +147,7 @@ mod tests {
     // ── C054-Precondition: TestBackend exists for DualClientContext ─
     // @verifies C054
     #[test]
-// [::TICKET::] P1-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P1-3, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P1-3|P15-3|P16-3) --for-spec --no-implementation-order`.
     fn test_dual_client_presupposes_backend() {
         // DualClientContext depends on TestBackend from runtime::backend
         let _mock = crate::runtime::backend::TestBackend::new();

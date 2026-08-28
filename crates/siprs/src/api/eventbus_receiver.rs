@@ -19,6 +19,7 @@
 //
 // [::TICKET::] P0-5: EventBus — split control/raw_sip broadcast channels + AccountEventReceiver
 
+use async_trait::async_trait;
 use tokio::sync::broadcast;
 
 use crate::api::event_model_payload_bus::{AccountId, RawSipMessage, SipEvent};
@@ -161,12 +162,111 @@ impl AccountEventReceiver {
 
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
 impl std::fmt::Debug for AccountEventReceiver {
-    // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
+    // [::TICKET::] P0-5, P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-5|P17-9) --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // The wrapped broadcast receiver is always live; print only the stable
+        // filter so the Debug output cannot rot when the inner type changes.
         f.debug_struct("AccountEventReceiver")
             .field("account_id", &self.account_id)
-            .field("inner", &"broadcast::Receiver<SipEvent>")
             .finish()
+    }
+}
+
+/// A handle to a live event subscription.
+///
+/// Wraps a `tokio::sync::broadcast::Receiver<T>` (or an account-filtered
+/// receiver for `subscribe_account`) and adds an explicit `unsubscribe()` API.
+/// Dropping the handle also unsubscribes, mirroring the RFC §8.3 drop contract.
+pub struct Subscription<T> {
+    /// `None` once `unsubscribe()` has dropped the underlying receiver.
+    inner: Option<Box<dyn SubscriptionSource<T> + Send>>,
+}
+
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+impl<T> Subscription<T> {
+    /// Create a subscription from a receive source.
+    pub(crate) fn new(source: Box<dyn SubscriptionSource<T> + Send>) -> Self {
+        Self {
+            inner: Some(source),
+        }
+    }
+
+    /// Whether this subscription is still live.
+    pub fn is_subscribed(&self) -> bool {
+        self.inner.is_some()
+    }
+
+    /// Explicitly unsubscribe.
+    ///
+    /// Idempotent: the underlying receiver is dropped and subsequent
+    /// `recv()` / `try_recv()` return `Closed`.
+    pub fn unsubscribe(&mut self) {
+        self.inner = None;
+    }
+
+    /// Wait for the next event to be published.
+    ///
+    /// Returns `RecvError::Closed` once this subscription has been unsubscribed.
+    pub async fn recv(&mut self) -> Result<T, broadcast::error::RecvError> {
+        match self.inner.as_mut() {
+            Some(source) => source.recv().await,
+            None => Err(broadcast::error::RecvError::Closed),
+        }
+    }
+
+    /// Try to receive without blocking.
+    ///
+    /// Returns `TryRecvError::Closed` if unsubscribed, `TryRecvError::Empty`
+    /// if no event is buffered.
+    pub fn try_recv(&mut self) -> Result<T, broadcast::error::TryRecvError> {
+        match self.inner.as_mut() {
+            Some(source) => source.try_recv(),
+            None => Err(broadcast::error::TryRecvError::Closed),
+        }
+    }
+}
+
+impl<T> std::fmt::Debug for Subscription<T> {
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Subscription")
+            .field("subscribed", &self.inner.is_some())
+            .finish()
+    }
+}
+
+/// A source of events a `Subscription<T>` can receive from.
+///
+/// Implemented for `broadcast::Receiver<T>` (plain subscriptions) and for
+/// `AccountEventReceiver` (account-filtered subscriptions, `T = SipEvent`).
+/// `pub(crate)` because `Subscription::new` accepts a boxed source.
+#[async_trait]
+pub(crate) trait SubscriptionSource<T>: Send {
+    async fn recv(&mut self) -> Result<T, broadcast::error::RecvError>;
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn try_recv(&mut self) -> Result<T, broadcast::error::TryRecvError>;
+}
+
+#[async_trait]
+impl<T: Send + Clone> SubscriptionSource<T> for broadcast::Receiver<T> {
+    async fn recv(&mut self) -> Result<T, broadcast::error::RecvError> {
+        broadcast::Receiver::recv(self).await
+    }
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn try_recv(&mut self) -> Result<T, broadcast::error::TryRecvError> {
+        broadcast::Receiver::try_recv(self)
+    }
+}
+
+#[async_trait]
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+impl SubscriptionSource<SipEvent> for AccountEventReceiver {
+    async fn recv(&mut self) -> Result<SipEvent, broadcast::error::RecvError> {
+        AccountEventReceiver::recv(self).await
+    }
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn try_recv(&mut self) -> Result<SipEvent, broadcast::error::TryRecvError> {
+        AccountEventReceiver::try_recv(self)
     }
 }
 
@@ -472,6 +572,131 @@ mod tests {
         // The subscriber receives the event (no overflow).
         let result = rx.try_recv();
         assert!(result.is_ok(), "event should be received: {result:?}");
+    }
+
+    // ── Subscription<T> (P17-9 §62.29) ────────────────────────────────
+
+    /// @verifies C134
+    #[test]
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn subscription_type_assertions() -> Result<(), Box<dyn std::error::Error>> {
+        // C134 precondition + postcondition: Subscription<T> wraps both a plain
+        // broadcast receiver and the account-filtered AccountEventReceiver.
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+        fn assert_sip(_: &Subscription<SipEvent>) {}
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+        fn assert_raw(_: &Subscription<RawSipMessage>) {}
+        let bus = EventBus::new(16, Some(32));
+        let account = AccountId::from_u64(1)?;
+        assert_sip(&Subscription::new(Box::new(bus.subscribe_control())));
+        assert_sip(&Subscription::new(Box::new(AccountEventReceiver::new(
+            account,
+            bus.subscribe_control(),
+        ))));
+        assert_raw(&Subscription::new(Box::new(
+            bus.subscribe_raw_sip().ok_or("raw bus enabled")?,
+        )));
+        Ok(())
+    }
+
+    /// @verifies C134
+    #[tokio::test]
+    async fn subscription_recv_delivers_published_event() -> Result<(), Box<dyn std::error::Error>> {
+        let bus = EventBus::new(16, None);
+        let mut sub = Subscription::new(Box::new(bus.subscribe_control()));
+        bus.publish(make_event(None));
+        let ev = sub.recv().await?;
+        assert_eq!(ev.meta.account_id, None);
+        Ok(())
+    }
+
+    /// @verifies C134
+    #[tokio::test]
+    async fn subscription_unsubscribe_closes_recv() {
+        let bus = EventBus::new(16, None);
+        let mut sub = Subscription::new(Box::new(bus.subscribe_control()));
+        sub.unsubscribe();
+        assert!(!sub.is_subscribed());
+        assert!(matches!(
+            sub.recv().await,
+            Err(broadcast::error::RecvError::Closed)
+        ));
+        assert!(matches!(
+            sub.try_recv(),
+            Err(broadcast::error::TryRecvError::Closed)
+        ));
+    }
+
+    /// @verifies C134
+    #[test]
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn subscription_unsubscribe_is_idempotent() {
+        let bus = EventBus::new(16, None);
+        let mut sub = Subscription::new(Box::new(bus.subscribe_control()));
+        sub.unsubscribe();
+        sub.unsubscribe(); // second call is a no-op
+        assert!(!sub.is_subscribed());
+    }
+
+    /// @verifies C134
+    #[tokio::test]
+    async fn subscription_account_filter_preserved() -> Result<(), Box<dyn std::error::Error>> {
+        // C134 invariant: the account filter survives inside Subscription.
+        let bus = EventBus::new(16, None);
+        let mut sub = Subscription::new(Box::new(AccountEventReceiver::new(
+            AccountId::from_u64(1)?,
+            bus.subscribe_control(),
+        )));
+        bus.publish(make_event(Some(AccountId::from_u64(2)?))); // skipped
+        bus.publish(make_event(Some(AccountId::from_u64(1)?))); // delivered
+        let ev = sub.recv().await?;
+        assert_eq!(ev.meta.account_id, Some(AccountId::from_u64(1)?));
+        Ok(())
+    }
+
+    /// @verifies C134
+    #[test]
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn subscription_account_filter_try_recv_empty_on_non_matching_only(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let bus = EventBus::new(16, None);
+        let mut sub = Subscription::new(Box::new(AccountEventReceiver::new(
+            AccountId::from_u64(1)?,
+            bus.subscribe_control(),
+        )));
+        bus.publish(make_event(Some(AccountId::from_u64(2)?)));
+        assert!(matches!(
+            sub.try_recv(),
+            Err(broadcast::error::TryRecvError::Empty)
+        ));
+        Ok(())
+    }
+
+    /// @verifies C134
+    #[test]
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn subscription_try_recv_empty_when_no_events() {
+        let bus = EventBus::new(16, None);
+        let mut sub = Subscription::new(Box::new(bus.subscribe_control()));
+        assert!(matches!(
+            sub.try_recv(),
+            Err(broadcast::error::TryRecvError::Empty)
+        ));
+    }
+
+    /// @verifies C134
+    #[test]
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    fn subscription_lagged_propagated() {
+        let bus = EventBus::new(2, None);
+        let mut sub = Subscription::new(Box::new(bus.subscribe_control()));
+        bus.publish(make_event(None));
+        bus.publish(make_event(None));
+        bus.publish(make_event(None));
+        assert!(matches!(
+            sub.try_recv(),
+            Err(broadcast::error::TryRecvError::Lagged(_))
+        ));
     }
 
     // ── Dual Client dispatch ────────────────────────────────────────

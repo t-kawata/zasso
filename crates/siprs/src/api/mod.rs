@@ -1,3 +1,4 @@
+// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
 
 // [::TICKET::] P0-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-5 --for-spec --no-implementation-order`.
@@ -25,10 +26,15 @@ pub mod m20_dtmfsent_twophase;
 pub mod standalone_server_config;
 // [::TICKET::] P5-2: DTMF spec — DtmfReceivedInfo method field, DtmfPolicy helpers
 pub mod dtmf_spec_received;
+// [::TICKET::] P16-6: DTMF unification — §62.15 DtmfMethod single definition + PJSIP API mapping
+pub mod dtmf_unification;
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
 // [::TICKET::] P5-2: AsyncAudioSource adapter types — ErasedAudioSource, SyncAudioSource, SyncSourceAdapter
 pub mod asyncaudiosrc_adapter;
 // [::TICKET::] P5-2: Incoming call and REFER/transfer types — IncomingCall, IncomingCallConfig
 pub mod incoming_call_refer;
+// [::TICKET::] P16-5: Incoming call & call events — §62.14 CallEntry construction (N0083)
+pub mod incoming_call_events;
 // [::TICKET::] P9-2: Audio Subscribe API — AudioTapMode, AudioTapHandle, AudioTapSender
 pub mod audio_subscribe_bp;
 // [::TICKET::] P9-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P9-2 --for-spec --no-implementation-order`.
@@ -42,12 +48,17 @@ pub mod call_api_expansion;
 
 // Re-export public types at the api level
 pub use event_model_payload_bus::{
-    ConnectedCallInfo, DtmfReceivedInfo, EventDirection, EventMeta, EventTimestamp,
-    MediaActiveInfo, MediaErrorInfo, RegistrationFailure, RegistrationInfo, SipEvent,
-    SipEventPayload,
+// [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    CallResumedInfo, ConnectedCallInfo, DtmfReceivedInfo, EventDirection, EventMeta,
+    EventTimestamp, MediaActiveInfo, MediaErrorInfo, RegistrationFailure, RegistrationInfo,
+    SipEvent, SipEventPayload,
 };
-pub use eventbus_receiver::{AccountEventReceiver, EventBus};
+// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+pub use eventbus_receiver::{AccountEventReceiver, EventBus, Subscription};
 pub use m20_dtmfsent_twophase::{DtmfSentInfo, SentDtmfError};
+// [::TICKET::] P16-6: unified DtmfMethod — single definition from model::dtmf_spec
+pub use dtmf_unification::DtmfMethod;
+// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
 // [::TICKET::] P5-2: Audio source adapter re-exports
 pub use asyncaudiosrc_adapter::{ErasedAudioSource, SyncAudioSource, SyncSourceAdapter};
 // [::TICKET::] P5-2: Incoming call re-exports

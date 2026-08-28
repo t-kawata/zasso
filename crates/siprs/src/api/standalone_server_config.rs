@@ -755,7 +755,7 @@ mod tests {
     // ── Normal: ServerConfig struct construction ───────────────────────
 
     #[test]
-// [::TICKET::] P2-2, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P15-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P15-2) --for-spec --no-implementation-order`.
     fn test_server_config_struct_fields() {
         let config = ServerConfig {
             bind_addr: format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse().unwrap(),
@@ -771,11 +771,11 @@ mod tests {
     // ── Invariant: Send + Sync ─────────────────────────────────────────
 
     #[test]
-// [::TICKET::] P2-2, P7-1, P11-2, P12-2, P12-7, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2|P12-2|P12-7|P15-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P2-2, P7-1, P11-2, P12-2, P12-7, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2|P12-2|P12-7|P15-2) --for-spec --no-implementation-order`.
     fn test_server_config_send_sync() {
         // [::TICKET::] P2-2, P7-1, P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P2-2, P3-3, P7-1, P11-2, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3|P7-1|P11-2|P15-2|P15-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P2-2, P3-3, P7-1, P11-2, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3|P7-1|P11-2|P15-2|P15-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<ServerConfig>();
         assert_sync::<ServerConfig>();
@@ -793,7 +793,7 @@ mod tests {
 
     // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
     #[test]
-// [::TICKET::] P3-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P15-2) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P15-2) --for-spec --no-implementation-order`.
     fn test_server_config_default_values() -> Result<(), Box<dyn std::error::Error>> {
         let config = ServerConfig::default();
         assert_eq!(
@@ -907,7 +907,7 @@ mod tests {
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-// [::TICKET::] P3-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P15-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P15-2) --for-spec --no-implementation-order`.
         fn test_from_args_default_port() -> Result<(), Box<dyn std::error::Error>> {
             let config = ServerConfig::from_args_with(&[])?;
             assert_eq!(config.bind_addr.port(), DEFAULT_SIPRS_PORT);
@@ -971,7 +971,7 @@ mod tests {
 
         // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
         #[test]
-// [::TICKET::] P3-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P15-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P15-2) --for-spec --no-implementation-order`.
         fn test_from_args_rejects_invalid_bind_addr() {
             let result = ServerConfig::from_args_with(&[
                 "--bind-addr".to_string(),
@@ -1041,9 +1041,9 @@ mod tests {
         #[test]
         // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
         fn test_app_state_send_sync() {
-// [::TICKET::] P3-3, P7-1, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1|P15-2|P15-3) --for-spec --no-implementation-order`.
+            // [::TICKET::] P3-3, P7-1, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1|P15-2|P15-3) --for-spec --no-implementation-order`.
             fn assert_send<T: Send>() {}
-// [::TICKET::] P3-3, P7-1, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1|P15-2|P15-3) --for-spec --no-implementation-order`.
+            // [::TICKET::] P3-3, P7-1, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1|P15-2|P15-3) --for-spec --no-implementation-order`.
             fn assert_sync<T: Sync>() {}
             assert_send::<AppState>();
             assert_sync::<AppState>();

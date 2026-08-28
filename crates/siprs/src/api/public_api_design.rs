@@ -214,12 +214,13 @@ mod tests {
     use crate::client::SipClient;
     use crate::config::ClientConfig;
     use crate::model::id_design_newtype::CallId;
+    use crate::state::call_state_model::CallState;
 
     #[test]
     // @verifies C012, C026
-// [::TICKET::] P3-1, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P15-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P15-3|P16-3) --for-spec --no-implementation-order`.
     fn sip_account_handle_is_clone() {
-// [::TICKET::] P3-1, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P15-2|P15-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-1, P15-2, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P15-2|P15-3|P16-3) --for-spec --no-implementation-order`.
         fn assert_clone<T: Clone>() {}
         assert_clone::<SipAccountHandle>();
     }
@@ -228,16 +229,16 @@ mod tests {
     // @verifies C012
     // [::TICKET::] P3-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-1 --for-spec --no-implementation-order`.
     fn sip_account_handle_is_debug() {
-// [::TICKET::] P3-1, P10-1, P10-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3|P15-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-1, P10-1, P10-3, P15-2, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3|P15-2|P16-3) --for-spec --no-implementation-order`.
         fn assert_debug<T: std::fmt::Debug>() {}
         assert_debug::<SipAccountHandle>();
     }
 
     #[test]
     // @verifies C012, C026
-// [::TICKET::] P3-1, P10-1, P10-3, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3|P15-3) --for-spec --no-implementation-order`.
+    // [::TICKET::] P3-1, P10-1, P10-3, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3|P15-3|P16-3) --for-spec --no-implementation-order`.
     fn sip_account_handle_is_send() {
-// [::TICKET::] P3-1, P10-1, P10-3, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3|P15-2|P15-3) --for-spec --no-implementation-order`.
+        // [::TICKET::] P3-1, P10-1, P10-3, P15-2, P15-3, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-1|P10-1|P10-3|P15-2|P15-3|P16-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<SipAccountHandle>();
     }
@@ -255,15 +256,19 @@ mod tests {
 
     #[tokio::test]
     // @verifies C017
-    // [::TICKET::] P15-3: §62.2 — add_account starts Disabled, so the query
-    // round-trip asserts Disabled. The Registered state after a successful
-    // registration is production-wired by P15-5 (§62.4).
+    // [::TICKET::] P15-3, P16-3: §62.2/§62.12 — add_account with
+    // register_on_start=false stays Disabled, so the query round-trip asserts
+    // Disabled. The Registered state after a successful registration is
+    // production-wired by P15-5 (§62.4).
     async fn registration_state_queries_reactor_and_returns_disabled(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
         let account_config = crate::config::account_config_spec::AccountConfig {
             username: "alice".into(),
+            // P16-3 §62.12: disable auto-register so a freshly added account stays
+            // Disabled — the query round-trip pins the deterministic initial state.
+            register_on_start: false,
             ..Default::default()
         };
         let account_id = client.handle().submit_add_account(account_config).await?;
@@ -337,7 +342,7 @@ mod tests {
         // existing assert_clone/assert_debug tests above).
         // [::TICKET::] P10-1, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
-// [::TICKET::] P10-1, P10-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P10-1, P10-3, P15-2, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-2|P16-3) --for-spec --no-implementation-order`.
         fn assert_sync<T: Sync>() {}
         assert_send::<SipClient>();
         assert_sync::<SipClient>();
@@ -352,7 +357,7 @@ mod tests {
         // C017 invariant: every public account-info query yields Result<T, SipError>.
         // registration_state is async, so its result is an opaque Future;
         // awaiting it must produce Result<RegistrationState, SipError>.
-// [::TICKET::] P10-1, P10-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-2) --for-spec --no-implementation-order`.
+        // [::TICKET::] P10-1, P10-3, P15-2, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P10-1|P10-3|P15-2|P16-3) --for-spec --no-implementation-order`.
         fn assert_result_type(_: &Result<RegistrationState, SipError>) {}
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
@@ -457,9 +462,16 @@ mod tests {
     {
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
-        let handle = client.add_account(valid_account_config()).await?;
-        // [::TICKET::] P15-3: §62.2 — add_account starts Disabled, so the
-        // preservation assertion pins Disabled → Disabled across update_config.
+        let handle = client
+            .add_account(crate::config::account_config_spec::AccountConfig {
+                // P16-3 §62.12: disable auto-register so the account starts Disabled.
+                register_on_start: false,
+                ..valid_account_config()
+            })
+            .await?;
+        // [::TICKET::] P15-3, P16-3: §62.2/§62.12 — add_account with
+        // register_on_start=false starts Disabled, so the preservation assertion
+        // pins Disabled → Disabled across update_config.
         assert_eq!(
             handle.registration_state().await?,
             RegistrationState::Disabled,
@@ -633,6 +645,7 @@ mod tests {
     // [::TICKET::] P12-1: make_call registers a CallEntry with the initial call
     // state and the owning account id under the returned CallId.
     async fn make_call_registers_call_entry_state_calling() -> Result<(), Box<dyn std::error::Error>>
+// [::TICKET::] P16-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-5 --for-spec --no-implementation-order`.
     {
         let config = ClientConfig::default();
         let (client, _rx) = SipClient::new(config).await?;
@@ -645,7 +658,11 @@ mod tests {
         let call_id = handle.make_call(test_call_request()).await?;
         let state = client.handle().query_state().await?;
         let entry = &state.calls[&CallId::from_u64(call_id)?];
-        assert_eq!(entry.state, "Calling", "initial call state is Calling");
+        assert_eq!(
+            entry.state,
+            CallState::Calling,
+            "initial call state is Calling"
+        );
         assert_eq!(entry.account_id, AccountId::from_u64(account_id)?);
         client.shutdown().await?;
         Ok(())

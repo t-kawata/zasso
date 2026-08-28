@@ -37,6 +37,12 @@ pub mod pipeline;
 /// §62.6 media path architecture — ChannelSelector unified audio injection.
 pub mod media_path_arch;
 
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+/// §62.16 media path completion — WAV writer / WAV file source.
+pub mod media_path_wiring;
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
+
 // [::TICKET::] P11-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-12 --for-spec --no-implementation-order`.
 pub use pipeline::{AudioOrchestrationError, AudioPipeline, AudioPipelineConfig, ProcessedFrame};
 
