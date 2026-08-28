@@ -4964,3 +4964,348 @@ pub fn subscribe_raw_sip(&self) -> Option<Subscription<RawSipMessage>> {
 | 62.29 Subscription unsubscribe | 購読 API 呼び出し | `Subscription<T>`（`recv()` / `unsubscribe()`） | client.rs / eventbus_receiver.rs |
 
 **削除対象の整理（boundify が Prune / 更新するファイル）**: `pjsua_callback.on_rx_msg` への言及（`src/ffi/callback.rs:143-144` の stale コメントを `pjsip_module` 方式へ更新）、`m20_native_event_conv.rs` の「P1/P2 returns None」stale doc comment、`CallResumed` の unit variant 参照（ペイロード化）、`DtmfSent` の「コールバック優先」記述（§62.15 の該当文）。`src/ffi/raw_sip_module.rs` が新規ファイルとして追加される。
+
+### 62.31 ラウンド 4 進化スコープと根因（Q9–Q22）
+
+**スコープ**: 本ラウンドは siprs の核心である `pjsua-native`（実 PJSIP FFI 層）のビルド修復と、プレビルド成果物の producer/consumer パイプライン構築を**最優先**で解決し、その後 README RESIDUE（H8 / H13 / H14 / H15 / EXAMPLES）のギャップを解消する。設計方針の詳細は `docs/PJSUA-NATIVE-PREBUILT-DESIGN-BRIEF.md` を参照（拘束方針）。チケット順序はユーザー指示により「設計ブリーフ（Ticket A / B）を最優先で解決し、その他のチケット（RESIDUE ギャップ）はその解決後に連ねる」（Q22 / §62.43）。
+
+**根因**: `cargo check --features pjsua-native` は **69 エラー**。bindgen の型 allowlist が `#[cfg(feature = "pjsua-native")]` 配下のコードが実際に参照するシンボルと整合しておらず、かつ vendored PJSIP ヘッダ（2.17.0）に存在しないシンボルをコードが参照している。エラーは 7 カテゴリ（設計ブリーフ §3.2）に分類され、「allowlist 拡張のみ」では解消不能（enum 列挙子の非 emit・存在しないシンボルを含む）。
+
+```rust
+// エラーカテゴリ → 修正手段（設計ブリーフ §3.2 / README H1 対応表）
+// 1: PJ_SUCCESS 等（19 件, E0432/E0425）→ bindgen enum/const 生成（Q10 / §62.33）
+// 2: PJSUA_CALL_NULL / PJ_CRED_DATA_PLAIN_PASSWD（E0425）→ コード適応修正（Q9 / §62.32）
+// 3: pjsua_config.turn_cfg / turn_cfg_use（E0609）→ 型 allowlist で構造体全体を emit
+// 4: pjsua_codec_info.encoding_name / clock_rate（E0609）→ codec_id パースで導出（Q9 / §62.32）
+// 5: pjsip_inv_state::*（28 件, E0599）→ bindgen enum 生成（Q10 / §62.33）
+// 6: AccountId（E0433, backend.rs:1029,1213）→ cfg 内 import 追加
+// 7: FFI シグネチャ不整合（E0308, backend_calls.rs:366,428,447）→ 生成シグネチャへ整合
+```
+
+**I/O 境界**: 入力 = `src/build/build_script_bindgen.rs`（bindgen allowlist / 設定）、`src/ffi/bindings.rs`（stub → bindgen 生成物）、`wrapper.h`。出力 = 修正済み `cargo build --features pjsua-native` が通る状態、`make test-integration` が CI で green。関連ファイル: `build.rs` / `src/build/build_script_bindgen.rs` / `src/ffi/{bindings,backend_calls,callback}.rs` / `src/config/{stun_turn_ice_wiring,observability_metrics}.rs` / `src/state/m20_callstate_mapping.rs` / `src/runtime/backend.rs`。
+
+### 62.32 vendored PJSIP バージョン戦略（Q9）
+
+**決定**: vendored PJSIP **2.17.0 を維持**し、コードを適応修正する。PJSIP の最新版は 2.17 であり**アップグレード先が存在しない**（ユーザー確認済み）。したがって、ヘッダに存在しないシンボルはコード修正で解決する。
+
+1. **存在しない定数参照の修正**:
+   - `PJSUA_CALL_NULL`（siprs ローカルの sentinel、値 0。stub `bindings.rs:148` にのみ定義）は vendored ヘッダに存在しないため、**クレート内の独立モジュール（例 `src/ffi/constants.rs`）に定数を定義**して置換する。`src/ffi/bindings.rs` は pjsua-native 時に bindgen 生成物へ置換されるため、この sentinel は bindings.rs ではなく常時コンパイルされるモジュールに置き、bindgen 生成物に依存しない。
+   - `PJ_CRED_DATA_PLAIN_PASSWD`（allowlist に含まれるが vendored に非存在）は、実在シンボル **`PJSIP_CRED_DATA_PLAIN_PASSWD`**（`sip_auth.h:109`、検証済み）への参照へ修正する。allowlist のエントリも `PJSIP_CRED_DATA_PLAIN_PASSWD` へ変更する。
+2. **`pjsua_codec_info` の不足フィールド導出**: vendored `pjsua_codec_info`（`pjsua.h:8155`）は `codec_id` / `priority` のみを持つ。`encoding_name` / `clock_rate` は `codec_id`（`pj_str_t`、例 `"opus/16000"`）のパースで導出する。
+
+```rust
+// src/config/observability_metrics.rs — codec_id パースで encoding_name / clock_rate を導出（Q9）
+/// `codec_id` は "opus/16000" 形式の mime/clock 文字列。encoding_name と clock_rate を導出する。
+fn codec_id_to_name_rate(codec_id: &bindings::pj_str_t) -> (String, u32) {
+    let raw = bindings::pj_str_to_string(codec_id);
+    match raw.split_once('/') {
+        Some((name, rate)) => (name.to_string(), rate.parse().unwrap_or(0)),
+        None => (raw, 0),
+    }
+}
+```
+
+**I/O 境界**: 入力 = コードが参照する定数名 / `pjsua_codec_info` の `codec_id` 文字列。出力 = 実在シンボル（`PJSIP_CRED_DATA_PLAIN_PASSWD`）への参照、`encoding_name` / `clock_rate` の `codec_id` パース導出。関連ファイル: `src/ffi/backend_calls.rs` / `src/ffi/callback.rs` / `src/config/observability_metrics.rs` / `src/ffi/bindings.rs` / `src/build/build_script_bindgen.rs`。
+
+### 62.33 bindgen enum/const 生成戦略（Q10）
+
+**決定**: bindgen 設定で enum 型を allowlist し、**Rust enum として生成**する。`PJ_SUCCESS`（`pj/types.h:93` の enum 列挙子 `PJ_SUCCESS=0,`）は `allowlist_var` では emit されないため、enum 型の allowlist + enum 生成（`default_enum_style`）により列挙子として emit する。`pjsip_inv_state`（`sip_inv.h:87-96`）は **`default_enum_style=rust` + `prepend_enum_name(false)`** で Rust enum として生成し、コードの `pjsip_inv_state::CALLING` 構文（`src/state/m20_callstate_mapping.rs`）が成立する。`pjsua_config` 構造体全体（`turn_cfg` / `turn_cfg_use` 含む）も型 allowlist に追加する。
+
+```rust
+// src/build/build_script_bindgen.rs — enum 型 allowlist + enum 生成（Q10）
+pub const BINDGEN_ENUM_TYPES: &[&str] = &["pjsip_inv_state", "pjsip_tsx_state", "pjsua_call_media_status", "pj_status_t"];
+
+fn generate_bindings(header_root: &std::path::Path) {
+    let bindings = bindgen::Builder::default()
+        .header("wrapper.h")
+        .clang_arg(format!("-I{}", header_root.display()))
+        .default_enum_style(bindgen::EnumVariation::Rust { non_exhaustive: false })
+        .prepend_enum_name(false)
+        .allowlist_type(build_script_bindgen::BINDGEN_ALLOWLIST_TYPES.join("|"))
+        .allowlist_type(BINDGEN_ENUM_TYPES.join("|"))
+        .allowlist_function(build_script_bindgen::BINDGEN_ALLOWLIST_FUNCTIONS.join("|"))
+        .allowlist_var(build_script_bindgen::BINDGEN_ALLOWLIST_VARS.join("|"))
+        .generate()
+        .expect("bindgen failed");
+    // 出力: bindings::pjsip_inv_state::{NULL, CALLING, INCOMING, EARLY, CONNECTING, CONFIRMED, DISCONNECTED}
+    // および bindings::PJ_SUCCESS / PJ_ENOMEM / PJ_EBUSY / PJ_EINVALIDOP（列挙子 / const）
+}
+```
+
+**I/O 境界**: 入力 = `src/build/build_script_bindgen.rs` の allowlist と bindgen 設定、`wrapper.h`。出力 = bindgen 生成 `bindings.rs`（enum `pjsip_inv_state` / const `PJ_SUCCESS` 等 / `pjsua_config` 構造体全体）。関連ファイル: `src/state/m20_callstate_mapping.rs` / `src/error/error_design_siperror.rs` / `src/ffi/callback.rs` / `src/config/stun_turn_ice_wiring.rs`。
+
+### 62.34 静的ライブラリのリンク戦略（Q11 / Q11a）
+
+**決定**: リンクセットは解決済み `lib/` ディレクトリから**導出**する（ハードコード禁止）。`libpjproject.a` / `pjproject.lib`（統合アーカイブ）が存在すれば `static=pjproject` のみ emit し、存在しなければ個別 `lib*.a` のステム名を**全列挙**する。**Linux ターゲットのみ** `--start-group` / `--end-group` で wrap して循環参照（pjmedia ↔ pjmedia-codec ↔ pjlib-util 等）を解決する。macOS（ld64 は複数パス解決）・Windows（link.exe）は追加措置不要。システム依存ライブラリはターゲット別に emit する（macOS フレームワーク / Linux `asound ssl crypto uuid pthread m dl rt` / Windows `ws2_32 ole32 userenv winmm iphlpapi crypt32`）。
+
+```rust
+// build.rs — ディレクトリ導出 + 統合優先のリンクセット生成（Q11 / Q11a）
+fn emit_link_directives(lib_dir: &std::path::Path) {
+    emit_cargo_directive(&format!("cargo:rustc-link-search=native={}", lib_dir.display()));
+    if lib_dir.join("libpjproject.a").is_file() {
+        emit_cargo_directive("cargo:rustc-link-lib=static=pjproject");
+        return;
+    }
+    emit_group_wrapper_for_linux(true);
+    let mut stems: Vec<String> = std::fs::read_dir(lib_dir)
+        .map(|entries| {
+            entries.flatten()
+                .filter_map(|e| {
+                    let name = e.file_name().to_string_lossy().into_owned();
+                    name.strip_prefix("lib")
+                        .and_then(|s| s.strip_suffix(".a"))
+                        .map(|s| s.to_string())
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    stems.sort();
+    for stem in stems {
+        emit_cargo_directive(&format!("cargo:rustc-link-lib=static={stem}"));
+    }
+    emit_group_wrapper_for_linux(false);
+    emit_system_deps();
+}
+```
+
+**I/O 境界**: 入力 = `vendor/prebuilt/<target>/lib/` の実ファイル一覧。出力 = `cargo:rustc-link-search` / `cargo:rustc-link-lib`（統合優先 or 全列挙）/ Linux `--start-group`。関連ファイル: `build.rs` / `vendor/prebuilt/*/lib/`。
+
+### 62.35 build.rs 4 段階解決パイプラインと vendored-source build フォールバック（Q12）
+
+**決定**: build.rs は設計ブリーフ §5.2 の **4 段階パイプラインを完全実装**する。① `vendor/prebuilt/<target>/`（存在すればリンク + ヘッダルート）→ ② system（pkg-config / 環境変数）→ ③ vendored source を build.rs 内で CMake ビルド（`vendor/pjsip` を `std::process::Command` で起動）→ ④ **fail-stop**（現行の warning-and-continue を禁止）。③の成果物は OUT_DIR へ配置し、`SIPRS_STAGE_PREBUILT=1` 設定時のみ `vendor/prebuilt/<target>/` へ stage する（§5.2(b) の staging モード。通常コンシューマビルドでは vendor へ書かない）。
+
+```rust
+// build.rs — 4 段階解決パイプライン（Q12）
+enum ResolvedPjsip {
+    Prebuilt(std::path::PathBuf),
+    System(HeaderRoot),
+    Built(HeaderRoot),
+}
+
+fn resolve_pjsip(manifest_dir: &std::path::Path, target: &str) -> ResolvedPjsip {
+    if let Some(prebuilt) = resolve_prebuilt_lib_dir() {
+        return ResolvedPjsip::Prebuilt(prebuilt);
+    }
+    if let Some(system) = build_script_bindgen::resolve_system_pjsip() {
+        return ResolvedPjsip::System(system);
+    }
+    if cmake_available() {
+        return ResolvedPjsip::Built(build_vendored_source(manifest_dir, target));
+    }
+    panic!("pjsua-native enabled but no PJSIP obtainable: prebuilt absent, system absent, cmake unavailable (fail-stop)");
+}
+```
+
+**I/O 境界**: 入力 = `vendor/prebuilt/<target>/`、`vendor/pjsip/`、環境（`TARGET` / pkg-config / cmake）。出力 = リンク指令、ヘッダルート（bindgen 用）、`SIPRS_STAGE_PREBUILT=1` 時のみ vendor への stage。関連ファイル: `build.rs` / `src/build/build_script_bindgen.rs`。
+
+### 62.36 producer ツール crates/pjsip-prebuilt（Q13 / Q14 / Q16）
+
+**決定**: プレビルド生成は**専用の独立クレート `crates/pjsip-prebuilt`** が担う（siprs 非依存。シェルスクリプト禁止）。単独 Cargo.toml を持ち、既存 crates と同一ワークスペース化しない（現リポジトリにワークスペースは存在しない）。CLI はサブコマンド `build <triple>` / `stage <triple>` / `verify <triple>`。ホスト OS 検出で §5.6 のターゲットセットを決定する（macOS → host + Docker Linux、Windows → MSVC、Linux → host）。**Linux-from-Mac** はコミット済み Dockerfile を `docker build` → `docker run -v $(pwd)/vendor:/work/vendor` でマウントし、コンテナ内 cmake ビルドで成果物をホスト volume に直接生成する（Q14）。**DoD 検証**は `file`（マシン形式）+ `nm`（`pjsua_init` / `pj_init` 等のシンボル）+ 最小 C リンクテストの 3 段階（Q16）。
+
+```rust
+// crates/pjsip-prebuilt/src/main.rs — CLI 形状（Q13）
+fn main() -> Result<()> {
+    match Command::parse() {
+        Command::Build { triple } => build_for_target(&triple)?,  // cmake（host）or Docker（Linux-from-Mac）
+        Command::Stage { triple } => stage_to_vendor(&triple)?,   // vendor/prebuilt/<triple>/{include,lib}
+        Command::Verify { triple } => verify_staged(&triple)?,    // file + nm + C link test（Q16）
+    }
+    Ok(())
+}
+```
+
+```dockerfile
+# crates/pjsip-prebuilt/Dockerfile — Linux-from-Mac ビルド（Q14）
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential cmake libasound2-dev libssl-dev libuuid-dev \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /work
+# 実行: docker build -t pjsip-prebuilt . && docker run --rm -v $(pwd)/vendor:/work/vendor pjsip-prebuilt \
+#   cmake -S /work/vendor/pjsip -B /work/vendor/build && cmake --build /work/vendor/build --target install
+```
+
+**I/O 境界**: 入力 = `vendor/pjsip/`（ソース）、Dockerfile、ホスト OS。出力 = `vendor/prebuilt/<target>/{include,lib}`（stage 成果物）。関連ファイル: `crates/pjsip-prebuilt/`（新規）、`crates/pjsip-prebuilt/Dockerfile`（新規）、`vendor/prebuilt/*/`。
+
+### 62.37 CI 運用と prebuilt コミット（Q15）
+
+**決定**: producer は GitHub Actions の **3 OS マトリクス**（macos-latest / ubuntu-latest / windows-latest）で実行し、`vendor/prebuilt/<target>/` を**通常 push で直接コミット**する（PR ベースの refresh 儀式は設けない — ユーザー判断）。これにより §5.1 の「git clone 直後に prebuilt が存在し、追加取得手順なしで `cargo build --features pjsua-native` が通る」を保証する。
+
+```yaml
+# .github/workflows/prebuilt.yml — 3 OS マトリクス + 直接コミット（Q15）
+on:
+  push:
+    branches: [master, siprs]
+    paths: ["crates/siprs/vendor/pjsip/**", "crates/pjsip-prebuilt/**"]
+jobs:
+  prebuilt:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # pjsip-prebuilt は独立クレート（Q13=A、ワークスペース非作成）のため --manifest-path で実行する
+      - run: cargo run --manifest-path crates/pjsip-prebuilt/Cargo.toml -- build-all   # ホスト検出でターゲット決定（§5.6）
+      - run: cargo run --manifest-path crates/pjsip-prebuilt/Cargo.toml -- verify-all   # file + nm + C link test（Q16）
+      - uses: stefanzweifel/git-auto-commit-action@v5   # vendor/prebuilt を直接コミット
+```
+
+**I/O 境界**: 入力 = 3 OS の GitHub Actions ランナー、producer ツール。出力 = `vendor/prebuilt/<target>/` のコミット。関連ファイル: `.github/workflows/prebuilt.yml`（新規）、`vendor/prebuilt/*/`。
+
+### 62.38 raw SIP 実 PJSIP 検証経路（Q17）
+
+**決定**: `subscribe_raw_sip()` の検証は **pjsua-native ビルド修復後、本物の raw SIP 経路**（`pjsip_module` フック `on_rx_request` / `on_rx_response` → `enqueue_raw_sip_bytes` → `subscribe_raw_sip()`）を使った**完全な統合テスト**で固定する。**TestBackend のテスト専用フック等のダミー実装は許されない**（ユーザー判断）。TestBackend / 既定ビルドでの `subscribe_raw_sip()` が無音チャネルを返す事実は仕様として維持し、検証は実 PJSIP でのみ行う。
+
+```rust
+// tests/sip_integration.rs — 実 raw SIP 受信の統合テスト（Q17）
+#[tokio::test]
+#[cfg(feature = "pjsua-native")]
+async fn raw_sip_rx_reaches_subscriber() -> Result<(), SipError> {
+    let (client, _events) = SipClient::new(config_with_pjsua()).await?;
+    let mut raw = client.subscribe_raw_sip().expect("raw sip enabled");
+    // 実 PJSIP 経由で相手エンドポイントが REGISTER を送信 → pjsip_module フックが
+    // enqueue_raw_sip_bytes を呼び、RawSipMessage として受信できる。
+    send_register_from_peer().await?;
+    let msg = raw.recv().await.expect("raw sip message within timeout");
+    assert!(msg.raw.contains("REGISTER"));
+    Ok(())
+}
+```
+
+**I/O 境界**: 入力 = 実 SIP メッセージ（Docker/Asterisk 環境の相手エンドポイント）。出力 = `RawSipMessage` → `subscribe_raw_sip()`。関連ファイル: `src/ffi/raw_sip_module.rs` / `tests/sip_integration.rs`。
+
+### 62.39 on_ice_transport_error 登録（Q18）
+
+**決定**: `pjsua_callback` ミラー（`src/ffi/bindings.rs`）に **`on_ice_transport_error` フィールド**を追加し、`register_callbacks` で登録する。コールバック内で `pjsip_error_info`（status / reason）を抽出し **`NativeEvent::IceTransportError`** を生成して reactor へ enqueue する。登録済みの他コールバック（TransportStateChanged / CallTsxStateChanged / CallReplaced / NatDetected）と同一パターンで実装する（P17-3 の残項目を解消）。
+
+```rust
+// src/ffi/callback.rs — on_ice_transport_error 登録（Q18）
+extern "C" fn on_ice_transport_error(
+    op: bindings::pj_ice_strans_op,
+    comp_id: std::os::raw::c_int,
+    e: std::os::raw::c_int,
+    err: *mut bindings::pjsip_error_info,
+) {
+    let status = if err.is_null() { 0 } else { unsafe { (*err).status } };
+    let reason = if err.is_null() {
+        String::new()
+    } else {
+        bindings::pj_str_to_string(&unsafe { (*err).reason })
+    };
+    enqueue_native_event(NativeEvent::IceTransportError {
+        operation: op as u32,
+        comp_id,
+        status,
+        reason,
+    });
+}
+// register_callbacks: cb.on_ice_transport_error = Some(on_ice_transport_error);
+```
+
+**I/O 境界**: 入力 = PJSIP ICE トランスポートエラー（`on_ice_transport_error` コールバック / `pjsip_error_info`）。出力 = `NativeEvent::IceTransportError` → `SipEventPayload`。関連ファイル: `src/ffi/bindings.rs` / `src/ffi/callback.rs` / `src/runtime/backend.rs`。
+
+### 62.40 push_media_frame 生産経路配線（Q19）
+
+**決定**: `RustMediaPort` の port ops（`get_frame` / `put_frame`）内で `push_frame_to_tap` を呼ぶ既存構造（P17-8 / §62.28）を、**実 PJSIP conf bridge**（`pjsua_conf_add_port`）が駆動することを統合テストで固定する。TestBackend のフックは共有ヘルパー（`push_frame_to_tap`）のユニット検証に限定し、実挙動の証明としては用いない（Q17 のダミー禁止原則に整合）。
+
+```rust
+// src/runtime/backend.rs — push_media_frame の production 呼び出し（Q19）
+impl PjsuaBackend {
+    /// conf port の put_frame / get_frame 経路から呼ばれ、tap へ AudioChunkPair を供給する。
+    fn on_conf_frame(&self, call_id: CallId, pcm: &[i16]) {
+        let processed = ProcessedFrame::from_i16_stereo(pcm, call_id);
+        push_frame_to_tap(call_id, &processed, &self.tap_registry);
+    }
+}
+```
+
+**I/O 境界**: 入力 = conf bridge フレーム（`RustMediaPort` port ops / `get_frame`・`put_frame`）。出力 = `AudioTapSender::try_push`（`AudioChunkPair`）。関連ファイル: `src/runtime/audio_worker.rs` / `src/runtime/backend.rs` / `tests/sip_integration.rs`。
+
+### 62.41 AddAudioSource 時 RustMediaPort conf bridge 再登録（Q20）
+
+**決定**: `AddAudioSource` で mixer を生成・登録した後、`register_media_ports_for_calls` 相当（`RustMediaPort` の `pjsua_conf_add_port` 登録）を**再実行**する。Initialize 時（`audio_mixers` が空）の一回きりをやめ、mixer 生成経路で登録契機を追加する。これにより注入音声が `out_queue`（64 フレーム ≈ 1.28 秒）に滞留して破棄される H14 ギャップが解消する。
+
+```rust
+// src/runtime/command.rs — AddAudioSource での conf bridge 再登録（Q20）
+RuntimeCommand::AddAudioSource { call_id, source, channels } => {
+    let mixer = state
+        .audio_mixers
+        .entry(call_id)
+        .or_insert_with(|| AudioMixer::new(...));
+    mixer.add_source(source, channels)?;
+    backend.register_media_ports_for_calls(&state.audio_mixers)?; // 再実行（Q20）
+}
+```
+
+**I/O 境界**: 入力 = `AddAudioSource { call_id, source, channels }`。出力 = `pjsua_conf_add_port` による `RustMediaPort` 登録（注入音声がネットワーク送信 / ローカル再生へ到達）。関連ファイル: `src/runtime/command.rs` / `src/runtime/backend.rs`。
+
+### 62.42 実 PJSIP 統合テストスコープ（Q21）
+
+**決定**: ビルド修復後、`tests/sip_integration.rs` と `src/tests/docker_asterisk_it.rs` を通し、**プロトコルレベル**（REGISTER→200、INVITE→180/200、BYE、SIP INFO / RFC 4733 DTMF、STUN binding / TURN allocate / relay candidates via coturn）と**通信レベル**（2 エンドポイント間で RTP メディア送受信）の両方をカバーする。`make test-integration`（docker compose + `--features pjsua-native` + `sip_integration`、guaranteed teardown）を CI で実行する。
+
+```rust
+// tests/sip_integration.rs — プロトコル + 通信レベルの統合テスト（Q21）
+#[tokio::test]
+#[cfg(feature = "pjsua-native")]
+async fn register_invite_bye_rtp_flow() -> Result<(), SipError> {
+    let (alice, mut a_ev) = SipClient::new(cfg_a).await?;
+    let (bob, mut b_ev) = SipClient::new(cfg_b).await?;
+    alice.add_account(acc_a).await?;            // REGISTER → 200
+    bob.add_account(acc_b).await?;
+    let call = alice.make_call(OutgoingCallRequest { target_uri: bob_uri, .. }).await?;
+    wait_connected(&mut b_ev).await?;           // INVITE → 180/200
+    wait_connected(&mut a_ev).await?;
+    send_rtp_audio(alice, bob).await?;          // 通信レベル: RTP メディア送受信
+    alice.hangup(call, HangupReason::LocalUser).await?; // BYE
+    Ok(())
+}
+```
+
+**I/O 境界**: 入力 = Docker（Asterisk / coturn）環境、実 PJSIP 2 エンドポイント。出力 = プロトコル・通信レベル保証。関連ファイル: `tests/sip_integration.rs` / `src/tests/docker_asterisk_it.rs` / `Makefile`（`test-integration`）。
+
+### 62.43 チケット構造とフェーズ割当（Q22）
+
+**決定**: Round 4 として **phase 18 に Ticket A（消費者/bindgen 整合）と Ticket B（生産者/prebuilt + CI + コミット）を最優先配置**し（並列可）、**phase 19 以降に H8（raw SIP 実統合テスト + on_ice_transport_error）/ H13 / H14 / H15 / EXAMPLES のギャップチケットを順に連ねる**（ユーザー指示）。
+
+- **Ticket A — 消費者/bindgen 整合**: 69 エラー解消（§62.31–§62.35）。DoD = `cargo build --features pjsua-native` が通る + `make test-integration` が CI で green（§5.4 / §5.5）。
+- **Ticket B — 生産者/prebuilt + CI + コミット**: `crates/pjsip-prebuilt`（§62.36–§62.37）。**DoD は Ticket A のコンパイル成功に非依存**（§5.3）。DoD = git clone 各 OS → prebuilt 存在 → （A 完了後）`cargo build --features pjsua-native` が通る。
+- **Phase 19+（A 解決後に着手）**: H8（raw SIP 実検証 / on_ice_transport_error、§62.38–§62.39）、H13（push_media_frame 配線、§62.40）、H14（AddAudioSource 再登録、§62.41）、H15 / EXAMPLES（実 PJSIP 統合テスト、§62.42）。
+
+```rust
+// フェーズ割当（概念図）
+// phase 18: [Ticket A: consumer/bindgen alignment] ∥ [Ticket B: producer/prebuilt + CI + commit]
+// phase 19: H8  — raw SIP real integration test (Q17) + on_ice_transport_error (Q18)
+// phase 20: H13 — push_media_frame production wiring (Q19)
+// phase 21: H14 — RustMediaPort conf-bridge re-registration on AddAudioSource (Q20)
+// phase 22: H15 / EXAMPLES — real-PJSIP protocol + RTP integration tests (Q21)
+```
+
+**I/O 境界**: 入力 = 設計ブリーフ §5.5（2 チケット構造）とユーザー指示（A/B 最優先、ギャップは後に連ねる）。出力 = Tickets.json の phase 18–22 への配置。
+
+### 62.44 I/O 境界参照情報（graphify / boundify 用）— round 4
+
+本ラウンドの各設計判断が graphify / boundify の分割判断に使う I/O 境界を下表に示す。
+
+| 設計判断 | 入力（consumes） | 出力（produces） | 関連 GRAPH ノード / ファイル候補 |
+|---------|-----------------|-----------------|------------------|
+| 62.31 スコープ | README H1 RESIDUE / 設計ブリーフ §3.2 | ビルド修復 playbook（7 カテゴリ） | build_strategy_os_deps / build_script_bindgen |
+| 62.32 vendored 戦略 | 定数参照 / `codec_id` 文字列 | 実在シンボル参照 / name・rate 導出 | backend_calls / callback / observability_metrics |
+| 62.33 bindgen enum | allowlist + bindgen 設定 | `bindings.rs`（enum / const / `pjsua_config` 全体） | build_script_bindgen / m20_callstate_mapping |
+| 62.34 リンク戦略 | `lib/` 実ファイル | link-search / link-lib / Linux `--start-group` | build.rs / vendor/prebuilt/*/lib |
+| 62.35 4 段階 pipeline | prebuilt / system / vendored source | リンク指令 / ヘッダルート / 任意 stage | build.rs / vendor/pjsip |
+| 62.36 producer ツール | `vendor/pjsip` / Dockerfile / ホスト OS | `vendor/prebuilt/<target>/{include,lib}` | crates/pjsip-prebuilt（新規）/ Dockerfile（新規） |
+| 62.37 CI / commit | 3 OS ランナー | `vendor/prebuilt` コミット | .github/workflows/prebuilt.yml（新規） |
+| 62.38 raw SIP 実検証 | 実 SIP メッセージ（Docker） | `RawSipMessage` → `subscribe_raw_sip()` | raw_sip_module / sip_integration |
+| 62.39 ICE error | `on_ice_transport_error` コールバック | `NativeEvent::IceTransportError` | bindings / callback / backend |
+| 62.40 media frame | conf bridge フレーム（port ops） | `AudioTapSender::try_push` | audio_worker / backend |
+| 62.41 conf 再登録 | `AddAudioSource` | `pjsua_conf_add_port`（RustMediaPort） | command / backend |
+| 62.42 統合テスト | Docker Asterisk/coturn | プロトコル + RTP 保証 | sip_integration / docker_asterisk_it |
+| 62.43 チケット構造 | 設計ブリーフ §5.5 / ユーザー指示 | phase 18–22 配置 | Tickets.json |
+
+**新規追加ファイル**: `crates/pjsip-prebuilt/`（producer ツール + `Cargo.toml` + `main.rs`）、`crates/pjsip-prebuilt/Dockerfile`、`.github/workflows/prebuilt.yml`。
+
+**更新ファイル**: `build.rs`（4 段階 pipeline / リンク導出 / staging mode）、`src/build/build_script_bindgen.rs`（enum/const 生成 / `PJSIP_CRED_DATA_PLAIN_PASSWD` allowlist 修正）、`src/ffi/bindings.rs`（stub → bindgen 生成物 / `on_ice_transport_error` ミラー追加）、`src/ffi/backend_calls.rs`（FFI シグネチャ整合 / 定数名修正）、`src/ffi/callback.rs`（`on_ice_transport_error` 登録）、`src/config/observability_metrics.rs`（`codec_id` パース導出）、`src/config/stun_turn_ice_wiring.rs`（`pjsua_config` フィールド解決後）、`src/state/m20_callstate_mapping.rs`（enum 生成後）、`src/runtime/backend.rs`（`AccountId` import / `push_media_frame` 呼び出し / conf frame 供給）、`src/runtime/command.rs`（`AddAudioSource` 再登録）、`tests/sip_integration.rs` / `src/tests/docker_asterisk_it.rs`（実統合テスト）、`vendor/prebuilt/*/`（再生成）。
+
+**削除/整理対象（boundify が Prune / 更新する箇所）**: `build.rs` の `static=pjsua2` 単独リンク（§62.34 のリンク導出へ置換）、`PJSUA_CALL_NULL` の bindings 依存（クレート内定数へ置換）、`PJ_CRED_DATA_PLAIN_PASSWD` の allowlist エントリ（`PJSIP_CRED_DATA_PLAIN_PASSWD` へ修正）、`pjsua_codec_info` の `encoding_name` / `clock_rate` 直接参照（`codec_id` パースへ置換）。

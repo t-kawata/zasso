@@ -3,93 +3,81 @@
   "newTickets": [
     {
       "id": 1,
-      "title": "Implementation Integration Blueprint — Round 3 Scope (§62.21)",
+      "title": "Consumer/bindgen alignment — pjsua-native build repair (§62.31–62.35)",
       "nodeIds": [
-        "N0090"
+        "N0100",
+        "N0101",
+        "N0102",
+        "N0103",
+        "N0104"
       ],
       "status": "todo",
-      "phaseId": 17
+      "phaseId": 18
     },
     {
       "id": 2,
-      "title": "Raw SIP production path — pjsip_module hook (§62.22)",
+      "title": "Producer: crates/pjsip-prebuilt + CI commit (§62.36–62.37)",
       "nodeIds": [
-        "N0091"
+        "N0105",
+        "N0106"
       ],
       "status": "todo",
-      "phaseId": 17
+      "phaseId": 18
+    },
+    {
+      "id": 1,
+      "title": "H8: raw SIP 実 PJSIP 検証経路（§62.38）",
+      "nodeIds": [
+        "N0107"
+      ],
+      "status": "todo",
+      "phaseId": 19
+    },
+    {
+      "id": 2,
+      "title": "H8: on_ice_transport_error 登録と IceTransportError 経路（§62.39）",
+      "nodeIds": [
+        "N0108"
+      ],
+      "status": "todo",
+      "phaseId": 19
     },
     {
       "id": 3,
-      "title": "P1/P2 FFI callback registration (§62.23)",
+      "title": "H13: push_media_frame 生産経路の配線（§62.40）",
       "nodeIds": [
-        "N0092"
+        "N0109"
       ],
       "status": "todo",
-      "phaseId": 17
+      "phaseId": 19
     },
     {
       "id": 4,
-      "title": "TestBackend registration event firing (§62.24)",
+      "title": "H14: AddAudioSource 時 RustMediaPort conf bridge 再登録（§62.41）",
       "nodeIds": [
-        "N0093"
+        "N0110"
       ],
       "status": "todo",
-      "phaseId": 17
+      "phaseId": 19
     },
     {
       "id": 5,
-      "title": "CallEntry.state native transition reflection (§62.25)",
+      "title": "H15/EXAMPLES: 実 PJSIP プロトコル + RTP 統合テスト（§62.42）",
       "nodeIds": [
-        "N0094"
+        "N0111"
       ],
       "status": "todo",
-      "phaseId": 17
+      "phaseId": 19
     },
     {
       "id": 6,
-      "title": "CallResumed implementation via media status tracking (§62.26)",
+      "title": "Round 4 チケット構造 & I/O 境界（§62.43–62.44）",
       "nodeIds": [
-        "N0095"
+        "N0112",
+        "N0113"
       ],
       "status": "todo",
-      "phaseId": 17
-    },
-    {
-      "id": 7,
-      "title": "DtmfSent timeout contract formalization (§62.27)",
-      "nodeIds": [
-        "N0096"
-      ],
-      "status": "todo",
-      "phaseId": 17
-    },
-    {
-      "id": 8,
-      "title": "Tap driving via RustMediaPort port ops (§62.28)",
-      "nodeIds": [
-        "N0097"
-      ],
-      "status": "todo",
-      "phaseId": 17
-    },
-    {
-      "id": 9,
-      "title": "Subscription unsubscribe API & mic source documentation (§62.29)",
-      "nodeIds": [
-        "N0098"
-      ],
-      "status": "todo",
-      "phaseId": 17
-    },
-    {
-      "id": 10,
-      "title": "Round-3 I/O boundary reference (§62.30)",
-      "nodeIds": [
-        "N0099"
-      ],
-      "status": "todo",
-      "phaseId": 17
+      "phaseId": 19
     }
   ],
   "editedTickets": [],
@@ -604,6 +592,46 @@
     },
     {
       "id": 11,
+      "status": "reviewed"
+    },
+    {
+      "id": 1,
+      "status": "reviewed"
+    },
+    {
+      "id": 2,
+      "status": "reviewed"
+    },
+    {
+      "id": 3,
+      "status": "reviewed"
+    },
+    {
+      "id": 4,
+      "status": "reviewed"
+    },
+    {
+      "id": 5,
+      "status": "reviewed"
+    },
+    {
+      "id": 6,
+      "status": "reviewed"
+    },
+    {
+      "id": 7,
+      "status": "reviewed"
+    },
+    {
+      "id": 8,
+      "status": "reviewed"
+    },
+    {
+      "id": 9,
+      "status": "reviewed"
+    },
+    {
+      "id": 10,
       "status": "reviewed"
     }
   ]

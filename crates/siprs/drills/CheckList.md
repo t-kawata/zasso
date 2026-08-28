@@ -3,170 +3,261 @@
 > **⚠️ このファイルはスクリプトにより自動生成された雛形です。**
 > AIが目視チェックし、補足事項・プロジェクト固有の制約を追記してから使用すること。
 
-生成日時: 2026-08-27T02:26:30.931Z
+生成日時: 2026-08-28T01:45:27.483Z
 DesignTree バージョン: 1
 
 ---
 
 ## 全体チェック
 
-- [x] RFC全体にTBD / TODO / スタブ / 委譲 が0件であること
-- [x] 全セクションにコードスニペットが含まれていること
-- [x] DesignTreeの全ノードがRFCのいずれかのセクションに対応していること
+- [ ] RFC全体にTBD / TODO / スタブ / 委譲 が0件であること
+- [ ] 全セクションにコードスニペットが含まれていること
+- [ ] DesignTreeの全ノードがRFCのいずれかのセクションに対応していること
 
 ---
 
 ## §1 raw SIP 生産経路の設計（vendored PJSIP < 2.13 制約） ✅
 
-- [x] セクション全体が完全に記述されている
-- [x] コードスニペットが含まれている
-- [x] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 ### §1.1 raw SIP キャプチャ機構の選択（pjsip_module vs tpmgr recv_data_cb） ✅
 
-- [x] **raw SIP キャプチャ機構の選択（pjsip_module vs tpmgr recv_data_cb）** が設計として完全に記述されている
-- [x] コードスニペットが含まれている
-- [x] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+- [ ] **raw SIP キャプチャ機構の選択（pjsip_module vs tpmgr recv_data_cb）** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 
 ---
 
 ## §2 P1/P2 FFI コールバック登録スコープ（on_transport_state 等） ✅
 
-- [x] セクション全体が完全に記述されている
-- [x] コードスニペットが含まれている
-- [x] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 ---
 
 ## §3 TestBackend の登録イベント発火と account_register example 完走 ✅
 
-- [x] セクション全体が完全に記述されている
-- [x] コードスニペットが含まれている
-- [x] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 ---
 
 ## §4 CallEntry.state のネイティブ遷移反映（call_state 整合性） ✅
 
-- [x] セクション全体が完全に記述されている
-- [x] コードスニペットが含まれている
-- [x] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 ---
 
 ## §5 CallResumed の発火設計（resume の観測手段） ✅
 
-- [x] セクション全体が完全に記述されている
-- [x] コードスニペットが含まれている
-- [x] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 ### §5.1 CallResumed 実装機構（メディア状態遷移の検出） ✅
 
-- [x] **CallResumed 実装機構（メディア状態遷移の検出）** が設計として完全に記述されている
-- [x] コードスニペットが含まれている
-- [x] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+- [ ] **CallResumed 実装機構（メディア状態遷移の検出）** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 
 ---
 
 ## §6 DtmfSent の意味論（PJSIP コールバック vs 500ms タイムアウト契約） ✅
 
-- [x] セクション全体が完全に記述されている
-- [x] コードスニペットが含まれている
-- [x] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 ---
 
 ## §7 tap 駆動の生産経路（pjsua_conf_set_callback 欠如への対応） ✅
 
-- [x] セクション全体が完全に記述されている
-- [x] コードスニペットが含まれている
-- [x] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 ---
 
 ## §8 文書化決定（マイク source 位置づけ / unsubscribe drop ベース） ✅
 
-- [x] セクション全体が完全に記述されている
-- [x] コードスニペットが含まれている
-- [x] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 ### §8.1 unsubscribe のユーザーフレンドリーな API 設計 ✅
 
-- [x] **unsubscribe のユーザーフレンドリーな API 設計** が設計として完全に記述されている
-- [x] コードスニペットが含まれている
-- [x] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+- [ ] **unsubscribe のユーザーフレンドリーな API 設計** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 
 ---
 
-<!-- AI補足欄: 上記チェック項目に加え、プロジェクト固有の制約・注意事項をここに追記すること -->
+## §9 vendored PJSIP バージョン戦略（2.17.0 維持+コード適応 vs 更新） ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
 ---
 
-## AI 補足事項（目視検査による追記）
+## §10 bindgen enum/const 生成戦略（PJ_SUCCESS / pjsip_inv_state） ✅
 
-### 全体（全セクション共通）
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
 
-- [x] **H1（pjsua-native ビルド修復）は実 FFI 経路の検証ゲート**。§1 / §2 / §5a / §7 の実機検証は `cargo build --features pjsua-native` 成功が前提。RFC 追補は §62.11 の bindgen 整合方針を参照し、実装チケットとの依存を明記すること
-- [x] **破壊的変更は v0.x で受容**（round 2 方針と整合）: `CallResumed` のペイロード化、subscribe 系 API の戻り値変更（`Subscription<T>` 化）を伴う
-- [x] 各セクションに **I/O 境界参照情報**（graphify / boundify 用）を含めること
-
-### §1（raw SIP 生産経路）
-
-- [x] **vendored PJSIP は 2.17.0（導入済み）**。`pjsua_callback.on_rx_msg` は 2.17 にも存在しない（実ヘッダ検証済み）。「PJSIP < 2.13」コメントは誤りなので更新すること
-- [x] raw SIP は `pjsip_module.on_rx_request` / `on_rx_response` を `pjsip_endpt_register_module` で登録し、`pjsip_rx_data.pkt_info.msg` から raw バイトを `enqueue_raw_sip_bytes` へ供給
-- [x] bindgen allowlist に `pjsip_module` 構造体・`pjsip_endpt_register_module` を追加する必要がある
-
-### §2（P1/P2 コールバック登録）
-
-- [x] `register_callbacks` は現状 `on_call_media_state` のみ。`on_transport_state` / `on_call_tsx_state` / `on_call_replaced` / `on_nat_detect` の 4 つを追加登録（**2.17 の `pjsua_callback` に全フィールド存在を確認済み**）
-- [x] `m20_native_event_conv.rs` の「P1/P2 returns None」という stale doc comment を修正
-
-### §3（TestBackend 登録イベント発火）
-
-- [x] `TestBackend::set_registration` が `NativeEvent::RegistrationStateChanged` を発火し、reactor が `process_native_event` で処理して `account_register` example が TestBackend 上で完走すること
-- [x] 実 FFI 経路（`on_reg_state2` → キュー → drain）と同じイベント系列になるよう、TestBackend のイベント供給経路を設計
-
-### §4（CallEntry.state 整合性）
-
-- [x] `process_native_event` の `CallStateChanged` アームで、publish と同一の変換結果を `CallEntry.state` の更新にも使用し、`call_state()` の stale を解消
-- [x] `CallStateTables` は reactor 内で可変参照を共有しているため、更新順序（publish 前 / 後）を明記
-
-### §5（CallResumed 実装）
-
-- [x] `CallResumed` は unit variant → `CallResumed(CallResumedInfo { call_id })` へ変更（イベントは call_id を運ぶ）
-- [x] `NativeEvent::CallMediaStateChanged` に `pjsua_call_media_status` を追加し、FFI ハンドラが `pjsua_call_get_media_status(call_id)` で取得
-- [x] reactor が per-call の直前 status を追跡し、`LOCAL_HOLD` / `REMOTE_HOLD` → `ACTIVE` 遷移のみ `CallResumed` を publish（`ACTIVE` 自体は `MediaActive` を継続 publish）
-
-### §6（DtmfSent 契約）
-
-- [x] **PJSIP に DTMF 送信完了コールバックは存在しない**（`pjsua_call_send_dtmf` / `pjsua_call_dial_dtmf` は同期 `pj_status_t` 返却のみ、実ヘッダ検証済み）。500ms タイムアウトを正式契約として明記
-- [x] `DtmfSent { Ok(()) }` の意味 = 「backend 受理 + タイムアウト経過で送出完了とみなす」と README / RFC に明記
-
-### §7（tap 駆動）
-
-- [x] **`pjsua_conf_set_callback` は 2.17 にも存在しない**（実ヘッダ検証済み）。`RustMediaPort` を custom `pjmedia_port` として `pjsua_conf_add_port` で登録
-- [x] port ops（`get_frame` / `put_frame`）内で `push_media_frame` → `AudioTapSender::try_push`（非ブロック）を呼び、tap へ連続供給
-
-### §8（文書化）
-
-- [x] `open_default_microphone_source` は「注入可能なキャプチャ source（cpal による OS 既定入力の独立キャプチャ）」であり **通話マイクではない**旨を README に明記
-- [x] `Subscription<T>` ハンドル型を導入し、`unsubscribe()` メソッド（内部 receiver の drop）を提供。`recv()` / `recv_async()` は委譲。`subscribe_account` のアカウントフィルタも Subscription 内で維持
-
-### EXAMPLES（E1-E5 契約の再検証）
-
-- [x] E2（account_register）: §3 により TestBackend 上で完走すること
-- [x] E3（make_call）: §4 により `call_state()` がネイティブ遷移後も整合すること
-- [x] E4（audio_tap）: §7 により tap が連続生産されること
-- [x] E5（tts_source）: マイク source の位置づけ（§8）に沿った記述であること
 ---
 
-## 検証記録（Step 1-9）
+## §11 静的ライブラリのリンク対象とリンク名修正（pjproject vs 個別 lib） ✅
 
-- [x] **rfc-evolution.js verify**: append-only ✅ / well-formedness ✅ / exit 0
-- [x] TBD / TODO / STUB / 委譲表現: 0 件（追補 415 行を機械走査）
-- [x] 全設計セクション（§62.22–62.29、Q1–Q8a 対応）にコードスニペット + I/O 境界あり
-- [x] §62.21（スコープ）/ §62.30（I/O 参照表）は round 2 の §62.10 / §62.20 と同種の支援セクション（コード不要の構造的例外）
-- [x] vendored PJSIP 2.17.0 の実ヘッダ検証を §62.21 / §62.22 に反映
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+### §11.1 静的リンクの安全な方法（link-order 耐性 + ドリフト耐性） ✅
+
+- [ ] **静的リンクの安全な方法（link-order 耐性 + ドリフト耐性）** が設計として完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+
+---
+
+## §12 build.rs vendored-source build フォールバックの実装範囲 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §13 producer ツール crates/pjsip-prebuilt の CLI 形状 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §14 producer の Linux-from-Mac Docker 連携設計 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §15 CI OS マトリクスとプレビルドコミット運用 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §16 producer DoD 検証（file/nm vs 最小 C リンクテスト） ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §17 H8 raw SIP TestBackend 検証経路の設計 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §18 H8 on_ice_transport_error 登録と IceTransportError 経路 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §19 H13 push_media_frame 生産経路の配線 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §20 H14 AddAudioSource 時の RustMediaPort conf bridge 再登録 ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §21 H15/EXAMPLES 実 PJSIP 統合テストのスコープ ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## §22 チケット構造とフェーズ割当（A/B 最優先 + ギャップ） ✅
+
+- [ ] セクション全体が完全に記述されている
+- [ ] コードスニペットが含まれている
+- [ ] TBD / TODO / 別バージョンで対応 という表現が含まれていないこと
+
+---
+
+## AI Supplementary Notes (drill round 4)
+
+### Scope mapping (what must be appended to RFC-ROOT.md)
+
+- **§1–§8 (Q1–Q8)**: belong to the **previous round (round 3)** — already implemented as P17-2..P17-9 and written into RFC **§62.22–§62.30**. These checklist items are historical (already satisfied); do NOT re-write them.
+- **§9–§22 (Q9–Q22)**: the **round-4 evolution scope** of THIS drill. Must be appended to RFC-ROOT.md as **new §62.31+ sections** (implementation integration design round 4), each with:
+  - **Code snippets** (every design decision must include runnable-looking code examples)
+  - **I/O boundary reference info** (for graphify / boundify partitioning)
+  - **No TBD / TODO / stubs / deferrals** in any form.
+
+### Binding design policy (from docs/PJSUA-NATIVE-PREBUILT-DESIGN-BRIEF.md §5)
+
+1. **Producer/consumer separation is MANDATORY.** Prebuilt binaries committed to git (§5.1); `build.rs` is the consumer orchestrator (§5.2); a dedicated independent tool `crates/pjsip-prebuilt` is the producer (§5.3); Docker-based real-PJSIP tests run in CI (§5.4); two-ticket structure Ticket A (consumer/bindgen alignment) + Ticket B (producer/prebuilt + CI + commit) (§5.5).
+2. **Ticket A DoD**: `cargo build --features pjsua-native` passes AND `make test-integration` runs green in CI.
+3. **Ticket B DoD is independent** of Ticket A's compile success — "the library alone builds and stages successfully".
+4. **Ticket ordering (user directive)**: design-brief tickets (A/B) are FIRST priority; README RESIDUE gap tickets (H8/H13/H14/H15/EXAMPLES) are lined up AFTER them.
+5. **No dummy implementations**: real-PJSIP behavior must be verified with the real `pjsua-native` build (Q17). Test-only hooks that substitute for real behavior are prohibited as proof.
+
+### Concrete implementation constraints to encode
+
+- **Q9**: keep vendored PJSIP 2.17.0 (latest is 2.17; no upgrade target exists). Adapt code: derive codec name/rate from `codec_id`; fix constant references to real PJSIP names (e.g. `PJSIP_CRED_DATA_PLAIN_PASSWD`, `PJSUA_CALL_INVALID_ID`) where the referenced symbol is absent.
+- **Q10**: bindgen config — allowlist enum types (`pjsip_inv_state`, `pjsip_tsx_state`, `pj_status_t`, …) and generate as Rust enums (`default_enum_style=rust`, `prepend_enum_name(false)`); `PJ_SUCCESS` etc. emitted as enum enumerators/consts.
+- **Q11/Q11a**: link set derived from the resolved `lib/` directory. Prefer `libpjproject.a`/`pjproject.lib` when present (single `static=pjproject`); else enumerate `lib*.a` stems. Wrap with `--start-group`/`--end-group` on Linux only. Per-target system deps (macOS frameworks; Linux `asound/ssl/crypto/uuid/pthread/m/dl/rt`; Windows `ws2_32/ole32/...`).
+- **Q12**: build.rs 4-stage pipeline — prebuilt → system (pkg-config/env) → vendored-source CMake build inside build.rs → fail-stop (no warning-and-continue).
+- **Q13**: `crates/pjsip-prebuilt` standalone crate (own Cargo.toml, no workspace creation). CLI: `build <triple>` / `stage <triple>` / `verify <triple>`; host-OS detection per §5.6.
+- **Q14**: committed `Dockerfile` (ubuntu + build-essential/cmake/libasound2-dev/libssl-dev/libuuid-dev); `docker run -v $(pwd)/vendor:/work/vendor`; artifacts land on host volume.
+- **Q15**: producer runs in CI on normal push; prebuilt committed directly (no PR ceremony). 3-OS matrix (macos/ubuntu/windows).
+- **Q16**: DoD verification = `file` + `nm` (symbol presence) AND minimal C link test (link a C program calling `pjsua_init` against staged libs).
+- **Q17**: raw SIP verification ONLY via real pjsua-native integration test (pjsip_module hook → `enqueue_raw_sip_bytes` → `subscribe_raw_sip`). No TestBackend dummy hooks.
+- **Q18**: add `on_ice_transport_error` to the `pjsua_callback` mirror; register in `register_callbacks`; build `NativeEvent::IceTransportError` from `pjsip_error_info`.
+- **Q19**: `RustMediaPort` port ops → `push_frame_to_tap`; verify real conf bridge drives it in integration test (P17-8 structure is complete).
+- **Q20**: re-run `register_media_ports_for_calls` when `AddAudioSource` creates a mixer.
+- **Q21**: `sip_integration.rs` / `docker_asterisk_it.rs` cover protocol level (REGISTER→200, INVITE→180/200, BYE, SIP INFO/RFC4733 DTMF, STUN/TURN via coturn) AND communication level (RTP media between 2 endpoints). `make test-integration` runs in CI.
+- **Q22**: phase 18 = Ticket A + Ticket B (parallel); phase 19+ = H8/H13/H14/H15/EXAMPLES in sequence.
+
+### I/O boundary hints for downstream steps
+
+- **New artifacts**: `crates/pjsip-prebuilt` (producer, independent), `Dockerfile` (producer), regenerated `vendor/prebuilt/<target>/` (per OS), modified `build.rs` (consumer resolver), modified `src/build/build_script_bindgen.rs` (bindgen config), `src/ffi/bindings.rs` (generated stubs → bindgen output), `src/ffi/callback.rs` (on_ice_transport_error), `src/config/observability_metrics.rs` (codec_id derivation), `src/state/m20_callstate_mapping.rs` (enum), `src/runtime/backend.rs` (AccountId import, push_media_frame callers), `src/runtime/command.rs` (AddAudioSource re-registration), `tests/sip_integration.rs` / `src/tests/docker_asterisk_it.rs` (real integration).
+- **Consumer (siprs) owns**: `build.rs` resolution pipeline + bindgen config + FFI alignment (Ticket A).
+- **Producer owns**: PJSIP build, staging to `vendor/prebuilt/<target>/`, CI matrix, verification (Ticket B). No dependency on siprs.
+- **Test boundary**: real-PJSIP tests require Docker (Asterisk/coturn) and the `pjsua-native` feature; they are gated behind `make test-integration`.

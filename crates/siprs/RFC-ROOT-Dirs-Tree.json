@@ -896,6 +896,72 @@
                 }
               ],
               "declarationStub": "fn main() {\n\t// TODO: implement build/CI entry point\n}"
+            },
+            {
+              "name": "vendored_pjsip_strategy.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0101",
+                  "title": "Vendored PJSIP strategy"
+                }
+              ]
+            },
+            {
+              "name": "bindgen_enum_generation.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0102",
+                  "title": "Bindgen enum generation"
+                }
+              ]
+            },
+            {
+              "name": "static_link_strategy.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0103",
+                  "title": "Static link strategy"
+                }
+              ]
+            },
+            {
+              "name": "build_rs_resolution.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0104",
+                  "title": "build.rs 4-stage pipeline"
+                }
+              ]
+            },
+            {
+              "name": "prebuilt_producer.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0105",
+                  "title": "Prebuilt producer tool"
+                }
+              ]
+            },
+            {
+              "name": "prebuilt_ci_commit.rs",
+              "type": "file",
+              "kind": "build_ci",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0106",
+                  "title": "Prebuilt CI and commit"
+                }
+              ]
             }
           ]
         },
@@ -1005,6 +1071,28 @@
                   "title": "62.19 Docker/Asterisk 実 SIP 統合テスト基盤"
                 }
               ]
+            },
+            {
+              "name": "raw_sip_real_test.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0107",
+                  "title": "Raw SIP real test"
+                }
+              ]
+            },
+            {
+              "name": "real_pjsip_itest.rs",
+              "type": "file",
+              "kind": "test_policy",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0111",
+                  "title": "Real PJSIP integration test"
+                }
+              ]
             }
           ]
         },
@@ -1088,6 +1176,28 @@
                 {
                   "nodeId": "N0097",
                   "title": "62.28 tap 駆動の生産経路: RustMediaPort port ops（Q7）"
+                }
+              ]
+            },
+            {
+              "name": "push_media_frame.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0109",
+                  "title": "push_media_frame wiring"
+                }
+              ]
+            },
+            {
+              "name": "add_audio_source.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0110",
+                  "title": "AddAudioSource re-register"
                 }
               ]
             }
@@ -1192,6 +1302,17 @@
                 {
                   "nodeId": "N0092",
                   "title": "62.23 P1/P2 FFI コールバック登録の完了（Q2）"
+                }
+              ]
+            },
+            {
+              "name": "ice_transport_error.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0108",
+                  "title": "ICE transport error"
                 }
               ]
             }
@@ -1308,6 +1429,39 @@
                 {
                   "nodeId": "N0099",
                   "title": "62.30 I/O 境界参照情報（graphify / boundify 用）— round 3"
+                }
+              ]
+            },
+            {
+              "name": "round4_scope_rootcause.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0100",
+                  "title": "Round 4 scope root cause"
+                }
+              ]
+            },
+            {
+              "name": "round4_tickets.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0112",
+                  "title": "Round 4 tickets"
+                }
+              ]
+            },
+            {
+              "name": "io_boundary_round4.rs",
+              "type": "file",
+              "kind": "architecture",
+              "mappedNodeIds": [
+                {
+                  "nodeId": "N0113",
+                  "title": "Round 4 I/O boundary"
                 }
               ]
             }

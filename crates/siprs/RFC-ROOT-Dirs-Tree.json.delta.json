@@ -2,112 +2,91 @@
   "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
   "newFiles": [
     {
-      "path": "src/runtime/backend.rs",
-      "kind": "architecture",
-      "nodeId": "N0093",
-      "title": "62.24 TestBackend 登録イベント発火と account_register example 完走（Q3）"
+      "path": "src/build/vendored_pjsip_strategy.rs",
+      "kind": "build_ci",
+      "nodeId": "N0101",
+      "title": "Vendored"
     },
     {
-      "path": "src/runtime/audio_worker.rs",
-      "kind": "architecture",
-      "nodeId": "N0097",
-      "title": "62.28 tap 駆動の生産経路: RustMediaPort port ops（Q7）"
+      "path": "src/build/bindgen_enum_generation.rs",
+      "kind": "build_ci",
+      "nodeId": "N0102",
+      "title": "Bindgen"
     },
     {
-      "path": "src/ffi/raw_sip_module.rs",
-      "kind": "architecture",
-      "nodeId": "N0091",
-      "title": "62.22 raw SIP 生産経路: pjsip_module フックによる配線（Q1 / Q1a）"
+      "path": "src/build/static_link_strategy.rs",
+      "kind": "build_ci",
+      "nodeId": "N0103",
+      "title": "Static"
     },
     {
-      "path": "src/ffi/callback.rs",
-      "kind": "architecture",
-      "nodeId": "N0092",
-      "title": "62.23 P1/P2 FFI コールバック登録の完了（Q2）"
+      "path": "src/build/build_rs_resolution.rs",
+      "kind": "build_ci",
+      "nodeId": "N0104",
+      "title": "build.rs"
     },
     {
-      "path": "src/architecture/round3_scope_rootcause.rs",
-      "kind": "architecture",
-      "nodeId": "N0090",
-      "title": "62.21 ラウンド 3 進化スコープと根因（H5 / H8 / H11 / H12 / H13 / H14 の残存ギャップ）"
+      "path": "src/build/prebuilt_producer.rs",
+      "kind": "build_ci",
+      "nodeId": "N0105",
+      "title": "Prebuilt"
     },
     {
-      "path": "src/architecture/io_boundary_round3.rs",
+      "path": "src/build/prebuilt_ci_commit.rs",
+      "kind": "build_ci",
+      "nodeId": "N0106",
+      "title": "Prebuilt CI and commit"
+    },
+    {
+      "path": "src/tests/raw_sip_real_test.rs",
+      "kind": "test_policy",
+      "nodeId": "N0107",
+      "title": "Raw SIP real test"
+    },
+    {
+      "path": "src/tests/real_pjsip_itest.rs",
+      "kind": "test_policy",
+      "nodeId": "N0111",
+      "title": "Real PJSIP integration test"
+    },
+    {
+      "path": "src/runtime/push_media_frame.rs",
       "kind": "architecture",
-      "nodeId": "N0099",
-      "title": "62.30 I/O 境界参照情報（graphify / boundify 用）— round 3"
+      "nodeId": "N0109",
+      "title": "push_media_frame wiring"
+    },
+    {
+      "path": "src/runtime/add_audio_source.rs",
+      "kind": "architecture",
+      "nodeId": "N0110",
+      "title": "AddAudioSource re-register"
+    },
+    {
+      "path": "src/ffi/ice_transport_error.rs",
+      "kind": "architecture",
+      "nodeId": "N0108",
+      "title": "ICE transport error"
+    },
+    {
+      "path": "src/architecture/round4_scope_rootcause.rs",
+      "kind": "architecture",
+      "nodeId": "N0100",
+      "title": "Round"
+    },
+    {
+      "path": "src/architecture/round4_tickets.rs",
+      "kind": "architecture",
+      "nodeId": "N0112",
+      "title": "Round 4 tickets"
+    },
+    {
+      "path": "src/architecture/io_boundary_round4.rs",
+      "kind": "architecture",
+      "nodeId": "N0113",
+      "title": "Round 4 I/O boundary"
     }
   ],
-  "modifiedFiles": [
-    {
-      "nodeId": "N0019",
-      "path": "src/api/eventbus_receiver.rs",
-      "changes": {
-        "kind": "api_contract",
-        "mappedNodeIds": [
-          {
-            "nodeId": "N0019",
-            "title": "§15.4 EventBus Implementation & §15.5 AccountEventReceiver"
-          },
-          {
-            "nodeId": "N0098",
-            "title": "62.29 文書化決定: マイク source / Subscription unsubscribe（Q8 / Q8a）"
-          }
-        ]
-      }
-    },
-    {
-      "nodeId": "N0029",
-      "path": "src/api/m20_dtmfsent_twophase.rs",
-      "changes": {
-        "kind": "api_contract",
-        "mappedNodeIds": [
-          {
-            "nodeId": "N0029",
-            "title": "§20 M20 DtmfSentInfo & Two-Phase Design"
-          },
-          {
-            "nodeId": "N0096",
-            "title": "62.27 DtmfSent 送出完了契約の確定（Q6）"
-          }
-        ]
-      }
-    },
-    {
-      "nodeId": "N0021",
-      "path": "src/state/m20_native_event_conv.rs",
-      "changes": {
-        "kind": "state_machine",
-        "mappedNodeIds": [
-          {
-            "nodeId": "N0021",
-            "title": "§15 M20 NativeEvent to SipEventPayload Conversion"
-          },
-          {
-            "nodeId": "N0095",
-            "title": "62.26 CallResumed の実装機構（Q5 / Q5a）"
-          }
-        ]
-      }
-    },
-    {
-      "nodeId": "N0022",
-      "path": "src/state/m20_callstate_mapping.rs",
-      "changes": {
-        "kind": "state_machine",
-        "mappedNodeIds": [
-          {
-            "nodeId": "N0022",
-            "title": "§15 M20 CallState & CallMediaState Mapping"
-          },
-          {
-            "nodeId": "N0094",
-            "title": "62.25 CallEntry.state のネイティブ遷移反映（Q4）"
-          }
-        ]
-      }
-    }
-  ],
+  "modifiedFiles": [],
   "srcDrift": [
     {
       "path": "src/concurrency_contexts/command_serialization.rs",
@@ -322,6 +301,30 @@
       "kind": "missing"
     },
     {
+      "path": "src/build/vendored_pjsip_strategy.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/bindgen_enum_generation.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/static_link_strategy.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/build_rs_resolution.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/prebuilt_producer.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/prebuilt_ci_commit.rs",
+      "kind": "missing"
+    },
+    {
       "path": "src/security/security_platform_diffs.rs",
       "kind": "missing"
     },
@@ -343,6 +346,14 @@
     },
     {
       "path": "src/tests/docker_asterisk_it.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/tests/raw_sip_real_test.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/tests/real_pjsip_itest.rs",
       "kind": "missing"
     },
     {
@@ -371,6 +382,14 @@
     },
     {
       "path": "src/runtime/audio_worker.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/push_media_frame.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/add_audio_source.rs",
       "kind": "missing"
     },
     {
@@ -406,6 +425,10 @@
       "kind": "missing"
     },
     {
+      "path": "src/ffi/ice_transport_error.rs",
+      "kind": "missing"
+    },
+    {
       "path": "src/architecture/crate_scope.rs",
       "kind": "missing"
     },
@@ -435,6 +458,18 @@
     },
     {
       "path": "src/architecture/io_boundary_round3.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/round4_scope_rootcause.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/round4_tickets.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/io_boundary_round4.rs",
       "kind": "missing"
     },
     {
@@ -534,6 +569,10 @@
       "kind": "extra"
     },
     {
+      "path": "architecture/io_boundary_round3.rs",
+      "kind": "extra"
+    },
+    {
       "path": "architecture/mod.rs",
       "kind": "extra"
     },
@@ -543,6 +582,10 @@
     },
     {
       "path": "architecture/round2_scope_rootcause.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/round3_scope_rootcause.rs",
       "kind": "extra"
     },
     {
@@ -699,6 +742,10 @@
     },
     {
       "path": "ffi/pjsip_ffi_layer.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/raw_sip_module.rs",
       "kind": "extra"
     },
     {

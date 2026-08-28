@@ -37095,6 +37095,506 @@
           "completedAt": "2026-08-28"
         }
       ]
+    },
+    {
+      "id": 18,
+      "name": "P18",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 18,
+          "status": "todo",
+          "title": "Consumer/bindgen alignment — pjsua-native build repair (§62.31–62.35)",
+          "nodeIds": [
+            "N0100",
+            "N0101",
+            "N0102",
+            "N0103",
+            "N0104"
+          ],
+          "scope": [
+            "【変更1-path】src/build/build_script_bindgen.rs",
+            "【変更1-action】modify: bindgen enum/const 生成（§62.33）。enum 型（pjsip_inv_state/pjsip_tsx_state/pjsua_call_media_status/pj_status_t）を allowlist し default_enum_style=rust + prepend_enum_name(false)。pjsua_config 構造体全体を allowlist。PJ_CRED_DATA_PLAIN_PASSWD allowlist エントリを PJSIP_CRED_DATA_PLAIN_PASSWD へ修正。",
+            "【変更1-detail】BINDGEN_ENUM_TYPES 追加、generate_bindings に default_enum_style/prepend_enum_name 設定。bindings::pjsip_inv_state::{NULL..DISCONNECTED} と PJ_SUCCESS/PJ_ENOMEM/PJ_EBUSY/PJ_EINVALIDOP を生成。",
+            "【変更2-path】build.rs",
+            "【変更2-action】modify: 4 段階解決パイプライン（§62.35）。prebuilt → system（pkg-config/env）→ vendored-source CMake build → fail-stop。SIPRS_STAGE_PREBUILT=1 時のみ vendor へ stage。",
+            "【変更3-path】build.rs",
+            "【変更3-action】modify: リンクセット導出（§62.34）。lib/ 走査で libpjproject.a 優先、無ければ個別 lib*.a 全列挙、Linux のみ --start-group/--end-group、ターゲット別システム依存。",
+            "【変更4-path】src/ffi/constants.rs",
+            "【変更4-action】add: PJSUA_CALL_NULL sentinel 相当のクレート内定数（値 0）。bindgen 生成物に非依存（§62.32）。",
+            "【変更5-path】src/ffi/backend_calls.rs",
+            "【変更5-action】modify: PJ_CRED_DATA_PLAIN_PASSWD → PJSIP_CRED_DATA_PLAIN_PASSWD（sip_auth.h:109）。FFI 呼び出し（pjsua_codec_set_priority/pjsua_conf_add_port/pjsua_call_get_conf_port）を bindgen 生成シグネチャへ整合。",
+            "【変更6-path】src/ffi/callback.rs",
+            "【変更6-action】modify: bindings::PJSUA_CALL_NULL 参照をクレート内定数へ置換。",
+            "【変更7-path】src/config/observability_metrics.rs",
+            "【変更7-action】modify: pjsua_codec_info.encoding_name/clock_rate を codec_id パースで導出（§62.32）。",
+            "【変更8-path】src/state/m20_callstate_mapping.rs",
+            "【変更8-action】modify: bindgen 生成 pjsip_inv_state enum を使用（§62.33）。",
+            "【変更9-path】src/runtime/backend.rs / src/config/stun_turn_ice_wiring.rs",
+            "【変更9-action】modify: backend.rs の pjsua-native cfg 内 AccountId import 追加。stun_turn_ice_wiring.rs は pjsua_config 構造体 emit 後の turn_cfg/turn_cfg_use 解決。"
+          ],
+          "testUnit": [
+            "UT: bindgen allowlist カバレッジ（PJSIP_CRED_DATA_PLAIN_PASSWD / enum 型 / pjsua_config を含む）",
+            "UT: codec_id_to_name_rate（\"opus/16000\"→(\"opus\",16000)、\"PCMU/8000\"→(\"PCMU\",8000)、不正→(raw,0)）",
+            "UT: リンクセット導出（lib/ 走査→個別列挙、libpjproject.a 存在→static=pjproject 単一）",
+            "UT: 4 段階解決順序の分岐（prebuilt→system→vendored build→fail-stop）"
+          ],
+          "testIntegration": [
+            "IT: [pjsua-native] cargo build --features pjsua-native が 0 エラーで通る",
+            "IT: [pjsua-native] make test-integration（docker Asterisk/coturn + tests/sip_integration.rs）が CI で green"
+          ],
+          "testExceptions": [
+            "Docker 可用性が無いローカル環境では make test-integration をスキップ（CI でのみ実行）"
+          ],
+          "changes": [
+            {
+              "before": "src/build/build_script_bindgen.rs は型 allowlist のみで enum/const を emit しない",
+              "after": "enum 型 allowlist + default_enum_style=rust + prepend_enum_name(false) で pjsip_inv_state 等を Rust enum として生成、PJ_SUCCESS 等を emit",
+              "description": "bindgen enum/const 生成（§62.33）"
+            },
+            {
+              "before": "build.rs は prebuilt 不在時に warning-and-continue（fail-stop 違反）",
+              "after": "prebuilt → system → vendored-source CMake build → fail-stop の 4 段階を完全実装",
+              "description": "build.rs 4 段階 pipeline（§62.35）"
+            },
+            {
+              "before": "build.rs は static=pjsua2 単独リンク",
+              "after": "lib/ からリンクセットを導出（libpjproject.a 優先 / 個別列挙 / Linux --start-group）",
+              "description": "リンクセット導出（§62.34）"
+            },
+            {
+              "before": "bindings::PJSUA_CALL_NULL 依存（bindgen 生成物に非存在）",
+              "after": "src/ffi/constants.rs のクレート内定数へ置換",
+              "description": "定数適応修正（§62.32）"
+            },
+            {
+              "before": "bindings::PJ_CRED_DATA_PLAIN_PASSWD（vendored 非存在）",
+              "after": "bindings::PJSIP_CRED_DATA_PLAIN_PASSWD（sip_auth.h:109）へ修正",
+              "description": "実在シンボルへの参照修正（§62.32）"
+            },
+            {
+              "before": "pjsua_codec_info.encoding_name/clock_rate 直接参照（フィールド非存在）",
+              "after": "codec_id パースで導出",
+              "description": "codec 導出（§62.32）"
+            }
+          ],
+          "background": "pjsua-native feature は 69 エラーでビルド不能（7 カテゴリ）。bindgen enum/const 生成 + PJSIP 2.17.0 へのコード適応 + 純コード修正の組合せで解決（設計ブリーフ §3.2 / §5.5 Ticket A）。DoD: cargo build --features pjsua-native が通る + make test-integration が CI で green。",
+          "invariants": "vendored PJSIP 2.17.0 を維持する（アップグレード禁止、最新も 2.17）。\nリンクセットは lib/ から導出しハードコードしない。\n4 段階解決は fail-stop であり warning-and-continue を禁止する。\nPJSUA_CALL_NULL / PJ_CRED_DATA_PLAIN_PASSWD は bindgen 生成物に依存しない。",
+          "acceptanceCriteria": [
+            "cargo build --features pjsua-native が 0 エラーで通る",
+            "make test-integration（Docker + sip_integration）が CI で green",
+            "bindgen 生成 bindings.rs に pjsip_inv_state enum / PJ_SUCCESS 等が存在する"
+          ],
+          "contracts": [
+            {
+              "id": "C137",
+              "precondition": "Round 3 evolution settled (§62.21–62.30)",
+              "postcondition": "Round 4 scope builds on round-3 residual gaps",
+              "invariant": "Round 4 never rewrites round-3 decisions",
+              "sourceEdge": "N0100→N0090"
+            },
+            {
+              "id": "C138",
+              "precondition": "§28 build strategy defines search order",
+              "postcondition": "Round 4 consumer pipeline refines §28",
+              "invariant": "Prebuilt-first order preserved",
+              "sourceEdge": "N0100→N0039"
+            },
+            {
+              "id": "C139",
+              "precondition": "§28 pins vendored PJSIP 2.17.0",
+              "postcondition": "Code adapts to 2.17.0 symbols",
+              "invariant": "No vendored PJSIP upgrade",
+              "sourceEdge": "N0101→N0039"
+            },
+            {
+              "id": "C140",
+              "precondition": "N0080 defines bindgen alignment approach",
+              "postcondition": "Enum types generated as Rust enums",
+              "invariant": "Allowlist remains the single bindgen entry",
+              "sourceEdge": "N0102→N0080"
+            },
+            {
+              "id": "C141",
+              "precondition": "§28.1 prebuilt-first search order",
+              "postcondition": "Link set derived from lib/ directory",
+              "invariant": "No hardcoded module list",
+              "sourceEdge": "N0103→N0039"
+            },
+            {
+              "id": "C142",
+              "precondition": "§28.1 4-stage search order",
+              "postcondition": "build.rs implements all 4 stages",
+              "invariant": "Fail-stop, no warning-and-continue",
+              "sourceEdge": "N0104→N0039"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "phaseId": 18,
+          "status": "todo",
+          "title": "Producer: crates/pjsip-prebuilt + CI commit (§62.36–62.37)",
+          "nodeIds": [
+            "N0105",
+            "N0106"
+          ],
+          "scope": [
+            "【変更1-path】crates/pjsip-prebuilt/",
+            "【変更1-action】add: siprs 非依存の独立クレート（単独 Cargo.toml）。CLI サブコマンド build <triple> / stage <triple> / verify <triple>。ホスト OS 検出で §5.6 のターゲットセット決定（macOS→host+Docker Linux、Windows→MSVC、Linux→host）。",
+            "【変更2-path】crates/pjsip-prebuilt/Dockerfile",
+            "【変更2-action】add: ubuntu ベース + build-essential/cmake/libasound2-dev/libssl-dev/libuuid-dev。docker run -v $(pwd)/vendor:/work/vendor でマウントし、コンテナ内 cmake ビルドで成果物をホスト volume に直接生成（§62.36 Q14）。",
+            "【変更3-path】crates/pjsip-prebuilt/src/main.rs",
+            "【変更3-action】add: CLI 実装。build は vendor/pjsip を cmake ビルド（host）or Docker 起動、stage は vendor/prebuilt/<triple>/{include,lib} へ配置、verify は file + nm（pjsua_init/pj_init シンボル）+ 最小 C リンクテスト（§62.36 Q16）。",
+            "【変更4-path】.github/workflows/prebuilt.yml",
+            "【変更4-action】add: 3 OS マトリクス（macos/ubuntu/windows）で producer を実行し vendor/prebuilt を通常 push で直接コミット（§62.37 Q15）。"
+          ],
+          "testUnit": [
+            "UT: ホスト OS 検出 → ターゲットセット決定（§5.6 マッピング）",
+            "UT: verify の file/nm 検出ロジック（wrong-arch 検出）",
+            "UT: stage パスの配置検証（include/lib の存在と整合）"
+          ],
+          "testIntegration": [
+            "IT: [producer] crates/pjsip-prebuilt が単体で build → stage → verify を完走し、vendor/prebuilt/<target>/ を生成する（DoD: siprs のコンパイルに非依存）",
+            "IT: [producer] 最小 C リンクテスト（pjsua_init を呼ぶ C を stage した lib 群にリンクして実行）が green",
+            "IT: [CI] git clone 各 OS → prebuilt が存在 → （Ticket A 完了後）cargo build --features pjsua-native が通る"
+          ],
+          "testExceptions": [
+            "Docker 利用は macOS ホストの Linux ターゲット時のみ。Windows は MSVC ネイティブビルド。"
+          ],
+          "changes": [
+            {
+              "before": "vendor/prebuilt/ は aarch64-apple-darwin のみ（手動 stage）",
+              "after": "crates/pjsip-prebuilt が全ターゲットの prebuilt を生成・stage・検証し CI がコミット",
+              "description": "producer ツール + CI（§62.36–62.37）"
+            },
+            {
+              "before": "shell スクリプト等による非再現性ビルド",
+              "after": "独立クレートの CMake/Docker ビルドで再現性を保証",
+              "description": "producer の独立性（§62.36）"
+            }
+          ],
+          "background": "設計ブリーフ §5.3 によりプレビルド生成は専用の独立ツール（crates/pjsip-prebuilt）が担う。Ticket A と独立（DoD は siprs のコンパイル成功に非依存）。§5.1 の「git clone 直後に prebuilt が存在」を 3 OS の CI コミットで保証。",
+          "invariants": "producer は siprs クレートに依存しない（crates/pjsip-prebuilt の独立クレート）。\n任意の方法でライブラリが得られない場合は非ゼロ終了 / panic（サイレントフォールバック禁止）。\nverify は file + nm + 最小 C リンクテストを通すこと。",
+          "acceptanceCriteria": [
+            "crates/pjsip-prebuilt が単体で build → stage → verify を完走する",
+            "git clone 各 OS → prebuilt が存在する",
+            "（Ticket A 完了後）cargo build --features pjsua-native が通る"
+          ],
+          "contracts": [
+            {
+              "id": "C143",
+              "precondition": "§44 prebuilt pipeline defined",
+              "postcondition": "crates/pjsip-prebuilt produces prebuilts",
+              "invariant": "Producer independent of siprs compile",
+              "sourceEdge": "N0105→N0054"
+            },
+            {
+              "id": "C144",
+              "precondition": "§44 CI/CD requirements",
+              "postcondition": "3-OS matrix commits prebuilt directly",
+              "invariant": "prebuilt present after git clone",
+              "sourceEdge": "N0106→N0054"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "name": "P19",
+      "tickets": [
+        {
+          "id": 1,
+          "phaseId": 19,
+          "status": "todo",
+          "title": "H8: raw SIP 実 PJSIP 検証経路（§62.38）",
+          "nodeIds": [
+            "N0107"
+          ],
+          "scope": [
+            "【変更1-path】tests/sip_integration.rs",
+            "【変更1-action】add: subscribe_raw_sip() が実 PJSIP 経路（pjsip_module フック → enqueue_raw_sip_bytes → subscribe_raw_sip）で raw SIP メッセージを受信できる統合テスト。TestBackend のテスト専用フック等のダミー実装は禁止（Q17）。",
+            "【変更1-detail】Docker/Asterisk 環境の相手エンドポイントが REGISTER を送信 → raw チャネルに RawSipMessage が到達することを検証。make test-integration ゲート。"
+          ],
+          "testUnit": [],
+          "testIntegration": [
+            "IT: [pjsua-native] 実 SIP メッセージ（REGISTER）が subscribe_raw_sip() チャネルへ到達する（実 PJSIP 経路）"
+          ],
+          "testExceptions": [
+            "TestBackend / 既定ビルドでは subscribe_raw_sip() は無音チャネルのまま（仕様）"
+          ],
+          "changes": [
+            {
+              "before": "raw SIP の検証経路が存在しない（H8 ギャップ）",
+              "after": "実 pjsua-native 統合テストで subscribe_raw_sip() の受信を固定",
+              "description": "raw SIP 実検証（§62.38）"
+            }
+          ],
+          "background": "H8 RESIDUE は「subscribe_raw_sip() の受信コードは成立しない」と断言。実 pjsua-native 経路の完全な統合テストで固定する（ユーザー判断: ダミー実装禁止）。",
+          "invariants": "raw SIP 検証は実 pjsua-native 経路のみで行う（TestBackend のダミーフック禁止）。\npjsip_module フックは観測専用（PJ_FALSE 返却）を維持する。",
+          "acceptanceCriteria": [
+            "pjsua-native ビルドで subscribe_raw_sip() が実 SIP メッセージを受信できる",
+            "make test-integration で本テストが green"
+          ],
+          "contracts": [
+            {
+              "id": "C145",
+              "precondition": "N0091 defines pjsip_module hook",
+              "postcondition": "Real integration test verifies subscribe_raw_sip",
+              "invariant": "No TestBackend dummy hooks",
+              "sourceEdge": "N0107→N0091"
+            },
+            {
+              "id": "C146",
+              "precondition": "N0088 defines docker integration base",
+              "postcondition": "raw SIP verified against real PJSIP in Docker",
+              "invariant": "make test-integration gate",
+              "sourceEdge": "N0107→N0088"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "phaseId": 19,
+          "status": "todo",
+          "title": "H8: on_ice_transport_error 登録と IceTransportError 経路（§62.39）",
+          "nodeIds": [
+            "N0108"
+          ],
+          "scope": [
+            "【変更1-path】src/ffi/bindings.rs",
+            "【変更1-action】modify: pjsua_callback ミラーに on_ice_transport_error フィールドを追加。",
+            "【変更2-path】src/ffi/callback.rs",
+            "【変更2-action】modify: register_callbacks で on_ice_transport_error を登録。コールバック内で pjsip_error_info から status/reason を抽出し NativeEvent::IceTransportError を生成して reactor へ enqueue（P17-3 残項目の解消）。"
+          ],
+          "testUnit": [
+            "UT: pjsip_error_info からの status/reason 抽出（null ガード含む）",
+            "UT: NativeEvent::IceTransportError の生成と reactor への enqueue"
+          ],
+          "testIntegration": [
+            "IT: [pjsua-native] ICE トランスポートエラー発生時に NativeEvent::IceTransportError が publish される"
+          ],
+          "testExceptions": [],
+          "changes": [
+            {
+              "before": "pjsua_callback ミラーに on_ice_transport_error が無く IceTransportError の生産コードゼロ",
+              "after": "フィールド追加 + register_callbacks 登録 + NativeEvent::IceTransportError 生成経路を実装",
+              "description": "on_ice_transport_error 配線（§62.39）"
+            }
+          ],
+          "background": "H8 RESIDUE は「IceTransportError は未配線（P17-3 スコープ外）」と断言。pjsua_callback に実在する on_ice_transport_error を登録済みコールバックと同一パターンで配線する。",
+          "invariants": "on_ice_transport_error は登録済みコールバック（TransportStateChanged 等）と同一パターンで実装する。",
+          "acceptanceCriteria": [
+            "on_ice_transport_error が register_callbacks で登録される",
+            "NativeEvent::IceTransportError の生産経路が実装される"
+          ],
+          "contracts": [
+            {
+              "id": "C147",
+              "precondition": "N0092 registers P1/P2 callbacks",
+              "postcondition": "on_ice_transport_error added and registered",
+              "invariant": "Same pattern as registered callbacks",
+              "sourceEdge": "N0108→N0092"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "phaseId": 19,
+          "status": "todo",
+          "title": "H13: push_media_frame 生産経路の配線（§62.40）",
+          "nodeIds": [
+            "N0109"
+          ],
+          "scope": [
+            "【変更1-path】src/runtime/backend.rs",
+            "【変更1-action】modify: PjsuaBackend に conf port の put_frame/get_frame 経路から呼ばれる on_conf_frame（push_frame_to_tap 呼び出し）を実装。実 PJSIP conf bridge が RustMediaPort port ops を駆動することを統合テストで固定。",
+            "【変更2-path】tests/sip_integration.rs",
+            "【変更2-action】add: 実通話で AudioTapHandle::recv() が AudioChunkPair を受信できる統合テスト（conf bridge 駆動）。TestBackend フックは共有ヘルパーのユニット検証に限定（Q17 原則）。"
+          ],
+          "testUnit": [
+            "UT: push_frame_to_tap 共有ヘルパーのフレーム供給（ユニット検証のみ）"
+          ],
+          "testIntegration": [
+            "IT: [pjsua-native] 実通話で subscribe_audio tap が AudioChunkPair を連続受信する（conf bridge → RustMediaPort → push_frame_to_tap）"
+          ],
+          "testExceptions": [
+            "TestBackend では tap は永久待機のまま（実経路のみが検証対象）"
+          ],
+          "changes": [
+            {
+              "before": "push_media_frame の production 呼び出し元がゼロ（H13 ギャップ）",
+              "after": "conf bridge → RustMediaPort port ops → push_frame_to_tap の経路を実装し統合テストで固定",
+              "description": "push_media_frame 配線（§62.40）"
+            }
+          ],
+          "background": "H13 RESIDUE は「TestBackend では tap が永久待機」と断言。P17-8 の push_frame_to_tap 共有ヘルパーは完成済み。実 conf bridge が RustMediaPort を駆動することを統合テストで固定する。",
+          "invariants": "push_frame_to_tap は RT コールバックをブロックしない。\n実挙動の証明は実 pjsua-native 統合テストのみ（TestBackend フックはユニット検証に限定）。",
+          "acceptanceCriteria": [
+            "実通話で AudioTapHandle::recv() が AudioChunkPair を受信する",
+            "make test-integration で本テストが green"
+          ],
+          "contracts": [
+            {
+              "id": "C148",
+              "precondition": "N0097 defines tap driving via port ops",
+              "postcondition": "Real conf bridge drives push_frame_to_tap",
+              "invariant": "push_frame_to_tap never blocks RT callback",
+              "sourceEdge": "N0109→N0097"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "phaseId": 19,
+          "status": "todo",
+          "title": "H14: AddAudioSource 時 RustMediaPort conf bridge 再登録（§62.41）",
+          "nodeIds": [
+            "N0110"
+          ],
+          "scope": [
+            "【変更1-path】src/runtime/command.rs",
+            "【変更1-action】modify: RuntimeCommand::AddAudioSource ハンドラで mixer 生成・登録後に register_media_ports_for_calls（RustMediaPort の pjsua_conf_add_port 登録）を再実行。",
+            "【変更2-path】src/runtime/backend.rs",
+            "【変更2-action】modify: register_media_ports_for_calls を mixer 生成経路から呼べるよう再入可能に整理。"
+          ],
+          "testUnit": [
+            "UT: AddAudioSource ハンドラが mixer 登録後に register_media_ports_for_calls を呼ぶ（呼び出し順序）"
+          ],
+          "testIntegration": [
+            "IT: [pjsua-native] AddAudioSource 後の実通話で注入音声がネットワーク送信 / ローカル再生に到達する（out_queue 滞留破棄の解消）"
+          ],
+          "testExceptions": [],
+          "changes": [
+            {
+              "before": "register_media_ports_for_calls が Initialize 時に一度だけ呼ばれ audio_mixers 空（H14 ギャップ）",
+              "after": "AddAudioSource で mixer 生成後に再実行し注入音声が conf bridge に登録される",
+              "description": "conf bridge 再登録（§62.41）"
+            }
+          ],
+          "background": "H14 RESIDUE は「RustMediaPort が実通話の conf bridge に登録されない」と断言。P17-8 の register_media_ports_for_calls は完成済みで、mixer 生成後に再実行する最小変更で解消。",
+          "invariants": "register_media_ports_for_calls は audio_mixers 登録後に呼ばれる。\n未使用の conf port を事前確保しない（Initialize 時の全 call 事前登録は行わない）。",
+          "acceptanceCriteria": [
+            "AddAudioSource 後に RustMediaPort が pjsua_conf_add_port で登録される",
+            "注入音声が out_queue に滞留せず送話へ到達する"
+          ],
+          "contracts": [
+            {
+              "id": "C149",
+              "precondition": "N0085 defines conf port/queue wiring",
+              "postcondition": "register_media_ports_for_calls re-run on AddAudioSource",
+              "invariant": "No out_queue drop for injected audio",
+              "sourceEdge": "N0110→N0085"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "phaseId": 19,
+          "status": "todo",
+          "title": "H15/EXAMPLES: 実 PJSIP プロトコル + RTP 統合テスト（§62.42）",
+          "nodeIds": [
+            "N0111"
+          ],
+          "scope": [
+            "【変更1-path】tests/sip_integration.rs",
+            "【変更1-action】modify: プロトコルレベル（REGISTER→200 / INVITE→180/200 / BYE / SIP INFO / RFC 4733 DTMF / STUN binding / TURN allocate via coturn）と通信レベル（2 エンドポイント間 RTP メディア送受信）のテストを実装。",
+            "【変更2-path】src/tests/docker_asterisk_it.rs",
+            "【変更2-action】modify: Docker（Asterisk/coturn）環境での実 SIP フローをビルド修復後に通す。"
+          ],
+          "testUnit": [],
+          "testIntegration": [
+            "IT: [pjsua-native] REGISTER→200 / INVITE→180/200 / BYE が実 PJSIP で成立する",
+            "IT: [pjsua-native] SIP INFO / RFC 4733 DTMF が実 PJSIP で成立する",
+            "IT: [pjsua-native] STUN binding / TURN allocate（coturn）が成立する",
+            "IT: [pjsua-native] 2 エンドポイント間で RTP メディアが送受信される"
+          ],
+          "testExceptions": [
+            "Docker 可用性が無い環境では make test-integration をスキップ"
+          ],
+          "changes": [
+            {
+              "before": "sip_integration.rs / docker_asterisk_it.rs は pjsua-native ビルド不能で実行不可",
+              "after": "プロトコル + 通信（RTP）レベルの実統合テストを実装し make test-integration で CI 実行",
+              "description": "実 PJSIP 統合テスト（§62.42）"
+            }
+          ],
+          "background": "§4.3 はプロトコルレベルと通信レベルの両方を保証することを要求。§43.4（Layer 4）/ §62.19 / P16-10 のテスト基盤が存在。ビルド修復（Ticket A）後に通す。",
+          "invariants": "TestBackend green を実 SIP 検証の証拠としない。\nmake test-integration の teardown（docker compose down）は常に保証する。",
+          "acceptanceCriteria": [
+            "make test-integration が CI で green",
+            "プロトコルレベルと通信（RTP）レベルの両方をカバーする"
+          ],
+          "contracts": [
+            {
+              "id": "C150",
+              "precondition": "N0088 defines docker Asterisk/coturn base",
+              "postcondition": "protocol + RTP levels covered in CI",
+              "invariant": "make test-integration green",
+              "sourceEdge": "N0111→N0088"
+            },
+            {
+              "id": "C151",
+              "precondition": "§43 4-layer test strategy",
+              "postcondition": "Layer 4 interop tests run real PJSIP",
+              "invariant": "TestBackend green ≠ real SIP verified",
+              "sourceEdge": "N0111→N0052"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "phaseId": 19,
+          "status": "todo",
+          "title": "Round 4 チケット構造 & I/O 境界（§62.43–62.44）",
+          "nodeIds": [
+            "N0112",
+            "N0113"
+          ],
+          "scope": [
+            "【変更1-path】src/architecture/round4_tickets.rs",
+            "【変更1-action】add: Round4TicketSpec enum（phase 18: Ticket A/B、phase 19: H8/H13/H14/H15/EXAMPLES）+ round4_ticket_ordering()（A/B 最優先、ギャップは後に連ねる）。",
+            "【変更2-path】src/architecture/io_boundary_round4.rs",
+            "【変更2-action】add: round 4 の I/O 境界参照情報（新規 crates/pjsip-prebuilt / Dockerfile / workflow と更新ファイル群の列挙）。"
+          ],
+          "testUnit": [
+            "UT: round4_ticket_ordering が A/B を phase 18、ギャップを phase 19 以降に並べる",
+            "UT: io_boundary_round4 のファイル列挙が Dirs-Tree と整合する"
+          ],
+          "testIntegration": [],
+          "testExceptions": [],
+          "changes": [
+            {
+              "before": "round 4 のチケット構造と I/O 境界が未整備",
+              "after": "チケット順序（A/B 最優先 + ギャップ）と I/O 境界参照を型付き定数として実装",
+              "description": "チケット構造 + I/O 境界（§62.43–62.44）"
+            }
+          ],
+          "background": "設計ブリーフ §5.5 の 2 チケット構造とユーザー指示（A/B 最優先、ギャップは後に連ねる）を round 4 チケット配置として確定。I/O 境界は graphify/boundify の分割判断用。",
+          "invariants": "Ticket A/B は phase 18、RESIDUE ギャップは phase 19 以降。",
+          "acceptanceCriteria": [
+            "チケット構造が設計ブリーフ §5.5 とユーザー指示に整合する",
+            "I/O 境界情報が全 round-4 ノードをカバーする"
+          ],
+          "contracts": [
+            {
+              "id": "C152",
+              "precondition": "Round 4 scope settled",
+              "postcondition": "Tickets mapped to §62.31–62.44",
+              "invariant": "A/B tickets first, gaps after",
+              "sourceEdge": "N0112→N0100"
+            },
+            {
+              "id": "C153",
+              "precondition": "N0099 provides round-3 I/O boundary",
+              "postcondition": "Round-4 boundary adds producer/consumer split",
+              "invariant": "All round-4 nodes mapped to files",
+              "sourceEdge": "N0113→N0099"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-08-27T02:26:16.439Z",
+  "updatedAt": "2026-08-28T01:45:00.256Z",
   "nodes": [
     {
       "id": "Q1",
@@ -134,6 +134,187 @@
         {
           "resolvedAt": "2026-08-27T02:24:08.539Z",
           "answer": "A: マイク source の位置づけは明文化。unsubscribe は drop 代替ではなくユーザーフレンドリーなラッピング API を設計する（Q8a で決定）。"
+        }
+      ]
+    },
+    {
+      "id": "Q9",
+      "title": "vendored PJSIP バージョン戦略（2.17.0 維持+コード適応 vs 更新）",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:32:03.141Z",
+          "answer": "A: vendored PJSIP 2.17.0 を維持しコード適応修正する（codec_id パースで codec 名/レート導出、定数参照を実在名へ修正）。latest も 2.17 のため更新先が存在せず、A が唯一の現実的解。"
+        }
+      ]
+    },
+    {
+      "id": "Q10",
+      "title": "bindgen enum/const 生成戦略（PJ_SUCCESS / pjsip_inv_state）",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:32:03.172Z",
+          "answer": "A: bindgen 設定で enum 型を allowlist し default_enum_style=rust + prepend_enum_name(false) で Rust enum として生成する。PJ_SUCCESS 等は列挙子として emit。"
+        }
+      ]
+    },
+    {
+      "id": "Q11",
+      "title": "静的ライブラリのリンク対象とリンク名修正（pjproject vs 個別 lib）",
+      "status": "resolved",
+      "children": [
+        {
+          "id": "Q11a",
+          "title": "静的リンクの安全な方法（link-order 耐性 + ドリフト耐性）",
+          "status": "resolved",
+          "children": [],
+          "questions": [
+            {
+              "resolvedAt": "2026-08-28T01:33:50.530Z",
+              "answer": "A: ディレクトリ導出 + 統合優先。build.rs が lib/ を走査し、libpjproject.a が存在すれば static=pjproject のみ emit、無ければ個別 lib 群をステム名で全列挙し Linux のみ --start-group/--end-group で wrap。macOS/Windows は追加措置不要。システム依存はターゲット別に emit。"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:33:50.563Z",
+          "answer": "A（Q11a=A により確定）: 静的リンクはディレクトリ導出 + 統合優先の二段構え。既存 per-module prebuilt で即動作し Ticket A の独立性を維持、producer が統合アーカイブへ移行すれば自動追従。リンクセットは実ファイルから導出されドリフトが構造的に発生しない。"
+        }
+      ]
+    },
+    {
+      "id": "Q12",
+      "title": "build.rs vendored-source build フォールバックの実装範囲",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:32:03.204Z",
+          "answer": "A: build.rs の vendored-source build フォールバック（§5.2 段階 2.iii）を完全実装する。prebuilt → system → cmake で vendored build → OUT_DIR 配置 → リンク指令 + vendor/pjsip/include をヘッダルートに。cmake 不在時のみ fail-stop。"
+        }
+      ]
+    },
+    {
+      "id": "Q13",
+      "title": "producer ツール crates/pjsip-prebuilt の CLI 形状",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:37:53.660Z",
+          "answer": "A: crates/pjsip-prebuilt を独立クレート（単独 Cargo.toml、ワークスペース化しない）として作成。CLI はサブコマンド build <triple> / stage <triple> / verify <triple>。ホスト OS 検出で §5.6 のターゲットセットを決定。"
+        }
+      ]
+    },
+    {
+      "id": "Q14",
+      "title": "producer の Linux-from-Mac Docker 連携設計",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:37:53.691Z",
+          "answer": "A: リポジトリコミットの Dockerfile（ubuntu + build-essential/cmake/libasound2-dev/libssl-dev/libuuid-dev）を docker build し、docker run -v /Users/sh01/shyme/zasso/crates/siprs/vendor:/work/vendor でマウント、コンテナ内 cmake ビルドで成果物をホスト volume に直接生成。"
+        }
+      ]
+    },
+    {
+      "id": "Q15",
+      "title": "CI OS マトリクスとプレビルドコミット運用",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:37:53.723Z",
+          "answer": "B: 通常 push で直接コミットする単純運用（ユーザー判断: PR refresh は考えすぎ）。CI は 3 OS で producer を実行し vendor/prebuilt を直接コミットする。schedule/manual/PR 儀式は設けない。"
+        }
+      ]
+    },
+    {
+      "id": "Q16",
+      "title": "producer DoD 検証（file/nm vs 最小 C リンクテスト）",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:37:53.754Z",
+          "answer": "C: file/nm で形式・シンボル確認し、最小 C リンクテスト（pjsua_init を呼ぶ C を stage した lib 群にリンクして実行）を最終ゲートとする（安全性優先で AI 判断）。"
+        }
+      ]
+    },
+    {
+      "id": "Q17",
+      "title": "H8 raw SIP TestBackend 検証経路の設計",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:45:00.094Z",
+          "answer": "制約（ユーザー判断）: raw SIP 検証は pjsua-native ビルド修復後に、本物の raw SIP 経路（pjsip_module フック → enqueue_raw_sip_bytes → subscribe_raw_sip）を使った完全な統合テストで固定する。TestBackend のテスト専用フック等のダミー実装は許されない。"
+        }
+      ]
+    },
+    {
+      "id": "Q18",
+      "title": "H8 on_ice_transport_error 登録と IceTransportError 経路",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:45:00.126Z",
+          "answer": "A: pjsua_callback ミラーに on_ice_transport_error フィールドを追加し register_callbacks で登録。コールバック内で pjsip_error_info から情報を抽出し NativeEvent::IceTransportError を生成して reactor へ enqueue。"
+        }
+      ]
+    },
+    {
+      "id": "Q19",
+      "title": "H13 push_media_frame 生産経路の配線",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:45:00.158Z",
+          "answer": "A: RustMediaPort の port ops 内で push_frame_to_tap を呼ぶ既存構造（P17-8）を、実 PJSIP conf bridge が駆動することを統合テストで固定。TestBackend のフックは共有ヘルパーのユニット検証に限定し、実挙動の証明としては使わない（Q17 のダミー禁止原則に整合）。"
+        }
+      ]
+    },
+    {
+      "id": "Q20",
+      "title": "H14 AddAudioSource 時の RustMediaPort conf bridge 再登録",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:45:00.189Z",
+          "answer": "A: AddAudioSource で mixer 生成・登録後に register_media_ports_for_calls 相当（RustMediaPort の pjsua_conf_add_port 登録）を再実行する。最小変更でギャップ解消。"
+        }
+      ]
+    },
+    {
+      "id": "Q21",
+      "title": "H15/EXAMPLES 実 PJSIP 統合テストのスコープ",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:45:00.221Z",
+          "answer": "A: ビルド修復後に sip_integration.rs / docker_asterisk_it.rs を通し、プロトコルレベル（REGISTER→200 / INVITE→180/200 / BYE / SIP INFO / RFC4733 DTMF / STUN/TURN via coturn）と通信レベル（2 エンドポイント間 RTP メディア）の両方をカバー。make test-integration を CI で実行。"
+        }
+      ]
+    },
+    {
+      "id": "Q22",
+      "title": "チケット構造とフェーズ割当（A/B 最優先 + ギャップ）",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-28T01:45:00.255Z",
+          "answer": "A: Round 4 = phase 18 に Ticket A（消費者/bindgen 整合）と Ticket B（生産者/prebuilt + CI + コミット）を最優先配置（並列可）。phase 19 以降に H8（raw SIP 実統合テスト + on_ice_transport_error）/ H13 / H14 / H15 / EXAMPLES を順に連ねる。"
         }
       ]
     }
