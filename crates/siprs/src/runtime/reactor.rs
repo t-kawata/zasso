@@ -106,7 +106,7 @@ pub struct CoreReactor;
 
 /// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
 /// join handle, or a boxed spawn error.
-// [::TICKET::] P15-4, P15-7, P15-9, P16-5, P16-7, P17-5, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5|P16-7|P17-5|P17-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-4, P15-7, P15-9, P16-5, P16-7, P17-5, P17-6, P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5|P16-7|P17-5|P17-6|P19-2) --for-spec --no-implementation-order`.
 type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
@@ -1069,8 +1069,11 @@ pub(crate) fn dispatch_event(event_bus: &EventBus, event: SipEvent) {
 /// `ClientState`, and produces `SipEventPayload::RegistrationStateChanged`
 /// (or `Error` on backend failure).
 ///
-/// Other P0 events flow through `convert_native_event_to_payload`; P1/P2 events
-/// convert to `None` and are silently not published (documented rationale).
+/// Other P0 events flow through `convert_native_event_to_payload`. P1/P2 events
+/// convert to `Some(SipEventPayload)` since P16-4 §62.13; the sole P1/P2
+/// exception is `IceTransportError` (P19-2 §62.39), which is transport-level
+/// with no call context and therefore converts to `None` (consumed, not
+/// published).
 ///
 /// `calls` is the reactor's call-state table (`ClientState.calls`). Call-scoped
 /// events carry no `acc_id`, so the owning account is resolved from
@@ -1193,7 +1196,7 @@ fn resolve_call_direction(
 /// Call/DTMF events carry only a `call_id`; the owning `account_id` is resolved
 /// from the reactor's call-state table by `process_native_event`. Registration
 /// events carry the `acc_id`.
-// [::TICKET::] P7-2, P9-6, P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P11-11|P17-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P7-2, P9-6, P11-11, P17-6, P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P11-11|P17-6|P19-2) --for-spec --no-implementation-order`.
 fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>) {
     match event {
         NativeEvent::RegistrationStarted { acc_id, .. } => {
@@ -1206,12 +1209,13 @@ fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>)
         NativeEvent::CallStateChanged { call_id, .. }
         | NativeEvent::CallMediaStateChanged { call_id, .. }
         | NativeEvent::DtmfDigit { call_id, .. }
-        | NativeEvent::IceTransportError { call_id }
         | NativeEvent::CallTsxStateChanged { call_id }
         | NativeEvent::CallRedirected { call_id }
         | NativeEvent::CallTransferStatus { call_id }
         | NativeEvent::CallReplaced { call_id } => (None, CallId::from_u64(*call_id as u64).ok()),
         NativeEvent::TransportStateChanged { .. }
+        // P19-2 §62.39: IceTransportError is transport-level (no call context).
+        | NativeEvent::IceTransportError { .. }
         | NativeEvent::NatDetected
         | NativeEvent::RegistrationStateChanged { .. } => (None, None),
     }
@@ -2489,6 +2493,19 @@ mod tests {
         });
         assert_eq!(account_id, None, "acc_id 0 is the invalid sentinel");
         assert_eq!(call_id, Some(test_call_id(7)));
+    }
+
+    #[test]
+    // @verifies C151
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    fn extract_event_ids_ice_transport_error_yields_none_none() {
+        let (account_id, call_id) = extract_event_ids(&NativeEvent::IceTransportError {
+            index: 1,
+            operation: 2,
+            status: 3,
+        });
+        assert_eq!(account_id, None);
+        assert_eq!(call_id, None, "IceTransportError is transport-level (C151)");
     }
 
     #[tokio::test]

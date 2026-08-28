@@ -33,6 +33,17 @@ pub mod pj_str;
 ///
 pub mod callback;
 
+/// ICE transport error callback (P19-2 §62.39 / N0108).
+///
+/// `on_ice_transport_error` reports errors in the ICE media transport —
+/// currently TURN Refresh failures — and enqueues a scalar-only
+/// `NativeEvent::IceTransportError`. Kept as a dedicated module so the
+/// callback's ABI (cfg-paired `IceStransOpParam`) and the `enqueue_native_event`
+/// call stay isolated from the rest of the callback bridge.
+// [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+pub mod ice_transport_error;
+// [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+
 // Re-export the callback-bridge surface so the runtime layer and tests never
 // depend on the raw module path (P11-11).
 pub use callback::{

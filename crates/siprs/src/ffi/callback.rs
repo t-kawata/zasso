@@ -15,6 +15,7 @@
 //
 
 use crate::ffi::bindings;
+use crate::ffi::ice_transport_error::on_ice_transport_error;
 use crate::state::m20_native_event_conv::NativeEvent;
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
 
@@ -220,6 +221,8 @@ pub fn register_callbacks(
     config.cb.on_call_tsx_state = Some(on_call_tsx_state);
     config.cb.on_call_replaced = Some(on_call_replaced);
     config.cb.on_nat_detect = Some(on_nat_detect);
+    // P19-2 §62.39: the ICE media transport error callback — TURN Refresh errors.
+    config.cb.on_ice_transport_error = Some(on_ice_transport_error);
 }
 
 /// Convert a PJSUA DTMF digit (ASCII int) into a `char`, skipping non-ASCII.
@@ -553,7 +556,8 @@ mod tests {
 
     #[test]
     // @verifies C050
-    // [::TICKET::] P11-11, P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-3) --for-spec --no-implementation-order`.
+    // @verifies C147
+    // [::TICKET::] P11-11, P17-3, P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-3|P19-2) --for-spec --no-implementation-order`.
     fn register_callbacks_fills_all_callback_pointers() {
         let queue = crossbeam_queue::ArrayQueue::new(8);
         let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
@@ -571,6 +575,8 @@ mod tests {
         assert!(config.cb.on_call_tsx_state.is_some());
         assert!(config.cb.on_call_replaced.is_some());
         assert!(config.cb.on_nat_detect.is_some());
+        // P19-2 §62.39: the ICE transport error callback (13th) is wired too.
+        assert!(config.cb.on_ice_transport_error.is_some());
     }
 
     #[test]
@@ -975,6 +981,76 @@ mod tests {
                 call_id: i32::MAX as u32
             })
         );
+    }
+
+    // ── P19-2 §62.39: on_ice_transport_error ─────────────────────────
+
+    /// @verifies C148
+    #[test]
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    fn pj_ice_strans_op_const_values() {
+        assert_eq!(bindings::pj_ice_strans_op::PJ_ICE_STRANS_OP_INIT, 0);
+        assert_eq!(bindings::pj_ice_strans_op::PJ_ICE_STRANS_OP_NEGOTIATION, 1);
+        assert_eq!(bindings::pj_ice_strans_op::PJ_ICE_STRANS_OP_KEEP_ALIVE, 2);
+        assert_eq!(bindings::pj_ice_strans_op::PJ_ICE_STRANS_OP_ADDR_CHANGE, 3);
+    }
+
+    /// @verifies C149
+    #[test]
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    fn on_ice_transport_error_enqueues_ice_transport_error() {
+        let queue = install_test_queue(2);
+        unsafe { on_ice_transport_error(0, 0, 0, std::ptr::null_mut()) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::IceTransportError {
+                index: 0,
+                operation: 0,
+                status: 0,
+            })
+        );
+        assert_eq!(queue.pop(), None, "exactly one event per invocation");
+    }
+
+    /// @verifies C149
+    #[test]
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    fn on_ice_transport_error_param_never_dereferenced() {
+        // PJSIP documents `param` as always NULL; even a dangling non-null
+        // pointer must never be dereferenced by the handler (C149 invariant).
+        let queue = install_test_queue(2);
+        unsafe { on_ice_transport_error(1, 1, 1, 0x1 as *mut std::os::raw::c_void) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::IceTransportError {
+                index: 1,
+                operation: 1,
+                status: 1,
+            })
+        );
+        assert_eq!(queue.pop(), None);
+    }
+
+    /// @verifies C148, C149
+    #[test]
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    fn on_ice_transport_error_boundary_values_preserved() {
+        for index in [i32::MIN, -1, 0, i32::MAX] {
+            for status in [i32::MIN, 0, i32::MAX] {
+                let queue = install_test_queue(2);
+                unsafe { on_ice_transport_error(index, 2, status, std::ptr::null_mut()) };
+                assert_eq!(
+                    queue.pop(),
+                    Some(NativeEvent::IceTransportError {
+                        index,
+                        operation: 2,
+                        status,
+                    }),
+                    "index/status must survive i32::MIN..=i32::MAX"
+                );
+                assert_eq!(queue.pop(), None);
+            }
+        }
     }
 
     /// @verifies C125

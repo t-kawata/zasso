@@ -663,6 +663,25 @@ mod stub_aliases {
         pub const PJSIP_TP_STATE_DESTROY: u32 = 3;
     }
 
+    /// ICE stream operation enum (`pj_ice_strans_op`) — mirrors `pjmedia/transport_ice.h`.
+    ///
+    /// P19-2 §62.39: `on_ice_transport_error` reports which operation triggered
+    /// the ICE failure. The stub mirrors the bindgen consts-style (P11-9
+    /// pattern) so the callback's `op as u32` conversion compiles under both
+    /// constant sources.
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    pub mod pj_ice_strans_op {
+// [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+        /// Initialization (candidate gathering).
+        pub const PJ_ICE_STRANS_OP_INIT: u32 = 0;
+        /// Negotiation.
+        pub const PJ_ICE_STRANS_OP_NEGOTIATION: u32 = 1;
+        /// Keep-alive operation (currently TURN Refresh failure).
+        pub const PJ_ICE_STRANS_OP_KEEP_ALIVE: u32 = 2;
+        /// IP address change notification from STUN keep-alive.
+        pub const PJ_ICE_STRANS_OP_ADDR_CHANGE: u32 = 3;
+    }
+
     /// Application callback registry (`pjsua_callback`) — the fields P11-11 wires.
     ///
     /// Field names and their pointer types mirror the vendored `pjsua.h`
@@ -707,6 +726,22 @@ mod stub_aliases {
         pub on_call_replaced: Option<unsafe extern "C" fn(pjsua_call_id, pjsua_call_id)>,
         /// `on_nat_detect` — STUN NAT detection result (P17-3 §62.23).
         pub on_nat_detect: Option<unsafe extern "C" fn(*const pj_stun_nat_detect_result)>,
+        /// `on_ice_transport_error` — ICE media transport error (P19-2 §62.39).
+        ///
+        /// Reports errors in the ICE media transport (currently TURN Refresh
+        /// errors). The `op` argument is typed `u32` to match the
+        /// `pj_ice_strans_op` module-consts surface (P11-9 pattern); bindgen
+        /// under `pjsua-native` emits the same C enum as a Rust enum.
+        // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+        pub on_ice_transport_error: Option<
+// [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+            unsafe extern "C" fn(
+                index: std::os::raw::c_int,
+                op: u32,
+                status: pj_status_t,
+                param: *mut std::ffi::c_void,
+            ),
+        >,
     }
 
     /// PJSUA global configuration — callback registry plus the STUN/TURN wiring
