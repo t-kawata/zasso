@@ -671,7 +671,7 @@ mod stub_aliases {
     /// constant sources.
     // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
     pub mod pj_ice_strans_op {
-// [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+        // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
         /// Initialization (candidate gathering).
         pub const PJ_ICE_STRANS_OP_INIT: u32 = 0;
         /// Negotiation.
@@ -734,7 +734,7 @@ mod stub_aliases {
         /// under `pjsua-native` emits the same C enum as a Rust enum.
         // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
         pub on_ice_transport_error: Option<
-// [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+            // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
             unsafe extern "C" fn(
                 index: std::os::raw::c_int,
                 op: u32,

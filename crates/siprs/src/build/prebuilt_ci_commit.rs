@@ -58,7 +58,9 @@ pub fn validate_prebuilt_workflow(repo_root: &std::path::Path) -> Result<(), Str
         .map_err(|e| format!("cannot read {}: {e}", workflow_path.display()))?;
     for requirement in PREBUILT_WORKFLOW_REQUIREMENTS {
         if !yaml.contains(requirement) {
-            return Err(format!("prebuilt.yml missing required element: {requirement}"));
+            return Err(format!(
+                "prebuilt.yml missing required element: {requirement}"
+            ));
         }
     }
     Ok(())
@@ -68,13 +70,15 @@ pub fn validate_prebuilt_workflow(repo_root: &std::path::Path) -> Result<(), Str
 mod tests {
     use super::*;
 
-// [::TICKET::] P18-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P18-2, P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P18-2|P19-4) --for-spec --no-implementation-order`.
     fn repo_root() -> std::path::PathBuf {
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("..")
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
     }
 
     #[test]
-// [::TICKET::] P18-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P18-2, P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P18-2|P19-4) --for-spec --no-implementation-order`.
     fn workflow_constants_match_design() {
         // C144 Precondition/Postcondition: matrix OS, manifest path, commit action.
         assert_eq!(
@@ -82,7 +86,10 @@ mod tests {
             ["macos-latest", "ubuntu-latest", "windows-latest"]
         );
         assert_eq!(PREBUILT_MANIFEST_PATH, "crates/pjsip-prebuilt/Cargo.toml");
-        assert_eq!(PREBUILT_COMMIT_ACTION, "stefanzweifel/git-auto-commit-action@v5");
+        assert_eq!(
+            PREBUILT_COMMIT_ACTION,
+            "stefanzweifel/git-auto-commit-action@v5"
+        );
     }
 
     #[test]

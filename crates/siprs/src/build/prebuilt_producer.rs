@@ -124,7 +124,7 @@ mod tests {
     use super::*;
 
     #[test]
-// [::TICKET::] P18-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P18-2, P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P18-2|P19-4) --for-spec --no-implementation-order`.
     fn target_set_follows_design_brief_s5_6() -> Result<(), &'static str> {
         // @verifies C143
         // C143 Precondition: host OS detection produces the §5.6 target set.
@@ -133,7 +133,10 @@ mod tests {
         assert!(macos.iter().any(|t| t.0 == "x86_64-unknown-linux-gnu"));
 
         let windows = target_set_for_host(&ProducerHost::Windows, "x86_64-pc-windows-msvc")?;
-        assert_eq!(windows, vec![ProducerTriple("x86_64-pc-windows-msvc".to_owned())]);
+        assert_eq!(
+            windows,
+            vec![ProducerTriple("x86_64-pc-windows-msvc".to_owned())]
+        );
 
         let linux = target_set_for_host(&ProducerHost::Linux, "x86_64-unknown-linux-gnu")?;
         assert!(linux.iter().any(|t| t.0 == "x86_64-unknown-linux-gnu"));
@@ -143,25 +146,32 @@ mod tests {
     }
 
     #[test]
-// [::TICKET::] P18-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P18-2, P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P18-2|P19-4) --for-spec --no-implementation-order`.
     fn file_and_nm_predicates_detect_expected_formats() {
         // C143 Postcondition: verify predicates for the three machine formats.
-        assert_eq!(parse_file_output("Mach-O 64-bit arm64"), ProducerMachineKind::MachO);
-        assert_eq!(parse_file_output("ELF 64-bit LSB"), ProducerMachineKind::Elf);
-        assert_eq!(parse_file_output("PE32+ executable"), ProducerMachineKind::Pe);
+        assert_eq!(
+            parse_file_output("Mach-O 64-bit arm64"),
+            ProducerMachineKind::MachO
+        );
+        assert_eq!(
+            parse_file_output("ELF 64-bit LSB"),
+            ProducerMachineKind::Elf
+        );
+        assert_eq!(
+            parse_file_output("PE32+ executable"),
+            ProducerMachineKind::Pe
+        );
         assert!(nm_output_has_pjsua_symbols("T _pjsua_init"));
         assert!(nm_output_has_pjsua_symbols("T _pj_init"));
         assert!(!nm_output_has_pjsua_symbols("T _pj_strdup"));
     }
 
     #[test]
-// [::TICKET::] P18-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P18-2, P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P18-2|P19-4) --for-spec --no-implementation-order`.
     fn staged_layout_invariant_rejects_incomplete_stage() -> Result<(), std::io::Error> {
         // C143 Postcondition / C144 Invariant: staged layout must be coherent.
-        let staged = std::env::temp_dir().join(format!(
-            "p18-2-siprs-producer-{}",
-            std::process::id()
-        ));
+        let staged =
+            std::env::temp_dir().join(format!("p18-2-siprs-producer-{}", std::process::id()));
         let lib = staged.join("lib");
         let include = staged.join("include");
         std::fs::create_dir_all(&lib)?;
