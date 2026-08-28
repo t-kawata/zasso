@@ -18,4 +18,4 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] P19-6: implement NODE_ID=N0112 round-4 ticket structure & I/O boundary (§62.43)
+// [::STUB::] P19-6: implement NODE_ID=N0112 round-4 ticket structure & I/O boundary (§62.43)

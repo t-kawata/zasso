@@ -18,4 +18,4 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] P19-3: implement NODE_ID=N0109 push_media_frame production path wiring (§62.40)
+// [::STUB::] P19-3: implement NODE_ID=N0109 push_media_frame production path wiring (§62.40)

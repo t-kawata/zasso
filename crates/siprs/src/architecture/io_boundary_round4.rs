@@ -18,4 +18,4 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] P19-6: implement NODE_ID=N0113 round-4 I/O boundary (§62.44)
+// [::STUB::] P19-6: implement NODE_ID=N0113 round-4 I/O boundary (§62.44)

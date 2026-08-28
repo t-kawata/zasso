@@ -18,4 +18,4 @@
 // ============================================================================
 
 
-// TODO: [::STUB::] P19-2: implement NODE_ID=N0108 on_ice_transport_error registration + IceTransportError path (§62.39)
+// [::STUB::] P19-2: implement NODE_ID=N0108 on_ice_transport_error registration + IceTransportError path (§62.39)
