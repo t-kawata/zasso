@@ -1826,7 +1826,26 @@
       "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P19-5\" --for-spec --plan)",
       "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P19-5\" --tickets=\"Tickets.json\")",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const r=JSON.parse\\(d.split\\('\\\\n'\\).filter\\(l=>l.trim\\(\\).startsWith\\('{'\\)\\)[0]||'{}'\\);console.log\\('status:', r.success ? 'planned' : 'FAILED'\\)}\\)\")",
-      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P19-5\" --phase=start)"
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P19-5\" --phase=start)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-6)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P19-6\")",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P19-6\")",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P19-6\")",
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P19-6\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"P19-6\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=\"P19-6\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P19-6\" --for-spec)",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P19-6\" --phase=plan)",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P19-6\" --for-spec --plan)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);const s=j.stubs||[];console.log\\('total stubs:', s.length\\); for\\(const x of s\\){ console.log\\(x.file+':'+x.line+' | '+\\(x.content||''\\).slice\\(0,100\\)\\); }}\\)\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);const items=j.results||j.items||j.findings||[];console.log\\('total findings:', items.length\\); const ours=items.filter\\(x=>!x.file.includes\\('/vendor/'\\)&&!x.file.includes\\('/node_modules/'\\)\\); console.log\\('non-vendor findings:', ours.length\\); for\\(const x of ours.slice\\(0,40\\)\\){ console.log\\(x.file+':'+x.line+' ['+x.pattern+'] '+\\(x.content||''\\).slice\\(0,80\\)\\); }}\\)\")",
+      "Bash(node -e \"const tk=require\\('./Tickets.json'\\);const p=tk.phases.find\\(p=>p.id===19\\);const t=p.tickets.find\\(t=>t.id===6\\);console.log\\('planTestCode entries:', \\(t.planTestCode||[]\\).length\\);\")",
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P19-6\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P19-6\" --phase=start)",
+      "Bash(make -n test)",
+      "Bash(git -C /Users/sh01/shyme/zasso rev-parse --show-toplevel)",
+      "Bash(echo \"=== siprs Makefile targets ===\"; grep -nE '^[a-zA-Z0-9_.-]+:' /Users/sh01/shyme/zasso/crates/siprs/Makefile 2>/dev/null | head -40; echo \"=== root Makefile targets ===\"; grep -nE '^[a-zA-Z0-9_.-]+:' /Users/sh01/shyme/zasso/Makefile 2>/dev/null | head -40)"
     ]
   }
 }
