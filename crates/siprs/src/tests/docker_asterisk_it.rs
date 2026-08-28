@@ -103,7 +103,7 @@ pub struct DockerItPolicy {
     pub ci_requires_docker: bool,
 }
 
-// [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-10, P19-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-10|P19-1) --for-spec --no-implementation-order`.
 impl DockerItPolicy {
     /// The §62.19 policy instance.
     pub const fn policy() -> Self {
@@ -135,6 +135,11 @@ impl DockerItPolicy {
                     name: "coturn_stun_turn_ice",
                     direction: IntegrationDirection::Ice,
                     description: "STUN binding + TURN allocate + relay media through coturn",
+                },
+                IntegrationTestEntry {
+                    name: "raw_sip_rx_reaches_subscriber",
+                    direction: IntegrationDirection::Outbound,
+                    description: "Asterisk REGISTER response reaches subscribe_raw_sip() via the real PJSIP hook (§62.38 Q17)",
                 },
             ],
             ci_requires_docker: true,
@@ -197,7 +202,7 @@ mod tests {
     /// C116-Post: DockerItPolicy encodes the five Q9 decisions.
     // @verifies C116-post
     #[test]
-    // [::TICKET::] P16-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-10 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-10, P19-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-10|P19-1) --for-spec --no-implementation-order`.
     fn c116_post_policy_encodes_q9_decisions() {
         let policy = DockerItPolicy::policy();
         assert_eq!(policy.test_file, "tests/sip_integration.rs");
@@ -206,7 +211,7 @@ mod tests {
         assert_eq!(policy.services, &["asterisk", "coturn"]);
         assert_eq!(policy.feature_gate, "pjsua-native");
         assert_eq!(policy.skip_message, "[SKIPPED: docker unavailable]");
-        assert_eq!(policy.integration_tests.len(), 4);
+        assert_eq!(policy.integration_tests.len(), 5);
     }
 
     /// C116-Inv: the base is consistent with §43 (Layer 3) and §44 (docker job).

@@ -11,6 +11,7 @@
 //! binary with `--features pjsua-native`, and tears them down (Q9b).
 
 use siprs::model::CallId;
+use siprs::model::SipMessageDirection;
 use siprs::tests::docker_asterisk_it::docker_available;
 use siprs::{
     AccountConfig, CallMediaPreferences, ClientConfig, HangupReason, IceConfig,
@@ -77,6 +78,29 @@ async fn wait_for_event(
     }
 }
 
+/// Wait for the first raw SIP message whose text satisfies `predicate`,
+/// returning the matching message. Fails the test (panics) after
+/// `EVENT_TIMEOUT` and skips lagged events — the loop never hangs.
+// [::TICKET::] P19-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-1 --for-spec --no-implementation-order`.
+async fn wait_for_raw_sip(
+    raw: &mut siprs::Subscription<siprs::model::RawSipMessage>,
+    predicate: impl Fn(&siprs::model::RawSipMessage) -> bool,
+) -> siprs::model::RawSipMessage {
+    let deadline = tokio::time::Instant::now() + EVENT_TIMEOUT;
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        let received = tokio::time::timeout(remaining, raw.recv())
+            .await
+            .unwrap_or_else(|_| panic!("timed out waiting for raw sip message after {EVENT_TIMEOUT:?}"));
+        match received {
+            Ok(msg) if predicate(&msg) => return msg,
+            Ok(_) => continue,
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(e) => panic!("raw sip channel closed: {e:?}"),
+        }
+    }
+}
+
 /// A siprs client bound to an ephemeral UDP transport, registering to the
 /// docker Asterisk published on `127.0.0.1:5060`.
 async fn client_against_asterisk() -> Result<
@@ -120,6 +144,40 @@ async fn register_against_asterisk() -> Result<(), Box<dyn std::error::Error>> {
         RegistrationState::Registered
     );
 
+    client.shutdown().await?;
+    Ok(())
+}
+
+/// Q17 (§62.38): the real pjsua-native path delivers a real SIP message to
+/// `subscribe_raw_sip()`. Asterisk's 401/200 responses to the client REGISTER
+/// carry `CSeq: N REGISTER` and are captured by the observation-only
+/// `pjsip_module` hook — TestBackend test-only hooks are never involved.
+#[tokio::test]
+// @verifies C145-post
+// @verifies C146-post
+// [::TICKET::] P19-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-1 --for-spec --no-implementation-order`.
+async fn raw_sip_rx_reaches_subscriber() -> Result<(), Box<dyn std::error::Error>> {
+    if !docker_available() {
+        return Ok(());
+    }
+    let (client, mut events) = client_against_asterisk().await?;
+    // Subscribe before registering so no raw message is missed.
+    let mut raw = client
+        .subscribe_raw_sip()
+        .ok_or_else(|| "raw sip enabled but no raw channel was created")?;
+    client
+        .add_account(registered_account("sip:1001@127.0.0.1:5060", "password")?)
+        .await?;
+    wait_for_event(&mut events, |p| {
+        matches!(
+            p,
+            SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+        )
+    })
+    .await;
+    let msg = wait_for_raw_sip(&mut raw, |m| m.text().contains("REGISTER")).await;
+    assert!(msg.text().contains("REGISTER"));
+    assert_eq!(msg.direction, SipMessageDirection::Response);
     client.shutdown().await?;
     Ok(())
 }
@@ -194,7 +252,9 @@ async fn incoming_call_via_originate() -> Result<(), Box<dyn std::error::Error>>
         return Ok(());
     }
     let (client, mut events) = client_against_asterisk().await?;
-    let account = client
+    // The account handle is not needed — registration is a side effect that
+    // registers sip:1002 with Asterisk before the inbound call is originated.
+    client
         .add_account(registered_account("sip:1002@127.0.0.1:5060", "password")?)
         .await?;
     wait_for_event(&mut events, |p| {

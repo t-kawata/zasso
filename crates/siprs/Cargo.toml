@@ -42,7 +42,8 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cpal-inpu
 [dependencies]
 # P0-4: tokio sync for EventBus broadcast channels (control/raw_sip)
 # [::TICKET::] P7-2: test-util enables tokio::time::pause()/advance() for the deterministic DtmfSent timeout test (O-002)
-tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "macros", "net", "test-util"] }
+# [::TICKET::] P19-1: process enables tokio::process::Command used by tests/sip_integration.rs::originate_call_to (P16-10), required by the pjsua-native test-integration gate.
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "macros", "net", "process", "test-util"] }
 thiserror = "2"
 # [::TICKET::] P1-2: tracing for #[tracing::instrument] on public operations
 tracing = "0.1"
