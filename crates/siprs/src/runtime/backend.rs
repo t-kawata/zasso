@@ -175,7 +175,7 @@ pub trait SipBackend: Send {
     fn resolve_conf_port(&self, native_call_id: i32) -> Result<i32, ReactorError>;
 
     /// Get account info for registration state retrieval.
-    // [::TICKET::] P3-2, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P17-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P17-8, P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P17-8|P19-3) --for-spec --no-implementation-order`.
     fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError>;
 
     /// Connect a call's media to the conference bridge.
@@ -192,7 +192,7 @@ pub trait SipBackend: Send {
     /// drives the tap with real data. `call_id` is the public `CallId` value
     /// (not the native id). Implementations must be non-blocking — this is
     /// invoked from the RT media callback context.
-    // [::TICKET::] P15-7, P15-9, P16-3, P16-5, P16-6, P16-7, PX-3, P17-4, P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P15-9|P16-3|P16-5|P16-6|P16-7|PX-3|P17-4|P17-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-7, P15-9, P16-3, P16-5, P16-6, P16-7, PX-3, P17-4, P17-5, P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P15-9|P16-3|P16-5|P16-6|P16-7|PX-3|P17-4|P17-5|P19-3) --for-spec --no-implementation-order`.
     fn push_media_frame(
         &mut self,
         call_id: u64,
@@ -203,11 +203,27 @@ pub trait SipBackend: Send {
     ///
     /// §62.16 (C109): the conf port callback (`pjsua_conf_set_callback` is
     /// unavailable in the vendored PJSIP, so the RustMediaPort is registered
-    /// via `pjsua_conf_add_port` under `pjsua-native`) routes captured media
-    /// into `push_media_frame`, which drives the subscribed taps. In the
-    /// default build (no native conf bridge) this is a documented no-op.
-    // [::TICKET::] P16-7, P17-4, P17-5, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-4|P17-5|P18-1) --for-spec --no-implementation-order`.
+    /// via `pjsua_conf_add_port` under `pjsua-native`) registers a
+    /// `RustMediaPort` per call; the conf bridge then drives its port ops,
+    /// which supply the subscribed taps via `on_conf_frame` →
+    /// `push_frame_to_tap` (§62.40 / N0109). In the default build (no native
+    /// conf bridge) this is a documented no-op.
+    // [::TICKET::] P16-7, P17-4, P17-5, P18-1, P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-4|P17-5|P18-1|P19-3) --for-spec --no-implementation-order`.
     fn register_conf_callback(&mut self) -> Result<(), ReactorError>;
+
+    /// Ensure a call's media port is registered in the conf bridge, if any.
+    ///
+    /// §62.40 / N0109 (P19-3): the real PJSIP conf bridge drives the
+    /// `RustMediaPort` port ops only when the port is registered
+    /// (`pjsua_conf_add_port`) and connected to the call's conf slot. The
+    /// reactor calls this when a call connects (after ensuring a mixer exists)
+    /// so a post-boot call's media reaches the tap registry. The default is a
+    /// no-op so backends without a native conf bridge (TestBackend, default
+    /// build) stay unchanged.
+    // [::TICKET::] P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-3 --for-spec --no-implementation-order`.
+    fn ensure_conf_port_for_call(&mut self, _call_id: u64) -> Result<(), ReactorError> {
+        Ok(())
+    }
 
     /// Collect native events the backend generated for the reactor to process.
     ///
@@ -735,6 +751,11 @@ pub struct PjsuaBackend {
     /// (PX-3 / C119-post) — the test observable for the per-call wiring.
     #[cfg(any(test, feature = "pjsua-native"))]
     conf_connect_pairs: Vec<(i32, i32)>,
+    /// Call ids whose `RustMediaPort` is already registered in the conf bridge
+    /// (P19-3 / §62.40). Makes per-call registration idempotent so a call's
+    /// port is added exactly once even when `connect_media_for_call` re-runs.
+    #[cfg(any(test, feature = "pjsua-native"))]
+    registered_port_ids: std::collections::HashSet<u64>,
     /// Native transport ids created from `ClientConfig.transports` (§62.11).
     ///
     /// Populated by `initialize` / `create_transport` and drained by `shutdown`
@@ -745,7 +766,7 @@ pub struct PjsuaBackend {
     transport_ids: Vec<bindings::pjsua_transport_id>,
 }
 
-// [::TICKET::] P3-2, P15-7, P16-2, PX-3, P17-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7|P16-2|PX-3|P17-8|P18-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-7, P16-2, PX-3, P17-8, P18-1, P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7|P16-2|PX-3|P17-8|P18-1|P19-3) --for-spec --no-implementation-order`.
 impl PjsuaBackend {
     pub fn new() -> Self {
         Self {
@@ -758,6 +779,8 @@ impl PjsuaBackend {
             connected_call_count: 0,
             #[cfg(any(test, feature = "pjsua-native"))]
             conf_connect_pairs: Vec::new(),
+            #[cfg(any(test, feature = "pjsua-native"))]
+            registered_port_ids: std::collections::HashSet::new(),
             #[cfg(feature = "pjsua-native")]
             transport_ids: Vec::new(),
         }
@@ -777,6 +800,7 @@ impl PjsuaBackend {
             registered_port_count: 0,
             connected_call_count: 0,
             conf_connect_pairs: Vec::new(),
+            registered_port_ids: std::collections::HashSet::new(),
             #[cfg(feature = "pjsua-native")]
             transport_ids: Vec::new(),
         }
@@ -798,6 +822,7 @@ impl PjsuaBackend {
             registered_port_count: 0,
             connected_call_count: 0,
             conf_connect_pairs: Vec::new(),
+            registered_port_ids: std::collections::HashSet::new(),
             #[cfg(feature = "pjsua-native")]
             transport_ids: Vec::new(),
         }
@@ -861,6 +886,7 @@ impl PjsuaBackend {
                 crate::ffi::backend_calls::conf_add_port(pool, adapter.port_mut(), &mut port_slot);
             map_pjsua_status(status, "conf_add_port")?;
             registered += 1;
+            self.registered_port_ids.insert(*call_id);
             let call_slot = crate::ffi::backend_calls::call_conf_port(*call_id as i32);
             if call_slot < 0 {
                 // A call whose media is not established yet has no conf slot;
@@ -891,7 +917,7 @@ impl Default for PjsuaBackend {
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 // [::TICKET::] P3-2, P10-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3) --for-spec --no-implementation-order`.
 // [::TICKET::] P3-2, P10-3, P11-11, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P10-3|P11-11|P15-7) --for-spec --no-implementation-order`.
-// [::TICKET::] P16-6, P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-6|P16-7|P17-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P16-6, P16-7, P17-8, P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-6|P16-7|P17-8|P19-3) --for-spec --no-implementation-order`.
 impl SipBackend for PjsuaBackend {
     // [::TICKET::] P3-2, P11-10, P11-11, P16-2, P16-3, P16-8, PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P11-10|P11-11|P16-2|P16-3|P16-8|PX-3) --for-spec --no-implementation-order`.
     fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
@@ -1311,6 +1337,55 @@ impl SipBackend for PjsuaBackend {
             Ok(())
         }
     }
+
+    // [::TICKET::] P19-3: §62.40 — per-call conf-bridge registration.
+    #[cfg(any(test, feature = "pjsua-native"))]
+    // [::TICKET::] P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-3 --for-spec --no-implementation-order`.
+    fn ensure_conf_port_for_call(&mut self, call_id: u64) -> Result<(), ReactorError> {
+        // Idempotent: a call whose port is already registered (at boot via
+        // register_conf_callback, or on an earlier connect) is a no-op.
+        if self.registered_port_ids.contains(&call_id) {
+            return Ok(());
+        }
+        // No mixer yet → nothing to wrap; the reactor creates the mixer on
+        // connect before calling this, so a missing mixer is a transient no-op.
+        let mixer = match self
+            .audio_mixers
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&call_id)
+        {
+            Some(mixer) => mixer.clone(),
+            None => return Ok(()),
+        };
+        // Mirror register_media_ports_for_calls: build the port, register it
+        // via pjsua_conf_add_port, resolve the call's conf slot, and connect.
+        let media_port = RustMediaPort::new(mixer, call_id, self.audio_taps.clone());
+        let mut adapter = MediaPortAdapter::new(media_port);
+        #[cfg(feature = "pjsua-native")]
+        let pool: *mut std::ffi::c_void = crate::ffi::backend_calls::create_conf_pool();
+        #[cfg(not(feature = "pjsua-native"))]
+        let pool: *mut std::ffi::c_void = std::ptr::null_mut();
+        let mut port_slot: bindings::pjsua_conf_port_id = -1;
+        let status =
+            crate::ffi::backend_calls::conf_add_port(pool, adapter.port_mut(), &mut port_slot);
+        map_pjsua_status(status, "conf_add_port")?;
+        let call_slot = crate::ffi::backend_calls::call_conf_port(call_id as i32);
+        if call_slot < 0 {
+            // A call whose media is not established yet has no conf slot; its
+            // port stays registered for when media becomes active.
+            tracing::warn!(call_id, "call conf slot not established; skipping connect");
+            self.registered_port_ids.insert(call_id);
+            return Ok(());
+        }
+        let status = crate::ffi::backend_calls::conf_connect(port_slot, call_slot);
+        map_pjsua_status(status, "conf_connect")?;
+        self.registered_port_count += 1;
+        self.connected_call_count += 1;
+        self.conf_connect_pairs.push((port_slot, call_slot));
+        self.registered_port_ids.insert(call_id);
+        Ok(())
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -1715,6 +1790,7 @@ mod tests {
     }
 
     #[test]
+    // @verifies C152-pre
     // [::TICKET::] P15-7: push_media_frame records (call_id, frame) on TestBackend.
     // [::TICKET::] P15-7, P16-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P16-3) --for-spec --no-implementation-order`.
     fn test_backend_push_media_frame_records_invocation() {
@@ -1994,6 +2070,88 @@ mod tests {
                 }
                 other => panic!("expected NativeError, got {other:?}"),
             }
+        });
+    }
+
+    // ── P19-3: per-call conf-bridge registration (ensure_conf_port_for_call) ─
+
+    #[test]
+    // @verifies C148-post
+    // [::TICKET::] P19-3: §62.40 — per-call registration registers the port and
+    // connects the call slot; a second ensure is an idempotent no-op.
+    // [::TICKET::] P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-3 --for-spec --no-implementation-order`.
+    fn ensure_conf_port_for_call_registers_and_connects_a_call() -> Result<(), ReactorError> {
+        bindings::stub_test_hooks::with_conf_add_port_status(bindings::PJ_SUCCESS, || {
+            let mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+                Arc::new(RwLock::new(HashMap::new()));
+            mixers
+                .write()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(1, Arc::new(AudioMixer::default()));
+            let taps: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+            let mut backend = PjsuaBackend::with_registries(taps, mixers);
+            backend.ensure_conf_port_for_call(1)?;
+            assert!(
+                backend.registered_port_ids.contains(&1),
+                "port registered for call 1"
+            );
+            assert_eq!(backend.conf_connect_pairs().len(), 1, "call slot connected");
+            // Idempotent: a second ensure must not add a duplicate port/connect.
+            backend.ensure_conf_port_for_call(1)?;
+            assert_eq!(
+                backend.conf_connect_pairs().len(),
+                1,
+                "no duplicate connect"
+            );
+            Ok(())
+        })
+    }
+
+    #[test]
+    // @verifies C148-post
+    // [::TICKET::] P19-3: §62.40 — a call with no mixer yet is a transient no-op
+    // (the reactor creates the mixer on connect before ensure runs).
+    // [::TICKET::] P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-3 --for-spec --no-implementation-order`.
+    fn ensure_conf_port_for_call_missing_mixer_is_noop() -> Result<(), ReactorError> {
+        let mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
+        let taps: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let mut backend = PjsuaBackend::with_registries(taps, mixers);
+        backend.ensure_conf_port_for_call(7)?;
+        assert!(
+            !backend.registered_port_ids.contains(&7),
+            "no mixer → nothing registered"
+        );
+        assert_eq!(backend.conf_connect_pairs().len(), 0);
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C148-post
+    // [::TICKET::] P19-3: §62.40 — a conf_add_port failure surfaces as a
+    // NativeError and leaves the call unregistered (no half-registered state).
+    // [::TICKET::] P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-3 --for-spec --no-implementation-order`.
+    fn ensure_conf_port_for_call_surfaces_conf_add_error() {
+        bindings::stub_test_hooks::with_conf_add_port_status(bindings::PJ_EUNKNOWN, || {
+            let mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+                Arc::new(RwLock::new(HashMap::new()));
+            mixers
+                .write()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(1, Arc::new(AudioMixer::default()));
+            let taps: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+            let mut backend = PjsuaBackend::with_registries(taps, mixers);
+            let err = backend.ensure_conf_port_for_call(1).unwrap_err();
+            match err {
+                ReactorError::NativeError { native_status, .. } => {
+                    assert_eq!(native_status, bindings::PJ_EUNKNOWN)
+                }
+                other => panic!("expected NativeError, got {other:?}"),
+            }
+            assert!(
+                !backend.registered_port_ids.contains(&1),
+                "failed conf_add_port must not mark the call registered"
+            );
         });
     }
 

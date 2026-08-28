@@ -10,8 +10,9 @@ use tokio::sync::Mutex;
 // (AudioTapRegistry / push_frame_to_tap) from its RT port ops.
 use crate::audio::pipeline::ProcessedFrame;
 use crate::model::CallId;
-use crate::runtime::backend::{push_frame_to_tap, AudioTapRegistry};
+use crate::runtime::backend::AudioTapRegistry;
 use crate::runtime::command::ReactorError;
+use crate::runtime::push_media_frame::on_conf_frame;
 
 // ---------------------------------------------------------------------------
 // AsyncAudioSource trait
@@ -175,7 +176,7 @@ pub struct AudioMixer {
 /// (async producer) and the PJSIP RT callback (consumer).
 pub const DEFAULT_QUEUE_CAPACITY: usize = 64;
 
-// [::TICKET::] P3-2, P8-1, P12-5, P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P8-1|P12-5|P15-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P8-1, P12-5, P15-7, P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P8-1|P12-5|P15-7|P19-3) --for-spec --no-implementation-order`.
 impl AudioMixer {
     /// Create a new empty `AudioMixer` with default queue capacity.
     pub fn new() -> Self {
@@ -213,7 +214,7 @@ impl AudioMixer {
         }
     }
 
-    /// Add a source to the received-audio (IN) path and return its `source_id`.
+    /// Adds a source to the received-audio (IN) path and returns its `source_id`.
     ///
     /// The source is stored with default gain (1.0) and unmuted state.
     /// `source_id` increments monotonically across both paths (single id space).
@@ -236,7 +237,7 @@ impl AudioMixer {
         id
     }
 
-    /// Add a source to the send-mix (OUT) path and return its `source_id`.
+    /// Adds a source to the send-mix (OUT) path and returns its `source_id`.
     ///
     /// The source is stored with default gain (1.0) and unmuted state.
     /// `source_id` increments monotonically across both paths (single id space).
@@ -376,7 +377,7 @@ pub struct RustMediaPort {
     tap_registry: AudioTapRegistry,
 }
 
-// [::TICKET::] P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P16-7, P17-8, P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-8|P19-3) --for-spec --no-implementation-order`.
 impl RustMediaPort {
     /// Create a port bound to the given per-call mixer and tap registry.
     pub fn new(mixer: Arc<AudioMixer>, call_id: u64, tap_registry: AudioTapRegistry) -> Self {
@@ -389,15 +390,16 @@ impl RustMediaPort {
 
     /// Feed one processed frame to the call's subscribed tap, if any.
     ///
-    /// Non-blocking by construction: [`push_frame_to_tap`] uses
-    /// `AudioTapSender::try_push` (Realtime, never blocks — §62.6). An invalid
-    /// `call_id` cannot normally occur (the port is built from a valid
-    /// `CallId`), but the RT callback must never panic, so a failed conversion
-    /// is a no-op.
-    // [::TICKET::] P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-8 --for-spec --no-implementation-order`.
+    /// Non-blocking by construction: [`on_conf_frame`] (the §62.40 / N0109
+    /// production wiring) converts the frame's PCM and delegates to the single
+    /// supply point [`push_frame_to_tap`], which uses `AudioTapSender::try_push`
+    /// (Realtime, never blocks — §62.6). An invalid `call_id` cannot normally
+    /// occur (the port is built from a valid `CallId`), but the RT callback must
+    /// never panic, so a failed conversion is a no-op.
+    // [::TICKET::] P17-8, P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P17-8|P19-3) --for-spec --no-implementation-order`.
     fn supply_frame_to_tap(&self, frame: &ProcessedFrame) {
         if let Ok(call_id) = CallId::from_u64(self.call_id) {
-            push_frame_to_tap(call_id, frame, &self.tap_registry);
+            on_conf_frame(call_id, &frame.stereo_interleaved, &self.tap_registry);
         }
     }
 
@@ -1631,7 +1633,7 @@ mod tests {
     // @verifies C036
     // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
     fn async_audio_source_trait_requires_send() {
-        // [::TICKET::] P0-6, P12-5, P12-7, P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7|P16-7|P17-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P0-6, P12-5, P12-7, P16-7, P17-8, P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-6|P12-5|P12-7|P16-7|P17-8|P19-3) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<MockAsyncAudioSource>();
     }
@@ -1738,6 +1740,7 @@ mod tests {
     /// C110-Post-1: get_frame pops out_queue and copies the PCM frame (LE i16).
     #[test]
     // @verifies C110
+    // @verifies C151-post
     // [::TICKET::] P16-7, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-8) --for-spec --no-implementation-order`.
     fn rust_media_port_get_frame_pops_out_queue() {
         let mixer = Arc::new(AudioMixer::new());
@@ -1817,6 +1820,8 @@ mod tests {
 
     #[tokio::test]
     // @verifies C132
+    // @verifies C148-pre
+    // @verifies C151-pre
     // [::TICKET::] P17-8: C132-post — get_frame supplies the subscribed tap
     // with the conf-bridge OUT frame (never blocks).
     async fn rust_media_port_get_frame_drives_tap_registry(
@@ -1845,6 +1850,7 @@ mod tests {
 
     #[tokio::test]
     // @verifies C132
+    // @verifies C151-post
     // [::TICKET::] P17-8: C132-post — put_frame supplies the subscribed tap
     // with the conf-bridge IN frame (never blocks).
     async fn rust_media_port_put_frame_drives_tap_registry(

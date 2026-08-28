@@ -36,6 +36,8 @@ pub mod command;
 pub mod event_path_wiring;
 // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
 pub mod handle;
+// [::TICKET::] P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-3 --for-spec --no-implementation-order`.
+pub mod push_media_frame;
 pub mod reactor;
 pub mod state;
 

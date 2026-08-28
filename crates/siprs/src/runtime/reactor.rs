@@ -111,7 +111,7 @@ type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7, PX-3, P17-4, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7|PX-3|P17-4|P17-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7, PX-3, P17-4, P17-6, P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7|PX-3|P17-4|P17-6|P19-3) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -477,6 +477,12 @@ impl CoreReactor {
                                     );
                                     match result {
                                         Ok(Ok(entry_id)) => {
+                                            // §62.40 / N0109 (P19-3): ensure a mixer
+                                            // exists for the new call so the backend can
+                                            // register its RustMediaPort in the conf bridge
+                                            // when the call connects (connect_media_for_call
+                                            // → ensure_conf_port_for_call).
+                                            get_or_create_mixer(&audio_mixers, &source_id_counter, entry_id);
                                             let _ = reply.send(Ok(entry_id));
                                         }
                                         Ok(Err(e)) => {
@@ -504,6 +510,10 @@ impl CoreReactor {
                                     // CallEntry.state, and publish CallConnected /
                                     // decline events (§19.1). The reply is sent exactly
                                     // once on every outcome.
+                                    // §62.40 / N0109 (P19-3): ensure a mixer exists so
+                                    // the answered call's RustMediaPort can be registered
+                                    // in the conf bridge (via connect_media_for_call).
+                                    get_or_create_mixer(&audio_mixers, &source_id_counter, call_id);
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
                                         call_directions: &mut call_directions,
@@ -1264,13 +1274,17 @@ pub(crate) fn handle_make_call(
 ///
 /// The crate's conf_connect convention is `(call_id, call_id)` — the logical
 /// call id doubles as the conf port id (the contract P8-1 established on
-/// TestBackend). Callers decide how to surface a failure: `handle_answer` and
-/// the native-event path log it (media-connect problems never block event
-/// delivery), while tests can assert the returned error.
+/// TestBackend). Under `pjsua-native` this first ensures the call's
+/// `RustMediaPort` is registered in the conf bridge (§62.40 / N0109, P19-3) so
+/// the conf bridge actually drives the port ops that supply the tap registry.
+/// Callers decide how to surface a failure: `handle_answer` and the native-event
+/// path log it (media-connect problems never block event delivery), while tests
+/// can assert the returned error.
 pub(crate) fn connect_media_for_call(
     backend: &mut dyn SipBackend,
     call_id: u64,
 ) -> Result<(), ReactorError> {
+    backend.ensure_conf_port_for_call(call_id)?;
     backend.conf_connect(call_id as i32, call_id as i32)
 }
 

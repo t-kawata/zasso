@@ -10,11 +10,10 @@
 //! `make test-integration` brings the Asterisk/coturn services up, runs this
 //! binary with `--features pjsua-native`, and tears them down (Q9b).
 
-use siprs::model::CallId;
-use siprs::model::SipMessageDirection;
+use siprs::model::{AudioFormat, BitDepth, CallId, ChannelLayout, SampleRate, SipMessageDirection};
 use siprs::tests::docker_asterisk_it::docker_available;
 use siprs::{
-    AccountConfig, CallMediaPreferences, ClientConfig, HangupReason, IceConfig,
+    AccountConfig, AudioTapMode, CallMediaPreferences, ClientConfig, HangupReason, IceConfig,
     OutgoingCallRequest, RegistrationState, SecretString, SipClient, SipEventPayload,
     StunServerConfig, TransportConfig, TurnServerConfig, TurnTransport,
 };
@@ -91,7 +90,9 @@ async fn wait_for_raw_sip(
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
         let received = tokio::time::timeout(remaining, raw.recv())
             .await
-            .unwrap_or_else(|_| panic!("timed out waiting for raw sip message after {EVENT_TIMEOUT:?}"));
+            .unwrap_or_else(|_| {
+                panic!("timed out waiting for raw sip message after {EVENT_TIMEOUT:?}")
+            });
         match received {
             Ok(msg) if predicate(&msg) => return msg,
             Ok(_) => continue,
@@ -363,6 +364,89 @@ async fn coturn_stun_turn_ice() -> Result<(), Box<dyn std::error::Error>> {
     })
     .await;
     assert!(matches!(media, SipEventPayload::MediaActive(_)));
+
+    client.shutdown().await?;
+    Ok(())
+}
+
+/// H13 (§62.40 / N0109): the real PJSIP conf bridge drives the RustMediaPort
+/// port ops, which supply `subscribe_audio`'s tap through `push_frame_to_tap`.
+/// `AudioTapHandle::recv()` must yield a real `AudioChunkPair` carrying the
+/// call's id within `EVENT_TIMEOUT` — proving the production path is not a
+/// TestBackend-only fiction (TestBackend's tap stays silent by design, Q17).
+#[tokio::test]
+// @verifies C148-post
+// @verifies C150-pre
+// @verifies C150-post
+// @verifies C150-inv
+// @verifies C152-post
+// @verifies C152-inv
+async fn conf_bridge_drives_audio_tap() -> Result<(), Box<dyn std::error::Error>> {
+    // [::TICKET::] P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-3 --for-spec --no-implementation-order`.
+    if !docker_available() {
+        return Ok(());
+    }
+    let (client, mut events) = client_against_asterisk().await?;
+    let account = client
+        .add_account(registered_account("sip:1001@127.0.0.1:5060", "password")?)
+        .await?;
+    wait_for_event(&mut events, |p| {
+        matches!(
+            p,
+            SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+        )
+    })
+    .await;
+
+    let raw_call_id = account
+        .make_call(OutgoingCallRequest {
+            target_uri: "sip:1001@127.0.0.1:5060".into(),
+            headers: Vec::new(),
+            auth_override: None,
+            preferred_transport: None,
+            media: CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        })
+        .await?;
+    let call_id = CallId::from_u64(raw_call_id)?;
+
+    // Subscribe before media flows so no conf-bridge frame is missed.
+    let mut tap = client
+        .subscribe_audio(
+            call_id,
+            AudioFormat::new(
+                SampleRate::Hz8000,
+                BitDepth::I16,
+                ChannelLayout::StereoInOut,
+                20,
+            )?,
+            16,
+            AudioTapMode::Realtime,
+        )
+        .await?;
+
+    let media = wait_for_event(&mut events, |p| {
+        matches!(p, SipEventPayload::MediaActive(_))
+    })
+    .await;
+    assert!(
+        matches!(media, SipEventPayload::MediaActive(_)),
+        "media must flow through the conf bridge for the tap to be driven"
+    );
+
+    // The conf bridge drives the port ops → tap: recv() must yield a real pair
+    // (get_frame supplies the tap even on underrun — never a permanent wait).
+    let pair = tokio::time::timeout(EVENT_TIMEOUT, tap.recv())
+        .await
+        .map_err(|_| "timed out waiting for audio chunk from the conf bridge")?
+        .ok_or_else(|| "tap closed before delivering an audio chunk")?;
+    assert_eq!(pair.call_id, call_id);
+
+    client.hangup(call_id, HangupReason::LocalUser).await?;
+    wait_for_event(&mut events, |p| {
+        matches!(p, SipEventPayload::CallDisconnected)
+    })
+    .await;
 
     client.shutdown().await?;
     Ok(())
