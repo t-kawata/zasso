@@ -24,6 +24,7 @@ pub const BINDINGS_OUTPUT: &str = "bindings.rs";
 /// struct/typedefs those aliases depend on (`pj_str_t`, `pjsua_call_info`).
 // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
 pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
@@ -44,6 +45,10 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     "pjsua_cred_info",
     "pjsua_acc_info",
     "pjsua_transport_config",
+    // P19-5 §62.42: transport-id resolution in `on_transport_state` enumerates
+    // the live pjsua transports and matches each one's `local_name` against the
+    // `pjsip_transport` instance (§62.23 P2 callback).
+    "pjsua_transport_info",
     // P16-2: the transport kind enum — `pjsua_transport_create` takes it as the
     // first argument and the `PJSIP_TRANSPORT_*` values are allowlisted below.
     "pjsip_transport_type_e",
@@ -122,6 +127,7 @@ pub const BINDGEN_ENUM_TYPES: &[&str] = &[
 /// `pjsua_call_get_info` anchors the call-info surface; P11-10 adds the
 /// PjsuaBackend FFI symbols it drives.
 pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
@@ -135,6 +141,11 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
     // P16-2: transport teardown — pjsua_transport_close destroys a transport at
     // shutdown (§32 step 5).
     "pjsua_transport_close",
+    // P19-5 §62.42: enumerate transports and read each one's info so
+    // `resolve_transport_id` can match the `pjsip_transport` instance to a real
+    // pjsua_transport_id (§62.23 P2 callback).
+    "pjsua_enum_transports",
+    "pjsua_transport_get_info",
     "pjsua_acc_add",
     "pjsua_acc_del",
     "pjsua_acc_modify",

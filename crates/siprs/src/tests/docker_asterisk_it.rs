@@ -103,7 +103,7 @@ pub struct DockerItPolicy {
     pub ci_requires_docker: bool,
 }
 
-// [::TICKET::] P16-10, P19-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-10|P19-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P16-10, P19-1, P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-10|P19-1|P19-5) --for-spec --no-implementation-order`.
 impl DockerItPolicy {
     /// The §62.19 policy instance.
     pub const fn policy() -> Self {
@@ -140,6 +140,21 @@ impl DockerItPolicy {
                     name: "raw_sip_rx_reaches_subscriber",
                     direction: IntegrationDirection::Outbound,
                     description: "Asterisk REGISTER response reaches subscribe_raw_sip() via the real PJSIP hook (§62.38 Q17)",
+                },
+                IntegrationTestEntry {
+                    name: "dtmf_sip_info",
+                    direction: IntegrationDirection::Outbound,
+                    description: "SIP INFO DTMF (DtmfMethod::Info) sent to Asterisk echo reaches DtmfSent (§62.42 Q21)",
+                },
+                IntegrationTestEntry {
+                    name: "dtmf_rfc4733",
+                    direction: IntegrationDirection::Outbound,
+                    description: "RFC 4733 DTMF (DtmfMethod::Rfc4733) sent to Asterisk echo reaches DtmfSent (§62.42 Q21)",
+                },
+                IntegrationTestEntry {
+                    name: "register_invite_bye_rtp_flow",
+                    direction: IntegrationDirection::Outbound,
+                    description: "2-endpoint RTP media exchange between alice and bob (§62.42 Q21)",
                 },
             ],
             ci_requires_docker: true,
@@ -202,7 +217,7 @@ mod tests {
     /// C116-Post: DockerItPolicy encodes the five Q9 decisions.
     // @verifies C116-post
     #[test]
-// [::TICKET::] P16-10, P19-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-10|P19-1) --for-spec --no-implementation-order`.
+// [::TICKET::] P16-10, P19-1, P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-10|P19-1|P19-5) --for-spec --no-implementation-order`.
     fn c116_post_policy_encodes_q9_decisions() {
         let policy = DockerItPolicy::policy();
         assert_eq!(policy.test_file, "tests/sip_integration.rs");
@@ -211,7 +226,9 @@ mod tests {
         assert_eq!(policy.services, &["asterisk", "coturn"]);
         assert_eq!(policy.feature_gate, "pjsua-native");
         assert_eq!(policy.skip_message, "[SKIPPED: docker unavailable]");
-        assert_eq!(policy.integration_tests.len(), 5);
+        // §62.42 (P19-5) grows the §62.19 matrix from 5 to 8: the protocol-level
+        // DTMF pair (SIP INFO / RFC 4733) and the 2-endpoint RTP flow.
+        assert_eq!(policy.integration_tests.len(), 8);
     }
 
     /// C116-Inv: the base is consistent with §43 (Layer 3) and §44 (docker job).

@@ -1810,7 +1810,23 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('total:', d['total'], 'ok:', d['ok']\\); [print\\(f['file'].split\\('/'\\)[-1]+':'+str\\(f['line']\\), f['pattern'], '|', f['content'][:100]\\) for f in d['findings']]\")",
       "Bash(node .claude/scripts/tickets/scan-incomplete-implementations.js --dir=tests --mode=stubs)",
       "Bash(git commit -m 'chore: normalize formatting and provenance comments after P19 work *)",
-      "Bash(git commit -m 'chore: add dev-tooling Bash permission allowlist entries *)"
+      "Bash(git commit -m 'chore: add dev-tooling Bash permission allowlist entries *)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5)",
+      "Bash(node \".claude/scripts/tickets/insert-field-template.js\" \"Tickets.json\" \"P19-5\")",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0111 --hops=2)",
+      "Bash(node .claude/scripts/rfc-graph/query.js --graph=\"RFC-ROOT-GRAPH.json\" --source=\"RFC-ROOT.md\" --dirs-tree=\"RFC-ROOT-Dirs-Tree.json\" --id=N0088 --hops=2)",
+      "Bash(mkdir -p /tmp/p19-5)",
+      "Bash(node \".claude/scripts/tickets/update-ticket.js\" \"Tickets.json\" \"P19-5\")",
+      "Bash(node \".claude/scripts/tickets/list-remaining-stubs.js\" \"Tickets.json\" \"P19-5\")",
+      "Bash(node .claude/scripts/tickets/verify-make-contracts.js --ticket-key=\"P19-5\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"P19-5\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/validate-ticket-targets.js --ticket-key=\"P19-5\" --tickets=\"Tickets.json\")",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=\"P19-5\" --for-spec)",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P19-5\" --phase=plan)",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P19-5\" --for-spec --plan)",
+      "Bash(node .claude/scripts/tickets/verify-plan-contracts.js --ticket-key=\"P19-5\" --tickets=\"Tickets.json\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const r=JSON.parse\\(d.split\\('\\\\n'\\).filter\\(l=>l.trim\\(\\).startsWith\\('{'\\)\\)[0]||'{}'\\);console.log\\('status:', r.success ? 'planned' : 'FAILED'\\)}\\)\")",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P19-5\" --phase=start)"
     ]
   }
 }

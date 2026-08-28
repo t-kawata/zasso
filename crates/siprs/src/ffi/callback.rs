@@ -15,6 +15,8 @@
 //
 
 use crate::ffi::bindings;
+#[cfg(feature = "pjsua-native")]
+use crate::ffi::constants::PJ_SUCCESS;
 use crate::ffi::ice_transport_error::on_ice_transport_error;
 use crate::state::m20_native_event_conv::NativeEvent;
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
@@ -460,17 +462,101 @@ pub unsafe extern "C" fn on_transport_state(
 
 /// Resolve the pjsua transport id for `on_transport_state`.
 ///
-/// The vendored `pjsip_transport` has no `id` field, so the native path falls
-/// back to 0 until transport-id matching lands with the real-PJSIP integration
-/// (P19-5); the stub mirror exposes `id` directly.
+/// The vendored `pjsip_transport` has no `id` field, so the id is recovered by
+/// enumerating the live pjsua transports and matching each one's local host:port
+/// against the transport instance's own local host:port (§62.42 / P19-5). The
+/// stub mirror exposes `id` directly.
 #[cfg(feature = "pjsua-native")]
-// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P18-1, P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P18-1|P19-5) --for-spec --no-implementation-order`.
 fn resolve_transport_id(tp: *mut bindings::pjsip_transport) -> u32 {
-    // [::STUB::] P19-5: match `tp` to a pjsua_transport_id via
-    // pjsua_enum_transports/pjsua_transport_get_info — the vendored
-    // pjsip_transport has no id field, so the id is deferred.
-    let _ = tp;
-    0
+    if tp.is_null() {
+        return 0;
+    }
+    // SAFETY: `tp` is the live pjsip_transport supplied by the on_transport_state
+    // callback; reading its local_name fields is valid for the callback duration.
+    let target = unsafe { host_port_of(&(*tp).local_name) };
+    let transports = enumerate_pjsua_transports();
+    let transport_refs: Vec<(u32, &str)> = transports
+        .iter()
+        .map(|(id, name)| (*id, name.as_str()))
+        .collect();
+    match_transport_id(&transport_refs, &target)
+}
+
+/// Pure predicate: find the transport id whose `host:port` equals `target`.
+///
+/// Returns `0` (the pre-resolution fallback) when no transport matches — a
+/// missing match keeps the callback's default rather than failing it.
+#[cfg(any(test, feature = "pjsua-native"))]
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+fn match_transport_id(transports: &[(u32, &str)], target: &str) -> u32 {
+    transports
+        .iter()
+        .find(|(_, name)| *name == target)
+        .map(|(id, _)| *id)
+        .unwrap_or(0)
+}
+
+/// Format a `pjsip_host_port` as `host:port`.
+///
+/// Both the `pjsip_transport` and the `pjsua_transport_info` carry their local
+/// address as a `pjsip_host_port`, so the same formatter yields comparable
+/// strings on both sides of the transport-id match.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+unsafe fn host_port_of(name: &bindings::pjsip_host_port) -> String {
+    let host = read_pj_str(&name.host);
+    format!("{host}:{}", name.port)
+}
+
+/// Read a PJSIP-owned `pj_str_t` into a Rust `String`.
+///
+/// `pj_str_t` is not NUL-terminated; `slen` governs the byte length. The bytes
+/// are owned by PJSIP's pool and are valid for the callback duration.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+unsafe fn read_pj_str(text: &bindings::pj_str_t) -> String {
+    let len = text.slen.max(0) as usize;
+    if len == 0 || text.ptr.is_null() {
+        return String::new();
+    }
+    let bytes = std::slice::from_raw_parts(text.ptr.cast::<u8>(), len);
+    String::from_utf8_lossy(bytes).into_owned()
+}
+
+/// Enumerate the live pjsua transports as `(id, host:port)` pairs.
+///
+/// A transport whose info cannot be read is skipped; an empty list is the
+/// signal for `match_transport_id` to fall back to id 0.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+fn enumerate_pjsua_transports() -> Vec<(u32, String)> {
+    const MAX_TRANSPORTS: usize = 16;
+    let mut ids = [0 as bindings::pjsua_transport_id; MAX_TRANSPORTS];
+    let mut count: std::os::raw::c_uint = 0;
+    // SAFETY: `ids` is a writable 16-element array and `count` a writable
+    // scalar; pjsua_enum_transports fills them with at most MAX_TRANSPORTS ids.
+    let status = unsafe { bindings::pjsua_enum_transports(ids.as_mut_ptr(), &mut count) };
+    if status != PJ_SUCCESS {
+        return Vec::new();
+    }
+    (0..count as usize)
+        .filter_map(|index| {
+            // SAFETY: `info` is a writable, zero-initialized pjsua_transport_info
+            // that pjsua_transport_get_info fills in on success.
+            let mut info: bindings::pjsua_transport_info = unsafe { std::mem::zeroed() };
+            // SAFETY: `ids[index]` is a valid transport id returned by
+            // pjsua_enum_transports and `info` is a writable transport-info slot.
+            let ok = unsafe { bindings::pjsua_transport_get_info(ids[index], &mut info) };
+            if ok != PJ_SUCCESS {
+                return None;
+            }
+            // SAFETY: `info` is a live, initialized pjsua_transport_info whose
+            // local_name is valid for the callback duration.
+            let name = unsafe { host_port_of(&info.local_name) };
+            Some((ids[index] as u32, name))
+        })
+        .collect()
 }
 
 #[cfg(not(feature = "pjsua-native"))]
@@ -918,6 +1004,32 @@ mod tests {
                 state: bindings::pjsip_transport_state::DISCONNECTED,
             })
         );
+    }
+
+    // ── P19-5 §62.42: transport-id matching predicate (TS-001) ─────────
+
+    /// @verifies C150
+    #[test]
+    // [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+    fn match_transport_id_returns_matching_id() {
+        let transports = [(1, "127.0.0.1:5060"), (2, "127.0.0.1:5061")];
+        assert_eq!(match_transport_id(&transports, "127.0.0.1:5061"), 2);
+        assert_eq!(match_transport_id(&transports, "127.0.0.1:5060"), 1);
+    }
+
+    /// @verifies C150
+    #[test]
+    // [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+    fn match_transport_id_empty_list_falls_back_to_zero() {
+        assert_eq!(match_transport_id(&[], "127.0.0.1:5060"), 0);
+    }
+
+    /// @verifies C150
+    #[test]
+    // [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+    fn match_transport_id_no_match_falls_back_to_zero() {
+        let transports = [(3, "127.0.0.1:5060")];
+        assert_eq!(match_transport_id(&transports, "127.0.0.1:9999"), 0);
     }
 
     /// @verifies C124
