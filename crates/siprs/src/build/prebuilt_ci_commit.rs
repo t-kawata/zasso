@@ -22,4 +22,4 @@ fn main() {
 }
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0106: Prebuilt CI and commit
+// TODO: [::STUB::] P18-2: implement NODE_ID=N0106 prebuilt CI commit (§62.37)

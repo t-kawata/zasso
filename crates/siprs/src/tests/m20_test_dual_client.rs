@@ -72,7 +72,8 @@ impl M20FeatureTestEntry {
                 feature_name: "CallMediaStateChanged",
                 layer: M20TestLayer::Layer2,
                 // P17-6 §62.26: media status tracking adds the hold→ACTIVE → CallResumed transition.
-                validation_description: "media_status maps to MediaActive/Held/Error + hold→ACTIVE → CallResumed",
+                validation_description:
+                    "media_status maps to MediaActive/Held/Error + hold→ACTIVE → CallResumed",
                 notes: "Layer 3 verifies real hold/resume via re-INVITE",
             },
             Self {

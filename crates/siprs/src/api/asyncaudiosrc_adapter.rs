@@ -904,7 +904,7 @@ mod tests {
     // [::TICKET::] P8-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P8-7 --for-spec --no-implementation-order`.
     fn microphone_source_is_send() {
         // C051-Inv: the source can live in AudioMixer's DashMap as Box<dyn AsyncAudioSource + Send>.
-// [::TICKET::] P8-7, P13-1, P14-2, P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-7|P13-1|P14-2|P17-9) --for-spec --no-implementation-order`.
+        // [::TICKET::] P8-7, P13-1, P14-2, P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P8-7|P13-1|P14-2|P17-9) --for-spec --no-implementation-order`.
         fn assert_send<T: Send>() {}
         assert_send::<CpalMicrophoneSource>();
         assert_send::<Box<dyn AsyncAudioSource>>();
@@ -1140,7 +1140,7 @@ mod tests {
 
     /// @verifies C135
     #[test]
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
     fn microphone_source_doc_distinguishes_from_call_mic() {
         // C135 invariant: open_default_microphone_source is an independent
         // capture source, distinct from the call microphone. The doc comment

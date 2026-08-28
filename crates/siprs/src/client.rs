@@ -13,7 +13,9 @@ use crate::api::audio_subscribe_bp::{
     tap_channel, validate_tap_capacity, AudioTapHandle, AudioTapMode, AudioTapSender,
 };
 use crate::api::event_bus_unify::raw_sip_capacity_for;
-use crate::api::event_model_payload_bus::{AccountId, EventMeta, RawSipMessage, SipEvent, SipEventPayload};
+use crate::api::event_model_payload_bus::{
+    AccountId, EventMeta, RawSipMessage, SipEvent, SipEventPayload,
+};
 use crate::api::eventbus_receiver::{AccountEventReceiver, EventBus, Subscription};
 use crate::audio::media_path_arch::ChannelSelector;
 use crate::call::HangupReason;
@@ -1032,7 +1034,7 @@ mod tests {
             _: &Result<Vec<crate::api::event_model_payload_bus::AccountSnapshot>, SipError>,
         ) {
         }
-// [::TICKET::] P11-15, P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-15|P17-9) --for-spec --no-implementation-order`.
+        // [::TICKET::] P11-15, P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-15|P17-9) --for-spec --no-implementation-order`.
         fn assert_add_account_result(_: &Result<crate::account::SipAccountHandle, SipError>) {}
         // [::TICKET::] P11-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-15 --for-spec --no-implementation-order`.
         fn assert_remove_account_result(_: &Result<(), SipError>) {}
@@ -1691,7 +1693,7 @@ mod tests {
 
     /// @verifies C135
     #[test]
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
     fn call_api_surface_compiles() {
         // C135 precondition — the §62.5 call API surface exists on SipClient.
         // Taking each async method as a value is a compile-time existence
@@ -1709,7 +1711,7 @@ mod tests {
 
     /// @verifies C135
     #[test]
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
     fn readme_documents_mic_source_and_unsubscribe() {
         // C135 postcondition — the README documents the explicit unsubscribe
         // API and states that open_default_microphone_source is an independent

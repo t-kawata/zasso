@@ -12,6 +12,13 @@
 /// of the crate to compile without a system PJSIP installation.
 pub mod bindings;
 
+/// Crate-internal PJSIP sentinel constants independent of bindgen output.
+///
+/// PJSIP 2.17.0 omits symbols such as `PJSUA_CALL_NULL`; they live here so
+/// both the stub build and the native build compile (P18-1 / N0101).
+pub mod constants;
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+
 /// Safe wrapper for `pj_str_t` with Rust-owned `Vec<u8>` backing.
 ///
 /// Ensures that C strings passed to PJSUA are valid for the duration

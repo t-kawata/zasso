@@ -28,4 +28,4 @@ mod tests {
 }
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0107: Raw SIP real test
+// TODO: [::STUB::] P19-1: implement NODE_ID=N0107 raw SIP real-PJSIP verification path (§62.38)

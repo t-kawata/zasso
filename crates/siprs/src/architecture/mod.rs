@@ -42,3 +42,7 @@ pub mod io_boundary_round3;
 // [::TICKET::] P17-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-10 --for-spec --no-implementation-order`.
 // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
 pub mod round3_scope_rootcause;
+// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+pub mod round4_scope_rootcause;
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.

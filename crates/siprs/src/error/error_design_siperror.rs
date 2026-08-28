@@ -26,9 +26,11 @@
 use crate::model::{AccountId, CallId};
 use crate::runtime::command::ReactorError;
 
-// PJSUA status constants come from the single FFI source of truth (ffi::bindings —
-// bindgen under pjsua-native, stub aliases otherwise). No local duplicates.
-use crate::ffi::bindings::{PJ_EBUSY, PJ_EINVALIDOP, PJ_ENOMEM, PJ_SUCCESS};
+// PJSUA status constants come from crate::ffi::constants — the crate-internal
+// source of truth for pj_status_t codes that bindgen cannot emit as free vars
+// (P18-1 §62.32). No local duplicates.
+use crate::ffi::constants::{PJ_EBUSY, PJ_EINVALIDOP, PJ_ENOMEM, PJ_SUCCESS};
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
 
 // ---------------------------------------------------------------------------
 // SipErrorKind — 24 semantically-named error variants

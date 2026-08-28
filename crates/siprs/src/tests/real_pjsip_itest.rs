@@ -28,4 +28,4 @@ mod tests {
 }
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0111: Real PJSIP integration test
+// TODO: [::STUB::] P19-5: implement NODE_ID=N0111 real-PJSIP protocol + RTP integration test (§62.42)

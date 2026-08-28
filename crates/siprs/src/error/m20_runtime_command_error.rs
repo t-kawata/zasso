@@ -28,9 +28,10 @@ use crate::model::AccountId;
 use crate::runtime::state::AccountEntry;
 use crate::state::registr_state_machine::RegistrationState;
 
-// PJSUA status constants come from the single FFI source of truth (ffi::bindings),
+// PJSUA status constants come from crate::ffi::constants (P18-1 §62.32),
 // shared with error_design_siperror. No local duplicates.
-use crate::ffi::bindings::{PJ_EINVALIDOP, PJ_SUCCESS};
+use crate::ffi::constants::{PJ_EINVALIDOP, PJ_SUCCESS};
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
 
 // ---------------------------------------------------------------------------
 // M20 RuntimeCommand error converters

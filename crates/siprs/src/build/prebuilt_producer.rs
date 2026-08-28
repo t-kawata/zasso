@@ -22,4 +22,4 @@ fn main() {
 }
 
 
-// TODO: [::STUB::] MUST implement NODE_ID=N0105: Prebuilt
+// TODO: [::STUB::] P18-2: implement NODE_ID=N0105 prebuilt producer tool (§62.36)

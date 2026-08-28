@@ -2448,7 +2448,7 @@ mod tests {
     /// @verifies C070, C046
     #[test]
     // [::TICKET::] P12-8: a MakeCall command records the outgoing direction by origin
-// [::TICKET::] P12-8, P15-3, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P15-3|P16-3|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-8, P15-3, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P15-3|P16-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_records_outgoing_direction() {
         let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
@@ -2952,7 +2952,7 @@ mod tests {
     // @verifies C070, C046
     // [::TICKET::] P12-1: handle_make_call delegates to the backend, registers the
     // returned CallEntry in the authoritative ClientState, and returns the CallId.
-// [::TICKET::] P12-1, P12-8, P15-3, P16-3, P16-5, PX-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P16-3|P16-5|PX-3|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-1, P12-8, P15-3, P16-3, P16-5, PX-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P16-3|P16-5|PX-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_registers_entry_and_returns_id() {
         let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
@@ -2977,7 +2977,7 @@ mod tests {
     // @verifies C070
     // [::TICKET::] P12-1: a failing backend.make_call must propagate Err and
     // register no CallEntry — never a fabricated id.
-// [::TICKET::] P12-1, P12-8, P15-3, P15-9, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P15-9|P16-3|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-1, P12-8, P15-3, P15-9, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P15-9|P16-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_error_registers_nothing() {
         let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));
@@ -3002,7 +3002,7 @@ mod tests {
     // @verifies C089, C090
     // [::TICKET::] P15-9: a failing backend.make_call carrying a NativeError must
     // propagate through the reactor handler while preserving native_status.
-// [::TICKET::] P15-9, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-9|P16-3|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-9, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-9|P16-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_native_error_preserves_status() {
         let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::NativeError {

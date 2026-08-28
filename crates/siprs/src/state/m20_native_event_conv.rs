@@ -185,20 +185,26 @@ pub fn convert_native_event_to_payload(
             state,
         } => {
             let (transport_type, local_addr) = resolve_transport_context(transport_id);
+            // P18-1 (§62.33): guard patterns keep the mapping total in both the
+            // stub (u32 consts) and native (Rust enum) pjsip_transport_state.
             match state {
-                pjsip_transport_state::CONNECTED => Some(SipEventPayload::TransportConnected(
-                    TransportConnectedInfo {
+                x if x == pjsip_transport_state::PJSIP_TP_STATE_CONNECTED as u32 => Some(
+                    SipEventPayload::TransportConnected(TransportConnectedInfo {
                         transport_type,
                         local_addr,
                         remote_addr: None,
-                    },
-                )),
-                pjsip_transport_state::DISCONNECTED | pjsip_transport_state::SHUTDOWN => Some(
-                    SipEventPayload::TransportDisconnected(TransportDisconnectedInfo {
-                        transport_type,
-                        local_addr,
                     }),
                 ),
+                x if x == pjsip_transport_state::PJSIP_TP_STATE_DISCONNECTED as u32
+                    || x == pjsip_transport_state::PJSIP_TP_STATE_SHUTDOWN as u32 =>
+                {
+                    Some(SipEventPayload::TransportDisconnected(
+                        TransportDisconnectedInfo {
+                            transport_type,
+                            local_addr,
+                        },
+                    ))
+                }
                 other_state => Some(SipEventPayload::TransportError(TransportErrorInfo {
                     transport_type,
                     local_addr,
@@ -518,12 +524,12 @@ mod tests {
     /// @verifies C022
     #[test]
     // [::TICKET::] P16-4: P1 — TransportStateChanged CONNECTED → TransportConnected.
-    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-4, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P18-1) --for-spec --no-implementation-order`.
     fn native_event_transport_state_changed_connected() {
         let result = convert_native_event_to_payload(
             NativeEvent::TransportStateChanged {
                 transport_id: 1,
-                state: pjsip_transport_state::CONNECTED,
+                state: pjsip_transport_state::PJSIP_TP_STATE_CONNECTED,
             },
             None,
         );
@@ -536,12 +542,12 @@ mod tests {
     /// @verifies C022
     #[test]
     // [::TICKET::] P16-4: P1 — TransportStateChanged DISCONNECTED → TransportDisconnected.
-    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-4, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P18-1) --for-spec --no-implementation-order`.
     fn native_event_transport_state_changed_disconnected() {
         let result = convert_native_event_to_payload(
             NativeEvent::TransportStateChanged {
                 transport_id: 1,
-                state: pjsip_transport_state::DISCONNECTED,
+                state: pjsip_transport_state::PJSIP_TP_STATE_DISCONNECTED,
             },
             None,
         );
@@ -554,12 +560,12 @@ mod tests {
     /// @verifies C022
     #[test]
     // [::TICKET::] P16-4: P1 — any non-terminal state maps to TransportError (Some).
-    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-4, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P18-1) --for-spec --no-implementation-order`.
     fn native_event_transport_state_changed_error_for_other_states() {
         let result = convert_native_event_to_payload(
             NativeEvent::TransportStateChanged {
                 transport_id: 1,
-                state: pjsip_transport_state::IDLE,
+                state: pjsip_transport_state::PJSIP_TP_STATE_DESTROY,
             },
             None,
         );

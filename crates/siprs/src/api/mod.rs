@@ -48,10 +48,19 @@ pub mod call_api_expansion;
 
 // Re-export public types at the api level
 pub use event_model_payload_bus::{
-// [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
-    CallResumedInfo, ConnectedCallInfo, DtmfReceivedInfo, EventDirection, EventMeta,
-    EventTimestamp, MediaActiveInfo, MediaErrorInfo, RegistrationFailure, RegistrationInfo,
-    SipEvent, SipEventPayload,
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    CallResumedInfo,
+    ConnectedCallInfo,
+    DtmfReceivedInfo,
+    EventDirection,
+    EventMeta,
+    EventTimestamp,
+    MediaActiveInfo,
+    MediaErrorInfo,
+    RegistrationFailure,
+    RegistrationInfo,
+    SipEvent,
+    SipEventPayload,
 };
 // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
 pub use eventbus_receiver::{AccountEventReceiver, EventBus, Subscription};

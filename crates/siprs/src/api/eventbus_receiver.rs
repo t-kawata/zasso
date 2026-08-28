@@ -227,7 +227,7 @@ impl<T> Subscription<T> {
 }
 
 impl<T> std::fmt::Debug for Subscription<T> {
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Subscription")
             .field("subscribed", &self.inner.is_some())
@@ -243,7 +243,7 @@ impl<T> std::fmt::Debug for Subscription<T> {
 #[async_trait]
 pub(crate) trait SubscriptionSource<T>: Send {
     async fn recv(&mut self) -> Result<T, broadcast::error::RecvError>;
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
     fn try_recv(&mut self) -> Result<T, broadcast::error::TryRecvError>;
 }
 
@@ -252,7 +252,7 @@ impl<T: Send + Clone> SubscriptionSource<T> for broadcast::Receiver<T> {
     async fn recv(&mut self) -> Result<T, broadcast::error::RecvError> {
         broadcast::Receiver::recv(self).await
     }
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
     fn try_recv(&mut self) -> Result<T, broadcast::error::TryRecvError> {
         broadcast::Receiver::try_recv(self)
     }
@@ -264,7 +264,7 @@ impl SubscriptionSource<SipEvent> for AccountEventReceiver {
     async fn recv(&mut self) -> Result<SipEvent, broadcast::error::RecvError> {
         AccountEventReceiver::recv(self).await
     }
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
     fn try_recv(&mut self) -> Result<SipEvent, broadcast::error::TryRecvError> {
         AccountEventReceiver::try_recv(self)
     }
@@ -578,13 +578,13 @@ mod tests {
 
     /// @verifies C134
     #[test]
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
     fn subscription_type_assertions() -> Result<(), Box<dyn std::error::Error>> {
         // C134 precondition + postcondition: Subscription<T> wraps both a plain
         // broadcast receiver and the account-filtered AccountEventReceiver.
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+        // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
         fn assert_sip(_: &Subscription<SipEvent>) {}
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+        // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
         fn assert_raw(_: &Subscription<RawSipMessage>) {}
         let bus = EventBus::new(16, Some(32));
         let account = AccountId::from_u64(1)?;
@@ -601,7 +601,8 @@ mod tests {
 
     /// @verifies C134
     #[tokio::test]
-    async fn subscription_recv_delivers_published_event() -> Result<(), Box<dyn std::error::Error>> {
+    async fn subscription_recv_delivers_published_event() -> Result<(), Box<dyn std::error::Error>>
+    {
         let bus = EventBus::new(16, None);
         let mut sub = Subscription::new(Box::new(bus.subscribe_control()));
         bus.publish(make_event(None));
@@ -629,7 +630,7 @@ mod tests {
 
     /// @verifies C134
     #[test]
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
     fn subscription_unsubscribe_is_idempotent() {
         let bus = EventBus::new(16, None);
         let mut sub = Subscription::new(Box::new(bus.subscribe_control()));
@@ -656,7 +657,7 @@ mod tests {
 
     /// @verifies C134
     #[test]
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
     fn subscription_account_filter_try_recv_empty_on_non_matching_only(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let bus = EventBus::new(16, None);
@@ -674,7 +675,7 @@ mod tests {
 
     /// @verifies C134
     #[test]
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
     fn subscription_try_recv_empty_when_no_events() {
         let bus = EventBus::new(16, None);
         let mut sub = Subscription::new(Box::new(bus.subscribe_control()));
@@ -686,7 +687,7 @@ mod tests {
 
     /// @verifies C134
     #[test]
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
     fn subscription_lagged_propagated() {
         let bus = EventBus::new(2, None);
         let mut sub = Subscription::new(Box::new(bus.subscribe_control()));

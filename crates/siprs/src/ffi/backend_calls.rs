@@ -14,6 +14,13 @@
 #[cfg(feature = "pjsua-native")]
 use crate::api::dtmf_unification::{send_api_for, DtmfSendApi};
 use crate::ffi::bindings;
+// P18-1 §62.32: pj_status_t codes are crate-internal constants (bindgen cannot
+// emit enum enumerators as free vars). PJ_SUCCESS is used by the conf-bridge
+// wrappers in both test and native builds; PJ_EINVALIDOP only by native code.
+#[cfg(feature = "pjsua-native")]
+use crate::ffi::constants::PJ_EINVALIDOP;
+#[cfg(any(test, feature = "pjsua-native"))]
+use crate::ffi::constants::PJ_SUCCESS;
 #[cfg(feature = "pjsua-native")]
 use crate::ffi::pj_str::PjOwnedStr;
 #[cfg(feature = "pjsua-native")]
@@ -36,30 +43,35 @@ use std::net::SocketAddr;
 pub fn initialize(config: &crate::config::ClientConfig) -> i32 {
     // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
     let create = unsafe { bindings::pjsua_create() };
-    if create != bindings::PJ_SUCCESS {
+    if create != PJ_SUCCESS {
         return create;
     }
     let queue = crossbeam_queue::ArrayQueue::new(crate::ffi::callback::NATIVE_EVENT_QUEUE_CAPACITY);
     let mut pjsua_cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
     crate::ffi::callback::register_callbacks(&mut pjsua_cfg, queue);
-    // Reflect STUN/TURN into the config; the owned strings back the `pj_str_t`
-    // pointers and must stay alive through `pjsua_init` below (§62.17 / P16-8).
-    let owned = match crate::config::stun_turn_ice_wiring::apply_stun_turn(&mut pjsua_cfg, config) {
+    // Reflect STUN into the global config (P18-1 §62.31: TURN is per-account);
+    // the owned strings back the `pj_str_t` pointers and must stay alive
+    // through `pjsua_init` below (§62.17 / P16-8).
+    // `_stun_owned` is intentionally not read: the owned strings must stay alive
+    // until after `pjsua_init` (they back the `pj_str_t` pointers in pjsua_cfg),
+    // and the underscore prefix marks the binding as intentionally unused.
+    let _stun_owned = match crate::config::stun_turn_ice_wiring::apply_stun(&mut pjsua_cfg, config)
+    {
         Ok(owned) => owned,
         // A config-level wiring error (e.g. >8 STUN servers) is an invalid
         // operation; the caller maps it to a NativeError via map_pjsua_status.
-        Err(_) => return bindings::PJ_EINVALIDOP,
+        Err(_) => return PJ_EINVALIDOP,
     };
     let mut media_cfg: bindings::pjsua_media_config = unsafe { std::mem::zeroed() };
     crate::config::stun_turn_ice_wiring::apply_ice(&mut media_cfg, &config.ice);
     // SAFETY: pjsua_cfg is a valid, initialized pjsua_config carrying the
-    // callback registry and STUN/TURN fields whose strings are backed by
-    // `owned` (alive for this call); media_cfg is a valid, initialized
+    // callback registry and STUN fields whose strings are backed by
+    // `stun_owned` (alive for this call); media_cfg is a valid, initialized
     // pjsua_media_config carrying the ICE settings; null log config selects the
     // PJSIP default.
     let init =
         unsafe { bindings::pjsua_init(&mut pjsua_cfg, std::ptr::null_mut(), &mut media_cfg) };
-    if init != bindings::PJ_SUCCESS {
+    if init != PJ_SUCCESS {
         return init;
     }
     // P17-2 §62.22: register the observation-only raw SIP module. The endpoint
@@ -102,12 +114,32 @@ pub fn transport_create(kind: i32, bind_addr: SocketAddr) -> (i32, i32) {
     // call); transport_id is a valid out-pointer written by the call.
     let status = unsafe {
         bindings::pjsua_transport_create(
-            kind as bindings::pjsip_transport_type_e,
+            transport_type_from_value(kind),
             &mut cfg,
             &mut transport_id,
         )
     };
     (status, transport_id)
+}
+
+/// Map the PJSIP transport-type value (UDP=1, TCP=2, TLS=3, from
+/// `to_pjsua_transport_type`) to the bindgen-generated `pjsip_transport_type_e`
+/// Rust enum (P18-1 §62.33 — enums are Rust enums, no longer castable from `i32`).
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+fn transport_type_from_value(kind: i32) -> bindings::pjsip_transport_type_e {
+    let udp = bindings::pjsip_transport_type_e::PJSIP_TRANSPORT_UDP as i32;
+    let tcp = bindings::pjsip_transport_type_e::PJSIP_TRANSPORT_TCP as i32;
+    let tls = bindings::pjsip_transport_type_e::PJSIP_TRANSPORT_TLS as i32;
+    if kind == udp {
+        bindings::pjsip_transport_type_e::PJSIP_TRANSPORT_UDP
+    } else if kind == tcp {
+        bindings::pjsip_transport_type_e::PJSIP_TRANSPORT_TCP
+    } else if kind == tls {
+        bindings::pjsip_transport_type_e::PJSIP_TRANSPORT_TLS
+    } else {
+        bindings::pjsip_transport_type_e::PJSIP_TRANSPORT_UNSPECIFIED
+    }
 }
 
 /// Close a SIP transport via `pjsua_transport_close`.
@@ -149,12 +181,20 @@ pub fn add_account(config: &crate::config::account_config_spec::AccountConfig) -
     let pass_owned = PjOwnedStr::new(config.password.expose_secret());
     let mut cfg: bindings::pjsua_acc_config = unsafe { std::mem::zeroed() };
     cfg.id = acc_uri_owned.as_raw();
-    cfg.registrar_uri = registrar_owned.as_raw();
+    // P18-1 §62.31: the vendored pjsua_acc_config names this field `reg_uri`.
+    cfg.reg_uri = registrar_owned.as_raw();
     cfg.cred_count = 1;
     cfg.cred_info[0].username = user_owned.as_raw();
     cfg.cred_info[0].realm = realm_owned.as_raw();
-    cfg.cred_info[0].data_type = bindings::PJ_CRED_DATA_PLAIN_PASSWD as _;
+    cfg.cred_info[0].data_type = crate::ffi::constants::PJSIP_CRED_DATA_PLAIN_PASSWD as _;
     cfg.cred_info[0].data = pass_owned.as_raw();
+    // P18-1 §62.31: TURN is an account-level setting; reflect it into the
+    // account config and keep the owned strings alive through pjsua_acc_add.
+    let turn_owned = match crate::config::stun_turn_ice_wiring::apply_turn(&mut cfg, &[]) {
+        Ok(owned) => owned,
+        Err(_) => return (PJ_EINVALIDOP, 0),
+    };
+    let _ = &turn_owned;
     // SAFETY: cfg is a valid, initialized pjsua_acc_config; native_acc_id is a
     // valid out-pointer written by the call.
     let status = unsafe { bindings::pjsua_acc_add(&cfg, 0, &mut native_acc_id) };
@@ -197,12 +237,20 @@ pub fn update_account(
     let pass_owned = PjOwnedStr::new(config.password.expose_secret());
     let mut cfg: bindings::pjsua_acc_config = unsafe { std::mem::zeroed() };
     cfg.id = acc_uri_owned.as_raw();
-    cfg.registrar_uri = registrar_owned.as_raw();
+    // P18-1 §62.31: the vendored pjsua_acc_config names this field `reg_uri`.
+    cfg.reg_uri = registrar_owned.as_raw();
     cfg.cred_count = 1;
     cfg.cred_info[0].username = user_owned.as_raw();
     cfg.cred_info[0].realm = realm_owned.as_raw();
-    cfg.cred_info[0].data_type = bindings::PJ_CRED_DATA_PLAIN_PASSWD as _;
+    cfg.cred_info[0].data_type = crate::ffi::constants::PJSIP_CRED_DATA_PLAIN_PASSWD as _;
     cfg.cred_info[0].data = pass_owned.as_raw();
+    // P18-1 §62.31: TURN is an account-level setting; reflect it into the
+    // account config and keep the owned strings alive through pjsua_acc_modify.
+    let turn_owned = match crate::config::stun_turn_ice_wiring::apply_turn(&mut cfg, &[]) {
+        Ok(owned) => owned,
+        Err(_) => return PJ_EINVALIDOP,
+    };
+    let _ = &turn_owned;
     // SAFETY: cfg is a valid, initialized pjsua_acc_config.
     unsafe { bindings::pjsua_acc_modify(native_acc_id, &cfg) }
 }
@@ -294,11 +342,11 @@ fn send_dtmf_with_param(native_call_id: i32, method: DtmfMethod, digits: &str) -
 /// Only `Info` and `Rfc4733` reach here — `send_api_for` routes `Inband` to
 /// `dial_dtmf`, so the `Inband` arm is unreachable by construction.
 #[cfg(feature = "pjsua-native")]
-// [::TICKET::] P16-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-6, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-6|P18-1) --for-spec --no-implementation-order`.
 fn native_dtmf_method(method: DtmfMethod) -> bindings::pjsua_dtmf_method {
     match method {
-        DtmfMethod::Info => bindings::pjsua_dtmf_method_PJSUA_DTMF_METHOD_SIP_INFO,
-        DtmfMethod::Rfc4733 => bindings::pjsua_dtmf_method_PJSUA_DTMF_METHOD_RFC2833,
+        DtmfMethod::Info => bindings::pjsua_dtmf_method::PJSUA_DTMF_METHOD_SIP_INFO,
+        DtmfMethod::Rfc4733 => bindings::pjsua_dtmf_method::PJSUA_DTMF_METHOD_RFC2833,
         DtmfMethod::Inband => unreachable!("send_api_for routes Inband to pjsua_call_dial_dtmf"),
     }
 }
@@ -356,19 +404,20 @@ pub fn configure_codecs() -> i32 {
             Ok(priorities) => priorities,
             // A duplicate codec_id in the enumeration is an internal inconsistency;
             // surface it as an invalid-operation status so the caller sees an error.
-            Err(_) => return bindings::PJ_EINVALIDOP,
+            Err(_) => return PJ_EINVALIDOP,
         };
     for (codec_id, priority) in &priorities {
         let codec_id_owned = PjOwnedStr::new(codec_id.as_str());
         let raw = codec_id_owned.as_raw();
-        // SAFETY: raw points to codec_id_owned's live buffer; the priority maps to
-        // PJSIP's int codec priority.
-        let status = unsafe { bindings::pjsua_codec_set_priority(&raw, *priority as i32) };
-        if status != bindings::PJ_SUCCESS {
+        // SAFETY: &raw points to codec_id_owned's live buffer; the priority maps
+        // to PJSIP's u8 codec priority (P18-1 §62.31 aligns the call with the
+        // bindgen-generated signature, which takes `*const pj_str_t`).
+        let status = unsafe { bindings::pjsua_codec_set_priority(&raw, *priority as u8) };
+        if status != PJ_SUCCESS {
             return status;
         }
     }
-    bindings::PJ_SUCCESS
+    PJ_SUCCESS
 }
 
 /// Resolve the conference port slot for a call via `pjsua_call_get_info`.
@@ -424,8 +473,9 @@ pub(crate) fn conf_add_port(
 ) -> i32 {
     // SAFETY: pool/port/slot point to valid FFI structures for the call duration;
     // the caller owns the pool and the port lifetime. The stub mode tolerates
-    // null pool/port (it never dereferences them).
-    unsafe { bindings::pjsua_conf_add_port(pool, port, slot) }
+    // null pool/port (it never dereferences them). `pool` is the opaque
+    // pj_pool_t handle (P18-1 §62.31 aligns the call with the generated ABI).
+    unsafe { bindings::pjsua_conf_add_port(pool as *mut bindings::pj_pool_t, port, slot) }
 }
 
 /// Resolve a call's conference slot via `pjsua_call_get_conf_port`.
@@ -444,7 +494,12 @@ pub fn call_conf_port(call_id: i32) -> i32 {
 #[cfg(feature = "pjsua-native")]
 pub fn create_conf_pool() -> *mut std::ffi::c_void {
     // SAFETY: the name literal is a valid NUL-terminated C string for the call.
-    unsafe { bindings::pjsua_pool_create(c"siprs-conf-bridge".as_ptr(), 512, 512) }
+    // pjsua_pool_create returns *mut pj_pool_t; the caller treats it as the
+    // opaque pool handle (P18-1 §62.31 ABI alignment).
+    unsafe {
+        bindings::pjsua_pool_create(c"siprs-conf-bridge".as_ptr(), 512, 512)
+            as *mut std::ffi::c_void
+    }
 }
 
 /// Connect a call's media to the conference bridge via `pjsua_conf_connect`.
@@ -465,7 +520,7 @@ mod tests {
     use super::*;
 
     #[test]
-    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] PX-3, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P18-1) --for-spec --no-implementation-order`.
     fn conf_add_port_wrapper_delegates_to_stub() {
         let mut slot: bindings::pjsua_conf_port_id = -1;
         let status = conf_add_port(
@@ -473,11 +528,7 @@ mod tests {
             std::ptr::null_mut::<bindings::pjmedia_port>(),
             &mut slot,
         );
-        assert_eq!(
-            status,
-            bindings::PJ_SUCCESS,
-            "wrapper must route to the stub"
-        );
+        assert_eq!(status, PJ_SUCCESS, "wrapper must route to the stub");
         assert!(slot >= 0, "stub must write a non-negative conf slot");
     }
 
@@ -492,12 +543,11 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] PX-3, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P18-1) --for-spec --no-implementation-order`.
     fn conf_connect_wrapper_returns_success_in_default_build() {
         let status = conf_connect(1, 2);
         assert_eq!(
-            status,
-            bindings::PJ_SUCCESS,
+            status, PJ_SUCCESS,
             "default build stub must accept connects"
         );
     }

@@ -9,10 +9,16 @@ use std::sync::RwLock;
 use std::sync::{Arc, Mutex};
 
 use crate::error::error_design_siperror::SipError;
+// P18-1: `bindings` is referenced only under pjsua-native (native transport
+// ids, conf-bridge registration) and in tests — gate the import to match.
+#[cfg(any(test, feature = "pjsua-native"))]
 use crate::ffi::bindings;
 #[cfg(any(test, feature = "pjsua-native"))]
 use crate::ffi::media_port_adapter::MediaPortAdapter;
-#[cfg(any(test, feature = "test-util"))]
+// P18-1 §62.31 (E0433): the pjsua-native make_call/get_account_info branches
+// build AccountId from the native account id, so the import must be active in
+// the native build as well as the test/test-util builds.
+#[cfg(any(test, feature = "test-util", feature = "pjsua-native"))]
 use crate::model::AccountId;
 // AudioMixer / RustMediaPort back the cfg-gated `audio_mixers` field and the
 // test/native conf-bridge registration path (PX-3).
@@ -200,7 +206,7 @@ pub trait SipBackend: Send {
     /// via `pjsua_conf_add_port` under `pjsua-native`) routes captured media
     /// into `push_media_frame`, which drives the subscribed taps. In the
     /// default build (no native conf bridge) this is a documented no-op.
-    // [::TICKET::] P16-7, P17-4, P17-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-4|P17-5) --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-7, P17-4, P17-5, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-7|P17-4|P17-5|P18-1) --for-spec --no-implementation-order`.
     fn register_conf_callback(&mut self) -> Result<(), ReactorError>;
 
     /// Collect native events the backend generated for the reactor to process.
@@ -676,7 +682,9 @@ pub(crate) fn map_native_error(status: i32, detail: &str) -> SipError {
 /// A canned `Ok(())` for an unexecuted FFI call is prohibited (C111).
 // [::TICKET::] P11-10, P15-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-10|P15-9) --for-spec --no-implementation-order`.
 pub(crate) fn map_pjsua_status(status: i32, operation: &str) -> Result<(), ReactorError> {
-    if status == bindings::PJ_SUCCESS {
+    // P18-1 §62.32: PJ_SUCCESS is a crate-internal constant (bindgen cannot
+    // emit enum enumerators as free bindings vars).
+    if status == crate::ffi::constants::PJ_SUCCESS {
         Ok(())
     } else {
         let detail = format!("PjsuaBackend::{operation} failed");
@@ -737,7 +745,7 @@ pub struct PjsuaBackend {
     transport_ids: Vec<bindings::pjsua_transport_id>,
 }
 
-// [::TICKET::] P3-2, P15-7, P16-2, PX-3, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7|P16-2|PX-3|P17-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-7, P16-2, PX-3, P17-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7|P16-2|PX-3|P17-8|P18-1) --for-spec --no-implementation-order`.
 impl PjsuaBackend {
     pub fn new() -> Self {
         Self {
@@ -758,10 +766,10 @@ impl PjsuaBackend {
     /// Construct the backend sharing a `subscribe_audio` tap registry.
     ///
     /// `SipClient` owns the registry and hands a clone to the backend at
-    /// reactor boot so `push_media_frame` can drive the subscribed taps.
-    /// The production path constructs `PjsuaBackend` under `pjsua-native`;
-    /// test builds use it to exercise the tap-push wiring on Layer 2.
-    #[cfg(any(test, feature = "pjsua-native"))]
+    /// reactor boot so `push_media_frame` can drive the subscribed taps. The
+    /// tap-push wiring is exercised on Layer 2 (P19-3 production wiring is the
+    /// `push_media_frame` stub), so this constructor is compiled under test.
+    #[cfg(test)]
     pub(crate) fn with_taps(audio_taps: AudioTapRegistry) -> Self {
         Self {
             audio_taps,
@@ -796,26 +804,26 @@ impl PjsuaBackend {
     }
 
     /// The shared per-call [`AudioMixer`] map (PX-3 / C119-pre).
-    #[cfg(any(test, feature = "pjsua-native"))]
+    #[cfg(test)]
     pub(crate) fn audio_mixers(&self) -> Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> {
         self.audio_mixers.clone()
     }
 
     /// Number of media ports registered into the conf bridge (PX-3 / C119-post).
-    #[cfg(any(test, feature = "pjsua-native"))]
+    #[cfg(test)]
     pub(crate) fn registered_port_count(&self) -> usize {
         self.registered_port_count
     }
 
     /// Number of call conf slots connected (PX-3 / C119-post).
-    #[cfg(any(test, feature = "pjsua-native"))]
+    #[cfg(test)]
     pub(crate) fn connected_call_count(&self) -> usize {
         self.connected_call_count
     }
 
     /// Recorded `(port_slot, call_slot)` pairs from the conf-bridge registration
     /// (PX-3 / C119-post).
-    #[cfg(any(test, feature = "pjsua-native"))]
+    #[cfg(test)]
     pub(crate) fn conf_connect_pairs(&self) -> &[(i32, i32)] {
         &self.conf_connect_pairs
     }
@@ -1850,7 +1858,8 @@ mod tests {
     // @verifies C132
     // [::TICKET::] P17-8: C132-inv — a poisoned registry mutex is recovered
     // via into_inner and the RT push path does not panic.
-    fn push_frame_to_tap_recovers_from_poisoned_registry() -> Result<(), Box<dyn std::error::Error>> {
+    fn push_frame_to_tap_recovers_from_poisoned_registry() -> Result<(), Box<dyn std::error::Error>>
+    {
         let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
         let poisoned = Arc::clone(&registry);
         let handle = std::thread::spawn(move || {
