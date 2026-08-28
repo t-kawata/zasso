@@ -766,7 +766,7 @@ pub struct PjsuaBackend {
     transport_ids: Vec<bindings::pjsua_transport_id>,
 }
 
-// [::TICKET::] P3-2, P15-7, P16-2, PX-3, P17-8, P18-1, P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7|P16-2|PX-3|P17-8|P18-1|P19-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P3-2, P15-7, P16-2, PX-3, P17-8, P18-1, P19-3, P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-2|P15-7|P16-2|PX-3|P17-8|P18-1|P19-3|P19-4) --for-spec --no-implementation-order`.
 impl PjsuaBackend {
     pub fn new() -> Self {
         Self {
@@ -853,55 +853,41 @@ impl PjsuaBackend {
         &self.conf_connect_pairs
     }
 
+    /// Call ids whose `RustMediaPort` is registered in the conf bridge
+    /// (P19-3 / §62.40) — the idempotency guard observed by tests.
+    #[cfg(test)]
+    pub(crate) fn registered_port_ids(&self) -> &std::collections::HashSet<u64> {
+        &self.registered_port_ids
+    }
+
     /// Register one [`RustMediaPort`] per `audio_mixers` entry into the PJSIP
     /// conf bridge and connect each call's conf slot (PX-3 / C119-post).
     ///
-    /// Reads as prose: create a pool (native only), then for each `(call_id,
-    /// mixer)` build a `MediaPortAdapter`, register it via `pjsua_conf_add_port`
-    /// to obtain a port slot, resolve the call's slot via
-    /// `pjsua_call_get_conf_port`, guard a not-yet-established slot, and connect
-    /// the pair via `pjsua_conf_connect`. Any non-success status surfaces as
-    /// [`ReactorError::NativeError`] via `map_pjsua_status`.
+    /// Reads as prose: reset the per-pass observables, then for each `call_id`
+    /// delegate to `ensure_conf_port_for_call` — the same idempotent per-call
+    /// registration the AddAudioSource path uses (§62.41 / N0110). A call whose
+    /// port is already registered (at boot or by an earlier ensure) is a no-op,
+    /// so re-running after a mixer appears registers only the new mixers. Any
+    /// non-success status surfaces as [`ReactorError::NativeError`] via
+    /// `map_pjsua_status`.
     ///
     /// The default build exercises the same loop against the deterministic
     /// conf-bridge stubs (test builds); the native build drives the real bridge.
     #[cfg(any(test, feature = "pjsua-native"))]
     pub(crate) fn register_media_ports_for_calls(&mut self) -> Result<(), ReactorError> {
-        #[cfg(feature = "pjsua-native")]
-        let pool: *mut std::ffi::c_void = crate::ffi::backend_calls::create_conf_pool();
-        #[cfg(not(feature = "pjsua-native"))]
-        let pool: *mut std::ffi::c_void = std::ptr::null_mut();
-
-        let mixers = self.audio_mixers.read().unwrap_or_else(|e| e.into_inner());
-        let mut registered = 0usize;
-        let mut connected = 0usize;
-        let mut pairs: Vec<(i32, i32)> = Vec::new();
-        for (call_id, mixer) in mixers.iter() {
-            // P17-8: the port shares the tap registry so its RT port ops can
-            // supply the conf-bridge media to subscribed taps (C132-post).
-            let media_port = RustMediaPort::new(mixer.clone(), *call_id, self.audio_taps.clone());
-            let mut adapter = MediaPortAdapter::new(media_port);
-            let mut port_slot: bindings::pjsua_conf_port_id = -1;
-            let status =
-                crate::ffi::backend_calls::conf_add_port(pool, adapter.port_mut(), &mut port_slot);
-            map_pjsua_status(status, "conf_add_port")?;
-            registered += 1;
-            self.registered_port_ids.insert(*call_id);
-            let call_slot = crate::ffi::backend_calls::call_conf_port(*call_id as i32);
-            if call_slot < 0 {
-                // A call whose media is not established yet has no conf slot;
-                // its port stays registered for when media becomes active.
-                tracing::warn!(call_id, "call conf slot not established; skipping connect");
-                continue;
-            }
-            let status = crate::ffi::backend_calls::conf_connect(port_slot, call_slot);
-            map_pjsua_status(status, "conf_connect")?;
-            connected += 1;
-            pairs.push((port_slot, call_slot));
+        self.registered_port_count = 0;
+        self.connected_call_count = 0;
+        self.conf_connect_pairs.clear();
+        let call_ids: Vec<u64> = self
+            .audio_mixers
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .keys()
+            .copied()
+            .collect();
+        for call_id in call_ids {
+            self.ensure_conf_port_for_call(call_id)?;
         }
-        self.registered_port_count = registered;
-        self.connected_call_count = connected;
-        self.conf_connect_pairs = pairs;
         Ok(())
     }
 }

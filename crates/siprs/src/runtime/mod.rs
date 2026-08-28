@@ -27,6 +27,9 @@
 // [::TICKET::] P0-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-6 --for-spec --no-implementation-order`.
 // ============================================================================
 
+// [::TICKET::] P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P19-4: §62.41 — AddAudioSource 時の RustMediaPort conf bridge 再登録 (N0110).
+pub mod add_audio_source;
 pub mod audio_worker;
 pub mod backend;
 pub mod backend_selection;

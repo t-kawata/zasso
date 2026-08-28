@@ -10,7 +10,9 @@
 //! `make test-integration` brings the Asterisk/coturn services up, runs this
 //! binary with `--features pjsua-native`, and tears them down (Q9b).
 
+use siprs::audio::media_path_arch::ChannelSelector;
 use siprs::model::{AudioFormat, BitDepth, CallId, ChannelLayout, SampleRate, SipMessageDirection};
+use siprs::runtime::audio_worker::MockAsyncAudioSource;
 use siprs::tests::docker_asterisk_it::docker_available;
 use siprs::{
     AccountConfig, AudioTapMode, CallMediaPreferences, ClientConfig, HangupReason, IceConfig,
@@ -439,6 +441,91 @@ async fn conf_bridge_drives_audio_tap() -> Result<(), Box<dyn std::error::Error>
     let pair = tokio::time::timeout(EVENT_TIMEOUT, tap.recv())
         .await
         .map_err(|_| "timed out waiting for audio chunk from the conf bridge")?
+        .ok_or_else(|| "tap closed before delivering an audio chunk")?;
+    assert_eq!(pair.call_id, call_id);
+
+    client.hangup(call_id, HangupReason::LocalUser).await?;
+    wait_for_event(&mut events, |p| {
+        matches!(p, SipEventPayload::CallDisconnected)
+    })
+    .await;
+
+    client.shutdown().await?;
+    Ok(())
+}
+
+/// H14 (§62.41 / N0110): after `add_audio_source` adds a source to a call's
+/// mixer, the mixer's `RustMediaPort` is (re-)registered in the real PJSIP
+/// conf bridge, so the injected audio reaches the network / local playback
+/// instead of accumulating in the mixer's `out_queue` and being dropped.
+/// The tap observes the bridge driving the port ops after the source is added
+/// — the pre-P19-4 gap left an AddAudioSource-created mixer unregistered.
+#[tokio::test]
+// @verifies C149-post
+// @verifies C149-inv
+async fn add_audio_source_reaches_conf_bridge() -> Result<(), Box<dyn std::error::Error>> {
+// [::TICKET::] P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-4 --for-spec --no-implementation-order`.
+    if !docker_available() {
+        return Ok(());
+    }
+    let (client, mut events) = client_against_asterisk().await?;
+    let account = client
+        .add_account(registered_account("sip:1001@127.0.0.1:5060", "password")?)
+        .await?;
+    wait_for_event(&mut events, |p| {
+        matches!(
+            p,
+            SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+        )
+    })
+    .await;
+
+    let raw_call_id = account
+        .make_call(OutgoingCallRequest {
+            target_uri: "sip:1001@127.0.0.1:5060".into(),
+            headers: Vec::new(),
+            auth_override: None,
+            preferred_transport: None,
+            media: CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        })
+        .await?;
+    let call_id = CallId::from_u64(raw_call_id)?;
+
+    let media = wait_for_event(&mut events, |p| matches!(p, SipEventPayload::MediaActive(_))).await;
+    assert!(
+        matches!(media, SipEventPayload::MediaActive(_)),
+        "media must be active before the injected source flows"
+    );
+
+    // §62.41: injecting a source must (re-)register the mixer's RustMediaPort
+    // in the conf bridge. A canned PCM burst is routed to both the IN and OUT
+    // paths; the tap below observes the bridge driving the port ops.
+    let _source_id = client
+        .add_audio_source(
+            call_id,
+            Box::new(MockAsyncAudioSource::new(vec![0i16; 160])),
+            ChannelSelector::Both,
+        )
+        .await?;
+
+    let mut tap = client
+        .subscribe_audio(
+            call_id,
+            AudioFormat::new(
+                SampleRate::Hz8000,
+                BitDepth::I16,
+                ChannelLayout::StereoInOut,
+                20,
+            )?,
+            16,
+            AudioTapMode::Realtime,
+        )
+        .await?;
+
+    let pair = tokio::time::timeout(EVENT_TIMEOUT, tap.recv())
+        .await
+        .map_err(|_| "timed out waiting for audio after add_audio_source")?
         .ok_or_else(|| "tap closed before delivering an audio chunk")?;
     assert_eq!(pair.call_id, call_id);
 

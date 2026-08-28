@@ -6,6 +6,8 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread::{self, JoinHandle};
 
 use crate::config::ClientConfig;
+// [::TICKET::] P19-4: §62.41 — AddAudioSource の conf bridge 再登録オーケストレーション。
+use crate::runtime::add_audio_source::{AddAudioSourceContext, handle_add_audio_source};
 use crate::runtime::audio_worker::{AudioMixer, AudioWorkerTask};
 use crate::runtime::backend::SipBackend;
 use crate::runtime::backend_selection::create_backend;
@@ -18,7 +20,6 @@ use crate::api::event_model_payload_bus::{
 };
 use crate::api::eventbus_receiver::EventBus;
 use crate::api::incoming_call_events::build_incoming_call_entry;
-use crate::audio::media_path_arch::ChannelSelector;
 use crate::state::m20_callstate_mapping::{
     convert_call_media_state_with_previous, convert_call_state_with_previous, CallDirection,
     CallState,
@@ -106,12 +107,12 @@ pub struct CoreReactor;
 
 /// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
 /// join handle, or a boxed spawn error.
-// [::TICKET::] P15-4, P15-7, P15-9, P16-5, P16-7, P17-5, P17-6, P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5|P16-7|P17-5|P17-6|P19-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-4, P15-7, P15-9, P16-5, P16-7, P17-5, P17-6, P19-2, P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5|P16-7|P17-5|P17-6|P19-2|P19-4) --for-spec --no-implementation-order`.
 type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7, PX-3, P17-4, P17-6, P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7|PX-3|P17-4|P17-6|P19-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7, PX-3, P17-4, P17-6, P19-3, P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7|PX-3|P17-4|P17-6|P19-3|P19-4) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -313,39 +314,40 @@ impl CoreReactor {
                                     channels,
                                     reply,
                                 } => {
-                                    // [::TICKET::] P8-1, P15-7: O-003 — the reactor owns
-                                    // per-call AudioMixers; audio lifecycle commands
+                                    // [::TICKET::] P8-1, P15-7, P19-4: O-003 — the reactor
+                                    // owns per-call AudioMixers; audio lifecycle commands
                                     // mutate them here on the reactor thread
-                                    // (single-writer rule). §62.6: branch the source into
-                                    // the IN / OUT / both media paths via ChannelSelector.
-                                    let mixer =
-                                        get_or_create_mixer(&audio_mixers, &source_id_counter, call_id);
+                                    // (single-writer rule). P19-4 (§62.41 / N0110):
+                                    // handle_add_audio_source also re-registers the call's
+                                    // RustMediaPort in the conf bridge after the source is
+                                    // added, so injected audio reaches the network / local
+                                    // playback instead of accumulating in the mixer's
+                                    // out_queue (H14).
+                                    let result = handle_add_audio_source(
+                                        AddAudioSourceContext {
+                                            audio_mixers: &audio_mixers,
+                                            source_id_counter: &source_id_counter,
+                                            backend: &mut *backend,
+                                        },
+                                        call_id,
+                                        source.into_inner(),
+                                        channels,
+                                    );
                                     // Spawn the per-call worker the first time a mixer is
                                     // created so its process_frame loop drives the paths.
-                                    audio_workers.entry(call_id).or_insert_with(|| {
-                                        AudioWorkerTask::spawn(
-                                            mixer.clone(),
-                                            call_id,
-                                            DEFAULT_AUDIO_FRAME_DURATION,
-                                        )
-                                    });
-                                    let source = source.into_inner();
-                                    let source_id = match channels {
-                                        ChannelSelector::In => mixer.add_in_source(source),
-                                        ChannelSelector::Out => mixer.add_out_source(source),
-                                        ChannelSelector::Both => {
-                                            // AudioMixer guards sources with a tokio Mutex
-                                            // (async next_chunk), so the shared wrapper must
-                                            // be tokio::sync::Mutex too.
-                                            let shared =
-                                                Arc::new(tokio::sync::Mutex::new(source));
-                                            let in_id =
-                                                mixer.add_in_source_shared(shared.clone());
-                                            mixer.add_out_source_shared(shared);
-                                            in_id
-                                        }
-                                    };
-                                    send_reply(reply, Ok(source_id));
+                                    // Only on success: a failed conf-bridge registration
+                                    // leaves the reply as Err and does not drive a
+                                    // half-wired mixer.
+                                    if let Ok((_, mixer)) = &result {
+                                        audio_workers.entry(call_id).or_insert_with(|| {
+                                            AudioWorkerTask::spawn(
+                                                mixer.clone(),
+                                                call_id,
+                                                DEFAULT_AUDIO_FRAME_DURATION,
+                                            )
+                                        });
+                                    }
+                                    send_reply(reply, result.map(|(source_id, _)| source_id));
                                 }
                                 DispatchCommand::RemoveAudioSource {
                                     source_id,
@@ -965,8 +967,11 @@ impl CoreReactor {
 /// global source-id counter, so ids stay unique across calls. The reactor is
 /// the single writer of the map (single-writer rule); callers hold a read
 /// guard only while cloning the matching `Arc`.
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
-fn get_or_create_mixer(
+///
+/// `pub(crate)` since P19-4: `add_audio_source::handle_add_audio_source` reuses
+/// it on the mixer-creation path to keep the single source of mixer identity.
+// [::TICKET::] P15-7, P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P19-4) --for-spec --no-implementation-order`.
+pub(crate) fn get_or_create_mixer(
     audio_mixers: &Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
     source_id_counter: &Arc<AtomicU64>,
     call_id: u64,
