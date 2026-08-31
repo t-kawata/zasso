@@ -22,6 +22,9 @@
 //   - io_boundary_round2    (N0089)
 //   - io_boundary_round3    (N0099)
 //   - round3_scope_rootcause (N0090)
+//   - round4_scope_rootcause (N0100)
+//   - round4_tickets        (N0112)
+//   - io_boundary_round4    (N0113)
 //
 // Full graph exploration:
 //   (cd ../.. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
@@ -42,3 +45,12 @@ pub mod io_boundary_round3;
 // [::TICKET::] P17-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-10 --for-spec --no-implementation-order`.
 // [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
 pub mod round3_scope_rootcause;
+// [::TICKET::] P17-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+pub mod round4_scope_rootcause;
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+// [::TICKET::] P19-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-6 --for-spec --no-implementation-order`.
+pub mod round4_tickets;
+// [::TICKET::] P19-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-6 --for-spec --no-implementation-order`.
+pub mod io_boundary_round4;
+// [::TICKET::] P19-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-6 --for-spec --no-implementation-order`.

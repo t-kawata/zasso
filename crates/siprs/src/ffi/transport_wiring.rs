@@ -112,9 +112,9 @@ pub fn to_pjsua_transport_type(kind: TransportKind) -> i32 {
 }
 
 #[cfg(feature = "pjsua-native")]
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-2, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-2|P18-1) --for-spec --no-implementation-order`.
 fn transport_udp_value() -> i32 {
-    bindings::pjsip_transport_type_e_PJSIP_TRANSPORT_UDP as i32
+    bindings::pjsip_transport_type_e::PJSIP_TRANSPORT_UDP as i32
 }
 #[cfg(not(feature = "pjsua-native"))]
 // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
@@ -123,9 +123,9 @@ fn transport_udp_value() -> i32 {
 }
 
 #[cfg(feature = "pjsua-native")]
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-2, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-2|P18-1) --for-spec --no-implementation-order`.
 fn transport_tcp_value() -> i32 {
-    bindings::pjsip_transport_type_e_PJSIP_TRANSPORT_TCP as i32
+    bindings::pjsip_transport_type_e::PJSIP_TRANSPORT_TCP as i32
 }
 #[cfg(not(feature = "pjsua-native"))]
 // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
@@ -135,9 +135,9 @@ fn transport_tcp_value() -> i32 {
 
 #[cfg(feature = "tls")]
 #[cfg(feature = "pjsua-native")]
-// [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-2, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-2|P18-1) --for-spec --no-implementation-order`.
 fn transport_tls_value() -> i32 {
-    bindings::pjsip_transport_type_e_PJSIP_TRANSPORT_TLS as i32
+    bindings::pjsip_transport_type_e::PJSIP_TRANSPORT_TLS as i32
 }
 #[cfg(feature = "tls")]
 #[cfg(not(feature = "pjsua-native"))]

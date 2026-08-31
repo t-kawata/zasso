@@ -199,17 +199,34 @@ pub struct Codec {
 }
 
 // [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+/// Parse a `codec_id` ("mime/clock" string) into `(encoding_name, clock_rate)`.
+///
+/// PJSIP 2.17.0's `pjsua_codec_info` (pjsua-lib/pjsua.h:8155) exposes only
+/// `codec_id`/`priority`; `encoding_name` and `clock_rate` are derived from
+/// `codec_id` (§62.32/N0101). A missing or non-numeric rate falls back to 0.
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+fn codec_id_to_name_rate(codec_id: &bindings::pj_str_t) -> (String, u32) {
+    let raw = bindings::pj_str_to_string(codec_id);
+    match raw.split_once('/') {
+        Some((name, rate)) => (name.to_string(), rate.parse().unwrap_or(0)),
+        None => (raw, 0),
+    }
+}
+
+// [::TICKET::] P11-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P18-1) --for-spec --no-implementation-order`.
 impl Codec {
     /// Convert a native `pjsua_codec_info` into a `Codec`.
     ///
-    /// Maps `codec_id` → `id`, `encoding_name` → `name`, and `clock_rate` →
-    /// `clock_rate`, reading the `pj_str_t` fields through the safe
-    /// `ffi::bindings::pj_str_to_string` helper.
+    /// `id` maps from `codec_id`; `name`/`clock_rate` are derived from the
+    /// `codec_id` "mime/clock" string because PJSIP 2.17.0 does not carry
+    /// `encoding_name`/`clock_rate` fields (§62.32/N0101).
     pub fn from_pjsua_codec_info(info: &bindings::pjsua_codec_info) -> Self {
+        let (name, clock_rate) = codec_id_to_name_rate(&info.codec_id);
         Self {
             id: bindings::pj_str_to_string(&info.codec_id),
-            name: bindings::pj_str_to_string(&info.encoding_name),
-            clock_rate: info.clock_rate,
+            name,
+            clock_rate,
         }
     }
 }
@@ -622,23 +639,54 @@ mod tests {
     /// @verifies C041
     #[test]
     // [::TICKET::] P11-8, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P12-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
     fn codec_from_pjsua_codec_info_maps_fields() {
         use crate::ffi::bindings::pjsua_codec_info;
         use crate::ffi::pj_str::PjOwnedStr;
         // The PjOwnedStr backing must outlive the raw pj_str_t copies read
-        // by Codec::from_pjsua_codec_info.
-        let codec_id = PjOwnedStr::new("opus");
-        let encoding_name = PjOwnedStr::new("Opus");
+        // by Codec::from_pjsua_codec_info. P18-1: name/clock_rate derive from
+        // codec_id ("opus/48000" → name "opus", rate 48000), matching the
+        // PJSIP 2.17.0 pjsua_codec_info shape (codec_id + priority only).
+        let codec_id = PjOwnedStr::new("opus/48000");
+        let desc = PjOwnedStr::new("Opus");
         let info = pjsua_codec_info {
             codec_id: codec_id.as_raw(),
-            encoding_name: encoding_name.as_raw(),
-            clock_rate: 48000,
-            channel_cnt: 2,
+            priority: 200,
+            desc: desc.as_raw(),
+            buf_: [0u8; 64],
         };
         let codec = Codec::from_pjsua_codec_info(&info);
-        assert_eq!(codec.id, "opus");
-        assert_eq!(codec.name, "Opus");
+        assert_eq!(codec.id, "opus/48000");
+        assert_eq!(codec.name, "opus");
         assert_eq!(codec.clock_rate, 48000);
+    }
+
+    /// @verifies C041
+    #[test]
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+    fn codec_id_to_name_rate_parses_mime_and_clock() {
+        use crate::ffi::pj_str::PjOwnedStr;
+        // The PjOwnedStr backings must outlive the raw pj_str_t copies read by
+        // codec_id_to_name_rate, so bind each to a variable (no temporaries).
+        let opus = PjOwnedStr::new("opus/16000");
+        let pcmu = PjOwnedStr::new("PCMU/8000");
+        let plain = PjOwnedStr::new("opus");
+        let empty = PjOwnedStr::new("");
+        let nonnum = PjOwnedStr::new("opus/abc");
+        let overflow = PjOwnedStr::new("opus/999999999999");
+        assert_eq!(
+            codec_id_to_name_rate(&opus.as_raw()),
+            ("opus".into(), 16000)
+        );
+        assert_eq!(codec_id_to_name_rate(&pcmu.as_raw()), ("PCMU".into(), 8000));
+        // Edge: no slash, empty, non-numeric rate, overflow → (raw, 0), never panics.
+        assert_eq!(codec_id_to_name_rate(&plain.as_raw()), ("opus".into(), 0));
+        assert_eq!(codec_id_to_name_rate(&empty.as_raw()), (String::new(), 0));
+        assert_eq!(codec_id_to_name_rate(&nonnum.as_raw()), ("opus".into(), 0));
+        assert_eq!(
+            codec_id_to_name_rate(&overflow.as_raw()),
+            ("opus".into(), 0)
+        );
     }
 
     /// @verifies C041
@@ -671,41 +719,42 @@ mod tests {
     /// @verifies C041
     #[test]
     // [::TICKET::] P11-8, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P12-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
     fn enumerate_available_codecs_filters_invalid_entries() {
         use crate::ffi::bindings::pjsua_codec_info;
         use crate::ffi::pj_str::PjOwnedStr;
         // The PjOwnedStr backings must outlive the raw pj_str_t copies read
-        // by codecs_from_native_infos.
-        let opus_id = PjOwnedStr::new("opus");
-        let opus_name = PjOwnedStr::new("Opus");
-        let empty_id = PjOwnedStr::new("");
-        let empty_name = PjOwnedStr::new("Empty");
-        let pcmu_id = PjOwnedStr::new("PCMU");
-        let pcmu_name = PjOwnedStr::new("G.711");
+        // by codecs_from_native_infos. P18-1: clock_rate derives from codec_id;
+        // an empty id or a zero/invalid rate entry is dropped.
+        let empty = PjOwnedStr::new("");
+        let opus_id = PjOwnedStr::new("opus/48000");
+        let opus_desc = PjOwnedStr::new("Opus");
+        let pcmu_id = PjOwnedStr::new("PCMU/0");
+        let pcmu_desc = PjOwnedStr::new("G.711");
         let infos = vec![
             pjsua_codec_info {
                 codec_id: opus_id.as_raw(),
-                encoding_name: opus_name.as_raw(),
-                clock_rate: 48000,
-                channel_cnt: 2,
+                priority: 200,
+                desc: opus_desc.as_raw(),
+                buf_: [0u8; 64],
             },
             pjsua_codec_info {
-                codec_id: empty_id.as_raw(),
-                encoding_name: empty_name.as_raw(),
-                clock_rate: 48000,
-                channel_cnt: 1,
+                codec_id: empty.as_raw(),
+                priority: 100,
+                desc: empty.as_raw(),
+                buf_: [0u8; 64],
             },
             pjsua_codec_info {
                 codec_id: pcmu_id.as_raw(),
-                encoding_name: pcmu_name.as_raw(),
-                clock_rate: 0,
-                channel_cnt: 1,
+                priority: 100,
+                desc: pcmu_desc.as_raw(),
+                buf_: [0u8; 64],
             },
         ];
         let codecs = codecs_from_native_infos(&infos);
         assert_eq!(codecs.len(), 1);
         assert!(codecs.iter().all(|c| !c.id.is_empty() && c.clock_rate > 0));
-        assert_eq!(codecs[0].id, "opus");
+        assert_eq!(codecs[0].id, "opus/48000");
     }
 
     // ── DtmfMethod ────────────────────────────────────────────────────

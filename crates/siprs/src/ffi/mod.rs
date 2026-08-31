@@ -12,6 +12,13 @@
 /// of the crate to compile without a system PJSIP installation.
 pub mod bindings;
 
+/// Crate-internal PJSIP sentinel constants independent of bindgen output.
+///
+/// PJSIP 2.17.0 omits symbols such as `PJSUA_CALL_NULL`; they live here so
+/// both the stub build and the native build compile (P18-1 / N0101).
+pub mod constants;
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+
 /// Safe wrapper for `pj_str_t` with Rust-owned `Vec<u8>` backing.
 ///
 /// Ensures that C strings passed to PJSUA are valid for the duration
@@ -25,6 +32,17 @@ pub mod pj_str;
 /// onto the reactor's event queue.
 ///
 pub mod callback;
+
+/// ICE transport error callback (P19-2 §62.39 / N0108).
+///
+/// `on_ice_transport_error` reports errors in the ICE media transport —
+/// currently TURN Refresh failures — and enqueues a scalar-only
+/// `NativeEvent::IceTransportError`. Kept as a dedicated module so the
+/// callback's ABI (cfg-paired `IceStransOpParam`) and the `enqueue_native_event`
+/// call stay isolated from the rest of the callback bridge.
+// [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+pub mod ice_transport_error;
+// [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
 
 // Re-export the callback-bridge surface so the runtime layer and tests never
 // depend on the raw module path (P11-11).

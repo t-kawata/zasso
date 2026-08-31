@@ -25,7 +25,7 @@
 // are unit-tested in the default (stub) build; `backend_calls::initialize`
 // invokes them under `pjsua-native` (C038 — no unsafe outside src/ffi/).
 
-use crate::config::transport_ice_spec::{IceConfig, TurnTransport};
+use crate::config::transport_ice_spec::{IceConfig, TurnServerConfig, TurnTransport};
 use crate::config::ClientConfig;
 use crate::error::{SipError, SipErrorKind};
 use crate::ffi::bindings;
@@ -34,16 +34,23 @@ use crate::ffi::pj_str::PjOwnedStr;
 /// Maximum number of STUN servers the PJSIP `pjsua_config.stun_srv[8]` array holds.
 const STUN_SRV_MAX: usize = 8;
 
-/// Rust-owned strings backing the reflected `pjsua_config` STUN/TURN fields.
+/// Rust-owned strings backing the reflected global `pjsua_config.stun_srv`.
 ///
 /// A `pj_str_t` points into its `PjOwnedStr` backing buffer, so the caller must
 /// keep these owned strings alive while the reflected config is passed to PJSUA.
-/// `apply_stun_turn` returns this guard so callers hold it in scope alongside
-/// the config (the `backend_calls::initialize` pattern, mirroring
-/// `transport_create`'s `bound_owned`).
-pub struct StunTurnOwned {
+/// `apply_stun` returns this guard so callers hold it in scope alongside the
+/// config (the `backend_calls::initialize` pattern).
+pub struct StunOwned {
     /// STUN server URIs, backing `cfg.stun_srv[0..stun_srv_cnt]`.
     pub stun: Vec<PjOwnedStr>,
+}
+
+/// Rust-owned strings backing the reflected account `pjsua_acc_config.turn_cfg`.
+///
+/// P18-1 §62.31: TURN is an account-level setting in PJSIP 2.17 — the vendored
+/// global `pjsua_config` has no `turn_cfg` fields — so `apply_turn` reflects it
+/// into the per-account config and returns this guard for the call's lifetime.
+pub struct TurnOwned {
     /// TURN server URI, backing `cfg.turn_cfg.turn_server`.
     pub turn_server: Option<PjOwnedStr>,
     /// TURN username, backing `cfg.turn_cfg.turn_auth_cred.static_cred.username`.
@@ -56,9 +63,9 @@ pub struct StunTurnOwned {
 ///
 /// Values mirror `enum pj_turn_tp_type` in `pjnath/turn_session.h` (IANA
 /// protocol numbers). The symbol name differs per build — the stub declares bare
-/// `PJ_TURN_TP_*` constants while bindgen emits type-prefixed
-/// `pj_turn_tp_type_PJ_TURN_TP_*` — so the value is resolved by a cfg-paired
-/// helper; the numeric result is identical in both builds.
+/// `PJ_TURN_TP_*` constants while bindgen emits the Rust enum
+/// `bindings::pj_turn_tp_type::PJ_TURN_TP_*` (P18-1 §62.33) — so the value is
+/// resolved by a cfg-paired helper; the numeric result is identical in both.
 pub fn resolve_turn_conn_type(transport: TurnTransport) -> bindings::pj_turn_tp_type {
     match transport {
         TurnTransport::Udp => turn_tp_value(TurnTransport::Udp),
@@ -68,12 +75,12 @@ pub fn resolve_turn_conn_type(transport: TurnTransport) -> bindings::pj_turn_tp_
 }
 
 #[cfg(feature = "pjsua-native")]
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-8|P18-1) --for-spec --no-implementation-order`.
 fn turn_tp_value(transport: TurnTransport) -> bindings::pj_turn_tp_type {
     match transport {
-        TurnTransport::Udp => bindings::pj_turn_tp_type_PJ_TURN_TP_UDP,
-        TurnTransport::Tcp => bindings::pj_turn_tp_type_PJ_TURN_TP_TCP,
-        TurnTransport::Tls => bindings::pj_turn_tp_type_PJ_TURN_TP_TLS,
+        TurnTransport::Udp => bindings::pj_turn_tp_type::PJ_TURN_TP_UDP,
+        TurnTransport::Tcp => bindings::pj_turn_tp_type::PJ_TURN_TP_TCP,
+        TurnTransport::Tls => bindings::pj_turn_tp_type::PJ_TURN_TP_TLS,
     }
 }
 
@@ -88,9 +95,9 @@ fn turn_tp_value(transport: TurnTransport) -> bindings::pj_turn_tp_type {
 }
 
 #[cfg(feature = "pjsua-native")]
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-8|P18-1) --for-spec --no-implementation-order`.
 fn turn_config_custom() -> bindings::pjsua_turn_config_use {
-    bindings::pjsua_turn_config_use_PJSUA_TURN_CONFIG_USE_CUSTOM
+    bindings::pjsua_turn_config_use::PJSUA_TURN_CONFIG_USE_CUSTOM
 }
 
 #[cfg(not(feature = "pjsua-native"))]
@@ -100,9 +107,9 @@ fn turn_config_custom() -> bindings::pjsua_turn_config_use {
 }
 
 #[cfg(feature = "pjsua-native")]
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-8|P18-1) --for-spec --no-implementation-order`.
 fn stun_auth_cred_static() -> bindings::pj_stun_auth_cred_type {
-    bindings::pj_stun_auth_cred_type_PJ_STUN_AUTH_CRED_STATIC
+    bindings::pj_stun_auth_cred_type::PJ_STUN_AUTH_CRED_STATIC
 }
 
 #[cfg(not(feature = "pjsua-native"))]
@@ -112,9 +119,9 @@ fn stun_auth_cred_static() -> bindings::pj_stun_auth_cred_type {
 }
 
 #[cfg(feature = "pjsua-native")]
-// [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P16-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-8|P18-1) --for-spec --no-implementation-order`.
 fn stun_passwd_plain() -> bindings::pj_stun_passwd_type {
-    bindings::pj_stun_passwd_type_PJ_STUN_PASSWD_PLAIN
+    bindings::pj_stun_passwd_type::PJ_STUN_PASSWD_PLAIN
 }
 
 #[cfg(not(feature = "pjsua-native"))]
@@ -123,20 +130,16 @@ fn stun_passwd_plain() -> bindings::pj_stun_passwd_type {
     bindings::PJ_STUN_PASSWD_PLAIN
 }
 
-/// Reflect `ClientConfig.stun_servers` / `turn_servers` into a `pjsua_config`.
+/// Reflect `ClientConfig.stun_servers` into a global `pjsua_config`.
 ///
 /// Reads as prose: reflect each STUN server URI into the `stun_srv` array (and
-/// its count), then reflect the first TURN server into the `turn_cfg` struct
-/// (selector, enable flag, server URI, connection type, and static credential).
-/// Returns the owned strings so the caller keeps the reflected `pj_str_t`
-/// pointers valid.
-///
-/// Fails fast: more than `STUN_SRV_MAX` STUN servers returns an `InvalidConfig`
-/// error without partially reflecting the config.
-pub fn apply_stun_turn(
+/// its count). Returns the owned strings so the caller keeps the reflected
+/// `pj_str_t` pointers valid. Fails fast: more than `STUN_SRV_MAX` STUN servers
+/// returns an `InvalidConfig` error without partially reflecting the config.
+pub fn apply_stun(
     cfg: &mut bindings::pjsua_config,
     config: &ClientConfig,
-) -> Result<StunTurnOwned, SipError> {
+) -> Result<StunOwned, SipError> {
     if config.stun_servers.len() > STUN_SRV_MAX {
         return Err(SipError::new(
             SipErrorKind::InvalidConfig,
@@ -157,7 +160,20 @@ pub fn apply_stun_turn(
     }
     cfg.stun_srv_cnt = config.stun_servers.len() as u32;
 
-    let turn = config.turn_servers.first();
+    Ok(StunOwned { stun })
+}
+
+/// Reflect the first TURN server into an account `pjsua_acc_config`.
+///
+/// P18-1 §62.31: PJSIP 2.17 configures TURN per-account (`pjsua_acc_config`),
+/// not on the global `pjsua_config`. Reflects the selector, enable flag, server
+/// URI, connection type, and static credential, and returns the owned strings
+/// so the caller keeps the reflected `pj_str_t` pointers valid.
+pub fn apply_turn(
+    cfg: &mut bindings::pjsua_acc_config,
+    turn_servers: &[TurnServerConfig],
+) -> Result<TurnOwned, SipError> {
+    let turn = turn_servers.first();
     let turn_server = turn.map(|server| PjOwnedStr::new(&server.uri));
     let turn_username =
         turn.and_then(|server| server.username.as_ref().map(|u| PjOwnedStr::new(u)));
@@ -177,18 +193,19 @@ pub fn apply_stun_turn(
         cfg.turn_cfg.turn_conn_type = resolve_turn_conn_type(turn.transport);
         if turn.username.is_some() || turn.password.is_some() {
             cfg.turn_cfg.turn_auth_cred.type_ = stun_auth_cred_static();
+            // P18-1 §62.31: the vendored pj_stun_auth_cred is a union — the
+            // static credential lives in the `data.static_cred` member.
             if let Some(owned) = &turn_username {
-                cfg.turn_cfg.turn_auth_cred.cred.static_cred.username = owned.as_raw();
+                cfg.turn_cfg.turn_auth_cred.data.static_cred.username = owned.as_raw();
             }
             if let Some(owned) = &turn_password {
-                cfg.turn_cfg.turn_auth_cred.cred.static_cred.data_type = stun_passwd_plain();
-                cfg.turn_cfg.turn_auth_cred.cred.static_cred.data = owned.as_raw();
+                cfg.turn_cfg.turn_auth_cred.data.static_cred.data_type = stun_passwd_plain();
+                cfg.turn_cfg.turn_auth_cred.data.static_cred.data = owned.as_raw();
             }
         }
     }
 
-    Ok(StunTurnOwned {
-        stun,
+    Ok(TurnOwned {
         turn_server,
         turn_username,
         turn_password,
@@ -209,7 +226,9 @@ pub fn apply_ice(cfg: &mut bindings::pjsua_media_config, ice: &IceConfig) {
 #[cfg(test)]
 mod tests {
     use crate::architecture::round2_scope_rootcause::Round2Section;
-    use crate::config::stun_turn_ice_wiring::{apply_ice, apply_stun_turn, resolve_turn_conn_type};
+    use crate::config::stun_turn_ice_wiring::{
+        apply_ice, apply_stun, apply_turn, resolve_turn_conn_type,
+    };
     use crate::config::transport_ice_spec::{
         IceConfig, StunServerConfig, TurnServerConfig, TurnTransport,
     };
@@ -232,11 +251,13 @@ mod tests {
 
     #[test]
     // @verifies C111-post
-    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-8|P18-1) --for-spec --no-implementation-order`.
     fn stun_turn_ice_wiring_surface_is_reachable() -> Result<(), SipError> {
         let mut cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
         let config = ClientConfig::default();
-        let _owned = apply_stun_turn(&mut cfg, &config)?;
+        let _owned = apply_stun(&mut cfg, &config)?;
+        let mut acc: bindings::pjsua_acc_config = unsafe { std::mem::zeroed() };
+        let _turn = apply_turn(&mut acc, &config.turn_servers)?;
         let mut media: bindings::pjsua_media_config = unsafe { std::mem::zeroed() };
         apply_ice(&mut media, &config.ice);
         Ok(())
@@ -260,8 +281,8 @@ mod tests {
 
     #[test]
     // @verifies C112-post
-    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
-    fn apply_stun_turn_reflects_stun_uri_into_config() -> Result<(), SipError> {
+    // [::TICKET::] P16-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-8|P18-1) --for-spec --no-implementation-order`.
+    fn apply_stun_reflects_stun_uri_into_config() -> Result<(), SipError> {
         let config = ClientConfig {
             stun_servers: vec![StunServerConfig {
                 uri: "stun:stun.example.com:3478".into(),
@@ -269,7 +290,7 @@ mod tests {
             ..Default::default()
         };
         let mut cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
-        let _owned = apply_stun_turn(&mut cfg, &config)?;
+        let _owned = apply_stun(&mut cfg, &config)?;
         assert_eq!(cfg.stun_srv_cnt, 1);
         assert_eq!(
             bindings::pj_str_to_string(&cfg.stun_srv[0]),
@@ -280,8 +301,8 @@ mod tests {
 
     #[test]
     // @verifies C112-post
-    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
-    fn apply_stun_turn_reflects_turn_server_into_config() -> Result<(), SipError> {
+    // [::TICKET::] P16-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-8|P18-1) --for-spec --no-implementation-order`.
+    fn apply_turn_reflects_turn_server_into_config() -> Result<(), SipError> {
         let config = ClientConfig {
             turn_servers: vec![TurnServerConfig {
                 uri: "turn:turn.example.com:3478".into(),
@@ -291,8 +312,8 @@ mod tests {
             }],
             ..Default::default()
         };
-        let mut cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
-        let _owned = apply_stun_turn(&mut cfg, &config)?;
+        let mut cfg: bindings::pjsua_acc_config = unsafe { std::mem::zeroed() };
+        let _owned = apply_turn(&mut cfg, &config.turn_servers)?;
         assert_eq!(cfg.turn_cfg_use, bindings::PJSUA_TURN_CONFIG_USE_CUSTOM);
         assert_eq!(cfg.turn_cfg.enable_turn, 1);
         assert_eq!(
@@ -307,8 +328,8 @@ mod tests {
 
     #[test]
     // @verifies C113-post
-    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
-    fn apply_stun_turn_reflects_turn_auth_cred() -> Result<(), SipError> {
+    // [::TICKET::] P16-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-8|P18-1) --for-spec --no-implementation-order`.
+    fn apply_turn_reflects_turn_auth_cred() -> Result<(), SipError> {
         let config = ClientConfig {
             turn_servers: vec![TurnServerConfig {
                 uri: "turn:turn.example.com:3478".into(),
@@ -318,9 +339,9 @@ mod tests {
             }],
             ..Default::default()
         };
-        let mut cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
-        let _owned = apply_stun_turn(&mut cfg, &config)?;
-        let cred = &cfg.turn_cfg.turn_auth_cred.cred.static_cred;
+        let mut cfg: bindings::pjsua_acc_config = unsafe { std::mem::zeroed() };
+        let _owned = apply_turn(&mut cfg, &config.turn_servers)?;
+        let cred = &cfg.turn_cfg.turn_auth_cred.data.static_cred;
         assert_eq!(cred.data_type, bindings::PJ_STUN_PASSWD_PLAIN);
         assert_eq!(bindings::pj_str_to_string(&cred.username), "alice");
         assert_eq!(bindings::pj_str_to_string(&cred.data), "s3cret");
@@ -367,8 +388,8 @@ mod tests {
 
     #[test]
     // @verifies C112-post
-    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
-    fn apply_stun_turn_rejects_more_than_eight_stun_servers() -> Result<(), SipError> {
+    // [::TICKET::] P16-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-8|P18-1) --for-spec --no-implementation-order`.
+    fn apply_stun_rejects_more_than_eight_stun_servers() -> Result<(), SipError> {
         let config = ClientConfig {
             stun_servers: (0..9)
                 .map(|i| StunServerConfig {
@@ -378,7 +399,7 @@ mod tests {
             ..Default::default()
         };
         let mut cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
-        let result = apply_stun_turn(&mut cfg, &config);
+        let result = apply_stun(&mut cfg, &config);
         assert!(result.is_err());
         assert!(matches!(
             result,
@@ -393,14 +414,16 @@ mod tests {
 
     #[test]
     // @verifies C112-inv
-    // [::TICKET::] P16-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-8 --for-spec --no-implementation-order`.
-    fn apply_stun_turn_with_no_servers_is_noop() -> Result<(), SipError> {
+    // [::TICKET::] P16-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-8|P18-1) --for-spec --no-implementation-order`.
+    fn apply_stun_with_no_servers_is_noop() -> Result<(), SipError> {
         let config = ClientConfig::default();
         let mut cfg: bindings::pjsua_config = unsafe { std::mem::zeroed() };
-        let _owned = apply_stun_turn(&mut cfg, &config)?;
+        let _owned = apply_stun(&mut cfg, &config)?;
         assert_eq!(cfg.stun_srv_cnt, 0);
-        assert_eq!(cfg.turn_cfg_use, bindings::PJSUA_TURN_CONFIG_USE_DEFAULT);
-        assert_eq!(cfg.turn_cfg.enable_turn, 0);
+        let mut acc: bindings::pjsua_acc_config = unsafe { std::mem::zeroed() };
+        let _turn = apply_turn(&mut acc, &config.turn_servers)?;
+        assert_eq!(acc.turn_cfg_use, bindings::PJSUA_TURN_CONFIG_USE_DEFAULT);
+        assert_eq!(acc.turn_cfg.enable_turn, 0);
         Ok(())
     }
 

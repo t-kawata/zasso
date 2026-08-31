@@ -10,12 +10,14 @@
 //! `make test-integration` brings the Asterisk/coturn services up, runs this
 //! binary with `--features pjsua-native`, and tears them down (Q9b).
 
-use siprs::model::CallId;
+use siprs::audio::media_path_arch::ChannelSelector;
+use siprs::model::{AudioFormat, BitDepth, CallId, ChannelLayout, SampleRate, SipMessageDirection};
+use siprs::runtime::audio_worker::MockAsyncAudioSource;
 use siprs::tests::docker_asterisk_it::docker_available;
 use siprs::{
-    AccountConfig, CallMediaPreferences, ClientConfig, HangupReason, IceConfig,
-    OutgoingCallRequest, RegistrationState, SecretString, SipClient, SipEventPayload,
-    StunServerConfig, TransportConfig, TurnServerConfig, TurnTransport,
+    AccountConfig, AudioTapMode, CallMediaPreferences, ClientConfig, DtmfMethod, DtmfSentInfo,
+    HangupReason, IceConfig, OutgoingCallRequest, RegistrationState, SecretString, SipClient,
+    SipEventPayload, StunServerConfig, TransportConfig, TurnServerConfig, TurnTransport,
 };
 use std::time::Duration;
 
@@ -77,6 +79,31 @@ async fn wait_for_event(
     }
 }
 
+/// Wait for the first raw SIP message whose text satisfies `predicate`,
+/// returning the matching message. Fails the test (panics) after
+/// `EVENT_TIMEOUT` and skips lagged events — the loop never hangs.
+// [::TICKET::] P19-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-1 --for-spec --no-implementation-order`.
+async fn wait_for_raw_sip(
+    raw: &mut siprs::Subscription<siprs::model::RawSipMessage>,
+    predicate: impl Fn(&siprs::model::RawSipMessage) -> bool,
+) -> siprs::model::RawSipMessage {
+    let deadline = tokio::time::Instant::now() + EVENT_TIMEOUT;
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        let received = tokio::time::timeout(remaining, raw.recv())
+            .await
+            .unwrap_or_else(|_| {
+                panic!("timed out waiting for raw sip message after {EVENT_TIMEOUT:?}")
+            });
+        match received {
+            Ok(msg) if predicate(&msg) => return msg,
+            Ok(_) => continue,
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(e) => panic!("raw sip channel closed: {e:?}"),
+        }
+    }
+}
+
 /// A siprs client bound to an ephemeral UDP transport, registering to the
 /// docker Asterisk published on `127.0.0.1:5060`.
 async fn client_against_asterisk() -> Result<
@@ -120,6 +147,40 @@ async fn register_against_asterisk() -> Result<(), Box<dyn std::error::Error>> {
         RegistrationState::Registered
     );
 
+    client.shutdown().await?;
+    Ok(())
+}
+
+/// Q17 (§62.38): the real pjsua-native path delivers a real SIP message to
+/// `subscribe_raw_sip()`. Asterisk's 401/200 responses to the client REGISTER
+/// carry `CSeq: N REGISTER` and are captured by the observation-only
+/// `pjsip_module` hook — TestBackend test-only hooks are never involved.
+#[tokio::test]
+// @verifies C145-post
+// @verifies C146-post
+// [::TICKET::] P19-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-1 --for-spec --no-implementation-order`.
+async fn raw_sip_rx_reaches_subscriber() -> Result<(), Box<dyn std::error::Error>> {
+    if !docker_available() {
+        return Ok(());
+    }
+    let (client, mut events) = client_against_asterisk().await?;
+    // Subscribe before registering so no raw message is missed.
+    let mut raw = client
+        .subscribe_raw_sip()
+        .ok_or_else(|| "raw sip enabled but no raw channel was created")?;
+    client
+        .add_account(registered_account("sip:1001@127.0.0.1:5060", "password")?)
+        .await?;
+    wait_for_event(&mut events, |p| {
+        matches!(
+            p,
+            SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+        )
+    })
+    .await;
+    let msg = wait_for_raw_sip(&mut raw, |m| m.text().contains("REGISTER")).await;
+    assert!(msg.text().contains("REGISTER"));
+    assert_eq!(msg.direction, SipMessageDirection::Response);
     client.shutdown().await?;
     Ok(())
 }
@@ -194,7 +255,9 @@ async fn incoming_call_via_originate() -> Result<(), Box<dyn std::error::Error>>
         return Ok(());
     }
     let (client, mut events) = client_against_asterisk().await?;
-    let account = client
+    // The account handle is not needed — registration is a side effect that
+    // registers sip:1002 with Asterisk before the inbound call is originated.
+    client
         .add_account(registered_account("sip:1002@127.0.0.1:5060", "password")?)
         .await?;
     wait_for_event(&mut events, |p| {
@@ -304,6 +367,388 @@ async fn coturn_stun_turn_ice() -> Result<(), Box<dyn std::error::Error>> {
     .await;
     assert!(matches!(media, SipEventPayload::MediaActive(_)));
 
+    client.shutdown().await?;
+    Ok(())
+}
+
+/// H13 (§62.40 / N0109): the real PJSIP conf bridge drives the RustMediaPort
+/// port ops, which supply `subscribe_audio`'s tap through `push_frame_to_tap`.
+/// `AudioTapHandle::recv()` must yield a real `AudioChunkPair` carrying the
+/// call's id within `EVENT_TIMEOUT` — proving the production path is not a
+/// TestBackend-only fiction (TestBackend's tap stays silent by design, Q17).
+#[tokio::test]
+// @verifies C148-post
+// @verifies C150-pre
+// @verifies C150-post
+// @verifies C150-inv
+// @verifies C152-post
+// @verifies C152-inv
+async fn conf_bridge_drives_audio_tap() -> Result<(), Box<dyn std::error::Error>> {
+    // [::TICKET::] P19-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-3 --for-spec --no-implementation-order`.
+    if !docker_available() {
+        return Ok(());
+    }
+    let (client, mut events) = client_against_asterisk().await?;
+    let account = client
+        .add_account(registered_account("sip:1001@127.0.0.1:5060", "password")?)
+        .await?;
+    wait_for_event(&mut events, |p| {
+        matches!(
+            p,
+            SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+        )
+    })
+    .await;
+
+    let raw_call_id = account
+        .make_call(OutgoingCallRequest {
+            target_uri: "sip:1001@127.0.0.1:5060".into(),
+            headers: Vec::new(),
+            auth_override: None,
+            preferred_transport: None,
+            media: CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        })
+        .await?;
+    let call_id = CallId::from_u64(raw_call_id)?;
+
+    // Subscribe before media flows so no conf-bridge frame is missed.
+    let mut tap = client
+        .subscribe_audio(
+            call_id,
+            AudioFormat::new(
+                SampleRate::Hz8000,
+                BitDepth::I16,
+                ChannelLayout::StereoInOut,
+                20,
+            )?,
+            16,
+            AudioTapMode::Realtime,
+        )
+        .await?;
+
+    let media = wait_for_event(&mut events, |p| {
+        matches!(p, SipEventPayload::MediaActive(_))
+    })
+    .await;
+    assert!(
+        matches!(media, SipEventPayload::MediaActive(_)),
+        "media must flow through the conf bridge for the tap to be driven"
+    );
+
+    // The conf bridge drives the port ops → tap: recv() must yield a real pair
+    // (get_frame supplies the tap even on underrun — never a permanent wait).
+    let pair = tokio::time::timeout(EVENT_TIMEOUT, tap.recv())
+        .await
+        .map_err(|_| "timed out waiting for audio chunk from the conf bridge")?
+        .ok_or_else(|| "tap closed before delivering an audio chunk")?;
+    assert_eq!(pair.call_id, call_id);
+
+    client.hangup(call_id, HangupReason::LocalUser).await?;
+    wait_for_event(&mut events, |p| {
+        matches!(p, SipEventPayload::CallDisconnected)
+    })
+    .await;
+
+    client.shutdown().await?;
+    Ok(())
+}
+
+/// H14 (§62.41 / N0110): after `add_audio_source` adds a source to a call's
+/// mixer, the mixer's `RustMediaPort` is (re-)registered in the real PJSIP
+/// conf bridge, so the injected audio reaches the network / local playback
+/// instead of accumulating in the mixer's `out_queue` and being dropped.
+/// The tap observes the bridge driving the port ops after the source is added
+/// — the pre-P19-4 gap left an AddAudioSource-created mixer unregistered.
+#[tokio::test]
+// @verifies C149-post
+// @verifies C149-inv
+async fn add_audio_source_reaches_conf_bridge() -> Result<(), Box<dyn std::error::Error>> {
+// [::TICKET::] P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-4 --for-spec --no-implementation-order`.
+    if !docker_available() {
+        return Ok(());
+    }
+    let (client, mut events) = client_against_asterisk().await?;
+    let account = client
+        .add_account(registered_account("sip:1001@127.0.0.1:5060", "password")?)
+        .await?;
+    wait_for_event(&mut events, |p| {
+        matches!(
+            p,
+            SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+        )
+    })
+    .await;
+
+    let raw_call_id = account
+        .make_call(OutgoingCallRequest {
+            target_uri: "sip:1001@127.0.0.1:5060".into(),
+            headers: Vec::new(),
+            auth_override: None,
+            preferred_transport: None,
+            media: CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        })
+        .await?;
+    let call_id = CallId::from_u64(raw_call_id)?;
+
+    let media = wait_for_event(&mut events, |p| matches!(p, SipEventPayload::MediaActive(_))).await;
+    assert!(
+        matches!(media, SipEventPayload::MediaActive(_)),
+        "media must be active before the injected source flows"
+    );
+
+    // §62.41: injecting a source must (re-)register the mixer's RustMediaPort
+    // in the conf bridge. A canned PCM burst is routed to both the IN and OUT
+    // paths; the tap below observes the bridge driving the port ops.
+    let _source_id = client
+        .add_audio_source(
+            call_id,
+            Box::new(MockAsyncAudioSource::new(vec![0i16; 160])),
+            ChannelSelector::Both,
+        )
+        .await?;
+
+    let mut tap = client
+        .subscribe_audio(
+            call_id,
+            AudioFormat::new(
+                SampleRate::Hz8000,
+                BitDepth::I16,
+                ChannelLayout::StereoInOut,
+                20,
+            )?,
+            16,
+            AudioTapMode::Realtime,
+        )
+        .await?;
+
+    let pair = tokio::time::timeout(EVENT_TIMEOUT, tap.recv())
+        .await
+        .map_err(|_| "timed out waiting for audio after add_audio_source")?
+        .ok_or_else(|| "tap closed before delivering an audio chunk")?;
+    assert_eq!(pair.call_id, call_id);
+
+    client.hangup(call_id, HangupReason::LocalUser).await?;
+    wait_for_event(&mut events, |p| {
+        matches!(p, SipEventPayload::CallDisconnected)
+    })
+    .await;
+
+    client.shutdown().await?;
+    Ok(())
+}
+
+/// Establish a registered Asterisk echo call shared by the DTMF tests.
+///
+/// Registers `uri`, waits for `Registered`, INVITEs the echo extension, and
+/// waits for `CallConnected` + `MediaActive`. Returns the connected `CallId`.
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+async fn establish_asterisk_echo_call(
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+    client: &SipClient,
+    events: &mut tokio::sync::broadcast::Receiver<siprs::SipEvent>,
+    uri: &str,
+) -> Result<CallId, Box<dyn std::error::Error>> {
+    let account = client
+        .add_account(registered_account(uri, "password")?)
+        .await?;
+    wait_for_event(events, |p| {
+        matches!(
+            p,
+            SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+        )
+    })
+    .await;
+    let raw_call_id = account
+        .make_call(OutgoingCallRequest {
+            target_uri: uri.into(),
+            headers: Vec::new(),
+            auth_override: None,
+            preferred_transport: None,
+            media: CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        })
+        .await?;
+    let call_id = CallId::from_u64(raw_call_id)?;
+    wait_for_event(events, |p| matches!(p, SipEventPayload::CallConnected(_))).await;
+    wait_for_event(events, |p| matches!(p, SipEventPayload::MediaActive(_))).await;
+    Ok(call_id)
+}
+
+/// Q21 + §62.14: SIP INFO DTMF sent to the Asterisk echo application reaches
+/// `DtmfSent{method: Info, digit}` through the real PJSIP path.
+#[tokio::test]
+// @verifies C150-post
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+async fn dtmf_sip_info() -> Result<(), Box<dyn std::error::Error>> {
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+    if !docker_available() {
+        return Ok(());
+    }
+    let (client, mut events) = client_against_asterisk().await?;
+    let call_id =
+        establish_asterisk_echo_call(&client, &mut events, "sip:1001@127.0.0.1:5060").await?;
+
+    client.send_dtmf(call_id, "1", DtmfMethod::Info).await?;
+    let sent = wait_for_event(&mut events, |p| {
+        matches!(
+            p,
+            SipEventPayload::DtmfSent(DtmfSentInfo {
+                method: DtmfMethod::Info,
+                digit: '1',
+                ..
+            })
+        )
+    })
+    .await;
+    let SipEventPayload::DtmfSent(info) = sent else {
+        panic!("expected DtmfSent for SIP INFO");
+    };
+    assert_eq!(info.method, DtmfMethod::Info);
+    assert_eq!(info.digit, '1');
+    assert!(
+        info.status.is_ok(),
+        "SIP INFO DTMF send must be accepted by PJSIP: {info:?}"
+    );
+
+    client.hangup(call_id, HangupReason::LocalUser).await?;
+    wait_for_event(&mut events, |p| matches!(p, SipEventPayload::CallDisconnected)).await;
+    client.shutdown().await?;
+    Ok(())
+}
+
+/// Q21 + §62.14: RFC 4733 DTMF (RTP event payload) reaches `DtmfSent{method:
+/// Rfc4733, digit}` through the real PJSIP path.
+#[tokio::test]
+// @verifies C150-post
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+async fn dtmf_rfc4733() -> Result<(), Box<dyn std::error::Error>> {
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+    if !docker_available() {
+        return Ok(());
+    }
+    let (client, mut events) = client_against_asterisk().await?;
+    let call_id =
+        establish_asterisk_echo_call(&client, &mut events, "sip:1001@127.0.0.1:5060").await?;
+
+    client.send_dtmf(call_id, "5", DtmfMethod::Rfc4733).await?;
+    let sent = wait_for_event(&mut events, |p| {
+        matches!(
+            p,
+            SipEventPayload::DtmfSent(DtmfSentInfo {
+                method: DtmfMethod::Rfc4733,
+                digit: '5',
+                ..
+            })
+        )
+    })
+    .await;
+    let SipEventPayload::DtmfSent(info) = sent else {
+        panic!("expected DtmfSent for RFC 4733");
+    };
+    assert_eq!(info.method, DtmfMethod::Rfc4733);
+    assert_eq!(info.digit, '5');
+    assert!(
+        info.status.is_ok(),
+        "RFC 4733 DTMF send must be accepted by PJSIP: {info:?}"
+    );
+
+    client.hangup(call_id, HangupReason::LocalUser).await?;
+    wait_for_event(&mut events, |p| matches!(p, SipEventPayload::CallDisconnected)).await;
+    client.shutdown().await?;
+    Ok(())
+}
+
+/// Q21 + §62.42: 2 endpoints exchange RTP media. Alice INVITEs bob (both
+/// accounts on one SipClient sharing the PjsuaBackend singleton, §43 M20 Dual
+/// Client), bob answers, and the audio alice injects through `add_audio_source`
+/// is observed at bob's `subscribe_audio` tap — proving the media travels over
+/// the network RTP path, not a TestBackend fiction.
+#[tokio::test]
+// @verifies C150-post
+// @verifies C150-inv
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+async fn register_invite_bye_rtp_flow() -> Result<(), Box<dyn std::error::Error>> {
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+    if !docker_available() {
+        return Ok(());
+    }
+    let (client, mut events) = client_against_asterisk().await?;
+    let alice = client
+        .add_account(registered_account("sip:1001@127.0.0.1:5060", "password")?)
+        .await?;
+    let _bob = client
+        .add_account(registered_account("sip:1002@127.0.0.1:5060", "password")?)
+        .await?;
+
+    // Both endpoints must be registered before the INVITE is routed.
+    for _ in 0..2 {
+        wait_for_event(&mut events, |p| {
+            matches!(
+                p,
+                SipEventPayload::RegistrationStateChanged(RegistrationState::Registered)
+            )
+        })
+        .await;
+    }
+
+    // alice → bob INVITE; bob's account receives the inbound call and answers.
+    let raw_alice_call = alice
+        .make_call(OutgoingCallRequest {
+            target_uri: "sip:1002@127.0.0.1:5060".into(),
+            headers: Vec::new(),
+            auth_override: None,
+            preferred_transport: None,
+            media: CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        })
+        .await?;
+    let alice_call_id = CallId::from_u64(raw_alice_call)?;
+
+    let incoming = wait_for_event(&mut events, |p| {
+        matches!(p, SipEventPayload::IncomingCall(_))
+    })
+    .await;
+    let SipEventPayload::IncomingCall(call) = incoming else {
+        panic!("expected IncomingCall at bob");
+    };
+    client.answer(call.call_id, 200).await?;
+    wait_for_event(&mut events, |p| matches!(p, SipEventPayload::CallConnected(_))).await;
+    wait_for_event(&mut events, |p| matches!(p, SipEventPayload::MediaActive(_))).await;
+
+    // alice injects a PCM burst into her call; bob's tap observes the bridge
+    // driving bob's port ops with frames that arrived over the RTP network path
+    // (alice's injected source → alice's conf port → RTP → bob's conf port → tap).
+    let _source_id = client
+        .add_audio_source(
+            alice_call_id,
+            Box::new(MockAsyncAudioSource::new(vec![0i16; 160])),
+            ChannelSelector::Both,
+        )
+        .await?;
+    let mut tap = client
+        .subscribe_audio(
+            call.call_id,
+            AudioFormat::new(
+                SampleRate::Hz8000,
+                BitDepth::I16,
+                ChannelLayout::StereoInOut,
+                20,
+            )?,
+            16,
+            AudioTapMode::Realtime,
+        )
+        .await?;
+    let pair = tokio::time::timeout(EVENT_TIMEOUT, tap.recv())
+        .await
+        .map_err(|_| "timed out waiting for RTP media at bob")?
+        .ok_or_else(|| "tap closed before delivering RTP media")?;
+    assert_eq!(pair.call_id, call.call_id, "RTP media must reach bob's call");
+
+    // BYE terminates the dialog.
+    client.hangup(call.call_id, HangupReason::LocalUser).await?;
+    wait_for_event(&mut events, |p| matches!(p, SipEventPayload::CallDisconnected)).await;
     client.shutdown().await?;
     Ok(())
 }

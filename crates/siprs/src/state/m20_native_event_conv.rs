@@ -24,8 +24,8 @@
 // [::TICKET::] P0-5: NativeEvent enum + conversion to SipEventPayload
 
 use crate::api::event_model_payload_bus::{
-    AccountId, CallId, DtmfReceivedInfo, IceFailureInfo, IncomingCallInfo, RegistrationInfo,
-    SipEventPayload, TransportConnectedInfo, TransportDisconnectedInfo, TransportErrorInfo,
+    AccountId, CallId, DtmfReceivedInfo, IncomingCallInfo, RegistrationInfo, SipEventPayload,
+    TransportConnectedInfo, TransportDisconnectedInfo, TransportErrorInfo,
 };
 use crate::config::account_config_spec::DtmfMethod;
 use crate::ffi::bindings::pjsip_transport_state;
@@ -85,8 +85,12 @@ pub enum NativeEvent {
         transport_id: u32,
         state: u32,
     },
+    // P19-2 §62.39: transport-level (currently TURN Refresh errors) — the
+    // pjsua_callback carries no call context, so the variant is scalar-only.
     IceTransportError {
-        call_id: u32,
+        index: i32,
+        operation: u32,
+        status: i32,
     },
 
     // ── P2: Supplemental (P16-4 §62.13 Some() 化) ──
@@ -108,11 +112,12 @@ pub enum NativeEvent {
 /// Convert a `NativeEvent` to a `SipEventPayload`.
 ///
 /// P0/P1/P2 variants produce `Some(SipEventPayload)` (P1/P2 since P16-4
-/// §62.13). The sole exception is `RegistrationStateChanged`, which follows a
-/// special pattern: it issues a `RuntimeCommand::GetAccountInfo` to query
-/// registration status. The actual event publication happens after the
-/// backend responds. `RegistrationStateChanged` yields `None` here — the
-/// caller (Reactor) must handle the GetAccountInfo flow.
+/// §62.13). Two exceptions yield `None`: `RegistrationStateChanged` follows a
+/// special pattern — it issues a `RuntimeCommand::GetAccountInfo` to query
+/// registration status, and the actual event publication happens after the
+/// backend responds (the caller (Reactor) must handle the GetAccountInfo
+/// flow). `IceTransportError` (P19-2 §62.39) is transport-level with no call
+/// context, so no call-scoped payload exists to publish.
 ///
 /// # Arguments
 /// * `event` - The native event to convert.
@@ -185,20 +190,26 @@ pub fn convert_native_event_to_payload(
             state,
         } => {
             let (transport_type, local_addr) = resolve_transport_context(transport_id);
+            // P18-1 (§62.33): guard patterns keep the mapping total in both the
+            // stub (u32 consts) and native (Rust enum) pjsip_transport_state.
             match state {
-                pjsip_transport_state::CONNECTED => Some(SipEventPayload::TransportConnected(
-                    TransportConnectedInfo {
+                x if x == pjsip_transport_state::PJSIP_TP_STATE_CONNECTED as u32 => Some(
+                    SipEventPayload::TransportConnected(TransportConnectedInfo {
                         transport_type,
                         local_addr,
                         remote_addr: None,
-                    },
-                )),
-                pjsip_transport_state::DISCONNECTED | pjsip_transport_state::SHUTDOWN => Some(
-                    SipEventPayload::TransportDisconnected(TransportDisconnectedInfo {
-                        transport_type,
-                        local_addr,
                     }),
                 ),
+                x if x == pjsip_transport_state::PJSIP_TP_STATE_DISCONNECTED as u32
+                    || x == pjsip_transport_state::PJSIP_TP_STATE_SHUTDOWN as u32 =>
+                {
+                    Some(SipEventPayload::TransportDisconnected(
+                        TransportDisconnectedInfo {
+                            transport_type,
+                            local_addr,
+                        },
+                    ))
+                }
                 other_state => Some(SipEventPayload::TransportError(TransportErrorInfo {
                     transport_type,
                     local_addr,
@@ -206,12 +217,12 @@ pub fn convert_native_event_to_payload(
                 })),
             }
         }
-        NativeEvent::IceTransportError { call_id } => {
-            let cid = CallId::from_u64(call_id as u64).ok()?;
-            Some(SipEventPayload::IceNegotiationFailed(IceFailureInfo {
-                call_id: cid,
-                reason: String::new(),
-            }))
+        NativeEvent::IceTransportError { .. } => {
+            // P19-2 §62.39: the pjsua_callback on_ice_transport_error carries no
+            // call context (transport-level, currently TURN Refresh errors), so
+            // there is no call-scoped payload to publish. The reactor consumes
+            // the event; surfacing a transport-level ICE payload is future work.
+            None
         }
 
         // ── P2: Supplemental (P16-4 §62.13 Some() 化) ──
@@ -518,12 +529,12 @@ mod tests {
     /// @verifies C022
     #[test]
     // [::TICKET::] P16-4: P1 — TransportStateChanged CONNECTED → TransportConnected.
-    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-4, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P18-1) --for-spec --no-implementation-order`.
     fn native_event_transport_state_changed_connected() {
         let result = convert_native_event_to_payload(
             NativeEvent::TransportStateChanged {
                 transport_id: 1,
-                state: pjsip_transport_state::CONNECTED,
+                state: pjsip_transport_state::PJSIP_TP_STATE_CONNECTED,
             },
             None,
         );
@@ -536,12 +547,12 @@ mod tests {
     /// @verifies C022
     #[test]
     // [::TICKET::] P16-4: P1 — TransportStateChanged DISCONNECTED → TransportDisconnected.
-    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-4, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P18-1) --for-spec --no-implementation-order`.
     fn native_event_transport_state_changed_disconnected() {
         let result = convert_native_event_to_payload(
             NativeEvent::TransportStateChanged {
                 transport_id: 1,
-                state: pjsip_transport_state::DISCONNECTED,
+                state: pjsip_transport_state::PJSIP_TP_STATE_DISCONNECTED,
             },
             None,
         );
@@ -554,12 +565,12 @@ mod tests {
     /// @verifies C022
     #[test]
     // [::TICKET::] P16-4: P1 — any non-terminal state maps to TransportError (Some).
-    // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-4, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P18-1) --for-spec --no-implementation-order`.
     fn native_event_transport_state_changed_error_for_other_states() {
         let result = convert_native_event_to_payload(
             NativeEvent::TransportStateChanged {
                 transport_id: 1,
-                state: pjsip_transport_state::IDLE,
+                state: pjsip_transport_state::PJSIP_TP_STATE_DESTROY,
             },
             None,
         );
@@ -570,18 +581,27 @@ mod tests {
     }
 
     /// @verifies C022
+    /// @verifies C150
     #[test]
-    // [::TICKET::] P16-4: P1 — IceTransportError → IceNegotiationFailed (Some).
+    // [::TICKET::] P16-4: P1 — IceTransportError → IceNegotiationFailed (Some) is superseded by P19-2.
     // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
-    fn native_event_ice_transport_error_maps_to_failure() {
-        let result =
-            convert_native_event_to_payload(NativeEvent::IceTransportError { call_id: 5 }, None);
-        match result {
-            Some(SipEventPayload::IceNegotiationFailed(info)) => {
-                assert_eq!(info.call_id, test_call_id(5));
-            }
-            other => panic!("expected IceNegotiationFailed, got {other:?}"),
-        }
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    fn native_event_ice_transport_error_yields_none() {
+        // The real pjsua_callback.on_ice_transport_error carries no call context
+        // (transport-level, currently TURN Refresh errors), so there is no
+        // call-scoped SipEventPayload to publish (C150).
+        let result = convert_native_event_to_payload(
+            NativeEvent::IceTransportError {
+                index: 0,
+                operation: 0,
+                status: 0,
+            },
+            None,
+        );
+        assert!(
+            result.is_none(),
+            "transport-level ICE error has no call-scoped payload"
+        );
     }
 
     // ── P2 Supplemental (returns Some, P16-4 §62.13) ──────────────────

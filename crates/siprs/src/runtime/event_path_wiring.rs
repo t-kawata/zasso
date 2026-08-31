@@ -148,7 +148,7 @@ mod tests {
     /// @verifies C098, C099
     #[test]
     // [::TICKET::] P16-4: drain forwards queued NativeEvents FIFO to the reactor channel.
-// [::TICKET::] P16-4, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-4, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P17-6) --for-spec --no-implementation-order`.
     fn drain_pending_native_events_forwards_fifo() {
         install_queues();
         enqueue_native_event(NativeEvent::CallMediaStateChanged {

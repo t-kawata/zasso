@@ -1,0 +1,24 @@
+# Standalone producer crate for vendored PJSIP prebuilt libraries (§62.36).
+#
+# Intentionally dependency-free: the tool only shells out to `cmake`, `file`,
+# `nm`, `cc` and `docker`. Keeping zero crates.io dependencies makes the
+# producer buildable and testable without network access, and keeps it fully
+# independent of the siprs crate (C143 invariant).
+#
+# [::TICKET::] P18-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-2 --for-spec --no-implementation-order`
+
+[package]
+name = "pjsip-prebuilt"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+description = "Standalone producer for vendored PJSIP prebuilt libraries (RFC §62.36)"
+
+[lib]
+name = "pjsip_prebuilt"
+path = "src/lib.rs"
+
+[[bin]]
+name = "pjsip-prebuilt"
+path = "src/main.rs"

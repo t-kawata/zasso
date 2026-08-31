@@ -15,8 +15,25 @@
 //
 
 use crate::ffi::bindings;
+#[cfg(feature = "pjsua-native")]
+use crate::ffi::constants::PJ_SUCCESS;
+use crate::ffi::ice_transport_error::on_ice_transport_error;
 use crate::state::m20_native_event_conv::NativeEvent;
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+
+/// Transport-state argument type for `on_transport_state`.
+///
+/// Under `pjsua-native`, bindgen generates `pjsip_transport_state` as a Rust
+/// enum (`BINDGEN_ENUM_TYPES`, §62.33); in the stub build the same name is a
+/// module of `u32` constants, so the callback parameter is the scalar `u32`
+/// there. The alias keeps the extern "C" signature ABI-compatible in both modes
+/// (P18-1 / N0102).
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+type TransportStateParam = bindings::pjsip_transport_state;
+#[cfg(not(feature = "pjsua-native"))]
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+type TransportStateParam = u32;
 
 /// Capacity of the pre-allocated `NativeEvent` queue installed at registration.
 ///
@@ -206,6 +223,8 @@ pub fn register_callbacks(
     config.cb.on_call_tsx_state = Some(on_call_tsx_state);
     config.cb.on_call_replaced = Some(on_call_replaced);
     config.cb.on_nat_detect = Some(on_nat_detect);
+    // P19-2 §62.39: the ICE media transport error callback — TURN Refresh errors.
+    config.cb.on_ice_transport_error = Some(on_ice_transport_error);
 }
 
 /// Convert a PJSUA DTMF digit (ASCII int) into a `char`, skipping non-ASCII.
@@ -267,17 +286,41 @@ pub unsafe extern "C" fn on_call_state(
     call_id: bindings::pjsua_call_id,
     event: *mut bindings::pjsip_event,
 ) {
-    let state = if event.is_null() {
-        bindings::PJSUA_CALL_NULL
-    } else {
-        // SAFETY: PJSIP passes a valid event for the callback duration; reading
-        // the call_state_info.state member is the documented on_call_state path.
-        unsafe { (*event).call_state() }
-    };
+    let state = resolve_call_state(call_id, event);
     enqueue_native_event(NativeEvent::CallStateChanged {
         call_id: call_id as u32,
         state,
     });
+}
+
+/// Resolve the call state for the `on_call_state` callback.
+///
+/// Under `pjsua-native`, the vendored `pjsip_event` carries no `call_state_info`
+/// member, so the state is read via `pjsua_call_get_info` (P18-1 §62.31). In the
+/// stub build the event mirror exposes the state directly.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+fn resolve_call_state(call_id: bindings::pjsua_call_id, _event: *mut bindings::pjsip_event) -> u32 {
+    let mut info: bindings::pjsua_call_info = unsafe { std::mem::zeroed() };
+    // SAFETY: info is a valid, aligned, initialized pjsua_call_info filled in
+    // place by the FFI; reading state is the documented on_call_state path.
+    let status = unsafe { bindings::pjsua_call_get_info(call_id, &mut info) };
+    if status != crate::ffi::constants::PJ_SUCCESS {
+        return crate::ffi::constants::PJSUA_CALL_NULL;
+    }
+    info.state as u32
+}
+
+#[cfg(not(feature = "pjsua-native"))]
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+fn resolve_call_state(_call_id: bindings::pjsua_call_id, event: *mut bindings::pjsip_event) -> u32 {
+    if event.is_null() {
+        crate::ffi::constants::PJSUA_CALL_NULL
+    } else {
+        // SAFETY: PJSIP passes a valid event for the callback duration; reading
+        // the call_state_info.state member is the documented stub path.
+        unsafe { (*event).call_state() }
+    }
 }
 
 /// Callback for call media state changes.
@@ -295,7 +338,7 @@ pub unsafe extern "C" fn on_call_media_state(call_id: bindings::pjsua_call_id) {
     // C110: media status is resolved via pjsua_call_get_info; a resolution
     // failure surfaces MediaError rather than a canned success.
     let status = bindings::resolve_call_media_status(call_id)
-        .unwrap_or(bindings::pjsua_call_media_status::ERROR);
+        .unwrap_or(bindings::pjsua_call_media_status::PJSUA_CALL_MEDIA_ERROR as u32);
     enqueue_native_event(NativeEvent::CallMediaStateChanged {
         call_id: call_id as u32,
         status,
@@ -363,15 +406,34 @@ pub unsafe extern "C" fn on_call_transfer_status(
 /// # Safety
 /// `target` and `event` are only passed through and never dereferenced here.
 #[no_mangle]
+// P18-1 (§62.33): the native callback returns the pjsip_redirect_op Rust enum;
+// the stub's pjsua_callback field type is u32 — so the signature is cfg-paired
+// around a shared enqueue helper.
+#[cfg(feature = "pjsua-native")]
+pub unsafe extern "C" fn on_call_redirected(
+    call_id: bindings::pjsua_call_id,
+    _target: *const bindings::pjsip_uri,
+    _event: *const bindings::pjsip_event,
+) -> bindings::pjsip_redirect_op {
+    enqueue_redirect_event(call_id);
+    bindings::pjsip_redirect_op::PJSIP_REDIRECT_STOP
+}
+
+#[cfg(not(feature = "pjsua-native"))]
 pub unsafe extern "C" fn on_call_redirected(
     call_id: bindings::pjsua_call_id,
     _target: *const bindings::pjsip_uri,
     _event: *const bindings::pjsip_event,
 ) -> u32 {
+    enqueue_redirect_event(call_id);
+    bindings::pjsip_redirect_op::PJSIP_REDIRECT_STOP
+}
+
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+fn enqueue_redirect_event(call_id: bindings::pjsua_call_id) {
     enqueue_native_event(NativeEvent::CallRedirected {
         call_id: call_id as u32,
     });
-    bindings::pjsip_redirect_op::PJSIP_REDIRECT_STOP
 }
 
 /// Callback for transport state changes (P1, P17-3 §62.23).
@@ -386,20 +448,127 @@ pub unsafe extern "C" fn on_call_redirected(
 #[no_mangle]
 pub unsafe extern "C" fn on_transport_state(
     tp: *mut bindings::pjsip_transport,
-    state: u32,
+    state: TransportStateParam,
     _info: *const bindings::pjsip_transport_state_info,
 ) {
-    let transport_id = if tp.is_null() {
+    let transport_id = resolve_transport_id(tp);
+    enqueue_native_event(NativeEvent::TransportStateChanged {
+        transport_id,
+        // P18-1 (§62.33): the callback receives the pjsip_transport_state Rust
+        // enum under pjsua-native; the event carries the raw u32 value.
+        state: state as u32,
+    });
+}
+
+/// Resolve the pjsua transport id for `on_transport_state`.
+///
+/// The vendored `pjsip_transport` has no `id` field, so the id is recovered by
+/// enumerating the live pjsua transports and matching each one's local host:port
+/// against the transport instance's own local host:port (§62.42 / P19-5). The
+/// stub mirror exposes `id` directly.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P18-1, P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P18-1|P19-5) --for-spec --no-implementation-order`.
+fn resolve_transport_id(tp: *mut bindings::pjsip_transport) -> u32 {
+    if tp.is_null() {
+        return 0;
+    }
+    // SAFETY: `tp` is the live pjsip_transport supplied by the on_transport_state
+    // callback; reading its local_name fields is valid for the callback duration.
+    let target = unsafe { host_port_of(&(*tp).local_name) };
+    let transports = enumerate_pjsua_transports();
+    let transport_refs: Vec<(u32, &str)> = transports
+        .iter()
+        .map(|(id, name)| (*id, name.as_str()))
+        .collect();
+    match_transport_id(&transport_refs, &target)
+}
+
+/// Pure predicate: find the transport id whose `host:port` equals `target`.
+///
+/// Returns `0` (the pre-resolution fallback) when no transport matches — a
+/// missing match keeps the callback's default rather than failing it.
+#[cfg(any(test, feature = "pjsua-native"))]
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+fn match_transport_id(transports: &[(u32, &str)], target: &str) -> u32 {
+    transports
+        .iter()
+        .find(|(_, name)| *name == target)
+        .map(|(id, _)| *id)
+        .unwrap_or(0)
+}
+
+/// Format a `pjsip_host_port` as `host:port`.
+///
+/// Both the `pjsip_transport` and the `pjsua_transport_info` carry their local
+/// address as a `pjsip_host_port`, so the same formatter yields comparable
+/// strings on both sides of the transport-id match.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+unsafe fn host_port_of(name: &bindings::pjsip_host_port) -> String {
+    let host = read_pj_str(&name.host);
+    format!("{host}:{}", name.port)
+}
+
+/// Read a PJSIP-owned `pj_str_t` into a Rust `String`.
+///
+/// `pj_str_t` is not NUL-terminated; `slen` governs the byte length. The bytes
+/// are owned by PJSIP's pool and are valid for the callback duration.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+unsafe fn read_pj_str(text: &bindings::pj_str_t) -> String {
+    let len = text.slen.max(0) as usize;
+    if len == 0 || text.ptr.is_null() {
+        return String::new();
+    }
+    let bytes = std::slice::from_raw_parts(text.ptr.cast::<u8>(), len);
+    String::from_utf8_lossy(bytes).into_owned()
+}
+
+/// Enumerate the live pjsua transports as `(id, host:port)` pairs.
+///
+/// A transport whose info cannot be read is skipped; an empty list is the
+/// signal for `match_transport_id` to fall back to id 0.
+#[cfg(feature = "pjsua-native")]
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+fn enumerate_pjsua_transports() -> Vec<(u32, String)> {
+    const MAX_TRANSPORTS: usize = 16;
+    let mut ids = [0 as bindings::pjsua_transport_id; MAX_TRANSPORTS];
+    let mut count: std::os::raw::c_uint = 0;
+    // SAFETY: `ids` is a writable 16-element array and `count` a writable
+    // scalar; pjsua_enum_transports fills them with at most MAX_TRANSPORTS ids.
+    let status = unsafe { bindings::pjsua_enum_transports(ids.as_mut_ptr(), &mut count) };
+    if status != PJ_SUCCESS {
+        return Vec::new();
+    }
+    (0..count as usize)
+        .filter_map(|index| {
+            // SAFETY: `info` is a writable, zero-initialized pjsua_transport_info
+            // that pjsua_transport_get_info fills in on success.
+            let mut info: bindings::pjsua_transport_info = unsafe { std::mem::zeroed() };
+            // SAFETY: `ids[index]` is a valid transport id returned by
+            // pjsua_enum_transports and `info` is a writable transport-info slot.
+            let ok = unsafe { bindings::pjsua_transport_get_info(ids[index], &mut info) };
+            if ok != PJ_SUCCESS {
+                return None;
+            }
+            // SAFETY: `info` is a live, initialized pjsua_transport_info whose
+            // local_name is valid for the callback duration.
+            let name = unsafe { host_port_of(&info.local_name) };
+            Some((ids[index] as u32, name))
+        })
+        .collect()
+}
+
+#[cfg(not(feature = "pjsua-native"))]
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+fn resolve_transport_id(tp: *mut bindings::pjsip_transport) -> u32 {
+    if tp.is_null() {
         0
     } else {
         // SAFETY: PJSIP passes a valid transport instance for the callback
         // duration; the stub mirror exposes the `id` member.
         unsafe { (*tp).id }
-    };
-    enqueue_native_event(NativeEvent::TransportStateChanged {
-        transport_id,
-        state,
-    });
+    }
 }
 
 /// Callback for transaction state changes (P2, P17-3 §62.23).
@@ -473,7 +642,8 @@ mod tests {
 
     #[test]
     // @verifies C050
-    // [::TICKET::] P11-11, P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-3) --for-spec --no-implementation-order`.
+    // @verifies C147
+    // [::TICKET::] P11-11, P17-3, P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-3|P19-2) --for-spec --no-implementation-order`.
     fn register_callbacks_fills_all_callback_pointers() {
         let queue = crossbeam_queue::ArrayQueue::new(8);
         let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
@@ -491,11 +661,13 @@ mod tests {
         assert!(config.cb.on_call_tsx_state.is_some());
         assert!(config.cb.on_call_replaced.is_some());
         assert!(config.cb.on_nat_detect.is_some());
+        // P19-2 §62.39: the ICE transport error callback (13th) is wired too.
+        assert!(config.cb.on_ice_transport_error.is_some());
     }
 
     #[test]
     // @verifies C050
-// [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
     fn register_callbacks_installs_the_event_queue() {
         let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
         register_callbacks(&mut config, crossbeam_queue::ArrayQueue::new(2));
@@ -607,7 +779,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P18-1) --for-spec --no-implementation-order`.
     fn on_call_state_null_event_falls_back_to_null_state() {
         let queue = install_test_queue(2);
         unsafe { on_call_state(7, std::ptr::null_mut()) };
@@ -615,7 +787,7 @@ mod tests {
             queue.pop(),
             Some(NativeEvent::CallStateChanged {
                 call_id: 7,
-                state: bindings::PJSUA_CALL_NULL
+                state: crate::ffi::constants::PJSUA_CALL_NULL
             })
         );
     }
@@ -624,7 +796,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
     fn on_call_media_state_enqueues_media_state_changed() {
         let queue = install_test_queue(2);
         unsafe { on_call_media_state(9) };
@@ -680,11 +852,14 @@ mod tests {
 
     #[test]
     // @verifies C050
-    // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P18-1) --for-spec --no-implementation-order`.
     fn on_call_redirected_enqueues_and_returns_stop() {
         let queue = install_test_queue(2);
         let action = unsafe { on_call_redirected(7, std::ptr::null(), std::ptr::null()) };
-        assert_eq!(action, bindings::pjsip_redirect_op::PJSIP_REDIRECT_STOP);
+        assert_eq!(
+            action,
+            bindings::pjsip_redirect_op::PJSIP_REDIRECT_STOP as u32
+        );
         assert_eq!(
             queue.pop(),
             Some(NativeEvent::CallRedirected { call_id: 7 })
@@ -737,7 +912,7 @@ mod tests {
 
     #[test]
     // @verifies C050, C052
-// [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
     fn queue_capacity_is_positive_and_pre_allocated() {
         // The capacity is a compile-time constant (statically asserted at module
         // scope); this test proves the enqueue path works on an installed,
@@ -758,7 +933,7 @@ mod tests {
 
     #[test]
     // @verifies C050
-// [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-11|P17-6) --for-spec --no-implementation-order`.
     fn every_callback_enqueues_exactly_one_event() {
         let queue = install_test_queue(8);
         unsafe { on_reg_state(1) };
@@ -831,6 +1006,32 @@ mod tests {
         );
     }
 
+    // ── P19-5 §62.42: transport-id matching predicate (TS-001) ─────────
+
+    /// @verifies C150
+    #[test]
+    // [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+    fn match_transport_id_returns_matching_id() {
+        let transports = [(1, "127.0.0.1:5060"), (2, "127.0.0.1:5061")];
+        assert_eq!(match_transport_id(&transports, "127.0.0.1:5061"), 2);
+        assert_eq!(match_transport_id(&transports, "127.0.0.1:5060"), 1);
+    }
+
+    /// @verifies C150
+    #[test]
+    // [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+    fn match_transport_id_empty_list_falls_back_to_zero() {
+        assert_eq!(match_transport_id(&[], "127.0.0.1:5060"), 0);
+    }
+
+    /// @verifies C150
+    #[test]
+    // [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
+    fn match_transport_id_no_match_falls_back_to_zero() {
+        let transports = [(3, "127.0.0.1:5060")];
+        assert_eq!(match_transport_id(&transports, "127.0.0.1:9999"), 0);
+    }
+
     /// @verifies C124
     #[test]
     // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
@@ -894,6 +1095,76 @@ mod tests {
         );
     }
 
+    // ── P19-2 §62.39: on_ice_transport_error ─────────────────────────
+
+    /// @verifies C148
+    #[test]
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    fn pj_ice_strans_op_const_values() {
+        assert_eq!(bindings::pj_ice_strans_op::PJ_ICE_STRANS_OP_INIT, 0);
+        assert_eq!(bindings::pj_ice_strans_op::PJ_ICE_STRANS_OP_NEGOTIATION, 1);
+        assert_eq!(bindings::pj_ice_strans_op::PJ_ICE_STRANS_OP_KEEP_ALIVE, 2);
+        assert_eq!(bindings::pj_ice_strans_op::PJ_ICE_STRANS_OP_ADDR_CHANGE, 3);
+    }
+
+    /// @verifies C149
+    #[test]
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    fn on_ice_transport_error_enqueues_ice_transport_error() {
+        let queue = install_test_queue(2);
+        unsafe { on_ice_transport_error(0, 0, 0, std::ptr::null_mut()) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::IceTransportError {
+                index: 0,
+                operation: 0,
+                status: 0,
+            })
+        );
+        assert_eq!(queue.pop(), None, "exactly one event per invocation");
+    }
+
+    /// @verifies C149
+    #[test]
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    fn on_ice_transport_error_param_never_dereferenced() {
+        // PJSIP documents `param` as always NULL; even a dangling non-null
+        // pointer must never be dereferenced by the handler (C149 invariant).
+        let queue = install_test_queue(2);
+        unsafe { on_ice_transport_error(1, 1, 1, 0x1 as *mut std::os::raw::c_void) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::IceTransportError {
+                index: 1,
+                operation: 1,
+                status: 1,
+            })
+        );
+        assert_eq!(queue.pop(), None);
+    }
+
+    /// @verifies C148, C149
+    #[test]
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    fn on_ice_transport_error_boundary_values_preserved() {
+        for index in [i32::MIN, -1, 0, i32::MAX] {
+            for status in [i32::MIN, 0, i32::MAX] {
+                let queue = install_test_queue(2);
+                unsafe { on_ice_transport_error(index, 2, status, std::ptr::null_mut()) };
+                assert_eq!(
+                    queue.pop(),
+                    Some(NativeEvent::IceTransportError {
+                        index,
+                        operation: 2,
+                        status,
+                    }),
+                    "index/status must survive i32::MIN..=i32::MAX"
+                );
+                assert_eq!(queue.pop(), None);
+            }
+        }
+    }
+
     /// @verifies C125
     #[test]
     // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
@@ -920,7 +1191,7 @@ mod tests {
     /// @verifies C099
     #[test]
     // [::TICKET::] P16-4: FFI drain — try_pop consumes the installed queue FIFO.
-// [::TICKET::] P16-4, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P16-4, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P16-4|P17-6) --for-spec --no-implementation-order`.
     fn try_pop_native_event_drains_fifo() {
         install_test_queue(4);
         enqueue_native_event(NativeEvent::CallMediaStateChanged {

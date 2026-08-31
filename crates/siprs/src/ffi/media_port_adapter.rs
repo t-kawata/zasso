@@ -40,6 +40,9 @@
 //! small [`RustMediaPort`] struct itself (PX-3 open item: shutdown cleanup).
 
 use crate::ffi::bindings;
+// P18-1 §62.32: PJ_SUCCESS is a crate-internal constant (bindgen cannot emit
+// enum enumerators as free bindings vars).
+use crate::ffi::constants::PJ_SUCCESS;
 use crate::runtime::audio_worker::RustMediaPort;
 
 /// Sample rate of the siprs audio pipeline (matches `MIXER_FRAME_SAMPLES` @ 8 kHz).
@@ -60,9 +63,11 @@ const PORT_NAME: &[u8] = b"siprs-rust-media-port\0";
 /// member of a `pjmedia_port`). Writing the audio union member is the documented
 /// audio-format init path (`pjmedia_format_init_audio`).
 unsafe fn init_audio_format(fmt: *mut bindings::pjmedia_format) {
-    (*fmt).id = bindings::PJMEDIA_FORMAT_PCM;
-    (*fmt).type_ = bindings::PJMEDIA_TYPE_AUDIO;
-    (*fmt).detail_type = bindings::PJMEDIA_FORMAT_DETAIL_AUDIO;
+    // P18-1 (§62.33): these are Rust enum variants under pjsua-native (L16 is
+    // the PCM format id), resolved as bare consts in the stub build.
+    (*fmt).id = bindings::pjmedia_format_id::PJMEDIA_FORMAT_L16 as u32;
+    (*fmt).type_ = bindings::pjmedia_type::PJMEDIA_TYPE_AUDIO;
+    (*fmt).detail_type = bindings::pjmedia_format_detail_type::PJMEDIA_FORMAT_DETAIL_AUDIO;
     (*fmt).det.aud.clock_rate = CLOCK_RATE_HZ;
     (*fmt).det.aud.channel_count = CHANNEL_COUNT;
     (*fmt).det.aud.frame_time_usec = FRAME_TIME_USEC;
@@ -82,7 +87,7 @@ pub(crate) struct MediaPortAdapter {
     _pdata: *mut RustMediaPort,
 }
 
-// [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-3, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P18-1) --for-spec --no-implementation-order`.
 impl MediaPortAdapter {
     /// Build an adapter over `media_port`, boxing it for the RT callbacks.
     pub(crate) fn new(media_port: RustMediaPort) -> Self {
@@ -97,7 +102,10 @@ impl MediaPortAdapter {
             slen: (name.len() - 1) as _,
         };
         base.info.signature = 0;
-        base.info.dir = 0;
+        // P18-1 (§62.33): dir is the pjmedia_dir Rust enum under pjsua-native;
+        // NONE (0) preserves the original stub value — the conf-bridge routes
+        // media via the connection graph, not this field.
+        base.info.dir = bindings::pjmedia_dir::PJMEDIA_DIR_NONE;
         // SAFETY: base.info.fmt is valid initialized memory owned by `base`;
         // writing the audio union member is the documented audio-format init
         // path (`pjmedia_format_init_audio`).
@@ -122,7 +130,7 @@ impl MediaPortAdapter {
     }
 }
 
-// [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-3, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P18-1) --for-spec --no-implementation-order`.
 impl Drop for MediaPortAdapter {
     /// Default build: the stub conf bridge never retains `port_data.pdata`, so
     /// the adapter is the sole owner of the boxed [`RustMediaPort`] and frees it
@@ -141,7 +149,7 @@ impl Drop for MediaPortAdapter {
     /// of the registered port, so `on_destroy` frees the box when the port is
     /// removed; dropping the adapter must not free it early.
     #[cfg(feature = "pjsua-native")]
-    // [::TICKET::] PX-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-3 --for-spec --no-implementation-order`.
+    // [::TICKET::] PX-3, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P18-1) --for-spec --no-implementation-order`.
     fn drop(&mut self) {}
 }
 
@@ -168,7 +176,7 @@ unsafe extern "C" fn media_port_get_frame(
     let buffer = unsafe { std::slice::from_raw_parts_mut((*frame).buf as *mut u8, size) };
     let written = media_port.get_frame(buffer, size);
     (*frame).size = written;
-    bindings::PJ_SUCCESS
+    PJ_SUCCESS
 }
 
 /// RT sink callback — push received audio into `in_queue`.
@@ -182,7 +190,7 @@ unsafe extern "C" fn media_port_put_frame(
     let media_port = media_port_from(port);
     let data = unsafe { std::slice::from_raw_parts((*frame).buf as *const u8, (*frame).size) };
     let _ = media_port.put_frame(data, (*frame).size);
-    bindings::PJ_SUCCESS
+    PJ_SUCCESS
 }
 
 /// RT destructor — free the leaked [`RustMediaPort`] box when the bridge
@@ -196,7 +204,7 @@ unsafe extern "C" fn media_port_on_destroy(
         // the bridge destroys the port exactly once.
         drop(Box::from_raw(pdata as *mut RustMediaPort));
     }
-    bindings::PJ_SUCCESS
+    PJ_SUCCESS
 }
 
 #[cfg(all(test, not(feature = "pjsua-native")))]
@@ -228,7 +236,7 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] PX-3, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-8) --for-spec --no-implementation-order`.
+    // [::TICKET::] PX-3, P17-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-8|P18-1) --for-spec --no-implementation-order`.
     fn media_port_get_frame_pops_out_queue_as_le_i16() {
         let mixer = Arc::new(AudioMixer::default());
         let port = RustMediaPort::new(mixer.clone(), 7, AudioTapRegistry::default());
@@ -250,18 +258,18 @@ mod tests {
             bit_info: 0,
         };
         let status = unsafe { media_port_get_frame(raw, &mut frame) };
-        assert_eq!(status, bindings::PJ_SUCCESS);
+        assert_eq!(status, PJ_SUCCESS);
         assert_eq!(frame.size, buffer.len());
         assert_eq!(i16::from_le_bytes([buffer[0], buffer[1]]), 1000);
         // underrun -> zero-fill
         let status = unsafe { media_port_get_frame(raw, &mut frame) };
-        assert_eq!(status, bindings::PJ_SUCCESS);
+        assert_eq!(status, PJ_SUCCESS);
         assert_eq!(frame.size, buffer.len());
         assert!(buffer.iter().all(|&b| b == 0), "underrun must zero-fill");
     }
 
     #[test]
-    // [::TICKET::] PX-3, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-8) --for-spec --no-implementation-order`.
+    // [::TICKET::] PX-3, P17-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-8|P18-1) --for-spec --no-implementation-order`.
     fn media_port_put_frame_pushes_in_queue_as_le_i16() {
         let mixer = Arc::new(AudioMixer::default());
         let port = RustMediaPort::new(mixer.clone(), 7, AudioTapRegistry::default());
@@ -276,7 +284,7 @@ mod tests {
             bit_info: 0,
         };
         let status = unsafe { media_port_put_frame(raw, &mut frame) };
-        assert_eq!(status, bindings::PJ_SUCCESS);
+        assert_eq!(status, PJ_SUCCESS);
         assert_eq!(
             mixer.in_queue.pop(),
             Some(vec![0i16, -32768i16]),
@@ -285,7 +293,7 @@ mod tests {
     }
 
     #[test]
-    // [::TICKET::] PX-3, P17-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-8) --for-spec --no-implementation-order`.
+    // [::TICKET::] PX-3, P17-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-3|P17-8|P18-1) --for-spec --no-implementation-order`.
     fn media_port_rt_callbacks_do_not_block_on_full_or_empty_queues() {
         let mixer = Arc::new(AudioMixer::default());
         let port = RustMediaPort::new(mixer.clone(), 1, AudioTapRegistry::default());
@@ -304,11 +312,7 @@ mod tests {
             bit_info: 0,
         };
         let status = unsafe { media_port_put_frame(raw, &mut frame) };
-        assert_eq!(
-            status,
-            bindings::PJ_SUCCESS,
-            "full queue drops without blocking"
-        );
+        assert_eq!(status, PJ_SUCCESS, "full queue drops without blocking");
         // Empty out_queue; get_frame must zero-fill, never block.
         let mut buffer = vec![0xffu8; MIXER_FRAME_SAMPLES * BYTES_PER_I16];
         let mut get_frame = bindings::pjmedia_frame {
@@ -319,7 +323,7 @@ mod tests {
             bit_info: 0,
         };
         let status = unsafe { media_port_get_frame(raw, &mut get_frame) };
-        assert_eq!(status, bindings::PJ_SUCCESS);
+        assert_eq!(status, PJ_SUCCESS);
         assert!(buffer.iter().all(|&b| b == 0), "underrun zero-fills");
     }
 }

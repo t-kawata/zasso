@@ -107,18 +107,32 @@ mod stub_aliases {
     pub mod pjsip_inv_state {
         /// Before INVITE is sent or received.
         pub const NULL: u32 = 0;
+        /// P18-1 §62.33: the C enumerator name (bindgen Rust-enum variant).
+        pub const PJSIP_INV_STATE_NULL: u32 = 0;
         /// After INVITE is sent (outgoing).
         pub const CALLING: u32 = 1;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSIP_INV_STATE_CALLING: u32 = 1;
         /// Incoming INVITE received (inbound call offered).
         pub const INCOMING: u32 = 2;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSIP_INV_STATE_INCOMING: u32 = 2;
         /// Early media (183 Session Progress) received.
         pub const EARLY: u32 = 3;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSIP_INV_STATE_EARLY: u32 = 3;
         /// After a 2xx is sent/received.
         pub const CONNECTING: u32 = 4;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSIP_INV_STATE_CONNECTING: u32 = 4;
         /// After ACK is sent/received.
         pub const CONFIRMED: u32 = 5;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSIP_INV_STATE_CONFIRMED: u32 = 5;
         /// Session is terminated.
         pub const DISCONNECTED: u32 = 6;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSIP_INV_STATE_DISCONNECTED: u32 = 6;
     }
 
     // ---------------------------------------------------------------------------
@@ -130,14 +144,24 @@ mod stub_aliases {
     pub mod pjsua_call_media_status {
         /// No media / initial state.
         pub const NONE: u32 = 0;
+        /// P18-1 §62.33: the C enumerator name (bindgen Rust-enum variant).
+        pub const PJSUA_CALL_MEDIA_NONE: u32 = 0;
         /// Media is active (send/receive).
         pub const ACTIVE: u32 = 1;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSUA_CALL_MEDIA_ACTIVE: u32 = 1;
         /// Media is locally held.
         pub const LOCAL_HOLD: u32 = 2;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSUA_CALL_MEDIA_LOCAL_HOLD: u32 = 2;
         /// Media is remotely held.
         pub const REMOTE_HOLD: u32 = 3;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSUA_CALL_MEDIA_REMOTE_HOLD: u32 = 3;
         /// Media error occurred.
         pub const ERROR: u32 = 4;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSUA_CALL_MEDIA_ERROR: u32 = 4;
     }
 
     // ---------------------------------------------------------------------------
@@ -224,14 +248,54 @@ mod stub_aliases {
     /// Audio format detail selector (`PJMEDIA_FORMAT_DETAIL_AUDIO`).
     pub const PJMEDIA_FORMAT_DETAIL_AUDIO: u32 = 1;
 
+    /// Top-most media type (`pjmedia_type`) — mirrors the bindgen Rust enum so
+    /// the shared adapter compiles identically under both bodies (P18-1 §62.33).
+    #[repr(u32)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum pjmedia_type {
+        PJMEDIA_TYPE_NONE = 0,
+        PJMEDIA_TYPE_AUDIO = 1,
+        PJMEDIA_TYPE_VIDEO = 2,
+        PJMEDIA_TYPE_TEXT = 3,
+        PJMEDIA_TYPE_APPLICATION = 4,
+        PJMEDIA_TYPE_UNKNOWN = 5,
+    }
+
+    /// Media format id (`pjmedia_format_id`) — the PCM ids the adapter uses.
+    #[repr(u32)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum pjmedia_format_id {
+        PJMEDIA_FORMAT_L16 = 0,
+        PJMEDIA_FORMAT_PCMA = 1463897153,
+        PJMEDIA_FORMAT_PCMU = 1463897205,
+    }
+
+    /// Format detail selector (`pjmedia_format_detail_type`).
+    #[repr(u32)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum pjmedia_format_detail_type {
+        PJMEDIA_FORMAT_DETAIL_NONE = 0,
+        PJMEDIA_FORMAT_DETAIL_AUDIO = 1,
+        PJMEDIA_FORMAT_DETAIL_VIDEO = 2,
+        PJMEDIA_FORMAT_DETAIL_MAX = 3,
+    }
+
+    /// Media direction (`pjmedia_dir`) — mirrors the bindgen Rust enum.
+    #[repr(u32)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum pjmedia_dir {
+        PJMEDIA_DIR_NONE = 0,
+        PJMEDIA_DIR_ENCODING = 1,
+        PJMEDIA_DIR_DECODING = 2,
+        PJMEDIA_DIR_ENCODING_DECODING = 3,
+    }
+
     /// Pool handle — opaque in PJSIP; the stub models it as a void pointer.
     pub type pj_pool_t = *mut std::ffi::c_void;
     /// Byte size type used by PJSIP.
     pub type pj_size_t = usize;
     /// Result code type (`pj_status_t`); `PJ_SUCCESS` is 0.
     pub type pj_status_t = i32;
-    /// Media direction (`pjmedia_dir`) — opaque u32 in the stub.
-    pub type pjmedia_dir = u32;
     /// Frame type (`pjmedia_frame_type`) — opaque u32 in the stub.
     pub type pjmedia_frame_type = u32;
     /// Timestamp type (`pj_timestamp`) — opaque u32 in the stub.
@@ -270,12 +334,12 @@ mod stub_aliases {
     #[repr(C)]
     #[derive(Debug, Clone, Copy)]
     pub struct pjmedia_format {
-        /// Format id (e.g. `PJMEDIA_FORMAT_PCM`).
+        /// Format id (e.g. `PJMEDIA_FORMAT_L16`).
         pub id: u32,
         /// Top-most media type.
-        pub type_: u32,
+        pub type_: pjmedia_type,
         /// Which detail member is active.
-        pub detail_type: u32,
+        pub detail_type: pjmedia_format_detail_type,
         /// Format detail (audio in this crate).
         pub det: pjmedia_format_det,
     }
@@ -360,12 +424,12 @@ mod stub_aliases {
     pub struct pjsua_codec_info {
         /// Codec ID string (e.g., "opus/48000/2").
         pub codec_id: pj_str_t,
-        /// Encoding name (e.g., "opus").
-        pub encoding_name: pj_str_t,
-        /// Clock rate in Hz (e.g., 48000).
-        pub clock_rate: u32,
-        /// Number of channels (e.g., 2).
-        pub channel_cnt: u32,
+        /// Codec priority (0-255), matching PJSIP 2.17.0 (pjsua-lib/pjsua.h:8166).
+        pub priority: u8,
+        /// Codec description string (PJSIP 2.17.0 shape).
+        pub desc: pj_str_t,
+        /// Internal buffer (PJSIP 2.17.0 shape).
+        pub buf_: [u8; 64],
     }
 
     // ---------------------------------------------------------------------------
@@ -579,18 +643,43 @@ mod stub_aliases {
     /// compiles identically under both constant sources (P11-9 pattern).
     pub mod pjsip_transport_state {
         // [::TICKET::] P16-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-4 --for-spec --no-implementation-order`.
-        /// No transport exists yet.
-        pub const IDLE: u32 = 0;
-        /// Transport is connecting.
-        pub const CONNECTING: u32 = 1;
-        /// Transport is connected and usable.
-        pub const CONNECTED: u32 = 2;
-        /// Transport has been disconnected.
-        pub const DISCONNECTED: u32 = 3;
-        /// Transport is shutting down.
-        pub const SHUTDOWN: u32 = 4;
-        /// Transport object has been destroyed.
-        pub const DESTROYED: u32 = 5;
+        // P18-1 §62.33: values corrected to the vendored `enum pjsip_transport_state`
+        // in `pjsip/sip_transport.h` (PJSIP_TP_STATE_CONNECTED=0 … DESTROY=3).
+        /// Transport is connected and usable (PJSIP_TP_STATE_CONNECTED = 0).
+        pub const CONNECTED: u32 = 0;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSIP_TP_STATE_CONNECTED: u32 = 0;
+        /// Transport has been disconnected (PJSIP_TP_STATE_DISCONNECTED = 1).
+        pub const DISCONNECTED: u32 = 1;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSIP_TP_STATE_DISCONNECTED: u32 = 1;
+        /// Transport is shutting down (PJSIP_TP_STATE_SHUTDOWN = 2).
+        pub const SHUTDOWN: u32 = 2;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSIP_TP_STATE_SHUTDOWN: u32 = 2;
+        /// Transport object is about to be destroyed (PJSIP_TP_STATE_DESTROY = 3).
+        pub const DESTROY: u32 = 3;
+        /// P18-1 §62.33: the C enumerator name.
+        pub const PJSIP_TP_STATE_DESTROY: u32 = 3;
+    }
+
+    /// ICE stream operation enum (`pj_ice_strans_op`) — mirrors `pjmedia/transport_ice.h`.
+    ///
+    /// P19-2 §62.39: `on_ice_transport_error` reports which operation triggered
+    /// the ICE failure. The stub mirrors the bindgen consts-style (P11-9
+    /// pattern) so the callback's `op as u32` conversion compiles under both
+    /// constant sources.
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    pub mod pj_ice_strans_op {
+        // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+        /// Initialization (candidate gathering).
+        pub const PJ_ICE_STRANS_OP_INIT: u32 = 0;
+        /// Negotiation.
+        pub const PJ_ICE_STRANS_OP_NEGOTIATION: u32 = 1;
+        /// Keep-alive operation (currently TURN Refresh failure).
+        pub const PJ_ICE_STRANS_OP_KEEP_ALIVE: u32 = 2;
+        /// IP address change notification from STUN keep-alive.
+        pub const PJ_ICE_STRANS_OP_ADDR_CHANGE: u32 = 3;
     }
 
     /// Application callback registry (`pjsua_callback`) — the fields P11-11 wires.
@@ -637,6 +726,22 @@ mod stub_aliases {
         pub on_call_replaced: Option<unsafe extern "C" fn(pjsua_call_id, pjsua_call_id)>,
         /// `on_nat_detect` — STUN NAT detection result (P17-3 §62.23).
         pub on_nat_detect: Option<unsafe extern "C" fn(*const pj_stun_nat_detect_result)>,
+        /// `on_ice_transport_error` — ICE media transport error (P19-2 §62.39).
+        ///
+        /// Reports errors in the ICE media transport (currently TURN Refresh
+        /// errors). The `op` argument is typed `u32` to match the
+        /// `pj_ice_strans_op` module-consts surface (P11-9 pattern); bindgen
+        /// under `pjsua-native` emits the same C enum as a Rust enum.
+        // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+        pub on_ice_transport_error: Option<
+            // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+            unsafe extern "C" fn(
+                index: std::os::raw::c_int,
+                op: u32,
+                status: pj_status_t,
+                param: *mut std::ffi::c_void,
+            ),
+        >,
     }
 
     /// PJSUA global configuration — callback registry plus the STUN/TURN wiring
@@ -652,6 +757,22 @@ mod stub_aliases {
         pub stun_srv_cnt: u32,
         /// STUN server URIs (`stun:host:port`).
         pub stun_srv: [pj_str_t; 8],
+        /// TURN config selector (`PJSUA_TURN_CONFIG_USE_*`).
+        pub turn_cfg_use: pjsua_turn_config_use,
+        /// Custom TURN configuration (used when `turn_cfg_use == USE_CUSTOM`).
+        pub turn_cfg: pjsua_turn_config,
+    }
+
+    /// Per-account configuration (`pjsua_acc_config`) — the TURN surface
+    /// `apply_turn` reflects into.
+    ///
+    /// P18-1 §62.31: PJSIP 2.17 configures TURN per-account, not on the global
+    /// `pjsua_config`; the stub models only the `turn_cfg_use`/`turn_cfg`
+    /// members the wiring references (the vendored struct at
+    /// `pjsua-lib/pjsua.h:4172` carries many more, all zeroed by the caller).
+    #[repr(C)]
+    #[derive(Debug)]
+    pub struct pjsua_acc_config {
         /// TURN config selector (`PJSUA_TURN_CONFIG_USE_*`).
         pub turn_cfg_use: pjsua_turn_config_use,
         /// Custom TURN configuration (used when `turn_cfg_use == USE_CUSTOM`).
@@ -709,8 +830,9 @@ mod stub_aliases {
         pub nonce: pj_str_t,
     }
 
-    /// Anonymous union of credential variants — bindgen names the union field
-    /// `cred`; the stub models only the `static_cred` member.
+    /// Anonymous union of credential variants — the vendored `pjnath/stun_auth.h`
+    /// names the union member `data`; the stub models only the `static_cred`
+    /// member (P18-1 §62.31).
     #[repr(C)]
     #[derive(Debug, Clone, Copy)]
     pub struct pj_stun_auth_cred_union {
@@ -724,8 +846,8 @@ mod stub_aliases {
     pub struct pj_stun_auth_cred {
         /// Credential variant (`PJ_STUN_AUTH_CRED_STATIC`).
         pub type_: pj_stun_auth_cred_type,
-        /// Credential payload union.
-        pub cred: pj_stun_auth_cred_union,
+        /// Credential payload union (member name `data` per the vendored header).
+        pub data: pj_stun_auth_cred_union,
     }
 
     /// Custom TURN configuration (`pjsua_turn_config`) — the `turn_cfg` member
@@ -815,7 +937,7 @@ mod stub_aliases {
     /// # Safety
     /// `p_id` must be null or point to a valid `pjsua_conf_port_id`.
     pub unsafe fn pjsua_conf_add_port(
-        _pool: *mut std::ffi::c_void,
+        _pool: *mut pj_pool_t,
         _port: *mut pjmedia_port,
         p_id: *mut pjsua_conf_port_id,
     ) -> i32 {
@@ -1019,19 +1141,16 @@ impl pj_str_t {
 /// stub build the mirror struct exposes the same field path so `on_call_state`
 /// and its tests share one code path.
 // [::TICKET::] P11-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-11 --for-spec --no-implementation-order`.
+/// Read the invite-session state carried by the event.
+///
+/// P18-1 (§62.31): the vendored `pjsip_event` has no `call_state_info` member,
+/// so this accessor exists only in the stub build; `on_call_state` resolves the
+/// native state via `pjsua_call_get_info` instead.
+#[cfg(not(feature = "pjsua-native"))]
+// [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
 impl pjsip_event {
-    /// Read the invite-session state (`pjsip_inv_state`) carried by the event.
     pub fn call_state(&self) -> u32 {
-        #[cfg(feature = "pjsua-native")]
-        {
-            // SAFETY: PJSIP activates the call_state_info member before invoking
-            // on_call_state; reading it is the documented callback path.
-            unsafe { self.body.call_state_info.state as u32 }
-        }
-        #[cfg(not(feature = "pjsua-native"))]
-        {
-            self.body.call_state_info.state
-        }
+        self.body.call_state_info.state
     }
 }
 
@@ -1068,13 +1187,13 @@ pub fn pj_str_to_string(s: &pj_str_t) -> String {
 ///
 /// Returns an empty list when the status is not success, or when `count`
 /// exceeds the buffer capacity (a protocol violation).
-// [::TICKET::] P11-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P11-8, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P18-1) --for-spec --no-implementation-order`.
 fn decode_enumeration_result(
     status: i32,
     count: u32,
     mut raw: Vec<pjsua_codec_info>,
 ) -> Vec<pjsua_codec_info> {
-    if status != PJ_SUCCESS || count as usize > raw.len() {
+    if status != crate::ffi::constants::PJ_SUCCESS || count as usize > raw.len() {
         return Vec::new();
     }
     raw.truncate(count as usize);
@@ -1093,7 +1212,7 @@ pub fn enumerate_codecs() -> Vec<pjsua_codec_info> {
     // pjsua_enum_codecs writes at most that many; count is a valid pointer.
     // All-zero is a valid pjsua_codec_info (null ptr / slen 0 / rates 0).
     let status = unsafe { pjsua_enum_codecs(raw.as_mut_ptr(), &mut count) };
-    if status != PJ_SUCCESS {
+    if status != crate::ffi::constants::PJ_SUCCESS {
         tracing::warn!(
             status,
             "codec enumeration failed; degrading to empty available_codecs"
@@ -1116,7 +1235,9 @@ pub fn enumerate_codecs() -> Vec<pjsua_codec_info> {
 /// Pure decoder — unit-testable with a fixture struct; the FFI boundary is
 /// confined to `resolve_call_media_status`.
 pub fn media_status_from_call_info(info: &pjsua_call_info) -> u32 {
-    info.media_status
+    // P18-1 (§62.33): media_status is a Rust enum under pjsua-native; the caller
+    // consumes the raw u32 value.
+    info.media_status as u32
 }
 
 /// Resolve the actual media status for a call via `pjsua_call_get_info`.
@@ -1131,7 +1252,7 @@ pub fn resolve_call_media_status(call_id: pjsua_call_id) -> Result<u32, ReactorE
     // SAFETY: info is a valid, aligned, initialized pjsua_call_info; the FFI
     // fills it in place; the caller has no concurrent mutable access.
     let status = unsafe { pjsua_call_get_info(call_id, &mut info) };
-    if status != PJ_SUCCESS {
+    if status != crate::ffi::constants::PJ_SUCCESS {
         return Err(ReactorError::BackendError(format!(
             "pjsua_call_get_info({call_id}) failed with status {status}"
         )));
@@ -1300,13 +1421,13 @@ mod tests {
 
     #[test]
     // @verifies C041
-    // [::TICKET::] P11-8, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11|P12-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P11-11, P12-7, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11|P12-7|P18-1) --for-spec --no-implementation-order`.
     fn decode_enumeration_result_truncates_to_count() {
         let zero = pjsua_codec_info {
             codec_id: pj_str_t::null(),
-            encoding_name: pj_str_t::null(),
-            clock_rate: 0,
-            channel_cnt: 0,
+            priority: 0,
+            desc: pj_str_t::null(),
+            buf_: [0u8; 64],
         };
         let raw = vec![zero; 4];
         let result = decode_enumeration_result(PJ_SUCCESS, 2, raw);
@@ -1315,13 +1436,13 @@ mod tests {
 
     #[test]
     // @verifies C041
-    // [::TICKET::] P11-8, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11|P12-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-8, P11-11, P12-7, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-8|P11-11|P12-7|P18-1) --for-spec --no-implementation-order`.
     fn decode_enumeration_result_count_exceeding_buffer_returns_empty() {
         let zero = pjsua_codec_info {
             codec_id: pj_str_t::null(),
-            encoding_name: pj_str_t::null(),
-            clock_rate: 0,
-            channel_cnt: 0,
+            priority: 0,
+            desc: pj_str_t::null(),
+            buf_: [0u8; 64],
         };
         let raw = vec![zero; 2];
         // A count larger than the buffer capacity is a protocol violation.

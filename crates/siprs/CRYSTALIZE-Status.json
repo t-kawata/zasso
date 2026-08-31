@@ -10,7 +10,7 @@
   },
   "grill": {
     "tocApproved": true,
-    "examplesApproved": false,
+    "examplesApproved": true,
     "toc": {
       "nodes": [
         {
@@ -208,39 +208,39 @@
         "confirmedContent": "クライアントライブラリの README には含めず、siprs-server の README に委ねる旨を記載"
       },
       {
-        "id": "H1",
-        "heading": "クイックスタート（SipClient 初期化と最初のステップ）",
-        "state": "residue",
-        "confirmedContent": "トランスポート（UDP/TCP/TLS）と STUN を設定した実用的な初期化コード"
-      },
-      {
-        "id": "H8",
-        "heading": "イベントの購読と受信（subscribe / subscribe_account / subscribe_raw_sip）",
-        "state": "residue",
-        "confirmedContent": "subscribe() / subscribe_account(id) / subscribe_raw_sip() の 3 つの購読方法の違いと、購読解除（unsubscribe）の方法、SipEventPayload の主要バリアントの受信コードを解説"
-      },
-      {
         "id": "H13",
         "heading": "音声ストリームの取得（subscribe_audio と AudioChunkPair）",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": "AudioFormat（ビット深度・サンプルレート・チャンネル）とストリームデータの対応を解説し、指定 bit/hz のステレオ WAV ファイルへ書き出す方法まで示す"
       },
       {
         "id": "H14",
         "heading": "音声の注入（AsyncAudioSource と add_audio_source）",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": "2 者通話における IN / OUT / BOTH チャネルへの音声ファイル・ストリーム注入方法と、マイク入力 source の取得（open_default_microphone_source）を併せて解説"
       },
       {
         "id": "H15",
         "heading": "STUN/TURN/ICE とトランスポート設定",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": "ClientConfig への stun_servers / turn_servers / ice の設定方法と、TransportConfig（UDP/TCP/TLS）の選択を併せて解説"
+      },
+      {
+        "id": "H1",
+        "heading": "クイックスタート（SipClient 初期化と最初のステップ）",
+        "state": "complete",
+        "confirmedContent": "トランスポート（UDP/TCP/TLS）と STUN を設定した実用的な初期化コード"
+      },
+      {
+        "id": "H8",
+        "heading": "イベントの購読と受信（subscribe / subscribe_account / subscribe_raw_sip）",
+        "state": "complete",
+        "confirmedContent": "subscribe() / subscribe_account(id) / subscribe_raw_sip() の 3 つの購読方法の違いと、購読解除（unsubscribe）の方法、SipEventPayload の主要バリアントの受信コードを解説"
       },
       {
         "id": "EXAMPLES",
         "heading": "Examples (implementation samples) spec and design",
-        "state": "residue",
+        "state": "complete",
         "confirmedContent": null
       }
     ]

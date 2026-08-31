@@ -24,6 +24,7 @@ pub const BINDINGS_OUTPUT: &str = "bindings.rs";
 /// struct/typedefs those aliases depend on (`pj_str_t`, `pjsua_call_info`).
 // [::TICKET::] P17-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-3 --for-spec --no-implementation-order`.
 pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
@@ -44,6 +45,10 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     "pjsua_cred_info",
     "pjsua_acc_info",
     "pjsua_transport_config",
+    // P19-5 §62.42: transport-id resolution in `on_transport_state` enumerates
+    // the live pjsua transports and matches each one's `local_name` against the
+    // `pjsip_transport` instance (§62.23 P2 callback).
+    "pjsua_transport_info",
     // P16-2: the transport kind enum — `pjsua_transport_create` takes it as the
     // first argument and the `PJSIP_TRANSPORT_*` values are allowlisted below.
     "pjsip_transport_type_e",
@@ -101,11 +106,28 @@ pub const BINDGEN_ALLOWLIST_TYPES: &[&str] = &[
     "pj_turn_tp_type",
 ];
 
+/// Enum types generated as Rust enums (§62.33 / N0102).
+///
+/// PJSIP's `PJ_SUCCESS` / `PJSIP_INV_STATE_*` / `PJSUA_CALL_MEDIA_*` are C enum
+/// enumerators that a type allowlist alone cannot emit as usable Rust variants.
+/// These types are allowlisted here and generated with
+/// `default_enum_style(Rust)` + `prepend_enum_name(false)` so code can match
+/// `pjsip_inv_state::CALLING` etc. (P18-1 / N0102).
+pub const BINDGEN_ENUM_TYPES: &[&str] = &[
+    "pjsip_inv_state",
+    "pjsip_tsx_state",
+    "pjsip_transport_state",
+    "pjsip_redirect_op",
+    "pjsua_call_media_status",
+    "pj_status_t",
+];
+
 /// Fixed allowlist of PJSIP calls siprs references.
 ///
 /// `pjsua_call_get_info` anchors the call-info surface; P11-10 adds the
 /// PjsuaBackend FFI symbols it drives.
 pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
+// [::TICKET::] P19-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-5 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-7 --for-spec --no-implementation-order`.
     // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
@@ -119,6 +141,11 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
     // P16-2: transport teardown — pjsua_transport_close destroys a transport at
     // shutdown (§32 step 5).
     "pjsua_transport_close",
+    // P19-5 §62.42: enumerate transports and read each one's info so
+    // `resolve_transport_id` can match the `pjsip_transport` instance to a real
+    // pjsua_transport_id (§62.23 P2 callback).
+    "pjsua_enum_transports",
+    "pjsua_transport_get_info",
     "pjsua_acc_add",
     "pjsua_acc_del",
     "pjsua_acc_modify",
@@ -164,36 +191,23 @@ pub const BINDGEN_ALLOWLIST_FUNCTIONS: &[&str] = &[
 /// PJ_EUNKNOWN, `PJSUA_CALL_*`, `PJSUA_REG_STATE_*`). P11-9 replaces the
 /// hand-coded duplicates in error/state modules from this generated set.
 pub const BINDGEN_ALLOWLIST_VARS: &[&str] = &[
-    // [::TICKET::] P16-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P16-2 --for-spec --no-implementation-order`.
-    "PJ_SUCCESS",
-    "PJ_EUNKNOWN",
-    // P11-9: pj_status_t error codes consumed by the error/state mapping.
-    "PJ_ENOMEM",
-    "PJ_EINVALIDOP",
-    "PJ_EBUSY",
+    // P18-1 §62.32: PJ_SUCCESS/PJ_EUNKNOWN/PJ_ENOMEM/PJ_EINVALIDOP/PJ_EBUSY are
+    // `enum pj_constants_` enumerators that bindgen cannot emit as free vars
+    // (E0432/E0425); they live in crate::ffi::constants, not the allowlist.
     // P16-2: pjsip_transport_type_e enumerators — the transport-kind constants
     // the wiring maps `TransportKind` into before calling pjsua_transport_create.
     "PJSIP_TRANSPORT_UDP",
     "PJSIP_TRANSPORT_TCP",
     "PJSIP_TRANSPORT_TLS",
-    // P11-9: pjsip_inv_state enumerators (bindgen consts-style strips the prefix).
-    "PJSIP_INV_STATE_NULL",
-    "PJSIP_INV_STATE_CALLING",
-    "PJSIP_INV_STATE_CONNECTING",
-    "PJSIP_INV_STATE_CONFIRMED",
-    "PJSIP_INV_STATE_DISCONNECTED",
     // PX-3 §39/§62.16: pjmedia constants the RustMediaPort adapter uses to build
     // a pjmedia_port_info.fmt (PCM, audio type, audio detail) for conf_add_port.
     "PJMEDIA_FORMAT_PCM",
     "PJMEDIA_TYPE_AUDIO",
     "PJMEDIA_FORMAT_DETAIL_AUDIO",
-    // P11-9: pjsua_call_media_status enumerators.
-    "PJSUA_CALL_MEDIA_NONE",
-    "PJSUA_CALL_MEDIA_ACTIVE",
-    "PJSUA_CALL_MEDIA_LOCAL_HOLD",
-    "PJSUA_CALL_MEDIA_REMOTE_HOLD",
-    "PJSUA_CALL_MEDIA_ERROR",
-    "PJSUA_CALL_NULL",
+    // P18-1 §62.32: PJSUA_CALL_NULL is absent from the vendored tree; the
+    // sentinel lives in crate::ffi::constants. pjsua_call_media_status and
+    // pjsip_inv_state enumerators are generated as Rust enums via
+    // BINDGEN_ENUM_TYPES (N0102), so their consts are not allowlisted here.
     "PJSUA_CALL_CALLING",
     "PJSUA_CALL_INCOMING",
     "PJSUA_CALL_EARLY",
@@ -204,8 +218,10 @@ pub const BINDGEN_ALLOWLIST_VARS: &[&str] = &[
     "PJSUA_REG_STATE_REGISTERING",
     "PJSUA_REG_STATE_ACTIVE",
     "PJSUA_REG_STATE_FAILED",
-    // P11-10: plain-password credential data type used by add_account/update_account.
-    "PJ_CRED_DATA_PLAIN_PASSWD",
+    // P11-10 / P18-1 §62.32: the plain-password credential constant
+    // PJSIP_CRED_DATA_PLAIN_PASSWD (sip_auth.h:109) is an enumerator of
+    // pjsip_cred_data_type, which bindgen does not emit as a free var — it lives
+    // in crate::ffi::constants alongside the pj_status_t codes.
     // P16-8 §62.17: TURN connection-type constants and config-selector / auth
     // constants the STUN/TURN wiring references.
     "PJ_TURN_TP_UDP",
@@ -256,6 +272,86 @@ pub fn has_pjsua_header(dir: &std::path::Path) -> bool {
 /// CARGO_FEATURE_* presence check is unit-testable.
 pub fn feature_env_present(env_value: Result<String, std::env::VarError>) -> bool {
     env_value.is_ok()
+}
+
+/// Which source the 4-stage PJSIP resolution selected (§62.35 / N0104).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ResolvedPjsip {
+    /// Stage 1 — `vendor/prebuilt/<target>/lib` (link dir).
+    Prebuilt(std::path::PathBuf),
+    /// Stage 2 — a system PJSIP install (header root).
+    System(std::path::PathBuf),
+    /// Stage 3 — vendored-source CMake build (header root).
+    Built(std::path::PathBuf),
+}
+
+/// Resolve PJSIP through the §28.1 / §62.35 4-stage pipeline.
+///
+/// `prebuilt_lib` is the stage-1 prebuilt lib dir, `system_header_root` the
+/// stage-2 pkg-config/env result, and `cmake_available` whether stage 3 can
+/// build the vendored source. When all three are unavailable the pipeline
+/// **fails stop** — warning-and-continue is prohibited (C142).
+pub fn resolve_pjsip(
+    prebuilt_lib: Option<std::path::PathBuf>,
+    system_header_root: Option<std::path::PathBuf>,
+    cmake_available: bool,
+) -> ResolvedPjsip {
+    if let Some(lib) = prebuilt_lib {
+        return ResolvedPjsip::Prebuilt(lib);
+    }
+    if let Some(header) = system_header_root {
+        return ResolvedPjsip::System(header);
+    }
+    if cmake_available {
+        return ResolvedPjsip::Built(std::path::PathBuf::new());
+    }
+    panic!(
+        "pjsua-native enabled but no PJSIP obtainable: prebuilt absent, \
+         system absent, cmake unavailable (fail-stop)"
+    );
+}
+
+/// Derive the static link set from a resolved `lib/` directory (§62.34 / N0103).
+///
+/// `libpjproject.a` (or `pjproject.lib` on Windows) wins as the single
+/// integrated archive; otherwise every `lib*.a` stem is returned sorted. The
+/// result is never a hardcoded module list — it is derived from the directory.
+pub fn derive_link_set(lib_dir: &std::path::Path) -> Vec<String> {
+    if lib_dir.join("libpjproject.a").is_file() || lib_dir.join("pjproject.lib").is_file() {
+        return vec!["pjproject".to_string()];
+    }
+    let mut stems: Vec<String> = std::fs::read_dir(lib_dir)
+        .map(|entries| {
+            entries
+                .flatten()
+                .filter_map(|entry| {
+                    let name = entry.file_name().to_string_lossy().into_owned();
+                    name.strip_prefix("lib")
+                        .and_then(|stem| stem.strip_suffix(".a"))
+                        .map(|s| s.to_string())
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    stems.sort();
+    stems
+}
+
+/// ELF-linker group wrapper for the link set, or `None` for linkers that
+/// resolve multi-path archives themselves (macOS ld64, MSVC link.exe).
+pub fn link_group_wrapper(target: &str) -> Option<(&'static str, &'static str)> {
+    if target.contains("linux") || target.contains("android") {
+        Some(("--start-group", "--end-group"))
+    } else {
+        None
+    }
+}
+
+/// Whether `SIPRS_STAGE_PREBUILT=1` enables the producer staging mode.
+///
+/// A normal consumer build never writes into `vendor/prebuilt/` (§5.2(b)).
+pub fn should_stage_prebuilt(env_value: Result<String, std::env::VarError>) -> bool {
+    matches!(env_value.as_deref(), Ok("1"))
 }
 
 /// Platform-specific clang `-D` defines required for the PJSIP headers
@@ -416,25 +512,24 @@ mod tests {
 
     // [::TICKET::] P11-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-9 --for-spec --no-implementation-order`.
     #[test]
-    // [::TICKET::] P11-9, P11-11, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11|P12-7) --for-spec --no-implementation-order`.
+    // [::TICKET::] P11-9, P11-11, P12-7, P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P11-9|P11-11|P12-7|P18-1) --for-spec --no-implementation-order`.
     fn allowlist_covers_p11_9_constant_surface() {
-        // P11-9: the error/state mapping modules consume these constants from
-        // ffi::bindings. A constant missing from the allowlist fails this test,
-        // so a missing bindgen constant surfaces as a compile error, never a
+        // P11-9: the error/state mapping modules consume these symbols from
+        // ffi::bindings. A symbol missing from the allowlist fails this test,
+        // so a missing bindgen symbol surfaces as a compile error, never a
         // silent fallback to a hardcoded value.
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJ_ENOMEM"));
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJ_EINVALIDOP"));
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJ_EBUSY"));
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_INV_STATE_NULL"));
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_INV_STATE_CALLING"));
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_INV_STATE_CONNECTING"));
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_INV_STATE_CONFIRMED"));
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_INV_STATE_DISCONNECTED"));
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_MEDIA_NONE"));
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_MEDIA_ACTIVE"));
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_MEDIA_LOCAL_HOLD"));
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_MEDIA_REMOTE_HOLD"));
-        assert!(BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_MEDIA_ERROR"));
+        //
+        // P18-1 (§62.33/N0102): pjsip_inv_state and pjsua_call_media_status are
+        // generated as Rust enums via BINDGEN_ENUM_TYPES (not consts-style
+        // vars), so the VARS asserts moved to the enum-allowlist asserts.
+        // P18-1 §62.32: the pj_status_t error codes moved to
+        // crate::ffi::constants (bindgen cannot emit enum enumerators as vars),
+        // so the allowlist no longer carries them.
+        assert!(!BINDGEN_ALLOWLIST_VARS.contains(&"PJ_ENOMEM"));
+        assert!(!BINDGEN_ALLOWLIST_VARS.contains(&"PJ_EINVALIDOP"));
+        assert!(!BINDGEN_ALLOWLIST_VARS.contains(&"PJ_EBUSY"));
+        assert!(BINDGEN_ENUM_TYPES.contains(&"pjsip_inv_state"));
+        assert!(BINDGEN_ENUM_TYPES.contains(&"pjsua_call_media_status"));
         assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsip_inv_state"));
         assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsua_call_media_status"));
     }
@@ -551,5 +646,169 @@ mod tests {
             platform_clang_defines("x86_64-pc-windows-msvc"),
             Vec::<String>::new()
         );
+    }
+
+    // ── P18-1 §62.31–62.35: round-4 build repair ─────────────────────────
+
+    /// @verifies C140
+    #[test]
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+    fn bindgen_enum_types_cover_rust_enum_surface() {
+        // C140 (§62.33): enum types are generated as Rust enums via
+        // BINDGEN_ENUM_TYPES + default_enum_style(Rust) + prepend_enum_name(false).
+        for ty in [
+            "pjsip_inv_state",
+            "pjsip_tsx_state",
+            "pjsip_transport_state",
+            "pjsip_redirect_op",
+            "pjsua_call_media_status",
+            "pj_status_t",
+        ] {
+            assert!(
+                BINDGEN_ENUM_TYPES.contains(&ty),
+                "BINDGEN_ENUM_TYPES must include {ty}"
+            );
+        }
+        // C140 invariant: the allowlist set stays the single bindgen entry — the
+        // full pjsua_config (turn_cfg/turn_cfg_use) is a type allowlist member.
+        assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsua_config"));
+        assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsua_turn_config"));
+        assert!(BINDGEN_ALLOWLIST_TYPES.contains(&"pjsua_turn_config_use"));
+    }
+
+    /// @verifies C139
+    #[test]
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+    fn allowlist_vars_use_real_credential_symbol() {
+        // C139 (§62.32): PJ_CRED_DATA_PLAIN_PASSWD is absent from the vendored
+        // tree; the real symbol PJSIP_CRED_DATA_PLAIN_PASSWD (sip_auth.h:109) is
+        // an enum enumerator that bindgen cannot emit as a var — it lives in
+        // crate::ffi::constants. PJSUA_CALL_NULL is likewise dropped from the
+        // allowlist (moved to the crate-internal constants module, N0101).
+        assert!(
+            !BINDGEN_ALLOWLIST_VARS.contains(&"PJSIP_CRED_DATA_PLAIN_PASSWD"),
+            "PJSIP_CRED_DATA_PLAIN_PASSWD is not emit-able; use constants::PJSIP_CRED_DATA_PLAIN_PASSWD"
+        );
+        assert!(
+            !BINDGEN_ALLOWLIST_VARS.contains(&"PJ_CRED_DATA_PLAIN_PASSWD"),
+            "stale PJ_CRED_DATA_PLAIN_PASSWD must be removed"
+        );
+        assert!(
+            !BINDGEN_ALLOWLIST_VARS.contains(&"PJSUA_CALL_NULL"),
+            "PJSUA_CALL_NULL is absent from vendored headers; use constants::PJSUA_CALL_NULL"
+        );
+    }
+
+    /// @verifies C141
+    #[test]
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+    fn derive_link_set_prefers_integrated_archive() {
+        // C141 (§62.34): libpjproject.a present → single "pjproject" stem.
+        let root = std::env::temp_dir().join(format!("siprs-link-archive-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("libpjproject.a"), b"").unwrap();
+        std::fs::write(root.join("libpjsip.a"), b"").unwrap();
+        assert_eq!(derive_link_set(&root), vec!["pjproject".to_string()]);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// @verifies C141
+    #[test]
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+    fn derive_link_set_enumerates_individual_stems_sorted() {
+        // C141 (§62.34): no integrated archive → every lib*.a stem, sorted.
+        let root = std::env::temp_dir().join(format!("siprs-link-stems-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("libpjlib-util.a"), b"").unwrap();
+        std::fs::write(root.join("libpjsip.a"), b"").unwrap();
+        std::fs::write(root.join("libpjmedia.a"), b"").unwrap();
+        assert_eq!(
+            derive_link_set(&root),
+            vec![
+                "pjlib-util".to_string(),
+                "pjmedia".to_string(),
+                "pjsip".to_string(),
+            ]
+        );
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// @verifies C141
+    #[test]
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+    fn derive_link_set_returns_empty_for_libless_dir() {
+        // C141: a directory with no lib*.a files yields an empty link set, so
+        // build.rs emits only the link-search directive.
+        let root = std::env::temp_dir().join(format!("siprs-link-libless-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(root.join("readme.txt"), b"").unwrap();
+        assert!(derive_link_set(&root).is_empty());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// @verifies C141
+    #[test]
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+    fn link_group_wrapper_for_linux_only() {
+        // C141 (§62.34): --start-group/--end-group wrap only on ELF linkers.
+        assert_eq!(
+            link_group_wrapper("x86_64-unknown-linux-gnu"),
+            Some(("--start-group", "--end-group"))
+        );
+        assert_eq!(
+            link_group_wrapper("aarch64-apple-darwin"),
+            None,
+            "macOS ld64 resolves multi-path archives, no group wrapper"
+        );
+        assert_eq!(link_group_wrapper("x86_64-pc-windows-msvc"), None);
+    }
+
+    /// @verifies C138
+    #[test]
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+    fn resolve_pjsip_prefers_prebuilt_over_system() {
+        // C138 (§62.35): §28.1 step 1 (prebuilt lib dir) is consulted before
+        // the system install — prebuilt-first order preserved.
+        let prebuilt = std::path::PathBuf::from("/tmp/p18-1/prebuilt/lib");
+        let resolved = resolve_pjsip(
+            Some(prebuilt.clone()),
+            Some("/tmp/p18-1/system".into()),
+            true,
+        );
+        assert_eq!(resolved, ResolvedPjsip::Prebuilt(prebuilt));
+    }
+
+    /// @verifies C142
+    #[test]
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+    fn resolve_pjsip_uses_system_before_vendored_build() {
+        // C142 (§62.35): system (stage 2) precedes the vendored-source build
+        // (stage 3).
+        let resolved = resolve_pjsip(None, Some("/tmp/p18-1/system".into()), true);
+        assert_eq!(resolved, ResolvedPjsip::System("/tmp/p18-1/system".into()));
+    }
+
+    /// @verifies C142
+    #[test]
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+    fn resolve_pjsip_fails_stop_when_unobtainable() {
+        // C142 invariant (§62.35): no prebuilt, no system, no cmake → panic;
+        // warning-and-continue is prohibited.
+        let result = std::panic::catch_unwind(|| resolve_pjsip(None, None, false));
+        assert!(
+            result.is_err(),
+            "fail-stop: must panic, never warning-and-continue"
+        );
+    }
+
+    /// @verifies C142
+    #[test]
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+    fn should_stage_prebuilt_only_on_explicit_1() {
+        // §5.2(b): SIPRS_STAGE_PREBUILT=1 enables staging; unset/0 keeps the
+        // consumer build read-only over vendor/.
+        assert!(should_stage_prebuilt(Ok("1".to_string())));
+        assert!(!should_stage_prebuilt(Ok("0".to_string())));
+        assert!(!should_stage_prebuilt(Err(std::env::VarError::NotPresent)));
     }
 }

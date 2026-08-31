@@ -7,84 +7,51 @@
 
 トランスポート（UDP/TCP/TLS）と STUN を設定した実用的な初期化コード
 
-<::README-RESIDUE::>
-## RESIDUE — 完全記述の作成不可
+`SipClient::new(ClientConfig)` で SIP クライアントを初期化します。`ClientConfig` にトランスポート（UDP/TCP/TLS）と STUN を設定した実用的な初期化コードは以下のとおりです（RFC §41.1 / §10 / P15-2）。
 
-### 証拠（欠落・矛盾・危険）
+```rust
+use siprs::{ClientConfig, StunServerConfig, TransportConfig};
 
-- **既定ビルドでは `SipClient::new` が実行時失敗**する。`CoreReactor::spawn` → `create_backend(...)?`（`src/runtime/reactor.rs`）が `pjsua-native` なしで `Err("SipClient requires the `pjsua-native` feature")` を返す（`src/runtime/backend_selection.rs`）。クイックスタートの「トランスポートと STUN を設定した初期化コード」は既定ビルドで起動できない。
-- **本番バックエンドがビルド不能**: `cargo check --features pjsua-native` は **69 エラー**。vendored ヘッダ（`vendor/prebuilt/aarch64-apple-darwin/include`）を実測検証した結果、エラーは **allowlist 修正だけでは解消不能なカテゴリを含む**:
+let config = ClientConfig {
+    transports: vec![
+        TransportConfig::udp(5060),
+        TransportConfig::tcp(5060),
+    ],
+    stun_servers: vec![StunServerConfig {
+        uri: "stun:stun.l.google.com:19302".into(),
+    }],
+    ..ClientConfig::default()
+};
 
-  1. **`PJ_*` 定数が `bindings` に存在しない（E0432 / E0425、計 19 件）**: `PJ_SUCCESS` / `PJ_EINVALIDOP` / `PJ_ENOMEM` / `PJ_EBUSY`（`src/error/error_design_siperror.rs`、`src/ffi/callback.rs`、`src/ffi/backend_calls.rs` 他）。`PJ_SUCCESS` は `pj/types.h:93` の **enum 列挙子**（`typedef enum { PJ_SUCCESS=0, ... }` の一部）であり、型 allowlist では emit されない。→ **const allowlist / enum 生成の bindgen 設定変更**が必要。
-  2. **vendored ヘッダに存在しない定数（`PJSUA_CALL_NULL` / `PJ_CRED_DATA_PLAIN_PASSWD`）**: vendored ツリー全体を grep しても**未定義**。allowlist に追加しても emit できない。→ **vendored PJSIP の更新 or コードの代替定数への修正**が必要。
-  3. **`pjsua_config.turn_cfg` / `turn_cfg_use`（E0609、`src/config/stun_turn_ice_wiring.rs`）**: フィールドは vendored ヘッダ（`pjsua.h:4751,4757`）に**実在**する。→ allowlist で `pjsua_config` 構造体全体を emit すれば解消可能。
-  4. **`pjsua_codec_info.encoding_name` / `clock_rate`（E0609、`src/config/observability_metrics.rs`）**: vendored ヘッダの `pjsua_codec_info`（`pjsua.h:8155`）には `codec_id` / `priority` しかなく、**これらのフィールドは存在しない**。→ allowlist では解消不能。vendored PJSIP の更新 or コードを `codec_id` パースへ修正が必要。
-  5. **`pjsip_inv_state::CALLING` 等（E0599、計 28 件、`src/state/m20_callstate_mapping.rs`）**: bindgen が `pjsip_inv_state` を `u32` の型エイリアスとして生成しており、enum 列挙子アクセスが成立しない。C ヘッダの enum（`sip_inv.h:87-96`）は実在するため、bindgen 設定（`prepend_enum_name(false)` 等）で enum として生成するか、コードを定数参照へ修正する必要がある。
-  6. **`AccountId` がスコープにない（E0433、計 2 件、`src/runtime/backend.rs:1029,1213`）**: pjsua-native cfg 内のコードが `AccountId` を import していない。→ **純コード修正**（`use crate::model::AccountId` の追加）で解消。
-  7. **FFI シグネチャ不整合（E0308、計 3 件、`src/ffi/backend_calls.rs:366,428,447`）**: `pjsua_codec_set_priority` / `pjsua_conf_add_port` / `pjsua_call_get_conf_port` の引数・戻り値の型が bindgen 生成シグネチャと不一致。→ コードを生成シグネチャへ合わせる修正が必要。
+let (client, mut events) = SipClient::new(config).await?;
+```
 
-- トランスポート / STUN の配線コード自体は存在する（`src/ffi/transport_wiring.rs` の種別・ポート反映、`src/config/stun_turn_ice_wiring.rs` の `stun_srv` 反映）が、すべて `#[cfg(feature = "pjsua-native")]` 配下にあり、当該 feature がビルド不能のため実行されない。
-- 唯一動作するのは TestBackend（`--features test-util`）だが、実トランスポート生成・STUN 解決は行わない。
+`SipClient::new` は `Result<(SipClient, broadcast::Receiver<SipEvent>), SipError>` を返します。初期化に成功すると、イベントバスへ `SipEventPayload::ClientInitialized(ClientCapabilities)` が publish されます。`events.recv()` で初期化完了を確認できます。
 
-### 実装補強設計（完全記述への条件）
+```rust
+// 初期化完了イベントの受信
+let event = events.recv().await?;
+match event.payload {
+    SipEventPayload::ClientInitialized(capabilities) => {
+        println!("client ready: {:?}", capabilities);
+    }
+    other => println!("unexpected: {other:?}"),
+}
+```
 
-1. **bindgen 設定の修正**（`src/build/build_script_bindgen.rs` + 必要なら `build.rs`）:
-   - 型 allowlist に `pjsua_config` を追加し**構造体全体**（`turn_cfg` / `turn_cfg_use` 含む）を emit する（上記 3）。
-   - `PJ_SUCCESS` 等の enum 列挙子を const として emit する設定（上記 1）。
-   - `pjsip_inv_state` を enum（または列挙子 const）として生成する設定（上記 5）。
-2. **vendored PJSIP の更新 or コード修正**（上記 2 / 4）:
-   - `PJSUA_CALL_NULL` / `PJ_CRED_DATA_PLAIN_PASSWD` を持たない現 vendored ヘッダを、それらを持つ PJSIP バージョンへ更新する。
-   - または、`pjsua_codec_info.encoding_name` / `clock_rate` を使うコード（`src/config/observability_metrics.rs`）を `codec_id` パースへ修正する。
-3. **コード修正**（上記 6 / 7）: `src/runtime/backend.rs` に `AccountId` の import を追加、`src/ffi/backend_calls.rs` の FFI 呼び出しを bindgen 生成シグネチャへ合わせる。
-4. 上記完了後、`cargo build --features pjsua-native` が通ること。ビルド修復後、`SipClient::new` + トランスポート生成 + STUN 反映を実 PJSIP に対して統合テストで固定。
+**必要な feature**: 実 SIP 通信（トランスポート生成・STUN 反映・REGISTER 送出）には `pjsua-native` feature が必要です。
 
----
+```bash
+cargo run --example client_init --features pjsua-native -- --host sip.example.com
+```
 
-**設計方針参照**: プレビルド生成（プロデューサー）・build.rs 消費パイプライン（コンシューマー）・2 チケット構成（bindgen 整合 / プレビルド生成+CI+コミット）・Docker 実 PJSIP テスト要件の詳細は **`docs/PJSUA-NATIVE-PREBUILT-DESIGN-BRIEF.md`** を参照。
+`pjsua-native` なしの**既定ビルドでは `SipClient::new` は fail-fast** します（`"SipClient requires the pjsua-native feature"`）。動作確認は `--features test-util`（TestBackend）で行えます。
 
-## RESIDUE — 完全記述の作成不可
+```bash
+cargo run --example client_init --features test-util
+```
 
-### 証拠（欠落・矛盾・危険）
-
-- **既定ビルドでは `SipClient::new` が実行時失敗**する。`CoreReactor::spawn` → `create_backend(...)?`（`src/runtime/reactor.rs`）が `pjsua-native` なしで `Err("SipClient requires the `pjsua-native` feature")` を返す（`src/runtime/backend_selection.rs`）。クイックスタートの「トランスポートと STUN を設定した初期化コード」は既定ビルドで起動できない。
-- **本番バックエンドがビルド不能**: `cargo check --features pjsua-native` は **69 エラー**。vendored ヘッダ（`vendor/prebuilt/aarch64-apple-darwin/include`）を実測検証した結果、エラーは **allowlist 修正だけでは解消不能なカテゴリを含む**:
-
-  1. **`PJ_*` 定数が `bindings` に存在しない（E0432 / E0425、計 19 件）**: `PJ_SUCCESS` / `PJ_EINVALIDOP` / `PJ_ENOMEM` / `PJ_EBUSY`（`src/error/error_design_siperror.rs`、`src/ffi/callback.rs`、`src/ffi/backend_calls.rs` 他）。`PJ_SUCCESS` は `pj/types.h:93` の **enum 列挙子**（`typedef enum { PJ_SUCCESS=0, ... }` の一部）であり、型 allowlist では emit されない。→ **const allowlist / enum 生成の bindgen 設定変更**が必要。
-  2. **vendored ヘッダに存在しない定数（`PJSUA_CALL_NULL` / `PJ_CRED_DATA_PLAIN_PASSWD`）**: vendored ツリー全体を grep しても**未定義**。allowlist に追加しても emit できない。→ **vendored PJSIP の更新 or コードの代替定数への修正**が必要。
-  3. **`pjsua_config.turn_cfg` / `turn_cfg_use`（E0609、`src/config/stun_turn_ice_wiring.rs`）**: フィールドは vendored ヘッダ（`pjsua.h:4751,4757`）に**実在**する。→ allowlist で `pjsua_config` 構造体全体を emit すれば解消可能。
-  4. **`pjsua_codec_info.encoding_name` / `clock_rate`（E0609、`src/config/observability_metrics.rs`）**: vendored ヘッダの `pjsua_codec_info`（`pjsua.h:8155`）には `codec_id` / `priority` しかなく、**これらのフィールドは存在しない**。→ allowlist では解消不能。vendored PJSIP の更新 or コードを `codec_id` パースへ修正が必要。
-  5. **`pjsip_inv_state::CALLING` 等（E0599、計 28 件、`src/state/m20_callstate_mapping.rs`）**: bindgen が `pjsip_inv_state` を `u32` の型エイリアスとして生成しており、enum 列挙子アクセスが成立しない。C ヘッダの enum（`sip_inv.h:87-96`）は実在するため、bindgen 設定（`prepend_enum_name(false)` 等）で enum として生成するか、コードを定数参照へ修正する必要がある。
-  6. **`AccountId` がスコープにない（E0433、計 2 件、`src/runtime/backend.rs:1029,1213`）**: pjsua-native cfg 内のコードが `AccountId` を import していない。→ **純コード修正**（`use crate::model::AccountId` の追加）で解消。
-  7. **FFI シグネチャ不整合（E0308、計 3 件、`src/ffi/backend_calls.rs:366,428,447`）**: `pjsua_codec_set_priority` / `pjsua_conf_add_port` / `pjsua_call_get_conf_port` の引数・戻り値の型が bindgen 生成シグネチャと不一致。→ コードを生成シグネチャへ合わせる修正が必要。
-
-- トランスポート / STUN の配線コード自体は存在する（`src/ffi/transport_wiring.rs` の種別・ポート反映、`src/config/stun_turn_ice_wiring.rs` の `stun_srv` 反映）が、すべて `#[cfg(feature = "pjsua-native")]` 配下にあり、当該 feature がビルド不能のため実行されない。
-- 唯一動作するのは TestBackend（`--features test-util`）だが、実トランスポート生成・STUN 解決は行わない。
-
-### 実装補強設計（完全記述への条件）
-
-1. **bindgen 設定の修正**（`src/build/build_script_bindgen.rs` + 必要なら `build.rs`）:
-   - 型 allowlist に `pjsua_config` を追加し**構造体全体**（`turn_cfg` / `turn_cfg_use` 含む）を emit する（上記 3）。
-   - `PJ_SUCCESS` 等の enum 列挙子を const として emit する設定（上記 1）。
-   - `pjsip_inv_state` を enum（または列挙子 const）として生成する設定（上記 5）。
-2. **vendored PJSIP の更新 or コード修正**（上記 2 / 4）:
-   - `PJSUA_CALL_NULL` / `PJ_CRED_DATA_PLAIN_PASSWD` を持たない現 vendored ヘッダを、それらを持つ PJSIP バージョンへ更新する。
-   - または、`pjsua_codec_info.encoding_name` / `clock_rate` を使うコード（`src/config/observability_metrics.rs`）を `codec_id` パースへ修正する。
-3. **コード修正**（上記 6 / 7）: `src/runtime/backend.rs` に `AccountId` の import を追加、`src/ffi/backend_calls.rs` の FFI 呼び出しを bindgen 生成シグネチャへ合わせる。
-4. 上記完了後、`cargo build --features pjsua-native` が通ること。ビルド修復後、`SipClient::new` + トランスポート生成 + STUN 反映を実 PJSIP に対して統合テストで固定。
-
-## RESIDUE — 完全記述の作成不可
-
-### 証拠（欠落・矛盾・危険）
-
-- **既定ビルドでは `SipClient::new` が実行時失敗**する。`CoreReactor::spawn` → `create_backend(...)?`（`src/runtime/reactor.rs`）が `pjsua-native` なしで `Err("SipClient requires the `pjsua-native` feature")` を返す（`src/runtime/backend_selection.rs`）。クイックスタートの「トランスポートと STUN を設定した初期化コード」は既定ビルドで起動できない。
-- **本番バックエンドがビルド不能**: `cargo check --features pjsua-native` は **69 エラー**。bindgen 出力に `PJ_SUCCESS` / `PJ_EINVALIDOP` / `PJ_ENOMEM` / `PJ_EBUSY` / `PJSUA_CALL_NULL` / `PJ_CRED_DATA_PLAIN_PASSWD` / `PJMEDIA_*` 等の定数が欠如（E0432 / E0425）、`pjsua_config` に `turn_cfg` / `turn_cfg_use` フィールドがない（E0609）、`pjsua_codec_info` に `encoding_name` / `clock_rate` がない（E0609）、`pjsip_inv_state` の列挙値（NULL/CALLING/INCOMING/EARLY/CONNECTING/CONFIRMED/DISCONNECTED）が `u32` に対して解決されない（E0599）。
-- トランスポート / STUN の配線コード自体は存在する（`src/ffi/transport_wiring.rs` の種別・ポート反映、`src/config/stun_turn_ice_wiring.rs` の `stun_srv` 反映）が、すべて `#[cfg(feature = "pjsua-native")]` 配下にあり、当該 feature がビルド不能のため実行されない。
-- 唯一動作するのは TestBackend（`--features test-util`）だが、実トランスポート生成・STUN 解決は行わない。
-
-### 実装補強設計（完全記述への条件）
-
-1. **bindgen allowlist の修正**（`src/build/build_script_bindgen.rs`）: `PJ_SUCCESS` / `PJ_EINVALIDOP` / `PJ_ENOMEM` / `PJ_EBUSY` / `PJSUA_CALL_NULL` / `PJ_CRED_DATA_PLAIN_PASSWD` / `PJMEDIA_*` 定数、`pjsua_config` 全フィールド（`turn_cfg` / `turn_cfg_use` 含む）、`pjsua_codec_info`（`encoding_name` / `clock_rate`）、`pjsip_inv_state` の列挙値を emit する。→ `cargo build --features pjsua-native` が通ること。
-2. ビルド修復後、`SipClient::new` + トランスポート生成 + STUN 反映を実 PJSIP に対して統合テストで固定。
+> **注意**: 上記コードは `make test`（`--features test-util` の TestBackend）上で検証可能です（`ClientInitialized` 受信まで）。実トランスポート生成・STUN 反映は `pjsua-native` feature（現在ビルド・リンク可能）で docker 上の coturn / Asterisk に対する統合テスト（`make test-integration`）で固定されます。
 
 # ClientConfig の設定項目（transports・STUN/TURN・音声・タイムアウト）
 
@@ -121,7 +88,7 @@ let config = ClientConfig {
 };
 ```
 
-> **注意（現在の実装状態）**: トランスポート / STUN/TURN/ICE は §12/§13 の統合型（`transport_ice_spec`）に一本化され、PJSIP への反映コード（`transport_wiring` / `stun_turn_ice_wiring`）も実装済みです（P16-2 / P16-8）。ただし反映コードは `pjsua-native` feature 配下にあり、現在この feature はビルド不能です（bindgen 定数・`pjsua_config.turn_cfg` 等の欠如）。また `audio.resampler_quality` は現状 `String` 型（既定値 `"High"`）であり、RFC の `ResamplerQuality` enum は未実装です。設定の構築・既定値・バリデーションは `make test`（`--features test-util` の TestBackend）上で検証可能です。
+> **注意（現在の実装状態）**: トランスポート / STUN/TURN/ICE は §12/§13 の統合型（`transport_ice_spec`）に一本化され、PJSIP への反映コード（`transport_wiring` / `stun_turn_ice_wiring`）も実装済みです（P16-2 / P16-8 / P18-1）。`pjsua-native` feature は現在ビルド・リンク可能で、実 PJSIP への反映は docker 上の coturn に対する統合テスト（`make test-integration`）で検証できます。一方 `audio.resampler_quality` は現状 `String` 型（既定値 `"High"`）であり、RFC の `ResamplerQuality` enum は未実装です。既定ビルド（feature なし）では `SipClient::new` が fail-fast するため、設定の構築・既定値・バリデーションの動作確認は `make test`（`--features test-util` の TestBackend）上で行います。
 
 # 初期化のバリデーション規則とエラー処理
 
@@ -151,7 +118,7 @@ assert!(matches!(result, Err(e) if e.kind == SipErrorKind::InvalidConfig));
 
 `SipClient::new` は `Result<(SipClient, broadcast::Receiver<SipEvent>), SipError>` を返します。エラーは `SipError` で返され、`kind: SipErrorKind` と `native_status: Option<i32>` を保持します。PJSIP 由来の失敗では `native_status` に PJ ステータス（`PJ_SUCCESS`=0 等）が入ります（§62.8 / P15-9）。
 
-> **注意**: サンプルレート規則は `audio.default_delivery_format.sample_rate`（既定配信フォーマット）にのみ適用されます。バリデーションはバックエンド起動前に行われるため、既定ビルドでも検証できます。実 SIP の初期化には `pjsua-native` feature が必要ですが、現在ビルド不能です。
+> **注意**: サンプルレート規則は `audio.default_delivery_format.sample_rate`（既定配信フォーマット）にのみ適用されます。バリデーションはバックエンド起動前に行われるため、既定ビルドでも検証できます（P15-2 / P18-1 により `pjsua-native` feature は現在ビルド可能です）。
 
 # アカウントの追加と設定更新（add_account / update_config）
 
@@ -186,7 +153,7 @@ account.update_config(patch).await?;
 
 **更新時の register / unregister の挙動（C026）**: `update_config` は、パッチが `register_on_start: Some(enabled)` を明示的に運ぶ場合に限り、設定更新後に `set_registration(native_id, enabled)` を発行します。`Some(true)` は `Registering`、`Some(false)` は `Unregistering` へ遷移します。パッチが `register_on_start` を含まない（`None`）場合は**登録状態は変化しません**（reactor の `UpdateAccount` アームで `apply_registration_command_state` により固定）。
 
-> **注意**: 上記コードは `make test`（TestBackend）上で検証可能です。TestBackend では `add_account` の状態遷移（`Disabled` / `Registering`）と `update_config` の命令発行・状態遷移までを検証できます。`register_on_start` による自動登録の `RegistrationStateChanged` は、TestBackend の `AddAccount` / `UpdateAccount` アームがネイティブイベントを drain しないため即時 publish されません（P17-4 / §62.24 は `SetRegistration` アームのみ）。実 SIP の REGISTER 送出には `pjsua-native` feature が必要ですが、現在ビルド不能です。
+> **注意**: 上記コードは `make test`（TestBackend）上で検証可能です。TestBackend では `add_account` の状態遷移（`Disabled` / `Registering`）と `update_config` の命令発行・状態遷移までを検証できます。`register_on_start` による自動登録の `RegistrationStateChanged` は、TestBackend の `AddAccount` / `UpdateAccount` アームがネイティブイベントを drain しないため即時 publish されません（P17-4 / §62.24 は `SetRegistration` アームのみ）。実 SIP の REGISTER 送出には `pjsua-native` feature（現在ビルド可能）が必要です。
 
 # 登録と登録解除（register / unregister / set_registration_enabled）
 
@@ -215,7 +182,7 @@ account.set_registration_enabled(false).await?;
 
 **register_on_start による自動登録**: `AccountConfig::register_on_start: true`（既定値）で `add_account` すると、追加時に自動 REGISTER が発行され `Registering` へ遷移します（P16-3 / §62.12）。`false` なら `Disabled` のままです。
 
-> **注意**: 明示的な `register()` 後の `RegistrationStateChanged(Registered)` は `make test`（TestBackend）上で検証できます（reactor テスト `set_registration_arm_drains_and_publishes_registered` で固定）。一方、`register_on_start` による自動登録では、TestBackend の `AddAccount` / `UpdateAccount` アームはネイティブイベントを drain しないため、追加直後の `RegistrationStateChanged` は publish されません（状態は `Registering` へ遷移します）。実 SIP の REGISTER / UNREGISTER 送出には `pjsua-native` feature（現在ビルド不能）が必要です。
+> **注意**: 明示的な `register()` 後の `RegistrationStateChanged(Registered)` は `make test`（TestBackend）上で検証できます（reactor テスト `set_registration_arm_drains_and_publishes_registered` で固定）。一方、`register_on_start` による自動登録では、TestBackend の `AddAccount` / `UpdateAccount` アームはネイティブイベントを drain しないため、追加直後の `RegistrationStateChanged` は publish されません（状態は `Registering` へ遷移します）。実 SIP の REGISTER / UNREGISTER 送出には `pjsua-native` feature（現在ビルド可能）が必要です。
 
 # 登録状態の参照（registration_state と RegistrationState）
 
@@ -248,7 +215,7 @@ match state {
 
 状態遷移は §17.1 の遷移表（`registr_state_machine.rs`）で検証されます。TestBackend 上では、`register()` → `Registering`、`RegistrationStateChanged(Registered)` の受信 → `Registered`（P17-4 / §62.24 でネイティブ登録イベントの発火・drain が実装済み）、ネイティブ 4xx 注入 → `Failed` が観測できます（イベント注入はテスト専用ヘルパー経由）。
 
-> **注意**: `Expired` は enum 上は定義されていますが、現在**実イベント源が未配線**です（`registration_state_from_status` は `Registered` / `Idle` / `Failed` のみを生成）。実フローで `Expired` が発火することはまだありません。また `Registered` / `Failed` の観測にはネイティブ登録イベントが必要で、実 SIP には `pjsua-native` feature（現在ビルド不能）が必要です。
+> **注意**: `Expired` は enum 上は定義されていますが、現在**実イベント源が未配線**です（`registration_state_from_status` は `Registered` / `Idle` / `Failed` のみを生成）。実フローで `Expired` が発火することはまだありません。また `Registered` / `Failed` の観測にはネイティブ登録イベントが必要で、実 SIP には `pjsua-native` feature（現在ビルド可能）が必要です。
 
 # アカウントの取得・一覧・削除（account / accounts / remove_account）
 
@@ -280,27 +247,70 @@ client.remove_account(account_id).await?;
 
 `remove_account` は未知の `account_id` に対して `SipErrorKind::AccountNotFound` を fail-fast で返します。この一連の挙動は `--features test-util` の TestBackend 上で検証可能です（`reg_account_lifecycle.rs` の remove 系列、reactor の AccountRemoved テストで固定）。
 
-> **注意**: 実 SIP の UNREGISTER 送出には `pjsua-native` feature が必要ですが、現在ビルド不能です。TestBackend では unregister の命令発行と `AccountRemoved` イベントの発行までを検証できます。
+> **注意**: 実 SIP の UNREGISTER 送出には `pjsua-native` feature（現在ビルド可能）が必要です。TestBackend では unregister の命令発行と `AccountRemoved` イベントの発行までを検証できます。
 
 # イベントの購読と受信（subscribe / subscribe_account / subscribe_raw_sip）
 
 subscribe() / subscribe_account(id) / subscribe_raw_sip() の 3 つの購読方法の違いと、購読解除（unsubscribe）の方法、SipEventPayload の主要バリアントの受信コードを解説
 
-<::README-RESIDUE::>
-## RESIDUE — 完全記述の作成不可
+`SipEventPayload` は制御系イベントのペイロードです。`SipClient` は 3 種類の購読方法を提供します（RFC §15 / P17-9 §62.29）。
 
-### 証拠（欠落・矛盾・危険）
+| メソッド | 戻り値 | 受信対象 |
+|---|---|---|
+| `subscribe()` | `Subscription<SipEvent>` | 全アカウントの制御系イベント（broadcast） |
+| `subscribe_account(id)` | `Subscription<SipEvent>` | 指定アカウントにフィルタしたイベント |
+| `subscribe_raw_sip()` | `Option<Subscription<RawSipMessage>>` | raw SIP メッセージ（`raw_sip_events.enabled == false` なら `None`） |
 
-- `subscribe()` / `subscribe_account(id)` / `subscribe_raw_sip()` は `Subscription<T>` を返し、明示 `unsubscribe()` で購読解除できる（P17-9 / §62.29）。`recv()` は主要イベント（Registration / Call / DTMF）を TestBackend 上で受信できます。
-- **しかし「subscribe_raw_sip() の受信コード」は依然として成立しない**。raw SIP の生産経路は `pjsip_module` フック（`src/ffi/raw_sip_module.rs`、P17-2 / §62.22 で実装済み）であり、`pjsua-native` feature 配下の `backend_calls::initialize` でのみ登録される。TestBackend / 既定ビルドでは `enqueue_raw_sip_bytes` を呼ぶ経路が存在せず、`subscribe_raw_sip()` は無音のチャネルを返す（`--features test-util` で `recv()` は永久待機）。
-- **`IceTransportError` は未配線のまま**（P17-3 / §62.23 のスコープ外として残置）。`on_ice_transport_error` は `pjsua_callback` ミラー（`src/ffi/bindings.rs`）にフィールドがなく、`NativeEvent::IceTransportError` を生成する生産コードはゼロ。`TransportStateChanged` / `CallTsxStateChanged` / `CallReplaced` / `NatDetected` は登録済み（`src/ffi/callback.rs`）。
-- 本番 FFI 経路は pjsua-native ビルド修復が前提（H1 参照）。
+**主要バリアントの受信コード**: `Subscription::recv()` でイベントを待ち受け、`event.payload` を match します。
 
-### 実装補強設計（完全記述への条件）
+```rust
+use siprs::{SipClient, SipEventPayload};
 
-1. **raw SIP publisher の検証経路**: pjsua-native ビルド修復後、`subscribe_raw_sip()` が実 SIP メッセージを受信できることを統合テストで固定。TestBackend で検証する場合は、TestBackend が `enqueue_raw_sip_bytes` を呼ぶテスト専用フックを用意する。
-2. **`on_ice_transport_error` の登録**: `pjsua_callback` にフィールドを追加し、`NativeEvent::IceTransportError` を生成する経路を実装する（新規チケット。P17-3 の残項目）。
-3. pjsua-native のビルド修復（H1 参照）。
+let mut events = client.subscribe();
+
+loop {
+    let event = events.recv().await?;
+    match event.payload {
+        SipEventPayload::RegistrationStateChanged(info) => {
+            println!("registration: {:?}", info.state);
+        }
+        SipEventPayload::IncomingCall(info) => {
+            println!("incoming call: {}", info.call_id);
+        }
+        SipEventPayload::CallConnected(_) => println!("call connected"),
+        SipEventPayload::CallDisconnected(_) => println!("call disconnected"),
+        SipEventPayload::DtmfReceived(info) => {
+            println!("DTMF received: {}", info.digit);
+        }
+        _ => {}
+    }
+}
+```
+
+**購読解除（P17-9）**: `Subscription<T>` には明示的な `unsubscribe()` があります。呼び出し後は `recv()` / `try_recv()` が `Closed` を返します（べき等）。ハンドルを drop しても購読解除されます。
+
+```rust
+let mut events = client.subscribe_account(account_id);
+// ... イベント受信 ...
+events.unsubscribe();
+assert!(!events.is_subscribed());
+```
+
+**raw SIP の受信**: `RawSipMessage` は `start_line` / `headers` / `body` を持ちます。`redact_authorization` が有効なら `Authorization` ヘッダは redact されます（RFC §16）。
+
+```rust
+use siprs::SipClient;
+
+if let Some(mut raw_rx) = client.subscribe_raw_sip() {
+    tokio::spawn(async move {
+        while let Ok(msg) = raw_rx.recv().await {
+            tracing::debug!("RAW SIP: {} ({})", msg.start_line(), msg.headers().len());
+        }
+    });
+}
+```
+
+> **注意（実装状態）**: raw SIP の生産経路は `pjsip_module` フック（`raw_sip_module.rs`、P17-2 / §62.22）で、`pjsua-native` feature 配下の `backend_calls::initialize` でのみ登録されます。実 SIP メッセージ受信は docker 上の Asterisk に対する統合テスト（`make test-integration` → `raw_sip_rx_reaches_subscriber`）で固定されます。**TestBackend（`--features test-util`）では `subscribe_raw_sip()` は無音のチャネルを返します**（仕様どおり。P19-1 / §62.38）。また `on_ice_transport_error` は FFI コールバックとして登録済み（P19-2 / §62.39）で `NativeEvent::IceTransportError` を生成しますが、これはトランスポートレベルで消費され、`SipEventPayload` の受信バリアントには現れません。イベント購読・`unsubscribe()`・主要バリアントの受信は `make test`（TestBackend）上で検証可能です。
 
 # 発信（make_call と OutgoingCallRequest）
 
@@ -333,7 +343,7 @@ client.hangup(call_id, HangupReason::LocalUser).await?;
 
 **発信のイベント系列（実 SIP）**: 発信側の標準系列は `OutgoingCallStarted → OutgoingCallTrying → CallConnected` です。`OutgoingCallRinging` は**着信側**の CONNECTING 遷移で発行されるため、発信通話では観測されません（`m20_callstate_mapping.rs`）。
 
-> **注意**: TestBackend では `make_call` は call id の採番と登録のみを行い、イベントは publish しません（ネイティブイベントの注入はテスト専用）。実 SIP のイベント系列には `pjsua-native` feature（現在ビルド不能）と実 PJSIP コールバックが必要です。上記コードは `make test`（TestBackend）上で検証可能です。
+> **注意**: TestBackend では `make_call` は call id の採番と登録のみを行い、イベントは publish しません（ネイティブイベントの注入はテスト専用）。実 SIP のイベント系列には `pjsua-native` feature（現在ビルド可能）と実 PJSIP コールバックが必要です。上記コードは `make test`（TestBackend）上で検証可能です。
 
 # 着信と応答（IncomingCall と answer）
 
@@ -374,7 +384,7 @@ loop {
 
 着信 call は `ClientState.calls` に `CallDirection::Incoming` として登録されるため、`calls()` / `call_state()` で参照できます（P16-5）。reject（486 / 603）は `CallDisconnected` として観測される仕様です（§62.14 の設計判断）。`IncomingCall` イベントの `call_id` は `CallId` 型です。
 
-> **注意**: `IncomingCall` は `pjsua-native` の `on_incoming_call` コールバックでのみ生成されます。TestBackend では `NativeEvent::IncomingCall` の注入により一連のフロー（着信登録 → answer(200) → `CallConnected` / answer(486) → `CallDisconnected`）を検証できます（reactor のテストで固定）。実 SIP には `pjsua-native` feature（現在ビルド不能）が必要です。また FFI 経路では `caller_uri` が空文字になるため、着信 URI の表示は別途の解決が必要です。
+> **注意**: `IncomingCall` は `pjsua-native` の `on_incoming_call` コールバックでのみ生成されます。TestBackend では `NativeEvent::IncomingCall` の注入により一連のフロー（着信登録 → answer(200) → `CallConnected` / answer(486) → `CallDisconnected`）を検証できます（reactor のテストで固定）。実 SIP には `pjsua-native` feature（現在ビルド可能）が必要です。また FFI 経路では `caller_uri` が空文字になるため、着信 URI の表示は別途の解決が必要です。
 
 # 通話イベントと状態遷移（CallState の購読と判定）
 
@@ -416,7 +426,7 @@ while let Ok(event) = events.recv().await {
 
 `call_state(call_id)` は `ClientState.calls` の `CallEntry.state` を返し、ネイティブ遷移で更新されます（P17-5 / §62.25 で stale 問題は解消）。TestBackend では `NativeEvent::CallStateChanged` の注入により `Incoming → Ringing → Active → Disconnected` の一連の遷移を `call_state()` で追跡できます（reactor テスト `process_native_event_full_lifecycle_reflects_each_transition` で固定）。
 
-> **注意**: 発信通話では `OutgoingCallRinging` は発火しません（着信方向の CONNECTING 遷移専用）。実 SIP のイベント系列には `pjsua-native` feature（現在ビルド不能）が必要です。
+> **注意**: 発信通話では `OutgoingCallRinging` は発火しません（着信方向の CONNECTING 遷移専用）。実 SIP のイベント系列には `pjsua-native` feature（現在ビルド可能）が必要です。
 
 # DTMF 送受信（send_dtmf と DtmfSent / DtmfReceived）
 
@@ -459,86 +469,166 @@ while let Ok(event) = events.recv().await {
 
 受信側の `DtmfReceived(DtmfReceivedInfo { method, digit, duration_ms, volume_dbm0 })` は、`pjsua-native` の `on_dtmf_digit` コールバック経由でのみ生成されます（P17-7 で FFI 配線済み）。
 
-> **注意**: `send_dtmf` → `DtmfSent { Ok }` は `make test`（TestBackend）上で検証可能です（reactor テスト `send_dtmf_dispatch_spawns_timeout_after_backend_ok` で固定）。`DtmfReceived` は `pjsua-native` feature（現在ビルド不能）のコールバックが必要です。TestBackend では `NativeEvent::DtmfDigit` の注入により検証できます。
+> **注意**: `send_dtmf` → `DtmfSent { Ok }` は `make test`（TestBackend）上で検証可能です（reactor テスト `send_dtmf_dispatch_spawns_timeout_after_backend_ok` で固定）。`DtmfReceived` は `pjsua-native` feature（現在ビルド可能）のコールバックが必要です。TestBackend では `NativeEvent::DtmfDigit` の注入により検証できます。
 
 # 音声ストリームの取得（subscribe_audio と AudioChunkPair）
 
 AudioFormat（ビット深度・サンプルレート・チャンネル）とストリームデータの対応を解説し、指定 bit/hz のステレオ WAV ファイルへ書き出す方法まで示す
 
-<::README-RESIDUE::>
-## RESIDUE — 完全記述の作成不可
+`SipClient::subscribe_audio(call_id, format, capacity, mode)` で通話の音声ストリームを購読し、`AudioTapHandle::recv()` で `AudioChunkPair` を取得します（RFC §21 / §22 / P16-7 §62.16 / P17-8 §62.28 / P19-3 §62.40）。
 
-### 証拠（欠落・矛盾・危険）
+```rust
+use siprs::model::{AudioFormat, BitDepth, ChannelLayout, SampleRate};
+use siprs::{AudioTapMode, SipClient};
 
-- `subscribe_audio(call_id, format, capacity, mode)` は存在し、`AudioTapHandle::recv()` は `Option<AudioChunkPair>` を返す（`src/client.rs`、`src/api/audio_subscribe_bp.rs`）。`AudioChunkPair` / `ChannelLayout::StereoInOut`（L=IN / R=OUT）/ `AudioFormat` は公開型として一致する（`src/model/audio_format_chunkpair.rs`）。
-- ✅ **P16-7 で WAV ライタは実装済み**: `WavWriter` / `write_stereo_wav` が存在し（`src/audio/media_path_wiring.rs`）、StereoInOut は L=IN / R=OUT をインターリーブ、出力は PCM16（F32 入力はクリップ/スケール）。
-- ✅ **P17-8 で tap 供給の構造は実装済み**: `push_frame_to_tap`（`src/runtime/backend.rs`）が `RustMediaPort` の port ops（`get_frame` / `put_frame`、`src/runtime/audio_worker.rs`）から呼ばれ、`AudioTapSender::try_push` へ `AudioChunkPair` を供給する。
-- **しかし TestBackend では tap が永久待機する**。tap への供給点は (1) `PjsuaBackend::push_media_frame` と (2) `RustMediaPort` の port ops の 2 箇所のみ。`TestBackend::push_media_frame` は呼び出し記録のみで `push_frame_to_tap` を呼ばず、`RustMediaPort` は pjsua-native の conf bridge（`pjsua_conf_add_port`）でのみ駆動される。**`push_media_frame` の生産コードからの呼び出し元はゼロ**（`#[cfg(test)]` 内のみ）。→ `AudioTapHandle::recv()` は TestBackend / 既定ビルドで実運用上ブロックし続ける。
-- 既定ビルドでは `SipClient::new` 自体が失敗する（H1 参照）。
+let mut tap = client
+    .subscribe_audio(
+        call_id,
+        AudioFormat {
+            sample_rate: SampleRate::Hz16000,
+            bit_depth: BitDepth::I16,
+            channel_layout: ChannelLayout::StereoInOut,
+            frame_ms: 20,
+        },
+        512,
+        AudioTapMode::Lossless, // 録音用途のため Lossless モード
+    )
+    .await?;
 
-### 実装補強設計（完全記述への条件）
+while let Some(pair) = tap.recv().await {
+    // AudioChunkPair: 同一時刻で揃えられた IN/OUT ペア（StereoInOut では L=IN / R=OUT）
+    // 交渉済み AudioFormat（bit depth / sample rate / channels）に一致する 20ms フレーム
+}
+```
 
-1. **`push_media_frame` の生産経路を配線**: conf port の `put_frame` / `get_frame` 経路（または明示的なメディアパイプラインステップ）から `push_media_frame` を呼び、tap へ `AudioChunkPair` を連続供給する。P17-8 の構造（`push_frame_to_tap` 共有ヘルパー）は完成しているため、実 PJSIP（pjsua-native）の conf bridge が `RustMediaPort` を駆動することをビルド修復後に統合テストで固定する。
-2. pjsua-native のビルド修復（H1 参照）後、`AudioChunkPair` → 指定 bit/hz のステレオ WAV 書き出し（`write_stereo_wav`）が連続生産されたフレームに対して成立することを統合テストで固定。
+**AudioFormat とストリームデータの対応**: `AudioChunkPair` は交渉済み `AudioFormat`（ビット深度・サンプルレート・チャンネル）に一致する左右ペアです。`ChannelLayout::StereoInOut` では L=IN（受話）/ R=OUT（送話）を表します（RFC §21.1 / §25）。
+
+**WAV 書き出し（P16-7）**: `WavWriter` は `AudioChunkPair` → 指定 bit/hz のステレオ WAV 変換を提供します（PCM16 出力、F32 入力はクリップ/スケール）。StereoInOut は L=IN / R=OUT をインターリーブします。ストリーミングで書き出す場合は `WavWriter::create` + `write_stereo_pair` を、一括変換には `write_stereo_wav(path, &[AudioChunkPair], format)` を使います。
+
+```rust
+use siprs::audio::media_path_wiring::WavWriter;
+
+let mut writer = WavWriter::create("recording.wav".as_ref(), &format)?;
+while let Some(pair) = tap.recv().await {
+    writer.write_stereo_pair(&pair)?;
+}
+```
+
+**backpressure 2 モード（§22.1）**: `AudioTapMode::Realtime` は最古破棄（consumer が遅れても tap を塞がない）、`Lossless` は producer ブロック（欠損なく全フレームを保証）です。
+
+> **注意（実装状態）**: tap へのフレーム供給は conf bridge の `RustMediaPort` port ops（`get_frame` / `put_frame`）経由で行われます（P17-8 / P19-3 で `push_media_frame` → `push_frame_to_tap` の生産経路が配線済み）。TestBackend では `push_media_frame` 相当の供給関数を明示的に呼ぶことで検証できますが、自動ポンプはありません。実通話の連続生産には `pjsua-native` feature（現在ビルド可能）の conf bridge が必要です。
 
 # 音声の注入（AsyncAudioSource と add_audio_source）
 
 2 者通話における IN / OUT / BOTH チャネルへの音声ファイル・ストリーム注入方法と、マイク入力 source の取得（open_default_microphone_source）を併せて解説
 
-<::README-RESIDUE::>
-`open_default_microphone_source` は **通話マイクではない独立キャプチャ source** です（§62.29）。OS 既定入力デバイス（cpal）の独立キャプチャを `AsyncAudioSource` として返し、`add_audio_source` の注入 source として利用できますが、通話の送話入力（call microphone）とは無関係です。
+`SipClient::add_audio_source(call_id, source, channels)` で、2 者通話の指定チャネルへ音声を注入します（RFC §23 / §24 / P16-7 / P17-9 / P19-4 §62.41）。
 
-## RESIDUE — 完全記述の作成不可
+```rust
+use siprs::runtime::audio_worker::AsyncAudioSource;
+use siprs::{ChannelSelector, SipClient};
 
-### 証拠（欠落・矛盾・危険）
+struct TtsStreamSource {
+    rx: tokio::sync::mpsc::Receiver<Vec<i16>>,
+}
 
-- `add_audio_source(call_id, source, channels)` は存在し、`call_id` と `ChannelSelector`（In/Out/Both）を受け取り per-call `AudioMixer` へ登録する（`src/client.rs`、`src/runtime/reactor.rs`）。`AudioWorkerTask::spawn` も reactor の生産経路で呼ばれる。
-- ✅ **P16-7 で解消**: `RustMediaPort` が `out_queue` / `in_queue` を消費する conf port コンシューマとして実装された。`make_call` / `answer` の call connect 時（`CallConnected` 発行）に `conf_connect(call_id, call_id)` が自動発行される。
-- ✅ **P16-7 で解消**: `WavFileSource`（PCM16 WAV のみ、リサンプルなし）と `open_default_microphone_source`（cpal、OS 既定入力デバイスの独立キャプチャ）が実装された。
-- ✅ **P17-9 で解消**: `open_default_microphone_source` は「注入可能なキャプチャ source」であり通話マイクではない独立キャプチャである旨を本節に明記（上記段落）。
-- **しかし `RustMediaPort` が実通話の conf bridge に登録されない**: `register_media_ports_for_calls`（`pjsua_conf_add_port` で `RustMediaPort` を登録する唯一の箇所）は **`Initialize` 時に一度だけ**呼ばれ、その時点で `audio_mixers` は空である（`src/runtime/command.rs`、`src/runtime/backend.rs`）。`AddAudioSource` 後には再実行されないため、実通話で `RustMediaPort` は登録されず、注入音声は `out_queue`（64 フレーム ≈ 1.28 秒）に溜まり**破棄される**（P17-8 / §62.28 では未解消）。
-- TestBackend では mixer は worker ループに給餌されるが、`out_queue` / `in_queue` のコンシューマ（`RustMediaPort`）が存在しないため、注入音声はどこからも観測できない。
+impl AsyncAudioSource for TtsStreamSource {
+    async fn next_chunk(&mut self, buf: &mut [i16]) -> usize {
+        match self.rx.recv().await {
+            Some(chunk) => {
+                let n = chunk.len().min(buf.len());
+                buf[..n].copy_from_slice(&chunk[..n]);
+                n
+            }
+            None => 0,
+        }
+    }
+}
 
-### 実装補強設計（完全記述への条件）
+let source_id = client
+    .add_audio_source(call_id, Box::new(TtsStreamSource { rx }), ChannelSelector::Out)
+    .await?;
+```
 
-1. **`AddAudioSource` で mixer 生成時に conf bridge への `RustMediaPort` 登録を再実行**する（`register_media_ports_for_calls` 相当を mixer 作成経路で呼ぶ。新規チケット。ギャップ）。
-2. pjsua-native のビルド修復（H1 参照）後、実通話で注入音声がネットワーク送信 / ローカル再生に届くことを統合テストで固定。
-3. ✅ **P17-9 で解消**: `open_default_microphone_source` は「注入可能なキャプチャ source」であり通話マイクではない旨を README に明記（上記段落で解消）。
+**`ChannelSelector`（RFC §24.4）** は `In` / `Out` / `Both` の 3 値です。`In` は受話（received-audio）経路へ注入し、ローカル再生側に重ねます。`Out` は送話（send-mix）経路へ注入し、相手へ送信する音声に重ねます（TTS を相手に届ける等）。`Both` は両方の独立した経路へ登録します。source は 20ms フレームを返す `AsyncAudioSource` として実装し、`add_audio_source` に `Box<dyn AsyncAudioSource>` で渡します。source が閉じたら自動除去されます（§24.4）。戻り値は `source_id`（`u64`）で、`handle().submit_set_audio_source_gain(source_id, gain)` でゲインを調整できます。
+
+**マイク入力 source の取得（P17-9 / §62.29）**: `open_default_microphone_source(format)` は OS 既定入力デバイス（cpal）の独立キャプチャを `AsyncAudioSource` として返します。これは**通話マイクではない独立キャプチャ source** であり、`add_audio_source` の注入 source として利用できますが、通話の送話入力（call microphone）とは無関係です。`cpal-input` feature（default に含まれる）が必要です。
+
+```rust
+use siprs::model::{AudioFormat, BitDepth, ChannelLayout, SampleRate};
+use siprs::SipClient;
+
+let mic = client
+    .open_default_microphone_source(AudioFormat {
+        sample_rate: SampleRate::Hz16000,
+        bit_depth: BitDepth::I16,
+        channel_layout: ChannelLayout::StereoInOut,
+        frame_ms: 20,
+    })
+    .await?;
+let source_id = client
+    .add_audio_source(call_id, mic, ChannelSelector::Out)
+    .await?;
+```
+
+> **注意（実装状態）**: P19-4 / §62.41 で、`AddAudioSource` 時に per-call の `AudioMixer` と `RustMediaPort` の conf bridge 登録（`ensure_conf_port_for_call` → `pjsua_conf_add_port` / `conf_connect`）が再実行されます（旧 RESIDUE の「Initialize 時のみ登録で注入音声が破棄される」問題は解消済み）。実通話で注入音声がネットワーク / ローカル再生に届くことの確認には `pjsua-native` feature（現在ビルド可能）が必要です。TestBackend では source 登録・conf port 再登録・`audio_mixer_for` による source 数の検証が可能です。
 
 # STUN/TURN/ICE とトランスポート設定
 
 ClientConfig への stun_servers / turn_servers / ice の設定方法と、TransportConfig（UDP/TCP/TLS）の選択を併せて解説
 
-<::README-RESIDUE::>
-## RESIDUE — 完全記述の作成不可
+`ClientConfig` の `transports` / `stun_servers` / `turn_servers` / `ice` でネットワーク設定を構成します（RFC §12 / §13 / P15-2 / P16-2 / P16-8 / P18-1）。
 
-### 証拠（欠落・矛盾・危険）
+```rust
+use siprs::{
+    ClientConfig, IceConfig, SecretString, StunServerConfig, TlsConfig,
+    TransportConfig, TurnServerConfig,
+};
+use siprs::config::transport_ice_spec::TlsTransportConfig;
 
-- 型の一本化は実現: 単一の `TransportConfig` / `StunServerConfig` / `TurnServerConfig` / `IceConfig`（`src/config/transport_ice_spec.rs`）。P15-2 が旧重複を除去した。
-- ✅ **P16-2 / P16-8 で配線コードは実装済み**: `PjsuaBackend::initialize` が `config.transports` を列挙し種別 + ポートを `pjsua_transport_create` へ反映（`src/ffi/transport_wiring.rs`、`src/runtime/backend.rs`）。`apply_stun_turn` が `pjsua_config.stun_srv[]` / `turn_cfg` / `turn_cfg_use` を反映し（`src/config/stun_turn_ice_wiring.rs`）、`apply_ice` が media ICE 設定を反映する。UDP/TCP/TLS → PJSIP 種別マッピングはユニットテスト済み。
-- **しかし本番（`pjsua-native`）は依然としてビルド不能（69 エラー）**。本節に直接関わるのは以下の 2 点:
-  - `src/config/stun_turn_ice_wiring.rs` の `apply_stun_turn` が参照する **`pjsua_config.turn_cfg` / `turn_cfg_use` が bindgen 生成物に存在しない（E0609）**。フィールド自体は vendored ヘッダ（`pjsua.h:4751,4757`）に**実在**するため、**bindgen の型 allowlist で `pjsua_config` 構造体全体を emit すれば解消可能**（H1 の補強 1 に該当）。
-  - `PJ_SUCCESS` / `PJ_EBUSY` / `PJ_EINVALIDOP` 等の定数が bindings に存在しない（E0425）。`PJ_SUCCESS` は `pj/types.h:93` の enum 列挙子であり、const/enum 生成の bindgen 設定が必要（H1 の補強 1 に該当）。
-- 既定ビルドでは `SipClient::new` が `"SipClient requires the pjsua-native feature"` で失敗し、設定を実演できない（H1 参照）。
+let config = ClientConfig {
+    transports: vec![
+        TransportConfig::udp(5060),
+        TransportConfig::tcp(5060),
+        // TLS トランスポート（tls feature）
+        TransportConfig::Tls(TlsTransportConfig {
+            bind_addr: "0.0.0.0:5061".parse().unwrap(),
+            tls: TlsConfig {
+                verify_server: false,
+                ca_cert_path: None,
+                client_cert_path: None,
+                client_key_path: None,
+                server_name: None,
+                allow_insecure_cipher_legacy: false,
+            },
+        }),
+    ],
+    stun_servers: vec![StunServerConfig {
+        uri: "stun:stun.l.google.com:19302".into(),
+    }],
+    turn_servers: vec![TurnServerConfig {
+        uri: "turn:turn.example.com:3478".into(),
+        username: Some("user".into()),
+        password: Some(SecretString::new("pass")),
+        transport: Default::default(),
+    }],
+    ice: IceConfig {
+        enabled: true,
+        ..IceConfig::default()
+    },
+    ..ClientConfig::default()
+};
+let (client, _events) = SipClient::new(config).await?;
+```
 
-### 実装補強設計（完全記述への条件）
+- **`TransportConfig`** — UDP / TCP / TLS を選択します。`TransportConfig::udp(port)` / `tcp(port)` の便利コンストラクタ、TLS は `TransportConfig::Tls(TlsTransportConfig { bind_addr, tls })` で構築します。TLS は `tls` feature が必要です。
+- **`stun_servers`** — `StunServerConfig { uri: "stun:<host>:<port>" }` の一覧。PJSIP の `pjsua_config.stun_srv[]` へ反映されます。
+- **`turn_servers`** — `TurnServerConfig` の一覧。TURN はアカウントレベル（`pjsua_acc_config`）で反映され、`apply_turn` は先頭要素を使用します。
+- **`ice`** — `IceConfig { enabled, aggressive_nomination, trickle_ice, renomination, max_host_candidates }`。media ICE 設定を反映します。
 
-1. **bindgen 設定の修正**（H1 の補強 1 と同一）: `pjsua_config` 構造体全体（`turn_cfg` / `turn_cfg_use` 含む）と `PJ_*` 定数を emit する。→ `cargo build --features pjsua-native` が通ること。
-2. ビルド修復後、`stun_servers` / `turn_servers` / `ice` と `TransportConfig` が実 PJSIP に反映されることを統合テスト（coturn プロトコルレベル検証、P16-8 / P16-10）で固定。
+**実装状態（P16-2 / P16-8 / P18-1）**: `PjsuaBackend::initialize` が `config.transports` を列挙し種別 + ポートを `pjsua_transport_create` へ反映します（`transport_wiring.rs`）。UDP/TCP/TLS → PJSIP 種別マッピングはユニットテスト済みです。STUN / TURN / ICE は `stun_turn_ice_wiring.rs` の `apply_stun` / `apply_turn` / `apply_ice` で `pjsua_config` / `pjsua_acc_config` へ反映され、P18-1 の bindgen enum/const 生成修復により `pjsua-native` でビルド・リンク可能です。coturn に対するプロトコルレベル検証は docker 統合テスト（`make test-integration` → `tests/sip_integration.rs::coturn_stun_turn_ice`）で固定されます。
 
-## RESIDUE — 完全記述の作成不可
-
-### 証拠（欠落・矛盾・危険）
-
-- 型の一本化は実現: 単一の `TransportConfig` / `StunServerConfig` / `TurnServerConfig` / `IceConfig`（`src/config/transport_ice_spec.rs`）。P15-2 が旧重複を除去した。
-- ✅ **P16-2 / P16-8 で配線コードは実装済み**: `PjsuaBackend::initialize` が `config.transports` を列挙し種別 + ポートを `pjsua_transport_create` へ反映（`src/ffi/transport_wiring.rs`、`src/runtime/backend.rs`）。`apply_stun_turn` が `pjsua_config.stun_srv[]` / `turn_cfg` / `turn_cfg_use` を反映し（`src/config/stun_turn_ice_wiring.rs`）、`apply_ice` が media ICE 設定を反映する。UDP/TCP/TLS → PJSIP 種別マッピングはユニットテスト済み。
-- **しかし本番（`pjsua-native`）は依然としてビルド不能（69 エラー）**。特に `pjsua_config` に `turn_cfg` / `turn_cfg_use` フィールドがないため（E0609）、TURN 反映コード（`stun_turn_ice_wiring.rs`）がコンパイルできない。`PJ_SUCCESS` / `PJ_EBUSY` / `PJ_EINVALIDOP` 等の定数も bindgen 出力に欠如。
-- 既定ビルドでは `SipClient::new` が `"SipClient requires the pjsua-native feature"` で失敗し、設定を実演できない（H1 参照）。
-
-### 実装補強設計（完全記述への条件）
-
-1. **bindgen / vendored PJSIP の整合**（P16-2 / P16-8 の前提）: `pjsua_config.turn_cfg` / `turn_cfg_use`、`PJ_*` 定数、`pjsua_codec_info` フィールドを bindgen allowlist に追加するか、vendored PJSIP を必要なフィールドを持つバージョンへ更新する。→ `cargo build --features pjsua-native` が通ること。
-2. ビルド修復後、`stun_servers` / `turn_servers` / `ice` と `TransportConfig` が実 PJSIP に反映されることを統合テスト（coturn プロトコルレベル検証、P16-8 / P16-10）で固定。
+> **注意**: 既定ビルド（feature なし）では `SipClient::new` が fail-fast するため、実トランスポート生成・STUN/TURN/ICE 反映の動作確認には `--features pjsua-native`（実 PJSIP）または `--features test-util`（TestBackend、実生成はしない）が必要です。
 
 # シャットダウン
 
@@ -572,7 +662,7 @@ while let Ok(event) = events.recv().await {
 }
 ```
 
-> **注意**: 手順 1〜4 は TestBackend 上で検証可能です。手順 5 の実 `pjsua_destroy` は `pjsua-native` feature 配下にあり、現在ビルド不能なため実機では未検証です。
+> **注意**: 手順 1〜4 は TestBackend 上で検証可能です。手順 5 の実 `pjsua_destroy` は `pjsua-native` feature（現在ビルド可能）配下にあります。
 
 # REST/WebSocket API（siprs-server クレートとの境界）
 
@@ -588,65 +678,75 @@ while let Ok(event) = events.recv().await {
 
 # Examples (implementation samples) spec and design
 
-<::EXAMPLES-RESIDUE::>
-## EXAMPLES-RESIDUE — 完全な examples 設計の作成不可
+本節は、README の各セクション（H1–H17）で解説した機能を**単一の実装例セット**として統合する examples の設計を示します。siprs は 5 つの例バイナリ（`examples/*.rs`）と共通ヘルパー（`examples/common/`）を提供します（RFC §41 / §62.18 / P8-6 / P19-5）。
 
-### 証拠（欠落・危険・矛盾）
+## 前提: feature 選択
 
-README の 17 セクション中 5 セクション（H1 / H8 / H13 / H14 / H15）が RESIDUE であり、Examples が「単一実装例に全セクションを統合し、確実に動作する」ことは、その前提たる機能実装が未完了のため成立しない。
+- **TestBackend 検証**（`make test`）: `--features test-util` で例バイナリのイベント・状態遷移を deterministic に検証できます。
+- **実 SIP 検証**（`make test-integration`）: `--features pjsua-native` + docker（Asterisk 20.6.0 / coturn 4.6）で実 PJSIP に対する統合テストを実行します。`pjsua-native` は P18-1 でビルド修復済みです。
+- 既定ビルド（feature なし）では `SipClient::new` が fail-fast するため、例バイナリは `pjsua-native` または `test-util` を付けて実行します。
 
-- **本番バックエンドがビルド不能**: `cargo check --features pjsua-native` は **69 エラー**（bindgen 定数 `PJ_SUCCESS` / `PJ_EINVALIDOP` / `PJ_ENOMEM` / `PJ_EBUSY` / `PJSUA_CALL_NULL` / `PJ_CRED_DATA_PLAIN_PASSWD` / `PJMEDIA_*` の欠如、`pjsua_config.turn_cfg` / `turn_cfg_use` 欠如、`pjsua_codec_info` の `encoding_name` / `clock_rate` 欠如、`pjsip_inv_state` 列挙値の解決不能）。→ 実 SIP 通信を伴う example は成立しない（H1）。
-- **既定ビルドでは `SipClient::new` が実行時失敗**: `cargo run --example client_init` は `"SipClient requires the pjsua-native feature"` で即失敗（`src/runtime/backend_selection.rs`）。examples はコンパイル可能だが、既定ビルドではどの example も起動できない。
-- **TestBackend（`--features test-util`）では `client_init` のみ完走**: `cargo run --example client_init --features test-util` は `ClientInitialized` 受信まで成功する。しかし他の example は以下で失敗する。
-- **account_register は TestBackend で完走可能に修正済み（P17-4 / §62.24）**: `examples/account_register.rs` は subscribe-before-register で `RegistrationStateChanged(Registered / Failed)` を受信する（reactor の `SetRegistration` アームが `TestBackend::take_native_events()` を drain するため）。→ 前回 RESIDUE から改善。
-- **make_call はイベント待ちで失敗する**: `examples/make_call.rs` は発信イベントを待つが、TestBackend では `make_call` はイベントを一切 publish しない（`src/runtime/reactor.rs` の `handle_make_call` は登録のみ）。`OutgoingCallRinging` は着信方向専用であり、発信側の正規イベントは `OutgoingCallTrying`（H9 / H11 参照）。
-- **audio_tap は永久待機する**: `subscribe_audio` は `AudioTapSender` を tap レジストリへ登録するが、`push_frame_to_tap` を呼ぶ生産経路は pjsua-native の conf bridge（`RustMediaPort` port ops）のみ。P17-8 / §62.28 で構造（共有ヘルパー + port ops 供給）は実装済みだが、TestBackend では `AudioTapHandle::recv()` はブロックし続ける（H13 参照）。
-- **tts_source は音声が流れない**: `AudioWorkerInner::process_frame` は `out_queue` / `in_queue` へ push するが、`RustMediaPort` が conf bridge に登録されるのは `Initialize` 時（`audio_mixers` が空）の一度だけであり、`AddAudioSource` 後には登録されない（`src/runtime/command.rs`、`src/runtime/backend.rs`）。注入音声は out_queue に溜まり破棄される（H14 参照）。
-- **raw SIP は配信されない**: raw SIP の生産経路は `pjsip_module` フック（`src/ffi/raw_sip_module.rs`、P17-2 / §62.22）だが pjsua-native 配下でのみ登録され、TestBackend では `subscribe_raw_sip()` は無音のチャネルを返す（H8 参照）。
+## E1. client_init（RFC §41.1 / H1–H3）
 
-### 実装補強設計（Examples が完全記述になるための条件）
+`examples/client_init.rs` — CLI（`--host` / `--port` / `--stun`）から `ClientConfig` を構築し `SipClient::new` を実行、`ClientInitialized(ClientCapabilities)` を受信して終了します。
 
-#### 前提: 各 README セクションの RESIDUE 解消
+- **契約（Precondition）**: `ClientConfig` が §42 のバリデーション規則（`event_bus_capacity >= 16`、sample rate 8/16/24/48kHz、raw_sip 容量制約）を通過する。
+- **契約（Postcondition）**: `SipClient::new` が `Ok((SipClient, Receiver<SipEvent>))` を返し、イベントバスへ `ClientInitialized` が publish される。
+- **契約（Invariant）**: 初期化失敗は fail-fast `Err(InvalidConfig)` で返り、バックエンドは起動しない。
+- **テスト**: `make test` で `SipClient::new` 成功・`ClientInitialized` 受信・不正 config で `InvalidConfig`。実 SIP は `tests/sip_integration.rs::client_against_asterisk` / `register_against_asterisk`。
 
-Examples が「確実に動作する」には、以下が先に実装される必要がある（チケット化の素材。各セクション RESIDUE を参照）。
+## E2. account_register（RFC §41.2 / H4–H6）
 
-1. **本番バックエンドのビルド修復**: `pjsua-native` の 69 エラー解消（bindgen allowlist とコード期待の整合、`pjsua_config.turn_cfg` / `turn_cfg_use`、`PJ_*` 定数、`pjsua_codec_info` フィールド、`pjsip_inv_state` 列挙値）。チケット: `P8-16` / `P10-2` / `P11-5` / `P13-4`（H1）。
-2. **イベント経路の完成**: raw SIP publisher の TestBackend 検証経路（H8）、`on_ice_transport_error` の登録（H8、P17-3 の残項目）。
-3. **メディア経路の完成**: `push_media_frame` の生産経路配線（H13）、`AddAudioSource` 時の `RustMediaPort` conf bridge 登録再実行（H14）。
+`examples/account_register.rs` — CLI（`--username` / `--domain` / `--password`）から `AccountConfig` を構築し `add_account` → `register()`、`RegistrationStateChanged(Registered | Failed)` を待ち受けます。
 
-#### Examples 設計（実装後に完全記述化する目標）
+- **契約（Precondition）**: `AccountConfig::validate()` 通過（username / domain / password 非空、codec policy 1 以上、DTMF policy 1 以上）。
+- **契約（Postcondition）**: `register()` 後 `RegistrationState` が `Registered`（または `Failed`）へ遷移し、`RegistrationStateChanged` が受信できる。
+- **契約（Invariant）**: `register_on_start: false` で追加した直後は `Disabled`。`unregister()` で `Unregistering → Idle`。
+- **テスト**: TestBackend で完走（P17-4 / §62.24 で `SetRegistration` アームがネイティブ登録イベントを drain するため）。実 SIP は `register_against_asterisk`。
 
-5 つの例バイナリ（`examples/common/cli.rs` の CLI パースと `examples/common/client.rs` の add_account ヘルパーを共通利用）を、各 README セクションの契約に沿って再定義する。
+## E3. make_call（RFC §41.3 / H9–H11）
 
-**E1. client_init（RFC §41.1 / H1-H3）**
-- 契約: 前 `ClientConfig` がバリデーション通過（§42）／後 `SipClient::new` が `Ok` を返し `ClientInitialized(ClientCapabilities)` が publish される／不変: 初期化失敗は fail-fast `Err(InvalidConfig)`。※ TestBackend 上では現に完走（検証済み）。
-- テスト: `SipClient::new` 成功・`ClientInitialized` 受信・不正 config で `InvalidConfig`。
+`examples/make_call.rs` — CLI（`--target`）から `OutgoingCallRequest`（全 6 フィールド）を構築し `make_call` → `CallConnected` / `CallDisconnected` を待ち受けます。
 
-**E2. account_register（RFC §41.2 / §17 / H4-H6）**
-- 契約: 前 `register_on_start` または明示 `register()` が submit される／後 `RegistrationState` が `Registered` へ遷移し、`RegistrationStateChanged` が受信できる／不変: 未登録時は `Disabled`。
-- テスト: 登録成功・失敗（4xx）、`unregister()` で `Unregistering → Idle`。※ TestBackend 上で完走（P17-4 で検証済み）。
+- **契約（Precondition）**: `OutgoingCallRequest` の `target_uri` が指定され、`media.preferred_codecs` が `PCMU` / `Opus` のみ。
+- **契約（Postcondition）**: `make_call` が実 `CallId`（u64）を返し、`CallConnected`（または `CallDisconnected`）が `meta.call_id` 付きで受信できる。
+- **契約（Invariant）**: reject（486/603）は `CallDisconnected` として観測（`CallRejected` は §62.14 で削除済み）。発信側で `OutgoingCallRinging` は発火しない（着信方向専用）。
+- **テスト**: TestBackend では `NativeEvent` 注入による `CallEntry.state` 遷移検証。実 SIP は `outgoing_call_to_asterisk` / `register_invite_bye_rtp_flow`（INVITE → 200 → RTP → BYE）。
 
-**E3. make_call（RFC §41.3 / §18-19 / H9-H11）**
-- 契約: 前 `OutgoingCallRequest` の全 6 フィールドが検証通過／後 `make_call` が実 `CallId`（u64）を返し、`CallConnected`（または `CallDisconnected`）が `meta.call_id` 付きで受信できる／不変: reject（486/603）は `CallDisconnected` で観測。
-- テスト: 発信成功・拒否（486/603）・`hangup` での切断、イベント順序（`OutgoingCallStarted → OutgoingCallTrying → CallConnected`）。TestBackend では `NativeEvent` 注入による検証のみ（P17-5 で `CallEntry.state` 更新は実装済み）。
+## E4. audio_tap（RFC §22 / §21 / H13）
 
-**E4. audio_tap（RFC §22 / §21 / H13）**
-- 契約: 前 `subscribe_audio(call_id, format, capacity, mode)` が有効な tap を返す／後 `AudioChunkPair`（L=IN / R=OUT）が交渉済み `AudioFormat` で連続生産される／不変: `Realtime` は最古破棄、`Lossless` は producer ブロック（§22.1）。
-- テスト: フレーム連続生産・フォーマット一致・backpressure 両モード・`AudioChunkPair` → 指定 bit/hz のステレオ WAV 変換（`write_stereo_wav` / `WavWriter` は P16-7 で実装済み）。※ tap 駆動は pjsua-native conf bridge が前提（P17-8 の構造は実装済み）。
+`examples/audio_tap.rs` — 通話の `subscribe_audio(call_id, format, capacity, mode)` で tap を購読し、`AudioTapHandle::recv()` で `AudioChunkPair`（L=IN / R=OUT）をストリーム出力します。
 
-**E5. tts_source（RFC §23-24 / §41.5 / H14）**
-- 契約: 前 `AsyncAudioSource::next_chunk` が 20ms フレームを返す／後 `add_audio_source(call_id, source, channels)` が source を登録し、IN/OUT/BOTH の指定チャネルへ mix される／不変: source が閉じたら自動除去。
-- テスト: ストリーム source の注入、BOTH/IN/OUT 各チャネルへのルーティング、`open_default_microphone_source` の注入（通話マイクではなく独立キャプチャである点を明記）。※ `AddAudioSource` 時の conf bridge 登録再実行が前提（H14）。
+- **契約（Precondition）**: 有効な `call_id` と交渉済み `AudioFormat`（bit depth / sample rate / channels）。`validate_tap_capacity` 通過。
+- **契約（Postcondition）**: `AudioChunkPair` が指定 `AudioFormat` で連続生産され、`recv()` が返す。
+- **契約（Invariant）**: `Realtime` は最古破棄、`Lossless` は producer ブロック（§22.1）。WAV 書き出しは `WavWriter::create` + `write_stereo_pair`（P16-7）。
+- **テスト**: `push_media_frame` → `push_frame_to_tap` の供給を明示的に呼ぶユニットテスト。実 SIP は `conf_bridge_drives_audio_tap`（P19-3 / §62.40 で conf bridge port ops → tap の生産経路が配線済み）。TestBackend では自動ポンプはない点に注意。
 
-#### 検証方法
+## E5. tts_source（RFC §23–24 / §41.5 / H14）
 
-- `make test`（`--features test-util`、TestBackend）で全 integration test をグリーンに保つ。
-- `cargo build --features pjsua-native` がビルド・実行できること（本番バックエンド修復の条件）。
-- 各 example は `cargo run --example <name> --features pjsua-native -- --host ...` で実 PBX / ローカル SIP サーバに対して完走すること。
-- 実機 SIP 相互接続試験（§43.4 Layer 4）を CI の Docker job（§44 / P16-10）で実行。
+`examples/tts_source.rs` — `AsyncAudioSource`（mpsc から 20ms PCM フレームを返す `TtsStreamSource`）を実装し、`add_audio_source(call_id, source, ChannelSelector::Out)` で注入、`submit_set_audio_source_gain` でゲイン調整します。
 
-#### 実装チケットの依存関係
+- **契約（Precondition）**: `AsyncAudioSource::next_chunk` が 20ms フレームを返す。有効な `call_id` と `ChannelSelector`（In / Out / Both）。
+- **契約（Postcondition）**: `add_audio_source` が source を per-call `AudioMixer` へ登録し、指定チャネルへ mix される。戻り値は `source_id`（u64）。
+- **契約（Invariant）**: source が閉じたら自動除去（§24.4）。`open_default_microphone_source(format)` は**通話マイクではない独立キャプチャ source**（cpal、`cpal-input` feature）。
+- **テスト**: source 登録・conf port 再登録・`audio_mixer_for` の source 数検証。実 SIP は `add_audio_source_reaches_conf_bridge`（P19-4 / §62.41 で `AddAudioSource` 時に `ensure_conf_port_for_call` → conf bridge 再登録が配線済み）。
 
-- 例バイナリ本体の実装（`P8-6` / `P9-1` / `P13-3` / `P14-3`）は、上記 Phase 1-5 の機能実装が先に完了していることが前提。
-- `P8-8` / `P9-2`（audio subscribe）、`P15-7` Layer 3+（メディア配線）は E4/E5 の前提。
-- `P12-7` / `P8-21`（NativeEvent dispatch / FFI キュー drain）、`P12-8`（CallDirection）は E2/E3 の前提。
+## 検証方法
+
+```bash
+# 全テスト（TestBackend）
+make test
+
+# 実 SIP 統合テスト（docker Asterisk / coturn、pjsua-native）
+make test-integration
+```
+
+`make test-integration` は `docker compose up` → `cargo test --features pjsua-native --test sip_integration` → `docker compose down`（trap で常に teardown）を実行します。
+
+## 実装チケットの依存関係
+
+- 例バイナリ本体: `P8-6` / `P9-1` / `P13-3` / `P14-3`。
+- audio subscribe: `P8-8` / `P9-2`（E4 の前提）。
+- メディア配線: `P15-7` Layer 3+、`P17-8`（tap 供給構造）、`P19-3`（push_media_frame 生産経路）、`P19-4`（AddAudioSource 時 conf bridge 再登録）。
+- 実 SIP 統合テスト基盤: `P16-10` / `P19-5`（docker Asterisk / coturn、`register_invite_bye_rtp_flow` 等）。
+- bindgen enum/const 生成修復: `P18-1`（pjsua-native ビルド修復の前提）。

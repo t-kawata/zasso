@@ -253,6 +253,15 @@ mod tests {
         pub result: Result<PjsipDetection, PjsipDetectionError>,
     }
 
+    /// @verifies C139
+    #[test]
+    // [::TICKET::] P18-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P18-1 --for-spec --no-implementation-order`.
+    fn canonical_version_is_pinned_2_17_0() {
+        // C139 invariant (§62.32/N0101): the vendored PJSIP version is pinned
+        // at 2.17.0 — code adapts to its symbols, never upgrades the library.
+        assert_eq!(PJSIP_CANONICAL_VERSION, PjsipVersion::new(2, 17, 0));
+    }
+
     // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.
     impl DetectionBackend for MockDetectionBackend {
         // [::TICKET::] P10-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P10-2 --for-spec --no-implementation-order`.

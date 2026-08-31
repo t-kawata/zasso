@@ -123,12 +123,31 @@ pub use security::SecretString;
 // [::TICKET::] P1-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-2 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-5: event types and EventBus re-exports
 pub use event::{
-// [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
-// [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
-    AccountEventReceiver, AccountInfoSnapshot, CallDirection, CallMediaState, CallResumedInfo,
-    CallState, ConnectedCallInfo, DtmfReceivedInfo, DtmfSentInfo, EventBus, EventDirection,
-    EventMeta, EventTimestamp, MediaActiveInfo, MediaErrorInfo, NativeEvent, RegistrationFailure,
-    RegistrationInfo, RegistrationState, SentDtmfError, SipEvent, SipEventPayload, Subscription,
+    // [::TICKET::] P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-6 --for-spec --no-implementation-order`.
+    // [::TICKET::] P17-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P17-9 --for-spec --no-implementation-order`.
+    AccountEventReceiver,
+    AccountInfoSnapshot,
+    CallDirection,
+    CallMediaState,
+    CallResumedInfo,
+    CallState,
+    ConnectedCallInfo,
+    DtmfReceivedInfo,
+    DtmfSentInfo,
+    EventBus,
+    EventDirection,
+    EventMeta,
+    EventTimestamp,
+    MediaActiveInfo,
+    MediaErrorInfo,
+    NativeEvent,
+    RegistrationFailure,
+    RegistrationInfo,
+    RegistrationState,
+    SentDtmfError,
+    SipEvent,
+    SipEventPayload,
+    Subscription,
 };
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P0-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-4 --for-spec --no-implementation-order`.

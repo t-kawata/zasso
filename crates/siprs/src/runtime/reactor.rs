@@ -6,6 +6,8 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread::{self, JoinHandle};
 
 use crate::config::ClientConfig;
+// [::TICKET::] P19-4: §62.41 — AddAudioSource の conf bridge 再登録オーケストレーション。
+use crate::runtime::add_audio_source::{AddAudioSourceContext, handle_add_audio_source};
 use crate::runtime::audio_worker::{AudioMixer, AudioWorkerTask};
 use crate::runtime::backend::SipBackend;
 use crate::runtime::backend_selection::create_backend;
@@ -18,7 +20,6 @@ use crate::api::event_model_payload_bus::{
 };
 use crate::api::eventbus_receiver::EventBus;
 use crate::api::incoming_call_events::build_incoming_call_entry;
-use crate::audio::media_path_arch::ChannelSelector;
 use crate::state::m20_callstate_mapping::{
     convert_call_media_state_with_previous, convert_call_state_with_previous, CallDirection,
     CallState,
@@ -106,12 +107,12 @@ pub struct CoreReactor;
 
 /// Result of `CoreReactor::spawn()`: the runtime handle plus the reactor thread
 /// join handle, or a boxed spawn error.
-// [::TICKET::] P15-4, P15-7, P15-9, P16-5, P16-7, P17-5, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5|P16-7|P17-5|P17-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P15-4, P15-7, P15-9, P16-5, P16-7, P17-5, P17-6, P19-2, P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-4|P15-7|P15-9|P16-5|P16-7|P17-5|P17-6|P19-2|P19-4) --for-spec --no-implementation-order`.
 type SpawnResult =
     Result<(RuntimeHandle, Arc<JoinHandle<()>>), Box<dyn std::error::Error + Send + Sync>>;
 
 // [::TICKET::] P0-2, P0-5, P0-6, P3-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P0-2|P0-5|P0-6|P3-2) --for-spec --no-implementation-order`.
-// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7, PX-3, P17-4, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7|PX-3|P17-4|P17-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P6-1, P7-2, P8-1, P10-3, P10-4, P11-3, P11-6, P11-11, P12-6, P12-1, P12-7, P12-8, P15-2, P15-3, P15-4, P15-5, P15-6, P15-7, P15-8, P16-3, P16-4, P16-7, PX-3, P17-4, P17-6, P19-3, P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P6-1|P7-2|P8-1|P10-3|P10-4|P11-3|P11-6|P11-11|P12-6|P12-1|P12-7|P12-8|P15-2|P15-3|P15-4|P15-5|P15-6|P15-7|P15-8|P16-3|P16-4|P16-7|PX-3|P17-4|P17-6|P19-3|P19-4) --for-spec --no-implementation-order`.
 impl CoreReactor {
     /// Spawn a new reactor thread and hand back a handle for command submission.
     ///
@@ -313,39 +314,40 @@ impl CoreReactor {
                                     channels,
                                     reply,
                                 } => {
-                                    // [::TICKET::] P8-1, P15-7: O-003 — the reactor owns
-                                    // per-call AudioMixers; audio lifecycle commands
+                                    // [::TICKET::] P8-1, P15-7, P19-4: O-003 — the reactor
+                                    // owns per-call AudioMixers; audio lifecycle commands
                                     // mutate them here on the reactor thread
-                                    // (single-writer rule). §62.6: branch the source into
-                                    // the IN / OUT / both media paths via ChannelSelector.
-                                    let mixer =
-                                        get_or_create_mixer(&audio_mixers, &source_id_counter, call_id);
+                                    // (single-writer rule). P19-4 (§62.41 / N0110):
+                                    // handle_add_audio_source also re-registers the call's
+                                    // RustMediaPort in the conf bridge after the source is
+                                    // added, so injected audio reaches the network / local
+                                    // playback instead of accumulating in the mixer's
+                                    // out_queue (H14).
+                                    let result = handle_add_audio_source(
+                                        AddAudioSourceContext {
+                                            audio_mixers: &audio_mixers,
+                                            source_id_counter: &source_id_counter,
+                                            backend: &mut *backend,
+                                        },
+                                        call_id,
+                                        source.into_inner(),
+                                        channels,
+                                    );
                                     // Spawn the per-call worker the first time a mixer is
                                     // created so its process_frame loop drives the paths.
-                                    audio_workers.entry(call_id).or_insert_with(|| {
-                                        AudioWorkerTask::spawn(
-                                            mixer.clone(),
-                                            call_id,
-                                            DEFAULT_AUDIO_FRAME_DURATION,
-                                        )
-                                    });
-                                    let source = source.into_inner();
-                                    let source_id = match channels {
-                                        ChannelSelector::In => mixer.add_in_source(source),
-                                        ChannelSelector::Out => mixer.add_out_source(source),
-                                        ChannelSelector::Both => {
-                                            // AudioMixer guards sources with a tokio Mutex
-                                            // (async next_chunk), so the shared wrapper must
-                                            // be tokio::sync::Mutex too.
-                                            let shared =
-                                                Arc::new(tokio::sync::Mutex::new(source));
-                                            let in_id =
-                                                mixer.add_in_source_shared(shared.clone());
-                                            mixer.add_out_source_shared(shared);
-                                            in_id
-                                        }
-                                    };
-                                    send_reply(reply, Ok(source_id));
+                                    // Only on success: a failed conf-bridge registration
+                                    // leaves the reply as Err and does not drive a
+                                    // half-wired mixer.
+                                    if let Ok((_, mixer)) = &result {
+                                        audio_workers.entry(call_id).or_insert_with(|| {
+                                            AudioWorkerTask::spawn(
+                                                mixer.clone(),
+                                                call_id,
+                                                DEFAULT_AUDIO_FRAME_DURATION,
+                                            )
+                                        });
+                                    }
+                                    send_reply(reply, result.map(|(source_id, _)| source_id));
                                 }
                                 DispatchCommand::RemoveAudioSource {
                                     source_id,
@@ -477,6 +479,12 @@ impl CoreReactor {
                                     );
                                     match result {
                                         Ok(Ok(entry_id)) => {
+                                            // §62.40 / N0109 (P19-3): ensure a mixer
+                                            // exists for the new call so the backend can
+                                            // register its RustMediaPort in the conf bridge
+                                            // when the call connects (connect_media_for_call
+                                            // → ensure_conf_port_for_call).
+                                            get_or_create_mixer(&audio_mixers, &source_id_counter, entry_id);
                                             let _ = reply.send(Ok(entry_id));
                                         }
                                         Ok(Err(e)) => {
@@ -504,6 +512,10 @@ impl CoreReactor {
                                     // CallEntry.state, and publish CallConnected /
                                     // decline events (§19.1). The reply is sent exactly
                                     // once on every outcome.
+                                    // §62.40 / N0109 (P19-3): ensure a mixer exists so
+                                    // the answered call's RustMediaPort can be registered
+                                    // in the conf bridge (via connect_media_for_call).
+                                    get_or_create_mixer(&audio_mixers, &source_id_counter, call_id);
                                     let mut call_state = CallStateTables {
                                         calls: &mut client_state.calls,
                                         call_directions: &mut call_directions,
@@ -955,8 +967,11 @@ impl CoreReactor {
 /// global source-id counter, so ids stay unique across calls. The reactor is
 /// the single writer of the map (single-writer rule); callers hold a read
 /// guard only while cloning the matching `Arc`.
-// [::TICKET::] P15-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P15-7 --for-spec --no-implementation-order`.
-fn get_or_create_mixer(
+///
+/// `pub(crate)` since P19-4: `add_audio_source::handle_add_audio_source` reuses
+/// it on the mixer-creation path to keep the single source of mixer identity.
+// [::TICKET::] P15-7, P19-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-7|P19-4) --for-spec --no-implementation-order`.
+pub(crate) fn get_or_create_mixer(
     audio_mixers: &Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
     source_id_counter: &Arc<AtomicU64>,
     call_id: u64,
@@ -1069,8 +1084,11 @@ pub(crate) fn dispatch_event(event_bus: &EventBus, event: SipEvent) {
 /// `ClientState`, and produces `SipEventPayload::RegistrationStateChanged`
 /// (or `Error` on backend failure).
 ///
-/// Other P0 events flow through `convert_native_event_to_payload`; P1/P2 events
-/// convert to `None` and are silently not published (documented rationale).
+/// Other P0 events flow through `convert_native_event_to_payload`. P1/P2 events
+/// convert to `Some(SipEventPayload)` since P16-4 §62.13; the sole P1/P2
+/// exception is `IceTransportError` (P19-2 §62.39), which is transport-level
+/// with no call context and therefore converts to `None` (consumed, not
+/// published).
 ///
 /// `calls` is the reactor's call-state table (`ClientState.calls`). Call-scoped
 /// events carry no `acc_id`, so the owning account is resolved from
@@ -1193,7 +1211,7 @@ fn resolve_call_direction(
 /// Call/DTMF events carry only a `call_id`; the owning `account_id` is resolved
 /// from the reactor's call-state table by `process_native_event`. Registration
 /// events carry the `acc_id`.
-// [::TICKET::] P7-2, P9-6, P11-11, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P11-11|P17-6) --for-spec --no-implementation-order`.
+// [::TICKET::] P7-2, P9-6, P11-11, P17-6, P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P7-2|P9-6|P11-11|P17-6|P19-2) --for-spec --no-implementation-order`.
 fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>) {
     match event {
         NativeEvent::RegistrationStarted { acc_id, .. } => {
@@ -1206,12 +1224,13 @@ fn extract_event_ids(event: &NativeEvent) -> (Option<AccountId>, Option<CallId>)
         NativeEvent::CallStateChanged { call_id, .. }
         | NativeEvent::CallMediaStateChanged { call_id, .. }
         | NativeEvent::DtmfDigit { call_id, .. }
-        | NativeEvent::IceTransportError { call_id }
         | NativeEvent::CallTsxStateChanged { call_id }
         | NativeEvent::CallRedirected { call_id }
         | NativeEvent::CallTransferStatus { call_id }
         | NativeEvent::CallReplaced { call_id } => (None, CallId::from_u64(*call_id as u64).ok()),
         NativeEvent::TransportStateChanged { .. }
+        // P19-2 §62.39: IceTransportError is transport-level (no call context).
+        | NativeEvent::IceTransportError { .. }
         | NativeEvent::NatDetected
         | NativeEvent::RegistrationStateChanged { .. } => (None, None),
     }
@@ -1260,13 +1279,17 @@ pub(crate) fn handle_make_call(
 ///
 /// The crate's conf_connect convention is `(call_id, call_id)` — the logical
 /// call id doubles as the conf port id (the contract P8-1 established on
-/// TestBackend). Callers decide how to surface a failure: `handle_answer` and
-/// the native-event path log it (media-connect problems never block event
-/// delivery), while tests can assert the returned error.
+/// TestBackend). Under `pjsua-native` this first ensures the call's
+/// `RustMediaPort` is registered in the conf bridge (§62.40 / N0109, P19-3) so
+/// the conf bridge actually drives the port ops that supply the tap registry.
+/// Callers decide how to surface a failure: `handle_answer` and the native-event
+/// path log it (media-connect problems never block event delivery), while tests
+/// can assert the returned error.
 pub(crate) fn connect_media_for_call(
     backend: &mut dyn SipBackend,
     call_id: u64,
 ) -> Result<(), ReactorError> {
+    backend.ensure_conf_port_for_call(call_id)?;
     backend.conf_connect(call_id as i32, call_id as i32)
 }
 
@@ -2448,7 +2471,7 @@ mod tests {
     /// @verifies C070, C046
     #[test]
     // [::TICKET::] P12-8: a MakeCall command records the outgoing direction by origin
-// [::TICKET::] P12-8, P15-3, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P15-3|P16-3|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-8, P15-3, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-8|P15-3|P16-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_records_outgoing_direction() {
         let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
@@ -2489,6 +2512,19 @@ mod tests {
         });
         assert_eq!(account_id, None, "acc_id 0 is the invalid sentinel");
         assert_eq!(call_id, Some(test_call_id(7)));
+    }
+
+    #[test]
+    // @verifies C151
+    // [::TICKET::] P19-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P19-2 --for-spec --no-implementation-order`.
+    fn extract_event_ids_ice_transport_error_yields_none_none() {
+        let (account_id, call_id) = extract_event_ids(&NativeEvent::IceTransportError {
+            index: 1,
+            operation: 2,
+            status: 3,
+        });
+        assert_eq!(account_id, None);
+        assert_eq!(call_id, None, "IceTransportError is transport-level (C151)");
     }
 
     #[tokio::test]
@@ -2952,7 +2988,7 @@ mod tests {
     // @verifies C070, C046
     // [::TICKET::] P12-1: handle_make_call delegates to the backend, registers the
     // returned CallEntry in the authoritative ClientState, and returns the CallId.
-// [::TICKET::] P12-1, P12-8, P15-3, P16-3, P16-5, PX-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P16-3|P16-5|PX-3|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-1, P12-8, P15-3, P16-3, P16-5, PX-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P16-3|P16-5|PX-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_registers_entry_and_returns_id() {
         let mut backend = TestBackend::new();
         let mut client_state = ClientState::default();
@@ -2977,7 +3013,7 @@ mod tests {
     // @verifies C070
     // [::TICKET::] P12-1: a failing backend.make_call must propagate Err and
     // register no CallEntry — never a fabricated id.
-// [::TICKET::] P12-1, P12-8, P15-3, P15-9, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P15-9|P16-3|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P12-1, P12-8, P15-3, P15-9, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-1|P12-8|P15-3|P15-9|P16-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_error_registers_nothing() {
         let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));
@@ -3002,7 +3038,7 @@ mod tests {
     // @verifies C089, C090
     // [::TICKET::] P15-9: a failing backend.make_call carrying a NativeError must
     // propagate through the reactor handler while preserving native_status.
-// [::TICKET::] P15-9, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-9|P16-3|P17-6) --for-spec --no-implementation-order`.
+    // [::TICKET::] P15-9, P16-3, P17-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P15-9|P16-3|P17-6) --for-spec --no-implementation-order`.
     fn handle_make_call_native_error_preserves_status() {
         let mut backend = TestBackend::new();
         backend.make_call_result = Some(Err(ReactorError::NativeError {
