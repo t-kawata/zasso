@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-177 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-185) --for-spec --no-implementation-order`.
 /**
  * Over-split risk discovery (§9.4).
  *
@@ -20,7 +20,12 @@ export function findOverSplitRisks(packages) {
     const owns = pkg.owns ?? {};
     const ownsObjects = owns.objects ?? [];
     const ownsClaims = owns.claims ?? [];
-    if (pkg.kind === 'production-library' && ownsObjects.length === 0 && ownsClaims.length === 0) {
+    const ownsOther =
+      (owns.invariants ?? []).length +
+      (owns.state_machines ?? []).length +
+      (owns.error_codes ?? []).length +
+      (owns.required_tests ?? []).length;
+    if (pkg.kind === 'production-library' && ownsObjects.length === 0 && ownsClaims.length === 0 && ownsOther === 0) {
       risks.push({
         kind: 'no-owner',
         packageId: pkg.id,

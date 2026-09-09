@@ -1,4 +1,4 @@
-// [::TICKET::] PX-178, PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181|PX-183|PX-184) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-178, PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181|PX-183|PX-184|PX-185) --for-spec --no-implementation-order`.
 /**
  * Command entry point for /workspacify-tree.
  *
@@ -301,14 +301,14 @@ function buildOwnershipTable(inventory, decisions) {
     }
   }
   const categoryLists = [
-    ['invariants', 'invariant'],
-    ['stateMachines', 'state_machine'],
-    ['errorCodes', 'error_code'],
-    ['requiredTests', 'required_test'],
+    ['invariants', 'invariant', 'invariants'],
+    ['stateMachines', 'state_machine', 'state_machines'],
+    ['errorCodes', 'error_code', 'error_codes'],
+    ['requiredTests', 'required_test', 'required_tests'],
   ];
-  for (const [listKey, categoryName] of categoryLists) {
+  for (const [listKey, categoryName, ownsKey] of categoryLists) {
     for (const candidate of inventory[listKey] ?? []) {
-      const ownerPackage = findOwningPackage(decisions.workspace ?? [], categoryName === 'invariants' ? 'invariants' : categoryName === 'stateMachines' ? 'state_machines' : categoryName === 'errorCodes' ? 'error_codes' : 'required_tests', candidate.id);
+      const ownerPackage = findOwningPackage(decisions.workspace ?? [], ownsKey, candidate.id);
       if (ownerPackage) {
         entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name ?? candidate.id, category: categoryName, owner_package: ownerPackage });
       }

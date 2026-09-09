@@ -1,4 +1,4 @@
-// [::TICKET::] PX-181 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-181|PX-183) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-181 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-181|PX-183|PX-185) --for-spec --no-implementation-order`.
 /**
  * First-stage manifest entry-check parity with ALLOCATE §7.1-§7.4.
  *
@@ -97,6 +97,22 @@ export function checkTreeEntryGate(manifest, specPath) {
   for (const entry of manifest.workspace?.ownership?.entries ?? []) {
     if (!packageIds.has(entry.owner_package)) {
       errors.push(`ownership entry for ${entry.inventory_ref} targets unknown package ${entry.owner_package}`);
+    }
+  }
+
+  const inventoryData = manifest.inventory ?? {};
+  const ownedEntryKeys = new Set((manifest.workspace?.ownership?.entries ?? []).map((entry) => `${entry.category}:${entry.inventory_ref}`));
+  const categorySources = [
+    ['invariants', 'invariant'],
+    ['state_machines', 'state_machine'],
+    ['error_codes', 'error_code'],
+    ['required_tests', 'required_test'],
+  ];
+  for (const [listKey, categoryLabel] of categorySources) {
+    for (const item of inventoryData[listKey] ?? []) {
+      if (!ownedEntryKeys.has(`${categoryLabel}:${item.id}`)) {
+        errors.push(`inventory ${listKey} item ${item.id} has no ownership entry`);
+      }
     }
   }
 

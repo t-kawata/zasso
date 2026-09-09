@@ -13,6 +13,7 @@ import { buildHeadingTree } from '../../../.claude/scripts/workspacify-tree/lib/
 import { segmentAtHeadings } from '../../../.claude/scripts/workspacify-tree/lib/segmentation.mjs';
 import { harvestCategoryInventory } from '../../../.claude/scripts/workspacify-tree/lib/extraction.mjs';
 import { runOwnershipChecks } from '../../../.claude/scripts/workspacify-tree/lib/ownership.mjs';
+import { findOverSplitRisks } from '../../../.claude/scripts/workspacify-tree/lib/boundary-review.mjs';
 import { runGatePipeline } from '../../../.claude/scripts/workspacify-tree/lib/validation.mjs';
 
 function analyze(sourceText) {
@@ -90,4 +91,14 @@ test('parity C005 [@verifies C005]: a package-bearing manifest without a tree is
   const gate = checkTreeEntryGate(treeLess, 'tests/workspacify-tree/fixtures/gaia-like-spec.md');
   assert.equal(gate.ok, false);
   assert.ok(gate.errors.some((message) => message.includes('tree')));
+});
+
+test('over-split C003 [@verifies C003]: a package owning invariants or tests without objects is not a no-owner risk', () => {
+  const risks = findOverSplitRisks([{ id: 'p', name: 'p', path: 'crates/p', layer: 'protocol', kind: 'production-library', owns: { objects: [], claims: [], invariants: ['inv-1'], required_tests: ['tst-1'] } }]);
+  assert.ok(!risks.some((r) => r.kind === 'no-owner' && r.packageId === 'p'));
+});
+
+test('over-split C003 boundary [@verifies C003]: a package owning nothing is still flagged', () => {
+  const risks = findOverSplitRisks([{ id: 'q', name: 'q', path: 'crates/q', layer: 'protocol', kind: 'production-library', owns: { objects: [], claims: [] } }]);
+  assert.ok(risks.some((r) => r.kind === 'no-owner' && r.packageId === 'q'));
 });
