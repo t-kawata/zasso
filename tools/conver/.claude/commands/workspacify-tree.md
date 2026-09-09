@@ -14,12 +14,9 @@ disable-model-invocation: true
   - 要件: 通常ファイル / UTF-8 復号可 / 非空 / ATX 見出しを1つ以上含む / 読取可能(§1.1)
   - 追加引数・対話・環境変数・hook・外部取得を要求しない
 
-## 出力の正本と制約(§1.2/§1.3)
+## 出力の正本と制約
 
 - 成功時に公開する正本成果物は **1つだけ**: **カレントディレクトリ**(コマンド実行時の作業ディレクトリ)の `WORKSPACIFY-TREE-MANIFEST.json`
-- 一時ファイルは決定論的パターン(`WORKSPACIFY-TREE-MANIFEST.json.*.tmp`)で生成し、成功時は rename、失敗時は削除、次回 publish 起動時に stale を機械スイープする(スクリプト内で自動実行)
-- 仕様書ディレクトリおよびカレントディレクトリへ、最終成果物以外の中間・報告ファイル(`*.md / *.json / *.tmp / .cache/` 等)を残さない。decision 等の作業ファイルは `os.tmpdir()` 配下へ置く
-- hook は使用しない。Node.js プロセス(`run.mjs`)だけで完結する
 
 ## 使用スクリプト
 
@@ -33,14 +30,14 @@ disable-model-invocation: true
 | `run.mjs finalize --spec=.. --decisions=..` | ownership 適用 → 全ゲート → manifest 組み立て → self-hash → カレントディレクトリへ atomic publish |
 | `lib/*.mjs` | errors/fs-safe/hash/normalization/markdown/headings/segmentation/extraction/traceability/alias-normalization/workspace-model/ownership/dag/dependencies/boundary-review/adapters/database-policy/manifest-schema/decision-input/decision-apply/validation/render/atomic-publish/report |
 
-## 状態とゲート(§3)
+## 状態とゲート
 
 状態値: `PASS` / `FAIL` / `REVIEW_REQUIRED` / `BLOCKED` / `COMPLETE`
 
 - `REVIEW_REQUIRED` は成功ではない。未解決 review が残る限り COMPLETE を出さない
 - `BLOCKED`: 既存 manifest の input hash と異なる仕様書への上書きを拒否(§13.2)
 
-ゲート階層(§3.1): G0 入力ロック → G1 構造(見出し/segment/再構成) → G2 要件インベントリ → G3 workspace(カタログ/所有権/過剰分割) → G4 依存(DAG/層規則/循環) → G5 成果物完全性(schema/self-hash/atomic)。親ゲート未 PASS なら子を PASS にしない。
+ゲート階層: G0 入力ロック → G1 構造(見出し/segment/再構成) → G2 要件インベントリ → G3 workspace(カタログ/所有権/過剰分割) → G4 依存(DAG/層規則/循環) → G5 成果物完全性(schema/self-hash/atomic)。親ゲート未 PASS なら子を PASS にしない。
 
 ## 設計判断と機械化の境界
 
@@ -51,23 +48,31 @@ disable-model-invocation: true
 
 ## Step 1: parse(G0/G1)
 
+**この Step の目的**: 入力仕様書を「固定」する。読めるか / UTF-8 か / 空でないかを検査し、正規化(改行統一・末尾改行保持)と SHA-256 を確定させ、見出しツリーと `##` 単位の segment に分割した上で「segment を再結合すると元の bytes と完全一致する」ことを機械証明する。ここが壊れると以後すべての source traceability が無効になるため、最初の関門である。
+
 ```bash
 node .claude/scripts/workspacify-tree/run.mjs parse "<spec>"
 ```
 
-- `reconstruction.status == PASS` かつ `source_hash` が出力されることを確認する
-- FAIL 時はエラー内容(存在しない/ディレクトリ/空/非UTF-8/再構成不一致)を読み、入力仕様書を修正して再実行
+- **出力の意味**: `source_hash` = 正規化後入力全体の SHA-256(以後の entry gate が参照する不変の指紋)。`reconstruction` = segment 再構成の検証結果
+- **成功条件(次の Step へ進める)**: `reconstruction.status == PASS` かつ `source_hash` が出力されている
+- **失敗時**: エラー内容(存在しない / ディレクトリ / 空 / 非UTF-8 / 再構成不一致)から原因を特定し、入力仕様書を修正して再実行する
 
 ## Step 2: extract(G2)
+
+**この Step の目的**: 固定された構造から「実装対象になり得る候補」を漏れなく収穫し、全候補に原文位置(source traceability)を付与する。収穫は決定論的パターン(テーブルの object 列 / inline code / claim コードブロック / 規範語句)で行う。ここで AI がレビューしなければ、後の設計で「仕様に書いてあったのに抽出漏れ」が起きる。
 
 ```bash
 node .claude/scripts/workspacify-tree/run.mjs extract "<spec>"
 ```
 
-- 出力された候補統計(harvested/confirmed/review_required/unresolved)を確認する
-- AI は収穫候補(canonical_name/aliases/classification/source_refs)をレビューし、誤収穫・曖昧候補を特定する。収穫器は候補を削除しない
+- **出力の意味**: 候補統計 `harvested`(収穫数)/ `confirmed`(確定)/ `review_required`(AI 確認待ち)/ `unresolved`(未解決)
+- **AI の仕事**: 収穫候補の `canonical_name / aliases / classification / source_refs` を確認し、誤収穫・曖昧候補を特定して Step 3 の `approvals` で確定/却下する。収穫器は候補を削除しない(情報を失わない)
+- **成功条件**: 全候補に source_refs があり、review_required / unresolved の一覧が把握できている
 
 ## Step 3: decision JSON の執筆(AI の設計判断)
+
+**この Step の目的**: Step 2 の候補と仕様内容をもとに、AI が「どういう workspace に分割し、誰が何を所有し、誰が誰に依存してよいか」を設計判断し、**機械が検証できる構造化された decision JSON として書き出す**。機械は AI の頭の中を読めないため、判断は必ずこのファイルを経由して gate に渡す。設計判断はここで完結させる(過度機械化しない)。
 
 仕様書ディレクトリ以外(例: `os.tmpdir()`)へ decision JSON を1ファイル作成する。スキーマは `schemas/workspacify-tree-decisions.schema.json` で機械検証される。
 
@@ -104,26 +109,32 @@ node .claude/scripts/workspacify-tree/run.mjs extract "<spec>"
 
 ## Step 4: gate ループ(G3/G4)
 
+**この Step の目的**: Step 3 の decision(設計)が「客観ルールに適合しているか」を機械の実ゲートパイプラインで検証する。適合していなければ FAIL/REVIEW_REQUIRED の原因を突き止め、decision を修正して再検証し、**全ゲート PASS・未解決 0(COMPLETE)** に収束させる。ここが PASS しない限り publish してはならない。
+
 ```bash
 node .claude/scripts/workspacify-tree/run.mjs gate "--spec=<spec>" "--decisions=<decision.json>"
 ```
 
-- 出力の per-gate 結果と `finalAudit` を読み、FAIL/REVIEW_REQUIRED の gate を特定する
-- FAIL の原因(所有権重複/循環/禁止層/raw SQL/DB 型漏れ/schema 不正)に応じ decision を修正し、**gate が exit 0(COMPLETE)になるまで繰り返す**(自己修復ループ)
-- 修正後は必ず `run.mjs extract` と gate を再実行し、回帰がないことを確認する
+- **出力の意味**: per-gate 結果(`G0..G5` の PASS/FAIL/REVIEW_REQUIRED)と `finalAudit`(各 count)。`COMPLETE`(exit 0)は全ゲート PASS・unresolved 0 を意味する
+- **AI の仕事**: FAIL の原因(所有権重複 / 循環 / 禁止層 / raw SQL / DB 型漏れ / schema 不正)に応じ decision を修正し、**exit 0(COMPLETE)になるまで繰り返す**(自己修復ループ)
+- **回帰確認**: decision を修正したら `run.mjs extract` と gate を再実行し、抽出結果との不整合が無いことを確認する
 
 ## Step 5: finalize と publish(G5/§13)
+
+**この Step の目的**: COMPLETE が確定した decision と解析結果から manifest を組み立て、正準 JSON + self-hash を計算し、**唯一の正本 `WORKSPACIFY-TREE-MANIFEST.json` をカレントディレクトリへ原子公開**する。第二段階はこのファイルだけを引数にできる。
 
 ```bash
 node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=<spec>" "--decisions=<decision.json>"
 ```
 
-- 全ゲート PASS・unresolved 0 のときのみ、manifest を canonical JSON 化し `integrity.manifest_hash` を計算して atomic publish する
-- 出力先は **常にカレントディレクトリ**(`--output-dir` は存在しない)
-- publish は temp 書込→fsync→再読込(schema/self-hash)→rename の順(§13.1)
-- 既存 `WORKSPACIFY-TREE-MANIFEST.json` があり input hash が異なる場合は **BLOCKED** で終了し、既存 manifest を置換・破壊しない(§13.2)
+- **実行条件**: 全ゲート PASS・unresolved 0 のときのみ。そうでなければ COMPLETE にせず非0で終了
+- **出力先**: **常にカレントディレクトリ**(`--output-dir` は存在しない)
+- **publish 手順**: temp 書込→fsync→再読込(schema/self-hash)→rename(§13.1)。temp は成功時 rename・失敗時削除・次回起動時に stale を機械スイープ
+- **既存 manifest 保護**: 既存 `WORKSPACIFY-TREE-MANIFEST.json` があり input hash が異なる場合は **BLOCKED** で終了し、既存 manifest を置換・破壊しない(§13.2)
 
 ## Step 6: 報告
+
+**この Step の目的**: 実行結果を人間と次工程が解釈できる最小の形で出力する。余計な情報を出さない。
 
 - 成功時は **manifest 絶対パス / source_hash / manifest_hash / gate summary のみ** を表示する
 - 失敗時は **失敗 gate の id / 理由 / 修正すべき入力・設計項目** を表示する
