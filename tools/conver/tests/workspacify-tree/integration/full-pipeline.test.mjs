@@ -41,7 +41,7 @@ test('cli C003 [@verifies C003]: parse subcommand returns the node exit code', (
 
 test('pipeline C003 invariant [@verifies C003]: successful finalize publishes exactly one manifest into the spec directory', () => {
   const dir = makeWorkingSpecDir();
-  const result = runCli(['finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-long-ok.json')}`]);
+  const result = runCli(['finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-long-ok.json')}`, `--output-dir=${dir}`]);
   assert.equal(result.status, 0, result.stdout);
   const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
   assert.equal(existsSync(manifestPath), true);
@@ -52,7 +52,7 @@ test('pipeline C003 invariant [@verifies C003]: successful finalize publishes ex
 test('pipeline C004 [@verifies C004]: an invalid decision input prevents COMPLETE', () => {
   const dir = makeWorkingSpecDir();
   cpSync(join(FIXTURES, 'decisions-review-open.json'), join(dir, 'decisions-review-open.json'));
-  const result = runCli(['finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-review-open.json')}`]);
+  const result = runCli(['finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-review-open.json')}`, `--output-dir=${dir}`]);
   assert.notEqual(result.status, 0);
   const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
   assert.equal(existsSync(manifestPath), false);

@@ -1,4 +1,3 @@
-<!-- [::TICKET::] PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-179 --for-spec --no-implementation-order`. -->
 ---
 description: 長大な Markdown 仕様書を解析し WORKSPACIFY-TREE-MANIFEST.json を唯一の正本として発行する(第一段階)
 argument-hint: <path-to-specification.md>
@@ -9,10 +8,10 @@ disable-model-invocation: true
 
 **Role**: 単一の Markdown 仕様書を入力として、構造解析・候補収穫・workspace 設計・完全性ゲートを実行し、将来の第二段階が唯一の引数として受け取れる `WORKSPACIFY-TREE-MANIFEST.json` を原子公開する。このコマンドは仕様を実装しない(§0)。設計判断は AI(=実行セッション)が行い、機械は収穫・検証・publish を担う。
 
-## 言語方針(本ファイル)
+## 言語方針
 
-- 本ファイルは **日本語で実装・点検済み** の正文とする。
-- **英語への翻訳・製本は、ユーザーの明示的な指示があるまで行わない**(English translation only after an explicit user instruction)。
+- 本ファイルは **日本語を正文** とし、日本語で実装・点検済みとする
+- **英語への翻訳・製本は、ユーザーの明示的な指示があるまで行わない**(English translation only after an explicit user instruction)
 
 ## Arguments
 
@@ -22,8 +21,8 @@ disable-model-invocation: true
 
 ## 出力の正本と制約(§1.2/§1.3)
 
-- 成功時に公開する正本成果物は **1つだけ**: `<spec のディレクトリ>/WORKSPACIFY-TREE-MANIFEST.json`
-- 仕様書ディレクトリへ中間・報告ファイル(`*.md / *.json / *.tmp / .cache/` 等)を残さない。decision 等の作業ファイルは `os.tmpdir()` 配下へ置く
+- 成功時に公開する正本成果物は **1つだけ**: **カレントディレクトリ**(コマンド実行時の作業ディレクトリ)の `WORKSPACIFY-TREE-MANIFEST.json`。`--output-dir` を明示した場合のみそこへ出力する
+- 仕様書ディレクトリおよびカレントディレクトリへ、最終成果物以外の中間・報告ファイル(`*.md / *.json / *.tmp / .cache/` 等)を残さない。decision 等の作業ファイルは `os.tmpdir()` 配下へ置く
 - hook は使用しない。Node.js プロセス(`run.mjs`)だけで完結する
 
 ## 使用スクリプト
@@ -124,6 +123,7 @@ node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=<spec>" "--decisi
 ```
 
 - 全ゲート PASS・unresolved 0 のときのみ、manifest を canonical JSON 化し `integrity.manifest_hash` を計算して atomic publish する
+- 出力先は既定で **カレントディレクトリ**(`--output-dir` で上書き可)
 - publish は temp 書込→fsync→再読込(schema/self-hash)→rename の順(§13.1)
 - 既存 `WORKSPACIFY-TREE-MANIFEST.json` があり input hash が異なる場合は **BLOCKED** で終了し、既存 manifest を置換・破壊しない(§13.2)
 

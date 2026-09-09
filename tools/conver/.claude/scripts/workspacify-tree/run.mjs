@@ -180,7 +180,9 @@ function runFinalize(args) {
   });
 
   const content = renderManifestText(manifest);
-  const outputDir = optionValue(args, '--output-dir') ? path.resolve(optionValue(args, '--output-dir')) : path.dirname(path.resolve(specPath));
+  // The canonical artifact is published to the current working directory by
+  // default; --output-dir overrides that only when explicitly provided.
+  const outputDir = optionValue(args, '--output-dir') ? path.resolve(optionValue(args, '--output-dir')) : process.cwd();
   const publishResult = atomicPublish({ dir: outputDir, fileName: MANIFEST_FILE_NAME, content, sourceHash: analysis.sourceHash });
   if (!publishResult.published) {
     process.stdout.write(formatFailure({ gateId: 'G5', reason: publishResult.reason ?? 'publish failed', fixHint: 'resolve the blocked condition before retrying' }));

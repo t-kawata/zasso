@@ -26,7 +26,7 @@ test('acceptance C005 [@verifies C005]: a long specification produces a COMPLETE
   cpSync(join(FIXTURES, 'long-spec.md'), specPath);
   cpSync(join(FIXTURES, 'decisions-long-ok.json'), decisionsPath);
 
-  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], {
+  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`, `--output-dir=${dir}`], {
     cwd: CONVER_ROOT,
     encoding: 'utf8',
   });

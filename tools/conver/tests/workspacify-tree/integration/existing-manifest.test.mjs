@@ -20,7 +20,7 @@ test('existing manifest with a different source hash is preserved (BLOCKED)', ()
   const oldManifest = JSON.stringify({ status: 'COMPLETE', input: { source_hash: 'e'.repeat(64) } });
   writeFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), oldManifest);
 
-  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-long-ok.json')}`], {
+  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-long-ok.json')}`, `--output-dir=${dir}`], {
     cwd: CONVER_ROOT,
     encoding: 'utf8',
   });
