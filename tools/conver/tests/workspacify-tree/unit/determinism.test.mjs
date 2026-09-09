@@ -44,13 +44,13 @@ test('resolution C002 [@verifies C002]: an ownership entry to a non-inventory id
 test('resolution: valid owns and ownership pass', () => {
   const pipeline = runGatePipeline({
     structure: { reconstruction: { status: 'PASS' } },
-    inventory: { objects: [{ id: 'obj-1', owner_package: 'p' }] },
+    inventory: { objects: [{ id: 'obj-1', owner_package: 'p', source_refs: [{}] }] },
     workspace: {
       packages: [{ id: 'p', name: 'p', path: 'crates/p', layer: 'protocol', kind: 'production-library', responsibilities: ['x'], seed_required: true, owns: { objects: ['obj-1'], claims: [], invariants: [], state_machines: [], error_codes: [], required_tests: [] } }],
       tree: [{ name: 'crates', path: 'crates', kind: 'dir', children: [{ name: 'p', path: 'crates/p', kind: 'dir', children: [] }] }],
     },
     dependencies: {},
-    decisions: { approvals: [], ownership: [{ objectId: 'obj-1', packageId: 'p' }] },
+    decisions: { approvals: [], ownership: [{ objectId: 'obj-1', packageId: 'p' }], semantic_review: { status: 'APPROVED', statement: 'ok', approver: 'ai' } },
   });
   assert.equal(pipeline.status, 'COMPLETE');
 });
@@ -87,6 +87,28 @@ test('review C005 [@verifies C005]: ambiguous normative terms block COMPLETE wit
   const pipeline = runGatePipeline({
     structure: { reconstruction: { status: 'PASS' } },
     inventory: { terms: [{ id: 'req-1', canonical_name: 'MUST NOT', normalization_status: 'REVIEW_REQUIRED' }] },
+    workspace: {},
+    dependencies: {},
+    decisions: { approvals: [] },
+  });
+  assert.notEqual(pipeline.status, 'COMPLETE');
+});
+
+test('traceability [@verifies C005]: a candidate without source_refs fails G2', () => {
+  const pipeline = runGatePipeline({
+    structure: { reconstruction: { status: 'PASS' } },
+    inventory: { objects: [{ id: 'obj-x', owner_package: null }] },
+    workspace: {},
+    dependencies: {},
+    decisions: { approvals: [], semantic_review: { status: 'APPROVED', statement: 'ok', approver: 'ai' } },
+  });
+  assert.notEqual(pipeline.status, 'COMPLETE');
+});
+
+test('semantic gate [@verifies C005]: COMPLETE requires an explicit semantic approval', () => {
+  const pipeline = runGatePipeline({
+    structure: { reconstruction: { status: 'PASS' } },
+    inventory: {},
     workspace: {},
     dependencies: {},
     decisions: { approvals: [] },

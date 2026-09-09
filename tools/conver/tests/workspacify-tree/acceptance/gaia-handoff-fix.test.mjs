@@ -51,6 +51,7 @@ test('fix C001/C002 [@verifies C001][@verifies C002]: invariant and error owners
       dependencies: [],
       adapters: { ports: [], databasePolicy: { applicable: false } },
       approvals: [],
+      semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' },
     })
   );
   const result = run(['finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], dir);
@@ -99,6 +100,7 @@ test('fix C004 [@verifies C004]: multi-package edge without a boundary fails and
       boundaries: [{ consumer: 'pkgA', provider: 'pkgB' }],
       adapters: { ports: [], databasePolicy: { applicable: false } },
       approvals: [],
+      semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' },
     })
   );
   writeFileSync(
@@ -114,6 +116,7 @@ test('fix C004 [@verifies C004]: multi-package edge without a boundary fails and
       boundaries: [],
       adapters: { ports: [], databasePolicy: { applicable: false } },
       approvals: [],
+      semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' },
     })
   );
 
@@ -143,7 +146,7 @@ test('review C005 [@verifies C005]: ambiguous normative terms require approvals 
   writeFileSync(approvedPath, JSON.stringify({ ...base, approvals: [
     { decisionId: 'MUST NOT', rationale: 'explicitly normative', approver: 'ai' },
     { decisionId: '禁止', rationale: 'explicitly normative', approver: 'ai' },
-  ] }));
+  ], semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' } }));
   const ok = run(['finalize', `--spec=${specPath}`, `--decisions=${approvedPath}`], dir);
   assert.equal(ok.status, 0, ok.stdout);
 });
@@ -162,7 +165,7 @@ test('claim C005 [@verifies C005]: claim candidates require approval and owner t
   writeFileSync(join(dir, 'approved.json'), JSON.stringify({ ...base, workspace: [pkg], tree, approvals: [
     { decisionId: 'claim_order_validity', rationale: 'explicit claim', approver: 'ai' },
     { decisionId: 'StateProofEnvelope', rationale: 'explicit proof', approver: 'ai' },
-  ] }));
+  ], semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' } }));
   const ok = run(['finalize', `--spec=${specPath}`, `--decisions=${join(dir, 'approved.json')}`], dir);
   assert.equal(ok.status, 0, ok.stdout);
 });

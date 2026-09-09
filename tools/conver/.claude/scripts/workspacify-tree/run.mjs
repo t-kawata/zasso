@@ -133,7 +133,7 @@ function runGate(args) {
       boundaries: decisions.boundaries ?? [],
     },
     adapters: buildPipelineAdapters(decisions),
-    decisions: { approvals: decisions.approvals ?? [], ownership: decisions.ownership ?? [] },
+    decisions: { approvals: decisions.approvals ?? [], ownership: decisions.ownership ?? [], semantic_review: decisions.semantic_review ?? {} },
   });
   const summary = pipeline.gates.map((gate) => `${gate.id}:${gate.status}`).join(' ');
   process.stdout.write(JSON.stringify({ status: pipeline.status, gates: summary, finalAudit: pipeline.finalAudit }) + '\n');
@@ -172,7 +172,7 @@ function runFinalize(args) {
       boundaries: decisions.boundaries ?? [],
     },
     adapters: buildPipelineAdapters(decisions),
-    decisions: { approvals: decisions.approvals ?? [], ownership: decisions.ownership ?? [] },
+    decisions: { approvals: decisions.approvals ?? [], ownership: decisions.ownership ?? [], semantic_review: decisions.semantic_review ?? {} },
   };
   const pipeline = runGatePipeline(pipelineInput);
 

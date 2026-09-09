@@ -83,5 +83,10 @@
         }
       ]
     }
-  ]
+  ],
+  "semantic_review": {
+    "status": "APPROVED",
+    "statement": "semantic design confirmed against the specification",
+    "approver": "ai-session"
+  }
 }

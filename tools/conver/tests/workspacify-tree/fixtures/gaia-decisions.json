@@ -69,5 +69,10 @@
       "rationale": "HelperRecord confirmed as auxiliary object",
       "approver": "ai"
     }
-  ]
+  ],
+  "semantic_review": {
+    "status": "APPROVED",
+    "statement": "semantic design confirmed against the specification",
+    "approver": "ai-session"
+  }
 }

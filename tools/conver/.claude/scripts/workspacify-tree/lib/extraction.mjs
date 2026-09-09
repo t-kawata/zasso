@@ -229,6 +229,7 @@ function harvestPhraseCandidates({ sourceText, headings, segments }, phrases) {
       candidates.push({
         id: `req-${String(candidates.length + 1).padStart(6, '0')}`,
         keyword: entry.phrase,
+        canonical_name: entry.phrase,
         classification: entry.classification,
         section_id: nearest ? nearest.id : null,
         line_start: lineIndex + 1,
@@ -237,6 +238,7 @@ function harvestPhraseCandidates({ sourceText, headings, segments }, phrases) {
         byte_end: ref.byte_end,
         context: line.trim(),
         snippet: ref.snippet,
+        source_refs: [ref],
         normalization_status: ambiguous ? 'REVIEW_REQUIRED' : 'CONFIRMED',
       });
     }
@@ -383,6 +385,7 @@ export function harvestCategoryInventory({ sourceText, headings, segments }) {
       byte_start: candidate.byte_start,
       byte_end: candidate.byte_end,
       snippet: candidate.snippet,
+      source_refs: candidate.source_refs ?? [],
     };
     if (candidate.classification === 'invariant') {
       invariants.push(item);

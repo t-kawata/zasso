@@ -12,6 +12,7 @@ import { runDagChecks } from './dag.mjs';
 import { validatePackageCatalog, validateWorkspaceTree } from './workspace-model.mjs';
 import { findOverSplitRisks } from './boundary-review.mjs';
 import { checkDatabasePolicy } from './database-policy.mjs';
+import { assertSourceTraceability } from './traceability.mjs';
 import { GATE_STATUS } from './errors.mjs';
 
 /** Ordered gate ids for parent-gating. */
@@ -43,6 +44,8 @@ export function runGatePipeline(input = {}) {
   const boundaryCoverage = evaluateBoundaryCoverage(dependenciesData);
   const missingResponsibilities = packages.filter((pkg) => !pkg.responsibilities || pkg.responsibilities.length === 0).length;
   const referenceResolution = evaluateReferenceResolution(packages, decisionsData, inventoryData);
+  const traceabilityReport = evaluateTraceability(inventoryData);
+  const semanticApproval = evaluateSemanticApproval(decisionsData);
   const dagResult = evaluateDag(dependenciesData, workspaceData.packages);
   const dbResult = evaluateDatabase(adapters, packages);
   const approvalCount = (decisionsData.approvals ?? []).length;
@@ -52,9 +55,12 @@ export function runGatePipeline(input = {}) {
     structureResult,
     {
       id: 'G2',
-      status: reviewRequiredCount > 0 ? GATE_STATUS.REVIEW_REQUIRED : GATE_STATUS.PASS,
-      counts: { review_required_count: reviewRequiredCount, unresolved_count: unresolvedCandidates.length },
-      reasons: reviewRequiredCount > 0 ? [`${reviewRequiredCount} candidate(s) still require review`] : [],
+      status: reviewRequiredCount > 0 || !traceabilityReport.complete || !semanticApproval.approved ? GATE_STATUS.REVIEW_REQUIRED : GATE_STATUS.PASS,
+      counts: { review_required_count: reviewRequiredCount, unresolved_count: unresolvedCandidates.length, missing_source_traceability_count: traceabilityReport.missing.length, semantic_approval_missing: semanticApproval.approved ? 0 : 1 },
+      reasons: []
+        .concat(reviewRequiredCount > 0 ? [`${reviewRequiredCount} candidate(s) still require review`] : [])
+        .concat(traceabilityReport.errors)
+        .concat(semanticApproval.approved ? [] : [semanticApproval.reason]),
     },
     {
       id: 'G3',
@@ -196,6 +202,24 @@ function evaluateBoundaryResolution(dependenciesData, packages) {
     }
   }
   return { unresolved, errors };
+}
+
+function evaluateTraceability(inventoryData) {
+  const listKeys = ['objects', 'claims', 'terms', 'invariants', 'stateMachines', 'errorCodes', 'requiredTests'];
+  const candidates = [];
+  for (const key of listKeys) {
+    for (const candidate of inventoryData[key] ?? []) candidates.push(candidate);
+  }
+  const report = assertSourceTraceability(candidates);
+  return { complete: report.ok, missing: report.missing, errors: report.missing.map((id) => `candidate ${id} has no source traceability`) };
+}
+
+function evaluateSemanticApproval(decisionsData) {
+  const semanticReview = decisionsData.semantic_review;
+  if (!semanticReview || semanticReview.status !== 'APPROVED' || typeof semanticReview.approver !== 'string' || semanticReview.approver.length === 0) {
+    return { approved: false, reason: 'semantic design has not been explicitly approved: add semantic_review { status: "APPROVED", statement, approver } to the decision input' };
+  }
+  return { approved: true };
 }
 
 function evaluateReferenceResolution(packages, decisionsData, inventoryData) {

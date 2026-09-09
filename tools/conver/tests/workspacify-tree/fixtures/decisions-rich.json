@@ -1,17 +1,79 @@
 {
   "workspace": [
-    { "id": "pkg-alpha", "name": "alpha", "path": "crates/protocol/alpha", "layer": "protocol", "kind": "production-library",
-      "responsibilities": ["own alpha records", "validate alpha state"],
+    {
+      "id": "pkg-alpha",
+      "name": "alpha",
+      "path": "crates/protocol/alpha",
+      "layer": "protocol",
+      "kind": "production-library",
+      "responsibilities": [
+        "own alpha records",
+        "validate alpha state"
+      ],
       "seed_required": true,
-      "owns": { "objects": ["obj-a"], "claims": [], "invariants": ["inv-a"], "state_machines": [], "error_codes": ["err-a"], "required_tests": ["tst-a"] } }
+      "owns": {
+        "objects": [
+          "obj-a"
+        ],
+        "claims": [],
+        "invariants": [
+          "inv-a"
+        ],
+        "state_machines": [],
+        "error_codes": [
+          "err-a"
+        ],
+        "required_tests": [
+          "tst-a"
+        ]
+      }
+    }
   ],
   "tree": [
-    { "name": "crates", "path": "crates", "kind": "dir", "children": [
-        { "name": "protocol", "path": "crates/protocol", "kind": "dir", "children": [
-            { "name": "alpha", "path": "crates/protocol/alpha", "kind": "dir", "children": [] } ] } ] }
+    {
+      "name": "crates",
+      "path": "crates",
+      "kind": "dir",
+      "children": [
+        {
+          "name": "protocol",
+          "path": "crates/protocol",
+          "kind": "dir",
+          "children": [
+            {
+              "name": "alpha",
+              "path": "crates/protocol/alpha",
+              "kind": "dir",
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
   ],
-  "ownership": [ { "objectId": "obj-a", "packageId": "pkg-alpha" } ],
+  "ownership": [
+    {
+      "objectId": "obj-a",
+      "packageId": "pkg-alpha"
+    }
+  ],
   "dependencies": [],
-  "adapters": { "ports": [], "databasePolicy": { "applicable": false } },
-  "approvals": [ { "decisionId": "obj-a", "rationale": "domain object", "approver": "ai" } ]
+  "adapters": {
+    "ports": [],
+    "databasePolicy": {
+      "applicable": false
+    }
+  },
+  "approvals": [
+    {
+      "decisionId": "obj-a",
+      "rationale": "domain object",
+      "approver": "ai"
+    }
+  ],
+  "semantic_review": {
+    "status": "APPROVED",
+    "statement": "semantic design confirmed against the specification",
+    "approver": "ai-session"
+  }
 }
