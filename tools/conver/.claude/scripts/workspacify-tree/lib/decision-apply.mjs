@@ -44,7 +44,7 @@ export function applyApprovals(candidates, approvals) {
   const approvedIds = new Set((approvals ?? []).map((approval) => approval.decisionId));
   return candidates.map((candidate) => {
     if (approvedIds.has(candidate.id) || approvedIds.has(candidate.canonical_name) || approvedIds.has(candidate.keyword)) {
-      return { ...candidate, normalization_status: 'CONFIRMED' };
+      return { ...candidate, normalization_status: 'CONFIRMED', review_status: 'CONFIRMED' };
     }
     return candidate;
   });

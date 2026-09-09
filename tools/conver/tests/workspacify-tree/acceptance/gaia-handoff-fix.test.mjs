@@ -147,3 +147,22 @@ test('review C005 [@verifies C005]: ambiguous normative terms require approvals 
   const ok = run(['finalize', `--spec=${specPath}`, `--decisions=${approvedPath}`], dir);
   assert.equal(ok.status, 0, ok.stdout);
 });
+
+test('claim C005 [@verifies C005]: claim candidates require approval and owner to complete', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wst-claim-'));
+  const specPath = join(dir, 'claims.md');
+  writeFileSync(specPath, '# T\n\n## Claims\n\n```text\nclaim_order_validity\nStateProofEnvelope\n```\n');
+  const base = { tree: [], ownership: [], dependencies: [], boundaries: [], adapters: { ports: [], databasePolicy: { applicable: false } } };
+  writeFileSync(join(dir, 'unapproved.json'), JSON.stringify({ ...base, workspace: [], approvals: [] }));
+  const blocked = run(['finalize', `--spec=${specPath}`, `--decisions=${join(dir, 'unapproved.json')}`], dir);
+  assert.notEqual(blocked.status, 0, 'claims without approvals must be blocked');
+
+  const pkg = { id: 'pkg-p', name: 'p', path: 'crates/protocol/p', layer: 'protocol', kind: 'production-library', responsibilities: ['own'], seed_required: true, owns: { objects: [], claims: ['claim-000001', 'claim-000002'], invariants: [], state_machines: [], error_codes: [], required_tests: [] } };
+  const tree = [{ name: 'crates', path: 'crates', kind: 'dir', children: [{ name: 'protocol', path: 'crates/protocol', kind: 'dir', children: [{ name: 'p', path: 'crates/protocol/p', kind: 'dir', children: [] }] }] }];
+  writeFileSync(join(dir, 'approved.json'), JSON.stringify({ ...base, workspace: [pkg], tree, approvals: [
+    { decisionId: 'claim_order_validity', rationale: 'explicit claim', approver: 'ai' },
+    { decisionId: 'StateProofEnvelope', rationale: 'explicit proof', approver: 'ai' },
+  ] }));
+  const ok = run(['finalize', `--spec=${specPath}`, `--decisions=${join(dir, 'approved.json')}`], dir);
+  assert.equal(ok.status, 0, ok.stdout);
+});

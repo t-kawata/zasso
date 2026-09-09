@@ -290,7 +290,7 @@ function prepareInventory(analysis, decisions) {
   const ownership = decisions.ownership ?? [];
   const approvals = decisions.approvals ?? [];
   const objects = applyApprovals(applyOwnership(rawInventory.objects, 'owner_package', ownership), approvals);
-  const claims = applyOwnership(rawInventory.claims, 'primary_owner', ownership);
+  const claims = applyApprovals(applyOwnership(rawInventory.claims, 'primary_owner', ownership), approvals);
   const terms = applyApprovals(rawInventory.terms, approvals);
   const approvedIds = new Set(approvals.map((approval) => approval.decisionId));
   const unresolvedCandidates = rawInventory.unresolved_candidates
@@ -298,6 +298,11 @@ function prepareInventory(analysis, decisions) {
     .concat(
       terms
         .filter((candidate) => candidate.normalization_status === 'REVIEW_REQUIRED')
+        .map((candidate) => ({ kind: 'review-required', id: candidate.id, canonical_name: candidate.canonical_name }))
+    )
+    .concat(
+      claims
+        .filter((candidate) => (candidate.review_status ?? candidate.normalization_status) === 'REVIEW_REQUIRED')
         .map((candidate) => ({ kind: 'review-required', id: candidate.id, canonical_name: candidate.canonical_name }))
     );
   return {
