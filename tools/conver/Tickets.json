@@ -24970,6 +24970,165 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-09-09"
+        },
+        {
+          "id": 179,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "workspacify-tree コマンド再設計 — command .md 日本語版と run.mjs/decisions の実体化",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/179-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\n指示書 docs/WORKSPACIFY-TREE_Complete_Implementation_Instruction.md の全工程を、AI セッションが実際に遂行できる精密な /workspacify-tree コマンドへ仕立て直す。最初に .claude/commands/workspacify-tree.md を日本語で実装し切り、英訳はユーザー指示があるまで行わない。\n\n### Purpose\n現行コマンドは骨格のみ(約40行)で、実仕様書に対して COMPLETE へ到達できない。証跡: objects-table.md(候補4件)で gate が虚偽 PASS / decisions.ownership を無視 / finalize が G2 REVIEW_REQUIRED で常時失敗。他の .claude/commands(boundify-graph.md 287行 / graphify-rfc.md)と同等以上の緻密さで手順・入力契約・エラー復帰を定義し、「AI の一回限りの印象」ではなく再現可能な工程を提供する。\n\n### Motivation\n/workspacify-tree は第二段階の唯一の入力 WORKSPACIFY-TREE-MANIFEST.json を生成する第一段階。コマンドが指示書を体現できなければ、以後の全工程が無根拠になる。\n\n### Constraints\n日本語で実装を完了させる。英訳・製本は将来のユーザー指示時に別対応。機械化は検証・収穫・publish までとし、設計判断(workspace/所有権/依存理由/承認)は AI が行う。既存 PX-175..178 実装を壊さない(全96テスト維持)。追加 dependency なし・ESM(.mjs)。成功時の公開成果物は WORKSPACIFY-TREE-MANIFEST.json の1つのみ。",
+          "notes": "- [Implementation steps] (1) decisions schema 精緻化 → (2) decision-apply(ownership/workspace)→ (3) run.mjs gate 実 pipeline 化・finalize 適用 → (4) manifest セクション充実 → (5) .md 日本語全面改稿 → (6) テスト追加・既存96維持。\n- [Risks] 既存 PX-178 acceptance は decisions 空+候補ゼロ spec 前提のため、実spec対応後も regression が green であることを確認する。\n- [Caveats] .md は run.mjs 実行に徹し、設計判断の詳細は AI 手順として記載(過度機械化しない)。\n- [Open items] 英訳・製本はユーザー指示後に別対応。\n- [Future improvements] stage2 コマンド(/workspacify-allocate)は本 manifest を唯一の入力に実装。\nImplementation summary:\n- Made /workspacify-tree capable of COMPLETE on a real spec (objects-table.md) by applying decisions.ownership/approvals and running a real gate pipeline.\n- Rewrote .claude/commands/workspacify-tree.md entirely in Japanese (English translation deferred to an explicit user instruction).\n- Test results: PX-179 9/9 PASS; full suite 105/105 PASS (96 prior + 9 new).\n- Quality: run-quality-checks -> totalIssues 0.\n- Provenance: [::TICKET::] PX-179 header added to run.mjs (existing), decision-apply.mjs, command .md (HTML comment), test file.\n- No stubs/crimes/[::AMBIGUOUS::] introduced.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Fixed during review: gate/finalize now route decisions.adapters (databasePolicy/ports) into the gate pipeline so DB policy is enforced (was ignored)\n- command .md rewritten in Japanese (147 lines); English translation deferred to explicit user instruction\n- No open crimes, no stubs, no [::AMBIGUOUS::] markers",
+          "invariants": "- [Normal condition] command .md の手順は指示書 §0..§17 と一対一で対応し、日本語で完結する。\n- [Error invariant] いかなる FAIL/REVIEW_REQUIRED/BLOCKED でも COMPLETE を出さず、既存 manifest を破壊しない。\n- [Internal state invariant] gate の PASS は実 pipeline(ownership 適用後)の結果にのみ基づく。\n- [Boundary invariant] 公開成果物は WORKSPACIFY-TREE-MANIFEST.json の1つのみで、reload self-hash が常に一致する。",
+          "scope": [
+            "MODIFY: .claude/commands/workspacify-tree.md — 全面改稿(日本語)。Role/Arguments/出力正本/制約/Language Protocol/スクリプト表/Steps(指示書 §0..§17 を反映)/decision JSON の具体スキーマと例/REVIEW_REQUIRED→approval 台帳手順/ゲート状態表/エラー復帰・自己修復ループ/成功・失敗表示。",
+            "MODIFY: .claude/scripts/workspacify-tree/run.mjs — gate サブコマンドを実 pipeline 実行に変更(REVIEW_REQUIRED を per-gate で列挙)。finalize が decisions.ownership と decisions.workspace を candidates/packages へ適用してから runGatePipeline を実行。",
+            "MODIFY: .claude/scripts/workspacify-tree/lib/decision-input.mjs — assertDecisionSchema を精緻化した decisions schema で検証。",
+            "MODIFY: .claude/scripts/workspacify-tree/schemas/workspacify-tree-decisions.schema.json — workspace packages(owns/layer/kind/path)/ownership(objectId→packageId)/dependencies(reasonCode)/approvals(decisionId/rationale/approver)の必須構造を追加。",
+            "NEW(任意): .claude/scripts/workspacify-tree/lib/decision-apply.mjs — decisions.ownership/workspace を inventory objects/claims へ適用し packages を構築する純関数(applyOwnership, buildPackagesFromDecisions)。",
+            "MODIFY: .claude/scripts/workspacify-tree/lib/validation.mjs — 必要なら G5 に approvals 充足・manifest 整合を含める(変更最小)。",
+            "MODIFY: manifest 組み立て(render/run.mjs) — adapters.database_policy / conformance / stage2_handoff.contract_boundaries・contract_definition_order / gates.records を実specで埋める。",
+            "MODIFY: tests/workspacify-tree/ — 新規テスト: command .md 構造検証(.md が必須節/Steps/日本語記述を持つ)・gate 実 pipeline・ownership 適用で実spec COMPLETE・decisions schema 拒否・manifest 完全性。既存96テスト維持。",
+            "Out of scope: 英語版 .md の作成・製本 — ユーザー指示後に別対応。",
+            "Out of scope: 第二段階(/workspacify-allocate 等)の実装。",
+            "Affected: 既存 .claude/scripts/workspacify-tree と tests/workspacify-tree の全モジュール(後方互換維持)。",
+            "Affected: PX-178 の reviewed 状態を保ったままコマンドが実specで COMPLETE 可能になる(回帰テストで担保)。"
+          ],
+          "testUnit": [
+            "UT: [Normal] .md — the command markdown exists at .claude/commands/workspacify-tree.md and its body is written in Japanese",
+            "UT: [Error] .md — .md に必須節(Role/Arguments/Steps/Script table/Success/Failure)が欠ける場合を構造検査で検出する",
+            "UT: [Boundary] .md — .md に「English translation only after explicit user instruction」等、英訳を保留する旨の注記があることを検査",
+            "UT: [Invariant] .md — .md が成功表示と失敗表示・既存 manifest 非置換(BLOCKED)の出力契約を記載している",
+            "UT: [Normal] gate — a real spec with review-required candidates: gate subcommand reports REVIEW_REQUIRED and lists the failing gate rather than PASS",
+            "UT: [Error] gate — gate が schema 不正の decisions を非0終了で拒否する",
+            "UT: [Invariant] gate — gate PASS only when the real gate pipeline passes(all gates PASS)",
+            "UT: [Normal] ownership — decisions assigns owner_package via ownership entries and workspace owns",
+            "UT: [Postcondition] ownership — finalize applies decisions ownership so object owner_package is set before runGatePipeline",
+            "UT: [Invariant] ownership — a real spec with complete ownership decisions reaches COMPLETE and publishes one manifest",
+            "UT: [Normal] schema — a valid decisions-ok passes assertDecisionSchema",
+            "UT: [Error] schema — a decisions object with a malformed workspace package or an approval missing decisionId is rejected with errors",
+            "UT: [Invariant] schema — no required design field is silently ignored",
+            "UT: [Normal] manifest — finalize with adapters/database_policy populates adapters.database_policy and stage2_handoff.contract_boundaries",
+            "UT: [Error] manifest — 改竄された published manifest の reload 検証が FAIL する",
+            "UT: [Invariant] manifest — exactly one WORKSPACIFY-TREE-MANIFEST.json is published and reload self-hash passes"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] run.mjs parse/extract/gate/finalize と decision-apply・runGatePipeline・render・atomicPublish を実spec(objects-table.md / duplicated-objects.md)で統合する",
+            "IT: [Verification] objects-table.md に complete decisions(ownership 全割当・approvals)を与えると finalize が exit0 で COMPLETE manifest を1つ publish し、reload PASS・source hash 一致を検証",
+            "IT: [Prerequisites] PX-175..178 の既存 lib。既存96テストが全て green のまま新機能が動くこと",
+            "IT: [Related tickets] PX-175(parse)/PX-176(extract)/PX-177(gate)/PX-178(publish) を消費・拡張"
+          ],
+          "testExceptions": [
+            ".md の「日本語記述がユーザーにとって意味的に完全である」ことを自動正解判定するのはテスト不能(自然言語品質の意味論判断)。設計欠陥ではない。代替検証: .md の必須節・必須 Step 名・出力契約・英訳保留注記を構造的に自動検査し、内容の意味論品質は日本語での human/AI review で担保する。",
+            "実spec に対する設計判断(どの package がどの object を所有すべきか等)の正解を自動生成するのはテスト不能(AI の意味論判断)。設計欠陥ではない。代替検証: 与えられた complete decisions が機械的に適用・検証され COMPLETE に至る経路を自動テストし、設計自体の良否は command .md の手順で AI が行う。"
+          ],
+          "instrumentation": "### Logging\ncommand .md の Steps は run.mjs 出力(parse/extract/gate/finalize)を基に進め、AI は各 Step の PASS/REVIEW_REQUIRED/FAIL を記録する。\n### Metrics\ngate summary・final_audit 各 count を manifest と成功表示に含める。\n### Error tracking\nWorkSpacifyTreeError(gateId)を run.mjs が exit code と表示へ変換。command .md はエラー復帰・自己修復ループを定義。\n### Health check\n実spec(objects-table.md)+complete decisions で finalize が exit0・COMPLETE・reload PASS を返すことを自己診断単位とする。\nStatic quality check: passed (totalIssues 0)\nTranslatability: no issues\nTests: all 105 PASS (PX-179 9 + prior 96)",
+          "acceptanceCriteria": [
+            "Happy path: 実spec(objects-table.md)へ complete decisions(ownership 全割当)を与えた /workspacify-tree が COMPLETE な WORKSPACIFY-TREE-MANIFEST.json を1つ publish し reload PASS・source hash 一致する",
+            "Error case: REVIEW_REQUIRED が残る decisions では gate/finalize が非0 exit で COMPLETE を出さず、既存 manifest を壊さない",
+            "Edge case: .md が日本語で実装され、必須節と英訳保留注記を備え、既存96テストが全て green を維持する"
+          ],
+          "investigation": "証跡: objects-table.md に対し (1) run.mjs gate が decisions schema のみ検証し実 pipeline 未実行で PASS(exit0)を返す (2) finalize は decisions.ownership を無視し G2 REVIEW_REQUIRED で常時失敗(owner 未割当) (3) decisions schema は5配列の存在のみ (4) manifest の adapters/conformance/stage2_handoff(contract_boundaries)が空。参照コマンド .claude/commands/boundify-graph.md(287行)は Role/Derived Paths/Guidelines/スクリプト表/Step0..N/自己修復ループを備える。実装は ESM(.mjs)・node --test 実行。",
+          "boyScoutPlan": "関数は動詞句(applyOwnership/buildPackagesFromDecisions/runGate)、定数化(LAYERS/REASON_CODES 再利用)、error swallowing 禁止。既存 PX-175..178 lib は scope 外だが統合時に不具合を見つけたら即修正する。command .md の日本語記述は翻訳可能性(可読性=翻訳可能性)を保ち、将来の英訳に耐える構造にする。",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "§6 スラッシュコマンド + 日本語実装方針",
+              "precondition": "the command markdown exists at .claude/commands/workspacify-tree.md and is written in Japanese",
+              "postcondition": "it contains Role Arguments a script table and Steps mapping to the instruction stages and a note deferring English translation",
+              "invariant": "the command file declares success and failure output contracts and a no-overwrite rule for existing manifests"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "§2/§3 gate 実体化",
+              "precondition": "a real spec with review-required candidates is passed to the gate subcommand",
+              "postcondition": "gate reports REVIEW_REQUIRED with the failing gate id instead of PASS",
+              "invariant": "gate PASS only when the real gate pipeline passes"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "§9.3 owner assignment 適用",
+              "precondition": "decisions assigns owner_package via ownership entries and workspace owns",
+              "postcondition": "finalize applies decisions ownership so object owner_package is set before runGatePipeline",
+              "invariant": "a real spec with complete ownership decisions reaches COMPLETE and publishes one manifest"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "decision input contract",
+              "precondition": "a decisions object has a malformed workspace package or an approval missing required fields",
+              "postcondition": "assertDecisionSchema returns invalid with errors",
+              "invariant": "a valid decisions object passes and no required design field is silently ignored"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "§12.3/§13 manifest 完全性",
+              "precondition": "finalize publishes for a real spec that declares adapters and database policy",
+              "postcondition": "the manifest carries adapters.database_policy and stage2_handoff.contract_boundaries and reload validation PASS",
+              "invariant": "exactly one WORKSPACIFY-TREE-MANIFEST.json is published and the reload self-hash passes"
+            }
+          ],
+          "created_at": "2026-09-09",
+          "updated_at": "2026-09-09",
+          "referenceSection": "docs/WORKSPACIFY-TREE_Complete_Implementation_Instruction.md §0-§17 / 参照: .claude/commands/boundify-graph.md, graphify-rfc.md",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: C001 セットアップ(.md 構造)\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { readFileSync, existsSync } from 'node:fs';\nconst mdPath = '.claude/commands/workspacify-tree.md';\nconst md = readFileSync(mdPath, 'utf8');\n```\n",
+            "UT: C001 Precondition/Postcondition\n```js\n// the command markdown exists and is written in Japanese\nassert.equal(existsSync(mdPath), true);\nassert.ok(/[\\u3040-\\u30ff\\u4e00-\\u9faf]/.test(md), 'body contains Japanese');\n```\n",
+            "UT: C001 Invariant→述語コード\n```js\n// contains Role Arguments Steps script table and an English-deferral note\nassert.match(md, /## Role/);\nassert.match(md, /## Arguments/);\nassert.match(md, /## Steps|## Workflow/);\nassert.match(md, /英語|English translation|英訳/);\nassert.match(md, /BLOCKED|overwrite|置換/);\n```\n",
+            "UT: C002 セットアップ(gate 実 pipeline)\n```js\nimport { spawnSync } from 'node:child_process';\nconst run = (args) => spawnSync(process.execPath, ['.claude/scripts/workspacify-tree/run.mjs', ...args], { cwd: process.cwd(), encoding: 'utf8' });\nconst spec = 'tests/workspacify-tree/fixtures/objects-table.md';\nconst decisions = 'tests/workspacify-tree/fixtures/decisions-long-ok.json';\n```\n",
+            "UT: C002 Postcondition→assertion\n```js\n// a real spec with review-required candidates must NOT report PASS from gate\nconst gate = run(['gate', `--spec=${spec}`, `--decisions=${decisions}`]);\nassert.ok(!gate.stdout.includes('\"status\":\"PASS\"'), 'gate must not lie PASS');\nassert.ok(gate.status === 1 || /REVIEW_REQUIRED/.test(gate.stdout), 'gate reports non-PASS');\n```\n",
+            "UT: C002 Invariant→述語コード\n```js\nconst clean = run(['gate', `--spec=${spec}`, '--decisions=tests/workspacify-tree/fixtures/decisions-complete.json']);\n// gate PASS only when the real gate pipeline passes\nassert.equal(clean.status, 0);\n```\n",
+            "UT: C003 セットアップ(ownership 適用)\n```js\nconst completeDecisions = 'tests/workspacify-tree/fixtures/decisions-complete.json';\nconst outDir = mkdtempSync(join(tmpdir(), 'wst-g3-'));\n```\n",
+            "UT: C003 Postcondition→assertion\n```js\n// finalize applies decisions ownership so a real spec reaches COMPLETE and publishes one manifest\nconst finalize = run(['finalize', `--spec=${spec}`, `--decisions=${completeDecisions}`, `--output-dir=${outDir}`]);\nassert.equal(finalize.status, 0, finalize.stdout);\nconst manifest = JSON.parse(readFileSync(join(outDir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));\nassert.equal(manifest.status, 'COMPLETE');\n```\n",
+            "UT: C003 Invariant→述語コード\n```js\nassert.ok(manifest.integrity.reload_validation === 'PASS');\n```\n",
+            "UT: C004 Precondition→入力(schema 不正)\n```js\nimport { loadDecisionInput, assertDecisionSchema } from '.claude/scripts/workspacify-tree/lib/decision-input.mjs';\nconst malformed = { workspace: [{ id: 'pkg-1' }], ownership: [], dependencies: [], adapters: [], approvals: [{ rationale: 'x' }] };\n```\n",
+            "UT: C004 Postcondition→assertion\n```js\n// a malformed workspace package or approval missing decisionId is rejected\nconst schemaReport = assertDecisionSchema(malformed);\nassert.equal(schemaReport.ok, false);\nassert.ok(schemaReport.errors.length >= 1);\n```\n",
+            "UT: C004 Invariant→述語コード\n```js\nconst okReport = assertDecisionSchema(loadDecisionInput('tests/workspacify-tree/fixtures/decisions-complete.json'));\nassert.equal(okReport.ok, true);\n```\n",
+            "UT: C005 セットアップ(manifest 完全性)\n```js\nconst completeFinalize = run(['finalize', `--spec=${spec}`, `--decisions=${completeDecisions}`, `--output-dir=${outDir2}`]);\nconst published = JSON.parse(readFileSync(join(outDir2, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));\n```\n",
+            "UT: C005 Postcondition→assertion\n```js\n// manifest carries adapters.database_policy and stage2_handoff.contract_boundaries arrays\nassert.ok(published.adapters && published.adapters.database_policy !== undefined);\nassert.ok(Array.isArray(published.stage2_handoff.contract_boundaries));\nassert.equal(published.integrity.reload_validation, 'PASS');\n```\n",
+            "UT: C005 Invariant→述語コード\n```js\nconst files = readdirSync(outDir2).filter((f) => f.endsWith('.json'));\nassert.deepEqual(files, ['WORKSPACIFY-TREE-MANIFEST.json']);\n```\n"
+          ],
+          "startedAt": "2026-09-09",
+          "changes": [
+            {
+              "before": "run.mjs gate = schema-only PASS",
+              "after": "gate runs the real gate pipeline; COMPLETE only when all gates pass",
+              "description": "gate real-ization (C002)"
+            },
+            {
+              "before": "finalize ignored decisions.ownership",
+              "after": "ownership+approvals applied via decision-apply; real spec reaches COMPLETE",
+              "description": "ownership/approval application (C003)"
+            },
+            {
+              "before": "decisions schema = 5 arrays presence",
+              "after": "workspace(id/name/path/layer/kind)/ownership/approvals required fields validated",
+              "description": "decisions schema refinement (C004)"
+            },
+            {
+              "before": "manifest adapters/stage2 empty",
+              "after": "adapters.database_policy + stage2_handoff.contract_boundaries/order populated",
+              "description": "manifest completeness (C005)"
+            },
+            {
+              "before": "command .md = ~40-line English skeleton",
+              "after": "dense Japanese command embodying instruction doc (Role/Steps/decision schema/gates/error recovery/deferral note)",
+              "description": "command .md rewritten in Japanese (C001)"
+            },
+            {
+              "before": "(absent)",
+              "after": "lib/decision-apply.mjs",
+              "description": "applyOwnership / applyApprovals pure functions"
+            },
+            {
+              "before": "(absent)",
+              "after": "fixtures/decisions-complete.json + tests/unit/command-realize.test.mjs",
+              "description": "real-spec COMPLETE path + 9 contract tests"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-09-09"
         }
       ]
     },

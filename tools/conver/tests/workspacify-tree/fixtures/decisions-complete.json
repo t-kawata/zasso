@@ -1,0 +1,17 @@
+{
+  "workspace": [
+    { "id": "pkg-0001", "name": "alpha-protocol", "path": "crates/protocol/alpha", "layer": "protocol", "kind": "production-library", "owns": { "objects": ["obj-000001", "obj-000002", "obj-000003", "obj-000004"], "claims": [] } }
+  ],
+  "ownership": [
+    { "objectId": "obj-000001", "packageId": "pkg-0001" },
+    { "objectId": "obj-000002", "packageId": "pkg-0001" },
+    { "objectId": "obj-000003", "packageId": "pkg-0001" },
+    { "objectId": "obj-000004", "packageId": "pkg-0001" }
+  ],
+  "dependencies": [],
+  "adapters": { "ports": [], "databasePolicy": { "applicable": false } },
+  "approvals": [
+    { "decisionId": "obj-000003", "rationale": "GammaRecord is a domain record surfaced in prose; confirmed as an object", "approver": "ai-session" },
+    { "decisionId": "obj-000004", "rationale": "delta_value is a field-level identifier owned by the alpha protocol", "approver": "ai-session" }
+  ]
+}

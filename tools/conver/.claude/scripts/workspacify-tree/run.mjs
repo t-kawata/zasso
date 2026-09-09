@@ -1,4 +1,4 @@
-// [::TICKET::] PX-178 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-178 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-178, PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179) --for-spec --no-implementation-order`.
 /**
  * Command entry point for /workspacify-tree.
  *
@@ -23,6 +23,7 @@ import {
   harvestRequirementCandidates,
 } from './lib/extraction.mjs';
 import { normalizeAliases } from './lib/alias-normalization.mjs';
+import { applyOwnership, applyApprovals } from './lib/decision-apply.mjs';
 import { buildInventoryReport } from './lib/inventory-report.mjs';
 import { runGatePipeline } from './lib/validation.mjs';
 import { loadDecisionInput, assertDecisionSchema } from './lib/decision-input.mjs';
@@ -96,13 +97,24 @@ function runGate(args) {
   if (!specPath || !decisionsPath) {
     throw new Error('gate requires --spec=<path> and --decisions=<path>');
   }
+  const analysis = analyzeSpec(specPath);
   const decisions = loadDecisionInput(path.resolve(decisionsPath));
   const schemaReport = assertDecisionSchema(decisions);
   if (!schemaReport.ok) {
     throw new Error(`decision schema invalid: ${schemaReport.errors.map((entry) => entry.message).join('; ')}`);
   }
-  process.stdout.write(JSON.stringify({ status: 'PASS', approvals: (decisions.approvals ?? []).length }) + '\n');
-  process.exit(EXIT_CODES.OK);
+  const inventory = prepareInventory(analysis, decisions);
+  const pipeline = runGatePipeline({
+    structure: { reconstruction: analysis.reconstruction },
+    inventory,
+    workspace: { packages: decisions.workspace ?? [] },
+    dependencies: { normalEdges: (decisions.dependencies ?? []).filter((edge) => edge.kind !== 'forbidden') },
+    adapters: buildPipelineAdapters(decisions),
+    decisions: { approvals: decisions.approvals ?? [] },
+  });
+  const summary = pipeline.gates.map((gate) => `${gate.id}:${gate.status}`).join(' ');
+  process.stdout.write(JSON.stringify({ status: pipeline.status, gates: summary, finalAudit: pipeline.finalAudit }) + '\n');
+  process.exit(pipeline.status === 'COMPLETE' ? EXIT_CODES.OK : EXIT_CODES.FAIL);
 }
 
 function runFinalize(args) {
@@ -112,24 +124,19 @@ function runFinalize(args) {
     throw new Error('finalize requires --spec=<path> and --decisions=<path>');
   }
   const analysis = analyzeSpec(specPath);
-  const inventory = buildInventory(analysis);
   const decisions = loadDecisionInput(path.resolve(decisionsPath));
   const schemaReport = assertDecisionSchema(decisions);
   if (!schemaReport.ok) {
     throw new Error(`decision schema invalid: ${schemaReport.errors.map((entry) => entry.message).join('; ')}`);
   }
+  const inventory = prepareInventory(analysis, decisions);
 
   const pipelineInput = {
     structure: { reconstruction: analysis.reconstruction },
-    inventory: {
-      objects: inventory.objects,
-      claims: inventory.claims,
-      requirements: inventory.terms,
-      unresolved_candidates: inventory.unresolved_candidates,
-    },
+    inventory,
     workspace: { packages: decisions.workspace ?? [] },
     dependencies: { normalEdges: (decisions.dependencies ?? []).filter((edge) => edge.kind !== 'forbidden') },
-    adapters: {},
+    adapters: buildPipelineAdapters(decisions),
     decisions: { approvals: decisions.approvals ?? [] },
   };
   const pipeline = runGatePipeline(pipelineInput);
@@ -159,10 +166,14 @@ function runFinalize(args) {
     },
     requirements: { normative_candidates: inventory.terms },
     workspace: { packages: decisions.workspace ?? [], ownership: decisions.ownership ?? [] },
-    adapters: {},
-    dependencies: { normal_edges: decisions.dependencies ?? [] },
+    adapters: buildAdaptersSection(decisions),
+    dependencies: {
+      orientation: 'consumer_to_direct_dependency',
+      normal_edges: decisions.dependencies ?? [],
+      dev_dependency_policy: [],
+    },
     conformance: {},
-    stage2_handoff: { eligible: true, non_goals_of_stage1: ['No protocol implementation is defined'] },
+    stage2_handoff: buildStage2Handoff(inventory, decisions),
     gates: { records: pipeline.gates },
     final_audit: { ...pipeline.finalAudit, status: pipeline.finalAudit.status },
     integrity: { input_hash_verified_at_finalize: true, reload_validation: 'PASS' },
@@ -220,13 +231,66 @@ function buildInventory(analysis) {
   const normalizedObjects = normalizeAliases(objects);
   const unresolvedCandidates = normalizedObjects.candidates
     .filter((candidate) => candidate.classification === 'unknown')
-    .map((candidate) => ({ kind: 'unknown-classification', canonical_name: candidate.canonical_name }));
+    .map((candidate) => ({ kind: 'unknown-classification', id: candidate.id, canonical_name: candidate.canonical_name }));
   return {
     objects: normalizedObjects.candidates,
     claims,
     terms: [...normative, ...requirements],
     normalization_decisions: normalizedObjects.decisions,
     unresolved_candidates: unresolvedCandidates,
+  };
+}
+
+function prepareInventory(analysis, decisions) {
+  const rawInventory = buildInventory(analysis);
+  const ownership = decisions.ownership ?? [];
+  const approvals = decisions.approvals ?? [];
+  const objects = applyApprovals(applyOwnership(rawInventory.objects, 'owner_package', ownership), approvals);
+  const claims = applyOwnership(rawInventory.claims, 'primary_owner', ownership);
+  const approvedIds = new Set(approvals.map((approval) => approval.decisionId));
+  const unresolvedCandidates = rawInventory.unresolved_candidates.filter(
+    (candidate) => !approvedIds.has(candidate.id) && !approvedIds.has(candidate.canonical_name)
+  );
+  return {
+    objects,
+    claims,
+    terms: rawInventory.terms,
+    normalization_decisions: rawInventory.normalization_decisions,
+    unresolved_candidates: unresolvedCandidates,
+  };
+}
+
+function buildAdaptersSection(decisions) {
+  const adapters = decisions.adapters ?? {};
+  return {
+    ports: Array.isArray(adapters.ports) ? adapters.ports : [],
+    leaf_packages: [],
+    database_policy: adapters.databasePolicy ?? { applicable: false, raw_sql_prohibited: true },
+  };
+}
+
+function buildStage2Handoff(inventory, decisions) {
+  const edges = decisions.dependencies ?? [];
+  const contractBoundaries = edges.map((edge, index) => ({
+    id: `boundary-${String(index + 1).padStart(3, '0')}`,
+    consumer_package: edge.from ?? null,
+    provider_package: edge.to ?? null,
+    dependency_reason_code: edge.reasonCode ?? null,
+    stage2_contract_scope: ['input', 'output', 'preconditions', 'postconditions', 'invariants', 'errors', 'state_ownership', 'idempotency', 'atomicity', 'ordering', 'finality', 'canonicalization', 'signature', 'proof_verification', 'tests'],
+  }));
+  return {
+    eligible: true,
+    contract_definition_order: inventory.objects.map((candidate) => candidate.canonical_name),
+    contract_boundaries: contractBoundaries,
+    non_goals_of_stage1: ['No trait method signatures are defined', 'No concrete I/O contract is defined', 'No protocol implementation is defined'],
+  };
+}
+
+function buildPipelineAdapters(decisions) {
+  const adapters = decisions.adapters ?? {};
+  return {
+    ports: Array.isArray(adapters.ports) ? adapters.ports : [],
+    databasePolicy: adapters.databasePolicy ?? {},
   };
 }
 
