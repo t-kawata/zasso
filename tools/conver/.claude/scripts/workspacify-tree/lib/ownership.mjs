@@ -1,0 +1,115 @@
+// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-177 --for-spec --no-implementation-order`.
+/**
+ * Owner assignment checks (§9.3).
+ *
+ * Each object family must have exactly one protocol/domain owner and each
+ * claim family exactly one primary verifier owner. This module counts orphans
+ * (no owner), collisions (more than one owner), and invalid-owner-layer cases
+ * where the sole owner lives outside the protocol layer.
+ */
+
+const ALLOWED_OWNER_LAYERS = new Set(['protocol', 'domain']);
+
+/**
+ * Run all ownership checks over objects and claims.
+ *
+ * @param {{ objects?: Array<object>, claims?: Array<object>, packages?: Array<object> }} input
+ * @returns {{ orphan_object_count: number, orphan_claim_count: number,
+ *             owner_collision_count: number, invalid_owner_layer_count: number,
+ *             details: Array<string> }}
+ */
+export function runOwnershipChecks({ objects = [], claims = [], packages = [] } = {}) {
+  const packagesById = new Map();
+  for (const pkg of packages) {
+    packagesById.set(pkg.id, pkg);
+    if (pkg.name !== undefined) {
+      packagesById.set(pkg.name, pkg);
+    }
+  }
+
+  const objectIds = collectIds(objects, (candidate) => candidate.id, packages, 'objects');
+  const claimIds = collectIds(claims, (candidate) => candidate.id, packages, 'claims');
+  const details = [];
+
+  let orphanObjectCount = 0;
+  let orphanClaimCount = 0;
+  let collisionCount = 0;
+  let invalidOwnerLayerCount = 0;
+
+  for (const objectId of objectIds) {
+    const owners = resolveOwners(objectId, objects, 'owner_package', packages, 'objects');
+    const outcome = classifyOwnerOutcome(objectId, owners, packagesById, details, 'object');
+    orphanObjectCount += outcome.orphans;
+    collisionCount += outcome.collisions;
+    invalidOwnerLayerCount += outcome.invalidLayers;
+  }
+  for (const claimId of claimIds) {
+    const owners = resolveOwners(claimId, claims, 'primary_owner', packages, 'claims');
+    const outcome = classifyOwnerOutcome(claimId, owners, packagesById, details, 'claim');
+    orphanClaimCount += outcome.orphans;
+    collisionCount += outcome.collisions;
+    invalidOwnerLayerCount += outcome.invalidLayers;
+  }
+
+  return {
+    orphan_object_count: orphanObjectCount,
+    orphan_claim_count: orphanClaimCount,
+    owner_collision_count: collisionCount,
+    invalid_owner_layer_count: invalidOwnerLayerCount,
+    details,
+  };
+}
+
+/** Alias focused on the object checks (kept for scope compatibility). */
+export function checkObjectOwnership(input) {
+  const result = runOwnershipChecks(input);
+  return {
+    orphan_object_count: result.orphan_object_count,
+    owner_collision_count: result.owner_collision_count,
+    invalid_owner_layer_count: result.invalid_owner_layer_count,
+    details: result.details,
+  };
+}
+
+function collectIds(candidates, idOf, packages, ownsKey) {
+  const ids = new Set(candidates.map(idOf));
+  for (const pkg of packages) {
+    const owns = pkg.owns ?? {};
+    for (const ownedId of owns[ownsKey] ?? []) {
+      ids.add(ownedId);
+    }
+  }
+  return ids;
+}
+
+function resolveOwners(id, candidates, ownerField, packages, ownsKey) {
+  const owners = new Set();
+  const candidate = candidates.find((entry) => entry.id === id);
+  if (candidate && candidate[ownerField]) {
+    owners.add(candidate[ownerField]);
+  }
+  for (const pkg of packages) {
+    const owns = pkg.owns ?? {};
+    if ((owns[ownsKey] ?? []).includes(id)) {
+      owners.add(pkg.id);
+    }
+  }
+  return [...owners];
+}
+
+function classifyOwnerOutcome(id, owners, packagesById, details, kindLabel) {
+  if (owners.length === 0) {
+    details.push(`${kindLabel} ${id} has no owner`);
+    return { orphans: 1, collisions: 0, invalidLayers: 0 };
+  }
+  if (owners.length > 1) {
+    details.push(`${kindLabel} ${id} has multiple owners: ${owners.join(', ')}`);
+    return { orphans: 0, collisions: 1, invalidLayers: 0 };
+  }
+  const owner = packagesById.get(owners[0]);
+  if (!owner || !ALLOWED_OWNER_LAYERS.has(owner.layer)) {
+    details.push(`${kindLabel} ${id} is owned by invalid layer package ${owners[0]}`);
+    return { orphans: 0, collisions: 0, invalidLayers: 1 };
+  }
+  return { orphans: 0, collisions: 0, invalidLayers: 0 };
+}

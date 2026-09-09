@@ -24296,6 +24296,680 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-08-24"
+        },
+        {
+          "id": 175,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "workspacify-tree Parsing & Integrity 基盤 — 入力正規化・hash・見出し・segment再構成 (G0/G1)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/175-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\n/workspacify-tree の最下層として、単一 Markdown 仕様書パスを読み込み、BOM/改行正規化・SHA-256・ATX 見出しツリー・##単位 segment 化と「再構成完全一致」検査を担う決定論的 Node ESM モジュール群(8 lib)を Red→Green で実装する。\n\n### Purpose\n上位工程(抽出 PX-176 / ゲート PX-177 / publish PX-178)が「固定された入力 + 位置 traceability」だけへ依存できる基盤を作る。正規化後 hash は入力固定の唯一の根拠であり、以降の全工程の entry gate が参照する。\n\n### Motivation\n長大仕様書を「AI の一回限りの印象的応答」ではなく再現可能な工程へ変えるため、まず入力の完全性(復号可能/正規化可能/構造を完全分割可能/再結合で元の bytes に戻る)を機械保証する必要がある。ここが壊れると以後の全てが無根拠になる。\n\n### Constraints\nplain JS ESM(.mjs)・Node 標準ライブラリ(node:fs/promises, node:path, node:crypto, node:process, node:url)のみ・外部 package/network/LLM API/hook/Python 禁止・source range は正規化後テキストの 1 始まり line/column と 0 始まり UTF-8 byte offset・汎用性制約により特定プロジェクト語(conver/zasso/siprs 等)をコード・変数名・テスト・fixture に埋め込まない。",
+          "notes": "- [Implementation steps] (1) errors/fs-safe/hash/normalization → (2) markdown/headings → (3) segmentation/verifyReconstruction → (4) canonical-json → (5) fixture・unit・property を各段の Red で先行作成。\n- [Risks] fence 状態機械の曖昧性(fence 内 fence)は仕様に無いため対象外とし、単純な 3 連バッククォート/チルダのみ扱う。\n- [Caveats] source range の line/column は 1 始まり、byte offset は 0 始まり。UTF-8 なので日本語も byte 単位で数える。\n- [Open items] level jump の即時 FAIL 化は設定可能にする(本チケットでは警告候補のみ)。\n- [Future improvements] 高速化(巨大仕様書向けストリーミング)は acceptance 後に検討。\nImplementation summary:\n- Implemented Parsing & Integrity foundation for /workspacify-tree as ESM(.mjs) modules under .claude/scripts/workspacify-tree/lib/.\n- TDD: wrote unit+property tests first (RED: module-not-found), then implemented to GREEN, then refactored (single-letter vars removed, buildSegment 3 params).\n- Test results: node --test -> 35/35 PASS (unit 33 + property 2 files).\n- Quality: run-quality-checks -> totalIssues 0.\n- Provenance: annotate-ticket-context-by-git-diff does not support .mjs (SOURCE_EXTENSIONS has no .mjs), so canonical [::TICKET::] headers were added manually to the 8 lib files and test files.\n- No stubs/crimes introduced; no [::AMBIGUOUS::] markers.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Contract coverage: @verifies verified via verify-red-coverage\n- No open crimes, no stubs, no [::AMBIGUOUS::] markers\n- Annotation: [::TICKET::] provenance present on all source files",
+          "invariants": "- [Normal condition] 正規化は BOM 除去→改行 LF 化の順で決定的であり、末尾改行の有無を変えない。\n- [Error invariant] 入力不適格時は WorkSpacifyTreeError を返し、成果物の作成・更新・置換を一切行わない。\n- [Internal state invariant] heading id・segment id は常に行位置由来の一意値であり、再実行で同一になる(決定論)。\n- [Boundary invariant] segment の byte 範囲は 0 始まり offset で隣接し、重複も欠落もない。",
+          "scope": [
+            "NEW: .claude/scripts/workspacify-tree/lib/errors.mjs — 全 lib 共通のエラー基盤。export: class WorkSpacifyTreeError extends Error { constructor(message, { gateId, exitCode }) }, GATE_STATUS(enum: PASS/FAIL/REVIEW_REQUIRED/BLOCKED/COMPLETE), EXIT_CODES(0=OK, 1=FAIL, 2=USAGE)。gateId は指示書§3.1 の G0..G5 識別子。",
+            "NEW: .claude/scripts/workspacify-tree/lib/fs-safe.mjs — 入力ロック(G0)。export: isReadableRegularFile(absPath)->boolean, readSpecInput(absPath)->{absPath, rawBuffer, bytes, encoding:'UTF-8'}。存在しない/ディレクトリ/空/復号不能/読取不能は WorkSpacifyTreeError(gateId:'G0')。",
+            "NEW: .claude/scripts/workspacify-tree/lib/hash.mjs — export: sha256Hex(bytes|Uint8Array)->lowercase hex。crypto.createHash('sha256') のみ。",
+            "NEW: .claude/scripts/workspacify-tree/lib/normalization.mjs — export: normalizeTextBytes(buffer)->{bytes:Uint8Array, hadBom:boolean, hadCrLf:boolean}。BOM 除去→\\r\\n, \\r を \\n へ→末尾改行は内容として保持(付加/削除しない)。",
+            "NEW: .claude/scripts/workspacify-tree/lib/markdown.mjs — 行単位 code fence 状態機械。export: scanFenceStates(lines)->Array<{line, inFence:boolean, fenceChar:'`'|'~'|null}>。``` / ~~~ を fence 開始/終了とし、fence 内の # は見出しとして扱わない。",
+            "NEW: .claude/scripts/workspacify-tree/lib/headings.mjs — export: parseAtxHeading(line)->{level:1..6, text:string}|null(closing # 列を Markdown 規則で除去、空 text は null+警告候補), buildHeadingTree(lines, fenceStates)->Array<headingNode>。headingNode={id:'h-######', level, text, line_start, line_end, byte_start, byte_end, parent_id, children:[]}。id は行位置由来で一意、親不在は root へ、level jump は警告候補リストへ(即時 FAIL にしない)。",
+            "NEW: .claude/scripts/workspacify-tree/lib/segmentation.mjs — export: segmentAtHeadings({sourceText, headings}, {segmentLevel:2})->{segments, warnings}, verifyReconstruction({sourceBytes, sourceHash, segments})->{status:'PASS'|'FAIL', reconstructedHash, exactMatch}。segment={id:'s-####', heading_id, title, level, line_start, line_end, byte_start, byte_end, sha256, subheading_ids}。byte 範囲の非重複/全被覆/byte_start 昇順再連結 bytes==正規化 bytes/再連結 hash==source_hash を検査し、違反は G1.3 FAIL を返す。",
+            "NEW: .claude/scripts/workspacify-tree/lib/canonical-json.mjs — export: canonicalSerialize(value)->string(UTF-8/LF/2space indent/object key 辞書順/配列は stable canonical key 順/末尾 1 LF/前後 whitespace なし)。整数は finite、日時は UTC ISO 8601(YYYY-MM-DDTHH:mm:ss.sssZ)、hash は lowercase hex。自己 hash は integrity.manifest_hash を空文字列として canonical serialize した bytes の SHA-256(指示書§12 integrity 定義)。",
+            "NEW: tests/workspacify-tree/fixtures/small-spec.md — 小規模な正仕様書(題名+複数 ## 章+本文)。G0/G1 正常系の基準。",
+            "NEW: tests/workspacify-tree/fixtures/fence-headings.md — code fence(```)内に '#' を含む仕様書。fence 無視の検証用。",
+            "NEW: tests/workspacify-tree/fixtures/duplicate-headings.md — 同名見出しを複数含む仕様書。id 一意性の検証用。",
+            "NEW: tests/workspacify-tree/fixtures/multi-chapter-spec.md — 複数 ## 章を持つ長めの仕様書(segment 再構成の基準、後続チケットの統合にも再利用)。",
+            "NEW: tests/workspacify-tree/unit/parse-foundation.test.mjs — 上記 lib の unit test。node --test で実行。テストは ESM(.test.mjs)。",
+            "NEW: tests/workspacify-tree/property/segmentation-reconstruction.test.mjs — 系統生成 Markdown(見出し数/本文長/改行種別を変化)で verifyReconstruction が常に PASS する property test。",
+            "NEW: tests/workspacify-tree/property/canonical-json-idempotence.test.mjs — canonicalSerialize の冪等性 + 1 byte 改竄で manifest hash が変わる property test。",
+            "Out of scope: JSON Schema 検証/decisions スキーマ/所有権/DAG/抽出(§8)/manifest 全体レンダリング/atomic publish — それぞれ PX-176/PX-177/PX-178 のスコープ。",
+            "Out of scope: 実ファイルの EACCES 再現・fsync 永続性保証 — testExceptions 参照。",
+            "Affected: 新規ディレクトリ .claude/scripts/workspacify-tree/ と tests/workspacify-tree/ を新設するが既存 rfc-graph/tickets スクリプトには非影響。",
+            "Affected: 後続 PX-176..178 が本 lib の exports を input として使用するため、export 名と source range 形式(1始まり line/0始まり byte)を契約として固定する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] fs-safe — readSpecInput が既存の正仕様書 fixture(small-spec.md)を bytes で返し absPath を保持する",
+            "UT: [Error] fs-safe — path points to a missing file or a directory or an empty file: readSpecInput returns WorkSpacifyTreeError with gateId 'G0' and writes no artifact",
+            "UT: [Error] fs-safe — 非 UTF-8(不正バイト列)入力で復号エラーとなり WorkSpacifyTreeError を返す",
+            "UT: [Boundary] fs-safe — 空ファイル・1byte のみ・BOM のみの入力で入力ガードが FAIL する",
+            "UT: [Invariant] fs-safe — an input validation failure never writes or replaces any manifest file(出力パスに touch しないことを検証)",
+            "UT: [Normal] normalization — input bytes contain a UTF-8 BOM and mixed CRLF line endings: normalizeTextBytes strips the BOM and converts every newline to LF and preserves the trailing newline",
+            "UT: [Boundary] normalization — 末尾改行なし/改行のみ/\\r 単独混在の各入力で正規化 bytes が期待値と一致する",
+            "UT: [Invariant] hash — sha256Hex over normalized bytes equals the recorded source_hash(既知ベクタ 'abc' と空 bytes で検証)",
+            "UT: [Normal] markdown+headings — 通常見出し(#..######)が level/text 正しく解析され closing '#' が除去される",
+            "UT: [Error] headings — 空見出し(# のみ)は null となり警告候補に記録される",
+            "UT: [Boundary] headings — a markdown text contains hash signs inside a code fence and duplicate heading texts: buildHeadingTree ignores fence lines and assigns unique line-derived ids",
+            "UT: [Invariant] headings — heading ids remain unique and parent child relations form a forest(root 複数可、cycle なし)",
+            "UT: [Normal] segmentation — multi-chapter-spec.md を ## で分割し segments が byte 範囲非重複かつ全被覆となる",
+            "UT: [Error] segmentation — 見出し 0 件の入力で G1.3 FAIL を返す",
+            "UT: [Invariant] segmentation — segments have non-overlapping byte ranges that cover the whole input and reconstructing them in byte order equals the normalized bytes",
+            "UT: [Invariant] segmentation — reconstruction hash equals source_hash and exact_match is true(byte_start 昇順再連結で検証)",
+            "UT: [Normal] canonical-json — canonicalSerialize が LF/2space/辞書順 key/末尾 LF で出力する",
+            "UT: [Invariant] canonical-json — parse of the serialized text equals the input and reserializing is idempotent",
+            "UT: [Boundary] canonical-json — ネスト object/空配列/空 object/日本語 key を含む値で canonical 出力が安定する",
+            "UT: [Error] canonical-json — 循環参照や BigInt など JSON 化不能値に対し WorkSpacifyTreeError を返す"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] fs-safe→normalization→hash→headings→segmentation の直列パイプラインを multi-chapter-spec.md に適用する",
+            "IT: [Verification] exit 0 で reconstruction.status=='PASS' かつ reconstructed_hash==source_hash かつ segment_count>=## 章数かつ heading_id の親子参照が segmentation 結果と整合する",
+            "IT: [Prerequisites] PX-175 の実装のみ。実行は node --test \"tests/workspacify-tree/**/*.test.mjs\" (Makefile 不使用)。",
+            "IT: [Related tickets] PX-176(抽出)が segments/headings を input に、PX-177(ゲート)が reconstruction 結果を、PX-178(統合)が canonical-json を利用する"
+          ],
+          "testExceptions": [
+            "実ファイルの permission denied(EACCES) を全プラットフォームで自動再現するのはテスト不能(root 実行時は chmod 000 でも読めるため)。設計欠陥ではない。代替検証: 存在しない path・directory path・空ファイル・非 UTF-8 で入力ガードを自動テストし、EACCES は readSpecInput の catch 分岐として同型の WorkSpacifyTreeError を返す実装とし、エラー型の一意性を unit で担保する。",
+            "fsync 直後のディスク永続性を unit で保証するのはテスト不能(OS/FS 依存)。設計欠陥ではない。代替検証: atomic 書込の順序(temp 書込→fsync→rename→再読込検証)は PX-178 の atomic-publish.mjs で temp ディレクトリを使い自動テストし、fsync 呼び出しは可能な範囲で行う実装として統合 acceptance で確認する。"
+          ],
+          "instrumentation": "### Logging\nlib 群は一切 print しない。構造・統計は戻り値として返し、print は PX-178 の run.mjs/report が担う。\n### Metrics\nstructure 統計(heading_count / segment_count / source_bytes / source_characters / source_lines)を parse 結果オブジェクトに含める。\n### Error tracking\n全エラーを WorkSpacifyTreeError(gateId + exitCode)へ正規化し、gate 識別子で追跡可能にする。\n### Health check\nrun.mjs parse(px-178) が fixture に対して exit 0 かつ reconstruction PASS を返すことを自己診断の最小単位とする。\nStatic quality check: passed (totalIssues 0)\nTranslatability: no issues (no console.log/TODO/single-letter declarations)\nTests: all 35 PASS (full suite 96/96)",
+          "acceptanceCriteria": [
+            "Happy path: node スクリプトから multi-chapter-spec.md を読み込み→正規化→hash→見出し→segment し、reconstruction.status=='PASS' かつ reconstructed_hash==source_hash を返す",
+            "Error case: 存在しないパス/ディレクトリ/空ファイルを渡すと WorkSpacifyTreeError(gateId 'G0')で非 0 exit となり、いかなる成果物も作成・更新しない",
+            "Edge case: fence-headings.md / duplicate-headings.md で fence 内 # が無視され、同名見出しが全て一意 id を持つことを確認する"
+          ],
+          "investigation": "指示書§7.1/§7.2 に heading/segment の必須検査(G1.3: 非重複・全被覆・再連結一致・hash 一致)を確認。既存の管理スクリプト(.claude/scripts/rfc-graph/*.js)は CommonJS だが、指示書§4.1 により本実装は ESM(.mjs) が必須。テスト実行は memory のユーザー指示により Makefile でなく node --test を使用。Tickets.json phase -1 に PX-175 を追加済み(先頭 #1 確認)。対象パス .claude/scripts/workspacify-tree/ と tests/workspacify-tree/ は未存在のため既存コード衝突なし。",
+          "boyScoutPlan": "関数は動詞句(parseAtxHeading / buildHeadingTree / verifyReconstruction)、データは名詞句(segment / headingNode)で命名し、翻訳可能性を確保する。マジックナンバーは定数(SEGMENT_LEVEL=2, MAX_ATX_LEVEL=6)へ抽出。error swallowing 禁止。既存の rfc-graph スクリプトは本スコープ外のため、触る場合のみ対象に含める(本チケットでは新規作成のみ)。",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "G0 Input lock (指示書§1.1/§2-1)",
+              "precondition": "path points to a missing file or a directory or an empty file",
+              "postcondition": "readSpecInput returns WorkSpacifyTreeError and writes no artifact",
+              "invariant": "an input validation failure never writes or replaces any manifest file"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "§4.3 hash と正規化",
+              "precondition": "input bytes contain a UTF-8 BOM and mixed CRLF line endings",
+              "postcondition": "normalizeTextBytes strips the BOM and converts every newline to LF and preserves the trailing newline",
+              "invariant": "sha256Hex over normalized bytes equals the recorded source_hash"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "§7.1 ATX heading 解析",
+              "precondition": "a markdown text contains hash signs inside a code fence and duplicate heading texts",
+              "postcondition": "buildHeadingTree ignores fence lines and assigns unique line-derived ids",
+              "invariant": "heading ids remain unique and parent child relations form a forest"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "§7.2 分割と再構成",
+              "precondition": "any normalized markdown that contains at least one heading",
+              "postcondition": "segments have non-overlapping byte ranges that cover the whole input and reconstructing them in byte order equals the normalized bytes",
+              "invariant": "reconstruction hash equals source_hash and exact_match is true"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "§12.1 canonical JSON 規則 + integrity",
+              "precondition": "an arbitrary JSON serializable manifest object",
+              "postcondition": "the output uses LF two-space indentation sorted keys and a single trailing LF",
+              "invariant": "parse of the serialized text equals the input and reserializing is idempotent"
+            }
+          ],
+          "created_at": "2026-09-09",
+          "updated_at": "2026-09-09",
+          "referenceSection": "docs/WORKSPACIFY-TREE_Complete_Implementation_Instruction.md §3.1(G0/G1) / §4.3 / §5(lib配置) / §7.1 / §7.2 / §12.1 / §14.1(該当) / §14.2(fixture 1,3,4)",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: C001 (G0 Input lock) 共通セットアップ\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { mkdtempSync, writeFileSync, existsSync } from 'node:fs';\nimport { tmpdir } from 'node:os';\nimport { join } from 'node:path';\nimport { readSpecInput } from '../../../.claude/scripts/workspacify-tree/lib/fs-safe.mjs';\nimport { WorkSpacifyTreeError } from '../../../.claude/scripts/workspacify-tree/lib/errors.mjs';\nconst dir = mkdtempSync(join(tmpdir(), 'wst-'));\nconst specDir = join(dir, 'spec');\n```\n",
+            "UT: C001 Precondition→入力コード\n```js\nconst missing = join(dir, 'no-such-spec.md');\nconst dirPath = specDir;              // directory, not a regular file\nconst emptyFile = join(dir, 'empty.md');\nwriteFileSync(emptyFile, '');         // empty file\n```\n",
+            "UT: C001 Postcondition→assertion\n```js\nassert.throws(() => readSpecInput(missing), (e) => e instanceof WorkSpacifyTreeError && e.gateId === 'G0');\nassert.throws(() => readSpecInput(dirPath), (e) => e instanceof WorkSpacifyTreeError && e.gateId === 'G0');\nassert.throws(() => readSpecInput(emptyFile), (e) => e instanceof WorkSpacifyTreeError && e.gateId === 'G0');\n```\n",
+            "UT: C001 Invariant→述語コード(never writes or replaces any manifest file)\n```js\ntry { readSpecInput(missing); } catch { /* expected */ }\nassert.equal(existsSync(join(specDir, 'WORKSPACIFY-TREE-MANIFEST.json')), false, 'an input validation failure never writes or replaces any manifest file');\n```\n",
+            "UT: C002 Precondition→入力コード(BOM + CRLF)\n```js\nimport { normalizeTextBytes } from '../../../.claude/scripts/workspacify-tree/lib/normalization.mjs';\nimport { sha256Hex } from '../../../.claude/scripts/workspacify-tree/lib/hash.mjs';\nconst bom = Buffer.from([0xef, 0xbb, 0xbf]);\nconst input = Buffer.concat([bom, Buffer.from('title\\r\\n## A\\r\\nbody\\r\\n')]);\n```\n",
+            "UT: C002 Postcondition→assertion\n```js\nconst { bytes, hadBom, hadCrLf } = normalizeTextBytes(input);\nassert.equal(hadBom, true);\nassert.equal(hadCrLf, true);\nassert.equal(Buffer.from(bytes).toString('utf8'), 'title\\n## A\\nbody\\n');   // every newline converted to LF\nassert.equal(Buffer.from(bytes).toString('utf8').endsWith('\\n'), true);       // preserves the trailing newline\n```\n",
+            "UT: C002 Invariant→述語コード(sha256Hex over normalized bytes)\n```js\nconst sourceHash = sha256Hex(bytes);\nassert.equal(sourceHash, sha256Hex(Buffer.from('title\\n## A\\nbody\\n')));  // equals the recorded source_hash\nassert.match(sourceHash, /^[0-9a-f]{64}$/);\n```\n",
+            "UT: C003 Precondition→入力コード(fence 内 # と同名見出し)\n```js\nimport { scanFenceStates } from '../../../.claude/scripts/workspacify-tree/lib/markdown.mjs';\nimport { buildHeadingTree } from '../../../.claude/scripts/workspacify-tree/lib/headings.mjs';\nconst text = '# Title\\n```\\n# not a heading\\n```\\n## Status\\n## Status\\n';\nconst lines = text.split('\\n');\nconst fence = scanFenceStates(lines);\n```\n",
+            "UT: C003 Postcondition→assertion\n```js\nconst headings = buildHeadingTree(lines, fence);\nassert.equal(headings.some((h) => h.text === 'not a heading'), false);  // ignores fence lines\nassert.equal(new Set(headings.map((h) => h.id)).size, headings.length); // unique line-derived ids\nassert.ok(headings.every((h) => /^h-\\d{6}$/.test(h.id)));\n```\n",
+            "UT: C003 Invariant→述語コード(parent child relations form a forest)\n```js\nfor (const h of headings) {\n  if (h.parent_id) assert.ok(headings.some((x) => x.id === h.parent_id));\n  assert.ok(!headings.some((x) => x.id === h.id && x !== h));            // ids remain unique\n}\n```\n",
+            "UT: C004 Precondition→入力コード(見出し 1 つ以上の任意 Markdown)\n```js\nimport { segmentAtHeadings, verifyReconstruction } from '../../../.claude/scripts/workspacify-tree/lib/segmentation.mjs';\nconst src = Buffer.from('# T\\n## A\\ncontent a\\n## B\\ncontent b\\n');\nconst srcHash = sha256Hex(src);\nconst { segments } = segmentAtHeadings({ sourceText: src, headings }, { segmentLevel: 2 });\n```\n",
+            "UT: C004 Postcondition→assertion\n```js\nsegments.forEach((s) => assert.ok(s.byte_start >= 0 && s.byte_end > s.byte_start));\nfor (let i = 1; i < segments.length; i++) assert.ok(segments[i].byte_start >= segments[i - 1].byte_end); // non-overlapping\nassert.equal(segments[0].byte_start, 0);\nassert.equal(segments[segments.length - 1].byte_end, src.length);          // cover the whole input\nconst joined = Buffer.concat(segments.map((s) => src.subarray(s.byte_start, s.byte_end)));\nassert.deepEqual(joined, src);                                            // byte order equals normalized bytes\n```\n",
+            "UT: C004 Invariant→述語コード(reconstruction hash equals source_hash)\n```js\nconst r = verifyReconstruction({ sourceBytes: src, sourceHash: srcHash, segments });\nassert.equal(r.status, 'PASS');\nassert.equal(r.exactMatch, true);\nassert.equal(r.reconstructedHash, srcHash);\n```\n",
+            "UT: C005 Precondition→入力コード(canonical 対象 object)\n```js\nimport { canonicalSerialize } from '../../../.claude/scripts/workspacify-tree/lib/canonical-json.mjs';\nconst sample = { z: 1, a: { n: 2, m: [3, 4] }, s: 'text' };\nconst once = canonicalSerialize(sample);\nconst twice = canonicalSerialize(JSON.parse(once));\n```\n",
+            "UT: C005 Postcondition→assertion\n```js\nassert.match(once, /^\\{\\n  \"a\": \\{\\n/);        // two-space indentation\nassert.ok(once.indexOf('\"z\"') > once.indexOf('\"a\"')); // sorted keys (lexicographic)\nassert.ok(once.endsWith('\\n'));                          // single trailing LF\nassert.equal(once.includes('\\r'), false);               // LF only\n```\n",
+            "UT: C005 Invariant→述語コード(idempotent + parse roundtrip)\n```js\nassert.equal(twice, once, 'reserializing is idempotent');\nassert.deepEqual(JSON.parse(once), sample, 'parse of the serialized text equals the input');\nconst tampered = once.replace('text', 'Text');\nassert.notEqual(sha256Hex(Buffer.from(tampered)), sha256Hex(Buffer.from(once)), '1-byte tamper changes the hash');\n```\n"
+          ],
+          "startedAt": "2026-09-09",
+          "changes": [
+            {
+              "before": "(absent)",
+              "after": "NEW lib/errors.mjs",
+              "description": "WorkSpacifyTreeError + GATE_STATUS + EXIT_CODES"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW lib/fs-safe.mjs",
+              "description": "readSpecInput / isReadableRegularFile (G0 input lock)"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW lib/hash.mjs",
+              "description": "sha256Hex over bytes"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW lib/normalization.mjs",
+              "description": "normalizeTextBytes: BOM strip + CRLF/CR->LF, trailing newline preserved"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW lib/markdown.mjs",
+              "description": "scanFenceStates + lineByteOffsets"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW lib/headings.mjs",
+              "description": "parseAtxHeading + buildHeadingTree + collectHeadingWarnings"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW lib/segmentation.mjs",
+              "description": "segmentAtHeadings + verifyReconstruction (G1.3)"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW lib/canonical-json.mjs",
+              "description": "canonicalSerialize: LF/2-space/sorted keys/idempotent"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW tests/workspacify-tree/fixtures/*.md (4 files)",
+              "description": "small-spec / fence-headings / duplicate-headings / multi-chapter-spec"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW tests/workspacify-tree/unit/parse-foundation.test.mjs",
+              "description": "unit tests with @verifies C001..C005"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW tests/workspacify-tree/property/*.test.mjs (2 files)",
+              "description": "segmentation reconstruction + canonical-json idempotence property tests"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-09-09"
+        },
+        {
+          "id": 176,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "workspacify-tree Inventory 抽出 — object/claim/規範候補と source traceability (G2)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/176-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nPX-175 が生成した見出し/segment 構造を input に、object/entity 候補・claim/proof 候補・規範候補(MUST/SHALL/REQUIRED/必須/禁止/してはならない 等)・不変条件/エラー/test 候補を収穫し、全候補へ source_refs(§8.1 形式)を付与する抽出器を実装する。\n\n### Purpose\nAI 設計者(PX-177 の設計工程)が長大仕様を再読まなくても、候補の canonical_name/aliases/classification/出現位置/原文 snippet へ即アクセスできる inventory を提供する。\n\n### Motivation\n候補収穫は決定論的パターン処理だが人手では必ず漏れる。スクリプトで収穫し、AI は「確認・分類・統合」という意味論判断に集中させる。抽出器は候補を削除して情報を失ってはならない(指示書§8.1)。\n\n### Constraints\nplain JS ESM(.mjs)・Node 標準ライブラリのみ・外部 package/network 禁止・自動抽出結果を最終規範要件へ自動断定しない(曖昧候補は REVIEW_REQUIRED 記録)・各候補は {id:obj-######/claim-######, canonical_name, aliases, classification, source_refs:[{section_id,line_start,line_end,byte_start,byte_end,snippet}], normalization_status, owner_package:null} 形式・汎用性制約により特定プロジェクト語を埋め込まない。",
+          "notes": "- [Implementation steps] (1) harvestObjectCandidates → (2) harvestClaimCandidates → (3) harvestNormativeCandidates/harvestRequirementCandidates → (4) traceability → (5) alias-normalization → (6) inventory-report、各段で fixture を Red 先行作成。\n- [Risks] 抽出器が「拾いすぎ」にならないよう、収穫は表形式/識別子パターンに限定し、意味論断定は normalization_status に委ねる。\n- [Caveats] source_refs の byte offset は正規化後テキスト基準(PX-175 契約)。\n- [Open items] 規範語句の辞書は指示書§7.3 の列挙に限定し、将来の追加は定数化して拡張する。\n- [Future improvements] 抽出ルールの設定ファイル化は acceptance 後に検討。\nImplementation summary:\n- Implemented G2 inventory extraction on top of PX-175 libs (buildHeadingTree/segmentAtHeadings).\n- TDD: wrote unit tests first (RED module-not-found), implemented extraction/traceability/alias-normalization/inventory-report to GREEN, refactored (phrase redundancy removal, alias shape defaults, cycle detection order).\n- Test results: node --test -> PX-176 20/20 PASS; full suite 55/55 PASS (incl. PX-175 regression).\n- Quality: run-quality-checks -> totalIssues 0.\n- Provenance: .mjs unsupported by annotate-ticket-context-by-git-diff (SOURCE_EXTENSIONS has no .mjs); canonical [::TICKET::] headers added manually to the 4 new lib files; test files annotated similarly.\n- No stubs/crimes/[::AMBIGUOUS::] introduced.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Contract coverage: @verifies verified via verify-red-coverage\n- No open crimes, no stubs, no [::AMBIGUOUS::] markers\n- Annotation: [::TICKET::] provenance present on all source files",
+          "invariants": "- [Normal condition] 収穫は決定論的であり、同一入力に対して同一の候補集合を返す。\n- [Error invariant] 抽出工程は例外で全体を止めず、問題候補を unresolved/review_required として inventory に残す。\n- [Internal state invariant] candidate id は obj-######/claim-###### の一意値で、source_refs は 1 件以上を常に持つ。\n- [Boundary invariant] canonical_name の重複と alias 循環は 0 件(未解決なら unresolved_candidates に可視化)。",
+          "scope": [
+            "NEW: .claude/scripts/workspacify-tree/lib/extraction.mjs — 候補収穫の本体。export: harvestObjectCandidates({segments, headings, sourceText}), harvestClaimCandidates(...), harvestNormativeCandidates(...), harvestRequirementCandidates(...)(不変条件/エラー/test 候補)。object は table 列(object/object type/object型/entity/record/certificate/credential/message/operation/policy)・inline code の PascalCase/snake_case・canonical schema 見出し周辺・種類一覧/列挙/状態機械/エラーコード参照から収穫。分類は object|certificate|credential|policy|operation|record|unknown。",
+            "NEW: .claude/scripts/workspacify-tree/lib/traceability.mjs — export: attachSourceRefs(candidates, {segments, sourceText}), assertSourceTraceability(candidates)->{ok, missing:[]}。全候補に source_refs>=1 を保証し、section_id は segment.heading_id と突合する。",
+            "NEW: .claude/scripts/workspacify-tree/lib/alias-normalization.mjs — export: normalizeAliases(candidates)->{candidates, decisions, collisions}, detectAliasCycles(aliasMap)->cycles[]。同一 canonical_name の重複排除を alias として追跡し、循環 alias と object/claim 同名衝突を検出する。",
+            "NEW: .claude/scripts/workspacify-tree/lib/inventory-report.mjs — export: buildInventoryReport(inventory)->{objects, claims, terms, normalization_decisions, unresolved_candidates, stats}。AI 向け要約(候補数/未解決/REVIEW_REQUIRED 一覧)を生成し、AI が仕様書を再読まなくて済むようにする。",
+            "NEW: tests/workspacify-tree/fixtures/objects-table.md — table に object 列を持つ仕様書(抽出正常系の基準)。",
+            "NEW: tests/workspacify-tree/fixtures/claims-codeblock.md — code block に claim 識別子と StateProofEnvelope 相当の proof container 値を列挙した仕様書。",
+            "NEW: tests/workspacify-tree/fixtures/normative-words.md — MUST/SHALL/REQUIRED/必須/禁止/してはならない/しなければならない/不変条件/エラーコード/実装必須 を含む仕様書。",
+            "NEW: tests/workspacify-tree/fixtures/duplicated-objects.md — object 候補が table と本文に重複出現し、一部が object/claim 同名の仕様書。",
+            "NEW: tests/workspacify-tree/unit/extraction.test.mjs — 収穫・traceability・alias 正規化の unit test。node --test 実行。",
+            "NEW: tests/workspacify-tree/unit/inventory-report.test.mjs — inventory report 生成の unit test。",
+            "Out of scope: workspace ツリー設計・owner 割当・過剰分割判断・adapter/DB 方針・依存マトリクス — いずれも PX-177(ゲートエンジン)で AI 判断 + 検証の対象。",
+            "Out of scope: 抽出結果の最終断定(REVIEW_REQUIRED の承認) — PX-178 の decision 入力で管理。",
+            "Affected: PX-175 の headings/segments exports を input として使用するため、section_id は heading_id 形式(h-######)に整合させる。",
+            "Affected: 後続 PX-177 が owner 割当の input として本 inventory を使用するため、candidate id 規約(obj-######/claim-######)を固定する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] extraction — a markdown table has an object column and inline code pascal and snake identifiers: harvestObjectCandidates returns candidates with source_refs and empty canonical names are excluded",
+            "UT: [Error] extraction — object 列の無い table・識別子の無い本文では 0 候補を返し例外にしない",
+            "UT: [Boundary] extraction — 同一行に複数識別子・空セル・空 canonical_name 行で誤抽出しない",
+            "UT: [Invariant] extraction — every candidate has at least one source_refs and canonical_name is non empty",
+            "UT: [Normal] claims — a code block enumerates claim identifiers and proof container values: harvestClaimCandidates returns claim candidates with primary owner field set to null initially",
+            "UT: [Boundary] claims — snake_case claim 識別子と verifier/predicate/acceptance condition 名が source_refs 付きで収穫される",
+            "UT: [Invariant] claims — claim and object name collisions are explicitly classified(collision 一覧へ記録され、黙って統合されない)",
+            "UT: [Normal] normative — text contains english and japanese normative keywords must shall required 必須 禁止: harvestNormativeCandidates records keyword section line range context snippet classification",
+            "UT: [Error] normative — 対象語が 0 件でも空配列を返し、抽出を FAIL にしない",
+            "UT: [Invariant] normative — ambiguous candidates are recorded as REVIEW_REQUIRED not silently promoted",
+            "UT: [Normal] alias — normalizeAliases が重複 canonical_name を alias として統合し normalization_decisions に追跡する",
+            "UT: [Error] alias — alias 循環(相互参照)を detectAliasCycles が検出して cycle 経路を返す",
+            "UT: [Invariant] alias — same canonical_name does not appear twice and unknown classification is zero or approved(未承認 unknown は unresolved_candidates に残る)",
+            "UT: [Boundary] traceability — byte_start/byte_end が sourceText の実 offset と一致し snippet が原文と一致する",
+            "UT: [Error] traceability — source_refs を持たない候補を assertSourceTraceability が missing として報告する",
+            "UT: [Normal] inventory-report — 候補数/REVIEW_REQUIRED 数/未解決数を含む AI 向け要約を生成する"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] PX-175 の headings+segments → PX-176 の harvestObject/Claim/Normative → traceability → inventory-report の直列を fixtures/duplicated-objects.md に適用する",
+            "IT: [Verification] 全候補の section_id が headings の id 集合に含まれ、assertSourceTraceability ok=true かつ stats の総数が目視可能な要約として出力される",
+            "IT: [Prerequisites] PX-175(parse)の実装。実行は node --test \"tests/workspacify-tree/**/*.test.mjs\"。",
+            "IT: [Related tickets] PX-177(owner 割当 input)、PX-178(decision 承認・manifest inventory 節)"
+          ],
+          "testExceptions": [
+            "自然言語からの意味論分類(真の object か noise か)を完全自動で正解判定するのはテスト不能(判断は REVIEW_REQUIRED として AI 承認に委ねる設計)。設計欠陥ではない。代替検証: 決定論で判定できる形式条件(canonical_name 非空 / 重複なし / source_refs>=1 / unknown は 0 or 承認済み)を自動テストし、曖昧候補は unresolved_candidates 記録で担保する。",
+            "英語・日本語以外の言語の規範語句(ドイツ語 müssen 等)を汎用的に収穫するのは、対象外仕様のためテスト不能(指示書§7.3 の対象語句は英語・日本語固定)。設計欠陥ではない。代替検証: 指示書列挙語の全パターンを fixture に含め自動テストし、対象外言語は将来拡張として notes に記録する。"
+          ],
+          "instrumentation": "### Logging\nlib 群は print しない。候補・統計は inventory-report の戻り値で表現。\n### Metrics\ninventory stats(harvested/confirmed/review_required/unresolved の件数)を report に含める。\n### Error tracking\n抽出器の内部不整合は WorkSpacifyTreeError(gateId 'G2')へ正規化する。\n### Health check\nrun.mjs extract(PX-178) が fixtures に対し exit 0 かつ assertSourceTraceability ok=true を返すことを自己診断単位とする。\nStatic quality check: passed (totalIssues 0)\nTranslatability: no issues (no console.log/TODO/single-letter declarations)\nTests: all 20 PASS (full suite 96/96)",
+          "acceptanceCriteria": [
+            "Happy path: objects-table.md / claims-codeblock.md / normative-words.md から全候補が収穫され、assertSourceTraceability ok=true かつ REVIEW_REQUIRED 候補が inventory-report に列挙される",
+            "Error case: 対象語 0 件・識別子 0 件の入力でも例外にせず空配列を返し、抽出工程として exit 0 を維持する",
+            "Edge case: duplicated-objects.md で table と本文の重複候補が alias 統合され、object/claim 同名衝突が collision 一覧に明示される"
+          ],
+          "investigation": "指示書§8.1 の object 候補 JSON(aliases/classification/source_refs/normalization_status/owner_package)と §8.2 claim 候補の要件を確認。対象語句は §7.3 に英語・日本語で列挙済み。PX-175 の segment/heading exports を input とするため、section_id は h-###### 形式で突合する。既存 rfc-graph の analyze-source-structure.js は見出し重複除去を行うが、本 inventory 抽出は指示書仕様の独立実装であり再利用しない。テストは node --test で実行。",
+          "boyScoutPlan": "関数は動詞句(harvestObjectCandidates/attachSourceRefs/normalizeAliases)、データは名詞句(candidate/source_ref)で命名し翻訳可能性を確保する。対象語句リストと分類 enum は定数へ抽出しマジック文字列を排除。error swallowing 禁止。既存の rfc-graph コードはスコープ外のため、触る場合のみ対象に含める。",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "§8.1 object/entity 候補",
+              "precondition": "a markdown table has an object column and inline code pascal and snake identifiers",
+              "postcondition": "harvestObjectCandidates returns candidates with source_refs and empty canonical names are excluded",
+              "invariant": "every candidate has at least one source_refs and canonical_name is non empty"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "§8.2 claim/proof 候補",
+              "precondition": "a code block enumerates claim identifiers and proof container values",
+              "postcondition": "harvestClaimCandidates returns claim candidates with primary owner field set to null initially",
+              "invariant": "claim and object name collisions are explicitly classified"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "§7.3 規範候補の抽出",
+              "precondition": "text contains english and japanese normative keywords must shall required 必須 禁止",
+              "postcondition": "harvestNormativeCandidates records keyword section line range context snippet classification",
+              "invariant": "ambiguous candidates are recorded as REVIEW_REQUIRED not silently promoted"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "§8.3 抽出の完了条件(alias/重複)",
+              "precondition": "candidate aliases contain duplicates and a cyclic alias mapping",
+              "postcondition": "normalizeAliases collapses duplicates and detectAliasCycles reports the cycle path",
+              "invariant": "same canonical_name does not appear twice and unknown classification is zero or approved"
+            }
+          ],
+          "created_at": "2026-09-09",
+          "updated_at": "2026-09-09",
+          "referenceSection": "docs/WORKSPACIFY-TREE_Complete_Implementation_Instruction.md §7.3(規範候補) / §8(object・claim 抽出) / §8.3(抽出の完了条件) / §14.1(該当) / §14.2(fixture 2,5,6)",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: C001 共通セットアップ(object 収穫)\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { readFileSync } from 'node:fs';\nimport { fileURLToPath } from 'node:url';\nimport { buildHeadingTree } from '../../../.claude/scripts/workspacify-tree/lib/headings.mjs';\nimport { segmentAtHeadings } from '../../../.claude/scripts/workspacify-tree/lib/segmentation.mjs';\nimport { harvestObjectCandidates } from '../../../.claude/scripts/workspacify-tree/lib/extraction.mjs';\nimport { assertSourceTraceability } from '../../../.claude/scripts/workspacify-tree/lib/traceability.mjs';\nconst sourceText = readFileSync(new URL('../fixtures/objects-table.md', import.meta.url), 'utf8');\nconst headings = buildHeadingTree(sourceText.split('\\n'), undefined, { sourceText });\nconst { segments } = segmentAtHeadings({ sourceText, headings }, { segmentLevel: 2 });\n```\n",
+            "UT: C001 Precondition→入力(a markdown table has an object column and inline code pascal and snake identifiers)\n```js\nconst tableSource = '# T\\n## Object Catalog\\n| object | kind |\\n|--------|------|\\n| AlphaRecord | record |\\n| BetaCredential | credential |\\n\\nuse `GammaRecord` and `delta_value` in prose.\\n';\nconst h2 = buildHeadingTree(tableSource.split('\\n'), undefined, { sourceText: tableSource });\nconst { segments: seg2 } = segmentAtHeadings({ sourceText: tableSource, headings: h2 }, { segmentLevel: 2 });\nconst objects = harvestObjectCandidates({ sourceText: tableSource, headings: h2, segments: seg2 });\n```\n",
+            "UT: C001 Postcondition→assertion\n```js\n// harvestObjectCandidates returns candidates with source_refs and empty canonical names are excluded\nassert.ok(objects.length >= 3);\nassert.ok(objects.some((c) => c.canonical_name === 'AlphaRecord'));\nassert.ok(objects.every((c) => c.source_refs.length >= 1));\nassert.ok(objects.every((c) => c.canonical_name.length > 0));\nassert.ok(objects.every((c) => /^obj-\\d{6}$/.test(c.id)));\n```\n",
+            "UT: C001 Invariant→述語コード\n```js\n// every candidate has at least one source_refs and canonical_name is non empty\nconst report = assertSourceTraceability(objects);\nassert.equal(report.ok, true);\nassert.equal(report.missing.length, 0);\n```\n",
+            "UT: C002 Precondition→入力(a code block enumerates claim identifiers and proof container values)\n```js\nimport { harvestClaimCandidates } from '../../../.claude/scripts/workspacify-tree/lib/extraction.mjs';\nconst claimsSource = '# T\\n## Claims\\n```\\nclaim_order_validity\\nclaim_eligibility\\nStateProofEnvelope\\n```\\n';\nconst h3 = buildHeadingTree(claimsSource.split('\\n'), undefined, { sourceText: claimsSource });\nconst { segments: seg3 } = segmentAtHeadings({ sourceText: claimsSource, headings: h3 }, { segmentLevel: 2 });\nconst claims = harvestClaimCandidates({ sourceText: claimsSource, headings: h3, segments: seg3 });\n```\n",
+            "UT: C002 Postcondition→assertion\n```js\n// harvestClaimCandidates returns claim candidates with primary owner field set to null initially\nassert.ok(claims.some((c) => c.canonical_name === 'claim_order_validity'));\nassert.ok(claims.every((c) => c.primary_owner === null));\nassert.ok(claims.every((c) => c.source_refs.length >= 1));\n```\n",
+            "UT: C002 Invariant→述語コード(claim and object name collisions are explicitly classified)\n```js\nimport { normalizeAliases, detectAliasCycles } from '../../../.claude/scripts/workspacify-tree/lib/alias-normalization.mjs';\nconst { collisions } = normalizeAliases(objects, { collisionWith: claims });\nfor (const col of collisions) assert.ok(col.names && col.names.length >= 2, 'collision lists both sides');\nconst cycles = detectAliasCycles([{ name: 'A', alias: 'B' }, { name: 'B', alias: 'A' }]);\nassert.equal(cycles.length, 1);\n```\n",
+            "UT: C003 Precondition→入力(text contains english and japanese normative keywords must shall required 必須 禁止)\n```js\nimport { harvestNormativeCandidates, harvestRequirementCandidates } from '../../../.claude/scripts/workspacify-tree/lib/extraction.mjs';\nconst normSource = '# T\\n## Rules\\nClients MUST NOT retry. 実装必須。\\n不変条件: total >= 0.\\nエラーコード E001.\\n';\nconst h4 = buildHeadingTree(normSource.split('\\n'), undefined, { sourceText: normSource });\nconst { segments: seg4 } = segmentAtHeadings({ sourceText: normSource, headings: h4 }, { segmentLevel: 2 });\nconst norm = harvestNormativeCandidates({ sourceText: normSource, segments: seg4, headings: h4 });\nconst req = harvestRequirementCandidates({ sourceText: normSource, segments: seg4, headings: h4 });\n```\n",
+            "UT: C003 Postcondition→assertion\n```js\n// harvestNormativeCandidates records keyword section line range context snippet classification\nassert.ok(norm.some((c) => c.keyword === 'must-not'));\nassert.ok(norm.some((c) => c.keyword === 'test-requirement' || c.keyword === 'required'));\nassert.ok(req.some((c) => c.classification === 'invariant'));\nassert.ok(req.some((c) => c.classification === 'error-code'));\nfor (const c of norm) {\n  assert.ok(c.section_id !== undefined && c.line_start >= 1 && c.byte_start >= 0);\n  assert.ok(typeof c.snippet === 'string' && c.snippet.length > 0);\n}\n```\n",
+            "UT: C003 Invariant→述語コード(ambiguous candidates are recorded as REVIEW_REQUIRED not silently promoted)\n```js\nconst ambiguousLine = '# X\\n## Rules\\nMUST NOT 禁止\\n';\nconst h5 = buildHeadingTree(ambiguousLine.split('\\n'), undefined, { sourceText: ambiguousLine });\nconst { segments: seg5 } = segmentAtHeadings({ sourceText: ambiguousLine, headings: h5 }, { segmentLevel: 2 });\nconst amb = harvestNormativeCandidates({ sourceText: ambiguousLine, segments: seg5, headings: h5 });\nassert.ok(amb.length >= 2, 'both phrases are harvested');\nassert.ok(amb.some((c) => c.normalization_status === 'REVIEW_REQUIRED'), 'ambiguity marks REVIEW_REQUIRED');\n```\n",
+            "UT: C004 Precondition→入力(candidate aliases contain duplicates and a cyclic alias mapping)\n```js\nconst dupObjects = [\n  { id: 'obj-000001', canonical_name: 'AlphaRecord', source_refs: [{ line_start: 1 }], classification: 'record' },\n  { id: 'obj-000002', canonical_name: 'alpha_record', source_refs: [{ line_start: 9 }], classification: 'unknown' }\n];\nconst normResult = normalizeAliases(dupObjects);\n```\n",
+            "UT: C004 Postcondition→assertion\n```js\n// normalizeAliases collapses duplicates and detectAliasCycles reports the cycle path\nassert.equal(normResult.candidates.length, 1);\nassert.equal(normResult.candidates[0].aliases.includes('alpha_record'), true);\nconst cycles2 = detectAliasCycles([{ name: 'x', alias: 'y' }, { name: 'y', alias: 'z' }, { name: 'z', alias: 'x' }]);\nassert.equal(cycles2.length, 1);\nassert.ok(cycles2[0].path.length >= 2);\n```\n",
+            "UT: C004 Invariant→述語コード(same canonical_name does not appear twice and unknown classification is zero or approved)\n```js\nconst names = normResult.candidates.map((c) => c.canonical_name);\nassert.equal(new Set(names).size, names.length);\nfor (const c of normResult.candidates) {\n  if (c.classification === 'unknown') {\n    assert.equal(c.normalization_status, 'REVIEW_REQUIRED', 'unknown is REVIEW_REQUIRED until approved');\n  }\n}\n```\n"
+          ],
+          "startedAt": "2026-09-09",
+          "changes": [
+            {
+              "before": "(absent)",
+              "after": "NEW lib/extraction.mjs",
+              "description": "harvestObjectCandidates / harvestClaimCandidates / harvestNormativeCandidates / harvestRequirementCandidates"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW lib/traceability.mjs",
+              "description": "attachSourceRefs / assertSourceTraceability"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW lib/alias-normalization.mjs",
+              "description": "normalizeAliases / detectAliasCycles / normalizedKey"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW lib/inventory-report.mjs",
+              "description": "buildInventoryReport with stats"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW tests fixtures objects-table/claims-codeblock/normative-words/duplicated-objects .md",
+              "description": "inventory extraction fixtures"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW tests/workspacify-tree/unit/extraction.test.mjs",
+              "description": "unit tests with @verifies C001..C004"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW tests/workspacify-tree/unit/inventory-report.test.mjs",
+              "description": "inventory report summary test"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-09-09"
+        },
+        {
+          "id": 177,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "workspacify-tree モデル・ゲートエンジン・schema — workspace/所有権/DAG/整合性 (G3/G4/G5)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/177-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nAI の設計判断を「decision 入力」として受け、workspace モデル/所有権一意性/過剰分割リスク検出/adapter・DB 方針/依存マトリクス/DAG/JSON Schema を決定論ゲートで PASS/FAIL/REVIEW_REQUIRED 判定するエンジン層(lib 10 + schema 2)を実装する。\n\n### Purpose\nAI による設計(workspace ツリー・package カタログ・owner 割当・依存許可/禁止)は意味論判断として残しつつ、owner 重複・循環依存・禁止層・raw SQL・DB 固有型漏れ・REVIEW 未承認放置などの客観違反だけは機械で確実に弾く。\n\n### Motivation\n設計の品質は「AI が正しく設計する」だけでなく「客観違反を gate が確実に検出する」ことで保証される。全自動ゲート PASS と未解決 review 0 が COMPLETE の前提(指示書§2)である。\n\n### Constraints\n検査は純関数(入力 = inventory + decisions → 出力 = gate 結果)・決定論ゲートは「候補発見/制約検査」までで設計を自動生成しない・manifest 検証は標準ライブラリのみで動作する自前バリデータ(外部 AJV 等に依存しない)・JSON Schema は draft 2020-12 の schema ファイルとして配置・汎用性制約により特定プロジェクト語を埋め込まない。",
+          "notes": "- [Implementation steps] (1) workspace-model/LAYERS → (2) ownership → (3) boundary-review → (4) adapters/database-policy → (5) dependencies → (6) dag → (7) manifest-schema/decision-input → (8) validation(runGatePipeline)、各段で負例 fixture を Red 先行作成。\n- [Risks] schema 自前実装は keyword サブセットを明示し、未知 keyword を無視しない設計にする。\n- [Caveats] JSON Schema は draft 2020-12 の $schema を manifest 先頭に記録する(§12.2)。\n- [Open items] REASON_CODES の追加は manifest の reason_code enum と同期して行う。\n- [Future improvements] 追加 keyword 対応は本 schema が必要とした場合のみ実装する(YAGNI)。\nImplementation summary:\n- Implemented the G3/G4/G5 gate engine and schemas for /workspacify-tree as ESM(.mjs) under .claude/scripts/workspacify-tree/lib+schemas.\n- TDD: wrote unit/property tests first (RED module-not-found), implemented 10 libs + 2 schemas to GREEN, then refactored to satisfy quality (removed >5 destructured-param functions).\n- Test results: PX-177 28/28 PASS; full suite 83/83 PASS (incl. PX-175/176 regression).\n- Quality: run-quality-checks -> totalIssues 0.\n- Provenance: .mjs unsupported by annotate-ticket-context-by-git-diff; canonical [::TICKET::] headers added manually to lib files; test files annotated.\n- No stubs/crimes/[::AMBIGUOUS::] introduced.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Contract coverage: @verifies verified via verify-red-coverage\n- No open crimes, no stubs, no [::AMBIGUOUS::] markers\n- Annotation: [::TICKET::] provenance present on all source files",
+          "invariants": "- [Normal condition] ゲート判定は入力(inventory+decisions)に対して決定的で、同一入力は同一の gate 結果を返す。\n- [Error invariant] いかなる FAIL/REVIEW_REQUIRED も PASS へ繰り上げない。\n- [Internal state invariant] runGatePipeline は親ゲートの PASS を子ゲートの前提とし、遷移表に無い順序は実行しない。\n- [Boundary invariant] final_audit の各 count は非負整数で、0 件のみが PASS 条件。",
+          "scope": [
+            "NEW: .claude/scripts/workspacify-tree/lib/workspace-model.mjs — export: LAYERS(const: foundation/protocol|domain/ports/adapters|infrastructure/core|composition/interfaces/conformance), buildWorkspaceTree({packages})->tree, validatePackageCatalog(packages)->errors。package 型は {id:pkg-####, name, path, layer, kind, responsibilities[], owns:{objects[],claims[],invariants[],state_machines[]}, platform_constraints[], external_implementations[], status}。",
+            "NEW: .claude/scripts/workspacify-tree/lib/ownership.mjs — export: checkObjectOwnership(inventory, workspace)->{orphan_object_count, owner_collision_count, invalid_owner_layer_count, details[]}。規則: 各 object family はちょうど 1 つの protocol/domain owner・foundation/adapter/core/interface だけを owner とする object は禁止・generic proof package は domain claim 意味論を一括所有できない。",
+            "NEW: .claude/scripts/workspacify-tree/lib/boundary-review.mjs — export: findOverSplitRisks(packages)->riskCandidates[]。§9.4 の統合候補条件(同期内部状態共有/決定論関数の中間値分離/相互依存でないと妥当性判定不能/同一不変条件の再実装/巨大全状態 snapshot 受渡し)を「リスク候補の発見」まで自動化し、最終統合判断は review に委ねる。",
+            "NEW: .claude/scripts/workspacify-tree/lib/adapters.mjs — export: checkPortAdapterBoundary({ports, leaf_packages, packages})->{violations[], missing_ports[]}。port package が抽象を所有し adapter が実装する、domain/protocol が具体 DB/OS/HTTP/payment/identity/network を直接参照しないことを検査。",
+            "NEW: .claude/scripts/workspacify-tree/lib/database-policy.mjs — export: buildDatabasePolicy({applicable, common_store_port, implementations[], orm_policy, raw_sql_prohibited, migration_policy}), checkDatabasePolicy(model)->{raw_sql_count, db_type_leak_count, migration_atomicity_misuse[]}。RDBMS 永続化必要時は memory/SQLite/PostgreSQL/MySQL 4 実装 + 共通 store port + SeaORM 2.x 方針を manifest へ記録し、raw SQL と domain 原子性代替を禁止。",
+            "NEW: .claude/scripts/workspacify-tree/lib/dependencies.mjs — export: REASON_CODES(enum), checkDependencyMatrix({normal_edges, forbidden_layer_rules, forbidden_edges, dev_dependency_policy})->{undeclared[], forbidden[], missing_reason_code[], missing_alternative[]}。未記載の直接依存は不許可・各 edge は kind/reason_code/reason 必須・dev と normal を区別。",
+            "NEW: .claude/scripts/workspacify-tree/lib/dag.mjs — export: detectCycles(nodes, edges)->cycles[] (Kahn/DFS color marking + cycle path), runDagChecks({nodes, edges})->{node_count, edge_count, unknown_dependency_count, self_loop_count, duplicate_edge_count, forbidden_edge_count, layer_violation_count, cycle_count, topological_order}。向きは consumer→direct dependency に統一。",
+            "NEW: .claude/scripts/workspacify-tree/lib/manifest-schema.mjs — export: loadSchema(name), validateAgainstSchema(value, schema)->{valid, errors[]}。draft 2020-12 の $ref/type/required/properties/items/enum/pattern の必要サブセットを標準ライブラリのみで実装(ブラックボックス依存なし)。",
+            "NEW: .claude/scripts/workspacify-tree/lib/decision-input.mjs — export: loadDecisionInput(absPath)->decisions, assertDecisionSchema(decisions)。AI 判断(workspace/ownership/dependencies/adapter・DB 適用可否/REVIEW_REQUIRED 承認台帳)の入力契約を検証する。",
+            "NEW: .claude/scripts/workspacify-tree/lib/validation.mjs — export: runGatePipeline({input, structure, inventory, decisions})->{gates[], final_audit}。G0..G5 を固定順で実行し、親ゲート未 PASS なら子を PASS にしない遷移規則を強制する。gate record は {id, status, counts, reasons[]}。",
+            "NEW: .claude/scripts/workspacify-tree/schemas/workspacify-tree-manifest.schema.json — 出力 manifest(§12.2/12.3 必須構造)の JSON Schema draft 2020-12。",
+            "NEW: .claude/scripts/workspacify-tree/schemas/workspacify-tree-decisions.schema.json — AI 設計判断入力の JSON Schema(workspace/ownership/dependencies/approvals)。",
+            "NEW: tests/workspacify-tree/fixtures/decisions-ok.json — 全ゲート PASS する正 decision fixture(PX-178 統合でも利用)。",
+            "NEW: tests/workspacify-tree/fixtures/ownerless-model.json — owner なし object/claim を含む負例。",
+            "NEW: tests/workspacify-tree/fixtures/collision-model.json — claim owner collision を含む負例。",
+            "NEW: tests/workspacify-tree/fixtures/cycle-model.json — dependency cycle を含む負例。",
+            "NEW: tests/workspacify-tree/fixtures/forbidden-layer-model.json — 禁止層 edge を含む負例。",
+            "NEW: tests/workspacify-tree/fixtures/db-mix-model.json — DB 固有型を core が参照/raw SQL を含む負例。",
+            "NEW: tests/workspacify-tree/unit/gate-engine.test.mjs — 上記 lib の unit test(node --test)。",
+            "NEW: tests/workspacify-tree/property/dag-property.test.mjs — 任意 DAG が topological order を持ち、cycle 追加で検出される property test。",
+            "NEW: tests/workspacify-tree/unit/schema-validator.test.mjs — 自前 JSON Schema バリデータの unit test。",
+            "Out of scope: 実際の workspace 設計判断・owner 割当の作成・REVIEW_REQUIRED の承認 — これらは実行時 AI(PX-178 の command .md)が decision 入力として生成する。",
+            "Out of scope: canonical JSON serialize / self-hash / atomic publish / render — PX-178。",
+            "Affected: PX-175(PX-176)の structure/inventory を入力に取るため、gate pipeline の input 型は PX-175/176 の exports に整合させる。",
+            "Affected: 出力 gate 結果は PX-178 の run.mjs が manifest.gates/final_audit へ書くため、gate record 形式を固定する。"
+          ],
+          "testUnit": [
+            "UT: [Normal] ownership — 各 object family がちょうど 1 つの owner を持つ decisions-ok.json で orphan_object_count==0 かつ owner_collision_count==0",
+            "UT: [Error] ownership — an object family has zero owners or two owners across packages: ownership check reports orphan_object_count and owner_collision_count",
+            "UT: [Boundary] ownership — foundation/adapter/core/interface のみを owner とする object を invalid_owner_layer_count として報告する",
+            "UT: [Invariant] ownership — orphan_object_count==0 and owner_collision_count==0 and invalid_owner_layer_count==0 required for gate PASS",
+            "UT: [Error] layers — a package in foundation layer depends on an adapter or core or interface or protocol package: layer rule check flags layer_violation_count",
+            "UT: [Invariant] layers — production packages never depend on conformance and protocol never depends on adapters",
+            "UT: [Normal] boundary-review — 同期内部状態共有/中間値分離/不変条件再実装を含む package 対を findOverSplitRisks がリスク候補として列挙する",
+            "UT: [Boundary] boundary-review — 統合しない例(crypto primitive と domain crypto 等)をリスク候補にしない",
+            "UT: [Error] deps — the dependency matrix contains unknown package refs a self loop duplicate edges and a cycle: dag check reports unknown_dependency_count self_loop_count duplicate_edge_count and a cycle path",
+            "UT: [Normal] deps — 全 edge に reason_code(enum)と reason があり、未記載の直接依存が undeclared として検出される",
+            "UT: [Error] deps — 重要禁止 edge に alternative が無い場合、missing_alternative として報告される",
+            "UT: [Invariant] dev-dep — production package が conformance に依存する・testkit 型を production public API に露出する dev 規則違反を検出する",
+            "UT: [Normal] dag — 任意の有向非巡回グラフで detectCycles が空かつ topological_order が全 node を含む",
+            "UT: [Invariant] dag — a valid acyclic graph yields a topological order and adding a cycle is detected",
+            "UT: [Error] dag — self-loop と duplicate edge を個別カウントし、cycle 時は明示 cycle path を返す",
+            "UT: [Error] schema — a decisions file or manifest violates the JSON schema and required fields: validateAgainstSchema returns valid false with errors",
+            "UT: [Normal] schema — decisions-ok.json と manifest 正例が schema 検証を valid true で通過する",
+            "UT: [Invariant] gate — an unreviewed REVIEW_REQUIRED item never transitions to COMPLETE(runGatePipeline が unresolved を final_audit へ残す)",
+            "UT: [Error] gate — 親ゲート G1 未 PASS のまま G2 を PASS にできない(遷移規則)",
+            "UT: [Error] db — database policy is applicable and an adapter uses raw sql or a core package references a db specific type: checkDatabasePolicy flags raw_sql and db_type_leak",
+            "UT: [Invariant] db — domain protocol and core never reference concrete db adapters and migration atomicity never substitutes for domain atomicity"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] decision-input → workspace-model → ownership → boundary-review → adapters → database-policy → dependencies → dag → validation(runGatePipeline)を負例 fixtures に適用する",
+            "IT: [Verification] ownerless/collision/cycle/forbidden-layer/db-mix の各負例で対応 gate が FAIL(または REVIEW_REQUIRED)を返し、decisions-ok.json で全 gate PASS かつ final_audit の各 *_count==0 になる",
+            "IT: [Prerequisites] PX-175(parse)・PX-176(extract)の exports に整合した input 型。実行は node --test \"tests/workspacify-tree/**/*.test.mjs\"。",
+            "IT: [Related tickets] PX-178 が runGatePipeline の結果を manifest.gates/final_audit へ書き、REVIEW_REQUIRED 承認台帳を decision 入力で管理する"
+          ],
+          "testExceptions": [
+            "過剰分割の「最終的な統合/分割判断」自体を自動正解判定するのはテスト不能(指示書§9.4 が明示的に review decision を要求)。設計欠陥ではない。代替検証: リスク候補の発見(統合候補条件の一致)までを決定論で自動テストし、最終判断は REVIEW_REQUIRED として decision の approval 台帳で担保する。",
+            "JSON Schema 仕様全体(draft 2020-12 の全 keyword)への完全準拠を自前実装で保証するのはテスト不能(外部仕様の全件準拠検証は外部スイートが必要)。設計欠陥ではない。代替検証: 本 manifest/decisions schema が使用する keyword サブセット($ref/type/required/properties/items/enum/pattern/minItems)を unit テストし、未知 keyword は無視せず検証エラーとして報告する。"
+          ],
+          "instrumentation": "### Logging\nlib 群は print しない。全判定は gate record と final_audit として返す。\n### Metrics\nfinal_audit: orphan_object_count / orphan_claim_count / owner_collision_count / unknown_dependency_count / forbidden_dependency_count / layer_violation_count / cycle_count / review_required_count / unresolved_count。\n### Error tracking\nschema 違反・DAG 異常は WorkSpacifyTreeError(gateId)へ正規化し、run.mjs が exit code へ変換する。\n### Health check\nrun.mjs gate(PX-178) が decisions-ok.json で全 PASS を返すことを自己診断単位とする。\nStatic quality check: passed (totalIssues 0)\nTranslatability: no issues (no console.log/TODO/single-letter declarations)\nTests: all 28 PASS (full suite 96/96)",
+          "acceptanceCriteria": [
+            "Happy path: decisions-ok.json を runGatePipeline に通すと全 gate PASS かつ final_audit の全 *_count==0 が返る",
+            "Error case: cycle-model.json / forbidden-layer-model.json で DAG・層ゲートが FAIL し cycle path・violation 詳細を reasons[] に返す",
+            "Edge case: ownerless-model.json / collision-model.json / db-mix-model.json で各カウンタが 0 でない値を返し、REVIEW_REQUIRED が unresolved として残る"
+          ],
+          "investigation": "指示書§9.3 の自動検査 4 項目(orphan_object_count/orphan_claim_count/owner_collision_count/invalid_owner_layer_count)、§11.1 の reason_code enum 22 値、§11.2 禁止層(production→conformance 等)、§11.4 DAG 検査器の検出項目を確認。§12.2-12.3 の manifest 必須構造と integrity.manifest_hash(空文字列として canonical serialize した bytes の SHA-256)を確認。manifest/decisions schema は .claude/scripts/workspacify-tree/schemas/ に配置する。テストは node --test。JSON Schema 外部依存(AJV)は導入せず自前サブセット実装とする。",
+          "boyScoutPlan": "関数は動詞句(checkObjectOwnership/runDagChecks/runGatePipeline)、データは名詞句(gateRecord/finalAudit)で命名し翻訳可能性を確保する。REASON_CODES・LAYERS・GATE_STATUS は定数 enum として集約。禁止層規則はデータ駆動の配列にしハードコードを避ける。error swallowing 禁止。既存コードはスコープ外のため触らない。",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "§9.3 owner assignment 自動検査",
+              "precondition": "an object family has zero owners or two owners across packages",
+              "postcondition": "ownership check reports orphan_object_count and owner_collision_count",
+              "invariant": "orphan_object_count==0 and owner_collision_count==0 and invalid_owner_layer_count==0 required for gate PASS"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "§11.2 明示的禁止依存(層規則)",
+              "precondition": "a package in foundation layer depends on an adapter or core or interface or protocol package",
+              "postcondition": "layer rule check flags layer_violation_count",
+              "invariant": "production packages never depend on conformance and protocol never depends on adapters"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "§11.4 DAG",
+              "precondition": "the dependency matrix contains unknown package refs a self loop duplicate edges and a cycle",
+              "postcondition": "dag check reports unknown_dependency_count self_loop_count duplicate_edge_count and a cycle path",
+              "invariant": "a valid acyclic graph yields a topological order and adding a cycle is detected"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "§12/§3 gate 遷移",
+              "precondition": "a decisions file or manifest violates the JSON schema and required fields",
+              "postcondition": "validateAgainstSchema returns valid false with errors and runGatePipeline records the gate FAIL",
+              "invariant": "an unreviewed REVIEW_REQUIRED item never transitions to COMPLETE"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "§10.2 database 方針",
+              "precondition": "database policy is applicable and an adapter uses raw sql or a core package references a db specific type",
+              "postcondition": "checkDatabasePolicy flags raw_sql and db_type_leak and migration_atomicity_misuse",
+              "invariant": "domain protocol and core never reference concrete db adapters and migration atomicity never substitutes for domain atomicity"
+            }
+          ],
+          "created_at": "2026-09-09",
+          "updated_at": "2026-09-09",
+          "referenceSection": "docs/WORKSPACIFY-TREE_Complete_Implementation_Instruction.md §3(状態とゲート) / §9(workspace 生成とレビュー) / §10(adapter/DB 方針) / §11(dependency matrix/DAG) / §12.2-12.3(manifest 構造・必須フィールド) / §14.1(該当) / §14.2(fixture 7-12)",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: C001 共通セットアップ(所有権チェック)\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { runOwnershipChecks } from '../../../.claude/scripts/workspacify-tree/lib/ownership.mjs';\nimport { validatePackageCatalog, LAYERS } from '../../../.claude/scripts/workspacify-tree/lib/workspace-model.mjs';\nconst packages = [\n  { id: 'pkg-0001', name: 'alpha-protocol', path: 'crates/protocol/alpha', layer: 'protocol', kind: 'production-library', owns: { objects: ['obj-0001'], claims: [] } },\n  { id: 'pkg-0002', name: 'beta-core', path: 'crates/core/beta', layer: 'core', kind: 'production-library', owns: { objects: [], claims: [] } }\n];\nassert.equal(validatePackageCatalog(packages).length, 0);\n```\n",
+            "UT: C001 Precondition→入力(an object family has zero owners or two owners across packages)\n```js\nconst orphanObjects = [{ id: 'obj-0001', owner_package: null }];\nconst collisionPackages = [\n  { id: 'pkg-0001', name: 'a', path: 'x/a', layer: 'protocol', kind: 'production-library', owns: { objects: ['obj-0009'], claims: [] } },\n  { id: 'pkg-0002', name: 'b', path: 'x/b', layer: 'protocol', kind: 'production-library', owns: { objects: ['obj-0009'], claims: [] } }\n];\n```\n",
+            "UT: C001 Postcondition→assertion\n```js\nconst orphanReport = runOwnershipChecks({ objects: orphanObjects, claims: [], packages });\nassert.ok(orphanReport.orphan_object_count >= 1);\nassert.equal(orphanReport.owner_collision_count, 0);\nconst collisionReport = runOwnershipChecks({ objects: [], claims: [], packages: collisionPackages });\nassert.ok(collisionReport.owner_collision_count >= 1);\n```\n",
+            "UT: C001 Invariant→述語コード(orphan_object_count==0 and owner_collision_count==0 required for gate PASS)\n```js\nconst clean = runOwnershipChecks({ objects: [{ id: 'obj-0001', owner_package: 'pkg-0001' }], claims: [], packages });\nassert.equal(clean.orphan_object_count, 0);\nassert.equal(clean.owner_collision_count, 0);\nassert.equal(clean.invalid_owner_layer_count, 0);\n```\n",
+            "UT: C002 Precondition→入力(a package in foundation layer depends on an adapter or core)\n```js\nimport { runDagChecks } from '../../../.claude/scripts/workspacify-tree/lib/dag.mjs';\nconst pkgs = [\n  { id: 'pkg-foundation', name: 'f', path: 'f', layer: 'foundation', kind: 'production-library' },\n  { id: 'pkg-adapter', name: 'a', path: 'a', layer: 'adapters', kind: 'adapter' },\n  { id: 'pkg-protocol', name: 'p', path: 'p', layer: 'protocol', kind: 'production-library' }\n];\nconst badEdges = [\n  { from: 'pkg-foundation', to: 'pkg-adapter', kind: 'normal' },\n  { from: 'pkg-foundation', to: 'pkg-protocol', kind: 'normal' }\n];\n```\n",
+            "UT: C002 Postcondition→assertion\n```js\nconst report = runDagChecks({ packages: pkgs, edges: badEdges, forbiddenEdges: [] });\nassert.ok(report.layer_violation_count >= 2, 'foundation -> adapter/core/protocol are layer violations');\n```\n",
+            "UT: C002 Invariant→述語コード(production packages never depend on conformance)\n```js\nconst conformancePkgs = [\n  { id: 'pkg-prod', name: 'prod', path: 'p', layer: 'protocol', kind: 'production-library' },\n  { id: 'pkg-conf', name: 'conf', path: 'c', layer: 'conformance', kind: 'conformance' }\n];\nconst confReport = runDagChecks({ packages: conformancePkgs, edges: [{ from: 'pkg-prod', to: 'pkg-conf', kind: 'normal' }], forbiddenEdges: [] });\nassert.ok(confReport.forbidden_edge_count >= 1);\n```\n",
+            "UT: C003 Precondition→入力(the dependency matrix contains unknown refs a self loop duplicate edges and a cycle)\n```js\nconst cyclicPkgs = [\n  { id: 'a', name: 'a', path: 'a', layer: 'protocol', kind: 'production-library' },\n  { id: 'b', name: 'b', path: 'b', layer: 'protocol', kind: 'production-library' }\n];\nconst cyclicEdges = [\n  { from: 'a', to: 'b', kind: 'normal' },\n  { from: 'b', to: 'a', kind: 'normal' },\n  { from: 'a', to: 'a', kind: 'normal' },\n  { from: 'a', to: 'missing', kind: 'normal' },\n  { from: 'a', to: 'b', kind: 'normal' }\n];\nconst cyclicReport = runDagChecks({ packages: cyclicPkgs, edges: cyclicEdges, forbiddenEdges: [] });\n```\n",
+            "UT: C003 Postcondition→assertion\n```js\nassert.ok(cyclicReport.cycle_count >= 1, 'cycle detected');\nassert.ok(cyclicReport.self_loop_count >= 1);\nassert.ok(cyclicReport.unknown_dependency_count >= 1);\nassert.ok(cyclicReport.duplicate_edge_count >= 1);\n```\n",
+            "UT: C003 Invariant→述語コード(a valid acyclic graph yields a topological order)\n```js\nimport { detectCycles } from '../../../.claude/scripts/workspacify-tree/lib/dag.mjs';\nconst acyclic = { packages: cyclicPkgs, edges: [{ from: 'a', to: 'b', kind: 'normal' }], forbiddenEdges: [] };\nconst acyclicReport = runDagChecks(acyclic);\nassert.equal(detectCycles(['a', 'b'], [{ from: 'a', to: 'b' }]).length, 0);\nassert.equal(acyclicReport.cycle_count, 0);\nassert.ok(acyclicReport.topological_order.length >= 2);\n```\n",
+            "UT: C004 Precondition→入力(a decisions file or manifest violates the JSON schema and required fields)\n```js\nimport { validateAgainstSchema } from '../../../.claude/scripts/workspacify-tree/lib/manifest-schema.mjs';\nconst schema = { type: 'object', required: ['artifact_kind', 'status'], properties: { artifact_kind: { type: 'string' }, status: { type: 'string', enum: ['COMPLETE', 'FAIL'] } } };\nconst invalid = { artifact_kind: 'workspacify-tree-manifest' };\n```\n",
+            "UT: C004 Postcondition→assertion\n```js\nconst schemaResult = validateAgainstSchema(invalid, schema);\nassert.equal(schemaResult.valid, false);\nassert.ok(schemaResult.errors.length >= 1, 'required field violation reported');\n```\n",
+            "UT: C004 Invariant→述語コード(an unreviewed REVIEW_REQUIRED item never transitions to COMPLETE)\n```js\nimport { runGatePipeline } from '../../../.claude/scripts/workspacify-tree/lib/validation.mjs';\nconst pipeline = runGatePipeline({\n  structure: { reconstruction: { status: 'PASS' } },\n  inventory: { unresolved_candidates: [{ kind: 'x' }] },\n  workspace: {},\n  decisions: { approvals: [] }\n});\nassert.notEqual(pipeline.status, 'COMPLETE');\nassert.ok(pipeline.finalAudit.unresolved_count >= 1);\n```\n",
+            "UT: C005 Precondition→入力(database policy is applicable and an adapter uses raw sql or core references a db specific type)\n```js\nimport { checkDatabasePolicy } from '../../../.claude/scripts/workspacify-tree/lib/database-policy.mjs';\nconst dbModel = {\n  databasePolicy: { applicable: true, rawSqlProhibited: true, commonStorePort: 'store-port' },\n  packages: [\n    { id: 'pkg-adapter', name: 'a', layer: 'adapters', kind: 'adapter', rawSqlFragments: ['SELECT * FROM t'], dbSpecificTypes: [] },\n    { id: 'pkg-core', name: 'c', layer: 'core', kind: 'production-library', rawSqlFragments: [], dbSpecificTypes: ['PgValue'] }\n  ]\n};\nconst dbReport = checkDatabasePolicy(dbModel);\n```\n",
+            "UT: C005 Postcondition→assertion\n```js\nassert.ok(dbReport.raw_sql_count >= 1, 'raw sql flagged');\nassert.ok(dbReport.db_type_leak_count >= 1, 'db specific type leak into core flagged');\n```\n",
+            "UT: C005 Invariant→述語コード(domain protocol and core never reference concrete db adapters)\n```js\nconst cleanDb = { databasePolicy: { applicable: true, rawSqlProhibited: true, commonStorePort: 'store-port' }, packages: [] };\nconst cleanDbReport = checkDatabasePolicy(cleanDb);\nassert.equal(cleanDbReport.raw_sql_count, 0);\nassert.equal(cleanDbReport.db_type_leak_count, 0);\n```\n"
+          ],
+          "startedAt": "2026-09-09",
+          "changes": [
+            {
+              "before": "(absent)",
+              "after": "NEW 10 lib modules",
+              "description": "workspace-model / ownership / dag / dependencies / boundary-review / adapters / database-policy / manifest-schema / decision-input / validation"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW 2 JSON Schemas",
+              "description": "workspacify-tree-manifest.schema.json + workspacify-tree-decisions.schema.json (draft 2020-12 subset)"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW 6 negative/ok fixtures",
+              "description": "ownerless-model / collision-model / cycle-model / forbidden-layer-model / db-mix-model / decisions-ok"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW unit + property tests",
+              "description": "gate-engine.test.mjs (@verifies C001..C005) / schema-validator.test.mjs / dag-property.test.mjs"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-09-09"
+        },
+        {
+          "id": 178,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "workspacify-tree Orchestration・atomic publish・コマンド — run.mjs/render/command .md/acceptance",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/178-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nPX-175/176/177 の lib を統合する run.mjs(サブコマンド parse/extract/gate/finalize)、canonical JSON レンダラ、atomic publish、報告、既存 manifest 衝突時の BLOCKED、および .claude/commands/workspacify-tree.md を実装し /workspacify-tree を完成させる。\n\n### Purpose\nAI 実行セッションが「解析 → 設計 decision 作成 → ゲート → publish」を再現可能に駆動でき、成功時は単一の正本成果物 WORKSPACIFY-TREE-MANIFEST.json だけが仕様書ディレクトリへ公開される状態を確立する。\n\n### Motivation\n「AI の一回限りの印象的応答」ではなく、入力 hash・構造・完全性ゲート・所有権・DAG・manifest 再検証に支えられた再現可能工程として /workspacify-tree を完成させるため。REVIEW_REQUIRED の残置・既存 manifest の破壊・複数成果物の出力は COMPLETE を許さない(指示書§2/§13.2)。\n\n### Constraints\n成功時の公開成果物は 1 ファイルのみ・仕様書ディレクトリへ中間ファイル不可(scratch は os.tmpdir)・hook 不使用・外部 package/network 不使用・run.mjs に巨大ロジックを集めない(解析/抽出/所有権/依存/DAG/schema/atomic publish は別 lib)・canned decision fixture により統合/acceptance を決定論テスト化・acceptance(§14.4)全条件 PASS でなければ COMPLETE にしない・汎用性制約により特定プロジェクト語を埋め込まない。",
+          "notes": "- [Implementation steps] (1) render(canonical+self-hash) → (2) atomic-publish → (3) report → (4) run.mjs サブコマンド → (5) command .md → (6) integration/acceptance fixture とテスト。\n- [Risks] 既存 manifest を誤って置換する事故は最も重い失敗のため、atomicPublish の hash 不一致 BLOCKED を最優先でテストする。\n- [Caveats] scratch(decision 等)は os.tmpdir() 配下の一意ディレクトリを使い、仕様書ディレクトリへ中間ファイルを残さない。\n- [Open items] 更新モード(別コマンド)は本実装では作らない(§13.2 安全側)。\n- [Future improvements] 第二段階 /workspacify-allocate は本 manifest の stage2_handoff を唯一の引数として実装する。\nImplementation summary:\n- Completed /workspacify-tree orchestration: render(self-hash), atomic publish, report, run.mjs subcommands, command .md, integration/acceptance tests and aggregate runner.\n- TDD: wrote unit/integration/acceptance tests, implemented render/atomic-publish/report/run.mjs to GREEN.\n- Test results: PX-178 13/13 PASS; full aggregated suite 96/96 PASS (unit+property+integration+acceptance; incl. PX-175/176/177 regression).\n- Quality: run-quality-checks -> totalIssues 0.\n- Provenance: .mjs unsupported by annotate-ticket-context-by-git-diff; canonical [::TICKET::] headers added manually to libs/run.mjs/tests.\n- No stubs/crimes/[::AMBIGUOUS::] introduced. Command now appears as the workspacify-tree skill.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Contract coverage: @verifies verified via verify-red-coverage\n- No open crimes, no stubs, no [::AMBIGUOUS::] markers\n- Annotation: [::TICKET::] provenance present on all source files",
+          "invariants": "- [Normal condition] 成功時は仕様書ディレクトリ内の公開成果物が WORKSPACIFY-TREE-MANIFEST.json の 1 ファイルのみ。\n- [Error invariant] FAIL/REVIEW_REQUIRED/BLOCKED 時は既存成果物を破壊せず、非 0 exit で停止する。\n- [Internal state invariant] manifest の status が COMPLETE になるのは全自動ゲート PASS かつ未解決 review 0 の時のみ。\n- [Boundary invariant] integrity.manifest_hash は空文字列 canonical serialize の SHA-256 で定義され、再読込で常に一致する。",
+          "scope": [
+            "NEW: .claude/scripts/workspacify-tree/lib/render.mjs — export: assembleManifest({run, input, structure, inventory, requirements, workspace, adapters, dependencies, conformance, stage2_handoff, gates, final_audit, integrity})->manifest, canonicalSerialize で integrity.manifest_hash(空文字列として canonical serialize した bytes の SHA-256)を計算して最終 canonical JSON を生成。",
+            "NEW: .claude/scripts/workspacify-tree/lib/atomic-publish.mjs — export: atomicPublish({dir, finalName, content, previousHash})->{published, path, reloadOk}。temp 書込→fsync(可能範囲)→再読込→JSON parse/schema/必須値/self-hash 検証→rename。既存 manifest があり source hash が異なる場合は BLOCKED で置換しない。失敗時は temp 削除し既存成果物を保全。",
+            "NEW: .claude/scripts/workspacify-tree/lib/report.mjs — export: formatSuccess({manifestAbsPath, sourceHash, manifestHash, gateSummary}), formatFailure({gateId, reason, fixHint})。成功時は絶対パス/source hash/manifest hash/gate summary のみ表示。",
+            "NEW: .claude/scripts/workspacify-tree/run.mjs — エントリポイント。サブコマンド: parse(<spec>) / extract(<spec>) / gate(--spec --inventory --decisions) / finalize(--spec --scratch --decisions) / preflight。引数はちょうど 1 つの spec path を基本とし、usage を表示して非 0 終了。exit code は node の exit code をそのまま返す。shell interpolation/eval/文字列連結コマンド実行は禁止。",
+            "NEW: .claude/commands/workspacify-tree.md — スラッシュコマンド定義。引数 1 つの検証/パスを node へ安全に渡す/成功時表示項目/失敗時表示項目。Step 0: 引数検証 → Step 1: run.mjs parse → Step 2: run.mjs extract → Step 3: AI が decision(workspace/ownership/dependencies/adapter・DB 適用可否/REVIEW 承認台帳)を scratch に作成 → Step 4: run.mjs gate をループ → Step 5: run.mjs finalize → Step 6: 報告。hook を登録しない。",
+            "NEW: tests/workspacify-tree/fixtures/long-spec.md — 長大複数章仕様書(acceptance の実入力、PX-175 fixture から昇格)。",
+            "NEW: tests/workspacify-tree/fixtures/decisions-long-ok.json — long-spec.md に対応する全ゲート PASS の canned decision(AI 代替の決定論入力)。",
+            "NEW: tests/workspacify-tree/fixtures/decisions-review-open.json — 未解決 REVIEW_REQUIRED を含む decision(COMPLETE 拒否の検証用)。",
+            "NEW: tests/workspacify-tree/integration/full-pipeline.test.mjs — parse→extract→(canned decision)→gate→finalize を temp 作業ディレクトリで実行し manifest を再読込検証する integration test。",
+            "NEW: tests/workspacify-tree/integration/existing-manifest.test.mjs — 出力先に旧 manifest(hash 異)がある場合に BLOCKED で置換しない + temp write 失敗時の保全を検証。",
+            "NEW: tests/workspacify-tree/acceptance/acceptance.test.mjs — 指示書§14.4 の全条件を long-spec.md 実走行で機械判定。",
+            "NEW: tests/workspacify-tree/run-tests.mjs — unit/integration/property/acceptance を node --test で集約実行するランナー。",
+            "Out of scope: 第二段階(/workspacify-allocate 等)の実装 — manifest.stage2_handoff を出力するまで。",
+            "Out of scope: REVIEW_REQUIRED の意味論判断そのもの — AI 実行セッションが decision で行う。",
+            "Affected: 既存 manifest が存在する仕様書ディレクトリに対しては BLOCKED 終了し、既存ファイルを保全する(§13.2)。",
+            "Affected: PX-175/176/177 の exports を統合するため、各 ticket が確定した module 境界が run.mjs の import 契約となる。"
+          ],
+          "testUnit": [
+            "UT: [Normal] render — a fully validated manifest object without integrity section を assembleManifest に渡すと canonical JSON が返る",
+            "UT: [Invariant] render — manifest_hash is computed over the serialized bytes with an empty manifest_hash(integrity.manifest_hash を空文字列として canonical serialize した bytes の SHA-256 と一致する)",
+            "UT: [Error] render — 必須トップレベル構造($schema/artifact_kind/schema_version/status)欠落で WorkSpacifyTreeError を返す",
+            "UT: [Normal] atomic-publish — temp ディレクトリで publish が成功し rename 後に再読込 reload_validation PASS を返す",
+            "UT: [Error] atomic-publish — an existing manifest file exists with a different source hash: atomicPublish refuses to overwrite returning BLOCKED",
+            "UT: [Error] atomic-publish — temp write fails: 失敗時に temp ファイルを削除し既存成功 manifest を保全する",
+            "UT: [Invariant] atomic-publish — a failed publish never destroys or replaces an existing successful manifest",
+            "UT: [Normal] run — run.mjs exposes subcommands parse extract gate finalize and returns the node exit code",
+            "UT: [Error] run — run.mjs receives one spec path argument に反し、引数 0/2 以上は usage を表示し非 0 終了する",
+            "UT: [Error] completion — review_required_count or unresolved_count is greater than zero at finalize: exit non zero and status を COMPLETE にしない",
+            "UT: [Invariant] completion — status COMPLETE only when all automatic gates pass and unresolved reviews are zero",
+            "UT: [Normal] acceptance — a long specification fixture is given as the spec path: 全 §14.4 条件を機械判定して PASS を返す",
+            "UT: [Invariant] acceptance — hash(spec)==manifest.input.source_hash at acceptance(reload 後の source_hash 照合)",
+            "UT: [Error] acceptance — 出力 manifest の 1 節を改竄すると reload validation が FAIL する(改竄検出)",
+            "UT: [Boundary] report — 成功表示は manifest 絶対パス/source hash/manifest hash/gate summary のみで、失敗表示は gateId/reason/fixHint を含む"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] run.mjs parse/extract/gate/finalize と PX-175/176/177 の全 lib を、canned decision fixture(decisions-long-ok.json)で統合する",
+            "IT: [Verification] full-pipeline.test.mjs で WORKSPACIFY-TREE-MANIFEST.json が仕様書ディレクトリに 1 つだけ生成され、manifest.status==COMPLETE・final_audit.status==PASS・reload PASS・self-hash 一致を検証する",
+            "IT: [Prerequisites] PX-175/176/177 の実装。実行は node --test \"tests/workspacify-tree/**/*.test.mjs\" または tests/workspacify-tree/run-tests.mjs。",
+            "IT: [Related tickets] PX-175(parse)/PX-176(extract)/PX-177(gate)の出力を消費し、manifest を公開する"
+          ],
+          "testExceptions": [
+            ".claude/commands/workspacify-tree.md の「AI による設計判断の質」を自動テストするのはテスト不能(意味論判断は実行セッションの AI が行う)。設計欠陥ではない。代替検証: decision 入力の形式は PX-177 の decisions schema で、統合/acceptance は canned decision fixture により形式検証・ゲート遷移・publish を決定論テストし、command .md の記述は acceptance 実行手順として review で確認する。",
+            "fsync が全ストレージで確実に永続化することを unit で検証するのはテスト不能(OS/FS 依存)。設計欠陥ではない。代替検証: atomicPublish の temp 書込→rename 順序と失敗時保全を temp ディレクトリで自動テストし、fsync は可能な範囲で呼ぶ実装として統合 acceptance で確認する。"
+          ],
+          "instrumentation": "### Logging\nrun.mjs/report のみ stdout へ。成功時は manifest 絶対パス/source hash/manifest hash/gate summary、失敗時は gateId/reason/fixHint。lib 群は print しない。\n### Metrics\ngate summary(全 gate の status と final_audit count)を成功表示に含める。\n### Error tracking\nWorkSpacifyTreeError の gateId を exit code と表示に変換する。\n### Health check\nacceptance.test.mjs が long-spec.md 実走行で全 §14.4 条件を PASS することを最終自己診断とする。\nStatic quality check: passed (totalIssues 0)\nTranslatability: no issues (no console.log/TODO/single-letter declarations)\nTests: all 13 PASS (full suite 96/96)",
+          "acceptanceCriteria": [
+            "Happy path: node run.mjs finalize を canned decision(long-spec)で実行し、仕様書ディレクトリに WORKSPACIFY-TREE-MANIFEST.json が 1 つ生成され、再読込・schema・self-hash・§14.4 全条件が PASS する",
+            "Error case: decisions-review-open.json で finalize が非 0 exit となり status COMPLETE にせず、既存 manifest があれば破壊しない",
+            "Edge case: 出力先に hash 異なる旧 manifest がある状態で実行すると BLOCKED 終了し、旧 manifest の内容が不変であることを検証する"
+          ],
+          "investigation": "指示書§2(成功条件 19 項)・§3.1(ゲート階層 G0..G5)・§6(command 要件)・§12.3(manifest 必須構造)・§13(atomic publish 11 手順/既存 manifest BLOCKED)・§14.4(acceptance 9 条件)を確認。command は .claude/commands/workspacify-tree.md に配置し、既存 graphify-rfc.md/boundify-graph.md と同じ場所に置く。scratch の design decision 入力は PX-177 の decision-input schema に従う。テストは Makefile でなく node --test。",
+          "boyScoutPlan": "関数は動詞句(assembleManifest/atomicPublish/formatSuccess)、run.mjs は薄いディスパッチャに保ち解析・設計判断を埋め込まない(指示書§6)。成功/失敗表示の文言は定数化。error swallowing 禁止。既存 rfc-graph の update-step-status.js 等はスコープ外のため触らない。",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "§12.3 integrity + self-hash",
+              "precondition": "a fully validated manifest object without integrity section",
+              "postcondition": "renderManifest returns canonical JSON and records integrity.manifest_hash",
+              "invariant": "manifest_hash is computed over the serialized bytes with an empty manifest_hash"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "§13.1/13.2 atomic publish",
+              "precondition": "an existing manifest file exists with a different source hash or a temp write fails",
+              "postcondition": "atomicPublish refuses to overwrite returning BLOCKED or cleans the temp file on failure",
+              "invariant": "a failed publish never destroys or replaces an existing successful manifest"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "§6 スラッシュコマンド / §1.2 出力",
+              "precondition": "run.mjs receives one spec path argument",
+              "postcondition": "run.mjs exposes subcommands parse extract gate finalize and returns the node exit code",
+              "invariant": "successful finalize publishes exactly one WORKSPACIFY-TREE-MANIFEST.json into the spec directory"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "§2 成功の定義 / §3 COMPLETE",
+              "precondition": "review_required_count or unresolved_count is greater than zero at finalize",
+              "postcondition": "run.mjs exits non zero and does not set status to COMPLETE",
+              "invariant": "status COMPLETE only when all automatic gates pass and unresolved reviews are zero"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "§14.4 acceptance",
+              "precondition": "a long specification fixture is given as the spec path",
+              "postcondition": "the acceptance check asserts exit 0 and manifest exists and status COMPLETE and final_audit PASS and all counts zero",
+              "invariant": "hash(spec)==manifest.input.source_hash at acceptance"
+            }
+          ],
+          "created_at": "2026-09-09",
+          "updated_at": "2026-09-09",
+          "referenceSection": "docs/WORKSPACIFY-TREE_Complete_Implementation_Instruction.md §2(成功の定義) / §3(状態とゲート実行) / §6(スラッシュコマンド) / §12.3(gates/final_audit/integrity/stage2_handoff) / §13(atomic publish・既存 manifest) / §14.2(fixture 7-15) / §14.4(acceptance) / §16(完了報告)",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: C001 render セットアップ(self-hash)\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { canonicalSerialize } from '../../../.claude/scripts/workspacify-tree/lib/canonical-json.mjs';\nimport { sha256Hex } from '../../../.claude/scripts/workspacify-tree/lib/hash.mjs';\nimport { assembleManifest } from '../../../.claude/scripts/workspacify-tree/lib/render.mjs';\n```\n",
+            "UT: C001 Precondition→入力(a fully validated manifest object without integrity section)\n```js\nconst base = { artifact_kind: 'workspacify-tree-manifest', schema_version: '1.0.0', status: 'COMPLETE', run: {}, input: {} };\nconst manifest = assembleManifest(base);\n```\n",
+            "UT: C001 Postcondition→assertion\n```js\n// manifest_hash is computed over the serialized bytes with an empty manifest_hash\nassert.match(manifest.integrity.manifest_hash, /^[0-9a-f]{64}$/);\nconst withEmptyHash = { ...manifest, integrity: { ...manifest.integrity, manifest_hash: '' } };\nassert.equal(manifest.integrity.manifest_hash, sha256Hex(Buffer.from(canonicalSerialize(withEmptyHash), 'utf8')));\n```\n",
+            "UT: C001 Invariant→述語コード\n```js\nassert.equal(canonicalSerialize(JSON.parse(canonicalSerialize(manifest))), canonicalSerialize(manifest));\n```\n",
+            "UT: C002 Precondition→入力(atomic publish: 旧 manifest が hash 異なる / temp write 失敗)\n```js\nimport { mkdtempSync, writeFileSync, existsSync, readFileSync } from 'node:fs';\nimport { tmpdir } from 'node:os';\nimport { join } from 'node:path';\nimport { atomicPublish } from '../../../.claude/scripts/workspacify-tree/lib/atomic-publish.mjs';\nconst dir = mkdtempSync(join(tmpdir(), 'wst-pub-'));\nconst manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');\nwriteFileSync(manifestPath, '{\"old\":true}');\nconst previousHash = 'a'.repeat(64);\n```\n",
+            "UT: C002 Postcondition→assertion\n```js\n// atomicPublish refuses to overwrite returning BLOCKED or cleans the temp file on failure\nconst blocked = atomicPublish({ dir, fileName: 'WORKSPACIFY-TREE-MANIFEST.json', content: '{\"new\":true}', previousHash, expectedSourceHash: 'b'.repeat(64) });\nassert.ok(blocked.status === 'BLOCKED' || blocked.published === false);\nassert.equal(readFileSync(manifestPath, 'utf8'), '{\"old\":true}');\n```\n",
+            "UT: C002 Invariant→述語コード(a failed publish never destroys or replaces an existing successful manifest)\n```js\nassert.equal(existsSync(manifestPath), true);\nassert.equal(readFileSync(manifestPath, 'utf8'), '{\"old\":true}');\n```\n",
+            "UT: C003 Precondition→入力(run.mjs receives one spec path argument)\n```js\nimport { spawnSync } from 'node:child_process';\nconst run = (args) => spawnSync(process.execPath, ['.claude/scripts/workspacify-tree/run.mjs', ...args], { encoding: 'utf8' });\nconst usage = run([]);\nconst parseOk = run(['parse', 'tests/workspacify-tree/fixtures/small-spec.md']);\n```\n",
+            "UT: C003 Postcondition→assertion\n```js\nassert.notEqual(usage.status, 0, 'no args shows usage and exits non-zero');\nassert.equal(parseOk.status, 0, 'parse subcommand returns the node exit code');\n```\n",
+            "UT: C003 Invariant→述語コード(successful finalize publishes exactly one WORKSPACIFY-TREE-MANIFEST.json into the spec directory)\n```js\nconst manifestFiles = existsSync(join(specDir, 'WORKSPACIFY-TREE-MANIFEST.json')) ? [join(specDir, 'WORKSPACIFY-TREE-MANIFEST.json')] : [];\nassert.equal(manifestFiles.length, 1);\n```\n",
+            "UT: C004 Precondition→入力(review_required_count or unresolved_count is greater than zero at finalize)\n```js\nimport { runFinalize } from '../../../.claude/scripts/workspacify-tree/lib/render.mjs';\nconst reviewOpen = await runFinalize({\n  structure: { reconstruction: { status: 'PASS' } },\n  inventory: { unresolved_candidates: [{ kind: 'x' }] },\n  workspace: {},\n  decisions: { approvals: [] },\n  outputDir: dir\n});\n```\n",
+            "UT: C004 Postcondition→assertion\n```js\nassert.notEqual(reviewOpen.status, 'COMPLETE');\nassert.notEqual(reviewOpen.exitCode, 0);\n```\n",
+            "UT: C004 Invariant→述語コード(status COMPLETE only when all automatic gates pass and unresolved reviews are zero)\n```js\nconst complete = await runFinalize({ structure: { reconstruction: { status: 'PASS' } }, inventory: {}, workspace: {}, decisions: { approvals: [] }, outputDir: dir });\nassert.equal(complete.status, 'COMPLETE');\n```\n",
+            "UT: C005 Precondition→入力(a long specification fixture is given as the spec path)\n```js\nimport { readFileSync } from 'node:fs';\nimport { sha256Hex } from '../../../.claude/scripts/workspacify-tree/lib/hash.mjs';\nconst longSpecPath = 'tests/workspacify-tree/fixtures/long-spec.md';\nconst specBytes = readFileSync(longSpecPath);\n```\n",
+            "UT: C005 Postcondition→assertion(acceptance: exit 0 / manifest exists / status COMPLETE / final_audit PASS / counts zero / reload PASS)\n```js\nassert.equal(parseOk.status, 0);\nconst finalize = run(['finalize', '--spec', longSpecPath, '--decisions', 'tests/workspacify-tree/fixtures/decisions-long-ok.json']);\nassert.equal(finalize.status, 0);\nconst published = JSON.parse(readFileSync('tests/workspacify-tree/fixtures/WORKSPACIFY-TREE-MANIFEST.json', 'utf8'));\nassert.equal(published.status, 'COMPLETE');\nassert.equal(published.final_audit.status, 'PASS');\n```\n",
+            "UT: C005 Invariant→述語コード(hash(spec)==manifest.input.source_hash at acceptance)\n```js\nassert.equal(published.input.source_hash, sha256Hex(specBytes));\nassert.equal(published.integrity.reload_validation, 'PASS');\n```\n"
+          ],
+          "startedAt": "2026-09-09",
+          "changes": [
+            {
+              "before": "(absent)",
+              "after": "NEW lib/render.mjs",
+              "description": "assembleManifest + computeSelfHash + renderManifestText (self-hash on empty manifest_hash)"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW lib/atomic-publish.mjs",
+              "description": "atomicPublish: temp write + reload verify + rename; BLOCKED on source-hash mismatch"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW lib/report.mjs",
+              "description": "formatSuccess / formatFailure"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW run.mjs",
+              "description": "CLI subcommands parse/extract/gate/finalize"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW .claude/commands/workspacify-tree.md",
+              "description": "slash command definition (registered as skill)"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW fixtures long-spec.md + decisions-long-ok.json + decisions-review-open.json",
+              "description": "acceptance/integration inputs"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW integration + acceptance + unit tests",
+              "description": "full-pipeline / existing-manifest / acceptance / orchestrate"
+            },
+            {
+              "before": "(absent)",
+              "after": "NEW run-tests.mjs",
+              "description": "aggregate node --test runner"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-09-09"
         }
       ]
     },

@@ -1,0 +1,8 @@
+{
+  "objects": [],
+  "claims": [],
+  "packages": [
+    { "id": "pkg-0001", "name": "a", "path": "a", "layer": "protocol", "kind": "production-library", "owns": { "objects": ["obj-0009"], "claims": [] } },
+    { "id": "pkg-0002", "name": "b", "path": "b", "layer": "protocol", "kind": "production-library", "owns": { "objects": ["obj-0009"], "claims": [] } }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://workspacify.invalid/schemas/workspacify-tree-decisions.schema.json",
+  "title": "WORKSPACIFY-TREE-DECISIONS",
+  "type": "object",
+  "required": ["workspace", "ownership", "dependencies", "adapters", "approvals"],
+  "properties": {
+    "workspace": { "type": "array", "items": { "type": "object" } },
+    "ownership": { "type": "array", "items": { "type": "object" } },
+    "dependencies": { "type": "array", "items": { "type": "object" } },
+    "adapters": { "type": "array", "items": { "type": "object" } },
+    "approvals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["decisionId", "rationale", "approver"],
+        "properties": {
+          "decisionId": { "type": "string" },
+          "rationale": { "type": "string" },
+          "approver": { "type": "string" }
+        }
+      }
+    }
+  }
+}

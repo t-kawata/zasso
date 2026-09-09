@@ -1,0 +1,10 @@
+{
+  "objects": [
+    { "id": "obj-000001", "owner_package": null },
+    { "id": "obj-000002", "owner_package": null }
+  ],
+  "claims": [],
+  "packages": [
+    { "id": "pkg-0001", "name": "alpha", "path": "crates/protocol/alpha", "layer": "protocol", "kind": "production-library", "owns": { "objects": [], "claims": [] } }
+  ]
+}

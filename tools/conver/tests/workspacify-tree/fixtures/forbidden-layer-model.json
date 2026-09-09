@@ -1,0 +1,12 @@
+{
+  "packages": [
+    { "id": "pkg-foundation", "name": "f", "path": "f", "layer": "foundation", "kind": "production-library" },
+    { "id": "pkg-adapter", "name": "ad", "path": "ad", "layer": "adapters", "kind": "adapter" },
+    { "id": "pkg-core", "name": "co", "path": "co", "layer": "core", "kind": "production-library" },
+    { "id": "pkg-protocol", "name": "p", "path": "p", "layer": "protocol", "kind": "production-library" }
+  ],
+  "edges": [
+    { "from": "pkg-foundation", "to": "pkg-adapter", "kind": "normal" },
+    { "from": "pkg-foundation", "to": "pkg-core", "kind": "normal" }
+  ]
+}

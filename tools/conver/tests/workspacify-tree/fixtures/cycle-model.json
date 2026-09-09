@@ -1,0 +1,10 @@
+{
+  "packages": [
+    { "id": "a", "name": "a", "path": "a", "layer": "protocol", "kind": "production-library" },
+    { "id": "b", "name": "b", "path": "b", "layer": "protocol", "kind": "production-library" }
+  ],
+  "edges": [
+    { "from": "a", "to": "b", "kind": "normal" },
+    { "from": "b", "to": "a", "kind": "normal" }
+  ]
+}

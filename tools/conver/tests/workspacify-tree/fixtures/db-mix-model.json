@@ -1,0 +1,7 @@
+{
+  "databasePolicy": { "applicable": true, "rawSqlProhibited": true, "commonStorePort": "store-port" },
+  "packages": [
+    { "id": "pkg-adapter", "name": "sqlite-adapter", "layer": "adapters", "kind": "adapter", "rawSqlFragments": ["SELECT * FROM t"], "dbSpecificTypes": [] },
+    { "id": "pkg-core", "name": "core", "layer": "core", "kind": "production-library", "rawSqlFragments": [], "dbSpecificTypes": ["PgValue"] }
+  ]
+}
