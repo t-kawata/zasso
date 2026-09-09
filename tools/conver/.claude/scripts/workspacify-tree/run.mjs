@@ -1,4 +1,4 @@
-// [::TICKET::] PX-178, PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181|PX-183|PX-184|PX-185|PX-186) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-178, PX-179, PX-188 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181|PX-183|PX-184|PX-185|PX-186|PX-188) --for-spec --no-implementation-order`.
 /**
  * Command entry point for /workspacify-tree.
  *
@@ -93,8 +93,6 @@ function runParse(specPath) {
   );
   if (analysis.reconstruction.status === 'PASS') {
     guide(`Parse PASS: input locked (source hash ${analysis.sourceHash.slice(0, 12)}...), ${analysis.headings.length} headings, ${analysis.segments.length} segments, reconstruction verified byte-for-byte. Next: run extract to harvest candidates.`);
-  } else {
-    guide(`Parse FAIL: the specification could not be reconstructed from its segments. Reasons: ${(analysis.reconstruction.reasons ?? []).join('; ')}. Fix the input and re-run parse.`);
   }
   process.exit(analysis.reconstruction.status === 'PASS' ? EXIT_CODES.OK : EXIT_CODES.FAIL);
 }
@@ -127,13 +125,13 @@ function runGate(args) {
   const pipeline = runGatePipeline({
     structure: { reconstruction: analysis.reconstruction },
     inventory,
-    workspace: { packages: decisions.workspace ?? [], tree: decisions.tree ?? [] },
+    workspace: { packages: decisions.workspace, tree: decisions.tree ?? [] },
     dependencies: {
-      normalEdges: (decisions.dependencies ?? []).filter((edge) => edge.kind !== 'forbidden'),
+      normalEdges: decisions.dependencies.filter((edge) => edge.kind !== 'forbidden'),
       boundaries: decisions.boundaries ?? [],
     },
     adapters: buildPipelineAdapters(decisions),
-    decisions: { approvals: decisions.approvals ?? [], ownership: decisions.ownership ?? [], semantic_review: decisions.semantic_review ?? {} },
+    decisions: { approvals: decisions.approvals, ownership: decisions.ownership, semantic_review: decisions.semantic_review ?? {} },
   });
   const summary = pipeline.gates.map((gate) => `${gate.id}:${gate.status}`).join(' ');
   process.stdout.write(JSON.stringify({ status: pipeline.status, gates: summary, finalAudit: pipeline.finalAudit }) + '\n');
@@ -166,18 +164,18 @@ function runFinalize(args) {
   const pipelineInput = {
     structure: { reconstruction: analysis.reconstruction },
     inventory,
-    workspace: { packages: decisions.workspace ?? [], tree: decisions.tree ?? [] },
+    workspace: { packages: decisions.workspace, tree: decisions.tree ?? [] },
     dependencies: {
-      normalEdges: (decisions.dependencies ?? []).filter((edge) => edge.kind !== 'forbidden'),
+      normalEdges: decisions.dependencies.filter((edge) => edge.kind !== 'forbidden'),
       boundaries: decisions.boundaries ?? [],
     },
     adapters: buildPipelineAdapters(decisions),
-    decisions: { approvals: decisions.approvals ?? [], ownership: decisions.ownership ?? [], semantic_review: decisions.semantic_review ?? {} },
+    decisions: { approvals: decisions.approvals, ownership: decisions.ownership, semantic_review: decisions.semantic_review ?? {} },
   };
   const pipeline = runGatePipeline(pipelineInput);
 
   if (pipeline.status !== 'COMPLETE') {
-    const failingGate = pipeline.gates.find((gate) => gate.status !== 'PASS') ?? { id: 'GENERAL', reasons: [] };
+    const failingGate = pipeline.gates.find((gate) => gate.status !== 'PASS');
     process.stdout.write(
       formatFailure({
         gateId: failingGate.id,
@@ -197,19 +195,19 @@ function runFinalize(args) {
     inventory: {
       objects: inventory.objects,
       claims: inventory.claims,
-      invariants: inventory.invariants ?? [],
-      state_machines: inventory.stateMachines ?? [],
-      error_codes: inventory.errorCodes ?? [],
-      required_tests: inventory.requiredTests ?? [],
+      invariants: inventory.invariants,
+      state_machines: inventory.stateMachines,
+      error_codes: inventory.errorCodes,
+      required_tests: inventory.requiredTests,
       terms: inventory.terms,
       normalization_decisions: inventory.normalization_decisions,
       unresolved_candidates: inventory.unresolved_candidates,
     },
     requirements: { normative_candidates: inventory.terms },
-    workspace: { tree: decisions.tree ?? [], packages: decisions.workspace ?? [], ownership: buildOwnershipTable(inventory, decisions) },
+    workspace: { tree: decisions.tree ?? [], packages: decisions.workspace, ownership: buildOwnershipTable(inventory, decisions) },
     adapters: buildAdaptersSection(decisions),
-    dependencies: buildDependencyTables(decisions, decisions.workspace ?? []),
-    conformance: buildConformanceSection(decisions.workspace ?? []),
+    dependencies: buildDependencyTables(decisions, decisions.workspace),
+    conformance: buildConformanceSection(decisions.workspace),
     stage2_handoff: buildStage2Handoff(inventory, decisions),
     gates: { records: pipeline.gates },
     final_audit: { ...pipeline.finalAudit, status: pipeline.finalAudit.status },
@@ -287,8 +285,8 @@ function buildInventory(analysis) {
 
 function prepareInventory(analysis, decisions) {
   const rawInventory = buildInventory(analysis);
-  const ownership = decisions.ownership ?? [];
-  const approvals = decisions.approvals ?? [];
+  const ownership = decisions.ownership;
+  const approvals = decisions.approvals;
   const objects = applyApprovals(applyOwnership(rawInventory.objects, 'owner_package', ownership), approvals);
   const claims = applyApprovals(applyOwnership(rawInventory.claims, 'primary_owner', ownership), approvals);
   const terms = applyApprovals(rawInventory.terms, approvals);
@@ -308,10 +306,10 @@ function prepareInventory(analysis, decisions) {
   return {
     objects,
     claims,
-    invariants: rawInventory.invariants ?? [],
-    stateMachines: rawInventory.stateMachines ?? [],
-    errorCodes: rawInventory.errorCodes ?? [],
-    requiredTests: rawInventory.requiredTests ?? [],
+    invariants: rawInventory.invariants,
+    stateMachines: rawInventory.stateMachines,
+    errorCodes: rawInventory.errorCodes,
+    requiredTests: rawInventory.requiredTests,
     terms,
     normalization_decisions: rawInventory.normalization_decisions,
     unresolved_candidates: unresolvedCandidates,
@@ -319,7 +317,7 @@ function prepareInventory(analysis, decisions) {
 }
 
 function buildAdaptersSection(decisions) {
-  const adapters = decisions.adapters ?? {};
+  const adapters = decisions.adapters;
   return {
     ports: Array.isArray(adapters.ports) ? adapters.ports : [],
     leaf_packages: [],
@@ -328,17 +326,15 @@ function buildAdaptersSection(decisions) {
 }
 
 function buildOwnershipTable(inventory, decisions) {
-  const packageIds = new Set((decisions.workspace ?? []).map((pkg) => pkg.id));
+  const packages = decisions.workspace;
+  const packageIds = new Set(packages.map((pkg) => pkg.id));
   const entries = [];
+  // finalize runs only after COMPLETE, where every candidate has an owner.
   for (const candidate of inventory.objects ?? []) {
-    if (candidate.owner_package) {
-      entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name, category: 'object', owner_package: candidate.owner_package });
-    }
+    entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name, category: 'object', owner_package: candidate.owner_package });
   }
   for (const candidate of inventory.claims ?? []) {
-    if (candidate.primary_owner) {
-      entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name, category: 'claim', owner_package: candidate.primary_owner });
-    }
+    entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name, category: 'claim', owner_package: candidate.primary_owner });
   }
   const categoryLists = [
     ['invariants', 'invariant', 'invariants'],
@@ -347,24 +343,27 @@ function buildOwnershipTable(inventory, decisions) {
     ['requiredTests', 'required_test', 'required_tests'],
   ];
   for (const [listKey, categoryName, ownsKey] of categoryLists) {
+    const ownerByInventoryId = buildCategoryOwnerIndex(packages, ownsKey);
     for (const candidate of inventory[listKey] ?? []) {
-      const ownerPackage = findOwningPackage(decisions.workspace ?? [], ownsKey, candidate.id);
-      if (ownerPackage) {
-        entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name ?? candidate.id, category: categoryName, owner_package: ownerPackage });
-      }
+      entries.push({
+        inventory_ref: candidate.id,
+        canonical_name: candidate.canonical_name ?? candidate.id,
+        category: categoryName,
+        owner_package: ownerByInventoryId.get(candidate.id),
+      });
     }
   }
   return { entries, packages: [...packageIds] };
 }
 
-function findOwningPackage(packages, ownsKey, inventoryId) {
+function buildCategoryOwnerIndex(packages, ownsKey) {
+  const ownerByInventoryId = new Map();
   for (const pkg of packages) {
-    const owns = pkg.owns ?? {};
-    if ((owns[ownsKey] ?? []).includes(inventoryId)) {
-      return pkg.id;
+    for (const inventoryId of pkg.owns?.[ownsKey] ?? []) {
+      ownerByInventoryId.set(inventoryId, pkg.id);
     }
   }
-  return null;
+  return ownerByInventoryId;
 }
 
 function buildConformanceSection(packages) {
@@ -378,7 +377,7 @@ function buildConformanceSection(packages) {
 }
 
 function buildDependencyTables(decisions, packages = []) {
-  const edges = decisions.dependencies ?? [];
+  const edges = decisions.dependencies;
   const presentLayers = new Set(packages.map((pkg) => pkg.layer));
   const forbiddenLayerRules = [];
   for (const [fromLayer, targets] of Object.entries(LAYER_FORBIDDEN_TARGETS)) {
@@ -410,7 +409,7 @@ function buildDependencyTables(decisions, packages = []) {
 }
 
 function buildStage2Handoff(inventory, decisions) {
-  const dependencyTables = buildDependencyTables(decisions, decisions.workspace ?? []);
+  const dependencyTables = buildDependencyTables(decisions, decisions.workspace);
   const definitionOrder = [
     ...(inventory.objects ?? []).map((candidate) => candidate.canonical_name),
     ...(inventory.claims ?? []).map((candidate) => candidate.canonical_name),
@@ -432,7 +431,7 @@ function buildStage2Handoff(inventory, decisions) {
 }
 
 function buildPipelineAdapters(decisions) {
-  const adapters = decisions.adapters ?? {};
+  const adapters = decisions.adapters;
   return {
     ports: Array.isArray(adapters.ports) ? adapters.ports : [],
     databasePolicy: adapters.databasePolicy ?? {},

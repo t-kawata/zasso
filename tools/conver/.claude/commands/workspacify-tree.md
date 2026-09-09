@@ -83,6 +83,7 @@ decision は一度で完成させず、**Step 4 のゲート結果を見なが�
 3. **owner 割当の完全化**: object / claim に加え **invariant / state machine / error code / required test** まで一意 owner を割り当て、`unallocated == 0` を目指す
 4. **依存と契約境界の全網羅**: 全 package 間の許容 edge を `reason_code` 付きで列挙し、禁止 edge には `alternative`、dev policy を明記。`contract_boundaries` の consumer/provider は必ず catalog 内
 5. **approval 台帳の完備**: 判断の根拠を `approvals`(decisionId/rationale/approver)へ残し、機械検証に掛ける
+6. **AI 意味論最終承認**: 下記「AI 最終承認チェックリスト」の全項目を AI が確認し、`semantic_review` へ `{ status: "APPROVED", statement, approver }` を記録する。1つでも未達なら APPROVED にせず gate へ戻して再設計する(AI 判断の記録が無い限り機械は COMPLETE を出さない)
 
 仕様書ディレクトリ以外(例: `os.tmpdir()`)へ decision JSON を1ファイル作成する。スキーマは `schemas/workspacify-tree-decisions.schema.json` で機械検証される。
 
@@ -103,12 +104,12 @@ decision は一度で完成させず、**Step 4 のゲート結果を見なが�
   "dependencies": [],
   "boundaries": [],
   "adapters": { "ports": [], "databasePolicy": { "applicable": false } },
-  "approvals": [ { "decisionId": "obj-000003", "rationale": "domain record; confirmed as object", "approver": "ai-session" } ]
-
-> 複数 package の例では、全 package を `workspace`・`tree`・`ownership` へ宣言し、`dependencies` の各 edge と `boundaries` を一対一で揃えること(gate が双方向網羅を強制する)。
-
+  "approvals": [ { "decisionId": "obj-000003", "rationale": "domain record; confirmed as object", "approver": "ai-session" } ],
+  "semantic_review": { "status": "APPROVED", "statement": "alpha protocol owns obj-000001/obj-000003 and invariant req-000001; no DB persistence; not over-split.", "approver": "ai-session" }
 }
 ```
+
+> 複数 package の例では、全 package を `workspace`・`tree`・`ownership` へ宣言し、`dependencies` の各 edge と `boundaries` を一対一で揃えること(gate が双方向網羅を強制する)。
 
 ### 各フィールドの意味とルール
 
@@ -121,6 +122,7 @@ decision は一度で完成させず、**Step 4 のゲート結果を見なが�
 | `boundaries` | 依存 edge と一対一対応する契約境界の宣言。`consumer`/`provider` は必ず catalog 内(PX-183 以降は edge と境界の双方向網羅を gate が強制) |
 | `adapters` | `ports`(port が提供する能力/実装)と `databasePolicy`(RDBMS 永続化が必要な場合のみ applicable)。domain/protocol は DB 固有型・raw SQL を参照しない |
 | `approvals` | **REVIEW 承認台帳**。`decisionId`(承認する候補 id or canonical_name)/`rationale`/`approver` を必須とする。承認された REVIEW_REQUIRED 候補は CONFIRMED になり unresolved から外れる |
+| `semantic_review` | **AI 最終承認台帳(非決定論)**。`{ status: "APPROVED", statement, approver }`。下記「AI 最終承認チェックリスト」の全項目を AI が確認した場合のみ `APPROVED` にする。欠落・未承認は G2/G3 が REVIEW_REQUIRED を返し COMPLETE を出さない |
 
 ### 設計時の指針
 
@@ -130,9 +132,21 @@ decision は一度で完成させず、**Step 4 のゲート結果を見なが�
 - 過剰分割リスク(内部状態共有・中間値分割・相互依存必須・不変条件再実装・巨大 snapshot 受渡し)があれば統合を判断する
 - DB 必要時: memory/SQLite/PostgreSQL/MySQL 共通 store port + SeaORM 2.x 方針。raw SQL 禁止。migration 原子性を domain 原子性にしない
 
+### AI 最終承認チェックリスト(非決定論・機械は APPROVED の存在のみ強制)
+
+**このチェックリストの目的**: Step 4 の gate が検証するのは客観ルールのみであり、意味論的正しさ(この owner 割当は本当に妥当か、この依存理由は正しいか)は AI にしか判断できない。finalize の前に AI は下記の**全項目**を確認し、すべて満たす場合のみ `semantic_review.status` を `APPROVED` にする。1つでも未達なら `APPROVED` にせず、decision を修正して gate へ戻す(未承認のままでは機械が COMPLETE を出さない)。
+
+- [ ] **owner 割当の妥当性**: object / claim / invariant / state machine / error code / required test の各 owner が package の `responsibilities` と整合し、`unallocated == 0` である
+- [ ] **reason_code の正当性**: 全依存 edge の `reason_code` が実在し、edge の理由と一致する。禁止 edge には代替経路(port-injection 等)が明記されている
+- [ ] **adapter・DB 適用可否**: adapter は外部 I/O のみ。RDBMS 永続化が必要な場合のみ `databasePolicy.applicable` とし、raw SQL 不使用・DB 固有型が domain/protocol へ漏れないことを確認する
+- [ ] **過剰分割の最終判断**: 内部状態共有・中間値分割・相互依存必須・不変条件再実装・巨大 snapshot 受渡しの兆候が無いか確認し、必要なら package を統合する
+- [ ] **境界の catalog 内整合**: 全 `contract_boundaries` の `consumer` / `provider` が workspace の package catalog に存在する
+
+全項目を確認したら、decision の `semantic_review` へ記録する: `{ "status": "APPROVED", "statement": "<確認内容の要約>", "approver": "<セッション識別子>" }`。`statement` には確認した項目を要約し、`approver` には判断したセッションを明記する。
+
 ## Step 4: gate ループ(G3/G4)
 
-**この Step の目的**: Step 3 の decision(設計)が「客観ルールに適合しているか」を機械の実ゲートパイプラインで検証する。適合していなければ FAIL/REVIEW_REQUIRED の原因を突き止め、decision を修正して再検証し、**全ゲート PASS・未解決 0(COMPLETE)** に収束させる。ここが PASS しない限り publish してはならない。
+**この Step の目的**: Step 3 の decision(設計)が「客観ルールに適合しているか」を機械の実ゲートパイプラインで検証する。適合していなければ FAIL/REVIEW_REQUIRED の原因を突き止め、decision を修正して再検証し、**全ゲート PASS・未解決 0(COMPLETE)** に収束させる。ここが PASS しない限り publish してはならない。なお、意味論的正しさの最終判断(`semantic_review.status === "APPROVED"`)が記録されていない decision も G2/G3 が REVIEW_REQUIRED を返し COMPLETE にしない。
 
 ```bash
 node .claude/scripts/workspacify-tree/run.mjs gate "--spec=<spec>" "--decisions=<decision.json>"
@@ -149,6 +163,7 @@ node .claude/scripts/workspacify-tree/run.mjs gate "--spec=<spec>" "--decisions=
   | `uncovered_edge_count` / `orphan_boundary_count` | edge と契約境界の不整合 | ④ boundary・依存網羅 |
   | `unresolved_boundary_count` / `forbidden_dependency_count` | 境界・依存不備 | ④ boundary・依存網羅 |
   | カテゴリ owner 網羅(entry-parity) | inventory の invariant/state/error/test に owner 表行が無い | ③ owner 割当 + finalize 後の `checkTreeEntryGate` で確認 |
+  | `semantic_approval` | `semantic_review.status` が APPROVED でない / 記録が無い | ⑥ AI 意味論最終承認: チェックリスト全項目を確認し `semantic_review` へ APPROVED を記録 |
 - **AI の仕事**: FAIL の原因(所有権重複 / 循環 / 禁止層 / raw SQL / DB 型漏れ / schema 不正 / 上表の不足)に応じ decision を修正し、**exit 0(COMPLETE)になるまで繰り返す**(自己修復ループ)。情報レベルはこの反復で gaia 台帳級へ到達させる
 - **回帰確認**: decision を修正したら `run.mjs extract` と gate を再実行し、抽出結果との不整合が無いことを確認する
 
@@ -162,7 +177,7 @@ node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=<spec>" "--decisi
 
 - **実行条件**: 全ゲート PASS・unresolved 0 のときのみ。そうでなければ COMPLETE にせず非0で終了
 - **成功条件(到達確認)**: 生成 manifest が第二段階 ALLOCATE の entry 検査を通過すること。到達目標の具体例は `Gaia_v30_Stage1_Coverage_Ledger_Rev3.md`(workspace ツリー・唯一 owner・依存マトリクス・DAG まで完成した情報レベル)。第一段階側のパリティ検査は `checkTreeEntryGate`(lib/entry-parity.mjs)で機械確認できる(全カテゴリ owner 網羅・tree 必須・edge↔boundary 網羅を含む拡張版)。
-- **出力先**: **常にカレントディレクトリ**(`--output-dir` は存在しない)
+- **出力先**: **常にカレントディレクトリ**
 - **publish 手順**: temp 書込→fsync→再読込(schema/self-hash)→rename。temp は成功時 rename・失敗時削除・次回起動時に stale を機械スイープ
 - **既存 manifest 保護**: 既存 `WORKSPACIFY-TREE-MANIFEST.json` があり input hash が異なる場合は **BLOCKED** で終了し、既存 manifest を置換・破壊しない
 
@@ -184,4 +199,4 @@ node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=<spec>" "--decisi
 
 ## 成功の定義
 
-全自動ゲート PASS・未解決 review 0 に集約される。最終確認は生成 manifest の再読込(schema / 必須値 / self-hash)と `checkTreeEntryGate` PASS。
+成功は **① AI 意味論最終承認**(`semantic_review.status === "APPROVED"` を decision へ記録)と **② 全機械ゲート PASS・未解決 review 0** の両立に集約される。機械ゲートのみ・AI 承認のみの片落ちは成功ではない。最終確認は生成 manifest の再読込(schema / 必須値 / self-hash)、`semantic_review` 記録の存在、`checkTreeEntryGate` PASS。
