@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -64,6 +64,19 @@ test('publish: same source hash publishes and reload-verifies', () => {
   const result = atomicPublish({ dir, fileName: 'WORKSPACIFY-TREE-MANIFEST.json', content, sourceHash: 'd'.repeat(64) });
   assert.equal(result.published, true);
   assert.equal(result.reloadOk, true);
+});
+
+test('publish: stale deterministic temp files are swept on the next publish', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wst-orch-'));
+  // Simulate a temp file orphaned by a crashed previous run.
+  writeFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json.999.1.tmp'), '{"stale":true}');
+  const manifest = assembleManifest({ input: { source_hash: 'f'.repeat(64) } });
+  const content = renderManifestText(manifest);
+  const result = atomicPublish({ dir, fileName: 'WORKSPACIFY-TREE-MANIFEST.json', content, sourceHash: 'f'.repeat(64) });
+  assert.equal(result.published, true);
+  const leftovers = readdirSync(dir).filter((name) => name.endsWith('.tmp'));
+  assert.deepEqual(leftovers, []);
+  assert.equal(existsSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json')), true);
 });
 
 test('report: success and failure formatting carry the required fields', () => {

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-178 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-178 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-178, PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179) --for-spec --no-implementation-order`.
 /**
  * Atomic publication of the manifest (§13.1, §13.2).
  *
@@ -7,10 +7,13 @@
  * records a different input source hash the publish is refused (BLOCKED) and
  * the existing artifact is never touched.
  */
-import { existsSync, readFileSync, writeFileSync, openSync, fsyncSync, closeSync, renameSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync, openSync, fsyncSync, closeSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { computeSelfHash } from './render.mjs';
+
+/** Temp files always follow this deterministic suffix pattern. */
+const TEMP_FILE_SUFFIX = '.tmp';
 
 /**
  * Publish manifest content atomically.
@@ -20,6 +23,7 @@ import { computeSelfHash } from './render.mjs';
  */
 export function atomicPublish({ dir, fileName, content, sourceHash }) {
   const targetPath = join(dir, fileName);
+  sweepStaleTempFiles(dir, fileName);
 
   if (existsSync(targetPath)) {
     let existing;
@@ -56,6 +60,21 @@ export function atomicPublish({ dir, fileName, content, sourceHash }) {
   } catch (error) {
     rmSync(tempPath, { force: true });
     return { status: 'FAIL', published: false, reason: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+function sweepStaleTempFiles(dir, fileName) {
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return;
+  }
+  const prefix = `${fileName}.`;
+  for (const entry of entries) {
+    if (entry.startsWith(prefix) && entry.endsWith(TEMP_FILE_SUFFIX)) {
+      rmSync(join(dir, entry), { force: true });
+    }
   }
 }
 

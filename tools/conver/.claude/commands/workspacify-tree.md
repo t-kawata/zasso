@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /workspacify-tree
 
-**Role**: 単一の Markdown 仕様書を入力として、構造解析・候補収穫・workspace 設計・完全性ゲートを実行し、将来の第二段階が唯一の引数として受け取れる `WORKSPACIFY-TREE-MANIFEST.json` を原子公開する。このコマンドは仕様を実装しない(§0)。設計判断は AI(=実行セッション)が行い、機械は収穫・検証・publish を担う。
+**Role**: 単一の Markdown 仕様書を入力として、構造解析・候補収穫・workspace 設計・完全性ゲートを実行し、長大な仕様書を「安全に分割して実装可能なworkspace/crate/package構造へ設計するための第一段階」を実行する。将来の第二段階が唯一の引数として受け取れる `WORKSPACIFY-TREE-MANIFEST.json` を原子公開する。このコマンドは仕様を実装しない。設計判断は AI(=実行セッション)が行い、機械は収穫・検証・publish を担う。
 
 ## Arguments
 
@@ -17,6 +17,7 @@ disable-model-invocation: true
 ## 出力の正本と制約(§1.2/§1.3)
 
 - 成功時に公開する正本成果物は **1つだけ**: **カレントディレクトリ**(コマンド実行時の作業ディレクトリ)の `WORKSPACIFY-TREE-MANIFEST.json`
+- 一時ファイルは決定論的パターン(`WORKSPACIFY-TREE-MANIFEST.json.*.tmp`)で生成し、成功時は rename、失敗時は削除、次回 publish 起動時に stale を機械スイープする(スクリプト内で自動実行)
 - 仕様書ディレクトリおよびカレントディレクトリへ、最終成果物以外の中間・報告ファイル(`*.md / *.json / *.tmp / .cache/` 等)を残さない。decision 等の作業ファイルは `os.tmpdir()` 配下へ置く
 - hook は使用しない。Node.js プロセス(`run.mjs`)だけで完結する
 
