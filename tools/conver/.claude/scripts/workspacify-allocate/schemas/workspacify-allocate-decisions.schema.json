@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "workspacify-allocate decisions input",
+  "description": "AI-authored allocation input: per-package seed prose plus the AI semantic approval. The machine validates shape only; it never grades prose.",
+  "type": "object",
+  "required": ["seeds", "semantic_review"],
+  "properties": {
+    "seeds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["packageId"],
+        "properties": {
+          "packageId": { "type": "string", "pattern": "\\S+" },
+          "aiSections": { "type": "object" }
+        }
+      }
+    },
+    "semantic_review": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "type": "string", "enum": ["APPROVED", "REVIEW_REQUIRED"] },
+        "statement": { "type": "string" },
+        "approver": { "type": "string" }
+      }
+    }
+  }
+}
