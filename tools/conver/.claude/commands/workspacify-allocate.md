@@ -10,6 +10,16 @@ disable-model-invocation: true
 
 **正しい出力の重心**: 実 directory tree と RFC-SEED.md 群である。**`WORKSPACIFY-ALLOCATE-MANIFEST.json`（または任意の第二の機械正本・ledger・WIC/WIG JSON）を作ることが目的ではない**。これは原指示書の致命的な誤りであり、本コマンドはそれを実装しない。
 
+## Language Protocol
+
+| Context | Language | Reason |
+|---------|----------|--------|
+| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
+| Code comments | **English** | Must be written in the language AI understands most reliably. |
+| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
+| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
+| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
+
 ## Arguments
 
 - 第1引数(必須・唯一): 第一段階が公開した manifest へのパス(`<path-to-WORKSPACIFY-TREE-MANIFEST.json>`)
