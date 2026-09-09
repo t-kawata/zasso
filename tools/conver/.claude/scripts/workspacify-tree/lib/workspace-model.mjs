@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-177 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180) --for-spec --no-implementation-order`.
 /**
  * Workspace model vocabulary and catalog validation (§9.1, §11.2).
  *
@@ -70,4 +70,48 @@ export function validatePackageCatalog(packages) {
     }
   }
   return errors;
+}
+
+/**
+ * Validate that the directory tree and the package catalog agree on paths.
+ *
+ * @param {{ tree: Array<object>, packages: Array<object> }} input
+ *   tree node: { name, kind: 'dir'|'file', children?: Array<object> }
+ * @returns {{ consistent: boolean, errors: Array<string>, treePaths: Array<string>, packagePaths: Array<string> }}
+ */
+export function validateWorkspaceTree({ tree, packages }) {
+  const treePaths = collectLeafDirectoryPaths(tree ?? []);
+  const packagePaths = (packages ?? []).map((pkg) => pkg.path).sort();
+  const sortedTreePaths = treePaths.sort();
+  const errors = [];
+
+  const treeSet = new Set(sortedTreePaths);
+  const packageSet = new Set(packagePaths);
+  for (const pkgPath of packagePaths) {
+    if (!treeSet.has(pkgPath)) {
+      errors.push(`package path "${pkgPath}" is missing from the workspace tree`);
+    }
+  }
+  for (const treePath of sortedTreePaths) {
+    if (!packageSet.has(treePath)) {
+      errors.push(`tree path "${treePath}" has no matching package in the catalog`);
+    }
+  }
+  return { consistent: errors.length === 0, errors, treePaths: sortedTreePaths, packagePaths };
+}
+
+function collectLeafDirectoryPaths(nodes) {
+  const paths = [];
+  for (const node of nodes ?? []) {
+    if (node.kind !== 'dir') {
+      continue;
+    }
+    const dirChildren = (node.children ?? []).filter((child) => child.kind === 'dir');
+    if (dirChildren.length === 0) {
+      paths.push(node.path ?? node.name);
+    } else {
+      paths.push(...collectLeafDirectoryPaths(dirChildren));
+    }
+  }
+  return paths;
 }

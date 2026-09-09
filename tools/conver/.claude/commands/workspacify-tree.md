@@ -74,6 +74,16 @@ node .claude/scripts/workspacify-tree/run.mjs extract "<spec>"
 
 **この Step の目的**: Step 2 の候補と仕様内容をもとに、AI が「どういう workspace に分割し、誰が何を所有し、誰が誰に依存してよいか」を設計判断し、**機械が検証できる構造化された decision JSON として書き出す**。機械は AI の頭の中を読めないため、判断は必ずこのファイルを経由して gate に渡す。設計判断はここで完結させる(過度機械化しない)。
 
+### 情報レベルを上げる反復手順(到達目標: Gaia 台帳級)
+
+decision は一度で完成させず、**Step 4 のゲート結果を見ながら下記 ①→⑤ を順に濃化し、情報レベルを上げる**。各段階の不足は finalAudit の count が指し示す(次 Step の表参照)。
+
+1. **候補分類の確定**: extract の REVIEW_REQUIRED / unresolved を確認し、`approvals` で確定・却下する(unknown を残さない)
+2. **package 設計**: 各 package に `layer / kind / responsibilities(非空) / seed_required / owns` を与え、`tree` を leaf ディレクトリで package path と一致させる
+3. **owner 割当の完全化**: object / claim に加え **invariant / state machine / error code / required test** まで一意 owner を割り当て、`unallocated == 0` を目指す
+4. **依存と契約境界の全網羅**: 全 package 間の許容 edge を `reason_code` 付きで列挙し、禁止 edge には `alternative`、dev policy を明記。`contract_boundaries` の consumer/provider は必ず catalog 内
+5. **approval 台帳の完備**: 判断の根拠を `approvals`(decisionId/rationale/approver)へ残し、機械検証に掛ける
+
 仕様書ディレクトリ以外(例: `os.tmpdir()`)へ decision JSON を1ファイル作成する。スキーマは `schemas/workspacify-tree-decisions.schema.json` で機械検証される。
 
 ```json
@@ -116,7 +126,15 @@ node .claude/scripts/workspacify-tree/run.mjs gate "--spec=<spec>" "--decisions=
 ```
 
 - **出力の意味**: per-gate 結果(`G0..G5` の PASS/FAIL/REVIEW_REQUIRED)と `finalAudit`(各 count)。`COMPLETE`(exit 0)は全ゲート PASS・unresolved 0 を意味する
-- **AI の仕事**: FAIL の原因(所有権重複 / 循環 / 禁止層 / raw SQL / DB 型漏れ / schema 不正)に応じ decision を修正し、**exit 0(COMPLETE)になるまで繰り返す**(自己修復ループ)
+- **finalAudit の count と修正対象の対応表**:
+  | count | 意味 | 修正対象(Step 3 手順) |
+  |---|---|---|
+  | `review_required_count` / `unresolved_count` | 未承認の候補 | ① approvals で確定/却下 |
+  | `missing_responsibilities_count` | responsibilities 未記入 | ② package 設計 |
+  | `tree_catalog_mismatch_count` | tree と catalog の path 不一致 | ② tree 修正 |
+  | `unallocated_count` | owner 未割当の invariant/error/test 等 | ③ owner 割当 |
+  | `unresolved_boundary_count` / `forbidden_dependency_count` | 境界・依存不備 | ④ boundary・依存網羅 |
+- **AI の仕事**: FAIL の原因(所有権重複 / 循環 / 禁止層 / raw SQL / DB 型漏れ / schema 不正 / 上表の不足)に応じ decision を修正し、**exit 0(COMPLETE)になるまで繰り返す**(自己修復ループ)。情報レベルはこの反復で gaia 台帳級へ到達させる
 - **回帰確認**: decision を修正したら `run.mjs extract` と gate を再実行し、抽出結果との不整合が無いことを確認する
 
 ## Step 5: finalize と publish(G5/§13)
@@ -128,6 +146,7 @@ node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=<spec>" "--decisi
 ```
 
 - **実行条件**: 全ゲート PASS・unresolved 0 のときのみ。そうでなければ COMPLETE にせず非0で終了
+- **成功条件(到達確認)**: 生成 manifest が第二段階 ALLOCATE の entry 検査(§7.1-7.4)を通過すること。到達目標の具体例は `Gaia_v30_Stage1_Coverage_Ledger_Rev3.md`(workspace ツリー・唯一 owner・依存マトリクス・DAG まで完成した情報レベル)。第一段階側のパリティ検査は `checkTreeEntryGate`(lib/entry-parity.mjs)で機械確認できる
 - **出力先**: **常にカレントディレクトリ**(`--output-dir` は存在しない)
 - **publish 手順**: temp 書込→fsync→再読込(schema/self-hash)→rename(§13.1)。temp は成功時 rename・失敗時削除・次回起動時に stale を機械スイープ
 - **既存 manifest 保護**: 既存 `WORKSPACIFY-TREE-MANIFEST.json` があり input hash が異なる場合は **BLOCKED** で終了し、既存 manifest を置換・破壊しない(§13.2)

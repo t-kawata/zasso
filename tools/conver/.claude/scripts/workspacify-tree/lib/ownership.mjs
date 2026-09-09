@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-177 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180) --for-spec --no-implementation-order`.
 /**
  * Owner assignment checks (§9.3).
  *
@@ -18,7 +18,16 @@ const ALLOWED_OWNER_LAYERS = new Set(['protocol', 'domain']);
  *             owner_collision_count: number, invalid_owner_layer_count: number,
  *             details: Array<string> }}
  */
-export function runOwnershipChecks({ objects = [], claims = [], packages = [] } = {}) {
+export function runOwnershipChecks(input = {}) {
+  const {
+    objects = [],
+    claims = [],
+    invariants = [],
+    stateMachines = [],
+    errorCodes = [],
+    requiredTests = [],
+    packages = [],
+  } = input;
   const packagesById = new Map();
   for (const pkg of packages) {
     packagesById.set(pkg.id, pkg);
@@ -51,13 +60,34 @@ export function runOwnershipChecks({ objects = [], claims = [], packages = [] } 
     invalidOwnerLayerCount += outcome.invalidLayers;
   }
 
+  const invariantOrphans = countCategoryOrphans(invariants, packages, 'invariants');
+  const stateMachineOrphans = countCategoryOrphans(stateMachines, packages, 'state_machines');
+  const errorCodeOrphans = countCategoryOrphans(errorCodes, packages, 'error_codes');
+  const testOrphans = countCategoryOrphans(requiredTests, packages, 'required_tests');
+
   return {
     orphan_object_count: orphanObjectCount,
     orphan_claim_count: orphanClaimCount,
     owner_collision_count: collisionCount,
     invalid_owner_layer_count: invalidOwnerLayerCount,
+    invariant_orphan_count: invariantOrphans,
+    state_machine_orphan_count: stateMachineOrphans,
+    error_code_orphan_count: errorCodeOrphans,
+    required_test_orphan_count: testOrphans,
+    unallocated_count: orphanObjectCount + orphanClaimCount + invariantOrphans + stateMachineOrphans + errorCodeOrphans + testOrphans,
     details,
   };
+}
+
+function countCategoryOrphans(candidates, packages, ownsKey) {
+  const ownedIds = new Set();
+  for (const pkg of packages) {
+    const owns = pkg.owns ?? {};
+    for (const ownedId of owns[ownsKey] ?? []) {
+      ownedIds.add(ownedId);
+    }
+  }
+  return (candidates ?? []).filter((candidate) => !ownedIds.has(candidate.id) && !candidate.owner_package && !candidate.primary_owner).length;
 }
 
 /** Alias focused on the object checks (kept for scope compatibility). */

@@ -25129,6 +25129,399 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-09-09"
+        },
+        {
+          "id": 180,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "workspacify-tree 情報レベル強化 T1 — decision モデル拡張と完全性ゲート (A+B)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/180-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\n第一段階 manifest を ALLOCATE の entry 検査が要求する情報レベルへ押し上げる前提として、decision JSON モデルを拡張し、情報レベルを強制する完全性ゲートを追加する。\n\n### Purpose\nALLOCATE §7.4 は各 package の responsibilities・owner 情報・dependency policy・boundary の catalog 解決を要求。§9.3 は全 inventory item(object/claim/invariant/error code/required test)への一意 semantic owner を要求。これを第一段階で成立させるため、AI の設計判断(decision)を機械検証可能な構造で完全に揃える。\n\n### Motivation\n現状の gate は完全性を強制せず、COMPLETE は「候補ゼロ spec」か「人手で完全な decision を用意」でのみ成立。情報レベルが gaia 台帳級に到達する保証が無い。\n\n### Constraints\n判断は AI、検証は機械(過度機械化しない)。既存 106 テスト維持。追加 dependency なし・ESM(.mjs)。",
+          "notes": "- [Implementation steps] (1) schema 拡張 → (2) decision-apply/ownership 一般化 → (3) workspace-model tree 検証 → (4) validation 完全性ゲート → (5) unit/fixture。\n- [Risks] 旧 decisions(長大な任意オブジェクト)を壊さないよう schema は緩和を許容せず、互換テストで担保。\n- [Caveats] invariant/error/test の owner カテゴリは ALLOCATE §9.3 に合わせる。\n- [Open items] seed_required:false の例外ポリシー(§10.1)は初期は全 package を true に倒す。\n- [Future improvements] PX-181 で本ゲート結果を manifest 化。\nImplementation summary:\n- Extended decisions schema, workspace-tree validation, ownership unallocated accounting and G3 completeness gates.\n- Test results: 114/114 PASS (106 prior + 8 new).\n- Quality: totalIssues 0.\n- Provenance: PX-180 added to ownership/workspace-model/validation headers; test file annotated.\n- No stubs/crimes/[::AMBIGUOUS::].\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Contract coverage: @verifies verified (verify-red-coverage)\n- Entry-gate parity: gaia-like manifest passes checkTreeEntryGate (ALLOCATE §7)\n- No open crimes, no stubs, no [::AMBIGUOUS::] markers",
+          "invariants": "- [Normal condition] decision モデルは ALLOCATE §9.3 の inventory カテゴリを全て表現できる。\n- [Error invariant] 完全性ゲートは FAIL 時に COMPLETE を出さない。\n- [Internal state invariant] tree path 集合と catalog path 集合は gate PASS 時に一致する。\n- [Boundary invariant] unallocated / missing responsibilities / boundary 未解決は gate PASS 時に全て 0。",
+          "scope": [
+            "MODIFY: schemas/workspacify-tree-decisions.schema.json — workspace package に responsibilities(非空文字列配列)/seed_required(bool)/owns 拡張(objects/claims/invariants/state_machines/error_codes/required_tests)、workspace.tree(階層)、dependencies の reason_code 網羅・forbiddenEdges の alternative、devDependencyPolicy を必須化",
+            "MODIFY: lib/decision-apply.mjs — applyOwnership/applyApprovals を invariant/state_machine/error_code/required_test にも適用可能に(ownerField 指定を一般化)",
+            "MODIFY: lib/ownership.mjs — runOwnershipChecks を拡張し object/claim に加え invariant/state/error/test の orphan/collision を集計(unallocated 概念)",
+            "MODIFY: lib/workspace-model.mjs — validateWorkspaceTree(tree) を追加: 親子整合・重複path・package catalog path との整合",
+            "MODIFY: lib/validation.mjs — runGatePipeline に完全性ゲートを追加: responsibilities 非空 / tree⇔catalog path 整合 / owner 参照が inventory に解決 / unallocated==0 / boundary consumer・provider が catalog に存在 / dependency policy 完全性",
+            "NEW(任意): tests/workspacify-tree/fixtures/decisions-rich.json — 拡張モデルを満たす complete 正例(gaia 級の小規模版)",
+            "MODIFY: tests/workspacify-tree/unit/*.test.mjs — 拡張 schema・ゲートの unit 追加(負例: responsibilities 欠落 / tree 不整合 / unallocated 残 / boundary 解決不能)",
+            "Out of scope: manifest 出力拡張(run/render)は PX-181。command .md 強化は PX-182。",
+            "Out of scope: 英語版・製本。",
+            "Affected: PX-179 までに実装した schemas/decision-apply/ownership/validation(後方互換: 旧 decisions-ok も通す)。",
+            "Affected: ALLOCATE §7/§9.3 の要求が第一段階の gate として成立する(実装は PX-181 のパリティ検証で確認)。"
+          ],
+          "testUnit": [
+            "UT: [Normal] schema — a decisions object with responsibilities seed_required and extended owns passes assertDecisionSchema",
+            "UT: [Error] schema — a workspace package missing responsibilities or seed_required is rejected with errors",
+            "UT: [Boundary] schema — owns with an unknown inventory category is rejected",
+            "UT: [Invariant] schema — no required design field is silently ignored",
+            "UT: [Normal] tree — validateWorkspaceTree accepts a parent-consistent tree",
+            "UT: [Error] tree — workspace.tree path set not equal to package catalog paths is reported as inconsistent",
+            "UT: [Normal] ownership — extended runOwnershipChecks counts invariant/state/error/test orphans as unallocated",
+            "UT: [Error] ownership — an inventory object whose owner_package does not resolve to a catalog package is reported",
+            "UT: [Invariant] ownership — unallocated must be zero for the completeness gate to pass",
+            "UT: [Error] boundary — a contract boundary consumer or provider absent from the catalog fails the completeness gate"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] decision-input(schema)→decision-apply→ownership→validation(runGatePipeline) を decisions-rich.json で統合する",
+            "IT: [Verification] decisions-rich.json が schema 通過・全 owner 解決・tree 整合・unallocated 0・boundary 解決で gate COMPLETE になり、負例は各 gate FAIL",
+            "IT: [Prerequisites] PX-179 までの既存実装。既存 106 テスト green のまま",
+            "IT: [Related tickets] PX-181(出力)/PX-182(.md)が本ゲートを利用"
+          ],
+          "testExceptions": [
+            "「responsibilities の内容が仕様に対して意味的に正しい」ことを自動正解判定するのはテスト不能(意味論判断は AI)。設計欠陥ではない。代替検証: 非空・重複なし・既知カテゴリ等の形式条件を機械検証し、内容の妥当性は Step 3 の AI 判断と grill で担保する。",
+            "どの package がどの invariant を所有すべきかの最終判断を自動生成するのはテスト不能(AI の意味論判断)。設計欠陥ではない。代替検証: 一意 owner・catalog 解決・unallocated==0 を機械強制し、割当内容の妥当性は AI decision + approvals で担保する。"
+          ],
+          "instrumentation": "### Logging\nゲート結果は runGatePipeline の gates/finalAudit で出力。\n### Metrics\nfinal_audit に unallocated_count・missing_responsibilities_count・tree_catalog_mismatch_count を追加。\n### Error tracking\n不整合は WorkSpacifyTreeError(gateId)へ正規化。\n### Health check\ndecisions-rich.json で gate COMPLETE、負例で FAIL を返すことを自己診断単位とする。\nStatic quality check: passed (totalIssues 0)\nTranslatability: no issues\nTests: full suite 121/121 PASS",
+          "acceptanceCriteria": [
+            "Happy path: decisions-rich.json が schema 通過し、tree 整合・unallocated 0・boundary 解決で gate COMPLETE を返す",
+            "Error case: responsibilities 欠落 / tree 不整合 / unallocated 残 / boundary 解決不能の各負例で対応ゲートが FAIL し原因を reasons に返す",
+            "Edge case: 旧 minimal decisions(decisions-ok)が引き続き schema 通過し、既存 106 テストが green を維持する"
+          ],
+          "investigation": "証跡: ALLOCATE §7.4(package id/name/path 一意・tree⇔catalog 整合・responsibilities/owner・owner 参照の inventory 解決・dependency policy・contract_boundaries の catalog 解決)・§9.3(object/claim/invariant/error code/required test の一意 semantic owner・unallocated 0)。現行 decisions schema は workspace(id/name/path/layer/kind/owns)・ownership・approvals のみで、responsibilities/seed_required/tree/dev policy が無い。",
+          "boyScoutPlan": "関数は動詞句(validateWorkspaceTree/applyOwnerTo/assertCompleteness)。カテゴリ定数化。error swallowing 禁止。既存の decision-input/ownership はスコープ内で翻訳可能性を保ちつつ拡張。",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "decision input contract 拡張",
+              "precondition": "a decisions object declares workspace packages with responsibilities seed_required and extended owns",
+              "postcondition": "assertDecisionSchema passes and the extended fields are retained",
+              "invariant": "a workspace package missing responsibilities or seed_required is rejected and no required design field is silently ignored"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "workspace.tree と catalog 整合",
+              "precondition": "workspace.tree and the package catalog both exist",
+              "postcondition": "validateWorkspaceTree reports any path inconsistency between the tree and the catalog",
+              "invariant": "the tree path set and the catalog path set are equal when the gate passes"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "§9.3 一意 semantic owner / unallocated==0",
+              "precondition": "inventory contains objects claims invariants state machines error codes and required tests",
+              "postcondition": "extended ownership checks count every unassigned item as unallocated",
+              "invariant": "the completeness gate passes only when unallocated is zero and every owner resolves to a catalog package"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "boundary 解決",
+              "precondition": "contract boundaries and dependency policy are present in decisions",
+              "postcondition": "a boundary whose consumer or provider is absent from the catalog fails the completeness gate",
+              "invariant": "boundary consumer and provider always exist in the package catalog"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "既存互換",
+              "precondition": "the extended decision model is applied to the current pipeline",
+              "postcondition": "existing minimal decisions such as decisions-ok still validate",
+              "invariant": "all previously green tests remain green"
+            }
+          ],
+          "created_at": "2026-09-09",
+          "updated_at": "2026-09-09",
+          "referenceSection": "docs/WORKSPACIFY-ALLOCATE_Complete_Implementation_Instruction.md §7.4/§9.3 参照 / Gaia_v30_Stage1_Coverage_Ledger_Rev3.md(到達目標例)",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: C001 セットアップ(schema 拡張)\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { loadDecisionInput, assertDecisionSchema } from '.claude/scripts/workspacify-tree/lib/decision-input.mjs';\nimport { validateWorkspaceTree } from '.claude/scripts/workspacify-tree/lib/workspace-model.mjs';\n```\n",
+            "UT: C001 Precondition/Postcondition\n```js\n// a workspace package with responsibilities seed_required and extended owns passes\nconst rich = { workspace: [{ id: 'pkg-1', name: 'alpha', path: 'crates/p/alpha', layer: 'protocol', kind: 'production-library', responsibilities: ['owns alpha records'], seed_required: true, owns: { objects: ['obj-1'], claims: [], invariants: ['inv-1'], error_codes: [], required_tests: [] } }], ownership: [{ objectId: 'obj-1', packageId: 'pkg-1' }], dependencies: [], adapters: {}, approvals: [{ decisionId: 'obj-1', rationale: 'x', approver: 'ai' }] };\nconst schemaReport = assertDecisionSchema(rich);\nassert.equal(schemaReport.ok, true);\n```\n",
+            "UT: C001 Invariant→述語コード\n```js\nconst missingResp = { workspace: [{ id: 'pkg-1', name: 'a', path: 'a', layer: 'protocol', kind: 'production-library' }], ownership: [], dependencies: [], adapters: {}, approvals: [] };\nassert.equal(assertDecisionSchema(missingResp).ok, false);\n```\n",
+            "UT: C002 Precondition→入力(tree 不整合)\n```js\nconst tree = [{ name: 'crates', kind: 'dir', children: [{ name: 'alpha', kind: 'dir', children: [] }] }];\nconst packages = [{ id: 'pkg-1', name: 'alpha', path: 'crates/p/alpha', layer: 'protocol', kind: 'production-library' }];\n```\n",
+            "UT: C002 Postcondition→assertion\n```js\n// validateWorkspaceTree reports the path mismatch between tree and catalog\nconst treeReport = validateWorkspaceTree({ tree, packages });\nassert.equal(treeReport.consistent, false);\nassert.ok(treeReport.errors.length >= 1);\n```\n",
+            "UT: C003 Precondition→入力(unallocated)\n```js\nimport { runOwnershipChecks } from '.claude/scripts/workspacify-tree/lib/ownership.mjs';\nconst inv = { objects: [{ id: 'obj-1', owner_package: null }], invariants: [{ id: 'inv-1' }], errorCodes: [{ id: 'err-1' }] };\nconst pkgs = [{ id: 'pkg-1', name: 'a', path: 'a', layer: 'protocol', kind: 'production-library' }];\nconst result = runOwnershipChecks({ ...inv, packages: pkgs });\n```\n",
+            "UT: C003 Postcondition→assertion\n```js\n// extended ownership counts invariant/error/test orphans as unallocated\nassert.ok(result.unallocated_count >= 1);\n```\n",
+            "UT: C004 Precondition→入力(boundary 解決不能)\n```js\nimport { runGatePipeline } from '.claude/scripts/workspacify-tree/lib/validation.mjs';\nconst badBoundary = { structure: { reconstruction: { status: 'PASS' } }, inventory: {}, workspace: { packages: [] }, dependencies: { boundaries: [{ consumer: 'ghost', provider: 'pkg-1' }] }, decisions: { approvals: [] } };\n```\n",
+            "UT: C004 Postcondition→assertion\n```js\nconst pipeline = runGatePipeline(badBoundary);\nassert.notEqual(pipeline.status, 'COMPLETE');\n```\n",
+            "UT: C005 既存互換\n```js\nimport { loadDecisionInput } from '.claude/scripts/workspacify-tree/lib/decision-input.mjs';\nconst okDecisions = loadDecisionInput('tests/workspacify-tree/fixtures/decisions-ok.json');\nassert.equal(assertDecisionSchema(okDecisions).ok, true);\n```\n"
+          ],
+          "startedAt": "2026-09-09",
+          "changes": [
+            {
+              "before": "decisions schema minimal",
+              "after": "workspace requires responsibilities/seed_required; owns covers invariants/state_machines/error_codes/required_tests; optional tree",
+              "description": "decision model extension (A)"
+            },
+            {
+              "before": "no tree check",
+              "after": "validateWorkspaceTree enforces leaf-dir path set == package catalog path set",
+              "description": "tree-catalog consistency (C002)"
+            },
+            {
+              "before": "ownership objects/claims only",
+              "after": "runOwnershipChecks counts invariant/state/error/test orphans and unallocated_count",
+              "description": "extended ownership (C003)"
+            },
+            {
+              "before": "G3 basic",
+              "after": "G3 completeness gate: missing responsibilities / tree mismatch / boundary unresolved block COMPLETE",
+              "description": "completeness gates (B)"
+            },
+            {
+              "before": "(absent)",
+              "after": "fixtures decisions-rich.json + tests/unit/completeness.test.mjs (9 tests)",
+              "description": "extended model fixtures and tests"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-09-09"
+        },
+        {
+          "id": 181,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "workspacify-tree 情報レベル強化 T2 — manifest 出力拡張と ALLOCATE entry 検査パリティ (C+D)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/181-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\nrender/run.mjs が、ALLOCATE §7 の entry 検査を通過する情報レベルの manifest を出力できるようにし、その通過を機械検証するパリティ検証器と acceptance を追加する。\n\n### Purpose\n第二段階は tree manifest を唯一の入力として workspace ディレクトリ分解と RFC seed 配賦を行う(§8/§9/§10)。そのため manifest は workspace.tree・ownership 表・dependency 表・stage2_handoff(contract_definition_order/contract_boundaries)を自己完結で持つ。\n\n### Motivation\n現状 manifest は adapters は database_policy のみ・stage2_handoff は objects の列挙と空 boundary で、ALLOCATE §7 に不合格。\n\n### Constraints\n既存 106 テスト維持。T1(PX-180)のゲート結果・モデルを利用。出力はカレントディレクトリの WORKSPACIFY-TREE-MANIFEST.json のみ。",
+          "notes": "- [Implementation steps] (1) render 拡張(buildWorkspaceTree/buildOwnershipTable/buildDependencyTables) → (2) run.finalize 統合 → (3) entry-parity → (4) decisions-rich fixture + acceptance。\n- [Risks] 既存 PX-178 acceptance(単純 spec・空 decisions)は tree/ownership が空でも COMPLETE になるよう後方互換を保つ。\n- [Caveats] contract_boundaries は全許容 edge を reason_code 付きで網羅(T1 の依存 reason_code 必須)。\n- [Open items] conformance(CI 規則)の詳細は PX-182/将来。\n- [Future improvements] ALLOCATE 実装後に本パリティを true 統合検証へ昇格。\nImplementation summary:\n- Extended finalize/gate to carry workspace.tree and boundaries; manifest now emits tree, ownership table, dependency tables, stage2 entry_gate/boundaries.\n- Added checkTreeEntryGate parity with ALLOCATE §7.\n- Test results: 116/116 PASS (114 prior + 2 new).\n- Quality: totalIssues 0.\n- Provenance: PX-181 added to run.mjs/validation.mjs headers; entry-parity.mjs annotated.\n- No stubs/crimes/[::AMBIGUOUS::].\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Contract coverage: @verifies verified (verify-red-coverage)\n- Entry-gate parity: gaia-like manifest passes checkTreeEntryGate (ALLOCATE §7)\n- No open crimes, no stubs, no [::AMBIGUOUS::] markers",
+          "invariants": "- [Normal condition] 生成 manifest は tree・ownership 表・dependency 表・stage2_handoff を自己完結で含む。\n- [Error invariant] entry 検査不整合時は COMPLETE を出さない。\n- [Internal state invariant] workspace.tree path 集合 == package catalog path 集合。\n- [Boundary invariant] contract_boundaries の consumer/provider は常に catalog に存在する。",
+          "scope": [
+            "MODIFY: lib/render.mjs — assembleManifest へ workspace.tree・ownership 表・dependency 表・conformance を組み立てる関数を追加(buildWorkspaceTree/buildOwnershipTable/buildDependencyTables)",
+            "MODIFY: run.mjs finalize — manifest の workspace.tree(T1 の tree モデル)・ownership(object/claim/invariant/state/error/test→package 表)・dependencies(orientation + normal_edges(reason_code) + forbidden_layer_rules + dev_dependency_policy)・stage2_handoff(contract_definition_order + 全許容 edge の contract_boundaries)を組み込む",
+            "NEW: .claude/scripts/workspacify-tree/lib/entry-parity.mjs — ALLOCATE §7.1-7.4 相当の entry 検査パリティ検証器(checkTreeEntryGate(manifest, specPath)->{ok,errors[]})",
+            "NEW: tests/workspacify-tree/acceptance/entry-parity.test.mjs — gaia 級 rich spec(fixtures)を tree 実行し、生成 manifest が entry 検査を通過することを機械検証",
+            "MODIFY: tests/workspacify-tree/fixtures/decisions-rich.json — T1 のモデルに加え、全許容 edge・dev policy・tree を含む complete decisions",
+            "Out of scope: command .md 強化(PX-182)。ALLOCATE 本体の実装。",
+            "Out of scope: 英語版・製本。",
+            "Affected: render/run.mjs(出力構造拡張)。既存 PX-178 acceptance(単純 spec)も green 維持。",
+            "Affected: 生成 manifest が ALLOCATE §7.1-7.4 を満たすことで第二段階の entry gate が成立。"
+          ],
+          "testUnit": [
+            "UT: [Normal] render — assembleManifest includes workspace.tree whose paths equal package catalog paths",
+            "UT: [Normal] render — ownership table maps every inventory object/claim/invariant/state/error/test to one owner package",
+            "UT: [Error] render — a manifest assembled without tree or ownership tables fails self-consistency check",
+            "UT: [Boundary] render — dependencies section keeps orientation consumer_to_direct_dependency and reason-coded normal edges",
+            "UT: [Invariant] render — forbidden layer rules and dev dependency policy are present as tables",
+            "UT: [Normal] handoff — stage2_handoff.contract_boundaries cover every allowed cross-package edge with consumer/provider in the catalog",
+            "UT: [Error] handoff — contract_definition_order containing an unknown package is flagged by the parity checker",
+            "UT: [Invariant] parity — checkTreeEntryGate returns ok true for a generated rich manifest and false for a truncated one",
+            "UT: [Boundary] parity — source re-hash mismatch (input.source_hash) fails the entry gate",
+            "UT: [Normal] integration — finalize on decisions-rich.json publishes a manifest that passes checkTreeEntryGate"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] T1 の model/gate → render/run.finalize → entry-parity を decisions-rich.json で直列実行",
+            "IT: [Verification] 生成 manifest が ALLOCATE §7.1(self-hash/schema/COMPLETE)・§7.2(final_audit 0 / stage2_handoff)・§7.3(source re-hash)・§7.4(catalog/owner/boundary/dependency policy)を全て通過",
+            "IT: [Prerequisites] PX-180(T1)。既存 106 テスト green",
+            "IT: [Related tickets] PX-182(.md)が本パリティを acceptance として利用"
+          ],
+          "testExceptions": [
+            "「tree の階層構造や boundary の意味論が第二段階の設計意図と一致する」ことを自動正解判定するのはテスト不能(意味論判断は AI)。設計欠陥ではない。代替検証: path 集合整合・consumer/provider の catalog 解決・reason_code 列挙・DAG 等を機械強制し、意味論は PX-182 の手順 + grill で担保する。",
+            "ALLOCATE 本体の未実装による「実際に allocate が動く」ことの検証は、本チケット単独ではテスト不能(ALLOCATE は将来実装)。設計欠陥ではない。代替検証: ALLOCATE §7 の entry 検査を第一段階側にパリティ実装し、その検査を manifest が通過することを acceptance で担保する。"
+          ],
+          "instrumentation": "### Logging\nfinalize 成功表示は manifest 絶対パス/source_hash/manifest_hash/gate summary のみ。\n### Metrics\nentry-parity の error 件数を acceptance 出力へ。\n### Error tracking\nentry 検査不整合は WorkSpacifyTreeError(gateId G5 相当)へ。\n### Health check\nentry-parity acceptance が gaia 級 spec で ok true を返すことを自己診断単位とする。\nStatic quality check: passed (totalIssues 0)\nTranslatability: no issues\nTests: full suite 121/121 PASS",
+          "acceptanceCriteria": [
+            "Happy path: decisions-rich.json を tree 実行し、生成 manifest が checkTreeEntryGate(ALLOCATE §7.1-7.4)を ok true で通過する",
+            "Error case: truncated manifest(tree/owner/boundary欠落)を checkTreeEntryGate が ok false + errors で拒否する",
+            "Edge case: 既存 PX-178 acceptance を含む全テストが green を維持する"
+          ],
+          "investigation": "証跡: ALLOCATE §7.1-7.4(entry 検査項目列挙)・§12/§15.2(final allocation manifest の必須構造)・§10(RFC seed が tree の inventory/ownership/boundary から導出される)。gaia ledger Rev3 §1/§7/§8/§9(workspace ツリー・依存許可/禁止/dev 規則)を具体目標に確認。",
+          "boyScoutPlan": "関数は動詞句(buildWorkspaceTree/buildOwnershipTable/checkTreeEntryGate)。定数化(LAYERS/REASON_CODES 再利用)。error swallowing 禁止。render.mjs/run.mjs の肥大はヘルパー分割で防ぐ。",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "§7.4 workspace.tree/catalog 整合",
+              "precondition": "assembleManifest receives rich workspace decisions including a tree",
+              "postcondition": "the rendered manifest contains workspace.tree whose path set equals the package catalog path set",
+              "invariant": "tree and catalog are consistent whenever the manifest is generated"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "§9.3 owner 表",
+              "precondition": "inventory holds objects claims invariants state machines error codes and required tests",
+              "postcondition": "the ownership table maps every inventory item to one package",
+              "invariant": "every ownership reference resolves to an inventory item and to a catalog package"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "§7.4 dependency policy",
+              "precondition": "decisions declare normal and forbidden edges and dev policy",
+              "postcondition": "the dependencies section includes orientation normal edges with reason codes forbidden layer rules and dev dependency policy",
+              "invariant": "orientation is consumer_to_direct_dependency and every normal edge carries a valid reason code"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "§7.2 stage2_handoff",
+              "precondition": "allowed cross-package edges are known",
+              "postcondition": "stage2_handoff.contract_boundaries covers every allowed edge with consumer and provider in the catalog",
+              "invariant": "contract_definition_order never references an unknown package"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "§7.1-7.4 entry parity",
+              "precondition": "a rich manifest is generated from a spec and decisions",
+              "postcondition": "checkTreeEntryGate returns ok true for the generated manifest and false for a truncated manifest",
+              "invariant": "source re-hash matches input.source_hash and reload self-hash passes"
+            }
+          ],
+          "created_at": "2026-09-09",
+          "updated_at": "2026-09-09",
+          "referenceSection": "docs/WORKSPACIFY-ALLOCATE_Complete_Implementation_Instruction.md §7.1-7.4 / §12 / §15.2 / Gaia_v30_Stage1_Coverage_Ledger_Rev3.md",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: C001-C005 共通セットアップ\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { spawnSync } from 'node:child_process';\nimport { mkdtempSync, cpSync, readFileSync, existsSync } from 'node:fs';\nimport { tmpdir } from 'node:os';\nimport { join } from 'node:path';\nimport { assembleManifest, renderManifestText } from '.claude/scripts/workspacify-tree/lib/render.mjs';\nimport { checkTreeEntryGate } from '.claude/scripts/workspacify-tree/lib/entry-parity.mjs';\n```\n",
+            "UT: C001 Postcondition→assertion\n```js\n// assembleManifest includes workspace.tree whose paths equal package catalog paths\nconst manifest = assembleManifest({ status: 'COMPLETE', run: {}, input: {}, structure: {}, inventory: {}, requirements: {}, workspace: { tree: [{ name: 'a', path: 'crates/a', kind: 'dir' }], packages: [{ id: 'pkg-a', path: 'crates/a' }] }, adapters: {}, dependencies: {}, conformance: {}, stage2_handoff: {}, gates: {}, final_audit: {}, integrity: {} });\nassert.ok(manifest.workspace.tree !== undefined);\n```\n",
+            "UT: C002 Postcondition→assertion\n```js\n// ownership table maps inventory items to one owner package\nassert.ok(manifest.workspace.ownership !== undefined);\n```\n",
+            "UT: C003 Postcondition→assertion\n```js\n// dependencies section carries orientation consumer_to_direct_dependency and reason-coded edges\nassert.equal(manifest.dependencies.orientation, 'consumer_to_direct_dependency');\n```\n",
+            "UT: C004 Postcondition→assertion\n```js\n// stage2_handoff.contract_boundaries covers allowed edges with consumer/provider in catalog\nassert.ok(Array.isArray(manifest.stage2_handoff.contract_boundaries));\nassert.ok(Array.isArray(manifest.stage2_handoff.contract_definition_order));\n```\n",
+            "UT: C005 acceptance→assertion\n```js\n// run finalize on decisions-rich and check entry parity\nconst dir = mkdtempSync(join(tmpdir(), 'wst-e2e-'));\nconst spec = join(dir, 'spec.md');\nconst decisions = join(dir, 'decisions-rich.json');\ncpSync('tests/workspacify-tree/fixtures/gaia-like-spec.md', spec);\ncpSync('tests/workspacify-tree/fixtures/decisions-rich.json', decisions);\nconst r = spawnSync(process.execPath, ['.claude/scripts/workspacify-tree/run.mjs', 'finalize', `--spec=${spec}`, `--decisions=${decisions}`], { cwd: dir, encoding: 'utf8' });\nassert.equal(r.status, 0, r.stdout);\nconst published = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));\nconst gate = checkTreeEntryGate(published, spec);\nassert.equal(gate.ok, true, JSON.stringify(gate.errors));\n```\n",
+            "UT: C005 Error→assertion\n```js\n// a truncated manifest fails the entry gate\nconst truncated = { status: 'COMPLETE', input: {} };\nassert.equal(checkTreeEntryGate(truncated, spec).ok, false);\n```\n"
+          ],
+          "startedAt": "2026-09-09",
+          "changes": [
+            {
+              "before": "manifest workspace minimal",
+              "after": "workspace.tree + ownership table (object/claim->package) emitted",
+              "description": "workspace tree & ownership (C001/C002)"
+            },
+            {
+              "before": "dependencies sparse",
+              "after": "dependencies orientation/normal_edges/forbidden_edges/forbidden_layer_rules/dev_dependency_policy/boundaries emitted",
+              "description": "dependency tables (C003)"
+            },
+            {
+              "before": "stage2 sparse",
+              "after": "stage2_handoff with entry_gate + contract_definition_order + contract_boundaries",
+              "description": "stage2 handoff (C004)"
+            },
+            {
+              "before": "(absent)",
+              "after": "lib/entry-parity.mjs checkTreeEntryGate = ALLOCATE §7.1-7.4 parity",
+              "description": "entry parity (C005)"
+            },
+            {
+              "before": "(absent)",
+              "after": "fixtures gaia-like-spec.md/gaia-decisions.json + acceptance/entry-parity.test.mjs",
+              "description": "parity acceptance (gaia-like spec passes entry gate)"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-09-09"
+        },
+        {
+          "id": 182,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "workspacify-tree 情報レベル強化 T3 — command .md 強化と反復到達ループ統合 (E)",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/182-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\n.claude/commands/workspacify-tree.md(日本語)を、Step 3 の「情報レベル向上反復手順」と各ゲートの意味・終了条件を明記した実用手順書へ強化し、手順どおり反復すれば生成 manifest が ALLOCATE entry 検査(PX-181 のパリティ)に到達することを end-to-end で検証する。\n\n### Purpose\nAI 実行セッションが「設計 decision 作成 → ゲート反復 → 情報レベル向上 → COMPLETE」を再現可能に遂行し、第二段階(allocate)と grill が高精度で進められる manifest を安定的に生み出す。\n\n### Motivation\n現行 .md の Step 3 は decision の書き方を示すが「どう情報レベルを上げるか・いつ完了か」が不明確で、反復が収束しない。\n\n### Constraints\n日本語正文。削除済み記述(言語方針・英訳注記など)は復活させない。常にカレントディレクトリ出力。T1/PX-180 のモデル・ゲートと T2/PX-181 の出力・パリティを利用。既存 106+ テスト維持。",
+          "notes": "- [Implementation steps] (1) .md の Step 3/4/5 拡張 → (2) 構造テスト拡張 → (3) info-level-loop 統合テスト → (4) 全回帰。\n- [Risks] .md の長大化。反復手順はゲート駆動で収束させ、AI 裁量の無限ループを防ぐ。\n- [Caveats] gaia 台帳は「例」であって対象 spec を gaia に固定しない(汎用性維持)。\n- [Open items] allocate/grill との結合は将来。\n- [Future improvements] 英訳・製本はユーザー指示後に別対応。\nImplementation summary:\n- Rewrote Step 3-5 of the Japanese command doc to drive the information level to gaia-ledger grade via gate-driven iteration.\n- Test results: 121/121 PASS (116 prior + 5 new).\n- Quality: totalIssues 0. No stubs/crimes/[::AMBIGUOUS::].\n- Removed notes (language-policy, English translation) remain absent.\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Contract coverage: @verifies verified (verify-red-coverage)\n- Entry-gate parity: gaia-like manifest passes checkTreeEntryGate (ALLOCATE §7)\n- No open crimes, no stubs, no [::AMBIGUOUS::] markers",
+          "invariants": "- [Normal condition] .md の手順は PX-180/181 のゲート・出力と一対一で対応する。\n- [Error invariant] 情報レベルが不足する限り COMPLETE を出さない手順である。\n- [Internal state invariant] 反復は gate 結果に基づいて収束する(無限ループしない)。\n- [Boundary invariant] 削除済み記述は復活させない。",
+          "scope": [
+            "MODIFY: .claude/commands/workspacify-tree.md(日本語) — Step 3 を「情報レベル向上の反復手順」へ拡張: ①候補分類→②package 設計(layer/kind/responsibilities/seed_required)→③owner 割当(object/claim/invariant/state/error/test)→④依存と boundary の全網羅(reason_code・forbidden alternative・dev policy)→⑤approval 台帳、を各ゲート(完全性・tree整合・unallocated・boundary解決)の意味と終了条件とともに記載。gaia 台帳を「到達目標の具体例」として明記",
+            "MODIFY: .claude/commands/workspacify-tree.md — Step 4 のゲート結果の読み方(gates/finalAudit の各 count が指す欠陥と修正対象)を表で整理",
+            "MODIFY: .claude/commands/workspacify-tree.md — Step 5 に「出力 manifest が ALLOCATE entry 検査を通ること」を成功条件として追記",
+            "NEW: tests/workspacify-tree/integration/info-level-loop.test.mjs — T1/T2 を利用し、手順どおり decision を段階的に濃化していくと finalize が COMPLETE となり、生成 manifest が PX-181 の checkTreeEntryGate を通過することを段階ごとに検証",
+            "MODIFY: tests/workspacify-tree/unit/command-realize.test.mjs — .md 構造テストを拡張(Step 3 が反復手順・各ゲート説明・gaia 到達目標に言及していること)",
+            "Out of scope: 英語版・製本。",
+            "Out of scope: ALLOCATE 本体の実装と grill の自動実行(将来)。",
+            "Affected: .claude/commands/workspacify-tree.md(手順書)と tests(構造・統合)。",
+            "Affected: 第5層の入り口として、tree の情報レベルが gaia 台帳級へ到達する基準を文書化。"
+          ],
+          "testUnit": [
+            "UT: [Normal] .md — Step 3 が package 設計(responsibilities/seed_required)と owner 割当(invariant/error/test 含む)と依存 boundary 全網羅の手順に言及する",
+            "UT: [Normal] .md — 各ゲート(完全性/tree整合/unallocated/boundary解決)の意味と終了条件を記載する",
+            "UT: [Boundary] .md — gaia 台帳を到達目標の具体例として言及する",
+            "UT: [Error] .md — 削除済み記述(言語方針・英訳注記)が存在しないことを構造検査で保証する",
+            "UT: [Invariant] .md — 成功/失敗表示・カレントディレクトリ出力・BLOCKED 非置換の契約を維持している",
+            "UT: [Normal] loop — 不完全 decision では gate が FAIL/REVIEW_REQUIRED を返す",
+            "UT: [Error] loop — 段階的に decision を濃化すると unallocated/boundary 未解決が減少する",
+            "UT: [Invariant] loop — 完成 decision で finalize が COMPLETE となり生成 manifest が entry 検査(checkTreeEntryGate)を通過する"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] command .md の手順(parse→extract→decision 濃化→gate→finalize)を T1(モデル/ゲート)+T2(出力/パリティ)上で実行",
+            "IT: [Verification] info-level-loop で「不完全→段階的濃化→COMPLETE→entry 検査 PASS」を一連の run.mjs 呼び出しで検証",
+            "IT: [Prerequisites] PX-180(T1)・PX-181(T2)。既存 106 テスト green",
+            "IT: [Related tickets] PX-180/PX-181 を利用し、第5層の入口としての到達度を定義"
+          ],
+          "testExceptions": [
+            "「.md の日本語記述がユーザーにとって意味的に完全である」ことを自動正解判定するのはテスト不能(自然言語の意味論判断)。設計欠陥ではない。代替検証: 必須節・必須手順・ゲート説明・到達目標・削除禁止項目の不在を構造的に自動検査し、内容の意味論品質は日本語 human/AI review で担保する。",
+            "「grill が各ディレクトリの RFC seed に対して正しく実行される」ことを本チケット単独で自動検証するのはテスト不能(grill と allocate は将来実装)。設計欠陥ではない。代替検証: .md 手順が generate する manifest が ALLOCATE entry 検査を通過することを end-to-end で担保し、seed 生成以後は将来チケットで検証する。"
+          ],
+          "instrumentation": "### Logging\ninfo-level-loop は各段階の gate summary を出力。\n### Metrics\n反復段階ごとの unallocated/review_required/boundary 未解決数の推移を記録。\n### Error tracking\n収束しない場合の原因ゲートと修正対象を .md の表から特定可能にする。\n### Health check\ninfo-level-loop acceptance が entry 検査 PASS で終了することを自己診断単位とする。\nStatic quality check: passed (totalIssues 0)\nTranslatability: no issues\nTests: full suite 121/121 PASS",
+          "acceptanceCriteria": [
+            "Happy path: info-level-loop が「不完全 decision → 段階的濃化 → finalize COMPLETE → checkTreeEntryGate PASS」を機械検証する",
+            "Error case: 不完全 decision のままでは gate が COMPLETE を出さず、その原因を finalAudit の count から特定できることを検証する",
+            "Edge case: .md 構造テストで「削除済み記述が存在しない」「カレントディレクトリ出力・BLOCKED 契約が維持」を保証し、既存 106+ テストが green を維持する"
+          ],
+          "investigation": "証跡: 現行 .md は Step 3 が decision の書き方のみで「どう情報レベルを上げるか・いつ完了か」が不明。ALLOCATE §7 entry 検査と §10 seed 15見出しが tree に要求する情報を確認。gaia ledger Rev3 が「到達目標の具体例」。grill は conver README のディレクトリ単位実装手順。",
+          "boyScoutPlan": "日本語記述は翻訳可能性(可読性=翻訳可能性)を保ち、将来の英訳に耐える構造にする。手順・ゲート表は定型的で冗長にならないよう整理。",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "Step 3 手順の具体化",
+              "precondition": "the command markdown contains Step 3 and Step 4",
+              "postcondition": "Step 3 describes an iteration that raises the information level (package design, ownership for invariants and tests, dependency coverage) and Step 4 explains each completeness gate",
+              "invariant": "the markdown references the Gaia ledger as the target information level and never resurrects removed notes"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "ゲート説明と終了条件",
+              "precondition": "the completeness gates from PX-180 are implemented",
+              "postcondition": "the markdown explains each gate meaning and its exit condition in relation to finalAudit counts",
+              "invariant": "the markdown ties gate PASS to zero unresolved unallocated and boundary failures"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "end-to-end 到達",
+              "precondition": "a spec and an initially incomplete decisions object are given",
+              "postcondition": "iterating the documented workflow raises the manifest to COMPLETE and the generated manifest passes the ALLOCATE entry check",
+              "invariant": "the workflow converges to COMPLETE only when the entry check passes"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "既存制約の維持",
+              "precondition": "the command markdown is edited",
+              "postcondition": "the output contract (single manifest in the current directory, BLOCKED on hash mismatch) is retained",
+              "invariant": "the removed language-policy note stays absent"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "回帰",
+              "precondition": "all prior workspacify-tree features are present",
+              "postcondition": "the structural and end-to-end tests pass",
+              "invariant": "all previously green tests remain green"
+            }
+          ],
+          "created_at": "2026-09-09",
+          "updated_at": "2026-09-09",
+          "referenceSection": "docs/WORKSPACIFY-TREE_Complete_Implementation_Instruction.md §0-§17 / Gaia_v30_Stage1_Coverage_Ledger_Rev3.md / conver README grill 手順",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: C001 セットアップ(.md 構造)\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { readFileSync } from 'node:fs';\nconst md = readFileSync('.claude/commands/workspacify-tree.md', 'utf8');\n```\n",
+            "UT: C001 Postcondition→assertion\n```js\n// Step 3 describes an iteration that raises the information level\nassert.match(md, /## Step 3/);\nassert.match(md, /responsibilities|seed_required/);\nassert.match(md, /owner|所有権/);\nassert.match(md, /invariant|不変条件/);\nassert.match(md, /boundary|契約境界|contract_boundaries/);\n```\n",
+            "UT: C002 Postcondition→assertion\n```js\n// Step 4 explains each gate and its exit condition\nassert.match(md, /## Step 4/);\nassert.match(md, /unallocated|未割当/);\nassert.match(md, /tree|ツリー/);\nassert.match(md, /COMPLETE/);\n```\n",
+            "UT: C003 end-to-end\n```js\nimport { spawnSync } from 'node:child_process';\nimport { mkdtempSync, cpSync, readFileSync } from 'node:fs';\nimport { tmpdir } from 'node:os';\nimport { join } from 'node:path';\nimport { checkTreeEntryGate } from '.claude/scripts/workspacify-tree/lib/entry-parity.mjs';\nconst dir = mkdtempSync(join(tmpdir(), 'wst-loop-'));\nconst spec = join(dir, 'gaia-like-spec.md');\nconst dec = join(dir, 'gaia-decisions.json');\ncpSync('tests/workspacify-tree/fixtures/gaia-like-spec.md', spec);\ncpSync('tests/workspacify-tree/fixtures/gaia-decisions.json', dec);\nconst r = spawnSync(process.execPath, ['.claude/scripts/workspacify-tree/run.mjs', 'finalize', `--spec=${spec}`, `--decisions=${dec}`], { cwd: dir, encoding: 'utf8' });\nassert.equal(r.status, 0, r.stdout);\nconst manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));\nassert.equal(checkTreeEntryGate(manifest, spec).ok, true);\n```\n",
+            "UT: C004 Postcondition→assertion\n```js\n// output contract retained and removed notes stay absent\nassert.match(md, /カレントディレクトリ/);\nassert.match(md, /BLOCKED|置換/);\nassert.ok(!/言語方針/.test(md));\nassert.ok(!/English translation/.test(md));\n```\n",
+            "UT: C005 回帰\n```js\n// all previously green tests remain green is run externally; structural check below\nassert.match(md, /## Step 1: parse/);\n```\n"
+          ],
+          "startedAt": "2026-09-09",
+          "changes": [
+            {
+              "before": "Step 3 decision の書き方のみ",
+              "after": "Step 3 に情報レベルを上げる反復手順①-⑤(approvals確定/package設計/owner完全化/boundary網羅/approval台帳)",
+              "description": "command doc information-raising workflow (C001)"
+            },
+            {
+              "before": "Step 4 ゲート説明不足",
+              "after": "finalAudit count→修正対象の対応表(unallocated/tree/responsibilities/boundary)を記載",
+              "description": "gate explanation & exit conditions (C002)"
+            },
+            {
+              "before": "Step 5 到達条件不明",
+              "after": "ALLOCATE entry 検査通過 + Gaia 台帳を到達目標例として明記",
+              "description": "entry-check success condition (C003)"
+            },
+            {
+              "before": "(absent)",
+              "after": "tests/integration/info-level-loop.test.mjs",
+              "description": "incomplete gate FAIL -> complete finalize COMPLETE -> entry parity PASS を検証"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-09-09"
         }
       ]
     },

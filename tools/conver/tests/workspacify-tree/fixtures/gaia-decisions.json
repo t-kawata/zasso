@@ -1,0 +1,22 @@
+{
+  "workspace": [
+    { "id": "pkg-core", "name": "core-protocol", "path": "crates/protocol/core", "layer": "protocol", "kind": "production-library",
+      "responsibilities": ["own core records", "validate core state"],
+      "seed_required": true,
+      "owns": { "objects": ["obj-000001", "obj-000002"], "claims": [], "invariants": ["inv-1"], "state_machines": [], "error_codes": [], "required_tests": [] } }
+  ],
+  "tree": [
+    { "name": "crates", "path": "crates", "kind": "dir", "children": [
+        { "name": "protocol", "path": "crates/protocol", "kind": "dir", "children": [
+            { "name": "core", "path": "crates/protocol/core", "kind": "dir", "children": [] } ] } ] }
+  ],
+  "ownership": [
+    { "objectId": "obj-000001", "packageId": "pkg-core" },
+    { "objectId": "obj-000002", "packageId": "pkg-core" }
+  ],
+  "dependencies": [],
+  "adapters": { "ports": [], "databasePolicy": { "applicable": false } },
+  "approvals": [
+    { "decisionId": "obj-000002", "rationale": "HelperRecord confirmed as auxiliary object", "approver": "ai" }
+  ]
+}

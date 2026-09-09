@@ -9,23 +9,30 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "name", "path", "layer", "kind"],
+        "required": ["id", "name", "path", "layer", "kind", "responsibilities", "seed_required"],
         "properties": {
           "id": { "type": "string" },
           "name": { "type": "string" },
           "path": { "type": "string" },
           "layer": { "type": "string" },
           "kind": { "type": "string" },
+          "responsibilities": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "seed_required": { "type": "boolean" },
           "owns": {
             "type": "object",
             "properties": {
               "objects": { "type": "array", "items": { "type": "string" } },
-              "claims": { "type": "array", "items": { "type": "string" } }
+              "claims": { "type": "array", "items": { "type": "string" } },
+              "invariants": { "type": "array", "items": { "type": "string" } },
+              "state_machines": { "type": "array", "items": { "type": "string" } },
+              "error_codes": { "type": "array", "items": { "type": "string" } },
+              "required_tests": { "type": "array", "items": { "type": "string" } }
             }
           }
         }
       }
     },
+    "tree": { "type": "array", "items": { "type": "object" } },
     "ownership": {
       "type": "array",
       "items": {

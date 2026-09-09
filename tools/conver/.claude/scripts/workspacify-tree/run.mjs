@@ -1,4 +1,4 @@
-// [::TICKET::] PX-178, PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-178, PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181) --for-spec --no-implementation-order`.
 /**
  * Command entry point for /workspacify-tree.
  *
@@ -107,8 +107,11 @@ function runGate(args) {
   const pipeline = runGatePipeline({
     structure: { reconstruction: analysis.reconstruction },
     inventory,
-    workspace: { packages: decisions.workspace ?? [] },
-    dependencies: { normalEdges: (decisions.dependencies ?? []).filter((edge) => edge.kind !== 'forbidden') },
+    workspace: { packages: decisions.workspace ?? [], tree: decisions.tree ?? [] },
+    dependencies: {
+      normalEdges: (decisions.dependencies ?? []).filter((edge) => edge.kind !== 'forbidden'),
+      boundaries: decisions.boundaries ?? [],
+    },
     adapters: buildPipelineAdapters(decisions),
     decisions: { approvals: decisions.approvals ?? [] },
   });
@@ -134,8 +137,11 @@ function runFinalize(args) {
   const pipelineInput = {
     structure: { reconstruction: analysis.reconstruction },
     inventory,
-    workspace: { packages: decisions.workspace ?? [] },
-    dependencies: { normalEdges: (decisions.dependencies ?? []).filter((edge) => edge.kind !== 'forbidden') },
+    workspace: { packages: decisions.workspace ?? [], tree: decisions.tree ?? [] },
+    dependencies: {
+      normalEdges: (decisions.dependencies ?? []).filter((edge) => edge.kind !== 'forbidden'),
+      boundaries: decisions.boundaries ?? [],
+    },
     adapters: buildPipelineAdapters(decisions),
     decisions: { approvals: decisions.approvals ?? [] },
   };
@@ -165,13 +171,9 @@ function runFinalize(args) {
       unresolved_candidates: inventory.unresolved_candidates,
     },
     requirements: { normative_candidates: inventory.terms },
-    workspace: { packages: decisions.workspace ?? [], ownership: decisions.ownership ?? [] },
+    workspace: { tree: decisions.tree ?? [], packages: decisions.workspace ?? [], ownership: buildOwnershipTable(inventory, decisions) },
     adapters: buildAdaptersSection(decisions),
-    dependencies: {
-      orientation: 'consumer_to_direct_dependency',
-      normal_edges: decisions.dependencies ?? [],
-      dev_dependency_policy: [],
-    },
+    dependencies: buildDependencyTables(decisions),
     conformance: {},
     stage2_handoff: buildStage2Handoff(inventory, decisions),
     gates: { records: pipeline.gates },
@@ -270,19 +272,61 @@ function buildAdaptersSection(decisions) {
   };
 }
 
-function buildStage2Handoff(inventory, decisions) {
+function buildOwnershipTable(inventory, decisions) {
+  const packageIds = new Set((decisions.workspace ?? []).map((pkg) => pkg.id));
+  const entries = [];
+  for (const candidate of inventory.objects ?? []) {
+    if (candidate.owner_package) {
+      entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name, category: 'object', owner_package: candidate.owner_package });
+    }
+  }
+  for (const candidate of inventory.claims ?? []) {
+    if (candidate.primary_owner) {
+      entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name, category: 'claim', owner_package: candidate.primary_owner });
+    }
+  }
+  return { entries, packages: [...packageIds] };
+}
+
+function buildDependencyTables(decisions) {
   const edges = decisions.dependencies ?? [];
-  const contractBoundaries = edges.map((edge, index) => ({
+  const normalEdges = edges.filter((edge) => edge.kind !== 'forbidden');
+  const forbiddenEdges = edges.filter((edge) => edge.kind === 'forbidden');
+  const boundaries = normalEdges.map((edge, index) => ({
     id: `boundary-${String(index + 1).padStart(3, '0')}`,
-    consumer_package: edge.from ?? null,
-    provider_package: edge.to ?? null,
+    consumer_package: edge.from,
+    provider_package: edge.to,
     dependency_reason_code: edge.reasonCode ?? null,
     stage2_contract_scope: ['input', 'output', 'preconditions', 'postconditions', 'invariants', 'errors', 'state_ownership', 'idempotency', 'atomicity', 'ordering', 'finality', 'canonicalization', 'signature', 'proof_verification', 'tests'],
   }));
   return {
+    orientation: 'consumer_to_direct_dependency',
+    normal_edges: normalEdges,
+    forbidden_edges: forbiddenEdges,
+    forbidden_layer_rules: [],
+    dev_dependency_policy: [],
+    boundaries,
+  };
+}
+
+function buildStage2Handoff(inventory, decisions) {
+  const dependencyTables = buildDependencyTables(decisions);
+  const definitionOrder = [
+    ...(inventory.objects ?? []).map((candidate) => candidate.canonical_name),
+    ...(inventory.claims ?? []).map((candidate) => candidate.canonical_name),
+    ...(inventory.terms ?? []).map((candidate) => candidate.canonical_name ?? candidate.keyword),
+  ];
+  return {
     eligible: true,
-    contract_definition_order: inventory.objects.map((candidate) => candidate.canonical_name),
-    contract_boundaries: contractBoundaries,
+    entry_gate: {
+      required_status: 'COMPLETE',
+      source_hash_must_match: true,
+      unresolved_count_must_be: 0,
+      review_required_count_must_be: 0,
+      cycle_count_must_be: 0,
+    },
+    contract_definition_order: definitionOrder,
+    contract_boundaries: dependencyTables.boundaries,
     non_goals_of_stage1: ['No trait method signatures are defined', 'No concrete I/O contract is defined', 'No protocol implementation is defined'],
   };
 }

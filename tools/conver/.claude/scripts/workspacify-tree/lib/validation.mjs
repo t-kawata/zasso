@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-177 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180|PX-181) --for-spec --no-implementation-order`.
 /**
  * Gate pipeline orchestration (§3).
  *
@@ -9,7 +9,7 @@
  */
 import { runOwnershipChecks } from './ownership.mjs';
 import { runDagChecks } from './dag.mjs';
-import { validatePackageCatalog } from './workspace-model.mjs';
+import { validatePackageCatalog, validateWorkspaceTree } from './workspace-model.mjs';
 import { findOverSplitRisks } from './boundary-review.mjs';
 import { checkDatabasePolicy } from './database-policy.mjs';
 import { GATE_STATUS } from './errors.mjs';
@@ -38,6 +38,9 @@ export function runGatePipeline(input = {}) {
   const ownershipResult = evaluateOwnership(inventoryData, packages);
   const catalogErrors = validatePackageCatalog(packages);
   const boundaryRisks = findOverSplitRisks(packages);
+  const treeReport = evaluateTree(workspaceData, packages);
+  const boundaryResolution = evaluateBoundaryResolution(dependenciesData, packages);
+  const missingResponsibilities = packages.filter((pkg) => !pkg.responsibilities || pkg.responsibilities.length === 0).length;
   const dagResult = evaluateDag(dependenciesData, workspaceData.packages);
   const dbResult = evaluateDatabase(adapters, packages);
   const approvalCount = (decisionsData.approvals ?? []).length;
@@ -53,9 +56,27 @@ export function runGatePipeline(input = {}) {
     },
     {
       id: 'G3',
-      status: catalogErrors.length === 0 && ownershipResult.isClean && boundaryRisks.length === 0 ? GATE_STATUS.PASS : GATE_STATUS.REVIEW_REQUIRED,
-      counts: { ...ownershipResult.counts, boundary_risk_count: boundaryRisks.length },
-      reasons: catalogErrors.map((error) => error.message).concat(boundaryRisks.map((risk) => risk.detail)),
+      status:
+        catalogErrors.length === 0 &&
+        ownershipResult.isClean &&
+        boundaryRisks.length === 0 &&
+        missingResponsibilities === 0 &&
+        treeReport.consistent &&
+        boundaryResolution.unresolved === 0
+          ? GATE_STATUS.PASS
+          : GATE_STATUS.REVIEW_REQUIRED,
+      counts: {
+        ...ownershipResult.counts,
+        boundary_risk_count: boundaryRisks.length,
+        missing_responsibilities_count: missingResponsibilities,
+        tree_catalog_mismatch_count: treeReport.errors.length,
+        unresolved_boundary_count: boundaryResolution.unresolved,
+      },
+      reasons: catalogErrors
+        .map((error) => error.message)
+        .concat(boundaryRisks.map((risk) => risk.detail))
+        .concat(treeReport.errors)
+        .concat(boundaryResolution.errors),
     },
     {
       id: 'G4',
@@ -92,16 +113,53 @@ function evaluateOwnership(inventoryData, packages) {
   const result = runOwnershipChecks({
     objects: inventoryData.objects ?? [],
     claims: inventoryData.claims ?? [],
+    invariants: inventoryData.invariants ?? [],
+    stateMachines: inventoryData.stateMachines ?? [],
+    errorCodes: inventoryData.errorCodes ?? [],
+    requiredTests: inventoryData.requiredTests ?? [],
     packages,
   });
-  const clean = result.orphan_object_count === 0 && result.orphan_claim_count === 0 && result.owner_collision_count === 0 && result.invalid_owner_layer_count === 0;
+  const clean =
+    result.orphan_object_count === 0 &&
+    result.orphan_claim_count === 0 &&
+    result.owner_collision_count === 0 &&
+    result.invalid_owner_layer_count === 0 &&
+    result.unallocated_count === 0;
   const counts = {
     orphan_object_count: result.orphan_object_count,
     orphan_claim_count: result.orphan_claim_count,
     owner_collision_count: result.owner_collision_count,
     invalid_owner_layer_count: result.invalid_owner_layer_count,
+    unallocated_count: result.unallocated_count,
   };
   return { counts, isClean: clean, details: result.details };
+}
+
+function evaluateTree(workspaceData, packages) {
+  const tree = workspaceData.tree;
+  if (!tree || tree.length === 0) {
+    return { consistent: true, errors: [] };
+  }
+  const report = validateWorkspaceTree({ tree, packages });
+  return { consistent: report.consistent, errors: report.errors };
+}
+
+function evaluateBoundaryResolution(dependenciesData, packages) {
+  const packageIds = new Set(packages.map((pkg) => pkg.id));
+  const boundaries = dependenciesData.boundaries ?? [];
+  const errors = [];
+  let unresolved = 0;
+  for (const boundary of boundaries) {
+    if (!packageIds.has(boundary.consumer)) {
+      errors.push(`boundary consumer "${boundary.consumer}" is not in the package catalog`);
+      unresolved++;
+    }
+    if (!packageIds.has(boundary.provider)) {
+      errors.push(`boundary provider "${boundary.provider}" is not in the package catalog`);
+      unresolved++;
+    }
+  }
+  return { unresolved, errors };
 }
 
 function evaluateDag(dependenciesData, packages) {
@@ -157,6 +215,7 @@ function buildFinalAudit(aggregate) {
     orphan_object_count: ownershipResult.counts.orphan_object_count,
     orphan_claim_count: ownershipResult.counts.orphan_claim_count,
     owner_collision_count: ownershipResult.counts.owner_collision_count,
+    unallocated_count: ownershipResult.counts.unallocated_count ?? 0,
     unknown_dependency_count: report.unknown_dependency_count,
     forbidden_dependency_count: report.forbidden_edge_count,
     layer_violation_count: report.layer_violation_count,

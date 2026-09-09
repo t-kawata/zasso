@@ -1,6 +1,9 @@
 {
   "workspace": [
-    { "id": "pkg-0001", "name": "alpha-protocol", "path": "crates/protocol/alpha", "layer": "protocol", "kind": "production-library", "owns": { "objects": ["obj-000001", "obj-000002", "obj-000003", "obj-000004"], "claims": [] } }
+    { "id": "pkg-0001", "name": "alpha-protocol", "path": "crates/protocol/alpha", "layer": "protocol", "kind": "production-library",
+      "responsibilities": ["owns alpha records and their validity checks"],
+      "seed_required": true,
+      "owns": { "objects": ["obj-000001", "obj-000002", "obj-000003", "obj-000004"], "claims": [], "invariants": [], "state_machines": [], "error_codes": [], "required_tests": [] } }
   ],
   "ownership": [
     { "objectId": "obj-000001", "packageId": "pkg-0001" },
