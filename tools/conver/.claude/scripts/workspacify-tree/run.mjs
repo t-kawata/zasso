@@ -37,6 +37,16 @@ const MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 const COMMAND_NAME = '/workspacify-tree';
 const GENERATOR_VERSION = '1.0.0';
 
+/**
+ * Friendly, natural-language English guidance for the AI operator.
+ * Canonical machine output stays on stdout; this explanation goes to stderr so
+ * the two never interfere and an AI reading the tool output is told what to do
+ * next and why a step failed.
+ */
+function guide(text) {
+  process.stderr.write(`[guide] ${text}\n`);
+}
+
 function main() {
   const args = process.argv.slice(2);
   const subcommand = args[0];
@@ -60,7 +70,9 @@ function main() {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    process.stdout.write(formatFailure({ gateId: error?.gateId ?? 'GENERAL', reason: message, fixHint: 'correct the reported input or design decision' }));
+    const gateId = error?.gateId ?? 'GENERAL';
+    process.stdout.write(formatFailure({ gateId, reason: message, fixHint: 'correct the reported input or design decision' }));
+    guide(`The command stopped at gate ${gateId}. Reason: ${message}. Fix the reported input or decision, then re-run the step; a failed run never publishes or overwrites a manifest.`);
     process.exit(EXIT_CODES.FAIL);
   }
 }
@@ -79,6 +91,11 @@ function runParse(specPath) {
       reconstruction: analysis.reconstruction,
     }) + '\n'
   );
+  if (analysis.reconstruction.status === 'PASS') {
+    guide(`Parse PASS: input locked (source hash ${analysis.sourceHash.slice(0, 12)}...), ${analysis.headings.length} headings, ${analysis.segments.length} segments, reconstruction verified byte-for-byte. Next: run extract to harvest candidates.`);
+  } else {
+    guide(`Parse FAIL: the specification could not be reconstructed from its segments. Reasons: ${(analysis.reconstruction.reasons ?? []).join('; ')}. Fix the input and re-run parse.`);
+  }
   process.exit(analysis.reconstruction.status === 'PASS' ? EXIT_CODES.OK : EXIT_CODES.FAIL);
 }
 
@@ -90,6 +107,7 @@ function runExtract(specPath) {
   const inventory = buildInventory(analysis);
   const report = buildInventoryReport(inventory);
   process.stdout.write(JSON.stringify(report.stats) + '\n');
+  guide(`Extract PASS: harvested ${report.stats.harvested} candidates (${report.stats.confirmed} confirmed, ${report.stats.review_required} need AI review, ${report.stats.unresolved} unresolved). In Step 3, resolve every REVIEW_REQUIRED item through approvals; leaving unknown/unresolved candidates prevents COMPLETE.`);
   process.exit(EXIT_CODES.OK);
 }
 
@@ -119,6 +137,15 @@ function runGate(args) {
   });
   const summary = pipeline.gates.map((gate) => `${gate.id}:${gate.status}`).join(' ');
   process.stdout.write(JSON.stringify({ status: pipeline.status, gates: summary, finalAudit: pipeline.finalAudit }) + '\n');
+  const failing = pipeline.gates.filter((gate) => gate.status !== 'PASS');
+  if (failing.length === 0) {
+    guide(`Gate PASS (${summary}): every automatic gate is green and nothing is unresolved. You may now run finalize to publish the manifest.`);
+  } else {
+    const hints = failing
+      .map((gate) => `${gate.id}=${gate.status}${gate.reasons.length ? ` (${gate.reasons.join('; ')})` : ''}`)
+      .join(', ');
+    guide(`Gate ${pipeline.status}: the pipeline is not yet safe to publish. Review finalAudit counts and fix in Step 3: ${hints}. Re-run gate after each decision edit until it reports COMPLETE.`);
+  }
   process.exit(pipeline.status === 'COMPLETE' ? EXIT_CODES.OK : EXIT_CODES.FAIL);
 }
 
@@ -150,13 +177,15 @@ function runFinalize(args) {
   const pipeline = runGatePipeline(pipelineInput);
 
   if (pipeline.status !== 'COMPLETE') {
+    const failingGate = pipeline.gates.find((gate) => gate.status !== 'PASS') ?? { id: 'GENERAL', reasons: [] };
     process.stdout.write(
       formatFailure({
-        gateId: (pipeline.gates.find((gate) => gate.status !== 'PASS') ?? { id: 'GENERAL' }).id,
+        gateId: failingGate.id,
         reason: `pipeline ended with status ${pipeline.status}`,
         fixHint: 'resolve REVIEW_REQUIRED items or fix the dependency/layer violations in the decisions input',
       })
     );
+    guide(`Finalize blocked at ${failingGate.id} (${pipeline.status}). Reasons: ${(failingGate.reasons ?? []).join('; ') || 'see finalAudit counts'}. Edit the decision input in Step 3 and re-run gate until COMPLETE. Nothing was published and no existing manifest was changed.`);
     process.exit(EXIT_CODES.FAIL);
   }
 
@@ -204,6 +233,7 @@ function runFinalize(args) {
       gateSummary: pipeline.gates.map((gate) => `${gate.id}:${gate.status}`).join(' '),
     }) + '\n'
   );
+  guide(`Finalize PASS: WORKSPACIFY-TREE-MANIFEST.json was atomically published to the current directory, reload-verified, and passes the ALLOCATE entry-gate parity (all categories owned, tree consistent, boundaries covered). This file is the single input for the next stage /workspacify-allocate.`);
   process.exit(EXIT_CODES.OK);
 }
 
