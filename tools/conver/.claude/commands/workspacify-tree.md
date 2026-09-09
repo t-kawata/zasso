@@ -11,7 +11,7 @@ disable-model-invocation: true
 ## Arguments
 
 - 第1引数(必須・唯一): 仕様書へのパス(`<path-to-specification.md>`)
-  - 要件: 通常ファイル / UTF-8 復号可 / 非空 / ATX 見出しを1つ以上含む / 読取可能(§1.1)
+  - 要件: 通常ファイル / UTF-8 復号可 / 非空 / ATX 見出しを1つ以上含む / 読取可能
   - 追加引数・対話・環境変数・hook・外部取得を要求しない
 
 ## 出力の正本と制約
@@ -35,7 +35,7 @@ disable-model-invocation: true
 状態値: `PASS` / `FAIL` / `REVIEW_REQUIRED` / `BLOCKED` / `COMPLETE`
 
 - `REVIEW_REQUIRED` は成功ではない。未解決 review が残る限り COMPLETE を出さない
-- `BLOCKED`: 既存 manifest の input hash と異なる仕様書への上書きを拒否(§13.2)
+- `BLOCKED`: 既存 manifest の input hash と異なる仕様書への上書きを拒否
 
 ゲート階層: G0 入力ロック → G1 構造(見出し/segment/再構成) → G2 要件インベントリ → G3 workspace(カタログ/所有権/過剰分割) → G4 依存(DAG/層規則/循環) → G5 成果物完全性(schema/self-hash/atomic)。親ゲート未 PASS なら子を PASS にしない。
 
@@ -115,11 +115,11 @@ decision は一度で完成させず、**Step 4 のゲート結果を見なが�
 | フィールド | 内容 |
 |---|---|
 | `workspace` | package 配列。`id/name/path/layer/kind/responsibilities(非空)/seed_required` 必須。`owns` は objects / claims / invariants / state_machines / error_codes / required_tests を保持。layer は `foundation/protocol/ports/adapters/core/interfaces/conformance`、kind は `production-library/adapter/binary/test-support/conformance` |
-| `ownership` | 候補→package の一意割当。`objectId`(候補 id または canonical_name)に `packageId`。各 object family は protocol 層のちょうど1 owner(§9.3)。claim の場合は同様に primary owner を割当 |
-| `dependencies` | 依存 edge 配列。`from/to/reasonCode/reason`。reasonCode は REASON_CODES 列挙。禁止 edge には `alternative`(port-injection 等)を必須(§11) |
+| `ownership` | 候補→package の一意割当。`objectId`(候補 id または canonical_name)に `packageId`。各 object family は protocol 層のちょうど1 owner。claim の場合は同様に primary owner を割当 |
+| `dependencies` | 依存 edge 配列。`from/to/reasonCode/reason`。reasonCode は REASON_CODES 列挙。禁止 edge には `alternative`(port-injection 等)を必須 |
 | `tree` | ディレクトリツリー。leaf ディレクトリの path 集合は package の path 集合と一致させる(非空 workspace では必須) |
 | `boundaries` | 依存 edge と一対一対応する契約境界の宣言。`consumer`/`provider` は必ず catalog 内(PX-183 以降は edge と境界の双方向網羅を gate が強制) |
-| `adapters` | `ports`(port が提供する能力/実装)と `databasePolicy`(RDBMS 永続化が必要な場合のみ applicable)。domain/protocol は DB 固有型・raw SQL を参照しない(§10) |
+| `adapters` | `ports`(port が提供する能力/実装)と `databasePolicy`(RDBMS 永続化が必要な場合のみ applicable)。domain/protocol は DB 固有型・raw SQL を参照しない |
 | `approvals` | **REVIEW 承認台帳**。`decisionId`(承認する候補 id or canonical_name)/`rationale`/`approver` を必須とする。承認された REVIEW_REQUIRED 候補は CONFIRMED になり unresolved から外れる |
 
 ### 設計時の指針
@@ -152,7 +152,7 @@ node .claude/scripts/workspacify-tree/run.mjs gate "--spec=<spec>" "--decisions=
 - **AI の仕事**: FAIL の原因(所有権重複 / 循環 / 禁止層 / raw SQL / DB 型漏れ / schema 不正 / 上表の不足)に応じ decision を修正し、**exit 0(COMPLETE)になるまで繰り返す**(自己修復ループ)。情報レベルはこの反復で gaia 台帳級へ到達させる
 - **回帰確認**: decision を修正したら `run.mjs extract` と gate を再実行し、抽出結果との不整合が無いことを確認する
 
-## Step 5: finalize と publish(G5/§13)
+## Step 5: finalize と publish(G5)
 
 **この Step の目的**: COMPLETE が確定した decision と解析結果から manifest を組み立て、正準 JSON + self-hash を計算し、**唯一の正本 `WORKSPACIFY-TREE-MANIFEST.json` をカレントディレクトリへ原子公開**する。第二段階はこのファイルだけを引数にできる。
 
@@ -161,10 +161,10 @@ node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=<spec>" "--decisi
 ```
 
 - **実行条件**: 全ゲート PASS・unresolved 0 のときのみ。そうでなければ COMPLETE にせず非0で終了
-- **成功条件(到達確認)**: 生成 manifest が第二段階 ALLOCATE の entry 検査(§7.1-7.4)を通過すること。到達目標の具体例は `Gaia_v30_Stage1_Coverage_Ledger_Rev3.md`(workspace ツリー・唯一 owner・依存マトリクス・DAG まで完成した情報レベル)。第一段階側のパリティ検査は `checkTreeEntryGate`(lib/entry-parity.mjs)で機械確認できる(全カテゴリ owner 網羅・tree 必須・edge↔boundary 網羅を含む拡張版)。
+- **成功条件(到達確認)**: 生成 manifest が第二段階 ALLOCATE の entry 検査を通過すること。到達目標の具体例は `Gaia_v30_Stage1_Coverage_Ledger_Rev3.md`(workspace ツリー・唯一 owner・依存マトリクス・DAG まで完成した情報レベル)。第一段階側のパリティ検査は `checkTreeEntryGate`(lib/entry-parity.mjs)で機械確認できる(全カテゴリ owner 網羅・tree 必須・edge↔boundary 網羅を含む拡張版)。
 - **出力先**: **常にカレントディレクトリ**(`--output-dir` は存在しない)
-- **publish 手順**: temp 書込→fsync→再読込(schema/self-hash)→rename(§13.1)。temp は成功時 rename・失敗時削除・次回起動時に stale を機械スイープ
-- **既存 manifest 保護**: 既存 `WORKSPACIFY-TREE-MANIFEST.json` があり input hash が異なる場合は **BLOCKED** で終了し、既存 manifest を置換・破壊しない(§13.2)
+- **publish 手順**: temp 書込→fsync→再読込(schema/self-hash)→rename。temp は成功時 rename・失敗時削除・次回起動時に stale を機械スイープ
+- **既存 manifest 保護**: 既存 `WORKSPACIFY-TREE-MANIFEST.json` があり input hash が異なる場合は **BLOCKED** で終了し、既存 manifest を置換・破壊しない
 
 ## Step 6: 報告
 
@@ -175,14 +175,13 @@ node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=<spec>" "--decisi
 
 ## エラー復帰
 
-- 各 Step でエラーが出たら、スクリプトが出力するメッセージ(原因と修正方法)に従い入力または decision を修正して再実行する
-- `REVIEW_REQUIRED` / `BLOCKED` は `PASS` 扱いしない。未解決 review が残る限り COMPLETE を出さない
-- 既存の成功済み manifest を壊してはならない
+- 失敗時は stderr の `[guide]`(原因と修正対象)を読み、入力または decision を修正して gate を再実行する
+- `REVIEW_REQUIRED` / `BLOCKED` は `COMPLETE` にならず、既存 manifest は常に保全される
 
-## 禁止事項(§15)
+## 禁止事項
 
-hook 使用 / Python / 外部 API・ネットワーク / 仕様書以外の必須入力 / 成功時の複数正本出力 / 仕様書ディレクトリへの中間ファイル残置 / REVIEW_REQUIRED や BLOCKED の PASS 扱い / unknown object・claim・edge の黙殺 / owner なし候補の黙殺 / 依存理由なし edge / 代替経路なし禁止 edge / core への domain rule 押し込み / adapter への canonical validator 押し込み / domain への DB・HTTP・payment 実装侵入 / DB 固有型の core 漏れ / raw SQL / migration 原子性の domain 原子性代替。
+禁止は「ゲートが機械強制するもの」と「Step 3 の設計時の指針」へ集約済み。AI が追加で自己判断する禁止は設けない。
 
-## 成功の定義(§2/§17)
+## 成功の定義
 
-入力 hash 記録 / 見出し完全解析 / segment 再構成完全一致 / 全候補に source traceability / 規範候補抽出 / workspace・package カタログ定義 / 各 object・claim がちょうど1 owner / owner なし・重複・traceability なし0件 / 依存許可・禁止・理由・代替 / DAG / dev 規則 / adapter・DB 方針 / 全自動ゲート PASS / 意味論レビュー残0 / manifest 再読込で schema・必須値・自己整合・hash 検証 PASS / atomic publish。
+全自動ゲート PASS・未解決 review 0 に集約される。最終確認は生成 manifest の再読込(schema / 必須値 / self-hash)と `checkTreeEntryGate` PASS。
