@@ -1,4 +1,4 @@
-// [::TICKET::] PX-181 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-181 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-181 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-181|PX-183) --for-spec --no-implementation-order`.
 /**
  * First-stage manifest entry-check parity with ALLOCATE §7.1-§7.4.
  *
@@ -70,12 +70,27 @@ export function checkTreeEntryGate(manifest, specPath) {
   const packages = manifest.workspace?.packages ?? [];
   const packageIds = new Set(packages.map((pkg) => pkg.id));
   const tree = manifest.workspace?.tree;
-  if (tree === undefined) {
-    errors.push('workspace.tree is missing');
-  } else {
+  if (packages.length > 0 && (!tree || tree.length === 0)) {
+    errors.push('workspace.tree is required when packages are declared');
+  } else if (tree !== undefined && tree.length > 0) {
     const treeReport = validateWorkspaceTree({ tree, packages });
     if (!treeReport.consistent) {
       errors.push(...treeReport.errors);
+    }
+  }
+
+  const normalEdges = manifest.dependencies?.normal_edges ?? [];
+  const boundaries = manifest.dependencies?.boundaries ?? manifest.stage2_handoff?.contract_boundaries ?? [];
+  const edgeKeys = new Set(normalEdges.map((edge) => `${edge.from}->${edge.to}`));
+  const boundaryKeys = new Set(boundaries.map((boundary) => `${boundary.consumer_package ?? boundary.consumer}->${boundary.provider_package ?? boundary.provider}`));
+  for (const key of edgeKeys) {
+    if (!boundaryKeys.has(key)) {
+      errors.push(`normal edge "${key}" has no contract boundary`);
+    }
+  }
+  for (const key of boundaryKeys) {
+    if (!edgeKeys.has(key)) {
+      errors.push(`contract boundary "${key}" has no corresponding normal edge`);
     }
   }
 

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-176 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-176 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-176 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-176|PX-183) --for-spec --no-implementation-order`.
 /**
  * Candidate inventory extraction (§7.3, §8).
  *
@@ -350,4 +350,46 @@ function mergeClassification(candidate, classification) {
   if (classification === 'unknown') {
     candidate.normalization_status = 'REVIEW_REQUIRED';
   }
+}
+
+/**
+ * Harvest requirement candidates into typed inventory categories.
+ *
+ * Normative requirements are split into invariants, error codes, and required
+ * tests so the ownership gates can enforce a unique owner per category
+ * (ALLOCATE §9.3) instead of collapsing them into an untyped term list.
+ *
+ * @param {{ sourceText: string, headings: Array<object>, segments: Array<object> }} input
+ * @returns {{ invariants: Array<object>, stateMachines: Array<object>, errorCodes: Array<object>, requiredTests: Array<object> }}
+ */
+export function harvestCategoryInventory({ sourceText, headings, segments }) {
+  const requirements = harvestRequirementCandidates({ sourceText, headings, segments });
+  const invariants = [];
+  const stateMachines = [];
+  const errorCodes = [];
+  const requiredTests = [];
+
+  for (const candidate of requirements) {
+    const item = {
+      id: candidate.id,
+      canonical_name: candidate.keyword,
+      classification: candidate.classification,
+      section_id: candidate.section_id,
+      line_start: candidate.line_start,
+      line_end: candidate.line_end,
+      byte_start: candidate.byte_start,
+      byte_end: candidate.byte_end,
+      snippet: candidate.snippet,
+    };
+    if (candidate.classification === 'invariant') {
+      invariants.push(item);
+    } else if (candidate.classification === 'error-code') {
+      errorCodes.push(item);
+    } else if (candidate.classification === 'test-requirement') {
+      requiredTests.push(item);
+    } else if (candidate.classification === 'state-machine') {
+      stateMachines.push(item);
+    }
+  }
+  return { invariants, stateMachines, errorCodes, requiredTests };
 }

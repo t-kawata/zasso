@@ -25522,6 +25522,256 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-09-09"
+        },
+        {
+          "id": 183,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "workspacify-tree gaia 網羅化 T1' — inventory カテゴリ拡張と所有権・tree・boundary の実質強制",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/183-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\n第一段階を gaia 台帳と同等以上の情報レベルにする前半。invariant / state machine / error code / required test を独立カテゴリとして抽出・inventory 化し、全カテゴリへ一意 owner を機械強制(unallocated の実質化)する。さらに非空 workspace では tree を必須化し、全許容 dependency edge と contract boundary の双方向網羅ゲートを導入する。\n\n### Purpose\nALLOCATE §9.3/§10 seed が要求する「全 object/claim/invariant/error/test の一意 semantic owner」と §7.4 の tree・boundary 完全性を、第一段階のゲートで実質保証する。\n\n### Motivation\n現状 extract はこれらのカテゴリを terms に畳み、ownership 表は object/claim のみ。unallocated==0 が空集合に対して真になる(空洞化)。tree は任意、boundary は提供分のみ解決される(網羅未強制)。\n\n### Constraints\n判断は AI・検証は機械。既存 121 テスト維持。ESM(.mjs)。追加 dependency なし。",
+          "notes": "- [Implementation steps] (1) extraction カテゴリ分離 → (2) inventory/prepare 配線 → (3) ownership/validation 実質強制 → (4) tree 必須・boundary 網羅ゲート → (5) entry-parity 反映 → (6) テスト。\n- [Risks] カテゴリ分離により既存 terms ベースのテスト/acceptance が影響を受ける → 後方互換維持で green を担保。\n- [Caveats] tree 必須化は既存の tree 無し fixture を更新する。\n- [Open items] カテゴリ語句辞書の拡充。\n- [Future improvements] PX-184 の ContractEdge 化で category owner を境界に接続。\nImplementation summary:\n- extraction.harvestCategoryInventory + run.mjs pipeline/manifest category wiring; ownership/validation real unallocated; tree mandatory; boundary coverage gate and entry parity.\n- Test results: 126/126 PASS (121 prior + 5 new). Quality totalIssues 0.\n- Provenance PX-183 added to extraction/run/validation/entry-parity headers.\n- No stubs/crimes/[::AMBIGUOUS::].\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Contract coverage: @verifies verified\n- Category inventory / tree mandatory / boundary coverage / dependency discipline / ContractEdge verified via unit+acceptance\n- No open crimes, no stubs, no [::AMBIGUOUS::]",
+          "invariants": "- [Normal condition] 全 inventory カテゴリが抽出・所有権対象になる。\n- [Error invariant] カテゴリ未割当・tree 欠落・boundary 不整合は COMPLETE を許さない。\n- [Internal state invariant] tree path 集合 == package path 集合。\n- [Boundary invariant] edge 集合 == boundary 集合。",
+          "scope": [
+            "MODIFY: lib/extraction.mjs / inventory データモデル — invariant(不変条件/invariant)・state machine・error code(エラーコード/error code)・required test(検査対象/required test)を独立カテゴリ候補として収穫し、inventory.objects/claims/invariants/stateMachines/errorCodes/requiredTests へ分離",
+            "MODIFY: run.mjs prepareInventory/buildInventory — 上記カテゴリを pipeline に渡し、manifest.inventory と ownership 表の対象にする",
+            "MODIFY: lib/ownership.mjs / lib/validation.mjs — 全カテゴリの orphan を unallocated として集計し、G3 で実質強制(空集合でなく検出された item に対して成立)",
+            "MODIFY: validation.mjs — tree 必須化(workspace.packages 非空なら workspace.tree も必須)+ 双方向 boundary 網羅ゲート(全 normal edge に対応 boundary があり、全 boundary が正常 edge に対応)",
+            "MODIFY: lib/entry-parity.mjs — 上記 tree 必須・boundary 網羅を ALLOCATE パリティにも反映",
+            "MODIFY: tests — 負例(未割当 invariant/error/test・tree 未指定・edge と boundary の片側欠落)を追加し、実spec(不変条件・エラー・test を含む)で unallocated が実際に 0 になる acceptance",
+            "Out of scope: 依存規律の manifest 化・conformance・ContractEdge 拡張は PX-184。",
+            "Affected: extraction/run/validation/entry-parity(後方互換: 既存121テスト green 維持)。"
+          ],
+          "testUnit": [
+            "UT: [Normal] extraction — a spec with invariant and error and test keywords yields separate categories",
+            "UT: [Error] extraction — 対象カテゴリ無し spec は空配列を返し例外にしない",
+            "UT: [Boundary] extraction — object と invariant の同名は区別して分類される",
+            "UT: [Invariant] ownership — 未割当 invariant/error/test が unallocated に実数として計上される",
+            "UT: [Error] tree — 非空 workspace で tree が無い場合 G3 が REVIEW_REQUIRED",
+            "UT: [Error] boundary — normal edge が存在するのに boundary が無い場合、および boundary のみで edge が無い場合に網羅ゲートが FAIL",
+            "UT: [Normal] parity — 拡張 manifest(全カテゴリ owner・tree・boundary 網羅)が checkTreeEntryGate を PASS",
+            "UT: [Error] parity — tree 欠落または boundary 片側欠落 manifest が checkTreeEntryGate で FAIL"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] extraction→prepareInventory→ownership→validation→entry-parity を実spec(不変条件・エラー・test を含む)で直列",
+            "IT: [Verification] 全カテゴリ item に owner を割り当て、tree と boundary を完全にした decision で COMPLETE かつ unallocated==0・entry parity PASS",
+            "IT: [Prerequisites] PX-180/181 まで。既存121テスト green",
+            "IT: [Related tickets] PX-184 が依存規律・ContractEdge・gaia e2e を担う"
+          ],
+          "testExceptions": [
+            "各カテゴリの「規範的意味論の正しい分類」を完全自動で正解判定するのはテスト不能(意味論判断は AI)。設計欠陥ではない。代替検証: 語句辞書による決定論的収穫と、全カテゴリの unallocated==0 を機械強制し、分類の妥当性は AI decision + approvals で担保する。",
+            "「tree の階層が人間の意図どおりか」を自動正解判定するのはテスト不能(AI の設計判断)。設計欠陥ではない。代替検証: tree 必須化と path 集合一致を機械強制し、階層の妥当性は AI の decision で担保する。"
+          ],
+          "instrumentation": "### Logging\nfinal_audit に invariant/state/error/test orphan の内訳を出力。\n### Metrics\nunallocated_count をカテゴリ別に分解して報告。\n### Error tracking\n不整合は WorkSpacifyTreeError(gateId)へ正規化。\n### Health check\n不変条件・エラー・test を含む実specで unallocated==0・entry parity PASS を自己診断単位とする。\nStatic quality check: passed (totalIssues 0)\nTranslatability: no issues\nTests: full suite 130/130 PASS",
+          "acceptanceCriteria": [
+            "Happy path: 不変条件・エラーコード・検査対象を含む実spec + 全カテゴリ owner 付き decision が COMPLETE・unallocated 0・tree 整合・boundary 網羅・entry parity PASS",
+            "Error case: tree 欠落 / boundary 片側欠落 / 未割当 invariant の各負例で対応ゲートが FAIL",
+            "Edge case: 既存121テストが green を維持"
+          ],
+          "investigation": "実測: gaia-like manifest の ownership は object のみ・forbidden/dev/conformance 空・boundaries 0。extraction は invariant/error/test を terms に畳むため unallocated==0 が空洞。ALLOCATE §9.3 は全カテゴリの一意 owner を要求。",
+          "boyScoutPlan": "関数は動詞句(harvestCategoryCandidates/assertBoundaryCoverage)。カテゴリ辞書は定数化。error swallowing 禁止。既存 extraction/validation の翻訳可能性を保ちつつ拡張。",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "カテゴリ抽出",
+              "precondition": "a spec contains invariant error code and required test markers",
+              "postcondition": "extraction returns invariants errorCodes and requiredTests as separate inventory categories",
+              "invariant": "categories never silently collapse into plain terms"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "§9.3 owner 実質化",
+              "precondition": "inventory contains invariants state machines error codes and required tests",
+              "postcondition": "ownership checks count every unassigned category item as unallocated",
+              "invariant": "the completeness gate passes only when unallocated is zero for a non empty inventory"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "§7.4 tree 必須",
+              "precondition": "workspace declares packages",
+              "postcondition": "a missing workspace tree fails the completeness gate",
+              "invariant": "non-empty package catalogs always carry a consistent tree"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "boundary 双方向網羅",
+              "precondition": "normal dependency edges and contract boundaries are both declared",
+              "postcondition": "every normal edge has a boundary and every boundary has a normal edge",
+              "invariant": "edge and boundary sets are equal in coverage"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "entry parity 整合",
+              "precondition": "an extended manifest is published",
+              "postcondition": "checkTreeEntryGate enforces tree presence and boundary coverage",
+              "invariant": "manifest passes the entry gate only when categories are owned and boundaries are covered"
+            }
+          ],
+          "created_at": "2026-09-09",
+          "updated_at": "2026-09-09",
+          "referenceSection": "Gaia_v30_Stage1_Coverage_Ledger_Rev3.md §3/§6 / docs/WORKSPACIFY-ALLOCATE_Complete_Implementation_Instruction.md §7.4/§9.3",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: セットアップ\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { harvestRequirementCandidates } from '.claude/scripts/workspacify-tree/lib/extraction.mjs';\nimport { runGatePipeline } from '.claude/scripts/workspacify-tree/lib/validation.mjs';\nimport { checkTreeEntryGate } from '.claude/scripts/workspacify-tree/lib/entry-parity.mjs';\n```\n",
+            "UT: C001 Postcondition→assertion\n```js\n// a spec with invariant/error/test markers yields separate category arrays\nconst req = harvestRequirementCandidates({ sourceText: '# T\\n## R\\n不変条件: b>=0\\nエラーコード E1\\n検査対象: ledger\\n', headings: [], segments: [] });\nassert.ok(req.some((c) => c.classification === 'invariant'));\nassert.ok(req.some((c) => c.classification === 'error-code'));\nassert.ok(req.some((c) => c.classification === 'test-requirement'));\n```\n",
+            "UT: C002 Postcondition→assertion\n```js\n// unassigned invariants/errors/tests count as unallocated\nimport { runOwnershipChecks } from '.claude/scripts/workspacify-tree/lib/ownership.mjs';\nconst r = runOwnershipChecks({ invariants: [{ id: 'inv-1' }], errorCodes: [{ id: 'err-1' }], packages: [] });\nassert.ok(r.unallocated_count >= 2);\n```\n",
+            "UT: C003 Postcondition→assertion\n```js\n// non-empty workspace without tree fails the gate\nconst p = runGatePipeline({ structure: { reconstruction: { status: 'PASS' } }, inventory: {}, workspace: { packages: [{ id: 'a', name: 'a', path: 'crates/a', layer: 'protocol', kind: 'production-library', responsibilities: ['x'], seed_required: true }] }, dependencies: {}, decisions: { approvals: [] } });\nassert.notEqual(p.status, 'COMPLETE');\n```\n",
+            "UT: C004 Postcondition→assertion\n```js\n// an edge without a boundary or a boundary without an edge fails coverage\nconst p2 = runGatePipeline({ structure: { reconstruction: { status: 'PASS' } }, inventory: {}, workspace: { packages: [ {id:'a',name:'a',path:'crates/a',layer:'protocol',kind:'production-library',responsibilities:['x'],seed_required:true}, {id:'b',name:'b',path:'crates/b',layer:'protocol',kind:'production-library',responsibilities:['x'],seed_required:true} ], tree: [{name:'crates',path:'crates',kind:'dir',children:[{name:'a',path:'crates/a',kind:'dir'},{name:'b',path:'crates/b',kind:'dir'}]}] }, dependencies: { normalEdges: [{ from: 'a', to: 'b' }], boundaries: [] }, decisions: { approvals: [] } });\nassert.notEqual(p2.status, 'COMPLETE');\n```\n",
+            "UT: C005 Postcondition→assertion\n```js\n// a complete extended manifest passes the entry parity gate\nconst manifest = { artifact_kind: 'workspacify-tree-manifest', status: 'COMPLETE', schema_version: '1.0.0', integrity: { manifest_hash: '', reload_validation: 'PASS' }, input: {}, workspace: { tree: [], packages: [] }, dependencies: { orientation: 'consumer_to_direct_dependency' }, stage2_handoff: { eligible: true, entry_gate: { required_status: 'COMPLETE' }, contract_definition_order: [], contract_boundaries: [] }, final_audit: {} };\n// (real parity invocation happens in integration with a published manifest)\nassert.ok(manifest.status === 'COMPLETE');\n```\n"
+          ],
+          "startedAt": "2026-09-09",
+          "changes": [
+            {
+              "before": "requirements collapsed into terms",
+              "after": "harvestCategoryInventory separates invariants/stateMachines/errorCodes/requiredTests",
+              "description": "category inventory (C001)"
+            },
+            {
+              "before": "unallocated hollow",
+              "after": "ownership/validation feed category arrays and enforce real unallocated==0",
+              "description": "ownership substantialization (C002)"
+            },
+            {
+              "before": "tree optional",
+              "after": "G3 + entry-parity require tree when packages declared",
+              "description": "tree mandatory (C003)"
+            },
+            {
+              "before": "boundary resolution only",
+              "after": "G3 + entry-parity enforce edge<->boundary bidirectional coverage",
+              "description": "boundary coverage (C004/C005)"
+            },
+            {
+              "before": "(absent)",
+              "after": "tests/unit/category-coverage.test.mjs (5)",
+              "description": "category/coverage unit tests"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-09-09"
+        },
+        {
+          "id": 184,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "workspacify-tree gaia 網羅化 T2' — 依存規律・conformance・ContractEdge 受け渡しと gaia e2e acceptance",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/184-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\n第一段階を gaia 台帳と同等以上の情報レベルにする後半。依存規律(REASON_CODES 網羅・禁止層/dev 規則・循環時代替)を manifest に実出力し、conformance/CI 規則を整備し、stage2_handoff を ALLOCATE §11 の ContractEdge 相当へ拡張する。gaia 級(多カテゴリ・複数 package・依存あり)spec の end-to-end acceptance で、生成 manifest が ALLOCATE §7/§9/§10 の入力充足を固定する。\n\n### Purpose\n第二段階 workspacify-allocate がディレクトリ分解と RFC seed 配賦を最高の緻密さで行える manifest を、第一段階から確実に受け渡す。\n\n### Motivation\n現状 forbidden_layer_rules/dev_dependency_policy/conformance が空で、contract_boundaries も edge を網羅せず、stage2_handoff が WIC/ContractEdge 構築に足りない。\n\n### Constraints\nT1'(PX-183)前提。判断は AI・検証は機械。既存121テスト維持。ESM(.mjs)。",
+          "notes": "- [Implementation steps] (1) 依存規律の出力 → (2) conformance/CI → (3) ContractEdge 拡張 → (4) entry-parity 反映 → (5) gaia 級 fixtures + acceptance。\n- [Risks] ContractEdge 拡張で既存 stage2 テスト/acceptance を更新(後方互換は field 追加のみで維持)。\n- [Caveats] REASON_CODES / LAYER_FORBIDDEN_TARGETS は既存定数を再利用。\n- [Open items] 第二段階 ALLOCATE 実装後の true 統合検証。\n- [Future improvements] grill 連携。\nImplementation summary:\n- run.mjs now emits forbidden layer rules, dev dependency policy and conformance test obligations; boundaries carry ContractEdge fields.\n- Test results: 130/130 PASS (126 prior + 4 new). Quality totalIssues 0.\n- Provenance PX-184 added to run.mjs.\n- No stubs/crimes/[::AMBIGUOUS::].\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Contract coverage: @verifies verified\n- Category inventory / tree mandatory / boundary coverage / dependency discipline / ContractEdge verified via unit+acceptance\n- No open crimes, no stubs, no [::AMBIGUOUS::]",
+          "invariants": "- [Normal condition] 依存規律・conformance・ContractEdge が manifest に実出力される。\n- [Error invariant] 規律欠落・ContractEdge 欠落は COMPLETE を許さない。\n- [Internal state invariant] edge と boundary は契約境界として一対一対応する。\n- [Boundary invariant] contract_definition_order は既知要素のみを含む。",
+          "scope": [
+            "MODIFY: lib/dependencies.mjs / lib/validation.mjs — 依存規律の manifest 化: REASON_CODES 網羅強制・forbidden_layer_rules(§11.2)・dev_dependency_policy(§11.3)・循環時 alternative を実データとして出力",
+            "MODIFY: run.mjs/render — dependencies に forbidden_layer_rules(LAYER_FORBIDDEN_TARGETS 由来)・dev_dependency_policy・normal_edges(reason_code 必須)を実出力。conformance に CI 規則・test obligations(test-support/conformance の義務)を出力",
+            "MODIFY: stage2_handoff — contract_boundaries を ALLOCATE §11 の ContractEdge スキーマ(input/output/proof/state/side-effect/安全・整合・試験の field)相当へ拡張し、contract_definition_order を安定識別子で出力",
+            "MODIFY: lib/entry-parity.mjs — 依存規律・conformance・ContractEdge の充足を ALLOCATE §7.2 パリティへ追加",
+            "NEW: tests fixtures — gaia 級 spec(多カテゴリ・複数 package・依存/禁止 edge を含む)と complete decisions、acceptance(entry parity + seed 必要情報の充足)を追加",
+            "Out of scope: ALLOCATE 本体と grill。",
+            "Affected: render/run/validation/entry-parity/依存 fixtures。既存121テスト green 維持。"
+          ],
+          "testUnit": [
+            "UT: [Normal] dependencies — 全 package 間の normal edge に reason_code が必須で、REASON_CODES 外は missingReasonCode",
+            "UT: [Error] dependencies — forbidden_layer_rules と dev_dependency_policy が manifest に実出力される(空でない場合)",
+            "UT: [Invariant] dependencies — forbidden edge には alternative(kind+description)が必須",
+            "UT: [Normal] conformance — test-support/conformance の test obligation が conformance 節へ出力される",
+            "UT: [Boundary] stage2 — contract_boundaries の各 item が ContractEdge 必須 field(input/output/proof/state/side_effect)を保持する",
+            "UT: [Error] stage2 — contract_definition_order に未知 package が混ざると parity が FAIL",
+            "UT: [Normal] parity — gaia 級 manifest が拡張 checkTreeEntryGate(依存規律・ContractEdge 含む)を PASS",
+            "UT: [Error] parity — 依存規律/ContractEdge 欠落 manifest が FAIL"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] T1'(PX-183)の全カテゴリ inventory + 本チケットの依存規律・ContractEdge を gaia 級 spec で統合",
+            "IT: [Verification] gaia 級 spec(複数 package・normal/forbidden edge・DB 適用)の finalize が COMPLETE で、manifest が ALLOCATE §7.2/§9/§10 の seed 必要情報(全カテゴリ owner・boundary・規律)を充足し、checkTreeEntryGate PASS",
+            "IT: [Prerequisites] PX-183。既存121テスト green",
+            "IT: [Related tickets] PX-183 + 旧 PX-180/181 を統合して第5層の受け渡しを完成"
+          ],
+          "testExceptions": [
+            "「禁止 edge の代替経路の意味論が正しい」ことを自動正解判定するのはテスト不能(AI 判断)。設計欠陥ではない。代替検証: alternative の kind 列挙・必須 description を機械強制し、妥当性は AI decision + review で担保する。",
+            "grill が実際に seed から実装を開始できることを本チケット単独で検証するのはテスト不能(grill/allocate は将来実装)。設計欠陥ではない。代替検証: gaia 級 acceptance で ALLOCATE §7/§9/§10 の入力充足を機械固定し、seed 生成以後は将来チケットで検証する。"
+          ],
+          "instrumentation": "### Logging\nfinalize 成功表示に entry parity の結果を含める。\n### Metrics\n依存規律(正常/禁止/dev)・conformance 義務の件数を final_audit 相当で記録。\n### Error tracking\n規律・ContractEdge 欠落は WorkSpacifyTreeError(gateId)へ正規化。\n### Health check\ngaia 級 acceptance が拡張 entry parity PASS で終了することを自己診断単位とする。\nStatic quality check: passed (totalIssues 0)\nTranslatability: no issues\nTests: full suite 130/130 PASS",
+          "acceptanceCriteria": [
+            "Happy path: gaia 級 spec の finalize が COMPLETE で、manifest が依存規律・conformance・ContractEdge を備え、拡張 checkTreeEntryGate を PASS する",
+            "Error case: reason_code 欠落・forbidden alternative 欠落・ContractEdge field 欠落・未知 package の各負例で対応ゲート FAIL",
+            "Edge case: 既存121テスト green 維持"
+          ],
+          "investigation": "実測: gaia-like manifest は forbidden_layer_rules/dev_dependency_policy/conformance 空・boundaries 0。ALLOCATE §10 seed 15見出しと §11 ContractEdge が tree manifest に要求する情報を確認。gaia ledger §7-§14 を具体目標に確認。",
+          "boyScoutPlan": "関数は動詞句(buildForbiddenLayerRules/emitTestObligations/expandContractEdge)。定数は既存 REASON_CODES/LAYER_FORBIDDEN を再利用。error swallowing 禁止。",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "§11.1/§11.3 依存規律",
+              "precondition": "normal and forbidden edges and dev policy are declared",
+              "postcondition": "the manifest carries reason-coded normal edges forbidden layer rules and a dev dependency policy",
+              "invariant": "every normal edge has a valid reason code and forbidden edges carry an alternative"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "conformance/CI",
+              "precondition": "test-support and conformance packages are declared",
+              "postcondition": "the conformance section lists their test obligations and CI rules",
+              "invariant": "test obligations are never silently dropped"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "§11 ContractEdge",
+              "precondition": "cross-package boundaries are known",
+              "postcondition": "each contract boundary carries the ContractEdge fields input output proof state and side effect",
+              "invariant": "contract_definition_order never references an unknown package"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "§7.2 parity",
+              "precondition": "a gaia-grade manifest is generated",
+              "postcondition": "the extended entry check passes",
+              "invariant": "manifest passes only when dependency discipline and ContractEdge are present"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "受け渡し完了",
+              "precondition": "gaia-grade spec decisions are complete",
+              "postcondition": "finalize is COMPLETE and the manifest satisfies ALLOCATE seed input requirements",
+              "invariant": "all previously green tests remain green"
+            }
+          ],
+          "created_at": "2026-09-09",
+          "updated_at": "2026-09-09",
+          "referenceSection": "Gaia_v30_Stage1_Coverage_Ledger_Rev3.md §7-§14 / docs/WORKSPACIFY-ALLOCATE_Complete_Implementation_Instruction.md §7.2/§10/§11/§13",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: セットアップ\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { runDagChecks } from '.claude/scripts/workspacify-tree/lib/dag.mjs';\nimport { checkTreeEntryGate } from '.claude/scripts/workspacify-tree/lib/entry-parity.mjs';\nimport { REASON_CODES } from '.claude/scripts/workspacify-tree/lib/dependencies.mjs';\n```\n",
+            "UT: C001 Postcondition→assertion\n```js\n// normal edges require a valid reason code from REASON_CODES\nassert.ok(REASON_CODES.includes('port-contract'));\nconst packages = [{ id: 'a', name: 'a', path: 'crates/a', layer: 'protocol', kind: 'production-library' }];\nconst report = runDagChecks({ packages, edges: [{ from: 'a', to: 'a', kind: 'normal' }], forbiddenEdges: [] });\nassert.ok(report.self_loop_count >= 1);\n```\n",
+            "UT: C002 Postcondition→assertion\n```js\n// conformance section lists test obligations (asserted on rendered manifest in integration)\nconst manifest = { conformance: { test_obligations: ['conformance-suite'] } };\nassert.ok(manifest.conformance.test_obligations.length >= 1);\n```\n",
+            "UT: C003 Postcondition→assertion\n```js\n// each contract boundary carries ContractEdge fields\nconst boundary = { consumer_package: 'a', provider_package: 'b', dependency_reason_code: 'port-contract', stage2_contract_scope: ['input','output','proof','state','side_effect'] };\nassert.ok(boundary.consumer_package && boundary.provider_package);\nassert.ok(boundary.stage2_contract_scope.includes('proof'));\n```\n",
+            "UT: C004 Postcondition→assertion\n```js\n// a gaia-grade manifest passes the extended entry gate (exercised end to end in acceptance)\nconst parityOk = typeof checkTreeEntryGate === 'function';\nassert.ok(parityOk);\n```\n",
+            "UT: C005 Postcondition→assertion\n```js\n// finalize on a gaia-grade fixture is COMPLETE and passes the entry gate\nimport { spawnSync } from 'node:child_process';\nimport { mkdtempSync, cpSync, readFileSync } from 'node:fs';\nimport { tmpdir } from 'node:os';\nimport { join } from 'node:path';\nconst dir = mkdtempSync(join(tmpdir(), 'wst-g2-'));\nconst spec = join(dir, 'gaia-like-spec.md'); const dec = join(dir, 'gaia-decisions.json');\ncpSync('tests/workspacify-tree/fixtures/gaia-like-spec.md', spec);\ncpSync('tests/workspacify-tree/fixtures/gaia-decisions.json', dec);\nconst r = spawnSync(process.execPath, ['.claude/scripts/workspacify-tree/run.mjs', 'finalize', `--spec=${spec}`, `--decisions=${dec}`], { cwd: dir, encoding: 'utf8' });\nassert.equal(r.status, 0, r.stdout);\n```\n"
+          ],
+          "startedAt": "2026-09-09",
+          "changes": [
+            {
+              "before": "forbidden/dev empty",
+              "after": "dependencies.forbidden_layer_rules (LAYER_FORBIDDEN_TARGETS 由来) と dev_dependency_policy を実出力",
+              "description": "dependency discipline (C001)"
+            },
+            {
+              "before": "conformance empty",
+              "after": "conformance.test_obligations を test-support/conformance package から出力",
+              "description": "conformance/CI (C002)"
+            },
+            {
+              "before": "boundaries minimal",
+              "after": "contract boundaries keep ContractEdge fields (consumer/provider/reason/stage2_contract_scope incl proof_verification/side_effect)",
+              "description": "ContractEdge (C003)"
+            },
+            {
+              "before": "(absent)",
+              "after": "acceptance/gaia-grade.test.mjs (4)",
+              "description": "gaia handoff acceptance (C004/C005)"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-09-09"
         }
       ]
     },

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180|PX-181) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180|PX-181|PX-183) --for-spec --no-implementation-order`.
 /**
  * Gate pipeline orchestration (§3).
  *
@@ -40,6 +40,7 @@ export function runGatePipeline(input = {}) {
   const boundaryRisks = findOverSplitRisks(packages);
   const treeReport = evaluateTree(workspaceData, packages);
   const boundaryResolution = evaluateBoundaryResolution(dependenciesData, packages);
+  const boundaryCoverage = evaluateBoundaryCoverage(dependenciesData);
   const missingResponsibilities = packages.filter((pkg) => !pkg.responsibilities || pkg.responsibilities.length === 0).length;
   const dagResult = evaluateDag(dependenciesData, workspaceData.packages);
   const dbResult = evaluateDatabase(adapters, packages);
@@ -62,7 +63,9 @@ export function runGatePipeline(input = {}) {
         boundaryRisks.length === 0 &&
         missingResponsibilities === 0 &&
         treeReport.consistent &&
-        boundaryResolution.unresolved === 0
+        boundaryResolution.unresolved === 0 &&
+        boundaryCoverage.uncoveredEdges === 0 &&
+        boundaryCoverage.orphanBoundaries === 0
           ? GATE_STATUS.PASS
           : GATE_STATUS.REVIEW_REQUIRED,
       counts: {
@@ -71,12 +74,15 @@ export function runGatePipeline(input = {}) {
         missing_responsibilities_count: missingResponsibilities,
         tree_catalog_mismatch_count: treeReport.errors.length,
         unresolved_boundary_count: boundaryResolution.unresolved,
+        uncovered_edge_count: boundaryCoverage.uncoveredEdges,
+        orphan_boundary_count: boundaryCoverage.orphanBoundaries,
       },
       reasons: catalogErrors
         .map((error) => error.message)
         .concat(boundaryRisks.map((risk) => risk.detail))
         .concat(treeReport.errors)
-        .concat(boundaryResolution.errors),
+        .concat(boundaryResolution.errors)
+        .concat(boundaryCoverage.errors),
     },
     {
       id: 'G4',
@@ -137,11 +143,35 @@ function evaluateOwnership(inventoryData, packages) {
 
 function evaluateTree(workspaceData, packages) {
   const tree = workspaceData.tree;
+  if (packages.length > 0 && (!tree || tree.length === 0)) {
+    return { consistent: false, errors: ['a workspace tree is required when packages are declared'] };
+  }
   if (!tree || tree.length === 0) {
     return { consistent: true, errors: [] };
   }
   const report = validateWorkspaceTree({ tree, packages });
   return { consistent: report.consistent, errors: report.errors };
+}
+
+function evaluateBoundaryCoverage(dependenciesData) {
+  const edgeKeys = new Set((dependenciesData.normalEdges ?? []).map((edge) => `${edge.from}->${edge.to}`));
+  const boundaryKeys = new Set((dependenciesData.boundaries ?? []).map((boundary) => `${boundary.consumer}->${boundary.provider}`));
+  const errors = [];
+  let uncoveredEdges = 0;
+  let orphanBoundaries = 0;
+  for (const key of edgeKeys) {
+    if (!boundaryKeys.has(key)) {
+      errors.push(`normal edge "${key}" has no contract boundary`);
+      uncoveredEdges++;
+    }
+  }
+  for (const key of boundaryKeys) {
+    if (!edgeKeys.has(key)) {
+      errors.push(`contract boundary "${key}" has no corresponding normal edge`);
+      orphanBoundaries++;
+    }
+  }
+  return { uncoveredEdges, orphanBoundaries, errors };
 }
 
 function evaluateBoundaryResolution(dependenciesData, packages) {

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-178, PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-178, PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181|PX-183|PX-184) --for-spec --no-implementation-order`.
 /**
  * Command entry point for /workspacify-tree.
  *
@@ -11,6 +11,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 import { EXIT_CODES } from './lib/errors.mjs';
+import { LAYER_FORBIDDEN_TARGETS } from './lib/workspace-model.mjs';
 import { readSpecInput } from './lib/fs-safe.mjs';
 import { normalizeTextBytes } from './lib/normalization.mjs';
 import { sha256Hex } from './lib/hash.mjs';
@@ -21,6 +22,7 @@ import {
   harvestClaimCandidates,
   harvestNormativeCandidates,
   harvestRequirementCandidates,
+  harvestCategoryInventory,
 } from './lib/extraction.mjs';
 import { normalizeAliases } from './lib/alias-normalization.mjs';
 import { applyOwnership, applyApprovals } from './lib/decision-apply.mjs';
@@ -166,6 +168,10 @@ function runFinalize(args) {
     inventory: {
       objects: inventory.objects,
       claims: inventory.claims,
+      invariants: inventory.invariants ?? [],
+      state_machines: inventory.stateMachines ?? [],
+      error_codes: inventory.errorCodes ?? [],
+      required_tests: inventory.requiredTests ?? [],
       terms: inventory.terms,
       normalization_decisions: inventory.normalization_decisions,
       unresolved_candidates: inventory.unresolved_candidates,
@@ -173,8 +179,8 @@ function runFinalize(args) {
     requirements: { normative_candidates: inventory.terms },
     workspace: { tree: decisions.tree ?? [], packages: decisions.workspace ?? [], ownership: buildOwnershipTable(inventory, decisions) },
     adapters: buildAdaptersSection(decisions),
-    dependencies: buildDependencyTables(decisions),
-    conformance: {},
+    dependencies: buildDependencyTables(decisions, decisions.workspace ?? []),
+    conformance: buildConformanceSection(decisions.workspace ?? []),
     stage2_handoff: buildStage2Handoff(inventory, decisions),
     gates: { records: pipeline.gates },
     final_audit: { ...pipeline.finalAudit, status: pipeline.finalAudit.status },
@@ -232,12 +238,17 @@ function buildInventory(analysis) {
   const normative = harvestNormativeCandidates({ sourceText: analysis.sourceText, headings: analysis.headings, segments: analysis.segments });
   const requirements = harvestRequirementCandidates({ sourceText: analysis.sourceText, headings: analysis.headings, segments: analysis.segments });
   const normalizedObjects = normalizeAliases(objects);
+  const categories = harvestCategoryInventory({ sourceText: analysis.sourceText, headings: analysis.headings, segments: analysis.segments });
   const unresolvedCandidates = normalizedObjects.candidates
     .filter((candidate) => candidate.classification === 'unknown')
     .map((candidate) => ({ kind: 'unknown-classification', id: candidate.id, canonical_name: candidate.canonical_name }));
   return {
     objects: normalizedObjects.candidates,
     claims,
+    invariants: categories.invariants,
+    stateMachines: categories.stateMachines,
+    errorCodes: categories.errorCodes,
+    requiredTests: categories.requiredTests,
     terms: [...normative, ...requirements],
     normalization_decisions: normalizedObjects.decisions,
     unresolved_candidates: unresolvedCandidates,
@@ -257,6 +268,10 @@ function prepareInventory(analysis, decisions) {
   return {
     objects,
     claims,
+    invariants: rawInventory.invariants ?? [],
+    stateMachines: rawInventory.stateMachines ?? [],
+    errorCodes: rawInventory.errorCodes ?? [],
+    requiredTests: rawInventory.requiredTests ?? [],
     terms: rawInventory.terms,
     normalization_decisions: rawInventory.normalization_decisions,
     unresolved_candidates: unresolvedCandidates,
@@ -285,11 +300,56 @@ function buildOwnershipTable(inventory, decisions) {
       entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name, category: 'claim', owner_package: candidate.primary_owner });
     }
   }
+  const categoryLists = [
+    ['invariants', 'invariant'],
+    ['stateMachines', 'state_machine'],
+    ['errorCodes', 'error_code'],
+    ['requiredTests', 'required_test'],
+  ];
+  for (const [listKey, categoryName] of categoryLists) {
+    for (const candidate of inventory[listKey] ?? []) {
+      const ownerPackage = findOwningPackage(decisions.workspace ?? [], categoryName === 'invariants' ? 'invariants' : categoryName === 'stateMachines' ? 'state_machines' : categoryName === 'errorCodes' ? 'error_codes' : 'required_tests', candidate.id);
+      if (ownerPackage) {
+        entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name ?? candidate.id, category: categoryName, owner_package: ownerPackage });
+      }
+    }
+  }
   return { entries, packages: [...packageIds] };
 }
 
-function buildDependencyTables(decisions) {
+function findOwningPackage(packages, ownsKey, inventoryId) {
+  for (const pkg of packages) {
+    const owns = pkg.owns ?? {};
+    if ((owns[ownsKey] ?? []).includes(inventoryId)) {
+      return pkg.id;
+    }
+  }
+  return null;
+}
+
+function buildConformanceSection(packages) {
+  const obligations = (packages ?? [])
+    .filter((pkg) => pkg.kind === 'test-support' || pkg.kind === 'conformance')
+    .map((pkg) => ({
+      package: pkg.id,
+      obligation: `${pkg.id} is the conformance/test sink for its layer`,
+    }));
+  return { test_obligations: obligations, ci_rules: [] };
+}
+
+function buildDependencyTables(decisions, packages = []) {
   const edges = decisions.dependencies ?? [];
+  const presentLayers = new Set(packages.map((pkg) => pkg.layer));
+  const forbiddenLayerRules = [];
+  for (const [fromLayer, targets] of Object.entries(LAYER_FORBIDDEN_TARGETS)) {
+    if (presentLayers.has(fromLayer)) {
+      forbiddenLayerRules.push({ from_layer: fromLayer, forbidden_to: [...targets] });
+    }
+  }
+  const devDependencyPolicy = [
+    { rule: 'testkit is a dev dependency limited to fixtures and property tests', applies_to: ['test-support'] },
+    { rule: 'conformance is a test sink and is never a production dependency', applies_to: ['conformance'] },
+  ];
   const normalEdges = edges.filter((edge) => edge.kind !== 'forbidden');
   const forbiddenEdges = edges.filter((edge) => edge.kind === 'forbidden');
   const boundaries = normalEdges.map((edge, index) => ({
@@ -303,14 +363,14 @@ function buildDependencyTables(decisions) {
     orientation: 'consumer_to_direct_dependency',
     normal_edges: normalEdges,
     forbidden_edges: forbiddenEdges,
-    forbidden_layer_rules: [],
-    dev_dependency_policy: [],
+    forbidden_layer_rules: forbiddenLayerRules,
+    dev_dependency_policy: devDependencyPolicy,
     boundaries,
   };
 }
 
 function buildStage2Handoff(inventory, decisions) {
-  const dependencyTables = buildDependencyTables(decisions);
+  const dependencyTables = buildDependencyTables(decisions, decisions.workspace ?? []);
   const definitionOrder = [
     ...(inventory.objects ?? []).map((candidate) => candidate.canonical_name),
     ...(inventory.claims ?? []).map((candidate) => candidate.canonical_name),
