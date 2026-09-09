@@ -180,9 +180,8 @@ function runFinalize(args) {
   });
 
   const content = renderManifestText(manifest);
-  // The canonical artifact is published to the current working directory by
-  // default; --output-dir overrides that only when explicitly provided.
-  const outputDir = optionValue(args, '--output-dir') ? path.resolve(optionValue(args, '--output-dir')) : process.cwd();
+  // The canonical artifact is always published to the current working directory.
+  const outputDir = process.cwd();
   const publishResult = atomicPublish({ dir: outputDir, fileName: MANIFEST_FILE_NAME, content, sourceHash: analysis.sourceHash });
   if (!publishResult.published) {
     process.stdout.write(formatFailure({ gateId: 'G5', reason: publishResult.reason ?? 'publish failed', fixHint: 'resolve the blocked condition before retrying' }));
@@ -349,7 +348,7 @@ function printUsage() {
     '  parse <spec>',
     '  extract <spec>',
     '  gate --spec=<path> --decisions=<path>',
-    '  finalize --spec=<path> --decisions=<path> [--output-dir=<dir>]',
+    '  finalize --spec=<path> --decisions=<path>',
   ].join('\n') + '\n';
 }
 

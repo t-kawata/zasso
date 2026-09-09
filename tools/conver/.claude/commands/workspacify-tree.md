@@ -8,11 +8,6 @@ disable-model-invocation: true
 
 **Role**: 単一の Markdown 仕様書を入力として、構造解析・候補収穫・workspace 設計・完全性ゲートを実行し、将来の第二段階が唯一の引数として受け取れる `WORKSPACIFY-TREE-MANIFEST.json` を原子公開する。このコマンドは仕様を実装しない(§0)。設計判断は AI(=実行セッション)が行い、機械は収穫・検証・publish を担う。
 
-## 言語方針
-
-- 本ファイルは **日本語を正文** とし、日本語で実装・点検済みとする
-- **英語への翻訳・製本は、ユーザーの明示的な指示があるまで行わない**(English translation only after an explicit user instruction)
-
 ## Arguments
 
 - 第1引数(必須・唯一): 仕様書へのパス(`<path-to-specification.md>`)
@@ -21,7 +16,7 @@ disable-model-invocation: true
 
 ## 出力の正本と制約(§1.2/§1.3)
 
-- 成功時に公開する正本成果物は **1つだけ**: **カレントディレクトリ**(コマンド実行時の作業ディレクトリ)の `WORKSPACIFY-TREE-MANIFEST.json`。`--output-dir` を明示した場合のみそこへ出力する
+- 成功時に公開する正本成果物は **1つだけ**: **カレントディレクトリ**(コマンド実行時の作業ディレクトリ)の `WORKSPACIFY-TREE-MANIFEST.json`
 - 仕様書ディレクトリおよびカレントディレクトリへ、最終成果物以外の中間・報告ファイル(`*.md / *.json / *.tmp / .cache/` 等)を残さない。decision 等の作業ファイルは `os.tmpdir()` 配下へ置く
 - hook は使用しない。Node.js プロセス(`run.mjs`)だけで完結する
 
@@ -34,7 +29,7 @@ disable-model-invocation: true
 | `run.mjs parse <spec>` | 入力ロック/正規化/hash/見出し/segment/再構成一致(G0/G1)。PASS/FAIL を exit code で返す |
 | `run.mjs extract <spec>` | object/claim/規範/要件候補の収穫と source traceability(G2)。候補統計を出力 |
 | `run.mjs gate --spec=.. --decisions=..` | decision 入力へ **実ゲートパイプラインを実行**し per-gate 結果を返す。COMPLETE のみ exit 0 |
-| `run.mjs finalize --spec=.. --decisions=.. [--output-dir=..]` | ownership 適用 → 全ゲート → manifest 組み立て → self-hash → atomic publish |
+| `run.mjs finalize --spec=.. --decisions=..` | ownership 適用 → 全ゲート → manifest 組み立て → self-hash → カレントディレクトリへ atomic publish |
 | `lib/*.mjs` | errors/fs-safe/hash/normalization/markdown/headings/segmentation/extraction/traceability/alias-normalization/workspace-model/ownership/dag/dependencies/boundary-review/adapters/database-policy/manifest-schema/decision-input/decision-apply/validation/render/atomic-publish/report |
 
 ## 状態とゲート(§3)
@@ -123,7 +118,7 @@ node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=<spec>" "--decisi
 ```
 
 - 全ゲート PASS・unresolved 0 のときのみ、manifest を canonical JSON 化し `integrity.manifest_hash` を計算して atomic publish する
-- 出力先は既定で **カレントディレクトリ**(`--output-dir` で上書き可)
+- 出力先は **常にカレントディレクトリ**(`--output-dir` は存在しない)
 - publish は temp 書込→fsync→再読込(schema/self-hash)→rename の順(§13.1)
 - 既存 `WORKSPACIFY-TREE-MANIFEST.json` があり input hash が異なる場合は **BLOCKED** で終了し、既存 manifest を置換・破壊しない(§13.2)
 

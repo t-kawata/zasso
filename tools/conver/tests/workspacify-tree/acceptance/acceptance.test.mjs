@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 
 const CONVER_ROOT = process.cwd();
-const RUN_SCRIPT = '.claude/scripts/workspacify-tree/run.mjs';
+const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
 const FIXTURES = join(CONVER_ROOT, 'tests/workspacify-tree/fixtures');
 const MANIFEST_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
 
@@ -26,8 +26,8 @@ test('acceptance C005 [@verifies C005]: a long specification produces a COMPLETE
   cpSync(join(FIXTURES, 'long-spec.md'), specPath);
   cpSync(join(FIXTURES, 'decisions-long-ok.json'), decisionsPath);
 
-  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`, `--output-dir=${dir}`], {
-    cwd: CONVER_ROOT,
+  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], {
+    cwd: dir,
     encoding: 'utf8',
   });
 

@@ -11,11 +11,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const CONVER_ROOT = process.cwd();
-const RUN_SCRIPT = '.claude/scripts/workspacify-tree/run.mjs';
+const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
 const FIXTURES = join(CONVER_ROOT, 'tests/workspacify-tree/fixtures');
 
-function runCli(args) {
-  return spawnSync(process.execPath, [RUN_SCRIPT, ...args], { cwd: CONVER_ROOT, encoding: 'utf8' });
+function runCli(args, cwd = CONVER_ROOT) {
+  return spawnSync(process.execPath, [RUN_SCRIPT, ...args], { cwd, encoding: 'utf8' });
 }
 
 function makeWorkingSpecDir() {
@@ -41,7 +41,7 @@ test('cli C003 [@verifies C003]: parse subcommand returns the node exit code', (
 
 test('pipeline C003 invariant [@verifies C003]: successful finalize publishes exactly one manifest into the spec directory', () => {
   const dir = makeWorkingSpecDir();
-  const result = runCli(['finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-long-ok.json')}`, `--output-dir=${dir}`]);
+  const result = runCli(['finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-long-ok.json')}`], dir);
   assert.equal(result.status, 0, result.stdout);
   const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
   assert.equal(existsSync(manifestPath), true);
@@ -52,7 +52,7 @@ test('pipeline C003 invariant [@verifies C003]: successful finalize publishes ex
 test('pipeline C004 [@verifies C004]: an invalid decision input prevents COMPLETE', () => {
   const dir = makeWorkingSpecDir();
   cpSync(join(FIXTURES, 'decisions-review-open.json'), join(dir, 'decisions-review-open.json'));
-  const result = runCli(['finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-review-open.json')}`, `--output-dir=${dir}`]);
+  const result = runCli(['finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-review-open.json')}`], dir);
   assert.notEqual(result.status, 0);
   const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
   assert.equal(existsSync(manifestPath), false);

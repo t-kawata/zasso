@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const CONVER_ROOT = process.cwd();
-const RUN_SCRIPT = '.claude/scripts/workspacify-tree/run.mjs';
+const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
 const FIXTURES = join(CONVER_ROOT, 'tests/workspacify-tree/fixtures');
 
 test('existing manifest with a different source hash is preserved (BLOCKED)', () => {
@@ -20,8 +20,8 @@ test('existing manifest with a different source hash is preserved (BLOCKED)', ()
   const oldManifest = JSON.stringify({ status: 'COMPLETE', input: { source_hash: 'e'.repeat(64) } });
   writeFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), oldManifest);
 
-  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-long-ok.json')}`, `--output-dir=${dir}`], {
-    cwd: CONVER_ROOT,
+  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-long-ok.json')}`], {
+    cwd: dir,
     encoding: 'utf8',
   });
   assert.notEqual(result.status, 0, result.stdout);
