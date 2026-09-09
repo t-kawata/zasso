@@ -25,10 +25,10 @@ disable-model-invocation: true
 | スクリプト | 説明 |
 |---|---|
 | `run.mjs parse <spec>` | 入力ロック/正規化/hash/見出し/segment/再構成一致(G0/G1)。PASS/FAIL を exit code で返す |
-| `run.mjs extract <spec>` | object/claim/規範/要件候補の収穫と source traceability(G2)。候補統計を出力 |
+| `run.mjs extract <spec>` | object/claim に加え invariant / state machine / error code / required test を独立カテゴリとして収穫し、全候補に source traceability(G2)。候補統計を出力 |
 | `run.mjs gate --spec=.. --decisions=..` | decision 入力へ **実ゲートパイプラインを実行**し per-gate 結果を返す。COMPLETE のみ exit 0 |
 | `run.mjs finalize --spec=.. --decisions=..` | ownership 適用 → 全ゲート → manifest 組み立て → self-hash → カレントディレクトリへ atomic publish |
-| `lib/*.mjs` | errors/fs-safe/hash/normalization/markdown/headings/segmentation/extraction/traceability/alias-normalization/workspace-model/ownership/dag/dependencies/boundary-review/adapters/database-policy/manifest-schema/decision-input/decision-apply/validation/render/atomic-publish/report |
+| `lib/*.mjs` | errors/fs-safe/hash/normalization/markdown/headings/segmentation/extraction/traceability/alias-normalization/decision-input/decision-apply/inventory-report/workspace-model/ownership/dag/dependencies/boundary-review/adapters/database-policy/manifest-schema/validation/entry-parity/render/atomic-publish/report |
 
 ## 状態とゲート
 
@@ -60,7 +60,7 @@ node .claude/scripts/workspacify-tree/run.mjs parse "<spec>"
 
 ## Step 2: extract(G2)
 
-**この Step の目的**: 固定された構造から「実装対象になり得る候補」を漏れなく収穫し、全候補に原文位置(source traceability)を付与する。収穫は決定論的パターン(テーブルの object 列 / inline code / claim コードブロック / 規範語句)で行う。ここで AI がレビューしなければ、後の設計で「仕様に書いてあったのに抽出漏れ」が起きる。
+**この Step の目的**: 固定された構造から「実装対象になり得る候補」を漏れなく収穫し、全候補に原文位置(source traceability)を付与する。収穫は決定論的パターン(テーブルの object 列 / inline code / claim コードブロック / 規範語句)で行い、invariant / error code / required test は `terms` に畳まず**独立カテゴリ**として分離する。ここで AI がレビューしなければ、後の設計で「仕様に書いてあったのに抽出漏れ」が起きる。
 
 ```bash
 node .claude/scripts/workspacify-tree/run.mjs extract "<spec>"
@@ -90,12 +90,23 @@ decision は一度で完成させず、**Step 4 のゲート結果を見なが�
 {
   "workspace": [
     { "id": "pkg-0001", "name": "alpha-protocol", "path": "crates/protocol/alpha", "layer": "protocol", "kind": "production-library",
-      "owns": { "objects": ["obj-000001", "obj-000003"], "claims": [] } }
+      "responsibilities": ["owns alpha records and their validity"],
+      "seed_required": true,
+      "owns": { "objects": ["obj-000001", "obj-000003"], "claims": [], "invariants": ["req-000001"], "state_machines": [], "error_codes": [], "required_tests": [] } }
+  ],
+  "tree": [
+    { "name": "crates", "path": "crates", "kind": "dir", "children": [
+        { "name": "protocol", "path": "crates/protocol", "kind": "dir", "children": [
+            { "name": "alpha", "path": "crates/protocol/alpha", "kind": "dir", "children": [] } ] } ] }
   ],
   "ownership": [ { "objectId": "obj-000001", "packageId": "pkg-0001" } ],
   "dependencies": [],
-  "adapters": { "ports": [], "databasePolicy": { "applicable": false, "raw_sql_prohibited": true } },
+  "boundaries": [],
+  "adapters": { "ports": [], "databasePolicy": { "applicable": false } },
   "approvals": [ { "decisionId": "obj-000003", "rationale": "domain record; confirmed as object", "approver": "ai-session" } ]
+
+> 複数 package の例では、全 package を `workspace`・`tree`・`ownership` へ宣言し、`dependencies` の各 edge と `boundaries` を一対一で揃えること(gate が双方向網羅を強制する)。
+
 }
 ```
 
@@ -103,9 +114,11 @@ decision は一度で完成させず、**Step 4 のゲート結果を見なが�
 
 | フィールド | 内容 |
 |---|---|
-| `workspace` | package 配列。`id/name/path/layer/kind` 必須。layer は `foundation/protocol/ports/adapters/core/interfaces/conformance`、kind は `production-library/adapter/binary/test-support/conformance` |
+| `workspace` | package 配列。`id/name/path/layer/kind/responsibilities(非空)/seed_required` 必須。`owns` は objects / claims / invariants / state_machines / error_codes / required_tests を保持。layer は `foundation/protocol/ports/adapters/core/interfaces/conformance`、kind は `production-library/adapter/binary/test-support/conformance` |
 | `ownership` | 候補→package の一意割当。`objectId`(候補 id または canonical_name)に `packageId`。各 object family は protocol 層のちょうど1 owner(§9.3)。claim の場合は同様に primary owner を割当 |
 | `dependencies` | 依存 edge 配列。`from/to/reasonCode/reason`。reasonCode は REASON_CODES 列挙。禁止 edge には `alternative`(port-injection 等)を必須(§11) |
+| `tree` | ディレクトリツリー。leaf ディレクトリの path 集合は package の path 集合と一致させる(非空 workspace では必須) |
+| `boundaries` | 依存 edge と一対一対応する契約境界の宣言。`consumer`/`provider` は必ず catalog 内(PX-183 以降は edge と境界の双方向網羅を gate が強制) |
 | `adapters` | `ports`(port が提供する能力/実装)と `databasePolicy`(RDBMS 永続化が必要な場合のみ applicable)。domain/protocol は DB 固有型・raw SQL を参照しない(§10) |
 | `approvals` | **REVIEW 承認台帳**。`decisionId`(承認する候補 id or canonical_name)/`rationale`/`approver` を必須とする。承認された REVIEW_REQUIRED 候補は CONFIRMED になり unresolved から外れる |
 
@@ -133,7 +146,9 @@ node .claude/scripts/workspacify-tree/run.mjs gate "--spec=<spec>" "--decisions=
   | `missing_responsibilities_count` | responsibilities 未記入 | ② package 設計 |
   | `tree_catalog_mismatch_count` | tree と catalog の path 不一致 | ② tree 修正 |
   | `unallocated_count` | owner 未割当の invariant/error/test 等 | ③ owner 割当 |
+  | `uncovered_edge_count` / `orphan_boundary_count` | edge と契約境界の不整合 | ④ boundary・依存網羅 |
   | `unresolved_boundary_count` / `forbidden_dependency_count` | 境界・依存不備 | ④ boundary・依存網羅 |
+  | カテゴリ owner 網羅(entry-parity) | inventory の invariant/state/error/test に owner 表行が無い | ③ owner 割当 + finalize 後の `checkTreeEntryGate` で確認 |
 - **AI の仕事**: FAIL の原因(所有権重複 / 循環 / 禁止層 / raw SQL / DB 型漏れ / schema 不正 / 上表の不足)に応じ decision を修正し、**exit 0(COMPLETE)になるまで繰り返す**(自己修復ループ)。情報レベルはこの反復で gaia 台帳級へ到達させる
 - **回帰確認**: decision を修正したら `run.mjs extract` と gate を再実行し、抽出結果との不整合が無いことを確認する
 
@@ -146,7 +161,7 @@ node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=<spec>" "--decisi
 ```
 
 - **実行条件**: 全ゲート PASS・unresolved 0 のときのみ。そうでなければ COMPLETE にせず非0で終了
-- **成功条件(到達確認)**: 生成 manifest が第二段階 ALLOCATE の entry 検査(§7.1-7.4)を通過すること。到達目標の具体例は `Gaia_v30_Stage1_Coverage_Ledger_Rev3.md`(workspace ツリー・唯一 owner・依存マトリクス・DAG まで完成した情報レベル)。第一段階側のパリティ検査は `checkTreeEntryGate`(lib/entry-parity.mjs)で機械確認できる
+- **成功条件(到達確認)**: 生成 manifest が第二段階 ALLOCATE の entry 検査(§7.1-7.4)を通過すること。到達目標の具体例は `Gaia_v30_Stage1_Coverage_Ledger_Rev3.md`(workspace ツリー・唯一 owner・依存マトリクス・DAG まで完成した情報レベル)。第一段階側のパリティ検査は `checkTreeEntryGate`(lib/entry-parity.mjs)で機械確認できる(全カテゴリ owner 網羅・tree 必須・edge↔boundary 網羅を含む拡張版)。
 - **出力先**: **常にカレントディレクトリ**(`--output-dir` は存在しない)
 - **publish 手順**: temp 書込→fsync→再読込(schema/self-hash)→rename(§13.1)。temp は成功時 rename・失敗時削除・次回起動時に stale を機械スイープ
 - **既存 manifest 保護**: 既存 `WORKSPACIFY-TREE-MANIFEST.json` があり input hash が異なる場合は **BLOCKED** で終了し、既存 manifest を置換・破壊しない(§13.2)
