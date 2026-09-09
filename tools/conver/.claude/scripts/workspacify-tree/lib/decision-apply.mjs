@@ -1,4 +1,4 @@
-// [::TICKET::] PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-179 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-179|PX-186) --for-spec --no-implementation-order`.
 /**
  * Apply AI design decisions to the parsed inventory.
  *
@@ -43,7 +43,7 @@ export function applyOwnership(candidates, ownerField, ownership) {
 export function applyApprovals(candidates, approvals) {
   const approvedIds = new Set((approvals ?? []).map((approval) => approval.decisionId));
   return candidates.map((candidate) => {
-    if (approvedIds.has(candidate.id) || approvedIds.has(candidate.canonical_name)) {
+    if (approvedIds.has(candidate.id) || approvedIds.has(candidate.canonical_name) || approvedIds.has(candidate.keyword)) {
       return { ...candidate, normalization_status: 'CONFIRMED' };
     }
     return candidate;

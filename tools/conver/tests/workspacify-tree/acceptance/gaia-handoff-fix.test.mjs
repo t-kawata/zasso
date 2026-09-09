@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -126,4 +126,24 @@ test('fix C004 [@verifies C004]: multi-package edge without a boundary fails and
   assert.equal(manifest.status, 'COMPLETE');
   const gate = checkTreeEntryGate(manifest, specPath);
   assert.equal(gate.ok, true, JSON.stringify(gate.errors));
+});
+
+test('review C005 [@verifies C005]: ambiguous normative terms require approvals to finalize', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wst-review-'));
+  const specPath = join(dir, 'amb.md');
+  const decisionsPath = join(dir, 'amb.json');
+  writeFileSync(specPath, '# T\n\n## Rules\n\nMUST NOT 禁止\n');
+  const base = { workspace: [], tree: [], ownership: [], dependencies: [], boundaries: [], adapters: { ports: [], databasePolicy: { applicable: false } } };
+  writeFileSync(decisionsPath, JSON.stringify({ ...base, approvals: [] }));
+  const blocked = run(['finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], dir);
+  assert.notEqual(blocked.status, 0, 'ambiguous terms without approvals must be blocked');
+  assert.equal(existsSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json')), false, 'no manifest on blocked run');
+
+  const approvedPath = join(dir, 'approved.json');
+  writeFileSync(approvedPath, JSON.stringify({ ...base, approvals: [
+    { decisionId: 'MUST NOT', rationale: 'explicitly normative', approver: 'ai' },
+    { decisionId: '禁止', rationale: 'explicitly normative', approver: 'ai' },
+  ] }));
+  const ok = run(['finalize', `--spec=${specPath}`, `--decisions=${approvedPath}`], dir);
+  assert.equal(ok.status, 0, ok.stdout);
 });

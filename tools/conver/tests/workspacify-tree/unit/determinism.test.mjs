@@ -82,3 +82,14 @@ test('stats C004 [@verifies C004]: inventory report stats include category count
 test('regression C005 [@verifies C005]: determinism behaviors coexist', () => {
   assert.ok(true);
 });
+
+test('review C005 [@verifies C005]: ambiguous normative terms block COMPLETE without approvals', () => {
+  const pipeline = runGatePipeline({
+    structure: { reconstruction: { status: 'PASS' } },
+    inventory: { terms: [{ id: 'req-1', canonical_name: 'MUST NOT', normalization_status: 'REVIEW_REQUIRED' }] },
+    workspace: {},
+    dependencies: {},
+    decisions: { approvals: [] },
+  });
+  assert.notEqual(pipeline.status, 'COMPLETE');
+});

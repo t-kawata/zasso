@@ -250,7 +250,8 @@ function evaluateDatabase(adapters, packages) {
 
 function countReviewRequired(inventoryData) {
   let count = 0;
-  for (const listKey of ['objects', 'claims', 'requirements']) {
+  const listKeys = ['objects', 'claims', 'terms', 'invariants', 'stateMachines', 'errorCodes', 'requiredTests'];
+  for (const listKey of listKeys) {
     for (const candidate of inventoryData[listKey] ?? []) {
       const status = candidate.normalization_status ?? candidate.review_status;
       if (status === 'REVIEW_REQUIRED') {

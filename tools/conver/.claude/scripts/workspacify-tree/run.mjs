@@ -291,10 +291,15 @@ function prepareInventory(analysis, decisions) {
   const approvals = decisions.approvals ?? [];
   const objects = applyApprovals(applyOwnership(rawInventory.objects, 'owner_package', ownership), approvals);
   const claims = applyOwnership(rawInventory.claims, 'primary_owner', ownership);
+  const terms = applyApprovals(rawInventory.terms, approvals);
   const approvedIds = new Set(approvals.map((approval) => approval.decisionId));
-  const unresolvedCandidates = rawInventory.unresolved_candidates.filter(
-    (candidate) => !approvedIds.has(candidate.id) && !approvedIds.has(candidate.canonical_name)
-  );
+  const unresolvedCandidates = rawInventory.unresolved_candidates
+    .filter((candidate) => !approvedIds.has(candidate.id) && !approvedIds.has(candidate.canonical_name))
+    .concat(
+      terms
+        .filter((candidate) => candidate.normalization_status === 'REVIEW_REQUIRED')
+        .map((candidate) => ({ kind: 'review-required', id: candidate.id, canonical_name: candidate.canonical_name }))
+    );
   return {
     objects,
     claims,
@@ -302,7 +307,7 @@ function prepareInventory(analysis, decisions) {
     stateMachines: rawInventory.stateMachines ?? [],
     errorCodes: rawInventory.errorCodes ?? [],
     requiredTests: rawInventory.requiredTests ?? [],
-    terms: rawInventory.terms,
+    terms,
     normalization_decisions: rawInventory.normalization_decisions,
     unresolved_candidates: unresolvedCandidates,
   };
