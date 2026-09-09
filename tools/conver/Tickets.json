@@ -25892,6 +25892,128 @@
           ],
           "rfcDiscrepancies": [],
           "completedAt": "2026-09-09"
+        },
+        {
+          "id": 186,
+          "phaseId": -1,
+          "status": "reviewed",
+          "title": "workspacify-tree 決定論化の完成 — 参照解決の両方向検査・state machine 収穫・extract 統計",
+          "specPath": "/Users/kawata/shyme/zasso/tools/conver/tickets/specs/186-users-kawata-shyme-zasso-tools-conver-tickets-json.md",
+          "background": "### Goal\n点検で残った決定論ギャップ3点を1チケットで解消し、「決定論的にスクリプト化すべき部分は全て機械検証・非決定論の AI 判断のみが残る」構造を完成させる。\n\n### Purpose\n(1) owns/ownership の参照が inventory へ両方向解決することを G3 と entry-parity で機械検査(phantom 参照を拒否) (2) state machine 語句を抽出辞書へ追加し実specから収穫可能にする (3) extract 統計にカテゴリ件数を追加し AI の誤読を防ぐ。\n\n### Motivation\n現状は存在しない owns id が黙って通り、state machine カテゴリは空で vacuous、extract の stats が categories を含まないため AI が「候補無し」と誤読し得る。\n\n### Constraints\n判断は AI・検証は機械(機械検証の強化のみ・AI 判断は変えない)。既存134テスト維持。ESM(.mjs)。",
+          "notes": "- [Implementation steps] (1) state machine 語句 → (2) inventory-report stats → (3) validation/entry-parity 参照解決 → (4) guide 更新 → (5) unit/integration。\n- [Risks] 参照解決の追加で既存 fixture に phantom 参照が無いことを確認(既存 green 維持)。\n- [Caveats] 語句辞書の追加は既存収穫と衝突しない語を選ぶ。\n- [Open items] なし。\n- [Future improvements] ALLOCATE 実装後 true 統合。\nImplementation summary:\n- Added bidirectional reference resolution, state-machine harvesting, and category stats; fixed gaia-decisions phantom reference.\n- Test results: 140/140 PASS (134 prior + 6 new). Quality totalIssues 0.\n- Provenance PX-186 added to extraction/inventory-report/validation/run.mjs.\n- No stubs/crimes/[::AMBIGUOUS::].\nReview report:\n- Static quality check: passed\n- Translatability: no issues\n- Bidirectional reference resolution, state-machine harvesting, and category stats verified by unit tests\n- Determinism completion confirmed: phantom references rejected, categories harvested and counted\n- No open crimes, no stubs, no [::AMBIGUOUS::]",
+          "invariants": "- [Normal condition] owns と ownership の参照は inventory へ両方向解決する。\n- [Error invariant] phantom 参照は COMPLETE を許さない。\n- [Internal state invariant] カテゴリ語句は収穫・統計・表で一貫する。\n- [Boundary invariant] stats は全カテゴリを計上する。",
+          "scope": [
+            "MODIFY: lib/validation.mjs — G3 に「owns/ownership 参照が inventory へ解決する」両方向検査を追加(unknown_owner_reference_count / unknown_owns_reference_count)。存在しない category id の owns・inventory に無い ownership entry を FAIL",
+            "MODIFY: lib/entry-parity.mjs — checkTreeEntryGate に上記参照解決検査を反映(manifest の owns/ownership 参照が inventory へ解決)",
+            "MODIFY: lib/extraction.mjs — NORMATIVE 辞書/分類に state machine 語句(state machine / state transition / 状態機械 / 状態遷移)を追加し harvestCategoryInventory が state_machines を返すように",
+            "MODIFY: lib/inventory-report.mjs — stats に invariants / state_machines / error_codes / required_tests の件数を追加",
+            "MODIFY: run.mjs — extract の guide にカテゴリ件数を含める(自然言語英語)",
+            "MODIFY: tests — 負例(phantom owns id / inventory に無い ownership entry)と正例(state machine 収穫・カテゴリ stats)を追加。既存134テスト green 維持",
+            "Out of scope: ALLOCATE 本体・grill・英訳製本。",
+            "Affected: validation/entry-parity/extraction/inventory-report/run.mjs。"
+          ],
+          "testUnit": [
+            "UT: [Normal] resolution — an owns reference that exists in inventory passes the reference check",
+            "UT: [Error] resolution — a phantom owns id (not in inventory) fails G3",
+            "UT: [Error] resolution — an ownership entry whose inventory_ref is not in inventory fails G3/entry parity",
+            "UT: [Normal] extraction — a spec containing state machine wording yields state_machines candidates",
+            "UT: [Boundary] extraction — a spec without state machine wording yields an empty state_machines list",
+            "UT: [Normal] report — inventory stats include invariants/stateMachines/errorCodes/requiredTests counts",
+            "UT: [Error] report — stats never silently drop a harvested category",
+            "UT: [Invariant] — reference resolution is bidirectional (every owns id and every ownership entry resolves)"
+          ],
+          "testIntegration": [
+            "IT: [Integration point] extraction(カテゴリ)→inventory-report→validation(G3)→entry-parity を合成 spec で直列",
+            "IT: [Verification] phantom owns 参照は G3/parity で FAIL、正しい参照は COMPLETE、state machine を含む spec は state_machines として収穫・統計に現れる",
+            "IT: [Prerequisites] PX-180..185 まで。既存134テスト green",
+            "IT: [Related tickets] PX-183/185 の参照検査を両方向へ完成"
+          ],
+          "testExceptions": [
+            "「状態機械の意味論的正しさ」を自動正解判定するのはテスト不能(AI 判断)。設計欠陥ではない。代替検証: 語句辞書による決定論的収穫 + 全カテゴリ owner/参照解決の機械強制で担保。",
+            "「AI が意図する設計判断そのもの」を機械生成するのはテスト不能。設計欠陥ではない。代替検証: decision の構造・参照・一意性を機械検証し、判断の妥当性は AI + approvals で担保。"
+          ],
+          "instrumentation": "### Logging\nextract の guide にカテゴリ件数を含める。\n### Metrics\nfinal_audit/G3 に unknown_owner_reference_count / unknown_owns_reference_count を追加。\n### Error tracking\nphantom 参照は WorkSpacifyTreeError(gateId)へ正規化。\n### Health check\nphantom 参照拒否 + state machine 収穫 + カテゴリ統計を acceptance で自己診断。\nStatic quality check: passed (totalIssues 0)\nTranslatability: no issues\nTests: full suite 140/140 PASS",
+          "acceptanceCriteria": [
+            "Happy path: state machine を含む spec が COMPLETE で state_machines が inventory・stats・ownership 表に現れ、phantom 参照ゼロで entry parity PASS",
+            "Error case: phantom owns id / inventory に無い ownership entry の各負例で対応ゲート FAIL",
+            "Edge case: 既存134テスト green 維持"
+          ],
+          "investigation": "実測: ownership の phantom id が orphan にもならず黙って通る・state machine 語句が辞書に無く空・extract stats が categories を含まない。ALLOCATE §7.4 は owner 参照の inventory 解決を要求。",
+          "boyScoutPlan": "関数は動詞句(assertReferenceResolution / harvestCategoryInventory)。カテゴリ→ownsKey 対応は既存マップを再利用。error swallowing 禁止。",
+          "contracts": [
+            {
+              "id": "C001",
+              "sourceEdge": "§7.4 参照解決(方向1: owns→inventory)",
+              "precondition": "a package owns a category id",
+              "postcondition": "an owns id absent from inventory fails the reference check",
+              "invariant": "every owns reference resolves to an inventory item"
+            },
+            {
+              "id": "C002",
+              "sourceEdge": "§7.4 参照解決(方向2: ownership→inventory)",
+              "precondition": "an ownership entry declares an inventory_ref",
+              "postcondition": "an inventory_ref absent from inventory fails the gate and the entry parity",
+              "invariant": "every ownership entry resolves to an inventory item"
+            },
+            {
+              "id": "C003",
+              "sourceEdge": "state machine 収穫",
+              "precondition": "a spec contains state machine wording",
+              "postcondition": "harvestCategoryInventory returns state machine candidates",
+              "invariant": "state machine wording is never collapsed into plain terms"
+            },
+            {
+              "id": "C004",
+              "sourceEdge": "extract 統計",
+              "precondition": "inventory holds categorized items",
+              "postcondition": "inventory report stats include every category count",
+              "invariant": "stats never silently drop a harvested category"
+            },
+            {
+              "id": "C005",
+              "sourceEdge": "回帰",
+              "precondition": "all changes are applied",
+              "postcondition": "the full suite stays green",
+              "invariant": "existing deterministic behavior is preserved"
+            }
+          ],
+          "created_at": "2026-09-09",
+          "updated_at": "2026-09-09",
+          "referenceSection": "ALLOCATE §7.4(owner 参照解決) / 点検結果(決定論化の完成)",
+          "targetStubs": "verified_empty",
+          "targetCrimes": "verified_empty",
+          "planTestCode": [
+            "UT: セットアップ\n```js\nimport { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { harvestCategoryInventory } from '.claude/scripts/workspacify-tree/lib/extraction.mjs';\nimport { buildInventoryReport } from '.claude/scripts/workspacify-tree/lib/inventory-report.mjs';\nimport { runGatePipeline } from '.claude/scripts/workspacify-tree/lib/validation.mjs';\n```\n",
+            "UT: C001 Postcondition→assertion\n```js\n// a phantom owns id (absent from inventory) fails G3\nconst pipeline = runGatePipeline({ structure: { reconstruction: { status: 'PASS' } }, inventory: { invariants: [{ id: 'inv-1' }] }, workspace: { packages: [{ id: 'p', name: 'p', path: 'crates/p', layer: 'protocol', kind: 'production-library', responsibilities: ['x'], seed_required: true, owns: { objects: [], claims: [], invariants: ['ghost-inv'] } }] }, dependencies: {}, decisions: { approvals: [] } });\nassert.notEqual(pipeline.status, 'COMPLETE');\n```\n",
+            "UT: C002 Postcondition→assertion\n```js\n// an ownership entry pointing to a non-inventory id fails the gate\nconst pipeline2 = runGatePipeline({ structure: { reconstruction: { status: 'PASS' } }, inventory: { objects: [] }, workspace: { packages: [{ id: 'p', name: 'p', path: 'crates/p', layer: 'protocol', kind: 'production-library', responsibilities: ['x'], seed_required: true }] }, dependencies: {}, decisions: { approvals: [], ownership: [{ objectId: 'ghost-obj', packageId: 'p' }] } });\nassert.notEqual(pipeline2.status, 'COMPLETE');\n```\n",
+            "UT: C003 Postcondition→assertion\n```js\n// state machine wording yields state machine candidates\nimport { buildHeadingTree } from '.claude/scripts/workspacify-tree/lib/headings.mjs';\nimport { segmentAtHeadings } from '.claude/scripts/workspacify-tree/lib/segmentation.mjs';\nconst src = '# T\\n## R\\n状態機械: idle -> active.\\n';\nconst headings = buildHeadingTree(src.split('\\n'), undefined, { sourceText: src });\nconst { segments } = segmentAtHeadings({ sourceText: src, headings }, { segmentLevel: 2 });\nconst categories = harvestCategoryInventory({ sourceText: src, headings, segments });\nassert.ok(categories.stateMachines.length >= 1);\n```\n",
+            "UT: C004 Postcondition→assertion\n```js\n// inventory report stats include category counts\nconst report = buildInventoryReport({ objects: [], claims: [], terms: [], invariants: [{ id: 'i' }], stateMachines: [{ id: 's' }], errorCodes: [{ id: 'e' }], requiredTests: [{ id: 't' }] });\nassert.ok(report.stats.invariants === 1 && report.stats.state_machines === 1 && report.stats.error_codes === 1 && report.stats.required_tests === 1);\n```\n"
+          ],
+          "startedAt": "2026-09-09",
+          "changes": [
+            {
+              "before": "phantom owns/ownership ignored",
+              "after": "G3 + decisions.ownership reference resolution (both directions to inventory)",
+              "description": "reference resolution C001/C002"
+            },
+            {
+              "before": "state machine words absent",
+              "after": "NORMATIVE dictionary includes state machine/状態機械/状態遷移 and harvestCategoryInventory returns stateMachines",
+              "description": "state machine harvest C003"
+            },
+            {
+              "before": "extract stats lacked categories",
+              "after": "inventory report stats include invariants/state_machines/error_codes/required_tests counts",
+              "description": "extract stats C004"
+            },
+            {
+              "before": "gaia-decisions phantom inv-1",
+              "after": "fixture cleared to real inventory",
+              "description": "regression fixture fix"
+            }
+          ],
+          "rfcDiscrepancies": [],
+          "completedAt": "2026-09-09"
         }
       ]
     },

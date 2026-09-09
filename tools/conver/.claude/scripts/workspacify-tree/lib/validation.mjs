@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180|PX-181|PX-183) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180|PX-181|PX-183|PX-186) --for-spec --no-implementation-order`.
 /**
  * Gate pipeline orchestration (§3).
  *
@@ -42,6 +42,7 @@ export function runGatePipeline(input = {}) {
   const boundaryResolution = evaluateBoundaryResolution(dependenciesData, packages);
   const boundaryCoverage = evaluateBoundaryCoverage(dependenciesData);
   const missingResponsibilities = packages.filter((pkg) => !pkg.responsibilities || pkg.responsibilities.length === 0).length;
+  const referenceResolution = evaluateReferenceResolution(packages, decisionsData, inventoryData);
   const dagResult = evaluateDag(dependenciesData, workspaceData.packages);
   const dbResult = evaluateDatabase(adapters, packages);
   const approvalCount = (decisionsData.approvals ?? []).length;
@@ -65,7 +66,9 @@ export function runGatePipeline(input = {}) {
         treeReport.consistent &&
         boundaryResolution.unresolved === 0 &&
         boundaryCoverage.uncoveredEdges === 0 &&
-        boundaryCoverage.orphanBoundaries === 0
+        boundaryCoverage.orphanBoundaries === 0 &&
+        referenceResolution.unknownOwns === 0 &&
+        referenceResolution.unknownOwnership === 0
           ? GATE_STATUS.PASS
           : GATE_STATUS.REVIEW_REQUIRED,
       counts: {
@@ -76,13 +79,16 @@ export function runGatePipeline(input = {}) {
         unresolved_boundary_count: boundaryResolution.unresolved,
         uncovered_edge_count: boundaryCoverage.uncoveredEdges,
         orphan_boundary_count: boundaryCoverage.orphanBoundaries,
+        unknown_owns_reference_count: referenceResolution.unknownOwns,
+        unknown_ownership_reference_count: referenceResolution.unknownOwnership,
       },
       reasons: catalogErrors
         .map((error) => error.message)
         .concat(boundaryRisks.map((risk) => risk.detail))
         .concat(treeReport.errors)
         .concat(boundaryResolution.errors)
-        .concat(boundaryCoverage.errors),
+        .concat(boundaryCoverage.errors)
+        .concat(referenceResolution.errors),
     },
     {
       id: 'G4',
@@ -190,6 +196,38 @@ function evaluateBoundaryResolution(dependenciesData, packages) {
     }
   }
   return { unresolved, errors };
+}
+
+function evaluateReferenceResolution(packages, decisionsData, inventoryData) {
+  const inventoryIds = new Set();
+  const keys = ['objects', 'claims', 'invariants', 'stateMachines', 'errorCodes', 'requiredTests'];
+  for (const key of keys) {
+    for (const candidate of inventoryData[key] ?? []) {
+      inventoryIds.add(candidate.id);
+    }
+  }
+  const ownsKeys = ['objects', 'claims', 'invariants', 'state_machines', 'error_codes', 'required_tests'];
+  const errors = [];
+  let unknownOwns = 0;
+  let unknownOwnership = 0;
+  for (const pkg of packages ?? []) {
+    const owns = pkg.owns ?? {};
+    for (const ownsKey of ownsKeys) {
+      for (const ownedId of owns[ownsKey] ?? []) {
+        if (!inventoryIds.has(ownedId)) {
+          errors.push(`owns.${ownsKey} ${ownedId} of package ${pkg.id} does not resolve to any inventory item`);
+          unknownOwns++;
+        }
+      }
+    }
+  }
+  for (const entry of decisionsData.ownership ?? []) {
+    if (!inventoryIds.has(entry.objectId)) {
+      errors.push(`ownership entry objectId ${entry.objectId} does not resolve to any inventory item`);
+      unknownOwnership++;
+    }
+  }
+  return { unknownOwns, unknownOwnership, errors };
 }
 
 function evaluateDag(dependenciesData, packages) {

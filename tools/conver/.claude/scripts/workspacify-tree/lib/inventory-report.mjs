@@ -1,4 +1,4 @@
-// [::TICKET::] PX-176 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-176 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-176 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-176|PX-186) --for-spec --no-implementation-order`.
 /**
  * AI-facing inventory summary.
  *
@@ -40,6 +40,10 @@ export function buildInventoryReport(inventory) {
       confirmed,
       review_required: reviewRequired,
       unresolved: unresolved.length,
+      invariants: (inventory.invariants ?? []).length,
+      state_machines: (inventory.stateMachines ?? []).length,
+      error_codes: (inventory.errorCodes ?? []).length,
+      required_tests: (inventory.requiredTests ?? []).length,
     },
   };
 }

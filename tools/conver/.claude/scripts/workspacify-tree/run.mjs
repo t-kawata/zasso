@@ -1,4 +1,4 @@
-// [::TICKET::] PX-178, PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181|PX-183|PX-184|PX-185) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-178, PX-179 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181|PX-183|PX-184|PX-185|PX-186) --for-spec --no-implementation-order`.
 /**
  * Command entry point for /workspacify-tree.
  *
@@ -133,7 +133,7 @@ function runGate(args) {
       boundaries: decisions.boundaries ?? [],
     },
     adapters: buildPipelineAdapters(decisions),
-    decisions: { approvals: decisions.approvals ?? [] },
+    decisions: { approvals: decisions.approvals ?? [], ownership: decisions.ownership ?? [] },
   });
   const summary = pipeline.gates.map((gate) => `${gate.id}:${gate.status}`).join(' ');
   process.stdout.write(JSON.stringify({ status: pipeline.status, gates: summary, finalAudit: pipeline.finalAudit }) + '\n');
@@ -172,7 +172,7 @@ function runFinalize(args) {
       boundaries: decisions.boundaries ?? [],
     },
     adapters: buildPipelineAdapters(decisions),
-    decisions: { approvals: decisions.approvals ?? [] },
+    decisions: { approvals: decisions.approvals ?? [], ownership: decisions.ownership ?? [] },
   };
   const pipeline = runGatePipeline(pipelineInput);
 

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-176 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-176|PX-183) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-176 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-176|PX-183|PX-186) --for-spec --no-implementation-order`.
 /**
  * Candidate inventory extraction (§7.3, §8).
  *
@@ -48,6 +48,9 @@ const NORMATIVE_PHRASES = Object.freeze([
   { phrase: 'エラーコード', classification: 'error-code' },
   { phrase: '拒否コード', classification: 'error-code' },
   { phrase: '不変条件', classification: 'invariant' },
+  { phrase: 'state machine', classification: 'state-machine' },
+  { phrase: '状態機械', classification: 'state-machine' },
+  { phrase: '状態遷移', classification: 'state-machine' },
   { phrase: '必須', classification: 'required' },
   { phrase: '禁止', classification: 'prohibited' },
 ].sort((a, b) => b.phrase.length - a.phrase.length));
@@ -363,7 +366,7 @@ function mergeClassification(candidate, classification) {
  * @returns {{ invariants: Array<object>, stateMachines: Array<object>, errorCodes: Array<object>, requiredTests: Array<object> }}
  */
 export function harvestCategoryInventory({ sourceText, headings, segments }) {
-  const requirements = harvestRequirementCandidates({ sourceText, headings, segments });
+  const requirements = harvestNormativeCandidates({ sourceText, headings, segments });
   const invariants = [];
   const stateMachines = [];
   const errorCodes = [];
