@@ -274,3 +274,39 @@ before building on them.
 5. **The instrument is declared, not assumed.** A new tool is an entry in `ENV-DEPS.json` — never a
    new installation mechanism, and never a dependency left undeclared because it happened to be on
    the machine where it was developed.
+
+---
+
+## 8. The property-based testing engine (P22-7)
+
+R6.5 generates property-based tests from R3's invariants. The engine each language's generated
+property is written for is recorded here, as the ticket requires, and mirrors `PROPERTY_ENGINES` in
+`.claude/scripts/workspacify-reverse/lib/property-tests.mjs`:
+
+| Language | Engine |
+|---|---|
+| rust | `proptest` |
+| typescript | `fast-check` |
+| javascript | `fast-check` |
+| go | `rapid` |
+| python | `hypothesis` |
+| c_cpp | `RapidCheck` |
+| unknown | `unrecorded` |
+
+**The engine is a secondary choice and this section is not the load-bearing part of R6.5.** What that
+stage actually depends on is the closed vocabulary of property categories and the ordering of oracle
+independence, and neither changes with the engine. Swapping `rapid` for `gopter`, or `RapidCheck` for
+`libFuzzer`, changes which program runs a generated property — it does not change what the property
+is allowed to assert.
+
+**No engine is installed by this decision.** P22-7 writes each generated property as text and records
+the engine it is written for; nothing in this repository shells out to a PBT library. That is why
+this section adds no entry to `ENV-DEPS.json`: §7 item 5 governs *tools the analysis runs*, and a
+recorded engine name is not one. The first ticket that actually executes a generated property is the
+ticket that must declare the engine it executes it with.
+
+The section below is the part that does carry weight, and it is why a generated property is never
+evidence on its own. An oracle read off the implementation agrees with the implementation because it
+was read off the implementation, so the categories that would be generated from an
+implementation-derived oracle are reported separately and marked `requires_human_approval`. The
+vocabulary and the refusal rules are specified in ABOUT-REVERSE 11.5 R-3.

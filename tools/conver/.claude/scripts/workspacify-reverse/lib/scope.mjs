@@ -56,6 +56,9 @@ import { extractSemantics, renderSemanticsReport } from './semantics.mjs';
 import { reconstructHistory, renderHistoryRecord } from './history.mjs';
 import { buildGapCandidate, classifyGaps, enumerateGaps, renderGapsReport } from './gaps.mjs';
 import { assessOracleValidity, renderOracleGapReport } from './oracle-gap.mjs';
+import { planRedReconstruction, renderRedReconstructionReport } from './red-reconstruction.mjs';
+import { STAGE as COUNTEREXAMPLE_STAGE, applyCounterexamples, renderCounterexampleReport } from './counterexample.mjs';
+import { generatePropertyTests, renderPropertyTestReport } from './property-tests.mjs';
 import { historyFromGit } from './evidence-independence.mjs';
 import { measureDependencies, renderDependencyReport } from './dependencies.mjs';
 import { measureExecutionSurface, renderExecutionSurfaceReport } from './execution-surface.mjs';
@@ -401,7 +404,7 @@ export function renderSpikeReport(measurement, { reconciliation = [], targetDige
  * nobody asked and look like a complete result.
  */
 export const ANALYSIS_STAGES = Object.freeze([
-  'r0', 'r0.5', 'r1', 'r2', 'r2.5', 'r3', 'r3.5', 'r4', 'r5', 'r5.5',
+  'r0', 'r0.5', 'r1', 'r2', 'r2.5', 'r3', 'r3.5', 'r4', 'r5', 'r5.5', 'r6', 'r6.5',
 ]);
 
 /**
@@ -793,24 +796,38 @@ function assertOutputIsOutsideTarget(out, root) {
  * break alphabetically, so the answer does not depend on the order the tree was
  * walked in.
  */
-// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
-function dominantLanguageOf(paths) {
+/**
+ * How many files each language contributes, counted from the path alone.
+ *
+ * A path the syntax layer does not recognise is left out rather than counted as
+ * its own language: `unknown` is the absence of a reading, and letting it win a
+ * tie would name the population after the instrument's own gap.
+ */
+// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+function languageCountsOf(paths) {
   const counts = new Map();
   for (const relativePath of paths) {
     const language = syntaxLanguageOf(relativePath);
     if (language === 'unknown') continue;
     counts.set(language, (counts.get(language) ?? 0) + 1);
   }
+  return counts;
+}
 
-  let dominant = 'unknown';
-  let highest = 0;
-  for (const [language, count] of [...counts.entries()].sort((left, right) => compareText(left[0], right[0]))) {
-    if (count > highest) {
-      dominant = language;
-      highest = count;
-    }
-  }
-  return dominant;
+/**
+ * The language most of the analysed population is written in.
+ *
+ * Ascending order together with a strictly-greater comparison breaks a tie
+ * towards the alphabetically first language, so the answer does not depend on
+ * the order the tree was walked in.
+ */
+// [::TICKET::] P22-6, P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-6|P22-7) --for-spec --no-implementation-order`.
+function dominantLanguageOf(paths) {
+  const byAlphabet = [...languageCountsOf(paths).entries()]
+    .sort((left, right) => compareText(left[0], right[0]));
+  return byAlphabet
+    .reduce((dominant, [language, count]) => (count > dominant.count ? { language, count } : dominant), { language: 'unknown', count: 0 })
+    .language;
 }
 
 // [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
@@ -841,6 +858,9 @@ export function renderAnalysisReport(run) {
     history = null,
     gaps = null,
     oracleGap = null,
+    redPlan = null,
+    counterexamples = null,
+    properties = null,
     attempts,
     stagesRun,
   } = run;
@@ -852,7 +872,7 @@ export function renderAnalysisReport(run) {
   const lines = [
     `# ${stagesRun.length === 1 ? stageLabel(stagesRun[0]) : `R0 to ${stageLabel(stagesRun[stagesRun.length - 1])}`}`
       + ' — scope, structure, dependencies, the execution surface, the semantic material, history, '
-      + 'gaps and the oracle validity',
+      + 'gaps, the oracle validity and the red reconstruction plan',
     '',
     `Stages run: ${stagesRun.map((stage) => `\`${stageLabel(stage)}\``).join(', ')}.`,
     notRun.length === 0
@@ -873,6 +893,9 @@ export function renderAnalysisReport(run) {
   if (history !== null) lines.push(renderHistoryRecord(history));
   if (gaps !== null) lines.push(renderGapsReport(gaps));
   if (oracleGap !== null) lines.push(renderOracleGapReport(oracleGap));
+  if (redPlan !== null) lines.push(renderRedReconstructionReport(redPlan));
+  if (counterexamples !== null) lines.push(renderCounterexampleReport(counterexamples));
+  if (properties !== null) lines.push(renderPropertyTestReport(properties));
 
   lines.push(
     '# The analysis attempt ledger',
@@ -908,6 +931,31 @@ export function renderAnalysisReport(run) {
   );
 
   return `${lines.join('\n')}\n`;
+}
+
+/**
+ * The invariants R3.5 enumerated, in the shape R6.5's generator reads.
+ *
+ * `source_fact` is built from the candidate's own anchor, so that a generated
+ * property names the line it was read from rather than the run it appeared in.
+ *
+ * No category is supplied here, and that is the honest input rather than an
+ * omission: which category an invariant belongs to is a semantic reading, and
+ * this run performs none. The generator records each one as not generated with
+ * that reason instead of guessing a category and calling the guess a property
+ * (ABOUT-REVERSE 11.5 R-3: an invariant that cannot be classified into a known
+ * category cannot be made into a property-based test).
+ */
+// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
+function propertyInvariantsIn(ledger) {
+  return (ledger?.candidates ?? [])
+    .filter((candidate) => candidate.kind === 'assert')
+    .map((candidate) => ({
+      proposition: candidate.proposition,
+      source_fact: `${candidate.source_span.file}:${candidate.source_span.line}`,
+      kind: candidate.kind,
+      scope: candidate.scope,
+    }));
 }
 
 /**
@@ -995,6 +1043,25 @@ export function analyzeProject({
     ? assessOracleValidity({ root: scope.root, ledger })
     : null;
 
+  // R6 plans the red each claim needs, and R6.5 hands R3's invariants to the
+  // property generator and lets an obtained counterexample revise the claim it
+  // bears on. Neither executes anything: the environment is P22-18's and the
+  // ticket that runs a plan is P22-19, so a plan that cannot execute yet is
+  // recorded with that reason rather than dropped.
+  const redPlan = stagesRun.includes('r6') && ledger !== null
+    ? planRedReconstruction({ ledger, oracleGap, gaps: classifiedGaps })
+    : null;
+  // A counterexample is obtained by executing a plan, which this stage does not
+  // do. The empty set is therefore the honest input, and it is reported as empty
+  // rather than omitted so that a stage which ran nothing cannot read as a stage
+  // that found nothing.
+  const counterexamples = stagesRun.includes('r6.5') && ledger !== null
+    ? applyCounterexamples([], ledger)
+    : null;
+  const properties = stagesRun.includes('r6.5') && ledger !== null
+    ? generatePropertyTests(propertyInvariantsIn(ledger))
+    : null;
+
   const after = digestTree(scope.root, { tolerateUnreadable: true });
   if (before.sha256 !== after.sha256 || before.unreadable.join(',') !== after.unreadable.join(',')) {
     throw new Error(
@@ -1058,6 +1125,24 @@ export function analyzeProject({
     documents['GAP-CANDIDATE.json'] = buildGapCandidate(classifiedGaps, { language: dominantLanguageOf(inScopePaths) });
   }
   if (oracleGap !== null) documents['ORACLE-GAP.json'] = oracleGap;
+  if (redPlan !== null) documents['RED-RECONSTRUCTION-PLAN.json'] = redPlan;
+  if (counterexamples !== null) {
+    // The revised ledger is deliberately not republished: it is the ledger above
+    // with a handful of revisions, and writing it twice would double a twelve
+    // megabyte sidecar to record a few lines. What R6.5 produced is the edge,
+    // and the edge is what this document carries.
+    documents['COUNTEREXAMPLE-RESULTS.json'] = {
+      root: scope.root,
+      stage: COUNTEREXAMPLE_STAGE,
+      empty: counterexamples.empty,
+      applied: counterexamples.applied,
+      unobservable: counterexamples.unobservable,
+      revisions: counterexamples.ledger.revisions,
+      verdict: counterexamples.ledger.verdict,
+      caveat: counterexamples.caveat,
+    };
+  }
+  if (properties !== null) documents['GENERATED-PROPERTIES.json'] = properties;
 
   publishDocuments(out, documents);
 
@@ -1072,6 +1157,9 @@ export function analyzeProject({
     history,
     gaps: classifiedGaps,
     oracleGap,
+    redPlan,
+    counterexamples,
+    properties,
     attempts,
     report,
     stagesRun,
