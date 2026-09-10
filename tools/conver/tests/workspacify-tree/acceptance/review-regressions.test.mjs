@@ -110,8 +110,13 @@ test('C003 a contract edge with a clause outside the vocabulary is refused', asy
   const { buildContractEdge } = await import('../../../.claude/scripts/workspacify-allocate/lib/contract-model.mjs');
   assert.throws(
     () => buildContractEdge({
-      boundaryId: 'boundary-001', consumerPackage: 'pkg-b', providerPackage: 'pkg-a', direction: 'consumer_to_provider', connectionKind: 'value_only',
-      owners: { semantic: 'pkg-a' }, clauses: { input: 'i', output: 'o', made_up_clause: ['x'] }, sourceRefs: [],
+      boundaryId: 'boundary-001',
+      sides: {
+        consumer: { packageId: 'pkg-b' },
+        provider: { packageId: 'pkg-a' },
+      },
+      relation: { direction: 'consumer_to_provider', connectionKind: 'value_only' },
+      content: { owners: { semantic: 'pkg-a' }, clauses: { input: 'i', output: 'o', made_up_clause: ['x'] }, sourceRefs: [] },
     }),
     /made_up_clause/,
   );

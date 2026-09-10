@@ -17,9 +17,14 @@ function fixture() {
   for (const seed of makeDecisions(manifest).seeds) {
     parsedByPackage.set(seed.packageId, {
       contractEdges: seed.contractEdges.map((edge) => buildContractEdge({
-        boundaryId: edge.boundary_id, consumerPackage: edge.consumer_package, providerPackage: edge.provider_package,
-        direction: edge.direction, connectionKind: edge.connection_kind, owners: edge.owners, clauses: edge.clauses, sourceRefs: edge.source_refs,
-      })),
+      boundaryId: edge.boundary_id,
+      sides: {
+        consumer: { packageId: edge.consumer_package },
+        provider: { packageId: edge.provider_package },
+      },
+      relation: { direction: edge.direction, connectionKind: edge.connection_kind },
+      content: { owners: edge.owners, clauses: edge.clauses, sourceRefs: edge.source_refs },
+    })),
     });
   }
   return { manifest, graph: buildIntegrationGraph({ contractIndex: buildContractIndex({ parsedByPackage, manifest }), manifest }) };

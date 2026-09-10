@@ -117,3 +117,29 @@ describe("update-ticket --append mode", function () {
       "Original note.\nSecond line.\nThird line.");
   });
 });
+
+describe('diagnosability of a rejected update (PX-202)', function () {
+  it('reports the type mismatch on stderr and does not warn about content that was never written', function () {
+    writeTickets();
+    let failure = null;
+    try {
+      execFileSync('node', [SCRIPT, ticketsPath, 'P0-1'], {
+        input: JSON.stringify({ scope: 'a single string for an array field' }),
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    } catch (error) {
+      failure = error;
+    }
+    assert.ok(failure, 'the update must fail');
+    assert.strictEqual(failure.status, 1);
+    const stderr = String(failure.stderr || '');
+    const stdout = String(failure.stdout || '');
+    assert.ok(/must be array/.test(stderr), 'stderr must carry the validation error, got: ' + stderr);
+    assert.ok(!/already has content/.test(stderr), 'a failed update must not warn about unwritten content, got: ' + stderr);
+    assert.ok(/success/.test(stdout), 'stdout keeps the machine-readable result');
+    // The file is untouched.
+    const after = JSON.parse(fs.readFileSync(ticketsPath, 'utf8'));
+    assert.deepStrictEqual(after.phases[0].tickets[0].scope, ['Original scope']);
+  });
+});

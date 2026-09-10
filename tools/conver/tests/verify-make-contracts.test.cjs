@@ -42,6 +42,16 @@ if (!mod || !mod.verifyMakeContracts) {
     assert.ok(errs.some(e => e.detail && e.detail.includes('contracts') && (e.detail.includes('empty') || e.detail.includes('must'))),
       'Expected error about empty contracts, got: ' + JSON.stringify(errs));
   });
+  test('names the contract key terms that testUnit must mention (PX-202)', () => {
+    const t = makeTicket(1, [c('C001','prerequisite_alpha beta_gamma','result_behavior','state_invariant')],
+      ['UT: result_behavior and state_invariant covered']);
+    const errs = mod.verifyMakeContracts(t);
+    const pre = errs.find(e => e.detail && e.detail.includes('precondition'));
+    assert.ok(pre, 'expected a precondition error');
+    assert.ok(Array.isArray(pre.terms) && pre.terms.length > 0, 'the error must carry the key terms to add');
+    assert.ok(pre.terms.some(term => term.includes('alpha') || term.includes('beta')), 'terms: ' + JSON.stringify(pre.terms));
+    assert.ok(pre.detail.includes('key terms'), 'detail must mention the key terms: ' + pre.detail);
+  });
   test('handles missing testUnit field gracefully', () => {
     const t = { id:1, phaseId:0, title:'T1', status:'todo', contracts:[c('C001','prerequisite_condition','result_behavior','state_invariant')] };
     const errs = mod.verifyMakeContracts(t);

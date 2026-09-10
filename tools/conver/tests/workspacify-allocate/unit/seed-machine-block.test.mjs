@@ -32,11 +32,14 @@ function fixture() {
     source_segments: ['s-000001'],
   };
   const contractEdge = buildContractEdge({
-    boundaryId: boundary.id, consumerPackage: boundary.consumer_package, providerPackage: boundary.provider_package,
-    direction: 'consumer_to_provider', connectionKind: 'value_only', owners: { semantic: 'pkg-a' },
-    sourceRefs: ['s-000001'],
-    clauses: { input: 'i', output: 'o', preconditions: ['p'], postconditions: ['q'], invariants: ['r'], errors: [], canonicalization: 'c', tests: ['t'] },
-  });
+      boundaryId: boundary.id,
+      sides: {
+        consumer: { packageId: boundary.consumer_package },
+        provider: { packageId: boundary.provider_package },
+      },
+      relation: { direction: 'consumer_to_provider', connectionKind: 'value_only' },
+      content: { owners: { semantic: 'pkg-a' }, sourceRefs: ['s-000001'], clauses: { input: 'i', output: 'o', preconditions: ['p'], postconditions: ['q'], invariants: ['r'], errors: [], canonicalization: 'c', tests: ['t'] } },
+    });
   const expectedAllocation = [{ category: 'object', inventory_ref: 'obj-000001', canonical_name: 'Alpha Record' }];
   return { manifest, pkg, boundary, referenceBlock, contractEdge, expectedAllocation };
 }

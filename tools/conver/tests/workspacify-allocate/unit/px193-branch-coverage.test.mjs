@@ -26,13 +26,16 @@ function boundary() {
 
 function edge(overrides = {}) {
   return buildContractEdge({
-    boundaryId: 'boundary-001', consumerPackage: 'pkg-b', providerPackage: 'pkg-a',
-    direction: 'consumer_to_provider', connectionKind: 'value_only',
-    owners: { semantic: 'pkg-a' },
-    clauses: { input: 'i', output: 'o', preconditions: ['p'], postconditions: ['q'], invariants: ['r'], tests: ['t'] },
-    sourceRefs: ['s-000001', 's-000001'],
-    ...overrides,
-  });
+      boundaryId: 'boundary-001',
+      ...overrides,
+      sides: {
+        consumer: { packageId: 'pkg-b' },
+        provider: { packageId: 'pkg-a' },
+      },
+      relation: { direction: 'consumer_to_provider', connectionKind: 'value_only' },
+      // Overrides land in the group they belong to, so edge({ owners: {} }) still replaces the owners.
+      content: { owners: { semantic: 'pkg-a' }, clauses: { input: 'i', output: 'o', preconditions: ['p'], postconditions: ['q'], invariants: ['r'], tests: ['t'] }, sourceRefs: ['s-000001', 's-000001'], ...overrides },
+    });
 }
 
 test('contract-model C003: seed-level validation reports every defect class', () => {

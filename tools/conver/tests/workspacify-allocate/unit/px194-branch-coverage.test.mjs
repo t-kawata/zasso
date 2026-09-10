@@ -19,9 +19,14 @@ function fixture(overrides = {}) {
   for (const seed of makeDecisions(manifest).seeds) {
     parsedByPackage.set(seed.packageId, {
       contractEdges: seed.contractEdges.map((edge) => buildContractEdge({
-        boundaryId: edge.boundary_id, consumerPackage: edge.consumer_package, providerPackage: edge.provider_package,
-        direction: edge.direction, connectionKind: edge.connection_kind, owners: edge.owners, clauses: edge.clauses, sourceRefs: edge.source_refs,
-      })),
+      boundaryId: edge.boundary_id,
+      sides: {
+        consumer: { packageId: edge.consumer_package },
+        provider: { packageId: edge.provider_package },
+      },
+      relation: { direction: edge.direction, connectionKind: edge.connection_kind },
+      content: { owners: edge.owners, clauses: edge.clauses, sourceRefs: edge.source_refs },
+    })),
     });
   }
   return { manifest, parsedByPackage, graph: buildIntegrationGraph({ contractIndex: buildContractIndex({ parsedByPackage, manifest }), manifest }) };
@@ -66,7 +71,15 @@ test('C002 reverse edges, cycles, state conflicts, effect races and forbidden fl
   };
   const reversedIndex = buildContractIndex({
     parsedByPackage: new Map([
-      ['pkg-a', { contractEdges: [buildContractEdge({ boundaryId: 'boundary-001', consumerPackage: 'pkg-b', providerPackage: 'pkg-a', direction: 'consumer_to_provider', connectionKind: 'value_only', owners: {}, clauses: { input: 'i', output: 'o', preconditions: ['p'], postconditions: ['q'], invariants: ['r'], tests: ['t'] }, sourceRefs: [] })] }],
+      ['pkg-a', { contractEdges: [buildContractEdge({
+      boundaryId: 'boundary-001',
+      sides: {
+        consumer: { packageId: 'pkg-b' },
+        provider: { packageId: 'pkg-a' },
+      },
+      relation: { direction: 'consumer_to_provider', connectionKind: 'value_only' },
+      content: { owners: {}, clauses: { input: 'i', output: 'o', preconditions: ['p'], postconditions: ['q'], invariants: ['r'], tests: ['t'] }, sourceRefs: [] },
+    })] }],
     ]),
     manifest: reversed,
   });

@@ -16,15 +16,14 @@ function machineArgs(manifest, pkg) {
     (boundary) => boundary.consumer_package === pkg.id || boundary.provider_package === pkg.id,
   );
   const contractEdges = boundaries.map((boundary) => buildContractEdge({
-    boundaryId: boundary.id,
-    consumerPackage: boundary.consumer_package,
-    providerPackage: boundary.provider_package,
-    direction: boundary.consumer_package === pkg.id ? 'consumer_to_provider' : 'provider_to_consumer',
-    connectionKind: boundary.connection_kind,
-    owners: { semantic: boundary.provider_package },
-    clauses: {},
-    sourceRefs: [],
-  }));
+      boundaryId: boundary.id,
+      sides: {
+        consumer: { packageId: boundary.consumer_package },
+        provider: { packageId: boundary.provider_package },
+      },
+      relation: { direction: boundary.consumer_package === pkg.id ? 'consumer_to_provider' : 'provider_to_consumer', connectionKind: boundary.connection_kind },
+      content: { owners: { semantic: boundary.provider_package }, clauses: {}, sourceRefs: [] },
+    }));
   return {
     referenceBlock: {
       package: { id: pkg.id, name: pkg.name, path: pkg.path, layer: pkg.layer, kind: pkg.kind, responsibilities: pkg.responsibilities ?? ['x'] },

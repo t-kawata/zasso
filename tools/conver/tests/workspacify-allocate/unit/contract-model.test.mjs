@@ -29,15 +29,14 @@ function clauses(overrides = {}) {
 
 test('C003 a contract edge is canonical, stable and clause-complete', () => {
   const edge = buildContractEdge({
-    boundaryId: 'boundary-001',
-    consumerPackage: 'pkg-b',
-    providerPackage: 'pkg-a',
-    direction: 'consumer_to_provider',
-    connectionKind: 'value_only',
-    owners: { semantic: 'pkg-a', state: 'not_applicable', side_effect: 'not_applicable', port: 'not_applicable', adapter: 'not_applicable' },
-    clauses: clauses(),
-    sourceRefs: ['s-000002', 's-000001'],
-  });
+      boundaryId: 'boundary-001',
+      sides: {
+        consumer: { packageId: 'pkg-b' },
+        provider: { packageId: 'pkg-a' },
+      },
+      relation: { direction: 'consumer_to_provider', connectionKind: 'value_only' },
+      content: { owners: { semantic: 'pkg-a', state: 'not_applicable', side_effect: 'not_applicable', port: 'not_applicable', adapter: 'not_applicable' }, clauses: clauses(), sourceRefs: ['s-000002', 's-000001'] },
+    });
 
   assert.equal(edge.contract_id, 'contract-boundary-001');
   assert.deepEqual(edge.source_refs, ['s-000001', 's-000002'], 'source refs are canonicalised');
@@ -45,18 +44,28 @@ test('C003 a contract edge is canonical, stable and clause-complete', () => {
   assert.equal(validateContractEdge(edge, boundary()).ok, true);
 
   const again = buildContractEdge({
-    boundaryId: 'boundary-001', consumerPackage: 'pkg-b', providerPackage: 'pkg-a', direction: 'consumer_to_provider',
-    connectionKind: 'value_only', owners: edge.owners, clauses: clauses(), sourceRefs: ['s-000001', 's-000002'],
-  });
+      boundaryId: 'boundary-001',
+      sides: {
+        consumer: { packageId: 'pkg-b' },
+        provider: { packageId: 'pkg-a' },
+      },
+      relation: { direction: 'consumer_to_provider', connectionKind: 'value_only' },
+      content: { owners: edge.owners, clauses: clauses(), sourceRefs: ['s-000001', 's-000002'] },
+    });
   assert.deepEqual(again, edge, 'building twice yields the identical edge');
 });
 
 test('C003 an unknown clause, a duplicate and a missing declaration are rejected', () => {
   const target = boundary();
   const edge = buildContractEdge({
-    boundaryId: 'boundary-001', consumerPackage: 'pkg-b', providerPackage: 'pkg-a', direction: 'consumer_to_provider',
-    connectionKind: 'value_only', owners: {}, clauses: clauses(), sourceRefs: ['s-000001'],
-  });
+      boundaryId: 'boundary-001',
+      sides: {
+        consumer: { packageId: 'pkg-b' },
+        provider: { packageId: 'pkg-a' },
+      },
+      relation: { direction: 'consumer_to_provider', connectionKind: 'value_only' },
+      content: { owners: {}, clauses: clauses(), sourceRefs: ['s-000001'] },
+    });
 
   const unknown = validateContractEdge({ ...edge, clauses: { ...edge.clauses, telepathy: 'x' } }, target);
   assert.equal(unknown.ok, false);
@@ -84,11 +93,14 @@ test('C003 a contract edge carries the five owner slots, its paths and its sourc
   const consumerPath = 'crates/protocol/beta';
   const providerPath = 'crates/protocol/alpha';
   const edge = buildContractEdge({
-    boundaryId: 'boundary-001', consumerPackage: 'pkg-b', providerPackage: 'pkg-a', direction: 'consumer_to_provider',
-    consumerPath, providerPath,
-    connectionKind: 'value_only', clauses: clauses(), sourceRefs: ['s-000001'],
-    owners: { semantic: 'pkg-a', state: 'not_applicable', side_effect: 'not_applicable', port: 'not_applicable', adapter: 'not_applicable' },
-  });
+      boundaryId: 'boundary-001',
+      sides: {
+        consumer: { packageId: 'pkg-b', path: consumerPath },
+        provider: { packageId: 'pkg-a', path: providerPath },
+      },
+      relation: { direction: 'consumer_to_provider', connectionKind: 'value_only' },
+      content: { clauses: clauses(), sourceRefs: ['s-000001'], owners: { semantic: 'pkg-a', state: 'not_applicable', side_effect: 'not_applicable', port: 'not_applicable', adapter: 'not_applicable' } },
+    });
   for (const slot of ['semantic', 'state', 'side_effect', 'port', 'adapter']) {
     assert.equal(typeof edge.owners[slot], 'string', `${slot} owner must be present`);
   }

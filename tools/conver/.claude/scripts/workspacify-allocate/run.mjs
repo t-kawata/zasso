@@ -137,16 +137,20 @@ function buildContractEdgesForPackage({ manifest, packageId, decision }) {
     const isConsumer = boundary.consumer_package === packageId;
     edges.push(buildContractEdge({
       boundaryId: boundary.id,
-      consumerPackage: boundary.consumer_package,
-      providerPackage: boundary.provider_package,
-      consumerPath: packageById.get(boundary.consumer_package)?.path,
-      providerPath: packageById.get(boundary.provider_package)?.path,
-      direction: isConsumer ? 'consumer_to_provider' : 'provider_to_consumer',
-      connectionKind: boundary.connection_kind,
       // The semantic owner of a coupling is the provider: the same value on both sides.
       owners: authored.owners ?? { semantic: boundary.provider_package },
-      clauses: authored.clauses ?? {},
-      sourceRefs: authored.source_refs ?? collectPackageSegments({ manifest, packageId }),
+      sides: {
+        consumer: {
+          packageId: boundary.consumer_package,
+          path: packageById.get(boundary.consumer_package)?.path
+        },
+        provider: {
+          packageId: boundary.provider_package,
+          path: packageById.get(boundary.provider_package)?.path
+        },
+      },
+      relation: { direction: isConsumer ? 'consumer_to_provider' : 'provider_to_consumer', connectionKind: boundary.connection_kind },
+      content: { clauses: authored.clauses ?? {}, sourceRefs: authored.source_refs ?? collectPackageSegments({ manifest, packageId }) },
     }));
   }
   return edges;
