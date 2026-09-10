@@ -16,7 +16,6 @@
 const fs = require("fs");
 const path = require("path");
 
-// [::STUB::] 要解決: マーカー文字列は将来的に generate-child-rfcs.js と共有定数化する
 var MARKER_BEGIN = "REF-POINTER-BEGIN";
 var MARKER_END = "REF-POINTER-END";
 var MARKER_RE = /\[::(REF-POINTER-(BEGIN|END)-(\d{2}-\d{3}))::\]/g;

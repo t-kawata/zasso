@@ -74,6 +74,56 @@
       "description": "{ file: \"src/p3.rs\", line: 7, content: \"// [::STUB::] P3-2: three -- three\", resolveByTicket: \"P3-2\" },",
       "detected_at": "2026-08-05T02:42:34.408Z",
       "status": "false_positive"
+    },
+    {
+      "id": 10,
+      "file": ".claude/scripts/rfc-graph/boundify-tree.js",
+      "line": 93,
+      "description": "STUB marker references P18-1, which is done, yet the marker remains. The comment claims circular part_of edges are 'currently treated as an error' but buildDomainHierarchy never throws — it drops the cycle. Behavior is pinned by boundify-tree.test.cjs:238 and passes.",
+      "detected_at": "2026-09-10T14:29:43.922Z",
+      "status": "resolved",
+      "note": "P18-1 declared this out of scope in its review notes; resolving now: stale marker removed and the lying comment corrected.",
+      "resolved_at": "2026-09-10T14:30:31.782Z"
+    },
+    {
+      "id": 11,
+      "file": ".claude/scripts/rfc-graph/boundify-tree.js",
+      "line": 146,
+      "description": "Orphan [::STUB::] TO RESOLVE marker with no ticket key. Its comment claims the branch 'returns only the parent node name', but the code returns null, and the branch is unreachable because INLINE_KINDS has been empty since PX-48 moved api_contract/data_model/state_machine into KIND_FILE_RULES.",
+      "detected_at": "2026-09-10T14:29:43.982Z",
+      "status": "resolved",
+      "note": "Declared out of scope in the PX-24/25 review notes; resolving now: dead branch collapsed and marker removed.",
+      "resolved_at": "2026-09-10T14:30:31.840Z"
+    },
+    {
+      "id": 12,
+      "file": ".claude/scripts/rfc-graph/load-rfc-graph.js",
+      "line": 4,
+      "description": "[::STUB::] misclassification. The header marks a complete, fully tested script (20/20 tests pass) as an incomplete implementation and defers removal to an unnamed date. No live caller exists; show-graph-summary-markdown.js --with-cli-examples implements the capability and is tested.",
+      "detected_at": "2026-09-10T14:29:48.543Z",
+      "status": "resolved",
+      "note": "Declared out of scope in the PX-24/25 review notes. Resolved by removing the temporary implementation itself: show-graph-summary-markdown.js --with-cli-examples supersedes it and is tested, no command file or script invokes it, graphify-rfc.md already lists it as deprecated, and the file and its test are deleted.",
+      "resolved_at": "2026-09-10T14:30:31.897Z"
+    },
+    {
+      "id": 13,
+      "file": ".claude/archive/split-rfc-to-children/scripts/add-ref-pointer.js",
+      "line": 19,
+      "description": "Orphan [::STUB::] marker in retired code. The note asks for a future shared constant with generate-child-rfcs.js — a DRY nicety, not an incomplete implementation — and carries no ticket key.",
+      "detected_at": "2026-09-10T14:29:48.600Z",
+      "status": "resolved",
+      "note": "Retired tree, no live caller. Resolving now: the misclassified marker is removed.",
+      "resolved_at": "2026-09-10T14:30:31.960Z"
+    },
+    {
+      "id": 14,
+      "file": ".claude/archive/split-rfc-to-children/scripts/validate-ref-pointer.js",
+      "line": 19,
+      "description": "Orphan [::STUB::] marker in retired code. Same future shared-constant note as add-ref-pointer.js — a DRY nicety, not an incomplete implementation — with no ticket key.",
+      "detected_at": "2026-09-10T14:29:48.656Z",
+      "status": "resolved",
+      "note": "Retired tree, no live caller. Resolving now: the misclassified marker is removed.",
+      "resolved_at": "2026-09-10T14:30:32.019Z"
     }
   ]
 }
