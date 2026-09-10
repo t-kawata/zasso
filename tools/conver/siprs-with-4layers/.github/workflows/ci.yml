@@ -1,0 +1,46 @@
+# CI matrix — Build and test against all 3 target OSes with 4 feature combinations.
+#
+# Total configurations: 3 OS × 4 feature sets = 12.
+# Layer 1 (Unit) and Layer 2 (State-Machine) tests run here (PJSIP-free).
+# Layer 3 (SIP Integration) requires Docker — see integration.yml.
+#
+# [::TICKET::] P1-4: CI matrix workflow defined.
+#   Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`
+
+name: CI
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master]
+
+jobs:
+  # Build and test against every OS × feature combination
+  build-and-test:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-14, ubuntu-22.04]
+        features:
+          - ""
+          - "--features tls"
+          - "--features srtp"
+          - "--features tls,srtp"
+      # Prevent runaway concurrent jobs
+      max-parallel: 8
+    runs-on: ${{ matrix.os }}
+    steps:
+      # Step 1: Check out the repository
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Step 2: Install the Rust toolchain (stable)
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # Step 3: Run cargo check with the current feature set
+      - name: Build with feature set
+        run: cargo check ${{ matrix.features }}
+
+      # Step 4: Run unit tests (Layer 1 + Layer 2, PJSIP-free)
+      - name: Run unit tests
+        run: cargo test --lib ${{ matrix.features }}

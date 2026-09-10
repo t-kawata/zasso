@@ -1,0 +1,573 @@
+
+
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
+
+use crate::runtime::backend::SipBackend;
+use crate::runtime::command::ReactorError;
+
+// ---------------------------------------------------------------------------
+// ShutdownPhase — named phases of the shutdown sequence
+// ---------------------------------------------------------------------------
+
+/// Identifies each sequential phase of the shutdown process.
+///
+/// The order of variants defines the execution order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ShutdownPhase {
+    /// Stop accepting new commands and route via ShutdownCommandRouter.
+    StopCommands,
+    /// Hang up all active calls (BYE/CANCEL).
+    CancelCalls,
+    /// Unregister all SIP accounts.
+    UnregisterAccounts,
+    /// Drain the audio worker (stop processing and flush queues).
+    DrainAudio,
+    /// Destroy the PJSUA backend (pjsua_destroy).
+    InvokeDestroy,
+}
+
+impl ShutdownPhase {
+    /// Human-readable label for logging.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::StopCommands => "stop_commands",
+            Self::CancelCalls => "cancel_calls",
+            Self::UnregisterAccounts => "unregister",
+            Self::DrainAudio => "drain_audio",
+            Self::InvokeDestroy => "destroy",
+        }
+    }
+
+    /// All phases in order of execution.
+    pub fn all() -> [Self; 5] {
+        [
+            Self::StopCommands,
+            Self::CancelCalls,
+            Self::UnregisterAccounts,
+            Self::DrainAudio,
+            Self::InvokeDestroy,
+        ]
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ShutdownError — typed errors from the shutdown sequence
+// ---------------------------------------------------------------------------
+
+/// Errors that can occur during a shutdown phase.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ShutdownError {
+    /// A phase completed with a backend error.
+    PhaseFailed {
+        phase: ShutdownPhase,
+        source: ReactorError,
+    },
+    /// Timeout waiting for a phase to complete.
+    PhaseTimeout {
+        phase: ShutdownPhase,
+        timeout: Duration,
+    },
+}
+
+impl std::fmt::Display for ShutdownError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::PhaseFailed { phase, source } => {
+                write!(f, "shutdown phase {} failed: {}", phase.label(), source)
+            }
+            Self::PhaseTimeout { phase, timeout } => {
+                write!(
+                    f,
+                    "shutdown phase {} timed out after {:?}",
+                    phase.label(),
+                    timeout
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ShutdownError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::PhaseFailed { source, .. } => Some(source),
+            Self::PhaseTimeout { .. } => None,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ShutdownSpec — idempotent shutdown orchestrator
+// ---------------------------------------------------------------------------
+
+/// Idempotent, phase-ordered shutdown orchestrator.
+///
+/// Coordinates the full shutdown sequence across the SIP backend, call manager,
+/// account registrar, audio worker, and PJSUA destroy. Designed to be testable
+/// without a real PJSUA stack by accepting `&mut dyn SipBackend`.
+///
+/// # Invariants
+/// - `is_shutdown_started()` returns `true` after the first call to
+///   `mark_shutdown_started()` or `execute_sequence()`.
+/// - Multiple calls to `execute_sequence()` are safe — the second and subsequent
+///   calls complete with `Ok(())` immediately without re-executing.
+/// - Phase failures are logged but do not abort the remaining sequence.
+pub struct ShutdownSpec {
+    /// Atomic guard — `true` once the first shutdown has been triggered.
+    is_started: AtomicBool,
+    /// Per-phase timeout before proceeding to the next phase.
+    timeout: Duration,
+}
+
+impl ShutdownSpec {
+    /// Create a new shutdown specification with the given per-phase timeout.
+    pub fn new(timeout: Duration) -> Self {
+        Self {
+            is_started: AtomicBool::new(false),
+            timeout,
+        }
+    }
+
+    /// Returns `true` if shutdown has been started (by any caller).
+    pub fn is_shutdown_started(&self) -> bool {
+        self.is_started.load(Ordering::SeqCst)
+    }
+
+    /// Atomically mark shutdown as started.
+    ///
+    /// Returns `true` if this was the first call (shutdown was not started before).
+    /// Returns `false` if shutdown was already started by a previous call.
+    pub fn mark_shutdown_started(&self) -> bool {
+        !self.is_started.swap(true, Ordering::SeqCst)
+    }
+
+    /// Execute the full shutdown sequence.
+    ///
+    /// Phases execute in order: StopCommands → CancelCalls → UnregisterAccounts →
+    /// DrainAudio → InvokeDestroy.
+    ///
+    /// If a phase fails, the error is logged but subsequent phases still execute.
+    /// The error from the first failed phase is returned.
+    /// If shutdown has already been started, returns `Ok(())` immediately (idempotent).
+    pub async fn execute_sequence(
+        &self,
+        backend: &mut dyn SipBackend,
+        account_ids: &[i32],
+        call_ids: &[i32],
+    ) -> Result<(), ShutdownError> {
+        // Guard: idempotent — second call returns immediately.
+        if !self.mark_shutdown_started() {
+            return Ok(());
+        }
+
+        let mut first_error: Option<ShutdownError> = None;
+
+        for phase in ShutdownPhase::all() {
+            tracing::info!("shutdown phase started: {}", phase.label());
+
+            let result = self
+                .run_phase_with_timeout(phase, backend, account_ids, call_ids)
+                .await;
+
+            if let Err(err) = result {
+                tracing::error!("shutdown phase failed: {} — {}", phase.label(), err);
+                if first_error.is_none() {
+                    first_error = Some(err);
+                }
+            } else {
+                tracing::info!("shutdown phase completed: {}", phase.label());
+            }
+        }
+
+        match first_error {
+            Some(err) => Err(err),
+            None => Ok(()),
+        }
+    }
+
+    /// Run a single shutdown phase under the configured per-phase timeout.
+    ///
+    /// The overall phase deadline is enforced by `tokio::time::timeout`: if the
+    /// phase future is still pending when the timer fires, it is dropped and
+    /// `ShutdownError::PhaseTimeout` is returned carrying the phase and the exact
+    /// configured timeout.
+    async fn run_phase_with_timeout(
+        &self,
+        phase: ShutdownPhase,
+        backend: &mut dyn SipBackend,
+        account_ids: &[i32],
+        call_ids: &[i32],
+    ) -> Result<(), ShutdownError> {
+        match tokio::time::timeout(
+            self.timeout,
+            self.execute_phase(phase, backend, account_ids, call_ids),
+        )
+        .await
+        {
+            Ok(result) => result,
+            Err(_elapsed) => Err(ShutdownError::PhaseTimeout {
+                phase,
+                timeout: self.timeout,
+            }),
+        }
+    }
+
+    /// Execute a single shutdown phase.
+    ///
+    /// Per-item phases (`CancelCalls`, `UnregisterAccounts`) track a phase
+    /// deadline and bail with `PhaseTimeout` before starting a backend operation
+    /// once the budget is exhausted. `tokio::task::yield_now()` at each per-call
+    /// checkpoint gives the runtime a chance to observe the deadline (and lets the
+    /// phase future be preempted by `run_phase_with_timeout`).
+    async fn execute_phase(
+        &self,
+        phase: ShutdownPhase,
+        backend: &mut dyn SipBackend,
+        account_ids: &[i32],
+        call_ids: &[i32],
+    ) -> Result<(), ShutdownError> {
+        let phase_deadline = tokio::time::Instant::now() + self.timeout;
+        match phase {
+            ShutdownPhase::StopCommands => {
+                // StopCommands is handled by the reactor loop through
+                // ShutdownCommandRouter. At the ShutdownSpec level, this phase
+                // is a no-op — the reactor checks is_shutdown_started() before
+                // dispatching new commands.
+                Ok(())
+            }
+            ShutdownPhase::CancelCalls => {
+                for &call_id in call_ids {
+                    self.ensure_within_phase_deadline(phase, phase_deadline)?;
+                    tokio::task::yield_now().await;
+                    backend
+                        .hangup(call_id)
+                        .map_err(|e| ShutdownError::PhaseFailed { phase, source: e })?;
+                }
+                Ok(())
+            }
+            ShutdownPhase::UnregisterAccounts => {
+                for &acc_id in account_ids {
+                    self.ensure_within_phase_deadline(phase, phase_deadline)?;
+                    tokio::task::yield_now().await;
+                    backend
+                        .set_registration(acc_id, false)
+                        .map_err(|e| ShutdownError::PhaseFailed { phase, source: e })?;
+                }
+                Ok(())
+            }
+            ShutdownPhase::DrainAudio => {
+                // Audio drain is coordinated by the AudioWorkerTask.
+                // At the ShutdownSpec level, we signal the worker via the backend.
+                // The backend.shutdown() completion includes audio cleanup.
+                Ok(())
+            }
+            ShutdownPhase::InvokeDestroy => {
+                self.ensure_within_phase_deadline(phase, phase_deadline)?;
+                backend
+                    .shutdown()
+                    .map_err(|e| ShutdownError::PhaseFailed { phase, source: e })?;
+                Ok(())
+            }
+        }
+    }
+
+    /// Return `PhaseTimeout` when the phase deadline has already passed.
+    ///
+    /// Guards each per-call backend operation so a phase never starts new work
+    /// once its configured budget is exhausted.
+    fn ensure_within_phase_deadline(
+        &self,
+        phase: ShutdownPhase,
+        deadline: tokio::time::Instant,
+    ) -> Result<(), ShutdownError> {
+        if tokio::time::Instant::now() >= deadline {
+            Err(ShutdownError::PhaseTimeout {
+                phase,
+                timeout: self.timeout,
+            })
+        } else {
+            Ok(())
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests — TDD Red: failing → Green: passing
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── C044-Pre: ShutdownSpec construction ─────────────────────────
+
+    #[test]
+    fn shutdown_spec_new_returns_not_started() {
+        let spec = ShutdownSpec::new(Duration::from_secs(5));
+        assert!(!spec.is_shutdown_started());
+    }
+
+    #[test]
+    fn shutdown_spec_mark_started_returns_true_on_first_call() {
+        let spec = ShutdownSpec::new(Duration::from_secs(5));
+        assert!(spec.mark_shutdown_started(), "first call must return true");
+    }
+
+    #[test]
+    fn shutdown_spec_mark_started_returns_false_on_second_call() {
+        let spec = ShutdownSpec::new(Duration::from_secs(5));
+        spec.mark_shutdown_started();
+        assert!(
+            !spec.mark_shutdown_started(),
+            "second call must return false"
+        );
+    }
+
+    // ── C044-Post: Phase ordering ───────────────────────────────────
+
+    #[test]
+    fn shutdown_phases_all_five_in_order() {
+        let phases = ShutdownPhase::all();
+        assert_eq!(phases.len(), 5);
+        assert_eq!(phases[0], ShutdownPhase::StopCommands);
+        assert_eq!(phases[1], ShutdownPhase::CancelCalls);
+        assert_eq!(phases[2], ShutdownPhase::UnregisterAccounts);
+        assert_eq!(phases[3], ShutdownPhase::DrainAudio);
+        assert_eq!(phases[4], ShutdownPhase::InvokeDestroy);
+    }
+
+    #[test]
+    fn shutdown_phase_labels_are_human_readable() {
+        assert_eq!(ShutdownPhase::StopCommands.label(), "stop_commands");
+        assert_eq!(ShutdownPhase::CancelCalls.label(), "cancel_calls");
+        assert_eq!(ShutdownPhase::UnregisterAccounts.label(), "unregister");
+        assert_eq!(ShutdownPhase::DrainAudio.label(), "drain_audio");
+        assert_eq!(ShutdownPhase::InvokeDestroy.label(), "destroy");
+    }
+
+    // ── C044-Inv: Shutdown idempotency ──────────────────────────────
+
+    #[tokio::test]
+    async fn shutdown_sequence_executes_idempotently() {
+        let spec = ShutdownSpec::new(Duration::from_secs(5));
+        let mut backend = crate::runtime::backend::TestBackend::new();
+
+        // First call should execute the sequence and succeed.
+        let first = spec.execute_sequence(&mut backend, &[], &[]).await;
+        assert!(first.is_ok(), "first shutdown must succeed");
+
+        // After first call, is_shutdown_started must be true.
+        assert!(spec.is_shutdown_started());
+
+        // Second call must complete with Ok(()) immediately (idempotent).
+        let second = spec.execute_sequence(&mut backend, &[], &[]).await;
+        assert!(second.is_ok(), "second shutdown must succeed (idempotent)");
+
+        // Verify backend.shutdown() was called at least once.
+        // Note: TestBackend.shutdown() sets initialized=false.
+        assert!(!backend.initialized, "backend must be shut down");
+    }
+
+    #[tokio::test]
+    async fn shutdown_sequence_with_calls_hangs_up_and_unregisters() {
+        let spec = ShutdownSpec::new(Duration::from_secs(5));
+        let mut backend = crate::runtime::backend::TestBackend::new();
+        let account_ids = [1i32, 2i32];
+        let call_ids = [1i32];
+
+        let result = spec
+            .execute_sequence(&mut backend, &account_ids, &call_ids)
+            .await;
+        assert!(result.is_ok(), "shutdown with calls must succeed");
+        assert!(spec.is_shutdown_started());
+    }
+
+    #[tokio::test]
+    async fn shutdown_sequence_without_calls_or_accounts_succeeds() {
+        let spec = ShutdownSpec::new(Duration::from_secs(5));
+        let mut backend = crate::runtime::backend::TestBackend::new();
+
+        let result = spec.execute_sequence(&mut backend, &[], &[]).await;
+        assert!(result.is_ok(), "shutdown with no calls must succeed");
+    }
+
+    // ── C044: Error handling — phase failures ───────────────────────
+
+    #[test]
+    fn shutdown_error_display_formats_correctly() {
+        let err = ShutdownError::PhaseFailed {
+            phase: ShutdownPhase::CancelCalls,
+            source: ReactorError::BackendError("call_hangup failed".into()),
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("cancel_calls"), "must mention the phase");
+        assert!(
+            msg.contains("call_hangup failed"),
+            "must include the source error"
+        );
+
+        let timeout_err = ShutdownError::PhaseTimeout {
+            phase: ShutdownPhase::InvokeDestroy,
+            timeout: Duration::from_secs(5),
+        };
+        let timeout_msg = format!("{timeout_err}");
+        assert!(timeout_msg.contains("destroy"), "must mention the phase");
+        assert!(timeout_msg.contains("5s"), "must include the timeout");
+    }
+
+    #[test]
+    fn shutdown_error_implements_error_trait() {
+        let err = ShutdownError::PhaseFailed {
+            phase: ShutdownPhase::CancelCalls,
+            source: ReactorError::BackendError("test".into()),
+        };
+        let source = std::error::Error::source(&err);
+        assert!(source.is_some(), "PhaseFailed must have a source error");
+    }
+
+    #[test]
+    fn shutdown_error_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<ShutdownError>();
+    }
+
+    // ── C045: ShutdownCommandRouter integration ─────────────────────
+
+    #[test]
+    fn shutdown_spec_is_started_after_mark() {
+        let spec = ShutdownSpec::new(Duration::from_secs(5));
+        assert!(!spec.is_shutdown_started());
+        spec.mark_shutdown_started();
+        assert!(spec.is_shutdown_started());
+    }
+
+    #[test]
+    fn shutdown_spec_mark_returns_bool() {
+        let spec = ShutdownSpec::new(Duration::from_secs(5));
+        assert!(spec.mark_shutdown_started());
+        assert!(!spec.mark_shutdown_started());
+        assert!(!spec.mark_shutdown_started());
+    }
+
+    // ── C100: PhaseTimeout handling — per-call deadline + per-phase timeout ──
+
+    #[tokio::test]
+    async fn cancel_calls_exceeding_timeout_produces_phase_timeout(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        tokio::time::pause();
+        let task = tokio::spawn(async move {
+            let spec = ShutdownSpec::new(Duration::from_millis(50));
+            let mut backend = crate::runtime::backend::TestBackend::new();
+            let call_ids = [1i32, 2i32, 3i32];
+            let result = spec.execute_sequence(&mut backend, &[], &call_ids).await;
+            (result, backend, spec)
+        });
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(100)).await;
+        let (result, _backend, spec) = task.await?;
+        assert!(matches!(
+            result,
+            Err(ShutdownError::PhaseTimeout {
+                phase: ShutdownPhase::CancelCalls,
+                timeout,
+            }) if timeout == Duration::from_millis(50)
+        ));
+        assert!(spec.is_shutdown_started());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn unregister_accounts_exceeding_timeout_produces_phase_timeout(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        tokio::time::pause();
+        let task = tokio::spawn(async move {
+            let spec = ShutdownSpec::new(Duration::from_millis(50));
+            let mut backend = crate::runtime::backend::TestBackend::new();
+            let account_ids = [10i32, 11i32];
+            let result = spec.execute_sequence(&mut backend, &account_ids, &[]).await;
+            (result, backend, spec)
+        });
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(100)).await;
+        let (result, _backend, _spec) = task.await?;
+        assert!(matches!(
+            result,
+            Err(ShutdownError::PhaseTimeout {
+                phase: ShutdownPhase::UnregisterAccounts,
+                ..
+            })
+        ));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn zero_timeout_does_not_panic_and_remains_idempotent(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        tokio::time::pause();
+        let task = tokio::spawn(async move {
+            let spec = ShutdownSpec::new(Duration::ZERO);
+            let mut backend = crate::runtime::backend::TestBackend::new();
+            let call_ids = [1i32, 2i32, 3i32];
+            let first = spec.execute_sequence(&mut backend, &[], &call_ids).await;
+            let second = spec.execute_sequence(&mut backend, &[], &call_ids).await;
+            (first, second, backend)
+        });
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(1)).await;
+        let (first, second, _backend) = task.await?;
+        assert!(matches!(
+            first,
+            Err(ShutdownError::PhaseTimeout {
+                phase: ShutdownPhase::CancelCalls,
+                ..
+            })
+        ));
+        assert!(
+            second.is_ok(),
+            "timeout path must not re-enter execute_sequence"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn phase_timeout_does_not_abort_remaining_phases(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        tokio::time::pause();
+        let task = tokio::spawn(async move {
+            let spec = ShutdownSpec::new(Duration::from_millis(50));
+            let mut backend = crate::runtime::backend::TestBackend::new();
+            let account_ids = [10i32, 11i32];
+            let call_ids = [1i32, 2i32, 3i32];
+            let result = spec
+                .execute_sequence(&mut backend, &account_ids, &call_ids)
+                .await;
+            (result, backend)
+        });
+        tokio::task::yield_now().await;
+        tokio::time::advance(Duration::from_millis(100)).await;
+        let (result, backend) = task.await?;
+        assert!(matches!(
+            result,
+            Err(ShutdownError::PhaseTimeout {
+                phase: ShutdownPhase::CancelCalls,
+                ..
+            })
+        ));
+        assert!(
+            !backend.initialized,
+            "InvokeDestroy must still execute after CancelCalls times out"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn shutdown_error_derives_clone_partial_eq() {
+        fn assert_clone<T: Clone>() {}
+        fn assert_partial_eq<T: PartialEq>() {}
+        fn assert_eq<T: Eq>() {}
+        assert_clone::<ShutdownError>();
+        assert_partial_eq::<ShutdownError>();
+        assert_eq::<ShutdownError>();
+    }
+}

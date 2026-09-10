@@ -1,0 +1,1173 @@
+
+//
+// # Design constraints
+// These callbacks are invoked from PJSIP's real-time threads. They MUST:
+// 1. Never acquire locks (mutex, RwLock, etc.)
+// 2. Never allocate memory (no Vec::push, Box::new, etc.)
+// 3. Never await or drive futures
+// 4. Never call back into PJSUA
+//
+// The only permitted operation is copying event parameters into a
+// pre-allocated NativeEvent and enqueuing it on a lock-free queue
+// or MPSC channel.
+//
+
+use crate::ffi::bindings;
+#[cfg(feature = "pjsua-native")]
+use crate::ffi::constants::PJ_SUCCESS;
+use crate::ffi::ice_transport_error::on_ice_transport_error;
+use crate::state::m20_native_event_conv::NativeEvent;
+use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
+
+/// Transport-state argument type for `on_transport_state`.
+///
+/// Under `pjsua-native`, bindgen generates `pjsip_transport_state` as a Rust
+/// enum (`BINDGEN_ENUM_TYPES`, §62.33); in the stub build the same name is a
+/// module of `u32` constants, so the callback parameter is the scalar `u32`
+/// there. The alias keeps the extern "C" signature ABI-compatible in both modes
+/// (P18-1 / N0102).
+#[cfg(feature = "pjsua-native")]
+type TransportStateParam = bindings::pjsip_transport_state;
+#[cfg(not(feature = "pjsua-native"))]
+type TransportStateParam = u32;
+
+/// Capacity of the pre-allocated `NativeEvent` queue installed at registration.
+///
+/// The queue is sized to absorb a worst-case burst of callback invocations from
+/// the PJSIP real-time threads without ever blocking them; a full queue drops
+/// the newest event and increments [`native_event_dropped_count`].
+pub const NATIVE_EVENT_QUEUE_CAPACITY: usize = 256;
+
+/// Compile-time invariant: the queue capacity must be positive.
+const _: () = assert!(NATIVE_EVENT_QUEUE_CAPACITY > 0);
+
+/// Process-wide native event queue, installed once by `register_callbacks`.
+///
+/// `AtomicPtr` keeps the enqueue path lock-free (design constraint #1): the
+/// callback thread reads the pointer with `Acquire` and pushes onto the
+/// pre-allocated `ArrayQueue` with no locks and no allocation.
+static NATIVE_EVENT_QUEUE: AtomicPtr<crossbeam_queue::ArrayQueue<NativeEvent>> =
+    AtomicPtr::new(std::ptr::null_mut());
+
+/// Loss counter — incremented every time a full queue drops an event.
+static NATIVE_EVENT_DROPPED: AtomicUsize = AtomicUsize::new(0);
+
+/// Capacity of the pre-allocated raw SIP message queue (P16-4 §62.13).
+///
+/// The queue holds raw packet bytes (`Vec<u8>`) captured by the SIP stack's
+/// message hook; a full queue drops the newest packet and increments
+/// [`raw_sip_dropped_count`]. Sized to absorb a burst of inbound SIP traffic
+/// without blocking the transport thread.
+pub const RAW_SIP_QUEUE_CAPACITY: usize = 64;
+
+/// Compile-time invariant: the raw SIP queue capacity must be positive.
+const _: () = assert!(RAW_SIP_QUEUE_CAPACITY > 0);
+
+/// Process-wide raw SIP message queue (raw packet bytes), installed once.
+///
+/// `AtomicPtr` keeps the enqueue path lock-free (design constraint #1): the
+/// capture thread reads the pointer with `Acquire` and pushes the bytes onto
+/// the pre-allocated `ArrayQueue` with no locks. Parsing and redaction happen
+/// on the drain side, off the transport thread.
+static RAW_SIP_QUEUE: AtomicPtr<crossbeam_queue::ArrayQueue<Vec<u8>>> =
+    AtomicPtr::new(std::ptr::null_mut());
+
+/// Loss counter — incremented every time a full raw SIP queue drops a packet.
+static RAW_SIP_DROPPED: AtomicUsize = AtomicUsize::new(0);
+
+/// Install the pre-allocated event queue, replacing any previously installed one.
+///
+/// `register_callbacks` calls this at init time, before any PJSIP callback can
+/// fire. The swap is lock-free; the old queue is only dropped here (never from a
+/// callback thread), so the pointer handed to callbacks is always valid.
+fn install_native_event_queue(queue: crossbeam_queue::ArrayQueue<NativeEvent>) {
+    let new_ptr = Box::into_raw(Box::new(queue));
+    let old_ptr = NATIVE_EVENT_QUEUE.swap(new_ptr, Ordering::AcqRel);
+    if !old_ptr.is_null() {
+        // SAFETY: old_ptr was created by Box::into_raw in a previous install and
+        // no callback thread reads it after this swap (AcqRel publish ordering).
+        unsafe { drop(Box::from_raw(old_ptr)) };
+    }
+    NATIVE_EVENT_DROPPED.store(0, Ordering::Relaxed);
+}
+
+/// Enqueue a `NativeEvent` onto the installed lock-free queue.
+///
+/// Loss-tolerant: a full queue drops the event and increments the atomic loss
+/// counter — the PJSIP real-time thread never blocks and never panics.
+pub fn enqueue_native_event(event: NativeEvent) {
+    let queue_ptr = NATIVE_EVENT_QUEUE.load(Ordering::Acquire);
+    if !queue_ptr.is_null() {
+        // SAFETY: queue_ptr is installed once by install_native_event_queue and
+        // is never freed while a callback thread may read it (Acquire publish
+        // ordering, single install at init).
+        let queue = unsafe { &*queue_ptr };
+        if queue.push(event).is_err() {
+            NATIVE_EVENT_DROPPED.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
+/// Number of events dropped because the queue was full.
+pub fn native_event_dropped_count() -> usize {
+    NATIVE_EVENT_DROPPED.load(Ordering::Relaxed)
+}
+
+/// Pop one `NativeEvent` from the installed lock-free queue, or `None` when empty.
+///
+/// This is the drain-side primitive for the reactor's FFI event drain task
+/// (P16-4 §62.13): the drain loop calls it until it returns `None`. Safe to
+/// call from any thread; the queue is never freed while a reader may hold the
+/// pointer (install-once + Acquire publish ordering).
+pub fn try_pop_native_event() -> Option<NativeEvent> {
+    let queue_ptr = NATIVE_EVENT_QUEUE.load(Ordering::Acquire);
+    if !queue_ptr.is_null() {
+        // SAFETY: queue_ptr is installed once by install_native_event_queue and
+        // is never freed while a reader may read it (Acquire publish ordering).
+        let queue = unsafe { &*queue_ptr };
+        queue.pop()
+    } else {
+        None
+    }
+}
+
+/// Install the pre-allocated raw SIP message queue, replacing any previous one.
+///
+/// `register_callbacks` calls this at init time. The swap is lock-free; the old
+/// queue is only dropped here (never from a capture thread), so the pointer
+/// handed to `enqueue_raw_sip_bytes` is always valid.
+///
+/// `pub(crate)` so the raw SIP module tests (P17-2) can install a fresh queue.
+pub(crate) fn install_raw_sip_queue(queue: crossbeam_queue::ArrayQueue<Vec<u8>>) {
+    let new_ptr = Box::into_raw(Box::new(queue));
+    let old_ptr = RAW_SIP_QUEUE.swap(new_ptr, Ordering::AcqRel);
+    if !old_ptr.is_null() {
+        // SAFETY: old_ptr was created by Box::into_raw in a previous install and
+        // no capture thread reads it after this swap (AcqRel publish ordering).
+        unsafe { drop(Box::from_raw(old_ptr)) };
+    }
+    RAW_SIP_DROPPED.store(0, Ordering::Relaxed);
+}
+
+/// Enqueue raw SIP packet bytes for the raw SIP publisher (P16-4 §62.13).
+///
+/// Loss-tolerant: a full queue drops the newest packet and increments the
+/// atomic loss counter — the capture thread never blocks and never panics.
+/// This is the injection point the raw SIP module (P17-2 §62.22) calls; the
+/// vendored PJSIP 2.17 `pjsua_callback` has no `on_rx_msg` field, so capture
+/// goes through the standard `pjsip_module` extension point instead.
+pub fn enqueue_raw_sip_bytes(bytes: Vec<u8>) {
+    let queue_ptr = RAW_SIP_QUEUE.load(Ordering::Acquire);
+    if !queue_ptr.is_null() {
+        // SAFETY: queue_ptr is installed once by install_raw_sip_queue and is
+        // never freed while a capture thread may read it (Acquire ordering).
+        let queue = unsafe { &*queue_ptr };
+        if queue.push(bytes).is_err() {
+            RAW_SIP_DROPPED.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+}
+
+/// Pop one raw SIP packet from the queue, or `None` when empty.
+///
+/// The drain-side primitive for the raw SIP publisher task.
+pub fn try_pop_raw_sip_bytes() -> Option<Vec<u8>> {
+    let queue_ptr = RAW_SIP_QUEUE.load(Ordering::Acquire);
+    if !queue_ptr.is_null() {
+        // SAFETY: queue_ptr is installed once by install_raw_sip_queue and is
+        // never freed while a reader may read it (Acquire ordering).
+        let queue = unsafe { &*queue_ptr };
+        queue.pop()
+    } else {
+        None
+    }
+}
+
+/// Number of raw SIP packets dropped because the queue was full.
+pub fn raw_sip_dropped_count() -> usize {
+    RAW_SIP_DROPPED.load(Ordering::Relaxed)
+}
+
+/// Register the PJSIP callbacks into `pjsua_config.cb` and install the event queue.
+///
+/// Reads as prose: install the pre-allocated queue, then fill every callback
+/// slot P11-11 and P17-3 own (the P0 set plus the P1/P2 set). Callers must
+/// invoke this before `pjsua_init` so the stack dispatches events through the
+/// bridge from the very first callback.
+pub fn register_callbacks(
+    config: &mut bindings::pjsua_config,
+    queue: crossbeam_queue::ArrayQueue<NativeEvent>,
+) {
+    install_native_event_queue(queue);
+    // P16-4 §62.13: the raw SIP capture queue is installed alongside the event
+    // queue so `enqueue_raw_sip_bytes` is live from the first callback.
+    install_raw_sip_queue(crossbeam_queue::ArrayQueue::new(RAW_SIP_QUEUE_CAPACITY));
+    config.cb.on_incoming_call = Some(on_incoming_call);
+    config.cb.on_reg_state = Some(on_reg_state);
+    config.cb.on_call_state = Some(on_call_state);
+    config.cb.on_call_media_state = Some(on_call_media_state);
+    config.cb.on_reg_started = Some(on_reg_started);
+    config.cb.on_call_redirected = Some(on_call_redirected);
+    config.cb.on_dtmf_digit = Some(on_dtmf_digit);
+    config.cb.on_call_transfer_status = Some(on_call_transfer_status);
+    // P17-3 §62.23: the P1/P2 callbacks — transport / transaction state, call
+    // replacement, and STUN NAT detection.
+    config.cb.on_transport_state = Some(on_transport_state);
+    config.cb.on_call_tsx_state = Some(on_call_tsx_state);
+    config.cb.on_call_replaced = Some(on_call_replaced);
+    config.cb.on_nat_detect = Some(on_nat_detect);
+    // P19-2 §62.39: the ICE media transport error callback — TURN Refresh errors.
+    config.cb.on_ice_transport_error = Some(on_ice_transport_error);
+}
+
+/// Convert a PJSUA DTMF digit (ASCII int) into a `char`, skipping non-ASCII.
+///
+/// `on_dtmf_digit` passes an ASCII digit (0x30-0x39, 0x2A, 0x23, 0x41-0x44);
+/// anything outside the ASCII range is not a DTMF digit and yields `None`.
+fn dtmf_char_from_digit(digit: i32) -> Option<char> {
+    char::from_u32(digit as u32).filter(|c| c.is_ascii())
+}
+
+/// Callback for incoming calls.
+///
+/// Called by PJSUA when a new incoming call arrives. The callback must not
+/// block; it enqueues the `IncomingCall` event for processing on the reactor
+/// thread.
+///
+/// # Safety
+/// `rdata` is valid only within this callback's scope and is never dereferenced
+/// here — the account and call ids are copied to Rust-owned types immediately.
+#[no_mangle]
+pub unsafe extern "C" fn on_incoming_call(
+    acc_id: bindings::pjsua_acc_id,
+    call_id: bindings::pjsua_call_id,
+    _rdata: *mut bindings::pjsip_rx_data,
+) {
+    enqueue_native_event(NativeEvent::IncomingCall {
+        acc_id: acc_id as u32,
+        call_id: call_id as u32,
+    });
+}
+
+/// Callback for registration state changes.
+///
+/// Called by PJSUA when an account's registration status changes. The legacy
+/// single-argument form carries only the account id; the reactor queries the
+/// backend for the detailed registration status.
+///
+/// # Safety
+/// Must only be invoked from a PJSIP callback context; no pointer arguments are
+/// dereferenced, so the sole requirement is the `extern "C"` ABI contract.
+#[no_mangle]
+pub unsafe extern "C" fn on_reg_state(acc_id: bindings::pjsua_acc_id) {
+    enqueue_native_event(NativeEvent::RegistrationStateChanged {
+        acc_id: acc_id as u32,
+    });
+}
+
+/// Callback for call state changes.
+///
+/// Called by PJSUA whenever a call's invite-session state transitions. The
+/// state is read from the event's `call_state_info` member.
+///
+/// # Safety
+/// `event` must be a valid `pjsip_event` for the duration of this callback, or
+/// null (handled by falling back to `PJSUA_CALL_NULL`).
+#[no_mangle]
+pub unsafe extern "C" fn on_call_state(
+    call_id: bindings::pjsua_call_id,
+    event: *mut bindings::pjsip_event,
+) {
+    let state = resolve_call_state(call_id, event);
+    enqueue_native_event(NativeEvent::CallStateChanged {
+        call_id: call_id as u32,
+        state,
+    });
+}
+
+/// Resolve the call state for the `on_call_state` callback.
+///
+/// Under `pjsua-native`, the vendored `pjsip_event` carries no `call_state_info`
+/// member, so the state is read via `pjsua_call_get_info` (P18-1 §62.31). In the
+/// stub build the event mirror exposes the state directly.
+#[cfg(feature = "pjsua-native")]
+fn resolve_call_state(call_id: bindings::pjsua_call_id, _event: *mut bindings::pjsip_event) -> u32 {
+    let mut info: bindings::pjsua_call_info = unsafe { std::mem::zeroed() };
+    // SAFETY: info is a valid, aligned, initialized pjsua_call_info filled in
+    // place by the FFI; reading state is the documented on_call_state path.
+    let status = unsafe { bindings::pjsua_call_get_info(call_id, &mut info) };
+    if status != crate::ffi::constants::PJ_SUCCESS {
+        return crate::ffi::constants::PJSUA_CALL_NULL;
+    }
+    info.state as u32
+}
+
+#[cfg(not(feature = "pjsua-native"))]
+fn resolve_call_state(_call_id: bindings::pjsua_call_id, event: *mut bindings::pjsip_event) -> u32 {
+    if event.is_null() {
+        crate::ffi::constants::PJSUA_CALL_NULL
+    } else {
+        // SAFETY: PJSIP passes a valid event for the callback duration; reading
+        // the call_state_info.state member is the documented stub path.
+        unsafe { (*event).call_state() }
+    }
+}
+
+/// Callback for call media state changes.
+///
+/// Called by PJSUA when a call's media state changes (e.g., media established
+/// or deactivated). Resolves the current media status via
+/// `pjsua_call_get_info` (C110) and carries it on the event so the reactor can
+/// detect hold→ACTIVE transitions.
+///
+/// # Safety
+/// Must only be invoked from a PJSIP callback context; no pointer arguments are
+/// dereferenced, so the sole requirement is the `extern "C"` ABI contract.
+#[no_mangle]
+pub unsafe extern "C" fn on_call_media_state(call_id: bindings::pjsua_call_id) {
+    // C110: media status is resolved via pjsua_call_get_info; a resolution
+    // failure surfaces MediaError rather than a canned success.
+    let status = bindings::resolve_call_media_status(call_id)
+        .unwrap_or(bindings::pjsua_call_media_status::PJSUA_CALL_MEDIA_ERROR as u32);
+    enqueue_native_event(NativeEvent::CallMediaStateChanged {
+        call_id: call_id as u32,
+        status,
+    });
+}
+
+/// Callback for registration / unregistration initiation.
+///
+/// # Safety
+/// Must only be invoked from a PJSIP callback context; no pointer arguments are
+/// dereferenced, so the sole requirement is the `extern "C"` ABI contract.
+#[no_mangle]
+pub unsafe extern "C" fn on_reg_started(
+    acc_id: bindings::pjsua_acc_id,
+    renew: bindings::pj_bool_t,
+) {
+    enqueue_native_event(NativeEvent::RegistrationStarted {
+        acc_id: acc_id as u32,
+        renew: renew != 0,
+    });
+}
+
+/// Callback for incoming DTMF digits (RFC 2833).
+///
+/// Non-ASCII digit values are skipped; the PJSIP digit is already an ASCII code.
+///
+/// # Safety
+/// Must only be invoked from a PJSIP callback context; no pointer arguments are
+/// dereferenced, so the sole requirement is the `extern "C"` ABI contract.
+#[no_mangle]
+pub unsafe extern "C" fn on_dtmf_digit(call_id: bindings::pjsua_call_id, digit: i32) {
+    if let Some(digit) = dtmf_char_from_digit(digit) {
+        enqueue_native_event(NativeEvent::DtmfDigit {
+            call_id: call_id as u32,
+            digit,
+        });
+    }
+}
+
+/// Callback for call-transfer status reports.
+///
+/// `p_cont` is left untouched so PJSIP keeps reporting transfer progress — an
+/// intentional no-op on the out-parameter, matching "continue notifying".
+///
+/// # Safety
+/// `p_cont` may be null; it is never dereferenced here.
+#[no_mangle]
+pub unsafe extern "C" fn on_call_transfer_status(
+    call_id: bindings::pjsua_call_id,
+    _st_code: i32,
+    _st_text: *const bindings::pj_str_t,
+    _final: bindings::pj_bool_t,
+    _p_cont: *mut bindings::pj_bool_t,
+) {
+    enqueue_native_event(NativeEvent::CallTransferStatus {
+        call_id: call_id as u32,
+    });
+}
+
+/// Callback for INVITE redirection.
+///
+/// Enqueues the redirect event and returns `PJSIP_REDIRECT_STOP` — the same
+/// no-follow policy PJSIP applies when the callback is absent.
+///
+/// # Safety
+/// `target` and `event` are only passed through and never dereferenced here.
+#[no_mangle]
+// P18-1 (§62.33): the native callback returns the pjsip_redirect_op Rust enum;
+// the stub's pjsua_callback field type is u32 — so the signature is cfg-paired
+// around a shared enqueue helper.
+#[cfg(feature = "pjsua-native")]
+pub unsafe extern "C" fn on_call_redirected(
+    call_id: bindings::pjsua_call_id,
+    _target: *const bindings::pjsip_uri,
+    _event: *const bindings::pjsip_event,
+) -> bindings::pjsip_redirect_op {
+    enqueue_redirect_event(call_id);
+    bindings::pjsip_redirect_op::PJSIP_REDIRECT_STOP
+}
+
+#[cfg(not(feature = "pjsua-native"))]
+pub unsafe extern "C" fn on_call_redirected(
+    call_id: bindings::pjsua_call_id,
+    _target: *const bindings::pjsip_uri,
+    _event: *const bindings::pjsip_event,
+) -> u32 {
+    enqueue_redirect_event(call_id);
+    bindings::pjsip_redirect_op::PJSIP_REDIRECT_STOP
+}
+
+fn enqueue_redirect_event(call_id: bindings::pjsua_call_id) {
+    enqueue_native_event(NativeEvent::CallRedirected {
+        call_id: call_id as u32,
+    });
+}
+
+/// Callback for transport state changes (P1, P17-3 §62.23).
+///
+/// Enqueues `TransportStateChanged` carrying the transport id read from the
+/// transport instance and the transport state (CONNECTED / DISCONNECTED / …).
+///
+/// # Safety
+/// `tp` may be null on an abnormal path; it is only dereferenced when non-null
+/// (guarded, so the handler never dereferences a null transport pointer).
+/// `info` is never dereferenced here.
+#[no_mangle]
+pub unsafe extern "C" fn on_transport_state(
+    tp: *mut bindings::pjsip_transport,
+    state: TransportStateParam,
+    _info: *const bindings::pjsip_transport_state_info,
+) {
+    let transport_id = resolve_transport_id(tp);
+    enqueue_native_event(NativeEvent::TransportStateChanged {
+        transport_id,
+        // P18-1 (§62.33): the callback receives the pjsip_transport_state Rust
+        // enum under pjsua-native; the event carries the raw u32 value.
+        state: state as u32,
+    });
+}
+
+/// Resolve the pjsua transport id for `on_transport_state`.
+///
+/// The vendored `pjsip_transport` has no `id` field, so the id is recovered by
+/// enumerating the live pjsua transports and matching each one's local host:port
+/// against the transport instance's own local host:port (§62.42 / P19-5). The
+/// stub mirror exposes `id` directly.
+#[cfg(feature = "pjsua-native")]
+fn resolve_transport_id(tp: *mut bindings::pjsip_transport) -> u32 {
+    if tp.is_null() {
+        return 0;
+    }
+    // SAFETY: `tp` is the live pjsip_transport supplied by the on_transport_state
+    // callback; reading its local_name fields is valid for the callback duration.
+    let target = unsafe { host_port_of(&(*tp).local_name) };
+    let transports = enumerate_pjsua_transports();
+    let transport_refs: Vec<(u32, &str)> = transports
+        .iter()
+        .map(|(id, name)| (*id, name.as_str()))
+        .collect();
+    match_transport_id(&transport_refs, &target)
+}
+
+/// Pure predicate: find the transport id whose `host:port` equals `target`.
+///
+/// Returns `0` (the pre-resolution fallback) when no transport matches — a
+/// missing match keeps the callback's default rather than failing it.
+#[cfg(any(test, feature = "pjsua-native"))]
+fn match_transport_id(transports: &[(u32, &str)], target: &str) -> u32 {
+    transports
+        .iter()
+        .find(|(_, name)| *name == target)
+        .map(|(id, _)| *id)
+        .unwrap_or(0)
+}
+
+/// Format a `pjsip_host_port` as `host:port`.
+///
+/// Both the `pjsip_transport` and the `pjsua_transport_info` carry their local
+/// address as a `pjsip_host_port`, so the same formatter yields comparable
+/// strings on both sides of the transport-id match.
+#[cfg(feature = "pjsua-native")]
+unsafe fn host_port_of(name: &bindings::pjsip_host_port) -> String {
+    let host = read_pj_str(&name.host);
+    format!("{host}:{}", name.port)
+}
+
+/// Read a PJSIP-owned `pj_str_t` into a Rust `String`.
+///
+/// `pj_str_t` is not NUL-terminated; `slen` governs the byte length. The bytes
+/// are owned by PJSIP's pool and are valid for the callback duration.
+#[cfg(feature = "pjsua-native")]
+unsafe fn read_pj_str(text: &bindings::pj_str_t) -> String {
+    let len = text.slen.max(0) as usize;
+    if len == 0 || text.ptr.is_null() {
+        return String::new();
+    }
+    let bytes = std::slice::from_raw_parts(text.ptr.cast::<u8>(), len);
+    String::from_utf8_lossy(bytes).into_owned()
+}
+
+/// Enumerate the live pjsua transports as `(id, host:port)` pairs.
+///
+/// A transport whose info cannot be read is skipped; an empty list is the
+/// signal for `match_transport_id` to fall back to id 0.
+#[cfg(feature = "pjsua-native")]
+fn enumerate_pjsua_transports() -> Vec<(u32, String)> {
+    const MAX_TRANSPORTS: usize = 16;
+    let mut ids = [0 as bindings::pjsua_transport_id; MAX_TRANSPORTS];
+    let mut count: std::os::raw::c_uint = 0;
+    // SAFETY: `ids` is a writable 16-element array and `count` a writable
+    // scalar; pjsua_enum_transports fills them with at most MAX_TRANSPORTS ids.
+    let status = unsafe { bindings::pjsua_enum_transports(ids.as_mut_ptr(), &mut count) };
+    if status != PJ_SUCCESS {
+        return Vec::new();
+    }
+    (0..count as usize)
+        .filter_map(|index| {
+            // SAFETY: `info` is a writable, zero-initialized pjsua_transport_info
+            // that pjsua_transport_get_info fills in on success.
+            let mut info: bindings::pjsua_transport_info = unsafe { std::mem::zeroed() };
+            // SAFETY: `ids[index]` is a valid transport id returned by
+            // pjsua_enum_transports and `info` is a writable transport-info slot.
+            let ok = unsafe { bindings::pjsua_transport_get_info(ids[index], &mut info) };
+            if ok != PJ_SUCCESS {
+                return None;
+            }
+            // SAFETY: `info` is a live, initialized pjsua_transport_info whose
+            // local_name is valid for the callback duration.
+            let name = unsafe { host_port_of(&info.local_name) };
+            Some((ids[index] as u32, name))
+        })
+        .collect()
+}
+
+#[cfg(not(feature = "pjsua-native"))]
+fn resolve_transport_id(tp: *mut bindings::pjsip_transport) -> u32 {
+    if tp.is_null() {
+        0
+    } else {
+        // SAFETY: PJSIP passes a valid transport instance for the callback
+        // duration; the stub mirror exposes the `id` member.
+        unsafe { (*tp).id }
+    }
+}
+
+/// Callback for transaction state changes (P2, P17-3 §62.23).
+///
+/// Enqueues `CallTsxStateChanged` carrying the call id; the transaction and
+/// event pointers are only passed through and never dereferenced.
+///
+/// # Safety
+/// Must only be invoked from a PJSIP callback context; the pointer arguments
+/// are never dereferenced, so the sole requirement is the `extern "C"` ABI.
+#[no_mangle]
+pub unsafe extern "C" fn on_call_tsx_state(
+    call_id: bindings::pjsua_call_id,
+    _tsx: *mut bindings::pjsip_transaction,
+    _e: *mut bindings::pjsip_event,
+) {
+    enqueue_native_event(NativeEvent::CallTsxStateChanged {
+        call_id: call_id as u32,
+    });
+}
+
+/// Callback for call replacement (P2, P17-3 §62.23).
+///
+/// Enqueues `CallReplaced` carrying the new call id; the old call id is
+/// intentionally discarded — the replacement is identified by its successor.
+///
+/// # Safety
+/// Must only be invoked from a PJSIP callback context; no pointer arguments are
+/// dereferenced, so the sole requirement is the `extern "C"` ABI contract.
+#[no_mangle]
+pub unsafe extern "C" fn on_call_replaced(
+    _old_call_id: bindings::pjsua_call_id,
+    new_call_id: bindings::pjsua_call_id,
+) {
+    enqueue_native_event(NativeEvent::CallReplaced {
+        call_id: new_call_id as u32,
+    });
+}
+
+/// Callback for STUN NAT detection completion (P2, P17-3 §62.23).
+///
+/// Enqueues the unit `NatDetected` event; the result pointer is passed through
+/// and never dereferenced (the NAT mapping details are future work).
+///
+/// # Safety
+/// Must only be invoked from a PJSIP callback context; the pointer argument is
+/// never dereferenced, so the sole requirement is the `extern "C"` ABI.
+#[no_mangle]
+pub unsafe extern "C" fn on_nat_detect(_res: *const bindings::pj_stun_nat_detect_result) {
+    enqueue_native_event(NativeEvent::NatDetected);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::event_model_payload_bus::SipEventPayload;
+    use crate::state::m20_native_event_conv::convert_native_event_to_payload;
+
+    /// Swap in a fresh queue with the given capacity and reset the loss counter.
+    ///
+    /// Test-only queue isolation: each test installs its own queue so assertions
+    /// never see events from a previous test.
+    fn install_test_queue(capacity: usize) -> &'static crossbeam_queue::ArrayQueue<NativeEvent> {
+        install_native_event_queue(crossbeam_queue::ArrayQueue::new(capacity));
+        // SAFETY: the queue was just installed and never freed while this test runs.
+        unsafe { &*NATIVE_EVENT_QUEUE.load(Ordering::Acquire) }
+    }
+
+    // ── register_callbacks ─────────────────────────────────────────────
+
+    #[test]
+    fn register_callbacks_fills_all_callback_pointers() {
+        let queue = crossbeam_queue::ArrayQueue::new(8);
+        let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
+        register_callbacks(&mut config, queue);
+        assert!(config.cb.on_incoming_call.is_some());
+        assert!(config.cb.on_reg_state.is_some());
+        assert!(config.cb.on_call_state.is_some());
+        assert!(config.cb.on_call_media_state.is_some());
+        assert!(config.cb.on_reg_started.is_some());
+        assert!(config.cb.on_call_redirected.is_some());
+        assert!(config.cb.on_dtmf_digit.is_some());
+        assert!(config.cb.on_call_transfer_status.is_some());
+        // P17-3 §62.23: the four P1/P2 callbacks must be wired as well (C124).
+        assert!(config.cb.on_transport_state.is_some());
+        assert!(config.cb.on_call_tsx_state.is_some());
+        assert!(config.cb.on_call_replaced.is_some());
+        assert!(config.cb.on_nat_detect.is_some());
+        // P19-2 §62.39: the ICE transport error callback (13th) is wired too.
+        assert!(config.cb.on_ice_transport_error.is_some());
+    }
+
+    #[test]
+    fn register_callbacks_installs_the_event_queue() {
+        let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
+        register_callbacks(&mut config, crossbeam_queue::ArrayQueue::new(2));
+        // Overflowing the capacity-2 queue installed by register_callbacks must
+        // drop the third event — proving the queue is the live enqueue target.
+        // (With no queue installed, enqueue_native_event silently no-ops and the
+        // loss counter would stay 0.)
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 1,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 2,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 3,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
+        assert_eq!(
+            native_event_dropped_count(),
+            1,
+            "queue installed by register_callbacks must drop on overflow"
+        );
+    }
+
+    // ── on_incoming_call ───────────────────────────────────────────────
+
+    #[test]
+    fn on_incoming_call_enqueues_incoming_call() {
+        let queue = install_test_queue(4);
+        unsafe { on_incoming_call(1, 7, std::ptr::null_mut()) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::IncomingCall {
+                acc_id: 1,
+                call_id: 7
+            })
+        );
+        assert_eq!(queue.pop(), None);
+    }
+
+    // ── on_reg_state / on_reg_started ─────────────────────────────────
+
+    #[test]
+    fn on_reg_state_enqueues_registration_state_changed() {
+        let queue = install_test_queue(2);
+        unsafe { on_reg_state(3) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::RegistrationStateChanged { acc_id: 3 })
+        );
+    }
+
+    #[test]
+    fn on_reg_started_enqueues_registration_started() {
+        let queue = install_test_queue(2);
+        unsafe { on_reg_started(4, 1) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::RegistrationStarted {
+                acc_id: 4,
+                renew: true
+            })
+        );
+        unsafe { on_reg_started(5, 0) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::RegistrationStarted {
+                acc_id: 5,
+                renew: false
+            })
+        );
+    }
+
+    // ── on_call_state ──────────────────────────────────────────────────
+
+    /// Build a stub `pjsip_event` carrying the given invite-session state.
+    fn stub_call_event(state: u32) -> bindings::pjsip_event {
+        bindings::pjsip_event {
+            body: bindings::pjsip_event_body {
+                call_state_info: bindings::pjsip_event_call_state_info { state },
+            },
+        }
+    }
+
+    #[test]
+    fn on_call_state_reads_state_from_event() {
+        let mut event = stub_call_event(bindings::pjsip_inv_state::CONFIRMED);
+        let queue = install_test_queue(2);
+        unsafe { on_call_state(7, &mut event) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallStateChanged {
+                call_id: 7,
+                state: bindings::pjsip_inv_state::CONFIRMED
+            })
+        );
+    }
+
+    #[test]
+    fn on_call_state_null_event_falls_back_to_null_state() {
+        let queue = install_test_queue(2);
+        unsafe { on_call_state(7, std::ptr::null_mut()) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallStateChanged {
+                call_id: 7,
+                state: crate::ffi::constants::PJSUA_CALL_NULL
+            })
+        );
+    }
+
+    // ── on_call_media_state ────────────────────────────────────────────
+
+    #[test]
+    fn on_call_media_state_enqueues_media_state_changed() {
+        let queue = install_test_queue(2);
+        unsafe { on_call_media_state(9) };
+        // C110: status must come from resolve_call_media_status (stub → NONE),
+        // never a hardcoded value.
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 9,
+                status: bindings::pjsua_call_media_status::NONE,
+            })
+        );
+    }
+
+    // ── on_dtmf_digit ──────────────────────────────────────────────────
+
+    #[test]
+    fn on_dtmf_digit_enqueues_ascii_digit() {
+        let queue = install_test_queue(4);
+        unsafe { on_dtmf_digit(5, '3' as i32) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::DtmfDigit {
+                call_id: 5,
+                digit: '3'
+            })
+        );
+    }
+
+    #[test]
+    fn on_dtmf_digit_skips_non_ascii_digit() {
+        let queue = install_test_queue(2);
+        unsafe { on_dtmf_digit(5, 0xFF) };
+        assert_eq!(queue.pop(), None, "0xFF is not an ASCII DTMF digit");
+    }
+
+    #[test]
+    fn dtmf_char_from_digit_maps_ascii_only() {
+        assert_eq!(dtmf_char_from_digit('0' as i32), Some('0'));
+        assert_eq!(dtmf_char_from_digit('#' as i32), Some('#'));
+        assert_eq!(dtmf_char_from_digit('A' as i32), Some('A'));
+        assert_eq!(dtmf_char_from_digit(0xFF), None);
+        assert_eq!(dtmf_char_from_digit(-1), None);
+    }
+
+    // ── on_call_redirected / on_call_transfer_status ──────────────────
+
+    #[test]
+    fn on_call_redirected_enqueues_and_returns_stop() {
+        let queue = install_test_queue(2);
+        let action = unsafe { on_call_redirected(7, std::ptr::null(), std::ptr::null()) };
+        assert_eq!(
+            action,
+            bindings::pjsip_redirect_op::PJSIP_REDIRECT_STOP as u32
+        );
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallRedirected { call_id: 7 })
+        );
+    }
+
+    #[test]
+    fn on_call_transfer_status_enqueues_and_leaves_p_cont_untouched() {
+        let queue = install_test_queue(2);
+        let mut p_cont: i32 = 1;
+        unsafe { on_call_transfer_status(8, 486, std::ptr::null(), 1, &mut p_cont) };
+        assert_eq!(
+            p_cont, 1,
+            "p_cont must be left at its initial non-zero value"
+        );
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallTransferStatus { call_id: 8 })
+        );
+    }
+
+    // ── Loss-tolerant enqueue ──────────────────────────────────────────
+
+    #[test]
+    fn full_queue_drops_event_and_increments_loss_counter() {
+        let queue = install_test_queue(1);
+        queue
+            .push(NativeEvent::DtmfDigit {
+                call_id: 1,
+                digit: '1',
+            })
+            .expect("capacity-1 queue has a free slot");
+        enqueue_native_event(NativeEvent::DtmfDigit {
+            call_id: 2,
+            digit: '2',
+        });
+        assert_eq!(native_event_dropped_count(), 1);
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::DtmfDigit {
+                call_id: 1,
+                digit: '1'
+            })
+        );
+    }
+
+    #[test]
+    fn queue_capacity_is_positive_and_pre_allocated() {
+        // The capacity is a compile-time constant (statically asserted at module
+        // scope); this test proves the enqueue path works on an installed,
+        // pre-allocated queue.
+        let queue = install_test_queue(4);
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 1,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 1,
+                status: bindings::pjsua_call_media_status::NONE,
+            })
+        );
+    }
+
+    #[test]
+    fn every_callback_enqueues_exactly_one_event() {
+        let queue = install_test_queue(8);
+        unsafe { on_reg_state(1) };
+        unsafe { on_call_media_state(2) };
+        unsafe { on_reg_started(3, 1) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::RegistrationStateChanged { acc_id: 1 })
+        );
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 2,
+                status: bindings::pjsua_call_media_status::NONE,
+            })
+        );
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::RegistrationStarted {
+                acc_id: 3,
+                renew: true
+            })
+        );
+        assert_eq!(queue.len(), 0, "one event per invocation, no extras");
+    }
+
+    // ── P1/P2 callbacks (P17-3 §62.23) ───────────────────────────────
+
+    #[test]
+    fn on_transport_state_enqueues_transport_state_changed() {
+        let queue = install_test_queue(2);
+        let mut tp = bindings::pjsip_transport { id: 7 };
+        unsafe {
+            on_transport_state(
+                &mut tp,
+                bindings::pjsip_transport_state::CONNECTED,
+                std::ptr::null(),
+            )
+        };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::TransportStateChanged {
+                transport_id: 7,
+                state: bindings::pjsip_transport_state::CONNECTED,
+            })
+        );
+        assert_eq!(queue.pop(), None);
+    }
+
+    #[test]
+    fn on_transport_state_null_transport_enqueues_id_zero() {
+        let queue = install_test_queue(2);
+        unsafe {
+            on_transport_state(
+                std::ptr::null_mut(),
+                bindings::pjsip_transport_state::DISCONNECTED,
+                std::ptr::null(),
+            )
+        };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::TransportStateChanged {
+                transport_id: 0,
+                state: bindings::pjsip_transport_state::DISCONNECTED,
+            })
+        );
+    }
+
+    // ── P19-5 §62.42: transport-id matching predicate (TS-001) ─────────
+
+    #[test]
+    fn match_transport_id_returns_matching_id() {
+        let transports = [(1, "127.0.0.1:5060"), (2, "127.0.0.1:5061")];
+        assert_eq!(match_transport_id(&transports, "127.0.0.1:5061"), 2);
+        assert_eq!(match_transport_id(&transports, "127.0.0.1:5060"), 1);
+    }
+
+    #[test]
+    fn match_transport_id_empty_list_falls_back_to_zero() {
+        assert_eq!(match_transport_id(&[], "127.0.0.1:5060"), 0);
+    }
+
+    #[test]
+    fn match_transport_id_no_match_falls_back_to_zero() {
+        let transports = [(3, "127.0.0.1:5060")];
+        assert_eq!(match_transport_id(&transports, "127.0.0.1:9999"), 0);
+    }
+
+    #[test]
+    fn on_call_tsx_state_enqueues_call_tsx_state_changed() {
+        let queue = install_test_queue(2);
+        unsafe { on_call_tsx_state(3, std::ptr::null_mut(), std::ptr::null_mut()) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallTsxStateChanged { call_id: 3 })
+        );
+    }
+
+    #[test]
+    fn on_call_replaced_enqueues_new_call_id() {
+        let queue = install_test_queue(2);
+        unsafe { on_call_replaced(1, 9) };
+        assert_eq!(queue.pop(), Some(NativeEvent::CallReplaced { call_id: 9 }));
+    }
+
+    #[test]
+    fn on_nat_detect_enqueues_nat_detected() {
+        let queue = install_test_queue(2);
+        unsafe { on_nat_detect(std::ptr::null()) };
+        assert_eq!(queue.pop(), Some(NativeEvent::NatDetected));
+    }
+
+    #[test]
+    fn on_call_tsx_state_call_id_boundary_values() {
+        let queue = install_test_queue(4);
+        unsafe { on_call_tsx_state(0, std::ptr::null_mut(), std::ptr::null_mut()) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallTsxStateChanged { call_id: 0 })
+        );
+        unsafe { on_call_tsx_state(i32::MAX, std::ptr::null_mut(), std::ptr::null_mut()) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallTsxStateChanged {
+                call_id: i32::MAX as u32,
+            })
+        );
+    }
+
+    #[test]
+    fn on_call_replaced_new_call_id_boundary() {
+        let queue = install_test_queue(2);
+        unsafe { on_call_replaced(0, i32::MAX) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::CallReplaced {
+                call_id: i32::MAX as u32
+            })
+        );
+    }
+
+    // ── P19-2 §62.39: on_ice_transport_error ─────────────────────────
+
+    #[test]
+    fn pj_ice_strans_op_const_values() {
+        assert_eq!(bindings::pj_ice_strans_op::PJ_ICE_STRANS_OP_INIT, 0);
+        assert_eq!(bindings::pj_ice_strans_op::PJ_ICE_STRANS_OP_NEGOTIATION, 1);
+        assert_eq!(bindings::pj_ice_strans_op::PJ_ICE_STRANS_OP_KEEP_ALIVE, 2);
+        assert_eq!(bindings::pj_ice_strans_op::PJ_ICE_STRANS_OP_ADDR_CHANGE, 3);
+    }
+
+    #[test]
+    fn on_ice_transport_error_enqueues_ice_transport_error() {
+        let queue = install_test_queue(2);
+        unsafe { on_ice_transport_error(0, 0, 0, std::ptr::null_mut()) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::IceTransportError {
+                index: 0,
+                operation: 0,
+                status: 0,
+            })
+        );
+        assert_eq!(queue.pop(), None, "exactly one event per invocation");
+    }
+
+    #[test]
+    fn on_ice_transport_error_param_never_dereferenced() {
+        // PJSIP documents `param` as always NULL; even a dangling non-null
+        // pointer must never be dereferenced by the handler (C149 invariant).
+        let queue = install_test_queue(2);
+        unsafe { on_ice_transport_error(1, 1, 1, 0x1 as *mut std::os::raw::c_void) };
+        assert_eq!(
+            queue.pop(),
+            Some(NativeEvent::IceTransportError {
+                index: 1,
+                operation: 1,
+                status: 1,
+            })
+        );
+        assert_eq!(queue.pop(), None);
+    }
+
+    #[test]
+    fn on_ice_transport_error_boundary_values_preserved() {
+        for index in [i32::MIN, -1, 0, i32::MAX] {
+            for status in [i32::MIN, 0, i32::MAX] {
+                let queue = install_test_queue(2);
+                unsafe { on_ice_transport_error(index, 2, status, std::ptr::null_mut()) };
+                assert_eq!(
+                    queue.pop(),
+                    Some(NativeEvent::IceTransportError {
+                        index,
+                        operation: 2,
+                        status,
+                    }),
+                    "index/status must survive i32::MIN..=i32::MAX"
+                );
+                assert_eq!(queue.pop(), None);
+            }
+        }
+    }
+
+    #[test]
+    fn p1_event_publishes_from_callback_to_payload() {
+        install_test_queue(2);
+        let mut tp = bindings::pjsip_transport { id: 7 };
+        unsafe {
+            on_transport_state(
+                &mut tp,
+                bindings::pjsip_transport_state::CONNECTED,
+                std::ptr::null(),
+            )
+        };
+        let payload =
+            try_pop_native_event().and_then(|ev| convert_native_event_to_payload(ev, None));
+        assert!(matches!(
+            payload,
+            Some(SipEventPayload::TransportConnected(_))
+        ));
+    }
+
+    // ── try_pop_native_event (P16-4 §62.13 drain) ────────────────────
+
+    #[test]
+    fn try_pop_native_event_drains_fifo() {
+        install_test_queue(4);
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 1,
+            status: bindings::pjsua_call_media_status::NONE,
+        });
+        enqueue_native_event(NativeEvent::CallMediaStateChanged {
+            call_id: 2,
+            status: bindings::pjsua_call_media_status::ACTIVE,
+        });
+        assert_eq!(
+            try_pop_native_event(),
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 1,
+                status: bindings::pjsua_call_media_status::NONE,
+            })
+        );
+        assert_eq!(
+            try_pop_native_event(),
+            Some(NativeEvent::CallMediaStateChanged {
+                call_id: 2,
+                status: bindings::pjsua_call_media_status::ACTIVE,
+            })
+        );
+        assert_eq!(try_pop_native_event(), None);
+    }
+
+    // ── RAW_SIP_QUEUE (P16-4 §62.13 raw SIP publisher) ───────────────
+
+    /// Swap in a fresh raw-SIP queue with the given capacity.
+    fn install_test_raw_sip_queue(
+        capacity: usize,
+    ) -> &'static crossbeam_queue::ArrayQueue<Vec<u8>> {
+        install_raw_sip_queue(crossbeam_queue::ArrayQueue::new(capacity));
+        // SAFETY: the queue was just installed and never freed while this test runs.
+        unsafe { &*RAW_SIP_QUEUE.load(Ordering::Acquire) }
+    }
+
+    #[test]
+    fn enqueue_and_pop_raw_sip_bytes_roundtrip() {
+        install_test_raw_sip_queue(4);
+        enqueue_raw_sip_bytes(b"INVITE sip:x SIP/2.0\r\n\r\n".to_vec());
+        let popped = try_pop_raw_sip_bytes().expect("raw sip bytes popped");
+        assert_eq!(popped, b"INVITE sip:x SIP/2.0\r\n\r\n");
+        assert_eq!(try_pop_raw_sip_bytes(), None);
+    }
+
+    #[test]
+    fn full_raw_sip_queue_drops_and_increments_counter() {
+        install_test_raw_sip_queue(1);
+        enqueue_raw_sip_bytes(b"first".to_vec());
+        enqueue_raw_sip_bytes(b"second".to_vec());
+        assert_eq!(raw_sip_dropped_count(), 1);
+        assert_eq!(try_pop_raw_sip_bytes().as_deref(), Some(&b"first"[..]));
+    }
+
+    #[test]
+    fn register_callbacks_installs_raw_sip_queue() {
+        let mut config: bindings::pjsua_config = unsafe { std::mem::zeroed() };
+        register_callbacks(&mut config, crossbeam_queue::ArrayQueue::new(2));
+        enqueue_raw_sip_bytes(b"x".to_vec());
+        assert_eq!(try_pop_raw_sip_bytes().as_deref(), Some(&b"x"[..]));
+    }
+}

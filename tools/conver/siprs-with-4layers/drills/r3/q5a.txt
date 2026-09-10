@@ -1,0 +1,10 @@
+Q5a: CallResumed 実装機構 — メディア状態遷移の検出
+
+背景: CallResumed は SipEventPayload の unit variant（ペイロードなし）で、構築箇所ゼロ。現状のメディアイベント経路は、FFI on_call_media_state コールバック（src/ffi/callback.rs:282）が NativeEvent::CallMediaStateChanged { call_id }（call_id のみ、media status なし）を enqueue し、m20 変換（src/state/m20_native_event_conv.rs:161）が常に MediaActive へ写像する。つまり hold でも active でも MediaActive が publish され、media status の情報が失われている。PJSIP の media status は PJSUA_CALL_MEDIA_NONE / ACTIVE / LOCAL_HOLD / REMOTE_HOLD / ERROR の 5 値（pjsua.h:5667-5687）。resume（hold 解除）を検出するには、on_call_media_state ハンドラが pjsua_call_get_media_status(call_id) で status を取得し、reactor が per-call の直前 status を追跡して hold → ACTIVE 遷移を特定する必要がある。選択の観点は、検出の確実性とイベントの意味論の正しさである。
+
+選択肢:
+A) NativeEvent::CallMediaStateChanged に media status（pjsua_call_media_status）を追加し、reactor が per-call の直前 status を追跡。LOCAL_HOLD / REMOTE_HOLD → ACTIVE 遷移を CallResumed（call_id ペイロード付き）として publish し、ACTIVE 自体は MediaActive を継続 publish
+B) 明示的な unhold コマンド（backend の hold 解除）の成功時に CallResumed を publish し、ネイティブ遷移は追跡しない
+C) CallResumed は unit variant のまま残し、resume は既存の MediaActive で表現する（Q5 の指示に反するが実装最小化）
+
+推奨: A を推奨。on_call_media_state ハンドラで pjsua_call_get_media_status を呼び media status を native event に載せ、reactor が per-call の直前 status を追跡して hold → ACTIVE 遷移を CallResumed として publish するのが、意味論的に正しく網羅的である。B は PJSIP に明示的な unhold 成功コールバックが無く、ネイティブ遷移を無視するため不正確。C は「イベントは網羅的に実装する」という Q5 の指示に反する。

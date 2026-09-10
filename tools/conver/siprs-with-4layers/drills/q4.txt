@@ -1,0 +1,5 @@
+Q4: メディア経路のアーキテクチャを確定します。現在、AudioMixer は reactor.rs:79 のグローバル単一インスタンスで、RFC §24.4 の per-call スコープが失われています。AddAudioSource コマンド（command.rs:193）に call_id がなく、IN/OUT/BOTH チャネル指定も存在しません。AudioWorkerTask::spawn は生産コードから一切呼ばれず、subscribe_audio が保存する AudioTapSender::push を呼ぶ経路もありません。選択肢:
+A) per-call AudioMixer を採用し、クライアント初期化で AudioWorkerTask を spawn、AddAudioSource に call_id を付与、IN/OUT/BOTH を独立経路として実装。
+B) グローバル AudioMixer を維持しつつ command に call_id を追加（マルチコール mix は将来対応）。
+C) per-call mixer を本実装し、既存のグローバル mixer は削除せず legacy として温存。
+推奨: A を推します。§24.4 の per-call スコープと README の「2者通話の IN/OUT/BOTH 注入」解説が両立するのは A のみです。B は global mixer に call_id を渡す不整合な中間状態を作り、C は二重実装で保守性を損ないます。

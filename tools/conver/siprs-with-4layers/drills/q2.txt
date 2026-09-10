@@ -1,0 +1,5 @@
+Q2: バックエンド選択機構を確定します。現在、reactor.rs:74-75 は常に MockBackend を無条件生成するため、pjsua-native feature を有効にしても実 SIP ネットワークへの接続が発生しません。RFC §3.1 は PjsuaBackend を正とし、MockBackend はテスト専用と位置付けています。選択肢:
+A) コンパイル時 #[cfg(feature="pjsua-native")] で PjsuaBackend を選択し、非有効時のみ MockBackend にフォールバック。
+B) 実行時に SipClientConfig 等の backend フィールドで Mock/Pjsua を動的切替。
+C) 常に PjsuaBackend を要求し、MockBackend はテストモジュール内のみに限定。
+推奨: A を推します。PJSIP はネイティブビルドが必要で、feature フラグによるコンパイル時選択が build.rs 戦略（§28）と整合し、MockBackend をデフォルト feature のテスト基盤として温存できます。B は実行時依存が増え PJSIP 未リンク環境での起動失敗を招き、C は pjsua 未ビルド環境で開発できなくなります。

@@ -1,0 +1,32 @@
+{
+ "contracts": [
+  {
+   "id": "C069",
+   "sourceEdge": "N0069→N0068",
+   "precondition": "§62 進化スコープが定義される",
+   "postcondition": "62.0 が §62 の一部として記述される",
+   "invariant": "根因3点の記述は §62 の他の節と整合する"
+  },
+  {
+   "id": "C078",
+   "sourceEdge": "N0078→N0068",
+   "precondition": "§62 親セクションが存在する",
+   "postcondition": "62.9 が §62 の一部として記述される",
+   "invariant": "I/O 境界参照は §61 の情報と整合する"
+  },
+  {
+   "id": "C079",
+   "sourceEdge": "N0069→N0013",
+   "precondition": "進化スコープが設定乖離を言及する",
+   "postcondition": "62.0 が N0013 の乖離を参照する",
+   "invariant": "公開 ClientConfig が RFC 型でない根因が記述される"
+  },
+  {
+   "id": "C090",
+   "sourceEdge": "N0078→N0067",
+   "precondition": "N0067 が §61 I/O 境界参照情報を定義する",
+   "postcondition": "62.9 が各設計判断の I/O 境界を参照可能にする",
+   "invariant": "分割判断が既存の境界情報と矛盾しない"
+  }
+ ]
+}

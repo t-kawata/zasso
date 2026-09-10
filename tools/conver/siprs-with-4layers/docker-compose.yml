@@ -1,0 +1,27 @@
+# [::TICKET::] P16-10: docker integration-test services (§62.19 Q9b).
+#
+# `make test-integration` brings these up, runs `tests/sip_integration.rs`
+# under pjsua-native, and tears them down. The asterisk image and ports are
+# aligned with `DockerIntegrationJob::asterisk_job` (§44).
+services:
+  asterisk:
+    image: asterisk:20.6.0
+    ports:
+      - "5060:5060/udp"
+      - "5061:5061/tcp"
+    volumes:
+      - ./docker/asterisk/pjsip.conf:/etc/asterisk/pjsip.conf
+      - ./docker/asterisk/extensions.conf:/etc/asterisk/extensions.conf
+    # Let the container reach the host (where siprs binds its UDP transport)
+    # when Asterisk originates an inbound call to a registered siprs contact.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  coturn:
+    image: coturn/coturn:4.6
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+    volumes:
+      - ./docker/coturn/turnserver.conf:/etc/coturn/turnserver.conf
+    command: ["-c", "/etc/coturn/turnserver.conf"]

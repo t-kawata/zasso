@@ -1,0 +1,1 @@
+{"contracts":[{"id":"C119","sourceEdge":"N0089→N0068","precondition":"§62 親セクションが存在する","postcondition":"62.20 がラウンド 2 の I/O 境界を定義する","invariant":"I/O 境界は §61/§62.9 と整合する"},{"id":"C120","sourceEdge":"N0089→N0078","precondition":"N0078 が 62.9 I/O 境界を定義する","postcondition":"62.20 がラウンド 2 の I/O 境界を参照する","invariant":"graphify/boundify が分割判断に使用する"}]}

@@ -1,0 +1,10 @@
+[package]
+name = "sample-project"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+# [::TICKET::] P15-7: cpal-input is a default feature so the default build connects
+# to a real input device (§62.6).
+default = ["cpal-input"]
+cpal-input = []

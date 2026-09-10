@@ -1,0 +1,56 @@
+# Prebuilt Refresh Pipeline — macOS PJSIP static library rebuild.
+#
+# Manual trigger only (workflow_dispatch). Builds PJSIP 2.17 from source
+# using cmake on a macOS-14 runner and uploads the resulting static
+# libraries as artifacts.
+#
+# Manual rebuild steps are also documented in vendor/prebuilt/BUILD.md.
+#
+# [::TICKET::] P1-4: Prebuilt refresh workflow defined.
+#   Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P1-4 --for-spec --no-implementation-order`
+
+name: Prebuilt Refresh
+on:
+  workflow_dispatch:
+
+jobs:
+  # Rebuild PJSIP static libraries and upload artifacts
+  refresh:
+    runs-on: macos-14
+
+    steps:
+      # Step 1: Check out the repository (includes vendor/pjsip source)
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Step 2: Configure cmake build for PJSIP
+      # Disable OpenSSL (uses Apple Security Framework) and video support
+      - name: Configure cmake
+        run: |
+          cd vendor/pjsip
+          mkdir -p build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSRTP_WITH_OPENSSL=OFF \
+            -DPJMEDIA_WITH_VIDEO=OFF \
+            -G "Unix Makefiles"
+
+      # Step 3: Build PJSIP libraries
+      - name: Build PJSIP libraries
+        run: |
+          cd vendor/pjsip/build
+          cmake --build . -j$(sysctl -n hw.logicalcpu)
+
+      # Step 4: Install libraries into prebuilt directory
+      - name: Install libraries
+        run: |
+          cd vendor/pjsip/build
+          cmake --install . --prefix ./install
+
+      # Step 5: Upload prebuilt artifacts
+      - name: Upload prebuilt artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pjsip-prebuilt-macos
+          path: vendor/prebuilt/macos/

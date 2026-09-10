@@ -1,0 +1,144 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "zasso://schemas/tickets.json",
+  "type": "object",
+  "required": ["title", "metadata", "phases"],
+  "properties": {
+    "title": { "type": "string", "minLength": 1 },
+    "metadata": { "$ref": "#/definitions/metadata" },
+    "policy": { "type": "string" },
+    "phases": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/phase" }
+    },
+    "dependencyMap": { "type": "string" },
+    "checklist": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/checklistEntry" }
+    }
+  },
+  "definitions": {
+    "metadata": {
+      "type": "object",
+      "required": ["source", "generatedAt"],
+      "properties": {
+        "source": { "type": "string", "minLength": 1 },
+        "generatedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "analyzedSections": { "type": "string" },
+        "dependencyModel": { "type": "string" },
+        "resolvedPaths": {
+          "type": "object",
+          "required": ["rfcPath", "graphPath", "dirsTreePath"],
+          "properties": {
+            "rfcPath": { "type": "string", "minLength": 1 },
+            "graphPath": { "type": "string", "minLength": 1 },
+            "dirsTreePath": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "phase": {
+      "type": "object",
+      "required": ["id", "name", "tickets"],
+      "properties": {
+        "id": { "type": "integer", "minimum": -1, "description": "フェーズを一意に識別する数値ID（-1 は PX: 独立フェーズ）" },
+        "name": { "type": "string", "minLength": 1 },
+        "externalDependencies": { "type": "string" },
+        "characteristics": { "type": "string" },
+        "tickets": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/ticket" }
+        },
+        "nodeIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "このフェーズに割り当てられたグラフノードIDの配列（例: [\"N0001\",\"N0003\"]）。phasify で自動設定。required には含めず後方互換性を維持。"
+        },
+        "summary": {
+          "type": "string",
+          "description": "このフェーズの実装サマリー（フェーズ内のノード群が何を実装するかの説明）。split-to-tickets Step 4.2 でAIが生成。required には含めず後方互換性を維持。"
+        }
+      }
+    },
+    "ticket": {
+      "type": "object",
+      "required": ["id", "phaseId", "title", "status", "contracts"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 1, "description": "フェーズ内のチケット番号（1始まり自動インクリメント）" },
+        "phaseId": { "type": "integer", "minimum": -1, "description": "所属するフェーズID（-1 は PX フェーズ所属）" },
+        "title": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["todo", "made", "planned", "done", "reviewed", "remanded"] },
+        "referenceSection": { "type": "string" },
+        "referenceUrls": { "type": "array", "items": { "type": "string" } },
+        "sourcePaths": { "type": "array", "items": { "type": "string" } },
+        "relatedTicketIds": { "type": "string" },
+        "invariants": { "type": "string" },
+        "background": { "type": "string" },
+        "scope": { "type": "array", "items": { "type": "string" } },
+        "testUnit": { "type": "array", "items": { "type": "string" } },
+        "testExceptions": { "type": "array", "items": { "type": "string" } },
+        "testIntegration": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "結合テスト計画。複数モジュール間の結合点と検証内容を IT: プレフィックスで記述。"
+        },
+        "startedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "実装開始日 (YYYY-MM-DD)" },
+        "completedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$", "description": "レビュー完了日 (YYYY-MM-DD)" },
+        "instrumentation": { "type": "string" },
+        "notes": { "type": "string" },
+        "nodeIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "このチケットに束ねられたグラフノードIDの配列（例: [\"N0001\",\"N0003\"]）。フェーズ内の全nodeIdsが tickets[].nodeIds の和集合と一致することを検証に使う。required には含めず後方互換性を維持。"
+        },
+        "default_files": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "このチケットの実装先となるファイルパスの配列。Dirs-Tree.json から nodeIds 経由で機械的に解決される。AI が手動で指定してはならず、add-tickets-for-phase.js が --dirs-tree フラグ指定時に自動設定する。required には含めず後方互換性を維持。"
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "before": { "type": "string" },
+              "after": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "rfcDiscrepancies": { "type": "array", "items": { "type": "string" } },
+        "acceptanceCriteria": { "type": "array", "items": { "type": "string" }, "description": "このチケットの完了条件（合格基準）。複数条件を列挙。split-to-tickets で実内容を、make-ticket で TEMPLATE-STUB を補完する。" },
+        "forNextRound": { "type": "boolean", "description": "Mid-round creation marker: excluded from the current round's processing until cleared at the round transition (PX-143/PX-144)." },
+        "contracts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "sourceEdge", "precondition", "postcondition", "invariant"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "pattern": "^C[0-9]{3}$", "description": "契約ID。グラフ内で一意なC000形式。" },
+              "sourceEdge": { "type": "string", "minLength": 1, "description": "この契約の出自エッジ（例: N0001→N0003）" },
+              "precondition": { "type": "string", "minLength": 1, "description": "このチケットの事前条件 — 開始前に満たすべき約束" },
+              "postcondition": { "type": "string", "minLength": 1, "description": "このチケットの事後条件 — 完了後に保証する約束" },
+              "invariant": { "type": "string", "minLength": 1, "description": "このチケットの不変条件 — 常に維持すべき自己整合性" }
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "checklistEntry": {
+      "type": "object",
+      "required": ["phase"],
+      "properties": {
+        "phase": { "type": "string" },
+        "command": { "type": "string" },
+        "expectedOutput": { "type": "string" }
+      }
+    }
+  }
+}

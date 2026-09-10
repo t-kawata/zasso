@@ -1,0 +1,10 @@
+Q8: 文書化決定（マイク source の位置づけ / unsubscribe drop ベース）
+
+背景: H14 と H8 の RESIDUE に文書化ギャップが 2 件ある。(1) open_default_microphone_source は「注入可能なキャプチャ source」（cpal による OS 既定入力の独立キャプチャ）であり、2 者通話の通話マイクではない。round 2 の §62.16 は「明記し、混同しないことを README に明文化する」と設計したが未反映。(2) unsubscribe の明示 API は存在せず、購読解除は broadcast Receiver の drop のみ（RFC §8.3 に明示 API なし）。H8 は「購読解除は drop ベースである旨を README に明記」を求めている。選択の観点は、文書化で確定すべき設計判断の範囲である。
+
+選択肢:
+A) 両方を RFC / README に明文化する（マイク source は通話マイクでない独立キャプチャ + unsubscribe は receiver drop による購読解除）
+B) マイク source の位置づけのみ明文化し、unsubscribe は触らない
+C) 両方とも文書化しない（現状維持）
+
+推奨: A を推奨。両件とも RESIDUE が明示的に指摘する文書化ギャップであり、設計判断として確定させる価値がある。マイク source の明文化は誤用（通話マイクと誤解して実装すること）を防ぎ、unsubscribe の drop ベース明文化は API 不在を仕様として確定する（RFC §8.3 の設計判断）。B は unsubscribe の不明瞭さを残し、C は RESIDUE の指摘を放置する。

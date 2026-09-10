@@ -1,0 +1,10 @@
+Q4: CallEntry.state のネイティブ遷移反映（call_state 整合性）
+
+背景: process_native_event は NativeEvent::CallStateChanged を M20 変換して publish するが、CallStateTables.calls の CallEntry.state を更新しない（src/runtime/reactor.rs）。CallEntry.state が更新されるのは handle_answer（200 → Active）/ hangup（Disconnected）/ transfer（Transferring）の命令経路のみ。結果、リモート切断（DISCONNECTED → CallDisconnected publish）後も call_state(call_id) は stale な状態を返す（H11 RESIDUE の証拠）。§62.14 は「CallEntry の account_id が常に解決されることが calls()/call_state()/answer の整合の前提」としている。選択の観点は、状態の source of truth と更新タイミングである。
+
+選択肢:
+A) process_native_event の CallStateChanged アームで、publish に加えて CallEntry.state を変換後の CallState で更新する（単一の変換結果を publish と state 更新の両方に使用）
+B) call_state() をイベント履歴から導出する方式へ変更し、CallEntry.state を source of truth にしない
+C) 現状維持（state は命令経路のみ更新）とし、call_state() の stale は許容して README に注記する
+
+推奨: A を推奨。§62.14 の整合性の前提（CallEntry が常に解決される）に state も含めて一貫させるのが自然で、実装も変換結果の使い回しで済む。B はイベント履歴の保持・導出ロジックが新たに必要で複雑化する。C は RESIDUE の指摘（stale state）を放置することになり、H11 の解消にならない。

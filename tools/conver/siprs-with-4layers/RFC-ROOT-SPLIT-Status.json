@@ -1,0 +1,18 @@
+{
+  "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "graphFile": "~/shyme/zasso/crates/siprs/RFC-ROOT-GRAPH.json",
+  "currentStep": "6",
+  "steps": {
+    "1": "done",
+    "2": "done",
+    "3": "done",
+    "6": "done",
+    "0-1": "done",
+    "0-2": "done",
+    "4-1": "done",
+    "4-2": "done",
+    "5-1": "done",
+    "5-2": "done",
+    "5-3": "done"
+  }
+}

@@ -1,0 +1,9 @@
+Q4 着信・通話イベントの設計方針（H10: 着信と応答 / H11: 通話イベントと状態遷移）を確定します。
+
+【背景と理由】H10 では `IncomingCall` イベントが `pjsua-native` の `on_incoming_call` コールバックでのみ生成され（`src/ffi/callback.rs:120-125`）、TestBackend では発火しません。また着信 call は `ClientState.calls` に登録されず（`calls.insert` は `handle_make_call` のみ、`src/runtime/reactor.rs:1108`）、`answer(call_id, 200)` は `handle_answer` で `CallEntry` を解決できず `account_id = None` となり `CallConnected` が publish されません。`SipCall` のドキュメント「`answer_call()` で生成」は偽りです。H11 では `CallRejected` が一切生成されず（reject 486/603 は `CallDisconnected` を publish、`src/runtime/reactor.rs:1144`）、`convert_call_state` は PJSIP inv_state の 5 状態（NULL/CALLING/CONNECTING/CONFIRMED/DISCONNECTED）のみをマップします（`src/state/m20_callstate_mapping.rs:76-98`）。確認済み内容は「IncomingCall 受信から answer/reject まで」「CallRejected の受信と CallState 13 状態との対応」です。選択肢とトレードオフは以下のとおりです。
+
+A) 着信 CallEntry 登録 + `handle_answer` 修正（200 で `CallConnected` publish）+ `CallRejected` を enum から完全削除 + M20 変換器で `CallState` 全 13 遷移を Some() 化
+B) 着信 CallEntry 登録 + `handle_answer` 修正 + `CallRejected` は enum に留保（publish しない。README は「reject は `CallDisconnected` で観測」と明記）+ M20 変換器で `CallState` 全遷移を Some() 化
+C) 着信系は `pjsua-native` 依存が強く現時点で検証不能なため今回設計せず、README を「着信は実 SIP コールバックが必要（現在ビルド不能）」と明記して記述範囲を限定する
+
+【推奨】B を推奨します。着信 CallEntry 登録と `handle_answer` 修正は §19/§37 の設計（answer が 180/183/200/486/603 を受理、§62.5 で確定済み）と整合する必須修正で、`CallConnected` の publish を実現します。`CallRejected` の enum 完全削除（A）は破壊的で互換性リスクがあるため留保し、挙動定義を「reject → `CallDisconnected`」に確定するのが安全です。CallState 全遷移の Some() 化は M20 変換器の拡張として RFC に設計追補します。C は H10 の confirmedContent（受信→応答→拒否の一連）を放棄するため不適切です。

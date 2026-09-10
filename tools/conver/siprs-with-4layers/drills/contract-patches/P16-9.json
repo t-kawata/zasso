@@ -1,0 +1,18 @@
+{
+ "contracts": [
+  {
+   "id": "C077",
+   "sourceEdge": "N0077→N0068",
+   "precondition": "§62 親セクションが存在する",
+   "postcondition": "62.8 が §62 の一部として記述される",
+   "invariant": "エラー変換は §14.1 と整合する"
+  },
+  {
+   "id": "C089",
+   "sourceEdge": "N0077→N0016",
+   "precondition": "N0016 が §14 SipError を定義する",
+   "postcondition": "62.8 が native_status: Option<i32> 保持と M20 converter 一元化を規定する",
+   "invariant": "reactor 経路の変換で native_status が喪失しない"
+  }
+ ]
+}

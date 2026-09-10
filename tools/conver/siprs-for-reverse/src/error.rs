@@ -1,0 +1,54 @@
+
+
+
+// ── Submodule declarations ──────────────────────────────────────────────
+
+/// SipError struct, SipErrorKind enum, constructors, and PJSUA error conversion.
+pub mod error_design_siperror;
+
+/// M20 RuntimeCommand error converters (ConfConnect, ConfDisconnect, GetAccountInfo).
+pub mod m20_runtime_command_error;
+
+pub mod m20_shutdown_routing;
+
+pub mod error_native_status;
+
+// ── Public API re-exports ───────────────────────────────────────────────
+
+pub use error_design_siperror::SipError;
+pub use error_design_siperror::SipErrorKind;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Invariant: Send + Sync ────────────────────────────────────────
+
+    #[test]
+    fn sip_error_is_send_sync() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+        assert_send::<SipError>();
+        assert_sync::<SipError>();
+    }
+
+    // ── Invariant: Display format ─────────────────────────────────────
+
+    #[test]
+    fn sip_error_invalid_config_display() {
+        let err = SipError::new(SipErrorKind::InvalidConfig, "empty host");
+        assert_eq!(format!("{err}"), "InvalidConfig: empty host");
+    }
+
+    #[test]
+    fn sip_error_runtime_error_display() {
+        let err = SipError::new(SipErrorKind::NativeError, "reactor down");
+        assert_eq!(format!("{err}"), "NativeError: reactor down");
+    }
+
+    #[test]
+    fn sip_error_shutdown_display() {
+        let err = SipError::new(SipErrorKind::ShutdownInProgress, "");
+        assert_eq!(format!("{err}"), "ShutdownInProgress: ");
+    }
+}

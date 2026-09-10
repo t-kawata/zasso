@@ -1,0 +1,5412 @@
+{
+  "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "mainLanguage": "rust",
+  "nodes": [
+    {
+      "id": "N0001",
+      "title": "§1 Purpose — Responsibilities of this crate",
+      "kind": "architecture",
+      "summary": "Defines the siprs crate's purpose: providing safe async PJSUA access for SIP calling via tokio-native API, limited to audio only.",
+      "language": "rust",
+      "slug": "purpose_responsibility",
+      "headingRefs": [
+        {
+          "refId": "REF160",
+          "heading": 2,
+          "texts": [
+            "1. 目的"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0002",
+      "title": "§1a M20 Implementation Priority Map",
+      "kind": "requirement",
+      "summary": "Table of M20 supplement implementation items with priority (P0-P3), design decision references, and code impact scope.",
+      "language": "rust",
+      "slug": "m20_impl_priority_map",
+      "headingRefs": [
+        {
+          "refId": "REF161",
+          "heading": 2,
+          "texts": [
+            "1a. M20 実装優先度マップ"
+          ]
+        },
+        {
+          "refId": "REF331",
+          "heading": 4,
+          "texts": [
+            "設計判断対応表"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0003",
+      "title": "§2 Non-goals & Tauri Integration Boundary",
+      "kind": "architecture",
+      "summary": "Documents what this crate does NOT provide (GUI, recording files, etc.) and clarifies responsibility split with Tauri frontend integration layer.",
+      "language": "rust",
+      "slug": "non_goals_tauri_boundary",
+      "headingRefs": [
+        {
+          "refId": "REF162",
+          "heading": 2,
+          "texts": [
+            "2. 非目的"
+          ]
+        },
+        {
+          "refId": "REF163",
+          "heading": 3,
+          "texts": [
+            "2.1 Tauri（フロントエンド）統合との責務境界"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0004",
+      "title": "§3 Terminology",
+      "kind": "glossary",
+      "summary": "Defines domain terms: Client, Account, Call, Media Session, Source, Chunk Pair, Raw SIP Event.",
+      "language": "rust",
+      "slug": "terminology_glossary",
+      "headingRefs": [
+        {
+          "refId": "REF164",
+          "heading": 2,
+          "texts": [
+            "3. 用語"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0005",
+      "title": "§4 Compliance Requirements",
+      "kind": "requirement",
+      "summary": "MSRV 1.95, tokio async runtime, PJSIP 2.17 fixed version, target OS triple, prebuilt-first two-stage build strategy.",
+      "language": "rust",
+      "slug": "compliance_requirements",
+      "headingRefs": [
+        {
+          "refId": "REF165",
+          "heading": 2,
+          "texts": [
+            "4. 準拠要件"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0006",
+      "title": "§4.1 Versioning Policy",
+      "kind": "config",
+      "summary": "Semver policy: 0.x phase allows breaking changes with CHANGELOG notification, 1.0+ follows strict semver with exceptions for security fixes.",
+      "language": "rust",
+      "slug": "versioning_policy",
+      "headingRefs": [
+        {
+          "refId": "REF166",
+          "heading": 3,
+          "texts": [
+            "4.1 バージョニングポリシー"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0007",
+      "title": "§5 Functional Requirements — Normative Scope",
+      "kind": "requirement",
+      "summary": "Definitive list of 15 functional requirements: multi-account, dynamic add/remove, register, transports, ICE, codecs, DTMF, event bus, audio pipeline, mixer, error handling.",
+      "language": "rust",
+      "slug": "functional_req_normative",
+      "headingRefs": [
+        {
+          "refId": "REF167",
+          "heading": 2,
+          "texts": [
+            "5. 機能要求の確定化"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0008",
+      "title": "§6 Module Structure & Crate Responsibility",
+      "kind": "architecture",
+      "summary": "Complete module tree layout (src/, ffi/, runtime/, audio/, util/) and design rationale for keeping SIP signalling, media bridge, audio processing, event bus in a single crate.",
+      "language": "rust",
+      "slug": "module_structure",
+      "headingRefs": [
+        {
+          "refId": "REF168",
+          "heading": 2,
+          "texts": [
+            "6. 全体構成"
+          ]
+        },
+        {
+          "refId": "REF169",
+          "heading": 3,
+          "texts": [
+            "6.1 Crate 責務分割方針（設計判断）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0009",
+      "title": "§7 Concurrency Model & Execution Contexts",
+      "kind": "architecture",
+      "summary": "Four execution contexts (User async, Core reactor, PJSIP callbacks, Audio worker tasks), single-reactor thread model, command serialization via MPSC.",
+      "language": "rust",
+      "slug": "concurrency_contexts",
+      "headingRefs": [
+        {
+          "refId": "REF170",
+          "heading": 2,
+          "texts": [
+            "7. 並行性モデル"
+          ]
+        },
+        {
+          "refId": "REF171",
+          "heading": 3,
+          "texts": [
+            "7.1 実行コンテキスト"
+          ]
+        },
+        {
+          "refId": "REF172",
+          "heading": 3,
+          "texts": [
+            "7.1a 単一Reactorのスケーラビリティ注記"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0010",
+      "title": "§7.2 RuntimeCommand & Command Serialization",
+      "kind": "api_contract",
+      "summary": "RuntimeCommand enum definition with all variants (Initialize, AddAccount, MakeCall, Hangup, etc.) and the unbounded MPSC serialization model ensuring Send+Sync without exposing PJSUA thread safety.",
+      "language": "rust",
+      "slug": "command_serialization",
+      "headingRefs": [
+        {
+          "refId": "REF173",
+          "heading": 3,
+          "texts": [
+            "7.2 command serialization"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0011",
+      "title": "§8 Public API Design",
+      "kind": "api_contract",
+      "summary": "Complete public API surface: crate root re-exports, SipClient struct and methods, SipAccountHandle API, OutgoingCallRequest and CallMediaPreferences definitions.",
+      "language": "rust",
+      "slug": "public_api_design",
+      "headingRefs": [
+        {
+          "refId": "REF174",
+          "heading": 2,
+          "texts": [
+            "8. 公開 API 設計"
+          ]
+        },
+        {
+          "refId": "REF175",
+          "heading": 3,
+          "texts": [
+            "8.1 crate ルート"
+          ]
+        },
+        {
+          "refId": "REF176",
+          "heading": 3,
+          "texts": [
+            "8.2 SipClient"
+          ]
+        },
+        {
+          "refId": "REF177",
+          "heading": 3,
+          "texts": [
+            "8.3 SipClient API"
+          ]
+        },
+        {
+          "refId": "REF178",
+          "heading": 3,
+          "texts": [
+            "8.4 SipAccountHandle API"
+          ]
+        },
+        {
+          "refId": "REF179",
+          "heading": 3,
+          "texts": [
+            "8.5 OutgoingCallRequest"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0012",
+      "title": "§9 ID Design — Newtype Identifiers",
+      "kind": "data_model",
+      "summary": "AccountId, CallId, AudioSourceId as NonZeroU64 newtypes. BiMap for RuntimeId to NativeId mapping to handle PJSUA id reuse.",
+      "language": "rust",
+      "slug": "id_design_newtype",
+      "headingRefs": [
+        {
+          "refId": "REF180",
+          "heading": 2,
+          "texts": [
+            "9. ID 設計"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0013",
+      "title": "§10 ClientConfig Full Specification",
+      "kind": "config",
+      "summary": "Complete ClientConfig struct definition, ClientAudioConfig, TimeoutConfig, RawSipEventConfig, LogLevel enum, and all default values.",
+      "language": "rust",
+      "slug": "client_config_spec",
+      "headingRefs": [
+        {
+          "refId": "REF181",
+          "heading": 2,
+          "texts": [
+            "10. ClientConfig 完全仕様"
+          ]
+        },
+        {
+          "refId": "REF182",
+          "heading": 3,
+          "texts": [
+            "10.1 既定値"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0014",
+      "title": "§11 AccountConfig Full Specification",
+      "kind": "config",
+      "summary": "Complete AccountConfig struct, AccountCodecPolicy, OpusConfig, DtmfPolicy, AccountMediaConfig definitions and validation rules.",
+      "language": "rust",
+      "slug": "account_config_spec",
+      "headingRefs": [
+        {
+          "refId": "REF183",
+          "heading": 2,
+          "texts": [
+            "11. AccountConfig 完全仕様"
+          ]
+        },
+        {
+          "refId": "REF184",
+          "heading": 3,
+          "texts": [
+            "11.1 validation rules"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0015",
+      "title": "§12 TransportConfig & §13 ICE/STUN/TURN Spec",
+      "kind": "config",
+      "summary": "TransportConfig enum (UDP/TCP/TLS), TlsConfig, IceConfig, StunServerConfig, TurnServerConfig definitions. Full ICE support with trickle ICE as optional optimization.",
+      "language": "rust",
+      "slug": "transport_ice_spec",
+      "headingRefs": [
+        {
+          "refId": "REF185",
+          "heading": 2,
+          "texts": [
+            "12. TransportConfig 完全仕様"
+          ]
+        },
+        {
+          "refId": "REF186",
+          "heading": 2,
+          "texts": [
+            "13. ICE/STUN/TURN 完全仕様"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0016",
+      "title": "§14 Error Design — SipError & SipErrorKind",
+      "kind": "error_policy",
+      "summary": "SipError struct with kind, message, native_status, account_id, call_id, retryable. SipErrorKind enum with all variants. Error conversion policy from pj_status_t.",
+      "language": "rust",
+      "slug": "error_design_siperror",
+      "headingRefs": [
+        {
+          "refId": "REF187",
+          "heading": 2,
+          "texts": [
+            "14. エラー設計"
+          ]
+        },
+        {
+          "refId": "REF188",
+          "heading": 3,
+          "texts": [
+            "14.1 エラー変換方針"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0017",
+      "title": "§14 M20 New RuntimeCommand Error Design",
+      "kind": "error_policy",
+      "summary": "Error design for ConfConnect, ConfDisconnect, GetAccountInfo using existing SipErrorKind variants (InvalidState, NotFound, InternalError) with rationale against adding new variants.",
+      "language": "rust",
+      "slug": "m20_runtime_command_error",
+      "headingRefs": [
+        {
+          "refId": "REF189",
+          "heading": 3,
+          "texts": [
+            "M20 追補: 新 RuntimeCommand のエラー設計"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0018",
+      "title": "§15 Event Model — SipEventPayload & EventBus",
+      "kind": "api_contract",
+      "summary": "Full SipEventPayload enum with all variants (Registration, Call, Media, DTMF, ICE, Transport, Account, Client lifecycle, Error). SipEvent wrapper, EventMeta, EventBus design with split control/raw_sip buses.",
+      "language": "rust",
+      "slug": "event_model_payload_bus",
+      "headingRefs": [
+        {
+          "refId": "REF190",
+          "heading": 2,
+          "texts": [
+            "15. イベントモデル"
+          ]
+        },
+        {
+          "refId": "REF191",
+          "heading": 3,
+          "texts": [
+            "15.1 SipEventPayload"
+          ]
+        },
+        {
+          "refId": "REF192",
+          "heading": 3,
+          "texts": [
+            "15.2 SipEvent"
+          ]
+        },
+        {
+          "refId": "REF193",
+          "heading": 3,
+          "texts": [
+            "15.3 EventMeta"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0019",
+      "title": "§15.4 EventBus Implementation & §15.5 AccountEventReceiver",
+      "kind": "api_contract",
+      "summary": "EventBus struct with control/raw_sip broadcast senders, subscribe/publish methods. AccountEventReceiver filtering by account_id.",
+      "language": "rust",
+      "slug": "eventbus_receiver",
+      "headingRefs": [
+        {
+          "refId": "REF194",
+          "heading": 3,
+          "texts": [
+            "15.4 EventBus"
+          ]
+        },
+        {
+          "refId": "REF195",
+          "heading": 3,
+          "texts": [
+            "15.5 AccountEventReceiver"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0020",
+      "title": "§15.6-15.7 Event Bus Design Decisions & Delivery Guarantees",
+      "kind": "architecture",
+      "summary": "Design rationale for split buses, loss-tolerant delivery model (broadcast channel, no reliable delivery), Lagged detection, source of truth is query API not events.",
+      "language": "rust",
+      "slug": "event_bus_guarantees",
+      "headingRefs": [
+        {
+          "refId": "REF196",
+          "heading": 3,
+          "texts": [
+            "15.6 イベントバス分割の設計判断"
+          ]
+        },
+        {
+          "refId": "REF197",
+          "heading": 3,
+          "texts": [
+            "15.7 重要: イベントバスは観測用途であり確実配送を保証しない"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0021",
+      "title": "§15 M20 NativeEvent to SipEventPayload Conversion",
+      "kind": "state_machine",
+      "summary": "Complete NativeEvent mapping table with P0/P1/P2 priority levels. Conversion logic for Registration, Call, DTMF, Transport/ICE events. PJSIP callback event → SipEventPayload transformation.",
+      "language": "rust",
+      "slug": "m20_native_event_conv",
+      "headingRefs": [
+        {
+          "refId": "REF198",
+          "heading": 3,
+          "texts": [
+            "M20 追補: NativeEvent → SipEventPayload 変換マッピング"
+          ]
+        },
+        {
+          "refId": "REF332",
+          "heading": 4,
+          "texts": [
+            "基本方針"
+          ]
+        },
+        {
+          "refId": "REF333",
+          "heading": 4,
+          "texts": [
+            "完全マッピングテーブル"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0022",
+      "title": "§15 M20 CallState & CallMediaState Mapping",
+      "kind": "state_machine",
+      "summary": "pjsip_inv_state to CallState mapping table, CONNECTING→Trying/Ringing discrimination logic, media_status to MediaActive/Held/Error conversion.",
+      "language": "rust",
+      "slug": "m20_callstate_mapping",
+      "headingRefs": [
+        {
+          "refId": "REF199",
+          "heading": 4,
+          "texts": [
+            "CallStateChanged の pjsip_inv_state マッピング"
+          ]
+        },
+        {
+          "refId": "REF200",
+          "heading": 4,
+          "texts": [
+            "CallMediaStateChanged の media_status 判定"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0023",
+      "title": "§15 M20 RegistrationStateChanged RuntimeCommand Pattern",
+      "kind": "state_machine",
+      "summary": "RegistrationStateChanged processing via RuntimeCommand::GetAccountInfo pattern, AccountInfoSnapshot struct, publish flow for RegistrationSucceeded/Failed.",
+      "language": "rust",
+      "slug": "m20_registr_cmd_pat",
+      "headingRefs": [
+        {
+          "refId": "REF201",
+          "heading": 4,
+          "texts": [
+            "RegistrationStateChanged の RuntimeCommand パターン"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0024",
+      "title": "§16 Raw SIP Message Specification",
+      "kind": "data_model",
+      "summary": "RawSipMessage struct definition with direction, transport, headers, body, redact_authorization for sensitive headers.",
+      "language": "rust",
+      "slug": "raw_sip_message_spec",
+      "headingRefs": [
+        {
+          "refId": "REF202",
+          "heading": 2,
+          "texts": [
+            "16. raw SIP メッセージ仕様"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0025",
+      "title": "§17 Registration State Machine",
+      "kind": "state_machine",
+      "summary": "RegistrationState enum (7 states) with complete transition diagram and rules. Independent from call ability — make_call() always allowed regardless of registration state.",
+      "language": "rust",
+      "slug": "registr_state_machine",
+      "headingRefs": [
+        {
+          "refId": "REF203",
+          "heading": 2,
+          "texts": [
+            "17. 登録状態モデル"
+          ]
+        },
+        {
+          "refId": "REF204",
+          "heading": 3,
+          "texts": [
+            "17.1 遷移規則"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0026",
+      "title": "§18 Call State Model",
+      "kind": "state_machine",
+      "summary": "CallState enum (12 states) with outgoing/incoming transition diagrams, REFER transfer transient state, max_calls concurrency constraint.",
+      "language": "rust",
+      "slug": "call_state_model",
+      "headingRefs": [
+        {
+          "refId": "REF205",
+          "heading": 2,
+          "texts": [
+            "18. 通話状態モデル"
+          ]
+        },
+        {
+          "refId": "REF206",
+          "heading": 3,
+          "texts": [
+            "18.1 遷移規則"
+          ]
+        },
+        {
+          "refId": "REF207",
+          "heading": 3,
+          "texts": [
+            "18.2 同時通話制約"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0027",
+      "title": "§19 Call API & Answer Semantics",
+      "kind": "api_contract",
+      "summary": "SipClient call control API (answer, hangup, hold, unhold, transfer, send_dtmf, call_state). Answer semantics for 180/183/200/486/603 codes.",
+      "language": "rust",
+      "slug": "call_api_semantics",
+      "headingRefs": [
+        {
+          "refId": "REF208",
+          "heading": 2,
+          "texts": [
+            "19. 発着信 API 詳細"
+          ]
+        },
+        {
+          "refId": "REF209",
+          "heading": 3,
+          "texts": [
+            "19.1 answer semantics"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0028",
+      "title": "§20 DTMF Specification & DtmfReceived",
+      "kind": "api_contract",
+      "summary": "DtmfMethod enum (Inband/SipInfo/Rfc4733), DtmfReceivedInfo struct, policy-based method validation for send/receive.",
+      "language": "rust",
+      "slug": "dtmf_spec_received",
+      "headingRefs": [
+        {
+          "refId": "REF210",
+          "heading": 2,
+          "texts": [
+            "20. DTMF 仕様"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0029",
+      "title": "§20 M20 DtmfSentInfo & Two-Phase Design",
+      "kind": "api_contract",
+      "summary": "DtmfSentInfo struct, two-phase semantics (return value = command accepted, DtmfSent event = actual send), timeout fallback at 500ms.",
+      "language": "rust",
+      "slug": "m20_dtmfsent_twophase",
+      "headingRefs": [
+        {
+          "refId": "REF211",
+          "heading": 3,
+          "texts": [
+            "M20 追補: DtmfSentInfo 構造体と DtmfSent 発火設計"
+          ]
+        },
+        {
+          "refId": "REF334",
+          "heading": 4,
+          "texts": [
+            "DtmfSentInfo 構造体"
+          ]
+        },
+        {
+          "refId": "REF335",
+          "heading": 4,
+          "texts": [
+            "DtmfSent 発火タイミング"
+          ]
+        },
+        {
+          "refId": "REF336",
+          "heading": 4,
+          "texts": [
+            "DtmfSent の発火条件（優先順位）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0030",
+      "title": "§21 Audio Format Model & AudioChunkPair",
+      "kind": "data_model",
+      "summary": "SampleRate, BitDepth, ChannelLayout, AudioFormat enums/structs. AudioChunkPair with paired IN/OUT buffers, AudioChunk enum (I16/F32).",
+      "language": "rust",
+      "slug": "audio_format_chunkpair",
+      "headingRefs": [
+        {
+          "refId": "REF212",
+          "heading": 2,
+          "texts": [
+            "21. 音声フォーマットモデル"
+          ]
+        },
+        {
+          "refId": "REF213",
+          "heading": 3,
+          "texts": [
+            "21.1 AudioChunkPair"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0031",
+      "title": "§22 Audio Subscribe API & Backpressure Policy",
+      "kind": "api_contract",
+      "summary": "AudioTapMode (Realtime/Lossless), AudioTapHandle, subscribe_audio API, backpressure behavior per mode, SubscribeAudio Reactor handler design with MediaDirection and conf_connect integration.",
+      "language": "rust",
+      "slug": "audio_subscribe_bp",
+      "headingRefs": [
+        {
+          "refId": "REF214",
+          "heading": 2,
+          "texts": [
+            "22. 音声購読 API"
+          ]
+        },
+        {
+          "refId": "REF215",
+          "heading": 3,
+          "texts": [
+            "22.1 backpressure policy"
+          ]
+        },
+        {
+          "refId": "REF216",
+          "heading": 3,
+          "texts": [
+            "M20 追補: SubscribeAudio Reactor ハンドラ実装設計"
+          ]
+        },
+        {
+          "refId": "REF337",
+          "heading": 4,
+          "texts": [
+            "SubscribeAudio ハンドラ擬似実装"
+          ]
+        },
+        {
+          "refId": "REF338",
+          "heading": 4,
+          "texts": [
+            "AudioTapMode と conf_connect の連携"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0032",
+      "title": "§23 AsyncAudioSource Trait & SyncSourceAdapter",
+      "kind": "api_contract",
+      "summary": "AsyncAudioSource trait with RPITIT, ErasedAudioSource auto-derivation for dynamic dispatch, SyncAudioSource trait and SyncSourceAdapter, design rationale for RPITIT adoption.",
+      "language": "rust",
+      "slug": "asyncaudiosrc_adapter",
+      "headingRefs": [
+        {
+          "refId": "REF217",
+          "heading": 2,
+          "texts": [
+            "23. AsyncAudioSource 仕様"
+          ]
+        },
+        {
+          "refId": "REF218",
+          "heading": 3,
+          "texts": [
+            "23.1 動的ディスパッチ用自動導出"
+          ]
+        },
+        {
+          "refId": "REF219",
+          "heading": 3,
+          "texts": [
+            "23.2 SyncSourceAdapter"
+          ]
+        },
+        {
+          "refId": "REF220",
+          "heading": 3,
+          "texts": [
+            "23.3 設計判断の注記"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0033",
+      "title": "§24 AudioMixer Design & Real-Time Boundary",
+      "kind": "architecture",
+      "summary": "Two-layer audio architecture: AudioWorkerTask (Tokio async) ↔ RustMediaPort (PJSIP RT callback). Lock-free queue boundary. AudioMixer struct with DashMap sources, mixing algorithm, AudioWorkerTask loop.",
+      "language": "rust",
+      "slug": "audiomixer_rt_boundary",
+      "headingRefs": [
+        {
+          "refId": "REF221",
+          "heading": 2,
+          "texts": [
+            "24. AudioMixer 設計"
+          ]
+        },
+        {
+          "refId": "REF222",
+          "heading": 3,
+          "texts": [
+            "24.0 リアルタイム境界（最重要設計判断）"
+          ]
+        },
+        {
+          "refId": "REF223",
+          "heading": 3,
+          "texts": [
+            "24.1 AudioMixer（AudioWorkerTask 側）"
+          ]
+        },
+        {
+          "refId": "REF224",
+          "heading": 3,
+          "texts": [
+            "24.2 mixing algorithm"
+          ]
+        },
+        {
+          "refId": "REF225",
+          "heading": 3,
+          "texts": [
+            "24.2 gain and normalization"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0034",
+      "title": "§24.3 AudioWorkerTask & Source Lifecycle",
+      "kind": "architecture",
+      "summary": "AudioWorkerTask driving mechanism, add_audio_source/remove_audio_source/set_gain/mute API, Box<dyn AsyncAudioSource> lifecycle, slab-based optimization future note.",
+      "language": "rust",
+      "slug": "audioworker_lifecycle",
+      "headingRefs": [
+        {
+          "refId": "REF226",
+          "heading": 3,
+          "texts": [
+            "24.3 AudioWorkerTask 駆動"
+          ]
+        },
+        {
+          "refId": "REF227",
+          "heading": 3,
+          "texts": [
+            "24.4 source lifecycle"
+          ]
+        },
+        {
+          "refId": "REF228",
+          "heading": 3,
+          "texts": [
+            "24.5 将来拡張：slab ベース source 管理（注記）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0035",
+      "title": "§25 IN/OUT Pair Alignment Algorithm",
+      "kind": "architecture",
+      "summary": "PairAligner design with timestamped ring buffers, tolerance-based matching, zero-padding on missing data, drift metrics. Memory optimization notes.",
+      "language": "rust",
+      "slug": "pair_aligner_algorithm",
+      "headingRefs": [
+        {
+          "refId": "REF229",
+          "heading": 2,
+          "texts": [
+            "25. IN/OUT ペア整列アルゴリズム"
+          ]
+        },
+        {
+          "refId": "REF230",
+          "heading": 3,
+          "texts": [
+            "25.1 欠損時の扱い"
+          ]
+        },
+        {
+          "refId": "REF231",
+          "heading": 3,
+          "texts": [
+            "25.2 メモリ最適化注記"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0036",
+      "title": "§26 Resampler Design & Stereo Mapping",
+      "kind": "architecture",
+      "summary": "ResamplePipeline using rubato, internal i16 PCM format, stereo IN/OUT interleave mapping (L=IN, R=OUT).",
+      "language": "rust",
+      "slug": "resampler_stereo_mapping",
+      "headingRefs": [
+        {
+          "refId": "REF232",
+          "heading": 2,
+          "texts": [
+            "26. リサンプラ設計"
+          ]
+        },
+        {
+          "refId": "REF233",
+          "heading": 3,
+          "texts": [
+            "26.1 stereo in/out mapping"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0037",
+      "title": "§27 PJSIP FFI Layer Architecture",
+      "kind": "architecture",
+      "summary": "FFI layer structure isolating unsafe code. Bindgen strategy, C string management (PjOwnedStr), callback bridge (minimal enqueue), SipBackend abstraction trait and MockBackend.",
+      "language": "rust",
+      "slug": "pjsip_ffi_layer",
+      "headingRefs": [
+        {
+          "refId": "REF234",
+          "heading": 2,
+          "texts": [
+            "27. PJSIP FFI 層"
+          ]
+        },
+        {
+          "refId": "REF235",
+          "heading": 3,
+          "texts": [
+            "27.1 bindgen 生成方針"
+          ]
+        },
+        {
+          "refId": "REF236",
+          "heading": 3,
+          "texts": [
+            "27.2 C string 管理"
+          ]
+        },
+        {
+          "refId": "REF237",
+          "heading": 3,
+          "texts": [
+            "27.3 callback bridge"
+          ]
+        },
+        {
+          "refId": "REF238",
+          "heading": 3,
+          "texts": [
+            "27a. SipBackend 抽象化（内部 trait）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0038",
+      "title": "§27 M20 Dual Client PJSIP Callback Routing",
+      "kind": "architecture",
+      "summary": "Single Reactor + EventBus split for multiple SipClient instances sharing PjsuaBackend singleton. Account_id-based event dispatch, Dual Client initialization pattern.",
+      "language": "rust",
+      "slug": "m20_dual_client_routing",
+      "headingRefs": [
+        {
+          "refId": "REF239",
+          "heading": 3,
+          "texts": [
+            "M20 追補: Dual Client 時の PJSIP callback routing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0039",
+      "title": "§28 Build Strategy & OS Dependencies",
+      "kind": "build_ci",
+      "summary": "Prebuilt-first then source build fallback. Build script pseudo-code, CMake flags (PJMEDIA_WITH_VIDEO=OFF), OS-specific package dependencies (Ubuntu, macOS, Windows).",
+      "language": "rust",
+      "slug": "build_strategy_os_deps",
+      "headingRefs": [
+        {
+          "refId": "REF240",
+          "heading": 2,
+          "texts": [
+            "28. build.rs 戦略"
+          ]
+        },
+        {
+          "refId": "REF241",
+          "heading": 3,
+          "texts": [
+            "28.1 探索順序"
+          ]
+        },
+        {
+          "refId": "REF242",
+          "heading": 3,
+          "texts": [
+            "28.2 build script 擬似実装"
+          ]
+        },
+        {
+          "refId": "REF243",
+          "heading": 3,
+          "texts": [
+            "28.3 cmake flags"
+          ]
+        },
+        {
+          "refId": "REF244",
+          "heading": 3,
+          "texts": [
+            "28.4 OS別システムパッケージ依存関係"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0040",
+      "title": "§29 Codec Policy & Fallback Rules",
+      "kind": "config",
+      "summary": "Codec enforcement (PCMU=254, Opus=255, others disabled), fallback rules, NegotiatedCodec enum, CodecSelectionPolicy (Ordered/PreferOpusFallbackPcmu).",
+      "language": "rust",
+      "slug": "codec_policy_fallback",
+      "headingRefs": [
+        {
+          "refId": "REF245",
+          "heading": 2,
+          "texts": [
+            "29. codec policy 強制"
+          ]
+        },
+        {
+          "refId": "REF246",
+          "heading": 3,
+          "texts": [
+            "29.1 コーデックフォールバックルール"
+          ]
+        },
+        {
+          "refId": "REF247",
+          "heading": 3,
+          "texts": [
+            "29.2 NegotiatedCodec と CodecSelectionPolicy"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0041",
+      "title": "§29 M20 Explicit Codec & Auto Mode Policy",
+      "kind": "config",
+      "summary": "Two-layer codec selection: explicit user specification vs system auto mode (Opus=255, PCMU=254). configure_codecs auto mode implementation.",
+      "language": "rust",
+      "slug": "m20_codec_auto_mode",
+      "headingRefs": [
+        {
+          "refId": "REF248",
+          "heading": 3,
+          "texts": [
+            "M20 追補: 明示的コーデック指定と auto モードの2層ポリシー"
+          ]
+        },
+        {
+          "refId": "REF339",
+          "heading": 4,
+          "texts": [
+            "コーデック選択の優先順位"
+          ]
+        },
+        {
+          "refId": "REF340",
+          "heading": 4,
+          "texts": [
+            "実装: configure_codecs auto モード"
+          ]
+        },
+        {
+          "refId": "REF341",
+          "heading": 4,
+          "texts": [
+            "利用者が明示指定する場合の動作"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0042",
+      "title": "§30 SRTP & §31 Transport Reconnection",
+      "kind": "config",
+      "summary": "SrtpPolicy enum (Disabled/Optional/Mandatory), feature-gated. Transport reconnection strategy per protocol (UDP/TCP/TLS), ReconnectPolicy struct.",
+      "language": "rust",
+      "slug": "srtp_transport_reconnect",
+      "headingRefs": [
+        {
+          "refId": "REF249",
+          "heading": 2,
+          "texts": [
+            "30. SRTP 仕様"
+          ]
+        },
+        {
+          "refId": "REF250",
+          "heading": 2,
+          "texts": [
+            "31. トランスポート再接続方針"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0043",
+      "title": "§32 Shutdown Specification",
+      "kind": "state_machine",
+      "summary": "Idempotent shutdown sequence: stop accepting commands, BYE/CANCEL all calls, unregister accounts, drain audio, pjsua_destroy. Cancellation safety: reactor continues on caller cancel.",
+      "language": "rust",
+      "slug": "shutdown_specification",
+      "headingRefs": [
+        {
+          "refId": "REF251",
+          "heading": 2,
+          "texts": [
+            "32. Shutdown 仕様"
+          ]
+        },
+        {
+          "refId": "REF252",
+          "heading": 3,
+          "texts": [
+            "32.1 cancellation safety"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0044",
+      "title": "§32 M20 Shutdown Command Routing",
+      "kind": "error_policy",
+      "summary": "Shutdown command dispatch rules: GetAccountInfo permitted (read-only), ConfConnect/ConfDisconnect rejected. dispatch_command() implementation.",
+      "language": "rust",
+      "slug": "m20_shutdown_routing",
+      "headingRefs": [
+        {
+          "refId": "REF253",
+          "heading": 3,
+          "texts": [
+            "M20 追補: Shutdown 中の RuntimeCommand 振り分け"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0045",
+      "title": "§33 Runtime Internal State & Lock Rules",
+      "kind": "architecture",
+      "summary": "ClientState, AccountEntry, CallEntry struct definitions. Lock rules: read().await for query APIs (blocking_read prohibited), write().await for Reactor updates. conf_port_id management encapsulated in PjsuaBackend.",
+      "language": "rust",
+      "slug": "runtime_state_lock_rules",
+      "headingRefs": [
+        {
+          "refId": "REF254",
+          "heading": 2,
+          "texts": [
+            "33. ランタイム内部 state"
+          ]
+        },
+        {
+          "refId": "REF255",
+          "heading": 3,
+          "texts": [
+            "M20 追補: ロック獲得ルールと conf_port_id 管理方針"
+          ]
+        },
+        {
+          "refId": "REF342",
+          "heading": 4,
+          "texts": [
+            "Client 側: `read().await` 絶対義務"
+          ]
+        },
+        {
+          "refId": "REF343",
+          "heading": 4,
+          "texts": [
+            "Reactor 側: `write().await` による安全な更新"
+          ]
+        },
+        {
+          "refId": "REF344",
+          "heading": 4,
+          "texts": [
+            "conf_port_id: PjsuaBackend 内部管理"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0046",
+      "title": "§34 Observability — Tracing, Metrics & Capabilities",
+      "kind": "config",
+      "summary": "tracing spans for all public operations, optional metrics counters/gauges, ClientCapabilities struct with capabilities advertised via ClientInitialized event.",
+      "language": "rust",
+      "slug": "observability_metrics",
+      "headingRefs": [
+        {
+          "refId": "REF256",
+          "heading": 2,
+          "texts": [
+            "34. 観測性"
+          ]
+        },
+        {
+          "refId": "REF257",
+          "heading": 3,
+          "texts": [
+            "34.1 tracing"
+          ]
+        },
+        {
+          "refId": "REF258",
+          "heading": 3,
+          "texts": [
+            "34.2 metrics"
+          ]
+        },
+        {
+          "refId": "REF259",
+          "heading": 3,
+          "texts": [
+            "34.3 ClientCapabilities"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0047",
+      "title": "§35 Security & §36 Platform Differences",
+      "kind": "security",
+      "summary": "SecretString for passwords, Authorization header redaction, TLS verify default true, memory zeroization. Platform-specific build notes (Windows MSVC, macOS system frameworks, Linux libs).",
+      "language": "rust",
+      "slug": "security_platform_diffs",
+      "headingRefs": [
+        {
+          "refId": "REF260",
+          "heading": 2,
+          "texts": [
+            "35. セキュリティ"
+          ]
+        },
+        {
+          "refId": "REF261",
+          "heading": 2,
+          "texts": [
+            "36. プラットフォーム差異"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0048",
+      "title": "§37 Incoming Call & §38 REFER/Transfer",
+      "kind": "api_contract",
+      "summary": "IncomingCall struct, auto-reject timer config. REFER/Transfer: blind transfer first-class, ReferRequest struct, NOTIFY-based completion detection.",
+      "language": "rust",
+      "slug": "incoming_call_refer",
+      "headingRefs": [
+        {
+          "refId": "REF262",
+          "heading": 2,
+          "texts": [
+            "37. 受信 call の扱い"
+          ]
+        },
+        {
+          "refId": "REF263",
+          "heading": 2,
+          "texts": [
+            "38. REFER/転送仕様"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0049",
+      "title": "§39 Media Bridge & PJSUA Conference Port",
+      "kind": "architecture",
+      "summary": "Custom media port design (RustMediaPort) with capture tap and playback inject ports. Lock-free queue boundary between RT callback and AudioWorkerTask. Full data flow diagram.",
+      "language": "rust",
+      "slug": "media_bridge_conf_port",
+      "headingRefs": [
+        {
+          "refId": "REF264",
+          "heading": 2,
+          "texts": [
+            "39. Media bridge と PJSUA conference port"
+          ]
+        },
+        {
+          "refId": "REF265",
+          "heading": 3,
+          "texts": [
+            "39.1 リアルタイム境界と lock-free queue"
+          ]
+        },
+        {
+          "refId": "REF266",
+          "heading": 3,
+          "texts": [
+            "39.2 custom media port 設計"
+          ]
+        },
+        {
+          "refId": "REF267",
+          "heading": 3,
+          "texts": [
+            "39.3 データフロー全体"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0050",
+      "title": "§40 Audio Device Policy & §41 Usage Examples",
+      "kind": "requirement",
+      "summary": "Optional cpal-input feature for microphone source. Complete usage examples: client init, account add/register, make call with events, audio tap with WAV export, AI TTS source insertion.",
+      "language": "rust",
+      "slug": "audio_usage_examples",
+      "headingRefs": [
+        {
+          "refId": "REF268",
+          "heading": 2,
+          "texts": [
+            "40. audio device policy"
+          ]
+        },
+        {
+          "refId": "REF269",
+          "heading": 2,
+          "texts": [
+            "41. 具体的使用例"
+          ]
+        },
+        {
+          "refId": "REF345",
+          "heading": 3,
+          "texts": [
+            "41.1 Client 初期化"
+          ]
+        },
+        {
+          "refId": "REF346",
+          "heading": 3,
+          "texts": [
+            "41.2 account 追加と register"
+          ]
+        },
+        {
+          "refId": "REF347",
+          "heading": 3,
+          "texts": [
+            "41.3 発信とイベント受信"
+          ]
+        },
+        {
+          "refId": "REF348",
+          "heading": 3,
+          "texts": [
+            "41.4 音声 tap と WAV 書き出し準備"
+          ]
+        },
+        {
+          "refId": "REF349",
+          "heading": 3,
+          "texts": [
+            "41.5 AI TTS source 挿入"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0051",
+      "title": "§42 Validation Phase",
+      "kind": "requirement",
+      "summary": "Fail-fast config validation: transport feature, codec selection, TLS/SRTP feature consistency, sample rate, event bus capacity >16, etc. validate_client_config() implementation.",
+      "language": "rust",
+      "slug": "validation_phase",
+      "headingRefs": [
+        {
+          "refId": "REF270",
+          "heading": 2,
+          "texts": [
+            "42. validation フェーズ"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0052",
+      "title": "§43 Test Strategy — 4-Layer Architecture",
+      "kind": "test_policy",
+      "summary": "Layer 1 Unit Tests (mock, PJSIP-free), Layer 2 State-Machine Tests (MockBackend), Layer 3 SIP Integration (Docker), Layer 4 Interop (real PBX). Test scope for each layer.",
+      "language": "rust",
+      "slug": "test_strategy_4layer",
+      "headingRefs": [
+        {
+          "refId": "REF271",
+          "heading": 2,
+          "texts": [
+            "43. テスト戦略"
+          ]
+        },
+        {
+          "refId": "REF272",
+          "heading": 3,
+          "texts": [
+            "43.1 Layer 1: Unit Tests（PJSIP不要）"
+          ]
+        },
+        {
+          "refId": "REF273",
+          "heading": 3,
+          "texts": [
+            "43.2 Layer 2: Deterministic State-Machine Tests（PJSIP不要）"
+          ]
+        },
+        {
+          "refId": "REF274",
+          "heading": 3,
+          "texts": [
+            "43.3 Layer 3: SIP Integration Tests（ローカルSIP server）"
+          ]
+        },
+        {
+          "refId": "REF275",
+          "heading": 3,
+          "texts": [
+            "43.4 Layer 4: 相互接続試験（実 PBX / Proxy）"
+          ]
+        },
+        {
+          "refId": "REF276",
+          "heading": 3,
+          "texts": [
+            "43.5 プラットフォームテスト"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0053",
+      "title": "§43 M20 Test Layer Mapping & Dual Client Utility",
+      "kind": "test_policy",
+      "summary": "M20 feature-to-test-layer mapping table, placeholder test resolution conditions, DualClientContext test utility design for bidirectional testing.",
+      "language": "rust",
+      "slug": "m20_test_dual_client",
+      "headingRefs": [
+        {
+          "refId": "REF277",
+          "heading": 3,
+          "texts": [
+            "M20 追補: 新機能のテスト層マッピング"
+          ]
+        },
+        {
+          "refId": "REF350",
+          "heading": 4,
+          "texts": [
+            "プレースホルダーテストの解決条件"
+          ]
+        },
+        {
+          "refId": "REF351",
+          "heading": 4,
+          "texts": [
+            "Dual Client テスト utility 設計"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0054",
+      "title": "§44 CI/CD & M20 Docker/Prebuilt Pipeline",
+      "kind": "build_ci",
+      "summary": "CI matrix (Windows/macOS/Ubuntu, feature combinations), Docker Integration Test Job (Asterisk), Prebuilt Refresh Pipeline (macOS), source build fallback.",
+      "language": "rust",
+      "slug": "cicd_docker_prebuilt",
+      "headingRefs": [
+        {
+          "refId": "REF278",
+          "heading": 2,
+          "texts": [
+            "44. CI/CD 要件"
+          ]
+        },
+        {
+          "refId": "REF279",
+          "heading": 3,
+          "texts": [
+            "M20 追補: Docker テスト job と prebuilt CI pipeline"
+          ]
+        },
+        {
+          "refId": "REF352",
+          "heading": 4,
+          "texts": [
+            "Docker Integration Test Job（GitHub Actions）"
+          ]
+        },
+        {
+          "refId": "REF353",
+          "heading": 4,
+          "texts": [
+            "Prebuilt Refresh Pipeline"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0055",
+      "title": "§45 Implementation Challenges & §46 Panic Policy",
+      "kind": "error_policy",
+      "summary": "Known challenges (callback-to-async bridge, audio timing drift, multi-source, native id reuse) with solutions. Panic policy: panic-free goal, catch_unwind in FFI callbacks with cleanup procedure.",
+      "language": "rust",
+      "slug": "challenges_panic_policy",
+      "headingRefs": [
+        {
+          "refId": "REF280",
+          "heading": 2,
+          "texts": [
+            "45. 既知の実装上の難所と設計上の解答"
+          ]
+        },
+        {
+          "refId": "REF281",
+          "heading": 2,
+          "texts": [
+            "46. panic policy"
+          ]
+        },
+        {
+          "refId": "REF282",
+          "heading": 3,
+          "texts": [
+            "46.1 catch_unwind 発火時のクリーンアップ手順"
+          ]
+        },
+        {
+          "refId": "REF354",
+          "heading": 3,
+          "texts": [
+            "45.1 PJSIP callback から async への橋渡し"
+          ]
+        },
+        {
+          "refId": "REF355",
+          "heading": 3,
+          "texts": [
+            "45.2 送受音声の時間ズレ"
+          ]
+        },
+        {
+          "refId": "REF356",
+          "heading": 3,
+          "texts": [
+            "45.3 multi-source injection"
+          ]
+        },
+        {
+          "refId": "REF357",
+          "heading": 3,
+          "texts": [
+            "45.4 native id 再利用"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0056",
+      "title": "§47 Memory Ownership & §48 Default Policies",
+      "kind": "data_model",
+      "summary": "Memory ownership rules for native callbacks. Default policy documentation: transport, codec, DTMF, audio delivery, SRTP, ICE defaults.",
+      "language": "rust",
+      "slug": "memory_ownership_defaults",
+      "headingRefs": [
+        {
+          "refId": "REF283",
+          "heading": 2,
+          "texts": [
+            "47. メモリ所有権規則"
+          ]
+        },
+        {
+          "refId": "REF284",
+          "heading": 2,
+          "texts": [
+            "48. デフォルトポリシーの明文化"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0057",
+      "title": "§49 lib.rs Template & §50 Acceptance Criteria",
+      "kind": "requirement",
+      "summary": "lib.rs module declarations and re-exports. 12 acceptance criteria covering build, bindings, prebuilt, multi-account, transports, codecs, DTMF, events, audio chunks, API unification.",
+      "language": "rust",
+      "slug": "lib_template_acceptance",
+      "headingRefs": [
+        {
+          "refId": "REF285",
+          "heading": 2,
+          "texts": [
+            "49. lib.rs 雛形"
+          ]
+        },
+        {
+          "refId": "REF286",
+          "heading": 2,
+          "texts": [
+            "50. 受け入れ基準"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0058",
+      "title": "§51 Conclusion",
+      "kind": "rationale",
+      "summary": "RFC closure statement: all requirements expanded to implementable granularity, no further design work needed before implementation phase.",
+      "language": "rust",
+      "slug": "conclusion_rfc_closure",
+      "headingRefs": [
+        {
+          "refId": "REF287",
+          "heading": 2,
+          "texts": [
+            "51. 結論"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0059",
+      "title": "§52 HTTP/WebSocket API Layer & Crate Split",
+      "kind": "architecture",
+      "summary": "Separate crate (siprs-server) for HTTP/WS API with Axum. Dependency direction: siprs-server depends on siprs only. Justification for split, TOML config for both crates.",
+      "language": "rust",
+      "slug": "http_ws_crate_split",
+      "headingRefs": [
+        {
+          "refId": "REF288",
+          "heading": 2,
+          "texts": [
+            "52. HTTP/WebSocket API 層 — 責務範囲と crate 分割"
+          ]
+        },
+        {
+          "refId": "REF289",
+          "heading": 3,
+          "texts": [
+            "52.1 Crate 分割方針（設計判断）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0060",
+      "title": "§52.2-52.4 License & Multi-Instance Policy",
+      "kind": "architecture",
+      "summary": "Dual-license (MIT/Apache 2.0) with GPL linking exception. Multi-instance via PjsuaBackend singleton sharing. Non-Pure Rust FFI audit policy.",
+      "language": "rust",
+      "slug": "license_multi_ffi",
+      "headingRefs": [
+        {
+          "refId": "REF290",
+          "heading": 3,
+          "texts": [
+            "52.2 ライセンス方針"
+          ]
+        },
+        {
+          "refId": "REF291",
+          "heading": 3,
+          "texts": [
+            "52.3 マルチインスタンス方式（設計判断）"
+          ]
+        },
+        {
+          "refId": "REF292",
+          "heading": 3,
+          "texts": [
+            "52.4 PJSIP 非 Pure Rust の補足"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0061",
+      "title": "§53 Standalone Server Mode & Config",
+      "kind": "api_contract",
+      "summary": "siprs-server main.rs entry point, ServerConfig struct (bind_addr, db_path, auth), AuthConfig/AuthMode for security configuration.",
+      "language": "rust",
+      "slug": "standalone_server_config",
+      "headingRefs": [
+        {
+          "refId": "REF293",
+          "heading": 2,
+          "texts": [
+            "53. スタンドアロンサーバーモード"
+          ]
+        },
+        {
+          "refId": "REF294",
+          "heading": 3,
+          "texts": [
+            "53.1 起動モード"
+          ]
+        },
+        {
+          "refId": "REF295",
+          "heading": 3,
+          "texts": [
+            "53.2 設定ファイル構成"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0062",
+      "title": "§54 HTTP/WS API Protocol — REST & WebSocket",
+      "kind": "api_contract",
+      "summary": "REST API endpoint table (18 endpoints), WebSocket endpoints (control + audio), Axum router structure, WS message protocol (JSON text + binary audio frames). Event-audio correlation via sequence numbers.",
+      "language": "rust",
+      "slug": "http_ws_protocol",
+      "headingRefs": [
+        {
+          "refId": "REF296",
+          "heading": 2,
+          "texts": [
+            "54. HTTP/WebSocket API プロトコル構成"
+          ]
+        },
+        {
+          "refId": "REF297",
+          "heading": 3,
+          "texts": [
+            "54.1 REST API エンドポイント一覧"
+          ]
+        },
+        {
+          "refId": "REF298",
+          "heading": 3,
+          "texts": [
+            "54.2 WebSocket エンドポイント"
+          ]
+        },
+        {
+          "refId": "REF299",
+          "heading": 3,
+          "texts": [
+            "54.3 Axum Router 構造"
+          ]
+        },
+        {
+          "refId": "REF300",
+          "heading": 3,
+          "texts": [
+            "54.4 WebSocket メッセージプロトコル"
+          ]
+        },
+        {
+          "refId": "REF301",
+          "heading": 3,
+          "texts": [
+            "54.5 イベント-音声時間的相関保証（設計判断）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0063",
+      "title": "§55 Auth Model — JWT & Axum Middleware",
+      "kind": "security",
+      "summary": "JWT token issuance via SIP account auth, Axum JWT auth middleware layer, AuthConfig defaults (LocalhostOnly mode for development).",
+      "language": "rust",
+      "slug": "auth_jwt_middleware",
+      "headingRefs": [
+        {
+          "refId": "REF302",
+          "heading": 2,
+          "texts": [
+            "55. 認証・認可モデル"
+          ]
+        },
+        {
+          "refId": "REF303",
+          "heading": 3,
+          "texts": [
+            "55.1 JWT 発行エンドポイント"
+          ]
+        },
+        {
+          "refId": "REF304",
+          "heading": 3,
+          "texts": [
+            "55.2 Axum JWT 認証 Middleware"
+          ]
+        },
+        {
+          "refId": "REF305",
+          "heading": 3,
+          "texts": [
+            "55.3 認証設定のデフォルト"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0064",
+      "title": "§56 SQLite Persistence with SeaORM",
+      "kind": "data_model",
+      "summary": "SQLite + SeaORM for account/transport setting persistence. Table schemas (accounts, transport_configs, client_settings, tls_configs). Migration management via Makefile.",
+      "language": "rust",
+      "slug": "sqlite_schema",
+      "headingRefs": [
+        {
+          "refId": "REF306",
+          "heading": 2,
+          "texts": [
+            "56. 設定永続化 — SQLite + SeaORM"
+          ]
+        },
+        {
+          "refId": "REF307",
+          "heading": 3,
+          "texts": [
+            "56.1 テーブルスキーマ"
+          ]
+        },
+        {
+          "refId": "REF308",
+          "heading": 3,
+          "texts": [
+            "56.2 マイグレーション管理"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0065",
+      "title": "§57 Test Strategy Layer 5 — API Integration",
+      "kind": "test_policy",
+      "summary": "Layer 5 for HTTP/WS API integration tests. Extended test layer structure, test directory layout, Axum TestResponse and WebSocket test examples. Graphify/boundify integration notes.",
+      "language": "rust",
+      "slug": "test_apilayer5",
+      "headingRefs": [
+        {
+          "refId": "REF309",
+          "heading": 2,
+          "texts": [
+            "57. テスト戦略拡張 — Layer 5（HTTP/WebSocket API Integration Test）"
+          ]
+        },
+        {
+          "refId": "REF310",
+          "heading": 3,
+          "texts": [
+            "57.1 テスト層構造（拡張版）"
+          ]
+        },
+        {
+          "refId": "REF311",
+          "heading": 3,
+          "texts": [
+            "57.2 テストディレクトリ構成"
+          ]
+        },
+        {
+          "refId": "REF312",
+          "heading": 3,
+          "texts": [
+            "57.3 graphify-rfc + boundify-graph との連携"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0066",
+      "title": "§58 Semver Operations & §59 SIP Networking Details",
+      "kind": "config",
+      "summary": "0.x flexible versioning policy, cargo semver-checks for 1.0+. TLS certificate management via NativeEvent, DNS SRV/NAPTR delegation to PJSIP, multi-network interface configuration.",
+      "language": "rust",
+      "slug": "semver_sip_networking",
+      "headingRefs": [
+        {
+          "refId": "REF313",
+          "heading": 2,
+          "texts": [
+            "58. セマンティックバージョニング運用方針"
+          ]
+        },
+        {
+          "refId": "REF314",
+          "heading": 2,
+          "texts": [
+            "59. SIP ネットワーキング詳細"
+          ]
+        },
+        {
+          "refId": "REF315",
+          "heading": 3,
+          "texts": [
+            "59.1 TLS 証明書管理"
+          ]
+        },
+        {
+          "refId": "REF316",
+          "heading": 3,
+          "texts": [
+            "59.2 DNS SRV/NAPTR 解決"
+          ]
+        },
+        {
+          "refId": "REF317",
+          "heading": 3,
+          "texts": [
+            "59.3 マルチネットワークインターフェース"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0067",
+      "title": "§61 I/O Boundary Reference Information",
+      "kind": "architecture",
+      "summary": "Reference information for future graphify-rfc splitting: 7 observed I/O boundaries (crate, FFI, async, API, event, persistence, auth) with attributes, dependencies, and test split guidance.",
+      "language": "rust",
+      "slug": "io_boundary_reference",
+      "headingRefs": [
+        {
+          "refId": "REF318",
+          "heading": 2,
+          "texts": [
+            "61. graphify-rfc + boundify-graph のための参考情報 — RFC設計書が示す I/O 境界の手がかり"
+          ]
+        },
+        {
+          "refId": "REF319",
+          "heading": 2,
+          "texts": [
+            "60. 既存 RFC セクションとの対応関係"
+          ]
+        },
+        {
+          "refId": "REF358",
+          "heading": 3,
+          "texts": [
+            "61.1 観測された自然な I/O 境界"
+          ]
+        },
+        {
+          "refId": "REF359",
+          "heading": 3,
+          "texts": [
+            "61.2 境界の属性"
+          ]
+        },
+        {
+          "refId": "REF360",
+          "heading": 3,
+          "texts": [
+            "61.3 分割時に注意が必要な依存関係"
+          ]
+        },
+        {
+          "refId": "REF361",
+          "heading": 3,
+          "texts": [
+            "61.4 テスト分割への参考"
+          ]
+        },
+        {
+          "refId": "REF362",
+          "heading": 3,
+          "texts": [
+            "61.5 分割後のファイル構成（一案）"
+          ]
+        },
+        {
+          "refId": "REF363",
+          "heading": 3,
+          "texts": [
+            "61.6 参考: 本セクションの目的と限界"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0068",
+      "title": "§62 実装整合設計 — RESIDUE 解消のための設計判断確定",
+      "kind": "architecture",
+      "summary": "READ ME RESIDUE の3根因（公開API非RFC型 / Mock固定バックエンド / イベントバス分断）を解消する9設計判断の親セクション。破壊的変更を v0.x の今一度に完了させる方針。",
+      "language": "rust",
+      "slug": "impl_integration_design",
+      "headingRefs": [
+        {
+          "refId": "REF320",
+          "heading": 2,
+          "texts": [
+            "62. 実装整合設計 — RESIDUE 解消のための設計判断確定"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0069",
+      "title": "62.0 進化スコープと根因",
+      "kind": "architecture",
+      "summary": "RESIDUE 乖離の根因3点（公開 ClientConfig 非RFC型 / reactor の Mock 固定 / クライアント-react イベントバス分断）の記述。",
+      "language": "rust",
+      "slug": "evolution_scope",
+      "headingRefs": [
+        {
+          "refId": "REF321",
+          "heading": 3,
+          "texts": [
+            "62.0 進化スコープと根因"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0070",
+      "title": "62.1 公開設定 API の一本化（ClientConfig / STUN/TURN/ICE）",
+      "kind": "config",
+      "summary": "RFC §10 準拠 ClientConfig を唯一の公開型に昇格し旧 config.rs 版を完全削除。StunServerConfig/TurnServerConfig の二重定義を一元化し stun_servers/turn_servers を Vec 化。§13 ICE 既定値に一致。",
+      "language": "rust",
+      "slug": "client_config_unify",
+      "headingRefs": [
+        {
+          "refId": "REF322",
+          "heading": 3,
+          "texts": [
+            "62.1 公開設定 API の一本化（ClientConfig / STUN/TURN/ICE）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0071",
+      "title": "62.2 バックエンド選択機構（PjsuaBackend 完全統一・MockBackend 削除）",
+      "kind": "architecture",
+      "summary": "本番バックエンドを pjsua-native feature 選択の PjsuaBackend に完全統一。MockBackend を削除し SipBackend trait は維持、テストは cfg(test) 専用 TestBackend で駆動。",
+      "language": "rust",
+      "slug": "backend_selection",
+      "headingRefs": [
+        {
+          "refId": "REF323",
+          "heading": 3,
+          "texts": [
+            "62.2 バックエンド選択機構（PjsuaBackend 完全統一・MockBackend 削除）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0072",
+      "title": "62.3 イベントバス一元化トポロジ",
+      "kind": "architecture",
+      "summary": "単一 EventBus を SipClient が所有し reactor の dispatch_event が直接 publish。RawSipEventConfig.enabled に応じた raw_sip チャネル生成、subscribe_account の account_id フィルタ死滅解消。",
+      "language": "rust",
+      "slug": "event_bus_unify",
+      "headingRefs": [
+        {
+          "refId": "REF324",
+          "heading": 3,
+          "texts": [
+            "62.3 イベントバス一元化トポロジ"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0073",
+      "title": "62.4 登録状態機械の production 配線",
+      "kind": "state_machine",
+      "summary": "AccountEntry.registration を typed RegistrationState に変更。M20 変換器が NativeEvent(RegistrationStateChanged) を消費し registr_state_machine を駆動。register_on_start をランタイム消費。",
+      "language": "rust",
+      "slug": "registr_wiring",
+      "headingRefs": [
+        {
+          "refId": "REF325",
+          "heading": 3,
+          "texts": [
+            "62.4 登録状態機械の production 配線"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0074",
+      "title": "62.5 公開 API 拡充（通話 API 群）",
+      "kind": "api_contract",
+      "summary": "SipClient に answer(180/183/200/486/603)/hangup/hold/unhold/transfer/send_dtmf/call_state(call_id) を追加。旧 call_state() は calls() に改名。unsubscribe は drop 依存を明文化。",
+      "language": "rust",
+      "slug": "call_api_expansion",
+      "headingRefs": [
+        {
+          "refId": "REF326",
+          "heading": 3,
+          "texts": [
+            "62.5 公開 API 拡充（通話 API 群）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0075",
+      "title": "62.6 メディア経路アーキテクチャと統一音声注入",
+      "kind": "architecture",
+      "summary": "per-call AudioMixer + 初期化時 AudioWorkerTask spawn。AddAudioSource に call_id と channels: ChannelSelector(IN/OUT/BOTH) を付与し統一注入 API 化。tap push を production から呼ぶ。",
+      "language": "rust",
+      "slug": "media_path_arch",
+      "headingRefs": [
+        {
+          "refId": "REF327",
+          "heading": 3,
+          "texts": [
+            "62.6 メディア経路アーキテクチャと統一音声注入"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0076",
+      "title": "62.7 シャットダウン手順の production 配線",
+      "kind": "state_machine",
+      "summary": "reactor Shutdown アームから ShutdownSpec.execute_sequence を実行（BYE/CANCEL→unregister→audio drain→pjsua_destroy）。ClientShutdown publish、ShutdownCommandRouter を is_shutting_down ゲートで接続。",
+      "language": "rust",
+      "slug": "shutdown_wiring",
+      "headingRefs": [
+        {
+          "refId": "REF328",
+          "heading": 3,
+          "texts": [
+            "62.7 シャットダウン手順の production 配線"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0077",
+      "title": "62.8 エラー変換の native_status 保持",
+      "kind": "error_policy",
+      "summary": "SipError に native_status: Option<i32> を保持。M20 converter を reactor 経路で呼び出し pjsua_status→native_status 写像を §14.1 準拠で一元化。文字列埋め込み排除。",
+      "language": "rust",
+      "slug": "error_native_status",
+      "headingRefs": [
+        {
+          "refId": "REF329",
+          "heading": 3,
+          "texts": [
+            "62.8 エラー変換の native_status 保持"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0078",
+      "title": "62.9 I/O 境界参照情報（graphify / boundify 用）",
+      "kind": "architecture",
+      "summary": "各設計判断の入力/出力境界と関連 GRAPH ノード、boundify が Prune する削除対象ファイルの一覧。",
+      "language": "rust",
+      "slug": "io_boundary_62",
+      "headingRefs": [
+        {
+          "refId": "REF330",
+          "heading": 3,
+          "texts": [
+            "62.9 I/O 境界参照情報（graphify / boundify 用）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0079",
+      "title": "62.10 ラウンド 2 進化スコープと根因",
+      "kind": "architecture",
+      "slug": "round2_scope_rootcause",
+      "summary": "ラウンド 2 進化スコープ（H1/H5/H7/H8/H10-H15/EXAMPLES）と 5 つの根因、全体方針（完全実装 + v0.x 破壊的変更受容 + 実 Asterisk/coturn 相互接続検証）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF364",
+          "heading": 3,
+          "texts": [
+            "62.10 ラウンド 2 進化スコープと根因（H1 / H5 / H7 / H8 / H10–H15 / EXAMPLES）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0080",
+      "title": "62.11 トランスポート生成配線と bindgen 整合方針",
+      "kind": "architecture",
+      "slug": "transport_wiring",
+      "summary": "PjsuaBackend::initialize が config.transports を pjsua_transport_create へ反映し、bindgen allowlist とコード期待の整合方針を確定（Q1）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF365",
+          "heading": 3,
+          "texts": [
+            "62.11 本番バックエンド基盤: トランスポート生成配線と bindgen 整合方針（Q1）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0081",
+      "title": "62.12 登録・アカウント経路（自動登録 / unregister 先行 / AccountRemoved）",
+      "kind": "state_machine",
+      "slug": "reg_account_lifecycle",
+      "summary": "register_on_start 自動登録の add_account 時消費、RegistrationSucceeded/Failed 削除、remove_account の unregister 先行と AccountRemoved publish（Q2）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF366",
+          "heading": 3,
+          "texts": [
+            "62.12 登録・アカウント経路: register_on_start 自動登録 / remove_account unregister 先行 / AccountRemoved publish（Q2）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0082",
+      "title": "62.13 イベント経路の完成（FFI drain / raw SIP / P1/P2）",
+      "kind": "architecture",
+      "slug": "event_path_wiring",
+      "summary": "FFI lock-free キュー drain タスク、raw SIP publisher、P1/P2 変換器 Some() 化（Q3）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF367",
+          "heading": 3,
+          "texts": [
+            "62.13 イベント経路の完成: FFI キュー drain / raw SIP publisher / P1/P2 変換器（Q3）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0083",
+      "title": "62.14 着信・通話イベント（CallEntry / answer / CallRejected / CallState）",
+      "kind": "api_contract",
+      "slug": "incoming_call_events",
+      "summary": "IncomingCall の CallEntry 登録、handle_answer の account 解決と CallConnected publish、CallRejected 統一、CallState 全遷移マッピング（Q4）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF368",
+          "heading": 3,
+          "texts": [
+            "62.14 着信・通話イベント: IncomingCall CallEntry 登録 / answer 修正 / CallRejected 統一 / CallState 全遷移（Q4）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0084",
+      "title": "62.15 DTMF 実装整合（DtmfMethod 一元化 / method / DtmfSent）",
+      "kind": "api_contract",
+      "slug": "dtmf_unification",
+      "summary": "DtmfMethod 単一定義（Inband/Info/Rfc4733）、method の PJSIP 送信反映、DtmfSent{Ok} publish 経路（Q5）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF369",
+          "heading": 3,
+          "texts": [
+            "62.15 DTMF 実装整合: DtmfMethod 一元化 / method 反映 / DtmfSent{Ok} 経路（Q5）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0085",
+      "title": "62.16 メディア経路の完成（conf port / キュー消費 / WAV）",
+      "kind": "architecture",
+      "slug": "media_path_wiring",
+      "summary": "conf port コールバック→push_media_frame、out/in_queue 消費（RustMediaPort）、conf_connect、WAV/ファイル source（Q6）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF370",
+          "heading": 3,
+          "texts": [
+            "62.16 メディア経路の完成: conf port コールバック / キュー消費 / conf_connect / WAV・ファイル source（Q6）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0086",
+      "title": "62.17 STUN/TURN/ICE 配線と coturn 検証",
+      "kind": "config",
+      "slug": "stun_turn_ice_wiring",
+      "summary": "stun_servers/turn_servers/ice の pjsua_config/pjsua_media_config 反映と coturn プロトコルレベル検証（Q7/Q7a）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF371",
+          "heading": 3,
+          "texts": [
+            "62.17 STUN/TURN/ICE 配線と coturn プロトコルレベル検証（Q7 / Q7a）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0087",
+      "title": "62.18 Examples 設計（E1–E5）",
+      "kind": "architecture",
+      "slug": "examples_e1e5",
+      "summary": "E1-E5 の 5 example バイナリ定義、共通 cli.rs/client.rs、各契約と検証（Q8）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF372",
+          "heading": 3,
+          "texts": [
+            "62.18 Examples 設計: E1–E5 の確定（Q8）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0088",
+      "title": "62.19 Docker/Asterisk 実 SIP 統合テスト基盤",
+      "kind": "test_policy",
+      "slug": "docker_asterisk_it",
+      "summary": "pjsua-native feature ゲートの統合テスト、docker-compose の Asterisk/coturn、docker 可用性ゲートのスキップ意味論（Q9/Q9a-c）。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF373",
+          "heading": 3,
+          "texts": [
+            "62.19 Docker/Asterisk 実 SIP 統合テスト基盤（Q9 / Q9a-c）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0089",
+      "title": "62.20 I/O 境界参照情報",
+      "kind": "architecture",
+      "slug": "io_boundary_round2",
+      "summary": "ラウンド 2 の各設計判断の I/O 境界と関連ノード/ファイル候補、boundify が Prune する削除対象。",
+      "language": "rust",
+      "headingRefs": [
+        {
+          "refId": "REF374",
+          "heading": 3,
+          "texts": [
+            "62.20 I/O 境界参照情報（graphify / boundify 用）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0090",
+      "title": "62.21 ラウンド 3 進化スコープと根因（H5 / H8 / H11 / H12 / H13 / H14 の残存ギャップ）",
+      "kind": "architecture",
+      "summary": "ラウンド 3 の進化スコープと根因。vendored PJSIP 2.17.0 確定（on_rx_msg はどの 2.x の pjsua_callback にも存在しない）。H5 / H8 / H11 / H12 / H13 / H14 の 8 残存ギャップを §62.22–62.29 に割り当てる。",
+      "language": "rust",
+      "slug": "round3_scope_rootcause",
+      "headingRefs": [
+        {
+          "refId": "REF385",
+          "heading": 3,
+          "texts": [
+            "62.21 ラウンド 3 進化スコープと根因（H5 / H8 / H11 / H12 / H13 / H14 の残存ギャップ）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0091",
+      "title": "62.22 raw SIP 生産経路: pjsip_module フックによる配線（Q1 / Q1a）",
+      "kind": "architecture",
+      "summary": "raw SIP を pjsip_module の on_rx_request / on_rx_response（pjsip_endpt_register_module 登録）で取得し、pkt_info.msg の raw バイトを enqueue_raw_sip_bytes へ供給。観測専用（PJ_FALSE）。",
+      "language": "rust",
+      "slug": "raw_sip_pjsip_module",
+      "headingRefs": [
+        {
+          "refId": "REF386",
+          "heading": 3,
+          "texts": [
+            "62.22 raw SIP 生産経路: pjsip_module フックによる配線（Q1 / Q1a）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0092",
+      "title": "62.23 P1/P2 FFI コールバック登録の完了（Q2）",
+      "kind": "architecture",
+      "summary": "register_callbacks に on_transport_state / on_call_tsx_state / on_call_replaced / on_nat_detect を追加登録。PJSIP 2.17 の pjsua_callback に全フィールド存在を確認済み。",
+      "language": "rust",
+      "slug": "p1p2_callbacks",
+      "headingRefs": [
+        {
+          "refId": "REF387",
+          "heading": 3,
+          "texts": [
+            "62.23 P1/P2 FFI コールバック登録の完了（Q2）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0093",
+      "title": "62.24 TestBackend 登録イベント発火と account_register example 完走（Q3）",
+      "kind": "test_policy",
+      "summary": "TestBackend::set_registration が NativeEvent::RegistrationStateChanged を発火。SipBackend::take_native_events（既定空）で回収し reactor が process_native_event で処理。account_register example が TestBackend 上で完走。",
+      "language": "rust",
+      "slug": "testbackend_reg_evt",
+      "headingRefs": [
+        {
+          "refId": "REF388",
+          "heading": 3,
+          "texts": [
+            "62.24 TestBackend 登録イベント発火と account_register example 完走（Q3）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0094",
+      "title": "62.25 CallEntry.state のネイティブ遷移反映（Q4）",
+      "kind": "state_machine",
+      "summary": "process_native_event の CallStateChanged アームで、変換結果（CallStateTransition）を publish と CallEntry.state 更新の両方に使用。call_state() の stale を解消。",
+      "language": "rust",
+      "slug": "callentry_state",
+      "headingRefs": [
+        {
+          "refId": "REF389",
+          "heading": 3,
+          "texts": [
+            "62.25 CallEntry.state のネイティブ遷移反映（Q4）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0095",
+      "title": "62.26 CallResumed の実装機構（Q5 / Q5a）",
+      "kind": "api_contract",
+      "summary": "CallResumed を unit variant から CallResumed(CallResumedInfo{call_id}) へ変更。NativeEvent::CallMediaStateChanged に media status を追加し、hold→ACTIVE 遷移を CallResumed として publish。",
+      "language": "rust",
+      "slug": "callresumed_media_status",
+      "headingRefs": [
+        {
+          "refId": "REF390",
+          "heading": 3,
+          "texts": [
+            "62.26 CallResumed の実装機構（Q5 / Q5a）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0096",
+      "title": "62.27 DtmfSent 送出完了契約の確定（Q6）",
+      "kind": "api_contract",
+      "summary": "DtmfSent{Ok} を backend 受理 + 500ms タイムアウト経過で送出完了とみなす正式契約に確定。PJSIP に送信完了コールバックは存在しない（検証済み）。",
+      "language": "rust",
+      "slug": "dtmfsent_timeout_contract",
+      "headingRefs": [
+        {
+          "refId": "REF391",
+          "heading": 3,
+          "texts": [
+            "62.27 DtmfSent 送出完了契約の確定（Q6）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0097",
+      "title": "62.28 tap 駆動の生産経路: RustMediaPort port ops（Q7）",
+      "kind": "architecture",
+      "summary": "RustMediaPort の port ops（get_frame / put_frame）が push_frame_to_tap を呼び、conf bridge 経由メディアを AudioTapSender::try_push で tap へ連続供給。pjsua_conf_set_callback は 2.17 にも存在しない。",
+      "language": "rust",
+      "slug": "tap_driving_rustmediaport",
+      "headingRefs": [
+        {
+          "refId": "REF392",
+          "heading": 3,
+          "texts": [
+            "62.28 tap 駆動の生産経路: RustMediaPort port ops（Q7）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0098",
+      "title": "62.29 文書化決定: マイク source / Subscription unsubscribe（Q8 / Q8a）",
+      "kind": "api_contract",
+      "summary": "open_default_microphone_source は通話マイクでない独立キャプチャ source と明文化。Subscription<T> ハンドル型で subscribe / subscribe_account / subscribe_raw_sip をラップし unsubscribe() を提供。",
+      "language": "rust",
+      "slug": "mic_source_subscription",
+      "headingRefs": [
+        {
+          "refId": "REF393",
+          "heading": 3,
+          "texts": [
+            "62.29 文書化決定: マイク source / Subscription unsubscribe（Q8 / Q8a）"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0099",
+      "title": "62.30 I/O 境界参照情報（graphify / boundify 用）— round 3",
+      "kind": "architecture",
+      "summary": "ラウンド 3 の各設計判断（§62.22–62.29）の I/O 境界と関連ノード / ファイル候補、boundify が Prune / 更新するファイル。",
+      "language": "rust",
+      "slug": "io_boundary_round3",
+      "headingRefs": [
+        {
+          "refId": "REF394",
+          "heading": 3,
+          "texts": [
+            "62.30 I/O 境界参照情報（graphify / boundify 用）— round 3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "N0100",
+      "title": "62.31 ラウンド 4 進化スコープと根因（Q9–Q22）",
+      "kind": "architecture",
+      "summary": "ラウンド 4 の進化スコープと根因。pjsua-native の 69 エラー（7 カテゴリ）と prebuilt producer/consumer パイプラインを最優先で解決し、その後 H8/H13/H14/H15/EXAMPLES の RESIDUE ギャップを解消する。設計方針は docs/PJSUA-NATIVE-PREBUILT-DESIGN-BRIEF.md（拘束方針）。チケット順序は A/B 最優先、ギャップは後に連ねる。",
+      "language": "rust",
+      "slug": "round4_scope_rootcause",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.31 ラウンド 4 進化スコープと根因（Q9–Q22）"
+          ],
+          "refId": "REF395"
+        }
+      ]
+    },
+    {
+      "id": "N0101",
+      "title": "62.32 vendored PJSIP バージョン戦略（Q9）",
+      "kind": "architecture",
+      "summary": "vendored PJSIP 2.17.0 を維持しコード適応修正（Q9）。PJSUA_CALL_NULL はクレート内定数（src/ffi/constants.rs）へ、PJ_CRED_DATA_PLAIN_PASSWD は PJSIP_CRED_DATA_PLAIN_PASSWD（sip_auth.h:109）へ、pjsua_codec_info の encoding_name/clock_rate は codec_id パースで導出。",
+      "language": "rust",
+      "slug": "vendored_pjsip_strategy",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.32 vendored PJSIP バージョン戦略（Q9）"
+          ],
+          "refId": "REF396"
+        }
+      ]
+    },
+    {
+      "id": "N0102",
+      "title": "62.33 bindgen enum/const 生成戦略（Q10）",
+      "kind": "build_ci",
+      "summary": "bindgen enum/const 生成戦略（Q10）。pjsip_inv_state / pjsip_tsx_state / pj_status_t 等の enum 型を allowlist し default_enum_style=rust + prepend_enum_name(false) で Rust enum 生成。PJ_SUCCESS 等の列挙子を emit。pjsua_config 構造体全体も allowlist。",
+      "language": "rust",
+      "slug": "bindgen_enum_generation",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.33 bindgen enum/const 生成戦略（Q10）"
+          ],
+          "refId": "REF397"
+        }
+      ]
+    },
+    {
+      "id": "N0103",
+      "title": "62.34 静的ライブラリのリンク戦略（Q11 / Q11a）",
+      "kind": "build_ci",
+      "summary": "静的ライブラリのリンク戦略（Q11/Q11a）。リンクセットは解決済み lib/ ディレクトリから導出。libpjproject.a が存在すれば static=pjproject のみ、無ければ個別 lib*.a を全列挙し Linux のみ --start-group/--end-group で wrap。システム依存はターゲット別。",
+      "language": "rust",
+      "slug": "static_link_strategy",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.34 静的ライブラリのリンク戦略（Q11 / Q11a）"
+          ],
+          "refId": "REF398"
+        }
+      ]
+    },
+    {
+      "id": "N0104",
+      "title": "62.35 build.rs 4 段階解決パイプラインと vendored-source build フォールバック（Q12）",
+      "kind": "build_ci",
+      "summary": "build.rs 4 段階解決パイプライン（Q12）。prebuilt → system（pkg-config/env）→ vendored-source CMake ビルド → fail-stop（warning-and-continue 禁止）。SIPRS_STAGE_PREBUILT=1 時のみ vendor へ stage。",
+      "language": "rust",
+      "slug": "build_rs_resolution",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.35 build.rs 4 段階解決パイプラインと vendored-source build フォールバック（Q12）"
+          ],
+          "refId": "REF399"
+        }
+      ]
+    },
+    {
+      "id": "N0105",
+      "title": "62.36 producer ツール crates/pjsip-prebuilt（Q13 / Q14 / Q16）",
+      "kind": "build_ci",
+      "summary": "producer ツール crates/pjsip-prebuilt（Q13/Q14/Q16）。siprs 非依存の独立クレート。CLI は build/stage/verify <triple>。コミット済み Dockerfile + volume マウントで Linux-from-Mac ビルド。DoD 検証は file + nm + 最小 C リンクテスト。",
+      "language": "rust",
+      "slug": "prebuilt_producer",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.36 producer ツール crates/pjsip-prebuilt（Q13 / Q14 / Q16）"
+          ],
+          "refId": "REF400"
+        }
+      ]
+    },
+    {
+      "id": "N0106",
+      "title": "62.37 CI 運用と prebuilt コミット（Q15）",
+      "kind": "build_ci",
+      "summary": "CI 運用と prebuilt コミット（Q15）。GitHub Actions 3 OS マトリクス（macos/ubuntu/windows）で producer を実行し、vendor/prebuilt を通常 push で直接コミット（PR 儀式なし）。§5.1 の「clone 直後に prebuilt 存在」を保証。",
+      "language": "rust",
+      "slug": "prebuilt_ci_commit",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.37 CI 運用と prebuilt コミット（Q15）"
+          ],
+          "refId": "REF401"
+        }
+      ]
+    },
+    {
+      "id": "N0107",
+      "title": "62.38 raw SIP 実 PJSIP 検証経路（Q17）",
+      "kind": "test_policy",
+      "summary": "raw SIP 実 PJSIP 検証経路（Q17）。subscribe_raw_sip() は実 pjsua-native 経路（pjsip_module フック → enqueue_raw_sip_bytes → subscribe_raw_sip）の完全な統合テストで固定。TestBackend のテスト専用フック等のダミー実装は禁止。",
+      "language": "rust",
+      "slug": "raw_sip_real_test",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.38 raw SIP 実 PJSIP 検証経路（Q17）"
+          ],
+          "refId": "REF402"
+        }
+      ]
+    },
+    {
+      "id": "N0108",
+      "title": "62.39 on_ice_transport_error 登録（Q18）",
+      "kind": "architecture",
+      "summary": "on_ice_transport_error 登録（Q18）。pjsua_callback ミラーにフィールド追加、register_callbacks で登録、pjsip_error_info から NativeEvent::IceTransportError を生成して reactor へ enqueue（P17-3 残項目の解消）。",
+      "language": "rust",
+      "slug": "ice_transport_error",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.39 on_ice_transport_error 登録（Q18）"
+          ],
+          "refId": "REF403"
+        }
+      ]
+    },
+    {
+      "id": "N0109",
+      "title": "62.40 push_media_frame 生産経路配線（Q19）",
+      "kind": "architecture",
+      "summary": "push_media_frame 生産経路配線（Q19）。RustMediaPort の port ops（get_frame/put_frame）が push_frame_to_tap を呼ぶ既存構造（P17-8）を、実 PJSIP conf bridge 駆動で統合テスト固定。TestBackend フックは共有ヘルパーのユニット検証に限定。",
+      "language": "rust",
+      "slug": "push_media_frame",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.40 push_media_frame 生産経路配線（Q19）"
+          ],
+          "refId": "REF404"
+        }
+      ]
+    },
+    {
+      "id": "N0110",
+      "title": "62.41 AddAudioSource 時 RustMediaPort conf bridge 再登録（Q20）",
+      "kind": "architecture",
+      "summary": "AddAudioSource 時 RustMediaPort conf bridge 再登録（Q20）。mixer 生成・登録後に register_media_ports_for_calls を再実行し、注入音声が out_queue に滞留して破棄される H14 ギャップを解消。",
+      "language": "rust",
+      "slug": "add_audio_source",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.41 AddAudioSource 時 RustMediaPort conf bridge 再登録（Q20）"
+          ],
+          "refId": "REF405"
+        }
+      ]
+    },
+    {
+      "id": "N0111",
+      "title": "62.42 実 PJSIP 統合テストスコープ（Q21）",
+      "kind": "test_policy",
+      "summary": "実 PJSIP 統合テストスコープ（Q21）。sip_integration.rs / docker_asterisk_it.rs でプロトコルレベル（REGISTER→200 / INVITE→180/200 / BYE / SIP INFO / RFC4733 DTMF / STUN/TURN via coturn）と通信レベル（2 エンドポイント間 RTP）を CI で保証。",
+      "language": "rust",
+      "slug": "real_pjsip_itest",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.42 実 PJSIP 統合テストスコープ（Q21）"
+          ],
+          "refId": "REF406"
+        }
+      ]
+    },
+    {
+      "id": "N0112",
+      "title": "62.43 チケット構造とフェーズ割当（Q22）",
+      "kind": "architecture",
+      "summary": "チケット構造とフェーズ割当（Q22）。phase 18 に Ticket A（消費者/bindgen 整合）と Ticket B（生産者/prebuilt+CI+コミット）を最優先で並列配置し、phase 19 以降に H8/H13/H14/H15/EXAMPLES のギャップチケットを連ねる。",
+      "language": "rust",
+      "slug": "round4_tickets",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.43 チケット構造とフェーズ割当（Q22）"
+          ],
+          "refId": "REF407"
+        }
+      ]
+    },
+    {
+      "id": "N0113",
+      "title": "62.44 I/O 境界参照情報（graphify / boundify 用）— round 4",
+      "kind": "architecture",
+      "summary": "round 4 の I/O 境界参照情報。graphify/boundify の分割判断用。新規 crates/pjsip-prebuilt・Dockerfile・.github/workflows/prebuilt.yml と、更新ファイル群（build.rs / build_script_bindgen.rs / ffi 層 / runtime）を列挙。",
+      "language": "rust",
+      "slug": "io_boundary_round4",
+      "headingRefs": [
+        {
+          "heading": 3,
+          "texts": [
+            "62.44 I/O 境界参照情報（graphify / boundify 用）— round 4"
+          ],
+          "refId": "REF408"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "N0001",
+      "to": "N0007",
+      "type": "implements",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C001",
+          "precondition": "RFC defines purpose",
+          "postcondition": "Purpose is implemented by functional requirements",
+          "invariant": "Purpose scope remains audio-only"
+        }
+      ]
+    },
+    {
+      "from": "N0001",
+      "to": "N0009",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C002",
+          "precondition": "Concurrency model defined",
+          "postcondition": "Purpose implementable via async model",
+          "invariant": "Reactor thread model unchanged"
+        }
+      ]
+    },
+    {
+      "from": "N0002",
+      "to": "N0001",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C003",
+          "precondition": "Purpose defined",
+          "postcondition": "M20 items prioritized",
+          "invariant": "Priority ordering does not imply dependency"
+        }
+      ]
+    },
+    {
+      "from": "N0003",
+      "to": "N0001",
+      "type": "constrains",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C004",
+          "precondition": "Purpose scope known",
+          "postcondition": "Non-goals documented",
+          "invariant": "Tauri boundary respected"
+        }
+      ]
+    },
+    {
+      "from": "N0004",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C005",
+          "precondition": "Terms used in purpose",
+          "postcondition": "Terms defined",
+          "invariant": "Definitions stable within document"
+        }
+      ]
+    },
+    {
+      "from": "N0005",
+      "to": "N0001",
+      "type": "constrains",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C006",
+          "precondition": "Purpose sets scope",
+          "postcondition": "Compliance requirements constrain implementation",
+          "invariant": "MSRV, PJSIP version, OS targets fixed"
+        }
+      ]
+    },
+    {
+      "from": "N0006",
+      "to": "N0005",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C007",
+          "precondition": "Compliance requirements constrain implementation",
+          "postcondition": "Compliance requirements constrain implementation",
+          "invariant": "0.x phase flexible"
+        }
+      ]
+    },
+    {
+      "from": "N0007",
+      "to": "N0001",
+      "type": "constrains",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C008",
+          "precondition": "Purpose and scope defined",
+          "postcondition": "15 functional requirements specified",
+          "invariant": "List is normative and exhaustive"
+        }
+      ]
+    },
+    {
+      "from": "N0008",
+      "to": "N0001",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C009",
+          "precondition": "Crate architecture to be defined",
+          "postcondition": "Module structure and responsibility split documented",
+          "invariant": "Single crate with modular internal structure"
+        }
+      ]
+    },
+    {
+      "from": "N0009",
+      "to": "N0008",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C010",
+          "precondition": "Module structure defined",
+          "postcondition": "Concurrency model fits module boundaries",
+          "invariant": "Reactor is single-threaded"
+        }
+      ]
+    },
+    {
+      "from": "N0010",
+      "to": "N0009",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C011",
+          "precondition": "Concurrency model established",
+          "postcondition": "RuntimeCommand enum defined for serialization",
+          "invariant": "All PJSUA calls go through MPSC channel"
+        }
+      ]
+    },
+    {
+      "from": "N0011",
+      "to": "N0009",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C012",
+          "precondition": "Command serialization established",
+          "postcondition": "Public API designed around RuntimeCommand pattern",
+          "invariant": "API is Send+Sync"
+        }
+      ]
+    },
+    {
+      "from": "N0012",
+      "to": "N0011",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C013",
+          "precondition": "Public API needs identifiers",
+          "postcondition": "Newtype IDs with BiMap mapping defined",
+          "invariant": "IDs are NonZeroU64"
+        }
+      ]
+    },
+    {
+      "from": "N0013",
+      "to": "N0005",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C014",
+          "precondition": "Compliance baseline established",
+          "postcondition": "ClientConfig fully specified",
+          "invariant": "All fields have defaults"
+        }
+      ]
+    },
+    {
+      "from": "N0014",
+      "to": "N0013",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C015",
+          "precondition": "ClientConfig defined",
+          "postcondition": "AccountConfig specified with validation",
+          "invariant": "Validation rules enforced"
+        }
+      ]
+    },
+    {
+      "from": "N0015",
+      "to": "N0013",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C016",
+          "precondition": "ClientConfig includes transport/ICE",
+          "postcondition": "TransportConfig and ICE config specified",
+          "invariant": "Full ICE support, trickle ICE optional"
+        }
+      ]
+    },
+    {
+      "from": "N0016",
+      "to": "N0011",
+      "type": "constrains",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C017",
+          "precondition": "Public API design in progress",
+          "postcondition": "Error design constrains API return types",
+          "invariant": "All APIs return Result<T, SipError>"
+        }
+      ]
+    },
+    {
+      "from": "N0017",
+      "to": "N0016",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C018",
+          "precondition": "Error design constrains API return types",
+          "postcondition": "Error design constrains API return types",
+          "invariant": "No new error kinds for M20 commands"
+        }
+      ]
+    },
+    {
+      "from": "N0018",
+      "to": "N0011",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C019",
+          "precondition": "Public API needs event types",
+          "postcondition": "SipEventPayload and EventBus defined",
+          "invariant": "Events are loss-tolerant broadcast"
+        }
+      ]
+    },
+    {
+      "from": "N0019",
+      "to": "N0018",
+      "type": "part_of",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C020",
+          "precondition": "Event model established",
+          "postcondition": "EventBus implementation and AccountEventReceiver defined",
+          "invariant": "AccountEventReceiver filters by account_id"
+        }
+      ]
+    },
+    {
+      "from": "N0020",
+      "to": "N0018",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C021",
+          "precondition": "Event model defined",
+          "postcondition": "Bus split rationale and delivery guarantees documented",
+          "invariant": "Events are observation-only, not source of truth"
+        }
+      ]
+    },
+    {
+      "from": "N0021",
+      "to": "N0018",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C022",
+          "precondition": "Event model defined",
+          "postcondition": "NativeEvent-to-SipEventPayload mapping complete",
+          "invariant": "All NativeEvent variants handled"
+        }
+      ]
+    },
+    {
+      "from": "N0022",
+      "to": "N0021",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C023",
+          "precondition": "NativeEvent-to-SipEventPayload mapping complete",
+          "postcondition": "NativeEvent-to-SipEventPayload mapping complete",
+          "invariant": "pjsip_inv_state values 0-4 covered"
+        }
+      ]
+    },
+    {
+      "from": "N0023",
+      "to": "N0021",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C024",
+          "precondition": "NativeEvent-to-SipEventPayload mapping complete",
+          "postcondition": "NativeEvent-to-SipEventPayload mapping complete",
+          "invariant": "MockBackend testable"
+        }
+      ]
+    },
+    {
+      "from": "N0024",
+      "to": "N0018",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C025",
+          "precondition": "Event model provides RawSIP bus",
+          "postcondition": "RawSipMessage struct defined",
+          "invariant": "Redact authorization when enabled"
+        }
+      ]
+    },
+    {
+      "from": "N0025",
+      "to": "N0011",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C026",
+          "precondition": "Account API needs state",
+          "postcondition": "Registration state machine defined",
+          "invariant": "Registration independent of call ability"
+        }
+      ]
+    },
+    {
+      "from": "N0026",
+      "to": "N0011",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C027",
+          "precondition": "Call API needs state",
+          "postcondition": "Call state machine defined",
+          "invariant": "max_calls enforced"
+        }
+      ]
+    },
+    {
+      "from": "N0027",
+      "to": "N0026",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C028",
+          "precondition": "States defined",
+          "postcondition": "Call API with answer semantics",
+          "invariant": "answer() only valid for incoming calls"
+        }
+      ]
+    },
+    {
+      "from": "N0028",
+      "to": "N0027",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C029",
+          "precondition": "Call API supports DTMF",
+          "postcondition": "DTMF specification and DtmfReceived defined",
+          "invariant": "3 methods: Inband, SIP INFO, RFC4733"
+        }
+      ]
+    },
+    {
+      "from": "N0029",
+      "to": "N0028",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C030",
+          "precondition": "DTMF spec defined",
+          "postcondition": "DtmfSentInfo and two-phase design specified",
+          "invariant": "500ms timeout fallback"
+        }
+      ]
+    },
+    {
+      "from": "N0030",
+      "to": "N0011",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C031",
+          "precondition": "Audio delivery part of API",
+          "postcondition": "Audio format model and AudioChunkPair defined",
+          "invariant": "IN/OUT paired by timestamp"
+        }
+      ]
+    },
+    {
+      "from": "N0031",
+      "to": "N0026",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C032",
+          "precondition": "Call model defined",
+          "postcondition": "Audio subscribe API with backpressure policy",
+          "invariant": "Realtime vs Lossless modes"
+        }
+      ]
+    },
+    {
+      "from": "N0032",
+      "to": "N0031",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C033",
+          "precondition": "Audio subscribe uses sources",
+          "postcondition": "AsyncAudioSource trait with RPITIT",
+          "invariant": "ErasedAudioSource auto-derived"
+        }
+      ]
+    },
+    {
+      "from": "N0033",
+      "to": "N0009",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C034",
+          "precondition": "Concurrency model defines audio worker",
+          "postcondition": "AudioMixer with RT boundary via lock-free queue",
+          "invariant": "No blocking operations in RT callback"
+        }
+      ]
+    },
+    {
+      "from": "N0034",
+      "to": "N0033",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C035",
+          "precondition": "AudioMixer defined",
+          "postcondition": "AudioWorkerTask and source lifecycle specified",
+          "invariant": "Sources added/removed at frame boundaries"
+        }
+      ]
+    },
+    {
+      "from": "N0035",
+      "to": "N0033",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C036",
+          "precondition": "Audio pipeline needs alignment",
+          "postcondition": "PairAligner with tolerance-based matching",
+          "invariant": "Zero-padding on missing data"
+        }
+      ]
+    },
+    {
+      "from": "N0036",
+      "to": "N0033",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C037",
+          "precondition": "Audio pipeline needs resampling",
+          "postcondition": "ResamplePipeline with rubato",
+          "invariant": "Stereo L=IN, R=OUT mapping"
+        }
+      ]
+    },
+    {
+      "from": "N0037",
+      "to": "N0009",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C038",
+          "precondition": "FFI needed for PJSUA access",
+          "postcondition": "PJSIP FFI layer with safe wrappers",
+          "invariant": "Unsafe isolated to ffi/ module"
+        }
+      ]
+    },
+    {
+      "from": "N0038",
+      "to": "N0037",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C039",
+          "precondition": "FFI layer and SipBackend exist",
+          "postcondition": "Dual Client callback routing specified",
+          "invariant": "Single Reactor + EventBus split"
+        }
+      ]
+    },
+    {
+      "from": "N0039",
+      "to": "N0005",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C040",
+          "precondition": "Build requirements defined",
+          "postcondition": "build.rs strategy and OS dependencies specified",
+          "invariant": "Prebuilt-first, source fallback"
+        }
+      ]
+    },
+    {
+      "from": "N0040",
+      "to": "N0014",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C041",
+          "precondition": "AccountConfig defines codec policy",
+          "postcondition": "Codec enforcement and fallback rules specified",
+          "invariant": "PCMU and Opus only"
+        }
+      ]
+    },
+    {
+      "from": "N0041",
+      "to": "N0040",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C042",
+          "precondition": "Codec policy defined",
+          "postcondition": "Explicit vs auto mode specified",
+          "invariant": "Opus=255, PCMU=254 in auto mode"
+        }
+      ]
+    },
+    {
+      "from": "N0042",
+      "to": "N0015",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C043",
+          "precondition": "Transport config defined",
+          "postcondition": "SRTP spec and reconnection policy specified",
+          "invariant": "SRTP feature-gated"
+        }
+      ]
+    },
+    {
+      "from": "N0043",
+      "to": "N0001",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C044",
+          "precondition": "Lifetime management needed",
+          "postcondition": "Shutdown specification with cancellation safety",
+          "invariant": "Shutdown is idempotent"
+        }
+      ]
+    },
+    {
+      "from": "N0044",
+      "to": "N0043",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C045",
+          "precondition": "Shutdown spec defined",
+          "postcondition": "M20 command routing during shutdown specified",
+          "invariant": "GetAccountInfo permitted, ConfConnect rejected"
+        }
+      ]
+    },
+    {
+      "from": "N0045",
+      "to": "N0009",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C046",
+          "precondition": "Runtime state owned by reactor",
+          "postcondition": "ClientState, AccountEntry, CallEntry defined",
+          "invariant": "Read-only snapshots via read().await"
+        }
+      ]
+    },
+    {
+      "from": "N0046",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C047",
+          "precondition": "Observability needed for operations",
+          "postcondition": "tracing, metrics, and ClientCapabilities specified",
+          "invariant": "Metrics optional via feature flag"
+        }
+      ]
+    },
+    {
+      "from": "N0047",
+      "to": "N0001",
+      "type": "constrains",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C048",
+          "precondition": "Security requirements known",
+          "postcondition": "Security measures and platform differences documented",
+          "invariant": "SecretString for passwords"
+        }
+      ]
+    },
+    {
+      "from": "N0048",
+      "to": "N0027",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C049",
+          "precondition": "Call API defined",
+          "postcondition": "Incoming call handling and REFER/transfer specified",
+          "invariant": "Blind transfer mandatory"
+        }
+      ]
+    },
+    {
+      "from": "N0049",
+      "to": "N0033",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C050",
+          "precondition": "AudioMixer defined",
+          "postcondition": "Media bridge with custom media port",
+          "invariant": "Lock-free queue separates RT from async"
+        }
+      ]
+    },
+    {
+      "from": "N0050",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C051",
+          "precondition": "Usage needs documentation",
+          "postcondition": "Device policy and usage examples provided",
+          "invariant": "Microphone is optional feature"
+        }
+      ]
+    },
+    {
+      "from": "N0051",
+      "to": "N0013",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C052",
+          "precondition": "ClientConfig defined",
+          "postcondition": "Validation phase with fail-fast rules",
+          "invariant": "All validation rules enumerated"
+        }
+      ]
+    },
+    {
+      "from": "N0052",
+      "to": "N0007",
+      "type": "validates",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C053",
+          "precondition": "Test strategy needed for requirements",
+          "postcondition": "4-layer test strategy defined",
+          "invariant": "Each layer has defined scope"
+        }
+      ]
+    },
+    {
+      "from": "N0053",
+      "to": "N0052",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C054",
+          "precondition": "4-layer test strategy defined",
+          "postcondition": "4-layer test strategy defined",
+          "invariant": "DualClientContext for bidirectional tests"
+        }
+      ]
+    },
+    {
+      "from": "N0054",
+      "to": "N0039",
+      "type": "validates",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C055",
+          "precondition": "Build strategy defined",
+          "postcondition": "CI/CD pipeline and Docker tests specified",
+          "invariant": "Matrix covers 3 OSes"
+        }
+      ]
+    },
+    {
+      "from": "N0055",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C056",
+          "precondition": "Known challenges documented",
+          "postcondition": "Panic policy with cleanup procedure",
+          "invariant": "catch_unwind in FFI callbacks"
+        }
+      ]
+    },
+    {
+      "from": "N0056",
+      "to": "N0037",
+      "type": "constrains",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C057",
+          "precondition": "FFI layer needs memory rules",
+          "postcondition": "Memory ownership rules and default policies",
+          "invariant": "pj_str_t always Rust-owned"
+        }
+      ]
+    },
+    {
+      "from": "N0057",
+      "to": "N0007",
+      "type": "validates",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C058",
+          "precondition": "Acceptance criteria needed",
+          "postcondition": "lib.rs template and 12 acceptance criteria",
+          "invariant": "All criteria must pass for completion"
+        }
+      ]
+    },
+    {
+      "from": "N0058",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C059",
+          "precondition": "RFC complete",
+          "postcondition": "Conclusion declaring all requirements implementable",
+          "invariant": "No further design work needed"
+        }
+      ]
+    },
+    {
+      "from": "N0059",
+      "to": "N0008",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C060",
+          "precondition": "Core crate structure defined",
+          "postcondition": "HTTP/WS API layer in separate crate",
+          "invariant": "siprs-server depends on siprs, not inverse"
+        }
+      ]
+    },
+    {
+      "from": "N0060",
+      "to": "N0059",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C061",
+          "precondition": "HTTP/WS API layer in separate crate",
+          "postcondition": "HTTP/WS API layer in separate crate",
+          "invariant": "GPL linking exception"
+        }
+      ]
+    },
+    {
+      "from": "N0061",
+      "to": "N0059",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C062",
+          "precondition": "Server crate needed",
+          "postcondition": "Standalone server mode and config defined",
+          "invariant": "AuthConfig defaults to LocalhostOnly"
+        }
+      ]
+    },
+    {
+      "from": "N0062",
+      "to": "N0061",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C063",
+          "precondition": "Server mode defined",
+          "postcondition": "REST and WebSocket protocol detailed",
+          "invariant": "Event-audio correlation via sequence numbers"
+        }
+      ]
+    },
+    {
+      "from": "N0063",
+      "to": "N0062",
+      "type": "constrains",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C064",
+          "precondition": "API protocol defined",
+          "postcondition": "JWT auth model and middleware specified",
+          "invariant": "Default: LocalhostOnly"
+        }
+      ]
+    },
+    {
+      "from": "N0064",
+      "to": "N0061",
+      "type": "depends_on",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C065",
+          "precondition": "Server needs persistence",
+          "postcondition": "SQLite schema and migrations specified",
+          "invariant": "rusqlite bundled feature"
+        }
+      ]
+    },
+    {
+      "from": "N0065",
+      "to": "N0052",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C066",
+          "precondition": "Test strategy for core exists",
+          "postcondition": "Layer 5 API integration tests added",
+          "invariant": "Test directories mirror API structure"
+        }
+      ]
+    },
+    {
+      "from": "N0066",
+      "to": "N0006",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C067",
+          "precondition": "Versioning policy defined",
+          "postcondition": "Semver operations and networking details added",
+          "invariant": "0.x flexible, cargo semver-checks at 1.0"
+        }
+      ]
+    },
+    {
+      "from": "N0067",
+      "to": "N0001",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C068",
+          "precondition": "I/O boundaries need documenting",
+          "postcondition": "Reference information for future splitting",
+          "invariant": "This is reference, not prescriptive"
+        }
+      ]
+    },
+    {
+      "from": "N0069",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C069",
+          "precondition": "§62 進化スコープが定義される",
+          "postcondition": "62.0 が §62 の一部として記述される",
+          "invariant": "根因3点の記述は §62 の他の節と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0070",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C070",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.1 が §62 の一部として記述される",
+          "invariant": "設定一本化は §10/§13 と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0071",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C071",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.2 が §62 の一部として記述される",
+          "invariant": "バックエンド選択は §3.1/§27a と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0072",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C072",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.3 が §62 の一部として記述される",
+          "invariant": "イベントバス一元化は §15.6 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0073",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C073",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.4 が §62 の一部として記述される",
+          "invariant": "登録状態機械は §17/§33 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0074",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C074",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.5 が §62 の一部として記述される",
+          "invariant": "公開 API 拡充は §19/§20 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0075",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C075",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.6 が §62 の一部として記述される",
+          "invariant": "メディア経路は §22/§24 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0076",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C076",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.7 が §62 の一部として記述される",
+          "invariant": "シャットダウン手順は §32 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0077",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C077",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.8 が §62 の一部として記述される",
+          "invariant": "エラー変換は §14.1 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0078",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C078",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.9 が §62 の一部として記述される",
+          "invariant": "I/O 境界参照は §61 の情報と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0069",
+      "to": "N0013",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C079",
+          "precondition": "進化スコープが設定乖離を言及する",
+          "postcondition": "62.0 が N0013 の乖離を参照する",
+          "invariant": "公開 ClientConfig が RFC 型でない根因が記述される"
+        }
+      ]
+    },
+    {
+      "from": "N0070",
+      "to": "N0013",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C080",
+          "precondition": "N0013 が §10 ClientConfig を定義する",
+          "postcondition": "62.1 が ClientConfig 一本化を規定する",
+          "invariant": "RFC §10 型が唯一の公開型として残る"
+        }
+      ]
+    },
+    {
+      "from": "N0070",
+      "to": "N0015",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C081",
+          "precondition": "N0015 が §12/§13 の transport/ICE/STUN/TURN を定義する",
+          "postcondition": "62.1 が StunServerConfig/TurnServerConfig 一元化と Vec 化を規定する",
+          "invariant": "二重定義が解消され §13 既定値と一致する"
+        }
+      ]
+    },
+    {
+      "from": "N0071",
+      "to": "N0037",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C082",
+          "precondition": "N0037 が §27 PJSIP FFI 層と SipBackend を定義する",
+          "postcondition": "62.2 が PjsuaBackend 完全統一と MockBackend 削除を規定する",
+          "invariant": "SipBackend trait は維持される"
+        }
+      ]
+    },
+    {
+      "from": "N0071",
+      "to": "N0052",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C083",
+          "precondition": "N0052 が §43 4層テスト戦略を定義する",
+          "postcondition": "62.2 が MockBackend 削除後の TestBackend 戦略を参照する",
+          "invariant": "Layer 2 決定性テストが PJSIP 不要のまま維持される"
+        }
+      ]
+    },
+    {
+      "from": "N0072",
+      "to": "N0018",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C084",
+          "precondition": "N0018 が §15 イベントモデルと EventBus を定義する",
+          "postcondition": "62.3 が単一 EventBus 一元化と dispatch_event 直 publish を規定する",
+          "invariant": "subscribe_account のフィルタ死滅が解消される"
+        }
+      ]
+    },
+    {
+      "from": "N0073",
+      "to": "N0025",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C085",
+          "precondition": "N0025 が §17 登録状態機械を定義する",
+          "postcondition": "62.4 が typed RegistrationState と M20 変換器駆動を規定する",
+          "invariant": "実 REGISTER 成功時のみ Registered へ遷移する"
+        }
+      ]
+    },
+    {
+      "from": "N0074",
+      "to": "N0027",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C086",
+          "precondition": "N0027 が §19 発着信 API 詳細を定義する",
+          "postcondition": "62.5 が answer/hangup/hold/unhold/transfer/call_state(call_id) 追加を規定する",
+          "invariant": "answer が 180/183/200/486/603 を受理する"
+        }
+      ]
+    },
+    {
+      "from": "N0075",
+      "to": "N0033",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C087",
+          "precondition": "N0033 が §24 AudioMixer リアルタイム境界を定義する",
+          "postcondition": "62.6 が per-call AudioMixer と ChannelSelector 統一注入を規定する",
+          "invariant": "IN/OUT/BOTH が独立経路として分岐する"
+        }
+      ]
+    },
+    {
+      "from": "N0076",
+      "to": "N0043",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C088",
+          "precondition": "N0043 が §32 Shutdown 仕様を定義する",
+          "postcondition": "62.7 が ShutdownSpec.execute_sequence の production 配線を規定する",
+          "invariant": "BYE/CANCEL→unregister→audio drain→pjsua_destroy の順序が保証される"
+        }
+      ]
+    },
+    {
+      "from": "N0077",
+      "to": "N0016",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C089",
+          "precondition": "N0016 が §14 SipError を定義する",
+          "postcondition": "62.8 が native_status: Option<i32> 保持と M20 converter 一元化を規定する",
+          "invariant": "reactor 経路の変換で native_status が喪失しない"
+        }
+      ]
+    },
+    {
+      "from": "N0078",
+      "to": "N0067",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C090",
+          "precondition": "N0067 が §61 I/O 境界参照情報を定義する",
+          "postcondition": "62.9 が各設計判断の I/O 境界を参照可能にする",
+          "invariant": "分割判断が既存の境界情報と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0079",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C091",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.10 がラウンド 2 スコープを定義する",
+          "invariant": "進化スコープは §62.1–62.9 と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0080",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C092",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.11 がトランスポート配線と bindgen 方針を定義する",
+          "invariant": "トランスポート配線は §12/§27 と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0080",
+      "to": "N0037",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C093",
+          "precondition": "N0037 が §27 PJSIP FFI 層を定義する",
+          "postcondition": "62.11 が pjsua_transport_create への反映を規定する",
+          "invariant": "FFI 呼び出しは §62.8 の native_status 保持に従う"
+        }
+      ]
+    },
+    {
+      "from": "N0080",
+      "to": "N0015",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C094",
+          "precondition": "N0015 が §12 TransportConfig を定義する",
+          "postcondition": "62.11 が config.transports の列挙と種別/ポート反映を規定する",
+          "invariant": "UDP/TCP/TLS の種別選択は §12 の enum に従う"
+        }
+      ]
+    },
+    {
+      "from": "N0081",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C095",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.12 が登録・アカウント経路を定義する",
+          "invariant": "登録経路は §17 の状態遷移と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0081",
+      "to": "N0025",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C096",
+          "precondition": "N0025 が §17 登録状態機械を定義する",
+          "postcondition": "62.12 が register_on_start 自動登録とイベント統一を規定する",
+          "invariant": "実 REGISTER 成功時のみ Registered へ遷移する"
+        }
+      ]
+    },
+    {
+      "from": "N0081",
+      "to": "N0073",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C097",
+          "precondition": "N0073 が 62.4 登録状態機械の production 配線を定義する",
+          "postcondition": "62.12 が add_account 時の自動登録と AccountRemoved を追補する",
+          "invariant": "RegistrationSucceeded/Failed は残さない"
+        }
+      ]
+    },
+    {
+      "from": "N0082",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C098",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.13 がイベント経路の完成を定義する",
+          "invariant": "イベント経路は §15 のバス一元化と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0082",
+      "to": "N0037",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C099",
+          "precondition": "N0037 が §27 FFI 層を定義する",
+          "postcondition": "62.13 が FFI キュー drain タスクを規定する",
+          "invariant": "NativeEvent は M20 変換器経由でバスへ統合される"
+        }
+      ]
+    },
+    {
+      "from": "N0082",
+      "to": "N0018",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C100",
+          "precondition": "N0018 が §15 イベントモデルを定義する",
+          "postcondition": "62.13 が raw SIP publisher と P1/P2 変換を規定する",
+          "invariant": "raw SIP は §16 の redact 規則に従う"
+        }
+      ]
+    },
+    {
+      "from": "N0083",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C101",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.14 が着信・通話イベントを定義する",
+          "invariant": "着信処理は §18/§19 の状態モデルと矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0083",
+      "to": "N0027",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C102",
+          "precondition": "N0027 が §19 Call API を定義する",
+          "postcondition": "62.14 が answer の account 解決と CallConnected publish を規定する",
+          "invariant": "answer は 180/183/200/486/603 を受理する"
+        }
+      ]
+    },
+    {
+      "from": "N0083",
+      "to": "N0048",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C103",
+          "precondition": "N0048 が §37 着信と §38 REFER を定義する",
+          "postcondition": "62.14 が IncomingCall の CallEntry 登録を追補する",
+          "invariant": "着信 call は calls() と call_state() で解決できる"
+        }
+      ]
+    },
+    {
+      "from": "N0083",
+      "to": "N0022",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C104",
+          "precondition": "N0022 が M20 CallState 変換を定義する",
+          "postcondition": "62.14 が CallState 全遷移の Some() 化を参照する",
+          "invariant": "CallRejected は CallDisconnected に統一される"
+        }
+      ]
+    },
+    {
+      "from": "N0084",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C105",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.15 が DTMF 実装整合を定義する",
+          "invariant": "DTMF 整合は §20 の仕様と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0084",
+      "to": "N0028",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C106",
+          "precondition": "N0028 が §20 DTMF 仕様を定義する",
+          "postcondition": "62.15 が DtmfMethod 一元化と method 反映を規定する",
+          "invariant": "DtmfMethod は Inband/Info/Rfc4733 の単一定義"
+        }
+      ]
+    },
+    {
+      "from": "N0084",
+      "to": "N0029",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C107",
+          "precondition": "N0029 が DtmfSentInfo と二相設計を定義する",
+          "postcondition": "62.15 が DtmfSent{Ok} の publish 経路を追補する",
+          "invariant": "DtmfSent は Ok/Timeout/PjsipError の 3 状態"
+        }
+      ]
+    },
+    {
+      "from": "N0085",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C108",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.16 がメディア経路の完成を定義する",
+          "invariant": "メディア経路は §21–§24 と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0085",
+      "to": "N0049",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C109",
+          "precondition": "N0049 が §39 Media Bridge を定義する",
+          "postcondition": "62.16 が conf port コールバック配線を規定する",
+          "invariant": "push_media_frame は tap を駆動する"
+        }
+      ]
+    },
+    {
+      "from": "N0085",
+      "to": "N0033",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C110",
+          "precondition": "N0033 が §24 AudioMixer RT 境界を定義する",
+          "postcondition": "62.16 が out/in_queue 消費と conf_connect を規定する",
+          "invariant": "RustMediaPort がキュー唯一の消費点である"
+        }
+      ]
+    },
+    {
+      "from": "N0086",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C111",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.17 が STUN/TURN/ICE 配線を定義する",
+          "invariant": "STUN/TURN/ICE 配線は §13 と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0086",
+      "to": "N0015",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C112",
+          "precondition": "N0015 が §12/§13 Transport/ICE 仕様を定義する",
+          "postcondition": "62.17 が pjsua_config への反映を規定する",
+          "invariant": "stun_srv/turn_cfg/ICE 設定は §13 の既定値に従う"
+        }
+      ]
+    },
+    {
+      "from": "N0086",
+      "to": "N0070",
+      "type": "refines",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C113",
+          "precondition": "N0070 が 62.1 設定一本化を定義する",
+          "postcondition": "62.17 が STUN/TURN/ICE の実配線を追補する",
+          "invariant": "単一の StunServerConfig/TurnServerConfig/IceConfig を使用する"
+        }
+      ]
+    },
+    {
+      "from": "N0087",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C114",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.18 が Examples 設計を定義する",
+          "invariant": "Examples は §41 の使用例と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0087",
+      "to": "N0050",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C115",
+          "precondition": "N0050 が §40/§41 使用例を定義する",
+          "postcondition": "62.18 が E1-E5 の契約を参照する",
+          "invariant": "各 example は実 Asterisk / TestBackend で検証可能"
+        }
+      ]
+    },
+    {
+      "from": "N0088",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C116",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.19 が統合テスト基盤を定義する",
+          "invariant": "統合テスト基盤は §43/§44 と矛盾しない"
+        }
+      ]
+    },
+    {
+      "from": "N0088",
+      "to": "N0052",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C117",
+          "precondition": "N0052 が §43 テスト戦略を定義する",
+          "postcondition": "62.19 が docker ゲート付き統合テストを規定する",
+          "invariant": "Layer 3/4 の実 SIP 相互接続を保証する"
+        }
+      ]
+    },
+    {
+      "from": "N0088",
+      "to": "N0054",
+      "type": "extends",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C118",
+          "precondition": "N0054 が §44 CI/CD を定義する",
+          "postcondition": "62.19 が Asterisk/coturn コンテナ構成を規定する",
+          "invariant": "CI では docker が常に使用可能で実質必須ゲート"
+        }
+      ]
+    },
+    {
+      "from": "N0089",
+      "to": "N0068",
+      "type": "part_of",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C119",
+          "precondition": "§62 親セクションが存在する",
+          "postcondition": "62.20 がラウンド 2 の I/O 境界を定義する",
+          "invariant": "I/O 境界は §61/§62.9 と整合する"
+        }
+      ]
+    },
+    {
+      "from": "N0089",
+      "to": "N0078",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C120",
+          "precondition": "N0078 が 62.9 I/O 境界を定義する",
+          "postcondition": "62.20 がラウンド 2 の I/O 境界を参照する",
+          "invariant": "graphify/boundify が分割判断に使用する"
+        }
+      ]
+    },
+    {
+      "from": "N0090",
+      "to": "N0089",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C121",
+          "precondition": "Round 2 evolution settled (§62.10–62.20)",
+          "postcondition": "Round 3 scope derives the remaining RESIDUE gaps from round 2 outcomes",
+          "invariant": "Round 3 never re-decides a settled round 2 design"
+        }
+      ]
+    },
+    {
+      "from": "N0091",
+      "to": "N0038",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C122",
+          "precondition": "pjsip_module registration available on the PJSIP endpoint",
+          "postcondition": "Raw SIP bytes flow from pkt_info.msg into enqueue_raw_sip_bytes",
+          "invariant": "The raw SIP module is observation-only (PJ_FALSE)"
+        }
+      ]
+    },
+    {
+      "from": "N0091",
+      "to": "N0080",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C123",
+          "precondition": "bindgen allowlist covers pjsip_module and pjsip_endpt_register_module",
+          "postcondition": "The raw SIP module compiles under pjsua-native",
+          "invariant": "Allowlist stays fixed and duplicate-free"
+        }
+      ]
+    },
+    {
+      "from": "N0092",
+      "to": "N0038",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C124",
+          "precondition": "pjsua_callback exposes the four P1/P2 fields in PJSIP 2.17",
+          "postcondition": "register_callbacks wires on_transport_state / on_call_tsx_state / on_call_replaced / on_nat_detect",
+          "invariant": "Each handler enqueues the corresponding NativeEvent"
+        }
+      ]
+    },
+    {
+      "from": "N0092",
+      "to": "N0021",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C125",
+          "precondition": "M20 converters return Some for the four P1/P2 events",
+          "postcondition": "P1/P2 events publish from real callbacks",
+          "invariant": "Converter doc comments match the Some() behavior"
+        }
+      ]
+    },
+    {
+      "from": "N0093",
+      "to": "N0071",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C126",
+          "precondition": "TestBackend is the deterministic simulator for test-util builds",
+          "postcondition": "TestBackend::set_registration fires NativeEvent::RegistrationStateChanged",
+          "invariant": "take_native_events defaults empty for the real FFI path"
+        }
+      ]
+    },
+    {
+      "from": "N0094",
+      "to": "N0083",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C127",
+          "precondition": "CallEntry registration established in round 2 (§62.14)",
+          "postcondition": "CallEntry.state updates on native CallStateChanged",
+          "invariant": "call_state() matches the latest native transition"
+        }
+      ]
+    },
+    {
+      "from": "N0094",
+      "to": "N0045",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C128",
+          "precondition": "Runtime internal state tables (§33) hold CallStateTables",
+          "postcondition": "The state update shares the single conversion result with publish",
+          "invariant": "Update ordering is explicit and deterministic"
+        }
+      ]
+    },
+    {
+      "from": "N0095",
+      "to": "N0026",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C129",
+          "precondition": "CallState 13-state model defined (§18)",
+          "postcondition": "CallResumed publishes on hold→ACTIVE media transition",
+          "invariant": "CallResumed carries a call_id payload"
+        }
+      ]
+    },
+    {
+      "from": "N0096",
+      "to": "N0084",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C130",
+          "precondition": "DtmfMethod unification settled in round 2 (§62.15)",
+          "postcondition": "DtmfSent semantics formalize as backend-accept + 500ms timeout",
+          "invariant": "No PJSIP send-completion callback dependency"
+        }
+      ]
+    },
+    {
+      "from": "N0096",
+      "to": "N0029",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C131",
+          "precondition": "Two-phase DtmfSent design (§20) defines the fallback timer",
+          "postcondition": "The timeout contract becomes the sole documented completion signal",
+          "invariant": "DtmfSentInfo.status keeps Ok/Timeout/PjsipError outcomes"
+        }
+      ]
+    },
+    {
+      "from": "N0097",
+      "to": "N0085",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C132",
+          "precondition": "Media path design settled in round 2 (§62.16)",
+          "postcondition": "RustMediaPort port ops drive the tap registry via push_frame_to_tap",
+          "invariant": "Tap push never blocks the RT callback"
+        }
+      ]
+    },
+    {
+      "from": "N0097",
+      "to": "N0049",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C133",
+          "precondition": "PJSUA conference port model (§39) provides pjsua_conf_add_port",
+          "postcondition": "RustMediaPort registers as a custom pjmedia_port per call",
+          "invariant": "pjsua_conf_set_callback is not required (absent in 2.17)"
+        }
+      ]
+    },
+    {
+      "from": "N0098",
+      "to": "N0031",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C134",
+          "precondition": "subscribe / subscribe_account / subscribe_raw_sip exist on SipClient",
+          "postcondition": "The three APIs return Subscription<T> with recv() and unsubscribe()",
+          "invariant": "AccountEventReceiver filtering is preserved inside Subscription"
+        }
+      ]
+    },
+    {
+      "from": "N0098",
+      "to": "N0074",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C135",
+          "precondition": "Public call API surface extended in §62.5",
+          "postcondition": "The mic source and unsubscribe contracts are documented in README / RFC",
+          "invariant": "open_default_microphone_source stays distinct from the call microphone"
+        }
+      ]
+    },
+    {
+      "from": "N0099",
+      "to": "N0089",
+      "type": "references",
+      "attributes": {
+        "strength": "hard",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C136",
+          "precondition": "Round 2 I/O boundary reference exists (§62.20)",
+          "postcondition": "Round 3 I/O boundaries are listed for graphify / boundify partitioning",
+          "invariant": "Every round-3 decision maps to consumes / produces / file hints"
+        }
+      ]
+    },
+    {
+      "from": "N0100",
+      "to": "N0090",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C137",
+          "precondition": "Round 3 evolution settled (§62.21–62.30)",
+          "postcondition": "Round 4 scope builds on round-3 residual gaps",
+          "invariant": "Round 4 never rewrites round-3 decisions"
+        }
+      ]
+    },
+    {
+      "from": "N0100",
+      "to": "N0039",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C138",
+          "precondition": "§28 build strategy defines search order",
+          "postcondition": "Round 4 consumer pipeline refines §28",
+          "invariant": "Prebuilt-first order preserved"
+        }
+      ]
+    },
+    {
+      "from": "N0101",
+      "to": "N0039",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C139",
+          "precondition": "§28 pins vendored PJSIP 2.17.0",
+          "postcondition": "Code adapts to 2.17.0 symbols",
+          "invariant": "No vendored PJSIP upgrade"
+        }
+      ]
+    },
+    {
+      "from": "N0102",
+      "to": "N0080",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C140",
+          "precondition": "N0080 defines bindgen alignment approach",
+          "postcondition": "Enum types generated as Rust enums",
+          "invariant": "Allowlist remains the single bindgen entry"
+        }
+      ]
+    },
+    {
+      "from": "N0103",
+      "to": "N0039",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C141",
+          "precondition": "§28.1 prebuilt-first search order",
+          "postcondition": "Link set derived from lib/ directory",
+          "invariant": "No hardcoded module list"
+        }
+      ]
+    },
+    {
+      "from": "N0104",
+      "to": "N0039",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C142",
+          "precondition": "§28.1 4-stage search order",
+          "postcondition": "build.rs implements all 4 stages",
+          "invariant": "Fail-stop, no warning-and-continue"
+        }
+      ]
+    },
+    {
+      "from": "N0105",
+      "to": "N0054",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C143",
+          "precondition": "§44 prebuilt pipeline defined",
+          "postcondition": "crates/pjsip-prebuilt produces prebuilts",
+          "invariant": "Producer independent of siprs compile"
+        }
+      ]
+    },
+    {
+      "from": "N0106",
+      "to": "N0054",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C144",
+          "precondition": "§44 CI/CD requirements",
+          "postcondition": "3-OS matrix commits prebuilt directly",
+          "invariant": "prebuilt present after git clone"
+        }
+      ]
+    },
+    {
+      "from": "N0107",
+      "to": "N0091",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C145",
+          "precondition": "N0091 defines pjsip_module hook",
+          "postcondition": "Real integration test verifies subscribe_raw_sip",
+          "invariant": "No TestBackend dummy hooks"
+        }
+      ]
+    },
+    {
+      "from": "N0107",
+      "to": "N0088",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C146",
+          "precondition": "N0088 defines docker integration base",
+          "postcondition": "raw SIP verified against real PJSIP in Docker",
+          "invariant": "make test-integration gate"
+        }
+      ]
+    },
+    {
+      "from": "N0108",
+      "to": "N0092",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C147",
+          "precondition": "N0092 registers P1/P2 callbacks",
+          "postcondition": "on_ice_transport_error added and registered",
+          "invariant": "Same pattern as registered callbacks"
+        }
+      ]
+    },
+    {
+      "from": "N0109",
+      "to": "N0097",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C148",
+          "precondition": "N0097 defines tap driving via port ops",
+          "postcondition": "Real conf bridge drives push_frame_to_tap",
+          "invariant": "push_frame_to_tap never blocks RT callback"
+        }
+      ]
+    },
+    {
+      "from": "N0110",
+      "to": "N0085",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C149",
+          "precondition": "N0085 defines conf port/queue wiring",
+          "postcondition": "register_media_ports_for_calls re-run on AddAudioSource",
+          "invariant": "No out_queue drop for injected audio"
+        }
+      ]
+    },
+    {
+      "from": "N0111",
+      "to": "N0088",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C150",
+          "precondition": "N0088 defines docker Asterisk/coturn base",
+          "postcondition": "protocol + RTP levels covered in CI",
+          "invariant": "make test-integration green"
+        }
+      ]
+    },
+    {
+      "from": "N0111",
+      "to": "N0052",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C151",
+          "precondition": "§43 4-layer test strategy",
+          "postcondition": "Layer 4 interop tests run real PJSIP",
+          "invariant": "TestBackend green ≠ real SIP verified"
+        }
+      ]
+    },
+    {
+      "from": "N0112",
+      "to": "N0100",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C152",
+          "precondition": "Round 4 scope settled",
+          "postcondition": "Tickets mapped to §62.31–62.44",
+          "invariant": "A/B tickets first, gaps after"
+        }
+      ]
+    },
+    {
+      "from": "N0113",
+      "to": "N0099",
+      "type": "references",
+      "attributes": {
+        "strength": "soft",
+        "bidirectional": false
+      },
+      "contracts": [
+        {
+          "id": "C153",
+          "precondition": "N0099 provides round-3 I/O boundary",
+          "postcondition": "Round-4 boundary adds producer/consumer split",
+          "invariant": "All round-4 nodes mapped to files"
+        }
+      ]
+    }
+  ]
+}

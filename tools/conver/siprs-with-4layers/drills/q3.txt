@@ -1,0 +1,5 @@
+Q3: イベントバス一元化のトポロジを確定します。この設計判断が必要な理由は、現在 SipClient が自身の EventBus（raw_sip チャネル None、client.rs:111）を持ち、reactor は別の EventBus（reactor.rs:88-96）を持つ二重バス構造のため、reactor 側の publish がクライアント側バスに転送されず、クライアントで発火するのは ClientInitialized のみだからです。RFC §15.6 は subscribe() へのバス一元化を要求し、P12-7 は reactor の dispatch_event 配線を要求します。各案のメリット/デメリットを比較します。選択肢:
+A) 単一 EventBus を SipClient が所有し、reactor は dispatch_event で直接 publish（バスは1つ）。
+B) reactor は独自バスを維持しつつ mpsc ブリッジでクライアントバスへ転送（双バス+ブリッジ）。
+C) クライアントと reactor でチャネルを共有するが subscribe 側で再フィルタ（現状のまま subscribe_account を修正）。
+推奨: A を推します。理由は、バスが1つなら subscribe_account の account_id フィルタ死滅や raw_sip None 問題が構造的に消え、§15.6 の要求に最も忠実だからです。B は転送経路の追加でメッセージロスト境界が増えるデメリットがあり、C は根本原因を残します。

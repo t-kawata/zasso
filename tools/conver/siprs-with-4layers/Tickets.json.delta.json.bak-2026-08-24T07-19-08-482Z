@@ -1,0 +1,519 @@
+{
+  "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "newTickets": [
+    {
+      "id": 1,
+      "title": "Implementation Integration Framework — §62 RESIDUE resolution blueprint",
+      "nodeIds": [
+        "N0068",
+        "N0069",
+        "N0078"
+      ],
+      "status": "todo",
+      "phaseId": 16
+    },
+    {
+      "id": 2,
+      "title": "Config unification — RFC §10 ClientConfig promotion, STUN/TURN/ICE type unification, Vec-ization",
+      "nodeIds": [
+        "N0070"
+      ],
+      "status": "todo",
+      "phaseId": 16
+    },
+    {
+      "id": 3,
+      "title": "Backend selection — PjsuaBackend full unification, MockBackend deletion, TestBackend (cfg test)",
+      "nodeIds": [
+        "N0071"
+      ],
+      "status": "todo",
+      "phaseId": 16
+    },
+    {
+      "id": 4,
+      "title": "Event bus unification — single EventBus owned by SipClient, reactor dispatch_event direct publish",
+      "nodeIds": [
+        "N0072"
+      ],
+      "status": "todo",
+      "phaseId": 16
+    },
+    {
+      "id": 5,
+      "title": "Registration state machine production wiring — typed RegistrationState, M20 converter drive, register_on_start consumption",
+      "nodeIds": [
+        "N0073"
+      ],
+      "status": "todo",
+      "phaseId": 16
+    },
+    {
+      "id": 6,
+      "title": "Call API expansion — answer/hangup/hold/unhold/transfer/send_dtmf/call_state(call_id), calls() rename",
+      "nodeIds": [
+        "N0074"
+      ],
+      "status": "todo",
+      "phaseId": 16
+    },
+    {
+      "id": 7,
+      "title": "Media path architecture — per-call AudioMixer, AudioWorkerTask spawn, ChannelSelector injection, tap push, mic source",
+      "nodeIds": [
+        "N0075"
+      ],
+      "status": "todo",
+      "phaseId": 16
+    },
+    {
+      "id": 8,
+      "title": "Shutdown wiring — ShutdownSpec.execute_sequence production wiring, ClientShutdown publish, command router gate",
+      "nodeIds": [
+        "N0076"
+      ],
+      "status": "todo",
+      "phaseId": 16
+    },
+    {
+      "id": 9,
+      "title": "Error native_status preservation — SipError.native_status i32, M20 converter unification on production path",
+      "nodeIds": [
+        "N0077"
+      ],
+      "status": "todo",
+      "phaseId": 16
+    }
+  ],
+  "editedTickets": [],
+  "existingStatuses": [
+    {
+      "id": 1,
+      "status": "reviewed"
+    },
+    {
+      "id": 2,
+      "status": "reviewed"
+    },
+    {
+      "id": 1,
+      "status": "R1"
+    },
+    {
+      "id": 2,
+      "status": "R1"
+    },
+    {
+      "id": 3,
+      "status": "R1"
+    },
+    {
+      "id": 4,
+      "status": "R1"
+    },
+    {
+      "id": 5,
+      "status": "R1"
+    },
+    {
+      "id": 6,
+      "status": "R1"
+    },
+    {
+      "id": 1,
+      "status": "R1"
+    },
+    {
+      "id": 2,
+      "status": "R1"
+    },
+    {
+      "id": 3,
+      "status": "R1"
+    },
+    {
+      "id": 1,
+      "status": "R1"
+    },
+    {
+      "id": 2,
+      "status": "R1"
+    },
+    {
+      "id": 3,
+      "status": "R1"
+    },
+    {
+      "id": 1,
+      "status": "R1"
+    },
+    {
+      "id": 2,
+      "status": "R1"
+    },
+    {
+      "id": 3,
+      "status": "R1"
+    },
+    {
+      "id": 1,
+      "status": "R1"
+    },
+    {
+      "id": 2,
+      "status": "R1"
+    },
+    {
+      "id": 3,
+      "status": "R1"
+    },
+    {
+      "id": 1,
+      "status": "R1"
+    },
+    {
+      "id": 2,
+      "status": "R1"
+    },
+    {
+      "id": 1,
+      "status": "R2"
+    },
+    {
+      "id": 2,
+      "status": "R2"
+    },
+    {
+      "id": 3,
+      "status": "R2"
+    },
+    {
+      "id": 1,
+      "status": "R2"
+    },
+    {
+      "id": 2,
+      "status": "R2"
+    },
+    {
+      "id": 3,
+      "status": "R2"
+    },
+    {
+      "id": 1,
+      "status": "R2"
+    },
+    {
+      "id": 2,
+      "status": "R2"
+    },
+    {
+      "id": 3,
+      "status": "R2"
+    },
+    {
+      "id": 4,
+      "status": "R2"
+    },
+    {
+      "id": 5,
+      "status": "R2"
+    },
+    {
+      "id": 6,
+      "status": "R2"
+    },
+    {
+      "id": 7,
+      "status": "R3"
+    },
+    {
+      "id": 8,
+      "status": "R2"
+    },
+    {
+      "id": 9,
+      "status": "R2"
+    },
+    {
+      "id": 10,
+      "status": "R2"
+    },
+    {
+      "id": 11,
+      "status": "R2"
+    },
+    {
+      "id": 12,
+      "status": "R2"
+    },
+    {
+      "id": 13,
+      "status": "R2"
+    },
+    {
+      "id": 14,
+      "status": "R2"
+    },
+    {
+      "id": 15,
+      "status": "R2"
+    },
+    {
+      "id": 16,
+      "status": "R2"
+    },
+    {
+      "id": 17,
+      "status": "R2"
+    },
+    {
+      "id": 18,
+      "status": "R2"
+    },
+    {
+      "id": 19,
+      "status": "R2"
+    },
+    {
+      "id": 20,
+      "status": "R2"
+    },
+    {
+      "id": 21,
+      "status": "R2"
+    },
+    {
+      "id": 22,
+      "status": "R2"
+    },
+    {
+      "id": 23,
+      "status": "R2"
+    },
+    {
+      "id": 24,
+      "status": "R2"
+    },
+    {
+      "id": 25,
+      "status": "R2"
+    },
+    {
+      "id": 26,
+      "status": "R2"
+    },
+    {
+      "id": 27,
+      "status": "R2"
+    },
+    {
+      "id": 28,
+      "status": "R2"
+    },
+    {
+      "id": 29,
+      "status": "R2"
+    },
+    {
+      "id": 30,
+      "status": "R2"
+    },
+    {
+      "id": 31,
+      "status": "R2"
+    },
+    {
+      "id": 32,
+      "status": "R2"
+    },
+    {
+      "id": 33,
+      "status": "R2"
+    },
+    {
+      "id": 34,
+      "status": "R2"
+    },
+    {
+      "id": 1,
+      "status": "R3"
+    },
+    {
+      "id": 2,
+      "status": "R3"
+    },
+    {
+      "id": 3,
+      "status": "R3"
+    },
+    {
+      "id": 4,
+      "status": "R3"
+    },
+    {
+      "id": 5,
+      "status": "R3"
+    },
+    {
+      "id": 6,
+      "status": "R3"
+    },
+    {
+      "id": 1,
+      "status": "R3"
+    },
+    {
+      "id": 2,
+      "status": "R3"
+    },
+    {
+      "id": 3,
+      "status": "R3"
+    },
+    {
+      "id": 4,
+      "status": "R3"
+    },
+    {
+      "id": 5,
+      "status": "R3"
+    },
+    {
+      "id": 6,
+      "status": "R3"
+    },
+    {
+      "id": 1,
+      "status": "R3"
+    },
+    {
+      "id": 2,
+      "status": "R3"
+    },
+    {
+      "id": 3,
+      "status": "R3"
+    },
+    {
+      "id": 4,
+      "status": "R3"
+    },
+    {
+      "id": 5,
+      "status": "R3"
+    },
+    {
+      "id": 6,
+      "status": "R3"
+    },
+    {
+      "id": 7,
+      "status": "R3"
+    },
+    {
+      "id": 8,
+      "status": "R3"
+    },
+    {
+      "id": 9,
+      "status": "R3"
+    },
+    {
+      "id": 10,
+      "status": "R3"
+    },
+    {
+      "id": 11,
+      "status": "R3"
+    },
+    {
+      "id": 12,
+      "status": "R3"
+    },
+    {
+      "id": 13,
+      "status": "R3"
+    },
+    {
+      "id": 14,
+      "status": "R3"
+    },
+    {
+      "id": 15,
+      "status": "R3"
+    },
+    {
+      "id": 16,
+      "status": "R3"
+    },
+    {
+      "id": 1,
+      "status": "R3"
+    },
+    {
+      "id": 2,
+      "status": "R3"
+    },
+    {
+      "id": 3,
+      "status": "R3"
+    },
+    {
+      "id": 4,
+      "status": "R3"
+    },
+    {
+      "id": 5,
+      "status": "R3"
+    },
+    {
+      "id": 6,
+      "status": "R3"
+    },
+    {
+      "id": 7,
+      "status": "R3"
+    },
+    {
+      "id": 8,
+      "status": "R3"
+    },
+    {
+      "id": 9,
+      "status": "R3"
+    },
+    {
+      "id": 10,
+      "status": "R3"
+    },
+    {
+      "id": 1,
+      "status": "R4"
+    },
+    {
+      "id": 2,
+      "status": "R4"
+    },
+    {
+      "id": 3,
+      "status": "R4"
+    },
+    {
+      "id": 4,
+      "status": "R4"
+    },
+    {
+      "id": 1,
+      "status": "todo"
+    },
+    {
+      "id": 2,
+      "status": "todo"
+    },
+    {
+      "id": 3,
+      "status": "todo"
+    }
+  ]
+}

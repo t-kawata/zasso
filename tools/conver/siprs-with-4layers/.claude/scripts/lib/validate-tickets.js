@@ -1,0 +1,122 @@
+// [::TICKET::] PX-107 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-107 --for-spec --no-implementation-order`.
+
+// [::TICKET::] PX-106 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-106 --for-spec --no-implementation-order`.
+
+const fs = require('fs'), path = require('path');
+const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+const KEY_RE = /^(?:PX|P(-?\d+))-(\d+)$/; // For CLI args: P{phaseId}-{ticketId} or PX-{ticketId}
+const ALLOWED = ['todo', 'made', 'planned', 'done', 'reviewed', 'remanded'];
+const isRoundStatus = (s) => /^R[1-9]\d*$/.test(s);
+
+// [::TICKET::] PX-66, PX-67, PX-68, PX-69, PX-70, PX-71, PX-73, PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-66|PX-67|PX-68|PX-69|PX-70|PX-71|PX-73|PX-114) --for-spec --no-implementation-order`.
+function validateTickets(data) {
+  const errors = [];
+  if (!data || typeof data !== 'object' || Array.isArray(data)) { errors.push('Root must be a non-null object'); return { valid: false, errors }; }
+  if (!data.title || typeof data.title !== 'string') errors.push('title: must be a non-empty string');
+  if (typeof data.round !== 'number' || !Number.isInteger(data.round) || data.round < 1) errors.push('round: must be a positive integer >= 1');
+  if (!data.metadata || typeof data.metadata !== 'object' || Array.isArray(data.metadata)) {
+    errors.push('metadata: must be an object');
+  } else {
+    if (!data.metadata.source || typeof data.metadata.source !== 'string') errors.push('metadata.source: required');
+    if (!data.metadata.generatedAt || typeof data.metadata.generatedAt !== 'string' || !ISO_RE.test(data.metadata.generatedAt)) errors.push('metadata.generatedAt: must be YYYY-MM-DD');
+  }
+  if (!Array.isArray(data.phases)) { errors.push('phases: must be an array'); return { valid: false, errors }; }
+  const seen = {}; // Dedup check: key "phaseId-id"
+  for (let i = 0; i < data.phases.length; i++) {
+    const p = data.phases[i], pp = 'phases[' + i + ']';
+    if (!p || typeof p !== 'object' || Array.isArray(p)) { errors.push(pp + ': must be an object'); continue; }
+    if (typeof p.id !== 'number' || !Number.isInteger(p.id) || p.id < -1) errors.push(pp + '.id: must be an integer >= -1');
+    if (!p.name || typeof p.name !== 'string') errors.push(pp + '.name: required');
+    const pId = (typeof p.id === 'number' && Number.isInteger(p.id)) ? p.id : -1;
+    if (!Array.isArray(p.tickets)) { errors.push(pp + '.tickets: must be an array'); continue; }
+    for (let k = 0; k < p.tickets.length; k++) {
+      const t = p.tickets[k], tp = pp + '.tickets[' + k + ']';
+      if (!t || typeof t !== 'object' || Array.isArray(t)) { errors.push(tp + ': must be an object'); continue; }
+      if (typeof t.id !== 'number' || !Number.isInteger(t.id) || t.id < 1) errors.push(tp + '.id: must be integer >= 1');
+      if (typeof t.phaseId !== 'number' || !Number.isInteger(t.phaseId) || t.phaseId < -1) errors.push(tp + '.phaseId: must be integer >= -1');
+      if (pId >= -1 && t.phaseId !== undefined && t.phaseId !== pId) errors.push(tp + '.phaseId (' + t.phaseId + ') does not match parent phase id (' + pId + ')');
+      if (!t.title || typeof t.title !== 'string') errors.push(tp + '.title: required');
+      if (!t.status || (!ALLOWED.includes(t.status) && !isRoundStatus(t.status))) errors.push(tp + '.status: must be one of ' + ALLOWED.join(', '));
+      const arrayFields = ['scope','testUnit','testIntegration','testExceptions','referenceUrls','sourcePaths','rfcDiscrepancies','acceptanceCriteria'];
+      for (const f of arrayFields) {
+        if (t[f] !== undefined) {
+          if (!Array.isArray(t[f])) errors.push(tp + '.' + f + ': must be array');
+          else for (let i = 0; i < t[f].length; i++) { if (typeof t[f][i] !== 'string') errors.push(tp + '.' + f + '[' + i + ']: must be string'); }
+        }
+      }
+      if (t.changes !== undefined) {
+        if (!Array.isArray(t.changes)) errors.push(tp + '.changes: must be array');
+        else for (let i = 0; i < t.changes.length; i++) { if (!t.changes[i] || typeof t.changes[i] !== 'object') errors.push(tp + '.changes[' + i + ']: must be object'); }
+      }
+      // contracts validation — optional at schema level, enforced by Gate M at workflow level
+      // [::TICKET::] PX-73: validate-tickets.js — contracts made optional for backward compatibility
+      if (t.contracts !== undefined) {
+        if (!Array.isArray(t.contracts)) {
+          errors.push(tp + '.contracts: must be array');
+        } else if (t.contracts.length === 0) {
+          errors.push(tp + '.contracts: must not be empty if present');
+        } else {
+        for (let ci = 0; ci < t.contracts.length; ci++) {
+          const c = t.contracts[ci], cp = tp + '.contracts[' + ci + ']';
+          if (!c || typeof c !== 'object' || Array.isArray(c)) errors.push(cp + ': must be object');
+          else {
+            if (typeof c.id !== 'string' || !/^C\d{3}$/.test(c.id)) errors.push(cp + '.id: must match C000 format (e.g. C001)');
+            if (typeof c.sourceEdge !== 'string' || c.sourceEdge.length < 1) errors.push(cp + '.sourceEdge: must be non-empty string');
+            if (typeof c.precondition !== 'string' || c.precondition.length < 1) errors.push(cp + '.precondition: must be non-empty string');
+            if (typeof c.postcondition !== 'string' || c.postcondition.length < 1) errors.push(cp + '.postcondition: must be non-empty string');
+            if (typeof c.invariant !== 'string' || c.invariant.length < 1) errors.push(cp + '.invariant: must be non-empty string');
+          }
+        }
+        }
+      }
+      const strFields = ['referenceSection','specPath','relatedTicketIds','invariants','background','startedAt','completedAt','instrumentation','investigation','boyScoutPlan','notes','created_at','updated_at'];
+      for (const f of strFields) { if (t[f] !== undefined && typeof t[f] !== 'string') errors.push(tp + '.' + f + ': must be string'); }
+      if (t.id && t.phaseId) {
+        const key = t.phaseId + '-' + t.id;
+        if (seen[key]) errors.push(tp + ': duplicate (phaseId=' + t.phaseId + ', id=' + t.id + ')');
+        seen[key] = true;
+      }
+    }
+  }
+  if (data.dependencyMap !== undefined && typeof data.dependencyMap !== 'string') errors.push('dependencyMap: must be string');
+  if (data.checklist !== undefined) {
+    if (!Array.isArray(data.checklist)) errors.push('checklist: must be array');
+    else for (let i = 0; i < data.checklist.length; i++) {
+      const e = data.checklist[i], ep = 'checklist[' + i + ']';
+      if (!e || typeof e !== 'object' || Array.isArray(e)) { errors.push(ep + ': must be object'); continue; }
+      if (!e.phase || typeof e.phase !== 'string') errors.push(ep + '.phase: required');
+    }
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+// [::TICKET::] PX-114 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-114 --for-spec --no-implementation-order`.
+function validateTicketRecord(t, prefix) {
+  const errors = [];
+  if (!t || typeof t !== 'object' || Array.isArray(t)) { errors.push(prefix + ': must be object'); return errors; }
+  if (typeof t.id !== 'number' || !Number.isInteger(t.id) || t.id < 1) errors.push(prefix + '.id: must be integer >= 1');
+  if (typeof t.phaseId !== 'number' || !Number.isInteger(t.phaseId) || t.phaseId < -1) errors.push(prefix + '.phaseId: must be integer >= -1');
+  if (!t.title || typeof t.title !== 'string') errors.push(prefix + '.title: required');
+  if (!t.status || (!ALLOWED.includes(t.status) && !isRoundStatus(t.status))) errors.push(prefix + '.status: must be one of ' + ALLOWED.join(', '));
+  return errors;
+}
+
+function parseTicketKey(key) {
+  const m = key.match(KEY_RE);
+  if (!m) return null;
+  return { phaseId: m[1] !== undefined ? parseInt(m[1], 10) : -1, ticketId: parseInt(m[2], 10) };
+}
+
+function main() {
+  const fp = process.argv[2];
+  if (!fp) { console.log(JSON.stringify({ success: false, error: 'Usage: ...' })); process.exit(1); }
+  const rp = path.resolve(fp);
+  if (!fs.existsSync(rp)) { console.log(JSON.stringify({ success: false, error: 'Not found' })); process.exit(1); }
+  const data = JSON.parse(fs.readFileSync(rp, 'utf8'));
+  const r = validateTickets(data);
+  if (!r.valid) { console.log(JSON.stringify({ success: false, error: 'Validation failed', errors: r.errors })); process.exit(1); }
+  console.log(JSON.stringify({ success: true, valid: true })); process.exit(0);
+}
+
+if (require.main === module) main();
+module.exports = { validateTickets, validateTicketRecord, parseTicketKey };

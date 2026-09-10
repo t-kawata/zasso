@@ -1,0 +1,21 @@
+{
+  "title": "Implementation Integration Framework — §62 RESIDUE resolution blueprint",
+  "nodeIds": ["N0068", "N0069", "N0078"],
+  "scope": [
+    "RFC §62.0 の3根因（公開ClientConfig非RFC型 / Mock固定バックエンド / イベントバス分断）を実装整合の基準として文書化する。",
+    "§62.9 のI/O境界参照表を graphify/boundify の分割判断に利用可能にする。",
+    "破壊的変更（旧config.rs削除・MockBackend削除・call_state改名）を v0.x の今一度に完了させるための全体手順を定義する。"
+  ],
+  "testUnit": [
+    "§62.0 の根因記述が RFC 本文（§10/§3/§15）と整合すること（assertion で固定）。",
+    "§62.9 のI/O境界表が既存 GRAPH ノード（N0013/N0015/N0016/N0017/N0018/N0025/N0027/N0031/N0033/N0043/N0044/N0067）を正しく参照すること。"
+  ],
+  "testIntegration": [],
+  "testExceptions": [
+    "純設計参照のため実機/ネットワーク不要。"
+  ],
+  "changes": [
+    { "before": "RFC に §62 が存在せず RESIDUE が解消不可", "after": "RFC §62 が追記され spec ファイル（impl_integration_design.rs / evolution_scope.rs / io_boundary_62.rs）が整合", "description": "§62 実装整合フレームワークの確立" }
+  ],
+  "phaseName": "Implementation Integration — RESIDUE Resolution (§62)"
+}

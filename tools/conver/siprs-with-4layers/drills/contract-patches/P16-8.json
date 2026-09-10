@@ -1,0 +1,18 @@
+{
+ "contracts": [
+  {
+   "id": "C076",
+   "sourceEdge": "N0076→N0068",
+   "precondition": "§62 親セクションが存在する",
+   "postcondition": "62.7 が §62 の一部として記述される",
+   "invariant": "シャットダウン手順は §32 と整合する"
+  },
+  {
+   "id": "C088",
+   "sourceEdge": "N0076→N0043",
+   "precondition": "N0043 が §32 Shutdown 仕様を定義する",
+   "postcondition": "62.7 が ShutdownSpec.execute_sequence の production 配線を規定する",
+   "invariant": "BYE/CANCEL→unregister→audio drain→pjsua_destroy の順序が保証される"
+  }
+ ]
+}

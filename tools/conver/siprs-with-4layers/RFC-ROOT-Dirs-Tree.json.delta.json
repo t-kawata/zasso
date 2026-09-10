@@ -1,0 +1,921 @@
+{
+  "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "newFiles": [
+    {
+      "path": "src/build/vendored_pjsip_strategy.rs",
+      "kind": "build_ci",
+      "nodeId": "N0101",
+      "title": "Vendored"
+    },
+    {
+      "path": "src/build/bindgen_enum_generation.rs",
+      "kind": "build_ci",
+      "nodeId": "N0102",
+      "title": "Bindgen"
+    },
+    {
+      "path": "src/build/static_link_strategy.rs",
+      "kind": "build_ci",
+      "nodeId": "N0103",
+      "title": "Static"
+    },
+    {
+      "path": "src/build/build_rs_resolution.rs",
+      "kind": "build_ci",
+      "nodeId": "N0104",
+      "title": "build.rs"
+    },
+    {
+      "path": "src/build/prebuilt_producer.rs",
+      "kind": "build_ci",
+      "nodeId": "N0105",
+      "title": "Prebuilt"
+    },
+    {
+      "path": "src/build/prebuilt_ci_commit.rs",
+      "kind": "build_ci",
+      "nodeId": "N0106",
+      "title": "Prebuilt CI and commit"
+    },
+    {
+      "path": "src/tests/raw_sip_real_test.rs",
+      "kind": "test_policy",
+      "nodeId": "N0107",
+      "title": "Raw SIP real test"
+    },
+    {
+      "path": "src/tests/real_pjsip_itest.rs",
+      "kind": "test_policy",
+      "nodeId": "N0111",
+      "title": "Real PJSIP integration test"
+    },
+    {
+      "path": "src/runtime/push_media_frame.rs",
+      "kind": "architecture",
+      "nodeId": "N0109",
+      "title": "push_media_frame wiring"
+    },
+    {
+      "path": "src/runtime/add_audio_source.rs",
+      "kind": "architecture",
+      "nodeId": "N0110",
+      "title": "AddAudioSource re-register"
+    },
+    {
+      "path": "src/ffi/ice_transport_error.rs",
+      "kind": "architecture",
+      "nodeId": "N0108",
+      "title": "ICE transport error"
+    },
+    {
+      "path": "src/architecture/round4_scope_rootcause.rs",
+      "kind": "architecture",
+      "nodeId": "N0100",
+      "title": "Round"
+    },
+    {
+      "path": "src/architecture/round4_tickets.rs",
+      "kind": "architecture",
+      "nodeId": "N0112",
+      "title": "Round 4 tickets"
+    },
+    {
+      "path": "src/architecture/io_boundary_round4.rs",
+      "kind": "architecture",
+      "nodeId": "N0113",
+      "title": "Round 4 I/O boundary"
+    }
+  ],
+  "modifiedFiles": [],
+  "srcDrift": [
+    {
+      "path": "src/concurrency_contexts/command_serialization.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/config/versioning_policy.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/config/client_config_spec.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/config/account_config_spec.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/config/transport_ice_spec.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/config/codec_policy_fallback.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/config/m20_codec_auto_mode.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/config/srtp_transport_reconnect.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/config/observability_metrics.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/config/semver_sip_networking.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/config/client_config_unify.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/config/stun_turn_ice_wiring.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/public_api_design.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/event_model_payload_bus.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/eventbus_receiver.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/call_api_semantics.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/dtmf_spec_received.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/m20_dtmfsent_twophase.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/audio_subscribe_bp.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/asyncaudiosrc_adapter.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/incoming_call_refer.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/standalone_server_config.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/http_ws_protocol.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/event_bus_guarantees.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/http_ws_crate_split.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/event_bus_unify.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/call_api_expansion.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/incoming_call_events.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/api/dtmf_unification.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/model/id_design_newtype.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/model/raw_sip_message_spec.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/model/audio_format_chunkpair.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/model/memory_ownership_defaults.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/model/sqlite_schema.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/model/audio_aligner.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/model/audio_resampler.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/model/media_bridge.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/error/error_design_siperror.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/error/m20_runtime_command_error.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/error/m20_shutdown_routing.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/error/challenges_panic_policy.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/error/error_native_status.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/state/m20_native_event_conv.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/state/m20_callstate_mapping.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/state/m20_registr_cmd_pat.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/state/registr_state_machine.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/state/call_state_model.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/state/shutdown_specification.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/state/registr_wiring.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/state/shutdown_wiring.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/state/reg_account_lifecycle.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/build_strategy_os_deps.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/cicd_docker_prebuilt.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/vendored_pjsip_strategy.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/bindgen_enum_generation.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/static_link_strategy.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/build_rs_resolution.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/prebuilt_producer.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/build/prebuilt_ci_commit.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/security/security_platform_diffs.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/security/auth_jwt_middleware.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/tests/test_strategy_4layer.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/tests/m20_test_dual_client.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/tests/test_apilayer5.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/tests/docker_asterisk_it.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/tests/raw_sip_real_test.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/tests/real_pjsip_itest.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/mod.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/audioworker_lifecycle.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/runtime_state_lock_rules.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/backend_selection.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/event_path_wiring.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/backend.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/audio_worker.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/push_media_frame.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/runtime/add_audio_source.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/audio/audiomixer_rt_boundary.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/audio/media_path_arch.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/audio/media_path_wiring.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/ffi/pjsip_ffi_layer.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/ffi/m20_dual_client_routing.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/ffi/transport_wiring.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/ffi/raw_sip_module.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/ffi/callback.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/ffi/ice_transport_error.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/crate_scope.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/policy_reference.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/impl_integration_design.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/round2_scope_rootcause.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/examples_e1e5.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/io_boundary_round2.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/round3_scope_rootcause.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/io_boundary_round3.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/round4_scope_rootcause.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/round4_tickets.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "src/architecture/io_boundary_round4.rs",
+      "kind": "missing"
+    },
+    {
+      "path": "account.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/asyncaudiosrc_adapter.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/audio_subscribe_bp.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/call_api_expansion.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/call_api_semantics.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/call_types.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/dtmf_spec_received.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/dtmf_unification.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/event_bus_guarantees.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/event_bus_unify.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/event_model_payload_bus.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/eventbus_receiver.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/http_ws_crate_split.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/http_ws_protocol.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/incoming_call_events.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/incoming_call_refer.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/m20_dtmfsent_twophase.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/mod.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/public_api_design.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "api/standalone_server_config.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/crate_scope.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/examples_e1e5.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/impl_integration_design.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/io_boundary_round2.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/io_boundary_round3.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/mod.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/policy_reference.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/round2_scope_rootcause.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "architecture/round3_scope_rootcause.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "audio/audiomixer_rt_boundary.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "audio/media_path_arch.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "audio/media_path_wiring.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "audio/mod.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "audio/pipeline.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "build/build_script_bindgen.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "build/build_strategy_os_deps.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "build/cicd_docker_prebuilt.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "build/mod.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "call.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "client.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "concurrency_contexts/command_serialization.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config/account_config_spec.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config/client_config_spec.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config/client_config_unify.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config/codec_policy_fallback.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config/m20_codec_auto_mode.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config/observability_metrics.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config/semver_sip_networking.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config/srtp_transport_reconnect.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config/stun_turn_ice_wiring.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config/transport_ice_spec.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config/versioning_policy.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "config.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "error/challenges_panic_policy.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "error/error_design_siperror.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "error/error_native_status.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "error/m20_runtime_command_error.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "error/m20_shutdown_routing.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "error.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "event.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/backend_calls.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/bindings.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/callback.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/m20_dual_client_routing.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/media_port_adapter.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/mod.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/pj_str.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/pjsip_ffi_layer.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/raw_sip_module.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "ffi/transport_wiring.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "lib.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "model/audio_aligner.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "model/audio_format_chunkpair.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "model/audio_resampler.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "model/dtmf_spec.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "model/id_design_newtype.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "model/media_bridge.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "model/memory_ownership_defaults.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "model/mod.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "model/raw_sip_message_spec.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "model/sqlite_schema.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/audio_worker.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/audioworker_lifecycle.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/backend.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/backend_selection.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/command.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/event_path_wiring.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/handle.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/mod.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/reactor.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/runtime_state_lock_rules.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "runtime/state.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "security/auth_jwt_middleware.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "security/mod.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "security/security_platform_diffs.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "state/call_state_model.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "state/m20_callstate_mapping.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "state/m20_native_event_conv.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "state/m20_registr_cmd_pat.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "state/mod.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "state/reg_account_lifecycle.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "state/registr_state_machine.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "state/registr_wiring.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "state/shutdown_specification.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "state/shutdown_wiring.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "tests/docker_asterisk_it.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "tests/m20_test_dual_client.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "tests/mod.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "tests/test_apilayer5.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "tests/test_strategy_4layer.rs",
+      "kind": "extra"
+    },
+    {
+      "path": "transport.rs",
+      "kind": "extra"
+    }
+  ],
+  "dependencyDirs": []
+}

@@ -1,0 +1,8 @@
+{
+  "name": "crystalize-readme",
+  "version": "1.0.0",
+  "description": "Deterministic scripts for the /crystalize-readme slash command",
+  "main": "validate-graph-arg.js",
+  "license": "ISC",
+  "type": "commonjs"
+}

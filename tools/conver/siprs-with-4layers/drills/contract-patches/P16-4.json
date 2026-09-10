@@ -1,0 +1,18 @@
+{
+ "contracts": [
+  {
+   "id": "C072",
+   "sourceEdge": "N0072→N0068",
+   "precondition": "§62 親セクションが存在する",
+   "postcondition": "62.3 が §62 の一部として記述される",
+   "invariant": "イベントバス一元化は §15.6 と整合する"
+  },
+  {
+   "id": "C084",
+   "sourceEdge": "N0072→N0018",
+   "precondition": "N0018 が §15 イベントモデルと EventBus を定義する",
+   "postcondition": "62.3 が単一 EventBus 一元化と dispatch_event 直 publish を規定する",
+   "invariant": "subscribe_account のフィルタ死滅が解消される"
+  }
+ ]
+}

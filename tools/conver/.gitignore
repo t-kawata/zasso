@@ -1,2 +1,5 @@
 # deploy の TARGET パスにチルダがリテラル解釈された場合のゴミを無視
 ~/
+
+# Rust build artefacts produced while verifying the scrubbed experiment input
+siprs-for-reverse/target/

@@ -1,0 +1,112 @@
+[package]
+name = "siprs"
+version = "0.1.0"
+description = "Safe asynchronous SIP voice communication via PJSUA for Rust"
+authors = ["Toshimi Kawata"]
+edition = "2021"
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+
+[features]
+# connects to a real input device in the default build (§62.6).
+default = ["serde", "tls", "cpal-input"]
+serde = ["dep:serde", "dep:serde_json"]
+# When enabled, build.rs detects a system PJSIP install and src/ffi/bindings.rs
+# is replaced by bindgen output (P8-5/P11-5). When disabled, stub aliases keep
+# the crate compiling without a system PJSIP install (RFC §28).
+pjsua-native = []
+tls = []
+srtp = []
+metrics = []
+cli = ["dep:clap"]
+server = ["dep:axum", "dep:tower-http"]
+cpal-input = ["dep:cpal"]
+zeroize = ["dep:zeroize"]
+# This keeps the default crate light — SQLite deps only enabled when needed.
+sqlite-storage = ["dep:rusqlite", "dep:sea-orm", "dep:chrono"]
+# create_backend test branch for integration tests (tests/*.rs) that spawn a
+# live reactor without pjsua-native. Never enabled by default, so a production
+# build without pjsua-native still fails fast (RFC §62.2).
+test-util = []
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cpal-input", "pjsua-native", "test-util"))'] }
+
+[dependencies]
+# P0-4: tokio sync for EventBus broadcast channels (control/raw_sip)
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "macros", "net", "process", "test-util"] }
+thiserror = "2"
+tracing = "0.1"
+cfg-if = "1"
+zeroize = { version = "1", optional = true }
+serde = { version = "1", optional = true, features = ["derive"] }
+serde_json = { version = "1", optional = true }
+dashmap = "6"
+async-trait = "0.1"
+jsonwebtoken = "9"
+crossbeam-queue = "0.3"
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+sea-orm = { version = "1", features = ["sqlx-sqlite", "macros", "runtime-tokio-rustls"], optional = true }
+chrono = { version = "0.4", optional = true }
+clap = { version = "4", optional = true }
+axum = { version = "0.7", optional = true }
+tower-http = { version = "0.5", features = ["cors"], optional = true }
+cpal = { version = "0.18", optional = true }
+
+[build-dependencies]
+# `pjsua-native` feature is enabled. Pinned — bindgen output varies by version,
+# so a fixed version keeps the generated bindings deterministic and reviewable.
+bindgen = "0.69"
+
+[dev-dependencies]
+serde_json = "1"
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors"] }
+tower = { version = "0.5", features = ["util"] }
+
+# Example declarations. All five examples (client_init, account_register,
+# make_call, audio_tap, tts_source) build by default.
+
+[[example]]
+name = "client_init"
+
+[[example]]
+name = "account_register"
+
+[[example]]
+name = "make_call"
+
+[[example]]
+name = "audio_tap"
+
+[[example]]
+name = "tts_source"
+
+# feature so the library build selects TestBackend (the non-feature, non-test
+# build returns an explicit unsupported error per RFC §62.2). Without the
+# feature these targets are skipped rather than failing on a missing backend.
+[[test]]
+name = "verify_spec_e0606bc3"
+required-features = ["test-util"]
+
+[[test]]
+name = "verify_spec_a4ecaf0f"
+required-features = ["test-util"]
+
+[[test]]
+name = "runtime_audio_lifecycle"
+required-features = ["test-util"]
+
+[[test]]
+name = "verify_spec_0963da9b"
+required-features = ["test-util"]
+
+[[test]]
+name = "verify_spec_f330ed39"
+required-features = ["test-util"]
+
+# pjsua-native (docker Asterisk/coturn, §62.19 Q9a). `make test-integration`
+# supplies this feature; `make test` (test-util) skips the target cleanly.
+[[test]]
+name = "sip_integration"
+required-features = ["pjsua-native"]

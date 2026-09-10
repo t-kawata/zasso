@@ -1,0 +1,5 @@
+Q9: MockBackend 削除後のテスト基盤を確定します。この設計判断が必要な理由は、ユーザー指示で MockBackend は「実装過程で必要だったが現在は不要なゴミ」と判断され削除が確定したため、Layer 2 決定性状態機械テスト（§43.2）と README 検証で利用してきた Mock が無くなるからです。テストは make test で PJSIP 不要のまま green を保つ必要があり、SipBackend trait（§27a）は維持されます。選択肢:
+A) SipBackend trait を実装する TestBackend を cfg(test) 専用（src/runtime/backend.rs 内 #[cfg(test)] mod または tests/）として配置し、MockBackend の生産コードを完全削除。
+B) mock-backend feature を定義し、テスト時のみその feature で TestBackend を有効化。
+C) テストダブルを置かず、テストは PjsuaBackend（pjsua-native）上でのみ実行（決定性テストは廃止）。
+推奨: A を推します。理由は、cfg(test) のテストダブルなら本番バイナリに一切残らず pjsua 完全統一を保ちつつ、決定性テスト（§43.2）を PJSIP 不要で継続できるからです。B は feature の組み合わせ爆発を招き、C はテスト戦略の劣化です。

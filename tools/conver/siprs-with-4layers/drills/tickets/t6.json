@@ -1,0 +1,30 @@
+{
+  "title": "Call API expansion — answer/hangup/hold/unhold/transfer/send_dtmf/call_state(call_id), calls() rename",
+  "nodeIds": ["N0074"],
+  "scope": [
+    "SipClient に §19/§20 の通話 API を追加する（§62.5）: answer(call_id, code) / hangup(call_id, reason) / hold / unhold / transfer / send_dtmf / call_state(call_id)。",
+    "answer は §19.1 の 180/183/200/486/603 を受理する（486=Busy, 603=Decline。reject は独立 API にせず answer(call_id, 486/603) で実現）。",
+    "現行 call_state() -> Vec<CallEntry> を calls() に改名し、§19 の正名 call_state(call_id) -> Result<CallState, SipError> を新設する。",
+    "unsubscribe は明示 API を追加せず、broadcast Receiver の drop による購読解除を README に明文化する。"
+  ],
+  "testUnit": [
+    "validate_answer_code が 180/183/200/486/603 を受理し、その他を拒否すること。",
+    "call_state(call_id) が per-call の CallState を返すこと。",
+    "calls() が全 CallEntry の一覧を返すこと。"
+  ],
+  "testIntegration": [
+    "TestBackend 上で answer(call_id, 200) → CallConnected が publish されること。",
+    "answer(call_id, 486) で decline が成立すること。",
+    "send_dtmf が RuntimeCommand::SendDtmf を submit し、DtmfSent 二相タイムアウトが成立すること。"
+  ],
+  "testExceptions": [
+    "実 INVITE/DTMF は pjsua-native（Layer 3+）で検証する。"
+  ],
+  "changes": [
+    { "before": "SipClient に answer/hangup/hold/unhold/transfer/send_dtmf が不在", "after": "§19/§20 の通話 API を追加（call_id 基準）", "description": "公開 API の拡充" },
+    { "before": "is_valid_answer_code が 486/603 を拒否", "after": "validate_answer_code が 180/183/200/486/603 を受理", "description": "decline 応答の受理（§19.1）" },
+    { "before": "call_state() が Vec<CallEntry> を返す", "after": "calls() に改名し call_state(call_id) -> CallState を新設", "description": "call_state シグネチャの整合" },
+    { "before": "unsubscribe が未定義", "after": "broadcast Receiver の drop による購読解除を README に明文化", "description": "unsubscribe の設計確定" }
+  ],
+  "phaseName": "Implementation Integration — RESIDUE Resolution (§62)"
+}

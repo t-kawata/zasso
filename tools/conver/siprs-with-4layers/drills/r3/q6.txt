@@ -1,0 +1,10 @@
+Q6: DtmfSent の意味論（送出完了契約の確定）
+
+背景: §62.15（round 2 Q5）は「PJSIP の送信完了コールバックが確認できる場合はそれを優先し、未確認時は 500ms タイムアウトフォールバック」と設計した。実装（P11-6 / P16-6）は handle_send_dtmf が backend 成功後に 500ms タイマーを起動し、無条件に DtmfSent { status: Ok(()), pjsip_status: None } を publish する（src/runtime/reactor.rs:1339-1359）。調査の結果、pjsua_call_send_dtmf / pjsua_call_dial_dtmf は同期的に pj_status_t を返すのみで、送信完了を非同期通知するコールバックは存在しない（on_dtmf_digit は受信専用）。H12 RESIDUE は「実コールバック由来に置き換えるか、500ms タイムアウト設計を明記」を求めている。選択の観点は、送出完了の観測手段をどう契約化するかである。
+
+選択肢:
+A) 500ms タイムアウトを正式な送出完了契約として確定し、DtmfSent{Ok} は「backend 受理 + タイムアウト経過で送出完了とみなす」ことを README / RFC に明記する
+B) PJSIP の送信完了コールバック（on_dtmf_event 等）を調査・登録して実完了を報告する
+C) DtmfSent イベントを削除し、send_dtmf は同期的に Ok / Err のみを返す（イベント通知なし）
+
+推奨: A を推奨。調査の結果、PJSIP に DTMF 送信完了コールバックは存在しないため B は成立しない。500ms タイムアウトは「送出完了とみなす」明示的な契約として妥当で、実装済み（O-002 / P7-2）と整合する。C は send_dtmf の観測性（UI への送出完了通知）を失う。A により H12 の「タイムアウト設計を明記」が満たされる。
