@@ -21,18 +21,13 @@ const ALLOWED_CATEGORIES = new Set(['object', 'claim', 'invariant', 'state_machi
 /**
  * Run the local checks for one parsed seed.
  *
- * @param {{ parsedSeed: object, package: object, expectedAllocation: Array<object> }} input
+ * @param {{ parsedSeed: object, package: object, expectedAllocation?: Array<object>, workspace?: { manifest?: object, manifestPath?: string, manifestDir?: string, segmentIds?: Array<string> } }} input
  * @returns {{ ok: boolean, errors: string[] }}
  */
-export function runSeedLocalChecks({
-  parsedSeed,
-  package: pkg,
-  expectedAllocation = [],
-  manifest,
-  manifestPath,
-  manifestDir,
-  segmentIds,
-}) {
+export function runSeedLocalChecks({ parsedSeed, package: pkg, expectedAllocation = [], workspace = {} }) {
+  // The locked stage-1 workspace: the manifest that authorises every reference and the
+  // segments it declared, which the seed's trace table must stay inside.
+  const { manifest, manifestPath, manifestDir, segmentIds } = workspace;
   const errors = [];
 
   const expectedKeys = new Set(expectedAllocation.map((item) => itemKey(item.category, item.inventory_ref)));

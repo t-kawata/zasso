@@ -10,16 +10,24 @@ import { join } from 'node:path';
 import { buildReferenceBlock } from '../../../.claude/scripts/workspacify-allocate/lib/reference-block.mjs';
 import { materializeManifestDir } from '../helpers/build-valid-manifest.mjs';
 
+/**
+ * A block input whose overrides land in the group they belong to, so a test can replace
+ * the manifest inside the manifestRef or any seed fact without nesting the spread by hand.
+ */
 function blockArgs(fixture, overrides = {}) {
+  const {
+    manifest = fixture.manifest, manifestPath = fixture.manifestPath, manifestDir = fixture.dir,
+    package: packageOverride, ...seedOverrides
+  } = overrides;
   return {
-    manifest: fixture.manifest,
-    manifestPath: fixture.manifestPath,
-    manifestDir: fixture.dir,
-    package: fixture.manifest.workspace.packages[0],
-    orderEntry: { before: [], after: ['pkg-b'], parallel_with: [], serial_index: 0, wave: 0 },
-    contractIds: ['contract-boundary-001'],
-    sourceSegments: ['s-000001'],
-    ...overrides,
+    manifestRef: { manifest, manifestPath, manifestDir },
+    seed: {
+      package: packageOverride ?? fixture.manifest.workspace.packages[0],
+      orderEntry: { before: [], after: ['pkg-b'], parallel_with: [], serial_index: 0, wave: 0 },
+      contractIds: ['contract-boundary-001'],
+      sourceSegments: ['s-000001'],
+      ...seedOverrides,
+    },
   };
 }
 

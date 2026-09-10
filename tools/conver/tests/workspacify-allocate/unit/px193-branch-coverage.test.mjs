@@ -107,19 +107,19 @@ test('reference-block C001: malformed inputs and unreadable manifests are reject
   const fixture = materializeManifestDir();
   try {
     const base = {
-      manifest: fixture.manifest, manifestPath: fixture.manifestPath, manifestDir: fixture.dir,
-      package: fixture.manifest.workspace.packages[0],
+      manifestRef: { manifest: fixture.manifest, manifestPath: fixture.manifestPath, manifestDir: fixture.dir },
+      seed: { package: fixture.manifest.workspace.packages[0] },
     };
-    assert.throws(() => buildReferenceBlock({ ...base, package: undefined }), (error) => error.gateId === 'G3.1');
+    assert.throws(() => buildReferenceBlock({ ...base, seed: { package: undefined } }), (error) => error.gateId === 'G3.1');
     assert.throws(
-      () => buildReferenceBlock({ ...base, manifest: { ...fixture.manifest, input: {} } }),
+      () => buildReferenceBlock({ ...base, manifestRef: { ...base.manifestRef, manifest: { ...fixture.manifest, input: {} } } }),
       (error) => error.gateId === 'G3.1' && /spec_path/.test(error.message),
     );
     assert.throws(
-      () => buildReferenceBlock({ ...base, manifestPath: `${fixture.dir}/missing-manifest.json` }),
+      () => buildReferenceBlock({ ...base, manifestRef: { ...base.manifestRef, manifestPath: `${fixture.dir}/missing-manifest.json` } }),
       (error) => error.gateId === 'G3.1',
     );
-    const block = buildReferenceBlock({ ...base, contractIds: ['contract-b', 'contract-a', 'contract-a'] });
+    const block = buildReferenceBlock({ ...base, seed: { ...base.seed, contractIds: ['contract-b', 'contract-a', 'contract-a'] } });
     assert.deepEqual(block.contract_refs, ['contract-a', 'contract-b'], 'contract refs are deduplicated and sorted');
     assert.equal(block.stage2_manifest.path, ALLOCATE_MANIFEST_FILE_NAME);
   } finally {
@@ -143,8 +143,7 @@ test('seed-local-checks C001/C003: every reference and contract defect is report
     const base = {
       package: pkg,
       expectedAllocation: [{ category: 'object', inventory_ref: 'obj-000001', canonical_name: 'Alpha Record' }, { category: 'object', inventory_ref: 'obj-000002', canonical_name: 'Beta Record' }],
-      manifest, manifestPath: fixture.manifestPath, manifestDir: fixture.dir,
-      segmentIds: manifest.structure.segments.map((segment) => segment.id),
+      workspace: { manifest, manifestPath: fixture.manifestPath, manifestDir: fixture.dir, segmentIds: manifest.structure.segments.map((segment) => segment.id) },
     };
     const allocationRows = [{ category: 'object', inventory_ref: 'obj-000001', canonical_name: 'Alpha Record' }, { category: 'object', inventory_ref: 'obj-000002', canonical_name: 'Beta Record' }];
 

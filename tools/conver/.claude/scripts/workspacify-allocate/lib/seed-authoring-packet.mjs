@@ -54,7 +54,7 @@ export function buildAuthoringPacket({ manifest, sourceText, packageId, windowLi
   const boundaries = manifest.dependencies?.boundaries ?? [];
   const contractContext = boundaries
     .filter((boundary) => boundary.consumer_package === packageId || boundary.provider_package === packageId)
-    .map((boundary) => buildContractContext({ boundary, packageId, packageById, manifest, sourceText, windowLines }));
+    .map((boundary) => buildContractContext({ boundary, packageId, catalog: { packageById, manifest }, excerpt: { sourceText, windowLines } }));
 
   const forbiddenEdges = (manifest.dependencies?.forbidden_edges ?? [])
     .filter((edge) => edge.from === packageId || edge.to === packageId)
@@ -137,8 +137,14 @@ function buildExcerpt(input) {
   return locateExcerpt(input);
 }
 
-/** One boundary seen from this package's side. */
-function buildContractContext({ boundary, packageId, packageById, manifest, sourceText, windowLines }) {
+/**
+ * One boundary seen from this package's side.
+ *
+ * @param {{ boundary: object, packageId: string, catalog: { packageById: Map<string, object>, manifest: object }, excerpt: { sourceText: string, windowLines: number } }} input
+ */
+function buildContractContext({ boundary, packageId, catalog, excerpt }) {
+  const { packageById, manifest } = catalog;
+  const { sourceText, windowLines } = excerpt;
   const isConsumer = boundary.consumer_package === packageId;
   const counterpartId = isConsumer ? boundary.provider_package : boundary.consumer_package;
   const counterpart = packageById.get(counterpartId);

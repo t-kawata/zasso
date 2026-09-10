@@ -252,13 +252,13 @@ function renderOneSeed({ pkg, decisions, workspace, expectedAllocation, residual
   }
   const contractEdges = buildContractEdgesForPackage({ manifest, packageId: pkg.id, decision });
   const referenceBlock = buildReferenceBlock({
-    manifest,
-    manifestPath,
-    manifestDir,
-    package: pkg,
-    orderEntry: orderEntryForPackage({ manifest, packageId: pkg.id }),
-    contractIds: contractEdges.map((edge) => edge.contract_id),
-    sourceSegments: collectPackageSegments({ manifest, packageId: pkg.id }),
+    manifestRef: { manifest, manifestPath, manifestDir },
+    seed: {
+      package: pkg,
+      orderEntry: orderEntryForPackage({ manifest, packageId: pkg.id }),
+      contractIds: contractEdges.map((edge) => edge.contract_id),
+      sourceSegments: collectPackageSegments({ manifest, packageId: pkg.id }),
+    },
   });
   const { seedText } = renderSeed({
     package: pkg,
@@ -267,7 +267,7 @@ function renderOneSeed({ pkg, decisions, workspace, expectedAllocation, residual
     residualQuestions,
   });
   const parsed = parseSeed(seedText);
-  const local = runSeedLocalChecks({ parsedSeed: parsed, package: pkg, expectedAllocation, manifest, manifestPath, manifestDir, segmentIds });
+  const local = runSeedLocalChecks({ parsedSeed: parsed, package: pkg, expectedAllocation, workspace: { manifest, manifestPath, manifestDir, segmentIds } });
   if (!local.ok) {
     throw new WorkSpacifyTreeError(`seed ${pkg.id} local checks failed: ${local.errors.join('; ')}`, { gateId: 'G3' });
   }

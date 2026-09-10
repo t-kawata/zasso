@@ -23,19 +23,17 @@ import { ALLOCATE_MANIFEST_FILE_NAME } from './seed-model.mjs';
 /**
  * Build the reference block for one package.
  *
- * @param {{ manifest: object, manifestPath: string, manifestDir: string, package: object, orderEntry: object, contractIds?: string[], sourceSegments?: string[] }} input
+ * The block states where one seed sits: the manifest it points at, and the seed's own
+ * facts - its package, its place in the implementation order, the contracts it owes and
+ * the segments it carries.
+ *
+ * @param {{ manifestRef: { manifest: object, manifestPath: string, manifestDir: string }, seed: { package: object, orderEntry?: object, contractIds?: string[], sourceSegments?: string[] } }} input
  * @returns {object} reference block for seed section 1
  * @throws {WorkSpacifyTreeError} gateId "G3.1"
  */
-export function buildReferenceBlock({
-  manifest,
-  manifestPath,
-  manifestDir,
-  package: pkg,
-  orderEntry = {},
-  contractIds = [],
-  sourceSegments = [],
-}) {
+export function buildReferenceBlock({ manifestRef, seed }) {
+  const { manifest, manifestPath, manifestDir } = manifestRef;
+  const { package: pkg, orderEntry = {}, contractIds = [], sourceSegments = [] } = seed;
   if (!pkg || typeof pkg.id !== 'string') {
     throw new WorkSpacifyTreeError('the reference block needs a package from the manifest catalog', { gateId: 'G3.1' });
   }
