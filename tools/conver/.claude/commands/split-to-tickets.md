@@ -57,6 +57,7 @@ Located under `.claude/scripts/tickets/`.
 | `bulk-delete-tickets.js` | `<PATH of Tickets.json>` (stdin: list of deletion keys) | Bulk delete multiple tickets |
 | `list-phases-and-tickets.js` | `<PATH of Tickets.json>` | Display in checklist format |
 | `update-split-step-status.js` | `--status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <STEP_ID>` | Manage SPLIT-Status.json progress (6 subcommands) |
+| `lib/reverse-split.js` | `--root=<path> --tickets=<path> [--test-dir=<path>] [--gaps=<path>] [--ledger=<path>] [--out=<dir>] [--candidate=<path>] [--json]` | Reverse rotation S1 to S6 only: map existing tests to tickets, record every contract without a Red, and generate one reconstruction ticket per absence, each carrying its `counterexample_plan_id` |
 
 All scripts run schema validation (`validate-tickets.js`) before writing, and do not save on failure.
 
@@ -587,3 +588,55 @@ Example output:
 
 ## Notes
 - If the destination Tickets.json already exists, confirm with the user before overwriting.
+
+## Reverse mode (S1 to S6)
+
+Everything above describes the forward rotation: a design document is decomposed into
+phases and tickets, and the tickets declare what is to be built. When a project already
+contains an implementation and a test suite, the same step has to describe what is there
+instead of declaring what should be. Reverse mode is entered by naming a subject tree
+rather than a design document, and it changes four things.
+
+- **The input is a tree, not a document.** `--root` names the project to describe. There is
+  no RFC and no `GRAPH.json` to read first; the directory structure comes from the
+  `/boundify-graph` reverse branch, which measures the tree that already exists.
+- **`default_files` is measured, not resolved.** In the forward flow the script resolves it
+  from the Dirs-Tree through `nodeIds`. Here the implementation already exists, so the file
+  is measured on disk and recorded on the ticket — and when no implementation exists yet,
+  that fact is recorded explicitly rather than left as an empty list. The implementation
+  loop runs one ticket per session, so an empty file list is not an inconvenience but a
+  ticket no session can execute.
+- **Tickets are reconstruction tickets.** A contract whose test never had a Red cannot be
+  proved by a green suite: the test was written against an implementation that already
+  existed. Each such contract produces exactly one ticket whose purpose is to rebuild that
+  Red, and the ticket records whether the absence is re-checkable or is a candidate only a
+  human can settle.
+- **`counterexample_plan_id` is mandatory.** The field names what the ticket will confirm or
+  refute, not merely what it will implement. A ticket without it is refused rather than
+  emitted: without the plan identifier the uncertainty the plan encoded would dissolve at
+  implementation time and the reconstruction would become ordinary test-writing.
+
+```bash
+node .claude/scripts/tickets/lib/reverse-split.js --root=<subject tree> \
+  --tickets=<path> [--test-dir=<dir>] [--gaps=<path>] [--ledger=<path>] \
+  [--language=<name>] [--out=<dir>] [--candidate=<path>] [--json]
+```
+
+The exit code is a gate verdict rather than a measure of success: 0 when every existing
+test is mapped and every reconstruction ticket carries a plan identifier, non-zero
+otherwise. An absence count of zero is a comparison result, never a pass — it means either
+that no contract was measured or that the detection reads nothing.
+
+Nothing in reverse mode executes a reconstruction ticket. Executing them is a separate
+step, and the tickets this mode produces are its input.
+
+Absent-Red detection is compared against the frozen answer key rather than asserted, which
+is what keeps it a measurement:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs oracle compare --stage mapping \
+  --candidate=<path written by --candidate>
+```
+
+The comparison lists disagreements by name — in both directions — and never a score or a
+verdict. Classifying each disagreement is a human's work.
