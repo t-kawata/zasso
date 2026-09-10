@@ -10,3 +10,9 @@ ENV-MANIFEST.json
 
 # What the installer installed last time. It describes this working copy only.
 .claude/.conver-install-state.json
+
+# Holdout projects generality is measured against. They are working material
+# reproduced from the commit each candidate declares, not source this project
+# owns: the ledger freezes their digest, and committing the trees would put tens
+# of thousands of upstream files under this repository's review.
+tests/workspacify-reverse/holdout/corpus/
