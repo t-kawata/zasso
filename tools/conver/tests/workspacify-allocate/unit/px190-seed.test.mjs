@@ -49,9 +49,7 @@ function renderFor(manifest, pkg, aiSections) {
   const { expectedByPackage } = deriveExpectedAllocation({ ownershipEntries: manifest.workspace.ownership.entries, packages: manifest.workspace.packages });
   return renderSeed({
     package: pkg,
-    manifest,
-    expectedAllocation: expectedByPackage.get(pkg.id),
-    ...machineInputsFor(manifest, pkg),
+    machine: { manifest, expectedAllocation: expectedByPackage.get(pkg.id), ...machineInputsFor(manifest, pkg) },
     aiSections,
   });
 }

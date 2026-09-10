@@ -46,6 +46,20 @@
     },
     "dependencies": { "type": "array", "items": { "type": "object" } },
     "adapters": {},
+    "dependency_reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["candidate_id", "decision", "rationale", "alternatives"],
+        "properties": {
+          "candidate_id": { "type": "string" },
+          "decision": { "type": "string", "enum": ["keep", "replace_with_port", "merge", "split", "residual"] },
+          "rationale": { "type": "string" },
+          "alternatives": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "why_unresolved": { "type": "string" }
+        }
+      }
+    },
     "approvals": {
       "type": "array",
       "items": {

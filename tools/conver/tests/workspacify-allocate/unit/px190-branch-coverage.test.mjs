@@ -106,7 +106,7 @@ test('seed-parse: title/index/title-mismatch and table edge cases', () => {
   const { manifest } = buildSeedFixture();
   const packages = manifest.workspace.packages;
   const expected = manifest.workspace.ownership.entries.filter((entry) => entry.owner_package === 'pkg-a').map((entry) => ({ category: entry.category, inventory_ref: entry.inventory_ref, canonical_name: entry.canonical_name, role: SEMANTIC_OWNER }));
-  const good = renderSeed({ ...machineArgs(manifest, packages[0]), package: packages[0], manifest, expectedAllocation: expected, aiSections: sectionsFor() }).seedText;
+  const good = renderSeed({ package: packages[0], machine: { ...machineArgs(manifest, packages[0]), manifest, expectedAllocation: expected }, aiSections: sectionsFor() }).seedText;
 
   assert.throws(() => parseSeed('no title here\n' + good), (e) => e.gateId !== undefined);
   const wrongIndex = good.replace('## 2. Coupling Contracts (I/O Boundary)', '## 9. Coupling Contracts (I/O Boundary)');
@@ -129,13 +129,13 @@ test('seed-render: empty-allocation scaffolding and invalid AI body', () => {
   // A package owning nothing renders not_applicable ownership + trace bodies.
   const emptyPkg = { ...packages[1], owns: {} };
   const emptyAllocation = [];
-  const rendered = renderSeed({ ...machineArgs(manifest, emptyPkg), package: emptyPkg, manifest, expectedAllocation: emptyAllocation, aiSections: sectionsFor() });
+  const rendered = renderSeed({ package: emptyPkg, machine: { ...machineArgs(manifest, emptyPkg), manifest, expectedAllocation: emptyAllocation }, aiSections: sectionsFor() });
   assert.ok(rendered.seedText.includes('not_applicable'));
 
   // An AI body that is an empty string is invalid and blocks the render.
   const sections = sectionsFor();
   sections[4] = '';
-  assert.throws(() => renderSeed({ ...machineArgs(manifest, packages[0]), package: packages[0], manifest, expectedAllocation: [], aiSections: sections }), (e) => e.gateId !== undefined);
+  assert.throws(() => renderSeed({ package: packages[0], machine: { ...machineArgs(manifest, packages[0]), manifest, expectedAllocation: [] }, aiSections: sections }), (e) => e.gateId !== undefined);
 });
 
 test('seed-parse: resolveSourceExcerpt out-of-range ref falls back to occurrence', () => {

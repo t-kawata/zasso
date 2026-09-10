@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180) --for-spec --no-implementation-order`.
 /**
  * Owner assignment checks (§9.3).
  *
@@ -60,6 +60,11 @@ export function runOwnershipChecks(input = {}) {
     invalidOwnerLayerCount += outcome.invalidLayers;
   }
 
+  // The catalogue and the ownership table are two statements about the same fact: an
+  // item only one of them declares would publish with no owner while the orphan count
+  // reads zero, which is how an inventory object left the hand-off unowned.
+  const disagreementDetails = collectOwnershipDisagreements({ objects, claims, packages });
+
   const invariantOrphans = countCategoryOrphans(invariants, packages, 'invariants');
   const stateMachineOrphans = countCategoryOrphans(stateMachines, packages, 'state_machines');
   const errorCodeOrphans = countCategoryOrphans(errorCodes, packages, 'error_codes');
@@ -75,8 +80,39 @@ export function runOwnershipChecks(input = {}) {
     error_code_orphan_count: errorCodeOrphans,
     required_test_orphan_count: testOrphans,
     unallocated_count: orphanObjectCount + orphanClaimCount + invariantOrphans + stateMachineOrphans + errorCodeOrphans + testOrphans,
-    details,
+    // Kept out of unallocated_count: a one-sided declaration is a different defect
+    // from an item nobody claimed, and the operator repairs it differently.
+    ownership_disagreement_count: disagreementDetails.length,
+    details: details.concat(disagreementDetails),
   };
+}
+
+/**
+ * Items a package declares in `owns` whose resolved owner field is empty.
+ *
+ * @param {{ objects?: Array<object>, claims?: Array<object>, packages?: Array<object> }} input
+ * @returns {string[]} one located sentence per disagreement
+ */
+export function collectOwnershipDisagreements({ objects = [], claims = [], packages = [] } = {}) {
+  const categories = [
+    { candidates: objects, ownsKey: 'objects', ownerField: 'owner_package', label: 'object' },
+    { candidates: claims, ownsKey: 'claims', ownerField: 'primary_owner', label: 'claim' },
+  ];
+  const disagreements = [];
+  for (const { candidates, ownsKey, ownerField, label } of categories) {
+    for (const candidate of candidates) {
+      if (candidate[ownerField]) {
+        continue;
+      }
+      const declaring = packages
+        .filter((pkg) => (pkg.owns?.[ownsKey] ?? []).includes(candidate.id))
+        .map((pkg) => pkg.id);
+      if (declaring.length > 0) {
+        disagreements.push(`${label} ${candidate.id} is declared in owns.${ownsKey} of ${declaring.join(', ')} but has no resolved ${ownerField}`);
+      }
+    }
+  }
+  return disagreements;
 }
 
 function countCategoryOrphans(candidates, packages, ownsKey) {

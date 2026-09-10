@@ -1,4 +1,4 @@
-// [::TICKET::] PX-198 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-198 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-198, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-198|PX-201) --for-spec --no-implementation-order`.
 // PX-198 @verifies C001 C002
 // Every gate failure must read as kind advice: what happened, why it matters, and
 // the concrete steps that make verification pass.
@@ -11,7 +11,7 @@ import { join } from 'node:path';
 
 import { adviseFailure, advisedGateIds } from '../../../.claude/scripts/workspacify-tree/lib/gate-advice.mjs';
 
-const GATE_IDS = ['G0', 'G0.1', 'G0.3', 'G2', 'G2.2', 'G2.4', 'G3', 'G3.1', 'G3.2', 'G3.5', 'G3.6', 'G4', 'G5', 'G6.1', 'G6.4', 'G6.5', 'G6.6', 'GENERAL'];
+const GATE_IDS = ['G0', 'G0.1', 'G0.3', 'G2', 'G2.2', 'G2.4', 'G3', 'G3.1', 'G3.2', 'G3.5', 'G3.6', 'G3.7', 'G4', 'G5', 'G6.1', 'G6.4', 'G6.5', 'G6.6', 'GENERAL'];
 
 test('C001 every gate has dedicated advice naming what, why and how', () => {
   assert.deepEqual(advisedGateIds().sort(), GATE_IDS.slice().sort());

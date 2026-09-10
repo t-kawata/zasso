@@ -1,4 +1,4 @@
-// [::TICKET::] PX-195 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-195 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-195, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-195|PX-201) --for-spec --no-implementation-order`.
 // PX-195 @verifies C001
 // The allocate manifest is the machine final authority: it records what was
 // proven, hashes every seed, and verifies itself.
@@ -16,6 +16,7 @@ import { join } from 'node:path';
 
 import { runFinalize } from '../../../.claude/scripts/workspacify-allocate/run.mjs';
 import { materializeSeedFixture, makeDecisions } from '../helpers/build-valid-manifest.mjs';
+import { makeSelfGrill, validResidual } from '../helpers/self-grill-fixture.mjs';
 
 function silent(callback) {
   const stdout = process.stdout.write;
@@ -45,7 +46,7 @@ function fixture() {
   return { dir, manifestPath, manifest, decisions, parsedByPackage, contractIndex, graph, order, coverageProof };
 }
 
-function build(prepared) {
+function build(prepared, review) {
   return buildAllocateManifest({
     manifestRef: { manifest: prepared.manifest, manifestPath: prepared.manifestPath, manifestDir: prepared.dir },
     plan: prepared.manifest.workspace.tree,
@@ -57,7 +58,7 @@ function build(prepared) {
       order: prepared.order,
       coverageProof: prepared.coverageProof,
     },
-    review: { gateResults: [{ id: 'G4', status: 'PASS' }], semanticReview: { status: 'APPROVED', approver: 'ai' } },
+    review: review ?? { gateResults: [{ id: 'G4', status: 'PASS' }], semanticReview: { status: 'APPROVED', approver: 'ai' } },
   });
 }
 
@@ -113,6 +114,35 @@ test('C001 the manifest names the specification and the stage-1 manifest that we
     assert.equal(allocateManifest.completion_decision, 'COMPLETE');
     assert.equal(allocateManifest.semantic_review.status, 'APPROVED');
     assert.ok(runBilateralSymmetry({ index: prepared.contractIndex, manifest: prepared.manifest }).ok);
+  } finally {
+    rmSync(prepared.dir, { recursive: true, force: true });
+  }
+});
+
+test('C003 the manifest publishes the loop and hands its residuals to the human grill', () => {
+  const prepared = fixture();
+  try {
+    const residual = [{ ...validResidual(), id: 'residual-000001' }];
+    const review = { gateResults: [{ id: 'G4', status: 'PASS' }], semanticReview: { status: 'APPROVED', approver: 'ai' }, selfGrill: { record: makeSelfGrill({ passes: 2, residual }), residual } };
+    const allocateManifest = build(prepared, review);
+
+    assert.equal(allocateManifest.self_grill.passes, 2);
+    assert.equal(allocateManifest.self_grill.converged, true);
+    assert.deepEqual(allocateManifest.self_grill.focuses, ['implementer', 'counterpart', 'test', 'grill', 'adversarial']);
+    assert.equal(allocateManifest.self_grill.rounds.length, 10);
+    assert.equal(allocateManifest.self_grill.rounds[0].finding_count, 0);
+    assert.equal(allocateManifest.self_grill.residual_count, 1);
+
+    assert.equal(allocateManifest.handoff_summary.grill_questions.length, allocateManifest.self_grill.residual_count);
+    assert.deepEqual(allocateManifest.handoff_summary.grill_questions[0], { residual_id: 'residual-000001', package_id: 'pkg-a', question: residual[0].grill_question });
+    assert.deepEqual(allocateManifest.handoff_summary.unresolved[0].topic, residual[0].topic);
+    // pkg-a is an endpoint of boundary-001, so the coupling it holds is the risky one.
+    assert.deepEqual(allocateManifest.handoff_summary.risky_boundaries, ['boundary-001']);
+
+    // The summary is reproducible from the published document, and the self-hash covers it.
+    const rebuilt = build(prepared, review);
+    assert.deepEqual(rebuilt.handoff_summary, allocateManifest.handoff_summary);
+    assert.equal(computeAllocateSelfHash(allocateManifest), allocateManifest.integrity.manifest_hash);
   } finally {
     rmSync(prepared.dir, { recursive: true, force: true });
   }

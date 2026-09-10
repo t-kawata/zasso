@@ -12,6 +12,8 @@ import { join } from 'node:path';
 
 const RUN_SCRIPT = join(process.cwd(), '.claude/scripts/workspacify-tree/run.mjs');
 const SPEC = join(process.cwd(), 'tests/workspacify-tree/fixtures/objects-table.md');
+const { settlePulseCandidates } = await import('../helpers/settle-pulse.mjs');
+const { settleDependencyReviews } = await import('../helpers/settle-dependency-reviews.mjs');
 const COMPLETE = join(process.cwd(), 'tests/workspacify-tree/fixtures/decisions-complete.json');
 
 function runCli(args, cwd = process.cwd()) {
@@ -71,7 +73,7 @@ test('PX-188 C002 [PX-188 @verifies C002]: finalize is blocked when an existing 
     approvals: [],
     semantic_review: { status: 'APPROVED', statement: 'rules owns the record', approver: 'ai' },
   };
-  writeFileSync(decisionPath, JSON.stringify(decisions));
+  writeFileSync(decisionPath, JSON.stringify(settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions }) })));
   const first = runCli(['finalize', `--spec=${specPath}`, `--decisions=${decisionPath}`], dir);
   assert.equal(first.status, 0, first.stdout);
   const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
@@ -121,7 +123,7 @@ test('PX-188 C001 [PX-188 @verifies C001]: finalize with a test-support package 
     semantic_review: { status: 'APPROVED', statement: 'rules owns the record; testkit is the conformance sink', approver: 'ai' },
   };
   const decisionPath = join(dir, 'dec.json');
-  writeFileSync(decisionPath, JSON.stringify(decisions));
+  writeFileSync(decisionPath, JSON.stringify(settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions }) })));
   const result = runCli(['finalize', `--spec=${specPath}`, `--decisions=${decisionPath}`], dir);
   assert.equal(result.status, 0, result.stdout);
   const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));

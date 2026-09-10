@@ -1,4 +1,4 @@
-// [::TICKET::] PX-193 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-193 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-193|PX-202) --for-spec --no-implementation-order`.
 // PX-193 @verifies C003
 /**
  * Coupling contract model.
@@ -24,12 +24,32 @@ export function contractIdForBoundary(boundaryId) {
 }
 
 /**
+ * Reject a clause group the frozen vocabulary does not define.
+ *
+ * Dropping it would delete authored content between the decisions payload and the
+ * seed; an unknown contract id already throws, and clause keys follow the same rule.
+ */
+function assertClauseVocabulary(clauses, contractId) {
+  const known = new Set(CONTRACT_CLAUSES);
+  for (const key of Object.keys(clauses ?? {})) {
+    if (!known.has(key)) {
+      throw new WorkSpacifyTreeError(
+        `${contractId} carries the clause "${key}", which is not one of ${CONTRACT_CLAUSES.join(', ')}`,
+        { gateId: 'G4' },
+      );
+    }
+  }
+}
+
+/**
  * Canonicalise clause groups: drop empty optional groups, sort keys, sort lists.
  *
  * @param {object} clauses - clause groups keyed by clause name
+ * @param {{ contractId?: string }} [location] - the contract the clauses belong to, used to locate a rejection
  * @returns {object} canonical clause groups
  */
-export function canonicalizeClauses(clauses) {
+export function canonicalizeClauses(clauses, { contractId = 'this contract' } = {}) {
+  assertClauseVocabulary(clauses, contractId);
   const canonical = {};
   for (const clause of [...CONTRACT_CLAUSES].sort()) {
     if (!Object.prototype.hasOwnProperty.call(clauses ?? {}, clause)) {
@@ -83,7 +103,7 @@ export function buildContractEdge({
     ...(consumerPath ? { consumer_path: consumerPath } : {}),
     ...(providerPath ? { provider_path: providerPath } : {}),
     owners: ownerSlots,
-    clauses: canonicalizeClauses(clauses),
+    clauses: canonicalizeClauses(clauses, { contractId: contractIdForBoundary(boundaryId) }),
     source_refs: [...new Set(sourceRefs)].sort(),
   };
 }

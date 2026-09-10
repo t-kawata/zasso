@@ -29,7 +29,7 @@ const CLASS_HEADER_WORDS = new Set(['kind', 'type', 'classification', 'class', '
 const CLASS_VALUES = new Set(['object', 'certificate', 'credential', 'policy', 'operation', 'record', 'unknown']);
 
 /** Deterministic dictionary for §7.3 normative keyword harvesting. */
-const NORMATIVE_PHRASES = Object.freeze([
+export const NORMATIVE_PHRASES = Object.freeze([
   { phrase: 'MUST NOT', classification: 'must-not' },
   { phrase: 'SHALL NOT', classification: 'shall-not' },
   { phrase: 'MUST', classification: 'must' },

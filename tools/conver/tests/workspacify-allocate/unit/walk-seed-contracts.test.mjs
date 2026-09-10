@@ -28,15 +28,18 @@ function publishSeedsInto(dir) {
       direction: edge.direction, connectionKind: edge.connection_kind, owners: edge.owners, clauses: edge.clauses, sourceRefs: edge.source_refs,
     }));
     const { seedText } = renderSeed({
-      package: pkg, manifest, expectedAllocation: [], contractEdges, aiSections: baseAiSections(),
-      referenceBlock: {
+      package: pkg, aiSections: baseAiSections(),
+      machine: {
+        manifest, expectedAllocation: [], contractEdges,
+        referenceBlock: {
         package: { id: pkg.id, name: pkg.name, path: pkg.path, layer: pkg.layer, kind: pkg.kind, responsibilities: pkg.responsibilities },
         source_spec: { path: manifest.input.spec_path, sha256: manifest.input.source_hash },
         stage1_manifest: { path: 'WORKSPACIFY-TREE-MANIFEST.json', hash: manifest.integrity.manifest_hash },
         stage2_manifest: { path: 'WORKSPACIFY-ALLOCATE-MANIFEST.json' },
         implementation_order: { before: [], after: [], parallel_with: [], serial_index: 0, wave: 0 },
-        contract_refs: contractEdges.map((edge) => edge.contract_id),
-        source_segments: [],
+          contract_refs: contractEdges.map((edge) => edge.contract_id),
+          source_segments: [],
+        },
       },
     });
     mkdirSync(join(dir, pkg.path), { recursive: true });
@@ -83,12 +86,15 @@ test('C004 a seed whose machine block lost a reference is reported, and an unrea
     // A parseable seed whose machine block lost one of the three references.
     const alpha = manifest.workspace.packages[0];
     const { seedText } = renderSeed({
-      package: alpha, manifest, expectedAllocation: [], contractEdges: [], aiSections: baseAiSections(),
-      referenceBlock: {
+      package: alpha, aiSections: baseAiSections(),
+      machine: {
+        manifest, expectedAllocation: [], contractEdges: [],
+        referenceBlock: {
         package: { id: alpha.id, name: alpha.name, path: alpha.path, layer: alpha.layer, kind: alpha.kind, responsibilities: alpha.responsibilities },
         stage1_manifest: { path: 'WORKSPACIFY-TREE-MANIFEST.json', hash: manifest.integrity.manifest_hash },
         stage2_manifest: { path: 'WORKSPACIFY-ALLOCATE-MANIFEST.json' },
-        implementation_order: {}, contract_refs: [], source_segments: [],
+          implementation_order: {}, contract_refs: [], source_segments: [],
+        },
       },
     });
     writeFileSync(join(dir, 'crates/protocol/alpha/RFC-SEED.md'), seedText);

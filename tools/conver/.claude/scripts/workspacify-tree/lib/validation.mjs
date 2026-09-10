@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177, PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180|PX-181|PX-183|PX-186|PX-192) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177, PX-192, PX-200, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180|PX-181|PX-183|PX-186|PX-192) --for-spec --no-implementation-order`.
 /**
  * Gate pipeline orchestration (§3).
  *
@@ -9,11 +9,14 @@
  */
 import { runOwnershipChecks } from './ownership.mjs';
 import { runDagChecks } from './dag.mjs';
+import { checkDependencyMatrix } from './dependencies.mjs';
 import { validatePackageCatalog, validateWorkspaceTree } from './workspace-model.mjs';
 import { findOverSplitRisks } from './boundary-review.mjs';
 import { checkDatabasePolicy } from './database-policy.mjs';
 import { assertSourceTraceability } from './traceability.mjs';
 import { GATE_STATUS } from './errors.mjs';
+import { validateSpecDefects } from './spec-defects.mjs';
+import { validateDependencyReviews } from './dependency-review.mjs';
 
 /** Ordered gate ids for parent-gating. */
 const GATE_ORDER = ['G0', 'G1', 'G2', 'G3', 'G4', 'G5'];
@@ -25,7 +28,7 @@ const GATE_ORDER = ['G0', 'G1', 'G2', 'G3', 'G4', 'G5'];
  * @returns {{ gates: Array<object>, finalAudit: object, status: string }}
  */
 export function runGatePipeline(input = {}) {
-  const { structure, inventory, workspace, dependencies, adapters, decisions } = input;
+  const { structure, inventory, workspace, dependencies, adapters, decisions, review } = input;
   const inventoryData = inventory ?? {};
   const workspaceData = workspace ?? {};
   const dependenciesData = dependencies ?? {};
@@ -43,6 +46,19 @@ export function runGatePipeline(input = {}) {
   const boundaryResolution = evaluateBoundaryResolution(dependenciesData, packages);
   const boundaryCoverage = evaluateBoundaryCoverage(dependenciesData);
   const responsibilityResult = validatePackageResponsibilities(packages);
+  const specDefectReport = validateSpecDefects({
+    candidates: structure?.spec_pulse?.candidates ?? [],
+    specDefects: decisionsData.spec_defects ?? [],
+    residualQuestions: decisionsData.residual_questions ?? [],
+  });
+  // The dependency review is computed once from the decisions and handed to the
+  // pipeline, so the gate judges exactly the candidates the manifest publishes.
+  const dependencyReviewReport = validateDependencyReviews({
+    candidates: review?.candidates ?? [],
+    reviews: decisionsData.dependency_reviews ?? [],
+    normalEdges: dependenciesData.normalEdges ?? [],
+    boundaries: dependenciesData.boundaries ?? [],
+  });
   const referenceResolution = evaluateReferenceResolution(packages, decisionsData, inventoryData);
   const traceabilityReport = evaluateTraceability(inventoryData);
   const semanticApproval = evaluateSemanticApproval(decisionsData);
@@ -69,6 +85,8 @@ export function runGatePipeline(input = {}) {
         ownershipResult.isClean &&
         boundaryRisks.length === 0 &&
         responsibilityResult.ok &&
+        specDefectReport.ok &&
+        dependencyReviewReport.ok &&
         treeReport.consistent &&
         boundaryResolution.unresolved === 0 &&
         boundaryCoverage.uncoveredEdges === 0 &&
@@ -81,6 +99,10 @@ export function runGatePipeline(input = {}) {
         ...ownershipResult.counts,
         boundary_risk_count: boundaryRisks.length,
         missing_responsibilities_count: responsibilityResult.missing_responsibilities_count,
+        spec_defect_count: specDefectReport.errors.length,
+        residual_question_count: (decisionsData.residual_questions ?? []).length,
+        dependency_review_count: dependencyReviewReport.errors.length,
+        unresolved_review_count: (decisionsData.dependency_reviews ?? []).filter((entry) => entry?.decision === 'residual').length,
         tree_catalog_mismatch_count: treeReport.errors.length,
         unresolved_boundary_count: boundaryResolution.unresolved,
         uncovered_edge_count: boundaryCoverage.uncoveredEdges,
@@ -91,6 +113,9 @@ export function runGatePipeline(input = {}) {
       reasons: catalogErrors
         .map((error) => error.message)
         .concat(responsibilityResult.errors)
+        .concat(ownershipResult.details)
+        .concat(specDefectReport.errors)
+        .concat(dependencyReviewReport.errors)
         .concat(boundaryRisks.map((risk) => risk.detail))
         .concat(treeReport.errors)
         .concat(boundaryResolution.errors)
@@ -99,9 +124,31 @@ export function runGatePipeline(input = {}) {
     },
     {
       id: 'G4',
-      status: dagResult.report.cycle_count === 0 && dagResult.report.unknown_dependency_count === 0 ? GATE_STATUS.PASS : GATE_STATUS.FAIL,
-      counts: dagResult.report,
-      reasons: dagResult.report.cycles?.map((cycle) => `cycle: ${cycle.path.join(' -> ')}`) ?? [],
+      status:
+        dagResult.report.cycle_count === 0 &&
+        dagResult.report.unknown_dependency_count === 0 &&
+        dagResult.report.forbidden_edge_count === 0 &&
+        dagResult.matrix.missingReasonCode.length === 0 &&
+        dagResult.matrix.misspelledReasonCodeField.length === 0 &&
+        dagResult.matrix.undeclared.length === 0 &&
+        dagResult.matrix.missingAlternative.length === 0
+          ? GATE_STATUS.PASS
+          : GATE_STATUS.FAIL,
+      counts: {
+        ...dagResult.report,
+        declared_forbidden_edge_count: dagResult.report.declared_forbidden_edge_count ?? 0,
+        missing_reason_code_count: dagResult.matrix.missingReasonCode.length,
+        misspelled_reason_code_field_count: dagResult.matrix.misspelledReasonCodeField.length,
+      },
+      reasons: []
+        .concat(dagResult.report.cycles?.map((cycle) => `cycle: ${cycle.path.join(' -> ')}`) ?? [])
+        .concat(dagResult.report.forbidden_edge_reasons ?? [])
+        .concat(dagResult.matrix.missingReasonCode.map((edge) => (edge.reasonCode === null || edge.reasonCode === undefined
+          ? `normal edge ${edge.from}->${edge.to} declares no reasonCode the machine can read`
+          : `normal edge ${edge.from}->${edge.to} states the unknown reasonCode "${edge.reasonCode}"`)))
+        .concat(dagResult.matrix.misspelledReasonCodeField.map((edge) => edge.detail))
+        .concat(dagResult.matrix.undeclared.map((edge) => `dependency edge ${edge.from}->${edge.to} names a package outside the catalog`))
+        .concat(dagResult.matrix.missingAlternative.map((edge) => `forbidden edge ${edge.from}->${edge.to} declares no alternative route`)),
     },
     {
       id: 'G5',
@@ -143,13 +190,17 @@ function evaluateOwnership(inventoryData, packages) {
     result.orphan_claim_count === 0 &&
     result.owner_collision_count === 0 &&
     result.invalid_owner_layer_count === 0 &&
-    result.unallocated_count === 0;
+    result.unallocated_count === 0 &&
+    // A catalogue and a table that disagree is a defect of its own: the item would be
+    // published with no owner while every other count reads zero.
+    result.ownership_disagreement_count === 0;
   const counts = {
     orphan_object_count: result.orphan_object_count,
     orphan_claim_count: result.orphan_claim_count,
     owner_collision_count: result.owner_collision_count,
     invalid_owner_layer_count: result.invalid_owner_layer_count,
     unallocated_count: result.unallocated_count,
+    ownership_disagreement_count: result.ownership_disagreement_count,
   };
   return { counts, isClean: clean, details: result.details };
 }
@@ -275,12 +326,13 @@ export function validatePackageResponsibilities(packages) {
 }
 
 function evaluateDag(dependenciesData, packages) {
-  const report = runDagChecks({
-    packages: packages ?? [],
-    edges: dependenciesData.normalEdges ?? dependenciesData.edges ?? [],
-    forbiddenEdges: dependenciesData.forbiddenEdges ?? [],
-  });
-  return { report };
+  const normalEdges = dependenciesData.normalEdges ?? dependenciesData.edges ?? [];
+  const forbiddenEdges = dependenciesData.forbiddenEdges ?? [];
+  const report = runDagChecks({ packages: packages ?? [], edges: normalEdges, forbiddenEdges });
+  // The vocabulary and endpoint check lives in its own module and was never called:
+  // G4 now runs it, so an edge the machine cannot read a reason code from is refused.
+  const matrix = checkDependencyMatrix({ packages: packages ?? [], normalEdges, forbiddenEdges });
+  return { report, matrix };
 }
 
 function evaluateDatabase(adapters, packages) {
@@ -336,6 +388,11 @@ function buildFinalAudit(aggregate) {
     review_required_count: reviewRequiredCount,
     unresolved_count: unresolvedCandidates.length,
     missing_responsibilities_count: responsibilityResult.missing_responsibilities_count,
+    ownership_disagreement_count: (gates.find((gate) => gate.id === 'G3')?.counts?.ownership_disagreement_count) ?? 0,
+    spec_defect_count: (gates.find((gate) => gate.id === 'G3')?.counts?.spec_defect_count) ?? 0,
+    residual_question_count: (gates.find((gate) => gate.id === 'G3')?.counts?.residual_question_count) ?? 0,
+    dependency_review_count: (gates.find((gate) => gate.id === 'G3')?.counts?.dependency_review_count) ?? 0,
+    unresolved_review_count: (gates.find((gate) => gate.id === 'G3')?.counts?.unresolved_review_count) ?? 0,
     raw_sql_count: dbResult.raw_sql_count,
     db_type_leak_count: dbResult.db_type_leak_count,
   };

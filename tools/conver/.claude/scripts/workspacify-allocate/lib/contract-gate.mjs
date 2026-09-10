@@ -1,4 +1,4 @@
-// [::TICKET::] PX-194 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-194 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-194, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-194|PX-202) --for-spec --no-implementation-order`.
 // PX-194 @verifies C001
 /**
  * Bilateral contract verification.
@@ -155,7 +155,7 @@ function compareMirroredClauses(consumerEdge, providerEdge) {
 /** Normalise one side: the perspective fields are not part of the comparison. */
 function mirrorable(edge) {
   return {
-    clauses: canonicalizeClauses(edge.clauses ?? {}),
+    clauses: canonicalizeClauses(edge.clauses ?? {}, { contractId: edge.contract_id }),
     owners: edge.owners ?? {},
     connection_kind: edge.connection_kind ?? null,
     source_refs: [...new Set(edge.source_refs ?? [])].sort(),

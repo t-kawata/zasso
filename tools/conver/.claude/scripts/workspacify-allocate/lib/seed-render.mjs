@@ -1,4 +1,4 @@
-// [::TICKET::] PX-193 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-193 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-193|PX-201) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-190 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-190 --for-spec --no-implementation-order`.
 // PX-193 @verifies C002
 /**
@@ -11,6 +11,7 @@
  */
 import { WorkSpacifyTreeError } from '../../workspacify-tree/lib/errors.mjs';
 import { lookupInventoryItem } from './allocation-model.mjs';
+import { GRILL_QUESTION_SECTION_INDEX, renderResidualQuestions } from './self-grill.mjs';
 import {
   SEED_REQUIRED_SECTIONS,
   SEED_TITLE_PREFIX,
@@ -23,19 +24,19 @@ import {
 /**
  * Render the canonical RFC-SEED.md text for one package.
  *
- * @param {{ package: object, manifest: object, expectedAllocation: Array<object>, referenceBlock: object, contractEdges: Array<object>, aiSections: object }} input
+ * The inputs are split by authority: `machine` holds the facts only the manifests
+ * can supply, while the AI authors the prose and states the questions the seed must
+ * answer. The machine appends those questions itself, so a grill question can never
+ * be lost between the loop that raised it and the seed that must answer it.
+ *
+ * @param {{ package: object, machine: { manifest: object, expectedAllocation?: Array<object>, referenceBlock: object, contractEdges?: Array<object> }, aiSections?: object, residualQuestions?: Array<object> }} input
  * @returns {{ seedText: string, fileName: string }}
- * @throws {WorkSpacifyTreeError} gateId "G3.6" on a missing/invalid body or a machine-section override
+ * @throws {WorkSpacifyTreeError} gateId "G3.6" on a missing/invalid body, a machine-section override or a residual addressed elsewhere
  */
-export function renderSeed({
-  package: pkg,
-  manifest,
-  expectedAllocation = [],
-  referenceBlock,
-  contractEdges = [],
-  aiSections = {},
-}) {
+export function renderSeed({ package: pkg, machine, aiSections = {}, residualQuestions = [] }) {
+  const { manifest, expectedAllocation = [], referenceBlock, contractEdges = [] } = machine;
   assertNoMachineSectionOverride(pkg, aiSections);
+  assertResidualsBelongToPackage(pkg, residualQuestions);
 
   const bodies = new Map();
   bodies.set(1, buildMachineSectionBody(referenceBlock, pkg));
@@ -46,7 +47,7 @@ export function renderSeed({
     if (typeof body !== 'string') {
       throw new WorkSpacifyTreeError(`aiSections is missing section ${index} for package ${pkg.id}`, { gateId: 'G3.6' });
     }
-    bodies.set(index, body);
+    bodies.set(index, index === GRILL_QUESTION_SECTION_INDEX ? appendResidualQuestions(body, residualQuestions) : body);
   }
   bodies.set(14, buildTraceIndexBody(manifest, expectedAllocation));
 
@@ -60,6 +61,29 @@ export function renderSeed({
     blocks.push(`## ${section.index}. ${section.title}\n\n${body.trim()}\n`);
   }
   return { seedText: `${SEED_TITLE_PREFIX}${pkg.name}\n\n${blocks.join('\n')}`, fileName: SEED_FILE_NAME };
+}
+
+/** The AI prose of the grill section, followed by the questions the machine carries. */
+function appendResidualQuestions(prose, residualQuestions) {
+  const block = renderResidualQuestions(residualQuestions);
+  return block === '' ? prose : `${prose.trim()}\n\n${block}`;
+}
+
+/**
+ * A residual addressed elsewhere belongs to the render of that other seed.
+ *
+ * Dropping it here would silently lose a question the human grill must answer, so
+ * the mismatch stops the render instead.
+ */
+function assertResidualsBelongToPackage(pkg, residualQuestions) {
+  for (const entry of residualQuestions) {
+    if (entry?.package_id !== pkg.id) {
+      throw new WorkSpacifyTreeError(
+        `${entry?.id ?? 'a residual'} is addressed to ${entry?.package_id}, but this seed belongs to ${pkg.id}`,
+        { gateId: 'G3.6' },
+      );
+    }
+  }
 }
 
 /** Machine sections are not part of the AI surface; supplying one is an error. */

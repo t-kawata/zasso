@@ -143,7 +143,8 @@ test('PX-187 C002 [PX-187 @verifies C002]: doc declares the AI final approval ch
   for (const anchor of [
     'AI 最終承認チェックリスト',
     'owner 割当の妥当性',
-    'reason_code の正当性',
+    // The checklist label follows the machine's field name (edge.reasonCode), not the other way round.
+    'reasonCode の正当性',
     '代替経路',
     'adapter・DB 適用可否',
     '過剰分割の最終判断',

@@ -1,4 +1,4 @@
-// [::TICKET::] PX-195 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-195 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-195, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-195|PX-201) --for-spec --no-implementation-order`.
 // PX-195 @verifies C001
 /**
  * The stage-2 machine authority.
@@ -34,6 +34,7 @@ export function buildAllocateManifest({ manifestRef, plan, renderedByPackage = n
   const { parsedByPackage, contractIndex, graph, violations, order, coverageProof } = proof;
   const gateResults = review.gateResults ?? [];
   const semanticReview = review.semanticReview ?? { status: 'REVIEW_REQUIRED' };
+  const selfGrill = review.selfGrill ?? { record: null, residual: [] };
   const packages = manifest.workspace?.packages ?? [];
   const seedIndex = packages
     .filter((pkg) => pkg.seed_required !== false)
@@ -76,6 +77,10 @@ export function buildAllocateManifest({ manifestRef, plan, renderedByPackage = n
       parsed_package_count: parsedByPackage?.size ?? 0,
     },
     gates: gateResults.map((gate) => ({ id: gate.id, status: gate.status })),
+    // What the critic loop proved, and the questions it could not settle: the human
+    // grill reads this summary, so a residual can never stop at the manifest.
+    self_grill: summarizeSelfGrill(selfGrill),
+    handoff_summary: buildHandoffSummary({ residual: selfGrill.residual ?? [], manifest }),
     semantic_review: { status: semanticReview?.status ?? 'REVIEW_REQUIRED', approver: semanticReview?.approver ?? null },
     completion_decision: 'COMPLETE',
     integrity: {
@@ -87,6 +92,46 @@ export function buildAllocateManifest({ manifestRef, plan, renderedByPackage = n
   };
   allocateManifest.integrity.manifest_hash = computeAllocateSelfHash(allocateManifest);
   return allocateManifest;
+}
+
+/** What the loop proved: which passes ran, which focuses they covered, how much stayed open. */
+function summarizeSelfGrill({ record, residual = [] }) {
+  const rounds = record?.rounds ?? [];
+  return {
+    passes: record?.passes ?? 0,
+    converged: record?.converged === true,
+    focuses: [...new Set(rounds.map((round) => round.focus))],
+    rounds: rounds.map((round) => ({ pass: round.pass, focus: round.focus, status: round.status, finding_count: (round.findings ?? []).length })),
+    residual_count: residual.length,
+  };
+}
+
+/**
+ * The hand-off summary the human grill starts from.
+ *
+ * A boundary is risky when either of its endpoints still carries an open question:
+ * that is where the coupled design is least settled, so those are the contracts to
+ * read first.
+ */
+function buildHandoffSummary({ residual, manifest }) {
+  const packagesWithResidual = new Set(residual.map((entry) => entry.package_id));
+  const riskyBoundaries = (manifest.dependencies?.boundaries ?? [])
+    .filter((boundary) => packagesWithResidual.has(boundary.consumer_package) || packagesWithResidual.has(boundary.provider_package))
+    .map((boundary) => boundary.id);
+  return {
+    unresolved: residual.map((entry) => ({
+      residual_id: entry.id,
+      package_id: entry.package_id,
+      topic: entry.topic,
+      why_unresolved: entry.why_unresolved,
+    })),
+    grill_questions: residual.map((entry) => ({
+      residual_id: entry.id,
+      package_id: entry.package_id,
+      question: entry.grill_question,
+    })),
+    risky_boundaries: riskyBoundaries,
+  };
 }
 
 /** Self-hash over the canonical rendering, with the hash field blanked. */

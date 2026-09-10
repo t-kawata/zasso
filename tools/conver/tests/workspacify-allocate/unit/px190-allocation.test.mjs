@@ -1,4 +1,4 @@
-// [::TICKET::] PX-190 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-190 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-190, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-190|PX-201) --for-spec --no-implementation-order`.
 // PX-190 @verifies C001 C002 C005
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,6 +10,7 @@ import { resolveSourceExcerpt, buildAuthoringPacket } from '../../../.claude/scr
 import { SEED_REQUIRED_SECTIONS, SEED_FILE_NAME, ALLOCATION_INDEX_HEADERS, assertSeedBodyValid } from '../../../.claude/scripts/workspacify-allocate/lib/seed-model.mjs';
 import { validateAgainstSchema } from '../../../.claude/scripts/workspacify-tree/lib/manifest-schema.mjs';
 import { buildSeedFixture } from '../helpers/build-valid-manifest.mjs';
+import { makeSelfGrill } from '../helpers/self-grill-fixture.mjs';
 
 function loadDecisionsSchema() {
   const schemaPath = fileURLToPath(new URL('../../../.claude/scripts/workspacify-allocate/schemas/workspacify-allocate-decisions.schema.json', import.meta.url));
@@ -106,10 +107,13 @@ test('C005 seed-model constants and body validation', () => {
 test('C005 decisions schema validates the decisions payload shape', () => {
   const schema = loadDecisionsSchema();
   const fullSections = { 4: 'b', 5: 'b', 6: 'b', 7: 'b', 8: 'b', 9: 'b', 10: 'b', 11: 'b', 12: 'b', 13: 'b' };
-  const okPayload = { seeds: [{ packageId: 'pkg-a', aiSections: fullSections }], semantic_review: { status: 'APPROVED', statement: 'reviewed', approver: 'ai-session' } };
-  const reviewPayload = { seeds: [{ packageId: 'pkg-a', aiSections: fullSections }], semantic_review: { status: 'REVIEW_REQUIRED' } };
+  const okPayload = { seeds: [{ packageId: 'pkg-a', aiSections: fullSections }], self_grill: makeSelfGrill(), semantic_review: { status: 'APPROVED', statement: 'reviewed', approver: 'ai-session' } };
+  const reviewPayload = { seeds: [{ packageId: 'pkg-a', aiSections: fullSections }], self_grill: makeSelfGrill(), semantic_review: { status: 'REVIEW_REQUIRED' } };
   assert.ok(validateAgainstSchema(okPayload, schema).valid);
   assert.ok(validateAgainstSchema(reviewPayload, schema).valid);
+  // The self-grill record is part of the payload: a run that never recorded the loop is not valid.
+  const noSelfGrill = { seeds: [{ packageId: 'pkg-a', aiSections: fullSections }], semantic_review: { status: 'APPROVED' } };
+  assert.equal(validateAgainstSchema(noSelfGrill, schema).valid, false);
   const missing = { seeds: [{ packageId: 'pkg-a', aiSections: fullSections }] };
   assert.equal(validateAgainstSchema(missing, schema).valid, false);
   const badStatus = { seeds: [{ packageId: 'pkg-a', aiSections: fullSections }], semantic_review: { status: 'NOPE' } };

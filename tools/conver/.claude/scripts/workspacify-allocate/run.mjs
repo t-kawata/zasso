@@ -1,4 +1,4 @@
-// [::TICKET::] PX-191, PX-193, PX-194, PX-195 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-191|PX-193|PX-194|PX-195) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-191, PX-193, PX-194, PX-195, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-191|PX-193|PX-194|PX-195) --for-spec --no-implementation-order`.
 /**
  * /workspacify-allocate command entry (corrected ALLOCATE).
  *
@@ -41,8 +41,12 @@ import { renderSeed } from './lib/seed-render.mjs';
 import { parseSeed } from './lib/seed-parse.mjs';
 import { runSeedParity } from './lib/seed-parity.mjs';
 import { runSeedLocalChecks } from './lib/seed-local-checks.mjs';
+import { validateSelfGrill, partitionResiduals } from './lib/self-grill.mjs';
 
 const DECISIONS_SCHEMA_PATH = fileURLToPath(new URL('./schemas/workspacify-allocate-decisions.schema.json', import.meta.url));
+
+/** Gate that judges the self-grill loop and the reachability of its residuals. */
+const SELF_GRILL_GATE_ID = 'G3.7';
 
 function guide(message) {
   process.stderr.write(`[guide] ${message}\n`);
@@ -185,42 +189,90 @@ function renderAllSeeds({ manifest, manifestPath, manifestDir, expectedByPackage
   const parsedByPackage = new Map();
   const renderedByPackage = new Map();
   const allocationRowsByPackage = new Map();
+  const seedPackageIds = packages.filter((pkg) => pkg.seed_required !== false).map((pkg) => pkg.id);
+  // The stage-1 residuals are the questions stage 1 could not settle; they must reach
+  // the seed that answers them, so they travel into every render.
+  const stageOneResiduals = manifest.stage2_handoff?.residual_questions ?? [];
+
+  // The shape of the record is checked before anything is rendered, so a malformed
+  // loop is reported as a self-grill failure rather than as a render failure.
+  const shape = validateSelfGrill({ selfGrill: decisions.self_grill, packageIds: seedPackageIds, stageOneResiduals, decisions });
+  if (!shape.ok) {
+    throw new WorkSpacifyTreeError(describeSelfGrill(shape.errors), { gateId: SELF_GRILL_GATE_ID });
+  }
+  const residualByPackage = partitionResiduals({ residual: shape.residual, packageIds: seedPackageIds });
 
   for (const pkg of packages) {
     if (pkg.seed_required === false) {
       continue;
     }
-    const decision = packageDecisionByPackageId(decisions, pkg.id);
-    if (!decision?.aiSections) {
-      throw new WorkSpacifyTreeError(`decisions is missing seed content for package ${pkg.id}`, { gateId: 'G3' });
-    }
-    const expectedAllocation = expectedByPackage.get(pkg.id) ?? [];
-    const contractEdges = buildContractEdgesForPackage({ manifest, packageId: pkg.id, decision });
-    const referenceBlock = buildReferenceBlock({
-      manifest,
-      manifestPath,
-      manifestDir,
-      package: pkg,
-      orderEntry: orderEntryForPackage({ manifest, packageId: pkg.id }),
-      contractIds: contractEdges.map((edge) => edge.contract_id),
-      sourceSegments: collectPackageSegments({ manifest, packageId: pkg.id }),
+    const rendered = renderOneSeed({
+      pkg,
+      decisions,
+      workspace: { manifest, manifestPath, manifestDir, segmentIds },
+      expectedAllocation: expectedByPackage.get(pkg.id) ?? [],
+      residualQuestions: residualByPackage.get(pkg.id) ?? [],
     });
-    const { seedText } = renderSeed({ package: pkg, manifest, expectedAllocation, referenceBlock, contractEdges, aiSections: decision.aiSections });
-    const parsed = parseSeed(seedText);
-    const local = runSeedLocalChecks({ parsedSeed: parsed, package: pkg, expectedAllocation, manifest, manifestPath, manifestDir, segmentIds });
-    if (!local.ok) {
-      throw new WorkSpacifyTreeError(`seed ${pkg.id} local checks failed: ${local.errors.join('; ')}`, { gateId: 'G3' });
-    }
-    parsedByPackage.set(pkg.id, parsed);
-    allocationRowsByPackage.set(pkg.id, parsed.allocationIndexRows);
-    renderedByPackage.set(pkg.id, { seedText, package: pkg });
+    parsedByPackage.set(pkg.id, rendered.parsed);
+    allocationRowsByPackage.set(pkg.id, rendered.parsed.allocationIndexRows);
+    renderedByPackage.set(pkg.id, { seedText: rendered.seedText, package: pkg });
+  }
+
+  // With the seeds rendered and parsed, the record is judged again: now the
+  // questions must be found in the seed that answers them.
+  const selfGrill = validateSelfGrill({ selfGrill: decisions.self_grill, parsedByPackage, packageIds: seedPackageIds, stageOneResiduals, decisions });
+  if (!selfGrill.ok) {
+    throw new WorkSpacifyTreeError(describeSelfGrill(selfGrill.errors), { gateId: SELF_GRILL_GATE_ID });
   }
 
   const parity = runSeedParity({ expectedByPackage, parsedByPackage: allocationRowsByPackage });
   if (!parity.ok) {
     throw new WorkSpacifyTreeError(`seed parity failed: ${describeParity(parity)}`, { gateId: 'G4' });
   }
-  return { parsedByPackage, allocationRowsByPackage, renderedByPackage };
+  return { parsedByPackage, allocationRowsByPackage, renderedByPackage, selfGrill };
+}
+
+/**
+ * Render, parse and locally verify one seed.
+ *
+ * The order matters: the reference block and the contract edges come from the
+ * manifest, the AI supplies the prose, and the machine appends the grill questions
+ * this seed must answer. Parsing straight back proves the document is well formed
+ * before any gate looks at its content.
+ */
+function renderOneSeed({ pkg, decisions, workspace, expectedAllocation, residualQuestions }) {
+  const { manifest, manifestPath, manifestDir, segmentIds } = workspace;
+  const decision = packageDecisionByPackageId(decisions, pkg.id);
+  if (!decision?.aiSections) {
+    throw new WorkSpacifyTreeError(`decisions is missing seed content for package ${pkg.id}`, { gateId: 'G3' });
+  }
+  const contractEdges = buildContractEdgesForPackage({ manifest, packageId: pkg.id, decision });
+  const referenceBlock = buildReferenceBlock({
+    manifest,
+    manifestPath,
+    manifestDir,
+    package: pkg,
+    orderEntry: orderEntryForPackage({ manifest, packageId: pkg.id }),
+    contractIds: contractEdges.map((edge) => edge.contract_id),
+    sourceSegments: collectPackageSegments({ manifest, packageId: pkg.id }),
+  });
+  const { seedText } = renderSeed({
+    package: pkg,
+    machine: { manifest, expectedAllocation, referenceBlock, contractEdges },
+    aiSections: decision.aiSections,
+    residualQuestions,
+  });
+  const parsed = parseSeed(seedText);
+  const local = runSeedLocalChecks({ parsedSeed: parsed, package: pkg, expectedAllocation, manifest, manifestPath, manifestDir, segmentIds });
+  if (!local.ok) {
+    throw new WorkSpacifyTreeError(`seed ${pkg.id} local checks failed: ${local.errors.join('; ')}`, { gateId: 'G3' });
+  }
+  return { seedText, parsed };
+}
+
+/** Human-readable self-grill failure: the validator already names the artefact. */
+function describeSelfGrill(errors = []) {
+  return `self-grill loop failed: ${errors.join('; ')}`;
 }
 
 /**
@@ -383,7 +435,7 @@ export function runFinalize(args) {
   }
 
   const { expectedByPackage } = deriveExpectedAllocation({ ownershipEntries: manifest.workspace?.ownership?.entries ?? [], packages });
-  const { renderedByPackage, parsedByPackage } = renderAllSeeds({ manifest, manifestPath, manifestDir, expectedByPackage, decisions });
+  const { renderedByPackage, parsedByPackage, selfGrill } = renderAllSeeds({ manifest, manifestPath, manifestDir, expectedByPackage, decisions });
   assertSourceCoverage({ manifest, expectedByPackage, parsedByPackage });
   const coupling = assertWorkspaceCoupling({ manifest, parsedByPackage, expectedByPackage });
   assertSemanticApproval(decisions);
@@ -396,6 +448,7 @@ export function runFinalize(args) {
     review: {
       gateResults: [{ id: 'G4', status: 'PASS' }, { id: 'G5', status: 'PASS' }],
       semanticReview: decisions.semantic_review,
+      selfGrill: { record: decisions.self_grill, residual: selfGrill.residual },
     },
   });
 

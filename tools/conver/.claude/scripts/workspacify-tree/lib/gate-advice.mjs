@@ -1,4 +1,4 @@
-// [::TICKET::] PX-198 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-198 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-198, PX-200, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-200|PX-198) --for-spec --no-implementation-order`.
 // PX-198 @verifies C001 C002
 /**
  * Failure advice.
@@ -98,6 +98,16 @@ const ADVICE = Object.freeze({
       'Re-run gate.',
     ],
   },
+  'G3.7': {
+    why: 'the self-grill loop is what decides seed quality, so its record must show that every focus ran, that the loop converged and that each unresolved question reached the seed that must answer it. A residual that stops at the payload is a question nobody will ever answer.',
+    how: [
+      'Read the reported artefact: the message names the focus, the pass, the residual id or the candidate id that failed.',
+      'Record self_grill.rounds for implementer, counterpart, test, grill and adversarial, with a reason wherever a focus is not_applicable; the adversarial pass must actually run when the workspace declares a boundary.',
+      'State self_grill.converged: true and make sure the last pass lists no new finding - convergence is the evidence that the loop finished.',
+      'Carry every stage-1 residual into self_grill.residual verbatim: same candidate_id, same topic, plus the grill_question the human grill will answer. Copy them from the stage-1 manifest hand-off; do not reword.',
+      'Re-run gate. Answering these is your own work in this session: never ask a human now, because the canonical per-directory grill runs later.',
+    ],
+  },
   G4: {
     why: 'a coupling contract only holds when both directories state it; one-sided or diverging contracts mean the workspace would be built against two different interfaces.',
     how: [
@@ -159,7 +169,8 @@ const ADVICE = Object.freeze({
  * @returns {string[]} English sentences: what happened, why it matters, how to fix
  */
 export function adviseFailure({ gateId, reason, stage = 'workspacify-allocate' } = {}) {
-  const advice = ADVICE[gateId] ?? ADVICE.GENERAL;
+  const table = stage === 'workspacify-tree' ? TREE_ADVICE : ADVICE;
+  const advice = table[gateId] ?? table.GENERAL;
   const lines = [
     `What happened: ${stage} stopped at gate ${gateId ?? 'GENERAL'}. ${reason ?? 'no reason was reported'}`,
     `Why this matters: ${advice.why}`,
@@ -169,7 +180,75 @@ export function adviseFailure({ gateId, reason, stage = 'workspacify-allocate' }
   return lines;
 }
 
-/** Gate ids that carry dedicated advice (used by the tests and the docs). */
-export function advisedGateIds() {
-  return Object.keys(ADVICE);
+/**
+ * Stage-1 advice.
+ *
+ * The gate ids are shared between the two stages but the artefacts are not: stage 1
+ * repairs a decisions payload and a workspace design, stage 2 repairs seeds. Advising
+ * stage 1 with stage-2 words would send the AI to edit a file that does not exist yet.
+ */
+const TREE_ADVICE = Object.freeze({
+  G0: {
+    why: 'the specification must be the exact bytes the gates verified, or every source reference in the manifest would point at text that no longer exists.',
+    how: [
+      'Pass the specification file itself (a regular, readable, non-empty UTF-8 file), not a directory or an edited copy.',
+      'Re-run "node .claude/scripts/workspacify-tree/run.mjs parse <spec>" and continue only when it reports reconstruction PASS.',
+    ],
+  },
+  G1: {
+    why: 'the segments are the addresses every later check uses, so they must recombine into the original bytes exactly.',
+    how: [
+      'Normalize the specification to UTF-8 with LF line endings and keep the file unchanged while the run is in progress.',
+      'Re-run parse; a mismatch means the file changed between reading it and verifying it.',
+    ],
+  },
+  G2: {
+    why: 'a candidate that is neither confirmed nor approved leaves the inventory ambiguous, and an ambiguous inventory cannot prove that nothing was omitted.',
+    how: [
+      'Review the extraction report the extract subcommand printed and list the REVIEW_REQUIRED and unresolved candidates.',
+      'Record an approvals entry (decisionId, rationale, approver) for every candidate you accept, and correct the ones the extractor misfiled.',
+      'Re-run gate; the finalAudit line reports how many candidates still require review.',
+    ],
+  },
+  G3: {
+    why: 'the workspace design has an inconsistency only the AI can settle: an owner assigned twice, a package with no responsibility, or an observation about the specification or the dependency graph that nobody answered. The manifest is the only input stage 2 receives, so an unanswered observation would travel silently into every RFC seed.',
+    how: [
+      'Read the reported reason: it names the package, candidate id or edge that failed, and the finalAudit counts say how many are left.',
+      'Answer every dependency_reviews candidate with a decision (keep, replace_with_port, merge, split or residual) and a rationale; residual also needs why_unresolved. Replace_with_port is only valid once the edge and its boundary are gone from the payload.',
+      'Settle every structure.spec_pulse candidate in spec_defects or residual_questions. Answering is your own work in this session: never ask a human now, because the per-directory grill happens later.',
+      'Give every package a non-empty responsibilities list and make the tree leaves match the package paths one for one.',
+      'Re-run gate and continue only when it prints COMPLETE.',
+    ],
+  },
+  G4: {
+    why: 'the dependency graph is the workspace build order: a cycle or an edge to an unknown package makes the implementation order unprovable, and stage 2 publishes that order as the plan.',
+    how: [
+      'Open the reported cycle or unknown endpoint and correct the dependencies array: every from/to must name a package id in the workspace catalog.',
+      'Break each cycle by removing the weaker direction, or by introducing the port the forbidden alternative names.',
+      'Re-run gate and confirm cycle_count and unknown_dependency_count are zero.',
+    ],
+  },
+  G5: {
+    why: 'the manifest is only published when it is complete and self-consistent: a half-verified manifest would be consumed by stage 2 as if it were proven.',
+    how: [
+      'Fix what the reported acceptance error names - usually a stage-2 requirement the manifest does not satisfy yet.',
+      'Re-run gate, then finalize. Nothing is published while the check fails, and an existing manifest is left untouched.',
+    ],
+  },
+  GENERAL: {
+    why: 'the run stopped before publishing, so no manifest was written and no existing one was changed.',
+    how: [
+      'Read the reported reason and fix the decisions payload it points at.',
+      'Re-run the failing subcommand; use "node .claude/scripts/workspacify-tree/run.mjs parse <spec>" to check the input first.',
+    ],
+  },
+});
+
+/**
+ * Gate ids that carry dedicated advice (used by the tests and the docs).
+ *
+ * @param {{ stage?: string }} [options] - which stage's table to list
+ */
+export function advisedGateIds({ stage = 'workspacify-allocate' } = {}) {
+  return Object.keys(stage === 'workspacify-tree' ? TREE_ADVICE : ADVICE);
 }

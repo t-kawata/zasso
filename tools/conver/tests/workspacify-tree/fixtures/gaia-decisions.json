@@ -74,5 +74,31 @@
     "status": "APPROVED",
     "statement": "semantic design confirmed against the specification",
     "approver": "ai-session"
-  }
+  },
+  "spec_defects": [
+    {
+      "candidate_id": "pulse-000001",
+      "ai_interpretation": "the catalog table lists names its own prose does not repeat",
+      "chosen_default": "each record keeps its table row as the defining occurrence",
+      "rationale": "the extractor treats a table row as the declaration, so the prose need not repeat it"
+    },
+    {
+      "candidate_id": "pulse-000002",
+      "ai_interpretation": "the Rules chapter is referenced by no other chapter and carries no harvested item",
+      "chosen_default": "the rules stay with their owning record in the core package",
+      "rationale": "the rules constrain the records the catalog already allocates"
+    }
+  ],
+  "residual_questions": [
+    {
+      "candidate_id": "pulse-000003",
+      "topic": "the normative phrase in the Rules chapter has no owner yet",
+      "alternatives": [
+        "allocate the rule to the core package",
+        "split the Rules chapter into its own package"
+      ],
+      "chosen_default": "allocate the rule to the core package",
+      "why_unresolved": "the ownership choice changes the package boundary and belongs to the canonical grill"
+    }
+  ]
 }

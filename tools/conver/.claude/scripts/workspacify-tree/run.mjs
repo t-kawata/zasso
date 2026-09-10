@@ -1,4 +1,4 @@
-// [::TICKET::] PX-178, PX-179, PX-188, PX-192, PX-196, PX-197 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181|PX-183|PX-184|PX-185|PX-186|PX-188|PX-192) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-178, PX-179, PX-188, PX-192, PX-196, PX-197, PX-199, PX-200, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181|PX-183|PX-184|PX-185|PX-186|PX-188|PX-192) --for-spec --no-implementation-order`.
 /**
  * Command entry point for /workspacify-tree.
  *
@@ -18,6 +18,9 @@ import { sha256Hex } from './lib/hash.mjs';
 import { buildHeadingTree, collectHeadingWarnings } from './lib/headings.mjs';
 import { segmentAtHeadings, verifyReconstruction } from './lib/segmentation.mjs';
 import { attachOwnedInventory } from './lib/segment-ownership.mjs';
+import { buildSpecPulse } from './lib/spec-pulse.mjs';
+import { validateSpecDefects } from './lib/spec-defects.mjs';
+import { buildDependencyReviewForDecisions, mergeReviewsWithCandidates, collectReviewResiduals } from './lib/dependency-review.mjs';
 import { checkTreeEntryGate } from './lib/entry-parity.mjs';
 import { adviseFailure } from './lib/gate-advice.mjs';
 import {
@@ -109,8 +112,12 @@ function runExtract(specPath) {
   const analysis = analyzeSpec(specPath);
   const inventory = buildInventory(analysis);
   const report = buildInventoryReport(inventory);
-  process.stdout.write(JSON.stringify(report.stats) + '\n');
-  guide(`Extract PASS: harvested ${report.stats.harvested} candidates (${report.stats.confirmed} confirmed, ${report.stats.review_required} need AI review, ${report.stats.unresolved} unresolved). In Step 3, resolve every REVIEW_REQUIRED item through approvals; leaving unknown/unresolved candidates prevents COMPLETE.`);
+  // The pulse decides which observations the AI must settle, so it is published here
+  // rather than only inside the gate: the operator can read the observations it is
+  // asked to answer instead of guessing from candidate ids.
+  const specPulse = buildSpecPulseForAnalysis(analysis, inventory);
+  process.stdout.write(JSON.stringify({ ...report.stats, spec_pulse: specPulse }) + '\n');
+  guide(`Extract PASS: harvested ${report.stats.harvested} candidates (${report.stats.confirmed} confirmed, ${report.stats.review_required} need AI review, ${report.stats.unresolved} unresolved) and observed ${specPulse.candidates.length} specification pulse candidate(s). In Step 3, resolve every REVIEW_REQUIRED item through approvals and settle every pulse candidate in spec_defects or residual_questions; leaving unknown/unresolved candidates prevents COMPLETE.`);
   process.exit(EXIT_CODES.OK);
 }
 
@@ -127,16 +134,32 @@ function runGate(args) {
     throw new Error(`decision schema invalid: ${schemaReport.errors.map((entry) => entry.message).join('; ')}`);
   }
   const inventory = prepareInventory(analysis, decisions);
+  // The pulse is computed once and handed to the pipeline, so the defect gate sees
+  // exactly the candidate set the manifest will publish.
+  const specPulse = buildSpecPulseForAnalysis(analysis, inventory);
+  const dependencyReview = buildDependencyReviewForDecisions(decisions, buildOwnershipTable(inventory, decisions).entries);
   const pipeline = runGatePipeline({
-    structure: { reconstruction: analysis.reconstruction },
+    structure: { reconstruction: analysis.reconstruction, segments: analysis.segments, spec_pulse: specPulse },
     inventory,
     workspace: { packages: decisions.workspace, tree: decisions.tree ?? [] },
     dependencies: {
       normalEdges: decisions.dependencies.filter((edge) => edge.kind !== 'forbidden'),
+      // The forbidden edges are published, so the gate must judge them too.
+      forbiddenEdges: decisions.dependencies.filter((edge) => edge.kind === 'forbidden'),
       boundaries: decisions.boundaries ?? [],
     },
     adapters: buildPipelineAdapters(decisions),
-    decisions: { approvals: decisions.approvals, ownership: decisions.ownership, semantic_review: decisions.semantic_review ?? {} },
+    review: dependencyReview,
+    decisions: {
+      approvals: decisions.approvals,
+      ownership: decisions.ownership,
+      semantic_review: decisions.semantic_review ?? {},
+      // The pulse candidates must be settled in this session, never handed to a human.
+      spec_defects: decisions.spec_defects ?? [],
+      residual_questions: decisions.residual_questions ?? [],
+      // Every review candidate must likewise carry a decision made in this session.
+      dependency_reviews: decisions.dependency_reviews ?? [],
+    },
   });
   const summary = pipeline.gates.map((gate) => `${gate.id}:${gate.status}`).join(' ');
   process.stdout.write(JSON.stringify({ status: pipeline.status, gates: summary, finalAudit: pipeline.finalAudit }) + '\n');
@@ -166,16 +189,33 @@ function runFinalize(args) {
   }
   const inventory = prepareInventory(analysis, decisions);
 
+  const specPulse = buildSpecPulseForAnalysis(analysis, inventory);
+  const ownershipTable = buildOwnershipTable(inventory, decisions);
+  // The review is computed once and handed to the pipeline, so the gate judges
+  // exactly the candidate set the manifest publishes.
+  const dependencyReview = buildDependencyReviewForDecisions(decisions, ownershipTable.entries);
   const pipelineInput = {
-    structure: { reconstruction: analysis.reconstruction },
+    structure: { reconstruction: analysis.reconstruction, segments: analysis.segments, spec_pulse: specPulse },
     inventory,
     workspace: { packages: decisions.workspace, tree: decisions.tree ?? [] },
     dependencies: {
       normalEdges: decisions.dependencies.filter((edge) => edge.kind !== 'forbidden'),
+      // The forbidden edges are published, so the gate must judge them too.
+      forbiddenEdges: decisions.dependencies.filter((edge) => edge.kind === 'forbidden'),
       boundaries: decisions.boundaries ?? [],
     },
     adapters: buildPipelineAdapters(decisions),
-    decisions: { approvals: decisions.approvals, ownership: decisions.ownership, semantic_review: decisions.semantic_review ?? {} },
+    review: dependencyReview,
+    decisions: {
+      approvals: decisions.approvals,
+      ownership: decisions.ownership,
+      semantic_review: decisions.semantic_review ?? {},
+      // The pulse candidates must be settled in this session, never handed to a human.
+      spec_defects: decisions.spec_defects ?? [],
+      residual_questions: decisions.residual_questions ?? [],
+      // Every review candidate must likewise carry a decision made in this session.
+      dependency_reviews: decisions.dependency_reviews ?? [],
+    },
   };
   const pipeline = runGatePipeline(pipelineInput);
 
@@ -200,7 +240,7 @@ function runFinalize(args) {
     status: 'COMPLETE',
     run: buildRunSection(),
     input: buildInputSection(analysis),
-    structure: buildStructureSection(analysis, inventory),
+    structure: buildStructureSection(analysis, inventory, specPulse),
     inventory: {
       objects: inventory.objects,
       claims: inventory.claims,
@@ -213,11 +253,11 @@ function runFinalize(args) {
       unresolved_candidates: inventory.unresolved_candidates,
     },
     requirements: { normative_candidates: inventory.terms },
-    workspace: { tree: decisions.tree ?? [], packages: decisions.workspace, ownership: buildOwnershipTable(inventory, decisions) },
+    workspace: { tree: decisions.tree ?? [], packages: decisions.workspace, ownership: ownershipTable },
     adapters: buildAdaptersSection(decisions),
     dependencies: buildDependencyTables(decisions, decisions.workspace),
     conformance: buildConformanceSection(decisions.workspace),
-    stage2_handoff: buildStage2Handoff(inventory, decisions),
+    stage2_handoff: buildStage2Handoff(inventory, decisions, dependencyReview),
     gates: { records: pipeline.gates },
     final_audit: { ...pipeline.finalAudit, status: pipeline.finalAudit.status },
     integrity: { input_hash_verified_at_finalize: true, reload_validation: 'PASS' },
@@ -441,7 +481,20 @@ function buildDependencyTables(decisions, packages = []) {
   };
 }
 
-function buildStage2Handoff(inventory, decisions) {
+function buildStage2Handoff(inventory, decisions, dependencyReview) {
+  const candidates = dependencyReview?.candidates ?? [];
+  const reviews = decisions.dependency_reviews ?? [];
+  const specHandoff = {
+    spec_defects: decisions.spec_defects ?? [],
+    // Both kinds of open question travel together: the specification defects the pulse
+    // reported and the dependency questions the review raised. The per-directory human
+    // grill reads this single list later, so nothing may be dropped on the way.
+    residual_questions: [
+      ...(decisions.residual_questions ?? []),
+      ...collectReviewResiduals({ candidates, reviews }),
+    ],
+    dependency_reviews: mergeReviewsWithCandidates({ candidates, reviews }),
+  };
   const dependencyTables = buildDependencyTables(decisions, decisions.workspace);
   const definitionOrder = [
     ...(inventory.objects ?? []).map((candidate) => candidate.canonical_name),
@@ -449,6 +502,7 @@ function buildStage2Handoff(inventory, decisions) {
     ...(inventory.terms ?? []).map((candidate) => candidate.canonical_name ?? candidate.keyword),
   ];
   return {
+    ...specHandoff,
     eligible: true,
     entry_gate: {
       required_status: 'COMPLETE',
@@ -492,7 +546,17 @@ function buildInputSection(analysis) {
   };
 }
 
-function buildStructureSection(analysis, inventory) {
+/** The specification pulse for one analysis: the gate and the manifest share it. */
+function buildSpecPulseForAnalysis(analysis, inventory) {
+  return buildSpecPulse({
+    sourceText: analysis.sourceText,
+    headings: analysis.headings,
+    segments: analysis.segments,
+    inventory,
+  });
+}
+
+function buildStructureSection(analysis, inventory, specPulse) {
   return {
     heading_count: analysis.headings.length,
     segment_level: 2,
@@ -501,6 +565,9 @@ function buildStructureSection(analysis, inventory) {
     // Each segment declares the harvested material it carries, so stage 2 can tell
     // a segment no seed owes (prose) from one that must be carried.
     segments: attachOwnedInventory({ segments: analysis.segments, inventory }),
+    // The pulse reports how the specification reads as a document; the AI settles
+    // every candidate before the manifest may be published.
+    spec_pulse: specPulse,
     warnings: analysis.warnings,
     reconstruction: analysis.reconstruction,
   };

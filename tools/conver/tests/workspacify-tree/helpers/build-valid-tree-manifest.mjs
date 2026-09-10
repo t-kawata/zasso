@@ -1,4 +1,4 @@
-// [::TICKET::] PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-192 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-192, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-192|PX-202) --for-spec --no-implementation-order`.
 // PX-192 @verifies C001 C003 C004 C005
 // Fixtures for the stage-1 hand-off proofs: a manifest that carries the DAG
 // proof, the frozen contract scopes, a total segment partition, segment-addressed
@@ -69,7 +69,7 @@ export function buildValidTreeManifest(overrides = {}) {
       ],
     }],
   }];
-  const normalEdges = [{ from: 'pkg-beta', to: 'pkg-alpha', reasonCode: 'direct-value-dependency', reason: 'beta consumes the alpha record' }];
+  const normalEdges = [{ from: 'pkg-beta', to: 'pkg-alpha', reasonCode: 'canonical-object', reason: 'beta consumes the alpha record' }];
   const dag = runDagChecks({ packages, edges: normalEdges, forbiddenEdges: [] });
   const boundaries = normalEdges.map((edge, index) => ({
     id: `boundary-${String(index + 1).padStart(3, '0')}`,

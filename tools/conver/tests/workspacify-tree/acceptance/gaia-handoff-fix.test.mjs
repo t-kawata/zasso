@@ -14,6 +14,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { checkTreeEntryGate } from '../../../.claude/scripts/workspacify-tree/lib/entry-parity.mjs';
+import { settlePulseCandidates } from '../helpers/settle-pulse.mjs';
+import { settleDependencyReviews } from '../helpers/settle-dependency-reviews.mjs';
 
 const CONVER_ROOT = process.cwd();
 const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
@@ -32,7 +34,7 @@ test('fix C001/C002 [@verifies C001][@verifies C002]: invariant and error owners
   );
   writeFileSync(
     decisionsPath,
-    JSON.stringify({
+    JSON.stringify(settlePulseCandidates({ specPath, decisions: {
       workspace: [
         {
           id: 'pkg-rules', name: 'rules', path: 'crates/protocol/rules', layer: 'protocol', kind: 'production-library',
@@ -52,7 +54,7 @@ test('fix C001/C002 [@verifies C001][@verifies C002]: invariant and error owners
       adapters: { ports: [], databasePolicy: { applicable: false } },
       approvals: [],
       semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' },
-    })
+    } }))
   );
   const result = run(['finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], dir);
   assert.equal(result.status, 0, result.stdout);
@@ -89,7 +91,7 @@ test('fix C004 [@verifies C004]: multi-package edge without a boundary fails and
   const edge = [{ from: 'pkgA', to: 'pkgB', kind: 'normal', reasonCode: 'port-contract', reason: 'consumer obligation' }];
   writeFileSync(
     fullPath,
-    JSON.stringify({
+    JSON.stringify(settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions: {
       workspace: packages,
       tree,
       ownership: [
@@ -101,11 +103,11 @@ test('fix C004 [@verifies C004]: multi-package edge without a boundary fails and
       adapters: { ports: [], databasePolicy: { applicable: false } },
       approvals: [],
       semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' },
-    })
+    } }) }))
   );
   writeFileSync(
     brokenPath,
-    JSON.stringify({
+    JSON.stringify(settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions: {
       workspace: packages,
       tree,
       ownership: [
@@ -117,7 +119,7 @@ test('fix C004 [@verifies C004]: multi-package edge without a boundary fails and
       adapters: { ports: [], databasePolicy: { applicable: false } },
       approvals: [],
       semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' },
-    })
+    } }) }))
   );
 
   const broken = run(['gate', `--spec=${specPath}`, `--decisions=${brokenPath}`], dir);
@@ -137,16 +139,16 @@ test('review C005 [@verifies C005]: ambiguous normative terms require approvals 
   const decisionsPath = join(dir, 'amb.json');
   writeFileSync(specPath, '# T\n\n## Rules\n\nMUST NOT 禁止\n');
   const base = { workspace: [], tree: [], ownership: [], dependencies: [], boundaries: [], adapters: { ports: [], databasePolicy: { applicable: false } } };
-  writeFileSync(decisionsPath, JSON.stringify({ ...base, approvals: [] }));
+  writeFileSync(decisionsPath, JSON.stringify(settlePulseCandidates({ specPath, decisions: { ...base, approvals: [] } })));
   const blocked = run(['finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], dir);
   assert.notEqual(blocked.status, 0, 'ambiguous terms without approvals must be blocked');
   assert.equal(existsSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json')), false, 'no manifest on blocked run');
 
   const approvedPath = join(dir, 'approved.json');
-  writeFileSync(approvedPath, JSON.stringify({ ...base, approvals: [
+  writeFileSync(approvedPath, JSON.stringify(settlePulseCandidates({ specPath, decisions: { ...base, approvals: [
     { decisionId: 'MUST NOT', rationale: 'explicitly normative', approver: 'ai' },
     { decisionId: '禁止', rationale: 'explicitly normative', approver: 'ai' },
-  ], semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' } }));
+  ], semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' } } })));
   const ok = run(['finalize', `--spec=${specPath}`, `--decisions=${approvedPath}`], dir);
   assert.equal(ok.status, 0, ok.stdout);
 });
@@ -156,16 +158,19 @@ test('claim C005 [@verifies C005]: claim candidates require approval and owner t
   const specPath = join(dir, 'claims.md');
   writeFileSync(specPath, '# T\n\n## Claims\n\n```text\nclaim_order_validity\nStateProofEnvelope\n```\n');
   const base = { tree: [], ownership: [], dependencies: [], boundaries: [], adapters: { ports: [], databasePolicy: { applicable: false } } };
-  writeFileSync(join(dir, 'unapproved.json'), JSON.stringify({ ...base, workspace: [], approvals: [] }));
+  writeFileSync(join(dir, 'unapproved.json'), JSON.stringify(settlePulseCandidates({ specPath, decisions: { ...base, workspace: [], approvals: [] } })));
   const blocked = run(['finalize', `--spec=${specPath}`, `--decisions=${join(dir, 'unapproved.json')}`], dir);
   assert.notEqual(blocked.status, 0, 'claims without approvals must be blocked');
 
   const pkg = { id: 'pkg-p', name: 'p', path: 'crates/protocol/p', layer: 'protocol', kind: 'production-library', responsibilities: ['own'], seed_required: true, owns: { objects: [], claims: ['claim-000001', 'claim-000002'], invariants: [], state_machines: [], error_codes: [], required_tests: [] } };
   const tree = [{ name: 'crates', path: 'crates', kind: 'dir', children: [{ name: 'protocol', path: 'crates/protocol', kind: 'dir', children: [{ name: 'p', path: 'crates/protocol/p', kind: 'dir', children: [] }] }] }];
-  writeFileSync(join(dir, 'approved.json'), JSON.stringify({ ...base, workspace: [pkg], tree, approvals: [
+  // The catalogue and the ownership table must agree: a claim declared in owns needs
+  // its ownership entry, or the machine now refuses the payload (PX-202).
+  const ownership = [{ objectId: 'claim-000001', packageId: 'pkg-p' }, { objectId: 'claim-000002', packageId: 'pkg-p' }];
+  writeFileSync(join(dir, 'approved.json'), JSON.stringify(settlePulseCandidates({ specPath, decisions: { ...base, workspace: [pkg], tree, ownership, approvals: [
     { decisionId: 'claim_order_validity', rationale: 'explicit claim', approver: 'ai' },
     { decisionId: 'StateProofEnvelope', rationale: 'explicit proof', approver: 'ai' },
-  ], semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' } }));
+  ], semantic_review: { status: 'APPROVED', statement: 'semantic design confirmed', approver: 'ai' } } })));
   const ok = run(['finalize', `--spec=${specPath}`, `--decisions=${join(dir, 'approved.json')}`], dir);
   assert.equal(ok.status, 0, ok.stdout);
 });

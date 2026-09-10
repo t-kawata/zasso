@@ -1,4 +1,4 @@
-// [::TICKET::] PX-196 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-196 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-196, PX-201, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-196|PX-201) --for-spec --no-implementation-order`.
 // PX-196 @verifies C002 C003
 // The two stages are always run one after the other, so the coupling itself must
 // be proven: a real stage-1 CLI run produces the manifest that a real stage-2 CLI
@@ -14,6 +14,9 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { harvestObjectCandidates } from '../../../.claude/scripts/workspacify-tree/lib/extraction.mjs';
+import { settlePulseCandidates } from '../../workspacify-tree/helpers/settle-pulse.mjs';
+import { settleDependencyReviews } from '../../workspacify-tree/helpers/settle-dependency-reviews.mjs';
+import { settleSelfGrill } from '../helpers/self-grill-fixture.mjs';
 import { buildHeadingTree } from '../../../.claude/scripts/workspacify-tree/lib/headings.mjs';
 import { segmentAtHeadings } from '../../../.claude/scripts/workspacify-tree/lib/segmentation.mjs';
 
@@ -64,8 +67,8 @@ function stageOneDecisions(objectIds) {
       }],
     }],
     ownership: [{ objectId: firstId, packageId: 'pkg-a' }, { objectId: secondId, packageId: 'pkg-b' }],
-    dependencies: [{ from: 'pkg-b', to: 'pkg-a', reasonCode: 'direct-value-dependency', reason: 'beta consumes the alpha record' }],
-    boundaries: [{ consumer: 'pkg-b', provider: 'pkg-a', dependencyReasonCode: 'direct-value-dependency' }],
+    dependencies: [{ from: 'pkg-b', to: 'pkg-a', reasonCode: 'canonical-object', reason: 'beta consumes the alpha record' }],
+    boundaries: [{ consumer: 'pkg-b', provider: 'pkg-a', dependencyReasonCode: 'canonical-object' }],
     adapters: {},
     approvals: fixtureApprovals(),
     semantic_review: { status: 'APPROVED', statement: 'reviewed the split and the dependency', approver: 'cross-stage-test' },
@@ -100,7 +103,15 @@ function stageTwoDecisions(manifest) {
           source_refs: [],
         })),
     }));
-  return { seeds, semantic_review: { status: 'APPROVED', statement: 'reviewed the coupling contracts', approver: 'cross-stage-test' } };
+  // The stage-2 AI settles the critic loop and carries every stage-1 residual into the
+  // seed that must answer it; a question that stops here is a question nobody answers.
+  return settleSelfGrill({
+    decisions: {
+      seeds,
+      semantic_review: { status: 'APPROVED', statement: 'reviewed the coupling contracts', approver: 'cross-stage-test' },
+    },
+    manifest,
+  });
 }
 
 test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose segment included', () => {
@@ -111,7 +122,8 @@ test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose seg
     const objectIds = harvestCandidateIds(specPath);
     assert.ok(objectIds.length >= 2, 'the fixture specification yields at least two objects');
     const treeDecisionsPath = join(dir, 'tree-decisions.json');
-    writeFileSync(treeDecisionsPath, JSON.stringify(stageOneDecisions(objectIds)));
+    // The stage-1 AI settles every pulse candidate of its specification before publishing.
+    writeFileSync(treeDecisionsPath, JSON.stringify(settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions: stageOneDecisions(objectIds) }) })));
 
     const stageOne = spawnSync(process.execPath, [TREE_RUN, 'finalize', `--spec=${specPath}`, `--decisions=${treeDecisionsPath}`], { cwd: dir, encoding: 'utf8' });
     assert.equal(stageOne.status, 0, stageOne.stdout + stageOne.stderr);
@@ -162,6 +174,27 @@ test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose seg
     assert.match(betaSeed, /consumer_to_provider/);
     assert.match(alphaSeed, /WORKSPACIFY-ALLOCATE-MANIFEST\.json/);
 
+    // The stage-1 residuals travel end to end: manifest hand-off -> self_grill record
+    // -> the grill section of the seed that answers them -> the published summary.
+    const carried = manifest.stage2_handoff.residual_questions;
+    assert.ok(carried.length >= 1, 'the stage-1 hand-off carries at least one residual');
+    assert.equal(allocateManifest.self_grill.residual_count, carried.length);
+    assert.deepEqual(allocateManifest.self_grill.focuses, ['implementer', 'counterpart', 'test', 'grill', 'adversarial']);
+    assert.equal(allocateManifest.handoff_summary.grill_questions.length, carried.length);
+    assert.deepEqual(allocateManifest.handoff_summary.risky_boundaries, ['boundary-001']);
+    for (const entry of allocateManifest.handoff_summary.grill_questions) {
+      const seedText = readFileSync(join(dir, 'crates/protocol', entry.package_id === 'pkg-a' ? 'alpha' : 'beta', 'RFC-SEED.md'), 'utf8');
+      const grillSection = seedText.split('\n## ').find((chunk) => chunk.startsWith('12. ')) ?? '';
+      assert.ok(grillSection.includes(entry.question), `${entry.residual_id} must reach the seed of ${entry.package_id}`);
+    }
+
+    // A stage-1 residual dropped from the loop stops the run and names the candidate.
+    const droppedPath = join(dir, 'dropped-decisions.json');
+    writeFileSync(droppedPath, JSON.stringify({ ...stageTwoDecisions(manifest), self_grill: { ...stageTwoDecisions(manifest).self_grill, residual: [] } }));
+    const dropped = spawnSync(process.execPath, [ALLOCATE_RUN, 'gate', manifestPath, `--decisions=${droppedPath}`], { encoding: 'utf8' });
+    assert.notEqual(dropped.status, 0, 'an empire that forgets a stage-1 question must not pass');
+    assert.ok((dropped.stdout + dropped.stderr).includes(carried[0].candidate_id), dropped.stdout + dropped.stderr);
+
     // A second run is BLOCKED and leaves the published workspace untouched.
     const second = spawnSync(process.execPath, [ALLOCATE_RUN, 'finalize', manifestPath, `--decisions=${decisionsPath}`], { encoding: 'utf8' });
     assert.notEqual(second.status, 0);
@@ -179,7 +212,8 @@ test('C002 a stage-2 run refuses a stage-1 manifest that does not declare segmen
     const objectIds = harvestCandidateIds(specPath);
     assert.ok(objectIds.length >= 2, 'the fixture specification yields at least two objects');
     const treeDecisionsPath = join(dir, 'tree-decisions.json');
-    writeFileSync(treeDecisionsPath, JSON.stringify(stageOneDecisions(objectIds)));
+    // The stage-1 AI settles every pulse candidate of its specification before publishing.
+    writeFileSync(treeDecisionsPath, JSON.stringify(settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions: stageOneDecisions(objectIds) }) })));
     const stageOne = spawnSync(process.execPath, [TREE_RUN, 'finalize', `--spec=${specPath}`, `--decisions=${treeDecisionsPath}`], { cwd: dir, encoding: 'utf8' });
     assert.equal(stageOne.status, 0, stageOne.stdout + stageOne.stderr);
 

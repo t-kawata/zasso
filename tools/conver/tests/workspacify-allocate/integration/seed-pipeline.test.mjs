@@ -45,18 +45,20 @@ test('IT packet -> render -> parse -> parity over a real co-located spec', () =>
       assert.equal(packet.owned_items.length, expectedByPackage.get(pkg.id).length);
       const { seedText } = renderSeed({
         package: pkg,
-        manifest: loaded,
-        expectedAllocation: expectedByPackage.get(pkg.id),
-        referenceBlock: {
-          package: { id: pkg.id, name: pkg.name, path: pkg.path, layer: pkg.layer, kind: pkg.kind, responsibilities: pkg.responsibilities },
-          source_spec: { path: loaded.input.spec_path, sha256: loaded.input.source_hash },
-          stage1_manifest: { path: 'WORKSPACIFY-TREE-MANIFEST.json', hash: loaded.integrity.manifest_hash },
-          stage2_manifest: { path: 'WORKSPACIFY-ALLOCATE-MANIFEST.json' },
-          implementation_order: { before: [], after: [], parallel_with: [], serial_index: 0, wave: 0 },
-          contract_refs: [],
-          source_segments: [],
+        machine: {
+          manifest: loaded,
+          expectedAllocation: expectedByPackage.get(pkg.id),
+          contractEdges: [],
+          referenceBlock: {
+            package: { id: pkg.id, name: pkg.name, path: pkg.path, layer: pkg.layer, kind: pkg.kind, responsibilities: pkg.responsibilities },
+            source_spec: { path: loaded.input.spec_path, sha256: loaded.input.source_hash },
+            stage1_manifest: { path: 'WORKSPACIFY-TREE-MANIFEST.json', hash: loaded.integrity.manifest_hash },
+            stage2_manifest: { path: 'WORKSPACIFY-ALLOCATE-MANIFEST.json' },
+            implementation_order: { before: [], after: [], parallel_with: [], serial_index: 0, wave: 0 },
+            contract_refs: [],
+            source_segments: [],
+          },
         },
-        contractEdges: [],
         aiSections: aiSectionsFor(),
       });
       parsedByPackage.set(pkg.id, parseSeed(seedText).allocationIndexRows);

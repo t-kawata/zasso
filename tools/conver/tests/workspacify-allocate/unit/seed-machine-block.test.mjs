@@ -44,7 +44,7 @@ function fixture() {
 test('C002 the machine sections are rendered from the block and the contracts', () => {
   const { manifest, pkg, referenceBlock, contractEdge, expectedAllocation } = fixture();
   const { seedText, fileName } = renderSeed({
-    package: pkg, manifest, expectedAllocation, referenceBlock, contractEdges: [contractEdge], aiSections: baseAiSections(),
+    package: pkg, machine: { manifest, expectedAllocation, referenceBlock, contractEdges: [contractEdge] }, aiSections: baseAiSections(),
   });
 
   assert.equal(fileName, 'RFC-SEED.md');
@@ -75,7 +75,7 @@ test('C002 the grammar keeps the machine sections first and the AI surface bound
 
 test('C002 AI text for a machine section is rejected, and a missing authoring section too', () => {
   const { manifest, pkg, referenceBlock, contractEdge, expectedAllocation } = fixture();
-  const render = (aiSections) => renderSeed({ package: pkg, manifest, expectedAllocation, referenceBlock, contractEdges: [contractEdge], aiSections });
+  const render = (aiSections) => renderSeed({ package: pkg, machine: { manifest, expectedAllocation, referenceBlock, contractEdges: [contractEdge] }, aiSections });
 
   assert.throws(() => render({ ...baseAiSections(), 1: 'AI wrote the machine block' }), (error) => error.gateId === 'G3.6');
   assert.throws(() => render({ ...baseAiSections(), 2: 'AI wrote the contracts' }), (error) => error.gateId === 'G3.6');
@@ -89,7 +89,7 @@ test('C002 AI text for a machine section is rejected, and a missing authoring se
 
 test('C002 a seed without a contract edge still states that it has no external contracts', () => {
   const { manifest, pkg, referenceBlock, expectedAllocation } = fixture();
-  const { seedText } = renderSeed({ package: pkg, manifest, expectedAllocation, referenceBlock, contractEdges: [], aiSections: baseAiSections() });
+  const { seedText } = renderSeed({ package: pkg, machine: { manifest, expectedAllocation, referenceBlock, contractEdges: [] }, aiSections: baseAiSections() });
   const parsed = parseSeed(seedText);
   assert.deepEqual(parsed.contractEdges, []);
   assert.equal(parsed.contractBlock.no_external_contracts, true);
@@ -98,7 +98,7 @@ test('C002 a seed without a contract edge still states that it has no external c
 
 test('C002 a rendered seed parses back to the same machine facts', () => {
   const { manifest, pkg, referenceBlock, contractEdge, expectedAllocation } = fixture();
-  const { seedText } = renderSeed({ package: pkg, manifest, expectedAllocation, referenceBlock, contractEdges: [contractEdge], aiSections: baseAiSections() });
+  const { seedText } = renderSeed({ package: pkg, machine: { manifest, expectedAllocation, referenceBlock, contractEdges: [contractEdge] }, aiSections: baseAiSections() });
   const parsed = parseSeed(seedText);
   assert.deepEqual(parsed.referenceBlock, referenceBlock);
   assert.deepEqual(parsed.contractEdges, [contractEdge]);

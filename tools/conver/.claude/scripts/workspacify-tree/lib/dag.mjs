@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177, PX-188, PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-188|PX-192) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177, PX-188, PX-192, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-188|PX-192) --for-spec --no-implementation-order`.
 /**
  * Dependency graph checks (§11.4).
  *
@@ -91,6 +91,8 @@ export function runDagChecks({ packages, edges, forbiddenEdges = [] }) {
   const forbiddenPairSet = new Set(forbiddenEdges.map((edge) => `${edge.from}->${edge.to}`));
   let layerViolationCount = 0;
   let forbiddenEdgeCount = 0;
+  // A count alone cannot be repaired: the operator needs the pair and the reason.
+  const forbiddenEdgeReasons = [];
   for (const edge of edgeList) {
     if (!nodeSet.has(edge.from) || !nodeSet.has(edge.to)) {
       continue;
@@ -101,6 +103,10 @@ export function runDagChecks({ packages, edges, forbiddenEdges = [] }) {
     const explicitForbidden = forbiddenPairSet.has(`${edge.from}->${edge.to}`);
     if (violatesLayer) {
       layerViolationCount++;
+      forbiddenEdgeReasons.push(`normal edge ${edge.from}->${edge.to} breaks the layer rule: ${fromPackage?.layer} must not depend on ${toPackage?.layer}`);
+    }
+    if (explicitForbidden) {
+      forbiddenEdgeReasons.push(`the pair ${edge.from}->${edge.to} is declared both as a normal edge and as a forbidden edge`);
     }
     if (violatesLayer || explicitForbidden) {
       forbiddenEdgeCount++;
@@ -113,10 +119,14 @@ export function runDagChecks({ packages, edges, forbiddenEdges = [] }) {
   return {
     node_count: nodeIds.length,
     edge_count: edgeList.length,
+    // How many forbidden declarations reached the check. Without this the gate cannot
+    // tell "no forbidden edge was declared" from "the declarations never arrived".
+    declared_forbidden_edge_count: forbiddenEdges.length,
     unknown_dependency_count: unknownDependencyCount,
     self_loop_count: selfLoopCount,
     duplicate_edge_count: duplicateEdgeCount,
     forbidden_edge_count: forbiddenEdgeCount,
+    forbidden_edge_reasons: forbiddenEdgeReasons,
     layer_violation_count: layerViolationCount,
     cycle_count: cycleList.length,
     cycles: cycleList,

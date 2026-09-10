@@ -1,4 +1,4 @@
-// [::TICKET::] PX-193, PX-194 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-193|PX-194) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-193, PX-194, PX-201, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-193|PX-194) --for-spec --no-implementation-order`.
 // [::TICKET::] PX-191, PX-190, PX-189 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-189|PX-190|PX-191) --for-spec --no-implementation-order`.
 /**
  * Test helper: build a stage-1 manifest that carries the hand-off proofs stage 2
@@ -21,6 +21,7 @@ import { buildHeadingTree } from '../../../.claude/scripts/workspacify-tree/lib/
 import { segmentAtHeadings } from '../../../.claude/scripts/workspacify-tree/lib/segmentation.mjs';
 import { runDagChecks } from '../../../.claude/scripts/workspacify-tree/lib/dag.mjs';
 import { buildBoundaryContractScope } from '../../../.claude/scripts/workspacify-tree/lib/contract-clauses.mjs';
+import { makeSelfGrill } from './self-grill-fixture.mjs';
 
 /** Default specification text whose hash buildValidManifest records. */
 export const DEFAULT_SPEC_TEXT = [
@@ -104,7 +105,7 @@ export function defaultTree() {
 export function buildValidManifest(overrides = {}) {
   const { segments, sourceBytes, sourceHash } = segmentSpecification();
   const packages = defaultPackages();
-  const normalEdges = [{ from: 'pkg-b', to: 'pkg-a', reasonCode: 'direct-value-dependency', reason: 'beta consumes the alpha record' }];
+  const normalEdges = [{ from: 'pkg-b', to: 'pkg-a', reasonCode: 'canonical-object', reason: 'beta consumes the alpha record' }];
   const boundaries = normalEdges.map((edge, index) => ({
     id: `boundary-${String(index + 1).padStart(3, '0')}`,
     consumer_package: edge.from,
@@ -264,12 +265,16 @@ export function contractEdgesForPackage(manifest, packageId) {
  * @param {{ approved?: boolean }} [options]
  * @returns {object} decisions payload
  */
-export function makeDecisions(manifest, { approved = true } = {}) {
+export function makeDecisions(manifest, { approved = true, selfGrill } = {}) {
   const packages = manifest.workspace?.packages ?? [];
   const seeds = packages
     .filter((pkg) => pkg.seed_required !== false)
     .map((pkg) => ({ packageId: pkg.id, aiSections: baseAiSections(), contractEdges: contractEdgesForPackage(manifest, pkg.id) }));
-  return { seeds, semantic_review: { status: approved ? 'APPROVED' : 'REVIEW_REQUIRED', statement: 'reviewed every package allocation and boundary', approver: 'ai-session' } };
+  return {
+    seeds,
+    self_grill: selfGrill ?? makeSelfGrill(),
+    semantic_review: { status: approved ? 'APPROVED' : 'REVIEW_REQUIRED', statement: 'reviewed every package allocation and boundary', approver: 'ai-session' },
+  };
 }
 
 /**

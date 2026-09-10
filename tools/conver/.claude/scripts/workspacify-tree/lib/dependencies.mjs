@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-177 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177, PX-202 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-202) --for-spec --no-implementation-order`.
 /**
  * Dependency matrix checks (§11.1, §11.2, §11.3).
  *
@@ -42,17 +42,27 @@ export const REASON_CODES = Object.freeze([
  * and forbidden edges without alternatives.
  *
  * @param {{ packages: Array<object>, normalEdges: Array<object>, forbiddenEdges: Array<object> }} input
- * @returns {{ missingReasonCode: Array<object>, missingAlternative: Array<object>, undeclared: Array<object> }}
+ * @returns {{ missingReasonCode: Array<object>, missingAlternative: Array<object>, undeclared: Array<object>, misspelledReasonCodeField: Array<object> }}
  */
 export function checkDependencyMatrix({ packages, normalEdges, forbiddenEdges }) {
   const packageIds = new Set((packages ?? []).map((pkg) => pkg.id));
   const reasonCodeSet = new Set(REASON_CODES);
   const missingReasonCode = [];
   const undeclared = [];
+  const misspelledReasonCodeField = [];
 
   for (const edge of normalEdges ?? []) {
     if (!edge.reasonCode || !reasonCodeSet.has(edge.reasonCode)) {
       missingReasonCode.push({ from: edge.from, to: edge.to, kind: edge.kind, reasonCode: edge.reasonCode ?? null });
+    }
+    if (!edge.reasonCode && edge.reason_code !== undefined) {
+      // A snake_case spelling is a field the machine never reads: naming it is the only
+      // way the author learns that the reason they wrote had no effect.
+      misspelledReasonCodeField.push({
+        from: edge.from,
+        to: edge.to,
+        detail: `the edge ${edge.from}->${edge.to} carries the unknown key reason_code; the machine reads reasonCode`,
+      });
     }
     if (!packageIds.has(edge.from) || !packageIds.has(edge.to)) {
       undeclared.push({ from: edge.from, to: edge.to });
@@ -66,5 +76,5 @@ export function checkDependencyMatrix({ packages, normalEdges, forbiddenEdges })
     }
   }
 
-  return { missingReasonCode, missingAlternative, undeclared };
+  return { missingReasonCode, missingAlternative, undeclared, misspelledReasonCodeField };
 }

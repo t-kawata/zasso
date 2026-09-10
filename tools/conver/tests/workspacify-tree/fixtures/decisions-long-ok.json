@@ -8,5 +8,48 @@
     "status": "APPROVED",
     "statement": "semantic design confirmed against the specification",
     "approver": "ai-session"
-  }
+  },
+  "spec_defects": [],
+  "residual_questions": [
+    {
+      "candidate_id": "pulse-000001",
+      "topic": "the Overview chapter carries no material and no other chapter refers to it",
+      "alternatives": [
+        "leave it as context prose",
+        "fold it into the first package seed"
+      ],
+      "chosen_default": "leave it as context prose",
+      "why_unresolved": "the canonical grill decides whether the overview states any obligation"
+    },
+    {
+      "candidate_id": "pulse-000002",
+      "topic": "the Architecture chapter carries no material and no other chapter refers to it",
+      "alternatives": [
+        "leave it as context prose",
+        "allocate its statements to the core package"
+      ],
+      "chosen_default": "leave it as context prose",
+      "why_unresolved": "the ownership of the architecture statements belongs to the grill"
+    },
+    {
+      "candidate_id": "pulse-000003",
+      "topic": "the Operations chapter carries no material and no other chapter refers to it",
+      "alternatives": [
+        "leave it as context prose",
+        "split an operations package"
+      ],
+      "chosen_default": "leave it as context prose",
+      "why_unresolved": "the split decision changes the package boundary"
+    },
+    {
+      "candidate_id": "pulse-000004",
+      "topic": "the Conformance chapter carries no material and no other chapter refers to it",
+      "alternatives": [
+        "leave it as context prose",
+        "create a conformance package"
+      ],
+      "chosen_default": "leave it as context prose",
+      "why_unresolved": "the conformance boundary belongs to the grill"
+    }
+  ]
 }

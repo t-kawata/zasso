@@ -1,4 +1,4 @@
-// [::TICKET::] PX-195 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-195 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-195, PX-201 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-195|PX-201) --for-spec --no-implementation-order`.
 // PX-195 @verifies C003
 /**
  * Post-publication reload verification.
@@ -14,6 +14,7 @@ import path from 'node:path';
 
 import { sha256Hex } from '../../workspacify-tree/lib/hash.mjs';
 import { ALLOCATE_MANIFEST_FILE_NAME, SEED_FILE_NAME } from './seed-model.mjs';
+import { GRILL_QUESTION_SECTION_INDEX } from './self-grill.mjs';
 import { computeAllocateSelfHash } from './allocate-manifest.mjs';
 import { walkSeedContracts } from '../walk-seed-contracts.mjs';
 import { buildContractIndex } from './contract-gate.mjs';
@@ -70,6 +71,28 @@ export function reloadAndVerify({ workspaceRoot, plan, manifest, manifestPath, e
   for (const [packageId, parsed] of walk.byPackage) {
     parsedByPackage.set(packageId, parsed);
   }
+  // The published seeds must still answer the questions the manifest hands to the
+  // human grill: a summary that outlives its question is a lie.
+  const handoffSummary = expected?.handoff_summary ?? { grill_questions: [] };
+  for (const entry of handoffSummary.grill_questions ?? []) {
+    const body = parsedByPackage.get(entry.package_id)?.headings.find((heading) => heading.index === GRILL_QUESTION_SECTION_INDEX)?.body ?? '';
+    if (!body.includes(entry.question)) {
+      divergences.push({
+        artefact: 'seed',
+        package_id: entry.package_id,
+        field: 'grill_question',
+        detail: `${entry.residual_id} is not carried by the published seed`,
+      });
+    }
+  }
+  if ((expected?.self_grill?.residual_count ?? 0) !== (handoffSummary.grill_questions ?? []).length) {
+    divergences.push({
+      artefact: 'manifest',
+      field: 'self_grill.residual_count',
+      detail: 'the residual count and the hand-off summary disagree',
+    });
+  }
+
   const contractIndex = buildContractIndex({ parsedByPackage, manifest });
   const graph = buildIntegrationGraph({ contractIndex, manifest });
   const violations = runGraphViolations({ graph, manifest });
