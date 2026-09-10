@@ -1,4 +1,5 @@
 // [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
 /**
  * R7 — the decision packet: what a human is asked, and in what shape.
  *
@@ -26,15 +27,55 @@ import { formatClaimAnchor } from './claim-ledger.mjs';
  * The subject kinds a card may name, from 7.4.1.
  *
  * The spike produces three of the five; the other two are declared because the
- * vocabulary is shared with P22-5 and a closed list that grows silently is not
- * a vocabulary.
+ * vocabulary is shared with P22-5 and P22-20 and a closed list that grows
+ * silently is not a vocabulary.
  */
+// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
 export const CARD_SUBJECT_KINDS = Object.freeze([
   'boundary_crossing',
   'state_transition',
   'invariant',
   'failure_contract',
   'data_lineage',
+]);
+
+/**
+ * The fields every decision card carries, whatever stage produced it (7.4.1).
+ *
+ * The spike, the serving layer and the adjudication cards all answer to this
+ * one shape, so a card means the same thing wherever a human meets it. A stage
+ * that invents its own shape would be asking its reader to learn a second
+ * vocabulary for the same decision.
+ */
+// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+export const CARD_FIELDS = Object.freeze([
+  'claim_id',
+  'proposition',
+  'question',
+  'options',
+  'consequences',
+  'evidence',
+  'counterexamples',
+  'default',
+  'scope',
+  'subjectKind',
+]);
+
+/**
+ * The list-valued fields, in the order a card prints them, with their headings.
+ *
+ * `emptyNote` marks the fields that say so when they hold nothing: an evidence
+ * list that printed no line at all would read as "there was none to print",
+ * which is the one thing a card must never imply. Options and consequences have
+ * no note because a card without them is refused before it is rendered
+ * (`assertCardIsAdjudicable`).
+ */
+// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+const CARD_SECTIONS = Object.freeze([
+  Object.freeze({ key: 'options', label: 'Options', emptyNote: false }),
+  Object.freeze({ key: 'consequences', label: 'Consequences', emptyNote: false }),
+  Object.freeze({ key: 'evidence', label: 'Evidence', emptyNote: true }),
+  Object.freeze({ key: 'counterexamples', label: 'Counterexamples', emptyNote: true }),
 ]);
 
 /**
@@ -47,8 +88,14 @@ export const CARD_SUBJECT_KINDS = Object.freeze([
  */
 export const CARD_LAYERING_THRESHOLD = 12;
 
-/** The answer every card offers, so a decision the machine cannot make is never lost. */
-const HAND_TO_GRILL = 'hand it to the human grill as unresolved';
+/**
+ * The answer every card offers, so a decision the machine cannot make is never lost.
+ *
+ * Exported because the adjudication cards of P22-20 offer the same answer: when
+ * nobody decides, the question belongs to the human grill, not to the default.
+ */
+// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+export const HAND_TO_GRILL = 'hand it to the human grill as unresolved';
 
 /** How many cards a claim kind's material supports before the grill. */
 const OPTIONS_BY_SUBJECT_KIND = Object.freeze({
@@ -213,6 +260,7 @@ export function renderDecisionCards(ledger) {
 }
 
 /** The cards as the Markdown the human reads before answering. */
+// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
 export function renderCardsMarkdown(cards) {
   const lines = ['## Decision cards', ''];
 
@@ -234,16 +282,12 @@ export function renderCardsMarkdown(cards) {
     lines.push(`## Card ${index + 1} — \`${card.claim_id}\``, '');
     lines.push(`One falsifiable proposition: ${card.proposition}`, '');
     lines.push('### Question', '', card.question, '');
-    lines.push('- **Options**');
-    card.options.forEach((option) => lines.push(`  - ${option}`));
-    lines.push('- **Consequences**');
-    card.consequences.forEach((consequence) => lines.push(`  - ${consequence}`));
-    lines.push('- **Evidence**');
-    if (card.evidence.length === 0) lines.push('  - none recorded');
-    card.evidence.forEach((item) => lines.push(`  - ${item}`));
-    lines.push('- **Counterexamples**');
-    if (card.counterexamples.length === 0) lines.push('  - none recorded');
-    card.counterexamples.forEach((item) => lines.push(`  - ${item}`));
+    for (const section of CARD_SECTIONS) {
+      const values = card[section.key] ?? [];
+      lines.push(`- **${section.label}**`);
+      if (section.emptyNote && values.length === 0) lines.push('  - none recorded');
+      values.forEach((value) => lines.push(`  - ${value}`));
+    }
     lines.push('- **Default**', `  - ${card.default}`, '');
     if (card.children) {
       lines.push(

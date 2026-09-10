@@ -1,5 +1,6 @@
 // [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
 /**
  * R3.5 — the claim ledger, and the evidence independence it is built to refuse.
  *
@@ -58,6 +59,10 @@ export const SOURCE_DIRECTORY = 'src';
 /** The language the spike reads. P22-4 decides the toolchain; this is only a file filter. */
 export const SOURCE_EXTENSION = '.rs';
 
+/** The directory a source member at the top of the project belongs to. */
+// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+export const PROJECT_ROOT_DIRECTORY = '.';
+
 /** A `crate::` reference from one top-level module into another. */
 const CRATE_REFERENCE = /crate::([a-z_][a-z0-9_]*)/;
 
@@ -70,9 +75,18 @@ const ERROR_PATH = /\bErr\s*\(/;
 /** The attribute whose presence makes the shipping composition a build-time question. */
 const CFG_ATTRIBUTE = /#\[\s*cfg\(/;
 
-/** `src/api/login.rs` → `src/api`. */
+/**
+ * `src/api/login.rs` → `src/api`.
+ *
+ * A path at the project root has no separator to truncate at, and truncating at
+ * `-1` would drop its last character instead — turning `build.rs` into the
+ * package `build.r`, which no measurement ever named. The root is `.`, which is
+ * what R1 records for the directory holding the build script.
+ */
+// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
 export function directoryOf(relativePath) {
-  return relativePath.slice(0, relativePath.lastIndexOf('/'));
+  const separator = relativePath.lastIndexOf('/');
+  return separator === -1 ? PROJECT_ROOT_DIRECTORY : relativePath.slice(0, separator);
 }
 
 /** `src/api/login.rs` → `login`. */
@@ -111,6 +125,7 @@ export function resolveSourceMember(root, moduleName) {
  * from `src/api` to `src/api` would then be reported as a boundary crossing —
  * a decision card asking whether the module may call itself.
  */
+// [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
 export function owningDirectoryOf(member) {
   return member.endsWith(SOURCE_EXTENSION) ? directoryOf(member) : member;
 }
