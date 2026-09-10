@@ -1,4 +1,5 @@
 // [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
 /**
  * R3.5 — the claim ledger, and the evidence independence it is built to refuse.
  *
@@ -6,18 +7,22 @@
  * corroboration: a unit test, a comment and a README derived from one design
  * decision are not three pieces of evidence, and counting them as three is the
  * reverse-rotation form of a false green (F11). Evidence is therefore graphed
- * by the observable relations that join it, and the number of *independent*
- * components is what a claim reports — never the number of evidence records.
+ * by the observable relations that join it, and the number a claim reports is
+ * the number of independent components — never the number of evidence records.
  *
- * Where the text cannot settle a question, the ledger says so rather than
- * guessing. A guard, an assert and an error path do not distinguish a
- * precondition from a defensive check (R3 says so explicitly), so a claim read
- * out of an assertion is `inferred` and not `observed`. Code behind a `#[cfg]`
- * gate has a composition that only a build reveals, so a claim inside one is
- * `unresolved` and carries the question it hands to the human grill. And a
- * `normative` claim without a recorded decision is refused outright: the chain
- * `claim_id → normative_decision_id → residual_id` is what makes a norm a norm,
- * and a machine that asserts one anyway has invented an authority.
+ * The ledger holds two collections of different types, and the separation is
+ * enforced rather than documented. `claims` carry one of the four provenance
+ * values and state what would falsify them. `candidates` are R3's stage-two
+ * output: they carry `classification: "candidate"` and
+ * `requires_human_approval`, and `assertDecidedFact` refuses one wherever a
+ * settled fact is required. A candidate read as a decided contract is a silent
+ * failure — it reads as success — which is why the type boundary exists.
+ *
+ * The three claim families below are read from the population's source text.
+ * That reading is deliberately narrow: it finds a `crate::` reference, an
+ * assertion and an error return, and it classifies them exactly as it always
+ * has, because they are the ledger's own vocabulary and not R3's findings. R3's
+ * findings live in `facts` and `candidates`.
  *
  * This module also owns the vocabulary for reading Rust source text, because
  * R0.5 and R3.5 both read it and only one of them may own it.
@@ -25,43 +30,33 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { enumerateSourceFacts, generateCandidates, unavailableChannels } from './semantics.mjs';
+import { compareText } from './holdout-ledger.mjs';
+import { listArtefacts, renderCappedList } from './analysis-tech.mjs';
+import {
+  buildEvidence,
+  computeIndependence,
+  countIndependentSupport,
+} from './evidence-independence.mjs';
+import {
+  INDEPENDENCE_POLICY,
+  LINEAGE_RELATIONS,
+  PROVENANCE_CLASSES,
+} from './provenance.mjs';
+
+export {
+  INDEPENDENCE_POLICY,
+  LINEAGE_RELATIONS,
+  PROVENANCE_CLASSES,
+  buildEvidence,
+  countIndependentSupport,
+};
+
 /** The project's own source lives here. */
 export const SOURCE_DIRECTORY = 'src';
 
 /** The language the spike reads. P22-4 decides the toolchain; this is only a file filter. */
 export const SOURCE_EXTENSION = '.rs';
-
-/**
- * The four provenance values, in the design's order.
- *
- * Shared with P22-5 rather than repeated, so the spike and the real
- * implementation cannot drift into two vocabularies.
- */
-export const PROVENANCE_CLASSES = Object.freeze(['observed', 'inferred', 'normative', 'unresolved']);
-
-/**
- * The closed vocabulary of lineage relations, and how strongly each one joins.
- *
- * A strong relation collapses its endpoints into one vote. `similar_wording` is
- * deliberately weak: a resemblance between a comment and a test name is a
- * candidate for a human to review, never a machine's conclusion that two
- * artefacts share one origin.
- */
-export const LINEAGE_RELATIONS = Object.freeze({
-  same_syntax_span: 'strong',
-  same_generator: 'strong',
-  same_commit: 'strong',
-  same_patch: 'strong',
-  same_guard: 'strong',
-  same_error_path: 'strong',
-  similar_wording: 'weak',
-});
-
-/** The aggregation policy, stored beside the evidence so a human can later correct it. */
-export const INDEPENDENCE_POLICY =
-  'Evidence joined by a strong lineage relation forms one connected component and counts as one '
-  + 'independent piece of support. similar_wording never collapses automatically. The number of '
-  + 'components is what a claim reports; the number of evidence records is not.';
 
 /** A `crate::` reference from one top-level module into another. */
 const CRATE_REFERENCE = /crate::([a-z_][a-z0-9_]*)/;
@@ -74,8 +69,6 @@ const ERROR_PATH = /\bErr\s*\(/;
 
 /** The attribute whose presence makes the shipping composition a build-time question. */
 const CFG_ATTRIBUTE = /#\[\s*cfg\(/;
-
-const STRONG = 'strong';
 
 /** `src/api/login.rs` → `src/api`. */
 export function directoryOf(relativePath) {
@@ -185,18 +178,8 @@ export function formatClaimAnchor(claim) {
   return span ? formatAnchor(span.file, span.line) : '(unrecorded)';
 }
 
-/** One evidence record, in the shape the design's schema names. */
-function buildEvidence(seed, lineNumber, sourceKind) {
-  return {
-    evidence_id: `ev-${stemOf(seed)}-${lineNumber}`,
-    source_kind: sourceKind,
-    evidence_mode: 'source_static',
-    source_span: { file: seed, line: lineNumber },
-    lineage_edges: [],
-  };
-}
-
 /** A boundary crossing read out of a `crate::` reference. */
+// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function buildBoundaryClaim({ seed, lineNumber, moduleName, providerMember, gated }) {
   const anchor = formatAnchor(seed, lineNumber);
   const provider = providerMember ?? `${SOURCE_DIRECTORY}/${moduleName}`;
@@ -206,12 +189,12 @@ function buildBoundaryClaim({ seed, lineNumber, moduleName, providerMember, gate
     claim_type: gated ? 'unresolved' : 'observed',
     scope: directoryOf(seed),
     provider,
-    proposition: `${directoryOf(seed)} consumes ${provider} through the reference at ${anchor}`,
-    evidence: [buildEvidence(seed, lineNumber, 'impl')],
+    statement: `${directoryOf(seed)} consumes ${provider} through the reference at ${anchor}`,
+    evidence: [buildEvidence({ file: seed, line: lineNumber }, 'impl')],
     basis: [],
     counterevidence:
       gated
-        ? [`the reference sits behind a configuration gate, so whether it ships is not readable from the text`]
+        ? ['the reference sits behind a configuration gate, so whether it ships is not readable from the text']
         : [],
     falsification: `remove the reference at ${anchor} and observe whether the consumer still resolves; `
       + 'the crossing is a contract only if a declared port carries it',
@@ -223,6 +206,7 @@ function buildBoundaryClaim({ seed, lineNumber, moduleName, providerMember, gate
 }
 
 /** A condition read out of an assertion. Inferred, because an assert proves only that a check exists. */
+// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function buildInvariantClaim({ seed, lineNumber, gated }) {
   const anchor = formatAnchor(seed, lineNumber);
   return {
@@ -231,8 +215,8 @@ function buildInvariantClaim({ seed, lineNumber, gated }) {
     claim_type: gated ? 'unresolved' : 'inferred',
     scope: directoryOf(seed),
     provider: null,
-    proposition: `the condition asserted at ${anchor} holds`,
-    evidence: [buildEvidence(seed, lineNumber, 'impl')],
+    statement: `the condition asserted at ${anchor} holds`,
+    evidence: [buildEvidence({ file: seed, line: lineNumber }, 'impl')],
     basis: gated
       ? []
       : [`the assertion at ${anchor} exists in the text; that it is an invariant rather than a defensive check is an inference from that text`],
@@ -246,6 +230,7 @@ function buildInvariantClaim({ seed, lineNumber, gated }) {
 }
 
 /** A failure path read out of an error return. Inferred, for the same reason. */
+// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function buildFailureClaim({ seed, lineNumber, gated }) {
   const anchor = formatAnchor(seed, lineNumber);
   return {
@@ -254,8 +239,8 @@ function buildFailureClaim({ seed, lineNumber, gated }) {
     claim_type: gated ? 'unresolved' : 'inferred',
     scope: directoryOf(seed),
     provider: null,
-    proposition: `the failure at ${anchor} is a contracted outcome the caller may rely on`,
-    evidence: [buildEvidence(seed, lineNumber, 'impl')],
+    statement: `the failure at ${anchor} is a contracted outcome the caller may rely on`,
+    evidence: [buildEvidence({ file: seed, line: lineNumber }, 'impl')],
     basis: gated
       ? []
       : [`the error return at ${anchor} exists in the text; that a caller may rely on it is an inference from that text`],
@@ -274,7 +259,9 @@ function buildFailureClaim({ seed, lineNumber, gated }) {
  * A class is not a label a claim may carry without its warrant: `observed`
  * without evidence, `inferred` without a basis, `unresolved` without the
  * question it hands over, or `normative` without a recorded decision are all
- * refusals rather than defaults.
+ * refusals rather than defaults. A claim stating no falsification condition is
+ * refused for the same reason — a proposition nothing could reject is not a
+ * proposition about the code.
  */
 export function classifyClaim(claim) {
   if (!PROVENANCE_CLASSES.includes(claim.claim_type)) {
@@ -298,61 +285,30 @@ export function classifyClaim(claim) {
       + 'decision is an invented authority',
     );
   }
+  if (!(claim.falsification ?? '').length) {
+    throw new Error(
+      `claim ${claim.claim_id} states no falsification condition: a proposition nothing could reject is an `
+      + 'assertion rather than a claim about the code',
+    );
+  }
   return claim.claim_type;
 }
 
-/**
- * How many *independent* pieces of support a set of evidence records amounts to.
- *
- * Records joined by a strong lineage relation form one component; records joined
- * only by `similar_wording` do not. A record whose edge names an evidence id not
- * present is ignored rather than counted: an edge with no other end is not a
- * relation.
- */
-export function countIndependentSupport(evidence) {
-  if (!Array.isArray(evidence) || evidence.length === 0) return 0;
+/** The files whose source text the three claim families are read from. */
+// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+function claimFamiliesIn(root, { seeds, excludedPaths }) {
+  const files = Array.isArray(seeds) && seeds.length > 0
+    ? [...seeds]
+    : listArtefacts(root)
+      .filter((artefact) => !artefact.exclusion && !excludedPaths.includes(artefact.path))
+      .map((artefact) => artefact.path)
+      .filter((path) => path.endsWith(SOURCE_EXTENSION))
+      .sort(compareText);
 
-  const positionOf = new Map(evidence.map((item, position) => [item.evidence_id, position]));
-  const parent = evidence.map((_, position) => position);
-
-  const rootOf = (position) => {
-    let current = position;
-    while (parent[current] !== current) {
-      parent[current] = parent[parent[current]];
-      current = parent[current];
-    }
-    return current;
-  };
-  const join = (left, right) => {
-    const leftRoot = rootOf(left);
-    const rightRoot = rootOf(right);
-    if (leftRoot !== rightRoot) parent[Math.max(leftRoot, rightRoot)] = Math.min(leftRoot, rightRoot);
-  };
-
-  for (const item of evidence) {
-    for (const edge of item.lineage_edges ?? []) {
-      if (LINEAGE_RELATIONS[edge.relation] !== STRONG) continue;
-      const target = positionOf.get(edge.target);
-      if (target === undefined) continue;
-      join(positionOf.get(item.evidence_id), target);
-    }
-  }
-
-  return new Set(evidence.map((_, position) => rootOf(position))).size;
-}
-
-/**
- * The ledger one vertical slice yields.
- *
- * Zero claims is a lawful observation about a slice, not a failure: a slice that
- * crosses no boundary and asserts nothing has nothing to classify, and saying so
- * is more honest than raising an error over it.
- */
-export function buildClaimLedger(slice) {
   const claims = [];
-
-  for (const seed of slice.seeds) {
-    const lines = readFileSync(join(slice.root, seed), 'utf8').split('\n');
+  for (const seed of files) {
+    if (!seed.endsWith(SOURCE_EXTENSION)) continue;
+    const lines = readFileSync(join(root, seed), 'utf8').split('\n');
     const gated = findCfgGatedLines(lines);
 
     for (let index = 0; index < lines.length; index += 1) {
@@ -361,10 +317,10 @@ export function buildClaimLedger(slice) {
       const isGated = gated.has(lineNumber);
 
       for (const moduleName of crateReferencesIn(line)) {
-        const member = resolveSourceMember(slice.root, moduleName);
+        const member = resolveSourceMember(root, moduleName);
         if (!member) continue;
         // A reference into the file's own module is not a crossing, and a
-        // reference out of the crate is not a member of this slice.
+        // reference out of the crate is not a member of this population.
         if (owningDirectoryOf(member) === directoryOf(seed)) continue;
         claims.push(buildBoundaryClaim({ seed, lineNumber, moduleName, providerMember: member, gated: isGated }));
       }
@@ -372,23 +328,94 @@ export function buildClaimLedger(slice) {
       if (ERROR_PATH.test(line)) claims.push(buildFailureClaim({ seed, lineNumber, gated: isGated }));
     }
   }
+  return claims;
+}
 
+/**
+ * The ledger one population yields.
+ *
+ * Zero claims is a lawful observation about a population, not a failure: a tree
+ * that crosses no boundary and asserts nothing has nothing to classify, and
+ * saying so is more honest than raising an error over it.
+ *
+ * Each claim's evidence is folded before its support is reported, so the number
+ * a reader sees is the number of independent components and never the number of
+ * records. The fold's policy travels with the ledger.
+ */
+export function buildClaimLedger(source) {
+  if (source === null || source === undefined || typeof source !== 'object') {
+    throw new Error('buildClaimLedger needs the population it is to build a ledger for; it was given no population');
+  }
+  const { root, seeds = null, excludedPaths = [], history = null } = source;
+  if (typeof root !== 'string' || root.length === 0) {
+    throw new Error('a claim ledger must name the root of the population it was built over');
+  }
+
+  const claims = claimFamiliesIn(root, { seeds, excludedPaths });
   for (const claim of claims) classifyClaim(claim);
 
-  const byClass = Object.fromEntries(PROVENANCE_CLASSES.map((name) => [name, 0]));
-  for (const claim of claims) byClass[claim.claim_type] += 1;
+  const foldedByClaim = claims.map((claim) => {
+    const folded = computeIndependence(claim.evidence, { root, history });
+    return {
+      ...claim,
+      evidence: folded.evidence,
+      support: folded.evidence.map((item) => item.evidence_id).slice(0, folded.independentCount),
+      independence_policy: folded.independence_policy,
+      unavailable_channels: unavailableChannels(),
+    };
+  });
 
-  const withSupport = claims.map((claim) => ({
-    ...claim,
-    support: claim.evidence.map((item) => item.evidence_id).slice(0, countIndependentSupport(claim.evidence)),
-  }));
+  // R3's stage one and stage two. The stage-one facts are enumerated only over
+  // the seeds the caller named, so a sliced run enumerates a sliced population.
+  const stageOne = enumerateSourceFacts({ root, seeds, excludedPaths });
+  const stageTwo = generateCandidates(stageOne);
+
+  const byClass = Object.fromEntries(PROVENANCE_CLASSES.map((name) => [name, 0]));
+  for (const claim of foldedByClaim) byClass[claim.claim_type] += 1;
+
+  // The fold that matters for F11 runs over the whole ledger, not over each
+  // claim's own records. A claim's `support` answers "how many independent
+  // things support this claim"; this answers "how many independent things does
+  // the ledger hold at all", and only the second can see that a claim's file and
+  // another claim's file were introduced by one commit. Folding per claim alone
+  // would leave the defence idle on exactly the corpus it exists for.
+  const everyRecord = foldedByClaim.flatMap((claim) => claim.evidence);
+  const ledgerFold = computeIndependence(everyRecord, { root, history });
 
   return {
-    claims: withSupport,
+    root,
+    claims: foldedByClaim,
+    candidates: stageTwo.candidates,
+    // The facts themselves stay out of the ledger. They are stage one's raw
+    // material — thirty thousand rows on the subject corpus — and the ledger is
+    // the authority for *propositions*, which are the claims and the candidates.
+    // What a reader needs from stage one is that it ran and how much it found,
+    // and a count by kind says both without the rows. Embedding them would add
+    // tens of megabytes to a file every later stage loads.
+    factCounts: stageTwo.facts.reduce((counts, fact) => {
+      counts[fact.kind] = (counts[fact.kind] ?? 0) + 1;
+      return counts;
+    }, {}),
+    factCount: stageTwo.facts.length,
+    coverage: stageTwo.coverage,
+    limitations: stageTwo.limitations,
+    unavailableChannels: unavailableChannels(),
     byClass,
-    unresolvedRate: claims.length === 0 ? 0 : byClass.unresolved / claims.length,
-    note: claims.length === 0 ? 'nothing to classify' : '',
-    independencePolicy: INDEPENDENCE_POLICY,
+    independence: {
+      rawEvidenceCount: everyRecord.length,
+      independentCount: ledgerFold.independentCount,
+      foldedAway: everyRecord.length - ledgerFold.independentCount,
+      assessments: ledgerFold.evidence.reduce((counts, item) => {
+        counts[item.independence_assessment] = (counts[item.independence_assessment] ?? 0) + 1;
+        return counts;
+      }, {}),
+      relations: ledgerFold.policyInputs.strengths,
+      historyConsulted: ledgerFold.policyInputs.historyConsulted,
+      policy: ledgerFold.independence_policy,
+    },
+    unresolvedRate: foldedByClaim.length === 0 ? 0 : byClass.unresolved / foldedByClaim.length,
+    note: foldedByClaim.length === 0 ? 'nothing to classify' : '',
+    independence_policy: INDEPENDENCE_POLICY,
   };
 }
 
@@ -404,7 +431,18 @@ export function buildClaimCandidate(ledger) {
   return {
     stage: 'r3',
     corpus: { language: 'rust' },
-    entries: ledger.claims.map((claim) => ({ name: claim.claim_id, value: null })),
+    entries: [
+      ...ledger.claims.map((claim) => ({
+        name: claim.claim_id,
+        value: null,
+        evidence_mode: claim.evidence[0]?.evidence_mode ?? 'source_static',
+      })),
+      ...(ledger.candidates ?? []).map((candidate) => ({
+        name: candidate.candidate_id,
+        value: null,
+        evidence_mode: candidate.evidence_mode ?? 'source_static',
+      })),
+    ],
     unobserved: [
       {
         region: 'the contract annotations under tests/',
@@ -417,12 +455,20 @@ export function buildClaimCandidate(ledger) {
   };
 }
 
-/** The ledger as the Markdown a human or an AI reads before deciding anything. */
+/**
+ * The ledger as the Markdown a human or an AI reads before deciding anything.
+ *
+ * The per-claim and per-candidate lists are capped, and the report says how many
+ * it did not print. A report that listed every one of four thousand claims would
+ * be three megabytes of bullets, which is not something a reader reads — and a
+ * silent cap would be worse still, because it would read as the whole of the
+ * evidence. The JSON beside this report carries every item.
+ */
 export function renderClaimLedger(ledger) {
   const lines = [
     '## Claim ledger',
     '',
-    `Claims: ${ledger.claims.length}`,
+    `Claims: ${ledger.claims.length} · candidates: ${ledger.candidates?.length ?? 0}`,
     '',
     '| class | count | what it means |',
     '|---|---|---|',
@@ -430,6 +476,26 @@ export function renderClaimLedger(ledger) {
     `| inferred | ${ledger.byClass.inferred} | an inference the source text supports but does not state |`,
     `| normative | ${ledger.byClass.normative} | settled only by a recorded human decision |`,
     `| unresolved | ${ledger.byClass.unresolved} | not decidable here; handed to the human grill |`,
+    '',
+    '### Evidence independence',
+    '',
+    `${ledger.independence.rawEvidenceCount} evidence record(s) fold to `
+      + `**${ledger.independence.independentCount} independent** component(s). `
+      + (ledger.independence.foldedAway === 0
+        ? 'Nothing folded, so no two records were found to share a derivation.'
+        : `${ledger.independence.foldedAway} record(s) share a derivation with another record and therefore count `
+          + 'once — the difference between the number of records and the number of things they support.'),
+    '',
+    `Relations found: ${Object.keys(ledger.independence.relations).length === 0
+      ? 'none'
+      : Object.entries(ledger.independence.relations)
+        .map(([relation, strength]) => `\`${relation}\` (${strength})`)
+        .join(', ')}.`,
+    `Commit channel consulted: ${ledger.independence.historyConsulted ? 'yes' : 'no'}.`,
+    `Assessments: ${Object.entries(ledger.independence.assessments)
+      .map(([name, count]) => `${name} ${count}`)
+      .join(', ')}. An \`unknown\` assessment means no consulted channel could settle the question, which is a `
+      + 'different statement from "these are independent" and the one the design requires.',
     '',
   ];
 
@@ -439,18 +505,50 @@ export function renderClaimLedger(ledger) {
   }
 
   lines.push(`Unresolved rate: ${ledger.unresolvedRate}`, '', '### Claims', '');
-  for (const claim of ledger.claims) {
+  lines.push(...renderCappedList(ledger.claims, (claim) => {
     const anchor = claim.evidence[0]?.source_span;
-    lines.push(
-      `- \`${claim.claim_id}\` (${claim.claim_type}, ${claim.subjectKind}) — ${claim.proposition}`,
+    const entry = [
+      `- \`${claim.claim_id}\` (${claim.claim_type}, ${claim.subjectKind}) — ${claim.statement}`,
       `  - evidence: \`${anchor.file}:${anchor.line}\` (${claim.evidence[0].evidence_mode})`,
       `  - independent support: ${claim.support.length} (records: ${claim.evidence.length})`,
       `  - falsified by: ${claim.falsification}`,
-    );
+    ];
     if (claim.claim_type === 'unresolved') {
-      lines.push(`  - to the grill: ${claim.grill_question}`);
+      entry.push(`  - to the grill: ${claim.grill_question}`);
     }
+    return entry.join('\n');
+  }));
+
+  if ((ledger.candidates ?? []).length > 0) {
+    lines.push('', '### Candidates — observed, classification undecided', '');
+    lines.push(...renderCappedList(ledger.candidates, (candidate) => {
+      if (candidate.kind === 'state_machine') {
+        return [
+          `- \`${candidate.carrier}\` (state_machine candidate, ${candidate.claim_type})`,
+          `  - states seen: ${candidate.states_seen.length === 0 ? '(none declared in this file)' : candidate.states_seen.map((state) => `\`${state}\``).join(', ')}`,
+          `  - transitions seen: ${candidate.transitions_seen.length}`,
+          `  - declared gaps: ${candidate.missing.length}`
+            + (candidate.missing.length === 0
+              ? ''
+              : ` — ${candidate.missing.map((gap) => `\`${gap.reason}\``).join(', ')}`),
+        ].join('\n');
+      }
+      const span = candidate.source_span;
+      const entry = [
+        `- \`${candidate.candidate_id}\` (${candidate.kind}, ${candidate.claim_type})`,
+        `  - at: \`${span.file}:${span.line}\``,
+        `  - undecided: ${candidate.undecided}`,
+      ];
+      if (candidate.grill_question) entry.push(`  - to the grill: ${candidate.grill_question}`);
+      return entry.join('\n');
+    }));
   }
-  lines.push('', `Independence policy: ${ledger.independencePolicy}`, '');
+
+  lines.push('', `Independence policy: ${ledger.independence_policy}`, '');
+  lines.push('### Observation channels this run did not use', '');
+  for (const channel of ledger.unavailableChannels) {
+    lines.push(`- \`${channel.channel}\` — ${channel.reason}`);
+  }
+  lines.push('');
   return lines.join('\n');
 }

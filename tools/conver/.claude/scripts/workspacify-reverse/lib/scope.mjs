@@ -1,4 +1,5 @@
 // [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
 /**
  * The entrance to the analysis: R0 fixes its boundary, R0.5 names what lies
@@ -44,12 +45,15 @@ import {
   crateReferencesIn,
   directoryOf,
   owningDirectoryOf,
+  renderClaimLedger,
   resolveSourceMember,
   stemOf,
 } from './claim-ledger.mjs';
 import { renderDecisionCards } from './packet.mjs';
 import { EXCLUSION_RULES, buildAttemptLedger, listArtefacts } from './analysis-tech.mjs';
 import { measureStructure, renderStructureReport, syntaxLanguageOf } from './structure.mjs';
+import { extractSemantics, renderSemanticsReport } from './semantics.mjs';
+import { historyFromGit } from './evidence-independence.mjs';
 import { measureDependencies, renderDependencyReport } from './dependencies.mjs';
 import { measureExecutionSurface, renderExecutionSurfaceReport } from './execution-surface.mjs';
 import { canonicalSerialize } from '../../workspacify-tree/lib/canonical-json.mjs';
@@ -386,14 +390,14 @@ export function renderSpikeReport(measurement, { reconciliation = [], targetDige
 // ---------------------------------------------------------------------------
 
 /**
- * The stages R0 through R2.5, in the order the design runs them.
+ * The stages R0 through R3.5, in the order the design runs them.
  *
  * `--through` selects an inclusive prefix, so a run can stop at the structural
  * measurement and say so. An unknown stage is refused rather than ignored: a
  * mistyped `--through` that silently ran everything would answer a question
  * nobody asked and look like a complete result.
  */
-export const ANALYSIS_STAGES = Object.freeze(['r0', 'r0.5', 'r1', 'r2', 'r2.5']);
+export const ANALYSIS_STAGES = Object.freeze(['r0', 'r0.5', 'r1', 'r2', 'r2.5', 'r3', 'r3.5']);
 
 /**
  * A stage as a reader sees it: `R0`, `R2.5`.
@@ -792,7 +796,7 @@ function publishDocuments(out, documents) {
  * should.
  */
 export function renderAnalysisReport(run) {
-  const { scope, boundary, structure, dependencies, surface, attempts, stagesRun } = run;
+  const { scope, boundary, structure, dependencies, surface, semantics = null, ledger = null, attempts, stagesRun } = run;
   // The title names the last stage that actually ran, and the stages that did
   // not are stated rather than left to be inferred from a section's absence. A
   // report titled for work it did not do is the same overclaim as an adapter
@@ -800,7 +804,7 @@ export function renderAnalysisReport(run) {
   const notRun = ANALYSIS_STAGES.filter((stage) => !stagesRun.includes(stage));
   const lines = [
     `# ${stagesRun.length === 1 ? stageLabel(stagesRun[0]) : `R0 to ${stageLabel(stagesRun[stagesRun.length - 1])}`}`
-      + ' — scope, structure, dependencies and the execution surface',
+      + ' — scope, structure, dependencies, the execution surface and the semantic material',
     '',
     `Stages run: ${stagesRun.map((stage) => `\`${stageLabel(stage)}\``).join(', ')}.`,
     notRun.length === 0
@@ -816,6 +820,8 @@ export function renderAnalysisReport(run) {
   if (structure !== null) lines.push(renderStructureReport(structure));
   if (dependencies !== null) lines.push(renderDependencyReport(dependencies));
   if (surface !== null) lines.push(renderExecutionSurfaceReport(surface));
+  if (semantics !== null) lines.push(renderSemanticsReport(semantics));
+  if (ledger !== null) lines.push(renderClaimLedger(ledger));
 
   lines.push(
     '# The analysis attempt ledger',
@@ -896,6 +902,26 @@ export function analyzeProject({ root, out, through = 'r2.5', permissions } = {}
     ? measureDependencies({ root: scope.root, excludedPaths, surface })
     : null;
 
+  // R3 reads its population from the boundary R2 measured, so it runs after the
+  // dependency graph and is given it rather than left to re-derive one.
+  const semantics = stagesRun.includes('r3')
+    ? extractSemantics({ root: scope.root, dependencies, excludedPaths })
+    : null;
+  // R3.5 folds evidence independence over the ledger. The commit channel is
+  // consulted when the target is a repository and recorded as not consulted
+  // otherwise, so an `unknown` assessment means the channel was absent rather
+  // than that it looked and found nothing.
+  const inScopePaths = boundary.artefacts
+    .filter((artefact) => artefact.coverage === 'in_scope')
+    .map((artefact) => artefact.path);
+  const ledger = stagesRun.includes('r3.5')
+    ? buildClaimLedger({
+        root: scope.root,
+        excludedPaths,
+        history: historyFromGit(scope.root, { files: inScopePaths }),
+      })
+    : null;
+
   const after = digestTree(scope.root, { tolerateUnreadable: true });
   if (before.sha256 !== after.sha256 || before.unreadable.join(',') !== after.unreadable.join(',')) {
     throw new Error(
@@ -908,8 +934,19 @@ export function analyzeProject({ root, out, through = 'r2.5', permissions } = {}
     ...(structure?.attempts ?? []),
     ...(dependencies?.attempts ?? []),
     ...(surface?.attempts ?? []),
+    ...(semantics?.attempts ?? []),
   ]);
-  const report = renderAnalysisReport({ scope, boundary, structure, dependencies, surface, attempts, stagesRun });
+  const report = renderAnalysisReport({
+    scope,
+    boundary,
+    structure,
+    dependencies,
+    surface,
+    semantics,
+    ledger,
+    attempts,
+    stagesRun,
+  });
 
   const documents = {
     'ANALYSIS-SCOPE.json': {
@@ -931,8 +968,14 @@ export function analyzeProject({ root, out, through = 'r2.5', permissions } = {}
   if (structure !== null) documents['STRUCTURE.json'] = structure;
   if (dependencies !== null) documents['DEPENDENCIES.json'] = dependencies;
   if (surface !== null) documents['EXECUTION-SURFACE.json'] = surface;
+  // R3's raw facts are deliberately not published as a sidecar. The design's
+  // sidecar list names `CLAIM-LEDGER.json` and an evidence registry, not a dump
+  // of every enumerated fact — and on the subject corpus that dump is thirty
+  // megabytes of rows whose propositions the ledger already carries. The
+  // material stays in the value the run hands back and in the report's table.
+  if (ledger !== null) documents['CLAIM-LEDGER.json'] = ledger;
 
   publishDocuments(out, documents);
 
-  return { scope, boundary, structure, dependencies, surface, attempts, report, stagesRun };
+  return { scope, boundary, structure, dependencies, surface, semantics, ledger, attempts, report, stagesRun };
 }

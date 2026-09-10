@@ -101,6 +101,7 @@ const CONSEQUENCES_BY_SUBJECT_KIND = Object.freeze({
 });
 
 /** The question a card asks, phrased so that either answer is refutable. */
+// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function buildQuestion(claim) {
   const anchor = formatClaimAnchor(claim);
   switch (claim.subjectKind) {
@@ -112,7 +113,7 @@ function buildQuestion(claim) {
     case 'failure_contract':
       return `Is the failure at \`${anchor}\` a contracted outcome a caller may rely on?`;
     default:
-      return `Is "${claim.proposition}" a contract of \`${claim.scope}\`?`;
+      return `Is "${claim.statement}" a contract of \`${claim.scope}\`?`;
   }
 }
 
@@ -126,6 +127,7 @@ function buildEvidenceLines(claim) {
 }
 
 /** One decision card, built from one claim. */
+// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
 function buildCard(claim) {
   const options = [...(OPTIONS_BY_SUBJECT_KIND[claim.subjectKind] ?? OPTIONS_BY_SUBJECT_KIND.boundary_crossing), HAND_TO_GRILL];
   const consequences = [
@@ -137,7 +139,7 @@ function buildCard(claim) {
     claimType: claim.claim_type,
     subjectKind: claim.subjectKind,
     scope: claim.scope,
-    proposition: claim.proposition,
+    proposition: claim.statement,
     question: buildQuestion(claim),
     options,
     consequences,

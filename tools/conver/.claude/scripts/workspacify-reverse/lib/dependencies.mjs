@@ -27,6 +27,7 @@ import {
   recordAttempt,
 } from './analysis-tech.mjs';
 import { BUILD_MANIFESTS, compareText } from './holdout-ledger.mjs';
+import { groupKey } from './provenance.mjs';
 import { owningDirectoryOf, resolveSourceMember } from './claim-ledger.mjs';
 import {
   collectRustModules,
@@ -129,12 +130,16 @@ function packageOf(relativePath) {
  * supported by one `use` and an edge supported by forty are different evidence
  * for the boundary work downstream, and discarding the count would hide that.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-5) --for-spec --no-implementation-order`.
 function edgesFrom(records) {
   const byPair = new Map();
   for (const record of records) {
     if (record.from === record.to) continue;
-    const key = `${record.from} ${record.to}`;
+    // Joined with a separator no package path can contain. A space is not one:
+    // `from: "src/a b"` with `to: "c"` and `from: "src/a"` with `to: "b c"`
+    // both spell the same key, and the collision would silently merge two
+    // package edges into one.
+    const key = groupKey(record.from, record.to);
     if (!byPair.has(key)) {
       byPair.set(key, { from: record.from, to: record.to, kind: 'syntactic_import', locations: [] });
     }

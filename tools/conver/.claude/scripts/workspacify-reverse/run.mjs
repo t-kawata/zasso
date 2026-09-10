@@ -1,4 +1,5 @@
 // [::TICKET::] PX-203 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-203 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
 /**
@@ -105,7 +106,7 @@ const USAGE = [
   '  scrub  <root> [--dry-run]        Report what would be removed',
   '  scrub  <root> --apply            Remove L1/L2 traces and rename keyed files',
   '  verify <root>                    Exit 0 when no trace remains, 1 otherwise',
-  '  analyze <root>                   Fix the boundary and measure R0 through R2.5, writing outside the target',
+  '  analyze <root>                   Fix the boundary and measure R0 through R3.5, writing outside the target',
   '  regression capture               Freeze the forward rotation as it behaves now',
   '  regression check                 Exit 0 when every frozen value is reproduced',
   '  holdout                          Verify the ledger and isolate every frozen holdout',

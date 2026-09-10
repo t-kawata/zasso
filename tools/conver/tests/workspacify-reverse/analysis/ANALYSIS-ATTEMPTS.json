@@ -1,6 +1,6 @@
 {
   "couldNotRunCount": 0,
-  "extractedNothingCount": 112,
+  "extractedNothingCount": 122,
   "rows": [
     {
       "configuration": "syntax-only",
@@ -4546,6 +4546,1521 @@
       "status": "skipped",
       "target": "wrapper.h",
       "tool": "tree-sitter-c_cpp"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 290,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "build.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 79,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/account_register.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 30,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/audio_tap.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 38,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/client_init.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 213,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/common/cli.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 193,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/common/client.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 82,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/make_call.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 49,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/tts_source.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/account.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 623,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/asyncaudiosrc_adapter.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 244,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/audio_subscribe_bp.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 33,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/call_api_expansion.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 122,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/call_api_semantics.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 58,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/call_types.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 38,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/dtmf_spec_received.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 23,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/dtmf_unification.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/event_bus_guarantees.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 79,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/event_bus_unify.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 498,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/event_model_payload_bus.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 550,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/eventbus_receiver.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/http_ws_crate_split.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 440,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/http_ws_protocol.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 60,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/incoming_call_events.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 82,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/incoming_call_refer.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 202,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/m20_dtmfsent_twophase.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 17,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/mod.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 468,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/public_api_design.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 866,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/standalone_server_config.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/crate_scope.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 38,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/examples_e1e5.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 215,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/impl_integration_design.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 115,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/io_boundary_round2.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 125,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/io_boundary_round3.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 261,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/io_boundary_round4.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 11,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/mod.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/policy_reference.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 286,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round2_scope_rootcause.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 312,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round3_scope_rootcause.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 25,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round4_scope_rootcause.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 109,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round4_tickets.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/audiomixer_rt_boundary.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 47,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/media_path_arch.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 572,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/media_path_wiring.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/mod.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 460,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/pipeline.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 13,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/bindgen_enum_generation.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 25,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/build_rs_resolution.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 446,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/build_script_bindgen.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 231,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/build_strategy_os_deps.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 86,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/cicd_docker_prebuilt.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 9,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/mod.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 33,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/prebuilt_ci_commit.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 139,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/prebuilt_producer.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 57,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/static_link_strategy.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 10,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/vendored_pjsip_strategy.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 231,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/call.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 1105,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/client.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 44,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/concurrency_contexts/command_serialization.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 46,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 627,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/account_config_spec.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 179,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/client_config_spec.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 21,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/client_config_unify.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 62,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/codec_policy_fallback.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 109,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/m20_codec_auto_mode.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 467,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/observability_metrics.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 38,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/semver_sip_networking.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 272,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/srtp_transport_reconnect.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 317,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/stun_turn_ice_wiring.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 159,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/transport_ice_spec.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 89,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/versioning_policy.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 24,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 81,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/challenges_panic_policy.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 559,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/error_design_siperror.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 29,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/error_native_status.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 247,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/m20_runtime_command_error.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 113,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/m20_shutdown_routing.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 21,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/event.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [
+        {
+          "message": "the grammar recovered from a syntax error while parsing this file",
+          "severity": "warning"
+        }
+      ],
+      "extracted_count": 451,
+      "phase": "parse",
+      "reason": null,
+      "status": "partial",
+      "target": "src/ffi/backend_calls.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 533,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/bindings.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 655,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/callback.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 19,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/constants.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 21,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/ice_transport_error.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/m20_dual_client_routing.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 258,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/media_port_adapter.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 9,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/mod.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 172,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/pj_str.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/pjsip_ffi_layer.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 130,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/raw_sip_module.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 216,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/transport_wiring.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 31,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/lib.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 355,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/audio_aligner.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 374,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/audio_format_chunkpair.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 183,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/audio_resampler.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 46,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/dtmf_spec.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 462,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/id_design_newtype.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 184,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/media_bridge.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 112,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/memory_ownership_defaults.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 12,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/mod.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 427,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/raw_sip_message_spec.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 365,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/sqlite_schema.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 207,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/add_audio_source.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 1616,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/audio_worker.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/audioworker_lifecycle.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 1860,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/backend.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 91,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/backend_selection.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 816,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/command.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 181,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/event_path_wiring.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 1166,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/handle.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 14,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/mod.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 105,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/push_media_frame.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 2584,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/reactor.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/runtime_state_lock_rules.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 184,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/state.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 156,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/security/auth_jwt_middleware.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/security/mod.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 166,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/security/security_platform_diffs.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 258,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/call_state_model.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 439,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/m20_callstate_mapping.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 245,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/m20_native_event_conv.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 115,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/m20_registr_cmd_pat.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 11,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/mod.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 320,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/reg_account_lifecycle.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 191,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/registr_state_machine.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 144,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/registr_wiring.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 386,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/shutdown_specification.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 304,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/shutdown_wiring.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 180,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/docker_asterisk_it.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 91,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/m20_test_dual_client.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/mod.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 54,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/raw_sip_real_test.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 102,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/real_pjsip_itest.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 56,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/test_apilayer5.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 64,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/test_strategy_4layer.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 53,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/transport.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 72,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/non_exhaustive.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 16,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/ownership_ffi_boundary.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 359,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/runtime_audio_lifecycle.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 405,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/sip_integration.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 63,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_feature_additive_build.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 23,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_0963da9b.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 98,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_26d77120.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 35,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_36123930.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 305,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_4b35a676.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 60,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_64eff610.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 30,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_7c1bb4d6.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 62,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_7e78be0d.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 88,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_a4ecaf0f.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 269,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_e0606bc3.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 136,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_f330ed39.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 112,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_unsafe_isolation.rs",
+      "tool": "tree-sitter"
+    },
+    {
+      "configuration": "syntax_only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "wrapper.h",
+      "tool": "tree-sitter"
     }
   ]
 }

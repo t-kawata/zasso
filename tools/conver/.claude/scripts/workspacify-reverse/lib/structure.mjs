@@ -1,4 +1,5 @@
 // [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
 /**
  * Layer B — the common syntax layer — and R1's measurement of the static
  * skeleton.
@@ -35,6 +36,7 @@ import {
   recordAttempt,
 } from './analysis-tech.mjs';
 import { BUILD_MANIFESTS, compareText } from './holdout-ledger.mjs';
+import { groupKey } from './provenance.mjs';
 
 /** The grammar that carries each target language, and the wasm file inside its package. */
 const GRAMMAR_BY_LANGUAGE = Object.freeze({
@@ -648,7 +650,7 @@ export function dedupeLimitations(limitations) {
   const seen = new Set();
   const unique = [];
   for (const limitation of limitations) {
-    const key = `${limitation.code} ${limitation.scope}`;
+    const key = groupKey(limitation.code, limitation.scope);
     if (seen.has(key)) continue;
     seen.add(key);
     unique.push(limitation);

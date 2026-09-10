@@ -1,6 +1,6 @@
-# R0 to R2.5 — scope, structure, dependencies and the execution surface
+# R0 to R3.5 — scope, structure, dependencies, the execution surface and the semantic material
 
-Stages run: `R0`, `R0.5`, `R1`, `R2`, `R2.5`.
+Stages run: `R0`, `R0.5`, `R1`, `R2`, `R2.5`, `R3`, `R3.5`.
 
 
 # R0 — the analysis scope
@@ -11,7 +11,7 @@ Root: `/Users/kawata/shyme/zasso/tools/conver/siprs-for-reverse`
 
 the tree sits inside the work tree at /Users/kawata/shyme/zasso and is not a repository of its own, so its commit is that repository's HEAD and tools/conver/siprs-for-reverse records where it sits beneath it
 
-- commit: `7517d1f26caedbefed50f075e00708dfca9003ba`
+- commit: `63513237cbfb6e9cd148949207bd48f1d04a1e6a`
 - work tree root: `/Users/kawata/shyme/zasso`
 - path beneath it: `tools/conver/siprs-for-reverse`
 - the project is its own repository: `false`
@@ -757,6 +757,229 @@ A proposition touching one of them may not be classified `observed` without dyna
 - `SURFACE_PARTIAL_ON_PARSE_ERROR` over `src/ffi/backend_calls.rs` — the grammar recovered near: &raw, raw,. Mechanisms inside the recovered region may not have been detected, so an absent mechanism here is a limit of the pinned grammar rather than a fact about the file
 - `EXTRACTOR_NOT_WRITTEN` over `**/*.c_cpp` — c_cpp is reachable by the syntax layer but this instrument version enumerates no mechanisms for it, so an empty surface for those files means they were not examined for one
 
+# R3 — the semantic material
+
+33165 fact(s) enumerated, 3509 candidate(s) raised. A candidate is a proposition the source text supports and cannot settle; none of them is a contract.
+
+## Families
+
+| family | facts | what it holds |
+|---|---|---|
+| public_surface | 1172 | declarations the text marks public |
+| types | 347 | structs, enums, unions, traits and aliases |
+| error_types | 224 | declared types carrying an error signal |
+| guards | 4299 | branches, early returns and loop conditions |
+| invariants | 3609 | assertions and unwrapping calls |
+| state_machines | 47 | state-like fields and the assignments to them |
+| side_effects | 16110 | I/O, panics and writes beyond the local frame |
+| tests | 7357 | boundary values and expected failures a test declares |
+
+## Language coverage
+
+- `c_cpp` — 0 fact(s)
+- `rust` — 33165 fact(s)
+
+Not exercised by this population: `typescript`, `javascript`, `go`, `python`. The vocabulary for these is declared and its correctness is unverified here — an untested table, not an absence of the material in the project.
+
+## What this run could not look at
+
+- `build_semantic` — layer C is not built here (docs/P22-ANALYSIS-TECH.md §7): name resolution, type checking and cfg evaluation need a semantic adapter, so a proposition resting on any of them is not observed
+- `runtime_dynamic` — no execution, build or trace evidence was collected, so dynamic dispatch targets, generated code and post-preprocessing composition are not observable in this run
+
+## Limitations of the instrument
+
+- `language_absent_from_population` (typescript) — the typescript vocabulary was declared and not exercised by this run; its correctness is unverified here
+- `language_absent_from_population` (javascript) — the javascript vocabulary was declared and not exercised by this run; its correctness is unverified here
+- `language_absent_from_population` (go) — the go vocabulary was declared and not exercised by this run; its correctness is unverified here
+- `language_absent_from_population` (python) — the python vocabulary was declared and not exercised by this run; its correctness is unverified here
+- `state_field_by_name` (all languages) — a state field is recognised by its name, so a state carried under a name outside the vocabulary is not enumerated
+
+## Claim ledger
+
+Claims: 4460 · candidates: 3509
+
+| class | count | what it means |
+|---|---|---|
+| observed | 337 | read from the source text or its syntax |
+| inferred | 409 | an inference the source text supports but does not state |
+| normative | 0 | settled only by a recorded human decision |
+| unresolved | 3714 | not decidable here; handed to the human grill |
+
+### Evidence independence
+
+4460 evidence record(s) fold to **47 independent** component(s). 4413 record(s) share a derivation with another record and therefore count once — the difference between the number of records and the number of things they support.
+
+Relations found: `same_commit` (medium), `same_syntax_span` (strong).
+Commit channel consulted: yes.
+Assessments: independent 1, folded 4459. An `unknown` assessment means no consulted channel could settle the question, which is a different statement from "these are independent" and the one the design requires.
+
+Unresolved rate: 0.8327354260089687
+
+### Claims
+
+- `clm-account_register-failure_contract-53` (inferred, failure_contract) — the failure at examples/account_register.rs:53 is a contracted outcome the caller may rely on
+  - evidence: `examples/account_register.rs:53` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: remove the error path at examples/account_register.rs:53 and observe whether any test fails
+- `clm-account_register-failure_contract-95` (inferred, failure_contract) — the failure at examples/account_register.rs:95 is a contracted outcome the caller may rely on
+  - evidence: `examples/account_register.rs:95` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: remove the error path at examples/account_register.rs:95 and observe whether any test fails
+- `clm-account_register-failure_contract-96` (inferred, failure_contract) — the failure at examples/account_register.rs:96 is a contracted outcome the caller may rely on
+  - evidence: `examples/account_register.rs:96` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: remove the error path at examples/account_register.rs:96 and observe whether any test fails
+- `clm-audio_tap-failure_contract-48` (inferred, failure_contract) — the failure at examples/audio_tap.rs:48 is a contracted outcome the caller may rely on
+  - evidence: `examples/audio_tap.rs:48` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: remove the error path at examples/audio_tap.rs:48 and observe whether any test fails
+- `clm-client_init-failure_contract-43` (inferred, failure_contract) — the failure at examples/client_init.rs:43 is a contracted outcome the caller may rely on
+  - evidence: `examples/client_init.rs:43` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: remove the error path at examples/client_init.rs:43 and observe whether any test fails
+- `clm-client_init-failure_contract-44` (inferred, failure_contract) — the failure at examples/client_init.rs:44 is a contracted outcome the caller may rely on
+  - evidence: `examples/client_init.rs:44` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: remove the error path at examples/client_init.rs:44 and observe whether any test fails
+- `clm-cli-failure_contract-84` (inferred, failure_contract) — the failure at examples/common/cli.rs:84 is a contracted outcome the caller may rely on
+  - evidence: `examples/common/cli.rs:84` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: remove the error path at examples/common/cli.rs:84 and observe whether any test fails
+- `clm-cli-failure_contract-96` (inferred, failure_contract) — the failure at examples/common/cli.rs:96 is a contracted outcome the caller may rely on
+  - evidence: `examples/common/cli.rs:96` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: remove the error path at examples/common/cli.rs:96 and observe whether any test fails
+- `clm-cli-failure_contract-122` (inferred, failure_contract) — the failure at examples/common/cli.rs:122 is a contracted outcome the caller may rely on
+  - evidence: `examples/common/cli.rs:122` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: remove the error path at examples/common/cli.rs:122 and observe whether any test fails
+- `clm-cli-failure_contract-136` (inferred, failure_contract) — the failure at examples/common/cli.rs:136 is a contracted outcome the caller may rely on
+  - evidence: `examples/common/cli.rs:136` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: remove the error path at examples/common/cli.rs:136 and observe whether any test fails
+- `clm-cli-invariant-210` (unresolved, invariant) — the condition asserted at examples/common/cli.rs:210 holds
+  - evidence: `examples/common/cli.rs:210` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: mutate the asserted condition at examples/common/cli.rs:210 and observe whether any test fails
+  - to the grill: Which configuration does the condition at examples/common/cli.rs:210 hold in? The assertion sits behind a #[cfg] gate, so what ships cannot be read from the text alone.
+- `clm-cli-invariant-211` (unresolved, invariant) — the condition asserted at examples/common/cli.rs:211 holds
+  - evidence: `examples/common/cli.rs:211` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: mutate the asserted condition at examples/common/cli.rs:211 and observe whether any test fails
+  - to the grill: Which configuration does the condition at examples/common/cli.rs:211 hold in? The assertion sits behind a #[cfg] gate, so what ships cannot be read from the text alone.
+- `clm-cli-invariant-212` (unresolved, invariant) — the condition asserted at examples/common/cli.rs:212 holds
+  - evidence: `examples/common/cli.rs:212` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: mutate the asserted condition at examples/common/cli.rs:212 and observe whether any test fails
+  - to the grill: Which configuration does the condition at examples/common/cli.rs:212 hold in? The assertion sits behind a #[cfg] gate, so what ships cannot be read from the text alone.
+- `clm-cli-invariant-213` (unresolved, invariant) — the condition asserted at examples/common/cli.rs:213 holds
+  - evidence: `examples/common/cli.rs:213` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: mutate the asserted condition at examples/common/cli.rs:213 and observe whether any test fails
+  - to the grill: Which configuration does the condition at examples/common/cli.rs:213 hold in? The assertion sits behind a #[cfg] gate, so what ships cannot be read from the text alone.
+- `clm-cli-invariant-214` (unresolved, invariant) — the condition asserted at examples/common/cli.rs:214 holds
+  - evidence: `examples/common/cli.rs:214` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: mutate the asserted condition at examples/common/cli.rs:214 and observe whether any test fails
+  - to the grill: Which configuration does the condition at examples/common/cli.rs:214 hold in? The assertion sits behind a #[cfg] gate, so what ships cannot be read from the text alone.
+- `clm-cli-invariant-215` (unresolved, invariant) — the condition asserted at examples/common/cli.rs:215 holds
+  - evidence: `examples/common/cli.rs:215` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: mutate the asserted condition at examples/common/cli.rs:215 and observe whether any test fails
+  - to the grill: Which configuration does the condition at examples/common/cli.rs:215 hold in? The assertion sits behind a #[cfg] gate, so what ships cannot be read from the text alone.
+- `clm-cli-invariant-216` (unresolved, invariant) — the condition asserted at examples/common/cli.rs:216 holds
+  - evidence: `examples/common/cli.rs:216` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: mutate the asserted condition at examples/common/cli.rs:216 and observe whether any test fails
+  - to the grill: Which configuration does the condition at examples/common/cli.rs:216 hold in? The assertion sits behind a #[cfg] gate, so what ships cannot be read from the text alone.
+- `clm-cli-invariant-217` (unresolved, invariant) — the condition asserted at examples/common/cli.rs:217 holds
+  - evidence: `examples/common/cli.rs:217` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: mutate the asserted condition at examples/common/cli.rs:217 and observe whether any test fails
+  - to the grill: Which configuration does the condition at examples/common/cli.rs:217 hold in? The assertion sits behind a #[cfg] gate, so what ships cannot be read from the text alone.
+- `clm-cli-invariant-224` (unresolved, invariant) — the condition asserted at examples/common/cli.rs:224 holds
+  - evidence: `examples/common/cli.rs:224` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: mutate the asserted condition at examples/common/cli.rs:224 and observe whether any test fails
+  - to the grill: Which configuration does the condition at examples/common/cli.rs:224 hold in? The assertion sits behind a #[cfg] gate, so what ships cannot be read from the text alone.
+- `clm-cli-invariant-225` (unresolved, invariant) — the condition asserted at examples/common/cli.rs:225 holds
+  - evidence: `examples/common/cli.rs:225` (source_static)
+  - independent support: 1 (records: 1)
+  - falsified by: mutate the asserted condition at examples/common/cli.rs:225 and observe whether any test fails
+  - to the grill: Which configuration does the condition at examples/common/cli.rs:225 hold in? The assertion sits behind a #[cfg] gate, so what ships cannot be read from the text alone.
+- … and 4440 more, every one recorded in the JSON beside this report
+
+### Candidates — observed, classification undecided
+
+- `cand-fact-examples_account_register.rs-error_return-53-35` (error_return, observed)
+  - at: `examples/account_register.rs:53`
+  - undecided: whether a caller may rely on the failure or it is an internal guard
+- `cand-fact-examples_account_register.rs-error_return-96-77` (error_return, observed)
+  - at: `examples/account_register.rs:96`
+  - undecided: whether a caller may rely on the failure or it is an internal guard
+- `cand-fact-examples_client_init.rs-error_return-44-36` (error_return, observed)
+  - at: `examples/client_init.rs:44`
+  - undecided: whether a caller may rely on the failure or it is an internal guard
+- `cand-fact-examples_common_cli.rs-error_return-84-29` (error_return, observed)
+  - at: `examples/common/cli.rs:84`
+  - undecided: whether a caller may rely on the failure or it is an internal guard
+- `cand-fact-examples_common_cli.rs-error_return-96-61` (error_return, observed)
+  - at: `examples/common/cli.rs:96`
+  - undecided: whether a caller may rely on the failure or it is an internal guard
+- `cand-fact-examples_common_cli.rs-error_return-122-77` (error_return, observed)
+  - at: `examples/common/cli.rs:122`
+  - undecided: whether a caller may rely on the failure or it is an internal guard
+- `cand-fact-examples_common_cli.rs-error_return-136-84` (error_return, observed)
+  - at: `examples/common/cli.rs:136`
+  - undecided: whether a caller may rely on the failure or it is an internal guard
+- `cand-fact-examples_common_cli.rs-assert-210-117` (assert, observed)
+  - at: `examples/common/cli.rs:210`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- `cand-fact-examples_common_cli.rs-assert-211-119` (assert, observed)
+  - at: `examples/common/cli.rs:211`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- `cand-fact-examples_common_cli.rs-assert-212-121` (assert, observed)
+  - at: `examples/common/cli.rs:212`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- `cand-fact-examples_common_cli.rs-assert-213-123` (assert, observed)
+  - at: `examples/common/cli.rs:213`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- `cand-fact-examples_common_cli.rs-assert-214-125` (assert, observed)
+  - at: `examples/common/cli.rs:214`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- `cand-fact-examples_common_cli.rs-assert-215-127` (assert, observed)
+  - at: `examples/common/cli.rs:215`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- `cand-fact-examples_common_cli.rs-assert-216-129` (assert, observed)
+  - at: `examples/common/cli.rs:216`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- `cand-fact-examples_common_cli.rs-assert-217-131` (assert, observed)
+  - at: `examples/common/cli.rs:217`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- `cand-fact-examples_common_cli.rs-assert-224-135` (assert, observed)
+  - at: `examples/common/cli.rs:224`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- `cand-fact-examples_common_cli.rs-assert-225-137` (assert, observed)
+  - at: `examples/common/cli.rs:225`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- `cand-fact-examples_common_cli.rs-assert-226-138` (assert, observed)
+  - at: `examples/common/cli.rs:226`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- `cand-fact-examples_common_cli.rs-assert-239-145` (assert, observed)
+  - at: `examples/common/cli.rs:239`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- `cand-fact-examples_common_cli.rs-assert-244-148` (assert, observed)
+  - at: `examples/common/cli.rs:244`
+  - undecided: whether the condition is an invariant of the type or a defensive check
+- … and 3489 more, every one recorded in the JSON beside this report
+
+Independence policy: Evidence joined by a strong or medium lineage relation forms one connected component and counts as one independent piece of support; similar_wording never collapses automatically. The number of components is what a claim reports, never the number of evidence records. An item whose independence no consulted channel can settle is recorded as unknown.
+
+### Observation channels this run did not use
+
+- `build_semantic` — layer C is not built here (docs/P22-ANALYSIS-TECH.md §7): name resolution, type checking and cfg evaluation need a semantic adapter, so a proposition resting on any of them is not observed
+- `runtime_dynamic` — no execution, build or trace evidence was collected, so dynamic dispatch targets, generated code and post-preprocessing composition are not observable in this run
+
 # The analysis attempt ledger
 
 Without this ledger `extracted_count: 0` would mean both "analysed and found nothing" and
@@ -765,8 +988,8 @@ reason.
 
 | Count | Value |
 |---|---|
-| attempts recorded | 453 |
-| analysed and extracted nothing | 112 |
+| attempts recorded | 604 |
+| analysed and extracted nothing | 122 |
 | could not run | 0 |
 
 ## Attempts that could not run
