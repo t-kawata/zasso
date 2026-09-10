@@ -1,0 +1,267 @@
+{
+  "stage": "r3",
+  "corpus": {
+    "language": "rust"
+  },
+  "entries": [
+    {
+      "name": "clm-dtmf_spec_received-boundary_crossing-2",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-boundary_crossing-23",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-34",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-35",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-45",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-46",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-58",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-59",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-69",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-81",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-91",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-103",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-104",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-105",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec_received-invariant-106",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_unification-boundary_crossing-8",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_unification-invariant-38",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_unification-invariant-39",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_unification-invariant-44",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_unification-boundary_crossing-51",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_unification-invariant-52",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-failure_contract-20",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-failure_contract-22",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-failure_contract-33",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-boundary_crossing-51",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-boundary_crossing-54",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-132",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-137",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-144",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-145",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-146",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-150",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-175",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-failure_contract-178",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-196",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-197",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-198",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-failure_contract-206",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-209",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-211",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-failure_contract-221",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-224",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-235",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-241",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-248",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-271",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-283",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-284",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-309",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-failure_contract-312",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-339",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-340",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-342",
+      "value": null
+    },
+    {
+      "name": "clm-m20_dtmfsent_twophase-invariant-343",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec-invariant-36",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec-invariant-37",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec-invariant-38",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec-invariant-47",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec-invariant-48",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec-invariant-51",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec-invariant-65",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec-invariant-68",
+      "value": null
+    },
+    {
+      "name": "clm-dtmf_spec-invariant-78",
+      "value": null
+    }
+  ],
+  "unobserved": [
+    {
+      "region": "the contract annotations under tests/",
+      "stoppedAtPhase": "R3.5",
+      "reason": "PX-203 removed every @verifies comment from the subject, so no claim can be anchored to an annotated contract id yet; the ledger re-derives the anchors only once R5 and R6 run"
+    }
+  ]
+}

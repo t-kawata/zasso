@@ -227,6 +227,62 @@ export const SUBJECT_FIXTURE_FILES = Object.freeze({
   'tests/verify_spec_26d77120.rs': ['pub fn ordered() -> u8 { 2 }', ''].join('\n'),
 });
 
+// [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
+
+/**
+ * A vertical slice that crosses a boundary: `src/api/login.rs` names the slice,
+ * and its `crate::` references carry it into `src/db` and `src/config`.
+ *
+ * `login_ffi.rs` sits inside a `#[cfg(feature = "ffi")]` gate, so the claim its
+ * assertion yields cannot be `observed` without build evidence — the spike's
+ * third provenance value is exercised by the fixture rather than asserted into
+ * existence.
+ */
+export const SPIKE_SLICE_FILES = Object.freeze({
+  'Cargo.toml': '[package]\nname = "spike-subject"\n',
+  'src/api/login.rs': [
+    'use crate::config::policy::Policy;',
+    'use crate::db::users::User;',
+    '',
+    'pub fn login(user: &User, policy: &Policy) -> Result<Session, LoginError> {',
+    '    assert!(!user.name.is_empty());',
+    '    if policy.locked {',
+    '        return Err(LoginError::Locked);',
+    '    }',
+    '    Ok(Session::new(user))',
+    '}',
+    '',
+  ].join('\n'),
+  'src/api/login_ffi.rs': [
+    '#[cfg(feature = "ffi")]',
+    'mod ffi_bridge {',
+    '    pub fn bridge_login() {',
+    '        assert!(true);',
+    '    }',
+    '}',
+    '',
+  ].join('\n'),
+  'src/db/users.rs': 'pub struct User {\n    pub name: String,\n}\n',
+  'src/config/policy.rs': 'pub struct Policy {\n    pub locked: bool,\n}\n',
+});
+
+/** A resolvable slice whose file carries nothing classifiable: zero claims. */
+export const SPIKE_CLAIMLESS_FILES = Object.freeze({
+  'src/api/ping.rs': 'pub fn ping() -> u8 { 1 }\n',
+});
+
+/** A resolvable slice whose single boundary crossing yields exactly one claim. */
+export const SPIKE_SINGLE_CLAIM_FILES = Object.freeze({
+  'src/api/solo.rs': 'use crate::db::store::Store;\n',
+  'src/db/store.rs': 'pub struct Store;\n',
+});
+
+/** The minimal tree the plan's C001 precondition names, in the shape it names it. */
+export const SPIKE_LOGIN_TWO_DIRECTORY_FILES = Object.freeze({
+  'src/api/login.rs': 'use crate::db::users::User;\npub fn login(u: &User) -> bool { !u.name.is_empty() }\n',
+  'src/db/users.rs': 'pub struct User { pub name: String }\n',
+});
+
 /** Both halves of the synthetic pair, plus one disposer for the pair. */
 export function createSyntheticOraclePair() {
   const oracle = createSyntheticTree(ORACLE_FIXTURE_FILES, { prefix: 'wsp-oracle-' });

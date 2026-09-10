@@ -127,6 +127,15 @@ export function detectTicketKeyedFilenames(rootPath, options = {}) {
 }
 
 /**
+ * How many findings of a layer the report lists before summarising.
+ *
+ * The report is read to decide what to scrub, and a layer can hold hundreds of
+ * findings; listing them all buries the layer's meaning in its instances. The
+ * remainder is always stated as a count, so nothing is silently dropped.
+ */
+const FINDINGS_PREVIEW_LIMIT = 10;
+
+/**
  * Render the detection as Markdown: the AI reads this to decide what to scrub,
  * so it states what each layer means rather than dumping a data structure.
  */
@@ -142,11 +151,12 @@ function renderDetection(layers, target) {
     const verdict = layer.removable ? 'removable' : '**keep**';
     lines.push(`### ${layer.id} — ${entry.count} finding(s) (${verdict})`);
     lines.push(layer.description, '');
-    for (const finding of entry.findings.slice(0, 10)) {
+    for (const finding of entry.findings.slice(0, FINDINGS_PREVIEW_LIMIT)) {
       lines.push(`- \`${finding.file}:${finding.line}\` ${finding.text.trim()}`);
     }
-    if (entry.findings.length > 10) {
-      lines.push(`- … and ${entry.findings.length - 10} more`);
+    const summarised = entry.findings.length - FINDINGS_PREVIEW_LIMIT;
+    if (summarised > 0) {
+      lines.push(`- … and ${summarised} more`);
     }
     lines.push('');
   }

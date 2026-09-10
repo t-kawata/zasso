@@ -1,0 +1,22 @@
+{
+  "stage": "r1",
+  "corpus": {
+    "language": "rust"
+  },
+  "entries": [
+    "src/api",
+    "src/api/dtmf_spec_received.rs",
+    "src/api/dtmf_unification.rs",
+    "src/api/m20_dtmfsent_twophase.rs",
+    "src/config",
+    "src/model",
+    "src/model/dtmf_spec.rs"
+  ],
+  "unobserved": [
+    {
+      "region": "the partition members outside this vertical slice",
+      "stoppedAtPhase": "R0.5",
+      "reason": "7.7.1 Pass 1 fixes boundaries along one execution path; the packages it does not cross are Pass 2 work and were never looked at by this run"
+    }
+  ]
+}

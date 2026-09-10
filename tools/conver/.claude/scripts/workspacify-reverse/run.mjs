@@ -4,13 +4,15 @@
 /**
  * Command entry point for /workspacify-reverse trace hygiene and experiment design.
  *
- * Six subcommands, each deterministic:
+ * Seven subcommands, each deterministic:
  *   detect     — report the forward-rotation traces in a tree
  *   scrub      — remove the removable ones (or plan the removal with --dry-run)
  *   verify     — re-detect and exit non-zero when residue remains
  *   regression — freeze, or reproduce, the forward rotation's observable output
  *   holdout    — freeze, verify and isolate the projects generality is measured on
  *   oracle     — freeze the answer key, or compare a stage's output against it
+ *   spike      — run one vertical slice and measure it, then reconcile it against
+ *                the frozen answer key
  *
  * The process performs no semantic judgement: which traces exist and whether
  * they are gone are facts, not opinions. Deciding what the cleaned tree then
@@ -18,12 +20,17 @@
  * gate speaks only of *proved* and *not proved*, and the reconciliation emits a
  * disagreement list rather than a score, for the same reason.
  *
+ * `spike` is the one subcommand split across two runs, and the split is the
+ * point: the run that measures a slice reads the subject root and nothing else,
+ * and only the later `spike reconcile` opens the frozen bundle. An executor that
+ * could reach the answer key would be measuring itself.
+ *
  * `holdout` and `oracle` read and write the project they are pointed at, which
  * defaults to the working directory: the automated sessions that run them
  * before every later ticket's step stand in the project root.
  */
 import process from 'node:process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -45,11 +52,14 @@ import {
   writeOracleBundle,
 } from './lib/oracle-bundle.mjs';
 import { NO_KNOWN_DELTA, reconcile, renderReconciliation } from './lib/reconcile.mjs';
+import { buildPartitionCandidate, renderDisagreements, renderSpikeReport, runSpike } from './lib/scope.mjs';
+import { buildClaimCandidate, renderClaimLedger } from './lib/claim-ledger.mjs';
+import { renderCardsMarkdown } from './lib/packet.mjs';
 
 /** The project this entry point belongs to: `.claude/scripts/workspacify-reverse` walked back to the root. */
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle'];
+const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike'];
 
 /**
  * The subcommands whose subject is a tree the caller names.
@@ -62,16 +72,28 @@ const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'orac
 const ROOT_TAKING_SUBCOMMANDS = ['detect', 'scrub', 'verify'];
 
 /** The options that name a value; every other `--name` is a switch. */
-const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate'];
+const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--out', '--recorded'];
 
 const HOLDOUT_ACTIONS = ['freeze', 'isolation'];
 const ORACLE_ACTIONS = ['freeze', 'compare', 'delta'];
+const SPIKE_ACTIONS = ['reconcile'];
+
+/** Where a spike writes the candidate documents `oracle compare` consumes. */
+const SPIKE_CANDIDATES_DIRECTORY = 'tests/workspacify-reverse/spike/candidates';
+
+/** Where the spike's measurement report lives. Declared by the ticket, so it is not configurable. */
+const SPIKE_REPORT_RELATIVE_PATH = 'docs/SPIKE-REPORT.md';
+
+/** The stages one vertical slice reaches: a partition decision, and its claim candidates. */
+const SPIKE_STAGES = Object.freeze(['r1', 'r3']);
 
 const USAGE = [
   'Usage: run.mjs <detect|scrub|verify> <root> [options]',
   '       run.mjs regression <capture|check>',
   '       run.mjs holdout [freeze|isolation <root>] [--project-root=<path>] [--frozen-at=<ISO-8601>]',
   '       run.mjs oracle <freeze|compare --stage <stage> --candidate <path>> [--project-root=<path>] [--frozen-at=<ISO-8601>]',
+  '       run.mjs spike <root> <slice> [--project-root=<path>] [--recorded=<json>] [--out=<dir>]',
+  '       run.mjs spike reconcile [--project-root=<path>] [--out=<dir>]',
   '',
   '  detect <root>                    Report L1-L4 traces as Markdown',
   '  scrub  <root> [--dry-run]        Report what would be removed',
@@ -85,6 +107,8 @@ const USAGE = [
   '  oracle freeze                    Extract the answer key into a frozen bundle',
   '  oracle delta                     Measure the two trees and rewrite KNOWN-DELTA.json',
   '  oracle compare                   List the disagreements for one stage, never a score',
+  '  spike <root> <slice>             Run one vertical slice through R0.5, R3.5 and R7, and measure it',
+  '  spike reconcile                  Add the disagreement list to the spike report, from the frozen bundle',
   '',
   'Options:',
   '  --apply                      Perform the removal (scrub only)',
@@ -95,6 +119,8 @@ const USAGE = [
   '  --frozen-at=<ISO-8601>       Freeze timestamp recorded in the artefact',
   '  --stage=<stage>              Stage to compare (oracle compare)',
   '  --candidate=<path>           The stage output document (oracle compare)',
+  '  --recorded=<path>            JSON holding the interventions and decision samples a spike recorded',
+  '  --out=<dir>                  Where a spike writes its candidate documents',
 ].join('\n');
 
 /** `--name=value` or `--name value`, whichever the caller wrote. */
@@ -132,16 +158,70 @@ function positionalArgs(args) {
   return positionals;
 }
 
-function parseArgs(argv) {
-  const [subcommand, second, ...rest] = argv;
+/** The switches every subcommand shares; an unrecognised `--name` is simply absent. */
+function commonOptions(subcommand, rest) {
   const flags = new Set(rest);
-  const common = {
+  return {
     subcommand,
     apply: flags.has('--apply'),
     dryRun: flags.has('--dry-run'),
     renameTicketKeyedFiles: flags.has('--rename-ticket-keyed-files'),
     json: flags.has('--json'),
   };
+}
+
+/** The option tokens a subcommand was given: the action, then every flag. */
+function optionTokens(second, rest) {
+  return [second, ...rest].filter((value) => value !== undefined);
+}
+
+function parseLedgerArguments(subcommand, second, rest) {
+  const actions = subcommand === 'holdout' ? HOLDOUT_ACTIONS : ORACLE_ACTIONS;
+  // The action is positional, so the option list has to start after the
+  // subcommand rather than after the action: `holdout --project-root <p>` is
+  // a legitimate invocation with no action at all. A bare `holdout` writes
+  // neither, and the argument list a flag scan sees must then hold no entry at
+  // all rather than one absent value.
+  const optionArgs = optionTokens(second, rest);
+  const action = actions.includes(second) ? second : null;
+  // Only `holdout isolation <root>` takes a bare argument; every other value
+  // is named by a flag, so a stray positional is never guessed at.
+  const positional = action === 'isolation' ? positionalArgs(optionArgs.slice(1))[0] ?? null : null;
+  return {
+    action,
+    positional,
+    projectRoot: flagValue(optionArgs, '--project-root') ?? process.cwd(),
+    frozenAt: flagValue(optionArgs, '--frozen-at'),
+    stage: flagValue(optionArgs, '--stage'),
+    candidate: flagValue(optionArgs, '--candidate'),
+  };
+}
+
+function parseSpikeArguments(second, rest, argv) {
+  const optionArgs = optionTokens(second, rest);
+  const projectRoot = flagValue(optionArgs, '--project-root') ?? process.cwd();
+  const out = flagValue(optionArgs, '--out');
+
+  if (SPIKE_ACTIONS.includes(second)) {
+    return { action: second, projectRoot, out };
+  }
+  // `spike <root> <slice>`: both are bare arguments, so a switch is never read
+  // as one. Reading `--out` as the slice name would resolve a slice called
+  // `--out` and report it unresolved, which looks like a finding about the tree.
+  const positionals = positionalArgs(argv.slice(1));
+  return {
+    action: null,
+    root: positionals[0] ?? null,
+    slice: positionals[1] ?? null,
+    projectRoot,
+    out,
+    recorded: flagValue(optionArgs, '--recorded'),
+  };
+}
+
+function parseArgs(argv) {
+  const [subcommand, second, ...rest] = argv;
+  const common = commonOptions(subcommand, rest);
 
   if (subcommand === 'regression') {
     // The gate measures the project the operator is standing in — the one whose
@@ -151,27 +231,12 @@ function parseArgs(argv) {
     return { ...common, action: second, root: process.cwd() };
   }
 
+  if (subcommand === 'spike') {
+    return { ...common, ...parseSpikeArguments(second, rest, argv) };
+  }
+
   if (subcommand === 'holdout' || subcommand === 'oracle') {
-    const actions = subcommand === 'holdout' ? HOLDOUT_ACTIONS : ORACLE_ACTIONS;
-    // The action is positional, so the option list has to start after the
-    // subcommand rather than after the action: `holdout --project-root <p>` is
-    // a legitimate invocation with no action at all. A bare `holdout` writes
-    // neither, and the argument list a flag scan sees must then hold no entry at
-    // all rather than one absent value.
-    const optionArgs = [second, ...rest].filter((value) => value !== undefined);
-    const action = actions.includes(second) ? second : null;
-    // Only `holdout isolation <root>` takes a bare argument; every other value
-    // is named by a flag, so a stray positional is never guessed at.
-    const positional = action === 'isolation' ? positionalArgs(optionArgs.slice(1))[0] ?? null : null;
-    return {
-      ...common,
-      action,
-      positional,
-      projectRoot: flagValue(optionArgs, '--project-root') ?? process.cwd(),
-      frozenAt: flagValue(optionArgs, '--frozen-at'),
-      stage: flagValue(optionArgs, '--stage'),
-      candidate: flagValue(optionArgs, '--candidate'),
-    };
+    return { ...common, ...parseLedgerArguments(subcommand, second, rest) };
   }
 
   // The root is the first bare argument, never a switch: `verify --json <tree>`
@@ -391,6 +456,125 @@ function runOracle({ action, projectRoot, frozenAt, stage, candidate }) {
   return 2;
 }
 
+/** Where a spike's candidate documents go unless the caller names somewhere else. */
+function resolveCandidatesDirectory(projectRoot, out) {
+  return out ?? join(projectRoot, SPIKE_CANDIDATES_DIRECTORY);
+}
+
+/** The recorded inputs a run is measured with, or `null` when none were supplied. */
+function readRecordedInputs(recordedPath) {
+  if (!recordedPath) return null;
+  return JSON.parse(readFileSync(recordedPath, 'utf8'));
+}
+
+/** Write a file, creating the directory it lives in: a fresh project has neither. */
+function writeDocument(fullPath, contents) {
+  mkdirSync(dirname(fullPath), { recursive: true });
+  writeFileSync(fullPath, contents);
+  return fullPath;
+}
+
+/** Write a candidate document in the shape `oracle compare` reads. */
+function writeCandidateDocument(fullPath, document) {
+  return writeDocument(fullPath, `${JSON.stringify(document, null, 2)}\n`);
+}
+
+/**
+ * Run one vertical slice and write what it measured.
+ *
+ * The executor reads the subject root and nothing else: it never opens the
+ * answer key, and it must complete in a project that has none. The report it
+ * writes states the measured values, the extrapolation and the limits, and says
+ * plainly that the comparison has not been run — because an unrun comparison is
+ * not agreement.
+ */
+function runSpikeSlice({ root, slice, projectRoot, out, recorded }) {
+  if (!root || !slice) {
+    process.stderr.write(`${USAGE}\n`);
+    return 2;
+  }
+
+  let outcome;
+  try {
+    outcome = runSpike({ root, slice, recorded: readRecordedInputs(recorded) });
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    return 1;
+  }
+
+  const directory = resolveCandidatesDirectory(projectRoot, out);
+  const partitionPath = writeCandidateDocument(join(directory, 'r1.candidate.json'), buildPartitionCandidate(outcome.slice));
+  const claimPath = writeCandidateDocument(join(directory, 'r3.candidate.json'), buildClaimCandidate(outcome.ledger));
+  const reportPath = writeDocument(
+    join(projectRoot, SPIKE_REPORT_RELATIVE_PATH),
+    renderSpikeReport(outcome.measurement, { reconciliation: [], targetDigest: outcome.measurement.targetDigest }),
+  );
+
+  process.stdout.write(`${renderClaimLedger(outcome.ledger)}\n`);
+  process.stdout.write(`${renderCardsMarkdown(outcome.cards)}\n`);
+  process.stdout.write(
+    `\n## Spike run\n\n`
+    + `The slice \`${outcome.slice.slice}\` resolved to ${outcome.slice.directories.length} director(ies) and `
+    + `${outcome.slice.seeds.length} seed file(s), producing ${outcome.ledger.claims.length} claim(s) and `
+    + `${outcome.cards.length} card(s).\n\n`
+    + `Candidates: \`${partitionPath}\`, \`${claimPath}\`\n`
+    + `Report: \`${reportPath}\`\n\n`
+    + `Run \`run.mjs spike reconcile\` to add the disagreement list from the frozen bundle.\n`,
+  );
+  return 0;
+}
+
+/**
+ * Compare the slice's output against the frozen answer key, afterwards.
+ *
+ * This is the only half that reads the oracle, and it reads the frozen bundle
+ * through P22-2's instrument — which refuses to run at all if the answer key has
+ * changed since it was frozen, because a comparison against a modified answer
+ * key measures nothing.
+ */
+function runSpikeReconciliation({ projectRoot, out }) {
+  const reportPath = join(projectRoot, SPIKE_REPORT_RELATIVE_PATH);
+  if (!existsSync(reportPath)) {
+    process.stderr.write(
+      `no spike report is present at ${SPIKE_REPORT_RELATIVE_PATH} — run "run.mjs spike <root> <slice>" first\n`,
+    );
+    return 1;
+  }
+
+  const knownDeltaPath = join(projectRoot, KNOWN_DELTA_RELATIVE_PATH);
+  const knownDelta = existsSync(knownDeltaPath) ? JSON.parse(readFileSync(knownDeltaPath, 'utf8')) : NO_KNOWN_DELTA;
+  const directory = resolveCandidatesDirectory(projectRoot, out);
+
+  const reconciliation = [];
+  for (const stage of SPIKE_STAGES) {
+    try {
+      const result = reconcile({
+        stage,
+        projectRoot,
+        candidatePath: join(directory, `${stage}.candidate.json`),
+        knownDelta,
+      });
+      reconciliation.push({ stage, markdown: renderReconciliation(result) });
+    } catch (error) {
+      process.stderr.write(`${error.message}\n`);
+      return 1;
+    }
+  }
+
+  const existing = readFileSync(reportPath, 'utf8');
+  const headingIndex = existing.indexOf('## Disagreements');
+  const reportBody = headingIndex === -1 ? `${existing}\n## Disagreements\n\n` : existing.slice(0, headingIndex);
+  writeDocument(reportPath, `${reportBody}## Disagreements\n\n${renderDisagreements(reconciliation)}\n`);
+
+  process.stdout.write(`${reconciliation.map((entry) => entry.markdown).join('\n')}\n`);
+  return 0;
+}
+
+function runSpikeSubcommand(options) {
+  if (options.action === 'reconcile') return runSpikeReconciliation(options);
+  return runSpikeSlice(options);
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   if (!options.subcommand || !SUBCOMMANDS.includes(options.subcommand)) {
@@ -406,6 +590,7 @@ function main() {
   if (options.subcommand === 'regression') return runRegression(options);
   if (options.subcommand === 'holdout') return runHoldout(options);
   if (options.subcommand === 'oracle') return runOracle(options);
+  if (options.subcommand === 'spike') return runSpikeSubcommand(options);
   return runVerify(options);
 }
 
