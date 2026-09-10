@@ -326,3 +326,37 @@ Declare completion only when ALL of the following conditions are met:
 ```bash
 node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state DONE
 ```
+
+---
+
+## Reverse mode (G1 to G5)
+
+**Role**: when the material handed to this grill is an existing implementation rather than a design, the failure mode changes. A question framed as "what should this do?" invites the answer "what it currently does", and the RFC that results restates the code in the language of a specification — a *ratification RFC* (F1). It satisfies the five consistencies on its surface while proving nothing, because the implementation, its tests and its comments all descend from one design and corroborate each other instead of the design. Reverse mode makes that failure unavailable rather than merely unlikely.
+
+**Invocation**: the same command, the same steps. The input is an RFC-SEED published by `/workspacify-allocate` in reverse mode, which carries the reverse index inside its machine-injected section 1. A seed whose section 1 does not carry that index is refused by name: a forward seed is not the input of this grill.
+
+| Change | What it does |
+|---|---|
+| **G1 mechanical question generation** | `reverse-questions.js` reads the reverse index in section 1 of the seed, together with the residual record that section 12 is rendered from, and generates the initial question candidates; the AI confirms them. Generation is separated from rendering, so the logic that decides what must be asked is testable without a document being produced |
+| **G2 ratification prevention** | for **every** unresolved claim the machine inserts the question of whether the observed behaviour is intended or accidental, with three answers and a default. It is not conditional on anything the claim carries beyond a statement, because the insertion is the whole defence |
+| **G3 residual carry-over** | the upstream unresolved travels to the grill verbatim — the same candidate id, the same topic, the same question. Rewording any of the three loses the observation, so when the stage-one hand-off is supplied the carry is proven **before any question is built** and a divergence stops the run by naming the field that differs |
+| **G4 the record of a normative choice** | `normative-decision.js` records every choice as a **selection event** in `normative_decision`, never as a state the pipeline waits in. With no answer, `chosen_default` is adopted and `selection_source` says so. A high-risk proposition is not promoted to a norm: it keeps `unresolved-contract-candidate`, its question and `requires_human_approval` |
+| **G5 the authority** | `normative_authority` is recorded as a stable role, team or council identifier such as `security-domain-steward`. A personal name is refused, because people change while the location of the authority and the duty to re-review do not |
+
+**Scripts** — added for reverse mode only. The forward steps above are unchanged and run the same scripts they always ran.
+
+| Script | Invocation | What it does |
+|---|---|---|
+| `reverse-questions.js` | `reverse-questions.js <RFC-SEED.md> [--claims=<json>] [--residuals=<json>] [--stage-one=<json>]` | Generates the question candidates from the seed's reverse index and residuals, inserts the intent-or-accident question for every unresolved claim, and prints the questions in the format this command already demands. `--stage-one` supplies the hand-off, so the verbatim carry of G3 is proven before any question is built. A claim or residual no question can be built for is **reported**, never skipped |
+| `normative-decision.js` | `normative-decision.js decide --input=<json>` / `normative-decision.js authority --ref=<id> --kind=<kind>` | Records the grill's choices as selection events, validates **both** the authority's reference and its kind, and refuses a normative clause whose provenance chain is broken. No approval-waiting state exists in its vocabulary |
+
+Every question generated in reverse mode is presented through `validate-question-format.js` exactly as a forward question is. The closed answer vocabulary — Yes/No or an A/B/C choice — and the ban on demanding free-form prose apply unchanged.
+
+**Prohibitions**:
+
+- Never omit the intent-or-accident question for an unresolved claim. It is mandatory, not optional
+- Never write RFC prose during the grill. Reverse mode adds questions, not content
+- Never record a choice as an approval state. A record names what was selected, by whom, and on what recorded basis
+- Never record a person as the authority, and never leave `normative_authority` empty
+- Never promote a default to a norm because no answer arrived. The default keeps the analysis moving; it does not decide the design
+- Never drop a question for a claim or residual the machine could not ask about. Report it and say why
