@@ -9,7 +9,9 @@
  * traceability table. Sections 4-13 are the AI's prose and are never fabricated —
  * a missing or invalid body fails the render.
  */
+// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
 import { WorkSpacifyTreeError } from '../../workspacify-tree/lib/errors.mjs';
+import { FORWARD_ARTIFACT_KINDS, assertReverseAdditions, extendForwardArtifacts } from '../../workspacify-reverse/lib/forward-extensions.mjs';
 import { lookupInventoryItem } from './allocation-model.mjs';
 import { GRILL_QUESTION_SECTION_INDEX, renderResidualQuestions } from './self-grill.mjs';
 import {
@@ -29,17 +31,22 @@ import {
  * answer. The machine appends those questions itself, so a grill question can never
  * be lost between the loop that raised it and the seed that must answer it.
  *
- * @param {{ package: object, machine: { manifest: object, expectedAllocation?: Array<object>, referenceBlock: object, contractEdges?: Array<object> }, aiSections?: object, residualQuestions?: Array<object> }} input
+ * In reverse mode `machine` may also carry `reverseIndex` and `sidecarReference`.
+ * Section 1 is then extended in place — the reverse index becomes a key inside the
+ * existing machine block rather than a fifteenth heading, because `seed-parse.mjs`
+ * enforces an exact heading count and a new heading would break the forward rotation.
+ *
+ * @param {{ package: object, machine: { manifest: object, expectedAllocation?: Array<object>, referenceBlock: object, contractEdges?: Array<object>, mode?: string, reverseIndex?: Array<object>, sidecarReference?: object }, aiSections?: object, residualQuestions?: Array<object> }} input
  * @returns {{ seedText: string, fileName: string }}
  * @throws {WorkSpacifyTreeError} gateId "G3.6" on a missing/invalid body, a machine-section override or a residual addressed elsewhere
  */
 export function renderSeed({ package: pkg, machine, aiSections = {}, residualQuestions = [] }) {
-  const { manifest, expectedAllocation = [], referenceBlock, contractEdges = [] } = machine;
+  const { manifest, expectedAllocation = [], referenceBlock, contractEdges = [], mode, reverseIndex = null } = machine;
   assertNoMachineSectionOverride(pkg, aiSections);
   assertResidualsBelongToPackage(pkg, residualQuestions);
 
   const bodies = new Map();
-  bodies.set(1, buildMachineSectionBody(referenceBlock, pkg));
+  bodies.set(1, buildMachineSectionBody(extendReferenceBlock(referenceBlock, machine, mode, reverseIndex), pkg));
   bodies.set(2, buildContractSectionBody(pkg, contractEdges));
   bodies.set(3, buildAllocationSectionBody(expectedAllocation));
   for (const index of SEED_AUTHORING_SECTION_INDEXES) {
@@ -98,6 +105,30 @@ function assertNoMachineSectionOverride(pkg, aiSections) {
   }
 }
 
+/**
+ * The section-1 block, extended with the reverse index when the run is in reverse mode.
+ *
+ * A forward render supplies no reverse field, so the block comes back as the very
+ * object it went in as and the rendered bytes are the ones the forward rotation has
+ * always produced. A render that supplies the index while claiming forward mode is
+ * refused rather than quietly ignored.
+ */
+// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+function extendReferenceBlock(referenceBlock, machine, mode, reverseIndex) {
+  const kind = FORWARD_ARTIFACT_KINDS.RFC_SEED;
+  if (reverseIndex === null) {
+    return extendForwardArtifacts(referenceBlock, { kind, mode, reverseFields: {} });
+  }
+  const extended = extendForwardArtifacts(referenceBlock, {
+    kind,
+    mode,
+    reverseFields: { reverse_index: reverseIndex, sidecar_reference: machine.sidecarReference },
+  });
+  assertReverseAdditions(extended, kind);
+  return extended;
+}
+
+// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
 function buildMachineSectionBody(referenceBlock, pkg) {
   if (!referenceBlock || typeof referenceBlock !== 'object') {
     throw new WorkSpacifyTreeError(`package ${pkg.id} has no reference block`, { gateId: 'G3.6' });
