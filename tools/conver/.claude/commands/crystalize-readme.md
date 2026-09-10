@@ -206,3 +206,28 @@ echo '{"content":"<証拠と実装補強設計>"}' | node .claude/scripts/crysta
 node .claude/scripts/crystalize-readme/loop-drive-readme.js --graph="$ARGUMENTS" --check-examples
 # Follow the English message output (Examples resolved / Examples not resolved). Do not interpret the exit code itself.
 ```
+
+## Reverse rotation only — the return path from a RESIDUE to its scenario and its route
+
+**This section applies only when `mode === "reverse"`. In forward mode nothing below runs and no field below appears.** A RESIDUE recorded during the forward rotation carries exactly the fields it carried before this section existed, because RESIDUE 0 is the stated success condition of the reverse rotation and the forward shape of a RESIDUE is what that condition is counted from.
+
+A RESIDUE is a shortfall of the product's own account, not of the RFC (ABOUT-REVERSE 1.3). To make a RESIDUE a destination rather than a note, it names where it came from and where it travels next: `scenario_ref` and `next_route` (ABOUT-REVERSE 6.12.3 layer B, realising the return edge of 6.10.1).
+
+1. **`scenario_ref` is the scenario the shortfall was found in** — the id of a confirmed section, resolved against `grill.sections[]` in `CRYSTALIZE-Status.json`, which `loop-drive-readme.js` upserts. **`next_route` is the step the shortfall travels to next** — one of the routes ABOUT-REVERSE 6.10.1 declares for a RESIDUE: `R3.5`, `R5`, `R6` or `grill`.
+2. **Resolve before you record.** Call `return-refs.js` with the RESIDUE and the status file. It returns the RESIDUE carrying only the references that resolved, plus a report in plain English for each that did not.
+3. **Pass only the resolved RESIDUE to `mark-residue` / `mark-examples-residue`.** A reference that could not be resolved is reported, never written: a pointer to a scenario or a route that does not exist reads as a chain that exists, and the human following it finds nothing.
+4. **A RESIDUE with no known scenario or route carries no new fields and remains valid.** Both fields are optional, and an absent field is a fact about what is known — not a gap to fill with a plausible value.
+
+```bash
+# Resolve the return references against the status file, then report what did not resolve.
+# The RESIDUE arrives on stdin, exactly as the analysis recorded it (references included);
+# it leaves with only the references that resolved, followed by the report in plain English.
+node .claude/scripts/tickets/lib/return-refs.js \
+  --kind=residue \
+  --scenario-status="<path to CRYSTALIZE-Status.json>" \
+  < "<the RESIDUE as the analysis recorded it>.json"
+```
+
+The command exits 0 whether or not every reference resolved: the report is the output and the judgement is the human's.
+
+**Forward guarantee.** The forward output of this command is byte-identical to its pre-change form. No required field is added, so a consumer that does not know about `scenario_ref` or `next_route` continues to work unchanged, and the count of forward RESIDUEs is unaffected. The P22-1 regression gate's command-file digest is run before and after every edit to this file.

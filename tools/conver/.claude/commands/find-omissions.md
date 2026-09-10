@@ -368,3 +368,29 @@ node .claude/scripts/tickets/clean-consolidation-artifacts.js
 ```
 
 This removes `manifests/CONSOLIDATED-MANIFEST-*.json` and `manifests/ROLLBACK-*.json`, and `manifests/` itself iff empty. Idempotent — exit 0 when nothing to remove. The rollback backup only exists to undo a *wrong* consolidation; once the manifest has been consumed and tickets created, restoring the rollback would desync markers from the created tickets, so it is removed at the same time. Re-running requires a fresh consolidation (the mandatory model).
+
+## Reverse rotation only — the return path from an omission to its uncertainty
+
+**This section applies only when `mode === "reverse"`. In forward mode nothing below runs and no field below appears.** An omission recorded during the forward rotation carries exactly the fields it carried before this section existed.
+
+An omission is recorded as a shortfall of the original hypothesis, norm or scope — not as "not enough tests" (ABOUT-REVERSE 1.3). To make it actionable rather than merely countable, the omission names the uncertainty it descends from: the claims it affects, and the residuals that produced it (ABOUT-REVERSE 6.12.3 layer B, and the return edge of 6.10.1).
+
+1. **Read the registry before writing a reference.** `affected_claim_ids` are resolved against the claim ledger (`CLAIM-LEDGER.json`) and `origin_residual_ids` against the residual registry (`RESIDUAL-REGISTRY.json`). A reference that cannot be resolved is **reported, never written** — a pointer to nothing reads as a chain that exists, which is worse than no pointer.
+2. **Resolve, then attach.** Call `return-refs.js` with the omission, `mode: "reverse"`, and the identifiers the analysis found. It returns the omission carrying only the references that resolved, plus a finding for each that did not.
+3. **Pass only the resolved omission to Step 6's `add-omission-ticket.js`.** The unresolved findings are reported to the human in plain English, in the order they were found; they are not silently dropped and they are not turned into a field with an invented value.
+4. **An omission with no originating uncertainty carries no new fields and remains valid.** Omission is optional, and an empty `affected_claim_ids` reads as a chain that was followed and found empty — which is a different and false claim.
+
+```bash
+# Resolve the return references against the ledgers, then report what did not resolve.
+# The omission arrives on stdin, exactly as the analysis recorded it (references included);
+# it leaves with only the references that resolved, followed by the report in plain English.
+node .claude/scripts/tickets/lib/return-refs.js \
+  --kind=omission \
+  --claim-ledger="<path to CLAIM-LEDGER.json>" \
+  --residual-registry="<path to RESIDUAL-REGISTRY.json>" \
+  < "<the omission as the analysis recorded it>.json"
+```
+
+The command exits 0 whether or not every reference resolved: the report is the output and the judgement is the human's. Pass the printed artefact — not the input — to `add-omission-ticket.js` in Step 6.
+
+**Forward guarantee.** The forward output of this command is byte-identical to its pre-change form. No required field is added, so a consumer that does not know about `affected_claim_ids` or `origin_residual_ids` continues to work unchanged. The P22-1 regression gate's command-file digest is run before and after every edit to this file.
