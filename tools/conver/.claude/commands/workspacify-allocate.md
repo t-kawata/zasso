@@ -54,6 +54,7 @@ Under `.claude/scripts/workspacify-allocate/`.
 | `run.mjs packet <manifest> [--package=<id>]` | AI authoring support: prints, as JSON, the per-package authoring packet (owned inventory, source excerpts, boundary context) |
 | `run.mjs gate <manifest> --decisions=<path>` | decisions schema/authoring surface → the self-grill loop (G3.7: 5 focuses, convergence, residual shape, verbatim carrying of stage-1 residuals, forbidden vocabulary) → render every seed → seed-local (3 references, contract completeness) → parity → zero transfer loss (coverage of material segments plus the recording of non-material ones) → bilateral contracts (G4) → WIG (G5) → implementation order match → APPROVED presence. Only COMPLETE exits 0 |
 | `run.mjs finalize <manifest> --decisions=<path>` | Re-runs every gate → builds the manifest → atomically publishes tree + seeds + allocate manifest → reload re-verification → cleanup (G6). On success only the three kinds are published |
+| `run.mjs reverse --root=<dir> --decisions=<path>` | **Reverse mode.** Inverts the safety guarantee: the existing tree must match the proved plan exactly, and one extra path is BLOCKED. Judges A1 to A5, then places one RFC-SEED.md per package and the allocate manifest. Never renames a top-level entry; a failing gate publishes nothing |
 
 ## Statuses and gates
 
@@ -344,3 +345,33 @@ This command starts neither `/grill-me-for-rfc` nor `/graphify-rfc` nor an imple
 ## Definition of success
 
 Success is consolidated into the coexistence of **① the AI's final semantic approval** (`semantic_review.status === "APPROVED"` in the decisions) and **② every machine gate PASS, zero transfer loss, the bilateral contracts holding, 0 WIG violations, the implementation order matching stage-1's proof, and reload verification PASS**. The final confirmation is a rescan of the generated tree, a re-parse of every RFC-SEED.md with re-extraction of the contracts, a rebuild of WIG and a re-derivation of the order, the allocate manifest's self-hash, and that the residue is only the three published kinds plus pre-existing files.
+
+---
+
+## Reverse mode (A1 to A6)
+
+**Role**: when the project already exists, the directory tree cannot be created — it is already there, and it is the thing the whole phase exists to preserve. Reverse mode keeps the forward gates G0 to G5 exactly as they are and adds a second safety guarantee, pointing the other way.
+
+**Invocation**: `run.mjs reverse --root=<project directory> --decisions=<path>`, with the stage-1 manifest read from `<root>/WORKSPACIFY-TREE-MANIFEST.json`.
+
+**The inversion.** Forward mode guarantees `fresh-workspace only` and publishes by renaming each top-level directory into place. In the reverse direction that same rename would move the existing `src/` and `tests/`. So the guarantee is re-tensioned rather than dropped: **every planned path must exist, every existing path must be planned, and a single extra path is BLOCKED with the path named.** The strength is identical; only the direction of the comparison changed.
+
+| Gate | FAIL condition | PASS condition |
+|---|---|---|
+| **A1 safety inversion** | the plan and the tree are not the same directory set | they are the same set, or the run is BLOCKED with every extra and missing path named |
+| **A2 additions only** | a write outside `RFC-SEED.md` and the manifest, or a top-level entry that changed name | writes are inside the allow-list and the top-level directories are unchanged |
+| **A3 packet extension** | a package that declares consumers arrives with an empty incoming-dependency excerpt | every packet carries the excerpt it owes |
+| **A4 section 1 index** | section 1 carries no reverse index, or the seed has a heading count other than 14 | the index sits inside section 1 and the count is 14 |
+| **A5 seed parity** | the Allocation Index to ownership bijection is broken | 0 missing / 0 duplicated / 0 leaked |
+
+**A6 folds into A3.** The provider-packet obligation — hand the author the implementation of the packages that *use* this one — is the same material A3 requires, so it has one verdict rather than two. Without it a session authoring a seed sees a function with no visible callers and has to guess why it exists, and a guess is what a ratification RFC is made of.
+
+**What A3 does not fail on.** A package the manifest declares nothing consumes is *recorded*, not failed. Every finite dependency graph has a leaf, so failing there would mean a reverse run could never succeed at all. A3 fails when the material was dropped, which is the omission it exists to catch.
+
+**The write allow-list** is `RFC-SEED.md` and `WORKSPACIFY-ALLOCATE-MANIFEST.json`, defined once and checked in one place. Reverse mode names no rename primitive and never calls the staged publisher, so a run that cannot rename cannot destroy a tree.
+
+**Where the reverse index comes from.** The reverse tree run records `reverse_provenance` on the manifest — the sidecar bundle hash and a count summary. Reverse allocate reads it to populate section 1's index and to name the sidecar it resolved against. A manifest without that provenance is one this step cannot render, and A4 says so rather than inventing one.
+
+**Causes of a reverse FAIL, by gate**: a directory present with no package (A1, "extra"), a declared package with no directory (A1, "missing"), a write outside the allow-list or a renamed top-level entry (A2), an excerpt the packet owed and did not carry (A3), a missing reverse index or a fifteenth heading (A4), a broken Allocation Index bijection (A5).
+
+**The heading contract is not modified.** `seed-parse.mjs` still enforces an exact match against `SEED_REQUIRED_SECTIONS`, and the reverse index extends section 1 in place rather than becoming section 15. The forward rotation cannot observe any of this.

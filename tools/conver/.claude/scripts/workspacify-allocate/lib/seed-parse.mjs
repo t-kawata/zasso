@@ -15,22 +15,22 @@ import { SEED_REQUIRED_SECTIONS, SEED_TITLE_PREFIX, assertSeedBodyValid } from '
 const HEADING_PATTERN = /^## (\d+)\. (.+?)\s*$/;
 
 /**
- * Parse a rendered RFC-SEED.md document.
+ * Scan a seed's section headings, without judging whether they are the right ones.
+ *
+ * The reverse rotation has to count the headings of a seed it is about to reject —
+ * a fifteenth section is the exact defect the heading contract exists to catch —
+ * so the count cannot come from a parser that throws on the count being wrong.
+ * Splitting the scan out keeps one definition of what a heading is: `parseSeed`
+ * and every counter read the same list.
  *
  * @param {string} seedText - full seed markdown
- * @returns {{ packageName: string, headings: Array<object>, allocationIndexRows: Array<object> }}
- * @throws {WorkSpacifyTreeError} gateId "G3.6" on malformed structure
+ * @returns {Array<{ index: number, title: string, body: string[] }>} headings in document order
  */
-export function parseSeed(seedText) {
-  const lines = seedText.split('\n');
-  if (!lines[0].startsWith(SEED_TITLE_PREFIX)) {
-    throw new WorkSpacifyTreeError('seed does not start with the RFC Seed title', { gateId: 'G3.6' });
-  }
-  const packageName = lines[0].slice(SEED_TITLE_PREFIX.length).trim();
-
+// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+export function scanSeedHeadings(seedText) {
   const headings = [];
   let current = null;
-  for (const line of lines.slice(1)) {
+  for (const line of String(seedText ?? '').split('\n')) {
     const match = HEADING_PATTERN.exec(line);
     if (match) {
       if (current) {
@@ -44,6 +44,24 @@ export function parseSeed(seedText) {
   if (current) {
     headings.push(current);
   }
+  return headings;
+}
+
+/**
+ * Parse a rendered RFC-SEED.md document.
+ *
+ * @param {string} seedText - full seed markdown
+ * @returns {{ packageName: string, headings: Array<object>, allocationIndexRows: Array<object> }}
+ * @throws {WorkSpacifyTreeError} gateId "G3.6" on malformed structure
+ */
+export function parseSeed(seedText) {
+  const lines = seedText.split('\n');
+  if (!lines[0].startsWith(SEED_TITLE_PREFIX)) {
+    throw new WorkSpacifyTreeError('seed does not start with the RFC Seed title', { gateId: 'G3.6' });
+  }
+  const packageName = lines[0].slice(SEED_TITLE_PREFIX.length).trim();
+
+  const headings = scanSeedHeadings(seedText);
 
   if (headings.length !== SEED_REQUIRED_SECTIONS.length) {
     throw new WorkSpacifyTreeError(`seed has ${headings.length} headings, expected ${SEED_REQUIRED_SECTIONS.length}`, { gateId: 'G3.6' });
