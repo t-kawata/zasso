@@ -585,6 +585,7 @@ function parseArgs() {
   return { ticketKey, verbose, verifyMode, checkAmbiguousMode };
 }
 
+// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function main() {
   const opts = parseArgs();
 
@@ -614,8 +615,10 @@ function main() {
     }
 
     if (report.missing.length > 0) {
+      // A missing entry names where the annotation belongs, so the report prints
+      // the file and the definition's line rather than the entry object.
       console.error("[annotate-verify] MISSING annotation in:");
-      report.missing.forEach((f) => console.error(`  ${f}`));
+      report.missing.forEach((entry) => console.error(`  ${entry.file}:${entry.startLine}`));
     }
     if (report.ambiguous.length > 0) {
       console.error("[annotate-verify] AMBIGUOUS marker found in — AI must resolve:");

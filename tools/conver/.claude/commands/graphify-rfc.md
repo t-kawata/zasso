@@ -63,6 +63,8 @@ Located under `.claude/scripts/rfc-graph/`.
 | `dump-ticket-graph-commands.js` | `--tickets=<path> --graph=<path> --source=<path>` | formulate integration: appends query.js commands to ticket spec |
 | `analyze-source-structure.js` | `<source-path>` | Source document structure analysis report (assists 3-axis splitting) |
 | `show-graph-summary-markdown.js` | `--graph=<path> --source=<path>` | Outputs graph summary in kind-organized Markdown format |
+| `grounding-check.js` | `--graph=<path> --root=<path> [--grounding=<path>] [--dirs-tree=<path>] [--out=<path>]` | Reverse mode only: **GF1** verifies that every node resolves to a real file path, naming each node it cannot ground |
+| `contract-diff.js` | `--graph=<path> --candidates=<path> --out=<dir> [--correspondences=<path>] [--recorded=<path>]` | Reverse mode only: **GF2** reconciles the R3 contract candidates against the RFC-derived contracts and records every difference as an omission or RESIDUE candidate |
 
 All scripts output a 3-line error template (`[ERROR]` / `Cause:` / `Action:`) to stderr on error and exit with code 1. Pre-write JSON Schema validation violations are also reported using the same template.
 
@@ -557,3 +559,26 @@ Report the following information:
 - **Graph structure summary**: show-graph-summary-markdown.js output (kind-organized node list + edge relationships)
 
 After completion, this graph becomes available to the /split-to-tickets and /boundify-graph slash commands via `show-graph-summary-markdown.js --with-cli-examples`.
+
+---
+
+## Reverse mode (GF1, GF2)
+
+**Role**: when the graph is built from an implementation that already exists rather than from a design, the failure mode changes. The graph can be internally consistent — every heading referenced, every edge joined — and connected to nothing real, because `node.schema.json` carries no file field and `additionalProperties` is false. And an RFC written from the code agrees with the code by construction, so a reconciliation that finds nothing is the **ratification RFC** (F1, ABOUT-REVERSE 3.4) rather than a clean result. Reverse mode makes both failures visible instead of silent.
+
+**Invocation**: the same command, the same steps. Two gates run in addition, and neither changes the schema: ABOUT-REVERSE 6.12.3 puts `*-GRAPH.json` in layer C, which gains nothing, so the grounding is published beside the graph and never written into it.
+
+| Change | What it does |
+|---|---|
+| **GF1 grounding** | `grounding-check.js` verifies that every node resolves to a file that exists under the measured tree — the same rule as `/workspacify-tree`'s T3. A node whose declared path is missing and a node for which no path was declared fail alike and are reported **by identifier**, because a gate that fails without naming the node it failed on cannot be acted on. It reads the graph through the existing single write path and adds a second one nowhere |
+| **GF2 contract reconciliation** | `contract-diff.js` compares the R3 contract candidates (what the code does) against the RFC-derived contracts (what the graph's edges state). Every difference is recorded as an **omission or RESIDUE candidate** — never discarded. The judgement of whether a difference is a specification gap or an extraction artefact is left to the human at the grill; this step decides only what is mechanical: which items are unmatched, and that none went missing |
+
+**Prohibitions**
+
+- Do not extend `node.schema.json`, `edge.schema.json` or `graph.schema.json`. A grounding is not a node field; it is a table published beside the graph.
+- Do not add a second write path for the graph. `crud.js` remains the only one; both scripts read.
+- Do not remove a difference in order to make the reconciliation clean. A difference that is removed rather than recorded destroys the only evidence that the RFC disagrees with the code.
+- Do not report a zero-difference result as success. Zero differences is F1's signature — an RFC that agrees with the code because it was written from it — and the record must say the comparison was made rather than merely that nothing was found.
+- Do not classify a difference by guessing intent. A difference no rule can classify is recorded as `unclassified` and carried to the grill.
+
+**Completion report additions (reverse mode)**: the GF1 gate status and the identifiers of every unresolvable node; the GF2 difference count, split by direction, with the recorded candidates; and, when the difference count is zero, the sentence saying that a zero result is the outcome to scrutinise rather than to trust.
