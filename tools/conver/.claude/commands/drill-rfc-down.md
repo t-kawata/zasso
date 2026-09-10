@@ -64,6 +64,7 @@ If no arguments are given, drill-rfc-down proceeds with only the crystalize RESI
 | `verify-consistencies.js` | `--rfc=<path> --graph=<path> --dirs-tree=<path> --src=<dir> --tickets=<path> [--out=<path>]` | Step 5: cross-artifact 6-consistency check |
 | `verify-step.js` | `--rfc=<path> --graph=<path> --dirs-tree=<path> --src=<dir> --tickets=<path>` | Step 5 driver: PASS/FAIL blocking gate |
 | `advisory-report.js` | (shared) | Four-axis (Danger / Omission / Contradiction / Deficiency) English advisory report builder |
+| `../workspacify-reverse/lib/staleness.mjs` | `--claim-ledger=<dir> --changed=<ref>=<path> [--changed=<ref>=<path>]... [--out=<dir>] [--json]` | **Reverse rotation only.** Marks the claims whose recorded forward-reference hash no longer matches the artefact it names, and emits their re-examination conditions as material this command accepts (ABOUT-REVERSE 6.13 Phase 3). Staleness never cancels `COMPLETE` |
 
 ## Workflow
 
@@ -399,3 +400,38 @@ node "$DRILL_DIR/verify-step.js" --rfc="$RFC_PATH" --graph="$GRAPH_PATH" --dirs-
 | Edge contracts ↔ Tickets contracts | every edge contract is present in at least one connecting ticket (orphan-free) | high |
 
 **Loop control**: if `verify-step.js` returns exit 1, **return to Step 2 (graphify) to fix** the reported high items, re-run Steps 3/4, then re-verify. Repeat until exit 0 (PASS). The verification is **read-only** (it never rewrites any artifact and is deterministic).
+
+## Reverse rotation only — staleness as an input to this drill
+
+**This section applies only when `mode === "reverse"`. In forward mode nothing below runs and no field below appears.** The forward steps above are unchanged and run the same scripts they always ran.
+
+A canonical record is only as current as the artefacts it was read from. When a dependency, a configuration, a schema or an external contract moves on, the record keeps its shape and quietly stops describing the code (ABOUT-REVERSE 7.6 F13). Nothing throws and nothing turns red: the next reader treats a stale claim as a current one. Propagation is the signal that was missing, and this drill is where it arrives, because a re-examination condition is a question of exactly the kind this command already asks.
+
+1. **Read the recorded hashes, then compare.** `staleness.mjs` reads `forward_refs.ref_hashes` from `CLAIM-LEDGER.json`, hashes each named input as it stands now, and marks every claim whose recorded hash differs. The authority for the comparison sits in the reverse sidecar, so no field is added to any forward artefact (ABOUT-REVERSE 6.12.2, "Option 2.5-refined").
+
+2. **A comparison that could not be made is reported, never assumed unchanged.** An input that cannot be hashed, and a claim whose recorded hash is not a hash, are both reported by name. A claim that stopped being checked must not read like a claim that was checked and found current.
+
+3. **Emit, then pass as material.** The emitted document is an ordinary material argument — the third input type this command already accepts. Nothing about the input contract changes.
+
+```bash
+# Mark the claims whose recorded reference hashes no longer match, and emit
+# their re-examination conditions as material. Nothing is written unless --out
+# is given, and the measured tree is never written to at all.
+node .claude/scripts/workspacify-reverse/lib/staleness.mjs \
+  --claim-ledger="<directory holding CLAIM-LEDGER.json>" \
+  --changed=graph="<the GRAPH as it stands now>" \
+  --changed=dirs_tree="<the Dirs-Tree as it stands now>" \
+  --out="<destination>"
+
+/drill-rfc-down <destination>/STALENESS-REEXAMINATION.md
+```
+
+`STALENESS-INDEX.json` is written beside it as the record of what was found. A claim whose `staleness_ref` points here is the one this command's grill must re-examine.
+
+4. **Staleness never cancels `COMPLETE`.** The two are independent axes. `COMPLETE` is a value the forward rotation already reads; staleness is a reverse-rotation concept. A stale claim is a question for the grill, not a completion verdict, and no reader of `COMPLETE` is changed by it. Conflating them would let a reverse-only signal alter forward behaviour, which the phase forbids.
+
+5. **A claim with no recorded `ref_hashes` is not stale.** It is a normal branch, not an error: the common case of a claim that lives outside the sidecar needs no special handling, and reporting it would drown the real signal.
+
+6. **A run that found nothing stale says so in words.** The emitted material states that no claim is stale rather than producing an empty document, because an empty document reads as a failure and there is nothing here that failed.
+
+**Forward guarantee.** The forward output of this command is byte-identical to its pre-change form. This section runs only in reverse mode, no required field is added and no existing step is altered. The P22-1 regression gate's command-file digest is run before and after every edit to this file.

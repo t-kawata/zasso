@@ -82,7 +82,11 @@ export function allocateBaselineKey(fixture) {
   return `allocate:${fixture.id}`;
 }
 
-function sha256Hex(buffer) {
+// Exported so staleness propagation hashes an input exactly as this gate does.
+// Two mechanisms that hash the same file two ways can disagree about whether it
+// changed, and the disagreement would surface as a claim that is silently stale.
+// [::TICKET::] P22-21 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-21 --for-spec --no-implementation-order`.
+export function sha256Hex(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
