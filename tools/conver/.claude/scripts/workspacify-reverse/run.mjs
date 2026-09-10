@@ -15,8 +15,12 @@
  *   oracle     — freeze the answer key, or compare a stage's output against it
  *   spike      — run one vertical slice and measure it, then reconcile it against
  *                the frozen answer key
- *   analyze    — fix the analysis boundary and measure structure, dependencies and
- *                the execution surface, publishing outside the target
+ *   analyze    — the entrance to the reverse rotation. It fixes the analysis
+ *                boundary, measures structure, dependencies and the execution
+ *                surface, and runs R0 through R8 in series, publishing the origin
+ *                spec outside the target. It also probes zg and serves the
+ *                candidate material that search returns; no stage of the analysis
+ *                reads a zg result, because a search is not a determination.
  *
  * The process performs no semantic judgement: which traces exist and whether
  * they are gone are facts, not opinions. Deciding what the cleaned tree then
@@ -59,6 +63,7 @@ import { NO_KNOWN_DELTA, reconcile, renderReconciliation } from './lib/reconcile
 import { ANALYSIS_STAGES, analyzeProject, buildPartitionCandidate, renderDisagreements, renderSpikeReport, runSpike, stageLabel } from './lib/scope.mjs';
 import { buildClaimCandidate, renderClaimLedger } from './lib/claim-ledger.mjs';
 import { renderCardsMarkdown } from './lib/packet.mjs';
+import { ZG_AVAILABILITY, ZG_REPORT_FILE_NAME, probeZg, renderZgReport } from './lib/zg-probe.mjs';
 
 /** The project this entry point belongs to: `.claude/scripts/workspacify-reverse` walked back to the root. */
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -76,7 +81,7 @@ const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'orac
 const ROOT_TAKING_SUBCOMMANDS = ['detect', 'scrub', 'verify', 'analyze'];
 
 /** The options that name a value; every other `--name` is a switch. */
-const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--out', '--recorded', '--through'];
+const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--out', '--recorded', '--through', '--query'];
 
 /** Where an analysis publishes its sidecars when the caller names no directory. */
 const ANALYSIS_OUTPUT_DIRECTORY = 'tests/workspacify-reverse/analysis';
@@ -96,7 +101,7 @@ const SPIKE_STAGES = Object.freeze(['r1', 'r3']);
 
 const USAGE = [
   'Usage: run.mjs <detect|scrub|verify> <root> [options]',
-  '       run.mjs analyze <root> [--through=<stage>] [--out=<dir>]',
+  '       run.mjs analyze <root> [--through=<stage>] [--out=<dir>] [--query=<text>]',
   '       run.mjs regression <capture|check>',
   '       run.mjs holdout [freeze|isolation <root>] [--project-root=<path>] [--frozen-at=<ISO-8601>]',
   '       run.mjs oracle <freeze|compare --stage <stage> --candidate <path>> [--project-root=<path>] [--frozen-at=<ISO-8601>]',
@@ -107,7 +112,7 @@ const USAGE = [
   '  scrub  <root> [--dry-run]        Report what would be removed',
   '  scrub  <root> --apply            Remove L1/L2 traces and rename keyed files',
   '  verify <root>                    Exit 0 when no trace remains, 1 otherwise',
-  `  analyze <root>                   Fix the boundary and measure R0 through ${stageLabel(ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1])}, writing outside the target`,
+  `  analyze <root>                   The entrance: run R0 through ${stageLabel(ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1])} in series and publish the origin spec outside the target`,
   '  regression capture               Freeze the forward rotation as it behaves now',
   '  regression check                 Exit 0 when every frozen value is reproduced',
   '  holdout                          Verify the ledger and isolate every frozen holdout',
@@ -132,6 +137,8 @@ const USAGE = [
   // here: a hardcoded name went stale the moment a stage was added after it.
   `  --through=<stage>            Last stage an analysis runs, inclusive (analyze; default ${ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1]})`,
   '  --recorded=<path>            JSON holding the interventions and decision samples a spike recorded',
+  '  --query=<text>               Ask zg for candidate material on this question. Served beside the',
+  '                               analysis and read by no stage of it: a search is a candidate, never a proof',
   '  --out=<dir>                  Where an analysis or a spike writes its documents',
 ].join('\n');
 
@@ -231,7 +238,7 @@ function parseSpikeArguments(second, rest, argv) {
   };
 }
 
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const [subcommand, second, ...rest] = argv;
   const common = commonOptions(subcommand, rest);
@@ -262,6 +269,7 @@ function parseArgs(argv) {
       root: positionalArgs(argv.slice(1))[0] ?? null,
       through: flagValue(optionArgs, '--through') ?? ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
       out: flagValue(optionArgs, '--out'),
+      query: flagValue(optionArgs, '--query'),
     };
   }
 
@@ -272,30 +280,69 @@ function parseArgs(argv) {
 }
 
 /**
- * Fix the analysis boundary over a tree and measure it, writing outside the target.
+ * Report a stage that could not run, naming the stage and the input it was reading.
+ *
+ * "The analysis failed" is not an answer to "what could not be read", so the
+ * message names both. It also says that nothing was written, because a run that
+ * stopped and a run that finished are indistinguishable from an exit code alone,
+ * and a partial origin spec reads exactly like a complete one.
+ */
+// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+function reportStage({ stage, input, error }) {
+  const subject = stage === null ? 'The arguments' : `Stage ${stageLabel(stage)}`;
+  process.stderr.write(
+    `${subject} could not run.\n`
+    + `  Input: root=${input.root} out=${input.out} through=${input.through}\n`
+    + `  Why: ${error.message}\n`
+    + 'Nothing was published: the run stops before any document is written, so no partial result is left '
+    + 'behind that could be mistaken for a complete one.\n',
+  );
+  return 1;
+}
+
+/**
+ * The entrance to the reverse rotation: R0 through R8 in series, once.
  *
  * The destination defaults to a directory this project owns rather than to the
  * caller's working directory, because publishing into the tree being measured is
  * refused and a default that could be refused would make the command fail for a
  * reason the caller did not choose.
+ *
+ * The pipeline publishes only after every stage has run and the target has been
+ * shown unchanged, so a stage that cannot run leaves nothing behind. The zg probe
+ * runs before it and its result is never passed into it: candidate discovery is
+ * material for a reader, and a model-dependent search must not be able to reach a
+ * stage that settles anything.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-function runAnalyze({ root, through, out }) {
+// [::TICKET::] P22-4, P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9) --for-spec --no-implementation-order`.
+function runAnalysisPipeline({ root, through, out, query }) {
   if (!root) {
     process.stderr.write(`${USAGE}\n`);
     return 2;
   }
   const destination = out === null ? join(PROJECT_ROOT, ANALYSIS_OUTPUT_DIRECTORY) : resolve(out);
+  const candidateSearch = probeZg({ root, query });
 
+  let currentStage = null;
   let outcome;
   try {
-    outcome = analyzeProject({ root, out: destination, through });
+    outcome = analyzeProject({
+      root,
+      out: destination,
+      through,
+      onStage: (stage) => { currentStage = stage; },
+    });
   } catch (error) {
-    process.stderr.write(`${error.message}\n`);
-    return 1;
+    return reportStage({ stage: currentStage, input: { root, out: destination, through }, error });
   }
 
   process.stdout.write(`${outcome.report}\n`);
+  // The section is written only when there is one to serve, so an absent tool
+  // cannot leave behind a file that reads as a search which found nothing.
+  if (candidateSearch.availability === ZG_AVAILABILITY.available) {
+    writeDocument(join(destination, ZG_REPORT_FILE_NAME), `${renderZgReport(candidateSearch)}\n`);
+  }
+  process.stdout.write(`\n${renderZgReport(candidateSearch)}\n`);
   process.stdout.write(
     `\nStages ${outcome.stagesRun.map((stage) => `\`${stage}\``).join(', ')} published to \`${destination}\`.\n`,
   );
@@ -633,7 +680,7 @@ function runSpikeSubcommand(options) {
   return runSpikeSlice(options);
 }
 
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9) --for-spec --no-implementation-order`.
 function main() {
   const options = parseArgs(process.argv.slice(2));
   if (!options.subcommand || !SUBCOMMANDS.includes(options.subcommand)) {
@@ -650,7 +697,7 @@ function main() {
   if (options.subcommand === 'holdout') return runHoldout(options);
   if (options.subcommand === 'oracle') return runOracle(options);
   if (options.subcommand === 'spike') return runSpikeSubcommand(options);
-  if (options.subcommand === 'analyze') return runAnalyze(options);
+  if (options.subcommand === 'analyze') return runAnalysisPipeline(options);
   return runVerify(options);
 }
 

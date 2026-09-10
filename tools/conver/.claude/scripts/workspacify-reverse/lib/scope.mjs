@@ -412,8 +412,30 @@ export function renderSpikeReport(measurement, { reconciliation = [], targetDige
  */
 export const ANALYSIS_STAGES = Object.freeze([
 // [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
   'r0', 'r0.5', 'r1', 'r2', 'r2.5', 'r3', 'r3.5', 'r4', 'r5', 'r5.5', 'r6', 'r6.5', 'r7', 'r8',
+]);
+
+// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+/**
+ * The order the pipeline evaluates the stages in.
+ *
+ * It is not `ANALYSIS_STAGES` order, and the difference is deliberate. The
+ * execution surface (R2.5) is measured before the structural measurement (R1)
+ * and the dependency graph (R2), because the graph's caveat has to state how
+ * many mechanisms stand between it and the running program, and the surface is
+ * what counts them. R2 therefore consumes a product of R2.5 and could not run
+ * before it.
+ *
+ * The stage *numbering* is the design's; this list is what the code does. The
+ * set is the same — a full run reaches every declared stage — and the two are
+ * asserted equal, so a stage added to one list cannot be silently missed by the
+ * other. The order is declared here rather than left to the sequence of the
+ * calls inside the pipeline, so that a reader can see it without reading the
+ * pipeline and a test can assert it as a list.
+ */
+export const ANALYSIS_EVALUATION_ORDER = Object.freeze([
+  'r0', 'r0.5', 'r2.5', 'r1', 'r2', 'r3', 'r3.5', 'r4', 'r5', 'r5.5', 'r6', 'r6.5', 'r7', 'r8',
 ]);
 
 /**
@@ -967,6 +989,8 @@ function propertyInvariantsIn(ledger) {
     }));
 }
 
+// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
 /**
  * R0 through R2.5 in series, published outside the target.
  *
@@ -974,18 +998,19 @@ function propertyInvariantsIn(ledger) {
  * has measured nothing, so the two digests are compared rather than trusted,
  * and a difference is an error rather than a warning.
  *
- * @param {{root: string, out: string, through?: string, permissions?: string[]}} params
+ * @param {{root: string, out: string, through?: string, onStage?: Function}} params
+ * @param {Function} [params.onStage] - called with each stage identifier as the pipeline reaches it,
+ *        so a caller can attribute a failure to the stage it happened in
  */
 // The default is the last declared stage, derived rather than named. A hardcoded
 // name here went stale the moment a stage was added after it, and the library
 // entry point then silently ran a different prefix from the command line's.
 export function analyzeProject({
 // [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
   root,
   out,
   through = ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
-  permissions,
+  onStage,
 } = {}) {
   if (!ANALYSIS_STAGES.includes(through)) {
     throw new AnalysisScopeError(
@@ -999,11 +1024,21 @@ export function analyzeProject({
   }
   assertOutputIsOutsideTarget(out, root);
 
-  const scope = resolveScope(root, permissions === undefined ? {} : { permissions });
+  // The caller may watch a run go past. A stage that fails is then reported by
+  // the caller under the name of the stage it failed in, rather than arriving
+  // as a stack trace from a pipeline that only names itself.
+  const runStage = (stage, produce) => {
+    if (typeof onStage === 'function') onStage(stage);
+    return produce();
+  };
+
+  // The permissions are not configurable: a run holds read access to its target
+  // and nothing else, so `resolveScope`'s own default is the only value there is.
+  const scope = runStage('r0', () => resolveScope(root));
   const stagesRun = ANALYSIS_STAGES.slice(0, ANALYSIS_STAGES.indexOf(through) + 1);
   const before = digestTree(scope.root, { tolerateUnreadable: true });
 
-  const boundary = classifyArtefacts({ root: scope.root, scope });
+  const boundary = runStage('r0.5', () => classifyArtefacts({ root: scope.root, scope }));
   const excludedPaths = boundary.artefacts
     .filter((artefact) => artefact.coverage === 'out_of_scope')
     .map((artefact) => artefact.path);
@@ -1011,19 +1046,19 @@ export function analyzeProject({
   // The surface is measured before the dependency graph because the graph's
   // caveat names how many mechanisms stand between it and the running program.
   const surface = stagesRun.includes('r2.5')
-    ? measureExecutionSurface({ root: scope.root, excludedPaths })
+    ? runStage('r2.5', () => measureExecutionSurface({ root: scope.root, excludedPaths }))
     : null;
   const structure = stagesRun.includes('r1')
-    ? measureStructure({ root: scope.root, excludedPaths })
+    ? runStage('r1', () => measureStructure({ root: scope.root, excludedPaths }))
     : null;
   const dependencies = stagesRun.includes('r2')
-    ? measureDependencies({ root: scope.root, excludedPaths, surface })
+    ? runStage('r2', () => measureDependencies({ root: scope.root, excludedPaths, surface }))
     : null;
 
   // R3 reads its population from the boundary R2 measured, so it runs after the
   // dependency graph and is given it rather than left to re-derive one.
   const semantics = stagesRun.includes('r3')
-    ? extractSemantics({ root: scope.root, dependencies, excludedPaths })
+    ? runStage('r3', () => extractSemantics({ root: scope.root, dependencies, excludedPaths }))
     : null;
   // R3.5 folds evidence independence over the ledger. The commit channel is
   // consulted when the target is a repository and recorded as not consulted
@@ -1033,25 +1068,25 @@ export function analyzeProject({
     .filter((artefact) => artefact.coverage === 'in_scope')
     .map((artefact) => artefact.path);
   const ledger = stagesRun.includes('r3.5')
-    ? buildClaimLedger({
-        root: scope.root,
-        excludedPaths,
-        history: historyFromGit(scope.root, { files: inScopePaths }),
-      })
+    ? runStage('r3.5', () => buildClaimLedger({
+      root: scope.root,
+      excludedPaths,
+      history: historyFromGit(scope.root, { files: inScopePaths }),
+    }))
     : null;
 
   // R4 → R5 → R5.5 run in series. R4 reconstructs what history says and refuses
   // to read a commit message as intent; R5 enumerates what is missing; R5.5 asks
   // whether the oracle that would have caught any of it is worth anything.
   const history = stagesRun.includes('r4')
-    ? reconstructHistory(scope.root, { paths: inScopePaths })
+    ? runStage('r4', () => reconstructHistory(scope.root, { paths: inScopePaths }))
     : null;
   const gaps = stagesRun.includes('r5')
-    ? enumerateGaps({ root: scope.root, paths: inScopePaths, boundary, structure, dependencies, surface, ledger })
+    ? runStage('r5', () => enumerateGaps({ root: scope.root, paths: inScopePaths, boundary, structure, dependencies, surface, ledger }))
     : null;
   const classifiedGaps = gaps === null ? null : classifyGaps(gaps);
   const oracleGap = stagesRun.includes('r5.5')
-    ? assessOracleValidity({ root: scope.root, ledger })
+    ? runStage('r5.5', () => assessOracleValidity({ root: scope.root, ledger }))
     : null;
 
   // R6 plans the red each claim needs, and R6.5 hands R3's invariants to the
@@ -1060,14 +1095,14 @@ export function analyzeProject({
   // ticket that runs a plan is P22-19, so a plan that cannot execute yet is
   // recorded with that reason rather than dropped.
   const redPlan = stagesRun.includes('r6') && ledger !== null
-    ? planRedReconstruction({ ledger, oracleGap, gaps: classifiedGaps })
+    ? runStage('r6', () => planRedReconstruction({ ledger, oracleGap, gaps: classifiedGaps }))
     : null;
   // A counterexample is obtained by executing a plan, which this stage does not
   // do. The empty set is therefore the honest input, and it is reported as empty
   // rather than omitted so that a stage which ran nothing cannot read as a stage
   // that found nothing.
   const counterexamples = stagesRun.includes('r6.5') && ledger !== null
-    ? applyCounterexamples([], ledger)
+    ? runStage('r6.5', () => applyCounterexamples([], ledger))
     : null;
   const properties = stagesRun.includes('r6.5') && ledger !== null
     ? generatePropertyTests(propertyInvariantsIn(ledger))
@@ -1079,12 +1114,14 @@ export function analyzeProject({
   // stages above produced, and the spec is validated before it is published so
   // that a claim resting on evidence that is not there is demoted rather than
   // emitted with a dangling reference.
-  const serving = stagesRun.includes('r7') && ledger !== null ? renderServing(ledger) : null;
+  const serving = stagesRun.includes('r7') && ledger !== null
+    ? runStage('r7', () => renderServing(ledger))
+    : null;
   const originSpec = stagesRun.includes('r8') && ledger !== null
-    ? validateOriginSpec(
-        buildOriginSpec({ root: scope.root, ledger, treeHash: before.sha256 }),
-        { root: scope.root },
-      )
+    ? runStage('r8', () => validateOriginSpec(
+      buildOriginSpec({ root: scope.root, ledger, treeHash: before.sha256 }),
+      { root: scope.root },
+    ))
     : null;
   const profile = stagesRun.includes('r8')
     ? buildCapabilityProfile({ ledger, gaps: classifiedGaps, surface, redPlan })

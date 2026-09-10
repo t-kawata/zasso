@@ -301,14 +301,22 @@ test('UT-13: two consecutive captures produce byte-identical JSON', () => {
 
 // --- C002: the command files --------------------------------------------------
 
-test('C002 precondition: the nine command files exist and workspacify-reverse does not', () => {
+// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// P22-1 asserted the absence of `workspacify-reverse.md` as a precondition of
+// its own moment, and named P22-9 as the ticket that would create it. That
+// premise is now false, so the assertion is updated to the truth rather than
+// dropped, and tightened: the tenth file exists, and it stays outside the set
+// the digest freezes — an edit may append to the nine, a creation is not one.
+test('C002 precondition: the nine command files exist, and the tenth P22-9 created stands beside them', () => {
   const projectRoot = makeTempProject();
   try {
     assert.equal(COMMAND_FILE_NAMES.length, 9);
     for (const name of COMMAND_FILE_NAMES) {
       assert.equal(existsSync(join(projectRoot, COMMANDS_RELATIVE_DIR, name + '.md')), true, name + '.md must exist');
     }
-    assert.equal(existsSync(join(projectRoot, COMMANDS_RELATIVE_DIR, 'workspacify-reverse.md')), false, 'P22-9 creates the tenth file');
+    assert.equal(existsSync(join(projectRoot, COMMANDS_RELATIVE_DIR, 'workspacify-reverse.md')), true, 'P22-9 creates the tenth file');
+    assert.equal(COMMAND_FILE_NAMES.includes('workspacify-reverse'), false, 'the tenth file is a creation, not an edit of the nine');
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
   }
