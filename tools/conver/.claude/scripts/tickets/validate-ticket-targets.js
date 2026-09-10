@@ -536,7 +536,10 @@ function main() {
   const result = validateTargets(ticketsData, ticketKey);
 
   if (!result.valid) {
-    for (const err of result.formattedErrors) {
+    // A failed validation must always explain itself: a lookup miss records its reason in
+    // `errors` without a formatted copy, so fall back rather than exiting 1 with no output.
+    const diagnostics = result.formattedErrors.length > 0 ? result.formattedErrors : result.errors;
+    for (const err of diagnostics) {
       console.error(err);
     }
     process.exit(1);
