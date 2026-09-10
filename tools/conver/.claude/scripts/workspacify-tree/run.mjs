@@ -9,8 +9,20 @@
  */
 import path from 'node:path';
 import process from 'node:process';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 
 import { EXIT_CODES } from './lib/errors.mjs';
+import { ARCHITECTURE_DELTA_FILE_NAME, loadArchitectureDelta } from './lib/architecture-delta.mjs';
+import {
+  TREE_MODES,
+  addReverseProvenance,
+  computeSidecarBundleHash,
+  digestSidecarFiles,
+  renderReverseReport,
+  runReverseGates,
+  summarizeReverseGates,
+} from './lib/reverse-mode.mjs';
+import { measureDirectoryTree } from './lib/structure-parity.mjs';
 import { LAYER_FORBIDDEN_TARGETS } from './lib/workspace-model.mjs';
 import { readSpecInput } from './lib/fs-safe.mjs';
 import { normalizeTextBytes } from './lib/normalization.mjs';
@@ -55,6 +67,7 @@ function guide(text) {
   process.stderr.write(`[guide] ${text}\n`);
 }
 
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const subcommand = args[0];
@@ -72,6 +85,8 @@ function main() {
       runGate(args);
     } else if (subcommand === 'finalize') {
       runFinalize(args);
+    } else if (subcommand === 'reverse') {
+      runReverse(args);
     } else {
       process.stdout.write(printUsage());
       process.exit(EXIT_CODES.USAGE);
@@ -175,12 +190,88 @@ function runGate(args) {
   process.exit(pipeline.status === 'COMPLETE' ? EXIT_CODES.OK : EXIT_CODES.FAIL);
 }
 
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
 function runFinalize(args) {
   const specPath = optionValue(args, '--spec');
   const decisionsPath = optionValue(args, '--decisions');
   if (!specPath || !decisionsPath) {
     throw new Error('finalize requires --spec=<path> and --decisions=<path>');
   }
+  const prepared = prepareForwardPipeline(specPath, decisionsPath);
+  if (prepared.pipeline.status !== 'COMPLETE') {
+    reportPipelineFailure(prepared.pipeline, 'Finalize');
+  }
+
+  const manifest = assembleManifest(buildForwardManifestSections(prepared));
+
+  // The canonical artifact is always published to the current working directory.
+  const published = publishAcceptedManifest({
+    manifest,
+    specPath: prepared.analysis.absPath,
+    outDir: process.cwd(),
+    sourceHash: prepared.analysis.sourceHash,
+  });
+  if (!published.published) {
+    process.stdout.write(
+      formatFailure({
+        gateId: 'G5',
+        reason: published.reason,
+        fixHint: FINALIZE_REFUSAL_HINTS[published.refusal],
+      }),
+    );
+    process.exit(EXIT_CODES.FAIL);
+  }
+
+  process.stdout.write(
+    formatSuccess({
+      manifestAbsPath: published.manifestAbsPath,
+      sourceHash: prepared.analysis.sourceHash,
+      manifestHash: manifest.integrity.manifest_hash,
+      gateSummary: prepared.pipeline.gates.map((gate) => `${gate.id}:${gate.status}`).join(' '),
+    }) + '\n'
+  );
+  guide(`Finalize PASS: WORKSPACIFY-TREE-MANIFEST.json was atomically published to the current directory, reload-verified, and passes the ALLOCATE entry-gate parity (all categories owned, tree consistent, boundaries covered). This file is the single input for the next stage /workspacify-allocate.`);
+  process.exit(EXIT_CODES.OK);
+}
+
+/**
+ * Run the stage-two entry gate and publish the manifest.
+ *
+ * Both rotations publish through this one function, so a change to the publish
+ * discipline cannot reach one path and miss the other. The refusal is returned
+ * rather than printed, because the two entry points tell the operator to re-run
+ * different steps.
+ *
+ * @returns {{published: boolean, manifestAbsPath?: string, refusal?: 'entry-gate'|'publish', reason?: string}}
+ */
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+function publishAcceptedManifest({ manifest, specPath, outDir, sourceHash }) {
+  // Double gate: the hand-off must be acceptable to stage 2 before it is published.
+  const acceptance = checkTreeEntryGate(manifest, specPath);
+  if (!acceptance.ok) {
+    return { published: false, refusal: 'entry-gate', reason: `the manifest would not be accepted by stage 2: ${acceptance.errors.join('; ')}` };
+  }
+  const publishResult = atomicPublish({ dir: outDir, fileName: MANIFEST_FILE_NAME, content: renderManifestText(manifest), sourceHash });
+  if (!publishResult.published) {
+    return { published: false, refusal: 'publish', reason: publishResult.reason ?? 'publish failed' };
+  }
+  return { published: true, manifestAbsPath: path.resolve(publishResult.path) };
+}
+
+/** What the forward rotation tells the operator to re-run after a refused publication. */
+const FINALIZE_REFUSAL_HINTS = Object.freeze({
+  'entry-gate': 'fix the stage-2 requirements named above, then re-run gate and finalize',
+  publish: 'resolve the blocked condition before retrying',
+});
+
+/**
+ * Prepare everything the forward pipeline needs, without deciding anything.
+ *
+ * Both the forward finalize and the reverse entry point call this, so the
+ * reverse rotation judges exactly the manifest the forward rotation publishes.
+ */
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+function prepareForwardPipeline(specPath, decisionsPath) {
   const analysis = analyzeSpec(specPath);
   const decisions = loadDecisionInput(path.resolve(decisionsPath));
   const schemaReport = assertDecisionSchema(decisions);
@@ -188,7 +279,6 @@ function runFinalize(args) {
     throw new Error(`decision schema invalid: ${schemaReport.errors.map((entry) => entry.message).join('; ')}`);
   }
   const inventory = prepareInventory(analysis, decisions);
-
   const specPulse = buildSpecPulseForAnalysis(analysis, inventory);
   const ownershipTable = buildOwnershipTable(inventory, decisions);
   // The review is computed once and handed to the pipeline, so the gate judges
@@ -218,25 +308,14 @@ function runFinalize(args) {
     },
   };
   const pipeline = runGatePipeline(pipelineInput);
+  return { analysis, decisions, inventory, specPulse, ownershipTable, dependencyReview, pipeline };
+}
 
-  if (pipeline.status !== 'COMPLETE') {
-    const failingGate = pipeline.gates.find((gate) => gate.status !== 'PASS');
-    process.stdout.write(
-      formatFailure({
-        gateId: failingGate.id,
-        reason: `pipeline ended with status ${pipeline.status}`,
-        fixHint: 'resolve REVIEW_REQUIRED items or fix the dependency/layer violations in the decisions input',
-      })
-    );
-    const reasons = (failingGate.reasons ?? []).join('; ') || 'see finalAudit counts in the gate output';
-    guide(`Finalize blocked at ${failingGate.id} (${pipeline.status}). Reasons: ${reasons}. Nothing was published and no existing manifest was changed.`);
-    for (const line of adviseFailure({ gateId: failingGate.id, reason: reasons, stage: 'workspacify-tree' })) {
-      guide(line);
-    }
-    process.exit(EXIT_CODES.FAIL);
-  }
-
-  const manifest = assembleManifest({
+/** The manifest sections the forward rotation publishes, and reverse mode extends. */
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+function buildForwardManifestSections(prepared) {
+  const { analysis, decisions, inventory, specPulse, ownershipTable, dependencyReview, pipeline } = prepared;
+  return {
     status: 'COMPLETE',
     run: buildRunSection(),
     input: buildInputSection(analysis),
@@ -261,42 +340,223 @@ function runFinalize(args) {
     gates: { records: pipeline.gates },
     final_audit: { ...pipeline.finalAudit, status: pipeline.finalAudit.status },
     integrity: { input_hash_verified_at_finalize: true, reload_validation: 'PASS' },
-  });
+  };
+}
 
-  // Double gate: the hand-off must be acceptable to stage 2 before it is published.
-  const acceptance = checkTreeEntryGate(manifest, analysis.absPath);
-  if (!acceptance.ok) {
-    process.stdout.write(
-      formatFailure({
-        gateId: 'G5',
-        reason: `the manifest would not be accepted by stage 2: ${acceptance.errors.join('; ')}`,
-        fixHint: 'fix the stage-2 requirements named above, then re-run gate and finalize',
-      }),
-    );
-    process.exit(EXIT_CODES.FAIL);
+/**
+ * Report a forward-gate failure and stop: nothing is published and no manifest is replaced.
+ *
+ * The step is named by the caller, because both rotations run the same forward
+ * gates and an operator reading "Finalize blocked" during a reverse run would
+ * re-run the wrong step.
+ */
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+function reportPipelineFailure(pipeline, stepName) {
+  const failingGate = pipeline.gates.find((gate) => gate.status !== 'PASS');
+  process.stdout.write(
+    formatFailure({
+      gateId: failingGate.id,
+      reason: `pipeline ended with status ${pipeline.status}`,
+      fixHint: 'resolve REVIEW_REQUIRED items or fix the dependency/layer violations in the decisions input',
+    })
+  );
+  const reasons = (failingGate.reasons ?? []).join('; ') || 'see finalAudit counts in the gate output';
+  guide(`${stepName} blocked at ${failingGate.id} (${pipeline.status}). Reasons: ${reasons}. Nothing was published and no existing manifest was changed.`);
+  for (const line of adviseFailure({ gateId: failingGate.id, reason: reasons, stage: 'workspacify-tree' })) {
+    guide(line);
+  }
+  process.exit(EXIT_CODES.FAIL);
+}
+
+/**
+ * Reverse mode: partition a project that already exists.
+ *
+ * The forward pipeline still runs and still has to reach COMPLETE, because the
+ * reverse rotation does not replace the partition — it grounds it. The measured
+ * tree is then compared against what the partition declared (T1 to T6), and only
+ * a run whose every gate answered PASS publishes a manifest. The one field the
+ * manifest gains is `reverse_provenance`; `COMPLETE` keeps the meaning it has in
+ * the forward rotation.
+ */
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+function runReverse(args) {
+  const specPath = optionValue(args, '--spec');
+  const decisionsPath = optionValue(args, '--decisions');
+  const root = optionValue(args, '--root');
+  if (!specPath || !decisionsPath || !root) {
+    process.stdout.write(printUsage());
+    process.exit(EXIT_CODES.USAGE);
   }
 
-  const content = renderManifestText(manifest);
-  // The canonical artifact is always published to the current working directory.
-  const outputDir = process.cwd();
-  const publishResult = atomicPublish({ dir: outputDir, fileName: MANIFEST_FILE_NAME, content, sourceHash: analysis.sourceHash });
-  if (!publishResult.published) {
-    process.stdout.write(formatFailure({ gateId: 'G5', reason: publishResult.reason ?? 'publish failed', fixHint: 'resolve the blocked condition before retrying' }));
+  const outDir = path.resolve(optionValue(args, '--out') ?? process.cwd());
+  const measuredRoot = path.resolve(root);
+  const deltaPath = path.resolve(optionValue(args, '--delta') ?? path.join(outDir, ARCHITECTURE_DELTA_FILE_NAME));
+
+  const prepared = prepareForwardPipeline(specPath, decisionsPath);
+  if (prepared.pipeline.status !== 'COMPLETE') {
+    reportPipelineFailure(prepared.pipeline, 'Reverse mode');
+  }
+
+  const packages = prepared.decisions.workspace;
+  const measuredTree = measureDirectoryTree(measuredRoot);
+  const measured = {
+    directories: measuredTree.directories,
+    sourceFiles: measuredTree.sourceFiles,
+    edges: readMeasuredEdges(optionValue(args, '--measured')),
+  };
+
+  const sidecarFiles = listSidecarFiles(optionValue(args, '--sidecars'));
+  const delta = loadArchitectureDelta(deltaPath);
+  const reverseProvenance = {
+    sidecar_bundle_hash: computeSidecarBundleHash(digestSidecarFiles(sidecarFiles)),
+    counts: { sidecars: sidecarFiles.length, packages: packages.length, mismatches_recorded: delta.mismatches.length },
+  };
+
+  const manifest = assembleManifest(
+    addReverseProvenance(buildForwardManifestSections(prepared), {
+      mode: TREE_MODES.REVERSE,
+      sidecarBundleHash: reverseProvenance.sidecar_bundle_hash,
+      counts: reverseProvenance.counts,
+    }),
+  );
+
+  const records = runReverseGates({
+    mode: TREE_MODES.REVERSE,
+    manifest,
+    measured,
+    graph: { nodes: readGraphNodes(optionValue(args, '--graph')) },
+    resolveFilePath: (file) => path.resolve(measuredRoot, file),
+    delta,
+    sidecarFiles,
+    reverseProvenance,
+  });
+  const summary = summarizeReverseGates(records);
+  if (summary.status !== 'COMPLETE') {
+    reportReverseFailure(records, summary);
+  }
+
+  const published = publishAcceptedManifest({
+    manifest,
+    specPath: prepared.analysis.absPath,
+    outDir,
+    sourceHash: prepared.analysis.sourceHash,
+  });
+  if (!published.published) {
+    process.stdout.write(
+      formatFailure({ gateId: 'G5', reason: published.reason, fixHint: REVERSE_REFUSAL_HINTS[published.refusal] }) + '\n'
+    );
     process.exit(EXIT_CODES.FAIL);
   }
 
   process.stdout.write(
     formatSuccess({
-      manifestAbsPath: path.resolve(publishResult.path),
-      sourceHash: analysis.sourceHash,
+      manifestAbsPath: published.manifestAbsPath,
+      sourceHash: prepared.analysis.sourceHash,
       manifestHash: manifest.integrity.manifest_hash,
-      gateSummary: pipeline.gates.map((gate) => `${gate.id}:${gate.status}`).join(' '),
+      gateSummary: records.map((record) => `${record.gateId}:${record.status}`).join(' '),
     }) + '\n'
   );
-  guide(`Finalize PASS: WORKSPACIFY-TREE-MANIFEST.json was atomically published to the current directory, reload-verified, and passes the ALLOCATE entry-gate parity (all categories owned, tree consistent, boundaries covered). This file is the single input for the next stage /workspacify-allocate.`);
+  guide(`Reverse PASS: T1 to T6 were judged over the measured tree at ${measuredRoot} and the manifest was published with its reverse provenance. The physical layout is preserved and every logical/physical mismatch is recorded in ${ARCHITECTURE_DELTA_FILE_NAME} rather than silently accepted.`);
+  process.stdout.write(renderReverseReport(records));
   process.exit(EXIT_CODES.OK);
 }
 
+/** What the reverse rotation tells the operator to re-run after a refused publication. */
+const REVERSE_REFUSAL_HINTS = Object.freeze({
+  'entry-gate': 'fix the stage-2 requirements named above, then re-run reverse',
+  publish: 'resolve the blocked condition before retrying',
+});
+
+/**
+ * Report the reverse gates that did not pass and stop, publishing nothing.
+ *
+ * Every failing gate is named, not only the first: a run that reported one
+ * problem at a time would make the operator re-run the step once per problem.
+ */
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+function reportReverseFailure(records, summary) {
+  const failingGate = records.find((record) => record.status !== 'PASS');
+  process.stdout.write(
+    formatFailure({
+      gateId: failingGate.gateId,
+      reason: failingGate.reasons.join('; '),
+      fixHint: `repair what ${summary.failing.join(', ')} reported, then run this step again`,
+    }) + '\n'
+  );
+  guide(`Reverse mode stopped at ${summary.failing.join(', ')}. Nothing was published and no existing manifest was replaced.`);
+  process.stdout.write(renderReverseReport(records));
+  process.exit(EXIT_CODES.FAIL);
+}
+
+/** The regular files directly inside a sidecar directory, name-sorted. */
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+function listSidecarFiles(dir) {
+  if (!dir) {
+    return [];
+  }
+  const absoluteDir = path.resolve(dir);
+  if (!existsSync(absoluteDir)) {
+    throw new Error(`the sidecar directory ${absoluteDir} does not exist`);
+  }
+  return readdirSync(absoluteDir)
+    .sort()
+    .filter((entry) => statSync(path.join(absoluteDir, entry)).isFile())
+    .map((entry) => ({ name: entry, path: path.join(absoluteDir, entry) }));
+}
+
+/**
+ * Read a measured edge set.
+ *
+ * A file that parses but carries no `edges` array is reported as an absent
+ * measurement, which T4 then names. A file that cannot be read at all is an
+ * input error and says so here: "the JSON is malformed" and "the measurement
+ * found no edges" are different problems with different repairs.
+ */
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+function readMeasuredEdges(measuredPath) {
+  if (!measuredPath) {
+    return undefined;
+  }
+  const absolutePath = path.resolve(measuredPath);
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(absolutePath, 'utf8'));
+  } catch (error) {
+    throw new Error(`the measured dependency report ${absolutePath} could not be read as JSON: ${error.message}`);
+  }
+  return Array.isArray(parsed?.edges) ? parsed.edges : undefined;
+}
+
+/**
+ * Read the node list a graph carries.
+ *
+ * The contract T3 judges is one field: every node carries `file`, the path it
+ * is grounded in. A node without one is passed through as `file: null` so T3
+ * reports it by identifier instead of dropping it.
+ *
+ * An absent `--graph` returns undefined rather than an empty list, because an
+ * omitted graph and an empty graph are different claims: T3 must fail on the
+ * first and may pass on the second.
+ */
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+function readGraphNodes(graphPath) {
+  if (!graphPath) {
+    return undefined;
+  }
+  const absolutePath = path.resolve(graphPath);
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(absolutePath, 'utf8'));
+  } catch (error) {
+    throw new Error(`the graph ${absolutePath} could not be read as JSON: ${error.message}`);
+  }
+  if (!Array.isArray(parsed?.nodes)) {
+    throw new Error(`the graph ${absolutePath} does not carry a "nodes" array`);
+  }
+  return parsed.nodes.map((node) => ({ id: node.id, file: node.file ?? null }));
+}
+
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
 function analyzeSpec(specPath) {
   const absPath = path.resolve(specPath);
   const input = readSpecInput(absPath);
@@ -586,6 +846,7 @@ function optionValue(args, flag) {
   return undefined;
 }
 
+// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
 function printUsage() {
   return [
     'usage: /workspacify-tree <path-to-specification.md>',
@@ -594,6 +855,8 @@ function printUsage() {
     '  extract <spec>',
     '  gate --spec=<path> --decisions=<path>',
     '  finalize --spec=<path> --decisions=<path>',
+    '  reverse --spec=<origin-spec.md> --decisions=<path> --root=<project directory>',
+    '          [--graph=<path>] [--measured=<path>] [--sidecars=<dir>] [--delta=<path>] [--out=<dir>]',
   ].join('\n') + '\n';
 }
 

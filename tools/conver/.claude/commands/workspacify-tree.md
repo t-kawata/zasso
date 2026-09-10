@@ -39,6 +39,7 @@ Under `.claude/scripts/workspacify-tree/`.
 | `run.mjs extract <spec>` | Harvests object/claim plus invariant / state machine / error code / required test as independent categories, and gives every candidate source traceability (G2). Prints candidate statistics |
 | `run.mjs gate --spec=.. --decisions=..` | Runs the **real gate pipeline** over the decision input and returns the per-gate result. Only COMPLETE exits 0 |
 | `run.mjs finalize --spec=.. --decisions=..` | Applies ownership → runs every gate → assembles the manifest → self-hash → publishes to the current directory |
+| `run.mjs reverse --spec=.. --decisions=.. --root=..` | **Reverse mode.** Runs the same G0–G5, then judges T1 to T6 over the measured project tree under `--root`, reads the logical/physical mismatches the operator recorded in `ARCHITECTURE-DELTA.json`, and publishes the manifest with `reverse_provenance`. Only `COMPLETE` exits 0; a failing gate publishes nothing |
 
 ## Statuses and gates
 
@@ -226,3 +227,33 @@ The prohibitions are already consolidated into "what the gate enforces mechanica
 ## Definition of success
 
 Success is consolidated into the coexistence of **① the AI's final semantic approval** (recording `semantic_review.status === "APPROVED"` in the decision) and **② every machine gate PASS and unresolved review 0**. One side alone — machine gates only, or AI approval only — is not success. The final confirmation is a reload of the generated manifest (schema / required values / self-hash), the presence of the `semantic_review` record, and acceptance by stage two's entry gate (which finalize runs itself immediately before publication).
+
+## Reverse mode (T1 to T6)
+
+**Role**: when a project already contains a substantial implementation, the partition cannot be designed from a specification alone — it has to be grounded in the tree that exists. Reverse mode preserves the physical layout exactly and holds the logical architecture as a separate layer, so that the existing technical debt is **recorded** rather than frozen into the canonical record as if it had been designed.
+
+**Invocation**: `run.mjs reverse --spec=<origin-spec.md> --decisions=<path> --root=<project directory>`, with optional `--graph=<graph.json>`, `--measured=<dependency measurement>`, `--sidecars=<dir>`, `--delta=<path>` and `--out=<dir>`.
+
+The forward gates G0 to G5 are unchanged and still have to reach `COMPLETE`. Reverse mode then judges six gates over the measured tree:
+
+| Gate | FAIL condition | PASS condition |
+|---|---|---|
+| **T1 structure parity** | the manifest package path set and the measured directory set differ in either direction | they agree exactly; every difference is named as extra or missing |
+| **T2 zero behavioural loss** | a hand-written source file belongs to no declared package path | every hand-written source file is owned |
+| **T3 grounding** | a node does not resolve to a file that exists | every node resolves, and an unresolvable node is named by its identifier |
+| **T4 measured implementation order** | the order the measured DAG proves differs from the manifest's `implementation_order`, or that projection contains a cycle | the two orders agree |
+| **T5 logical/physical separation** | a mismatch that `ARCHITECTURE-DELTA.json` does not record, or the record is missing entirely | every mismatch is recorded |
+| **T6 reverse provenance** | the run is in reverse mode and `reverse_provenance` is absent, or its sidecar bundle hash does not resolve | it is present and resolves. In forward mode the field is deliberately absent and T6 does not fire |
+
+**What T5 means, and what it does not**: T5 passes on the **presence of a record**, not on the absence of a difference. A run with zero mismatches still has to write `ARCHITECTURE-DELTA.json`, because the record is what says the layout was examined rather than assumed. Agreement between the physical layout and the logical model is not evidence that either is correct.
+
+**The one field reverse mode adds** is `reverse_provenance`, holding the sidecar bundle hash and a count summary. The meaning of `COMPLETE` is unchanged — it still means only that the input packet and the artefacts met the schema, the gates and the publication discipline — and the normalisation behind `manifest_hash` is not changed. Forward-mode manifests are byte-identical.
+
+**Causes of a reverse FAIL, by gate**: a path present on disk with no package (T1, "extra"), a declared package with no directory (T1, "missing"), a source file no package path contains (T2), a node whose file does not exist (T3), an order the measurement contradicts or a cycle (T4), a mismatch the record omits (T5), a provenance that does not resolve (T6).
+
+**Prohibitions**:
+
+- Never rename a top-level entry in reverse mode: the existing tree is preserved. The writes are the manifest and `ARCHITECTURE-DELTA.json` only
+- Never add a field to `*-GRAPH.json` or `*-Dirs-Tree.json`; reverse provenance lives on the manifest alone
+- Never treat the measured DAG as the logical architecture. T5 exists precisely because they are different things
+- Never record a mismatch and then treat its record as a repair. The record is the artefact, not the fix
