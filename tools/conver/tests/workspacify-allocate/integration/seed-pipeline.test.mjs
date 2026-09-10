@@ -18,15 +18,16 @@ import { buildSeedFixture } from '../helpers/build-valid-manifest.mjs';
 
 function aiSectionsFor() {
   return {
-    3: 'Note: allocation table above is authoritative.',
-    4: 'Body 4.', 5: 'Body 5.', 6: 'Body 6.', 7: 'Integration context prose.',
-    8: 'not_applicable — no state.', 9: 'not_applicable — no I/O.', 10: 'Body 10.',
-    11: 'Body 11.', 12: 'Body 12.', 13: 'Grill question.', 15: 'Body 15.',
+    4: 'Body 4.', 5: 'Body 5.', 6: 'Body 6.', 7: 'not_applicable — no mutable state.',
+    8: 'not_applicable — no external I/O.', 9: 'Body 9.', 10: 'Body 10.',
+    11: 'Body 11.', 12: 'Body 12.', 13: 'Body 13.',
   };
 }
 
 test('IT packet -> render -> parse -> parity over a real co-located spec', () => {
-  const { manifest, packages, entries } = buildSeedFixture();
+  const { manifest } = buildSeedFixture();
+  const packages = manifest.workspace.packages;
+  const entries = manifest.workspace.ownership.entries;
   const dir = mkdtempSync(join(tmpdir(), 'wt-190-it-'));
   try {
     const specText = '# Spec\n\n## Chapter\n\nAlpha Record\n\nBeta Claim\n';
@@ -41,8 +42,23 @@ test('IT packet -> render -> parse -> parity over a real co-located spec', () =>
     const parsedByPackage = new Map();
     for (const pkg of packages) {
       const packet = buildAuthoringPacket({ manifest: loaded, sourceText, packageId: pkg.id });
-      assert.equal(packet.ownedItems.length, expectedByPackage.get(pkg.id).length);
-      const { seedText } = renderSeed({ package: pkg, manifest: loaded, expectedAllocation: expectedByPackage.get(pkg.id), aiSections: aiSectionsFor() });
+      assert.equal(packet.owned_items.length, expectedByPackage.get(pkg.id).length);
+      const { seedText } = renderSeed({
+        package: pkg,
+        manifest: loaded,
+        expectedAllocation: expectedByPackage.get(pkg.id),
+        referenceBlock: {
+          package: { id: pkg.id, name: pkg.name, path: pkg.path, layer: pkg.layer, kind: pkg.kind, responsibilities: pkg.responsibilities },
+          source_spec: { path: loaded.input.spec_path, sha256: loaded.input.source_hash },
+          stage1_manifest: { path: 'WORKSPACIFY-TREE-MANIFEST.json', hash: loaded.integrity.manifest_hash },
+          stage2_manifest: { path: 'WORKSPACIFY-ALLOCATE-MANIFEST.json' },
+          implementation_order: { before: [], after: [], parallel_with: [], serial_index: 0, wave: 0 },
+          contract_refs: [],
+          source_segments: [],
+        },
+        contractEdges: [],
+        aiSections: aiSectionsFor(),
+      });
       parsedByPackage.set(pkg.id, parseSeed(seedText).allocationIndexRows);
     }
     const report = runSeedParity({ expectedByPackage, parsedByPackage });

@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /workspacify-tree
 
-**Role**: 単一の Markdown 仕様書を入力として、構造解析・候補収穫・workspace 設計・完全性ゲートを実行し、長大な仕様書を「安全に分割して実装可能なworkspace/crate/package構造へ設計するための第一段階」を実行する。将来の第二段階が唯一の引数として受け取れる `WORKSPACIFY-TREE-MANIFEST.json` を原子公開する。このコマンドは仕様を実装しない。設計判断は AI(=実行セッション)が行い、機械は収穫・検証・publish を担う。
+**Role**: 単一の Markdown 仕様書を入力として、構造解析・候補収穫・workspace 設計・完全性ゲートを実行し、長大な仕様書を「安全に分割して実装可能なworkspace/crate/package構造へ設計するための第一段階」を実行する。将来の第二段階が唯一の引数として受け取れる `WORKSPACIFY-TREE-MANIFEST.json` を公開する。このコマンドは仕様を実装しない。設計判断は AI(=実行セッション)が行い、機械は収穫・検証・publish を担う。
 
 ## Language Protocol
 
@@ -23,6 +23,7 @@ disable-model-invocation: true
 - 第1引数(必須・唯一): 仕様書へのパス(`<path-to-specification.md>`)
   - 要件: 通常ファイル / UTF-8 復号可 / 非空 / ATX 見出しを1つ以上含む / 読取可能
   - 追加引数・対話・環境変数・hook・外部取得を要求しない
+  - 引数以外の自由入力があった場合には、それを追加情報として扱う
 
 ## 出力の正本と制約
 
@@ -37,8 +38,7 @@ disable-model-invocation: true
 | `run.mjs parse <spec>` | 入力ロック/正規化/hash/見出し/segment/再構成一致(G0/G1)。PASS/FAIL を exit code で返す |
 | `run.mjs extract <spec>` | object/claim に加え invariant / state machine / error code / required test を独立カテゴリとして収穫し、全候補に source traceability(G2)。候補統計を出力 |
 | `run.mjs gate --spec=.. --decisions=..` | decision 入力へ **実ゲートパイプラインを実行**し per-gate 結果を返す。COMPLETE のみ exit 0 |
-| `run.mjs finalize --spec=.. --decisions=..` | ownership 適用 → 全ゲート → manifest 組み立て → self-hash → カレントディレクトリへ atomic publish |
-| `lib/*.mjs` | errors/fs-safe/hash/normalization/markdown/headings/segmentation/extraction/traceability/alias-normalization/decision-input/decision-apply/inventory-report/workspace-model/ownership/dag/dependencies/boundary-review/adapters/database-policy/manifest-schema/validation/entry-parity/render/atomic-publish/report |
+| `run.mjs finalize --spec=.. --decisions=..` | ownership 適用 → 全ゲート → manifest 組み立て → self-hash → カレントディレクトリへ publish |
 
 ## 状態とゲート
 
@@ -47,21 +47,30 @@ disable-model-invocation: true
 - `REVIEW_REQUIRED` は成功ではない。未解決 review が残る限り COMPLETE を出さない
 - `BLOCKED`: 既存 manifest の input hash と異なる仕様書への上書きを拒否
 
-ゲート階層: G0 入力ロック → G1 構造(見出し/segment/再構成) → G2 要件インベントリ → G3 workspace(カタログ/所有権/過剰分割) → G4 依存(DAG/層規則/循環) → G5 成果物完全性(schema/self-hash/atomic)。親ゲート未 PASS なら子を PASS にしない。
+ゲート階層: G0 入力ロック → G1 構造(見出し/segment/再構成) → G2 要件インベントリ → G3 workspace(カタログ/所有権/過剰分割/責務必須) → G4 依存(DAG/層規則/循環/**実装順序の証明**) → G5 成果物完全性(schema/self-hash)。親ゲート未 PASS なら子を PASS にしない。
 
 ## 設計判断と機械化の境界
 
-- **機械(決定論)**: 収穫・形式検証・所有権一意性・DAG/循環・禁止層・raw SQL・DB型漏れ・self-hash・atomic publish
+- **機械(決定論)**: 収穫・形式検証・所有権一意性・DAG/循環・禁止層・raw SQL・DB型漏れ・self-hash
 - **AI(意味論判断)**: workspace ツリー設計、owner 割当、過剰分割の最終判断、adapter/DB 適用可否、reason_code 選択、禁止edge の代替経路、REVIEW_REQUIRED の承認
 
 過度機械化を避ける: boundary-review は「リスク候補の発見」まで。抽出器は候補収穫まで。検証器は制約検査まで。
+
+## 第二段階(ALLOCATE)への引渡し契約
+
+第一段階の出力は、第二段階が機械検証だけで結合契約の充足を判定できる材料でなければならない。
+
+- **証明して渡す**: 依存先の実装順序、boundary ごとの clause 群（事前条件・事後条件・不変条件を含む）、segment とそこが運ぶ material、package の責務、契約 item の順。いずれも決定論的に再計算できなければならない（同じ仕様書と decision から同じ manifest）。
+- **禁止**: 検証を通らない manifest を publish してはならない。未検証の順序・clause・segment 参照を書くだけで渡してはならない。
+- **二重ゲート**: finalize は publish の直前に第二段階の entry gate を権威として呼び、受理されない manifest は G5 で停止する。stage-1 と stage-2 の検査は同一の述語であり、片側だけの抜け道は存在しない。
+- **失敗時は助言に従う**: どのゲートも失敗時に「何が問題か・なぜ重要か・どう直すか」を出力する。。
 
 ## Step 1: parse(G0/G1)
 
 **この Step の目的**: 入力仕様書を「固定」する。読めるか / UTF-8 か / 空でないかを検査し、正規化(改行統一・末尾改行保持)と SHA-256 を確定させ、見出しツリーと `##` 単位の segment に分割した上で「segment を再結合すると元の bytes と完全一致する」ことを機械証明する。ここが壊れると以後すべての source traceability が無効になるため、最初の関門である。
 
 ```bash
-node .claude/scripts/workspacify-tree/run.mjs parse "<spec>"
+node .claude/scripts/workspacify-tree/run.mjs parse "$ARGUMENTS"
 ```
 
 - **出力の意味**: `source_hash` = 正規化後入力全体の SHA-256(以後の entry gate が参照する不変の指紋)。`reconstruction` = segment 再構成の検証結果
@@ -73,7 +82,7 @@ node .claude/scripts/workspacify-tree/run.mjs parse "<spec>"
 **この Step の目的**: 固定された構造から「実装対象になり得る候補」を漏れなく収穫し、全候補に原文位置(source traceability)を付与する。収穫は決定論的パターン(テーブルの object 列 / inline code / claim コードブロック / 規範語句)で行い、invariant / error code / required test は `terms` に畳まず**独立カテゴリ**として分離する。ここで AI がレビューしなければ、後の設計で「仕様に書いてあったのに抽出漏れ」が起きる。
 
 ```bash
-node .claude/scripts/workspacify-tree/run.mjs extract "<spec>"
+node .claude/scripts/workspacify-tree/run.mjs extract "$ARGUMENTS"
 ```
 
 - **出力の意味**: 候補統計 `harvested`(収穫数)/ `confirmed`(確定)/ `review_required`(AI 確認待ち)/ `unresolved`(未解決)
@@ -151,6 +160,7 @@ decision は一度で完成させず、**Step 4 のゲート結果を見なが�
 - [ ] **adapter・DB 適用可否**: adapter は外部 I/O のみ。RDBMS 永続化が必要な場合のみ `databasePolicy.applicable` とし、raw SQL 不使用・DB 固有型が domain/protocol へ漏れないことを確認する
 - [ ] **過剰分割の最終判断**: 内部状態共有・中間値分割・相互依存必須・不変条件再実装・巨大 snapshot 受渡しの兆候が無いか確認し、必要なら package を統合する
 - [ ] **境界の catalog 内整合**: 全 `contract_boundaries` の `consumer` / `provider` が workspace の package catalog に存在する
+- [ ] **依存証明の妥当性**: `implementation_order` が全 edge で provider を consumer より先の level に置き、`contract_definition_order` は契約 item の順である(両者を混同していない)。`dependencies.dag` の `cycle_count` は 0 である
 
 全項目を確認したら、decision の `semantic_review` へ記録する: `{ "status": "APPROVED", "statement": "<確認内容の要約>", "approver": "<セッション識別子>" }`。`statement` には確認した項目を要約し、`approver` には判断したセッションを明記する。
 
@@ -159,7 +169,7 @@ decision は一度で完成させず、**Step 4 のゲート結果を見なが�
 **この Step の目的**: Step 3 の decision(設計)が「客観ルールに適合しているか」を機械の実ゲートパイプラインで検証する。適合していなければ FAIL/REVIEW_REQUIRED の原因を突き止め、decision を修正して再検証し、**全ゲート PASS・未解決 0(COMPLETE)** に収束させる。ここが PASS しない限り publish してはならない。なお、意味論的正しさの最終判断(`semantic_review.status === "APPROVED"`)が記録されていない decision も G2/G3 が REVIEW_REQUIRED を返し COMPLETE にしない。
 
 ```bash
-node .claude/scripts/workspacify-tree/run.mjs gate "--spec=<spec>" "--decisions=<decision.json>"
+node .claude/scripts/workspacify-tree/run.mjs gate "--spec=$ARGUMENTS" "--decisions=<decision.json>"
 ```
 
 - **出力の意味**: per-gate 結果(`G0..G5` の PASS/FAIL/REVIEW_REQUIRED)と `finalAudit`(各 count)。`COMPLETE`(exit 0)は全ゲート PASS・unresolved 0 を意味する
@@ -182,7 +192,7 @@ node .claude/scripts/workspacify-tree/run.mjs gate "--spec=<spec>" "--decisions=
 **この Step の目的**: COMPLETE が確定した decision と解析結果から manifest を組み立て、正準 JSON + self-hash を計算し、**唯一の正本 `WORKSPACIFY-TREE-MANIFEST.json` をカレントディレクトリへ原子公開**する。第二段階はこのファイルだけを引数にできる。
 
 ```bash
-node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=<spec>" "--decisions=<decision.json>"
+node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=$ARGUMENTS" "--decisions=<decision.json>"
 ```
 
 - **実行条件**: 全ゲート PASS・unresolved 0 のときのみ。そうでなければ COMPLETE にせず非0で終了

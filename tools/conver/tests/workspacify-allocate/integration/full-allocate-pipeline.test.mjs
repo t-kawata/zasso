@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import { materializeSeedFixture, makeDecisions } from '../helpers/build-valid-manifest.mjs';
 import { parseSeed } from '../../../.claude/scripts/workspacify-allocate/lib/seed-parse.mjs';
+import { SEED_REQUIRED_SECTIONS } from '../../../.claude/scripts/workspacify-allocate/lib/seed-model.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-allocate/run.mjs', import.meta.url));
 
@@ -46,16 +47,19 @@ test('IT validate -> plan -> packet -> gate -> finalize publishes the real tree 
     // Real directories + RFC-SEED.md exist; no allocate manifest anywhere.
     assert.ok(existsSync(join(dir, 'crates', 'protocol', 'alpha', 'RFC-SEED.md')));
     assert.ok(existsSync(join(dir, 'crates', 'protocol', 'beta', 'RFC-SEED.md')));
-    assert.equal(existsSync(join(dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json')), false);
+    const allocateManifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), 'utf8'));
+    assert.equal(allocateManifest.status, 'COMPLETE');
+    assert.equal(allocateManifest.seed_index.length, 2);
+    assert.equal(allocateManifest.contract_registry.length, 1);
 
     // The spec and manifest files are untouched.
     assert.ok(existsSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json')));
     assert.ok(existsSync(join(dir, 'spec.md')));
 
-    // Reload-parse each seed: all 15 required headings.
+    // Reload-parse each seed: every required heading in the coupling-first grammar.
     for (const leaf of ['alpha', 'beta']) {
       const seedText = readFileSync(join(dir, 'crates', 'protocol', leaf, 'RFC-SEED.md'), 'utf8');
-      assert.equal(parseSeed(seedText).headings.length, 15);
+      assert.equal(parseSeed(seedText).headings.length, SEED_REQUIRED_SECTIONS.length);
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });

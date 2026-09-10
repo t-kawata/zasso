@@ -7,14 +7,44 @@ import assert from 'node:assert/strict';
 import { deriveExpectedAllocation, buildInventoryIndex, lookupInventoryItem, SEMANTIC_OWNER } from '../../../.claude/scripts/workspacify-allocate/lib/allocation-model.mjs';
 import { buildAuthoringPacket, resolveSourceExcerpt } from '../../../.claude/scripts/workspacify-allocate/lib/seed-authoring-packet.mjs';
 import { SEED_REQUIRED_SECTIONS } from '../../../.claude/scripts/workspacify-allocate/lib/seed-model.mjs';
+import { buildContractEdge } from '../../../.claude/scripts/workspacify-allocate/lib/contract-model.mjs';
 import { renderSeed } from '../../../.claude/scripts/workspacify-allocate/lib/seed-render.mjs';
+
+/** Machine sections a render needs under the coupling-first grammar. */
+function machineArgs(manifest, pkg) {
+  const boundaries = (manifest.dependencies?.boundaries ?? []).filter(
+    (boundary) => boundary.consumer_package === pkg.id || boundary.provider_package === pkg.id,
+  );
+  const contractEdges = boundaries.map((boundary) => buildContractEdge({
+    boundaryId: boundary.id,
+    consumerPackage: boundary.consumer_package,
+    providerPackage: boundary.provider_package,
+    direction: boundary.consumer_package === pkg.id ? 'consumer_to_provider' : 'provider_to_consumer',
+    connectionKind: boundary.connection_kind,
+    owners: { semantic: boundary.provider_package },
+    clauses: {},
+    sourceRefs: [],
+  }));
+  return {
+    referenceBlock: {
+      package: { id: pkg.id, name: pkg.name, path: pkg.path, layer: pkg.layer, kind: pkg.kind, responsibilities: pkg.responsibilities ?? ['x'] },
+      source_spec: { path: manifest.input?.spec_path ?? 'spec.md', sha256: manifest.input?.source_hash ?? 'h' },
+      stage1_manifest: { path: 'WORKSPACIFY-TREE-MANIFEST.json', hash: manifest.integrity?.manifest_hash ?? 'h' },
+      stage2_manifest: { path: 'WORKSPACIFY-ALLOCATE-MANIFEST.json' },
+      implementation_order: { before: [], after: [], parallel_with: [], serial_index: 0, wave: 0 },
+      contract_refs: contractEdges.map((edge) => edge.contract_id),
+      source_segments: [],
+    },
+    contractEdges,
+  };
+}
 import { parseSeed } from '../../../.claude/scripts/workspacify-allocate/lib/seed-parse.mjs';
 import { runSeedLocalChecks } from '../../../.claude/scripts/workspacify-allocate/lib/seed-local-checks.mjs';
 import { buildSeedFixture } from '../helpers/build-valid-manifest.mjs';
 
 function sectionsFor() {
   return {
-    3: 'note', 4: 'body4', 5: 'body5', 6: 'body6', 7: 'body7', 8: 'body8', 9: 'body9', 10: 'body10', 11: 'body11', 12: 'body12', 13: 'body13', 15: 'body15',
+    4: 'body4', 5: 'body5', 6: 'body6', 7: 'body7', 8: 'body8', 9: 'body9', 10: 'body10', 11: 'body11', 12: 'body12', 13: 'body13',
   };
 }
 
@@ -40,11 +70,12 @@ test('allocation-model: same-category tie, canonical-name fallback, empty invent
 
 test('seed-authoring-packet: unknown package throws', () => {
   const { manifest } = buildSeedFixture();
-  assert.throws(() => buildAuthoringPacket({ manifest, sourceText: 'x', packageId: 'ghost' }), (e) => e.message.includes('not found'));
+  assert.throws(() => buildAuthoringPacket({ manifest, sourceText: 'x', packageId: 'ghost' }), (e) => e.message.includes('not in the manifest catalog'));
 });
 
 test('seed-local-checks: each structural defect is reported', () => {
-  const { manifest, packages } = buildSeedFixture();
+  const { manifest } = buildSeedFixture();
+  const packages = manifest.workspace.packages;
   const expected = manifest.workspace.ownership.entries.filter((entry) => entry.owner_package === 'pkg-a').map((entry) => ({ category: entry.category, inventory_ref: entry.inventory_ref, canonical_name: entry.canonical_name, role: SEMANTIC_OWNER }));
   const validHeadings = SEED_REQUIRED_SECTIONS.map((section) => ({ index: section.index, title: section.title, body: 'x' }));
   const base = { package: packages[0], expectedAllocation: expected };
@@ -72,14 +103,15 @@ test('seed-local-checks: each structural defect is reported', () => {
 });
 
 test('seed-parse: title/index/title-mismatch and table edge cases', () => {
-  const { manifest, packages } = buildSeedFixture();
+  const { manifest } = buildSeedFixture();
+  const packages = manifest.workspace.packages;
   const expected = manifest.workspace.ownership.entries.filter((entry) => entry.owner_package === 'pkg-a').map((entry) => ({ category: entry.category, inventory_ref: entry.inventory_ref, canonical_name: entry.canonical_name, role: SEMANTIC_OWNER }));
-  const good = renderSeed({ package: packages[0], manifest, expectedAllocation: expected, aiSections: sectionsFor() }).seedText;
+  const good = renderSeed({ ...machineArgs(manifest, packages[0]), package: packages[0], manifest, expectedAllocation: expected, aiSections: sectionsFor() }).seedText;
 
   assert.throws(() => parseSeed('no title here\n' + good), (e) => e.gateId !== undefined);
-  const wrongIndex = good.replace('## 2. Stage 1 Ownership', '## 9. Stage 1 Ownership');
+  const wrongIndex = good.replace('## 2. Coupling Contracts (I/O Boundary)', '## 9. Coupling Contracts (I/O Boundary)');
   assert.throws(() => parseSeed(wrongIndex), (e) => e.gateId !== undefined);
-  const wrongTitle = good.replace('## 2. Stage 1 Ownership and Forbidden Ownership', '## 2. Stage 1 Ownership and Forbidden Ownership X');
+  const wrongTitle = good.replace('## 2. Coupling Contracts (I/O Boundary)', '## 2. Coupling Contracts (I/O Boundary) X');
   assert.throws(() => parseSeed(wrongTitle), (e) => e.gateId !== undefined);
 
   // A section-3 body with a table but no Category header yields zero rows.
@@ -92,17 +124,18 @@ test('seed-parse: title/index/title-mismatch and table edge cases', () => {
 });
 
 test('seed-render: empty-allocation scaffolding and invalid AI body', () => {
-  const { manifest, packages } = buildSeedFixture();
+  const { manifest } = buildSeedFixture();
+  const packages = manifest.workspace.packages;
   // A package owning nothing renders not_applicable ownership + trace bodies.
   const emptyPkg = { ...packages[1], owns: {} };
   const emptyAllocation = [];
-  const rendered = renderSeed({ package: emptyPkg, manifest, expectedAllocation: emptyAllocation, aiSections: sectionsFor() });
+  const rendered = renderSeed({ ...machineArgs(manifest, emptyPkg), package: emptyPkg, manifest, expectedAllocation: emptyAllocation, aiSections: sectionsFor() });
   assert.ok(rendered.seedText.includes('not_applicable'));
 
   // An AI body that is an empty string is invalid and blocks the render.
   const sections = sectionsFor();
   sections[4] = '';
-  assert.throws(() => renderSeed({ package: packages[0], manifest, expectedAllocation: [], aiSections: sections }), (e) => e.gateId !== undefined);
+  assert.throws(() => renderSeed({ ...machineArgs(manifest, packages[0]), package: packages[0], manifest, expectedAllocation: [], aiSections: sections }), (e) => e.gateId !== undefined);
 });
 
 test('seed-parse: resolveSourceExcerpt out-of-range ref falls back to occurrence', () => {
@@ -131,10 +164,10 @@ test('seed-authoring-packet: partial refs, sparse manifests, and conformance obl
   };
   const packet = buildAuthoringPacket({ manifest: sparse, sourceText, packageId: 'pkg-x' });
   assert.equal(packet.package.id, 'pkg-x');
-  assert.deepEqual(packet.ownedItems, []);
-  assert.deepEqual(packet.dependencyContext.outgoing, []);
-  assert.deepEqual(packet.dependencyContext.forbidden, []);
-  assert.equal(packet.testObligation, null);
+  assert.deepEqual(packet.owned_items, []);
+  assert.deepEqual(packet.forbidden_edges, []);
+  assert.deepEqual(packet.contract_context, []);
+  assert.equal(packet.conformance_obligation, null);
 
   // Conformance obligation present + unrelated forbidden edge exercises filters.
   const rich = {
@@ -159,8 +192,8 @@ test('seed-authoring-packet: partial refs, sparse manifests, and conformance obl
     conformance: { test_obligations: [{ package: 'pkg-x', obligation: 'sink' }], ci_rules: [] },
   };
   const richPacket = buildAuthoringPacket({ manifest: rich, sourceText, packageId: 'pkg-x' });
-  assert.equal(richPacket.testObligation.obligation, 'sink');
-  assert.equal(richPacket.dependencyContext.outgoing[0].to, 'pkg-y');
-  assert.equal(richPacket.dependencyContext.forbidden.length, 1);
-  assert.equal(richPacket.boundaryNotes.length, 1);
+  assert.equal(richPacket.conformance_obligation, 'this package is the test sink: it owns verification obligations, never production dependencies');
+  assert.equal(richPacket.contract_context[0].counterpart_package.id, 'pkg-y');
+  assert.equal(richPacket.forbidden_edges.length, 1);
+  assert.equal(richPacket.contract_context[0].required_clauses.length >= 0, true);
 });

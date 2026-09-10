@@ -1,4 +1,4 @@
-// [::TICKET::] PX-176 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-176|PX-183|PX-186) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-176, PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-176|PX-183|PX-186|PX-192) --for-spec --no-implementation-order`.
 /**
  * Candidate inventory extraction (§7.3, §8).
  *
@@ -73,12 +73,13 @@ export function harvestObjectCandidates({ sourceText, headings, segments }) {
   const lines = sourceText.split('\n');
   const offsets = lineByteOffsets(sourceText);
   const fenceStates = scanFenceStates(lines);
+  const document = { lines, offsets, headings, sourceText, segments };
   const byName = new Map();
   const order = [];
 
   const addCandidate = (canonicalName, classification, lineIndex) => {
     const existing = byName.get(canonicalName);
-    const ref = buildLineRef({ lines, offsets, headings, lineIndex, sourceText });
+    const ref = buildLineRef({ document, lineIndex });
     if (existing) {
       existing.source_refs.push(ref);
       mergeClassification(existing, classification);
@@ -140,12 +141,13 @@ export function harvestClaimCandidates({ sourceText, headings, segments }) {
   const lines = sourceText.split('\n');
   const offsets = lineByteOffsets(sourceText);
   const fenceStates = scanFenceStates(lines);
+  const document = { lines, offsets, headings, sourceText, segments };
   const byName = new Map();
   const order = [];
 
   const addCandidate = (canonicalName, lineIndex) => {
     const existing = byName.get(canonicalName);
-    const ref = buildLineRef({ lines, offsets, headings, lineIndex, sourceText });
+    const ref = buildLineRef({ document, lineIndex });
     if (existing) {
       existing.source_refs.push(ref);
       return;
@@ -206,6 +208,7 @@ function harvestPhraseCandidates({ sourceText, headings, segments }, phrases) {
   const lines = sourceText.split('\n');
   const offsets = lineByteOffsets(sourceText);
   const fenceStates = scanFenceStates(lines);
+  const document = { lines, offsets, headings, sourceText, segments };
   const candidates = [];
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
@@ -224,7 +227,7 @@ function harvestPhraseCandidates({ sourceText, headings, segments }, phrases) {
     });
     const ambiguous = specificPhrases.length > 1;
     const nearest = nearestHeadingAt(headings, lineIndex + 1);
-    const ref = buildLineRef({ lines, offsets, headings, lineIndex, sourceText });
+    const ref = buildLineRef({ document, lineIndex });
     for (const entry of specificPhrases) {
       candidates.push({
         id: `req-${String(candidates.length + 1).padStart(6, '0')}`,
@@ -323,19 +326,27 @@ function nearestHeadingAt(headings, line) {
   return nearest;
 }
 
-function buildLineRef({ lines, offsets, headings, lineIndex, sourceText }) {
+function buildLineRef({ document, lineIndex }) {
+  const { lines, offsets, headings, sourceText, segments } = document;
   const totalBytes = Buffer.byteLength(sourceText, 'utf8');
   const byteStart = offsets[lineIndex];
   const byteEnd = lineIndex + 1 < offsets.length ? offsets[lineIndex + 1] - 1 : totalBytes;
   const nearest = nearestHeadingAt(headings, lineIndex + 1);
   return {
     section_id: nearest ? nearest.id : null,
+    segment_id: segmentIdAtOffset(segments, byteStart),
     line_start: lineIndex + 1,
     line_end: lineIndex + 1,
     byte_start: byteStart,
     byte_end: byteEnd,
     snippet: lines[lineIndex].trim(),
   };
+}
+
+/** Segment id whose byte range contains the offset, or null when no segment does. */
+function segmentIdAtOffset(segments, byteOffset) {
+  const owner = (segments ?? []).find((segment) => byteOffset >= segment.byte_start && byteOffset < segment.byte_end);
+  return owner ? owner.id : null;
 }
 
 function mergeClassification(candidate, classification) {

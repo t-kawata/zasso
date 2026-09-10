@@ -1,4 +1,4 @@
-// [::TICKET::] PX-175 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-175 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-175, PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-175|PX-192) --for-spec --no-implementation-order`.
 /**
  * Chapter segmentation and reconstruction verification (§7.2).
  *
@@ -100,6 +100,35 @@ export function segmentAtHeadings({ sourceText, headings }, { segmentLevel = DEF
     );
   }
   return { segments, warnings: [] };
+}
+
+/**
+ * Summarise whether the segments are a total partition of the normalised text.
+ *
+ * Stage 2 proves zero-omission transfer by requiring every segment to be
+ * referenced by at least one seed, which is only meaningful when the segments
+ * cover the specification exactly once.
+ *
+ * @param {Array<object>} segments - segments in document order
+ * @param {number} totalBytes - byte length of the normalised specification
+ * @returns {{ segment_count: number, covered_bytes: number, first_byte: number, last_byte: number, is_total_partition: boolean }}
+ */
+export function partitionStats(segments, totalBytes) {
+  const ordered = [...(segments ?? [])].sort((a, b) => a.byte_start - b.byte_start);
+  const coveredBytes = ordered.reduce((total, segment) => total + Math.max(0, segment.byte_end - segment.byte_start), 0);
+  let isContiguous = ordered.length > 0 && ordered[0].byte_start === 0;
+  for (let index = 1; index < ordered.length && isContiguous; index += 1) {
+    isContiguous = ordered[index].byte_start === ordered[index - 1].byte_end;
+  }
+  const lastByte = ordered.length > 0 ? ordered[ordered.length - 1].byte_end : 0;
+  const isTotalPartition = isContiguous && coveredBytes === totalBytes && lastByte === totalBytes;
+  return {
+    segment_count: ordered.length,
+    covered_bytes: coveredBytes,
+    first_byte: ordered.length > 0 ? ordered[0].byte_start : 0,
+    last_byte: lastByte,
+    is_total_partition: isTotalPartition,
+  };
 }
 
 /**

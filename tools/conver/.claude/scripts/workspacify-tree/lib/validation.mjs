@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180|PX-181|PX-183|PX-186) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177, PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-180|PX-181|PX-183|PX-186|PX-192) --for-spec --no-implementation-order`.
 /**
  * Gate pipeline orchestration (§3).
  *
@@ -42,7 +42,7 @@ export function runGatePipeline(input = {}) {
   const treeReport = evaluateTree(workspaceData, packages);
   const boundaryResolution = evaluateBoundaryResolution(dependenciesData, packages);
   const boundaryCoverage = evaluateBoundaryCoverage(dependenciesData);
-  const missingResponsibilities = packages.filter((pkg) => !pkg.responsibilities || pkg.responsibilities.length === 0).length;
+  const responsibilityResult = validatePackageResponsibilities(packages);
   const referenceResolution = evaluateReferenceResolution(packages, decisionsData, inventoryData);
   const traceabilityReport = evaluateTraceability(inventoryData);
   const semanticApproval = evaluateSemanticApproval(decisionsData);
@@ -68,7 +68,7 @@ export function runGatePipeline(input = {}) {
         catalogErrors.length === 0 &&
         ownershipResult.isClean &&
         boundaryRisks.length === 0 &&
-        missingResponsibilities === 0 &&
+        responsibilityResult.ok &&
         treeReport.consistent &&
         boundaryResolution.unresolved === 0 &&
         boundaryCoverage.uncoveredEdges === 0 &&
@@ -80,7 +80,7 @@ export function runGatePipeline(input = {}) {
       counts: {
         ...ownershipResult.counts,
         boundary_risk_count: boundaryRisks.length,
-        missing_responsibilities_count: missingResponsibilities,
+        missing_responsibilities_count: responsibilityResult.missing_responsibilities_count,
         tree_catalog_mismatch_count: treeReport.errors.length,
         unresolved_boundary_count: boundaryResolution.unresolved,
         uncovered_edge_count: boundaryCoverage.uncoveredEdges,
@@ -90,6 +90,7 @@ export function runGatePipeline(input = {}) {
       },
       reasons: catalogErrors
         .map((error) => error.message)
+        .concat(responsibilityResult.errors)
         .concat(boundaryRisks.map((risk) => risk.detail))
         .concat(treeReport.errors)
         .concat(boundaryResolution.errors)
@@ -111,7 +112,7 @@ export function runGatePipeline(input = {}) {
   ];
 
   const gates = applyParentGating(checks);
-  const finalAudit = buildFinalAudit({ gates, ownershipResult, dagResult, dbResult, reviewRequiredCount, unresolvedCandidates });
+  const finalAudit = buildFinalAudit({ gates, ownershipResult, dagResult, dbResult, reviewRequiredCount, unresolvedCandidates, responsibilityResult });
   const status = decideStatus(gates, unresolvedCandidates, reviewRequiredCount, dagResult.report.cycle_count);
   return { gates, finalAudit, status };
 }
@@ -254,6 +255,25 @@ function evaluateReferenceResolution(packages, decisionsData, inventoryData) {
   return { unknownOwns, unknownOwnership, errors };
 }
 
+/**
+ * Validate that every package declares what it is responsible for.
+ *
+ * Responsibilities are the source of the seed's "role in the whole system", so a
+ * package without them cannot be handed to the directory loop: the count alone is
+ * reported for diagnosis, and the messages name each offending package.
+ *
+ * @param {Array<object>} packages - package descriptors
+ * @returns {{ ok: boolean, errors: string[], missing_responsibilities_count: number }}
+ */
+export function validatePackageResponsibilities(packages) {
+  const offending = (packages ?? []).filter((pkg) => !Array.isArray(pkg.responsibilities) || pkg.responsibilities.length === 0);
+  return {
+    ok: offending.length === 0,
+    errors: offending.map((pkg) => `package ${pkg.id} declares no responsibilities`),
+    missing_responsibilities_count: offending.length,
+  };
+}
+
 function evaluateDag(dependenciesData, packages) {
   const report = runDagChecks({
     packages: packages ?? [],
@@ -300,7 +320,7 @@ function applyParentGating(checks) {
 }
 
 function buildFinalAudit(aggregate) {
-  const { gates, ownershipResult, dagResult, dbResult, reviewRequiredCount, unresolvedCandidates } = aggregate;
+  const { gates, ownershipResult, dagResult, dbResult, reviewRequiredCount, unresolvedCandidates, responsibilityResult } = aggregate;
   const passed = gates.every((gate) => gate.status === GATE_STATUS.PASS);
   const report = dagResult.report;
   return {
@@ -315,6 +335,7 @@ function buildFinalAudit(aggregate) {
     cycle_count: report.cycle_count,
     review_required_count: reviewRequiredCount,
     unresolved_count: unresolvedCandidates.length,
+    missing_responsibilities_count: responsibilityResult.missing_responsibilities_count,
     raw_sql_count: dbResult.raw_sql_count,
     db_type_leak_count: dbResult.db_type_leak_count,
   };

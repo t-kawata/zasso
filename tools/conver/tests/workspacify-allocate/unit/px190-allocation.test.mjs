@@ -17,7 +17,8 @@ function loadDecisionsSchema() {
 }
 
 test('C001 expected allocation bijection over ownership entries', () => {
-  const { manifest, packages } = buildSeedFixture();
+  const { manifest } = buildSeedFixture();
+  const packages = manifest.workspace.packages;
   const { expectedByPackage, ok, duplicateRefs, unknownRefs } = deriveExpectedAllocation({
     ownershipEntries: manifest.workspace.ownership.entries,
     packages,
@@ -27,11 +28,11 @@ test('C001 expected allocation bijection over ownership entries', () => {
   assert.deepEqual(unknownRefs, []);
 
   const alphaItems = expectedByPackage.get('pkg-a').map((item) => item.inventory_ref).sort();
-  assert.deepEqual(alphaItems, ['inv-1', 'obj-000001', 'tst-1']);
+  assert.deepEqual(alphaItems, ['obj-000001', 'obj-000002']);
   for (const item of expectedByPackage.get('pkg-a')) {
     assert.equal(item.role, SEMANTIC_OWNER);
   }
-  assert.deepEqual(expectedByPackage.get('pkg-b').map((item) => item.inventory_ref), ['c-1']);
+  assert.deepEqual(expectedByPackage.get('pkg-b').map((item) => item.inventory_ref), []);
 });
 
 test('C001 duplicate and unknown ownership are reported', () => {
@@ -71,28 +72,29 @@ test('C002 buildAuthoringPacket returns owned items, excerpts, edges, and review
   const sourceText = '# Spec\n\n## Chapter\n\ntable with obj-000001\n\nBeta Claim here\n';
   const packet = buildAuthoringPacket({ manifest, sourceText, packageId: 'pkg-a' });
   assert.equal(packet.package.id, 'pkg-a');
-  assert.deepEqual(packet.ownedItems.map((item) => item.inventory_ref).sort(), ['inv-1', 'obj-000001', 'tst-1']);
-  const objectItem = packet.ownedItems.find((item) => item.inventory_ref === 'obj-000001');
+  assert.deepEqual(packet.owned_items.map((item) => item.inventory_ref).sort(), ['obj-000001', 'obj-000002']);
+  const objectItem = packet.owned_items.find((item) => item.inventory_ref === 'obj-000001');
   assert.equal(objectItem.source_refs.length, 1);
-  // outgoing pkg-a -> pkg-b, forbidden pkg-b -> pkg-a
-  assert.deepEqual(packet.dependencyContext.outgoing.map((edge) => edge.to), ['pkg-b']);
-  assert.equal(packet.dependencyContext.forbidden.length, 1);
-  // The resolvable object is never review-required; items with no source text are.
-  assert.equal(packet.reviewRequired.some((item) => item.inventory_ref === 'obj-000001'), false);
+  // The provider side of the declared boundary, and no forbidden edge in this fixture.
+  assert.deepEqual(packet.contract_context.map((entry) => entry.counterpart_package.id), ['pkg-b']);
+  assert.deepEqual(packet.forbidden_edges, []);
+  // The resolvable object is never reported as unresolved.
+  assert.equal(packet.unresolved_items.includes('obj-000001'), false);
 });
 
-test('C002 unresolvable excerpt lands in reviewRequired', () => {
+test('C002 unresolvable excerpt is reported as unresolved', () => {
   const { manifest } = buildSeedFixture();
-  const packet = buildAuthoringPacket({ manifest, sourceText: 'no matching text at all\n', packageId: 'pkg-b' });
-  // pkg-b owns c-1 whose canonical name never appears in this sourceText
-  assert.ok(packet.reviewRequired.some((item) => item.inventory_ref === 'c-1'));
+  const packet = buildAuthoringPacket({ manifest, sourceText: 'no matching text at all\n', packageId: 'pkg-a' });
+  // pkg-a owns the alpha record, whose canonical name never appears in this sourceText
+  assert.ok(packet.unresolved_items.includes('obj-000001'));
+  assert.equal(packet.review_required, true);
 });
 
 test('C005 seed-model constants and body validation', () => {
-  assert.equal(SEED_REQUIRED_SECTIONS.length, 15);
+  assert.equal(SEED_REQUIRED_SECTIONS.length, 14);
   assert.equal(SEED_REQUIRED_SECTIONS[0].index, 1);
-  assert.equal(SEED_REQUIRED_SECTIONS[6].index, 7);
-  assert.ok(SEED_REQUIRED_SECTIONS[6].title.includes('Integration Context'));
+  assert.equal(SEED_REQUIRED_SECTIONS[1].index, 2);
+  assert.equal(SEED_REQUIRED_SECTIONS[1].title, 'Coupling Contracts (I/O Boundary)');
   assert.equal(SEED_FILE_NAME, 'RFC-SEED.md');
   assert.deepEqual(ALLOCATION_INDEX_HEADERS, ['Category', 'Inventory ID', 'Canonical Name']);
   assert.equal(assertSeedBodyValid('real content'), null);
@@ -103,12 +105,13 @@ test('C005 seed-model constants and body validation', () => {
 
 test('C005 decisions schema validates the decisions payload shape', () => {
   const schema = loadDecisionsSchema();
-  const okPayload = { seeds: [{ packageId: 'pkg-a', aiSections: { 4: 'body', 5: 'body' } }], semantic_review: { status: 'APPROVED', statement: 'reviewed', approver: 'ai-session' } };
-  const reviewPayload = { seeds: [], semantic_review: { status: 'REVIEW_REQUIRED' } };
+  const fullSections = { 4: 'b', 5: 'b', 6: 'b', 7: 'b', 8: 'b', 9: 'b', 10: 'b', 11: 'b', 12: 'b', 13: 'b' };
+  const okPayload = { seeds: [{ packageId: 'pkg-a', aiSections: fullSections }], semantic_review: { status: 'APPROVED', statement: 'reviewed', approver: 'ai-session' } };
+  const reviewPayload = { seeds: [{ packageId: 'pkg-a', aiSections: fullSections }], semantic_review: { status: 'REVIEW_REQUIRED' } };
   assert.ok(validateAgainstSchema(okPayload, schema).valid);
   assert.ok(validateAgainstSchema(reviewPayload, schema).valid);
-  const missing = { seeds: [] };
+  const missing = { seeds: [{ packageId: 'pkg-a', aiSections: fullSections }] };
   assert.equal(validateAgainstSchema(missing, schema).valid, false);
-  const badStatus = { seeds: [], semantic_review: { status: 'NOPE' } };
+  const badStatus = { seeds: [{ packageId: 'pkg-a', aiSections: fullSections }], semantic_review: { status: 'NOPE' } };
   assert.equal(validateAgainstSchema(badStatus, schema).valid, false);
 });

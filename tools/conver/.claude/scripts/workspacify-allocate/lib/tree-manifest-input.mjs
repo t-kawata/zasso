@@ -17,6 +17,7 @@ import { sha256Hex } from '../../workspacify-tree/lib/hash.mjs';
 import { normalizeTextBytes } from '../../workspacify-tree/lib/normalization.mjs';
 import { computeSelfHash } from '../../workspacify-tree/lib/render.mjs';
 import { loadSchema, validateAgainstSchema } from '../../workspacify-tree/lib/manifest-schema.mjs';
+import { checkManifestFormat, MANIFEST_FORMAT_LEAD } from './manifest-format.mjs';
 import { isReadableRegularFile } from '../../workspacify-tree/lib/fs-safe.mjs';
 import { isPathContained } from './path-safety.mjs';
 
@@ -33,6 +34,7 @@ const FINAL_AUDIT_ZERO_COUNTS = [
   'review_required_count',
   'unresolved_count',
   'unallocated_count',
+  'missing_responsibilities_count',
 ];
 
 const CATEGORY_OWNERSHIP_LISTS = [
@@ -78,6 +80,13 @@ export function loadTreeManifest(absPath) {
  * @returns {{ ok: boolean, errors: string[] }}
  */
 export function checkAllocateEntryGate(manifest, manifestDir) {
+  const format = checkManifestFormat(manifest);
+  if (!format.ok) {
+    // A malformed manifest cannot be reasoned about, so the format verdict is the
+    // whole answer: reporting downstream gate reasons on top would bury the cause.
+    return { ok: false, errors: [MANIFEST_FORMAT_LEAD, ...format.errors] };
+  }
+
   const errors = [];
 
   const schemaReport = validateAgainstSchema(manifest, loadSchema('workspacify-tree-manifest.schema.json'));

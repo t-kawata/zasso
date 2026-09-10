@@ -1,29 +1,196 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "workspacify-allocate decisions input",
-  "description": "AI-authored allocation input: per-package seed prose plus the AI semantic approval. The machine validates shape only; it never grades prose.",
+  "title": "workspacify-allocate decisions input (v2)",
+  "description": "AI-authored allocation input: per-package authoring sections (4-13) plus the coupling contracts for every declared boundary, and the AI semantic approval. Sections 1, 2, 3 and 14 are machine-injected and are not part of this payload. The machine validates shape and clause vocabulary only; it never grades prose.",
   "type": "object",
-  "required": ["seeds", "semantic_review"],
+  "required": [
+    "seeds",
+    "semantic_review"
+  ],
   "properties": {
     "seeds": {
       "type": "array",
+      "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["packageId"],
+        "required": [
+          "packageId",
+          "aiSections"
+        ],
         "properties": {
-          "packageId": { "type": "string", "pattern": "\\S+" },
-          "aiSections": { "type": "object" }
+          "packageId": {
+            "type": "string",
+            "pattern": "\\S+"
+          },
+          "aiSections": {
+            "type": "object",
+            "description": "Only the authoring sections; propertyNames is declared for standards-compliant validators and enforced in code by validateDecisionsAuthoringSurface.",
+            "propertyNames": {
+              "enum": [
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "10",
+                "11",
+                "12",
+                "13"
+              ]
+            },
+            "required": [
+              "4",
+              "5",
+              "6",
+              "7",
+              "8",
+              "9",
+              "10",
+              "11",
+              "12",
+              "13"
+            ]
+          },
+          "contractEdges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "contract_id",
+                "direction",
+                "connection_kind",
+                "owners",
+                "clauses",
+                "source_refs"
+              ],
+              "properties": {
+                "contract_id": {
+                  "type": "string",
+                  "pattern": "^contract-\\S+$"
+                },
+                "boundary_id": {
+                  "type": "string",
+                  "pattern": "\\S+"
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "consumer_to_provider",
+                    "provider_to_consumer"
+                  ]
+                },
+                "connection_kind": {
+                  "type": "string",
+                  "pattern": "\\S+"
+                },
+                "consumer_package": {
+                  "type": "string",
+                  "pattern": "\\S+"
+                },
+                "provider_package": {
+                  "type": "string",
+                  "pattern": "\\S+"
+                },
+                "consumer_path": {
+                  "type": "string",
+                  "pattern": "\\S+"
+                },
+                "provider_path": {
+                  "type": "string",
+                  "pattern": "\\S+"
+                },
+                "owners": {
+                  "type": "object",
+                  "required": [
+                    "semantic",
+                    "state",
+                    "side_effect",
+                    "port",
+                    "adapter"
+                  ]
+                },
+                "clauses": {
+                  "type": "object",
+                  "description": "Clause groups keyed by the frozen stage-1 vocabulary; validateContractEdge rejects unknown, out-of-scope, missing and empty clauses.",
+                  "properties": {
+                    "input": {
+                      "type": "string"
+                    },
+                    "output": {
+                      "type": "string"
+                    },
+                    "preconditions": {
+                      "type": "array"
+                    },
+                    "postconditions": {
+                      "type": "array"
+                    },
+                    "invariants": {
+                      "type": "array"
+                    },
+                    "errors": {
+                      "type": "array"
+                    },
+                    "state_ownership": {
+                      "type": "string"
+                    },
+                    "idempotency": {
+                      "type": "string"
+                    },
+                    "atomicity": {
+                      "type": "string"
+                    },
+                    "ordering": {
+                      "type": "string"
+                    },
+                    "finality": {
+                      "type": "string"
+                    },
+                    "canonicalization": {
+                      "type": "string"
+                    },
+                    "signature": {
+                      "type": "string"
+                    },
+                    "proof_verification": {
+                      "type": "string"
+                    },
+                    "tests": {
+                      "type": "array"
+                    }
+                  }
+                },
+                "source_refs": {
+                  "type": "array"
+                }
+              }
+            }
+          }
         }
       }
     },
     "semantic_review": {
       "type": "object",
-      "required": ["status"],
+      "required": [
+        "status"
+      ],
       "properties": {
-        "status": { "type": "string", "enum": ["APPROVED", "REVIEW_REQUIRED"] },
-        "statement": { "type": "string" },
-        "approver": { "type": "string" }
+        "status": {
+          "type": "string",
+          "enum": [
+            "APPROVED",
+            "REVIEW_REQUIRED"
+          ]
+        },
+        "statement": {
+          "type": "string"
+        },
+        "approver": {
+          "type": "string"
+        }
       }
     }
-  }
+  },
+  "$comment": "[::TICKET::] PX-193 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-190|PX-193) --for-spec --no-implementation-order`."
 }

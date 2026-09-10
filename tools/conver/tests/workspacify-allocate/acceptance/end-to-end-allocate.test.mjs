@@ -34,8 +34,20 @@ test('C005 acceptance: a COMPLETE tree manifest becomes a real workspace with gr
       assert.ok(seedText.startsWith('# RFC Seed: '));
     }
 
-    // No WORKSPACIFY-ALLOCATE-MANIFEST.json is created anywhere in the workspace.
-    assert.equal(existsSync(join(dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json')), false);
+    // The allocate manifest is published next to the tree and re-verifies itself.
+    const allocateManifestPath = join(dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json');
+    assert.equal(existsSync(allocateManifestPath), true);
+    const allocateManifest = JSON.parse(readFileSync(allocateManifestPath, 'utf8'));
+    assert.equal(allocateManifest.artifact_kind, 'workspacify-allocate-manifest');
+    assert.equal(allocateManifest.status, 'COMPLETE');
+    assert.equal(allocateManifest.seed_index.length, 2);
+    assert.equal(allocateManifest.source_coverage.uncovered.length, 0);
+    assert.equal(allocateManifest.integrity.reload_validation, 'READY');
+    // Every seed references the published manifest by its canonical path.
+    for (const leaf of ['alpha', 'beta']) {
+      const seedText = readFileSync(join(dir, 'crates', 'protocol', leaf, 'RFC-SEED.md'), 'utf8');
+      assert.ok(seedText.includes('WORKSPACIFY-ALLOCATE-MANIFEST.json'));
+    }
 
     // A second finalize is BLOCKED (fresh-workspace-only policy).
     const second = spawnSync(process.execPath, [RUN, 'finalize', manifestPath, `--decisions=${decisionsPath}`], { encoding: 'utf8' });

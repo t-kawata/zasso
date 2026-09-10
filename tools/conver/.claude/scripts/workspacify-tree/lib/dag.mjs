@@ -1,4 +1,4 @@
-// [::TICKET::] PX-177, PX-188 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-188) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-177, PX-188, PX-192 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-177|PX-188|PX-192) --for-spec --no-implementation-order`.
 /**
  * Dependency graph checks (§11.4).
  *
@@ -121,7 +121,62 @@ export function runDagChecks({ packages, edges, forbiddenEdges = [] }) {
     cycle_count: cycleList.length,
     cycles: cycleList,
     topological_order: topologicalOrder,
+    canonical_edges: canonicalizeEdges(edgeList),
+    implementation_order: computeImplementationOrder(nodeSet, edgeList, cycleList.length),
   };
+}
+
+/** Order edges by consumer then provider so the persisted proof is comparable run to run. */
+export function canonicalizeEdges(edges) {
+  return [...(edges ?? [])]
+    .map((edge) => ({ from: edge.from, to: edge.to }))
+    .sort((left, right) => (left.from === right.from ? left.to.localeCompare(right.to) : left.from.localeCompare(right.from)));
+}
+
+/**
+ * Derive the order in which packages must be implemented.
+ *
+ * A package's depth is 0 when it depends on nothing and 1 + (deepest provider's
+ * depth) otherwise, so every provider sits in an earlier wave than each of its
+ * consumers. Waves make the parallel-safe groups explicit, and each wave is
+ * sorted by package id so the result is stable.
+ *
+ * @param {Set<string>} nodeSet - package ids
+ * @param {Array<{ from: string, to: string }>} edges - consumer -> provider edges
+ * @param {number} cycleCount - a cyclic graph has no implementation order
+ * @returns {{ serial: string[], levels: string[][] }}
+ */
+function computeImplementationOrder(nodeSet, edges, cycleCount) {
+  if (cycleCount > 0) {
+    return { serial: [], levels: [] };
+  }
+  const providersByConsumer = new Map([...nodeSet].map((id) => [id, []]));
+  for (const edge of edges) {
+    if (nodeSet.has(edge.from) && nodeSet.has(edge.to) && edge.from !== edge.to) {
+      providersByConsumer.get(edge.from).push(edge.to);
+    }
+  }
+
+  const depthByNode = new Map();
+  const depthOf = (nodeId) => {
+    if (depthByNode.has(nodeId)) {
+      return depthByNode.get(nodeId);
+    }
+    depthByNode.set(nodeId, 0); // Guards against a cycle reintroduced by filtering.
+    const providerDepths = providersByConsumer.get(nodeId).map((providerId) => depthOf(providerId));
+    const depth = providerDepths.length === 0 ? 0 : Math.max(...providerDepths) + 1;
+    depthByNode.set(nodeId, depth);
+    return depth;
+  };
+
+  const levels = [];
+  for (const nodeId of nodeSet) {
+    const depth = depthOf(nodeId);
+    levels[depth] = levels[depth] ?? [];
+    levels[depth].push(nodeId);
+  }
+  const sortedLevels = levels.map((level) => [...(level ?? [])].sort());
+  return { serial: sortedLevels.flat(), levels: sortedLevels };
 }
 
 function violatesLayerRule(fromPackage, toPackage) {

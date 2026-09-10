@@ -10,7 +10,9 @@ import { join } from 'node:path';
 import { runValidate, runPlan, runPacket, runGate, runFinalize } from '../../../.claude/scripts/workspacify-allocate/run.mjs';
 import { materializeSeedFixture, makeDecisions } from '../helpers/build-valid-manifest.mjs';
 import { parseSeed } from '../../../.claude/scripts/workspacify-allocate/lib/seed-parse.mjs';
+import { SEED_REQUIRED_SECTIONS } from '../../../.claude/scripts/workspacify-allocate/lib/seed-model.mjs';
 import { computeSelfHash } from '../../../.claude/scripts/workspacify-tree/lib/render.mjs';
+import { runDagChecks } from '../../../.claude/scripts/workspacify-tree/lib/dag.mjs';
 import { tmpdir } from 'node:os';
 
 function rewriteManifest(path, mutate) {
@@ -60,7 +62,7 @@ test('C001 runPacket returns all packages and honours --package', () => {
   try {
     assert.doesNotThrow(() => silent(() => runPacket(['packet', manifestPath])));
     assert.doesNotThrow(() => silent(() => runPacket(['packet', manifestPath, '--package=pkg-a'])));
-    assert.throws(() => runPacket(['packet', manifestPath, '--package=ghost']), (e) => e.message.includes('not found'));
+    assert.throws(() => runPacket(['packet', manifestPath, '--package=ghost']), (e) => e.message.includes('not in the manifest catalog'));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -166,6 +168,11 @@ test('error-path handler branches throw typed errors', () => {
       m.workspace.packages[1].seed_required = false;
       m.workspace.ownership.entries = m.workspace.ownership.entries.filter((entry) => entry.owner_package !== 'pkg-b');
       m.inventory.claims = [];
+      // A package without a seed must not participate in any boundary.
+      m.dependencies.normal_edges = [];
+      m.dependencies.boundaries = [];
+      m.stage2_handoff.contract_boundaries = [];
+      m.dependencies.dag = runDagChecks({ packages: m.workspace.packages, edges: [] });
     });
     const dp = join(skipDir.dir, 'd.json');
     writeFileSync(dp, JSON.stringify(makeDecisions(JSON.parse(readFileSync(skipDir.manifestPath, 'utf8')))));
@@ -184,9 +191,11 @@ test('C002/C005 runFinalize publishes tree + seeds and BLOCKs on re-run', () => 
     writeFileSync(decisionsPath, JSON.stringify(makeDecisions(manifest)));
     assert.doesNotThrow(() => silent(() => runFinalize(['finalize', manifestPath, `--decisions=${decisionsPath}`])));
     assert.ok(existsSync(join(dir, 'crates', 'protocol', 'alpha', 'RFC-SEED.md')));
-    assert.equal(existsSync(join(dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json')), false);
+    const publishedManifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), 'utf8'));
+    assert.equal(publishedManifest.artifact_kind, 'workspacify-allocate-manifest');
+    assert.equal(publishedManifest.seed_index.length, 2);
     const seedText = readFileSync(join(dir, 'crates', 'protocol', 'alpha', 'RFC-SEED.md'), 'utf8');
-    assert.equal(parseSeed(seedText).headings.length, 15);
+    assert.equal(parseSeed(seedText).headings.length, SEED_REQUIRED_SECTIONS.length);
     // Re-run is BLOCKED because planned directories are now non-empty.
     assert.throws(() => silent(() => runFinalize(['finalize', manifestPath, `--decisions=${decisionsPath}`])), (e) => e.gateId !== undefined);
   } finally {

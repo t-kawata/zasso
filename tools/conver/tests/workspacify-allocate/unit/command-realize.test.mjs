@@ -31,9 +31,17 @@ test('C004 command document density is at least the stage-1 command density', ()
   assert.ok(allocateHeadings >= treeHeadings, 'allocate doc must have at least the tree heading depth');
 });
 
-test('C004 command document does not name an allocate manifest or WIC/WIG as a goal', () => {
+test('C004 command document states the corrected goal: three published artefacts and machine-injected coupling', () => {
   const doc = readFileSync(ALLOCATE_DOC, 'utf8');
+  // The manifest is published, but it is the record of the proof, not the goal.
   assert.ok(!doc.includes('WORKSPACIFY-ALLOCATE-MANIFEST.json を作成することが目的'));
-  assert.ok(!doc.includes('Workspace Integration Contract') || doc.includes('実装しない'));
-  assert.ok(doc.includes('実装しない'));
+  assert.match(doc, /WORKSPACIFY-ALLOCATE-MANIFEST\.json/);
+  assert.match(doc, /目的ではない/);
+  // Coupling and dependency come first and sections 1 and 2 are machine-injected.
+  assert.match(doc, /Identity and Position in the Whole System/);
+  assert.match(doc, /Coupling Contracts \(I\/O Boundary\)/);
+  assert.match(doc, /機械注入/);
+  assert.ok(!doc.includes('WIC JSON block を埋め込まない'));
+  // Step 2 is not a directory decision any more.
+  assert.match(doc, /移転基準/);
 });

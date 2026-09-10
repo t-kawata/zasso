@@ -1,4 +1,4 @@
-// [::TICKET::] PX-178, PX-179, PX-188 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181|PX-183|PX-184|PX-185|PX-186|PX-188) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-178, PX-179, PX-188, PX-192, PX-196, PX-197 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-178|PX-179|PX-181|PX-183|PX-184|PX-185|PX-186|PX-188|PX-192) --for-spec --no-implementation-order`.
 /**
  * Command entry point for /workspacify-tree.
  *
@@ -17,6 +17,9 @@ import { normalizeTextBytes } from './lib/normalization.mjs';
 import { sha256Hex } from './lib/hash.mjs';
 import { buildHeadingTree, collectHeadingWarnings } from './lib/headings.mjs';
 import { segmentAtHeadings, verifyReconstruction } from './lib/segmentation.mjs';
+import { attachOwnedInventory } from './lib/segment-ownership.mjs';
+import { checkTreeEntryGate } from './lib/entry-parity.mjs';
+import { adviseFailure } from './lib/gate-advice.mjs';
 import {
   harvestObjectCandidates,
   harvestClaimCandidates,
@@ -30,6 +33,8 @@ import { buildInventoryReport } from './lib/inventory-report.mjs';
 import { runGatePipeline } from './lib/validation.mjs';
 import { loadDecisionInput, assertDecisionSchema } from './lib/decision-input.mjs';
 import { assembleManifest, renderManifestText } from './lib/render.mjs';
+import { buildBoundaryContractScope } from './lib/contract-clauses.mjs';
+import { runDagChecks } from './lib/dag.mjs';
 import { atomicPublish } from './lib/atomic-publish.mjs';
 import { formatSuccess, formatFailure } from './lib/report.mjs';
 
@@ -183,7 +188,11 @@ function runFinalize(args) {
         fixHint: 'resolve REVIEW_REQUIRED items or fix the dependency/layer violations in the decisions input',
       })
     );
-    guide(`Finalize blocked at ${failingGate.id} (${pipeline.status}). Reasons: ${(failingGate.reasons ?? []).join('; ') || 'see finalAudit counts'}. Edit the decision input in Step 3 and re-run gate until COMPLETE. Nothing was published and no existing manifest was changed.`);
+    const reasons = (failingGate.reasons ?? []).join('; ') || 'see finalAudit counts in the gate output';
+    guide(`Finalize blocked at ${failingGate.id} (${pipeline.status}). Reasons: ${reasons}. Nothing was published and no existing manifest was changed.`);
+    for (const line of adviseFailure({ gateId: failingGate.id, reason: reasons, stage: 'workspacify-tree' })) {
+      guide(line);
+    }
     process.exit(EXIT_CODES.FAIL);
   }
 
@@ -191,7 +200,7 @@ function runFinalize(args) {
     status: 'COMPLETE',
     run: buildRunSection(),
     input: buildInputSection(analysis),
-    structure: buildStructureSection(analysis),
+    structure: buildStructureSection(analysis, inventory),
     inventory: {
       objects: inventory.objects,
       claims: inventory.claims,
@@ -213,6 +222,19 @@ function runFinalize(args) {
     final_audit: { ...pipeline.finalAudit, status: pipeline.finalAudit.status },
     integrity: { input_hash_verified_at_finalize: true, reload_validation: 'PASS' },
   });
+
+  // Double gate: the hand-off must be acceptable to stage 2 before it is published.
+  const acceptance = checkTreeEntryGate(manifest, analysis.absPath);
+  if (!acceptance.ok) {
+    process.stdout.write(
+      formatFailure({
+        gateId: 'G5',
+        reason: `the manifest would not be accepted by stage 2: ${acceptance.errors.join('; ')}`,
+        fixHint: 'fix the stage-2 requirements named above, then re-run gate and finalize',
+      }),
+    );
+    process.exit(EXIT_CODES.FAIL);
+  }
 
   const content = renderManifestText(manifest);
   // The canonical artifact is always published to the current working directory.
@@ -329,12 +351,18 @@ function buildOwnershipTable(inventory, decisions) {
   const packages = decisions.workspace;
   const packageIds = new Set(packages.map((pkg) => pkg.id));
   const entries = [];
-  // finalize runs only after COMPLETE, where every candidate has an owner.
+  // An entry without a resolved catalog owner is unallocated material: it stays out
+  // of the ownership table (the orphan counts are what stop the run before COMPLETE),
+  // so stage 2 never receives a half-owned table it would have to refuse.
   for (const candidate of inventory.objects ?? []) {
-    entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name, category: 'object', owner_package: candidate.owner_package });
+    if (packageIds.has(candidate.owner_package)) {
+      entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name, category: 'object', owner_package: candidate.owner_package });
+    }
   }
   for (const candidate of inventory.claims ?? []) {
-    entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name, category: 'claim', owner_package: candidate.primary_owner });
+    if (packageIds.has(candidate.primary_owner)) {
+      entries.push({ inventory_ref: candidate.id, canonical_name: candidate.canonical_name, category: 'claim', owner_package: candidate.primary_owner });
+    }
   }
   const categoryLists = [
     ['invariants', 'invariant', 'invariants'],
@@ -345,11 +373,15 @@ function buildOwnershipTable(inventory, decisions) {
   for (const [listKey, categoryName, ownsKey] of categoryLists) {
     const ownerByInventoryId = buildCategoryOwnerIndex(packages, ownsKey);
     for (const candidate of inventory[listKey] ?? []) {
+      const owner = ownerByInventoryId.get(candidate.id);
+      if (!packageIds.has(owner)) {
+        continue;
+      }
       entries.push({
         inventory_ref: candidate.id,
         canonical_name: candidate.canonical_name ?? candidate.id,
         category: categoryName,
-        owner_package: ownerByInventoryId.get(candidate.id),
+        owner_package: owner,
       });
     }
   }
@@ -396,7 +428,7 @@ function buildDependencyTables(decisions, packages = []) {
     consumer_package: edge.from,
     provider_package: edge.to,
     dependency_reason_code: edge.reasonCode ?? null,
-    stage2_contract_scope: ['input', 'output', 'preconditions', 'postconditions', 'invariants', 'errors', 'state_ownership', 'idempotency', 'atomicity', 'ordering', 'finality', 'canonicalization', 'signature', 'proof_verification', 'tests'],
+    stage2_contract_scope: buildBoundaryContractScope(edge.connectionKind),
   }));
   return {
     orientation: 'consumer_to_direct_dependency',
@@ -405,6 +437,7 @@ function buildDependencyTables(decisions, packages = []) {
     forbidden_layer_rules: forbiddenLayerRules,
     dev_dependency_policy: devDependencyPolicy,
     boundaries,
+    dag: runDagChecks({ packages, edges: normalEdges, forbiddenEdges }),
   };
 }
 
@@ -459,13 +492,15 @@ function buildInputSection(analysis) {
   };
 }
 
-function buildStructureSection(analysis) {
+function buildStructureSection(analysis, inventory) {
   return {
     heading_count: analysis.headings.length,
     segment_level: 2,
     segment_count: analysis.segments.length,
     headings: analysis.headings,
-    segments: analysis.segments,
+    // Each segment declares the harvested material it carries, so stage 2 can tell
+    // a segment no seed owes (prose) from one that must be carried.
+    segments: attachOwnedInventory({ segments: analysis.segments, inventory }),
     warnings: analysis.warnings,
     reconstruction: analysis.reconstruction,
   };
