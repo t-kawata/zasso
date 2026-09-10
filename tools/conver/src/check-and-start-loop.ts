@@ -8,6 +8,11 @@
 // 依存: P1-1 (tickets.ts — loadPendingTickets)
 //        P4-1 (runner.ts — runLoop, LoopOptions)
 // 依存出力: P8-3 (Watcher 起動パス — コールバック登録)
+//
+// 出力チャネル: 診断メッセージは stderr（console.error / console.warn）へ出す。
+//   本番コードでの console.log（stdout）は .claude/rules/typescript/coding-style.md
+//   で禁止され、run-quality-checks.js の debug_output チェックが major で検出する。
+//   再入スキップは警告なので、step-timer.ts のスキップ警告と同じ console.warn を使う。
 import { loadPendingTickets } from "./tickets.js";
 import { runLoop } from "./runner.js";
 import type { LoopOptions } from "./runner.js";
@@ -36,7 +41,7 @@ export async function checkAndStartLoop(
   loopOptions: LoopOptions,
 ): Promise<void> {
   if (isLoopRunning) {
-    console.log("[Watcher] ループ実行中のためスキップします。");
+    console.warn("[Watcher] ループ実行中のためスキップします。");
     return;
   }
 
@@ -44,15 +49,15 @@ export async function checkAndStartLoop(
   try {
     const pendingTickets = loadPendingTickets(ticketsPath);
     if (pendingTickets.length === 0) {
-      console.log("[Watcher] 未reviewedチケットはありません。");
+      console.error("[Watcher] 未reviewedチケットはありません。");
       return;
     }
 
-    console.log(
+    console.error(
       `[Watcher] ${pendingTickets.length} 件の未reviewedチケットを検出しました。ループを開始します。`,
     );
     await runLoop(loopOptions);
-    console.log("[Watcher] ループが完了しました。");
+    console.error("[Watcher] ループが完了しました。");
   } finally {
     isLoopRunning = false;
   }
