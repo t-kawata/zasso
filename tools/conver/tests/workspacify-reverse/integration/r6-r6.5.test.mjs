@@ -35,9 +35,11 @@ const targetAvailable = existsSync(REVERSE_ROOT);
 /**
  * Where the integration runs stop.
  *
- * R6.5 is the last stage R22-7 owns, and the stage list is asserted below to
- * still end there: a stage added later must be run by default, so a constant
- * that silently became a prefix would hide it.
+ * R6.5 is the last stage R22-7 owns. P22-8 added R7 and R8 after it, so the
+ * list no longer ends here and the assertion below changed with it. What the
+ * original assertion protected is kept: every run in this file names its own
+ * prefix rather than inheriting the default, so no stage added later can make
+ * these runs silently cover more or less than they did.
  */
 const THROUGH_R6_5 = 'r6.5';
 
@@ -73,8 +75,15 @@ const CLAIM_BEARING_TREE = Object.freeze({
   ].join('\n'),
 });
 
-test('IT-1: the stage list ends at R6.5, so a run without --through reaches it', () => {
-  assert.equal(ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1], THROUGH_R6_5);
+test('IT-1: R6.5 is a declared stage, and the runs here pin their prefix explicitly', () => {
+// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+  assert.equal(ANALYSIS_STAGES.includes(THROUGH_R6_5), true);
+  assert.equal(
+    ANALYSIS_STAGES.indexOf('r6') < ANALYSIS_STAGES.indexOf(THROUGH_R6_5),
+    true,
+    'the stages before R6.5 are still ordered ahead of it',
+  );
 });
 
 test('IT-1: a full run produces a plan in which every claim carries a plan identifier', async () => {

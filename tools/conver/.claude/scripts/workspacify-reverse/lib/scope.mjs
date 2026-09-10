@@ -49,7 +49,14 @@ import {
   resolveSourceMember,
   stemOf,
 } from './claim-ledger.mjs';
-import { renderDecisionCards } from './packet.mjs';
+import { renderDecisionCards, renderServing, renderServingMarkdown } from './packet.mjs';
+import {
+  buildOriginSpec,
+  buildOriginSpecCandidate,
+  renderOriginSpec,
+  validateOriginSpec,
+} from './origin-spec.mjs';
+import { buildCapabilityProfile } from './capability-profile.mjs';
 import { EXCLUSION_RULES, buildAttemptLedger, listArtefacts } from './analysis-tech.mjs';
 import { measureStructure, renderStructureReport, syntaxLanguageOf } from './structure.mjs';
 import { extractSemantics, renderSemanticsReport } from './semantics.mjs';
@@ -396,7 +403,7 @@ export function renderSpikeReport(measurement, { reconciliation = [], targetDige
 // ---------------------------------------------------------------------------
 
 /**
- * The stages R0 through R5.5, in the order the design runs them.
+ * The stages R0 through R8, in the order the design runs them.
  *
  * `--through` selects an inclusive prefix, so a run can stop at the structural
  * measurement and say so. An unknown stage is refused rather than ignored: a
@@ -404,7 +411,9 @@ export function renderSpikeReport(measurement, { reconciliation = [], targetDige
  * nobody asked and look like a complete result.
  */
 export const ANALYSIS_STAGES = Object.freeze([
-  'r0', 'r0.5', 'r1', 'r2', 'r2.5', 'r3', 'r3.5', 'r4', 'r5', 'r5.5', 'r6', 'r6.5',
+// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+  'r0', 'r0.5', 'r1', 'r2', 'r2.5', 'r3', 'r3.5', 'r4', 'r5', 'r5.5', 'r6', 'r6.5', 'r7', 'r8',
 ]);
 
 /**
@@ -971,6 +980,8 @@ function propertyInvariantsIn(ledger) {
 // name here went stale the moment a stage was added after it, and the library
 // entry point then silently ran a different prefix from the command line's.
 export function analyzeProject({
+// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
   root,
   out,
   through = ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
@@ -1062,6 +1073,23 @@ export function analyzeProject({
     ? generatePropertyTests(propertyInvariantsIn(ledger))
     : null;
 
+  // R7 and R8 are the analysis's exit. R7 serves the claims a human still has
+  // to decide; R8 emits the spec every later command reads and states what this
+  // analysis could not prove. They run last because they read everything the
+  // stages above produced, and the spec is validated before it is published so
+  // that a claim resting on evidence that is not there is demoted rather than
+  // emitted with a dangling reference.
+  const serving = stagesRun.includes('r7') && ledger !== null ? renderServing(ledger) : null;
+  const originSpec = stagesRun.includes('r8') && ledger !== null
+    ? validateOriginSpec(
+        buildOriginSpec({ root: scope.root, ledger, treeHash: before.sha256 }),
+        { root: scope.root },
+      )
+    : null;
+  const profile = stagesRun.includes('r8')
+    ? buildCapabilityProfile({ ledger, gaps: classifiedGaps, surface, redPlan })
+    : null;
+
   const after = digestTree(scope.root, { tolerateUnreadable: true });
   if (before.sha256 !== after.sha256 || before.unreadable.join(',') !== after.unreadable.join(',')) {
     throw new Error(
@@ -1143,6 +1171,17 @@ export function analyzeProject({
     };
   }
   if (properties !== null) documents['GENERATED-PROPERTIES.json'] = properties;
+  // R7's serving packet is Markdown because a human reads it to decide; R8's
+  // spec is published both ways, with the Markdown rendered from the sidecar
+  // beside it so the two cannot disagree. The candidate is the form the final
+  // comparison against the answer key consumes.
+  if (serving !== null) documents['R7-SERVING.md'] = renderServingMarkdown(serving);
+  if (originSpec !== null) {
+    documents['ORIGIN-LONG-SPEC.json'] = originSpec;
+    documents['ORIGIN-LONG-SPEC.md'] = renderOriginSpec(originSpec);
+    documents['ORIGIN-SPEC-CANDIDATE.json'] = buildOriginSpecCandidate(originSpec);
+  }
+  if (profile !== null) documents['CAPABILITY-PROFILE.json'] = profile;
 
   publishDocuments(out, documents);
 
@@ -1160,6 +1199,9 @@ export function analyzeProject({
     redPlan,
     counterexamples,
     properties,
+    serving,
+    originSpec,
+    profile,
     attempts,
     report,
     stagesRun,

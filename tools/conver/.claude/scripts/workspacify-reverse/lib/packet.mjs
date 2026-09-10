@@ -256,3 +256,124 @@ export function renderCardsMarkdown(cards) {
 
   return lines.join('\n');
 }
+
+/**
+ * How many unresolved claims one serving packet prints before it stops.
+ *
+ * The cap exists because a ledger over a real crate holds thousands of claims
+ * and a list nobody finishes is not material. It is named rather than inline so
+ * that the one place to change it is the one place that explains it — and what
+ * it withholds is always stated, because a silent cap reads as "everything was
+ * considered" when it was not.
+ */
+export const SERVING_LIMIT = 100;
+
+/** `file:line` and how the evidence was read, in the form a reader can act on. */
+// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+function renderServedEvidence(item) {
+  const span = item.source_span;
+  return `\`${span.file}:${span.line}\` (${item.evidence_mode})`;
+}
+
+/**
+ * One unresolved claim as the material a reader decides from.
+ *
+ * The question is the claim's own and is never re-phrased here: the claim that
+ * could not be settled is what is being asked about, and a second wording would
+ * be a second proposition. The default is the hand-to-grill option, because a
+ * decision the machine cannot make must still have somewhere to go.
+ */
+// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+function buildServedClaim(claim) {
+  if (typeof claim.grill_question !== 'string' || claim.grill_question.length === 0) {
+    throw new Error(
+      `claim ${claim.claim_id} is unresolved but carries no grill_question: a card that asks nothing is not a `
+      + 'decision, it is a statement with a box beside it',
+    );
+  }
+  return {
+    claim_id: claim.claim_id,
+    claim_type: claim.claim_type,
+    scope: claim.scope,
+    proposition: claim.statement,
+    question: claim.grill_question,
+    evidence: (claim.evidence ?? []).map(renderServedEvidence),
+    counterexamples: [...(claim.counterevidence ?? [])],
+    default: HAND_TO_GRILL,
+  };
+}
+
+/**
+ * The claims a human has to decide, with the material that decision needs.
+ *
+ * Only `unresolved` claims are served. The rest are not withheld — they are
+ * settled — and the count of them is reported, so that a short packet cannot be
+ * read as a small analysis.
+ */
+export function renderServing(ledger, { limit = SERVING_LIMIT } = {}) {
+  if (ledger === null || typeof ledger !== 'object' || !Array.isArray(ledger.claims)) {
+    throw new Error('renderServing needs the claim ledger it is to serve; it was given no ledger with claims');
+  }
+  if (!Number.isInteger(limit) || limit < 0) {
+    throw new Error(`the serving limit must be a whole number of claims; it was given ${JSON.stringify(limit)}`);
+  }
+
+  const unresolved = [...ledger.claims]
+    .filter((claim) => claim.claim_type === 'unresolved')
+    .sort((left, right) => compareText(left.claim_id, right.claim_id));
+  const served = unresolved.slice(0, limit).map(buildServedClaim);
+
+  return {
+    served,
+    servedCount: served.length,
+    settledCount: ledger.claims.length - unresolved.length,
+    withheldFromServing: unresolved.length - served.length,
+    totalClaims: ledger.claims.length,
+    empty: ledger.claims.length === 0,
+  };
+}
+
+/** The serving packet as the Markdown the human reads before answering. */
+export function renderServingMarkdown(serving) {
+  const lines = ['## Serving — the claims a human has to decide', ''];
+
+  if (serving.empty) {
+    lines.push(
+      'This serving packet is empty. The ledger held no claim at all, so there was nothing to hand over: that',
+      'is an explicit empty result from a run that looked, not a report that merely looks short.',
+      '',
+    );
+    return lines.join('\n');
+  }
+
+  lines.push(
+    `${serving.servedCount} unresolved claim(s) are set out below, each with the question it raises, the`,
+    'evidence available for it and the answer that applies if nobody decides. The remaining',
+    `${serving.settledCount} claim(s) were settled by the analysis and are not repeated here.`,
+    '',
+  );
+
+  if (serving.withheldFromServing > 0) {
+    lines.push(
+      `${serving.withheldFromServing} further unresolved claim(s) were not printed here. They are withheld,`,
+      'not dropped: the JSON beside this report carries every one of them, and the count is stated so that',
+      'this page cannot read as the whole of what was left open.',
+      '',
+    );
+  }
+
+  for (const claim of serving.served) {
+    lines.push(`### \`${claim.claim_id}\``, '');
+    lines.push(`One falsifiable proposition: ${claim.proposition}`, '');
+    lines.push(`**Question** — ${claim.question}`, '');
+    lines.push('- **Evidence**');
+    if (claim.evidence.length === 0) lines.push('  - none recorded');
+    for (const item of claim.evidence) lines.push(`  - ${item}`);
+    lines.push('- **Counterexamples**');
+    if (claim.counterexamples.length === 0) lines.push('  - none recorded');
+    for (const item of claim.counterexamples) lines.push(`  - ${item}`);
+    lines.push(`- **Default** — ${claim.default}`, '');
+  }
+
+  return lines.join('\n');
+}
