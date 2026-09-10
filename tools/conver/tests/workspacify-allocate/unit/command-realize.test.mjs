@@ -19,7 +19,7 @@ test('C004 command document references workspacify-tree.md and lists all subcomm
 test('C004 command document carries the AI semantic approval and two-sided success definition', () => {
   const doc = readFileSync(ALLOCATE_DOC, 'utf8');
   assert.ok(doc.includes('semantic_review.status === "APPROVED"'));
-  assert.ok(doc.includes('成功の定義'));
+  assert.ok(doc.includes('Definition of success'));
 });
 
 test('C004 command document density is at least the stage-1 command density', () => {
@@ -36,12 +36,12 @@ test('C004 command document states the corrected goal: three published artefacts
   // The manifest is published, but it is the record of the proof, not the goal.
   assert.ok(!doc.includes('WORKSPACIFY-ALLOCATE-MANIFEST.json を作成することが目的'));
   assert.match(doc, /WORKSPACIFY-ALLOCATE-MANIFEST\.json/);
-  assert.match(doc, /目的ではない/);
+  assert.match(doc, /not the goal/);
   // Coupling and dependency come first and sections 1 and 2 are machine-injected.
   assert.match(doc, /Identity and Position in the Whole System/);
   assert.match(doc, /Coupling Contracts \(I\/O Boundary\)/);
-  assert.match(doc, /機械注入/);
+  assert.match(doc, /machine-injected/);
   assert.ok(!doc.includes('WIC JSON block を埋め込まない'));
   // Step 2 is not a directory decision any more.
-  assert.match(doc, /移転基準/);
+  assert.match(doc, /transfer basis/);
 });

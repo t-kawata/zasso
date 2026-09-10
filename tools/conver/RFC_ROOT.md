@@ -70,7 +70,7 @@ conver.js -k <api_key> -s <url> [-t <path>] [-c <number>] [-r <number>] [-p <0|1
 | `--count` | `-c` | 任意 | `999999` | 最大処理チケット数 |
 | `--resolve-every` | `-r` | 任意 | `3` | Nチケット完了ごとに resolve |
 | `--push` | `-p` | 任意 | `1` | resolve 毎に jpush-branch 実行フラグ（0=無効, 1=有効） |
-| `--model` | `-m` | 任意 | `deepseek-v4-flash` | 使用するモデル名 |
+| `--model` | `-m` | 任意 | `deepseek-flash` | 使用するモデル名 |
 | `--slack-url` | `-s` | 必須 | — | Slack Incoming Webhook URL |
 | `--verbose` | `-v` | 任意 | `0` | 詳細表示モード（0=標準, 1=ACP全メッセージ表示） |
 | `--timeout` | — | 任意 | `1800` | 各コマンドのタイムアウト秒数 |
@@ -90,7 +90,7 @@ Options:
   -c, --count <number>       Max tickets to process (default: 999999)
   -r, --resolve-every <num>  Resolve interval (default: 3)
   -p, --push <0|1>           Auto jpush-branch after resolve (default: 1)
-  -m, --model <name>         AI model (default: deepseek-v4-flash)
+  -m, --model <name>         AI model (default: deepseek-flash)
   -s, --slack-url <url>      Slack Incoming Webhook URL (required)
   -v, --verbose <0|1>        Verbose output (default: 0)
   --timeout <seconds>        Command timeout in seconds (default: 1800)
@@ -127,7 +127,7 @@ Options:
   -c, --count <number>       Max tickets to process (default: 999999)
   -r, --resolve-every <num>  Resolve interval (default: 3)
   -p, --push <0|1>           Auto jpush-branch after resolve (default: 1)
-  -m, --model <name>         AI model (default: deepseek-v4-flash)
+  -m, --model <name>         AI model (default: deepseek-flash)
   -s, --slack-url <url>      Slack Incoming Webhook URL (required)
   -v, --verbose <0|1>        Verbose output (default: 0)
   --timeout <seconds>        Command timeout in seconds (default: 1800)
@@ -139,7 +139,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
     args: argv.slice(2),
     options: {
       'api-key':   { type: 'string', short: 'k' },
-      model:       { type: 'string', short: 'm', default: 'deepseek-v4-flash' },
+      model:       { type: 'string', short: 'm', default: 'deepseek-flash' },
       tickets:     { type: 'string', short: 't', default: './Tickets.json' },
       count:       { type: 'string', short: 'c', default: '999999' },
       'resolve-every': { type: 'string', short: 'r', default: '3' },
@@ -188,7 +188,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
 -k (必須): 欠如時に usage 表示 → exit 1
 -s (必須): 欠如時に usage 表示 → exit 1
 -t (省略可): 未指定時 ./Tickets.json をデフォルトとして使用
--m (省略可): 未指定時 deepseek-v4-flash を使用
+-m (省略可): 未指定時 deepseek-flash を使用
 -p 0: resolve 完了後に jpush-branch をスキップ
 -p 1: resolve 完了後に jpush-branch を実行（デフォルト）
 -v 1: ACP セッションからの agent_message_chunk を全表示
@@ -411,7 +411,7 @@ export function disposeSession(acpSession: AcpSession): void {
 |---|---|---|
 | `ANTHROPIC_BASE_URL` | `https://api.deepseek.com/anthropic` | APIエンドポイントの差し替え |
 | `ANTHROPIC_AUTH_TOKEN` | `-k` フラグの値 | DeepSeek API キー |
-| `ANTHROPIC_MODEL` | `-m` フラグの値（デフォルト: deepseek-v4-flash） | 使用するモデル |
+| `ANTHROPIC_MODEL` | `-m` フラグの値（デフォルト: deepseek-flash） | 使用するモデル |
 | `ANTHROPIC_DEFAULT_OPUS_MODEL` | `deepseek-v4-pro` | Opus相当モデル（固定） |
 | `ANTHROPIC_DEFAULT_SONNET_MODEL` | `-m` フラグの値 | Sonnet相当モデル |
 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | `-m` フラグの値 | Haiku相当モデル |
@@ -422,7 +422,7 @@ export function disposeSession(acpSession: AcpSession): void {
 
 | モデル | 使用シーン | 指定方法 |
 |---|---|---|
-| deepseek-v4-flash | 標準的なチケット処理（デフォルト） | `-m deepseek-v4-flash` または省略 |
+| deepseek-flash | 標準的なチケット処理（デフォルト） | `-m deepseek-flash` または省略 |
 | deepseek-v4-pro | 複雑な設計判断が必要なチケット | `-m deepseek-v4-pro` |
 
 ### 3. 内部ループ制御
@@ -1068,7 +1068,7 @@ cd tools/conver && node dist/conver.js \
   -c 5 \
   -r 1 \
   -p 1 \
-  -m deepseek-v4-flash \
+  -m deepseek-flash \
   -s https://hooks.slack.com/services/T0.../B0.../key \
   -v 1 \
   --timeout 3600

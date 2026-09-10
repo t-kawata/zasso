@@ -45,14 +45,14 @@ RFC-001（conver.js）は二層構造の開発パイプラインにおける内�
 **変更イメージ**（現行の出力）:
 ```
 conver.js — チケット処理を開始します
-  モデル:        deepseek-v4-flash
+  モデル:        deepseek-flash
   Tickets.json: ./Tickets.json
 ```
 
 **変更後**:
 ```
 conver.js — チケット処理を開始します
-  model=deepseek-v4-flash
+  model=deepseek-flash
   ticketsPath=./Tickets.json
   maxCount=999999
   resolveEvery=3

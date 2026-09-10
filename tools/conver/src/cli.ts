@@ -52,7 +52,7 @@ Options:
   -r, --resolve-every <num>  Resolve interval (default: 3)
   -x, --max-retries <num>    Max review retries per ticket (default: 3)
   -p, --push <0|1>           Auto epush-branch after resolve (default: 1)
-  -m, --model <name>         AI model (default: deepseek-v4-flash)
+  -m, --model <name>         AI model (default: deepseek-flash)
   -u, --url <url>            Anthropic-compatible base URL (default: https://api.deepseek.com/anthropic)
   -s, --slack-url <url>      Slack Incoming Webhook URL (required)
   -v, --verbose <0|1>        Verbose output (default: 1)
@@ -70,7 +70,7 @@ export function parseCliOptions(argv: string[]): CliOptions {
     args: argv.slice(2),
     options: {
       "api-key": { type: "string", short: "k" },
-      model: { type: "string", short: "m", default: "deepseek-v4-flash" },
+      model: { type: "string", short: "m", default: "deepseek-flash" },
       url: { type: "string", short: "u", default: DEFAULT_BASE_URL },
       tickets: { type: "string", short: "t", default: "./Tickets.json" },
       count: { type: "string", short: "c", default: "999999" },

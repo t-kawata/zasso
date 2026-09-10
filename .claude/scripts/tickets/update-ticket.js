@@ -7,6 +7,7 @@ const { normalizePath } = require("../lib/malfeasance-utils");
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-91 --for-spec --no-implementation-order`
 const IDEMPOTENT_FIELDS = new Set(['targetStubs', 'targetCrimes']);
 function main() {
+  const pendingWarnings = [];
   const args = process.argv.slice(2);
   const jp = args[0],
     key = args[1],
@@ -88,7 +89,7 @@ function main() {
           for (const f of Object.keys(safe)) {
             const existing = p.tickets[i][f];
             if (typeof existing === 'string' && existing.length > 0 && typeof safe[f] === 'string') {
-              console.error('[WARNING] Field "' + f + '" already has content (' + existing.length + ' chars). Use --append to concatenate.');
+              pendingWarnings.push('[WARNING] Field "' + f + '" already has content (' + existing.length + ' chars). Use --append to concatenate.');
             }
           }
           p.tickets[i] = { ...p.tickets[i], ...safe };
@@ -112,6 +113,11 @@ function main() {
         errors: vr.errors,
       }),
     );
+    console.error('[ERROR] Update rejected: validation failed (nothing was written)');
+    for (const detail of vr.errors) {
+      console.error('[ERROR]   ' + detail);
+    }
+    console.error('[Action] Fix the field type or shape named above: array fields require arrays, string fields require strings, then re-run the update.');
     process.exit(1);
   }
   fs.writeFileSync(rp, JSON.stringify(data, null, 2) + "\n", "utf8");

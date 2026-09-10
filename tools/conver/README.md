@@ -274,7 +274,7 @@ node .claude/scripts/conver/conver.js -k <api_key> -s <slack_url>
 | `-c`, `--count` | 最大処理チケット数 | `999999` |
 | `-r`, `--resolve-every` | Nチケット完了ごとに resolve | `3` |
 | `-p`, `--push` | resolve 毎に jpush-branch 実行（0/1） | `1` |
-| `-m`, `--model` | 使用モデル | `deepseek-v4-flash` |
+| `-m`, `--model` | 使用モデル | `deepseek-flash` |
 | `-v`, `--verbose` | 詳細表示（0/1） | `1` |
 | `--timeout` | 各コマンドのタイムアウト（秒） | `1800` |
 | `-b`, `--bind-review-in-one-session` | review を同一セッションに結合（0/1） | `1` |

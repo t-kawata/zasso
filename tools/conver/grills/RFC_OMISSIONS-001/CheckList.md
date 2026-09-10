@@ -16,7 +16,7 @@ DesignTree バージョン: 1
 
 ---
 
-## §1 CLI インターフェース設計 — -k(必須)/-t(省略可)/-c(999999)/-r(3)/-p(0/1,default1)/-m(deepseek-v4-flash)/-s(必須)/-v(0/1,default0)/--timeout(1800)/--help(-h) ✅
+## §1 CLI インターフェース設計 — -k(必須)/-t(省略可)/-c(999999)/-r(3)/-p(0/1,default1)/-m(deepseek-flash)/-s(必須)/-v(0/1,default0)/--timeout(1800)/--help(-h) ✅
 
 - [ ] セクション全体が完全に記述されている
 - [ ] コードスニペットが含まれている

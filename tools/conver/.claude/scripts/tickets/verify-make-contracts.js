@@ -56,6 +56,8 @@ function verifyMakeContracts(ticket) {
   }
 
   const utText = testUnit.join(' ').toLowerCase();
+  /** The contract key terms the test plan must mention (same rule as the check itself). */
+  const missingTerms = (text, written) => String(text).toLowerCase().split(/\s+/).filter(w => w.length > 3 && !written.includes(w));
 
   for (const c of contracts) {
     // Check 1: precondition in testUnit
@@ -64,7 +66,7 @@ function verifyMakeContracts(ticket) {
       const preWords = preLower.split(/\s+/).filter(w => w.length > 3);
       const found = preWords.some(w => utText.includes(w));
       if (!found && preWords.length > 0) {
-        errors.push({ ticket: ticket.id, contract: c.id, detail: 'precondition "' + c.precondition + '" not found in testUnit (no key terms matched)' });
+        errors.push({ ticket: ticket.id, contract: c.id, terms: missingTerms(c.precondition, utText), detail: 'precondition "' + c.precondition + '" not found in testUnit (key terms not found: ' + missingTerms(c.precondition, utText).join(', ') + ')' });
       }
     }
     // Check 2: postcondition in testUnit
@@ -73,7 +75,7 @@ function verifyMakeContracts(ticket) {
       const postWords = postLower.split(/\s+/).filter(w => w.length > 3);
       const found = postWords.some(w => utText.includes(w));
       if (!found && postWords.length > 0) {
-        errors.push({ ticket: ticket.id, contract: c.id, detail: 'postcondition "' + c.postcondition + '" not found in testUnit (no key terms matched)' });
+        errors.push({ ticket: ticket.id, contract: c.id, terms: missingTerms(c.postcondition, utText), detail: 'postcondition "' + c.postcondition + '" not found in testUnit (key terms not found: ' + missingTerms(c.postcondition, utText).join(', ') + ')' });
       }
     }
     // Check 3: invariant in testUnit
@@ -82,7 +84,7 @@ function verifyMakeContracts(ticket) {
       const invWords = invLower.split(/\s+/).filter(w => w.length > 3);
       const found = invWords.some(w => utText.includes(w));
       if (!found && invWords.length > 0) {
-        errors.push({ ticket: ticket.id, contract: c.id, detail: 'invariant "' + c.invariant + '" not found in testUnit (no key terms matched)' });
+        errors.push({ ticket: ticket.id, contract: c.id, terms: missingTerms(c.invariant, utText), detail: 'invariant "' + c.invariant + '" not found in testUnit (key terms not found: ' + missingTerms(c.invariant, utText).join(', ') + ')' });
       }
     }
   }
@@ -185,7 +187,9 @@ function main() {
         console.error('[ERROR] Ticket ' + err.ticket + (err.contract ? ' contract ' + err.contract : '') + ': ' + err.detail);
         const elem = err.detail && err.detail.includes('precondition') ? 'precondition' : err.detail && err.detail.includes('postcondition') ? 'postcondition' : 'invariant';
         console.error('Cause: Contract ' + elem + ' not covered by test plan');
-        console.error('Action: Update testUnit entries to cover the contract\'s ' + elem + ' text');
+        const terms = Array.isArray(err.terms) ? err.terms : [];
+        console.error('Action: Add a testUnit entry that mentions: ' + (terms.length > 0 ? terms.join(', ') : 'the contract\'s ' + elem + ' text'));
+        console.error('Why: Gate M proves that every contract clause was translated into executable test code before implementation starts.');
       }
     }
     process.exit(1);

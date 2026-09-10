@@ -49,21 +49,22 @@ function extractStep3DecisionJson(markdownText) {
   assert.fail('no Step 3 decision JSON block containing workspace was found');
 }
 
-test('command C001 [@verifies C001]: the command markdown exists, is Japanese, and carries the required contract', () => {
+test('command C001 [@verifies C001]: the command markdown exists, is written in English, and carries the required contract', () => {
   assert.equal(existsSync(MD_PATH), true);
   const md = readFileSync(MD_PATH, 'utf8');
-  assert.ok(/[぀-ヿ一-龯]/.test(md), 'body is written in Japanese');
+  // The project's language protocol puts design docs, plans and tasks in English.
+  assert.ok(!/[\u3040-\u30ff\u4e00-\u9faf]/.test(md), 'body is written in English, with no Japanese script left');
   assert.match(md, /\*\*Role\*\*|## Role/);
   assert.match(md, /## Arguments/);
   assert.match(md, /## Step 1: parse/);
-  assert.match(md, /## Step 4: gate ループ/);
-  assert.match(md, /BLOCKED|置換|overwrite/i, 'declares no-overwrite rule');
+  assert.match(md, /## Step 4: the gate loop/);
+  assert.match(md, /BLOCKED|overwrite/i, 'declares no-overwrite rule');
 });
 
 test('command C001 invariant [@verifies C001]: the command file declares success and failure output contracts', () => {
   const md = readFileSync(MD_PATH, 'utf8');
-  assert.match(md, /成功|manifest|source_hash|manifest_hash/i, 'success output contract');
-  assert.match(md, /失敗|failed gate|fix hint/i, 'failure output contract');
+  assert.match(md, /success|manifest|source_hash|manifest_hash/i, 'success output contract');
+  assert.match(md, /failure|failed gate|fix hint/i, 'failure output contract');
 });
 
 test('gate C002 [@verifies C002]: a real spec with review-required candidates does not report PASS', () => {
@@ -141,13 +142,13 @@ test('PX-187 C001 [PX-187 @verifies C001]: Step 3 JSON example declares semantic
 test('PX-187 C002 [PX-187 @verifies C002]: doc declares the AI final approval checklist anchors', () => {
   const md = readCommandDoc();
   for (const anchor of [
-    'AI 最終承認チェックリスト',
-    'owner 割当の妥当性',
+    'AI final approval checklist',
+    'Soundness of the owner assignment',
     // The checklist label follows the machine's field name (edge.reasonCode), not the other way round.
-    'reasonCode の正当性',
-    '代替経路',
-    'adapter・DB 適用可否',
-    '過剰分割の最終判断',
+    'Validity of the reasonCode',
+    'alternative route',
+    'Whether adapter and DB apply',
+    'The final decision on over-splitting',
     'semantic_review',
   ]) {
     assert.ok(md.includes(anchor), `doc mentions ${anchor}`);
@@ -156,12 +157,12 @@ test('PX-187 C002 [PX-187 @verifies C002]: doc declares the AI final approval ch
 
 test('PX-187 C003 [PX-187 @verifies C003]: success definition requires AI approval and machine gates', () => {
   const md = readCommandDoc();
-  const index = md.indexOf('## 成功の定義');
+  const index = md.indexOf('## Definition of success');
   assert.notEqual(index, -1);
   const section = md.slice(index);
-  assert.ok(section.includes('AI 意味論最終承認'), 'success definition names AI approval');
+  assert.ok(section.includes("the AI's final semantic approval"), 'success definition names AI approval');
   assert.ok(section.includes('semantic_review'), 'success definition names semantic_review');
-  assert.ok(/機械ゲート PASS/.test(section), 'success definition requires machine gates PASS');
+  assert.ok(/machine gate PASS/.test(section), 'success definition requires machine gates PASS');
 });
 
 test('PX-187 C004 [PX-187 @verifies C004]: gate without semantic_review is not COMPLETE and the doc explains it', () => {

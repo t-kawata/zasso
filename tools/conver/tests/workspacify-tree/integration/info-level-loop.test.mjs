@@ -23,7 +23,7 @@ const FIXTURES = join(CONVER_ROOT, 'tests/workspacify-tree/fixtures');
 test('doc C001 [@verifies C001]: Step 3 describes an information-raising iteration', () => {
   const md = readFileSync(MD_PATH, 'utf8');
   assert.match(md, /## Step 3/);
-  assert.match(md, /情報レベルを上げる反復手順/);
+  assert.match(md, /Iterative procedure to raise the information level/i);
   assert.match(md, /responsibilities|seed_required/);
   assert.match(md, /owner|所有権/);
   assert.match(md, /invariant|不変条件/);
@@ -41,7 +41,7 @@ test('doc C002 [@verifies C002]: gates and exit conditions are explained', () =>
 
 test('doc C004 [@verifies C004]: output contract retained and removed notes stay absent', () => {
   const md = readFileSync(MD_PATH, 'utf8');
-  assert.match(md, /カレントディレクトリ/);
+  assert.match(md, /current directory/);
   assert.match(md, /BLOCKED|置換/);
   assert.ok(!/言語方針/.test(md), 'language-policy note must not be resurrected');
   assert.ok(!/English translation/.test(md), 'deferred-translation note must not be resurrected');
@@ -72,5 +72,5 @@ test('loop C003 [@verifies C003]: incomplete decisions fail the gate, complete d
 test('doc C005 [@verifies C005]: Step structure is intact', () => {
   const md = readFileSync(MD_PATH, 'utf8');
   assert.match(md, /## Step 1: parse/);
-  assert.match(md, /## Step 6: 報告/);
+  assert.match(md, /## Step 6: report/);
 });

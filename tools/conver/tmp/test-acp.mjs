@@ -4,7 +4,7 @@
  *
  * 使用法:
  *   cd /Users/shyme/shyme/zasso/tools/conver
- *   node tmp/test-acp.mjs               # デフォルトモデル (deepseek-anthropic/deepseek-v4-flash)
+ *   node tmp/test-acp.mjs               # デフォルトモデル (deepseek-anthropic/deepseek-flash)
  *   node tmp/test-acp.mjs -m ternary-bonsai-27b
  *
  * 環境変数は zed-lmpx-launch.sh と同一のものを子プロセスに注入する（モデルは -m で上書き可能）。
@@ -28,14 +28,14 @@ const ACP_BINARY = join(PROJECT_ROOT, "node_modules", ".bin", "claude-agent-acp"
 // ── CLI 引数パース ─────────────────────────────────────────────────
 function parseCliArgs() {
   const args = process.argv.slice(2);
-  let model = "deepseek-anthropic/deepseek-v4-flash"; // デフォルト
+  let model = "deepseek-anthropic/deepseek-flash"; // デフォルト
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "-m" && i + 1 < args.length) {
       model = args[++i];
     } else if (args[i] === "-h" || args[i] === "--help") {
       console.log("Usage: node tmp/test-acp.mjs [-m <model>]");
-      console.log("  -m <model>   Model name (default: deepseek-anthropic/deepseek-v4-flash)");
+      console.log("  -m <model>   Model name (default: deepseek-anthropic/deepseek-flash)");
       process.exit(0);
     } else {
       console.error(`Unknown argument: ${args[i]}`);

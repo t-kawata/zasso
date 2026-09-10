@@ -1,12 +1,12 @@
 ---
-description: 長大な Markdown 仕様書を解析し WORKSPACIFY-TREE-MANIFEST.json を唯一の正本として発行する(第一段階)
+description: Analyse a long Markdown specification and publish WORKSPACIFY-TREE-MANIFEST.json as the single canonical authority (stage one)
 argument-hint: <path-to-specification.md>
 disable-model-invocation: true
 ---
 
 # /workspacify-tree
 
-**Role**: 単一の Markdown 仕様書を入力として、構造解析・候補収穫・workspace 設計・完全性ゲートを実行し、長大な仕様書を「安全に分割して実装可能なworkspace/crate/package構造へ設計するための第一段階」を実行する。将来の第二段階が唯一の引数として受け取れる `WORKSPACIFY-TREE-MANIFEST.json` を公開する。このコマンドは仕様を実装しない。設計判断は AI(=実行セッション)が行い、機械は収穫・検証・publish を担う。
+**Role**: Taking a single Markdown specification as input, run the structural analysis, candidate harvesting, workspace design and completeness gates, and execute "stage one of designing a long specification into a workspace/crate/package structure that can be split safely and implemented". Publish the `WORKSPACIFY-TREE-MANIFEST.json` that the later stage two can accept as its only argument. This command does not implement the specification. The design judgement is made by the AI (= the running session); the machine carries out harvesting, verification and publication.
 
 ## Language Protocol
 
@@ -20,92 +20,92 @@ disable-model-invocation: true
 
 ## Arguments
 
-- 第1引数(必須・唯一): 仕様書へのパス(`<path-to-specification.md>`)
-  - 要件: 通常ファイル / UTF-8 復号可 / 非空 / ATX 見出しを1つ以上含む / 読取可能
-  - 追加引数・対話・環境変数・hook・外部取得を要求しない
-  - 引数以外の自由入力があった場合には、それを追加情報として扱う
+- First argument (required, the only one): the path to the specification (`<path-to-specification.md>`)
+  - Requirements: a regular file / decodable as UTF-8 / non-empty / contains at least one ATX heading / readable
+  - It requires no additional arguments, dialogue, environment variable, hook or external fetch
+  - If there is free-form input other than the argument, treat it as additional information
 
-## 出力の正本と制約
+## The canonical output and its constraints
 
-- 成功時に公開する正本成果物は **1つだけ**: **カレントディレクトリ**(コマンド実行時の作業ディレクトリ)の `WORKSPACIFY-TREE-MANIFEST.json`
+- Exactly **one** canonical artefact is published on success: `WORKSPACIFY-TREE-MANIFEST.json` in the **current directory** (the working directory at the time the command runs)
 
-## 使用スクリプト
+## Scripts used
 
-`.claude/scripts/workspacify-tree/` 配下。
+Under `.claude/scripts/workspacify-tree/`.
 
-| スクリプト | 説明 |
+| Script | Description |
 |---|---|
-| `run.mjs parse <spec>` | 入力ロック/正規化/hash/見出し/segment/再構成一致(G0/G1)。PASS/FAIL を exit code で返す |
-| `run.mjs extract <spec>` | object/claim に加え invariant / state machine / error code / required test を独立カテゴリとして収穫し、全候補に source traceability(G2)。候補統計を出力 |
-| `run.mjs gate --spec=.. --decisions=..` | decision 入力へ **実ゲートパイプラインを実行**し per-gate 結果を返す。COMPLETE のみ exit 0 |
-| `run.mjs finalize --spec=.. --decisions=..` | ownership 適用 → 全ゲート → manifest 組み立て → self-hash → カレントディレクトリへ publish |
+| `run.mjs parse <spec>` | Input lock / normalisation / hash / headings / segments / reconstruction match (G0/G1). Returns PASS/FAIL through the exit code |
+| `run.mjs extract <spec>` | Harvests object/claim plus invariant / state machine / error code / required test as independent categories, and gives every candidate source traceability (G2). Prints candidate statistics |
+| `run.mjs gate --spec=.. --decisions=..` | Runs the **real gate pipeline** over the decision input and returns the per-gate result. Only COMPLETE exits 0 |
+| `run.mjs finalize --spec=.. --decisions=..` | Applies ownership → runs every gate → assembles the manifest → self-hash → publishes to the current directory |
 
-## 状態とゲート
+## Statuses and gates
 
-状態値: `PASS` / `FAIL` / `REVIEW_REQUIRED` / `BLOCKED` / `COMPLETE`
+Status values: `PASS` / `FAIL` / `REVIEW_REQUIRED` / `BLOCKED` / `COMPLETE`
 
-- `REVIEW_REQUIRED` は成功ではない。未解決 review が残る限り COMPLETE を出さない
-- `BLOCKED`: 既存 manifest の input hash と異なる仕様書への上書きを拒否
+- `REVIEW_REQUIRED` is not success. As long as an unresolved review remains, COMPLETE is never emitted
+- `BLOCKED`: refuses to overwrite when the specification differs from the input hash of an existing manifest
 
-ゲート階層: G0 入力ロック → G1 構造(見出し/segment/再構成) → G2 要件インベントリ → G3 workspace(カタログ/所有権/過剰分割/責務必須) → G4 依存(DAG/層規則/循環/**実装順序の証明**) → G5 成果物完全性(schema/self-hash)。親ゲート未 PASS なら子を PASS にしない。
+Gate hierarchy: G0 input lock → G1 structure (headings/segments/reconstruction) → G2 requirement inventory → G3 workspace (catalog/ownership/over-splitting/mandatory responsibilities) → G4 dependencies (DAG/layer rules/cycles/**proof of the implementation order**) → G5 artefact completeness (schema/self-hash). A child gate is never PASS while its parent is not PASS.
 
-## 設計判断と機械化の境界
+## The boundary between design judgement and mechanisation
 
-- **機械(決定論)**: 収穫・形式検証・所有権一意性・DAG/循環・禁止層・raw SQL・DB型漏れ・self-hash
-- **AI(意味論判断)**: workspace ツリー設計、owner 割当、過剰分割の最終判断、adapter/DB 適用可否、reasonCode 選択、禁止edge の代替経路、REVIEW_REQUIRED の承認
+- **Machine (deterministic)**: harvesting, format verification, ownership uniqueness, DAG/cycles, forbidden layers, raw SQL, DB type leakage, self-hash
+- **AI (semantic judgement)**: the workspace tree design, owner assignment, the final decision on over-splitting, whether adapter/DB applies, the choice of reasonCode, the alternative route for a forbidden edge, approval of REVIEW_REQUIRED items
 
-過度機械化を避ける: boundary-review は「リスク候補の発見」まで。抽出器は候補収穫まで。検証器は制約検査まで。
+Avoid over-mechanisation: boundary-review goes as far as "finding risk candidates". The extractor goes as far as harvesting candidates. The verifier goes as far as checking constraints.
 
-## 第二段階(ALLOCATE)への引渡し契約
+## The hand-off contract to stage two (ALLOCATE)
 
-第一段階の出力は、第二段階が機械検証だけで結合契約の充足を判定できる材料でなければならない。
+The output of stage one must be material from which stage two can decide, by machine verification alone, that the coupling contract is satisfied.
 
-- **証明して渡す**: 依存先の実装順序、boundary ごとの clause 群（事前条件・事後条件・不変条件を含む）、segment とそこが運ぶ material、package の責務、契約 item の順。いずれも決定論的に再計算できなければならない（同じ仕様書と decision から同じ manifest）。
-- **禁止**: 検証を通らない manifest を publish してはならない。未検証の順序・clause・segment 参照を書くだけで渡してはならない。
-- **二重ゲート**: finalize は publish の直前に第二段階の entry gate を権威として呼び、受理されない manifest は G5 で停止する。stage-1 と stage-2 の検査は同一の述語であり、片側だけの抜け道は存在しない。
-- **失敗時は助言に従う**: どのゲートも失敗時に「何が問題か・なぜ重要か・どう直すか」を出力する。。
+- **Hand over with proof**: the implementation order of the dependencies (the providers), the clause groups of each boundary (including preconditions, postconditions and invariants), the segments and the material they carry, the responsibilities of each package, and the order of the contract items. Every one of them must be recomputable deterministically (the same specification and decisions produce the same manifest).
+- **Prohibition**: a manifest that does not pass verification must not be published. You must not hand over an unverified order, clause or segment reference merely by writing it down.
+- **Double gate**: immediately before publication, finalize calls stage two's entry gate as the authority, and a manifest it does not accept stops at G5. The checks of stage one and stage two are the same predicate, and no one-sided bypass exists.
+- **On failure, follow the advice**: every gate, when it fails, prints "what the problem is, why it matters, and how to fix it"..
 
-## Step 1: parse(G0/G1)
+## Step 1: parse (G0/G1)
 
-**この Step の目的**: 入力仕様書を「固定」する。読めるか / UTF-8 か / 空でないかを検査し、正規化(改行統一・末尾改行保持)と SHA-256 を確定させ、見出しツリーと `##` 単位の segment に分割した上で「segment を再結合すると元の bytes と完全一致する」ことを機械証明する。ここが壊れると以後すべての source traceability が無効になるため、最初の関門である。
+**The purpose of this step**: to "lock" the input specification. It checks whether the file is readable / UTF-8 / non-empty, settles the normalisation (unified newlines, trailing newline preserved) and the SHA-256, splits the document into a heading tree and `##`-level segments, and then proves by machine that "recombining the segments matches the original bytes exactly". If this breaks, every later source traceability becomes invalid, which makes it the first checkpoint.
 
 ```bash
 node .claude/scripts/workspacify-tree/run.mjs parse "$ARGUMENTS"
 ```
 
-- **出力の意味**: `source_hash` = 正規化後入力全体の SHA-256(以後の entry gate が参照する不変の指紋)。`reconstruction` = segment 再構成の検証結果
-- **成功条件(次の Step へ進める)**: `reconstruction.status == PASS` かつ `source_hash` が出力されている
-- **失敗時**: エラー内容(存在しない / ディレクトリ / 空 / 非UTF-8 / 再構成不一致)から原因を特定し、入力仕様書を修正して再実行する
+- **What the output means**: `source_hash` = the SHA-256 of the whole normalised input (the immutable fingerprint every later entry gate refers to). `reconstruction` = the verification result of recombining the segments
+- **Success condition (to advance to the next step)**: `reconstruction.status == PASS` and `source_hash` is printed
+- **On failure**: identify the cause from the error (does not exist / is a directory / empty / not UTF-8 / reconstruction mismatch), correct the input specification and run again
 
-## Step 2: extract(G2)
+## Step 2: extract (G2)
 
-**この Step の目的**: 固定された構造から「実装対象になり得る候補」を漏れなく収穫し、全候補に原文位置(source traceability)を付与する。収穫は決定論的パターン(テーブルの object 列 / inline code / claim コードブロック / 規範語句)で行い、invariant / error code / required test は `terms` に畳まず**独立カテゴリ**として分離する。ここで AI がレビューしなければ、後の設計で「仕様に書いてあったのに抽出漏れ」が起きる。
+**The purpose of this step**: to harvest, without omission, the "candidates that could become implementation targets" from the locked structure, and to attach the source location (source traceability) to every candidate. Harvesting runs on deterministic patterns (the object column of a table / inline code / claim code blocks / normative phrases), and invariant / error code / required test are separated as **independent categories** rather than folded into `terms`. If the AI does not review them here, the later design suffers from "it was written in the specification but went missing from the extraction".
 
 ```bash
 node .claude/scripts/workspacify-tree/run.mjs extract "$ARGUMENTS"
 ```
 
-- **出力の意味**: 候補統計 `harvested`(収穫数)/ `confirmed`(確定)/ `review_required`(AI 確認待ち)/ `unresolved`(未解決)に加え、`spec_pulse`(仕様書観察の候補。`candidate_ids` と各候補の `kind` / `chapter_ref` / `observation` / `evidence_refs`)。Step 3 で settle すべき候補はここで読める
-- **AI の仕事**: 収穫候補の `canonical_name / aliases / classification / source_refs` を確認し、誤収穫・曖昧候補を特定して Step 3 の `approvals` で確定/却下する。収穫器は候補を削除しない(情報を失わない)
-- **成功条件**: 全候補に source_refs があり、review_required / unresolved の一覧が把握できている
+- **What the output means**: candidate statistics `harvested` (harvested) / `confirmed` (confirmed) / `review_required` (awaiting AI review) / `unresolved` (unresolved), plus `spec_pulse` (the specification-observation candidates: `candidate_ids` and, for each candidate, `kind` / `chapter_ref` / `observation` / `evidence_refs`). The candidates that must be settled in Step 3 can be read here
+- **The AI's work**: check the `canonical_name / aliases / classification / source_refs` of the harvested candidates, identify misfiled and ambiguous candidates, and confirm or reject them through `approvals` in Step 3. The harvester never deletes a candidate (it loses no information)
+- **Success condition**: every candidate has source_refs, and the lists of review_required / unresolved are understood
 
-## Step 3: decision JSON の執筆(AI の設計判断)
+## Step 3: authoring the decision JSON (the AI's design judgement)
 
-**この Step の目的**: Step 2 の候補と仕様内容をもとに、AI が「どういう workspace に分割し、誰が何を所有し、誰が誰に依存してよいか」を設計判断し、**機械が検証できる構造化された decision JSON として書き出す**。機械は AI の頭の中を読めないため、判断は必ずこのファイルを経由して gate に渡す。設計判断はここで完結させる(過度機械化しない)。
+**The purpose of this step**: based on the candidates from Step 2 and the content of the specification, the AI decides "how to split this into a workspace, who owns what, and who may depend on whom", and **writes it out as a structured decision JSON the machine can verify**. The machine cannot read the AI's mind, so the judgement must always reach the gate through this file. The design judgement is completed here (no over-mechanisation).
 
-### 情報レベルを上げる反復手順
+### Iterative procedure to raise the information level
 
-decision は一度で完成させず、**Step 4 のゲート結果を見ながら下記 ①→⑦ を順に濃化し、情報レベルを上げる**。各段階の不足は finalAudit の count が指し示す(次 Step の表参照)。
+Do not complete the decision in one pass; **while watching the gate results of Step 4, thicken ①→⑦ below in order and raise the information level**. The shortage at each stage is pointed at by the counts in finalAudit (see the table in the next Step).
 
-1. **候補分類の確定**: extract の REVIEW_REQUIRED / unresolved を確認し、`approvals` で確定・却下する(unknown を残さない)
-2. **package 設計**: 各 package に `layer / kind / responsibilities(非空) / seed_required / owns` を与え、`tree` を leaf ディレクトリで package path と一致させる
-3. **owner 割当の完全化**: object / claim に加え **invariant / state machine / error code / required test** まで一意 owner を割り当て、`unallocated == 0` を目指す。**`owns` に載せた object / claim は `ownership` にも必ず1件ずつ登録する**(片側だけの宣言は G3 が拒否し、`final_audit.ownership_disagreement_count` に件数が出る。かつては `owns` が欠落を覆い隠し、owner の無い item が PASS で publish されていた)
-4. **依存と契約境界の全網羅**: 全 package 間の許容 edge を `reasonCode` 付きで列挙し、禁止 edge には `alternative`、dev policy を明記。`boundaries`(decisions の key。manifest では `stage2_handoff.contract_boundaries` として公開される)の consumer/provider は必ず catalog 内。機械は宣言したグラフを敵対的に読み、`dependency_reviews` として観察(不要な直列化 / 禁止 edge の代替経路 / 分離不能な相互依存 / 過大な被依存)を返す。**全候補に自分で decision を記録する**(`keep` / `replace_with_port` / `merge` / `split` / `residual`)。`residual` は判断を放棄するのではなく「公開したグラフを既定として残し、後日の per-directory grill に問いを引き渡す」という決定である
-5. **仕様書観察の settle**: 機械は仕様書そのものも敵対的に読み `structure.spec_pulse` として観察を返す(抽出漏れ / 孤立した章 / 過大な章 / 規範記述の薄い章 / 表記の揺れ / 表と散文の食い違い / 未定義参照)。**全候補を自分で settle する**: `spec_defects`(`candidate_id` / `ai_interpretation` / `chosen_default` / `rationale`)で解釈を確定するか、解けないものを `residual_questions`(`candidate_id` / `topic` / `alternatives`(非空) / `chosen_default` / `why_unresolved`)として後日の per-directory grill へ引き渡す。未 settle の候補が1つでもあれば G3 が停止する。自由記述に `TODO` / `TBD` / `ask the human` / `waiting for approval` / `human review required` / `confirm with the operator` を書くことは禁止(人間への差し戻しの表明であり、機械が拒否する)。解けない問いは residual として後日の grill へ引き渡す
-6. **approval 台帳の完備**: 判断の根拠を `approvals`(decisionId/rationale/approver)へ残し、機械検証に掛ける
-7. **AI 意味論最終承認**: 下記「AI 最終承認チェックリスト」の全項目を AI が確認し、`semantic_review` へ `{ status: "APPROVED", statement, approver }` を記録する。1つでも未達なら APPROVED にせず gate へ戻して再設計する(AI 判断の記録が無い限り機械は COMPLETE を出さない)
+1. **Settle the candidate classification**: check extract's REVIEW_REQUIRED / unresolved and confirm or reject them through `approvals` (leave no unknown behind)
+2. **Package design**: give every package `layer / kind / responsibilities (non-empty) / seed_required / owns`, and make `tree` match the package paths with leaf directories
+3. **Complete the owner assignment**: assign a unique owner to **invariant / state machine / error code / required test** as well as object / claim, and aim for `unallocated == 0`. **Every object / claim listed in `owns` must also be registered, one entry each, in `ownership`** (a one-sided declaration is refused by G3, with the number of cases in `final_audit.ownership_disagreement_count`. Previously `owns` masked the omission, and an item with no owner was published with a PASS)
+4. **Cover dependencies and contract boundaries completely**: enumerate the permitted edges between all packages with a `reasonCode`, state an `alternative` for every forbidden edge and the dev policy. The `consumer`/`provider` of every `boundaries` entry (the decisions key; published in the manifest as `stage2_handoff.contract_boundaries`) must be inside the catalog. The machine reads the declared graph adversarially and returns observations as `dependency_reviews` (unnecessary serialization / an alternative route for a forbidden edge / a mutually dependent pair that cannot be separated / an over-depended provider). **Record a decision yourself for every candidate** (`keep` / `replace_with_port` / `merge` / `split` / `residual`). `residual` is not an abandonment of judgement but the decision to "leave the published graph as the default and hand the question to the later per-directory grill"
+5. **Settle the specification observations**: the machine also reads the specification itself adversarially and returns observations as `structure.spec_pulse` (an extraction gap / an isolated chapter / an oversized chapter / a chapter thin on normative statements / a wobble in naming / a disagreement between a table and its prose / an undefined reference). **Settle every candidate yourself**: either fix the interpretation in `spec_defects` (`candidate_id` / `ai_interpretation` / `chosen_default` / `rationale`), or hand an unsolvable one to the later per-directory grill as a `residual_questions` entry (`candidate_id` / `topic` / `alternatives` (non-empty) / `chosen_default` / `why_unresolved`). If even one candidate is unsettled, G3 stops. Free text must not contain `TODO` / `TBD` / `ask the human` / `waiting for approval` / `human review required` / `confirm with the operator` (they express handing work back to a human, and the machine refuses them). A question you cannot solve is handed to the later grill as a residual
+6. **Complete the approval register**: leave the grounds for each judgement in `approvals` (decisionId/rationale/approver) and subject them to machine verification
+7. **The AI's final semantic approval**: the AI checks **every** item of the "AI final approval checklist" below and records `{ status: "APPROVED", statement, approver }` in `semantic_review`. If even one item is unmet, do not mark it APPROVED: go back to the gate and redesign (unless the AI's judgement is recorded, the machine never emits COMPLETE)
 
-仕様書ディレクトリ以外(例: `os.tmpdir()`)へ decision JSON を1ファイル作成する。スキーマは `schemas/workspacify-tree-decisions.schema.json` で機械検証される。
+Create the decision JSON as one file outside the specification's directory (for example in `os.tmpdir()`). The schema is machine-verified against `schemas/workspacify-tree-decisions.schema.json`.
 
 ```json
 {
@@ -129,100 +129,100 @@ decision は一度で完成させず、**Step 4 のゲート結果を見なが�
 }
 ```
 
-> 複数 package の例では、全 package を `workspace`・`tree`・`ownership` へ宣言し、`dependencies` の各 edge と `boundaries` を一対一で揃えること(gate が双方向網羅を強制する)。
+> In an example with several packages, declare every package in `workspace`, `tree` and `ownership`, and line up each edge of `dependencies` one-to-one with `boundaries` (the gate enforces bidirectional coverage).
 
-### 各フィールドの意味とルール
+### The meaning of each field and its rules
 
-| フィールド | 内容 |
+| Field | Content |
 |---|---|
-| `workspace` | package 配列。`id/name/path/layer/kind/responsibilities(非空)/seed_required` 必須。`owns` は objects / claims / invariants / state_machines / error_codes / required_tests を保持。layer は `foundation/protocol/ports/adapters/core/interfaces/conformance`、kind は `production-library/adapter/binary/test-support/conformance` |
-| `ownership` | 候補→package の一意割当。`objectId`(候補 id または canonical_name)に `packageId`。各 object family は protocol 層のちょうど1 owner。claim の場合は同様に primary owner を割当 |
-| `dependencies` | 依存 edge 配列。`from/to/reasonCode/reason`。**キーは `reasonCode`**(`reason_code` は機械が読まない別のキーであり、G4 が未知キーとして拒否する)。reasonCode は `.claude/scripts/workspacify-tree/lib/dependencies.mjs` の `REASON_CODES`(canonical-value / merkle-proof / payment-settlement など 26 語)から選ぶ — 語彙外の値は G4 が拒否する。禁止 edge (`kind: "forbidden"`) には `alternative`(port-injection 等)を必須とし、**同じ pair を normal と forbidden の両方で宣言すると G4 が pair を名指しして拒否する** |
-| `tree` | ディレクトリツリー。leaf ディレクトリの path 集合は package の path 集合と一致させる(非空 workspace では必須) |
-| `boundaries` | 依存 edge と一対一対応する契約境界の宣言。`consumer`/`provider` は必ず catalog 内。edge と境界の双方向網羅は gate が強制する(片側だけの宣言は通らない) |
-| `adapters` | `ports`(port が提供する能力/実装)と `databasePolicy`(RDBMS 永続化が必要な場合のみ applicable)。domain/protocol は DB 固有型・raw SQL を参照しない |
-| `dependency_reviews` | 依存レビューへの回答。`candidate_id` / `decision`(`keep` / `replace_with_port` / `merge` / `split` / `residual`)/ `rationale` / `alternatives(非空)` 必須。`residual` は `why_unresolved` も必須。`replace_with_port` は該当 edge・boundary を削除した上で記録する(宣言が残ったままでは G3 が拒否する)。全候補を自分で決め切ること。人間への差し戻しは禁止 |
-| `approvals` | **REVIEW 承認台帳**。`decisionId`(承認する候補 id or canonical_name)/`rationale`/`approver` を必須とする。承認された REVIEW_REQUIRED 候補は CONFIRMED になり unresolved から外れる |
-| `semantic_review` | **AI 最終承認台帳(非決定論)**。`{ status: "APPROVED", statement, approver }`。下記「AI 最終承認チェックリスト」の全項目を AI が確認した場合のみ `APPROVED` にする。欠落・未承認は G2/G3 が REVIEW_REQUIRED を返し COMPLETE を出さない |
+| `workspace` | The package array. `id/name/path/layer/kind/responsibilities (non-empty)/seed_required` are required. `owns` holds objects / claims / invariants / state_machines / error_codes / required_tests. layer is `foundation/protocol/ports/adapters/core/interfaces/conformance`; kind is `production-library/adapter/binary/test-support/conformance` |
+| `ownership` | The unique assignment of a candidate to a package. `objectId` (a candidate id or canonical_name) takes a `packageId`. Each object family has exactly one owner in the protocol layer. For a claim, assign the primary owner in the same way |
+| `dependencies` | The dependency edge array. `from/to/reasonCode/reason`. **The key is `reasonCode`** (`reason_code` is a different key the machine does not read, and G4 refuses it as an unknown key). Choose the reasonCode from `REASON_CODES` in `.claude/scripts/workspacify-tree/lib/dependencies.mjs` (26 words such as canonical-value / merkle-proof / payment-settlement) — a value outside the vocabulary is refused by G4. A forbidden edge (`kind: "forbidden"`) requires an `alternative` (port-injection and the like), and **declaring the same pair as both normal and forbidden makes G4 refuse it by name** |
+| `tree` | The directory tree. The set of leaf directory paths must match the set of package paths (mandatory for a non-empty workspace) |
+| `boundaries` | The declaration of the contract boundaries that correspond one-to-one with the dependency edges. `consumer`/`provider` must be inside the catalog. The gate enforces bidirectional coverage between edges and boundaries (a one-sided declaration does not pass) |
+| `adapters` | `ports` (the capability/implementation a port provides) and `databasePolicy` (applicable only when RDBMS persistence is required). domain/protocol never refers to DB-specific types or raw SQL |
+| `dependency_reviews` | The answers to the dependency review. `candidate_id` / `decision` (`keep` / `replace_with_port` / `merge` / `split` / `residual`) / `rationale` / `alternatives (non-empty)` are required. `residual` also requires `why_unresolved`. `replace_with_port` is recorded after removing the edge and boundary in question (G3 refuses it while the declaration remains). Decide every candidate yourself. Handing it back to a human is forbidden |
+| `approvals` | **The REVIEW approval register**. `decisionId` (the candidate id or canonical_name being approved) / `rationale` / `approver` are required. An approved REVIEW_REQUIRED candidate becomes CONFIRMED and leaves the unresolved set |
+| `semantic_review` | **The AI final approval register (non-deterministic)**. `{ status: "APPROVED", statement, approver }`. Set `APPROVED` only when the AI has checked every item of the "AI final approval checklist" below. A missing or unapproved entry makes G2/G3 return REVIEW_REQUIRED and never emit COMPLETE |
 
-### 設計時の指針
+### Guidance for the design
 
-- object は protocol/domain の1 owner。foundation/adapter/core/interface のみを owner にしない
-- generic proof package は共通機構のみ所有し、domain claim 意味論を一括所有しない
-- core は cross-domain 編成のみ。adapter は外部 I/O のみ。canonical validity を所有しない
-- 過剰分割リスク(内部状態共有・中間値分割・相互依存必須・不変条件再実装・巨大 snapshot 受渡し)があれば統合を判断する
-- DB 必要時: memory/SQLite/PostgreSQL/MySQL 共通 store port + SeaORM 2.x 方針。raw SQL 禁止。migration 原子性を domain 原子性にしない
+- An object has one owner in protocol/domain. Never make foundation/adapter/core/interface the sole owner
+- A generic proof package owns only the shared mechanism and never owns domain claim semantics wholesale
+- core only orchestrates across domains. adapter only performs external I/O. Neither owns canonical validity
+- If there is an over-splitting risk (shared internal state, splitting an intermediate value, a mutual dependency that is unavoidable, reimplementing an invariant, passing a huge snapshot), decide to merge
+- When a DB is needed: a common store port for memory/SQLite/PostgreSQL/MySQL plus a SeaORM 2.x policy. Raw SQL is forbidden. Do not turn migration atomicity into domain atomicity
 
-### AI 最終承認チェックリスト(非決定論・機械は APPROVED の存在のみ強制)
+### The AI final approval checklist (non-deterministic; the machine enforces only that APPROVED exists)
 
-**このチェックリストの目的**: Step 4 の gate が検証するのは客観ルールのみであり、意味論的正しさ(この owner 割当は本当に妥当か、この依存理由は正しいか)は AI にしか判断できない。finalize の前に AI は下記の**全項目**を確認し、すべて満たす場合のみ `semantic_review.status` を `APPROVED` にする。1つでも未達なら `APPROVED` にせず、decision を修正して gate へ戻す(未承認のままでは機械が COMPLETE を出さない)。
+**The purpose of this checklist**: what the gate in Step 4 verifies is objective rules only, and semantic correctness (is this owner assignment really sound, is this dependency reason correct) can only be judged by the AI. Before finalize, the AI checks **every** item below and sets `semantic_review.status` to `APPROVED` only when all of them are met. If even one is unmet, do not set `APPROVED`: correct the decision and return to the gate (while it is unapproved, the machine never emits COMPLETE).
 
-- [ ] **owner 割当の妥当性**: object / claim / invariant / state machine / error code / required test の各 owner が package の `responsibilities` と整合し、`unallocated == 0` である
-- [ ] **reasonCode の正当性**: 全依存 edge の `reasonCode` が実在し、edge の理由と一致する。禁止 edge には代替経路(port-injection 等)が明記されている
-- [ ] **adapter・DB 適用可否**: adapter は外部 I/O のみ。RDBMS 永続化が必要な場合のみ `databasePolicy.applicable` とし、raw SQL 不使用・DB 固有型が domain/protocol へ漏れないことを確認する
-- [ ] **過剰分割の最終判断**: 内部状態共有・中間値分割・相互依存必須・不変条件再実装・巨大 snapshot 受渡しの兆候が無いか確認し、必要なら package を統合する
-- [ ] **境界の catalog 内整合**: 宣言した全 `boundaries` の `consumer` / `provider` が workspace の package catalog に存在する
-- [ ] **依存証明の妥当性**: `implementation_order` が全 edge で provider を consumer より先の level に置き、`contract_definition_order` は契約 item の順である(両者を混同していない)。`dependencies.dag` の `cycle_count` は 0 である
+- [ ] **Soundness of the owner assignment**: the owner of every object / claim / invariant / state machine / error code / required test is consistent with the package's `responsibilities`, and `unallocated == 0`
+- [ ] **Validity of the reasonCode**: the `reasonCode` of every dependency edge exists and matches the reason for the edge. A forbidden edge states an alternative route (port-injection and the like) explicitly
+- [ ] **Whether adapter and DB apply**: an adapter performs external I/O only. Set `databasePolicy.applicable` only when RDBMS persistence is required, and confirm that no raw SQL is used and no DB-specific type leaks into domain/protocol
+- [ ] **The final decision on over-splitting**: check for signs of shared internal state, splitting an intermediate value, an unavoidable mutual dependency, reimplementing an invariant, or passing a huge snapshot, and merge packages if needed
+- [ ] **Consistency of the boundaries inside the catalog**: the `consumer` / `provider` of every declared `boundaries` entry exists in the workspace's package catalog
+- [ ] **Soundness of the dependency proof**: `implementation_order` places the provider at an earlier level than the consumer for every edge, and `contract_definition_order` is the order of the contract items (the two are not confused). The `cycle_count` of `dependencies.dag` is 0
 
-全項目を確認したら、decision の `semantic_review` へ記録する: `{ "status": "APPROVED", "statement": "<確認内容の要約>", "approver": "<セッション識別子>" }`。`statement` には確認した項目を要約し、`approver` には判断したセッションを明記する。
+Once every item is checked, record it in the decision's `semantic_review`: `{ "status": "APPROVED", "statement": "<a summary of what was checked>", "approver": "<session identifier>" }`. The `statement` summarises the items that were checked, and the `approver` names the session that made the judgement.
 
-## Step 4: gate ループ(G3/G4)
+## Step 4: the gate loop (G3/G4)
 
-**この Step の目的**: Step 3 の decision(設計)が「客観ルールに適合しているか」を機械の実ゲートパイプラインで検証する。適合していなければ FAIL/REVIEW_REQUIRED の原因を突き止め、decision を修正して再検証し、**全ゲート PASS・未解決 0(COMPLETE)** に収束させる。ここが PASS しない限り publish してはならない。なお、意味論的正しさの最終判断(`semantic_review.status === "APPROVED"`)が記録されていない decision も G2/G3 が REVIEW_REQUIRED を返し COMPLETE にしない。
+**The purpose of this step**: verify with the machine's real gate pipeline whether the decision (the design) from Step 3 "conforms to the objective rules". If it does not, find the cause of the FAIL/REVIEW_REQUIRED, correct the decision, verify again, and converge on **all gates PASS, unresolved 0 (COMPLETE)**. Nothing may be published unless this passes. Note that a decision which does not record the final semantic judgement (`semantic_review.status === "APPROVED"`) also makes G2/G3 return REVIEW_REQUIRED and never reach COMPLETE.
 
 ```bash
 node .claude/scripts/workspacify-tree/run.mjs gate "--spec=$ARGUMENTS" "--decisions=<decision.json>"
 ```
 
-- **出力の意味**: per-gate 結果(`G0..G5` の PASS/FAIL/REVIEW_REQUIRED)と `finalAudit`(各 count)。`COMPLETE`(exit 0)は全ゲート PASS・unresolved 0 を意味する
-- **`finalAudit` の count と修正対象の対応表**(stdout に出る `finalAudit` の値のみ):
-  | count | 意味 | 修正対象(Step 3 手順) |
+- **What the output means**: the per-gate result (PASS/FAIL/REVIEW_REQUIRED for `G0..G5`) and `finalAudit` (each count). `COMPLETE` (exit 0) means every gate PASS and unresolved 0
+- **The table mapping the counts of `finalAudit` to what to fix** (only the values of `finalAudit` that appear on stdout):
+  | count | meaning | what to fix (the Step 3 procedure) |
   |---|---|---|
-  | `review_required_count` / `unresolved_count` | 未承認の候補 | ① approvals で確定/却下 |
-  | `spec_defect_count` / `residual_question_count` | 仕様書観察が未 settle | ⑤ spec_defects / residual_questions |
-  | `dependency_review_count` / `unresolved_review_count` | 依存レビューが未回答 | ④ dependency_reviews |
-  | `missing_responsibilities_count` | responsibilities 未記入 | ② package 設計 |
-  | `unallocated_count` | owner 未割当の invariant/error/test 等 | ③ owner 割当 |
-  | `ownership_disagreement_count` | `owns` と `ownership` が片側だけの item | ③ owner 割当(両方に登録する) |
-  | `orphan_object_count` / `orphan_claim_count` / `owner_collision_count` | owner の欠落・重複 | ③ owner 割当 |
-  | `unknown_dependency_count` / `layer_violation_count` / `cycle_count` | 依存の不備・循環 | ④ boundary・依存網羅 |
-  | `forbidden_dependency_count` | 禁止 edge が宣言されている | ④ 禁止 edge の `alternative` |
-  | `raw_sql_count` / `db_type_leak_count` | adapter/DB 方針違反 | adapters・databasePolicy |
-  | `status` | `semantic_review.status` が APPROVED でない / 記録が無い | ⑦ AI 意味論最終承認: チェックリスト全項目を確認し `semantic_review` へ APPROVED を記録 |
-- **表に無い原因は gate の理由文に出る**: tree↔catalog の path 不一致、edge と契約境界の不整合、カテゴリ owner 表の欠落は、失敗時に guide が `reasons` として文章で列挙する(per-gate の内訳 count は stdout に出ない)ので、その文面から該当 Step を判断する
-- **AI の仕事**: FAIL の原因(所有権重複 / 循環 / 禁止層 / raw SQL / DB 型漏れ / schema 不正 / 上表の不足)に応じ decision を修正し、**exit 0(COMPLETE)になるまで繰り返す**(自己修復ループ)。到達水準はこの doc が列挙する ①〜⑦ がすべて埋まることである
-- **回帰確認**: decision を修正したら `run.mjs extract` と gate を再実行し、抽出結果との不整合が無いことを確認する
+  | `review_required_count` / `unresolved_count` | unapproved candidates | ① confirm/reject through approvals |
+  | `spec_defect_count` / `residual_question_count` | specification observations left unsettled | ⑤ spec_defects / residual_questions |
+  | `dependency_review_count` / `unresolved_review_count` | dependency reviews left unanswered | ④ dependency_reviews |
+  | `missing_responsibilities_count` | responsibilities not written | ② package design |
+  | `unallocated_count` | invariant/error/test and the like with no owner | ③ owner assignment |
+  | `ownership_disagreement_count` | items declared on only one of `owns` and `ownership` | ③ owner assignment (register in both) |
+  | `orphan_object_count` / `orphan_claim_count` / `owner_collision_count` | a missing or duplicated owner | ③ owner assignment |
+  | `unknown_dependency_count` / `layer_violation_count` / `cycle_count` | a defect in the dependencies or a cycle | ④ boundary and dependency coverage |
+  | `forbidden_dependency_count` | a forbidden edge is declared | ④ the `alternative` of the forbidden edge |
+  | `raw_sql_count` / `db_type_leak_count` | a violation of the adapter/DB policy | adapters and databasePolicy |
+  | `status` | `semantic_review.status` is not APPROVED / is not recorded | ⑦ the AI's final semantic approval: check every item of the checklist and record APPROVED in `semantic_review` |
+- **A cause that is not in the table appears in the gate's reasons**: a path mismatch between tree and catalog, a mismatch between an edge and a contract boundary, or a missing category owner table is listed by the guide as `reasons` in sentences on failure (the per-gate breakdown counts are not printed on stdout), so judge which Step applies from that wording
+- **The AI's work**: correct the decision according to the cause of the FAIL (duplicate ownership / a cycle / a forbidden layer / raw SQL / DB type leakage / an invalid schema / a shortage in the table above) and **repeat until exit 0 (COMPLETE)** (the self-repair loop). The level to reach is that all of ①〜⑦ listed in this doc are filled in
+- **Regression check**: after correcting the decision, run `run.mjs extract` and the gate again and confirm that nothing contradicts the extraction result
 
-## Step 5: finalize と publish(G5)
+## Step 5: finalize and publish (G5)
 
-**この Step の目的**: COMPLETE が確定した decision と解析結果から manifest を組み立て、正準 JSON + self-hash を計算し、**唯一の正本 `WORKSPACIFY-TREE-MANIFEST.json` をカレントディレクトリへ原子公開**する。第二段階はこのファイルだけを引数にできる。
+**The purpose of this step**: assemble the manifest from the decision that reached COMPLETE and the analysis result, compute the canonical JSON plus its self-hash, and **atomically publish the single canonical authority `WORKSPACIFY-TREE-MANIFEST.json` to the current directory**. Stage two can take this file alone as its argument.
 
 ```bash
 node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=$ARGUMENTS" "--decisions=<decision.json>"
 ```
 
-- **実行条件**: 全ゲート PASS・unresolved 0 のときのみ。そうでなければ COMPLETE にせず非0で終了
-- **成功条件(到達確認)**: 生成 manifest が第二段階 ALLOCATE の entry 検査を通過すること。情報レベルは「workspace ツリー・唯一 owner・依存マトリクス・DAG・実装順序がすべて完成している」ことである。この最終検査は finalize が publish 直前に自分で実行する(第二段階と同じ述語。別途コマンドを打つ必要はない)
-- **出力先**: **常にカレントディレクトリ**
-- **publish 手順**: temp 書込→fsync→再読込(schema/self-hash)→rename。temp は成功時 rename・失敗時削除・次回起動時に stale を機械スイープ
-- **既存 manifest 保護**: 既存 `WORKSPACIFY-TREE-MANIFEST.json` があり input hash が異なる場合は **BLOCKED** で終了し、既存 manifest を置換・破壊しない
+- **Condition to run**: only when every gate is PASS and unresolved is 0. Otherwise it does not reach COMPLETE and exits non-zero
+- **Success condition (the arrival check)**: the generated manifest passes stage two's ALLOCATE entry check. The information level means "the workspace tree, the unique owner, the dependency matrix, the DAG and the implementation order are all complete". This final check is run by finalize itself immediately before publication (the same predicate as stage two; there is no need to invoke a separate command)
+- **Output destination**: **always the current directory**
+- **The publish procedure**: write to a temp file → fsync → read back (schema/self-hash) → rename. On success the temp file is renamed, on failure it is deleted, and a stale one is swept mechanically at the next start
+- **Protection of an existing manifest**: if a `WORKSPACIFY-TREE-MANIFEST.json` already exists with a different input hash, it exits **BLOCKED** and never replaces or destroys the existing manifest
 
-## Step 6: 報告
+## Step 6: report
 
-**この Step の目的**: 実行結果を人間と次工程が解釈できる最小の形で出力する。余計な情報を出さない。
+**The purpose of this step**: print the outcome in the minimal form a human and the next stage can interpret. Print nothing extra.
 
-- 成功時は **manifest 絶対パス / source_hash / manifest_hash / gate summary のみ** を表示する
-- 失敗時は **失敗 gate の id / 理由 / 修正すべき入力・設計項目** を表示する
+- On success, print **only the manifest's absolute path / source_hash / manifest_hash / gate summary**
+- On failure, print **the id of the failing gate / the reason / the input and design items to fix**
 
-## エラー復帰
+## Error recovery
 
-- 失敗時は stderr の `[guide]`(原因と修正対象)を読み、入力または decision を修正して gate を再実行する
-- `REVIEW_REQUIRED` / `BLOCKED` は `COMPLETE` にならず、既存 manifest は常に保全される
+- On failure, read the `[guide]` on stderr (the cause and what to fix), correct the input or the decision, and run the gate again
+- `REVIEW_REQUIRED` / `BLOCKED` never become `COMPLETE`, and an existing manifest is always preserved
 
-## 禁止事項
+## Prohibitions
 
-禁止は「ゲートが機械強制するもの」と「Step 3 の設計時の指針」へ集約済み。AI が追加で自己判断する禁止は設けない。
+The prohibitions are already consolidated into "what the gate enforces mechanically" and "the guidance for the design in Step 3". No further prohibition for the AI to decide on its own is set.
 
-## 成功の定義
+## Definition of success
 
-成功は **① AI 意味論最終承認**(`semantic_review.status === "APPROVED"` を decision へ記録)と **② 全機械ゲート PASS・未解決 review 0** の両立に集約される。機械ゲートのみ・AI 承認のみの片落ちは成功ではない。最終確認は生成 manifest の再読込(schema / 必須値 / self-hash)、`semantic_review` 記録の存在、そして第二段階 entry gate の受理(finalize が publish 直前に自分で実行する)である。
+Success is consolidated into the coexistence of **① the AI's final semantic approval** (recording `semantic_review.status === "APPROVED"` in the decision) and **② every machine gate PASS and unresolved review 0**. One side alone — machine gates only, or AI approval only — is not success. The final confirmation is a reload of the generated manifest (schema / required values / self-hash), the presence of the `semantic_review` record, and acceptance by stage two's entry gate (which finalize runs itself immediately before publication).

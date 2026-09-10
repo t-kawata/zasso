@@ -52,7 +52,7 @@ describe("parseCliOptions", () => {
   it("最小構成（必須フラグのみ）でデフォルト値が適用される", () => {
     const argv = ["node", "conver.js", "-k", "sk-test-key", "-s", "https://hooks.slack.com/test"];
     const options = parseCliOptions(argv);
-    assert.strictEqual(options.model, "deepseek-v4-flash");
+    assert.strictEqual(options.model, "deepseek-flash");
     assert.strictEqual(options.baseUrl, "https://api.deepseek.com/anthropic");
     assert.strictEqual(options.ticketsPath, path.resolve("./Tickets.json"));
     assert.strictEqual(options.maxCount, 999999);
@@ -106,7 +106,7 @@ describe("parseCliOptions", () => {
   it("最小構成 + -w 指定でデフォルト値 + watcherConfig が正しい", () => {
     const argv = ["node", "conver.js", "-k", "sk-test-key", "-s", "https://hooks.slack.com/test", "-w", "/min/watcher.json"];
     const options = parseCliOptions(argv);
-    assert.strictEqual(options.model, "deepseek-v4-flash");
+    assert.strictEqual(options.model, "deepseek-flash");
     assert.strictEqual(options.watcherConfig, "/min/watcher.json");
   });
 

@@ -235,14 +235,14 @@ test('C001 a package that answers a question cannot declare its grill section no
 
 test('C004 the command document states the drafting order, the loop and the hand-off', () => {
   const doc = readFileSync('.claude/commands/workspacify-allocate.md', 'utf8');
-  assert.match(doc, /契約は散文より先に起草する/, 'the contract-first drafting order must be stated');
-  assert.match(doc, /自己 grill/);
+  assert.match(doc, /The contract is drafted before the prose/, 'the contract-first drafting order must be stated');
+  assert.match(doc, /self-grill/);
   for (const focus of CRITIC_FOCUSES) {
     assert.ok(doc.includes(focus), `the document must name the ${focus} focus`);
   }
-  assert.match(doc, /収束/, 'the convergence rule must be stated');
+  assert.match(doc, /convergence/i, 'the convergence rule must be stated');
   assert.match(doc, /stage1_pulse/, 'the document must say how a stage-1 residual is carried');
-  assert.match(doc, /人間への差し戻し[^\n]*禁止/, 'the no-hand-back rule must survive');
+  assert.match(doc, /handing anything back to a human[^\n]*forbidden/i, 'the no-hand-back rule must survive');
   assert.match(doc, /self_grill/);
   assert.match(doc, /handoff_summary/);
   assert.match(doc, /G3\.7/, 'Step 4 must name the self-grill gate');
