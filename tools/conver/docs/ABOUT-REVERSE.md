@@ -558,9 +558,9 @@ RFC clause → claim_id → normative_decision_id → residual_id
 | フィールド | 内容 |
 |---|---|
 | `claim_id` | 安定 ID |
-| `claim_type` | `observed` / `inferred` / `normative` / `unresolved` |
+| `claim_type` | `observed` / `inferred` / `normative` / `unresolved`。**`observed` はソーステキスト／構文木から読めた事実のみ**。実行時挙動・動的ディスパッチ先・生成後コードは、実行・ビルド・トレースの証拠なしには `observed` ではない（5.5.2節、`evidence_mode`） |
 | `scope` | commit / 環境 / feature flag / tenant / API version / 時刻範囲 — **「常に成立」を AI が推測する余地を消す** |
-| `support` | 独立した **evidence group** の一覧（**証拠の本数ではない**。5.5.2 節） |
+| `support` | **強い系譜関係で折りたたんだ後の**独立成分の一覧（**証拠の本数ではない**。5.5.2 節） |
 | `counterevidence` | 競合・反例・観測不能性 |
 | `falsification` | **何を観測／変異すれば棄却されるか** |
 | `review_state` | 未レビュー / 要専門家確認 / 承認済み / 撤回済み |
@@ -572,20 +572,52 @@ RFC clause → claim_id → normative_decision_id → residual_id
 
 **同じ実装を前提にした unit test・comment・README は、独立した3本の証拠ではない。** 同一原因から派生した証拠を独立と誤認することは、**偽の green の逆回転版**である（F11）。
 
-evidence は**ソースではなく生成因果でグループ化**する：
+> **訂正（2026-09-10、専門家の回答による）。** 旧版は `derivation_group` という**単一 ID** で「同じ原因から派生した証拠群」を表していた。**これは誤りである。** コード・テスト・コメントが同じ人間の同じ設計判断から生じたかは、ファイルの内容だけからは識別できない。機械が計算できるのは**観測可能な系譜の近似**だけであり、その差をスキーマ上で隠せば、誤った独立性判定が「証明」として扱われる。本節はしたがって、**系譜グラフと、明示的に保存される集計ポリシー**に置き換える。検証記録は `docs/ABOUT-ANALYSIS-TECH.md` §7 にある。
+
+evidence は**ソースではなく、観測可能な系譜関係でグラフ化**する：
 
 ```json
 {
   "evidence_id": "ev-test-77",
   "source_kind": "unit-test",
-  "derivation_group": "implementation-derived-authz-v2",
-  "origin_commit": "<git-sha>",
-  "independence_class": "not-independent-from-source",
+  "evidence_mode": "source_static",
+  "source_span": { "file": "src/authz.rs", "line": 42 },
+  "lineage_edges": [
+    {
+      "relation": "same_guard",
+      "target": "ev-impl-31",
+      "confidence": "high",
+      "basis": ["src/authz.rs:42-46"]
+    },
+    {
+      "relation": "same_commit",
+      "target": "ev-readme-12",
+      "confidence": "medium",
+      "basis": ["git:<sha>"]
+    }
+  ],
+  "independence_assessment": "unknown",
   "supports_claim_ids": ["clm-authz-delete-tenant-001"]
 }
 ```
 
-`derivation_group` は「同じ原因から派生した可能性のある証拠群」を表す。**同一 PR で実装・テスト・README が同時に導入されたなら、それらは1グループである。**
+**関係の語彙は閉じており、強さが宣言されている。**
+
+| 関係 | 意味 | 強さ | 集計での扱い |
+|---|---|---|---|
+| `same_syntax_span` | 同じ AST ノード・同じソース範囲 | 高 | 折りたたむ |
+| `same_generator` | 同じ生成器・同じ入力・同じ生成ハッシュ | 高 | 折りたたむ |
+| `same_commit` / `same_patch` | 同一コミット・同一 PR・同一 patch-id | 中 | 折りたたむ |
+| `same_guard` / `same_error_path` | 同じ定義・同じ guard・同じ失敗経路を参照 | 中 | 折りたたむ |
+| `similar_wording` | コメント・テスト名・docstring の類似 | 弱 | **自動では折りたたまない。** 人間レビューの候補に留める |
+
+**証拠の本数は、強い関係で結ばれた連結成分を1票として数える。** この集計は `independence_policy` として evidence と一緒に保存する。**ポリシーと入力の辺を保存しておけば、後から人間が訂正できる。** ポリシーを暗黙にすれば、それがそのまま答えになってしまう。
+
+`independence_assessment: "unknown"` は**正当な値であり、失敗ではない。** 二つの成果物が一つの設計判断に由来するかはファイル内容から計算できないのだから、**推測してそれを証明と呼ぶより、不明と記録するほうが正しい。**
+
+**同一 PR で実装・テスト・README が同時に導入されたなら、それらを1グループとして扱う根拠にはなる。** ただし共同変更は同じ設計意図を証明しない。**`same_commit` は「独立でない」方向の根拠にはなるが、「独立である」ことの根拠にはならない。**
+
+**さらに、`observed` はソーステキスト／構文木から読めた事実のみを指す。** 実行時挙動・動的ディスパッチ先・条件コンパイル後の構成・生成後コードは、実行・ビルド・トレースの証拠なしに `observed` ではない。したがって evidence は `evidence_mode`（`source_static` / `build_semantic` / `runtime_dynamic`）を必ず持つ。
 
 ---
 
@@ -663,7 +695,7 @@ evidence は**ソースではなく生成因果でグループ化**する：
 | | `detect-unobserved-surface.mjs` | 90% | **未観測の構成・経路・外部境界**を検出する。未観測の flag / tenant / 障害時 / 負荷時 / 旧 API 版を「存在しない」と扱うことを禁ずる（F12）。**gap が少ないことを品質・成功と解釈してはならない** |
 | | `quarantine-suspicious-semantics.mjs` | 80% | エラーハンドリングの非対称性・デッドロック可能性等の code smell を検出し、**`observed` な仕様として確定させず `unresolved`（人間への residual）へ隔離**する。**既存のバグや未定義動作を正典化しない**（F21） |
 | **R5.5 oracle の妥当性** | `classify-mutation-survivors.mjs` | 90% | mutation の生存原因を **equivalent mutant / 到達不能 / 観測点不足 / oracle 不足 / 入力不足 / 環境不足** に分類し `ORACLE-GAP.json` を出す。**mutation score を契約 coverage の証明と誤認しない**（F17）。**全体 mutation score の閾値で通過判定してはならない** |
-| | `filter-equivalent-mutants.mjs` | 100% | 変異コードを正規化（各言語の正規化器。JS/TS なら SWC / Babel / TypeScript Compiler API）し、**元コードと AST が一致すれば等価ミュータント**として機械的に廃棄する（TCE） |
+| | `filter-equivalent-mutants.mjs` | 100% | 変異コードを正規化（各言語の正規化器。JS/TS なら SWC / Babel / TypeScript Compiler API）し、**元コードと正規化 AST が一致すれば、名指しした構成の下で構文的に等価**として機械的に廃棄し、**どの梯子段で廃棄したかを記録する**（TCE。**意味的等価ではない**） |
 | **R6 Red 再建基盤** | `plan-red-reconstruction.mjs` | 100% | 各テストに対し「どの実装を変異させれば落ちるべきか」の候補と手順を列挙（**実行はしない**）。**claim ごとに mutation / negative test / property / metamorphic / differential / trace assertion を選び**、対象・副作用・reset・oracle・期待 red を計画する |
 | | `measure-coverage.mjs` | 100% | カバレッジ実測（取得可能な場合のみ） |
 | **R6.5 能動的反証** | `run-counterexample-plan.mjs` | 80% | 隔離環境で反証計画を実行し、**反例・未殺 mutant・挙動差分**を `COUNTEREXAMPLE-RESULTS.json` に記録する。結果を **claim ledger へ逆流**させ、契約候補・証拠評価・意図仮説を**撤回または分割**する。**red の失敗を自動的に仕様誤りと結論してはならない** |
@@ -911,7 +943,7 @@ omission チケット
 | Phase | 内容 | 順回転への影響 |
 |---|---|---|
 | **−1** | **計画そのものの基盤固め**（下表）。**コードを書く前に終わらせる。** | **なし**（基盤と設計確定のみ） |
-| **0** | ① reverse sidecar 群＋順方向参照＋`ref_hashes` ② 証拠独立性グループ（`derivation_group` / `independence_class`）③ scope と `coverage_status`（`unknown` を `absent` と合算しない）④ residual の `normative_context` 拡張 ⑤ invariant mutation ＋ TCE ⑥ テスト import/mock → R2 凝集度への逆流辺 ⑦ capability profile ⑧ **順回転回帰ゲート** ⑨ `SCOPE-BOUNDARY.json`（`in_scope` / `out_of_scope` / `undetermined`） | **なし**（reverse 専用） |
+| **0** | ① reverse sidecar 群＋順方向参照＋`ref_hashes` ② 証拠の系譜グラフと独立性の集計ポリシー（`lineage_edges` / `independence_policy` / `evidence_mode`）③ scope と `coverage_status`（`unknown` を `absent` と合算しない）④ residual の `normative_context` 拡張 ⑤ invariant mutation ＋ TCE ⑥ テスト import/mock → R2 凝集度への逆流辺 ⑦ capability profile ⑧ **順回転回帰ゲート** ⑨ `SCOPE-BOUNDARY.json`（`in_scope` / `out_of_scope` / `undetermined`） | **なし**（reverse 専用） |
 | **0.5** | **動的解析基盤の構築** — sandbox / record-replay / 隔離 DB / リセット手順。**R-1 が要求する動的証拠を取得する環境**（これが無いと W3 の撤退条件が常時成立してしまう） | なし |
 | **1** | **物理／論理の二層化**（`mappedNodeIds` の上に mismatch を記録）＋ カード駆動 Reflexion ＋ 2-Pass Hybrid | なし（再利用のみ） |
 | **2** | **反証の中心化** — R6.5、反例予算、PBT 自動生成、反例の claim ledger への逆流。**Red 再建の実行経路を含む**（作業ツリー隔離・`conver.js` への組み込み） | なし |
@@ -939,7 +971,7 @@ omission チケット
 |---|---|---|
 | 1 | **−1-a のベースライン固定** | **改修前**でなければならない |
 | 2 | reverse sidecar の骨格（`ANALYSIS-SCOPE` / `SCOPE-BOUNDARY`） | 1 |
-| 3 | `CLAIM-LEDGER` ＋ 証拠独立性（`derivation_group`） | 2 |
+| 3 | `CLAIM-LEDGER` ＋ 証拠の系譜グラフと独立性ポリシー（`lineage_edges` / `independence_policy`） | 2 |
 | 4 | `ref_hashes` と順方向参照 | 3 |
 | 5 | residual の `normative_context` 拡張 | 2 |
 | 6 | invariant mutation ＋ TCE | 独立 |
@@ -1021,7 +1053,7 @@ omission チケット
 |---|---|---|
 | **`observed` の拒否** | 動的機構が関与する命題に動的証拠が無いのに `observed` と分類されている | R-1。`inferred` または `unresolved` へ落とす |
 | **`normative` の拒否** | provenance 鎖（RFC clause → claim → normative_decision → residual → evidence bundle → evidence）が途切れている | 5.5節 |
-| **証拠独立性の加算拒否** | 同一 `derivation_group` の evidence を独立証拠として複数計上している | 5.5.2節（F11） |
+| **証拠独立性の加算拒否** | 強い系譜関係で結ばれた evidence を独立証拠として複数計上している | 5.5.2節（F11） |
 | **`out_of_scope` の保護** | スコープ外を「存在しない」と記述している | R-6（F12） |
 
 ---
@@ -1177,7 +1209,7 @@ omission チケット
 
 | # | 失敗モード | 何が起きるか | 検出／緩和 |
 |---|---|---|---|
-| **F11** | **証拠独立性の錯覚** | 同じ実装由来のテスト・コメント・文書・履歴を複数の根拠と誤数えし、**追認を強化したと誤認する** | `derivation_group` による因果グループ化、独立ビュー最小数、反証経路の強制（5.5.2節） |
+| **F11** | **証拠独立性の錯覚** | 同じ実装由来のテスト・コメント・文書・履歴を複数の根拠と誤数えし、**追認を強化したと誤認する** | `lineage_edges` による系譜グラフ化と、保存された独立性集計ポリシー、独立ビュー最小数、反証経路の強制（5.5.2節） |
 | **F12** | **未観測域の不存在化** | trace・検索・テストに現れない flag / tenant / 障害時 / 負荷時 / 旧 API 版を**「存在しない」と扱う** | scope lattice、coverage denominator、`unknown` を `absent` と合算しない、環境 matrix |
 | **F13** | **時間的ドリフト** | RFC 再建後に依存・設定・schema・外部 API・デプロイが変わり、**証拠と規範が静かに古くなる** | claim → artifact 依存の index、`STALENESS-INDEX.json` による伝播、再審査の運用（Phase 3） |
 | **F14** | **論理境界と物理境界の同一視** | 既存フォルダ・repo・deploy unit を**本来の責務境界として固定**してしまう | 物理／論理の二層モデル（T5）、`mappedNodeIds` 上の mismatch 記録、mismatch の residual 化 |
@@ -1465,7 +1497,7 @@ Git hook（`post-merge` / `post-checkout`）で更新を自動化する場合は
 | 論点 | 解決の要点 | 参照 |
 |---|---|---|
 | **R-1** 動的解析の必須／任意 | 手法で線引きせず**命題の分類**で決める。動的機構が関与する命題は動的証拠なしに `observed` と名乗れない | 11.5節 |
-| **R-2** equivalent mutant の言語別実装 | **公式 AST ＋ 公式プリンタ**で足りる。決定不能性は `ORACLE-GAP` への分類で扱う | 11.5節 |
+| **R-2** equivalent mutant の言語別実装 | **言語ごとの正規化手段**で比較する。証明するのは**名指しした構成の下での構文等価（TCE）**であり意味的等価ではない。決定不能性は `ORACLE-GAP` への分類で扱う | 11.5節 |
 | **R-3** PBT 自動生成 | **生成できる範囲を限定**（入力生成器＋既知カテゴリの性質）。分類できなければ `unresolved` | 11.5節 |
 | **R-4** 注釈の一括適用 | **しない。** ループが触れたファイルに限定する | 11.5節 |
 | **R-5** 中止判断基準 | 機械は判定しない。**W1〜W6 の観測**を提示し、人間が撤退を決める | 11.5節 |
@@ -1496,7 +1528,9 @@ Git hook（`post-merge` / `post-checkout`）で更新を自動化する場合は
 | **契約（Contract）** | I/O 境界に付与される Precondition / Postcondition / Invariant。テスト可能な形に翻訳されて初めて仕様として成立する |
 | **provenance 4値** | 逆回転で生まれる全記述の分類。`observed`（証拠必須）/ `inferred`（根拠必須）/ **`normative`（`normative_decision_id` 必須）** / `unresolved`（`grill_question` 必須） |
 | **`normative`** | 人間の選択によって規範として確定した命題。**「実装から観測された」は規範ではない。** 規範条項は provenance 鎖（5.5節）が途切れていてはならない |
-| **証拠独立性グループ** | `derivation_group`。同一原因から派生した証拠群。**同一 PR の実装・テスト・README は1グループであり3本の独立証拠ではない**（5.5.2節） |
+| **証拠の系譜グラフ** | `lineage_edges`。証拠間の**観測可能な**関係（同一構文範囲・同一生成器・同一コミット・同一 guard・同一失敗経路）と、その強さ・確信度・根拠。**同一 PR の実装・テスト・README は1グループとして折りたたまれ、3本の独立証拠ではない**（5.5.2節） |
+| **独立性の集計ポリシー** | `independence_policy`。強い関係で結ばれた連結成分を1票として数える規則。evidence と一緒に保存され、後から人間が訂正できる。**`independence_assessment: "unknown"` は正当な値であり、失敗ではない**（5.5.2節） |
+| **evidence_mode** | `source_static` / `build_semantic` / `runtime_dynamic`。**`observed` はソーステキスト／構文木から読めた事実のみ**を指すため、実行時挙動・動的ディスパッチ先・生成後コードを主張する evidence は、より弱い mode を明示する（5.5.2節） |
 | **scope lattice** | 命題の適用範囲（commit / 環境 / flag / tenant / API version / 時刻）を機械比較する仕組み。**未観測域の不存在化（F12）を防ぐ** |
 | **判断カード** | AI の判断点ごとに「問い / 選択肢 / 帰結 / 証拠 / 反例 / 既定値」を Markdown で差し出す仕掛け（7.4節） |
 | **アブダクション** | 最良の説明への推論。順方向の演繹に対し、逆方向が本質的に必要とする推論形式 |
@@ -1528,7 +1562,7 @@ Git hook（`post-merge` / `post-checkout`）で更新を自動化する場合は
 | **capability profile** | 適格性の可否ではなく、能力・可観測性・反証可能性・危険のプロファイル。`eligible: true/false` を出さない（R0.5） |
 | **reverse_provenance** | reverse mode の manifest にのみ載る追加ブロック。sidecar bundle hash と件数要約。**`COMPLETE` の意味は変えない** |
 | **案2.5-refined** | 不確実性の正本を sidecar に置き、**順回転成果物へのフィールド追加はゼロ**。sidecar が順方向参照と `ref_hashes` を持つ設計（6.12節） |
-| **TCE（Trivial Compiler Equivalence）** | 変異コードを正規化し、AST 一致で等価ミュータントを機械的に廃棄する手法（R5.5） |
+| **TCE（Trivial / syntactic / compiler-normalisation Equivalence）** | 変異コードを正規化し、AST 一致で等価ミュータントを機械的に廃棄する手法（R5.5）。**証明するのは名指しした構成の下での構文等価であり、意味的等価ではない。** 一般プログラムの意味等価性は決定不能 |
 | **invariant mutation** | コードを変異させず、guard clause・schema 検証・アサーションを No-op 化して Red 不在を確実に判定する手法 |
 | **PBT（プロパティベーステスト）** | R3 の不変条件から自動生成し、**oracle 共犯（F17）を破る**手段 |
 
@@ -1561,7 +1595,7 @@ Git hook（`post-merge` / `post-checkout`）で更新を自動化する場合は
 | 2 | **`normative` は人間の選択によってのみ成立**し、「実装から観測された」は規範ではない | 5.5節 |
 | 3 | **規範条項の provenance 鎖を必須化**（RFC clause → claim → normative_decision → residual → evidence bundle → evidence） | 5.5節 |
 | 4 | 命題の必須フィールド（`claim_id` / `claim_type` / `scope` / `support` / `counterevidence` / `falsification` / `review_state` / `normative_authority`） | 5.5.1節 |
-| 5 | **証拠独立性グループ**（`derivation_group` / `independence_class`）。**同一実装由来の証拠を独立と数えない** | 5.5.2節 |
+| 5 | **証拠の系譜グラフと独立性の集計ポリシー**（`lineage_edges` / `independence_policy` / `evidence_mode`）。**同一実装由来の証拠を独立と数えない** | 5.5.2節 |
 | 6 | **scope lattice** と `coverage_status`。**未観測を「確認済み」と分離** | 6.9節・6.2節 R3.5 |
 | 7 | **residual の `normative_context` 拡張**（既存5フィールドは不変） | 6.5節 G4 |
 | 8 | **`normative_decision` を選択イベントとして記録**（承認待ち状態を作らない） | 6.5節 G4 |
@@ -1654,20 +1688,36 @@ Git hook（`post-merge` / `post-checkout`）で更新を自動化する場合は
 
 ---
 
-#### R-2 equivalent mutant の言語別実装 — **公式 AST ＋ 公式プリンタで足りる**
+#### R-2 equivalent mutant の言語別実装 — **「正規化して比べる」が何を証明するかを明示する**
 
-TCE の本質は「正規化して比較」である。**正規化器は各言語の標準ツールで足りる。**
+> **訂正（2026-09-10、専門家の回答による）。** 旧版の見出しは「公式 AST ＋ 公式プリンタで足りる」としていた。**これは C/C++ と Rust で誤りである。** Clang にはソースを忠実に再生成する汎用の公式アンパーサが無く、`clang-format` は整形器であって AST からの逆生成器ではない。Rust の `prettyplease` は `syn` の AST 用のサードパーティ製プリンタであり、`rustc` の公式プリンタではない（コメントが脱落しうる）。**TCE は trivial / syntactic / compiler-normalisation equivalence の略であり、意味的等価ではない。** 一般プログラムの意味等価性は決定不能である。
 
-| 言語 | 正規化器（TCE） | 型駆動の変異制限 | mutation ツール |
+TCE の本質は「正規化して比較」である。**ただし、何を比べたら何が言えるかは言語ごとに違う。**
+
+| 言語 | 正規化の手段 | 正確に言えること | 言えないこと |
 |---|---|---|---|
-| JS / TS | SWC / Babel / TypeScript Compiler API | `ts-morph` + TypeChecker | Stryker |
-| Go | `go/ast` + `go/printer`（gofmt が既に正規） | `go/types` | go-mutesting |
-| Rust | `syn` で parse → pretty-print | `rustc` の型検査 | cargo-mutants |
-| Python | `ast` + `ast.unparse` | `mypy` / `pyright` | mutmut |
-| Java | `com.sun.source` + google-java-format | javac 型検査 | PIT |
-| C / C++ | clang AST + clang-format | clang 型検査 | — |
+| JS / TS | SWC / Babel / TypeScript Compiler API の `createSourceFile` + `createPrinter` | 構文木を再印字した一致 | 型検査・モジュール解決・実行時 dynamic property・`eval` の等価 |
+| Go | `go/ast` + `go/printer`。**固定バージョンの gofmt で実行し、その出力を保存する** | Go 構文の正規化 | build tags・型情報・整数／浮動小数点／副作用を跨ぐ代数的同値 |
+| Rust | `syn` で parse → `prettyplease` で print | `syn` が表せる範囲での AST 丸め | macro 展開後の挙動・trait 解決・cfg 条件下の意味等価。**コメントは脱落しうる** |
+| Python | `ast.parse` + `ast.unparse` | 再パースして等価な AST を作る表現 | 元ソース文字列との一致。コメント・書式・メタプログラミングの同値 |
+| Java | `com.sun.source` + google-java-format | 固定構成下の構文正規化 | リフレクション・実行時型・クラスロード順を跨ぐ同値 |
+| C / C++ | Clang AST。**`compile_commands.json` がある構成に限る** | 固定コンパイルコマンド下の一翻訳単位の AST 事実 | 全構成での意味等価・テンプレート実体化・ODR・マクロ・条件コンパイルを跨ぐ全体同値 |
 
-**決定不能性への対処**: equivalent mutant の完全判定は**決定不能**である。したがって TCE は「**確実に等価なものだけを安全側で廃棄する**」道具として使う。**廃棄できなかった survivor は「equivalent の疑い」として `ORACLE-GAP.json` に残す。** 分類できないことを「契約が正しい」と読み替えてはならない（F17）。
+**比較の梯子は、当てはまった最初の段で止める。その段が証明しないことは言わない。**
+
+1. テキスト同一
+2. トークン正規化同一
+3. AST 正規化同一
+4. 限定規則による局所書換え同値
+5. コンパイラ／型検査器が同一 IR または同一診断を出す
+6. テスト・property・差分実装で区別できなかった
+7. `unknown`
+
+**4 段目以降は、言語・型・評価順・副作用・算術モデル・構成条件を明示しなければ危険である。** 梯子は出力のどこでも「等価」という一語に集約しない。**6 段目で廃棄した mutant と 1 段目で廃棄した mutant は別の主張であり、潰せば未決定の mutant が決定済みとして提示される。**
+
+**macro と生成コードは、展開前と展開後を別物として保持する。** 展開前は人間が保守するソース上の責務・`file:line`・レビュー可能性・設計意図の手がかりであり、展開後は固定構成における名前解決と型検査が見る姿である。両者は `origin_span`・`expansion_span`・`configuration_id`・`generator_identity` を持つ**多対多の来歴グラフ**で結ぶ。呼出地点と展開地点が一対一であると仮定してはならない。
+
+**決定不能性への対処**: equivalent mutant の完全判定は**決定不能**である。したがって TCE は「**確実に等価なものだけを安全側で廃棄する**」道具として使う。**廃棄できなかった survivor は「equivalent の疑い」として `ORACLE-GAP.json` に残す。** 分類できないことを「契約が正しい」と読み替えてはならない（F17）。**どの段で廃棄したかを記録する。**
 
 ---
 
