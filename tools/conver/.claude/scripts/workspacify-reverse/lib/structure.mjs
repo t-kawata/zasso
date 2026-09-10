@@ -38,8 +38,16 @@ import {
 import { BUILD_MANIFESTS, compareText } from './holdout-ledger.mjs';
 import { groupKey } from './provenance.mjs';
 
-/** The grammar that carries each target language, and the wasm file inside its package. */
-const GRAMMAR_BY_LANGUAGE = Object.freeze({
+/**
+ * The grammar that carries each target language, and the wasm file inside its package.
+ *
+ * Exported because R5.5's trivial-compiler-equivalence normaliser must compare a
+ * mutant under the same grammar the extraction used. A second table elsewhere
+ * would drift on spelling and the drift would be silent, because each consumer's
+ * tests would pass against its own copy.
+ */
+// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+export const GRAMMAR_BY_LANGUAGE = Object.freeze({
   rust: { packageName: 'tree-sitter-rust', wasmName: 'tree-sitter-rust.wasm' },
   typescript: { packageName: 'tree-sitter-typescript', wasmName: 'tree-sitter-typescript.wasm' },
   javascript: { packageName: 'tree-sitter-javascript', wasmName: 'tree-sitter-javascript.wasm' },
@@ -116,6 +124,44 @@ async function loadGrammar(language) {
   } catch (error) {
     return { language, grammar: null, failure: error.message };
   }
+}
+
+/**
+ * The installed version of each grammar, read from its package manifest.
+ *
+ * A normalised comparison proves syntactic equivalence under a *named*
+ * configuration, and a grammar version is part of that configuration: a grammar
+ * change changes the tree, and a changed tree changes what "identical" means.
+ * Reading the version from the installed package rather than repeating it here
+ * keeps the declaration and the artefacts from drifting apart.
+ */
+// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+const GRAMMAR_VERSION_BY_PACKAGE = (() => {
+  const versions = {};
+  for (const entry of Object.values(GRAMMAR_BY_LANGUAGE)) {
+    try {
+      const manifest = JSON.parse(readFileSync(requireFromHere.resolve(`${entry.packageName}/package.json`), 'utf8'));
+      versions[entry.packageName] = manifest.version ?? null;
+    } catch {
+      versions[entry.packageName] = null;
+    }
+  }
+  return Object.freeze(versions);
+})();
+
+/**
+ * The identity a comparison names when it claims a normalised match.
+ *
+ * A package whose version could not be read yields the bare package name rather
+ * than a guess. An unversioned configuration is a weaker claim, and it should
+ * read as one.
+ */
+// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+export function grammarIdentityFor(language) {
+  const entry = GRAMMAR_BY_LANGUAGE[language];
+  if (!entry) return null;
+  const version = GRAMMAR_VERSION_BY_PACKAGE[entry.packageName];
+  return version === null || version === undefined ? entry.packageName : `${entry.packageName}@${version}`;
 }
 
 /** The grammars, loaded once when the module is first imported. */
@@ -401,6 +447,34 @@ export function parseSourceFile(root, relativePath, { grammar } = {}) {
     return { ok: false, language, reason: 'unreadable', message: `${error.code ?? 'error'}: ${relativePath} could not be read` };
   }
 
+  const parser = new Parser();
+  parser.setLanguage(loaded.grammar);
+  const tree = parser.parse(text);
+  return { ok: true, language, tree, text, errorNodes: tree.rootNode.hasError };
+}
+
+/**
+ * Parse source text the caller already holds, rather than a file on disk.
+ *
+ * R5.5 compares a mutant against its original, and a mutant exists as text
+ * produced in memory: it is never written to the tree being measured, because a
+ * run must not change what it measures. The reading is the same one
+ * `parseSourceFile` performs — only the source of the text differs.
+ */
+// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+export function parseSourceText(text, language) {
+  if (parserFailure !== null) {
+    return { ok: false, language, reason: 'grammar_unavailable', message: parserFailure };
+  }
+  const loaded = LOADED_GRAMMARS.get(language);
+  if (!loaded || loaded.grammar === null) {
+    return {
+      ok: false,
+      language,
+      reason: 'grammar_unavailable',
+      message: loaded?.failure ?? `the ${language} grammar is not available`,
+    };
+  }
   const parser = new Parser();
   parser.setLanguage(loaded.grammar);
   const tree = parser.parse(text);

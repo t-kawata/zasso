@@ -2,6 +2,7 @@
 // [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
 /**
  * Command entry point for /workspacify-reverse trace hygiene and experiment design.
  *
@@ -55,7 +56,7 @@ import {
   writeOracleBundle,
 } from './lib/oracle-bundle.mjs';
 import { NO_KNOWN_DELTA, reconcile, renderReconciliation } from './lib/reconcile.mjs';
-import { ANALYSIS_STAGES, analyzeProject, buildPartitionCandidate, renderDisagreements, renderSpikeReport, runSpike } from './lib/scope.mjs';
+import { ANALYSIS_STAGES, analyzeProject, buildPartitionCandidate, renderDisagreements, renderSpikeReport, runSpike, stageLabel } from './lib/scope.mjs';
 import { buildClaimCandidate, renderClaimLedger } from './lib/claim-ledger.mjs';
 import { renderCardsMarkdown } from './lib/packet.mjs';
 
@@ -106,7 +107,7 @@ const USAGE = [
   '  scrub  <root> [--dry-run]        Report what would be removed',
   '  scrub  <root> --apply            Remove L1/L2 traces and rename keyed files',
   '  verify <root>                    Exit 0 when no trace remains, 1 otherwise',
-  '  analyze <root>                   Fix the boundary and measure R0 through R3.5, writing outside the target',
+  `  analyze <root>                   Fix the boundary and measure R0 through ${stageLabel(ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1])}, writing outside the target`,
   '  regression capture               Freeze the forward rotation as it behaves now',
   '  regression check                 Exit 0 when every frozen value is reproduced',
   '  holdout                          Verify the ledger and isolate every frozen holdout',
@@ -127,7 +128,9 @@ const USAGE = [
   '  --frozen-at=<ISO-8601>       Freeze timestamp recorded in the artefact',
   '  --stage=<stage>              Stage to compare (oracle compare)',
   '  --candidate=<path>           The stage output document (oracle compare)',
-  '  --through=<stage>            Last stage an analysis runs, inclusive (analyze; default r2.5)',
+  // The default is the last declared stage, so it is derived rather than written
+  // here: a hardcoded name went stale the moment a stage was added after it.
+  `  --through=<stage>            Last stage an analysis runs, inclusive (analyze; default ${ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1]})`,
   '  --recorded=<path>            JSON holding the interventions and decision samples a spike recorded',
   '  --out=<dir>                  Where an analysis or a spike writes its documents',
 ].join('\n');

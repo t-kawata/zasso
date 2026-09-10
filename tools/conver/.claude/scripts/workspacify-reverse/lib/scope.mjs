@@ -53,6 +53,9 @@ import { renderDecisionCards } from './packet.mjs';
 import { EXCLUSION_RULES, buildAttemptLedger, listArtefacts } from './analysis-tech.mjs';
 import { measureStructure, renderStructureReport, syntaxLanguageOf } from './structure.mjs';
 import { extractSemantics, renderSemanticsReport } from './semantics.mjs';
+import { reconstructHistory, renderHistoryRecord } from './history.mjs';
+import { buildGapCandidate, classifyGaps, enumerateGaps, renderGapsReport } from './gaps.mjs';
+import { assessOracleValidity, renderOracleGapReport } from './oracle-gap.mjs';
 import { historyFromGit } from './evidence-independence.mjs';
 import { measureDependencies, renderDependencyReport } from './dependencies.mjs';
 import { measureExecutionSurface, renderExecutionSurfaceReport } from './execution-surface.mjs';
@@ -390,14 +393,16 @@ export function renderSpikeReport(measurement, { reconciliation = [], targetDige
 // ---------------------------------------------------------------------------
 
 /**
- * The stages R0 through R3.5, in the order the design runs them.
+ * The stages R0 through R5.5, in the order the design runs them.
  *
  * `--through` selects an inclusive prefix, so a run can stop at the structural
  * measurement and say so. An unknown stage is refused rather than ignored: a
  * mistyped `--through` that silently ran everything would answer a question
  * nobody asked and look like a complete result.
  */
-export const ANALYSIS_STAGES = Object.freeze(['r0', 'r0.5', 'r1', 'r2', 'r2.5', 'r3', 'r3.5']);
+export const ANALYSIS_STAGES = Object.freeze([
+  'r0', 'r0.5', 'r1', 'r2', 'r2.5', 'r3', 'r3.5', 'r4', 'r5', 'r5.5',
+]);
 
 /**
  * A stage as a reader sees it: `R0`, `R2.5`.
@@ -780,6 +785,35 @@ function assertOutputIsOutsideTarget(out, root) {
 
 /** Write every document the run produced, canonically so a re-run is byte-identical. */
 // [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+/**
+ * The language most of the analysed population is written in.
+ *
+ * A comparison names one corpus language, and a tree that is mostly Rust is a
+ * Rust corpus even when it also carries a Dockerfile and a shell script. Ties
+ * break alphabetically, so the answer does not depend on the order the tree was
+ * walked in.
+ */
+// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+function dominantLanguageOf(paths) {
+  const counts = new Map();
+  for (const relativePath of paths) {
+    const language = syntaxLanguageOf(relativePath);
+    if (language === 'unknown') continue;
+    counts.set(language, (counts.get(language) ?? 0) + 1);
+  }
+
+  let dominant = 'unknown';
+  let highest = 0;
+  for (const [language, count] of [...counts.entries()].sort((left, right) => compareText(left[0], right[0]))) {
+    if (count > highest) {
+      dominant = language;
+      highest = count;
+    }
+  }
+  return dominant;
+}
+
+// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
 function publishDocuments(out, documents) {
   mkdirSync(out, { recursive: true });
   for (const [name, document] of Object.entries(documents)) {
@@ -796,7 +830,20 @@ function publishDocuments(out, documents) {
  * should.
  */
 export function renderAnalysisReport(run) {
-  const { scope, boundary, structure, dependencies, surface, semantics = null, ledger = null, attempts, stagesRun } = run;
+  const {
+    scope,
+    boundary,
+    structure,
+    dependencies,
+    surface,
+    semantics = null,
+    ledger = null,
+    history = null,
+    gaps = null,
+    oracleGap = null,
+    attempts,
+    stagesRun,
+  } = run;
   // The title names the last stage that actually ran, and the stages that did
   // not are stated rather than left to be inferred from a section's absence. A
   // report titled for work it did not do is the same overclaim as an adapter
@@ -804,7 +851,8 @@ export function renderAnalysisReport(run) {
   const notRun = ANALYSIS_STAGES.filter((stage) => !stagesRun.includes(stage));
   const lines = [
     `# ${stagesRun.length === 1 ? stageLabel(stagesRun[0]) : `R0 to ${stageLabel(stagesRun[stagesRun.length - 1])}`}`
-      + ' — scope, structure, dependencies, the execution surface and the semantic material',
+      + ' — scope, structure, dependencies, the execution surface, the semantic material, history, '
+      + 'gaps and the oracle validity',
     '',
     `Stages run: ${stagesRun.map((stage) => `\`${stageLabel(stage)}\``).join(', ')}.`,
     notRun.length === 0
@@ -822,6 +870,9 @@ export function renderAnalysisReport(run) {
   if (surface !== null) lines.push(renderExecutionSurfaceReport(surface));
   if (semantics !== null) lines.push(renderSemanticsReport(semantics));
   if (ledger !== null) lines.push(renderClaimLedger(ledger));
+  if (history !== null) lines.push(renderHistoryRecord(history));
+  if (gaps !== null) lines.push(renderGapsReport(gaps));
+  if (oracleGap !== null) lines.push(renderOracleGapReport(oracleGap));
 
   lines.push(
     '# The analysis attempt ledger',
@@ -868,7 +919,15 @@ export function renderAnalysisReport(run) {
  *
  * @param {{root: string, out: string, through?: string, permissions?: string[]}} params
  */
-export function analyzeProject({ root, out, through = 'r2.5', permissions } = {}) {
+// The default is the last declared stage, derived rather than named. A hardcoded
+// name here went stale the moment a stage was added after it, and the library
+// entry point then silently ran a different prefix from the command line's.
+export function analyzeProject({
+  root,
+  out,
+  through = ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
+  permissions,
+} = {}) {
   if (!ANALYSIS_STAGES.includes(through)) {
     throw new AnalysisScopeError(
       `unknown analysis stage ${JSON.stringify(through)}; the stages are ${ANALYSIS_STAGES.join(', ')}. `
@@ -922,6 +981,20 @@ export function analyzeProject({ root, out, through = 'r2.5', permissions } = {}
       })
     : null;
 
+  // R4 → R5 → R5.5 run in series. R4 reconstructs what history says and refuses
+  // to read a commit message as intent; R5 enumerates what is missing; R5.5 asks
+  // whether the oracle that would have caught any of it is worth anything.
+  const history = stagesRun.includes('r4')
+    ? reconstructHistory(scope.root, { paths: inScopePaths })
+    : null;
+  const gaps = stagesRun.includes('r5')
+    ? enumerateGaps({ root: scope.root, paths: inScopePaths, boundary, structure, dependencies, surface, ledger })
+    : null;
+  const classifiedGaps = gaps === null ? null : classifyGaps(gaps);
+  const oracleGap = stagesRun.includes('r5.5')
+    ? assessOracleValidity({ root: scope.root, ledger })
+    : null;
+
   const after = digestTree(scope.root, { tolerateUnreadable: true });
   if (before.sha256 !== after.sha256 || before.unreadable.join(',') !== after.unreadable.join(',')) {
     throw new Error(
@@ -944,6 +1017,9 @@ export function analyzeProject({ root, out, through = 'r2.5', permissions } = {}
     surface,
     semantics,
     ledger,
+    history,
+    gaps: classifiedGaps,
+    oracleGap,
     attempts,
     stagesRun,
   });
@@ -974,8 +1050,30 @@ export function analyzeProject({ root, out, through = 'r2.5', permissions } = {}
   // megabytes of rows whose propositions the ledger already carries. The
   // material stays in the value the run hands back and in the report's table.
   if (ledger !== null) documents['CLAIM-LEDGER.json'] = ledger;
+  if (history !== null) documents['HISTORY-PROVENANCE.json'] = history;
+  if (classifiedGaps !== null) {
+    documents['GAPS.json'] = classifiedGaps;
+    // The candidate `oracle compare --stage r5` consumes, published beside the
+    // gaps so the comparison reads the same list the report does.
+    documents['GAP-CANDIDATE.json'] = buildGapCandidate(classifiedGaps, { language: dominantLanguageOf(inScopePaths) });
+  }
+  if (oracleGap !== null) documents['ORACLE-GAP.json'] = oracleGap;
 
   publishDocuments(out, documents);
 
-  return { scope, boundary, structure, dependencies, surface, semantics, ledger, attempts, report, stagesRun };
+  return {
+    scope,
+    boundary,
+    structure,
+    dependencies,
+    surface,
+    semantics,
+    ledger,
+    history,
+    gaps: classifiedGaps,
+    oracleGap,
+    attempts,
+    report,
+    stagesRun,
+  };
 }

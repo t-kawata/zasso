@@ -1,0 +1,16 @@
+{
+  "commit": null,
+  "contract_coverage_proved": false,
+  "discarded": [],
+  "mutationResultsSupplied": false,
+  "mutation_score_claim": "A mutation score measures how many injected changes the current tests detect. It is not a measure of contract coverage, and no score is emitted here. A survivor is a question about the oracle, not a failure of the implementation.",
+  "root": "/Users/kawata/shyme/zasso/tools/conver/siprs-for-reverse",
+  "survivors": {
+    "by_cause": {},
+    "results": [],
+    "unclassifiedCount": 0
+  },
+  "unavailable": [
+    "no mutation results were supplied to this run, so no survivor was classified and no equivalence was decided. This is a missing channel, not a suite with no gaps: mutation execution belongs to a stage that can build and run the target."
+  ]
+}

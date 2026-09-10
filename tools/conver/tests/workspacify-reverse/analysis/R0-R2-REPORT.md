@@ -1,6 +1,6 @@
-# R0 to R3.5 — scope, structure, dependencies, the execution surface and the semantic material
+# R0 to R5.5 — scope, structure, dependencies, the execution surface, the semantic material, history, gaps and the oracle validity
 
-Stages run: `R0`, `R0.5`, `R1`, `R2`, `R2.5`, `R3`, `R3.5`.
+Stages run: `R0`, `R0.5`, `R1`, `R2`, `R2.5`, `R3`, `R3.5`, `R4`, `R5`, `R5.5`.
 
 
 # R0 — the analysis scope
@@ -11,7 +11,7 @@ Root: `/Users/kawata/shyme/zasso/tools/conver/siprs-for-reverse`
 
 the tree sits inside the work tree at /Users/kawata/shyme/zasso and is not a repository of its own, so its commit is that repository's HEAD and tools/conver/siprs-for-reverse records where it sits beneath it
 
-- commit: `63513237cbfb6e9cd148949207bd48f1d04a1e6a`
+- commit: `1210dfef6e6a2d16969212b7525aa1d699f77e5d`
 - work tree root: `/Users/kawata/shyme/zasso`
 - path beneath it: `tools/conver/siprs-for-reverse`
 - the project is its own repository: `false`
@@ -979,6 +979,77 @@ Independence policy: Evidence joined by a strong or medium lineage relation form
 
 - `build_semantic` — layer C is not built here (docs/P22-ANALYSIS-TECH.md §7): name resolution, type checking and cfg evaluation need a semantic adapter, so a proposition resting on any of them is not observed
 - `runtime_dynamic` — no execution, build or trace evidence was collected, so dynamic dispatch targets, generated code and post-preprocessing composition are not observable in this run
+
+## History and decision provenance
+
+> A commit records what changed, never why. It is not proof of design intent. Co-change is evidence that two artefacts are not independent; it is never evidence that they are. Every provenance entry below is a candidate for a human to decide, and the message that carries it is evidence about the change, never about the reason for it.
+
+| Reading | Count |
+|---|---|
+| commits in the repository | 934 |
+| commits touching this population | 1 |
+| transitions | 158 |
+| co-change groups | 12403 |
+| provenance candidates | 158 |
+| unreadable commits | 0 |
+
+**History quality**: `contaminated` at `low` confidence.
+
+- **mass_reformat** (1 commit(s)) — a commit this wide is a bulk operation rather than a design step, so co-change among its files records the tool that ran, not a coupling a reader should trust
+- **squash** (1 commit(s)) — intermediate commits were collapsed, so the steps between two states are not recoverable
+- **vendoring** (1 commit(s)) — vendored code is copied rather than designed, so its history describes an upstream release and not a decision taken here
+
+## Gaps and contradictions
+
+> A gap list measures the detector and its population, not the project. A small number of gaps is never read as quality or success: gaps are the measurement itself, and a run that found none has more to explain than one that found several. Nothing below claims a region is absent — a region this instrument did not look at is unobserved, and the two are not the same word.
+
+**9748 gap(s)** across 6 kind(s).
+
+| Kind | Count | Meaning |
+|---|---|---|
+| `absent_red` | 700 | a public surface with no test that could fail for it |
+| `circular_reasoning` | 10 | a test written from the design, so it agrees with the implementation by construction |
+| `comment_code_drift` | 956 | a comment and the code beneath it disagree |
+| `dead_code` | 2 | nothing in the analysed population references it |
+| `stub` | 293 | an incomplete implementation: a stub marker, a TODO, a panic, or an empty body |
+| `unobserved_surface` | 7787 | a construct, path or boundary never observed — which is not the same as absent |
+
+| Gap | File | Line | Kind |
+|---|---|---|---|
+| `gap-**/*.c_cpp-unobserved_surface-1` | `**/*.c_cpp` | 1 | `unobserved_surface` |
+| `gap-build.rs-stub-28` | `build.rs` | 28 | `stub` |
+| `gap-build.rs-stub-50` | `build.rs` | 50 | `stub` |
+| `gap-build.rs-comment_code_drift-74` | `build.rs` | 74 | `comment_code_drift` |
+| `gap-build.rs-comment_code_drift-88` | `build.rs` | 88 | `comment_code_drift` |
+| `gap-build.rs-stub-108` | `build.rs` | 108 | `stub` |
+| `gap-build.rs-stub-115` | `build.rs` | 115 | `stub` |
+| `gap-build.rs-stub-120` | `build.rs` | 120 | `stub` |
+| `gap-build.rs-comment_code_drift-197` | `build.rs` | 197 | `comment_code_drift` |
+| `gap-build.rs-stub-207` | `build.rs` | 207 | `stub` |
+| `gap-build.rs-stub-218` | `build.rs` | 218 | `stub` |
+| `gap-build.rs-stub-220` | `build.rs` | 220 | `stub` |
+| `gap-build.rs-stub-229` | `build.rs` | 229 | `stub` |
+| `gap-build.rs-stub-231` | `build.rs` | 231 | `stub` |
+| `gap-build.rs-stub-253` | `build.rs` | 253 | `stub` |
+| `gap-build.rs-stub-255` | `build.rs` | 255 | `stub` |
+| `gap-build.rs-stub-267` | `build.rs` | 267 | `stub` |
+| `gap-build.rs-stub-277` | `build.rs` | 277 | `stub` |
+| `gap-build.rs-stub-281` | `build.rs` | 281 | `stub` |
+| `gap-build.rs-comment_code_drift-330` | `build.rs` | 330 | `comment_code_drift` |
+
+**9728 gap(s) were not printed.** The list above is capped so that it can be read; the JSON beside this report carries every entry.
+
+## Oracle validity
+
+> A mutation score measures how many injected changes the current tests detect. It is not a measure of contract coverage, and no score is emitted here. A survivor is a question about the oracle, not a failure of the implementation.
+
+**Mutation results supplied**: no.
+
+**Channels this run could not consult:**
+
+- no mutation results were supplied to this run, so no survivor was classified and no equivalence was decided. This is a missing channel, not a suite with no gaps: mutation execution belongs to a stage that can build and run the target.
+
+**Survivors classified**: 0. **Discarded as equivalent by the ladder**: 0.
 
 # The analysis attempt ledger
 

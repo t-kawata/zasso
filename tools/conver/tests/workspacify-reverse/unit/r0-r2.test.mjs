@@ -80,6 +80,18 @@ const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const ANALYSIS_TECH_DOC = join(PROJECT_ROOT, 'docs', 'P22-ANALYSIS-TECH.md');
 
 /**
+ * Where this suite's analyses stop.
+ *
+ * `analyzeProject` defaults to the last declared stage, as the command line
+ * always has. A suite whose subject is R0 to R2.5 names its own boundary rather
+ * than inheriting a default that moves whenever a stage is added — and it keeps
+ * these tests from reading, and failing on, a file a fixture deliberately makes
+ * unreadable part-way through.
+ */
+// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+const THROUGH_R2_5 = 'r2.5';
+
+/**
  * A miniature Rust crate carrying one artefact of every kind R1 must classify
  * and every dynamic mechanism class R2.5 must enumerate.
  *
@@ -214,7 +226,7 @@ test('C001 invariant — a full run leaves the target byte-identical', () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
   const before = hashTree(tree.root);
-  analyzeProject({ root: tree.root, out: out.root });
+  analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
   assert.deepEqual(hashTree(tree.root), before, 'the analysis must leave every byte as it found it');
   tree.dispose();
   out.dispose();
@@ -223,7 +235,7 @@ test('C001 invariant — a full run leaves the target byte-identical', () => {
 test('C001 invariant — publishing inside the target is refused rather than allowed to dirty it', () => {
   const tree = syntheticCrateTree();
   assert.throws(
-    () => analyzeProject({ root: tree.root, out: join(tree.root, 'analysis') }),
+    () => analyzeProject({ root: tree.root, out: join(tree.root, 'analysis') , through: THROUGH_R2_5 }),
     /inside the target/,
   );
   assert.equal(existsSync(join(tree.root, 'analysis')), false);
@@ -517,7 +529,7 @@ test('C005 invariant — an attempt that extracted nothing is distinguishable fr
 test('C005 invariant — the run records a real "found nothing" row beside a real "could not run" row', () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root });
+  analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
 
   const ledger = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-ATTEMPTS.json'), 'utf8'));
   const empty = ledger.rows.find((row) => row.target === 'src/empty.rs');
@@ -722,7 +734,7 @@ test('UT-7 a proposition touching a dynamic mechanism is demoted when no dynamic
 test('UT-8 an empty scope is reported as empty, not as a clean-looking empty report', () => {
   const tree = createSyntheticTree({ 'README.md': '# nothing\n' }, { prefix: 'wsp-r0r2-empty2-' });
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root });
+  analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
   const boundary = JSON.parse(readFileSync(join(out.root, 'SCOPE-BOUNDARY.json'), 'utf8'));
   assert.equal(boundary.inScopeCount, 0);
   assert.equal(boundary.isEmpty, true);
@@ -775,7 +787,7 @@ test('UT-11 the target tree is byte-identical after a full R0-R2.5 run', () => {
 test('UT-12 the import graph is never presented as runtime binding', () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root });
+  analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
   const dependencies = JSON.parse(readFileSync(join(out.root, 'DEPENDENCIES.json'), 'utf8'));
   assert.equal(dependencies.represents_runtime_binding, false);
   assert.equal(dependencies.coupling_claim, 'hypothesis');
@@ -788,8 +800,8 @@ test('UT-13 re-running with the same input yields identical output', () => {
   const tree = syntheticCrateTree();
   const first = outputDirectory();
   const second = outputDirectory();
-  analyzeProject({ root: tree.root, out: first.root });
-  analyzeProject({ root: tree.root, out: second.root });
+  analyzeProject({ root: tree.root, out: first.root , through: THROUGH_R2_5 });
+  analyzeProject({ root: tree.root, out: second.root , through: THROUGH_R2_5 });
   for (const name of ['ANALYSIS-SCOPE.json', 'SCOPE-BOUNDARY.json', 'STRUCTURE.json', 'DEPENDENCIES.json', 'EXECUTION-SURFACE.json', 'ANALYSIS-ATTEMPTS.json']) {
     assert.equal(
       readFileSync(join(first.root, name), 'utf8'),
@@ -866,7 +878,7 @@ test('UT — the analyze run records which stages ran and refuses a stage it doe
 test('UT — the run report is Markdown written for a reader, and states what it did not measure', () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root });
+  analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
   const report = readFileSync(join(out.root, 'R0-R2-REPORT.md'), 'utf8');
   assert.match(report, /^# /m);
   assert.match(report, /analysis mode|analysis_mode/i);

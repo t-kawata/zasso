@@ -29,6 +29,17 @@ const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
 const targetAvailable = existsSync(REVERSE_ROOT);
 
+/**
+ * Where these integration runs stop.
+ *
+ * `analyzeProject` defaults to the last declared stage, as the command line
+ * always has. These tests measure the R0 to R2.5 boundary over the real
+ * experiment input, so they name where they stop rather than inheriting a
+ * default that moves whenever a stage is added.
+ */
+// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+const THROUGH_R2_5 = 'r2.5';
+
 /** A throwaway directory to publish into, so no test writes into the project. */
 // [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function scratchOutput() {
@@ -38,7 +49,7 @@ function scratchOutput() {
 
 test('IT-1 a full run over the experiment input produces a scope file and a structure report', { skip: !targetAvailable }, () => {
   const out = scratchOutput();
-  const outcome = analyzeProject({ root: REVERSE_ROOT, out: out.root });
+  const outcome = analyzeProject({ root: REVERSE_ROOT, out: out.root , through: THROUGH_R2_5 });
 
   assert.ok(existsSync(join(out.root, 'ANALYSIS-SCOPE.json')));
   assert.ok(existsSync(join(out.root, 'SCOPE-BOUNDARY.json')));
@@ -95,14 +106,14 @@ test('IT-1 the crate root is not mistaken for its own repository', { skip: !targ
 test('IT-3 the target tree hash is unchanged by the run', { skip: !targetAvailable }, () => {
   const out = scratchOutput();
   const before = hashTree(REVERSE_ROOT);
-  analyzeProject({ root: REVERSE_ROOT, out: out.root });
+  analyzeProject({ root: REVERSE_ROOT, out: out.root , through: THROUGH_R2_5 });
   assert.deepEqual(hashTree(REVERSE_ROOT), before, 'the analysis must leave the target byte-identical');
   out.dispose();
 });
 
 test('IT-3 the run records the target digest it took, before and after', { skip: !targetAvailable }, () => {
   const out = scratchOutput();
-  analyzeProject({ root: REVERSE_ROOT, out: out.root });
+  analyzeProject({ root: REVERSE_ROOT, out: out.root , through: THROUGH_R2_5 });
   const scope = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-SCOPE.json'), 'utf8'));
   assert.ok(scope.target_digest.sha256.length === 64);
   assert.equal(scope.target_digest.unmodified, true);

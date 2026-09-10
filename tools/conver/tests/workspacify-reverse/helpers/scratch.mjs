@@ -1,5 +1,6 @@
 // [::TICKET::] PX-203 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-203 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
 /**
  * Shared test helpers for the workspacify-reverse suite.
  *
@@ -10,11 +11,31 @@
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { readdirSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SUITE_ROOT = fileURLToPath(new URL('..', import.meta.url));
+
+/**
+ * The environment every test-run git command runs under.
+ *
+ * The identity and the default branch are fixed rather than inherited from the
+ * machine. A commit that fails because the operator has no `user.email`, or a
+ * `main` that is really a `master`, is a test that passes on one laptop and
+ * fails on the next — and the failure would read as a history bug rather than
+ * as an environment leak.
+ */
+export const GIT_ENV = Object.freeze({
+  ...process.env,
+  GIT_AUTHOR_NAME: 'workspacify-reverse test',
+  GIT_AUTHOR_EMAIL: 'test@example.invalid',
+  GIT_COMMITTER_NAME: 'workspacify-reverse test',
+  GIT_COMMITTER_EMAIL: 'test@example.invalid',
+  GIT_CONFIG_GLOBAL: '/dev/null',
+  GIT_CONFIG_SYSTEM: '/dev/null',
+});
 
 /** Absolute path of the fixture project that mirrors a contaminated tree. */
 export const FIXTURE_PROJECT = path.join(SUITE_ROOT, 'fixtures', 'sample-project');
@@ -123,6 +144,58 @@ export function createSyntheticTree(filesByPath, { prefix = 'wsp-synth-' } = {})
   const root = mkdtempSync(path.join(os.tmpdir(), prefix));
   writeSyntheticTree(root, filesByPath);
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
+}
+
+/**
+ * Run one git command in a tree, refusing to continue when it fails.
+ *
+ * R4 reads history, and a test that silently proceeded after a failed `git
+ * commit` would be asserting against a tree whose history is not what the test
+ * believes it set up. The failure is therefore raised here, at the point the
+ * setup went wrong, rather than surfacing later as a puzzling empty reading.
+ */
+export function runGit(root, args) {
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8', env: GIT_ENV });
+  if (result.status !== 0) {
+    throw new Error(`git ${args.join(' ')} failed in ${root}: ${result.stderr ?? result.error?.message ?? 'no output'}`);
+  }
+  return result.stdout;
+}
+
+/** Create a throwaway revision by committing whatever the tree currently holds. */
+export function commitAll(root, message) {
+  runGit(root, ['add', '-A']);
+  runGit(root, ['commit', '--allow-empty', '-m', message]);
+  return runGit(root, ['rev-parse', 'HEAD']).trim();
+}
+
+/**
+ * A synthetic tree that is also a git repository, with one commit per stage.
+ *
+ * R4 reads history, and a tree with no repository has no history to read — so a
+ * fixture for R4 must be committed, not merely written. Each entry in `commits`
+ * is a path-to-content map applied on top of the previous one and committed
+ * under its own message, which is what makes transitions, co-changes and
+ * decision provenance observable at all.
+ *
+ * `commits: []` yields an initialised repository with no commit, which is the
+ * single case UT-4 needs: a repository whose history is genuinely empty.
+ */
+export function createGitBackedTree(filesByPath, { commits = [], prefix = 'wsp-git-' } = {}) {
+  const root = mkdtempSync(path.join(os.tmpdir(), prefix));
+  runGit(root, ['init', '--initial-branch=main']);
+  writeSyntheticTree(root, filesByPath);
+  if (Object.keys(filesByPath).length > 0) commitAll(root, 'initial import');
+  for (const { files, message } of commits) {
+    writeSyntheticTree(root, files);
+    commitAll(root, message);
+  }
+  return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
+}
+
+/** A synthetic tree that is deliberately not a git repository. */
+export function createNonRepositoryTree(filesByPath) {
+  return createSyntheticTree(filesByPath, { prefix: 'wsp-nogit-' });
 }
 
 /**
