@@ -1,0 +1,156 @@
+{
+  "seeds": [
+    {
+      "packageId": "pkg-a",
+      "aiSections": {
+        "4": "In-scope objects, claims, predicates, state and invariants of this package.",
+        "5": "Incoming dependency and consumer obligation context taken from the counterpart contract.",
+        "6": "Outgoing provider obligations to consumers.",
+        "7": "not_applicable — this package keeps no mutable state.",
+        "8": "not_applicable — this package performs no external I/O.",
+        "9": "Canonicalization, signature and proof responsibilities per stage-1.",
+        "10": "Failure, rejection, recovery and finality material per stage-1 error codes.",
+        "11": "Required unit, integration, exception and malfeasance test material.",
+        "12": "Grill question: confirm the stage-1 ownership split during the canonical RFC grill.",
+        "13": "Forbidden dependencies, non-interference boundaries and non-goals from the manifest."
+      },
+      "contractEdges": [
+        {
+          "contract_id": "contract-boundary-001",
+          "boundary_id": "boundary-001",
+          "direction": "provider_to_consumer",
+          "connection_kind": "value_only",
+          "consumer_package": "pkg-b",
+          "provider_package": "pkg-a",
+          "consumer_path": "crates/protocol/beta",
+          "provider_path": "crates/protocol/alpha",
+          "owners": {
+            "semantic": "pkg-a",
+            "state": "not_applicable",
+            "side_effect": "not_applicable",
+            "port": "not_applicable",
+            "adapter": "not_applicable"
+          },
+          "clauses": {
+            "input": "input statement for this boundary (fixture)",
+            "output": "output statement for this boundary (fixture)",
+            "preconditions": [
+              "preconditions for this boundary (fixture)"
+            ],
+            "postconditions": [
+              "postconditions for this boundary (fixture)"
+            ],
+            "invariants": [
+              "invariants for this boundary (fixture)"
+            ],
+            "errors": [
+              "errors for this boundary (fixture)"
+            ],
+            "canonicalization": "canonicalization statement for this boundary (fixture)",
+            "tests": [
+              "tests for this boundary (fixture)"
+            ]
+          },
+          "source_refs": []
+        }
+      ]
+    },
+    {
+      "packageId": "pkg-b",
+      "aiSections": {
+        "4": "In-scope objects, claims, predicates, state and invariants of this package.",
+        "5": "Incoming dependency and consumer obligation context taken from the counterpart contract.",
+        "6": "Outgoing provider obligations to consumers.",
+        "7": "not_applicable — this package keeps no mutable state.",
+        "8": "not_applicable — this package performs no external I/O.",
+        "9": "Canonicalization, signature and proof responsibilities per stage-1.",
+        "10": "Failure, rejection, recovery and finality material per stage-1 error codes.",
+        "11": "Required unit, integration, exception and malfeasance test material.",
+        "12": "Grill question: confirm the stage-1 ownership split during the canonical RFC grill.",
+        "13": "Forbidden dependencies, non-interference boundaries and non-goals from the manifest."
+      },
+      "contractEdges": [
+        {
+          "contract_id": "contract-boundary-001",
+          "boundary_id": "boundary-001",
+          "direction": "consumer_to_provider",
+          "connection_kind": "value_only",
+          "consumer_package": "pkg-b",
+          "provider_package": "pkg-a",
+          "consumer_path": "crates/protocol/beta",
+          "provider_path": "crates/protocol/alpha",
+          "owners": {
+            "semantic": "pkg-a",
+            "state": "not_applicable",
+            "side_effect": "not_applicable",
+            "port": "not_applicable",
+            "adapter": "not_applicable"
+          },
+          "clauses": {
+            "input": "input statement for this boundary (fixture)",
+            "output": "output statement for this boundary (fixture)",
+            "preconditions": [
+              "preconditions for this boundary (fixture)"
+            ],
+            "postconditions": [
+              "postconditions for this boundary (fixture)"
+            ],
+            "invariants": [
+              "invariants for this boundary (fixture)"
+            ],
+            "errors": [
+              "errors for this boundary (fixture)"
+            ],
+            "canonicalization": "canonicalization statement for this boundary (fixture)",
+            "tests": [
+              "tests for this boundary (fixture)"
+            ]
+          },
+          "source_refs": []
+        }
+      ]
+    }
+  ],
+  "self_grill": {
+    "passes": 1,
+    "converged": true,
+    "rounds": [
+      {
+        "pass": 1,
+        "focus": "implementer",
+        "status": "ran",
+        "findings": []
+      },
+      {
+        "pass": 1,
+        "focus": "counterpart",
+        "status": "ran",
+        "findings": []
+      },
+      {
+        "pass": 1,
+        "focus": "test",
+        "status": "ran",
+        "findings": []
+      },
+      {
+        "pass": 1,
+        "focus": "grill",
+        "status": "ran",
+        "findings": []
+      },
+      {
+        "pass": 1,
+        "focus": "adversarial",
+        "status": "ran",
+        "findings": []
+      }
+    ],
+    "residual": []
+  },
+  "semantic_review": {
+    "status": "APPROVED",
+    "statement": "reviewed every package allocation and boundary",
+    "approver": "ai-session"
+  }
+}

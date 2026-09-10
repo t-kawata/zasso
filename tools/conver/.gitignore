@@ -3,3 +3,10 @@
 
 # Rust build artefacts produced while verifying the scrubbed experiment input
 siprs-for-reverse/target/
+
+# A record of this machine's resolved versions. Committing it would state one
+# machine's answer as if it were everyone's, so it is produced but not tracked.
+ENV-MANIFEST.json
+
+# What the installer installed last time. It describes this working copy only.
+.claude/.conver-install-state.json

@@ -1,0 +1,229 @@
+{
+  "version": 1,
+  "comment": "The single declaration of every dependency a conver project has. Adding a dependency means adding one entry here — never a new mechanism. `requiredFor` says which rotation needs it; `providedBy` names the ticket that introduces it, so an entry whose ticket has not converged is reported as not yet required rather than as missing.",
+  "npmRoots": [
+    {
+      "id": "claude",
+      "path": ".claude",
+      "requiredFor": "forward",
+      "providedBy": null,
+      "description": "The installed .claude tree: ajv for schema validation, sql.js for the state store."
+    },
+    {
+      "id": "conver-tool",
+      "path": ".",
+      "requiredFor": "forward",
+      "providedBy": null,
+      "description": "The conver tool itself: the ACP client libraries and node-cron."
+    },
+    {
+      "id": "rfc-graph",
+      "path": ".claude/scripts/rfc-graph",
+      "requiredFor": "forward",
+      "providedBy": null,
+      "description": "Declares ajv. Resolves today only by upward traversal into .claude/node_modules, which is why the root is named explicitly rather than left to where Node happens to look."
+    },
+    {
+      "id": "conver-scripts",
+      "path": ".claude/scripts/conver",
+      "requiredFor": "forward",
+      "providedBy": null,
+      "description": "Declares no dependencies."
+    },
+    {
+      "id": "crystalize-readme",
+      "path": ".claude/scripts/crystalize-readme",
+      "requiredFor": "forward",
+      "providedBy": null,
+      "description": "Declares no dependencies."
+    },
+    {
+      "id": "drill-rfc-down",
+      "path": ".claude/scripts/drill-rfc-down",
+      "requiredFor": "forward",
+      "providedBy": null,
+      "description": "Declares no dependencies."
+    },
+    {
+      "id": "grill-me-for-rfc",
+      "path": ".claude/scripts/grill-me-for-rfc",
+      "requiredFor": "forward",
+      "providedBy": null,
+      "description": "Declares no dependencies."
+    },
+    {
+      "id": "oracle-tree",
+      "path": "siprs-with-4layers/.claude",
+      "requiredFor": "experiment",
+      "providedBy": "P22-2",
+      "description": "The answer key's own installed tree. P22-2 is the ticket that freezes and uses it, so before then its absence is normal."
+    }
+  ],
+  "tools": [
+    {
+      "id": "node",
+      "probe": "node --version",
+      "minVersion": "22.0.0",
+      "requiredFor": "forward",
+      "providedBy": null,
+      "optional": false,
+      "os": ["darwin", "linux", "win32"],
+      "description": "Node 22 or later, so that node --test is available.",
+      "obtain": {
+        "darwin": "brew install node",
+        "linux": "https://nodejs.org/en/download (or your distribution's package manager)",
+        "win32": "winget install OpenJS.NodeJS.LTS"
+      }
+    },
+    {
+      "id": "npm",
+      "probe": "npm --version",
+      "minVersion": "10.0.0",
+      "requiredFor": "forward",
+      "providedBy": null,
+      "optional": false,
+      "os": ["darwin", "linux", "win32"],
+      "description": "Resolves the declared npm roots.",
+      "obtain": {
+        "darwin": "bundled with node",
+        "linux": "bundled with node",
+        "win32": "bundled with node"
+      }
+    },
+    {
+      "id": "rust-analyzer",
+      "probe": "rust-analyzer --version",
+      "minVersion": "0.0.0",
+      "requiredFor": "reverse",
+      "providedBy": "P22-4",
+      "optional": false,
+      "os": ["darwin", "linux", "win32"],
+      "description": "Rust analysis for the six-language toolchain.",
+      "obtain": {
+        "darwin": "rustup component add rust-analyzer",
+        "linux": "rustup component add rust-analyzer",
+        "win32": "rustup component add rust-analyzer"
+      }
+    },
+    {
+      "id": "cargo",
+      "probe": "cargo --version",
+      "minVersion": "1.0.0",
+      "requiredFor": "reverse",
+      "providedBy": "P22-4",
+      "optional": false,
+      "os": ["darwin", "linux", "win32"],
+      "description": "Rust build metadata.",
+      "obtain": {
+        "darwin": "https://rustup.rs",
+        "linux": "https://rustup.rs",
+        "win32": "https://rustup.rs"
+      }
+    },
+    {
+      "id": "go",
+      "probe": "go version",
+      "minVersion": "1.0.0",
+      "requiredFor": "reverse",
+      "providedBy": "P22-4",
+      "optional": false,
+      "os": ["darwin", "linux", "win32"],
+      "description": "Go analysis for the six-language toolchain.",
+      "obtain": {
+        "darwin": "brew install go",
+        "linux": "https://go.dev/dl",
+        "win32": "winget install GoLang.Go"
+      }
+    },
+    {
+      "id": "python3",
+      "probe": "python3 --version",
+      "minVersion": "3.8.0",
+      "requiredFor": "reverse",
+      "providedBy": "P22-4",
+      "optional": false,
+      "os": ["darwin", "linux", "win32"],
+      "description": "Python analysis for the six-language toolchain.",
+      "obtain": {
+        "darwin": "brew install python",
+        "linux": "your distribution's package manager",
+        "win32": "winget install Python.Python.3"
+      }
+    },
+    {
+      "id": "clang",
+      "probe": "clang --version",
+      "minVersion": "0.0.0",
+      "requiredFor": "reverse",
+      "providedBy": "P22-4",
+      "optional": false,
+      "os": ["darwin", "linux", "win32"],
+      "description": "C/C++ analysis for the six-language toolchain.",
+      "obtain": {
+        "darwin": "xcode-select --install",
+        "linux": "your distribution's package manager",
+        "win32": "winget install LLVM.LLVM"
+      }
+    },
+    {
+      "id": "tree-sitter",
+      "probe": "tree-sitter --version",
+      "minVersion": "0.22.0",
+      "requiredFor": "reverse",
+      "providedBy": "P22-4",
+      "optional": false,
+      "os": ["darwin", "linux", "win32"],
+      "description": "Candidate source-analysis technology. P22-4 decides the toolchain and records the choice in docs/P22-ANALYSIS-TECH.md.",
+      "obtain": {
+        "darwin": "brew install tree-sitter-cli",
+        "linux": "cargo install tree-sitter-cli",
+        "win32": "cargo install tree-sitter-cli"
+      }
+    },
+    {
+      "id": "codeql",
+      "probe": "codeql version",
+      "minVersion": "2.0.0",
+      "requiredFor": "reverse",
+      "providedBy": "P22-4",
+      "optional": false,
+      "os": ["darwin", "linux", "win32"],
+      "description": "Candidate source-analysis technology.",
+      "obtain": {
+        "darwin": "https://github.com/github/codeql-cli-binaries/releases",
+        "linux": "https://github.com/github/codeql-cli-binaries/releases",
+        "win32": "https://github.com/github/codeql-cli-binaries/releases"
+      }
+    },
+    {
+      "id": "joern",
+      "probe": "joern --version",
+      "minVersion": "2.0.0",
+      "requiredFor": "reverse",
+      "providedBy": "P22-4",
+      "optional": false,
+      "os": ["darwin", "linux", "win32"],
+      "description": "Candidate source-analysis technology.",
+      "obtain": {
+        "darwin": "https://joern.io/docs (or the joern-install.sh script)",
+        "linux": "https://joern.io/docs (or the joern-install.sh script)",
+        "win32": "https://joern.io/docs (under WSL)"
+      }
+    },
+    {
+      "id": "zg",
+      "probe": "zg version",
+      "minVersion": "0.1.0",
+      "requiredFor": "reverse",
+      "providedBy": "P22-9",
+      "optional": false,
+      "os": ["darwin", "linux", "win32"],
+      "description": "zvec-grep, embedded into the serving layer by P22-9.",
+      "obtain": {
+        "darwin": "npm install -g @zvec/zvec-grep",
+        "linux": "npm install -g @zvec/zvec-grep",
+        "win32": "npm install -g @zvec/zvec-grep"
+      }
+    }
+  ]
+}
