@@ -11,9 +11,9 @@
 // Implemented or modified under tickets: PX-61, PX-62; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-61|PX-62) --for-spec --no-implementation-order`.
 
 /**
- * Source file extensions that the annotation system supports.
- * Ported from annotate-ticket-context-by-git-diff.js lines 34-37, with `.mjs`
- * added by P22-4.
+ * Source file extensions that the annotation system supports. This module is
+ * the single source of truth: annotate-ticket-context-by-git-diff.js imports
+ * the set rather than defining its own. `.mjs` was added by P22-4.
  *
  * `.mjs` is not an optional extra. The whole reverse-rotation toolchain under
  * `.claude/scripts/workspacify-reverse/` is ESM, so without this entry no file

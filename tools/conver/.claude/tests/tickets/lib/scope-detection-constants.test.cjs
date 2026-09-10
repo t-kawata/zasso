@@ -22,9 +22,12 @@ before(() => {
 });
 
 describe("scope-detection-constants", () => {
-  test("SOURCE_EXTENSIONS contains all 13 expected extensions", () => {
+  // [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+  // `.mjs` joined the set in P22-4: the reverse-rotation toolchain is ESM, so
+  // without it no file under workspacify-reverse/ could carry its annotation.
+  test("SOURCE_EXTENSIONS contains all 14 expected extensions", () => {
     const expected = [
-      ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".vue",
+      ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".vue",
       ".py", ".rb", ".swift", ".kt", ".java", ".cs",
     ];
     for (const ext of expected) {
