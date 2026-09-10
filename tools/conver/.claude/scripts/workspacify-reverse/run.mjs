@@ -4,7 +4,7 @@
 /**
  * Command entry point for /workspacify-reverse trace hygiene and experiment design.
  *
- * Seven subcommands, each deterministic:
+ * Eight subcommands, each deterministic:
  *   detect     — report the forward-rotation traces in a tree
  *   scrub      — remove the removable ones (or plan the removal with --dry-run)
  *   verify     — re-detect and exit non-zero when residue remains
@@ -13,6 +13,8 @@
  *   oracle     — freeze the answer key, or compare a stage's output against it
  *   spike      — run one vertical slice and measure it, then reconcile it against
  *                the frozen answer key
+ *   analyze    — fix the analysis boundary and measure structure, dependencies and
+ *                the execution surface, publishing outside the target
  *
  * The process performs no semantic judgement: which traces exist and whether
  * they are gone are facts, not opinions. Deciding what the cleaned tree then
@@ -31,7 +33,7 @@
  */
 import process from 'node:process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { detectForwardTraces } from './lib/detect-forward-traces.mjs';
@@ -52,14 +54,14 @@ import {
   writeOracleBundle,
 } from './lib/oracle-bundle.mjs';
 import { NO_KNOWN_DELTA, reconcile, renderReconciliation } from './lib/reconcile.mjs';
-import { buildPartitionCandidate, renderDisagreements, renderSpikeReport, runSpike } from './lib/scope.mjs';
+import { ANALYSIS_STAGES, analyzeProject, buildPartitionCandidate, renderDisagreements, renderSpikeReport, runSpike } from './lib/scope.mjs';
 import { buildClaimCandidate, renderClaimLedger } from './lib/claim-ledger.mjs';
 import { renderCardsMarkdown } from './lib/packet.mjs';
 
 /** The project this entry point belongs to: `.claude/scripts/workspacify-reverse` walked back to the root. */
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
-const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike'];
+const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike', 'analyze'];
 
 /**
  * The subcommands whose subject is a tree the caller names.
@@ -69,10 +71,13 @@ const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'orac
  * Missing one must be an error rather than a report over `undefined`, which
  * reads as a clean tree and is the answer a broken invocation must never give.
  */
-const ROOT_TAKING_SUBCOMMANDS = ['detect', 'scrub', 'verify'];
+const ROOT_TAKING_SUBCOMMANDS = ['detect', 'scrub', 'verify', 'analyze'];
 
 /** The options that name a value; every other `--name` is a switch. */
-const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--out', '--recorded'];
+const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--out', '--recorded', '--through'];
+
+/** Where an analysis publishes its sidecars when the caller names no directory. */
+const ANALYSIS_OUTPUT_DIRECTORY = 'tests/workspacify-reverse/analysis';
 
 const HOLDOUT_ACTIONS = ['freeze', 'isolation'];
 const ORACLE_ACTIONS = ['freeze', 'compare', 'delta'];
@@ -89,6 +94,7 @@ const SPIKE_STAGES = Object.freeze(['r1', 'r3']);
 
 const USAGE = [
   'Usage: run.mjs <detect|scrub|verify> <root> [options]',
+  '       run.mjs analyze <root> [--through=<stage>] [--out=<dir>]',
   '       run.mjs regression <capture|check>',
   '       run.mjs holdout [freeze|isolation <root>] [--project-root=<path>] [--frozen-at=<ISO-8601>]',
   '       run.mjs oracle <freeze|compare --stage <stage> --candidate <path>> [--project-root=<path>] [--frozen-at=<ISO-8601>]',
@@ -99,6 +105,7 @@ const USAGE = [
   '  scrub  <root> [--dry-run]        Report what would be removed',
   '  scrub  <root> --apply            Remove L1/L2 traces and rename keyed files',
   '  verify <root>                    Exit 0 when no trace remains, 1 otherwise',
+  '  analyze <root>                   Fix the boundary and measure R0 through R2.5, writing outside the target',
   '  regression capture               Freeze the forward rotation as it behaves now',
   '  regression check                 Exit 0 when every frozen value is reproduced',
   '  holdout                          Verify the ledger and isolate every frozen holdout',
@@ -119,8 +126,9 @@ const USAGE = [
   '  --frozen-at=<ISO-8601>       Freeze timestamp recorded in the artefact',
   '  --stage=<stage>              Stage to compare (oracle compare)',
   '  --candidate=<path>           The stage output document (oracle compare)',
+  '  --through=<stage>            Last stage an analysis runs, inclusive (analyze; default r2.5)',
   '  --recorded=<path>            JSON holding the interventions and decision samples a spike recorded',
-  '  --out=<dir>                  Where a spike writes its candidate documents',
+  '  --out=<dir>                  Where an analysis or a spike writes its documents',
 ].join('\n');
 
 /** `--name=value` or `--name value`, whichever the caller wrote. */
@@ -219,6 +227,7 @@ function parseSpikeArguments(second, rest, argv) {
   };
 }
 
+// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const [subcommand, second, ...rest] = argv;
   const common = commonOptions(subcommand, rest);
@@ -239,12 +248,57 @@ function parseArgs(argv) {
     return { ...common, ...parseLedgerArguments(subcommand, second, rest) };
   }
 
+  if (subcommand === 'analyze') {
+    const optionArgs = optionTokens(second, rest);
+    // `--through` selects an inclusive prefix of the stages, so the default has
+    // to be the last one rather than a hardcoded name: a stage added later must
+    // be run by default instead of silently skipped.
+    return {
+      ...common,
+      root: positionalArgs(argv.slice(1))[0] ?? null,
+      through: flagValue(optionArgs, '--through') ?? ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
+      out: flagValue(optionArgs, '--out'),
+    };
+  }
+
   // The root is the first bare argument, never a switch: `verify --json <tree>`
   // must verify `<tree>` rather than a directory named `--json`, which does not
   // exist and would be reported clean.
   return { ...common, root: positionalArgs(argv.slice(1))[0] ?? null };
 }
 
+/**
+ * Fix the analysis boundary over a tree and measure it, writing outside the target.
+ *
+ * The destination defaults to a directory this project owns rather than to the
+ * caller's working directory, because publishing into the tree being measured is
+ * refused and a default that could be refused would make the command fail for a
+ * reason the caller did not choose.
+ */
+// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+function runAnalyze({ root, through, out }) {
+  if (!root) {
+    process.stderr.write(`${USAGE}\n`);
+    return 2;
+  }
+  const destination = out === null ? join(PROJECT_ROOT, ANALYSIS_OUTPUT_DIRECTORY) : resolve(out);
+
+  let outcome;
+  try {
+    outcome = analyzeProject({ root, out: destination, through });
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    return 1;
+  }
+
+  process.stdout.write(`${outcome.report}\n`);
+  process.stdout.write(
+    `\nStages ${outcome.stagesRun.map((stage) => `\`${stage}\``).join(', ')} published to \`${destination}\`.\n`,
+  );
+  return 0;
+}
+
+// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function runDetect({ root, json }) {
   const report = detectForwardTraces(root);
   process.stdout.write(`${report.markdown}\n`);
@@ -575,6 +629,7 @@ function runSpikeSubcommand(options) {
   return runSpikeSlice(options);
 }
 
+// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
 function main() {
   const options = parseArgs(process.argv.slice(2));
   if (!options.subcommand || !SUBCOMMANDS.includes(options.subcommand)) {
@@ -591,6 +646,7 @@ function main() {
   if (options.subcommand === 'holdout') return runHoldout(options);
   if (options.subcommand === 'oracle') return runOracle(options);
   if (options.subcommand === 'spike') return runSpikeSubcommand(options);
+  if (options.subcommand === 'analyze') return runAnalyze(options);
   return runVerify(options);
 }
 

@@ -62,16 +62,34 @@ export function sha256(text) {
 /**
  * SHA-256 of every file under a root, keyed by path relative to that root.
  * Used to prove that a scrub did not touch anything outside its target.
+ *
+ * An entry that cannot be read is recorded as `unreadable` rather than raising,
+ * so a tree holding one — a dangling symlink, a file this process may not read
+ * — can still be compared before and after a run. The comparison stays as
+ * strong as it was: every readable file must hash the same.
  */
 export function hashTree(root) {
+// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
   const hashes = {};
   const walk = (dir) => {
     for (const entry of readdirSync(dir).sort()) {
       const full = path.join(dir, entry);
-      if (statSync(full).isDirectory()) {
+      const relativePath = path.relative(root, full);
+      let stats;
+      try {
+        stats = statSync(full);
+      } catch {
+        hashes[relativePath] = 'unreadable';
+        continue;
+      }
+      if (stats.isDirectory()) {
         walk(full);
-      } else {
-        hashes[path.relative(root, full)] = sha256(readFileSync(full));
+        continue;
+      }
+      try {
+        hashes[relativePath] = sha256(readFileSync(full));
+      } catch {
+        hashes[relativePath] = 'unreadable';
       }
     }
   };

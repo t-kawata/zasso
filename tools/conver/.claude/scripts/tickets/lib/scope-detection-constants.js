@@ -12,10 +12,18 @@
 
 /**
  * Source file extensions that the annotation system supports.
- * Ported verbatim from annotate-ticket-context-by-git-diff.js lines 34-37.
+ * Ported from annotate-ticket-context-by-git-diff.js lines 34-37, with `.mjs`
+ * added by P22-4.
+ *
+ * `.mjs` is not an optional extra. The whole reverse-rotation toolchain under
+ * `.claude/scripts/workspacify-reverse/` is ESM, so without this entry no file
+ * in that tree could carry the annotation binding an implementation to the
+ * design context it came from — and the omission is invisible, because a file
+ * the mechanism does not know about is simply never reported on.
  */
 const SOURCE_EXTENSIONS = new Set([
-  ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".vue",
+// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+  ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".vue",
   ".py", ".rb", ".swift", ".kt", ".java", ".cs",
 ]);
 

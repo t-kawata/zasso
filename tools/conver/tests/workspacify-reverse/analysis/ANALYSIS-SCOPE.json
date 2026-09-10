@@ -1,0 +1,29 @@
+{
+  "exclusion_rules": [
+    "target",
+    ".git",
+    "vendor",
+    "node_modules"
+  ],
+  "external_transmission": {
+    "policy": "none",
+    "reason": "the analysis reads the target and writes only outside it, and sends nothing anywhere. No evidence leaves this machine, so no secret-exclusion rule is needed to permit the run."
+  },
+  "permissions": [
+    "read"
+  ],
+  "root": "/Users/kawata/shyme/zasso/tools/conver/siprs-for-reverse",
+  "target_commit": {
+    "commit": "7517d1f26caedbefed50f075e00708dfca9003ba",
+    "is_own_repository": false,
+    "path_within_work_tree": "tools/conver/siprs-for-reverse",
+    "reason": "the tree sits inside the work tree at /Users/kawata/shyme/zasso and is not a repository of its own, so its commit is that repository's HEAD and tools/conver/siprs-for-reverse records where it sits beneath it",
+    "root": "/Users/kawata/shyme/zasso"
+  },
+  "target_digest": {
+    "file_count": 2791,
+    "sha256": "f29f7a8dfb168f175e15c1cb72a0a37500dafc2aa0ed4047cfde607e44551b84",
+    "unmodified": true,
+    "unreadable_paths": []
+  }
+}

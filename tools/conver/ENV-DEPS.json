@@ -57,6 +57,13 @@
       "requiredFor": "experiment",
       "providedBy": "P22-2",
       "description": "The answer key's own installed tree. P22-2 is the ticket that freezes and uses it, so before then its absence is normal."
+    },
+    {
+      "id": "workspacify-reverse",
+      "path": ".claude/scripts/workspacify-reverse",
+      "requiredFor": "reverse",
+      "providedBy": "P22-4",
+      "description": "The analysis tree: web-tree-sitter as the common syntax layer and the pinned grammar for each of the six target languages. Versions are pinned because a grammar change changes the AST and therefore every measurement taken from it."
     }
   ],
   "tools": [
@@ -67,7 +74,11 @@
       "requiredFor": "forward",
       "providedBy": null,
       "optional": false,
-      "os": ["darwin", "linux", "win32"],
+      "os": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
       "description": "Node 22 or later, so that node --test is available.",
       "obtain": {
         "darwin": "brew install node",
@@ -82,7 +93,11 @@
       "requiredFor": "forward",
       "providedBy": null,
       "optional": false,
-      "os": ["darwin", "linux", "win32"],
+      "os": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
       "description": "Resolves the declared npm roots.",
       "obtain": {
         "darwin": "bundled with node",
@@ -96,9 +111,13 @@
       "minVersion": "0.0.0",
       "requiredFor": "reverse",
       "providedBy": "P22-4",
-      "optional": false,
-      "os": ["darwin", "linux", "win32"],
-      "description": "Rust analysis for the six-language toolchain.",
+      "optional": true,
+      "os": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
+      "description": "The layer-C semantic adapter for Rust. Not used by R0-R2.5, which is syntax only; P22-5 is the first consumer. Recorded so the capability is declared rather than assumed.",
       "obtain": {
         "darwin": "rustup component add rust-analyzer",
         "linux": "rustup component add rust-analyzer",
@@ -112,7 +131,11 @@
       "requiredFor": "reverse",
       "providedBy": "P22-4",
       "optional": false,
-      "os": ["darwin", "linux", "win32"],
+      "os": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
       "description": "Rust build metadata.",
       "obtain": {
         "darwin": "https://rustup.rs",
@@ -127,7 +150,11 @@
       "requiredFor": "reverse",
       "providedBy": "P22-4",
       "optional": false,
-      "os": ["darwin", "linux", "win32"],
+      "os": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
       "description": "Go analysis for the six-language toolchain.",
       "obtain": {
         "darwin": "brew install go",
@@ -142,7 +169,11 @@
       "requiredFor": "reverse",
       "providedBy": "P22-4",
       "optional": false,
-      "os": ["darwin", "linux", "win32"],
+      "os": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
       "description": "Python analysis for the six-language toolchain.",
       "obtain": {
         "darwin": "brew install python",
@@ -157,7 +188,11 @@
       "requiredFor": "reverse",
       "providedBy": "P22-4",
       "optional": false,
-      "os": ["darwin", "linux", "win32"],
+      "os": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
       "description": "C/C++ analysis for the six-language toolchain.",
       "obtain": {
         "darwin": "xcode-select --install",
@@ -166,29 +201,18 @@
       }
     },
     {
-      "id": "tree-sitter",
-      "probe": "tree-sitter --version",
-      "minVersion": "0.22.0",
-      "requiredFor": "reverse",
-      "providedBy": "P22-4",
-      "optional": false,
-      "os": ["darwin", "linux", "win32"],
-      "description": "Candidate source-analysis technology. P22-4 decides the toolchain and records the choice in docs/P22-ANALYSIS-TECH.md.",
-      "obtain": {
-        "darwin": "brew install tree-sitter-cli",
-        "linux": "cargo install tree-sitter-cli",
-        "win32": "cargo install tree-sitter-cli"
-      }
-    },
-    {
       "id": "codeql",
       "probe": "codeql version",
       "minVersion": "2.0.0",
       "requiredFor": "reverse",
       "providedBy": "P22-4",
-      "optional": false,
-      "os": ["darwin", "linux", "win32"],
-      "description": "Candidate source-analysis technology.",
+      "optional": true,
+      "os": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
+      "description": "An optional layer-C capability. Rust support is GA (October 2025, build-free), with measured limits on macro-heavy code, async/await and guarded unsafe. It is not the foundation: see docs/P22-ANALYSIS-TECH.md.",
       "obtain": {
         "darwin": "https://github.com/github/codeql-cli-binaries/releases",
         "linux": "https://github.com/github/codeql-cli-binaries/releases",
@@ -201,9 +225,13 @@
       "minVersion": "2.0.0",
       "requiredFor": "reverse",
       "providedBy": "P22-4",
-      "optional": false,
-      "os": ["darwin", "linux", "win32"],
-      "description": "Candidate source-analysis technology.",
+      "optional": true,
+      "os": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
+      "description": "An auxiliary candidate-discovery backend for the languages it covers. Its official frontend has no Rust, so it is not the six-language semantic layer: see docs/P22-ANALYSIS-TECH.md.",
       "obtain": {
         "darwin": "https://joern.io/docs (or the joern-install.sh script)",
         "linux": "https://joern.io/docs (or the joern-install.sh script)",
@@ -217,7 +245,11 @@
       "requiredFor": "reverse",
       "providedBy": "P22-9",
       "optional": false,
-      "os": ["darwin", "linux", "win32"],
+      "os": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
       "description": "zvec-grep, embedded into the serving layer by P22-9.",
       "obtain": {
         "darwin": "npm install -g @zvec/zvec-grep",

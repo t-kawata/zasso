@@ -1,0 +1,4551 @@
+{
+  "couldNotRunCount": 0,
+  "extractedNothingCount": 112,
+  "rows": [
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 14,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "build.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/account_register.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/audio_tap.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/client_init.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 26,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/common/cli.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 19,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/common/client.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/make_call.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/tts_source.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/account.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 92,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/asyncaudiosrc_adapter.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 31,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/audio_subscribe_bp.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/call_api_expansion.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 16,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/call_api_semantics.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 15,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/call_types.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 11,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/dtmf_spec_received.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/dtmf_unification.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/event_bus_guarantees.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 13,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/event_bus_unify.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 68,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/event_model_payload_bus.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 57,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/eventbus_receiver.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/http_ws_crate_split.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 61,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/http_ws_protocol.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/incoming_call_events.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 16,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/incoming_call_refer.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 20,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/m20_dtmfsent_twophase.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 42,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/public_api_design.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 74,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/standalone_server_config.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/crate_scope.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/examples_e1e5.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 26,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/impl_integration_design.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 13,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/io_boundary_round2.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 11,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/io_boundary_round3.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 20,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/io_boundary_round4.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/policy_reference.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 22,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round2_scope_rootcause.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 26,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round3_scope_rootcause.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round4_scope_rootcause.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 8,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round4_tickets.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/audiomixer_rt_boundary.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/media_path_arch.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 33,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/media_path_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 44,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/pipeline.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/bindgen_enum_generation.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/build_rs_resolution.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 39,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/build_script_bindgen.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 47,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/build_strategy_os_deps.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 17,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/cicd_docker_prebuilt.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 8,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/prebuilt_ci_commit.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 11,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/prebuilt_producer.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/static_link_strategy.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/vendored_pjsip_strategy.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 36,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/call.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 81,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/client.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/concurrency_contexts/command_serialization.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 57,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/account_config_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 24,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/client_config_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/client_config_unify.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 15,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/codec_policy_fallback.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 17,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/m20_codec_auto_mode.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 62,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/observability_metrics.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 16,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/semver_sip_networking.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 29,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/srtp_transport_reconnect.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 29,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/stun_turn_ice_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 29,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/transport_ice_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 12,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/versioning_policy.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 11,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/challenges_panic_policy.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 57,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/error_design_siperror.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/error_native_status.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 31,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/m20_runtime_command_error.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 16,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/m20_shutdown_routing.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/event.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [
+        {
+          "message": "the grammar recovered near: &raw, raw,",
+          "severity": "warning"
+        }
+      ],
+      "extracted_count": 31,
+      "phase": "parse",
+      "reason": null,
+      "status": "partial",
+      "target": "src/ffi/backend_calls.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 176,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/bindings.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 81,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/callback.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 9,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/constants.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/ice_transport_error.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/m20_dual_client_routing.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 19,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/media_port_adapter.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 27,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/pj_str.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/pjsip_ffi_layer.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 16,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/raw_sip_module.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 33,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/transport_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/lib.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 26,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/audio_aligner.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 53,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/audio_format_chunkpair.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 17,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/audio_resampler.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/dtmf_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 72,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/id_design_newtype.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 27,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/media_bridge.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 29,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/memory_ownership_defaults.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 46,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/raw_sip_message_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 44,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/sqlite_schema.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/add_audio_source.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 151,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/audio_worker.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/audioworker_lifecycle.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 141,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/backend.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 9,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/backend_selection.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 55,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/command.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 11,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/event_path_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 53,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/handle.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/push_media_frame.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 100,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/reactor.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/runtime_state_lock_rules.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 22,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/state.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 16,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/security/auth_jwt_middleware.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/security/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 27,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/security/security_platform_diffs.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 34,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/call_state_model.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 50,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/m20_callstate_mapping.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 29,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/m20_native_event_conv.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 12,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/m20_registr_cmd_pat.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 19,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/reg_account_lifecycle.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 32,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/registr_state_machine.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/registr_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 36,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/shutdown_specification.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 30,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/shutdown_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 25,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/docker_asterisk_it.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 12,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/m20_test_dual_client.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 18,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/raw_sip_real_test.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 15,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/real_pjsip_itest.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/test_apilayer5.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 12,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/test_strategy_4layer.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/transport.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/non_exhaustive.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/ownership_ffi_boundary.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 14,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/runtime_audio_lifecycle.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 18,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/sip_integration.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_feature_additive_build.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_0963da9b.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 25,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_26d77120.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_36123930.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 38,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_4b35a676.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_64eff610.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_7c1bb4d6.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_7e78be0d.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_a4ecaf0f.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 17,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_e0606bc3.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 14,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_f330ed39.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_unsafe_isolation.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": "no_extractor_for_language",
+      "status": "skipped",
+      "target": "wrapper.h",
+      "tool": "tree-sitter-c_cpp"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "build.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/account_register.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/audio_tap.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/client_init.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/common/cli.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/common/client.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/make_call.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/tts_source.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/account.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/asyncaudiosrc_adapter.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/audio_subscribe_bp.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/call_api_expansion.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 8,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/call_api_semantics.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/call_types.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/dtmf_spec_received.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/dtmf_unification.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/event_bus_guarantees.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/event_bus_unify.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 10,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/event_model_payload_bus.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/eventbus_receiver.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/http_ws_crate_split.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/http_ws_protocol.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/incoming_call_events.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/incoming_call_refer.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/m20_dtmfsent_twophase.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 10,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/public_api_design.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 14,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/standalone_server_config.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/crate_scope.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/examples_e1e5.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/impl_integration_design.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/io_boundary_round2.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/io_boundary_round3.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/io_boundary_round4.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/policy_reference.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round2_scope_rootcause.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round3_scope_rootcause.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round4_scope_rootcause.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round4_tickets.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/audiomixer_rt_boundary.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/media_path_arch.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/media_path_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 12,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/pipeline.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/bindgen_enum_generation.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/build_rs_resolution.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/build_script_bindgen.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/build_strategy_os_deps.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/cicd_docker_prebuilt.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/prebuilt_ci_commit.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/prebuilt_producer.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/static_link_strategy.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/vendored_pjsip_strategy.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/call.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 17,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/client.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/concurrency_contexts/command_serialization.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/account_config_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/client_config_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/client_config_unify.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/codec_policy_fallback.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/m20_codec_auto_mode.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/observability_metrics.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/semver_sip_networking.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/srtp_transport_reconnect.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 12,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/stun_turn_ice_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/transport_ice_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/versioning_policy.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/challenges_panic_policy.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/error_design_siperror.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/error_native_status.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 9,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/m20_runtime_command_error.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/m20_shutdown_routing.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 9,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/event.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [
+        {
+          "message": "the grammar recovered near: &raw, raw,",
+          "severity": "warning"
+        }
+      ],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "partial",
+      "target": "src/ffi/backend_calls.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/bindings.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/callback.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/constants.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/ice_transport_error.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/m20_dual_client_routing.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/media_port_adapter.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/pj_str.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/pjsip_ffi_layer.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/raw_sip_module.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/transport_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 16,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/lib.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/audio_aligner.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/audio_format_chunkpair.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/audio_resampler.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/dtmf_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/id_design_newtype.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/media_bridge.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/memory_ownership_defaults.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/raw_sip_message_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/sqlite_schema.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 12,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/add_audio_source.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/audio_worker.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/audioworker_lifecycle.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 15,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/backend.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 8,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/backend_selection.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/command.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 8,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/event_path_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/handle.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/push_media_frame.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 24,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/reactor.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/runtime_state_lock_rules.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/state.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/security/auth_jwt_middleware.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/security/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/security/security_platform_diffs.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/call_state_model.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/m20_callstate_mapping.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/m20_native_event_conv.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/m20_registr_cmd_pat.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 14,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/reg_account_lifecycle.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/registr_state_machine.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/registr_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/shutdown_specification.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 15,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/shutdown_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/docker_asterisk_it.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/m20_test_dual_client.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/raw_sip_real_test.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/real_pjsip_itest.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/test_apilayer5.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/test_strategy_4layer.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/transport.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/non_exhaustive.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/ownership_ffi_boundary.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/runtime_audio_lifecycle.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/sip_integration.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_feature_additive_build.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_0963da9b.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_26d77120.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_36123930.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_4b35a676.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_64eff610.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_7c1bb4d6.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_7e78be0d.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_a4ecaf0f.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_e0606bc3.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_f330ed39.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_unsafe_isolation.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": "no_edge_extractor_for_language",
+      "status": "skipped",
+      "target": "wrapper.h",
+      "tool": "tree-sitter-c_cpp"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 9,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "build.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/account_register.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/audio_tap.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/client_init.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/common/cli.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/common/client.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/make_call.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "examples/tts_source.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/account.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 62,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/asyncaudiosrc_adapter.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/audio_subscribe_bp.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/call_api_expansion.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/call_api_semantics.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/call_types.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/dtmf_spec_received.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/dtmf_unification.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/event_bus_guarantees.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/event_bus_unify.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/event_model_payload_bus.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/eventbus_receiver.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/http_ws_crate_split.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/http_ws_protocol.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/incoming_call_events.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/incoming_call_refer.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/m20_dtmfsent_twophase.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 16,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/public_api_design.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 54,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/api/standalone_server_config.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/crate_scope.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/examples_e1e5.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/impl_integration_design.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/io_boundary_round2.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/io_boundary_round3.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/io_boundary_round4.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/policy_reference.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round2_scope_rootcause.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round3_scope_rootcause.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round4_scope_rootcause.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/architecture/round4_tickets.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/audiomixer_rt_boundary.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/media_path_arch.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/media_path_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 12,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/audio/pipeline.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/bindgen_enum_generation.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/build_rs_resolution.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/build_script_bindgen.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/build_strategy_os_deps.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/cicd_docker_prebuilt.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/prebuilt_ci_commit.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/prebuilt_producer.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/static_link_strategy.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/build/vendored_pjsip_strategy.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 15,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/call.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 19,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/client.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/concurrency_contexts/command_serialization.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/account_config_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/client_config_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/client_config_unify.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/codec_policy_fallback.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/m20_codec_auto_mode.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 20,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/observability_metrics.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/semver_sip_networking.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/srtp_transport_reconnect.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 9,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/stun_turn_ice_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 8,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/transport_ice_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/config/versioning_policy.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/challenges_panic_policy.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/error_design_siperror.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/error_native_status.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/m20_runtime_command_error.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/error/m20_shutdown_routing.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/event.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [
+        {
+          "message": "the grammar recovered near: &raw, raw,",
+          "severity": "warning"
+        }
+      ],
+      "extracted_count": 33,
+      "phase": "parse",
+      "reason": null,
+      "status": "partial",
+      "target": "src/ffi/backend_calls.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 36,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/bindings.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 27,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/callback.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/constants.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/ice_transport_error.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/m20_dual_client_routing.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/media_port_adapter.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/pj_str.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/pjsip_ffi_layer.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/raw_sip_module.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 18,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/ffi/transport_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/lib.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/audio_aligner.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/audio_format_chunkpair.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/audio_resampler.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/dtmf_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/id_design_newtype.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/media_bridge.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/memory_ownership_defaults.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/raw_sip_message_spec.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/model/sqlite_schema.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/add_audio_source.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 27,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/audio_worker.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/audioworker_lifecycle.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 102,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/backend.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 15,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/backend_selection.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 8,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/command.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/event_path_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 9,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/handle.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/push_media_frame.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 41,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/reactor.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/runtime_state_lock_rules.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/runtime/state.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/security/auth_jwt_middleware.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/security/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/security/security_platform_diffs.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/call_state_model.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/m20_callstate_mapping.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/m20_native_event_conv.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/m20_registr_cmd_pat.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 16,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/reg_account_lifecycle.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/registr_state_machine.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/registr_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 9,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/shutdown_specification.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 5,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/state/shutdown_wiring.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/docker_asterisk_it.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/m20_test_dual_client.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/mod.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/raw_sip_real_test.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/real_pjsip_itest.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 3,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/test_apilayer5.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/tests/test_strategy_4layer.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "src/transport.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/non_exhaustive.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/ownership_ffi_boundary.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/runtime_audio_lifecycle.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 15,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/sip_integration.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 2,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_feature_additive_build.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_0963da9b.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_26d77120.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_36123930.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_4b35a676.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 7,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_64eff610.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_7c1bb4d6.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 4,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_7e78be0d.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 6,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_a4ecaf0f.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 8,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_e0606bc3.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 8,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_spec_f330ed39.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 1,
+      "phase": "parse",
+      "reason": null,
+      "status": "success",
+      "target": "tests/verify_unsafe_isolation.rs",
+      "tool": "tree-sitter-rust"
+    },
+    {
+      "configuration": "syntax-only",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "parse",
+      "reason": "no_mechanism_extractor_for_language",
+      "status": "skipped",
+      "target": "wrapper.h",
+      "tool": "tree-sitter-c_cpp"
+    }
+  ]
+}

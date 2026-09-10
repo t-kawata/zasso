@@ -195,11 +195,26 @@ function sha256File(filePath) {
  * Every file beneath a root, depth first and name-sorted, as paths relative to
  * that root. Excluded directories are not descended into.
  */
-export function listTreeFiles(root, { excludedDirectoryNames = NEVER_WALKED_DIRECTORY_NAMES } = {}) {
+export function listTreeFiles(root, { excludedDirectoryNames = NEVER_WALKED_DIRECTORY_NAMES, onUnreadable = null } = {}) {
+// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
   const excluded = new Set(excludedDirectoryNames);
   const files = [];
   const walk = (dir) => {
-    for (const entry of readdirSync(dir).sort()) {
+    let entries;
+    try {
+      entries = readdirSync(dir).sort();
+    } catch (error) {
+      // A directory whose own contents cannot be listed is unreadable in the
+      // same sense a file is, so it travels the same route: a caller that can
+      // carry the fact forward receives it, and the default refuses rather than
+      // returning a shorter walk that reads as a smaller tree.
+      if (onUnreadable === null) {
+        throw new Error(`cannot read ${relative(root, dir) || '.'} under ${root}: ${error.message}`);
+      }
+      onUnreadable(relative(root, dir) || '.', error);
+      return;
+    }
+    for (const entry of entries) {
       if (excluded.has(entry)) continue;
       const full = join(dir, entry);
       let stats;
@@ -207,8 +222,14 @@ export function listTreeFiles(root, { excludedDirectoryNames = NEVER_WALKED_DIRE
         stats = statSync(full);
       } catch (error) {
         // A bare errno does not say what was being measured or why it stopped,
-        // and a walk that cannot finish cannot support a digest.
-        throw new Error(`cannot read ${relative(root, full)} under ${root}: ${error.message}`);
+        // and a walk that cannot finish cannot support a digest. A caller that
+        // can carry the fact forward supplies `onUnreadable` and receives the
+        // path; the default still refuses rather than quietly shrinking the walk.
+        if (onUnreadable === null) {
+          throw new Error(`cannot read ${relative(root, full)} under ${root}: ${error.message}`);
+        }
+        onUnreadable(relative(root, full), error);
+        continue;
       }
       if (stats.isDirectory()) {
         walk(full);
@@ -227,10 +248,18 @@ export function listTreeFiles(root, { excludedDirectoryNames = NEVER_WALKED_DIRE
  * Each file contributes `path` and its own digest, so a rename and an edit are
  * distinguishable, and the result is one value that can be compared cheaply.
  */
-export function digestTree(root, { excludedDirectoryNames = NEVER_WALKED_DIRECTORY_NAMES } = {}) {
-  const files = listTreeFiles(root, { excludedDirectoryNames });
+export function digestTree(root, { excludedDirectoryNames = NEVER_WALKED_DIRECTORY_NAMES, tolerateUnreadable = false } = {}) {
+// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+  const unreadable = [];
+  const files = listTreeFiles(root, {
+    excludedDirectoryNames,
+    onUnreadable: tolerateUnreadable ? (relativePath) => unreadable.push(relativePath) : null,
+  });
   const lines = files.map((file) => `${file}\0${sha256File(join(root, file))}`);
-  return { fileCount: files.length, sha256: sha256(lines.join('\n')) };
+  // `unreadable` is reported rather than concealed: a digest that covered fewer
+  // files than the tree holds must say so, or a reader would take the shorter
+  // walk for the whole of it.
+  return { fileCount: files.length, sha256: sha256(lines.join('\n')), unreadable };
 }
 
 /**
