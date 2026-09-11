@@ -96,6 +96,7 @@ test('C002 postcondition: an appended paragraph is not drift — edits are permi
 });
 
 test('C002 postcondition: a shortened heading set is reported with the file path and the missing heading', () => {
+// [::TICKET::] PX-210 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-210 --for-spec --no-implementation-order`.
   const root = makeCommandsCopy();
   try {
     const baseline = digestCommandFiles(root);
@@ -107,10 +108,18 @@ test('C002 postcondition: a shortened heading set is reported with the file path
       .join('\n');
     writeFileSync(target, withoutLast);
 
+    // PX-210 adds no protected section to this digest. It briefly added the
+    // rotation gate as a fourth, and review removed it: the gate is enforced by
+    // the two lints over the real files, and freezing its sentence as well would
+    // need `regression capture`, which re-derives the forward surfaces. A key the
+    // baseline carries no value for is a stored-but-uncompared field, and this
+    // repository has repaired that shape twice. So one lost heading is one finding,
+    // as before, and the assertion additionally names the kind rather than only
+    // the count.
     const findings = compareDigests(baseline, digestCommandFiles(root));
     assert.equal(findings.length, 1);
-    assert.equal(findings[0].file, join(COMMANDS_RELATIVE_DIR, 'drill-rfc-down.md'));
     assert.equal(findings[0].kind, 'missing-heading');
+    assert.equal(findings[0].file, join(COMMANDS_RELATIVE_DIR, 'drill-rfc-down.md'));
     assert.equal(findings[0].heading, lostHeading);
   } finally {
     rmSync(root, { recursive: true, force: true });

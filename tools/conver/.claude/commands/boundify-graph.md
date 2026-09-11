@@ -59,7 +59,7 @@ fi
 - **Prune rules**: During tree generation, directories that do not meet the minimum 2-child-node requirement are removed; directories with a single child are flattened into the parent (PX-29).
 - **Declaration stubs**: Empty files without implementation automatically receive declaration stubs (function signature + implementation TODO comment) appropriate to the language and kind. This allows implementation to begin immediately (PX-28).
 - **Cross-references**: File header comments connected to prose nodes (design information) embed references to the design intent of the corresponding prose node. This ensures traceability between the design document and implementation files (PX-30).
-- **Reverse mode**: When the project already contains an implementation, boundify describes the tree that exists instead of creating one. Step 3 is not run at all; `reverse-boundify.js` attaches the header where it is missing and emits the correspondence table. Guide: see "Reverse Mode" below (ABOUT-REVERSE 6.7 / 6.14.5).
+- **Reverse mode**: When the project already contains an implementation, boundify describes the tree that exists instead of creating one, through a separate entry point described in the "Reverse Mode" section at the end of this file (ABOUT-REVERSE 6.7 / 6.14.5).
 - **Reverse mode never rewrites a header**: An existing `Initial Design Artifact` header is preserved byte for byte, never refreshed. `refresh-file-headers.js` in the drill-rfc-down flow refreshes one in place; reverse mode may only attach one where none exists, because supreme law 4 forbids altering it (ABOUT-REVERSE 6.14.5, B2).
 
 ## List of Scripts Used
@@ -225,40 +225,8 @@ node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath" --
 node .claude/scripts/rfc-graph/boundify-graph-to-dirs.js --graph="$graphPath" --quiet
 ```
 
-### Reverse Mode
 
-When the project already contains an implementation, the tree exists and boundify's job is to describe it rather than to create it. `/boundify-graph` then takes a second entry point, and **Step 3 is not run at all** — running it would create the tree that is already there.
-
-```bash
-# Plan only. Nothing is written to the measured tree, which is the default.
-node .claude/scripts/rfc-graph/reverse-boundify.js --graph="$graphPath" --root="$projectRoot" --out="$outDir"
-
-# Attach the headers. --apply is required before anything is written.
-node .claude/scripts/rfc-graph/reverse-boundify.js --graph="$graphPath" --root="$projectRoot" --out="$outDir" --apply
-```
-
-| Gate | FAIL condition | PASS condition |
-|---|---|---|
-| **B1 existing structure preserved** | A file was created or removed inside the measured tree | None was |
-| **B2 header attached afterwards** | A line outside the header changed | Every diff is the header alone |
-| **B3 correspondence table** | The table for the files that were not generated is absent | It exists, even when empty |
-
-Three properties make reverse mode safe to point at an existing project, and all three are asserted rather than inspected:
-
-- **B2 reconstructs** the after-content from the before-content with one contiguous insertion. That is a byte-for-byte equality, so a same-length substitution in the body is refused rather than accepted as "no change in size". A refusal names the file and the line.
-- **B1 compares** the measured file inventory taken before and after the write, so a created path fails it by name.
-- **`--apply` is opt-in.** The forward flow writes by default; here a write is the exceptional act. A subject tree of 150 files makes a body-modifying bug a 150-file corruption rather than a small mistake.
-
-An existing `Initial Design Artifact` header is **never** rewritten: it is preserved byte for byte and reported as `header_preserved`. A file whose declared path does not exist is reported as `absent` rather than dropped, because a declaration with no file is exactly the finding B3 exists to surface.
-
-After the headers are attached, the placement is measured against the answer key rather than judged:
-
-```bash
-node .claude/scripts/workspacify-reverse/run.mjs oracle compare --stage headers \
-  --candidate="$candidatePath" --project-root .
-```
-
-This prints a list of disagreements named by file. It is never a score and never a verdict — classifying each disagreement is a human's work (ABOUT-REVERSE 6.14, F1).
+**Reverse mode** (a project that already contains an implementation) is a separate entry point, described in the "Reverse Mode" section at the end of this file. The steps below describe the forward rotation and are not affected by it.
 
 ## Step 3: Batch File Generation
 
@@ -323,3 +291,41 @@ Report the following information:
 - **Declaration stub quality**: Number of auto-generated declaration stubs (same as above)
 
 After completion, implementation can begin from the generated directory tree and files.
+
+
+### Reverse Mode
+
+**Rotation gate** — this section runs only when `measured-tree-root` holds. The forward rotation generates the tree from a Dirs-Tree and is given no `--root`, so this section cannot fire in one.
+
+When the project already contains an implementation, the tree exists and boundify's job is to describe it rather than to create it. `/boundify-graph` then takes a second entry point, and **Step 3 is not run at all** — running it would create the tree that is already there.
+
+```bash
+# Plan only. Nothing is written to the measured tree, which is the default.
+node .claude/scripts/rfc-graph/reverse-boundify.js --graph="$graphPath" --root="$projectRoot" --out="$outDir"
+
+# Attach the headers. --apply is required before anything is written.
+node .claude/scripts/rfc-graph/reverse-boundify.js --graph="$graphPath" --root="$projectRoot" --out="$outDir" --apply
+```
+
+| Gate | FAIL condition | PASS condition |
+|---|---|---|
+| **B1 existing structure preserved** | A file was created or removed inside the measured tree | None was |
+| **B2 header attached afterwards** | A line outside the header changed | Every diff is the header alone |
+| **B3 correspondence table** | The table for the files that were not generated is absent | It exists, even when empty |
+
+Three properties make reverse mode safe to point at an existing project, and all three are asserted rather than inspected:
+
+- **B2 reconstructs** the after-content from the before-content with one contiguous insertion. That is a byte-for-byte equality, so a same-length substitution in the body is refused rather than accepted as "no change in size". A refusal names the file and the line.
+- **B1 compares** the measured file inventory taken before and after the write, so a created path fails it by name.
+- **`--apply` is opt-in.** The forward flow writes by default; here a write is the exceptional act. A subject tree of 150 files makes a body-modifying bug a 150-file corruption rather than a small mistake.
+
+An existing `Initial Design Artifact` header is **never** rewritten: it is preserved byte for byte and reported as `header_preserved`. A file whose declared path does not exist is reported as `absent` rather than dropped, because a declaration with no file is exactly the finding B3 exists to surface.
+
+After the headers are attached, the placement is measured against the answer key rather than judged:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs oracle compare --stage headers \
+  --candidate="$candidatePath" --project-root .
+```
+
+This prints a list of disagreements named by file. It is never a score and never a verdict — classifying each disagreement is a human's work (ABOUT-REVERSE 6.14, F1).

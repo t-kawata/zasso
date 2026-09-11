@@ -230,6 +230,8 @@ Success is consolidated into the coexistence of **① the AI's final semantic ap
 
 ## Reverse mode (T1 to T6)
 
+**Rotation gate** — this section runs only when `reverse-decisions-mode` holds. The forward rotation invokes `finalize`, and `resolveTreeMode` / `resolveAllocateMode` return FORWARD for an absent, an empty or an unrecognised mode, so this section cannot fire in one.
+
 **Role**: when a project already contains a substantial implementation, the partition cannot be designed from a specification alone — it has to be grounded in the tree that exists. Reverse mode preserves the physical layout exactly and holds the logical architecture as a separate layer, so that the existing technical debt is **recorded** rather than frozen into the canonical record as if it had been designed.
 
 **Invocation**: `run.mjs reverse --spec=<origin-spec.md> --decisions=<path> --root=<project directory>`, with optional `--graph=<graph.json>`, `--measured=<dependency measurement>`, `--sidecars=<dir>`, `--delta=<path>` and `--out=<dir>`.

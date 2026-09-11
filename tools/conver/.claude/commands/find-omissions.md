@@ -371,7 +371,7 @@ This removes `manifests/CONSOLIDATED-MANIFEST-*.json` and `manifests/ROLLBACK-*.
 
 ## Reverse rotation only — the return path from an omission to its uncertainty
 
-**This section applies only when `mode === "reverse"`. In forward mode nothing below runs and no field below appears.** An omission recorded during the forward rotation carries exactly the fields it carried before this section existed.
+**Rotation gate** — this section runs only when `return-refs-reverse-mode` holds. Without `--mode=reverse` the artefact is returned itself and no return reference is written, so this section cannot fire in a forward rotation. An omission recorded during the forward rotation carries exactly the fields it carried before this section existed.
 
 An omission is recorded as a shortfall of the original hypothesis, norm or scope — not as "not enough tests" (ABOUT-REVERSE 1.3). To make it actionable rather than merely countable, the omission names the uncertainty it descends from: the claims it affects, and the residuals that produced it (ABOUT-REVERSE 6.12.3 layer B, and the return edge of 6.10.1).
 

@@ -209,7 +209,7 @@ node .claude/scripts/crystalize-readme/loop-drive-readme.js --graph="$ARGUMENTS"
 
 ## Reverse rotation only — the return path from a RESIDUE to its scenario and its route
 
-**This section applies only when `mode === "reverse"`. In forward mode nothing below runs and no field below appears.** A RESIDUE recorded during the forward rotation carries exactly the fields it carried before this section existed, because RESIDUE 0 is the stated success condition of the reverse rotation and the forward shape of a RESIDUE is what that condition is counted from.
+**Rotation gate** — this section runs only when `return-refs-reverse-mode` holds. Without `--mode=reverse` the artefact is returned itself and no return reference is written, so this section cannot fire in a forward rotation. A RESIDUE recorded during the forward rotation carries exactly the fields it carried before this section existed, because RESIDUE 0 is the stated success condition of the reverse rotation and the forward shape of a RESIDUE is what that condition is counted from.
 
 A RESIDUE is a shortfall of the product's own account, not of the RFC (ABOUT-REVERSE 1.3). To make a RESIDUE a destination rather than a note, it names where it came from and where it travels next: `scenario_ref` and `next_route` (ABOUT-REVERSE 6.12.3 layer B, realising the return edge of 6.10.1).
 

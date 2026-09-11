@@ -331,6 +331,8 @@ node .claude/scripts/grill-me-for-rfc/update-status.js "$RFC_DIR" set-state DONE
 
 ## Reverse mode (G1 to G5)
 
+**Rotation gate** — this section runs only when `reverse-seed-index` holds. A forward seed carries no `reverse_index` in its section 1, so this section cannot fire in one.
+
 **Role**: when the material handed to this grill is an existing implementation rather than a design, the failure mode changes. A question framed as "what should this do?" invites the answer "what it currently does", and the RFC that results restates the code in the language of a specification — a *ratification RFC* (F1). It satisfies the five consistencies on its surface while proving nothing, because the implementation, its tests and its comments all descend from one design and corroborate each other instead of the design. Reverse mode makes that failure unavailable rather than merely unlikely.
 
 **Invocation**: the same command, the same steps. The input is an RFC-SEED published by `/workspacify-allocate` in reverse mode, which carries the reverse index inside its machine-injected section 1. A seed whose section 1 does not carry that index is refused by name: a forward seed is not the input of this grill.

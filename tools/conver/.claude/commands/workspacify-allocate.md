@@ -350,6 +350,8 @@ Success is consolidated into the coexistence of **① the AI's final semantic ap
 
 ## Reverse mode (A1 to A6)
 
+**Rotation gate** — this section runs only when `reverse-decisions-mode` holds. The forward rotation invokes `finalize`, and `resolveTreeMode` / `resolveAllocateMode` return FORWARD for an absent, an empty or an unrecognised mode, so this section cannot fire in one.
+
 **Role**: when the project already exists, the directory tree cannot be created — it is already there, and it is the thing the whole phase exists to preserve. Reverse mode keeps the forward gates G0 to G5 exactly as they are and adds a second safety guarantee, pointing the other way.
 
 **Invocation**: `run.mjs reverse --root=<project directory> --decisions=<path>`, with the stage-1 manifest read from `<root>/WORKSPACIFY-TREE-MANIFEST.json`.

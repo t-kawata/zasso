@@ -564,6 +564,8 @@ After completion, this graph becomes available to the /split-to-tickets and /bou
 
 ## Reverse mode (GF1, GF2)
 
+**Rotation gate** — this section runs only when `measured-tree-root` holds. The forward rotation generates the tree from a Dirs-Tree and is given no `--root`, so this section cannot fire in one.
+
 **Role**: when the graph is built from an implementation that already exists rather than from a design, the failure mode changes. The graph can be internally consistent — every heading referenced, every edge joined — and connected to nothing real, because `node.schema.json` carries no file field and `additionalProperties` is false. And an RFC written from the code agrees with the code by construction, so a reconciliation that finds nothing is the **ratification RFC** (F1, ABOUT-REVERSE 3.4) rather than a clean result. Reverse mode makes both failures visible instead of silent.
 
 **Invocation**: the same command, the same steps. Two gates run in addition, and neither changes the schema: ABOUT-REVERSE 6.12.3 puts `*-GRAPH.json` in layer C, which gains nothing, so the grounding is published beside the graph and never written into it.

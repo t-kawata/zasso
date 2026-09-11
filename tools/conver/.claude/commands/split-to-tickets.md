@@ -591,6 +591,8 @@ Example output:
 
 ## Reverse mode (S1 to S6)
 
+**Rotation gate** — this section runs only when `measured-tree-root` holds. The forward rotation generates the tree from a Dirs-Tree and is given no `--root`, so this section cannot fire in one.
+
 Everything above describes the forward rotation: a design document is decomposed into
 phases and tickets, and the tickets declare what is to be built. When a project already
 contains an implementation and a test suite, the same step has to describe what is there

@@ -403,7 +403,7 @@ node "$DRILL_DIR/verify-step.js" --rfc="$RFC_PATH" --graph="$GRAPH_PATH" --dirs-
 
 ## Reverse rotation only — staleness as an input to this drill
 
-**This section applies only when `mode === "reverse"`. In forward mode nothing below runs and no field below appears.** The forward steps above are unchanged and run the same scripts they always ran.
+**Rotation gate** — this section runs only when `claim-ledger` holds. The forward rotation writes no `CLAIM-LEDGER.json`, and `staleness.mjs` takes it as a required argument, so this section cannot fire in one. The forward steps above are unchanged and run the same scripts they always ran.
 
 A canonical record is only as current as the artefacts it was read from. When a dependency, a configuration, a schema or an external contract moves on, the record keeps its shape and quietly stops describing the code (ABOUT-REVERSE 7.6 F13). Nothing throws and nothing turns red: the next reader treats a stale claim as a current one. Propagation is the signal that was missing, and this drill is where it arrives, because a re-examination condition is a question of exactly the kind this command already asks.
 
