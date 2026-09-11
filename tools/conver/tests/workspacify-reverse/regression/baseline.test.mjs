@@ -1,3 +1,4 @@
+// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
 /**
  * The forward-rotation regression gate: freeze, reproduce, and refuse to guess.
@@ -310,7 +311,6 @@ test('UT-13: two consecutive captures produce byte-identical JSON', () => {
 
 // --- C002: the command files --------------------------------------------------
 
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
 // P22-1 asserted the absence of `workspacify-reverse.md` as a precondition of
 // its own moment, and named P22-9 as the ticket that would create it. That

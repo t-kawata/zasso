@@ -114,6 +114,79 @@ function detectAnnotationAtLine(lines, defLine) {
 }
 
 /**
+ * The contiguous run of comments that ends at a definition.
+ *
+ * Both comment forms count. Recognising only the line form left the block ending
+ * at a block comment, so an annotation sitting above one was invisible and a
+ * second was inserted — the live shape in tickets/list-phases-and-tickets.js,
+ * where an annotation, a JSDoc block and `function main()` are stacked. A line
+ * beginning with an asterisk is inside a block comment in JavaScript, or is a
+ * syntax error, so accepting it risks nothing.
+ *
+ * A blank line ends the block. That is the conservative direction: a missed
+ * suppression costs one redundant annotation, while an over-eager one costs an
+ * annotation that never lands on a definition that needed it.
+ *
+ * Returns [{ line, lineIndex }] in file order, lineIndex being 1-indexed.
+ */
+// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+function findCommentBlockAbove(lines, definitionLine) {
+  const block = [];
+  for (let index = definitionLine - 2; index >= 0; index -= 1) {
+    const line = lines[index];
+    if (typeof line !== "string") break;
+    const trimmed = line.trimStart();
+    const isComment =
+      trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*");
+    if (!isComment) break;
+    block.push({ line, lineIndex: index + 1 });
+  }
+  return block.reverse();
+}
+
+/**
+ * Find the annotation nearest a definition, searching its whole comment block
+ * rather than only the line immediately above it.
+ *
+ * Reading one line was the defect this replaces: an annotation separated from
+ * its definition by any interposed comment became invisible, and a second
+ * identical annotation was inserted on the next run. Nine locations in this
+ * repository carry the result, across PX-159, P22-8, P22-9 and PX-207.
+ *
+ * Returns { ticketKeys: string[], lineIndex: number } or null.
+ */
+// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+function detectAnnotationInCommentBlock(lines, defLine) {
+  const block = findCommentBlockAbove(lines, defLine);
+  for (let index = block.length - 1; index >= 0; index -= 1) {
+    const found = detectAnnotationLine(block[index].line);
+    if (found) {
+      return { ticketKeys: found.ticketKeys, lineIndex: block[index].lineIndex };
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether any line already carries a marker for this key, in either flavour.
+ *
+ * The annotator writes two: the resolved [::TICKET::] annotation it inserts
+ * itself, and an [::AMBIGUOUS::] placeholder left when a changed line belongs to
+ * no definition. `resolve-ambiguous-markers.js --mode=inject-at` rewrites the
+ * second into the first, so a guard recognising only the placeholder inserts a
+ * fresh one over a marker that was just resolved — which is how PX-207's frozen
+ * fixture acquired a duplicate and failed fourteen downstream tests.
+ */
+// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+function carriesMarkerFor(lines, ticketKey) {
+  if (!Array.isArray(lines) || !ticketKey) return false;
+  if (hasExistingAnnotation(lines, ticketKey)) return true;
+  return lines.some(
+    (line) => typeof line === "string" && line.includes("[::AMBIGUOUS::]") && line.includes(ticketKey)
+  );
+}
+
+/**
  * Merge a new ticket key into an existing annotation line.
  * Returns the updated line string, or null if parsing fails.
  * If the key already exists, returns the original line unchanged (idempotent).
@@ -287,7 +360,7 @@ function prependCommentPreservingShebang(lines, comment) {
   return [comment, ...lines];
 }
 
-// [::TICKET::] PX-147 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-147 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-147, PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-147|PX-208) --for-spec --no-implementation-order`.
 function processFile(filePath, ticketKey, opts) {
   const verbose = opts && opts.verbose;
   const cwd = opts && opts.cwd ? opts.cwd : process.cwd();
@@ -310,11 +383,11 @@ function processFile(filePath, ticketKey, opts) {
 
   if (definitions.size === 0) {
     // No definition contains any changed line — insert an AMBIGUOUS marker.
-    // Idempotency guard: a marker for the same ticketKey must not stack.
-    const alreadyHasMarker = lines.some(
-      (l) => l.includes("[::AMBIGUOUS::]") && l.includes(ticketKey)
-    );
-    if (!alreadyHasMarker) {
+    // Idempotency guard: a marker for the same ticketKey must not stack, in
+    // either flavour. The placeholder this branch writes is rewritten into a
+    // [::TICKET::] annotation by resolve-ambiguous-markers.js, so recognising
+    // only the placeholder would insert over a marker already resolved.
+    if (!carriesMarkerFor(lines, ticketKey)) {
       const ambiguousComment = `// [::AMBIGUOUS::] Could not locate containing definition for changed line(s) in ticket ${ticketKey} — AI must resolve placement.`;
       const newLines = prependCommentPreservingShebang(lines, ambiguousComment);
       fs.writeFileSync(resolved, newLines.join("\n"), "utf8");
@@ -337,8 +410,8 @@ function processFile(filePath, ticketKey, opts) {
     // 1-indexed line number for the definition (used by detectAnnotationAtLine / insertAnnotation)
     const defLineOneIndexed = startLine + 1;
 
-    // Check for existing annotation at the definition line
-    const existingAnnot = detectAnnotationAtLine(modifiedLines, defLineOneIndexed);
+    // Check the definition's whole comment block, not only the line above it
+    const existingAnnot = detectAnnotationInCommentBlock(modifiedLines, defLineOneIndexed);
 
     if (existingAnnot) {
       if (existingAnnot.ticketKeys.includes(ticketKey)) {
@@ -661,7 +734,7 @@ function main() {
  * @param {string[]} lines
  * @returns {number|null} — 1-indexed line number or null
  */
-// [::TICKET::] PX-147 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-147 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-147, PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-147|PX-208) --for-spec --no-implementation-order`.
 function detectFirstDefinition(lines) {
   if (!Array.isArray(lines)) return null;
   for (let i = 0; i < lines.length; i++) {
@@ -708,6 +781,9 @@ if (typeof module !== "undefined" && module.exports) {
     buildMultiAnnotation,
     detectAnnotationLine,
     detectAnnotationAtLine,
+    findCommentBlockAbove,
+    detectAnnotationInCommentBlock,
+    carriesMarkerFor,
     mergeAnnotation,
     insertAnnotation,
     filterSourceFiles,

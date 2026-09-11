@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
 /**
  * check-conventions — report whether each script directory uses the module system
  * its declaration says it does, and whether the rule file agrees with the tree.
@@ -24,7 +25,6 @@ import {
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-206 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-206 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
 
 const entries = scanScriptDirectories(join(PROJECT_ROOT, SCRIPT_ROOT));

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
 /**
  * generate-checklist.js <rfc-dir>
  *
@@ -21,6 +22,7 @@
 import fs from "fs";
 import path from "path";
 import { validateAll } from "./check-all-schema.js";
+import { AI_SUPPLEMENT_COMMENT, composeFencedFile } from "./lib/checklist-fence.mjs";
 
 const rfcDir = path.resolve(process.argv[2] ?? ".");
 const noBackup = process.argv.includes("--no-backup");
@@ -121,9 +123,24 @@ tree.nodes.forEach((node, i) => {
   lines.push(``);
 });
 
-lines.push(`<!-- AI補足欄: 上記チェック項目に加え、プロジェクト固有の制約・注意事項をここに追記すること -->`);
+lines.push(AI_SUPPLEMENT_COMMENT);
 
-fs.writeFileSync(checklistPath, lines.join("\n"), "utf-8");
+// The generator owns the fenced region and nothing else. Everything a human or
+// an AI session appended after the trailing comment survives regeneration —
+// which is what the comment asks for and what the previous whole-file write
+// deleted on the next run.
+const composed = composeFencedFile({
+  generatedBody: lines.join("\n"),
+  existingText: fs.existsSync(checklistPath) ? fs.readFileSync(checklistPath, "utf-8") : null,
+});
+if (!composed.ok) {
+  console.error(`Refusing to write ${checklistPath}: ${composed.reason}`);
+  process.exit(1);
+}
+if (composed.action === "migrated") {
+  console.error(`Preserved the hand-written region of ${checklistPath} and fenced the generated one`);
+}
+fs.writeFileSync(checklistPath, composed.text, "utf-8");
 
 const schemaErrors = validateAll(rfcDir);
 if (schemaErrors.length > 0) {

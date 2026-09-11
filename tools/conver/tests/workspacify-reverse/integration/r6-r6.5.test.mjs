@@ -1,3 +1,4 @@
+// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -76,7 +77,6 @@ const CLAIM_BEARING_TREE = Object.freeze({
 });
 
 test('IT-1: R6.5 is a declared stage, and the runs here pin their prefix explicitly', () => {
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
   assert.equal(ANALYSIS_STAGES.includes(THROUGH_R6_5), true);
   assert.equal(

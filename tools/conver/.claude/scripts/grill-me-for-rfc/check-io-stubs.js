@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
 /**
  * check-io-stubs.js <rfc-file>
  *
@@ -8,8 +9,6 @@
  */
 // [::TICKET::] PX-157 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-157 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-158 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-159 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-159 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-159 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-159 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-158 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-158 --for-spec --no-implementation-order`.
 import fs from "node:fs";

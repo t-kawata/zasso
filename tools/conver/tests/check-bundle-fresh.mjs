@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
 /**
  * check-bundle-fresh — report whether the committed `conver.js` is the artefact
  * its source produces.
@@ -13,7 +14,6 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 // [::TICKET::] PX-206 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-206 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-205 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-205 --for-spec --no-implementation-order`.
 import { COMMITTED_BUNDLE_PATH, readBundleComparison, renderFreshnessReport } from './lib/bundle-freshness.mjs';
