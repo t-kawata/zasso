@@ -38,7 +38,7 @@ const {
 const { renderSeed } = require('../../../.claude/scripts/workspacify-allocate/lib/seed-render.mjs');
 const { parseSeed } = require('../../../.claude/scripts/workspacify-allocate/lib/seed-parse.mjs');
 const { SEED_REQUIRED_SECTIONS } = require('../../../.claude/scripts/workspacify-allocate/lib/seed-model.mjs');
-const { sidecarReference } = require('../../../.claude/scripts/workspacify-reverse/lib/forward-extensions.mjs');
+const { sidecarReference } = require('../../../.claude/scripts/workspacify-allocate/lib/forward-extensions.mjs');
 const { buildValidManifest, baseAiSections } = require('../../workspacify-allocate/helpers/build-valid-manifest.mjs');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');

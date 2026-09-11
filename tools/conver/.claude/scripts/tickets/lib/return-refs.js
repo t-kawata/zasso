@@ -27,7 +27,7 @@
  *     one anyway.
  *
  * The field names are a projection of the single declaration in
- * `workspacify-reverse/lib/forward-extensions.mjs` (`REVERSE_FIELD_NAMES`), which P22-10
+ * `workspacify-allocate/lib/forward-extensions.mjs` (`REVERSE_FIELD_NAMES`), which P22-10
  * settled. The projection is deliberate: `.claude/scripts/tickets/` is the forward
  * rotation's tree and must not load the reverse tree's modules, because the design reads
  * the dependency the other way (6.12.2 — the reverse side reads forward artefacts).
@@ -138,6 +138,7 @@ const ROUTE_KIND = 'route';
 
 /** Refused because the caller asked for something the design does not allow. */
 // [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
 class ReturnReferenceRefused extends Error {
 // [::TICKET::] P22-17 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-17 --for-spec --no-implementation-order`.
   constructor(message) {

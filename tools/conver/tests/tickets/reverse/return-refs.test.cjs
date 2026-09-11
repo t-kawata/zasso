@@ -47,7 +47,7 @@ const {
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const FORWARD_EXTENSIONS = path.join(
   PROJECT_ROOT,
-  '.claude/scripts/workspacify-reverse/lib/forward-extensions.mjs',
+  '.claude/scripts/workspacify-allocate/lib/forward-extensions.mjs',
 );
 
 /** Identifiers the ledger and the registry are taken to hold for these tests. */

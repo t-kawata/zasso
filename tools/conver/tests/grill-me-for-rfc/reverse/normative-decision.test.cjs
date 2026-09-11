@@ -48,7 +48,7 @@ const {
   REVERSE_FIELD_NAMES,
   assertReverseAdditions,
   extendForwardArtifacts,
-} = require('../../../.claude/scripts/workspacify-reverse/lib/forward-extensions.mjs');
+} = require('../../../.claude/scripts/workspacify-allocate/lib/forward-extensions.mjs');
 const { CANDIDATE_APPROVAL_KEY } = require('../../../.claude/scripts/workspacify-reverse/lib/provenance.mjs');
 const { compareDigests, digestCommandFiles } = require('../../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs');
 

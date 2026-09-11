@@ -38,7 +38,7 @@ import { renderSeed } from '../../../.claude/scripts/workspacify-allocate/lib/se
 import { parseSeed } from '../../../.claude/scripts/workspacify-allocate/lib/seed-parse.mjs';
 import { SEED_REQUIRED_SECTIONS, SEED_FILE_NAME, ALLOCATE_MANIFEST_FILE_NAME } from '../../../.claude/scripts/workspacify-allocate/lib/seed-model.mjs';
 import { compareDigests, digestCommandFiles } from '../../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs';
-import { sidecarReference } from '../../../.claude/scripts/workspacify-reverse/lib/forward-extensions.mjs';
+import { sidecarReference } from '../../../.claude/scripts/workspacify-allocate/lib/forward-extensions.mjs';
 import { buildValidManifest, baseAiSections } from '../helpers/build-valid-manifest.mjs';
 import {
   FIXTURE_SIDECAR_BUNDLE_HASH,
@@ -562,6 +562,7 @@ test('IT-4 the forward-rotation regression gate still exits 0 and reports "prove
 
 /** Write the decisions payload beside the workspace so the CLI can read it. */
 // [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
 function writeDecisions(workspace) {
   const path = `${workspace.dir}.decisions.json`;
   writeFileSync(path, JSON.stringify(workspace.decisions));

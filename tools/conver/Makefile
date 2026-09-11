@@ -6,6 +6,7 @@
         test-conver test test-rfc-graph test-tickets-reverse test-grill-reverse \
         test-workspacify-reverse test-workspacify test-crystalize-readme \
         test-drill-rfc-down test-stub-resolution \
+        check-conventions check-bundle-fresh \
         deploy stubs crimes
 
 # list-tickets: チケット一覧を表示する（私用ヘルパー）
@@ -39,6 +40,18 @@ test-conver:
 #   既知の .claude/tests の14失敗はベースラインとして報告され、失敗にはしない。
 test:
 		node tests/run-all-surfaces.mjs
+
+# check-conventions: 各スクリプトディレクトリが宣言どおりのモジュール方式を使っているか、
+#   および .claude/rules/node.md の表がファイルシステムと一致しているかを検査する。
+#   権威はファイルシステム側であり、不一致は文書の欠陥として報告される。
+check-conventions:
+		node tests/check-conventions.mjs
+
+# check-bundle-fresh: コミット済み .claude/scripts/conver/conver.js が src/ からの
+#   再ビルドとバイト一致するかを検査する。esbuild が解決できない場合は
+#   「古い」ではなく「利用不可」として報告するため、規約検査とは分けてある。
+check-bundle-fresh:
+		node tests/check-bundle-fresh.mjs
 
 # test-rfc-graph: rfc-graph 全スクリプトのテスト（CommonJS、tsc 不要）
 #   注意: グロブは shell の * が / を跨がないため、reverse/ は明示的に列挙する。

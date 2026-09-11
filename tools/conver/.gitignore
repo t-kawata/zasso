@@ -16,3 +16,7 @@ ENV-MANIFEST.json
 # owns: the ledger freezes their digest, and committing the trees would put tens
 # of thousands of upstream files under this repository's review.
 tests/workspacify-reverse/holdout/corpus/
+
+# Backup files. A backup is not source: tracking one puts it in every clone forever,
+# and removing it from history would need a rebase and a force push.
+*.bak

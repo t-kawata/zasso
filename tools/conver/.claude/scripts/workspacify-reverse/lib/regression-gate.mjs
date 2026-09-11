@@ -34,6 +34,8 @@ import { fileURLToPath } from 'node:url';
 
 import { canonicalSerialize } from '../../workspacify-tree/lib/canonical-json.mjs';
 import { COMMAND_FILE_NAMES, COMMANDS_RELATIVE_DIR, compareDigests, digestCommandFiles } from './command-file-digest.mjs';
+// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+import { FORWARD_SURFACES_KEY, captureForwardSurfaces, checkForwardSurfaces } from './forward-surface-baseline.mjs';
 
 // Callers of the gate need the command-file vocabulary too; re-exporting it here
 // keeps one import site for everything the regression predicate depends on.
@@ -115,6 +117,7 @@ export function stableManifestDigest(manifest) {
 }
 
 /** Every file beneath a directory, depth first and name-sorted, as absolute paths. */
+// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
 function listFilesRecursively(dir) {
   if (!existsSync(dir)) {
     return [];
@@ -262,6 +265,11 @@ export function captureBaselines({
     fixtures,
     manifestHashes: sortKeys(manifestHashes),
     commandFileDigests: sortKeys(digestCommandFiles(projectRoot)),
+    // The forward surfaces P22 modified are captured by delegation, under a key of
+    // their own. The three above are written exactly as they were: re-capturing
+    // them would erase the evidence that the surfaces P22-1 froze are still intact.
+    // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+    [FORWARD_SURFACES_KEY]: captureForwardSurfaces({ projectRoot }),
   };
 
   const baselinePath = join(projectRoot, BASELINE_RELATIVE_PATH);
@@ -346,7 +354,32 @@ export function checkBaselines({
 
   const commandFileFindings = compareDigests(baseline.commandFileDigests ?? {}, digestCommandFiles(projectRoot));
 
-  const proved = driftedNames.length === 0 && pairFindings.length === 0 && commandFileFindings.length === 0;
+  // The forward surfaces are checked by delegation and folded into the same
+  // verdict. A drifted header and a drifted manifest are the same kind of
+  // observation; only the report separates them.
+  // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+  // A tree that carries none of this section's fixtures has nothing to compare,
+  // which is P22-1's own `nothingToCheck` state rather than a disagreement. The
+  // distinction is stated rather than assumed: the report names every surface it
+  // could not produce, and the test that runs against this repository asserts all
+  // five are available, so a fixture set that vanished from the real tree fails
+  // there rather than passing quietly here.
+  // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+  const forwardFindings =
+    baseline[FORWARD_SURFACES_KEY] === undefined
+      ? { proved: true, verdict: 'proved', drifted: [], unavailable: [], evaluated: false }
+      : (() => {
+          const findings = checkForwardSurfaces({ baseline, projectRoot });
+          const frozen = baseline[FORWARD_SURFACES_KEY].length;
+          const evaluated = findings.unavailable.length < frozen;
+          return { ...findings, evaluated };
+        })();
+
+  const proved =
+    driftedNames.length === 0 &&
+    pairFindings.length === 0 &&
+    commandFileFindings.length === 0 &&
+    (forwardFindings.proved || forwardFindings.evaluated === false);
   const fixtureCount = Object.keys(observedFixtures).length;
 
   return {
@@ -355,6 +388,7 @@ export function checkBaselines({
     fixtureFindings,
     pairFindings,
     commandFileFindings,
+    forwardFindings,
     nothingToCheck: fixtureCount === 0 && pairFindings.length === 0,
     fixtureCount,
   };
@@ -374,9 +408,26 @@ export function renderCheckReport(result) {
   const lines = [
     '## Forward-rotation regression gate',
     '',
-    `**${result.verdict}** — ${result.fixtureCount} fixture(s) compared, ${result.pairFindings.length} pipeline run(s) disagreed, ${result.commandFileFindings.length} command-file loss(es).`,
+    `**${result.verdict}** — ${result.fixtureCount} fixture(s) compared, ${result.pairFindings.length} pipeline run(s) disagreed, ${result.commandFileFindings.length} command-file loss(es), ${result.forwardFindings?.drifted.length ?? 0} forward-surface disagreement(s).`,
     '',
   ];
+
+  // Reported before the verdict branches, because the declared-baseline case
+  // returns early and a frozen value nobody lists is one a reader cannot audit.
+  // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
+  if (result.forwardFindings !== undefined) {
+    lines.push('### Forward surfaces', '');
+    for (const drift of result.forwardFindings.drifted) {
+      lines.push(
+        `- **${drift.surface}** drifted: expected ${canonicalSerialize(drift.expected).slice(0, 120)}, observed ${canonicalSerialize(drift.observed).slice(0, 120)}`,
+      );
+    }
+    for (const entry of result.forwardFindings.unavailable) lines.push(`- unavailable: ${entry}`);
+    if (result.forwardFindings.drifted.length === 0 && result.forwardFindings.unavailable.length === 0) {
+      lines.push('Every forward surface was reproduced.');
+    }
+    lines.push('');
+  }
 
   if (result.verdict === 'proved') {
     lines.push('Every frozen value was reproduced. No forward-rotation behaviour has changed.');

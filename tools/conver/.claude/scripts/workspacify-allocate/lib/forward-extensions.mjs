@@ -27,7 +27,7 @@
  */
 import { WorkSpacifyTreeError } from '../../workspacify-tree/lib/errors.mjs';
 import { canonicalSerialize } from '../../workspacify-tree/lib/canonical-json.mjs';
-import { SEED_REQUIRED_SECTIONS } from '../../workspacify-allocate/lib/seed-model.mjs';
+import { SEED_REQUIRED_SECTIONS } from './seed-model.mjs';
 
 /**
  * The gate this module reports under. It is the artefact-schema gate: the seed
@@ -252,6 +252,7 @@ export function sidecarReference({ bundleHash, counts = {} } = {}) {
 
 /** The bytes a value has when written: text as itself, a JSON artefact canonically. */
 // [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
 function writtenFormOf(value) {
   return typeof value === 'string' ? value : canonicalSerialize(value);
 }

@@ -46,6 +46,7 @@ import {
 const MODULE_ROOT = process.cwd();
 
 /** A throwaway project holding copies of the fixtures and command files under test. */
+// [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
 function makeTempProject() {
   const projectRoot = mkdtempSync(join(tmpdir(), 'p22-1-gate-'));
   for (const dir of [TREE_FIXTURES_RELATIVE_DIR, ALLOCATE_FIXTURES_RELATIVE_DIR, COMMANDS_RELATIVE_DIR]) {
@@ -257,7 +258,15 @@ test('UT-8: zero fixtures exits cleanly and says there is nothing to check', () 
     mkdirSync(join(projectRoot, ALLOCATE_FIXTURES_RELATIVE_DIR), { recursive: true });
     const baseline = captureBaselines({ projectRoot, pipelinePairs: [], allocateFixtures: [] });
     assert.deepEqual(baseline.fixtures, [], 'no fixtures were found');
-    assert.deepEqual(Object.keys(baseline).sort(), ['commandFileDigests', 'fixtures', 'manifestHashes'], 'the baseline schema is exactly the three declared keys');
+    // The schema gained a fourth key in PX-207, which extended the gate to the
+    // forward surfaces P22 modified. The assertion is unchanged in kind — the key
+    // set is exactly what the design declares — and the fourth key is declared
+    // there rather than tolerated here.
+    assert.deepEqual(
+      Object.keys(baseline).sort(),
+      ['commandFileDigests', 'fixtures', 'forwardSurfaces', 'manifestHashes'],
+      'the baseline schema is exactly the four declared keys',
+    );
 
     const verdict = checkBaselines({ projectRoot, pipelinePairs: [], allocateFixtures: [] });
     assert.equal(verdict.verdict, 'proved');

@@ -76,6 +76,7 @@
         "### On Schema Validation Error",
         "### Recovery on Error",
         "### Mode Switching",
+        "### Reverse Mode",
         "## Step 3: Batch File Generation",
         "### Structure of Generated Files",
         "### Recovery on Error",
@@ -83,7 +84,7 @@
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "b79ba3f829ef8a4c4a0227f1b192e592e54d8a778699e861669cfac45680ec52"
+      "documentDigest": "f927c53a4a122421e80a7194e6472e1e44f02c37c169149e82354e0a7e1851d3"
     },
     "crystalize-readme": {
       "headings": [
@@ -104,11 +105,12 @@
         "#### 1-7. **Completion condition**: Do not proceed until all heading items and their content are finalized. Repeat the revision and re-proposal of heading suggestions from 1-2 above until everything is finalized. After all nodes are finalized, complete Step 1 with `end-step 1`. **The final heading must always be \"Examples（implementation samples）spec and design\"**.",
         "#### 1-8. **Skeleton output (end of Step 1, deterministic)**: Mechanically output the finalized heading set + the examples section to README.md via script. The `<::TEMPLATE-README::>` marker is automatically attached to each usage section, and the `<::TEMPLATE-EXAMPLES::>` marker to the examples section.",
         "### Step 2: Section-by-Section Inspection Loop",
-        "### Step 3: Examples-Specific Step (After Loop Exit)"
+        "### Step 3: Examples-Specific Step (After Loop Exit)",
+        "## Reverse rotation only — the return path from a RESIDUE to its scenario and its route"
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "bba9dc5cfd468ee16436e6c0bc676960266308fd0bc0b6296360483bd4b9c5ee"
+      "documentDigest": "032201d0c731858c13a86ff10bc02924308713a1f2c36394f18e7524c14c867d"
     },
     "drill-rfc-down": {
       "headings": [
@@ -134,11 +136,12 @@
         "### Step 2: graphify",
         "### Step 3: boundify",
         "### Step 4: split",
-        "### Step 5: verify"
+        "### Step 5: verify",
+        "## Reverse rotation only — staleness as an input to this drill"
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "72e74b3dddca1c068736fc4f54bedaaa40f68df0efd6d8fe73dade183c5edf63"
+      "documentDigest": "a359e72799e8490445879c2d1f2bb1f8d691a8779b4a6fea56392ced0af88701"
     },
     "find-omissions": {
       "headings": [
@@ -164,11 +167,12 @@
         "### Step 8 — Clean up",
         "# Step 9 — Merge into Tickets.json",
         "# Step 10 — Rename phases",
-        "# Step 11 — Clean up transient consolidation artifacts (full success only)"
+        "# Step 11 — Clean up transient consolidation artifacts (full success only)",
+        "## Reverse rotation only — the return path from an omission to its uncertainty"
       ],
       "languageProtocolDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "1ac3c302b1ebf26d4513f526ebac12dd79cdfeccfad5965658589ac91ad9d512"
+      "documentDigest": "e3592aa0a4d3387be8aa021c37aa1c938af9efc9c5a1dfd56c901762538c9644"
     },
     "graphify-rfc": {
       "headings": [
@@ -200,11 +204,12 @@
         "### AI Adequacy Judgment",
         "### Decision and Branching",
         "### Error Recovery",
-        "## Completion Report"
+        "## Completion Report",
+        "## Reverse mode (GF1, GF2)"
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "5e9ab085e4896562369928fb99d1cddb13b712c5d661f24d1c74341e09cd33dd"
+      "documentDigest": "39a0486a316f668fbf27c246d0ec772b22d064732f5a2ab23d696fd82d0ef809"
     },
     "grill-me-for-rfc": {
       "headings": [
@@ -231,11 +236,12 @@
         "### STEP 6: CheckList Verification and Revision",
         "### STEP 7: Re-grill Decision",
         "### STEP 7a: I/O Boundary Reference Information",
-        "### STEP 8: RFC Completion Declaration"
+        "### STEP 8: RFC Completion Declaration",
+        "## Reverse mode (G1 to G5)"
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "9f78630ec642e7889e029faa08e45fd00f2f99d73006567ddb8426fdc9206cd7"
+      "documentDigest": "db8a0faae0aa17a1c3ca41d98effb2868016aefa5cce63510b2802d6171607c5"
     },
     "split-to-tickets": {
       "headings": [
@@ -277,11 +283,12 @@
         "### Resuming from an Error",
         "### Step 6: Output phase and ticket checklist",
         "### Resuming from an Error",
-        "## Notes"
+        "## Notes",
+        "## Reverse mode (S1 to S6)"
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "2a7f3c6cd13491ff88ba4e107d00c7846225ab6369312080204b9e5697a340a2"
+      "documentDigest": "c9acfb43e19dd28993aa6d560b099f5407bbe9620a5947c65ce14bee48edda6d"
     },
     "workspacify-allocate": {
       "headings": [
@@ -311,11 +318,12 @@
         "## Appendix F: the structure of WORKSPACIFY-ALLOCATE-MANIFEST.json",
         "## Appendix E: the relationship to the stages before and after",
         "## Prohibitions",
-        "## Definition of success"
+        "## Definition of success",
+        "## Reverse mode (A1 to A6)"
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "20780d0975dd5c6aa72cfc075ee55dff2ac6cc1bd52a255834c2f654b68d3f8b"
+      "documentDigest": "bcd2a0beca8f1508884f6710217d2b3966eb1e4993757314b392110ff8381b91"
     },
     "workspacify-tree": {
       "headings": [
@@ -339,11 +347,81 @@
         "## Step 6: report",
         "## Error recovery",
         "## Prohibitions",
-        "## Definition of success"
+        "## Definition of success",
+        "## Reverse mode (T1 to T6)"
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "3fb15625c6e62272e66712d199b449d66cf9bc73de7d62612af1390a8986c904"
+      "documentDigest": "51eda1ddf837188da8e6314ad0cc2f707c8eab1f57886be74f7257a69595835d"
     }
-  }
+  },
+  "forwardSurfaces": [
+    {
+      "surface": "header-output",
+      "kind": "pure-output",
+      "producedFrom": "tests/rfc-graph/fixtures/forward-surfaces/header-input.json",
+      "value": "// ============================================================================\n// Initial Design Artifact — RFC-driven Implementation\n// !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!\n// ============================================================================\n// \"Node\" refers to a design fragment bounded by safe I/O boundaries in the Original RFC. Each node captures a distinct architectural concern that must be carefully implemented with attention to its relationships.\n//\n// Graph:        tools/conver/RFC-ROOT-GRAPH.json\n// Directory:    tools/conver/RFC-ROOT-Dirs-Tree.json\n// Original RFC: tools/conver/RFC-ROOT.md\n//\n// Mapped node(s):\n//   - NODE_ID=N0001:  Config Loader\n//     → To show details: undefined node .claude/scripts/rfc-graph/query.js undefined --source=\"RFC-ROOT.md\" undefined --id=N0001 --hops=2)\n//   - NODE_ID=N0002:  load_config\n//     → To show details: undefined node .claude/scripts/rfc-graph/query.js undefined --source=\"RFC-ROOT.md\" undefined --id=N0002 --hops=2)\n//\n// Cross-referenced design context:\n//   - undefined/undefined [NODE_ID=N0001]\n//     → undefined node .claude/scripts/rfc-graph/query.js undefined --source=\"RFC-ROOT.md\" undefined --id=N0001 --hops=2)\n//\n// Full graph exploration:\n//   undefined node .claude/scripts/rfc-graph/show-graph-summary-markdown.js undefined --source=\"RFC-ROOT.md\")\n//   undefined node .claude/scripts/rfc-graph/query.js undefined --source=\"RFC-ROOT.md\" undefined --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)\n// ============================================================================\n"
+    },
+    {
+      "surface": "node-id-path-map",
+      "kind": "pure-map",
+      "producedFrom": "tests/rfc-graph/fixtures/forward-surfaces/dirs-tree.json",
+      "value": {
+        "N0001": "src",
+        "N0002": "src",
+        "N0003": "src",
+        "N0004": "src/config",
+        "N0005": "src/session"
+      }
+    },
+    {
+      "surface": "ticket-guard",
+      "kind": "pure-decision",
+      "producedFrom": "(no input)",
+      "value": [
+        {
+          "case": "no reverse field",
+          "leaked": null
+        },
+        {
+          "case": "reverse field, reverse origin",
+          "leaked": null
+        },
+        {
+          "case": "reverse field, forward origin",
+          "leaked": [
+            "driving_claim_ids"
+          ]
+        },
+        {
+          "case": "empty update",
+          "leaked": null
+        }
+      ]
+    },
+    {
+      "surface": "marker-rewrite",
+      "kind": "fixture-verdict",
+      "producedFrom": "tests/rfc-graph/fixtures/forward-surfaces/marker-rewrite",
+      "value": {
+        "conforming": {
+          "failures": [],
+          "ok": true
+        },
+        "violating": {
+          "failures": [
+            "/Users/kawata/shyme/zasso/tools/conver/tests/rfc-graph/fixtures/forward-surfaces/marker-rewrite/PX-1-sample.js:1 still references an old key"
+          ],
+          "ok": false
+        }
+      }
+    },
+    {
+      "surface": "checklist-output",
+      "kind": "cli-stdout-normalised",
+      "producedFrom": "tests/rfc-graph/fixtures/forward-surfaces/checklist-graph.json",
+      "value": "{\n  \"ok\": false,\n  \"phase\": \"schema-validation\",\n  \"errors\": [\n    \"Status.json: file does not exist\",\n    \"nodes[0].questions: must be an array\",\n    \"nodes[0].children[0].questions: must be an array\"\n  ]\n}\n",
+      "normalisation": "the generation timestamp is replaced with <generated-at>"
+    }
+  ]
 }

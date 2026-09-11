@@ -11,7 +11,7 @@
  */
 // [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
 import { WorkSpacifyTreeError } from '../../workspacify-tree/lib/errors.mjs';
-import { FORWARD_ARTIFACT_KINDS, assertReverseAdditions, extendForwardArtifacts } from '../../workspacify-reverse/lib/forward-extensions.mjs';
+import { FORWARD_ARTIFACT_KINDS, assertReverseAdditions, extendForwardArtifacts } from './forward-extensions.mjs';
 import { lookupInventoryItem } from './allocation-model.mjs';
 import { GRILL_QUESTION_SECTION_INDEX, renderResidualQuestions } from './self-grill.mjs';
 import {
@@ -71,6 +71,7 @@ export function renderSeed({ package: pkg, machine, aiSections = {}, residualQue
 }
 
 /** The AI prose of the grill section, followed by the questions the machine carries. */
+// [::TICKET::] PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
 function appendResidualQuestions(prose, residualQuestions) {
   const block = renderResidualQuestions(residualQuestions);
   return block === '' ? prose : `${prose.trim()}\n\n${block}`;

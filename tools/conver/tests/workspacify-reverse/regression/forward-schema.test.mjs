@@ -47,7 +47,7 @@ import {
   headingCount,
   reverseModeOf,
   sidecarReference,
-} from '../../../.claude/scripts/workspacify-reverse/lib/forward-extensions.mjs';
+} from '../../../.claude/scripts/workspacify-allocate/lib/forward-extensions.mjs';
 import { renderSeed } from '../../../.claude/scripts/workspacify-allocate/lib/seed-render.mjs';
 import { parseSeed } from '../../../.claude/scripts/workspacify-allocate/lib/seed-parse.mjs';
 import {
@@ -61,6 +61,7 @@ const BASELINE_PATH = join(PROJECT_ROOT, BASELINE_RELATIVE_PATH);
 
 /** A throwaway project holding copies of the fixtures and command files under test. */
 // [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
 function makeTempProject() {
   const root = mkdtempSync(join(tmpdir(), 'p22-10-gate-'));
   for (const dir of [TREE_FIXTURES_RELATIVE_DIR, ALLOCATE_FIXTURES_RELATIVE_DIR, COMMANDS_RELATIVE_DIR]) {
