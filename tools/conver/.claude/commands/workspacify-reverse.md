@@ -4,7 +4,7 @@ argument-hint: <path-to-the-project-root>
 disable-model-invocation: true
 ---
 
-# /workspacify-reverse 
+# /workspacify-reverse
 
 **Role**: Take an existing project that already contains a substantial implementation and run the whole of the reverse rotation's analysis over it — R0 through R8, in series, once — publishing `ORIGIN-LONG-SPEC.json` and the Markdown rendered from it. This is the single entrance every later reverse-mode command calls; it is not a step in a sequence a human assembles by hand. This command does not decide whether the reverse engineering succeeded: that judgement is a human's, taken after several loop rounds.
 
