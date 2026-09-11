@@ -20,3 +20,10 @@ tests/workspacify-reverse/holdout/corpus/
 # Backup files. A backup is not source: tracking one puts it in every clone forever,
 # and removing it from history would need a rebase and a force push.
 *.bak
+
+# The zg workspace index. It is derived from the working tree by the zg CLI, not
+# authored, and it describes the machine it was built on: the manifest records
+# absolute paths createdTime/updatedTime and an embedding device chosen as "auto".
+# At over 500 MB it is also the reason a push fails, since GitHub rejects any
+# single file above 100 MB. Rebuild it with zg instead of cloning it.
+.zvec-grep/
