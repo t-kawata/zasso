@@ -7,26 +7,14 @@
  * not used for test execution.
  */
 import { spawnSync } from 'node:child_process';
-import { readdirSync, statSync } from 'node:fs';
-import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { collectTestFilesUnder } from '../lib/test-discovery.mjs';
+
+// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
 const SUITE_ROOT = fileURLToPath(new URL('.', import.meta.url));
 
-function collectTestFiles(dir) {
-  const files = [];
-  for (const entry of readdirSync(dir).sort()) {
-    const fullPath = path.join(dir, entry);
-    if (statSync(fullPath).isDirectory()) {
-      files.push(...collectTestFiles(fullPath));
-    } else if (entry.endsWith('.test.mjs')) {
-      files.push(fullPath);
-    }
-  }
-  return files;
-}
-
-const testFiles = collectTestFiles(SUITE_ROOT);
+const testFiles = collectTestFilesUnder(SUITE_ROOT, { extensions: ['.test.mjs'] });
 const result = spawnSync(process.execPath, ['--test', ...testFiles], { stdio: 'inherit' });
 process.exit(result.status ?? 1);

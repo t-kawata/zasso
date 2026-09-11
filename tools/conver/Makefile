@@ -1,3 +1,13 @@
+# 全ターゲットはファイルを生成しない。`test` は特に重要で、このリポジトリには
+# 同名の実行ファイル ./test が存在するため、宣言が無いと make はターゲットを
+# 「最新」と判断して何も実行しない（実際に無言で何もしなかった）。
+.PHONY: list-tickets list-px-tickets list-active-tickets \
+        build-conver typecheck run-conver \
+        test-conver test test-rfc-graph test-tickets-reverse test-grill-reverse \
+        test-workspacify-reverse test-workspacify test-crystalize-readme \
+        test-drill-rfc-down test-stub-resolution \
+        deploy stubs crimes
+
 # list-tickets: チケット一覧を表示する（私用ヘルパー）
 list-tickets:
 	node .claude/scripts/tickets/list-phases-and-tickets.js Tickets.json
@@ -24,9 +34,33 @@ run-conver:
 test-conver:
 		npx tsc && node --experimental-test-module-mocks --test dist/error.test.js dist/cli.test.js dist/tickets.test.js dist/notifier.test.js dist/session.test.js dist/runner.test.js dist/conver.test.js dist/watcher.test.js dist/time-window.test.js dist/cron-scheduler.test.js dist/check-and-start-loop.test.js dist/step-timer.test.js
 
+# test: リポジトリの全テストを1コマンドで実行する（3面の合併）
+#   PX-204: 集約器が discovery を行い、面ごとに実行して欠落を照合する。
+#   既知の .claude/tests の14失敗はベースラインとして報告され、失敗にはしない。
+test:
+		node tests/run-all-surfaces.mjs
+
 # test-rfc-graph: rfc-graph 全スクリプトのテスト（CommonJS、tsc 不要）
+#   注意: グロブは shell の * が / を跨がないため、reverse/ は明示的に列挙する。
 test-rfc-graph:
-		node --test "tests/rfc-graph/*.test.cjs" "tests/rfc-graph/schema/*.test.cjs"
+		node --test "tests/rfc-graph/*.test.cjs" "tests/rfc-graph/schema/*.test.cjs" "tests/rfc-graph/reverse/*.test.cjs"
+
+# test-tickets-reverse: /split-to-tickets 逆対応（S1-S6）のテスト
+test-tickets-reverse:
+		node --test "tests/tickets/reverse/*.test.cjs"
+
+# test-grill-reverse: /grill-me-for-rfc 逆対応（G1-G5）のテスト
+test-grill-reverse:
+		node --test "tests/grill-me-for-rfc/reverse/*.test.cjs"
+
+# test-workspacify-reverse: 逆回転の解析パイプライン本体
+test-workspacify-reverse:
+		node tests/workspacify-reverse/run-tests.mjs
+
+# test-workspacify: 順回転の2ステージ（回帰ゲートの対象）
+test-workspacify:
+		node tests/workspacify-tree/run-tests.mjs
+		node tests/workspacify-allocate/run-tests.mjs
 
 # test-crystalize-readme: crystalize-readme 全スクリプトのテスト（CommonJS、tsc 不要）
 test-crystalize-readme:
