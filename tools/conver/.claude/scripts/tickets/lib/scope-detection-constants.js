@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-209 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-209 --for-spec --no-implementation-order`.
 /**
  * scope-detection-constants.js
  *
@@ -11,20 +12,72 @@
 // Implemented or modified under tickets: PX-61, PX-62; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-61|PX-62) --for-spec --no-implementation-order`.
 
 /**
- * Source file extensions that the annotation system supports. This module is
- * the single source of truth: annotate-ticket-context-by-git-diff.js imports
- * the set rather than defining its own. `.mjs` was added by P22-4.
+ * Source file extensions that the annotation system supports.
  *
- * `.mjs` is not an optional extra. The whole reverse-rotation toolchain under
- * `.claude/scripts/workspacify-reverse/` is ESM, so without this entry no file
- * in that tree could carry the annotation binding an implementation to the
- * design context it came from — and the omission is invisible, because a file
- * the mechanism does not know about is simply never reported on.
+ * This set is checked against the repository rather than trusted. A file the
+ * mechanism does not know about is never reported on, so an omission here is
+ * invisible: it produces no error and no output, only an absence. `.mjs` was
+ * added by P22-4 for that reason, and `.cjs` was left behind at that moment —
+ * 134 tracked files, this repository's own tests, none of them able to carry the
+ * annotation binding an implementation to the design context it came from.
+ *
+ * `lib/scope-extensions-census.js` derives the extensions this repository
+ * actually contains and `tests/scope-extensions.test.cjs` asserts that every one
+ * of them is in this set or in EXCLUDED_SOURCE_EXTENSIONS. An extension present
+ * in the repository and absent from both fails that test by name.
+ *
+ * What the check cannot do is tell whether a decision is right. It can only tell
+ * that a decision was written down. `.sh` is excluded on a measurement, not on a
+ * principle; a reader who disagrees with the measurement should change the
+ * measurement and the entry together.
  */
 const SOURCE_EXTENSIONS = new Set([
 // [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-  ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".vue",
+  ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".vue",
   ".py", ".rb", ".swift", ".kt", ".java", ".cs",
+]);
+
+/**
+ * Path prefixes the census ignores.
+ *
+ * These are complete copies of other projects' trees, neither of them owned by
+ * this repository: `siprs-with-4layers/` has no `.git` of its own and has
+ * already diverged from this toolchain, and `siprs-for-reverse/` vendors pjsip.
+ * Between them they hold 2253 C/C++ files and the WebRTC build files, which is
+ * what reduces the census from forty undecided extensions to four.
+ *
+ * The exclusion is by path, not by extension, so a vendored `.rs` is excluded
+ * exactly as a vendored `.h` is, and a `.h` file in this repository's own tree
+ * would still owe a decision.
+ */
+const VENDORED_ROOTS = ["siprs-with-4layers/", "siprs-for-reverse/"];
+
+/**
+ * Extensions present in this repository that the annotation system deliberately
+ * does not support, each with the reason the decision was made.
+ *
+ * The reasons are measurements or ownership facts, not preferences: an entry
+ * that says "not needed" is a decision nobody can review.
+ */
+const EXCLUDED_SOURCE_EXTENSIONS = new Map([
+  [
+    ".md",
+    "Prose. The checklist generators write Markdown for a human to read, and the " +
+      "definition parser matches brace-shaped lines, so it would annotate sentences. " +
+      "417 tracked files.",
+  ],
+  [
+    ".json",
+    "Data. A JSON file has no definitions to bind an annotation to, and most of these " +
+      "are fixtures whose bytes the regression gate freezes — writing a comment into " +
+      "one would break a frozen digest, not record provenance. 100 tracked files.",
+  ],
+  [
+    ".sh",
+    "Measured, not assumed: a ten-file sample of the 18 tracked shell scripts yielded " +
+      "0/10 with a definition detected, while a hand-written `function helper() { ` " +
+      "fixture does match. Admitting it would annotate nothing while claiming support.",
+  ],
 ]);
 
 /**
@@ -106,6 +159,8 @@ const DEFINITION_KINDS = {
 
 module.exports = {
   SOURCE_EXTENSIONS,
+  EXCLUDED_SOURCE_EXTENSIONS,
+  VENDORED_ROOTS,
   DEFINITION_PATTERNS,
   DEFINITION_PATTERN_METAS,
   DEFINITION_KINDS,

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] PX-209 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-209 --for-spec --no-implementation-order`.
 
 /**
  * Unit tests for scope-detection-constants.js.
@@ -25,9 +26,13 @@ describe("scope-detection-constants", () => {
   // [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
   // `.mjs` joined the set in P22-4: the reverse-rotation toolchain is ESM, so
   // without it no file under workspacify-reverse/ could carry its annotation.
-  test("SOURCE_EXTENSIONS contains all 14 expected extensions", () => {
+  // `.cjs` joined in PX-209 for the same reason, one generation later: 134
+  // tracked files, this repository's own tests, were invisible to the mechanism
+  // because a file it does not know about is never reported on. The size
+  // assertion below is what catches an extension arriving without a decision.
+  test("SOURCE_EXTENSIONS contains all 15 expected extensions", () => {
     const expected = [
-      ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".vue",
+      ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".vue",
       ".py", ".rb", ".swift", ".kt", ".java", ".cs",
     ];
     for (const ext of expected) {
