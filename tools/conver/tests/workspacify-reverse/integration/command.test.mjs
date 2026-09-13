@@ -20,7 +20,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import process from 'node:process';
@@ -31,7 +30,6 @@ import {
   COMMANDS_RELATIVE_DIR,
   compareDigests,
   digestCommandFiles,
-  extractCommandFileSections,
 } from '../../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs';
 import {
   ANALYSIS_EVALUATION_ORDER,
@@ -39,6 +37,7 @@ import {
   analyzeProject,
 } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
 import { ZG_REPORT_FILE_NAME } from '../../../.claude/scripts/workspacify-reverse/lib/zg-probe.mjs';
+import { assertCommandFileStructure } from '../helpers/command-file.mjs';
 import { createSyntheticTree } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
@@ -47,14 +46,6 @@ const NEW_COMMAND_PATH = join(PROJECT_ROOT, COMMANDS_RELATIVE_DIR, 'workspacify-
 const BASELINE_PATH = 'tests/workspacify-tree/baselines/manifest-hashes.json';
 const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
 const targetAvailable = existsSync(REVERSE_ROOT);
-
-/** The digest a protected section has when a file does not carry it at all. */
-const sha256OfEmpty = createHash('sha256').update('').digest('hex');
-
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
-function sha256(text) {
-  return createHash('sha256').update(text).digest('hex');
-}
 
 /**
  * Run the command and capture what an operator would see.
@@ -131,19 +122,6 @@ const CLAIM_BEARING_TREE = Object.freeze({
   'src/model.rs': 'pub struct User { pub name: String }\n',
 });
 
-/** The Language Protocol table the command files that carry one all share. */
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
-function sharedLanguageProtocolDigest() {
-  const digests = digestCommandFiles(PROJECT_ROOT);
-  const carried = new Set(
-    Object.values(digests)
-      .map((entry) => entry.languageProtocolDigest)
-      .filter((digest) => digest !== sha256OfEmpty),
-  );
-  assert.equal(carried.size, 1, 'the command files carrying a Language Protocol table carry the same one');
-  return [...carried][0];
-}
-
 // --- C001: the command file, and the nine it stands beside --------------------
 
 test('C001 precondition: the nine protected command files are present and the tenth is created', () => {
@@ -160,26 +138,10 @@ test('C001 precondition: the nine protected command files are present and the te
 });
 
 test('C001 postcondition / UT-1: the new command file carries the same structural elements as the nine', () => {
-  const text = readFileSync(NEW_COMMAND_PATH, 'utf8');
-  const sections = extractCommandFileSections(text);
-
-  assert.match(text, /^---\n/, 'the file opens with frontmatter');
-  assert.match(text, /^description: /m);
-  assert.match(text, /^argument-hint: /m);
-  assert.match(text, /^disable-model-invocation: true$/m);
-
-  assert.ok(sections.headings.length > 0, 'the file carries ATX headings');
-  assert.equal(
-    sha256(sections.languageProtocolTable),
-    sharedLanguageProtocolDigest(),
-    'the Language Protocol table is the one the carrying command files share',
-  );
-  assert.match(sections.firstClassRuleLine, /First-Class Rule\s*—\s*\[::STUB::\]/, 'the obligation sentence is present');
-  assert.equal(sections.headings.some((heading) => /Step \d/.test(heading)), true, 'a workflow section exists');
-
-  assert.match(text, /^## Scripts used$/m, 'a script list exists');
-  assert.match(text, /run\.mjs analyze/, 'the script list names the entrance');
-  assert.match(text, /^## Arguments$/m, 'an argument interpretation section exists');
+// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
+  // The eight assertions live in `helpers/command-file.mjs`, so this test and the
+  // procedure guard added by P23-1 hold the file to one definition of them.
+  assertCommandFileStructure(readFileSync(NEW_COMMAND_PATH, 'utf8'), { projectRoot: PROJECT_ROOT });
 });
 
 test('C001 invariant / UT-10 / IT-2: no protected command file is modified against the P22-1 baseline', () => {
