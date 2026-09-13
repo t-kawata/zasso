@@ -165,9 +165,17 @@ export const TEST_COMMAND_BY_MANIFEST = Object.freeze({
 /** A project above this many files makes mechanical analysis impractical. */
 export const LARGE_TREE_FILE_COUNT = 20000;
 
-/** Test files are recognised by directory or by name, never by a single convention. */
-const TEST_DIRECTORY_NAMES = Object.freeze(['test', 'tests', '__tests__']);
-const TEST_FILE_PATTERN = /(^|[._-])(test|spec)[._-]|_test\.|\.test\.|\.spec\./;
+/**
+ * Test files are recognised by directory or by name, never by a single convention.
+ *
+ * Exported because R0's eligibility assessment reads the same population, and a
+ * second copy of the two rules would let the ledger and the assessment disagree
+ * about what a test file is — the drift that made the capability matrix's Rust
+ * row false.
+ */
+// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+export const TEST_DIRECTORY_NAMES = Object.freeze(['test', 'tests', '__tests__']);
+export const TEST_FILE_PATTERN = /(^|[._-])(test|spec)[._-]|_test\.|\.test\.|\.spec\./;
 
 /**
  * Order two strings by code unit, not by locale.

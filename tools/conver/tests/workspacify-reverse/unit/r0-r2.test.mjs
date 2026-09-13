@@ -20,11 +20,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, symlinkSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import os from 'node:os';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createSyntheticTree, hashTree } from '../helpers/scratch.mjs';
+import { createGitBackedTree, createSyntheticTree, hashTree } from '../helpers/scratch.mjs';
 
 import {
   ANALYSIS_MODES,
@@ -58,6 +59,7 @@ import {
   resolveScope,
 } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
 import {
+  GRAMMAR_BY_LANGUAGE,
   measureStructure,
   parseSourceFile,
   renderStructureReport,
@@ -82,6 +84,16 @@ import {
   measureExecutionSurface,
   renderExecutionSurfaceReport,
 } from '../../../.claude/scripts/workspacify-reverse/lib/execution-surface.mjs';
+// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+import {
+  DANGER_SIGNALS,
+  ELIGIBILITY_CONDITIONS,
+  ELIGIBILITY_STAGE,
+  ELIGIBILITY_STATES,
+  FORBIDDEN_VERDICT_KEY_FRAGMENTS,
+  assessEligibility,
+  renderEligibility,
+} from '../../../.claude/scripts/workspacify-reverse/lib/eligibility.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const ANALYSIS_TECH_DOC = join(PROJECT_ROOT, 'docs', 'P22-ANALYSIS-TECH.md');
@@ -1452,4 +1464,546 @@ test('UT: [Normal] the report names a directory that reads as a boundary and say
   assert.match(report, /not measured|R3/);
   assert.match(report, /static/i);
   tree.dispose();
+});
+
+// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+/**
+ * R0's eligibility assessment — ABOUT-REVERSE 3.6, mechanised and published
+ * without a verdict.
+ *
+ * These tests assert the *instrument's honesty* rather than the accuracy of any
+ * reading: that all six conditions appear whatever the subject holds, that a
+ * channel which cannot see a thing never reports the thing's absence (failure
+ * F12), that no key anywhere in the document is a judgement, and that the
+ * assessment cannot change what the run publishes.
+ */
+
+/** The subject the six conditions are read from: a manifest, two packages, a test, a document. */
+const ELIGIBLE_SUBJECT_FILES = Object.freeze({
+  'Cargo.toml': '[package]\nname = "eligible-subject"\nversion = "0.1.0"\n',
+  'README.md': '# Eligible subject\n\nWhy the boundary sits where it does.\n',
+  'src/lib.rs': '//! Why these two packages and not three.\n\npub mod api;\npub mod db;\n',
+  'src/api/mod.rs': 'pub mod login;\n',
+  'src/api/login.rs': 'use crate::db::users::User;\n\npub fn login(user: &User) -> bool {\n    !user.name.is_empty()\n}\n',
+  'src/db/mod.rs': 'pub mod users;\n',
+  'src/db/users.rs': 'pub struct User {\n    pub name: String,\n}\n',
+  'tests/login_test.rs': '#[test]\nfn logs_in() {\n    assert!(true);\n}\n',
+});
+
+/** A throwaway directory to publish into, so no test writes into the project. */
+// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+function eligibilityScratchOutput() {
+  const root = mkdtempSync(join(os.tmpdir(), 'wsp-elig-ut-'));
+  return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
+}
+
+/** The R0 measurement of a subject: the artefact walk and the boundary it is classified into. */
+// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+function measuredPopulation(root) {
+  return classifyArtefacts({ root, scope: resolveScope(root) });
+}
+
+test('UT: [Normal] Contract C001 precondition — an R0 measurement has been taken over a readable subject root', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const boundary = measuredPopulation(subject.root);
+
+  assert.ok(boundary.artefacts.length > 0, 'the precondition needs a measured artefact population');
+  assert.ok(boundary.artefacts.some((artefact) => artefact.readStatus === 'readable'));
+  assert.ok(boundary.counts.in_scope > 0, 'the subject must hold something in scope to read');
+
+  // The precondition is satisfied by R0's own measurements: no later stage is needed.
+  const assessment = assessEligibility({ artefacts: boundary.artefacts, root: subject.root });
+  assert.equal(assessment.stage, ELIGIBILITY_STAGE);
+  assert.equal(assessment.conditions.length, ELIGIBILITY_CONDITIONS.length);
+  subject.dispose();
+});
+
+test('UT: [Normal] Contract C001 postcondition — all six conditions carry a state, evidence with a path and a line where a line applies, and what would settle an unsettled one', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const boundary = measuredPopulation(subject.root);
+  const assessment = assessEligibility({ artefacts: boundary.artefacts, root: subject.root });
+
+  assert.deepEqual(
+    assessment.conditions.map((condition) => condition.id),
+    ELIGIBILITY_CONDITIONS.map((condition) => condition.id),
+  );
+
+  for (const condition of assessment.conditions) {
+    assert.ok(
+      ELIGIBILITY_STATES.includes(condition.state),
+      `${condition.id} carries ${JSON.stringify(condition.state)}, which is outside the declared vocabulary`,
+    );
+    assert.ok(condition.evidence.length >= 1, `${condition.id} cites no evidence`);
+    for (const entry of condition.evidence) {
+      assert.equal(typeof entry.path, 'string', `${condition.id} cites a non-string path`);
+      assert.ok(
+        entry.line === null || Number.isInteger(entry.line),
+        `${condition.id} cites line ${JSON.stringify(entry.line)}, which is neither a line nor an explicit null`,
+      );
+      assert.equal(typeof entry.note, 'string', `${condition.id} cites evidence with no reason attached`);
+      assert.equal(
+        existsSync(resolve(subject.root, entry.path)),
+        true,
+        `${condition.id} cites ${entry.path}, which a reader cannot open`,
+      );
+    }
+    if (condition.state !== ELIGIBILITY_STATES[0]) {
+      assert.match(
+        condition.whatWouldSettleIt,
+        /source_static|build_semantic|runtime_dynamic/,
+        `${condition.id} is unsettled and names no channel that would settle it`,
+      );
+    }
+  }
+
+  // The two conditions the read-only channel cannot answer are reported at the
+  // strength the static channel supports, with the stronger channel named.
+  const byId = Object.fromEntries(assessment.conditions.map((condition) => [condition.id, condition]));
+  assert.equal(byId.builds.state, 'not_measurable_statically');
+  assert.match(byId.builds.whatWouldSettleIt, /build_semantic/);
+  assert.equal(byId.tests_exist_and_can_run.state, 'not_measurable_statically');
+  assert.match(byId.tests_exist_and_can_run.whatWouldSettleIt, /runtime_dynamic/);
+  subject.dispose();
+});
+
+test('UT: [Error] Contract C001 / C003 invariant — a condition this channel cannot see is never reported as the thing absent', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const boundary = measuredPopulation(subject.root);
+  const assessment = assessEligibility({ artefacts: boundary.artefacts, root: subject.root });
+  const byId = Object.fromEntries(assessment.conditions.map((condition) => [condition.id, condition]));
+
+  // F12: "this channel cannot see it" and "the project lacks it" are different facts.
+  for (const id of ['builds', 'tests_exist_and_can_run']) {
+    assert.equal(
+      byId[id].state.includes('not_established_statically'),
+      false,
+      `${id} merged a channel's limit into the project's absence`,
+    );
+  }
+
+  // The distinction the report must keep: the fixture carries a manifest and a
+  // test file, and the state still says the executing channel is what would settle it.
+  assert.equal(
+    byId.builds.evidence.some((entry) => entry.path === 'Cargo.toml'),
+    true,
+    'the manifest that IS there must be cited even though the build fact is out of reach',
+  );
+  assert.equal(byId.tests_exist_and_can_run.evidence.some((entry) => entry.path === 'tests/login_test.rs'), true);
+  subject.dispose();
+});
+
+test('UT: [Invariant] Contract C001 invariant — a full-depth walk finds no eligible, score, verdict or recommendation key', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const boundary = measuredPopulation(subject.root);
+  const assessment = assessEligibility({ artefacts: boundary.artefacts, root: subject.root });
+
+  const offending = [];
+// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+  (function walk(node, path) {
+    if (node === null || typeof node !== 'object') return;
+    for (const [key, value] of Object.entries(node)) {
+      const lowered = key.toLowerCase();
+      if (FORBIDDEN_VERDICT_KEY_FRAGMENTS.some((fragment) => lowered.includes(fragment))) {
+        offending.push(`${path}.${key}`);
+      }
+      walk(value, `${path}.${key}`);
+    }
+  }(assessment, 'assessment'));
+
+  assert.deepEqual(offending, [], `the assessment carries a verdict key: ${offending.join(', ')}`);
+  assert.equal(Object.prototype.hasOwnProperty.call(assessment, 'eligible'), false);
+  assert.equal(JSON.stringify(assessment).includes('"eligible"'), false);
+  // No condition may be a bare boolean, and no aggregate field may sum one in.
+  assert.equal(assessment.conditions.some((condition) => typeof condition === 'boolean'), false);
+  subject.dispose();
+});
+
+test('UT: [Invariant] Contract C001 invariant as a property — over twenty generated populations the assessment always holds exactly the six declared conditions', () => {
+  for (let index = 0; index < 20; index += 1) {
+    const files = { 'Cargo.toml': '[package]\nname = "p"\n' };
+    for (let file = 0; file < index; file += 1) {
+      files[`src/d${file % 3}/mod${file}.rs`] = `pub fn f${file}() -> u8 { ${file} }\n`;
+    }
+    if (index % 2 === 0) files['tests/a_test.rs'] = '#[test]\nfn t() { assert!(true); }\n';
+
+    const tree = createSyntheticTree(files);
+    const assessment = assessEligibility({
+      artefacts: measuredPopulation(tree.root).artefacts,
+      root: tree.root,
+    });
+
+    assert.equal(assessment.conditions.length, ELIGIBILITY_CONDITIONS.length, `population ${index}`);
+    for (const condition of assessment.conditions) {
+      assert.equal(typeof condition.state, 'string', `population ${index}: ${condition.id} carries no state`);
+      assert.ok(ELIGIBILITY_STATES.includes(condition.state), `population ${index}: ${condition.id}`);
+    }
+    tree.dispose();
+  }
+});
+
+test('UT: [Normal] the analysable-language condition is settled statically when the dominant language is one of the six and the grammar table names a grammar for it', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const assessment = assessEligibility({
+    artefacts: measuredPopulation(subject.root).artefacts,
+    root: subject.root,
+  });
+  const language = assessment.conditions.find((condition) => condition.id === 'main_language_analysable');
+
+  assert.equal(language.state, 'established_statically');
+  assert.equal(language.evidenceMode, 'source_static');
+  assert.equal(language.evidence.some((entry) => entry.path.endsWith('.rs')), true);
+  assert.match(language.note, /rust/);
+
+  // The six languages the condition names are the instrument's own declaration,
+  // not a second list that can drift from it.
+  assert.deepEqual(Object.keys(GRAMMAR_BY_LANGUAGE).sort(), [...TARGET_LANGUAGES].sort());
+  assert.deepEqual(language.measured.languagesConsidered, [...TARGET_LANGUAGES]);
+  subject.dispose();
+});
+
+test('UT: [Boundary] a project whose largest directory holds every source file reports the structure condition as not established, with the share named as 1', () => {
+  const flat = createSyntheticTree({
+    'Cargo.toml': '[package]\nname = "flat"\n',
+    'a.rs': 'pub fn a() -> u8 { 1 }\n',
+    'b.rs': 'pub fn b() -> u8 { 2 }\n',
+    'c.rs': 'pub fn c() -> u8 { 3 }\n',
+  });
+  const assessment = assessEligibility({
+    artefacts: measuredPopulation(flat.root).artefacts,
+    root: flat.root,
+  });
+  const structure = assessment.conditions.find((condition) => condition.id === 'directory_structure_carries_meaning');
+
+  assert.equal(structure.state, 'not_established_statically');
+  assert.equal(structure.measured.directoryCount, 0, 'the root is not a directory of its own');
+  assert.equal(structure.measured.largestDirectoryShare, 1);
+  assert.match(structure.whatWouldSettleIt, /source_static/);
+  flat.dispose();
+});
+
+test('UT: [Normal] the documentation-or-comments condition reports the documentation file count and a located comment line, so the "why" is somewhere the reader can open', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const artefacts = measuredPopulation(subject.root).artefacts;
+  const assessment = assessEligibility({ artefacts, root: subject.root });
+  const documentation = assessment.conditions.find((condition) => condition.id === 'documentation_or_comments_survive');
+
+  assert.equal(documentation.state, 'established_statically');
+  assert.equal(documentation.evidenceMode, 'source_static');
+  assert.ok(documentation.measured.documentationFileCount >= 1);
+  // The condition asks whether a comment survives *somewhere*, so the scan stops
+  // at the first one and cites the line it stands on.
+  assert.equal(documentation.measured.commentFound, true);
+  assert.ok(Number.isInteger(documentation.measured.firstComment.line));
+  assert.equal(
+    existsSync(resolve(subject.root, documentation.measured.firstComment.path)),
+    true,
+  );
+  subject.dispose();
+});
+
+test('UT: [Boundary] a subject that holds no comment line anywhere reports the comments half read and empty, not unread', () => {
+  const bare = createSyntheticTree({ 'src/a.rs': 'pub fn a() -> u8 { 1 }\n' });
+  const assessment = assessEligibility({
+    artefacts: measuredPopulation(bare.root).artefacts,
+    root: bare.root,
+  });
+  const documentation = assessment.conditions.find((condition) => condition.id === 'documentation_or_comments_survive');
+
+  // Both halves were read and neither is there: this is the one case in which
+  // "not established statically" is the honest report.
+  assert.equal(documentation.state, 'not_established_statically');
+  assert.equal(documentation.measured.commentFound, false);
+  assert.equal(documentation.measured.firstComment, null);
+  assert.equal(documentation.measured.documentationFileCount, 0);
+  assert.match(documentation.whatWouldSettleIt, /source_static/);
+  bare.dispose();
+});
+
+test('UT: [Error] a source file the comment scan cannot read is reported with its reason rather than counted as comment-free', () => {
+  const subject = createSyntheticTree({ 'src/a.rs': 'pub fn a() -> u8 { 1 }\n' });
+  symlinkSync(join(subject.root, 'absent.rs'), join(subject.root, 'src', 'gone.rs'));
+
+  const boundary = measuredPopulation(subject.root);
+  const assessment = assessEligibility({ artefacts: boundary.artefacts, root: subject.root });
+  const documentation = assessment.conditions.find((condition) => condition.id === 'documentation_or_comments_survive');
+
+  assert.equal(
+    documentation.measured.unreadable.some((entry) => /gone\.rs/.test(entry.path)),
+    true,
+    'a file the scan could not read vanished from the record instead of being reported',
+  );
+  assert.equal(
+    documentation.measured.unreadable.every((entry) => typeof entry.reason === 'string' && entry.reason.length > 0),
+    true,
+  );
+  subject.dispose();
+});
+
+test('UT: [Error] a condition whose evidence cannot be read is reported with the reason rather than as absence', () => {
+  const subject = createSyntheticTree({ 'src/a.rs': 'pub fn a() {}\n' });
+  symlinkSync(join(subject.root, 'absent.toml'), join(subject.root, 'Cargo.toml'));
+
+  const boundary = measuredPopulation(subject.root);
+  const assessment = assessEligibility({ artefacts: boundary.artefacts, root: subject.root });
+  const unreadable = boundary.artefacts.filter((artefact) => artefact.readStatus === 'unreadable');
+
+  assert.equal(unreadable.length >= 1, true, 'the fixture must exercise the unreadable path');
+  assert.match(unreadable[0].reason, /ENOENT|unreadable/);
+  assert.equal(assessment.conditions.length, ELIGIBILITY_CONDITIONS.length);
+  // "we did not measure it" stays distinguishable from "it is not there".
+  assert.equal(
+    assessment.conditions.some((condition) => /unreadable|no such file|cannot/i.test(JSON.stringify(condition.evidence))),
+    true,
+    'an unreadable entry vanished from the record instead of being reported',
+  );
+  subject.dispose();
+});
+
+test('UT: [Error] assessEligibility given no artefact list throws naming what it needed', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+
+  assert.throws(
+    () => assessEligibility({ root: subject.root }),
+    (error) => {
+      assert.match(error.message, /artefact/i);
+      return true;
+    },
+    'an assessment with no population silently returned six absent conditions',
+  );
+  assert.throws(
+    () => assessEligibility({ artefacts: [], root: undefined }),
+    /root/i,
+  );
+  subject.dispose();
+});
+
+test('UT: [Boundary] an empty subject root yields all six conditions present and the run still publishes', () => {
+  const empty = createSyntheticTree({});
+  const out = eligibilityScratchOutput();
+  const outcome = analyzeProject({ root: empty.root, out: out.root, through: 'r0.5' });
+
+  const assessment = JSON.parse(readFileSync(join(out.root, 'ELIGIBILITY.json'), 'utf8'));
+  assert.equal(assessment.conditions.length, ELIGIBILITY_CONDITIONS.length);
+  assert.deepEqual(
+    assessment.conditions.map((condition) => condition.id),
+    ELIGIBILITY_CONDITIONS.map((condition) => condition.id),
+  );
+  for (const condition of assessment.conditions) {
+    assert.ok(ELIGIBILITY_STATES.includes(condition.state), `${condition.id} left the vocabulary`);
+    assert.ok(condition.evidence.length >= 1, `${condition.id} dropped out of the record`);
+  }
+  assert.equal(outcome.stagesRun.includes('r0.5'), true, 'the run stopped rather than reporting');
+  assert.equal(existsSync(join(out.root, 'R0-R2-REPORT.md')), true);
+  empty.dispose();
+  out.dispose();
+});
+
+test('UT: [Invariant] re-running assessEligibility over the same inputs produces a byte-identical object', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const artefacts = measuredPopulation(subject.root).artefacts;
+
+  const first = assessEligibility({ artefacts, root: subject.root });
+  const second = assessEligibility({ artefacts, root: subject.root });
+
+  assert.equal(JSON.stringify(first), JSON.stringify(second));
+  subject.dispose();
+});
+
+test('UT: [Invariant] every evidence path in the published assessment resolves to a path that exists beneath the subject root', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const assessment = assessEligibility({
+    artefacts: measuredPopulation(subject.root).artefacts,
+    root: subject.root,
+  });
+
+  const cited = [...assessment.conditions, ...assessment.signals].flatMap((entry) => entry.evidence);
+  assert.ok(cited.length > 0, 'the assessment cites nothing at all');
+  for (const entry of cited) {
+    assert.equal(
+      existsSync(resolve(subject.root, entry.path)),
+      true,
+      `the assessment cites ${entry.path}, which a reader cannot open`,
+    );
+  }
+  subject.dispose();
+});
+
+test('UT: [Normal] Contract C003 postcondition — each danger signal is reported with the evidence that raised it and the mode of the channel that raises it', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const assessment = assessEligibility({
+    artefacts: measuredPopulation(subject.root).artefacts,
+    root: subject.root,
+    history: { isRepository: true, commitCount: 3 },
+  });
+
+  assert.deepEqual(
+    assessment.signals.map((signal) => signal.id),
+    DANGER_SIGNALS.map((signal) => signal.id),
+  );
+  for (const signal of assessment.signals) {
+    assert.ok(ELIGIBILITY_STATES.includes(signal.state), `${signal.id} carries ${signal.state}`);
+    assert.ok(signal.evidence.length >= 1, `${signal.id} cites no evidence`);
+    assert.ok(
+      signal.evidenceMode === null || EVIDENCE_MODES.includes(signal.evidenceMode),
+      `${signal.id} names ${signal.evidenceMode}, which is outside the declared vocabulary`,
+    );
+    assert.equal(typeof signal.whatWouldRaiseIt, 'string', `${signal.id} states nothing about what would raise it`);
+    assert.match(signal.note, /evidence of/i, `${signal.id} does not say what it is evidence of`);
+  }
+
+  // A signal no machine channel reaches names the human who would settle it.
+  const closed = assessment.signals.find((signal) => signal.id === 'knowledge_closed_to_one_person');
+  assert.equal(closed.state, 'not_measurable_statically');
+  assert.equal(closed.evidenceMode, null);
+  assert.match(closed.whatWouldRaiseIt, /person|human/i);
+  subject.dispose();
+});
+
+test('UT: [Invariant] Contract C003 invariant — no count of raised signals is summed into a total that could be read as a grade', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const assessment = assessEligibility({
+    artefacts: measuredPopulation(subject.root).artefacts,
+    root: subject.root,
+  });
+
+  // The invariant is about a field *derived from* the signals, so it is asserted
+  // on the names such a field would take and on the document's shape — not on a
+  // value, because a legitimate count (source files, directories) can coincide
+  // with the number of signals and a coincidence is not a total.
+  const summed = [];
+// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+  (function walk(node, path) {
+    if (node === null || typeof node !== 'object') return;
+    for (const [key, value] of Object.entries(node)) {
+      if (/^(total|sum|summed|raised|grade|rating|ratingCount|overall)/i.test(key)) summed.push(`${path}.${key}`);
+      if (/^(eligible|score|verdict|recommendation)/i.test(key)) summed.push(`${path}.${key}`);
+      walk(value, `${path}.${key}`);
+    }
+  }(assessment, 'assessment'));
+  assert.deepEqual(summed, [], `a field aggregates the signals into a grade: ${summed.join(', ')}`);
+
+  // The document's shape is frozen, so a later ticket cannot add a total without
+  // this failing: the only place a signal is reported is `signals`.
+  assert.deepEqual(Object.keys(assessment), ['stage', 'root', 'conditions', 'signals', 'note']);
+  for (const condition of assessment.conditions) {
+    assert.deepEqual(
+      Object.keys(condition).filter((key) => /signal/i.test(key)),
+      ['dangerSignals'],
+      'a condition carries something other than the cross-reference to the signals that bear on it',
+    );
+  }
+  assert.equal(JSON.stringify(assessment).includes('"recommendation"'), false);
+  subject.dispose();
+});
+
+test('UT: [Normal] renderEligibility renders every condition as prose naming what was looked for, what was found, where, and what the finding does not establish', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const assessment = assessEligibility({
+    artefacts: measuredPopulation(subject.root).artefacts,
+    root: subject.root,
+  });
+  const markdown = renderEligibility(assessment);
+
+  assert.match(markdown, /^## Eligibility — the conditions, read before anything runs/m);
+  for (const condition of ELIGIBILITY_CONDITIONS) {
+    assert.ok(markdown.includes(condition.question), `${condition.id}'s question is not rendered`);
+  }
+  // file:line is embedded in prose, per ABOUT-REVERSE 5.2.
+  assert.match(markdown, /[A-Za-z0-9_./-]+\.(?:rs|toml|md):\d+/);
+  assert.match(markdown, /does not establish/i);
+  assert.match(markdown, /the decision is yours|a human/i);
+  // An unsettled condition names the next step rather than a limit.
+  assert.match(markdown, /build_semantic/);
+  assert.match(markdown, /runtime_dynamic/);
+  subject.dispose();
+});
+
+test('UT: [Error] Contract C002 invariant — a barren subject publishes the same document set as a well-formed one', () => {
+  const wellFormed = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const barren = createSyntheticTree({ 'main.py': 'print("no manifest, no tests, no history")\n' });
+  const wellFormedOut = eligibilityScratchOutput();
+  const barrenOut = eligibilityScratchOutput();
+
+  analyzeProject({ root: wellFormed.root, out: wellFormedOut.root, through: 'r0.5' });
+  analyzeProject({ root: barren.root, out: barrenOut.root, through: 'r0.5' });
+
+  assert.deepEqual(
+    readdirSync(barrenOut.root).sort(),
+    readdirSync(wellFormedOut.root).sort(),
+    'an eligibility finding changed what the run publishes',
+  );
+  assert.equal(existsSync(join(barrenOut.root, 'ELIGIBILITY.json')), true);
+  assert.equal(existsSync(join(barrenOut.root, 'SCOPE-BOUNDARY.json')), true);
+
+  // The document differs; the shape does not.
+  const barrenAssessment = JSON.parse(readFileSync(join(barrenOut.root, 'ELIGIBILITY.json'), 'utf8'));
+  assert.deepEqual(
+    barrenAssessment.conditions.map((condition) => condition.id),
+    ELIGIBILITY_CONDITIONS.map((condition) => condition.id),
+  );
+  wellFormed.dispose();
+  barren.dispose();
+  wellFormedOut.dispose();
+  barrenOut.dispose();
+});
+
+test('UT: [Normal] the history condition reads the target commit R0 resolved, and a subject inside another work tree still has a history', () => {
+  // A tree that is not a repository: the run resolves no commit for it, so the
+  // condition is read and not established.
+  const plain = createSyntheticTree({ 'main.py': 'print("flat")\n' });
+  const plainAssessment = assessEligibility({
+    artefacts: measuredPopulation(plain.root).artefacts,
+    root: plain.root,
+    history: resolveScope(plain.root).target_commit,
+  });
+  const absent = plainAssessment.conditions.find((condition) => condition.id === 'git_history_exists');
+  assert.equal(absent.state, 'not_established_statically');
+  assert.equal(absent.measured.commitPresent, false);
+  assert.match(absent.whatWouldSettleIt, /source_static/);
+  plain.dispose();
+
+  // A committed repository: the commit exists, so the condition is established
+  // and the finer question — whether that history carries meaning — is R4's.
+  const committed = createGitBackedTree({ 'src/a.rs': 'pub fn a() -> u8 { 1 }\n' });
+  const committedAssessment = assessEligibility({
+    artefacts: measuredPopulation(committed.root).artefacts,
+    root: committed.root,
+    history: resolveScope(committed.root).target_commit,
+  });
+  const present = committedAssessment.conditions.find((condition) => condition.id === 'git_history_exists');
+  assert.equal(present.state, 'established_statically');
+  assert.equal(present.measured.commitPresent, true);
+  assert.equal(present.measured.isOwnRepository, true);
+  assert.match(present.note, /R4/);
+  assert.match(present.evidence[0].note, /commit/);
+  committed.dispose();
+});
+
+test('UT: [Normal] a subject sitting inside another repository\'s work tree is reported as having a history, not as having none', () => {
+  // This is the experiment input's shape: `siprs-for-reverse` has no `.git` of its
+  // own, and R0 resolves its commit from the work tree that contains it. Reading
+  // only `.git` at the subject root would report that project as having no
+  // history — a false statement about the project rather than a channel limit.
+  const subject = createSyntheticTree({ 'src/a.rs': 'pub fn a() -> u8 { 1 }\n' });
+  const scopeOf = resolveScope(subject.root);
+
+  const assessment = assessEligibility({
+    artefacts: measuredPopulation(subject.root).artefacts,
+    root: subject.root,
+    history: {
+      commit: 'c0ffee1234567890abcdef1234567890abcdef12',
+      root: '/somewhere/containing-work-tree',
+      path_within_work_tree: 'sub/dir',
+      is_own_repository: false,
+      reason: 'the tree sits inside the work tree at /somewhere/containing-work-tree and is not a repository of its own',
+    },
+  });
+  const history = assessment.conditions.find((condition) => condition.id === 'git_history_exists');
+
+  assert.equal(history.state, 'established_statically');
+  assert.equal(history.measured.isOwnRepository, false);
+  assert.match(history.evidence[0].note, /work tree/);
+  assert.match(history.evidence[0].note, /c0ffee123456/);
+  assert.equal(scopeOf.target_commit.commit, null, 'the synthetic tree really is not a repository');
+  subject.dispose();
 });

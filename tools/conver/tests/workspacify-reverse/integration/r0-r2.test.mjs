@@ -16,19 +16,27 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { analyzeProject, classifyArtefacts, resolveScope } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
 import { checkBaselines } from '../../../.claude/scripts/workspacify-reverse/lib/regression-gate.mjs';
+import { TARGET_LANGUAGES } from '../../../.claude/scripts/workspacify-reverse/lib/analysis-tech.mjs';
+import { GRAMMAR_BY_LANGUAGE } from '../../../.claude/scripts/workspacify-reverse/lib/structure.mjs';
+// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+import {
+  DANGER_SIGNALS,
+  ELIGIBILITY_CONDITIONS,
+  ELIGIBILITY_STAGE,
+} from '../../../.claude/scripts/workspacify-reverse/lib/eligibility.mjs';
 import {
   countBoundaryCrossings,
   measureDependencies,
 } from '../../../.claude/scripts/workspacify-reverse/lib/dependencies.mjs';
 import { extractSemantics } from '../../../.claude/scripts/workspacify-reverse/lib/semantics.mjs';
-import { hashTree } from '../helpers/scratch.mjs';
+import { createSyntheticTree, hashTree } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
@@ -264,4 +272,148 @@ test('IT countBoundaryCrossings reads the same extraction the claim ledger reads
   assert.equal(crossing.callSiteCount, 1, 'the call to send() in src/a names the target of this edge');
   const unseen = rows.find((row) => row.from === 'src/b' && row.to === 'src/a');
   assert.equal(unseen.callSiteCount, 0, 'dispatch is not in R3 vocabulary, and zero is reported rather than dropped');
+});
+
+// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+/**
+ * R0's eligibility assessment, measured end to end.
+ *
+ * The unit suite asserts the reading; these assert the properties that only a
+ * real run can show — that the document is published at the first prefix a run
+ * can end in, that it is R0's output and not a later stage's, that an
+ * eligibility finding never changes the published document set (design 1.2: a
+ * refusal condition is the error this design exists to prevent), and that the
+ * six languages the assessment names are the instrument's own declaration.
+ */
+
+/**
+ * A subject every condition can be read from: a manifest whose declaration line
+ * the report can cite, a document, two source directories, a test file and a
+ * comment line.
+ *
+ * It is materialised per test rather than committed, because these assertions
+ * are structural — which documents are published, which states the assessment
+ * holds — and not a frozen count that has to be re-derived by hand. A committed
+ * fixture would also collect conver's own provenance comments, which is churn
+ * this test does not read.
+ */
+const ELIGIBLE_SUBJECT_FILES = Object.freeze({
+  'Cargo.toml': '[package]\nname = "eligible-subject"\nversion = "0.1.0"\n',
+  'README.md': '# Eligible subject\n\nWhy the boundary sits where it does.\n',
+  'src/lib.rs': '//! Why these two packages and not three.\n\npub mod api;\npub mod db;\n',
+  'src/api/mod.rs': 'pub mod login;\n',
+  'src/api/login.rs': 'use crate::db::users::User;\n\npub fn login(user: &User) -> bool {\n    !user.name.is_empty()\n}\n',
+  'src/db/mod.rs': 'pub mod users;\n',
+  'src/db/users.rs': 'pub struct User {\n    pub name: String,\n}\n',
+  'tests/login_test.rs': '#[test]\nfn logs_in() {\n    assert!(true);\n}\n',
+});
+
+/** The same shape with everything removed: no manifest, no tests directory, one flat file. */
+const BARREN_SUBJECT_FILES = Object.freeze({
+  'main.py': '# A flat subject: no manifest, no tests directory, no history of its own.\n\nprint("one file")\n',
+});
+
+/** Where the assessment's section ends and R0.5's begins. */
+const ELIGIBILITY_HEADING = '## Eligibility — the conditions, read before anything runs';
+const BOUNDARY_HEADING = '# R0.5 — the scope boundary';
+
+test('IT a run through r0.5 publishes ELIGIBILITY.json and the report carries the section under R0 with file:line and what would settle an unsettled condition', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const out = scratchOutput();
+  const outcome = analyzeProject({ root: subject.root, out: out.root, through: 'r0.5' });
+
+  const published = JSON.parse(readFileSync(join(out.root, 'ELIGIBILITY.json'), 'utf8'));
+  assert.equal(published.stage, ELIGIBILITY_STAGE);
+  assert.equal(published.conditions.length, ELIGIBILITY_CONDITIONS.length);
+  assert.equal(published.signals.length, DANGER_SIGNALS.length);
+  assert.equal(outcome.eligibility.stage, ELIGIBILITY_STAGE);
+
+  const report = readFileSync(join(out.root, 'R0-R2-REPORT.md'), 'utf8');
+  const eligibilityAt = report.indexOf(ELIGIBILITY_HEADING);
+  const boundaryAt = report.indexOf(BOUNDARY_HEADING);
+  assert.ok(eligibilityAt > -1, 'the report has no eligibility section');
+  assert.ok(boundaryAt > eligibilityAt, 'the eligibility section is not under R0');
+
+  const section = report.slice(eligibilityAt, boundaryAt);
+  assert.match(section, /[A-Za-z0-9_./-]+\.(?:rs|toml|md):\d+/);
+  assert.match(section, /would settle it/i);
+  assert.match(section, /does not establish/i);
+  subject.dispose();
+  out.dispose();
+});
+
+test('IT a barren subject and a well-formed one publish the same document set, so an eligibility finding can never change what is published', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const barrenTree = createSyntheticTree(BARREN_SUBJECT_FILES);
+  const wellFormedOut = scratchOutput();
+  const barrenOut = scratchOutput();
+
+  analyzeProject({ root: subject.root, out: wellFormedOut.root, through: 'r0.5' });
+  const barrenOutcome = analyzeProject({ root: barrenTree.root, out: barrenOut.root, through: 'r0.5' });
+
+  assert.deepEqual(
+    readdirSync(barrenOut.root).sort(),
+    readdirSync(wellFormedOut.root).sort(),
+    'the published document set depends on what the assessment found',
+  );
+  // The run is not stopped and no later stage is skipped: R0.5 still ran.
+  assert.deepEqual(barrenOutcome.stagesRun, ['r0', 'r0.5']);
+
+  const barrenAssessment = JSON.parse(readFileSync(join(barrenOut.root, 'ELIGIBILITY.json'), 'utf8'));
+  assert.deepEqual(
+    barrenAssessment.conditions.map((condition) => condition.id),
+    ELIGIBILITY_CONDITIONS.map((condition) => condition.id),
+  );
+  assert.deepEqual(
+    barrenAssessment.signals.map((signal) => signal.id),
+    DANGER_SIGNALS.map((signal) => signal.id),
+  );
+  subject.dispose();
+  barrenTree.dispose();
+  wellFormedOut.dispose();
+  barrenOut.dispose();
+});
+
+test('IT the six languages the analysable-language condition names are the instrument\'s own declaration, so the assessment cannot drift from it', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const out = scratchOutput();
+  analyzeProject({ root: subject.root, out: out.root, through: 'r0.5' });
+
+  const published = JSON.parse(readFileSync(join(out.root, 'ELIGIBILITY.json'), 'utf8'));
+  const language = published.conditions.find((condition) => condition.id === 'main_language_analysable');
+
+  assert.deepEqual(language.measured.languagesConsidered, [...TARGET_LANGUAGES]);
+  assert.deepEqual(Object.keys(GRAMMAR_BY_LANGUAGE).sort(), [...TARGET_LANGUAGES].sort());
+  assert.equal(language.state, 'established_statically');
+  subject.dispose();
+  out.dispose();
+});
+
+test('IT the assessment is R0\'s output: it is published at the r0.5 prefix and its states do not move when later stages run', () => {
+  const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
+  const shallow = scratchOutput();
+  const deep = scratchOutput();
+
+  const shallowOutcome = analyzeProject({ root: subject.root, out: shallow.root, through: 'r0.5' });
+  analyzeProject({ root: subject.root, out: deep.root, through: 'r2' });
+
+  assert.equal(existsSync(join(shallow.root, 'ELIGIBILITY.json')), true);
+  assert.equal(shallowOutcome.stagesRun.includes('r1'), false, 'r1 must not have run in this prefix');
+  assert.equal(existsSync(join(shallow.root, 'STRUCTURE.json')), false, 'the r0.5 prefix measured no structure');
+  assert.equal(existsSync(join(deep.root, 'STRUCTURE.json')), true, 'the r2 run must have measured structure');
+
+  const atR05 = JSON.parse(readFileSync(join(shallow.root, 'ELIGIBILITY.json'), 'utf8'));
+  const atR2 = JSON.parse(readFileSync(join(deep.root, 'ELIGIBILITY.json'), 'utf8'));
+  assert.deepEqual(
+    atR05.conditions.map((condition) => condition.state),
+    atR2.conditions.map((condition) => condition.state),
+    'the states changed with the depth of the run, so they are not R0 facts',
+  );
+  assert.deepEqual(
+    atR05.signals.map((signal) => signal.state),
+    atR2.signals.map((signal) => signal.state),
+  );
+  subject.dispose();
+  shallow.dispose();
+  deep.dispose();
 });

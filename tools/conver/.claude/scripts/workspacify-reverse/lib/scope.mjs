@@ -58,6 +58,7 @@ import {
   validateOriginSpec,
 } from './origin-spec.mjs';
 import { buildCapabilityProfile } from './capability-profile.mjs';
+import { assessEligibility, renderEligibility } from './eligibility.mjs';
 import { EXCLUSION_RULES, buildAttemptLedger, listArtefacts } from './analysis-tech.mjs';
 import { measureStructure, renderStructureReport, syntaxLanguageOf } from './structure.mjs';
 import { extractSemantics, renderSemanticsReport } from './semantics.mjs';
@@ -817,6 +818,20 @@ function assertOutputIsOutsideTarget(out, root) {
   }
 }
 
+/**
+ * A stage's result, or `null` when the run stopped before reaching it.
+ *
+ * `runStage` is the caller's notifier rather than something this closes over, so
+ * a call site in another function can use it too. The `stagesRun.includes(...)
+ * ? runStage(...) : null` sites already in `analyzeProject` are deliberately not
+ * migrated here: they read the same, and moving them would bury this ticket's
+ * change in a rename.
+ */
+// [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
+function stageResult(stagesRun, name, produce, runStage) {
+  return stagesRun.includes(name) ? runStage(name, produce) : null;
+}
+
 /** Write every document the run produced, canonically so a re-run is byte-identical. */
 // [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
 /**
@@ -881,6 +896,7 @@ export function renderAnalysisReport(run) {
   const {
     scope,
     boundary,
+    eligibility = null,
     structure,
     dependencies,
     surface,
@@ -913,6 +929,9 @@ export function renderAnalysisReport(run) {
         + 'is not a finding about the project.',
     '',
     renderScopeReport(scope),
+    // The assessment is R0's output, so it is rendered inside R0's section —
+    // after the scope that fixes it and before the boundary R0.5 draws.
+    ...(eligibility === null ? [] : [renderEligibility(eligibility)]),
     renderBoundaryReport(boundary),
   ];
 
@@ -1027,8 +1046,18 @@ export function analyzeProject({
   // The caller may watch a run go past. A stage that fails is then reported by
   // the caller under the name of the stage it failed in, rather than arriving
   // as a stack trace from a pipeline that only names itself.
+  //
+  // One stage's work may span more than one call — R0 fixes the scope and then
+  // reads the eligibility assessment — so a stage is announced the first time
+  // the pipeline reaches it and not again. The caller attributes a failure to
+  // the stage it happened in, and a repeated identifier would report a stage
+  // that was reached once as a stage that ran twice.
+  const announced = new Set();
   const runStage = (stage, produce) => {
-    if (typeof onStage === 'function') onStage(stage);
+    if (typeof onStage === 'function' && !announced.has(stage)) {
+      announced.add(stage);
+      onStage(stage);
+    }
     return produce();
   };
 
@@ -1042,6 +1071,22 @@ export function analyzeProject({
   const excludedPaths = boundary.artefacts
     .filter((artefact) => artefact.coverage === 'out_of_scope')
     .map((artefact) => artefact.path);
+
+  // R0's eligibility assessment. It reads the R0 channel — the artefact walk, the
+  // subject root and the target commit R0 resolved — and nothing later, so its
+  // findings are the same at every depth a run can stop at, and the material
+  // exists at the moment the decision is cheap. No stage below reads it back: a
+  // stage that branched on it would be the refusal condition design 1.2 forbids.
+  const eligibility = stageResult(
+    stagesRun,
+    'r0',
+    () => assessEligibility({
+      artefacts: boundary.artefacts,
+      root: scope.root,
+      history: scope.target_commit,
+    }),
+    runStage,
+  );
 
   // The surface is measured before the dependency graph because the graph's
   // caveat names how many mechanisms stand between it and the running program.
@@ -1144,6 +1189,7 @@ export function analyzeProject({
   const report = renderAnalysisReport({
     scope,
     boundary,
+    eligibility,
     structure,
     dependencies,
     surface,
@@ -1170,6 +1216,11 @@ export function analyzeProject({
       },
     },
     'SCOPE-BOUNDARY.json': boundary,
+    // R0 always runs, so the assessment is published by every run of every depth.
+    // It is added unconditionally rather than guarded, because a document set
+    // that changed shape with what the assessment found would make the finding
+    // into a gate (design 1.2).
+    'ELIGIBILITY.json': eligibility,
     'ANALYSIS-ATTEMPTS.json': attempts,
     'R0-R2-REPORT.md': report,
   };
@@ -1225,6 +1276,7 @@ export function analyzeProject({
   return {
     scope,
     boundary,
+    eligibility,
     structure,
     dependencies,
     surface,
