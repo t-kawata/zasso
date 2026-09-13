@@ -174,7 +174,10 @@ export const FACT_VOCABULARY = Object.freeze({
     throw: ['throw_statement'],
     panic: [],
     assert: ['call_expression'],
-    unwrap_expect: ['call_expression'],
+    // Not declared here: TypeScript has no unwrapping call, and a kind read
+    // from every call expression with no name to narrow it would report the
+    // whole file as unwraps.
+    unwrap_expect: [],
     error_return: ['throw_statement', 'return_statement'],
     error_variant: ['member_expression'],
     argument_read: ['identifier'],
@@ -200,7 +203,9 @@ export const FACT_VOCABULARY = Object.freeze({
     throw: ['throw_statement'],
     panic: [],
     assert: ['call_expression'],
-    unwrap_expect: ['call_expression'],
+    // Not declared here, for the same reason as TypeScript's: JavaScript has no
+    // unwrapping call, and the kind would otherwise count every call in the file.
+    unwrap_expect: [],
     error_return: ['throw_statement', 'return_statement'],
     error_variant: ['member_expression'],
     argument_read: ['identifier'],
@@ -252,7 +257,9 @@ export const FACT_VOCABULARY = Object.freeze({
     throw: ['raise_statement'],
     panic: [],
     assert: ['assert_statement'],
-    unwrap_expect: ['call'],
+    // Not declared here: Python has no unwrapping call, and the kind read from
+    // every call with no name to narrow it would report the whole file.
+    unwrap_expect: [],
     error_return: ['raise_statement'],
     error_variant: ['attribute'],
     argument_read: ['identifier'],
@@ -279,7 +286,10 @@ export const FACT_VOCABULARY = Object.freeze({
     panic: [],
     assert: ['call_expression'],
     unwrap_expect: [],
-    error_return: ['return_statement'],
+    // Not declared here: C and C++ signal failure with a sentinel value or
+    // through `errno` rather than an error type, so reading this kind from
+    // every returning statement would report the whole translation unit as one.
+    error_return: [],
     error_variant: ['field_expression'],
     argument_read: ['identifier'],
     field_read: ['field_expression'],
@@ -298,8 +308,15 @@ export const FACT_VOCABULARY = Object.freeze({
 /**
  * The name a node must carry to count, for the kinds read out of shared node
  * types. An absent entry means every node of the listed types counts.
+ *
+ * An entry here is a claim that the language has the construct the pattern
+ * names. A pattern naming another language's idiom is removed rather than left
+ * as a no-op, because a no-op reads as coverage — `REMOVED_NAME_FILTERS` holds
+ * the removals and their reasons. Each remaining entry is exercised over a file
+ * the tests build to satisfy it, so a pattern that cannot fire is a failure and
+ * not a quiet absence.
  */
-const NAME_FILTERS = Object.freeze({
+export const NAME_FILTERS = Object.freeze({
   rust: Object.freeze({
     panic: /^(?:panic|unreachable|todo|unimplemented)$/,
     assert: /^(?:debug_)?assert(?:_eq|_ne)?$/,
@@ -310,66 +327,285 @@ const NAME_FILTERS = Object.freeze({
     test_expected_exception: /^(?:assert|assert_eq|assert_ne|expect|unwrap)$/,
   }),
   typescript: Object.freeze({
-    assert: /^(?:assert|expect|should|chai)$/,
-    unwrap_expect: /^(?:unwrap|expect)$/,
+    // Only the module's own `assert` is production code. `expect`, `should` and
+    // `chai` are test-framework calls, and a guard population that counted them
+    // would grow every time a test was written.
+    assert: /^assert$/,
     error_return: /^(?:Error|TypeError|RangeError)$/,
-    io_read: /^(?:readFile|readFileSync|fetch|request|get)$/,
-    io_write: /^(?:writeFile|writeFileSync|console)$/,
-    state_field: /state|status|phase|mode/i,
-    state_assignment: /state|status|phase|mode/i,
+    // `get` and `request` are dropped: after the callee is read by its member
+    // name they would match `map.get` and `cache.get`, which are not I/O.
+    io_read: /^(?:readFile|readFileSync|createReadStream|fetch)$/,
+    io_write: /^(?:writeFile|writeFileSync|appendFile|appendFileSync)$/,
   }),
   javascript: Object.freeze({
-    assert: /^(?:assert|expect|should|chai)$/,
-    unwrap_expect: /^(?:unwrap|expect)$/,
+    assert: /^assert$/,
     error_return: /^(?:Error|TypeError|RangeError)$/,
-    io_read: /^(?:readFile|readFileSync|fetch|request|get)$/,
-    io_write: /^(?:writeFile|writeFileSync|console)$/,
-    state_field: /state|status|phase|mode/i,
-    state_assignment: /state|status|phase|mode/i,
+    io_read: /^(?:readFile|readFileSync|createReadStream|fetch)$/,
+    io_write: /^(?:writeFile|writeFileSync|appendFile|appendFileSync)$/,
   }),
   go: Object.freeze({
     panic: /^panic$/,
     assert: /^(?:Fatal|Fatalf|Error|Errorf|Assert)$/,
-    unwrap_expect: /^(?:Must|Expect)$/,
-    error_return: /^(?:Errorf|New)$/,
+    // Go panics on failure where Rust unwraps, and spells it `MustXxx`. The
+    // bare `Must` of the previous entry matched no Go call at all.
+    unwrap_expect: /^Must[A-Za-z]*$/,
+    // `errors.New` is dropped: once the callee is read by its member name, `New`
+    // is indistinguishable from an ordinary Go constructor, and a filter that
+    // fired on those would report error returns that are not error returns.
+    error_return: /^Errorf$/,
     io_read: /^(?:ReadFile|Read|ReadAll|Get|Do)$/,
     io_write: /^(?:WriteFile|Write|Println|Printf|Fprint)$/,
-    state_field: /state|status|phase|mode/i,
-    state_assignment: /state|status|phase|mode/i,
   }),
   python: Object.freeze({
-    assert: /^assert_/,
-    unwrap_expect: /^(?:unwrap|expect)$/,
     error_return: /^(?:Error|Exception|ValueError|RuntimeError)$/,
-    io_read: /^(?:open|read|readlines|get|urlopen)$/,
+    io_read: /^(?:open|read|readlines|urlopen)$/,
     io_write: /^(?:open|write|writelines|print)$/,
-    state_field: /state|status|phase|mode/i,
-    state_assignment: /state|status|phase|mode/i,
   }),
   c_cpp: Object.freeze({
     assert: /^assert$/,
-    error_return: /^(?:errno|perror)$/,
     io_read: /^(?:fread|read|fgets|recv|recvfrom)$/,
     io_write: /^(?:fwrite|write|printf|fprintf|puts|send|sendto)$/,
-    state_field: /state|status|phase|mode/i,
-    state_assignment: /state|status|phase|mode/i,
   }),
 });
 
-/** The word a state field's name must contain, for every language. */
-const STATE_NAME = /state|status|phase|mode/i;
+/**
+ * The entries that could not fire and were removed rather than repaired.
+ *
+ * A removal is the honest act when the pattern names a construct the language
+ * does not have: `unwrap` is Rust's, `expect` is a test framework's, and a
+ * state regex copied into five rows was a copy rather than a read. Keeping any
+ * of them would leave a no-op that a reader counts as coverage.
+ */
+export const REMOVED_NAME_FILTERS = Object.freeze([
+  {
+    language: 'typescript',
+    entry: 'unwrap_expect',
+    reason: 'TypeScript has no unwrap, and `expect` is a test-framework call rather than a production unwrapping one',
+  },
+  {
+    language: 'javascript',
+    entry: 'unwrap_expect',
+    reason: 'JavaScript has no unwrap, and `expect` is a test-framework call rather than a production unwrapping one',
+  },
+  {
+    language: 'python',
+    entry: 'unwrap_expect',
+    reason: 'Python has no unwrap, and `expect` is a test-framework call; the language signals failure by raising',
+  },
+  {
+    language: 'python',
+    entry: 'assert',
+    reason: 'every `assert` statement is an assertion, so a name filter over the kind read nothing and hid Python\'s guard form',
+  },
+  {
+    language: 'c_cpp',
+    entry: 'error_return',
+    reason: 'C and C++ carry no error type; failure is a returned sentinel or `errno`, neither of which is a name a filter can read',
+  },
+  {
+    language: 'typescript',
+    entry: 'state_field',
+    reason: 'the state fields are read by node type and one shared name pattern; the per-row copies are what hid the drift',
+  },
+  {
+    language: 'typescript',
+    entry: 'state_assignment',
+    reason: 'the state assignments are read by node type and one shared name pattern; the per-row copies are what hid the drift',
+  },
+  {
+    language: 'javascript',
+    entry: 'state_field',
+    reason: 'the state fields are read by node type and one shared name pattern; the per-row copies are what hid the drift',
+  },
+  {
+    language: 'javascript',
+    entry: 'state_assignment',
+    reason: 'the state assignments are read by node type and one shared name pattern; the per-row copies are what hid the drift',
+  },
+  {
+    language: 'go',
+    entry: 'state_field',
+    reason: 'the state fields are read by node type and one shared name pattern; the per-row copies are what hid the drift',
+  },
+  {
+    language: 'go',
+    entry: 'state_assignment',
+    reason: 'the state assignments are read by node type and one shared name pattern; the per-row copies are what hid the drift',
+  },
+  {
+    language: 'python',
+    entry: 'state_field',
+    reason: 'the state fields are read by node type and one shared name pattern; the per-row copies are what hid the drift',
+  },
+  {
+    language: 'python',
+    entry: 'state_assignment',
+    reason: 'the state assignments are read by node type and one shared name pattern; the per-row copies are what hid the drift',
+  },
+  {
+    language: 'c_cpp',
+    entry: 'state_field',
+    reason: 'the state fields are read by node type and one shared name pattern; the per-row copies are what hid the drift',
+  },
+  {
+    language: 'c_cpp',
+    entry: 'state_assignment',
+    reason: 'the state assignments are read by node type and one shared name pattern; the per-row copies are what hid the drift',
+  },
+]);
 
-/** The node type a Rust declaration's field is written with. */
-const RUST_FIELD_DECLARATION = 'field_declaration';
+/**
+ * The word a state field's name must contain, for every language.
+ *
+ * No grammar marks a field as a *state* field. The node type narrows where to
+ * look and the name decides whether a node found there counts, so the pattern
+ * has to exist — and it exists once, because five copies of the same text read
+ * as five verified reads and were one unverified one.
+ */
+export const LANGUAGE_STATE_NAME_PATTERN = /state|status|phase|mode/i;
+
+// ---------------------------------------------------------------------------
+// The declaration's own exercise record
+// ---------------------------------------------------------------------------
+
+/**
+ * The vocabulary tables a run must report on.
+ *
+ * The tables above are the declaration; which of them a given run actually
+ * exercised is a fact about the run. Recording it per table rather than per
+ * module is what makes a table that was declared and never reached visible as
+ * that, instead of invisible.
+ */
+export const VOCABULARY_TABLE_IDS = Object.freeze(['FACT_VOCABULARY', 'NAME_FILTERS']);
+
+/** The two states a table's exercise record may carry. */
+export const TABLE_EXERCISE_CODES = Object.freeze({
+  exercised: 'vocabulary_table_exercised',
+  unexercised: 'vocabulary_table_unexercised',
+});
+
+/**
+ * Refuse a kind that is in neither the observed nor the unexercised set.
+ *
+ * The two sets are handed in rather than derived, because deriving the second
+ * from the first is what makes the partition hold by construction — and a check
+ * that cannot fail is not a check. A kind that vanished from both would leave
+ * its family populated by its siblings, and the gap would be invisible.
+ */
+export function assertKindPartition({ language, declared, observed, unexercised }) {
+  const reported = new Set([...observed, ...unexercised]);
+  for (const kind of declared) {
+    if (!reported.has(kind)) {
+      throw new Error(
+        `${language}: declared fact kind ${kind} is in neither the observed nor the unexercised set`,
+      );
+    }
+  }
+  return true;
+}
+
+/**
+ * What a run reached of one language's declared kinds.
+ *
+ * A kind the representative holds no construct for is reported rather than
+ * omitted: "the population had no such construct" and "the table was never
+ * checked" are different facts, and an omitted entry states neither.
+ */
+export function vocabularyExerciseFor(language, facts) {
+  const vocabulary = FACT_VOCABULARY[language];
+  if (vocabulary === undefined) {
+    throw new Error(
+      `${language} presented a representative and declares no fact vocabulary, so its material would have been `
+      + 'read by a table that does not exist and reported as a language with no guards',
+    );
+  }
+
+  const declared = FACT_KINDS.filter((kind) => (vocabulary[kind] ?? []).length > 0).sort(compareText);
+  const seen = new Set(facts.map((fact) => fact.kind));
+  const observedKinds = declared.filter((kind) => seen.has(kind));
+  const unexercisedKinds = declared.filter((kind) => !seen.has(kind));
+  assertKindPartition({ language, declared, observed: observedKinds, unexercised: unexercisedKinds });
+  return { observedKinds, unexercisedKinds };
+}
+
+/** The call node types the grammars spell differently for one construct. */
+const CALL_NODE_TYPES = Object.freeze(['call_expression', 'call']);
+
+/**
+ * The node types whose member access carries the name of the thing reached.
+ *
+ * Four grammars, four spellings, one concept. A reader that knew only
+ * `field_expression` returned the whole dotted text for the other three, so
+ * every anchored pattern in those languages' rows matched nothing at all.
+ */
+const MEMBER_EXPRESSION_TYPES = Object.freeze([
+  'field_expression',
+  'member_expression',
+  'selector_expression',
+  'attribute',
+]);
+
+/** The statements that carry an expression out of a scope, per grammar. */
+const RETURN_STATEMENT_TYPES = Object.freeze([
+  'return_statement',
+  'throw_statement',
+  'raise_statement',
+]);
+
+/** The nodes that hold an expression rather than being one. */
+const EXPRESSION_WRAPPER_TYPES = Object.freeze(['expression_list', 'parenthesized_expression']);
+
+/**
+ * Where each language keeps its tests.
+ *
+ * Rust's shape — a `tests/` directory — was the only one this reader knew, so
+ * TypeScript's and JavaScript's `__tests__` and Go's `_test.go` files were read
+ * as production code and E10 reported nothing for three languages.
+ */
+export const TEST_FILE_PATTERN_BY_LANGUAGE = Object.freeze({
+  rust: /(?:^|\/)tests?\//,
+  typescript: /(?:^|\/)(?:__tests__|tests?)\//,
+  javascript: /(?:^|\/)(?:__tests__|tests?)\//,
+  go: /_test\.go$/,
+  python: /(?:^|\/)(?:__tests__|tests?)\//,
+  c_cpp: /(?:^|\/)(?:__tests__|tests?)\//,
+});
+
+/** What each language names a test function. */
+export const TEST_FUNCTION_PATTERN_BY_LANGUAGE = Object.freeze({
+  rust: /^test_/,
+  typescript: /^test_/,
+  javascript: /^test_/,
+  go: /^Test/,
+  python: /^test_/,
+  c_cpp: /^test_/,
+});
+
+/** The calls that declare a test by taking a callback. */
+const TEST_DECLARATION_CALL_BY_LANGUAGE = Object.freeze({
+  typescript: /^(?:test|it|describe)$/,
+  javascript: /^(?:test|it|describe)$/,
+});
 
 /** The attribute that marks a Rust function as a test. */
 const RUST_TEST_ATTRIBUTE = /#\[\s*test\s*\]/;
 
-/** The tests a language declares in a path outside the source tree. */
-const TEST_PATH = /(?:^|\/)tests?\//;
-
-/** The suffix every assertion macro in a test carries when it expects failure. */
-const EXPECTED_FAILURE = /is_err\(\)|is_none\(\)|should_panic|panics!|to_throw|raises\(/;
+/**
+ * What a test writes when it expects the call under it to fail.
+ *
+ * Per language because the form differs: Rust asserts a `Result` is an error,
+ * unittest raises through `assertRaises`, and a JavaScript test writes
+ * `toThrow`. One shared pattern read Rust's form and reported the other three
+ * as tests that expect nothing.
+ */
+const EXPECTED_FAILURE_BY_LANGUAGE = Object.freeze({
+  rust: /is_err\(\)|is_none\(\)|should_panic|panics!/,
+  typescript: /toThrow|rejects|throws/,
+  javascript: /toThrow|rejects|throws/,
+  go: /t\.(?:Error|Fatal|Fatalf)/,
+  python: /assertRaises|raises\(/,
+  c_cpp: /EXPECT_THROW|ASSERT_THROW|EXPECT_DEATH/,
+});
 
 /**
  * The shape of a written value the text settles as a state.
@@ -438,27 +674,66 @@ function kindIndexFor(language) {
   return index;
 }
 
+/**
+ * The member a member-access node reaches, or null.
+ *
+ * The four grammars name the field differently, and a reader that knew one of
+ * the four spellings reported the whole dotted text for the other three — so
+ * `fs.readFileSync` arrived as `fs.readFileSync` where the pattern asked for
+ * `readFileSync`, and every anchored pattern in those rows matched nothing.
+ */
+// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+function memberNameOf(node) {
+  return node.childForFieldName?.('field')?.text
+    ?? node.childForFieldName?.('property')?.text
+    ?? node.childForFieldName?.('attribute')?.text
+    ?? null;
+}
+
+/** The name an expression reaches for, whatever shape the grammar gives it. */
+// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+function nameFromExpression(node) {
+  if (node === null || node === undefined) return null;
+  if (CALL_NODE_TYPES.includes(node.type)) return nameOf(node);
+  if (node.type === 'new_expression') {
+    return nameFromExpression(node.childForFieldName?.('constructor') ?? node.namedChildren[0]);
+  }
+  if (MEMBER_EXPRESSION_TYPES.includes(node.type)) return memberNameOf(node);
+  if (EXPRESSION_WRAPPER_TYPES.includes(node.type)) return nameFromExpression(node.namedChildren[0]);
+  return node.text ?? null;
+}
+
 /** The text a name filter is tested against, which differs by node type. */
 // [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function nameOf(node) {
-  if (node.type === 'call_expression') {
+  if (CALL_NODE_TYPES.includes(node.type)) {
     const callee = node.childForFieldName?.('function');
     if (callee === null || callee === undefined) return null;
-    if (callee.type === 'field_expression') return callee.childForFieldName?.('field')?.text ?? null;
+    if (MEMBER_EXPRESSION_TYPES.includes(callee.type)) return memberNameOf(callee);
     return callee.text ?? null;
   }
   if (node.type === 'macro_invocation') {
     return node.childForFieldName?.('macro')?.text ?? null;
   }
+  if (RETURN_STATEMENT_TYPES.includes(node.type)) {
+    // A failing path is named by the value it hands back: the error
+    // constructor reached there, whatever the grammar calls it. Reading a
+    // name off the statement itself found nothing, because a statement
+    // carries none.
+    return nameFromExpression(node.namedChildren[0]);
+  }
   if (node.type === 'assignment_expression' || node.type === 'assignment' || node.type === 'assignment_statement') {
     const left = node.childForFieldName?.('left');
     if (left === null || left === undefined) return null;
-    if (left.type === 'field_expression' || left.type === 'member_expression' || left.type === 'selector_expression' || left.type === 'attribute') {
-      return left.childForFieldName?.('field')?.text ?? left.text ?? null;
-    }
+    if (MEMBER_EXPRESSION_TYPES.includes(left.type)) return memberNameOf(left) ?? left.text ?? null;
     return left.text ?? null;
   }
-  return node.childForFieldName?.('name')?.text ?? null;
+  // C and C++ write a field's name as a `field_identifier` child rather than as
+  // a named field, so a field declaration there had no readable name at all.
+  return node.childForFieldName?.('name')?.text
+    ?? node.namedChildren.find((child) => child.type === 'field_identifier')?.text
+    ?? null;
 }
 
 /** The name a declaration carries, for the declaration-shaped kinds. */
@@ -469,6 +744,7 @@ function declaredNameOf(node) {
 
 /** Whether a declaration's text carries a visibility modifier. */
 // [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function isPublicDeclaration(node, language) {
   if (language === 'rust') {
     return node.namedChildren.some((child) => child.type === 'visibility_modifier');
@@ -477,6 +753,15 @@ function isPublicDeclaration(node, language) {
     const name = declaredNameOf(node);
     if (name === null) return false;
     return language === 'go' ? /^[A-Z]/.test(name) : !/^_/.test(name);
+  }
+  if (language === 'c_cpp') {
+    // C and C++ carry no export keyword: a declaration at file scope is the
+    // public surface, and `static` is the one thing that withholds it. Reading
+    // an `export_statement` there found nothing and reported no public surface
+    // for a language whose whole surface is file-scope declarations.
+    return !node.namedChildren.some(
+      (child) => child.type === 'storage_class_specifier' && child.text === 'static',
+    );
   }
   return node.type === 'export_statement'
     || node.namedChildren.some((child) => child.type === 'export_statement' || child.text === 'export');
@@ -534,29 +819,81 @@ function isCfgGated(node) {
   return false;
 }
 
+/**
+ * The parameter list a function declares, however the grammar nests it.
+ *
+ * Rust, Go, Python, TypeScript and JavaScript hang the list off the function
+ * node itself; C and C++ put it inside a `function_declarator`, so a reader
+ * that looked one level down found nothing and every C/C++ argument read went
+ * unenumerated while the file was full of them.
+ */
+// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+function parameterListOf(functionNode) {
+  const own = functionNode.childForFieldName?.('parameters')
+    ?? functionNode.namedChildren.find((child) => child.type === 'parameters' || child.type === 'parameter_list');
+  if (own !== undefined) return own;
+
+  const declarator = functionNode.namedChildren.find((child) => child.type.endsWith('declarator'));
+  return declarator?.namedChildren.find((child) => child.type === 'parameter_list') ?? null;
+}
+
+/**
+ * The name a parameter binds, whatever shape its grammar gives it.
+ *
+ * Rust and TypeScript name it with a `pattern` field and Go with a `name`;
+ * C and C++ write the type first and the identifier second, so reading the
+ * first child there bound the parameter to its own type; Python's parameter is
+ * the identifier itself and has no children to read at all.
+ */
+// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+function parameterNameOf(parameter) {
+  const declared = parameter.childForFieldName?.('pattern')?.text
+    ?? parameter.childForFieldName?.('name')?.text
+    ?? parameter.namedChildren.find((child) => child.type === 'identifier' || child.type === 'field_identifier')?.text
+    ?? (parameter.type === 'identifier' ? parameter.text : undefined);
+  return declared === undefined ? null : declared.replace(/^&?\s*(?:mut\s+)?/, '').trim();
+}
+
 /** The names a function declares as parameters, with the binding syntax stripped. */
 // [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
 function parametersOf(functionNode) {
-  const parameterList = functionNode.childForFieldName?.('parameters')
-    ?? functionNode.namedChildren.find((child) => child.type.endsWith('parameter_list'));
+  const parameterList = parameterListOf(functionNode);
   const declared = [];
   for (const parameter of parameterList?.namedChildren ?? []) {
-    const name = parameter.childForFieldName?.('pattern')?.text
-      ?? parameter.childForFieldName?.('name')?.text
-      ?? parameter.namedChildren?.[0]?.text;
-    if (name) declared.push(name.replace(/^&?\s*(?:mut\s+)?/, '').trim());
+    const name = parameterNameOf(parameter);
+    if (name) declared.push(name);
   }
   return declared;
+}
+
+/**
+ * Whether a function is the callback a test-declaring call takes.
+ *
+ * A JavaScript test is `test("name", () => { ... })`: the function carries no
+ * name, sits in no test-named file, and is the argument of a call rather than a
+ * declaration — so nothing about it says "test" except the call it is passed to.
+ */
+// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+function isTestCallback(functionNode, testCallPattern) {
+  if (testCallPattern === undefined) return false;
+  const call = functionNode.parent?.parent;
+  if (call === null || call === undefined || !CALL_NODE_TYPES.includes(call.type)) return false;
+  return testCallPattern.test(nameOf(call) ?? '');
 }
 
 /**
  * Walk a file's syntax tree once, emitting every fact the language's vocabulary
  * reaches, with the enclosing declaration and the test context attached.
  */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5, P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-5|P24-4) --for-spec --no-implementation-order`.
 function factsInFile({ root, relativePath, language, tree, text }) {
   const index = kindIndexFor(language);
   const filters = NAME_FILTERS[language] ?? {};
+  const testFilePattern = TEST_FILE_PATTERN_BY_LANGUAGE[language];
+  const testFunctionPattern = TEST_FUNCTION_PATTERN_BY_LANGUAGE[language];
+  const testCallPattern = TEST_DECLARATION_CALL_BY_LANGUAGE[language];
+  const expectedFailure = EXPECTED_FAILURE_BY_LANGUAGE[language];
   const lines = text.split('\n');
   const facts = [];
 
@@ -579,14 +916,21 @@ function factsInFile({ root, relativePath, language, tree, text }) {
 
   const visit = (node, enclosing) => {
     const isFunction = /(?:function|method|fn|func)_(?:item|definition|declaration)/.test(node.type)
-      || node.type === 'function_item';
+      || node.type === 'function_item'
+      // A JavaScript test is written as a callback rather than as a declaration,
+      // so a reader that knew only declarations saw no test there at all.
+      || node.type === 'arrow_function'
+      || node.type === 'function_expression';
     const attributeText = node.parent?.namedChildren
       ?.slice(Math.max(0, node.parent.namedChildren.indexOf(node) - 3), node.parent.namedChildren.indexOf(node))
       .filter((sibling) => sibling.type === 'attribute_item')
       .map((sibling) => sibling.text)
       .join('\n') ?? '';
     const isTestFunction = isFunction
-      && (RUST_TEST_ATTRIBUTE.test(attributeText) || TEST_PATH.test(relativePath) || /^test_/.test(declaredNameOf(node) ?? ''));
+      && (RUST_TEST_ATTRIBUTE.test(attributeText)
+        || (testFilePattern !== undefined && testFilePattern.test(relativePath))
+        || (testFunctionPattern !== undefined && testFunctionPattern.test(declaredNameOf(node) ?? ''))
+        || isTestCallback(node, testCallPattern));
 
     // The parameters travel with the scope rather than in a file-wide set. A
     // set collected across the file would make any identifier matching any
@@ -628,13 +972,13 @@ function factsInFile({ root, relativePath, language, tree, text }) {
       }
       if (kind === 'state_field') {
         const name = nameOf(node) ?? '';
-        if (!STATE_NAME.test(name)) continue;
+        if (!LANGUAGE_STATE_NAME_PATTERN.test(name)) continue;
         emit(node, kind, { fieldName: name });
         continue;
       }
       if (kind === 'state_assignment') {
         const name = nameOf(node) ?? '';
-        if (!STATE_NAME.test(name)) continue;
+        if (!LANGUAGE_STATE_NAME_PATTERN.test(name)) continue;
         const right = node.childForFieldName?.('right') ?? node.childForFieldName?.('value');
         emit(node, kind, {
           fieldName: name,
@@ -675,7 +1019,8 @@ function factsInFile({ root, relativePath, language, tree, text }) {
         continue;
       }
       if (kind === 'test_expected_exception') {
-        if (scope?.test !== true || !EXPECTED_FAILURE.test(node.text ?? '')) continue;
+        if (scope?.test !== true) continue;
+        if (expectedFailure !== undefined && !expectedFailure.test(node.text ?? '')) continue;
         emit(node, kind, { scope: scope.name });
         continue;
       }
@@ -740,6 +1085,7 @@ export function enumerateSourceFacts(population) {
   const coverage = emptyCoverage();
   const limitations = [];
   const exercised = new Map();
+  const factsByLanguage = new Map();
 
   coverage.files_discovered = files.length;
 
@@ -765,6 +1111,7 @@ export function enumerateSourceFacts(population) {
 
     const inFile = factsInFile({ root, relativePath, language, tree: parsed.tree, text: parsed.text });
     exercised.set(language, (exercised.get(language) ?? 0) + inFile.length);
+    factsByLanguage.set(language, [...(factsByLanguage.get(language) ?? []), ...inFile]);
     facts.push(...inFile);
 
     // The count is recorded after the file has been read, because
@@ -809,6 +1156,29 @@ export function enumerateSourceFacts(population) {
       effect: `the ${language} vocabulary was declared and not exercised by this run; its correctness is unverified here`,
     });
   }
+
+  // The declaration's own exercise record. One entry per table rather than one
+  // per module, because "the vocabulary was reached" and "this table was" are
+  // different facts, and a table that vanished from the list would read as a
+  // table that was exercised and found empty.
+  const vocabularyExercise = {};
+  for (const language of Object.keys(FACT_VOCABULARY)) {
+    vocabularyExercise[language] = vocabularyExerciseFor(language, factsByLanguage.get(language) ?? []);
+
+    const reached = populationLanguages.has(language);
+    const exercisedKinds = vocabularyExercise[language].observedKinds.length;
+    const declaredKinds = exercisedKinds + vocabularyExercise[language].unexercisedKinds.length;
+    for (const table of VOCABULARY_TABLE_IDS) {
+      limitations.push({
+        code: reached ? TABLE_EXERCISE_CODES.exercised : TABLE_EXERCISE_CODES.unexercised,
+        scope: `${language}/${table}`,
+        effect: reached
+          ? `the ${language} ${table} was read over this population${table === 'FACT_VOCABULARY' ? `, reaching ${exercisedKinds} of its ${declaredKinds} declared kinds` : ''}; what it reaches beyond this population is not claimed`
+          : `the ${language} ${table} was declared and this run held no ${language} file, so nothing of it was exercised here`,
+      });
+    }
+  }
+
   limitations.push({
     code: 'state_field_by_name',
     scope: 'all languages',
@@ -823,6 +1193,7 @@ export function enumerateSourceFacts(population) {
     coverage,
     limitations,
     analysis_mode: 'syntax_only',
+    vocabularyExercise,
     exercisedLanguages: Object.fromEntries([...exercised.entries()].sort()),
   };
 }
@@ -1012,13 +1383,20 @@ export function generateCandidates(factsBundle) {
     if (fact.kind === 'conditional' && fact.containsEarlyReturn !== true) continue;
 
     const anchor = `${fact.source_span.file}:${fact.source_span.line}`;
+    // A proposition quotes the source it cites, and the quotation is delimited
+    // by backticks — so a backtick inside the quoted text would end the
+    // quotation early and leave the project's own words to be read as the
+    // analysis's. Source is prose and contains what it contains, so the quoted
+    // text is made safe to quote rather than trusted to be so.
+    const quotation = (text) => `\`${(text ?? '').replace(/`/g, "'")}\``;
+
     const proposition = fact.kind === 'conditional'
-      ? `the body of \`${fact.scope ?? '(anonymous)'}\` contains a branch at ${anchor} that returns early when `
-        + `\`${fact.condition ?? 'its condition'}\` holds`
+      ? `the body of ${quotation(fact.scope ?? '(anonymous)')} contains a branch at ${anchor} that returns early when `
+        + `${quotation(fact.condition ?? 'its condition')} holds`
       : fact.kind === 'assert'
-        ? `the body of \`${fact.scope ?? '(anonymous)'}\` contains a condition check at ${anchor} asserting `
-          + `\`${fact.text}\``
-        : `the body of \`${fact.scope ?? '(anonymous)'}\` returns \`${fact.text}\` at ${anchor}`;
+        ? `the body of ${quotation(fact.scope ?? '(anonymous)')} contains a condition check at ${anchor} asserting `
+          + quotation(fact.text)
+        : `the body of ${quotation(fact.scope ?? '(anonymous)')} returns ${quotation(fact.text)} at ${anchor}`;
 
     const candidate = {
       candidate_id: `cand-${fact.fact_id}`,
@@ -1159,6 +1537,7 @@ export function extractSemantics({ root, dependencies, excludedPaths = [], seeds
     coverage: stageTwo.coverage,
     limitations: stageTwo.limitations,
     attempts: stageTwo.attempts,
+    vocabularyExercise: stageTwo.vocabularyExercise,
     exercisedLanguages: stageTwo.exercisedLanguages,
     families,
     facts: stageTwo.facts,
@@ -1211,6 +1590,20 @@ export function renderSemanticsReport(semantics) {
       `Not exercised by this population: ${absent.map((item) => `\`${item.scope}\``).join(', ')}. The vocabulary `
         + 'for these is declared and its correctness is unverified here — an untested table, not an absence of '
         + 'the material in the project.',
+    );
+  }
+
+  // What the run reached of each language's declaration, stated per language
+  // and per table. A reader who cannot see this cannot tell a language the
+  // instrument read and found little in from one it never read at all.
+  lines.push('', '## What the vocabulary was exercised over', '');
+  for (const [language, exercise] of Object.entries(semantics.vocabularyExercise)) {
+    const unexercised = exercise.unexercisedKinds;
+    lines.push(
+      `- \`${language}\` — ${exercise.observedKinds.length} kind(s) observed; `
+        + (unexercised.length === 0
+          ? 'every declared kind was reached here'
+          : `${unexercised.length} declared and not reached by this population: ${unexercised.map((kind) => `\`${kind}\``).join(', ')}`),
     );
   }
 

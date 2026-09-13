@@ -156,6 +156,7 @@ const SYNTAX_LAYER = 'tree-sitter';
  * would claim an extractor that does not exist.
  */
 // [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
 export const LANGUAGES_WITH_EXTRACTORS = Object.freeze({
   E1: Object.freeze([...TARGET_LANGUAGES]),
   E2: Object.freeze([...TARGET_LANGUAGES]),
@@ -163,6 +164,16 @@ export const LANGUAGES_WITH_EXTRACTORS = Object.freeze({
   E4: Object.freeze([...TARGET_LANGUAGES]),
   E5: Object.freeze([...TARGET_LANGUAGES]),
   E6: Object.freeze([...TARGET_LANGUAGES]),
+  // E7-E11 are read by one extractor that is keyed by language rather than by
+  // six: `semantics.mjs` declares a vocabulary row per language and the R3
+  // stage runs over whichever languages the population holds. Declaring them
+  // here is what makes the cell `partial` instead of `not_attempted`, and
+  // P24-4 exercised each row over its own representative before saying so.
+  E7: Object.freeze([...TARGET_LANGUAGES]),
+  E8: Object.freeze([...TARGET_LANGUAGES]),
+  E9: Object.freeze([...TARGET_LANGUAGES]),
+  E10: Object.freeze([...TARGET_LANGUAGES]),
+  E11: Object.freeze([...TARGET_LANGUAGES]),
 });
 
 /**
@@ -176,6 +187,7 @@ export const LANGUAGES_WITH_EXTRACTORS = Object.freeze({
  * the language's own constructs put beyond it. The note this replaced said the
  * adapter was not yet written, which became false the moment one existed.
  */
+// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
 const CAPABILITY_NOTES = Object.freeze({
   'rust/E1-E4':
     'Measured through tree-sitter-rust. Syntax alone: module declarations, item declarations, use declarations and mechanism markers are read; macro-generated items and cfg-selected composition are not resolved.',
@@ -219,6 +231,22 @@ const CAPABILITY_NOTES = Object.freeze({
     'Measured through tree-sitter-cpp. A macro definition, a preprocessor condition, an include and a call through a dereferenced function pointer are read where they are written. A function reached through a linker section or a constructor attribute is declared and not observed here.',
   '*/E13':
     'Semantic equivalence is undecidable for general programs. E13 is TCE — trivial, syntactic, compiler-normalisation equivalence — and only that is ever claimed.',
+  // E7-E11 are measured, and each language's reason names what its own syntax
+  // layer cannot see. The channel is the same one E1-E6 use — a tree-sitter
+  // parse with no name resolution — so what is invisible is that language's
+  // own construct, not a shared limitation stated six times.
+  'rust/E7-E11':
+    'Measured through tree-sitter-rust over the guards, state fields, effects and tests the text holds. A guard a macro expands into is in no text this layer reads, and whether a condition is a caller obligation or an internal defence is not decidable from a syntax tree.',
+  'typescript/E7-E11':
+    'Measured through tree-sitter-typescript over the same four. A callee resolved at run time names no guard, a decorator rewrites the member it is applied to, and `expect` is a test framework\'s word rather than the program\'s.',
+  'javascript/E7-E11':
+    'Measured through tree-sitter-javascript over the same four. A computed property name reaches an effect this layer cannot name, a method attached to the prototype after the class body is in no body it reads, and `eval` hides the guard it evaluates.',
+  'go/E7-E11':
+    'Measured through tree-sitter-go over the same four. A build tag decides which guards exist at all, an embedded method performs a transition the outer type never declares, and `errors.New` is indistinguishable from an ordinary constructor once the call is read by name.',
+  'python/E7-E11':
+    'Measured through tree-sitter-python over the same four. `assert` is a statement rather than a call, `__getattr__` answers for names no body declares, and a metaclass installs state that no class body writes.',
+  'c_cpp/E7-E11':
+    'Measured through tree-sitter-cpp over the same four. The preprocessor decides what the compiler ever sees, macro expansion rewrites the guard before this layer reads it, and an error return is a sentinel value rather than a name a filter can read.',
 });
 
 /**
@@ -229,6 +257,7 @@ const CAPABILITY_NOTES = Object.freeze({
  * them a family of their own.
  */
 // [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
 const NOTE_FAMILY_BY_ITEM = Object.freeze({
   E1: 'E1-E4',
   E2: 'E1-E4',
@@ -236,6 +265,14 @@ const NOTE_FAMILY_BY_ITEM = Object.freeze({
   E4: 'E1-E4',
   E5: 'E5',
   E6: 'E6',
+  // E7-E11 are the five semantic items one extractor produces, and a note
+  // shared between them would have to be vague about all five; the family is
+  // one item wide per language because what each language hides differs.
+  E7: 'E7-E11',
+  E8: 'E7-E11',
+  E9: 'E7-E11',
+  E10: 'E7-E11',
+  E11: 'E7-E11',
 });
 
 /**

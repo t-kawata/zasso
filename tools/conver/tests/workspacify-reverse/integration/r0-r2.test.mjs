@@ -547,3 +547,88 @@ test('IT the graph\'s caveat names, per language, how many mechanisms stand betw
     assert.equal(surface.mechanisms.every((site) => site.language === language), true);
   }
 });
+
+// ---------------------------------------------------------------------------
+// P24-4 — E7-E11 over each of the six representatives, and the tables behind them
+// ---------------------------------------------------------------------------
+
+// @verifies C001
+// @verifies C002
+// @verifies C003
+// [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
+/**
+ * The six representatives run end to end through R3.5.
+ *
+ * The unit suite exercises one representative at a time and reads the module
+ * directly. This asserts the different fact a reader needs: that a real run over
+ * a real tree publishes the vocabulary's own exercise record, so a consumer of
+ * `CLAIM-LEDGER.json` can tell which tables the run used without re-running it.
+ */
+test('IT a run through r3.5 over each of the six representatives publishes the vocabulary tables it exercised', async () => {
+  const { REPRESENTATIVE_ROOTS } = await import('../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs');
+  const { TABLE_EXERCISE_CODES, VOCABULARY_TABLE_IDS } = await import('../../../.claude/scripts/workspacify-reverse/lib/semantics.mjs');
+  const { validateLimitation } = await import('../../../.claude/scripts/workspacify-reverse/lib/analysis-tech.mjs');
+
+  const declaredTables = TARGET_LANGUAGES
+    .flatMap((language) => VOCABULARY_TABLE_IDS.map((table) => `${language}/${table}`))
+    .sort();
+
+  for (const language of TARGET_LANGUAGES) {
+    const out = scratchOutput();
+    try {
+      await analyzeProject({ root: join(PROJECT_ROOT, REPRESENTATIVE_ROOTS[language]), out: out.root, through: 'r3.5' });
+
+      const ledger = JSON.parse(readFileSync(join(out.root, 'CLAIM-LEDGER.json'), 'utf8'));
+      for (const limitation of ledger.limitations) validateLimitation(limitation);
+
+      const records = ledger.limitations.filter(
+        (limitation) => Object.values(TABLE_EXERCISE_CODES).includes(limitation.code),
+      );
+      assert.deepEqual(
+        records.map((record) => record.scope).sort(),
+        declaredTables,
+        `${language}: the ledger names every declared table, so a reader can tell which ones this run used`,
+      );
+      // The run that measured this language names every table, and marks the
+      // five it did not hold as unexercised. What it must not do is leave this
+      // language's own two unexercised while claiming to have read it.
+      const ownTables = records.filter((record) => record.scope.startsWith(`${language}/`));
+      assert.equal(ownTables.length, VOCABULARY_TABLE_IDS.length, `${language}: both of its tables are reported`);
+      assert.ok(
+        ownTables.every((record) => record.code === TABLE_EXERCISE_CODES.exercised),
+        `${language}: the run reached this language's tables rather than inheriting them unexercised`,
+      );
+    } finally {
+      out.dispose();
+    }
+  }
+});
+
+test('IT the six representatives yield E7-E11 material, and each run says which kinds it could not reach', async () => {
+  const { REPRESENTATIVE_ROOTS } = await import('../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs');
+  const { FACT_VOCABULARY, FACT_KINDS, SEMANTIC_FAMILIES } = await import('../../../.claude/scripts/workspacify-reverse/lib/semantics.mjs');
+  const { emptyCoverage } = await import('../../../.claude/scripts/workspacify-reverse/lib/analysis-tech.mjs');
+  const { extractSemantics } = await import('../../../.claude/scripts/workspacify-reverse/lib/semantics.mjs');
+
+  for (const language of TARGET_LANGUAGES) {
+    const root = join(PROJECT_ROOT, REPRESENTATIVE_ROOTS[language]);
+    const semantics = extractSemantics({ root, dependencies: { analysis_mode: 'syntax_only', coverage: emptyCoverage(), limitations: [], root } });
+
+    for (const family of SEMANTIC_FAMILIES) {
+      assert.ok(Array.isArray(semantics.families[family]), `${language}: ${family} is enumerated`);
+    }
+
+    const declared = FACT_KINDS.filter((kind) => (FACT_VOCABULARY[language][kind] ?? []).length > 0).sort();
+    const { observedKinds, unexercisedKinds } = semantics.vocabularyExercise[language];
+    assert.deepEqual(
+      [...new Set([...observedKinds, ...unexercisedKinds])].sort(),
+      declared,
+      `${language}: the observed and unexercised kinds are the declaration`,
+    );
+    assert.deepEqual(
+      observedKinds.filter((kind) => unexercisedKinds.includes(kind)),
+      [],
+      `${language}: a kind is observed or unexercised, never both`,
+    );
+  }
+});

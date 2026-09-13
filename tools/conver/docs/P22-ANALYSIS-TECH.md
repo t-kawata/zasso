@@ -88,11 +88,11 @@ F12, and the vocabulary exists so that a consumer cannot make that substitution 
 | E4 | partial | partial | partial | partial | partial | partial |
 | E5 | partial | partial | partial | partial | partial | partial |
 | E6 | partial | partial | partial | partial | partial | partial |
-| E7 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
-| E8 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
-| E9 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
-| E10 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
-| E11 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
+| E7 | partial | partial | partial | partial | partial | partial |
+| E8 | partial | partial | partial | partial | partial | partial |
+| E9 | partial | partial | partial | partial | partial | partial |
+| E10 | partial | partial | partial | partial | partial | partial |
+| E11 | partial | partial | partial | partial | partial | partial |
 | E12 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
 | E13 | unsupported_in_principle | unsupported_in_principle | unsupported_in_principle | unsupported_in_principle | unsupported_in_principle | unsupported_in_principle |
 | E14 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
