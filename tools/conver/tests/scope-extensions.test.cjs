@@ -76,14 +76,35 @@ test("C001: every extension this repository presents is decided", () => {
   assert.ok(census.has(".js") && census.has(".md"), "and it must see both sides of the decision");
 });
 
-test("C001: the exclusion map is exactly {.json, .md, .sh} and every entry explains itself", () => {
+test("C001: the exclusion map is exactly {.json, .md, .sh, .toml} and every entry explains itself", () => {
+  // The literal below is the written record, not a snapshot of convenience: a
+  // decision that disappears fails here, and a decision that appears without
+  // being added here fails here too. `.toml` joined when P23-2's two-package
+  // fixture brought a third Cargo manifest into the repository and the census
+  // floor caught it — the errand this check exists to run.
   const keys = [...EXCLUDED_SOURCE_EXTENSIONS.keys()].sort();
-  assert.deepStrictEqual(keys, [".json", ".md", ".sh"], "a decision must not vanish unnoticed");
+  assert.deepStrictEqual(keys, [".json", ".md", ".sh", ".toml"], "a decision must not vanish unnoticed");
 
   for (const [extension, reason] of EXCLUDED_SOURCE_EXTENSIONS) {
     assert.strictEqual(typeof reason, "string", extension + " must carry a reason");
     assert.ok(reason.trim().length >= 20, extension + " must carry a reason worth reading, not a shrug");
   }
+});
+
+test("C001: .toml is decided by exclusion, because the annotator writes // into it", () => {
+  // `.toml` crossed the census floor when the reverse-rotation fixtures brought
+  // their Cargo manifests in. The decision cannot be admission: `buildAnnotation`
+  // emits a `//` comment for every file it annotates, and TOML reads `#`, so the
+  // line written would be one the manifest cannot parse rather than provenance.
+  assert.ok(
+    EXCLUDED_SOURCE_EXTENSIONS.has(".toml"),
+    "the Cargo manifests this repository tracks owe a decision, and it is owed by name",
+  );
+  assert.deepStrictEqual(
+    filterSourceFiles(["a.toml"]),
+    [],
+    "and the decision is exclusion: the // this annotator writes would corrupt the manifest",
+  );
 });
 
 test("C001: an undecided extension fails the check and is named", () => {

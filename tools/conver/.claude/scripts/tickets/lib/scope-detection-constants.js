@@ -78,6 +78,14 @@ const EXCLUDED_SOURCE_EXTENSIONS = new Map([
       "0/10 with a definition detected, while a hand-written `function helper() { ` " +
       "fixture does match. Admitting it would annotate nothing while claiming support.",
   ],
+  [
+    ".toml",
+    "Data. A Cargo manifest declares no definition for the parser to bind an " +
+      "annotation to — measured 0 across the manifests this repository tracks — and " +
+      "`buildAnnotation` writes `//`, which TOML does not read as a comment, so " +
+      "admitting it would insert a line the manifest cannot parse rather than record " +
+      "provenance.",
+  ],
 ]);
 
 /**
