@@ -2,6 +2,7 @@
 // @verifies C002
 // @verifies C003
 // [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
 /**
  * The entrance to the reverse rotation, measured through the command line.
  *
@@ -222,8 +223,19 @@ test('C002 invariant / UT-12: each stage adds its own documents and reaches back
     );
     assert.deepEqual(
       atR8.filter((name) => !atR65.includes(name)).sort(),
-      ['CAPABILITY-PROFILE.json', 'ORIGIN-LONG-SPEC.json', 'ORIGIN-LONG-SPEC.md', 'ORIGIN-SPEC-CANDIDATE.json', 'R7-SERVING.md'].sort(),
-      'the documents R7 and R8 add are the only difference',
+      [
+        'ADJUDICATION-CANDIDATES.json',
+        'CAPABILITY-PROFILE.json',
+        'ORIGIN-LONG-SPEC.json',
+        'ORIGIN-LONG-SPEC.md',
+        'ORIGIN-SPEC-CANDIDATE.json',
+        'R7-ADJUDICATION.md',
+        'R7-SECURITY-LANE.md',
+        'R7-SERVING.md',
+        'SECURITY-LANE.json',
+      ].sort(),
+      'the documents R7 and R8 add are the only difference: R7 now serves four — the packet, the security lane, '
+        + 'the adjudication cards — and R8 adds the spec twice and the profile',
     );
   } finally {
     tree.dispose();

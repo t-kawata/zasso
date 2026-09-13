@@ -11,7 +11,7 @@
  * or one that was supposed to become reachable and did not — fails here rather
  * than being rediscovered in a document months later.
  *
- * The remaining five are named rather than counted. A count would go red for
+ * The remaining two are named rather than counted. A count would go red for
  * the wrong reason the moment a module is added, and the interesting fact is
  * *which* entrances are still absent.
  */
@@ -25,11 +25,9 @@ const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '
 const RUN_ENTRY = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/run.mjs');
 const MODULE_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/lib');
 
-/** The modules design §6 records as the absent entrances, minus the five the two stages take. */
+/** The modules design §6 records as the absent entrances, minus the seven the stages take. */
 const STILL_ABSENT = Object.freeze([
-// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
-  'reflexion.mjs',
-  'security-lane.mjs',
+// [::TICKET::] P23-7, P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-7|P23-8) --for-spec --no-implementation-order`.
   'staleness.mjs',
   'two-pass.mjs',
 ]);
@@ -121,15 +119,15 @@ test('C004 invariant — the transitive closure also reaches the counterexample 
   }
 });
 
-test('C004 invariant — nine absent entrances become four, and the four are named', () => {
+test('C004 invariant — nine absent entrances become two, and the two are named', () => {
   const { unreachable } = reachableModules(RUN_ENTRY, MODULE_DIRECTORY);
 
   assert.deepEqual(
     unreachable,
     [...STILL_ABSENT].sort(),
-    'the absent entrances design 6 records, less the four R2.5 reaches and the one R6.5 reaches',
+    'the absent entrances design 6 records, less the four R2.5 reaches, the one R6.5 reaches and the two R7 now serves',
   );
-  assert.equal(unreachable.length, 4, 'nine before the two stages, four after');
+  assert.equal(unreachable.length, 2, 'nine before the stages, two after P23-8');
 });
 
 test('C004 invariant — the closure is recomputed rather than remembered, so a new unreachable module is reported', () => {

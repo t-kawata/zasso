@@ -50,7 +50,33 @@ import {
   resolveSourceMember,
   stemOf,
 } from './claim-ledger.mjs';
-import { renderDecisionCards, renderServing, renderServingMarkdown } from './packet.mjs';
+import {
+  renderDecisionCards,
+  renderServing,
+  renderServingMarkdown,
+  renderWithholdingCounts,
+  renderWithholdingNote,
+} from './packet.mjs';
+// [::TICKET::] P23-8: R7's two more lanes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+import {
+  assertAuthorityRecorded,
+  assertLanesAreSeparate,
+  blockCanonisation,
+  classifySecurityLane,
+  measureFalsification,
+  renderLaneReport,
+} from './security-lane.mjs';
+import {
+  ADJUDICATION_STATES,
+  MISMATCH_KINDS,
+  adjudicateCandidates,
+  assertNoCandidateLost,
+  deriveMismatches,
+  generateCandidates,
+  mapDirNodes,
+  physicalPartition,
+  renderAdjudicationCards,
+} from './reflexion.mjs';
 import {
   buildOriginSpec,
   buildOriginSpecCandidate,
@@ -887,6 +913,23 @@ function publishDocuments(out, documents) {
 }
 
 /**
+ * Record a document under its name when the stage that produces it ran.
+ *
+ * A document whose stage did not run is absent rather than empty. An empty
+ * document reads as a stage that looked and found nothing, which is a different
+ * fact from a stage that was never asked to run — design 2.4's rule that an
+ * unstated zero cannot be told apart from a measured one.
+ *
+ * The map is the local accumulator this function's caller is building, so this
+ * writes into it rather than copying it; the name says what happens and the call
+ * reads as the sentence it is.
+ */
+// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+function publishWhenPresent(documents, name, value) {
+  if (value !== null) documents[name] = value;
+}
+
+/**
  * One ledger gathering every stage's attempts.
  *
  * Each stage that measures reports its own attempts, and the ledger's value is
@@ -1092,6 +1135,347 @@ async function runR65({ root, ledger, redPlan, reconstruction }) {
 // entry point then silently ran a different prefix from the command line's.
 // [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+/** The name the old cycle's partition keeps when its cycle is interrupted: left where it is, and read as material. */
+const DIRS_TREE_FILE = 'RFC-ROOT-Dirs-Tree.json';
+
+/**
+ * Which of the four cases the logical side of the comparison is in.
+ *
+ * Four, not two, because "there is no prior partition", "the prior partition is
+ * on disk and unreadable" and "the prior partition names nothing" are three
+ * different measurements and only the last two are statements about the corpus.
+ * Collapsing them would print an absence over a file that is present, which is
+ * the shape design 2.4 forbids: an unrecorded difference reads the same as no
+ * difference. Each state is a distinct machine-readable value so that a consumer
+ * reading the sidecar — rather than the prose beside it — can tell them apart.
+ */
+export const LOGICAL_PARTITION_STATES = Object.freeze({
+  /** No prior partition on disk — the normal case for a project that came in by pattern 1 or 3. */
+  UNDECIDED: 'undecided',
+  /** A prior partition is on disk and could not be read as JSON. */
+  UNREADABLE: 'unreadable',
+  /** A prior partition on disk that maps no directory. */
+  EMPTY: 'empty',
+  /** A prior partition on disk with at least one mapped directory. */
+  STATED: 'stated',
+});
+
+/** The prior partition as a sorted list, so it serialises and compares in one order. */
+// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+function logicalPartitionOf(dirsTree) {
+  return [...mapDirNodes(dirsTree).entries()]
+    .map(([path, mappedNodeIds]) => ({ path, mappedNodeIds }))
+    .sort((left, right) => compareText(left.path, right.path));
+}
+
+/**
+ * Read the prior partition and say which of the three cases this is.
+ *
+ * The design is explicit that reading the old `*-Dirs-Tree.json` as *the*
+ * partition is failure mode F3 in its most expensive form, because those are the
+ * boundaries the whole act exists to redraw (design 3.2). So the file is read as
+ * material for a comparison and never as an answer: the cards put the prior
+ * beside the measured layout, and what to do about the difference is the reader's.
+ *
+ * A file that is present and unparseable is reported as present, with the reason.
+ * Treating it as absent would allow a broken prior to pass as a project that
+ * never had one, which is a statement the run cannot make.
+ */
+// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+function readPriorPartition(root) {
+  const path = join(root, DIRS_TREE_FILE);
+  if (!existsSync(path)) {
+    return {
+      dirsTree: null,
+      logical: null,
+      logicalState: LOGICAL_PARTITION_STATES.UNDECIDED,
+      logicalReason: `No prior partition is on disk at ${DIRS_TREE_FILE}, which is the normal case for a project that `
+        + 'came in by pattern 1 or 3: the logical partition is undecided, so the cards below are a prompt rather '
+        + 'than a comparison.',
+    };
+  }
+
+  let dirsTree;
+  try {
+    dirsTree = JSON.parse(readFileSync(path, 'utf8'));
+  } catch (error) {
+    return {
+      dirsTree: null,
+      logical: null,
+      // Its own state, not `undecided`: a consumer reading the sidecar has to be
+      // able to tell a project that never had a prior partition from one whose
+      // prior partition is on disk and broken, and only the reason string would
+      // otherwise carry the difference.
+      logicalState: LOGICAL_PARTITION_STATES.UNREADABLE,
+      logicalReason: `A prior partition is on disk at ${DIRS_TREE_FILE} and could not be read (${error.message}), so `
+        + 'the logical partition is undecided for a different reason than absence: the file is present and its '
+        + 'content is unknown.',
+    };
+  }
+
+  const logical = logicalPartitionOf(dirsTree);
+  return {
+    dirsTree,
+    logical,
+    logicalState: logical.length === 0 ? LOGICAL_PARTITION_STATES.EMPTY : LOGICAL_PARTITION_STATES.STATED,
+    logicalReason: logical.length === 0
+      ? `A prior partition is on disk at ${DIRS_TREE_FILE} and names no package, so its emptiness is a measurement `
+        + 'about the prior cycle rather than an absence of one.'
+      : '',
+  };
+}
+
+/**
+ * R7's security lane: the classification, the canonisation blocks it implies, and
+ * the two assertions, run before either is published.
+ *
+ * The lane presents material. `blockCanonisation` is a refusal to canonise and not
+ * a decision to reject, so a blocked claim is published with what it is missing
+ * and the run continues — the distinction between "this document is wrong" (the
+ * assertions throw and nothing is published) and "this claim is blocked" (a record
+ * is published and the run carries on) is carried by which of the two happens.
+ *
+ * The falsification plan is the claim's own recorded evidence. That is the only
+ * observation-channel record this run holds, and `isStrongFalsification` reads
+ * exactly its `evidence_mode` — so the budget is compared against a measurement
+ * the run took rather than against a plan invented at this call site. Today every
+ * record is `source_static` and every lane claim is therefore blocked; the day a
+ * channel observes behaviour, this predicate admits the claim without a second rule.
+ */
+// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+function buildSecurityLane(ledger) {
+  const classification = classifySecurityLane(ledger);
+  // Run on the classification that is about to be published, so a document that
+  // lost a lane fails here rather than passing over an object nothing wrote.
+  assertLanesAreSeparate(classification);
+
+  const blocks = classification.lane.security.map((claim) => {
+    const falsificationPlan = claim.evidence ?? [];
+    return {
+      ...blockCanonisation(claim, { authorityRecord: null, falsificationPlan }),
+      // C002 requires the count found beside the count required, so a reader can
+      // see how far short a plan fell. Both come from the module that owns the
+      // budget rather than from a second count taken at this call site.
+      falsification: measureFalsification(claim, falsificationPlan),
+    };
+  });
+
+  // Every claim the document would mark canonisable must carry an authority
+  // record. No run records a human authority yet, so this is the empty set today
+  // — and the day one is recorded, this is what refuses a claim without it.
+  for (const block of blocks.filter((entry) => entry.canonisation_blocked === false)) {
+    assertAuthorityRecorded(block.authority);
+  }
+
+  return {
+    root: classification.root,
+    classification,
+    blocks,
+    blockedCount: blocks.filter((block) => block.canonisation_blocked).length,
+  };
+}
+
+/**
+ * The adjudication state the cards carry.
+ *
+ * A state belongs to a candidate, and a card draws its options from several. The
+ * step that records decisions is Step 5 and is not a stage of this analysis, so
+ * R7 adjudicates nothing and every candidate — and therefore every card — is
+ * unresolved.
+ *
+ * A set whose candidates disagree is refused rather than summarised. Picking one
+ * candidate's state for a card built from another's options would settle the
+ * question the card asks, and a card that arrives already answered is the
+ * machine taking a judgement reserved for the reader (ABOUT-REVERSE 6.2 item 1).
+ */
+// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+function singleAdjudicationState(candidates) {
+  const states = [...new Set(candidates.map((candidate) => candidate.adjudication))];
+  if (states.length !== 1) {
+    throw new Error(
+      `the candidate set carries ${states.length} different adjudication states (${states.join(', ')}), so the cards `
+      + 'cannot state one: a card draws its options from several candidates, and choosing one of their states would '
+      + 'decide the question the card asks',
+    );
+  }
+  return states[0];
+}
+
+/** How many mismatches of each declared kind, zeros included. */
+// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+function countMismatchesByKind(mismatches) {
+  return Object.fromEntries(
+    MISMATCH_KINDS.map((kind) => [kind, mismatches.filter((mismatch) => mismatch.kind === kind).length]),
+  );
+}
+
+/**
+ * R7's adjudication cards: the two partitions, the cards, and the mismatches the
+ * record must carry.
+ *
+ * The conservation check runs between generation and publication, on the list
+ * that is published. A rendering step cannot then lose what the computation
+ * preserved, because the thing asserted over is the thing written.
+ *
+ * The mismatches are derived over the whole candidate set and then attached to
+ * the card of the directory they belong to, so the count the document states and
+ * the entries a reader can see are the same list rather than two derivations of it.
+ */
+// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+function buildAdjudication({ structure, dependencies, prior }) {
+  const physical = physicalPartition(structure);
+  const priorFacts = {
+    logical: prior.logical,
+    logicalState: prior.logicalState,
+    logicalReason: prior.logicalReason,
+  };
+
+  // A measurement that placed no directory leaves nothing to partition, and this
+  // lane is material: an empty target is a case the analysis already reports
+  // explicitly, and a lane that threw here would be the gate design 1.2 forbids.
+  // So the absence is published as the measurement it is, in the same shape the
+  // serving packet uses for its own empty case.
+  if (physical.groups.length === 0) {
+    return {
+      physical,
+      ...priorFacts,
+      empty: true,
+      generated: [],
+      candidates: [],
+      cards: [],
+      adjudicationState: ADJUDICATION_STATES[0],
+      withheld: [],
+      mismatches: [],
+      recordedMismatchCount: 0,
+      mismatchCounts: countMismatchesByKind([]),
+      mismatchCountsByCandidate: {},
+      cardsWithNoMismatch: 0,
+    };
+  }
+
+  const generated = generateCandidates({ structure, dependencies, dirsTree: prior.dirsTree });
+  const candidates = adjudicateCandidates(generated);
+  assertNoCandidateLost(generated, candidates);
+
+  const { cards, withheld } = renderAdjudicationCards(candidates);
+  const mismatches = candidates.flatMap((candidate) => deriveMismatches(candidate, physical));
+  const adjudicationState = singleAdjudicationState(candidates);
+  const cardsWithState = cards.map((card) => ({
+    ...card,
+    adjudication: adjudicationState,
+    mismatches: mismatches.filter((mismatch) => mismatch.path === card.scope),
+  }));
+
+  return {
+    physical,
+    ...priorFacts,
+    empty: false,
+    generated,
+    candidates,
+    cards: cardsWithState,
+    // The single state the cards carry, published beside them so a reader can
+    // check each card against it rather than having to infer it from the set.
+    adjudicationState,
+    withheld,
+    mismatches,
+    recordedMismatchCount: mismatches.length,
+    mismatchCounts: countMismatchesByKind(mismatches),
+    mismatchCountsByCandidate: Object.fromEntries(candidates.map((candidate) => [
+      candidate.candidate_id,
+      mismatches.filter((mismatch) => mismatch.candidate_id === candidate.candidate_id).length,
+    ])),
+    cardsWithNoMismatch: cardsWithState.filter((card) => card.mismatches.length === 0).length,
+  };
+}
+
+/** R7's security lane as the Markdown a human reads before holding authority. */
+// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+function renderSecurityLaneMarkdown(lane) {
+  return [
+    renderLaneReport(lane.classification),
+    '',
+    '## What is blocked from canonisation',
+    '',
+    ...renderWithholdingCounts({ served: lane.classification.counts.security, withheld: 0 }),
+    `- blocked from canonisation: ${lane.blockedCount}`,
+    '',
+    ...lane.blocks
+      .filter((block) => block.canonisation_blocked)
+      .flatMap((block) => [
+        `- \`${block.claim_id}\` — ${block.reason}`,
+        `  - falsification channels found: ${block.falsification.channelsFound}, required: ${block.falsification.channelsRequired}`,
+      ]),
+    '',
+    'A blocked claim is withheld from canonisation, not from this page: every one of them is listed above,',
+    'and the block is a refusal to promote it into what the code ought to do. Whether the authority for a',
+    'safety boundary is the right authority is not mechanisable and is not claimed here; the lane publishes',
+    'which authority is required and leaves the judgement with the reader (ABOUT-REVERSE 4.6).',
+    '',
+  ].join('\n');
+}
+
+/** R7's adjudication cards as the Markdown that puts the two partitions side by side. */
+// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+function renderAdjudicationMarkdown(adjudication) {
+  if (adjudication.empty) {
+    return [
+      '# Adjudication cards — the logical boundary and the physical one, side by side',
+      '',
+      'This card set is empty. The structure measurement placed no directory, so there was no boundary to put',
+      'beside another: that is an explicit empty result from a run that looked, not a report that merely looks',
+      'short, and no candidate was dropped in producing it — there was none to drop.',
+      '',
+    ].join('\n');
+  }
+
+  const logicalLines = adjudication.logicalState === LOGICAL_PARTITION_STATES.STATED
+    ? adjudication.logical.map((entry) => `- \`${entry.path}\` — ${entry.mappedNodeIds.map((node) => node.nodeId).join(', ')}`)
+    : [adjudication.logicalReason];
+
+  return [
+    '# Adjudication cards — the logical boundary and the physical one, side by side',
+    '',
+    'These cards present two partitions and decide neither. Which partition the RFC records is the first of',
+    'the six judgements ABOUT-REVERSE 6.2 reserves for the AI, and a document that picked one would take it.',
+    '',
+    '## Physical partition',
+    '',
+    ...adjudication.physical.groups.map((group) => `- \`${group.name}\``),
+    '',
+    '## Logical partition',
+    '',
+    ...logicalLines,
+    '',
+    '## Cards',
+    '',
+    ...renderWithholdingCounts({ served: adjudication.cards.length, withheld: adjudication.withheld.length }),
+    `- cards with no mismatch: ${adjudication.cardsWithNoMismatch}`,
+    ...MISMATCH_KINDS.map((kind) => `- ${kind}: ${adjudication.mismatchCounts[kind]}`),
+    '',
+    ...adjudication.cards.flatMap((card) => [
+      `### \`${card.scope}\``,
+      '',
+      `- adjudication: ${card.adjudication}`,
+      `- options: ${card.options.length}`,
+      `- mismatches: ${card.mismatches.length === 0 ? 'none' : card.mismatches.map((mismatch) => `${mismatch.kind} \`${mismatch.path}\``).join(', ')}`,
+      '',
+    ]),
+    '## What was withheld',
+    '',
+    ...renderWithholdingNote({
+      withheldCount: adjudication.withheld.length,
+      subject: 'measured directory entries',
+      entries: adjudication.withheld.map((entry) => ({ count: 1, reason: `\`${entry.directory}\` — ${entry.reason}` })),
+    }),
+    '',
+    'A candidate whose mismatches are zero agrees with the measured layout by construction, which is what that',
+    'rule asserts rather than a finding about the architecture: a zero difference is a signal rather than a clean',
+    'result (design 2.4, F1). A mismatch recorded above is not a contradiction — a contradiction is an',
+    '*unrecorded* inconsistency, and the record is this page.',
+    '',
+  ].join('\n');
+}
+
 export async function analyzeProject({
   root,
   out,
@@ -1247,6 +1631,24 @@ export async function analyzeProject({
   const serving = stagesRun.includes('r7') && ledger !== null
     ? runStage('r7', () => renderServing(ledger, { layered: true }))
     : null;
+  // R7's two more lanes. N3 and N4 were both modules complete, tested and
+  // unreachable: a classification nothing read and a card set nothing rendered.
+  // Each is built here, asserted against itself before publication, and published
+  // twice — once as the Markdown a human reads and once as the JSON a later
+  // consumer reads without parsing prose.
+  const securityLane = stagesRun.includes('r7') && ledger !== null
+    ? runStage('r7', () => buildSecurityLane(ledger))
+    : null;
+  // The cards consume R1, R2 and the prior partition, so they are built only when
+  // all three stages ran: `generateCandidates` refuses half the evidence rather
+  // than deriving candidates from it (see `requireMeasurements`).
+  const adjudication = stagesRun.includes('r7') && structure !== null && dependencies !== null
+    ? runStage('r7', () => buildAdjudication({
+      structure,
+      dependencies,
+      prior: readPriorPartition(scope.root),
+    }))
+    : null;
   const originSpec = stagesRun.includes('r8') && ledger !== null
     ? runStage('r8', () => validateOriginSpec(
       buildOriginSpec({ root: scope.root, ledger, treeHash: before.sha256 }),
@@ -1357,6 +1759,10 @@ export async function analyzeProject({
   // beside it so the two cannot disagree. The candidate is the form the final
   // comparison against the answer key consumes.
   if (serving !== null) documents['R7-SERVING.md'] = renderServingMarkdown(serving);
+  publishWhenPresent(documents, 'SECURITY-LANE.json', securityLane);
+  publishWhenPresent(documents, 'R7-SECURITY-LANE.md', securityLane === null ? null : renderSecurityLaneMarkdown(securityLane));
+  publishWhenPresent(documents, 'ADJUDICATION-CANDIDATES.json', adjudication);
+  publishWhenPresent(documents, 'R7-ADJUDICATION.md', adjudication === null ? null : renderAdjudicationMarkdown(adjudication));
   if (originSpec !== null) {
     documents['ORIGIN-LONG-SPEC.json'] = originSpec;
     documents['ORIGIN-LONG-SPEC.md'] = renderOriginSpec(originSpec);
@@ -1382,6 +1788,8 @@ export async function analyzeProject({
     counterexamples,
     properties,
     serving,
+    securityLane,
+    adjudication,
     originSpec,
     profile,
     attempts,

@@ -589,7 +589,14 @@ export function renderServingMarkdown(serving) {
 
   for (const claim of serving.served) lines.push(...renderServedCard(claim));
 
-  lines.push(...renderWithholdingNote(serving));
+  lines.push(...renderWithholdingNote({
+    withheldCount: serving.withheldFromServing,
+    subject: 'unresolved claim(s)',
+    entries: serving.withheld.map((entry) => ({
+      count: entry.count,
+      reason: `${WITHHOLDING_RULES[entry.rule]}${renderScopes(entry.scopes)}`,
+    })),
+  }));
 
   return lines.join('\n');
 }
@@ -648,18 +655,47 @@ function renderServedCard(claim) {
   return lines;
 }
 
-/** What was not printed, and the rule each part of it was withheld under. */
-// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
-function renderWithholdingNote(serving) {
-  if (serving.withheldFromServing === 0) return [];
+/**
+ * What a document did not print, and the reason each part of it was withheld.
+ *
+ * One implementation for every R7 document. "State what you withheld and why" is
+ * the rule that keeps a page from reading as the whole of what was left open
+ * (design 2.4: a difference of zero may be a signal rather than health), and
+ * three documents stating it three ways is three different rules. A document
+ * that withheld nothing gets no note — that is the discipline reporting an empty
+ * result, not the discipline skipped, which is why the count is stated
+ * separately by `renderWithholdingCounts` even when it is zero.
+ *
+ * @param {{withheldCount: number, subject: string, entries: Array<{count: number, reason: string}>}} withholding
+ * @returns {string[]} Markdown lines, empty when nothing was withheld
+ */
+// [::TICKET::] P23-3, P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-3|P23-8) --for-spec --no-implementation-order`.
+export function renderWithholdingNote({ withheldCount, subject, entries }) {
+  if (withheldCount === 0) return [];
 
   return [
-    `${serving.withheldFromServing} further unresolved claim(s) were not printed here. They are withheld,`,
+    `${withheldCount} further ${subject} were not printed here. They are withheld,`,
     'not dropped: the JSON beside this report carries every one of them, and the count is stated so that',
     'this page cannot read as the whole of what was left open.',
     '',
-    ...serving.withheld.map((entry) => `- ${entry.count} withheld — ${WITHHOLDING_RULES[entry.rule]}${renderScopes(entry.scopes)}`, ''),
+    ...entries.map((entry) => `- ${entry.count} withheld — ${entry.reason}`, ''),
   ];
+}
+
+/**
+ * The counts a document states about itself.
+ *
+ * Stated even at zero. A page that prints its served count and omits its withheld
+ * count reads as one that withheld nothing, and "nothing was withheld" and "the
+ * count was never taken" are different facts — the second is the shape F1 warns
+ * about, where an unstated zero is indistinguishable from a measured one.
+ *
+ * @param {{served: number, withheld: number}} counts
+ * @returns {string[]} Markdown lines
+ */
+// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+export function renderWithholdingCounts({ served, withheld }) {
+  return [`- served: ${served}`, `- withheld: ${withheld}`, ''];
 }
 
 /** `, covering \`a\`, \`b\`` when any scope is named, and nothing when none is. */

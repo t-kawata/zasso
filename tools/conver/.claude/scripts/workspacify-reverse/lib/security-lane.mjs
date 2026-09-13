@@ -273,8 +273,8 @@ function isWithinRoot(root, absolutePath) {
  * Two questions are answered separately because they mean different things: an
  * anchor outside the population names nothing that was measured, and an anchor
  * inside it whose line cannot be read is text that is missing. Collapsing them
- * would let a claim about something outside the corpus be classified from its own
- * path, which reads as a measurement while being none.
+ * would allow a claim about something outside the corpus to be classified from
+ * its own path, which reads as a measurement while being none.
  */
 // [::TICKET::] P22-22 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-22 --for-spec --no-implementation-order`.
 function createAnchorReader(root) {
@@ -567,23 +567,46 @@ export function assertAuthorityRecorded(authorityRecord) {
  * absence is invisible in the source that is present. Re-reading the text is
  * therefore not a falsification of it, however many times it is done: the plan
  * must name a channel that observes behaviour, and enough distinct channels to
- * meet the declared budget.
+ * meet the declared budget. `measureFalsification` below is the same reading with
+ * its counts; this predicate is that measurement's `strong` field.
  *
  * @param {object} claim
  * @param {Array<{ channel: string, evidence_mode: string }>} falsificationPlan
  * @returns {boolean}
  */
 export function isStrongFalsification(claim, falsificationPlan = []) {
-  if (typeof claim?.falsification !== 'string' || claim.falsification.trim().length === 0) return false;
+  return measureFalsification(claim, falsificationPlan).strong;
+}
 
+/**
+ * The same reading as the predicate, with both counts stated.
+ *
+ * A caller that reports why a claim was blocked has to state the count found
+ * beside the count required (C002). Counting the channels a second time at that
+ * call site would put a second reading of the budget beside the first, so the
+ * measurement is taken once here and both the predicate and the report consume it.
+ *
+ * @param {object} claim
+ * @param {Array<{ channel: string, evidence_mode: string }>} falsificationPlan
+ * @returns {{ falsification_stated: boolean, channelsFound: number, channelsRequired: number, observesBehaviour: boolean, strong: boolean }}
+ */
+// [::TICKET::] P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-8 --for-spec --no-implementation-order`.
+export function measureFalsification(claim, falsificationPlan = []) {
+  const falsificationStated = typeof claim?.falsification === 'string' && claim.falsification.trim().length > 0;
   const modes = new Set(
     (Array.isArray(falsificationPlan) ? falsificationPlan : [])
       .map((channel) => channel?.evidence_mode)
       .filter((mode) => EVIDENCE_MODES.includes(mode)),
   );
-  if (modes.size < LANE_FALSIFICATION_BUDGET) return false;
+  const observesBehaviour = [...modes].some((mode) => mode !== SOURCE_STATIC_MODE);
 
-  return [...modes].some((mode) => mode !== SOURCE_STATIC_MODE);
+  return {
+    falsification_stated: falsificationStated,
+    channelsFound: modes.size,
+    channelsRequired: LANE_FALSIFICATION_BUDGET,
+    observesBehaviour,
+    strong: falsificationStated && modes.size >= LANE_FALSIFICATION_BUDGET && observesBehaviour,
+  };
 }
 
 /**
@@ -605,7 +628,7 @@ export function blockCanonisation(claim, { authorityRecord = null, falsification
 
   // Only an explicitly ordinary claim is outside this gate. A claim that never
   // went through classification has no settled membership, and answering "the gate
-  // does not apply" there would let a high-risk claim pass by never being
+  // does not apply" there would allow a high-risk claim to pass by never being
   // classified — which is the whole failure the lane exists to prevent.
   if (settledLane !== LANE_MEMBERSHIP.SECURITY && settledLane !== LANE_MEMBERSHIP.ORDINARY) {
     return Object.freeze({
