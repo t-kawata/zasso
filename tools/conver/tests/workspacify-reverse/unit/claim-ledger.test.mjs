@@ -12,18 +12,32 @@
  * question the ledger says `unknown` instead of guessing and calling the guess
  * proof.
  */
+// @verifies C003
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync, symlinkSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { createSyntheticTree } from '../helpers/scratch.mjs';
 import { REPORT_LIST_LIMIT, emptyCoverage } from '../../../.claude/scripts/workspacify-reverse/lib/analysis-tech.mjs';
 
 import {
+  CLAIM_FAMILY_UNREADABLE_CODE,
   buildClaimLedger,
   buildEvidence,
   classifyClaim,
+  demoteObservedDynamicClaims,
   renderClaimLedger,
 } from '../../../.claude/scripts/workspacify-reverse/lib/claim-ledger.mjs';
+
+/**
+ * The published probe R2.5 and R3.5 were measured against. C003's invariant is
+ * asserted over this rather than over a fixture, because 4,460 claims joined
+ * against 792 mechanisms is a real test of the join and a fixture is not.
+ */
+const PROBE_LEDGER_PATH = fileURLToPath(new URL('../analysis/CLAIM-LEDGER.json', import.meta.url));
+const PROBE_SURFACE_PATH = fileURLToPath(new URL('../analysis/EXECUTION-SURFACE.json', import.meta.url));
 import {
   computeIndependence,
   countIndependentSupport,
@@ -418,4 +432,249 @@ test('the ledger carries no undefined field, so it can be serialised', () => {
     assert.equal(claim.independence_policy, INDEPENDENCE_POLICY);
   }
   subject.dispose();
+});
+
+// ---------------------------------------------------------------------------
+// C003 — rule R-1: a claim that depends on a dynamic mechanism is not observed
+// on source evidence alone
+// ---------------------------------------------------------------------------
+
+/** A mechanism in the shape R2.5's surface emits. */
+// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+function couplingMechanism(kind, file, line) {
+  return { id: `${kind}:${file}:${line}`, kind, file, line, spelling: '', note: '' };
+}
+
+/** A claim anchored at one source span, in the shape the ledger's families build. */
+// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+function anchoredClaim({ id, type = 'observed', file, line, basis = [], grillQuestion = '', mechanisms = null }) {
+  const claim = {
+    claim_id: id,
+    subjectKind: 'boundary_crossing',
+    claim_type: type,
+    scope: 'src',
+    provider: 'src/api',
+    statement: `src consumes src/api through the reference at ${file}:${line}`,
+    evidence: [
+      {
+        evidence_id: `ev-impl-${file.split('/').join('_')}-${line}`,
+        source_kind: 'impl',
+        evidence_mode: 'source_static',
+        source_span: { file, line },
+        lineage_edges: [],
+      },
+    ],
+    basis: [...basis],
+    counterevidence: [],
+    falsification: `remove the reference at ${file}:${line} and observe whether the consumer still resolves`,
+    grill_question: grillQuestion,
+    normative_decision_id: null,
+  };
+  if (mechanisms !== null) claim.mechanisms = mechanisms;
+  return claim;
+}
+
+test('C003 precondition — a claim carries an evidence mode per item and the mechanism identifier it depends on', () => {
+  const ledger = demoteObservedDynamicClaims({
+    mechanisms: [couplingMechanism('dynamic_dispatch', 'src/handler.rs', 5)],
+    claims: [anchoredClaim({ id: 'clm-handler-5', file: 'src/handler.rs', line: 5 })],
+  });
+
+  assert.deepEqual(
+    ledger.claims[0].mechanisms,
+    ['dynamic_dispatch:src/handler.rs:5'],
+    'the join is by the source span the claim is anchored at, and the mechanism it lands on is recorded on the claim',
+  );
+  assert.equal(ledger.claims[0].demotion.rule, 'R-1');
+});
+
+test('C003 postcondition — a claim on source_static evidence that depends on a dynamic mechanism is demoted, and the demotion names the mechanism', () => {
+  const ledger = demoteObservedDynamicClaims({
+    mechanisms: [couplingMechanism('dynamic_dispatch', 'src/handler.rs', 5)],
+    claims: [anchoredClaim({ id: 'clm-handler-5', file: 'src/handler.rs', line: 5 })],
+  });
+  const claim = ledger.claims[0];
+
+  assert.equal(claim.claim_type, 'unresolved', 'the demotion target is unresolved when there is no basis to infer from');
+  assert.ok(claim.grill_question.length > 0, 'unresolved requires the question it hands to the grill');
+  assert.match(claim.grill_question, /dynamic_dispatch:src\/handler\.rs:5/);
+  assert.equal(claim.demotion.from, 'observed');
+  assert.deepEqual(claim.demotion.mechanisms, ['dynamic_dispatch:src/handler.rs:5']);
+  assert.ok(claim.demotion.rationale.length > 0, 'the demotion states why it fired');
+  assert.ok(claim.statement.length > 0, 'a demoted claim keeps its statement');
+  assert.ok(claim.falsification.length > 0, 'a demoted claim keeps its falsification');
+  assert.equal(claim.evidence.length, 1, 'a demoted claim keeps its evidence');
+  assert.deepEqual(ledger.demotion.demoted, ['clm-handler-5']);
+});
+
+test('C003 postcondition — a claim that already carries a basis is demoted to inferred, with the rationale appended to that basis', () => {
+  const ledger = demoteObservedDynamicClaims({
+    mechanisms: [couplingMechanism('ffi', 'src/bridge.rs', 9)],
+    claims: [
+      anchoredClaim({
+        id: 'clm-bridge-9',
+        file: 'src/bridge.rs',
+        line: 9,
+        basis: ['the crossing exists in the text; that it is a contract is an inference'],
+      }),
+    ],
+  });
+  const claim = ledger.claims[0];
+
+  assert.equal(claim.claim_type, 'inferred');
+  assert.equal(claim.basis.length, 2);
+  assert.match(claim.basis[1], /ffi:src\/bridge\.rs:9/);
+});
+
+test('C003 postcondition — a claim with no dynamic dependency keeps its class', () => {
+  const ledger = demoteObservedDynamicClaims({
+    mechanisms: [couplingMechanism('ffi', 'src/other.rs', 9)],
+    claims: [anchoredClaim({ id: 'clm-account-5', file: 'src/account.rs', line: 5 })],
+  });
+
+  assert.equal(ledger.claims[0].claim_type, 'observed');
+  assert.equal(ledger.claims[0].demotion, undefined);
+  assert.deepEqual(ledger.demotion.demoted, []);
+  assert.equal(ledger.demotion.considered, 1);
+});
+
+test('C003 boundary — the predicate is "entirely source_static", not "contains source_static"', () => {
+  const claim = anchoredClaim({ id: 'clm-mixed-5', file: 'src/handler.rs', line: 5 });
+  claim.evidence = [
+    ...claim.evidence,
+    {
+      evidence_id: 'ev-build-src_handler.rs-5',
+      source_kind: 'build',
+      evidence_mode: 'build_semantic',
+      source_span: { file: 'src/handler.rs', line: 5 },
+      lineage_edges: [],
+    },
+  ];
+  const ledger = demoteObservedDynamicClaims({
+    mechanisms: [couplingMechanism('dynamic_dispatch', 'src/handler.rs', 5)],
+    claims: [claim],
+  });
+
+  assert.equal(ledger.claims[0].claim_type, 'observed', 'one non-source_static item is enough for the predicate not to hold');
+  assert.deepEqual(ledger.demotion.demoted, []);
+});
+
+test('C003 boundary — a claim a rule would demote that is not observed is left alone, so the rule fires once and not repeatedly', () => {
+  const ledger = demoteObservedDynamicClaims({
+    mechanisms: [couplingMechanism('dynamic_dispatch', 'src/handler.rs', 5)],
+    claims: [anchoredClaim({ id: 'clm-already', type: 'inferred', file: 'src/handler.rs', line: 5, basis: ['x'] })],
+  });
+
+  assert.equal(ledger.claims[0].claim_type, 'inferred');
+  assert.deepEqual(ledger.demotion.demoted, []);
+});
+
+test('C003 postcondition — a claim naming a mechanism the ledger cannot resolve, with neither a basis nor a grill_question, is refused by name', () => {
+  assert.throws(
+    () =>
+      demoteObservedDynamicClaims({
+        mechanisms: [],
+        claims: [
+          anchoredClaim({
+            id: 'clm-unmatched',
+            file: 'src/handler.rs',
+            line: 5,
+            mechanisms: ['dynamic_dispatch:src/gone.rs:99'],
+          }),
+        ],
+      }),
+    (error) => {
+      assert.match(error.message, /clm-unmatched/);
+      assert.match(error.message, /grill_question|basis/);
+      return true;
+    },
+  );
+});
+
+test('C003 postcondition — a claim naming a mechanism the ledger cannot resolve but carrying a grill_question becomes unresolved rather than being dropped', () => {
+  const ledger = demoteObservedDynamicClaims({
+    mechanisms: [],
+    claims: [
+      anchoredClaim({
+        id: 'clm-unmatched-asked',
+        file: 'src/handler.rs',
+        line: 5,
+        grillQuestion: 'Which implementation does the dispatch at src/handler.rs:5 select?',
+        mechanisms: ['dynamic_dispatch:src/gone.rs:99'],
+      }),
+    ],
+  });
+
+  assert.equal(ledger.claims[0].claim_type, 'unresolved');
+  assert.deepEqual(ledger.demotion.unmatched, ['dynamic_dispatch:src/gone.rs:99']);
+  assert.deepEqual(ledger.demotion.demoted, ['clm-unmatched-asked']);
+});
+
+test('C003 invariant — the walk over the real probe ledger finds no observed claim on source_static evidence alone that depends on a dynamic mechanism', () => {
+  const probeLedger = JSON.parse(readFileSync(PROBE_LEDGER_PATH, 'utf8'));
+  const probeSurface = JSON.parse(readFileSync(PROBE_SURFACE_PATH, 'utf8'));
+  const demoted = demoteObservedDynamicClaims({ ...probeLedger, mechanisms: probeSurface.mechanisms });
+
+  const violating = demoted.claims.filter(
+    (claim) =>
+      claim.claim_type === 'observed' &&
+      (claim.mechanisms ?? []).length > 0 &&
+      (claim.evidence ?? []).every((item) => item.evidence_mode === 'source_static'),
+  );
+  assert.deepEqual(violating.map((claim) => claim.claim_id), [], 'R-1 is total over its predicate on the real probe ledger');
+
+  assert.ok(demoted.demotion.demoted.length >= 1, 'the rule fires on the real ledger rather than being vacuous');
+  assert.equal(demoted.byClass.observed, 336, 'the rule demotes the one claim the join finds and no more');
+  assert.ok(demoted.byClass.observed > 0, 'a rule that emptied the ledger of observed claims would read as a clean, wrong result');
+  assert.deepEqual(demoted.demotion.unmatched, []);
+});
+
+test('C003 invariant — the join fires on the real ledger at the line the claim is anchored at, not at every file that holds a mechanism', () => {
+  const probeLedger = JSON.parse(readFileSync(PROBE_LEDGER_PATH, 'utf8'));
+  const probeSurface = JSON.parse(readFileSync(PROBE_SURFACE_PATH, 'utf8'));
+  const demoted = demoteObservedDynamicClaims({ ...probeLedger, mechanisms: probeSurface.mechanisms });
+
+  for (const claim of demoted.claims) {
+    if ((claim.mechanisms ?? []).length === 0) continue;
+    const anchors = claim.evidence.map((item) => `${item.source_span.file}:${item.source_span.line}`);
+    for (const id of claim.mechanisms) {
+      const mechanism = probeSurface.mechanisms.find((item) => item.id === id);
+      assert.ok(
+        anchors.includes(`${mechanism.file}:${mechanism.line}`),
+        `${claim.claim_id} names ${id}, which must sit at the line the claim is anchored at`,
+      );
+    }
+  }
+});
+
+test('C003 invariant — a source file the walker listed and could not read is recorded as a limit, not thrown from', () => {
+  // The population R0 measures includes entries the run cannot read — a dangling
+  // symlink, a permission the process does not hold. Reading one of them threw
+  // out of the whole stage, which turned a limit of the walk into a failed run
+  // and made the ledger's dependency on R0's completeness invisible.
+  const subject = createSyntheticTree({
+    'src/api/login.rs': 'use crate::error::LoginError;\nassert!(true);\n',
+    'src/error.rs': 'pub enum LoginError {\n    Locked,\n}\n',
+  });
+  symlinkSync(join(subject.root, 'src', 'missing.rs'), join(subject.root, 'src', 'gone.rs'));
+  try {
+    const ledger = buildClaimLedger({ root: subject.root });
+
+    assert.ok(ledger.claims.length > 0, 'the readable part of the population still yields its claims');
+    const limit = ledger.limitations.find((item) => item.code === CLAIM_FAMILY_UNREADABLE_CODE);
+    assert.ok(limit, 'a file that is in the population and could not be read is reported, never dropped');
+    assert.equal(limit.scope, 'src/gone.rs');
+    assert.match(limit.effect, /could not be read/i);
+    assert.equal(
+      ledger.limitations.filter((item) => item.code === CLAIM_FAMILY_UNREADABLE_CODE).length,
+      1,
+      'the file is reported once, however many claim families would have read it',
+    );
+    assert.ok(
+      ledger.claims.every((claim) => !claim.claim_id.includes('gone')),
+      'no claim is anchored in a file that could not be read',
+    );
+  } finally {
+    subject.dispose();
+  }
 });

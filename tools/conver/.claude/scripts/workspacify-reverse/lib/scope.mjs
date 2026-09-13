@@ -71,6 +71,7 @@ import { generatePropertyTests, renderPropertyTestReport } from './property-test
 import { historyFromGit } from './evidence-independence.mjs';
 import { measureDependencies, renderDependencyReport } from './dependencies.mjs';
 import { measureExecutionSurface, renderExecutionSurfaceReport } from './execution-surface.mjs';
+import { measureDynamicCoupling, renderDynamicCoupling } from './dynamic-coupling.mjs';
 import { canonicalSerialize } from '../../workspacify-tree/lib/canonical-json.mjs';
 
 /**
@@ -885,6 +886,27 @@ function publishDocuments(out, documents) {
 }
 
 /**
+ * One ledger gathering every stage's attempts.
+ *
+ * Each stage that measures reports its own attempts, and the ledger's value is
+ * that they are counted in one place: "analysed and found nothing" and "could
+ * not analyse" are told apart by the two counts only because every attempt is
+ * beside every other. Naming the five sources once here keeps the assembly
+ * readable as the sentence it is, rather than as a spread that widens every
+ * time a stage is added.
+ */
+// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+export function buildAnalysisAttemptLedger({ structure, dependencies, surface, semantics, dynamicCoupling }) {
+  return buildAttemptLedger([
+    ...(structure?.attempts ?? []),
+    ...(dependencies?.attempts ?? []),
+    ...(surface?.attempts ?? []),
+    ...(semantics?.attempts ?? []),
+    ...(dynamicCoupling?.attempts ?? []),
+  ]);
+}
+
+/**
  * The report a human and an AI read: what ran, what was measured, what was not.
  *
  * The design's rule is that anything read in order to decide is Markdown in
@@ -900,6 +922,7 @@ export function renderAnalysisReport(run) {
     structure,
     dependencies,
     surface,
+    dynamicCoupling = null,
     semantics = null,
     ledger = null,
     history = null,
@@ -938,6 +961,7 @@ export function renderAnalysisReport(run) {
   if (structure !== null) lines.push(renderStructureReport(structure));
   if (dependencies !== null) lines.push(renderDependencyReport(dependencies));
   if (surface !== null) lines.push(renderExecutionSurfaceReport(surface));
+  if (dynamicCoupling !== null) lines.push(renderDynamicCoupling(dynamicCoupling));
   if (semantics !== null) lines.push(renderSemanticsReport(semantics));
   if (ledger !== null) lines.push(renderClaimLedger(ledger));
   if (history !== null) lines.push(renderHistoryRecord(history));
@@ -1093,6 +1117,18 @@ export function analyzeProject({
   const surface = stagesRun.includes('r2.5')
     ? runStage('r2.5', () => measureExecutionSurface({ root: scope.root, excludedPaths }))
     : null;
+  // R2.5's dynamic half joins the static list against what a session inside a
+  // disposable copy actually observed. It is the first stage that does more
+  // than read, which is why the sandbox and not the subject tree is where the
+  // session runs, and why the run's own before-and-after digest below is the
+  // second, independent check that the subject did not move.
+  const dynamicCoupling = surface === null
+    ? null
+    : runStage('r2.5', () => measureDynamicCoupling({
+      root: scope.root,
+      staticMechanisms: surface.mechanisms,
+      sandboxOptions: {},
+    }));
   const structure = stagesRun.includes('r1')
     ? runStage('r1', () => measureStructure({ root: scope.root, excludedPaths }))
     : null;
@@ -1117,6 +1153,11 @@ export function analyzeProject({
       root: scope.root,
       excludedPaths,
       history: historyFromGit(scope.root, { files: inScopePaths }),
+      // R-1 is enforced where the claims first exist, and the mechanisms it is
+      // enforced against are R2.5's measurement rather than one re-derived here.
+      // A stage that measured its own surface would be free to disagree with the
+      // one published beside it.
+      mechanisms: surface?.mechanisms ?? [],
     }))
     : null;
 
@@ -1180,12 +1221,7 @@ export function analyzeProject({
     );
   }
 
-  const attempts = buildAttemptLedger([
-    ...(structure?.attempts ?? []),
-    ...(dependencies?.attempts ?? []),
-    ...(surface?.attempts ?? []),
-    ...(semantics?.attempts ?? []),
-  ]);
+  const attempts = buildAnalysisAttemptLedger({ structure, dependencies, surface, semantics, dynamicCoupling });
   const report = renderAnalysisReport({
     scope,
     boundary,
@@ -1193,6 +1229,7 @@ export function analyzeProject({
     structure,
     dependencies,
     surface,
+    dynamicCoupling,
     semantics,
     ledger,
     history,
@@ -1227,6 +1264,10 @@ export function analyzeProject({
   if (structure !== null) documents['STRUCTURE.json'] = structure;
   if (dependencies !== null) documents['DEPENDENCIES.json'] = dependencies;
   if (surface !== null) documents['EXECUTION-SURFACE.json'] = surface;
+  // The dynamic half's document is published beside the static one it is the
+  // counterpart of, so a reader comparing the two surfaces reads them from the
+  // same run and cannot be shown one that disagrees with the other.
+  if (dynamicCoupling !== null) documents['DYNAMIC-COUPLING.json'] = dynamicCoupling;
   // R3's raw facts are deliberately not published as a sidecar. The design's
   // sidecar list names `CLAIM-LEDGER.json` and an evidence registry, not a dump
   // of every enumerated fact — and on the subject corpus that dump is thirty

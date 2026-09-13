@@ -84,6 +84,12 @@ import {
   measureExecutionSurface,
   renderExecutionSurfaceReport,
 } from '../../../.claude/scripts/workspacify-reverse/lib/execution-surface.mjs';
+import {
+  DYNAMIC_CHANNEL_REASONS,
+  DYNAMIC_DIFFERENCE_SETS,
+  DYNAMIC_MECHANISM_STATUSES,
+  renderDynamicCoupling,
+} from '../../../.claude/scripts/workspacify-reverse/lib/dynamic-coupling.mjs';
 // [::TICKET::] P23-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-4 --for-spec --no-implementation-order`.
 import {
   DANGER_SIGNALS,
@@ -2006,4 +2012,183 @@ test('UT: [Normal] a subject sitting inside another repository\'s work tree is r
   assert.match(history.evidence[0].note, /c0ffee123456/);
   assert.equal(scopeOf.target_commit.commit, null, 'the synthetic tree really is not a repository');
   subject.dispose();
+});
+
+// ---------------------------------------------------------------------------
+// R2.5's dynamic half — the document, the ledger and the difference
+// ---------------------------------------------------------------------------
+
+// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+test('UT — a full R2.5 run publishes DYNAMIC-COUPLING.json carrying the static list and the dynamic record', () => {
+  const tree = syntheticCrateTree();
+  const out = outputDirectory();
+  analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R2_5 });
+
+  const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
+  assert.equal(coupling.stage, 'r2.5');
+  assert.equal(typeof coupling.dynamicChannel.ran, 'boolean');
+  assert.ok(coupling.caveat.length > 0, 'the document carries the caveat a reader decides from');
+
+  const surface = JSON.parse(readFileSync(join(out.root, 'EXECUTION-SURFACE.json'), 'utf8'));
+  if (coupling.dynamicChannel.ran) {
+    assert.equal(coupling.mechanisms.length, surface.mechanisms.length, 'every listed mechanism is placed or the run is not complete');
+  }
+  assert.equal(coupling.difference.both.count, coupling.difference.both.members.length);
+  assert.equal(coupling.difference.staticOnly.count, coupling.difference.staticOnly.members.length);
+  assert.equal(coupling.difference.dynamicOnly.count, coupling.difference.dynamicOnly.members.length);
+  assert.match(readFileSync(join(out.root, 'R0-R2-REPORT.md'), 'utf8'), /dynamic/i);
+  tree.dispose();
+  out.dispose();
+});
+
+test('UT — the three mechanism states partition the static list, and the difference covers it', () => {
+  const tree = syntheticCrateTree();
+  const out = outputDirectory();
+  analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R2_5 });
+
+  const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
+  const counts = Object.fromEntries(DYNAMIC_MECHANISM_STATUSES.map((status) => [status, 0]));
+  for (const item of coupling.mechanisms) counts[item.dynamic.status] += 1;
+
+  const total = DYNAMIC_MECHANISM_STATUSES.reduce((sum, status) => sum + counts[status], 0);
+  assert.equal(total, coupling.mechanisms.length);
+  assert.equal(
+    coupling.difference.both.count + coupling.difference.staticOnly.count,
+    coupling.mechanisms.length,
+    'both and staticOnly together are the static list',
+  );
+  const prose = renderDynamicCoupling(coupling);
+  assert.match(prose, /^## /m, 'the coupling is rendered as prose a reader decides from');
+  if (!coupling.dynamicChannel.ran) {
+    assert.match(prose, /no session ran/i);
+    assert.doesNotMatch(
+      prose,
+      /None: every mechanism this channel can reach was exercised/,
+      'an unrun channel must not render as a session that exercised everything it could reach',
+    );
+  }
+  tree.dispose();
+  out.dispose();
+});
+
+test('UT — the run publishes the same coupling structure twice, the session identifier aside', () => {
+  const tree = syntheticCrateTree();
+  const first = outputDirectory();
+  const second = outputDirectory();
+  analyzeProject({ root: tree.root, out: first.root, through: THROUGH_R2_5 });
+  analyzeProject({ root: tree.root, out: second.root, through: THROUGH_R2_5 });
+
+  const read = (root) => JSON.parse(readFileSync(join(root, 'DYNAMIC-COUPLING.json'), 'utf8'));
+  const left = read(first.root);
+  const right = read(second.root);
+
+  // The session identifier is derived from the sandbox's own directory name, so
+  // it differs between runs; the measurement is 80% deterministic by design
+  // (ABOUT-REVERSE 6.2) and the part that varies is named here rather than
+  // hidden by dropping the field.
+  assert.equal(left.dynamicChannel.ran, right.dynamicChannel.ran);
+  assert.equal(left.dynamicChannel.reason, right.dynamicChannel.reason);
+  assert.deepEqual(
+    left.mechanisms.map((item) => [item.id, item.dynamic.status]),
+    right.mechanisms.map((item) => [item.id, item.dynamic.status]),
+    'which mechanism is in which state is a function of the subject',
+  );
+  assert.deepEqual(
+    DYNAMIC_DIFFERENCE_SETS.map((name) => left.difference[name].members.map((item) => item.id)),
+    DYNAMIC_DIFFERENCE_SETS.map((name) => right.difference[name].members.map((item) => item.id)),
+  );
+  tree.dispose();
+  first.dispose();
+  second.dispose();
+});
+
+test('UT — the attempt ledger carries the dynamic channel beside every other attempt', () => {
+  const tree = syntheticCrateTree();
+  const out = outputDirectory();
+  analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R2_5 });
+
+  const attempts = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-ATTEMPTS.json'), 'utf8'));
+  const dynamicRows = attempts.rows.filter((row) => row.configuration === 'sandboxed-session');
+  assert.equal(dynamicRows.length, 1, 'the dynamic channel reports one attempt, whether or not it ran');
+
+  const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
+  const [row] = dynamicRows;
+  assert.ok(ATTEMPT_PHASES.includes(row.phase));
+  assert.equal(row.status, coupling.dynamicChannel.ran ? 'success' : 'skipped');
+  if (!coupling.dynamicChannel.ran) {
+    assert.equal(row.reason, coupling.dynamicChannel.reason, 'a skipped attempt states why it was skipped');
+    assert.ok(!attempts.rows.some((other) => other.status === 'failed' && other.configuration === 'sandboxed-session'));
+  }
+  tree.dispose();
+  out.dispose();
+});
+
+test('UT — an unrun dynamic channel is reported as skipped, never as a failed attempt', () => {
+  const barren = createSyntheticTree({ 'src/a.rs': 'pub fn a() -> u8 { 1 }\n' });
+  const out = outputDirectory();
+  analyzeProject({ root: barren.root, out: out.root, through: THROUGH_R2_5 });
+
+  const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
+  assert.equal(coupling.dynamicChannel.ran, false);
+  assert.equal(coupling.dynamicChannel.reason, DYNAMIC_CHANNEL_REASONS.noStartPlan);
+  assert.equal(coupling.mechanisms.length, 0, 'an unrun channel has looked at nothing');
+  for (const name of DYNAMIC_DIFFERENCE_SETS) assert.equal(coupling.difference[name].count, 0);
+
+  const attempts = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-ATTEMPTS.json'), 'utf8'));
+  assert.equal(attempts.couldNotRunCount, 0, 'a channel that did not run is not an analyser that could not run');
+  barren.dispose();
+  out.dispose();
+});
+
+test('UT — a full R3.5 run leaves no observed claim resting on source evidence alone while depending on a mechanism', () => {
+  const tree = syntheticCrateTree();
+  const out = outputDirectory();
+  analyzeProject({ root: tree.root, out: out.root, through: 'r3.5' });
+
+  const ledger = JSON.parse(readFileSync(join(out.root, 'CLAIM-LEDGER.json'), 'utf8'));
+  const violating = ledger.claims.filter(
+    (claim) =>
+      claim.claim_type === 'observed' &&
+      (claim.mechanisms ?? []).length > 0 &&
+      (claim.evidence ?? []).every((item) => item.evidence_mode === 'source_static'),
+  );
+  assert.deepEqual(violating.map((claim) => claim.claim_id), []);
+  assert.equal(ledger.demotion.rule, 'R-1');
+  assert.ok(ledger.demotion.considered > 0, 'the rule looked at the claims rather than being skipped');
+  tree.dispose();
+  out.dispose();
+});
+
+// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+test('UT — a full R3.5 run over a subject where the rule fires demotes the claim and names the mechanism', () => {
+  // The predicate and the join are asserted directly in the ledger suite, and
+  // the rule's firing is asserted over the real probe there. What only a run can
+  // show is that the mechanisms R2.5 measured actually reach R3.5 through the
+  // pipeline: this fixture is the smallest subject where they do.
+  const tree = createSyntheticTree({
+    'Cargo.toml': '[package]\nname = "r1-subject"\nversion = "0.1.0"\nedition = "2021"\n',
+    'src/lib.rs': 'pub mod api;\npub mod config;\n',
+    'src/api/mod.rs': 'pub fn dial() -> u8 { std::env::var("SIP_HOST").map(|_| crate::config::SETTING).unwrap_or(0) }\n',
+    'src/config/mod.rs': 'pub const SETTING: u8 = 1;\n',
+  });
+  const out = outputDirectory();
+  analyzeProject({ root: tree.root, out: out.root, through: 'r3.5' });
+
+  const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
+  assert.deepEqual(
+    coupling.mechanisms.map((item) => item.id),
+    ['config_driven:src/api/mod.rs:1'],
+    'the session did not run the line, so the mechanism is not exercised — and it is still listed',
+  );
+
+  const ledger = JSON.parse(readFileSync(join(out.root, 'CLAIM-LEDGER.json'), 'utf8'));
+  assert.deepEqual(ledger.demotion.demoted, ['clm-mod-boundary_crossing-1']);
+  const claim = ledger.claims.find((item) => item.claim_id === 'clm-mod-boundary_crossing-1');
+  assert.equal(claim.claim_type, 'unresolved', 'the claim rested on source evidence alone while touching a mechanism');
+  assert.deepEqual(claim.mechanisms, ['config_driven:src/api/mod.rs:1']);
+  assert.match(claim.grill_question, /config_driven/);
+  assert.equal(ledger.byClass.observed, 0);
+  assert.equal(ledger.byClass.unresolved, 1);
+  tree.dispose();
+  out.dispose();
 });

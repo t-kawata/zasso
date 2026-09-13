@@ -106,7 +106,15 @@ export const COVERAGE_FIELDS = Object.freeze([
   'configs_analyzed',
 ]);
 
-/** The phases an analysis attempt passes through, weakest first. */
+/**
+ * The phases an analysis attempt passes through, weakest first.
+ *
+ * `execute` is last because it is the strongest: every phase before it reads
+ * the text, and a run is the only one that observes what the text becomes. The
+ * dynamic channel's attempt is recorded there, so "the instrument ran the
+ * subject" and "the instrument read it" are told apart in the one ledger.
+ */
+// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
 export const ATTEMPT_PHASES = Object.freeze([
   'parse',
   'preprocess',
@@ -114,6 +122,7 @@ export const ATTEMPT_PHASES = Object.freeze([
   'typecheck',
   'cfg',
   'dataflow',
+  'execute',
 ]);
 
 /** The statuses an analysis attempt may end in. */

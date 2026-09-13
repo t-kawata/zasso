@@ -25,7 +25,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -270,5 +270,107 @@ test('C001 the scan reports a missing tree rather than an empty set', () => {
   assert.throws(
     () => collectReverseImporters(join(tmpdir(), 'px206-does-not-exist-' + Date.now())),
     /not found|does not exist|absent/i,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// The reverse tree does not reach back into the loop it exists to feed
+// ---------------------------------------------------------------------------
+
+/**
+ * The direction inside the reverse tree that this ticket must not invert.
+ *
+ * R2.5's dynamic half makes the analysis layer import the sandbox layer
+ * (`dynamic-coupling.mjs` -> `sandbox.mjs`), which is a dependency inside the
+ * reverse tree and is allowed. What is not allowed is the reverse tree reaching
+ * back into `.claude/scripts/conver/`, the loop that drives it: that edge would
+ * make the analysis depend on a caller and stop it being runnable over any
+ * subject. Measured 2026-09-13, no module under `lib/` holds that edge; this
+ * test is what keeps it that way, and the probe below proves the scan can see
+ * one when it exists.
+ */
+const REVERSE_LIBRARY = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/lib');
+const CONVER_LAYER = '.claude/scripts/conver';
+
+/**
+ * The specifier positions that reach a module. A path named as data is not an
+ * import: `forward-surface-baseline.mjs` lists `.claude/scripts/conver/` among
+ * the forward trees it diffs, and reading that list as a dependency would
+ * report a file that depends on nothing.
+ */
+const IMPORT_SPECIFIER_PATTERNS = Object.freeze([
+  /(?:from\s+|require\s*\(|import\s*\()\s*['"](\.[^'"]+)['"]/g,
+  /(?:import\s*\(|require\s*\()[\s\S]{0,200}?['"]([^'"]*\.claude\/scripts\/conver\/[^'"]*)['"]/g,
+]);
+
+/** Every specifier in a file's text that resolves into the conver layer. */
+// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+function converSpecifiersIn(sourceText, filePath) {
+  const found = [];
+  for (const pattern of IMPORT_SPECIFIER_PATTERNS) {
+    for (const match of sourceText.matchAll(pattern)) {
+      const specifier = match[1];
+      const resolved = specifier.startsWith('.') ? resolve(dirname(filePath), specifier) : specifier;
+      if (resolved.includes(CONVER_LAYER)) found.push(specifier);
+    }
+  }
+  return found;
+}
+
+/** Every file beneath a directory, as absolute paths, following the scan's exclusions. */
+// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+function sourceFilesUnder(directory) {
+  const found = [];
+  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (entry.isDirectory()) {
+      if (!['node_modules', '.git', 'dist', '__pycache__'].includes(entry.name)) {
+        found.push(...sourceFilesUnder(join(directory, entry.name)));
+      }
+      continue;
+    }
+    if (['.js', '.mjs', '.cjs', '.ts'].some((extension) => entry.name.endsWith(extension))) {
+      found.push(join(directory, entry.name));
+    }
+  }
+  return found;
+}
+
+test('C004 the probe the scan is checked with can see a conver import when one exists', () => {
+  assert.deepEqual(
+    converSpecifiersIn("import { x } from '../../../conver/red-reconstruction.js';", join(REVERSE_LIBRARY, 'a.mjs')),
+    [],
+    'a relative specifier that leaves the conver layer is not an import of it',
+  );
+  assert.deepEqual(
+    converSpecifiersIn("import { x } from '../../conver/red-reconstruction.js';", join(REVERSE_LIBRARY, 'a.mjs')),
+    ['../../conver/red-reconstruction.js'],
+  );
+  assert.deepEqual(
+    converSpecifiersIn(
+      "const runner = await import(pathToFileURL(join(PROJECT_ROOT, '.claude/scripts/conver/run.mjs')).href);",
+      join(REVERSE_LIBRARY, 'b.mjs'),
+    ),
+    ['.claude/scripts/conver/run.mjs'],
+    'a dynamic import built from a literal path is still an import',
+  );
+  assert.deepEqual(
+    converSpecifiersIn("const FORWARD_TREE_PREFIXES = Object.freeze(['.claude/scripts/conver/']);", join(REVERSE_LIBRARY, 'c.mjs')),
+    [],
+    'a path named as data is not a dependency, or a file that describes the layout would read as one that imports it',
+  );
+});
+
+test('C004 no module of the reverse tree imports the conver layer', () => {
+  const offenders = [];
+  for (const file of sourceFilesUnder(REVERSE_LIBRARY)) {
+    for (const specifier of converSpecifiersIn(readFileSync(file, 'utf8'), file)) {
+      offenders.push(`${importerPathOf(file)} -> ${specifier}`);
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    'the analysis is runnable over any subject; an edge into the loop that drives it would end that',
   );
 });

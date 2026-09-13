@@ -417,3 +417,43 @@ test('IT the assessment is R0\'s output: it is published at the r0.5 prefix and 
   shallow.dispose();
   deep.dispose();
 });
+
+// ---------------------------------------------------------------------------
+// R2.5's dynamic half against the real experiment input
+// ---------------------------------------------------------------------------
+
+// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
+test('IT a run through r2.5 over the experiment input publishes the coupling difference and places every mechanism', { skip: !targetAvailable }, () => {
+  const out = scratchOutput();
+  try {
+    analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R2_5 });
+
+    const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
+    const surface = JSON.parse(readFileSync(join(out.root, 'EXECUTION-SURFACE.json'), 'utf8'));
+
+    // A 1.1 GB subject is copied into the sandbox, so the channel may legitimately
+    // fail to start on a machine without the toolchain. What it may never do is
+    // report an empty difference as agreement, so both branches are asserted.
+    if (coupling.dynamicChannel.ran) {
+      assert.equal(coupling.mechanisms.length, surface.mechanisms.length);
+      assert.equal(
+        coupling.difference.both.count + coupling.difference.staticOnly.count,
+        surface.mechanisms.length,
+        'both and staticOnly together cover the 792 mechanisms the static reading lists',
+      );
+    } else {
+      assert.ok(coupling.dynamicChannel.reason.length > 0);
+      assert.equal(coupling.mechanisms.length, 0);
+      assert.match(coupling.caveat, /did not run|looked at nothing/i);
+    }
+
+    const attempts = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-ATTEMPTS.json'), 'utf8'));
+    assert.ok(
+      attempts.rows.some((row) => row.configuration === 'sandboxed-session'),
+      'the dynamic channel reports its attempt in the same ledger every other attempt lives in',
+    );
+    assert.equal(attempts.couldNotRunCount, 0, 'a channel that did not run is not a stage that could not run');
+  } finally {
+    out.dispose();
+  }
+});

@@ -34,6 +34,7 @@ import { join } from 'node:path';
 import { enumerateSourceFacts, generateCandidates, unavailableChannels } from './semantics.mjs';
 import { compareText } from './holdout-ledger.mjs';
 import { listArtefacts, renderCappedList } from './analysis-tech.mjs';
+import { classifyWithDynamicEvidence } from './execution-surface.mjs';
 import {
   buildEvidence,
   computeIndependence,
@@ -58,6 +59,22 @@ export const SOURCE_DIRECTORY = 'src';
 
 /** The language the spike reads. P22-4 decides the toolchain; this is only a file filter. */
 export const SOURCE_EXTENSION = '.rs';
+
+/**
+ * The rule this ledger enforces against the dynamic surface.
+ *
+ * `ABOUT-REVERSE` 6.14.7 gives the refusal a number and a name, so the demotion
+ * a reader finds on a claim points at the rule rather than at a paragraph.
+ */
+export const RULE_ID = 'R-1';
+
+/**
+ * The limit recorded when a file the walk listed could not be read.
+ *
+ * Named here so a reader of the published ledger and a test can refer to the
+ * same code, rather than matching the prose in the effect.
+ */
+export const CLAIM_FAMILY_UNREADABLE_CODE = 'CLAIM_FAMILY_FILE_UNREADABLE';
 
 /** The directory a source member at the top of the project belongs to. */
 // [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
@@ -310,7 +327,7 @@ export function classifyClaim(claim) {
 }
 
 /** The files whose source text the three claim families are read from. */
-// [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-5, P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-5|P23-6) --for-spec --no-implementation-order`.
 function claimFamiliesIn(root, { seeds, excludedPaths }) {
   const files = Array.isArray(seeds) && seeds.length > 0
     ? [...seeds]
@@ -321,9 +338,30 @@ function claimFamiliesIn(root, { seeds, excludedPaths }) {
       .sort(compareText);
 
   const claims = [];
+  const limitations = [];
   for (const seed of files) {
     if (!seed.endsWith(SOURCE_EXTENSION)) continue;
-    const lines = readFileSync(join(root, seed), 'utf8').split('\n');
+
+    // The population R0 measured includes entries this run cannot read — a
+    // dangling symlink, a permission the process does not hold. An empty result
+    // for such a file is a statement about this run and not about the file, so
+    // it is recorded as a limit rather than thrown out of the stage: a run that
+    // dies on one unreadable entry publishes nothing at all, which reports the
+    // opposite of what happened.
+    let source;
+    try {
+      source = readFileSync(join(root, seed), 'utf8');
+    } catch (error) {
+      limitations.push({
+        code: CLAIM_FAMILY_UNREADABLE_CODE,
+        scope: seed,
+        effect: `${seed} is in the population and could not be read (${error.code ?? 'error'}), so no claim was read `
+          + 'from it and an empty result for it is a limit of this run rather than a finding about the file',
+      });
+      continue;
+    }
+
+    const lines = source.split('\n');
     const gated = findCfgGatedLines(lines);
 
     for (let index = 0; index < lines.length; index += 1) {
@@ -343,7 +381,128 @@ function claimFamiliesIn(root, { seeds, excludedPaths }) {
       if (ERROR_PATH.test(line)) claims.push(buildFailureClaim({ seed, lineNumber, gated: isGated }));
     }
   }
-  return claims;
+  return { claims, limitations };
+}
+
+/**
+ * Rule R-1 — a claim touching a dynamic mechanism is not `observed` on source evidence alone.
+ *
+ * The design states it twice, once as a provenance rule (`ABOUT-REVERSE` 5.5:
+ * "runtime behaviour, dynamic dispatch targets and generated code are not
+ * `observed` without execution, build or trace evidence") and once as a refusal
+ * (6.14.7: "a proposition in which a dynamic mechanism is involved, with no
+ * dynamic evidence, classified `observed`" fails). R2.5 already mechanises it
+ * for a single proposition in `classifyWithDynamicEvidence`; this is the same
+ * rule applied to a whole ledger, and it reuses that function rather than
+ * restating the predicate, so there is one rule and not two.
+ *
+ * Two properties are load-bearing.
+ *
+ * It is *total over its predicate and no more*. A claim anchored at a line the
+ * dynamic channel lists as a mechanism, carrying only source evidence and
+ * classified `observed`, is demoted. A claim anchored anywhere else is not, and
+ * a claim carrying one non-source evidence item is not either — measured over
+ * the subject's own probe, a file-level join would have demoted 303 of its 337
+ * observed claims, which is a rule that empties the ledger and reads as a clean,
+ * wrong result.
+ *
+ * A demotion changes a class and never deletes. The statement, the evidence,
+ * the falsification and the counterevidence all survive, because the design's
+ * §4 records that `unresolved` claims are the raw material the chain downstream
+ * consumes. `unresolved` requires a question and `inferred` a basis, so the
+ * demotion supplies whichever the claim's target class needs — and refuses by
+ * name when it can supply neither, which is the case of a claim naming a
+ * mechanism this ledger cannot resolve.
+ */
+export function demoteObservedDynamicClaims(ledger) {
+  const mechanisms = ledger?.mechanisms ?? [];
+  const knownIds = new Set(mechanisms.map((item) => item.id));
+
+  // The join is by the source span the claim is anchored at. A mechanism is
+  // named by its syntax site and a claim cites the line it was read from, so the
+  // line is the only identity both sides already carry.
+  const idsBySite = new Map();
+  for (const mechanism of mechanisms) {
+    const site = `${mechanism.file}:${mechanism.line}`;
+    if (!idsBySite.has(site)) idsBySite.set(site, []);
+    idsBySite.get(site).push(mechanism.id);
+  }
+
+  const demoted = [];
+  const unmatched = new Set();
+  const claims = (ledger?.claims ?? []).map((claim) => {
+    const declared = claim.mechanisms ?? [];
+    const anchored = (claim.evidence ?? []).flatMap((item) => idsBySite.get(`${item.source_span.file}:${item.source_span.line}`) ?? []);
+    const mechanismsNamed = [...new Set([...declared, ...anchored])].sort(compareText);
+    if (mechanismsNamed.length === 0) return claim;
+
+    const withMechanisms = { ...claim, mechanisms: mechanismsNamed };
+    if (claim.claim_type !== 'observed') return withMechanisms;
+
+    const verdict = classifyWithDynamicEvidence({
+      proposition: { mechanisms: mechanismsNamed },
+      evidence: claim.evidence ?? [],
+      surface: { mechanisms },
+    });
+    if (verdict.classification !== 'inferred') return withMechanisms;
+
+    const resolvable = mechanismsNamed.filter((id) => knownIds.has(id));
+    for (const id of mechanismsNamed) if (!knownIds.has(id)) unmatched.add(id);
+
+    const rationale =
+      `R-1: the claim depends on the dynamic mechanism(s) ${mechanismsNamed.join(', ')}, and every evidence item under `
+      + 'it was read statically. The source does not determine which implementation runs, so the claim is not observed.';
+
+    if ((withMechanisms.basis ?? []).length > 0) {
+      demoted.push(withMechanisms.claim_id);
+      return {
+        ...withMechanisms,
+        claim_type: 'inferred',
+        basis: [...withMechanisms.basis, rationale],
+        demotion: { rule: RULE_ID, from: 'observed', to: 'inferred', mechanisms: mechanismsNamed, rationale },
+      };
+    }
+    if ((withMechanisms.grill_question ?? '').length > 0) {
+      demoted.push(withMechanisms.claim_id);
+      return {
+        ...withMechanisms,
+        claim_type: 'unresolved',
+        demotion: { rule: RULE_ID, from: 'observed', to: 'unresolved', mechanisms: mechanismsNamed, rationale },
+      };
+    }
+    if (resolvable.length > 0) {
+      demoted.push(withMechanisms.claim_id);
+      return {
+        ...withMechanisms,
+        claim_type: 'unresolved',
+        grill_question:
+          `Which implementation runs at ${resolvable.join(', ')}? The claim rests on source evidence alone and the `
+          + 'dynamic channel has not shown that this is the binding a run reaches.',
+        demotion: { rule: RULE_ID, from: 'observed', to: 'unresolved', mechanisms: mechanismsNamed, rationale },
+      };
+    }
+    throw new Error(
+      `claim ${withMechanisms.claim_id} names the dynamic mechanism(s) ${mechanismsNamed.join(', ')}, none of which `
+        + 'this ledger can resolve, and carries neither a basis to infer from nor a grill_question to hand over: '
+        + 'an unresolved claim requires a question and an inferred one requires a rationale, so the demotion R-1 '
+        + 'requires cannot be recorded for it',
+    );
+  });
+
+  const byClass = Object.fromEntries(PROVENANCE_CLASSES.map((name) => [name, 0]));
+  for (const claim of claims) byClass[claim.claim_type] += 1;
+
+  return {
+    ...ledger,
+    claims,
+    byClass,
+    demotion: {
+      rule: RULE_ID,
+      considered: claims.length,
+      demoted,
+      unmatched: [...unmatched].sort(compareText),
+    },
+  };
 }
 
 /**
@@ -356,17 +515,22 @@ function claimFamiliesIn(root, { seeds, excludedPaths }) {
  * Each claim's evidence is folded before its support is reported, so the number
  * a reader sees is the number of independent components and never the number of
  * records. The fold's policy travels with the ledger.
+ *
+ * The mechanisms R2.5 measured are given to this stage rather than re-derived by
+ * it, the same way R2 reads the boundary and R3 reads the dependency graph. The
+ * ledger is the last place R-1 can be enforced, because it is where the claims
+ * first exist; R2.5 runs before R1 and R2, so the surface has to travel.
  */
 export function buildClaimLedger(source) {
   if (source === null || source === undefined || typeof source !== 'object') {
     throw new Error('buildClaimLedger needs the population it is to build a ledger for; it was given no population');
   }
-  const { root, seeds = null, excludedPaths = [], history = null } = source;
+  const { root, seeds = null, excludedPaths = [], history = null, mechanisms = [] } = source;
   if (typeof root !== 'string' || root.length === 0) {
     throw new Error('a claim ledger must name the root of the population it was built over');
   }
 
-  const claims = claimFamiliesIn(root, { seeds, excludedPaths });
+  const { claims, limitations: familyLimitations } = claimFamiliesIn(root, { seeds, excludedPaths });
   for (const claim of claims) classifyClaim(claim);
 
   const foldedByClaim = claims.map((claim) => {
@@ -385,8 +549,13 @@ export function buildClaimLedger(source) {
   const stageOne = enumerateSourceFacts({ root, seeds, excludedPaths });
   const stageTwo = generateCandidates(stageOne);
 
-  const byClass = Object.fromEntries(PROVENANCE_CLASSES.map((name) => [name, 0]));
-  for (const claim of foldedByClaim) byClass[claim.claim_type] += 1;
+  // The pass reports the class counts it produced, so they are read from it
+  // rather than counted a second time here: two counts over one claim list is
+  // one place for the two to drift.
+  const { claims: classifiedClaims, byClass, demotion } = demoteObservedDynamicClaims({
+    mechanisms,
+    claims: foldedByClaim,
+  });
 
   // The fold that matters for F11 runs over the whole ledger, not over each
   // claim's own records. A claim's `support` answers "how many independent
@@ -399,7 +568,12 @@ export function buildClaimLedger(source) {
 
   return {
     root,
-    claims: foldedByClaim,
+    claims: classifiedClaims,
+    // The mechanisms R-1 was enforced against travel with the ledger, so a
+    // reader can see what the rule was applied to rather than having to trust
+    // that it was applied. They are the same rows R2.5 published.
+    mechanisms,
+    demotion,
     candidates: stageTwo.candidates,
     // The facts themselves stay out of the ledger. They are stage one's raw
     // material — thirty thousand rows on the subject corpus — and the ledger is
@@ -413,7 +587,11 @@ export function buildClaimLedger(source) {
     }, {}),
     factCount: stageTwo.facts.length,
     coverage: stageTwo.coverage,
-    limitations: stageTwo.limitations,
+    // The limits this run ran under, from both ends: the semantic stage's, and
+    // the claim families' own — a source file the walk listed and this process
+    // could not read. They are one list because a reader asks one question of
+    // them: what did this ledger not see, and why.
+    limitations: [...stageTwo.limitations, ...familyLimitations],
     unavailableChannels: unavailableChannels(),
     byClass,
     independence: {
@@ -428,8 +606,8 @@ export function buildClaimLedger(source) {
       historyConsulted: ledgerFold.policyInputs.historyConsulted,
       policy: ledgerFold.independence_policy,
     },
-    unresolvedRate: foldedByClaim.length === 0 ? 0 : byClass.unresolved / foldedByClaim.length,
-    note: foldedByClaim.length === 0 ? 'nothing to classify' : '',
+    unresolvedRate: classifiedClaims.length === 0 ? 0 : byClass.unresolved / classifiedClaims.length,
+    note: classifiedClaims.length === 0 ? 'nothing to classify' : '',
     independence_policy: INDEPENDENCE_POLICY,
   };
 }
