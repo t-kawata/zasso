@@ -160,9 +160,15 @@ export function assertProvenanceRecorded({ mode, reverseProvenance, sidecarFiles
  * Every gate is judged, even after one of them fails: a run that reports only
  * its first problem hides the rest of the work the operator has to do.
  *
+ * The seam a pattern-2 or pattern-3 subject carries is judged by T5 as well, because a
+ * boundary the act redrew is a logical/physical mismatch of the kind T5 records. The
+ * seam is optional: an input without one is judged exactly as it was before this
+ * existed, so the forward-shaped cases keep their counts.
+ *
  * @param {object} input - the reverse input assembled by the entry point
  * @returns {Array<object>} six gate records in T1 to T6 order
  */
+// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
 export function runReverseGates(input = {}) {
   const manifest = input.manifest ?? {};
   const packages = manifest.workspace?.packages ?? [];
@@ -178,6 +184,7 @@ export function runReverseGates(input = {}) {
   const differences = [
     ...parityRecord.extras.map((path) => ({ kind: 'extra', path })),
     ...parityRecord.missing.map((path) => ({ kind: 'missing', path })),
+    ...(input.seam?.mismatches ?? []),
   ];
   const delta = input.delta ?? {};
 

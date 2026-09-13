@@ -9,10 +9,20 @@
  */
 import path from 'node:path';
 import process from 'node:process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 
 import { EXIT_CODES } from './lib/errors.mjs';
-import { ARCHITECTURE_DELTA_FILE_NAME, loadArchitectureDelta } from './lib/architecture-delta.mjs';
+import {
+  ARCHITECTURE_DELTA_FILE_NAME,
+  MEASUREMENTS,
+  assertPriorUnchanged,
+  buildLayerStructureSeam,
+  digestFile,
+  loadArchitectureDelta,
+  mergeSeamIntoDelta,
+  readPriorPartition,
+  renderLayerStructureSeam,
+} from './lib/architecture-delta.mjs';
 import {
   TREE_MODES,
   addReverseProvenance,
@@ -378,7 +388,7 @@ function reportPipelineFailure(pipeline, stepName) {
  * manifest gains is `reverse_provenance`; `COMPLETE` keeps the meaning it has in
  * the forward rotation.
  */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P23-9) --for-spec --no-implementation-order`.
 function runReverse(args) {
   const specPath = optionValue(args, '--spec');
   const decisionsPath = optionValue(args, '--decisions');
@@ -398,15 +408,8 @@ function runReverse(args) {
   }
 
   const packages = prepared.decisions.workspace;
-  const measuredTree = measureDirectoryTree(measuredRoot);
-  const measured = {
-    directories: measuredTree.directories,
-    sourceFiles: measuredTree.sourceFiles,
-    edges: readMeasuredEdges(optionValue(args, '--measured')),
-  };
+  const { measured, sidecarFiles, seam, delta } = readReverseInputs({ args, measuredRoot, packages, deltaPath });
 
-  const sidecarFiles = listSidecarFiles(optionValue(args, '--sidecars'));
-  const delta = loadArchitectureDelta(deltaPath);
   const reverseProvenance = {
     sidecar_bundle_hash: computeSidecarBundleHash(digestSidecarFiles(sidecarFiles)),
     counts: { sidecars: sidecarFiles.length, packages: packages.length, mismatches_recorded: delta.mismatches.length },
@@ -427,6 +430,7 @@ function runReverse(args) {
     graph: { nodes: readGraphNodes(optionValue(args, '--graph')) },
     resolveFilePath: (file) => path.resolve(measuredRoot, file),
     delta,
+    seam,
     sidecarFiles,
     reverseProvenance,
   });
@@ -435,6 +439,24 @@ function runReverse(args) {
     reportReverseFailure(records, summary);
   }
 
+  publishAndReportReverse({ outcome: { manifest, records, prepared, outDir, measuredRoot }, seam });
+}
+
+/**
+ * Publish the judged manifest and print the outcome, or refuse and name why.
+ *
+ * The publication is a gate of its own: a refused publish changes nothing on disk, so
+ * the report has to say what was refused rather than leave the operator reading a run
+ * that appears to have produced nothing for no reason.
+ *
+ * The seam is printed in prose beside the gate report because the JSON section alone is
+ * read by a machine: an operator deciding what to do about a redrawn boundary needs the
+ * two partitions named together with the classes between them, which is what the prose
+ * carries and the delta's arrays do not.
+ */
+// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+function publishAndReportReverse({ outcome, seam = null }) {
+  const { manifest, records, prepared, outDir, measuredRoot } = outcome;
   const published = publishAcceptedManifest({
     manifest,
     specPath: prepared.analysis.absPath,
@@ -457,8 +479,92 @@ function runReverse(args) {
     }) + '\n'
   );
   guide(`Reverse PASS: T1 to T6 were judged over the measured tree at ${measuredRoot} and the manifest was published with its reverse provenance. The physical layout is preserved and every logical/physical mismatch is recorded in ${ARCHITECTURE_DELTA_FILE_NAME} rather than silently accepted.`);
+  if (seam !== null) {
+    process.stdout.write(renderLayerStructureSeam(seam));
+  }
   process.stdout.write(renderReverseReport(records));
   process.exit(EXIT_CODES.OK);
+}
+
+/** Everything a reverse run is given: the tree, the sidecars, and the delta with its seam. */
+// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+function readReverseInputs({ args, measuredRoot, packages, deltaPath }) {
+  const measuredTree = measureDirectoryTree(measuredRoot);
+  return {
+    measured: {
+      directories: measuredTree.directories,
+      sourceFiles: measuredTree.sourceFiles,
+      edges: readMeasuredEdges(optionValue(args, '--measured')),
+    },
+    sidecarFiles: listSidecarFiles(optionValue(args, '--sidecars')),
+    ...resolveDeltaWithSeam({ args, measuredRoot, packages, deltaPath }),
+  };
+}
+
+/**
+ * The delta T5 will judge, with the seam taken and published when the caller asked for one.
+ *
+ * Absent `--prior-partition` the authored delta is returned untouched, so a run that does
+ * not declare a prior is judged exactly as it was before the seam existed.
+ */
+// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+function resolveDeltaWithSeam({ args, measuredRoot, packages, deltaPath }) {
+  const authoredDelta = loadArchitectureDelta(deltaPath);
+  const priorPartitionPath = optionValue(args, '--prior-partition') ?? null;
+
+  if (priorPartitionPath === null) {
+    return { seam: null, delta: authoredDelta };
+  }
+  return publishLayerStructureSeam({
+    priorPartitionPath: path.resolve(priorPartitionPath),
+    measuredRoot,
+    packages,
+    deltaPath,
+    authoredDelta,
+  });
+}
+
+/**
+ * Take the seam, publish it into the delta, and hand back the record T5 will judge.
+ *
+ * A pattern-2 or pattern-3 subject was running its four-layer cycle when the boundaries
+ * were redrawn, so the old partition and the new one differ and the difference is a
+ * finding (§3.2, §3.4). It is published into the delta rather than kept in memory for the
+ * same reason every other analysis document is: a difference nobody wrote down is the
+ * contradiction §2.4 defines, and T5 passes on the recording rather than on the two
+ * partitions agreeing.
+ *
+ * The prior is digested before it is read and again after, because a run that rewrote the
+ * old Dirs-Tree and then measured against it would be reporting agreement with itself.
+ * The record returned carries the merged mismatch list, so T5 judges the document that
+ * was written rather than the one that was there before it.
+ */
+// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+function publishLayerStructureSeam({ priorPartitionPath, measuredRoot, packages, deltaPath, authoredDelta }) {
+  const priorBeforeDigest = existsSync(priorPartitionPath) ? digestFile(priorPartitionPath) : null;
+  const prior = readPriorPartition(priorPartitionPath);
+
+  const seam = buildLayerStructureSeam({
+    oldPartition: prior,
+    newPartition: {
+      source: `measured tree at ${measuredRoot}`,
+      paths: packages.map((pkg) => pkg.path),
+    },
+    measurement: MEASUREMENTS.ROOT_INCLUDING,
+  });
+
+  if (priorBeforeDigest !== null) {
+    assertPriorUnchanged({
+      path: priorPartitionPath,
+      beforeDigest: priorBeforeDigest,
+      afterDigest: digestFile(priorPartitionPath),
+    });
+  }
+
+  const merged = mergeSeamIntoDelta({ mismatches: authoredDelta.mismatches }, seam);
+  writeFileSync(deltaPath, `${JSON.stringify(merged, null, 2)}\n`, 'utf8');
+
+  return { seam, delta: { exists: true, mismatches: merged.mismatches } };
 }
 
 /** What the reverse rotation tells the operator to re-run after a refused publication. */
@@ -846,7 +952,7 @@ function optionValue(args, flag) {
   return undefined;
 }
 
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P23-9) --for-spec --no-implementation-order`.
 function printUsage() {
   return [
     'usage: /workspacify-tree <path-to-specification.md>',
@@ -857,6 +963,9 @@ function printUsage() {
     '  finalize --spec=<path> --decisions=<path>',
     '  reverse --spec=<origin-spec.md> --decisions=<path> --root=<project directory>',
     '          [--graph=<path>] [--measured=<path>] [--sidecars=<dir>] [--delta=<path>] [--out=<dir>]',
+    '          [--prior-partition=<old Dirs-Tree>]',
+    '          --prior-partition records the layer-structure seam a pattern-2 or pattern-3',
+    '          subject carries, publishing it into the delta. Absent, no seam is taken.',
   ].join('\n') + '\n';
 }
 
