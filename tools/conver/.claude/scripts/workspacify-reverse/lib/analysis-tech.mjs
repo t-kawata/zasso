@@ -141,8 +141,29 @@ export const EVIDENCE_MODES = Object.freeze(['source_static', 'build_semantic', 
 /** The syntax layer this instrument uses, and the languages it carries a grammar for. */
 const SYNTAX_LAYER = 'tree-sitter';
 
-/** The E items this ticket's syntax layer measures. The rest are later work. */
-const MEASURED_BY_SYNTAX_LAYER = Object.freeze(['E1', 'E2', 'E3', 'E4', 'E5', 'E6']);
+/**
+ * Which languages carry an extractor for which extraction item.
+ *
+ * Per family rather than per language, because a language reaches some items
+ * and not others: a flat list of languages would have to overclaim in one row
+ * and underclaim in the next. `structure.mjs` reads this to decide whether to
+ * run an extractor at all, and `capabilityRow` reads it to decide the cell, so
+ * the two cannot disagree about what exists — which is the shape that let the
+ * Rust row go stale.
+ *
+ * Each family is widened by the ticket that writes its queries: E1-E4 here,
+ * E5-E6 by P24-3, E7-E14 by P24-4 and P24-5. Declaring a family in advance
+ * would claim an extractor that does not exist.
+ */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+export const LANGUAGES_WITH_EXTRACTORS = Object.freeze({
+  E1: Object.freeze([...TARGET_LANGUAGES]),
+  E2: Object.freeze([...TARGET_LANGUAGES]),
+  E3: Object.freeze([...TARGET_LANGUAGES]),
+  E4: Object.freeze([...TARGET_LANGUAGES]),
+  E5: Object.freeze(['rust']),
+  E6: Object.freeze(['rust']),
+});
 
 /**
  * Why a cell carries the value it does.
@@ -150,46 +171,67 @@ const MEASURED_BY_SYNTAX_LAYER = Object.freeze(['E1', 'E2', 'E3', 'E4', 'E5', 'E
  * Kept beside the matrix rather than inside it so a cell stays a single value
  * — a matrix entry that could hold a value *and* a qualifier would invite
  * reading the qualifier as a softener of the value.
+ *
+ * Every note is a statement about the *channel*: what this layer reads and what
+ * the language's own constructs put beyond it. The note this replaced said the
+ * adapter was not yet written, which became false the moment one existed.
  */
 const CAPABILITY_NOTES = Object.freeze({
   'rust/E1-E6':
-    'Measured by this ticket through tree-sitter-rust. Syntax alone: module declarations, item declarations, use declarations and mechanism markers are read; macro-generated items and cfg-selected composition are not resolved.',
+    'Measured through tree-sitter-rust. Syntax alone: module declarations, item declarations, use declarations and mechanism markers are read; macro-generated items and cfg-selected composition are not resolved.',
   'rust/E7-E16':
     'Not attempted by this instrument version. R3 and later stages consume these, and the semantic adapters they need are declared but not built here.',
-  '*/*':
-    'Grammar installed and declared, adapter not yet written. The syntax layer reaches this language; this ticket does not.',
+  '*/E5-E16':
+    'Not attempted by this instrument version. The semantic adapters these items need are declared and not built here.',
+  'typescript/E1-E4':
+    'Measured through tree-sitter-typescript. Syntax alone: exported declarations, re-export statements, interfaces, type aliases and enums are read. An `export *` re-export reaches a module a reader would have to resolve, declaration merging gives one name two bodies, and a decorator rewrites the declaration it is applied to.',
+  'javascript/E1-E4':
+    'Measured through tree-sitter-javascript. Syntax alone: module.exports and exports assignments, function and class declarations are read. A computed property name is a value rather than a name, a `require` whose argument is resolved at run time names no module, and a method attached to a prototype after the constructor is not in the class body.',
+  'go/E1-E4':
+    'Measured through tree-sitter-go. Syntax alone: the package clause, type declarations, methods and initial capitalisation are read. A build tag decides which declarations exist at all, `go:generate` produces declarations no source holds, and embedding promotes methods the outer type never declares.',
+  'python/E1-E4':
+    'Measured through tree-sitter-python. Syntax alone: module-level assignments, class and function definitions and their decorators are read. `__getattr__` answers for names no body declares, a metaclass installs attributes as the class is created, and a decorator replaces the name the `def` statement bound.',
+  'c_cpp/E1-E4':
+    'Measured through tree-sitter-cpp. Syntax alone: declarations, definitions, typedefs and preprocessor definitions are read. The preprocessor decides what the compiler ever sees, macro expansion rewrites the text before this layer reads it, an include composes declarations from elsewhere, and per-translation-unit flags make one header mean different things.',
   '*/E13':
     'Semantic equivalence is undecidable for general programs. E13 is TCE — trivial, syntactic, compiler-normalisation equivalence — and only that is ever claimed.',
 });
 
-/** Every language shares the same reason for an item this ticket does not attempt. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-function noteFor(language, item) {
+/**
+ * The reason one cell carries the value it does.
+ *
+ * Exported because the decision document must carry the same strings the matrix
+ * does: a reason that lived only in prose could drift from the cell it explains.
+ */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+export function capabilityNoteFor(language, item) {
   if (item === 'E13') return CAPABILITY_NOTES['*/E13'];
   if (language === 'rust') {
-    return MEASURED_BY_SYNTAX_LAYER.includes(item)
+    return LANGUAGES_WITH_EXTRACTORS[item]?.includes('rust')
       ? CAPABILITY_NOTES['rust/E1-E6']
       : CAPABILITY_NOTES['rust/E7-E16'];
   }
-  return CAPABILITY_NOTES['*/*'];
+  return LANGUAGES_WITH_EXTRACTORS[item]?.includes(language)
+    ? CAPABILITY_NOTES[`${language}/E1-E4`]
+    : CAPABILITY_NOTES['*/E5-E16'];
 }
 
 /**
- * One language's row: a value and a reason for every extraction item.
+ * One language's row: a value for every extraction item.
  *
- * Rust carries `partial` for the items the syntax layer measures because a
+ * A language carries `partial` for the items its extractor covers because a
  * syntax tree is genuinely not the whole answer — a `pub fn` is public surface,
  * but a `pub use` re-export and a macro-generated function are public surface
  * this layer cannot see. Claiming `success` would overclaim, which is the one
  * thing the instrument may not do.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P24-2) --for-spec --no-implementation-order`.
 function capabilityRow(language) {
   const row = {};
   for (const item of EXTRACTION_ITEMS) {
     if (item === 'E13') {
       row[item] = 'unsupported_in_principle';
-    } else if (language === 'rust' && MEASURED_BY_SYNTAX_LAYER.includes(item)) {
+    } else if (LANGUAGES_WITH_EXTRACTORS[item]?.includes(language)) {
       row[item] = 'partial';
     } else {
       row[item] = 'not_attempted';
@@ -224,7 +266,7 @@ export function findCapabilityGaps(matrix = CAPABILITY_MATRIX) {
         language,
         item,
         value,
-        reason: noteFor(language, item),
+        reason: capabilityNoteFor(language, item),
         // A gap says what this instrument did not do. It never says that the
         // project lacks the thing being sought.
         readsAs: 'instrument_limitation',
@@ -241,6 +283,23 @@ export function renderCapabilityMatrixMarkdown(matrix = CAPABILITY_MATRIX) {
   const rows = EXTRACTION_ITEMS.map(
     (item) => `| ${item} | ${TARGET_LANGUAGES.map((language) => matrix[language][item]).join(' | ')} |`,
   );
+  return [header, divider, ...rows].join('\n');
+}
+
+/**
+ * The per-language reasons for E1-E4, as a Markdown table the document embeds.
+ *
+ * The matrix above says *what* each cell is; this says *why*, and it is the why
+ * that has to be per language — the constructs a channel cannot see are the
+ * language's own. Rendering it from the constant rather than writing it into
+ * the document twice is what keeps the reason a cell carries and the reason a
+ * reader reads the same string.
+ */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+export function renderCapabilityReasonsMarkdown() {
+  const header = '| Language | E1–E4 reason |';
+  const divider = '|---|---|';
+  const rows = TARGET_LANGUAGES.map((language) => `| ${language} | ${capabilityNoteFor(language, 'E1')} |`);
   return [header, divider, ...rows].join('\n');
 }
 

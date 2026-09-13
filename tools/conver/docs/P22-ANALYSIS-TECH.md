@@ -82,10 +82,10 @@ F12, and the vocabulary exists so that a consumer cannot make that substitution 
 
 | Extraction item | rust | typescript | javascript | go | python | c_cpp |
 |---|---|---|---|---|---|---|
-| E1 | partial | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
-| E2 | partial | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
-| E3 | partial | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
-| E4 | partial | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
+| E1 | partial | partial | partial | partial | partial | partial |
+| E2 | partial | partial | partial | partial | partial | partial |
+| E3 | partial | partial | partial | partial | partial | partial |
+| E4 | partial | partial | partial | partial | partial | partial |
 | E5 | partial | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
 | E6 | partial | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
 | E7 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
@@ -120,11 +120,23 @@ genuinely not the whole answer:
 
 ### Reading the other five rows
 
-`not_attempted` means exactly what it says: the grammar is installed and the syntax layer reaches
-the language, but **this ticket writes no extractor for it**. The ticket measures R0 to R2.5 over
-one Rust crate and nothing else. A later ticket that writes a TypeScript extractor changes these
-cells; a later ticket that finds a cell impossible writes `unsupported_in_principle` and the
-reason with it.
+E1-E4 are `partial` for all six languages: the extractors exist, and the reason each cell carries
+names the constructs that language's syntax layer cannot see. The table below is rendered from
+`CAPABILITY_NOTES`, so the reason a cell carries and the reason a reader reads are one string.
+
+| Language | E1–E4 reason |
+|---|---|
+| rust | Measured through tree-sitter-rust. Syntax alone: module declarations, item declarations, use declarations and mechanism markers are read; macro-generated items and cfg-selected composition are not resolved. |
+| typescript | Measured through tree-sitter-typescript. Syntax alone: exported declarations, re-export statements, interfaces, type aliases and enums are read. An `export *` re-export reaches a module a reader would have to resolve, declaration merging gives one name two bodies, and a decorator rewrites the declaration it is applied to. |
+| javascript | Measured through tree-sitter-javascript. Syntax alone: module.exports and exports assignments, function and class declarations are read. A computed property name is a value rather than a name, a `require` whose argument is resolved at run time names no module, and a method attached to a prototype after the constructor is not in the class body. |
+| go | Measured through tree-sitter-go. Syntax alone: the package clause, type declarations, methods and initial capitalisation are read. A build tag decides which declarations exist at all, `go:generate` produces declarations no source holds, and embedding promotes methods the outer type never declares. |
+| python | Measured through tree-sitter-python. Syntax alone: module-level assignments, class and function definitions and their decorators are read. `__getattr__` answers for names no body declares, a metaclass installs attributes as the class is created, and a decorator replaces the name the `def` statement bound. |
+| c_cpp | Measured through tree-sitter-cpp. Syntax alone: declarations, definitions, typedefs and preprocessor definitions are read. The preprocessor decides what the compiler ever sees, macro expansion rewrites the text before this layer reads it, an include composes declarations from elsewhere, and per-translation-unit flags make one header mean different things. |
+
+`not_attempted` in the remaining rows means exactly what it says: this instrument version writes
+no extractor for that family in that language. E5 and E6 are Rust's alone until P24-3 writes the
+dependency measurement's extractors; E7-E14 belong to P24-4 and P24-5. A later ticket that finds a
+cell impossible writes `unsupported_in_principle` and the reason with it.
 
 ### E13 is `unsupported_in_principle` everywhere
 
@@ -238,7 +250,9 @@ carries the tool identity per file.
 With `compile_commands.json`, per-translation-unit flags, working directory and include conditions
 can be replayed. Without it, a Clang AST is an approximation the analyser chose for itself. A run
 that cannot find the database must say so in `limitations` and must not silently degrade. The
-`c_cpp` column of the matrix is `not_attempted` today for that reason among others.
+`c_cpp` column carries the preprocessor as its stated boundary: the syntax layer reads the text
+after preprocessing has been approximated, so a cell that reads `partial` is naming a construct
+the tree does not contain rather than a measurement this version declined to make.
 
 ---
 

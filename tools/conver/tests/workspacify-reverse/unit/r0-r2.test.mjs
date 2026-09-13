@@ -987,6 +987,7 @@ test('UT — a capped list states the cap rather than truncating in silence', ()
 });
 
 test('UT — the construct a grammar rejected is named, not summarised as an error', () => {
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
   const tree = createSyntheticTree({
     // `&raw` is Rust 2024 raw-reference syntax the pinned grammar does not accept,
     // so this file exercises the recovery path with a construct the instrument
@@ -1001,12 +1002,20 @@ test('UT — the construct a grammar rejected is named, not summarised as an err
   for (const construct of syntaxErrorTexts(parsed.tree)) assert.ok(construct.length > 0);
 
   const structure = measureStructure({ root: tree.root });
-  assert.ok(structure.limitations.some((limitation) => limitation.code === 'SOURCE_UNREADABLE')
-    || structure.attempts.some((attempt) => attempt.status === 'partial'));
-  const partial = structure.attempts.find((attempt) => attempt.target === 'src/broken.rs');
-  assert.equal(partial.status, 'partial');
-  assert.ok(partial.diagnostics.length > 0, 'a recovered parse carries the construct it recovered near');
+  // A grammar that had to recover could not read the file whole, so the attempt
+  // is `failed` and counts as one that could not run. P22-4 recorded it as
+  // `partial`, which merged it with a clean parse that found little; P24-2's
+  // C003 separated the two, and this is that contract asserted.
+  const broken = structure.attempts.find((attempt) => attempt.target === 'src/broken.rs');
+  assert.equal(broken.status, 'failed');
+  assert.ok(broken.diagnostics.length > 0, 'a recovered parse carries the construct it recovered near');
+  assert.equal(buildAttemptLedger(structure.attempts).couldNotRunCount, 1);
+
+  const blank = createSyntheticTree({ 'src/empty.rs': '' }, { prefix: 'wsp-r0r2-blank-' });
+  const empty = measureStructure({ root: blank.root });
+  assert.equal(buildAttemptLedger(empty.attempts).extractedNothingCount, 1, 'found-nothing is not could-not-run');
   tree.dispose();
+  blank.dispose();
 });
 
 // ---------------------------------------------------------------------------

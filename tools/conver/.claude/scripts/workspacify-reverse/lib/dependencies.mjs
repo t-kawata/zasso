@@ -468,6 +468,7 @@ function measuredFiles(root, excludedPaths) {
  * @param {{root: string, excludedPaths?: string[], grammar?: object|null, surface?: object|null}} params
  */
 export function measureDependencies({ root, excludedPaths = [], grammar, surface = null } = {}) {
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
   const coverage = emptyCoverage();
   const attempts = [];
   const limitations = [];
@@ -548,10 +549,14 @@ export function measureDependencies({ root, excludedPaths = [], grammar, surface
       tool: 'tree-sitter-rust',
       outcome: {
         phase: 'parse',
-        status: parsed.errorNodes ? 'partial' : 'success',
+        // A grammar that had to recover could not read the file whole, which is a
+        // different fact from a file it read and found nothing in. The ledger
+        // counts the two apart, and a single ledger may not hold two rules for
+        // one event, so this follows structure.mjs's C003 rule.
+        status: parsed.errorNodes ? 'failed' : 'success',
         diagnostics: parsed.errorNodes ? [syntaxRecoveryDiagnostic(parsed.tree)] : [],
         extractedCount: resolved,
-        reason: null,
+        reason: parsed.errorNodes ? 'grammar_recovered' : null,
       },
     }));
   }

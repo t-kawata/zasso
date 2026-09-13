@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-209 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-209 --for-spec --no-implementation-order`.
 /**
  * scope-detection-constants.js
@@ -85,6 +86,21 @@ const EXCLUDED_SOURCE_EXTENSIONS = new Map([
       "`buildAnnotation` writes `//`, which TOML does not read as a comment, so " +
       "admitting it would insert a line the manifest cannot parse rather than record " +
       "provenance.",
+  ],
+  [
+    ".cpp",
+    "Ownership. This repository owns no C/C++ source: 136 of the 139 `.cpp` files it " +
+      "tracks are pjsip's, under an ignored root, and the 3 that are its own are the " +
+      "C/C++ language representatives P24-1 added under " +
+      "`tests/workspacify-reverse/fixtures/languages/`. Those are the material the R1 " +
+      "measurement reads and whose `file:line` its tests assert, so a comment written " +
+      "into one would edit the thing under measurement rather than record provenance.",
+  ],
+  [
+    ".h",
+    "The `.cpp` decision, made name by name because the census counts by name. The " +
+      "C/C++ language representatives carry one header of this repository's own; the " +
+      "other 2344 tracked headers are pjsip's, under an ignored root.",
   ],
 ]);
 

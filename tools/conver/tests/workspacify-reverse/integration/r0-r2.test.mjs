@@ -425,6 +425,7 @@ test('IT the assessment is R0\'s output: it is published at the r0.5 prefix and 
 
 // [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
 test('IT a run through r2.5 over the experiment input publishes the coupling difference and places every mechanism', { skip: !targetAvailable }, async () => {
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
   const out = scratchOutput();
   try {
     await analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R2_5 });
@@ -453,7 +454,23 @@ test('IT a run through r2.5 over the experiment input publishes the coupling dif
       attempts.rows.some((row) => row.configuration === 'sandboxed-session'),
       'the dynamic channel reports its attempt in the same ledger every other attempt lives in',
     );
-    assert.equal(attempts.couldNotRunCount, 0, 'a channel that did not run is not a stage that could not run');
+    // A file the grammar had to recover from is an attempt that could not run,
+    // and this subject carries one: `src/ffi/backend_calls.rs` uses `&raw`,
+    // which the pinned Rust grammar does not accept. P24-2's C003 records that
+    // as `failed` and publishes it here rather than merging it with a clean
+    // parse that found little. The channel's non-run is a different fact — it
+    // is `skipped` — and no failed row may carry its configuration.
+    //
+    // The row's presence is asserted before its properties, so the loop below
+    // cannot empty out and pass in silence: a regression that merged a
+    // recovered parse back into `partial` would otherwise leave nothing to
+    // check and read as a green.
+    const couldNotRun = attempts.rows.filter((candidate) => candidate.status === 'failed');
+    assert.ok(couldNotRun.length > 0, 'the grammar-recovered file is published as a could-not-run, not merged away');
+    for (const row of couldNotRun) {
+      assert.notEqual(row.configuration, 'sandboxed-session', 'a channel that did not run is not a stage that could not run');
+      assert.ok(row.diagnostics.length > 0, 'a could-not-run names the construct it could not read');
+    }
   } finally {
     out.dispose();
   }

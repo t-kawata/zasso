@@ -30,8 +30,10 @@ import { Parser, Language } from 'web-tree-sitter';
 
 import {
   ANALYSIS_MODES,
+  LANGUAGES_WITH_EXTRACTORS,
   assertAdapterResult,
   emptyCoverage,
+  renderCappedList,
   listArtefacts,
   recordAttempt,
 } from './analysis-tech.mjs';
@@ -57,14 +59,55 @@ export const GRAMMAR_BY_LANGUAGE = Object.freeze({
 });
 
 /**
- * The languages this module carries a query set for.
+ * Which languages this module carries a query set for, per extraction family.
  *
- * A grammar being installed is not the same as an extraction being written, and
- * the capability matrix keeps the two apart. Only Rust has queries here; the
- * other five languages are reached by the syntax layer and are `not_attempted`
- * by this instrument version.
+ * Declared in `analysis-tech.mjs` beside the capability matrix, which reads it to
+ * decide each cell, and re-exported here so a reader of the syntax layer finds
+ * the declaration where the queries are. A second copy would let the two drift,
+ * and the drift would be silent.
  */
-const LANGUAGES_WITH_EXTRACTORS = Object.freeze(['rust']);
+export { LANGUAGES_WITH_EXTRACTORS };
+
+/**
+ * The query sets the collectors read each grammar with, and the readers that
+ * execute them.
+ *
+ * They live in their own module because the table is a paragraph of its own —
+ * six languages against four items — and inlining it here would bury the
+ * measurement in its own data. Re-exported so a consumer of the syntax layer
+ * finds the queries where the extractors are.
+ */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+export {
+  QUERIES_BY_LANGUAGE,
+  STRUCTURE_FAMILIES,
+  collectErrorTypes,
+  collectImplementations,
+  collectItems,
+  collectModules,
+  collectPublicSurface,
+  collectResultErrorTypes,
+  collectTypeDefinitions,
+  collectUseDeclarations,
+  declaredNameOf,
+  lineOf,
+  variantsOf,
+  walkNamed,
+} from './structure-queries.mjs';
+import {
+  QUERIES_BY_LANGUAGE,
+  STRUCTURE_FAMILIES,
+  collectErrorTypes,
+  collectImplementations,
+  collectItems,
+  collectModules,
+  collectPublicSurface,
+  collectResultErrorTypes,
+  collectTypeDefinitions,
+  collectUseDeclarations,
+  lineOf,
+  walkNamed,
+} from './structure-queries.mjs';
 
 /** Extensions the syntax layer will parse, by the language their grammar carries. */
 const LANGUAGE_BY_EXTENSION = Object.freeze({
@@ -88,22 +131,6 @@ const LANGUAGE_BY_EXTENSION = Object.freeze({
   '.hh': 'c_cpp',
 });
 
-/** The identifier a Rust item declares, and the node types that declare one. */
-const RUST_ITEM_KINDS = Object.freeze({
-  function_item: 'function',
-  struct_item: 'struct',
-  enum_item: 'enum',
-  union_item: 'union',
-  trait_item: 'trait',
-  type_item: 'alias',
-  const_item: 'constant',
-  static_item: 'static',
-  macro_definition: 'macro',
-});
-
-/** The item kinds that declare a type, as opposed to an item that has one. */
-const TYPE_ITEM_KINDS = Object.freeze(['struct', 'enum', 'union', 'trait', 'alias']);
-
 const requireFromHere = createRequire(import.meta.url);
 
 /**
@@ -125,6 +152,7 @@ async function loadGrammar(language) {
     return { language, grammar: null, failure: error.message };
   }
 }
+
 
 /**
  * The installed version of each grammar, read from its package manifest.
@@ -188,17 +216,6 @@ export function syntaxLanguageOf(relativePath) {
   return LANGUAGE_BY_EXTENSION[relativePath.slice(dot)] ?? 'unknown';
 }
 
-/** The line a node starts on, one-based, because `file:line` is one-based. */
-export function lineOf(node) {
-  return node.startPosition.row + 1;
-}
-
-/** Visit every named node of a tree, parents before children. */
-export function walkNamed(node, visit) {
-  visit(node);
-  for (const child of node.namedChildren) walkNamed(child, visit);
-}
-
 /**
  * The distinct constructs a grammar could not accept.
  *
@@ -232,189 +249,41 @@ export function syntaxRecoveryDiagnostic(tree) {
   };
 }
 
-/** The first named child whose type is one of `types`, or null. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-function childOfType(node, types) {
-  return node.namedChildren.find((child) => types.includes(child.type)) ?? null;
-}
+// ---------------------------------------------------------------------------
+// The Rust-specific callers, kept so the consumers that already read Rust
+// through these names need no branch of their own. Each is the shared path with
+// Rust named as the language, which is what makes the shared path's behaviour
+// over Rust the same behaviour these names always had.
+// ---------------------------------------------------------------------------
 
-/** The declared visibility of an item, or null when it declares none. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-function declaredVisibility(node) {
-  const modifier = childOfType(node, ['visibility_modifier']);
-  return modifier ? modifier.text : null;
-}
-
-/** The name an item declares, or null when the node type declares none. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-function declaredName(node) {
-  const name = node.childForFieldName?.('name');
-  return name ? name.text : null;
-}
-
-/**
- * True when the item carries a `cfg` attribute.
- *
- * A `cfg`-gated item exists only in some builds, so a fact about it is a fact
- * about a configuration rather than about the crate. The flag is recorded here
- * and used by the claim classification, which refuses `observed` for a
- * proposition the configuration can remove.
- */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-function isCfgGated(node, siblings) {
-  const index = siblings.indexOf(node);
-  for (let before = index - 1; before >= 0; before -= 1) {
-    const previous = siblings[before];
-    if (previous.type !== 'attribute_item') break;
-    if (previous.text.includes('cfg')) return true;
-  }
-  return false;
-}
-
-/** The path a use declaration names, with the leading `crate::` left intact. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-function usePathOf(node) {
-  const argument = node.childForFieldName?.('argument') ?? childOfType(node, ['scoped_identifier', 'identifier', 'scoped_use_list', 'use_list', 'use_as_clause']);
-  return argument ? argument.text : null;
-}
-
-/**
- * Every item one Rust file declares, as the syntax layer can see them.
- *
- * `visibility` records what was written — `pub`, `pub(crate)` — rather than a
- * verdict on whether the item is externally public, because deciding that needs
- * name resolution this layer does not have.
- */
+/** Every item one Rust file declares, as the syntax layer can see them. */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectRustItems(tree, relativePath) {
-  const items = [];
-  const topLevel = tree.rootNode.namedChildren;
-
-  walkNamed(tree.rootNode, (node) => {
-    const itemKind = RUST_ITEM_KINDS[node.type];
-    if (!itemKind) return;
-    const symbol = declaredName(node);
-    if (symbol === null) return;
-    const siblings = node.parent ? node.parent.namedChildren : topLevel;
-    items.push({
-      symbol,
-      itemKind,
-      file: relativePath,
-      line: lineOf(node),
-      visibility: declaredVisibility(node),
-      cfgGated: isCfgGated(node, siblings),
-      spelling: node.text.split('\n')[0].trim(),
-    });
-  });
-
-  return items;
+  return collectItems('rust', tree, relativePath);
 }
 
 /** Every module a Rust file declares, as `mod name;` or `pub mod name;`. */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectRustModules(tree, relativePath) {
-  const modules = [];
-  walkNamed(tree.rootNode, (node) => {
-    if (node.type !== 'mod_item') return;
-    const symbol = declaredName(node);
-    if (symbol === null) return;
-    modules.push({
-      symbol,
-      file: relativePath,
-      line: lineOf(node),
-      visibility: declaredVisibility(node),
-      inline: node.text.includes('{'),
-    });
-  });
-  return modules;
+  return collectModules('rust', tree, relativePath);
 }
 
 /** Every use declaration a Rust file makes, before any name resolution. */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectRustUses(tree, relativePath) {
-  const uses = [];
-  walkNamed(tree.rootNode, (node) => {
-    if (node.type !== 'use_declaration') return;
-    const target = usePathOf(node);
-    if (target === null) return;
-    uses.push({ target, file: relativePath, line: lineOf(node) });
-  });
-  return uses;
+  return collectUseDeclarations(tree, relativePath);
 }
 
-/**
- * Every `impl ... for Type` a Rust file contains.
- *
- * An impl of the standard `Error` trait is the strongest syntactic evidence
- * that a type is an error type, which is why it is collected even though trait
- * resolution is out of reach: the text says the trait's name, and that much is
- * a fact about the source.
- */
+/** Every `impl ... for Type` a Rust file contains. */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectRustImpls(tree, relativePath) {
-  const impls = [];
-  walkNamed(tree.rootNode, (node) => {
-    if (node.type !== 'impl_item') return;
-    const traitNode = node.childForFieldName?.('trait');
-    const typeNode = node.childForFieldName?.('type');
-    impls.push({
-      traitName: traitNode ? traitNode.text : null,
-      typeName: typeNode ? typeNode.text : null,
-      file: relativePath,
-      line: lineOf(node),
-    });
-  });
-  return impls;
+  return collectImplementations(tree, relativePath);
 }
 
-/** The variants an error enum declares, each with its own location. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-function collectEnumVariants(tree) {
-  const variants = [];
-  walkNamed(tree.rootNode, (node) => {
-    if (node.type !== 'enum_variant') return;
-    const symbol = declaredName(node);
-    if (symbol === null) return;
-    variants.push({ symbol, line: lineOf(node) });
-  });
-  return variants;
-}
-
-/**
- * Every type name that appears in the error position of a `Result`.
- *
- * The error position is the second type argument, and it is read from the
- * syntax tree rather than matched against the file's text: a regular
- * expression over the whole file would associate a `Result` on one line with a
- * type named on another, and a signal that fires for the wrong reason is worse
- * than no signal.
- */
+/** Every type name that appears in the error position of a `Result`. */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function collectRustResultErrorTypes(tree) {
-  const names = new Set();
-  walkNamed(tree.rootNode, (node) => {
-    if (node.type !== 'generic_type') return;
-    if (node.childForFieldName?.('type')?.text !== 'Result') return;
-    const argument = node.childForFieldName?.('type_arguments')?.namedChildren?.[1];
-    if (argument) names.add(argument.text);
-  });
-  return names;
-}
-
-/**
- * The evidence that a declared type is an error type.
- *
- * The name is the weakest signal, the trait implementation is stronger, and
- * appearing in the error position of a `Result` is stronger still — but none is
- * a verdict. An enum called `Error` may be a transport status, and a type may
- * implement `Error` for reasons a reader would not call an error type. R1
- * records the signals and leaves the classification to the human, as the design
- * requires for every contract-shaped finding.
- */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-function errorSignalsFor(symbol, file, impls, resultErrorTypes) {
-  const signals = [];
-  if (/error|err|fail/i.test(symbol)) signals.push('name_matches_error');
-  if (impls.some((impl) => impl.traitName !== null && /error/i.test(impl.traitName) && impl.typeName === symbol)) {
-    signals.push('implements_error_trait');
-  }
-  if (resultErrorTypes.has(symbol)) signals.push('appears_as_result_error_type');
-  return { symbol, file, signals };
+  return collectResultErrorTypes(tree);
 }
 
 /**
@@ -546,23 +415,60 @@ function packagesFrom(files, modules) {
  */
 export function measureStructure({ root, excludedPaths = [], grammar } = {}) {
   const files = syntaxPopulation(root, { excludedPaths });
+  const collected = buildStructureItems({ root, files, grammar, queries: QUERIES_BY_LANGUAGE });
+  const limitations = limitationsOf({ files, attempts: collected.attempts });
+
+  return assertAdapterResult({
+    // This layer resolves nothing, so `syntax_only` is the only mode it can
+    // honestly claim — and it is the floor of the scale, which is why a missing
+    // grammar is reported through `limitations` rather than by lowering it.
+    analysis_mode: ANALYSIS_MODES[0],
+    coverage: {
+      ...collected.coverage,
+      files_semantically_resolved: 0,
+      configs_analyzed: collected.coverage.configs_enumerated,
+    },
+    limitations,
+    packages: packagesFrom([...collected.parseable].sort(compareText), collected.modules),
+    publicItems: collected.publicItems.sort(byLocation),
+    types: collected.types.sort(byLocation),
+    errorTypes: collected.errorTypes.sort(byLocation),
+    modules: collected.modules.sort(byLocation),
+    uses: collected.uses.sort(byLocation),
+    impls: collected.impls.sort(byLocation),
+    attempts: collected.attempts,
+  });
+}
+
+/**
+ * The four R1 items, assembled from a population of files.
+ *
+ * The measurement reads as the measurement it performs — enumerate, parse,
+ * collect four items, assemble — because the assembly lives here rather than in
+ * a list of mutable bindings at the top of a long function.
+ *
+ * `queries` is the only thing that varies per language: every file is read by
+ * the row its language names, so this function holds no branch on the language
+ * and adding a seventh language is adding a row.
+ */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+function buildStructureItems({ root, files, grammar, queries }) {
   const attempts = [];
-  const limitations = [];
+  const parseable = new Set();
+  const modules = [];
+  const publicItems = [];
+  const types = [];
+  const errorTypes = [];
+  const uses = [];
+  const impls = [];
   const coverage = emptyCoverage();
   coverage.files_discovered = files.length;
   coverage.configs_enumerated = configManifestsIn(root).length;
 
-  const items = [];
-  const modules = [];
-  const uses = [];
-  const impls = [];
-  const types = [];
-  const errorTypes = [];
-  const parseable = new Set();
-
   for (const file of files) {
     const language = syntaxLanguageOf(file);
-    if (!LANGUAGES_WITH_EXTRACTORS.includes(language)) {
+    const querySet = queries[language];
+    if (querySet === undefined) {
       attempts.push(recordAttempt({
         target: file,
         configuration: 'syntax-only',
@@ -594,42 +500,23 @@ export function measureStructure({ root, excludedPaths = [], grammar } = {}) {
       continue;
     }
 
-    const fileItems = collectRustItems(parsed.tree, file);
-    const fileTypes = fileItems.filter((item) => TYPE_ITEM_KINDS.includes(item.itemKind));
-    const fileImpls = collectRustImpls(parsed.tree, file);
-    const resultErrorTypes = collectRustResultErrorTypes(parsed.tree);
-
+    const signals = querySet.E4.signals;
+    const fileImpls = implementationsFor(language, parsed.tree, file, signals);
     parseable.add(file);
     coverage.files_parsed += 1;
     if (parsed.errorNodes) coverage.files_with_error_nodes += 1;
 
-    items.push(...fileItems);
-    modules.push(...collectRustModules(parsed.tree, file));
-    uses.push(...collectRustUses(parsed.tree, file));
-    impls.push(...fileImpls);
-
-    for (const item of fileTypes) {
-      types.push({
-        symbol: item.symbol,
-        typeKind: item.itemKind,
-        file: item.file,
-        line: item.line,
-        visibility: item.visibility,
-        cfgGated: item.cfgGated,
-      });
-    }
-
-    for (const item of fileTypes) {
-      const signals = errorSignalsFor(item.symbol, item.file, fileImpls, resultErrorTypes);
-      if (signals.signals.length === 0) continue;
-      errorTypes.push({
-        ...signals,
-        typeKind: item.itemKind,
-        line: item.line,
-        variants: item.itemKind === 'enum' ? collectEnumVariants(parsed.tree) : [],
-        cfgGated: item.cfgGated,
-      });
-    }
+    publicItems.push(...collectPublicSurface(language, parsed.tree, file));
+    modules.push(...collectModules(language, parsed.tree, file));
+    types.push(...collectTypeDefinitions(language, parsed.tree, file));
+    errorTypes.push(...collectErrorTypes(language, parsed.tree, file, {
+      implementations: fileImpls,
+      resultErrorTypes: signals.includes('appears_as_result_error_type')
+        ? collectResultErrorTypes(parsed.tree)
+        : new Set(),
+    }));
+    if (carries('E5', language)) uses.push(...collectUseDeclarations(parsed.tree, file));
+    if (carries('E6', language)) impls.push(...fileImpls);
 
     attempts.push(recordAttempt({
       target: file,
@@ -637,13 +524,45 @@ export function measureStructure({ root, excludedPaths = [], grammar } = {}) {
       tool: `tree-sitter-${language}`,
       outcome: {
         phase: 'parse',
-        status: parsed.errorNodes ? 'partial' : 'success',
+        // A grammar that had to recover could not read the file whole, which is
+        // a different fact from a file it read and found nothing in. The two
+        // are counted apart by buildAttemptLedger, and that is the whole reason
+        // the ledger exists.
+        status: parsed.errorNodes ? 'failed' : 'success',
         diagnostics: parsed.errorNodes ? [syntaxRecoveryDiagnostic(parsed.tree)] : [],
-        extractedCount: fileItems.length,
-        reason: null,
+        extractedCount: collectItems(language, parsed.tree, file).length,
+        reason: parsed.errorNodes ? 'grammar_recovered' : null,
       },
     }));
   }
+
+  return { attempts, parseable, modules, publicItems, types, errorTypes, uses, impls, coverage };
+}
+
+/** True when the declaration names this language as carrying this family. */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+function carries(family, language) {
+  return LANGUAGES_WITH_EXTRACTORS[family].includes(language);
+}
+
+/** The implementation sites a language's error signals and mechanism family ask for. */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+function implementationsFor(language, tree, file, signals) {
+  const wanted = carries('E6', language) || signals.includes('implements_error_trait');
+  return wanted ? collectImplementations(tree, file) : [];
+}
+
+/**
+ * The limitations a run leaves behind.
+ *
+ * Each names the code, the scope it bounds and the effect it has on a
+ * conclusion, because a limitation a reader cannot weigh against the result is
+ * noise. The scope names the extensions the population actually carried rather
+ * than the language identifier: a reader who globs for `.c_cpp` finds no file.
+ */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+function limitationsOf({ files, attempts }) {
+  const limitations = [];
 
   if (parserFailure !== null) {
     limitations.push({
@@ -655,15 +574,13 @@ export function measureStructure({ root, excludedPaths = [], grammar } = {}) {
 
   // One entry per language, not per file: a limitation scoped to a single file
   // would bury the fact that a whole language went unextracted.
-  const unextractedLanguages = new Set(
-    files
-      .map(syntaxLanguageOf)
-      .filter((language) => !LANGUAGES_WITH_EXTRACTORS.includes(language)),
+  const unextracted = new Set(
+    files.map(syntaxLanguageOf).filter((language) => !STRUCTURE_FAMILIES.some((family) => carries(family, language))),
   );
-  for (const language of [...unextractedLanguages].sort(compareText)) {
+  for (const language of [...unextracted].sort(compareText)) {
     limitations.push({
       code: 'EXTRACTOR_NOT_WRITTEN',
-      scope: `**/*.${language}`,
+      scope: extensionsFor(files, language).map((extension) => `**/*${extension}`).join(', '),
       effect: `${language} is reachable by the syntax layer, which carries a grammar for it, but this instrument version has no extractor for it — so nothing was extracted from those files`,
     });
   }
@@ -688,29 +605,16 @@ export function measureStructure({ root, excludedPaths = [], grammar } = {}) {
     });
   }
 
-  return assertAdapterResult({
-    // This layer resolves nothing, so `syntax_only` is the only mode it can
-    // honestly claim — and it is the floor of the scale, which is why a missing
-    // grammar is reported through `limitations` rather than by lowering it.
-    analysis_mode: ANALYSIS_MODES[0],
-    coverage: {
-      ...coverage,
-      files_semantically_resolved: 0,
-      configs_analyzed: coverage.configs_enumerated,
-    },
-    limitations,
-    packages: packagesFrom([...parseable].sort(compareText), modules),
-    publicItems: items
-      .filter((item) => item.visibility !== null)
-      .map((item) => ({ ...item }))
-      .sort(byLocation),
-    types: types.sort(byLocation),
-    errorTypes: errorTypes.sort(byLocation),
-    modules: modules.sort(byLocation),
-    uses: uses.sort(byLocation),
-    impls: impls.sort(byLocation),
-    attempts,
-  });
+  return limitations;
+}
+
+/** The file extensions the population actually carried for one language. */
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+function extensionsFor(files, language) {
+  const extensions = files
+    .filter((file) => syntaxLanguageOf(file) === language)
+    .map((file) => file.slice(file.lastIndexOf('.')));
+  return [...new Set(extensions)].sort(compareText);
 }
 
 /** Order findings by the location a reader would go to, not by the order they were walked. */
@@ -755,24 +659,32 @@ export function renderStructureReport(structure) {
     '',
     '## Packages (E1)',
     '',
-    ...structure.packages.map(
+    // Six languages reach this report now, so every list is capped through one
+    // constant rather than through a literal one of them happens to use, and
+    // every cap states how many entries it did not print.
+    ...renderCappedList(
+      structure.packages,
       (pkg) => `- \`${pkg.directory}\` — ${pkg.files.length} file(s), declares ${pkg.declaredModules.length} module(s)`,
     ),
     '',
     '## Public surface (E2)',
     '',
-    ...structure.publicItems.slice(0, 40).map(
+    ...renderCappedList(
+      structure.publicItems,
       (item) => `- \`${item.symbol}\` (${item.itemKind}, \`${item.visibility}\`) — ${item.file}:${item.line}`,
     ),
-    structure.publicItems.length > 40 ? `- … and ${structure.publicItems.length - 40} more` : '',
     '',
     '## Types (E3)',
     '',
-    ...structure.types.map((type) => `- \`${type.symbol}\` (${type.typeKind}) — ${type.file}:${type.line}`),
+    ...renderCappedList(
+      structure.types,
+      (type) => `- \`${type.symbol}\` (${type.typeKind}) — ${type.file}:${type.line}`,
+    ),
     '',
     '## Error types (E4)',
     '',
-    ...structure.errorTypes.map(
+    ...renderCappedList(
+      structure.errorTypes,
       (error) => `- \`${error.symbol}\` (${error.typeKind}) — ${error.file}:${error.line} `
         + `— signals: ${error.signals.join(', ')}${error.variants.length > 0 ? `; ${error.variants.length} variant(s)` : ''}`,
     ),
@@ -782,7 +694,10 @@ export function renderStructureReport(structure) {
     '',
     '## Limitations',
     '',
-    ...structure.limitations.map((limitation) => `- \`${limitation.code}\` over \`${limitation.scope}\` — ${limitation.effect}`),
+    ...renderCappedList(
+      structure.limitations,
+      (limitation) => `- \`${limitation.code}\` over \`${limitation.scope}\` — ${limitation.effect}`,
+    ),
   ];
   return `${lines.filter((line) => line !== undefined).join('\n')}\n`;
 }

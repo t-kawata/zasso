@@ -1,3 +1,4 @@
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-209 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-209 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
@@ -76,14 +77,18 @@ test("C001: every extension this repository presents is decided", () => {
   assert.ok(census.has(".js") && census.has(".md"), "and it must see both sides of the decision");
 });
 
-test("C001: the exclusion map is exactly {.json, .md, .sh, .toml} and every entry explains itself", () => {
+test("C001: the exclusion map is exactly {.cpp, .h, .json, .md, .sh, .toml} and every entry explains itself", () => {
   // The literal below is the written record, not a snapshot of convenience: a
   // decision that disappears fails here, and a decision that appears without
   // being added here fails here too. `.toml` joined when P23-2's two-package
   // fixture brought a third Cargo manifest into the repository and the census
-  // floor caught it — the errand this check exists to run.
+  // floor caught it — the errand this check exists to run. `.cpp` joined the
+  // same way when P24-1's C/C++ language representatives brought three of them
+  // into this repository's own tree, and `.h` was decided beside it so that the
+  // header and the translation unit are not treated as two different owners'
+  // files.
   const keys = [...EXCLUDED_SOURCE_EXTENSIONS.keys()].sort();
-  assert.deepStrictEqual(keys, [".json", ".md", ".sh", ".toml"], "a decision must not vanish unnoticed");
+  assert.deepStrictEqual(keys, [".cpp", ".h", ".json", ".md", ".sh", ".toml"], "a decision must not vanish unnoticed");
 
   for (const [extension, reason] of EXCLUDED_SOURCE_EXTENSIONS) {
     assert.strictEqual(typeof reason, "string", extension + " must carry a reason");
@@ -229,24 +234,37 @@ test("C003: the vendored trees contribute nothing to the census", () => {
   const cFamily = all.filter((tracked) => /\.(h|c|cc|cpp|hpp)$/.test(tracked));
 
   assert.ok(cFamily.length > 2000, "the C/C++ family is present in the repository");
-  assert.ok(
-    cFamily.every((tracked) => VENDORED_ROOTS.some((root) => tracked.startsWith(root))),
-    "and every one of them is inside a declared vendored root",
-  );
+
+  // The boundary is a path prefix, and the C/C++ language representatives P24-1
+  // added are what makes it observable: they are this repository's own files, so
+  // the census counts them and their extensions owe a decision, while the
+  // 4500-odd vendored ones are neither counted nor owed.
+  const own = cFamily.filter((tracked) => !VENDORED_ROOTS.some((root) => tracked.startsWith(root)));
+  for (const tracked of own) {
+    assert.ok(
+      EXCLUDED_SOURCE_EXTENSIONS.has(path.extname(tracked)),
+      tracked + " is this repository's own C/C++ file and must carry a decision",
+    );
+  }
 
   const census = censusTrackedExtensions({ trackedPaths: all, ignoredRoots: VENDORED_ROOTS });
   for (const extension of [".h", ".c", ".cc", ".cpp", ".hpp"]) {
-    assert.strictEqual(census.has(extension), false, extension + " must not reach the census");
+    const ownOfExtension = own.filter((tracked) => tracked.endsWith(extension)).length;
+    assert.ok(
+      (census.get(extension) ?? 0) <= ownOfExtension,
+      extension + " must not reach the census in its vendored form",
+    );
   }
+  assert.strictEqual(census.get(".cpp"), 3, "and this repository's own .cpp files are all of it");
 });
 
 test("C003: path decides, not extension", () => {
-  const own = ["tests/alpha.h", "tests/beta.h", "tests/gamma.h"];
+  const own = ["tests/alpha.zig", "tests/beta.zig", "tests/gamma.zig"];
   const vendored = VENDORED_ROOTS.flatMap((root) => [
-    root + "alpha.h", root + "beta.h", root + "gamma.h",
+    root + "alpha.zig", root + "beta.zig", root + "gamma.zig",
   ]);
 
-  assert.deepStrictEqual(undecidedIn(own), [".h"], "the same extension in our own tree owes a decision");
+  assert.deepStrictEqual(undecidedIn(own), [".zig"], "the same extension in our own tree owes a decision");
   assert.deepStrictEqual(undecidedIn(vendored), [], "and vendored, it owes none");
 });
 

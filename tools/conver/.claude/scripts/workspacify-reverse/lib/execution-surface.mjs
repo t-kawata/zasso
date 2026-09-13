@@ -265,6 +265,7 @@ function measuredFiles(root, excludedPaths) {
  * @param {{root: string, excludedPaths?: string[], grammar?: object|null}} params
  */
 export function measureExecutionSurface({ root, excludedPaths = [], grammar } = {}) {
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
   const coverage = emptyCoverage();
   const attempts = [];
   const limitations = [];
@@ -328,10 +329,13 @@ export function measureExecutionSurface({ root, excludedPaths = [], grammar } = 
       tool: 'tree-sitter-rust',
       outcome: {
         phase: 'parse',
-        status: parsed.errorNodes ? 'partial' : 'success',
+        // The same rule structure.mjs and dependencies.mjs record: a parse the
+        // grammar had to recover from is one that could not run, not one that
+        // found nothing.
+        status: parsed.errorNodes ? 'failed' : 'success',
         diagnostics: recovery === null ? [] : [recovery],
         extractedCount: fileMechanisms.length,
-        reason: null,
+        reason: parsed.errorNodes ? 'grammar_recovered' : null,
       },
     }));
   }
