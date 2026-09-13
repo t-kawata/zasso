@@ -121,6 +121,8 @@ The machine's vocabulary is **`proved`** and **`not proved`**, and nothing else.
 
 Read the disk and record what conver scaffolding is already there: root `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` / `RFC-*.md`; a per-directory `RFC-SEED.md`; `WORKSPACIFY-*MANIFEST*`. Presence and absence are facts, read from the filesystem.
 
+The reading is re-derived mechanically rather than left as an impression: Step 2's scope prefix publishes it as `PATTERN.json`, naming the pattern together with the presence and absence material that decided it, so a disagreement between what you read and what the machine read is visible in a document rather than in an argument.
+
 | Pattern | The input project | What must happen |
 |---|---|---|
 | **Pattern 1** | Independently implemented. No conver artefacts at all — no RFC, no graph, no tickets, no headers | The four layers are **created** |

@@ -1,0 +1,15 @@
+{
+  "title": "authentication",
+  "metadata": { "note": "written beside its design document, not at the workspace root" },
+  "phases": [
+    {
+      "id": 1,
+      "status": "in_progress",
+      "name": "token lifecycle",
+      "tickets": [
+        { "id": 1, "phaseId": 1, "status": "done", "title": "issue a session token" },
+        { "id": 2, "phaseId": 1, "status": "planned", "title": "refresh a session token" }
+      ]
+    }
+  ]
+}

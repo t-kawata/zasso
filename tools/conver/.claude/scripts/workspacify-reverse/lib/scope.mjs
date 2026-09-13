@@ -86,6 +86,9 @@ import {
 import { buildCapabilityProfile } from './capability-profile.mjs';
 import { assessEligibility, renderEligibility } from './eligibility.mjs';
 import { EXCLUSION_RULES, buildAttemptLedger, listArtefacts } from './analysis-tech.mjs';
+// [::TICKET::] P23-11: R0's identification — which of the four declared patterns
+// the subject is. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+import { PATTERN_FILE_NAME, detectPattern, renderPatternDetection } from './pattern-detection.mjs';
 import { measureStructure, renderStructureReport, syntaxLanguageOf } from './structure.mjs';
 import { extractSemantics, renderSemanticsReport } from './semantics.mjs';
 import { reconstructHistory, renderHistoryRecord } from './history.mjs';
@@ -675,9 +678,14 @@ const SUBJECT_ARTEFACT_KINDS = Object.freeze(['handwritten', 'test', 'config']);
  * "out of scope" is stated about a path that is known to be there. That is the
  * whole difference between a scope boundary and a blind spot.
  *
- * @param {{root: string, scope: object|null, undeterminedPaths?: string[]}} params
+ * A caller that has already walked the tree hands the list in rather than
+ * paying for a second walk. R0's identification reads the same list, and one
+ * walk feeding both is what keeps them from disagreeing about what is on disk.
+ *
+ * @param {{root: string, scope: object|null, undeterminedPaths?: string[], artefacts?: Array<object>}} params
  */
-export function classifyArtefacts({ root, scope, undeterminedPaths = [] } = {}) {
+// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+export function classifyArtefacts({ root, scope, undeterminedPaths = [], artefacts = null } = {}) {
   if (scope === null || scope === undefined) {
     throw new AnalysisScopeError(
       'the scope has not been fixed, so no artefact can be classified against it — run resolveScope first',
@@ -685,7 +693,7 @@ export function classifyArtefacts({ root, scope, undeterminedPaths = [] } = {}) 
   }
   const forcedUndetermined = new Set(undeterminedPaths);
 
-  const artefacts = listArtefacts(root).map((artefact) => {
+  const classified = (artefacts ?? listArtefacts(root)).map((artefact) => {
     const kind = artefact.readStatus === 'readable' ? classifyArtefactKind(artefact.path) : 'unreadable';
     let coverage;
     if (artefact.exclusion) {
@@ -712,11 +720,11 @@ export function classifyArtefacts({ root, scope, undeterminedPaths = [] } = {}) 
   }).sort((left, right) => compareText(left.path, right.path));
 
   const counts = { in_scope: 0, out_of_scope: 0, undetermined: 0 };
-  for (const artefact of artefacts) counts[artefact.coverage] += 1;
+  for (const artefact of classified) counts[artefact.coverage] += 1;
 
   return {
     root,
-    artefacts,
+    artefacts: classified,
     counts,
     inScopeCount: counts.in_scope,
     isEmpty: counts.in_scope === 0,
@@ -961,6 +969,7 @@ export function buildAnalysisAttemptLedger({ structure, dependencies, surface, s
 export function renderAnalysisReport(run) {
   const {
     scope,
+    pattern = null,
     boundary,
     eligibility = null,
     structure,
@@ -996,8 +1005,12 @@ export function renderAnalysisReport(run) {
         + 'is not a finding about the project.',
     '',
     renderScopeReport(scope),
-    // The assessment is R0's output, so it is rendered inside R0's section —
-    // after the scope that fixes it and before the boundary R0.5 draws.
+    // R0's identification is rendered beside the scope it was read against and
+    // before the boundary R0.5 draws, so the reader meets the pattern of the
+    // subject before any measurement of it.
+    ...(pattern === null ? [] : [renderPatternDetection(pattern)]),
+    // The assessment is R0's output too, so it sits in the same section — after
+    // the scope that fixes it and before the boundary R0.5 draws.
     ...(eligibility === null ? [] : [renderEligibility(eligibility)]),
     renderBoundaryReport(boundary),
   ];
@@ -1519,7 +1532,15 @@ export async function analyzeProject({
   const stagesRun = ANALYSIS_STAGES.slice(0, ANALYSIS_STAGES.indexOf(through) + 1);
   const before = digestTree(scope.root, { tolerateUnreadable: true });
 
-  const boundary = runStage('r0.5', () => classifyArtefacts({ root: scope.root, scope }));
+  // R0's identification: which of the four patterns design 1.1 declares this
+  // subject is. It reads the artifact list R0.5 classifies, so the two cannot
+  // disagree about what is on disk, and the list is walked once for both. The
+  // result is published by every run whatever it found — an identification that
+  // changed the document set would be the gate design 1.2 forbids.
+  const artefacts = listArtefacts(scope.root);
+  const pattern = runStage('r0', () => detectPattern({ root: scope.root, artefacts }));
+
+  const boundary = runStage('r0.5', () => classifyArtefacts({ root: scope.root, scope, artefacts }));
   const excludedPaths = boundary.artefacts
     .filter((artefact) => artefact.coverage === 'out_of_scope')
     .map((artefact) => artefact.path);
@@ -1670,6 +1691,7 @@ export async function analyzeProject({
   const attempts = buildAnalysisAttemptLedger({ structure, dependencies, surface, semantics, dynamicCoupling });
   const report = renderAnalysisReport({
     scope,
+    pattern,
     boundary,
     eligibility,
     structure,
@@ -1699,10 +1721,12 @@ export async function analyzeProject({
       },
     },
     'SCOPE-BOUNDARY.json': boundary,
-    // R0 always runs, so the assessment is published by every run of every depth.
-    // It is added unconditionally rather than guarded, because a document set
-    // that changed shape with what the assessment found would make the finding
-    // into a gate (design 1.2).
+    // R0 always runs, so the identification and the assessment are published by
+    // every run of every depth. Both are added unconditionally rather than
+    // guarded, because a document set that changed shape with what was found
+    // would make the finding into a gate (design 1.2) — and for the pattern that
+    // would mean an incomplete conver project was refused its own record.
+    [PATTERN_FILE_NAME]: pattern,
     'ELIGIBILITY.json': eligibility,
     'ANALYSIS-ATTEMPTS.json': attempts,
     'R0-R2-REPORT.md': report,
@@ -1774,6 +1798,7 @@ export async function analyzeProject({
 
   return {
     scope,
+    pattern,
     boundary,
     eligibility,
     structure,
