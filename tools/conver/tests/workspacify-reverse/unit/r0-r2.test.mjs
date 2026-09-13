@@ -64,9 +64,16 @@ import {
   syntaxErrorTexts,
 } from '../../../.claude/scripts/workspacify-reverse/lib/structure.mjs';
 import {
+  CALL_SITES_ABSENT_REASON,
+  DENSITY_MAXIMUM,
+  DENSITY_MINIMUM,
+  NOT_MEASURED,
+  countBoundaryCrossings,
   externalDependenciesIn,
   findPackageCycles,
+  measureCohesion,
   measureDependencies,
+  measureDependencyDensity,
   renderDependencyReport,
 } from '../../../.claude/scripts/workspacify-reverse/lib/dependencies.mjs';
 import {
@@ -980,5 +987,469 @@ test('UT — the construct a grammar rejected is named, not summarised as an err
   const partial = structure.attempts.find((attempt) => attempt.target === 'src/broken.rs');
   assert.equal(partial.status, 'partial');
   assert.ok(partial.diagnostics.length > 0, 'a recovered parse carries the construct it recovered near');
+  tree.dispose();
+});
+
+// ---------------------------------------------------------------------------
+// P23-2 — the partition material: cohesion, dependency density and
+// boundary-crossing call counts
+// ---------------------------------------------------------------------------
+
+// @verifies C001
+// @verifies C002
+// @verifies C003
+// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+/**
+ * Two packages and four file-level edges, with the exact counts they must
+ * produce.
+ *
+ * `src/a` is coupled to itself twice and across its boundary twice; `src/b` is
+ * coupled only across its boundary. The fixture is a literal rather than a tree
+ * on disk because these functions read no tree: handing them one would hide
+ * whether the numbers came from the edge set they were given.
+ */
+const TWO_PACKAGE_NAMES = ['src/a', 'src/b'];
+const TWO_PACKAGE_RECORDS = [
+  { from: 'src/a', to: 'src/a', file: 'src/a/a1.rs', line: 3, spelling: 'crate::a::a2' },
+  { from: 'src/a', to: 'src/a', file: 'src/a/a2.rs', line: 4, spelling: 'crate::a::a1' },
+  { from: 'src/a', to: 'src/b', file: 'src/a/a1.rs', line: 5, spelling: 'crate::b::b1' },
+  { from: 'src/b', to: 'src/a', file: 'src/b/b1.rs', line: 2, spelling: 'crate::a::a1' },
+];
+
+/** The crossings of the two-package fixture, at the granularity R2 publishes. */
+const TWO_PACKAGE_EDGES = [
+  {
+    from: 'src/a',
+    to: 'src/b',
+    kind: 'syntactic_import',
+    locations: [{ file: 'src/a/a1.rs', line: 5, spelling: 'crate::b::b1' }],
+    count: 1,
+  },
+  {
+    from: 'src/b',
+    to: 'src/a',
+    kind: 'syntactic_import',
+    locations: [{ file: 'src/b/b1.rs', line: 2, spelling: 'crate::a::a1' }],
+    count: 1,
+  },
+];
+
+/** Three packages, every one of their six ordered pairs carrying an edge. */
+const THREE_PACKAGE_NAMES = ['src/a', 'src/b', 'src/c'];
+const EVERY_ORDERED_PAIR_EDGES = [
+  ['src/a', 'src/b'], ['src/b', 'src/a'],
+  ['src/a', 'src/c'], ['src/c', 'src/a'],
+  ['src/b', 'src/c'], ['src/c', 'src/b'],
+].map(([from, to]) => ({
+  from,
+  to,
+  kind: 'syntactic_import',
+  locations: [{ file: `${from}/mod.rs`, line: 1, spelling: `crate::${to.split('/')[1]}::item` }],
+  count: 1,
+}));
+
+/**
+ * One fixed edge set over four packages, used by the property tests.
+ *
+ * `src/d` carries only a self-edge, so a partition that includes it has a
+ * package with internal coupling and nothing else.
+ */
+const PROPERTY_RECORDS = [
+  { from: 'src/a', to: 'src/a', file: 'src/a/1.rs', line: 1, spelling: 'crate::a::x' },
+  { from: 'src/a', to: 'src/b', file: 'src/a/2.rs', line: 2, spelling: 'crate::b::y' },
+  { from: 'src/b', to: 'src/c', file: 'src/b/1.rs', line: 3, spelling: 'crate::c::z' },
+  { from: 'src/c', to: 'src/a', file: 'src/c/1.rs', line: 4, spelling: 'crate::a::x' },
+  { from: 'src/d', to: 'src/d', file: 'src/d/1.rs', line: 5, spelling: 'crate::d::w' },
+];
+// `src/e` carries no record at all, so a partition that includes it has a
+// package no measured edge reaches — the boundary case the identity must hold on.
+const PROPERTY_PACKAGES = ['src/a', 'src/b', 'src/c', 'src/d', 'src/e'];
+
+/**
+ * Twenty partitions of the one fixed edge set.
+ *
+ * The fifteen non-empty subsets of the four packages are cycled up to twenty so
+ * that the property is asserted over partitions that include and exclude each
+ * package rather than over one convenient shape.
+ */
+// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+function partitionMaterialPartitions() {
+  const subsets = [];
+  for (let mask = 1; mask < (1 << PROPERTY_PACKAGES.length); mask += 1) {
+    subsets.push(PROPERTY_PACKAGES.filter((_, position) => (mask & (1 << position)) !== 0));
+  }
+  return Array.from({ length: 20 }, (_, index) => subsets[index % subsets.length]);
+}
+
+test('UT: [Normal] Contract C001 precondition — a measured package set and the measured edge set are both present, and every edge names two members of the set', () => {
+  const members = new Set(TWO_PACKAGE_NAMES);
+  assert.ok(TWO_PACKAGE_RECORDS.every((edge) => members.has(edge.from) && members.has(edge.to)));
+  assert.deepEqual(
+    [...new Set(TWO_PACKAGE_RECORDS.flatMap((edge) => [edge.from, edge.to]))].sort(),
+    TWO_PACKAGE_NAMES,
+  );
+});
+
+test('UT: [Normal] Contract C001 postcondition — internal and external coupling are counted per package with the member files named and the external-to-total ratio stated beside both counts', () => {
+  const { rows } = measureCohesion({ packages: TWO_PACKAGE_NAMES, edges: TWO_PACKAGE_RECORDS });
+
+  assert.deepEqual(rows, [
+    {
+      package: 'src/a',
+      internalCoupling: 2,
+      externalCoupling: 2,
+      incidentEdges: 4,
+      externalRatio: 0.5,
+      memberFiles: ['src/a/a1.rs', 'src/a/a2.rs'],
+    },
+    {
+      package: 'src/b',
+      internalCoupling: 0,
+      externalCoupling: 2,
+      incidentEdges: 2,
+      externalRatio: 1,
+      memberFiles: ['src/b/b1.rs'],
+    },
+  ]);
+  // The ratio is stated beside the counts and not instead of them: both raw
+  // numbers survive in the same row that carries the ratio.
+  assert.equal(rows[0].externalRatio, rows[0].externalCoupling / rows[0].incidentEdges);
+  assert.ok(rows[0].memberFiles.length > 0, 'the reader can see which files the coupling was measured over');
+});
+
+test('UT: [Invariant] Contract C001 invariant — internal plus external equals incident for every package, including one with no incident edge', () => {
+  const { rows } = measureCohesion({ packages: PROPERTY_PACKAGES, edges: PROPERTY_RECORDS });
+  assert.ok(rows.some((row) => row.incidentEdges === 0), 'the fixture carries a package no measured edge reaches');
+  for (const row of rows) {
+    assert.equal(row.internalCoupling + row.externalCoupling, row.incidentEdges, `${row.package} lost an edge`);
+  }
+});
+
+test('UT: [Invariant] Contract C001 invariant as a property — over twenty generated partitions of one fixed edge set the identity holds for every package', () => {
+  for (const partition of partitionMaterialPartitions()) {
+    const { rows } = measureCohesion({ packages: partition, edges: PROPERTY_RECORDS });
+    for (const row of rows) {
+      assert.equal(row.internalCoupling + row.externalCoupling, row.incidentEdges, `${row.package} in ${partition.join('+')}`);
+    }
+  }
+});
+
+test('UT: [Error] an edge naming a package outside the measured set is reported as an unresolved edge by name rather than attributed to a package that does not exist', () => {
+  const { rows, unresolvedEdges } = measureCohesion({
+    packages: ['src/a'],
+    edges: [{ from: 'src/a', to: 'src/ghost', file: 'src/a/a1.rs', line: 1, spelling: 'crate::ghost::x' }],
+  });
+
+  assert.deepEqual(unresolvedEdges, [
+    { from: 'src/a', to: 'src/ghost', reason: 'src/ghost is not in the measured package set' },
+  ]);
+  // The unresolved edge is not silently attributed to src/a: its external count
+  // stays zero rather than gaining an edge it cannot have.
+  assert.deepEqual(rows, [
+    {
+      package: 'src/a',
+      internalCoupling: 0,
+      externalCoupling: 0,
+      incidentEdges: 0,
+      externalRatio: NOT_MEASURED,
+      memberFiles: [],
+    },
+  ]);
+});
+
+test('UT: [Boundary] Contract C001 boundary invariant — a package with one member file and no incident edge yields a null ratio, asserted as null rather than as zero', () => {
+  const lonely = measureCohesion({ packages: ['src/lonely'], edges: [] });
+
+  assert.equal(lonely.rows[0].externalRatio, null);
+  assert.notEqual(lonely.rows[0].externalRatio, 0);
+  assert.deepEqual(lonely.rows[0], {
+    package: 'src/lonely',
+    internalCoupling: 0,
+    externalCoupling: 0,
+    incidentEdges: 0,
+    externalRatio: NOT_MEASURED,
+    memberFiles: [],
+  });
+});
+
+test('UT: [Boundary] a package named twice in the measured set is attributed once, so the package set is a set rather than a list', () => {
+  const twice = measureCohesion({
+    packages: ['src/a', 'src/a'],
+    edges: [{ from: 'src/a', to: 'src/a', file: 'src/a/a1.rs', line: 1, spelling: 'crate::a::a2' }],
+  });
+
+  assert.equal(twice.rows.length, 1);
+  assert.equal(twice.rows[0].internalCoupling, 1);
+
+  // The two measurements consume one population and cannot disagree about how
+  // many packages it holds: a name given twice is one package for both.
+  const density = measureDependencyDensity({ packages: ['src/a', 'src/a'], edges: [] });
+  assert.equal(density.population.packages.length, 1);
+  assert.equal(density.possibleOrderedPairs, 1);
+  assert.deepEqual(density.population.packages, twice.rows.map((row) => row.package));
+});
+
+test('UT: [Error] a call site that names no file or no callee is refused by name rather than throwing from inside the count', () => {
+  const malformed = /countBoundaryCrossings needs every call site to carry the file it sits in and the callee it names/;
+
+  assert.throws(
+    () => countBoundaryCrossings({ packages: TWO_PACKAGE_NAMES, edges: TWO_PACKAGE_EDGES, callSites: [{ name: 'b1' }] }),
+    malformed,
+  );
+  assert.throws(
+    () => countBoundaryCrossings({ packages: TWO_PACKAGE_NAMES, edges: TWO_PACKAGE_EDGES, callSites: [{ file: 'src/a/a1.rs' }] }),
+    malformed,
+  );
+  assert.throws(
+    () => countBoundaryCrossings({ packages: TWO_PACKAGE_NAMES, edges: TWO_PACKAGE_EDGES, callSites: [null] }),
+    malformed,
+  );
+  // An empty list is a measured run that saw no crossing call, and is not the
+  // same input as a malformed one.
+  assert.equal(
+    countBoundaryCrossings({ packages: TWO_PACKAGE_NAMES, edges: TWO_PACKAGE_EDGES, callSites: [] }).length,
+    TWO_PACKAGE_EDGES.length,
+  );
+});
+
+test('UT: [Error] measureCohesion, measureDependencyDensity and countBoundaryCrossings each throw naming the input they needed rather than returning an empty result', () => {
+  assert.throws(() => measureCohesion({ packages: null, edges: [] }), /measureCohesion needs the measured package set/);
+  assert.throws(() => measureCohesion({ packages: 'src/a', edges: [] }), /measureCohesion needs the measured package set/);
+  assert.throws(() => measureCohesion({ packages: [], edges: null }), /measureCohesion needs the measured edge set/);
+  assert.throws(() => measureDependencyDensity({ packages: null, edges: [] }), /measureDependencyDensity needs the measured package set/);
+  assert.throws(() => measureDependencyDensity({ packages: [], edges: null }), /measureDependencyDensity needs the measured edge set/);
+  assert.throws(() => countBoundaryCrossings({ packages: null, edges: [] }), /countBoundaryCrossings needs the measured package set/);
+  assert.throws(() => countBoundaryCrossings({ packages: [], edges: null }), /countBoundaryCrossings needs the measured edge set/);
+});
+
+test('UT: [Invariant] the measurement consumes the sets it was given and reads nothing else — two calls with the same input cannot disagree, and no path has to exist', () => {
+  const tree = syntheticCrateTree();
+  const onDisk = [join(tree.root, 'src', 'api'), join(tree.root, 'src', 'config')];
+  const offDisk = ['there/is/no/such/a', 'there/is/no/such/b'];
+  const records = (left, right) => [
+    { from: left, to: left, file: 'a.rs', line: 1, spelling: 'crate::a' },
+    { from: left, to: right, file: 'b.rs', line: 2, spelling: 'crate::b' },
+  ];
+  const relabel = (rows, names) => rows.map((row) => ({
+    ...row,
+    package: row.package === names[0] ? 'X' : 'Y',
+  }));
+
+  const here = measureCohesion({ packages: onDisk, edges: records(onDisk[0], onDisk[1]) });
+  const again = measureCohesion({ packages: onDisk, edges: records(onDisk[0], onDisk[1]) });
+  const there = measureCohesion({ packages: offDisk, edges: records(offDisk[0], offDisk[1]) });
+
+  assert.deepEqual(here, again, 'two calls with the same input give the same output');
+  assert.deepEqual(relabel(there.rows, offDisk), relabel(here.rows, onDisk), 'a directory that exists and one that does not are measured identically');
+  tree.dispose();
+});
+
+test('UT: [Normal] Contract C002 precondition — the package set and the edge set are present and the package count is at least one, so the ordered pair count is defined', () => {
+  assert.ok(Array.isArray(THREE_PACKAGE_NAMES) && THREE_PACKAGE_NAMES.length >= 1);
+  assert.equal(EVERY_ORDERED_PAIR_EDGES.length, THREE_PACKAGE_NAMES.length * (THREE_PACKAGE_NAMES.length - 1));
+});
+
+test('UT: [Normal] Contract C002 postcondition — density is the measured edge count over the possible ordered pairs, with both numbers and the named population beside it', () => {
+  const density = measureDependencyDensity({ packages: THREE_PACKAGE_NAMES, edges: EVERY_ORDERED_PAIR_EDGES });
+
+  assert.equal(density.measuredEdges, 6);
+  assert.equal(density.possibleOrderedPairs, 6);
+  assert.equal(density.density, 6 / 6);
+  assert.deepEqual(density.population.packages, THREE_PACKAGE_NAMES);
+  assert.equal(density.population.measured, true);
+  assert.equal(density.population.reason, null);
+});
+
+test('UT: [Error] Contract C002 invariant — a zero edge count reports a measured population and a density of zero, not an unmeasured population reported as zero', () => {
+  const none = measureDependencyDensity({ packages: THREE_PACKAGE_NAMES, edges: [] });
+
+  assert.equal(none.measuredEdges, 0);
+  assert.equal(none.density, 0);
+  assert.equal(none.population.measured, true);
+  assert.equal(none.population.reason, null);
+  assert.deepEqual(none.population.packages, THREE_PACKAGE_NAMES);
+});
+
+test('UT: [Boundary] Contract C002 invariant — density is exactly one when every ordered pair carries an edge and exactly zero when none does', () => {
+  assert.equal(
+    measureDependencyDensity({ packages: THREE_PACKAGE_NAMES, edges: EVERY_ORDERED_PAIR_EDGES }).density,
+    DENSITY_MAXIMUM,
+  );
+  assert.equal(
+    measureDependencyDensity({ packages: THREE_PACKAGE_NAMES, edges: [] }).density,
+    DENSITY_MINIMUM,
+  );
+});
+
+test('UT: [Boundary] a single-package project reports one possible ordered pair rather than zero, so the ratio is defined', () => {
+  const alone = measureDependencyDensity({ packages: ['src/only'], edges: [] });
+
+  assert.equal(alone.possibleOrderedPairs, 1);
+  assert.notEqual(alone.possibleOrderedPairs, 0);
+  assert.equal(alone.density, DENSITY_MINIMUM);
+});
+
+test('UT: [Invariant] Contract C002 invariant as a property — over the same partitions density stays inside the closed interval and reaches zero only when no edge was measured', () => {
+  for (const partition of partitionMaterialPartitions()) {
+    const density = measureDependencyDensity({ packages: partition, edges: PROPERTY_RECORDS });
+    assert.ok(density.density >= DENSITY_MINIMUM && density.density <= DENSITY_MAXIMUM, `${density.density} left [0,1]`);
+    assert.equal(density.density === DENSITY_MINIMUM, density.measuredEdges === 0);
+  }
+});
+
+test('UT: [Normal] Contract C003 precondition — the call-site material carries a source file and a callee name, and the partition measured is the one R2 measured', () => {
+  const callSites = [
+    { file: 'src/a/a1.rs', name: 'b1' },
+    { file: 'src/a/a2.rs', name: 'b1' },
+    { file: 'src/a/a1.rs', name: 'elsewhere' },
+  ];
+
+  assert.ok(callSites.every((site) => typeof site.file === 'string' && typeof site.name === 'string'));
+  assert.ok(TWO_PACKAGE_EDGES.every((edge) => TWO_PACKAGE_NAMES.includes(edge.from) && TWO_PACKAGE_NAMES.includes(edge.to)));
+});
+
+test('UT: [Normal] Contract C003 postcondition — three call sites in the source package naming the target of a crossing are reported as a count, and the row states where the count came from', () => {
+  const rows = countBoundaryCrossings({
+    packages: TWO_PACKAGE_NAMES,
+    edges: TWO_PACKAGE_EDGES,
+    callSites: [
+      { file: 'src/a/a1.rs', name: 'b1' },
+      { file: 'src/a/a2.rs', name: 'b1' },
+      { file: 'src/a/a1.rs', name: 'b1' },
+      // A call that names something else in the same package is not a crossing,
+      // and a call in the target package is not one either.
+      { file: 'src/a/a1.rs', name: 'elsewhere' },
+      { file: 'src/b/b1.rs', name: 'b1' },
+    ],
+  });
+
+  const crossing = rows.find((row) => row.from === 'src/a' && row.to === 'src/b');
+  assert.equal(crossing.callSiteCount, 3);
+  assert.equal(crossing.measured, true);
+  assert.equal(crossing.reason, null);
+});
+
+test('UT: [Error] Contract C003 error path — when callSites is absent because R3 did not run, every crossing is not measured, the reason names R3, and no row reports a count of zero', () => {
+  const unmeasured = countBoundaryCrossings({
+    packages: TWO_PACKAGE_NAMES,
+    edges: TWO_PACKAGE_EDGES,
+    callSites: null,
+  });
+
+  assert.equal(unmeasured.length, TWO_PACKAGE_EDGES.length);
+  assert.ok(unmeasured.every((row) => row.measured === false));
+  assert.ok(unmeasured.every((row) => row.callSiteCount === NOT_MEASURED));
+  assert.ok(unmeasured.every((row) => /R3/.test(row.reason)));
+  assert.ok(unmeasured.every((row) => row.reason === CALL_SITES_ABSENT_REASON));
+  assert.equal(unmeasured.some((row) => row.callSiteCount === 0), false);
+});
+
+test('UT: [Error] Contract C003 invariant — a crossing whose calls the syntax layer cannot see is reported as a count of zero and stays in the output', () => {
+  const rows = countBoundaryCrossings({
+    packages: TWO_PACKAGE_NAMES,
+    edges: TWO_PACKAGE_EDGES,
+    callSites: [],
+  });
+
+  assert.equal(rows.length, TWO_PACKAGE_EDGES.length);
+  assert.ok(rows.some((row) => row.callSiteCount === 0), 'a zero row is present rather than dropped');
+  assert.ok(rows.every((row) => row.measured === true));
+  assert.ok(rows.every((row) => row.callSiteCount === 0));
+});
+
+test('UT: [Invariant] Contract C003 invariant as a property — every crossing edge appears exactly once in the output, whatever its call-site count', () => {
+  const rows = countBoundaryCrossings({
+    packages: THREE_PACKAGE_NAMES,
+    edges: EVERY_ORDERED_PAIR_EDGES,
+    callSites: [{ file: 'src/a/mod.rs', name: 'item' }],
+  });
+
+  assert.equal(rows.length, EVERY_ORDERED_PAIR_EDGES.length);
+  assert.deepEqual(
+    rows.map((row) => `${row.from}->${row.to}`).sort(),
+    EVERY_ORDERED_PAIR_EDGES.map((edge) => `${edge.from}->${edge.to}`).sort(),
+    'every crossing appears exactly once, whatever its call-site count',
+  );
+  assert.equal(new Set(rows.map((row) => `${row.from}->${row.to}`)).size, EVERY_ORDERED_PAIR_EDGES.length);
+});
+
+test('UT: [Boundary] a crossing whose source has one call site and one whose source has a hundred both report their count without a cap', () => {
+  const one = countBoundaryCrossings({ packages: TWO_PACKAGE_NAMES, edges: TWO_PACKAGE_EDGES, callSites: [{ file: 'src/a/a1.rs', name: 'b1' }] });
+  const hundred = countBoundaryCrossings({
+    packages: TWO_PACKAGE_NAMES,
+    edges: TWO_PACKAGE_EDGES,
+    callSites: Array.from({ length: 100 }, () => ({ file: 'src/a/a1.rs', name: 'b1' })),
+  });
+
+  assert.equal(one.find((row) => row.from === 'src/a' && row.to === 'src/b').callSiteCount, 1);
+  assert.equal(hundred.find((row) => row.from === 'src/a' && row.to === 'src/b').callSiteCount, 100);
+  assert.equal(hundred.find((row) => row.from === 'src/a' && row.to === 'src/b').measured, true);
+});
+
+test('UT: [Normal] countBoundaryCrossings orders its rows deterministically, so two readings of one run cannot disagree about which crossing is which', () => {
+  const read = () => countBoundaryCrossings({
+    packages: TWO_PACKAGE_NAMES,
+    edges: TWO_PACKAGE_EDGES,
+    callSites: [{ file: 'src/a/a1.rs', name: 'b1' }],
+  });
+
+  assert.deepEqual(read(), read());
+  assert.deepEqual(read().map((row) => `${row.from}->${row.to}`), ['src/a->src/b', 'src/b->src/a']);
+});
+
+test('UT: [Normal] measureDependencies carries cohesion, density and boundaryCrossings beside the keys it already carried, and every existing key keeps its name, type and meaning', () => {
+  const tree = syntheticCrateTree();
+  const surface = measureExecutionSurface({ root: tree.root });
+  const dependencies = measureDependencies({ root: tree.root, surface });
+
+  for (const key of [
+    'analysis_mode', 'attempts', 'coverage', 'coupling_claim', 'cycles', 'declaredModules',
+    'edges', 'external', 'limitations', 'packages', 'represents_runtime_binding', 'runtime_binding_caveat',
+  ]) {
+    assert.ok(Object.hasOwn(dependencies, key), `${key} was a key of the document before this ticket`);
+  }
+  assert.ok(Array.isArray(dependencies.cohesion.rows));
+  assert.ok(Array.isArray(dependencies.cohesion.unresolvedEdges));
+  assert.equal(typeof dependencies.density.density, 'number');
+  assert.ok(Array.isArray(dependencies.boundaryCrossings));
+  assert.ok(dependencies.cohesion.rows.length >= 2, 'the fixture spans more than one package');
+  assert.equal(dependencies.coupling_claim, 'hypothesis');
+  assert.equal(dependencies.represents_runtime_binding, false);
+  tree.dispose();
+});
+
+test('UT: [Invariant] coupling_claim stays hypothesis and represents_runtime_binding stays false after the new measurements are attached, asserted on the returned object', () => {
+  const tree = syntheticCrateTree();
+  const dependencies = measureDependencies({ root: tree.root });
+
+  assert.equal(dependencies.coupling_claim, 'hypothesis');
+  assert.equal(dependencies.represents_runtime_binding, false);
+  // The static measurements make no stronger claim than the graph they read.
+  assert.ok(dependencies.boundaryCrossings.every((row) => row.measured === false));
+  tree.dispose();
+});
+
+test('UT: [Normal] the dependency report renders the partition material as prose that names the packages, embeds file:line and states the question the reader must answer', () => {
+  const tree = syntheticCrateTree();
+  const surface = measureExecutionSurface({ root: tree.root });
+  const report = renderDependencyReport(measureDependencies({ root: tree.root, surface }));
+
+  assert.match(report, /## The partition material/);
+  assert.match(report, /[A-Za-z0-9_./-]+\.(?:rs|ts|mjs):\d+/);
+  assert.match(report, /Decide whether/i);
+  assert.match(report, /cohesion/i);
+  assert.match(report, /density/i);
+  tree.dispose();
+});
+
+test('UT: [Normal] the report names a directory that reads as a boundary and says why, in the form ABOUT-REVERSE 5.2 requires', () => {
+  const tree = syntheticCrateTree();
+  const surface = measureExecutionSurface({ root: tree.root });
+  const report = renderDependencyReport(measureDependencies({ root: tree.root, surface }));
+
+  assert.match(report, /reads as a boundary/i);
+  assert.match(report, /Because the terminal state|why it matters/i);
+  assert.match(report, /not measured|R3/);
+  assert.match(report, /static/i);
   tree.dispose();
 });

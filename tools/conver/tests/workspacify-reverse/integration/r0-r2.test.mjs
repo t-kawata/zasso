@@ -23,6 +23,11 @@ import { fileURLToPath } from 'node:url';
 
 import { analyzeProject, classifyArtefacts, resolveScope } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
 import { checkBaselines } from '../../../.claude/scripts/workspacify-reverse/lib/regression-gate.mjs';
+import {
+  countBoundaryCrossings,
+  measureDependencies,
+} from '../../../.claude/scripts/workspacify-reverse/lib/dependencies.mjs';
+import { extractSemantics } from '../../../.claude/scripts/workspacify-reverse/lib/semantics.mjs';
 import { hashTree } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
@@ -123,4 +128,140 @@ test('IT-3 the run records the target digest it took, before and after', { skip:
 test('IT-2 the forward rotation still reproduces every frozen value', () => {
   const result = checkBaselines({ projectRoot: PROJECT_ROOT });
   assert.equal(result.verdict, 'proved', 'no backward step may change forward-rotation behaviour');
+});
+
+// ---------------------------------------------------------------------------
+// P23-2 — the partition material over a run, rather than over an argument
+// ---------------------------------------------------------------------------
+
+// @verifies C001
+// @verifies C002
+// @verifies C003
+/**
+ * The crate the partition material is measured over.
+ *
+ * Two packages coupled across their boundary in both directions. `src/a/mod.rs`
+ * imports and calls `send` from `src/b`; `src/a/other.rs` imports from its own
+ * package, which is internal coupling and not a crossing. `send` is deliberately
+ * a name R3's call vocabulary reads, because a fixture whose crossing call the
+ * syntax layer cannot see would prove nothing about the boundary-crossing count.
+ *
+ * It is a committed tree under `fixtures/` rather than a literal materialised
+ * per test, so that the input every frozen count below was taken from can be
+ * read and diffed by whoever has to re-derive them.
+ */
+// [::TICKET::] P23-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-2 --for-spec --no-implementation-order`.
+const TWO_PACKAGE_ROOT = fileURLToPath(new URL('../fixtures/two-package-crate/', import.meta.url));
+
+/**
+ * The counts the two-package crate produced before this ticket's measurements
+ * existed, frozen so that a change which perturbs the graph fails here.
+ */
+const FROZEN_EDGE_COUNT = 2;
+const FROZEN_PACKAGE_COUNT = 2;
+const FROZEN_CYCLE_COUNT = 1;
+const FROZEN_DECLARED_MODULE_COUNT = 0;
+
+/** The fact kinds R3 reads from a call, and therefore the call-site material. */
+const CALL_SHAPED_KINDS = new Set([
+  'panic',
+  'assert',
+  'unwrap_expect',
+  'error_return',
+  'io_read',
+  'io_write',
+  'test_expected_exception',
+]);
+
+test('IT a run through r2 publishes cohesion, density and boundaryCrossings, and the cohesion identity holds over the published document', () => {
+  const out = scratchOutput();
+  analyzeProject({ root: TWO_PACKAGE_ROOT, out: out.root, through: 'r2' });
+
+  const published = JSON.parse(readFileSync(join(out.root, 'DEPENDENCIES.json'), 'utf8'));
+  assert.ok(Array.isArray(published.cohesion.rows));
+  assert.equal(typeof published.density.density, 'number');
+  assert.ok(Array.isArray(published.boundaryCrossings));
+
+  for (const row of published.cohesion.rows) {
+    assert.equal(row.internalCoupling + row.externalCoupling, row.incidentEdges, `${row.package} lost an edge`);
+  }
+
+  const byPackage = Object.fromEntries(published.cohesion.rows.map((row) => [row.package, row]));
+  assert.deepEqual(byPackage['src/a'].memberFiles, ['src/a/mod.rs', 'src/a/other.rs']);
+  assert.equal(byPackage['src/a'].internalCoupling, 1);
+  assert.equal(byPackage['src/a'].externalCoupling, 2);
+  assert.equal(byPackage['src/a'].incidentEdges, 3);
+  assert.equal(byPackage['src/b'].internalCoupling, 0);
+  assert.equal(byPackage['src/b'].externalCoupling, 2);
+  assert.equal(published.density.measuredEdges, FROZEN_EDGE_COUNT);
+  assert.equal(published.density.possibleOrderedPairs, 2);
+
+  // Both crossings exist; neither carries a call count, because R2 runs before
+  // R3 and the run was told to stop there.
+  assert.equal(published.boundaryCrossings.length, FROZEN_EDGE_COUNT);
+  assert.ok(published.boundaryCrossings.every((row) => row.measured === false));
+  assert.ok(published.boundaryCrossings.every((row) => row.callSiteCount === null));
+  out.dispose();
+});
+
+test('IT the report renders the partition material as prose with file:line embedded and states the question the reader must answer', () => {
+  const out = scratchOutput();
+  analyzeProject({ root: TWO_PACKAGE_ROOT, out: out.root, through: 'r2' });
+
+  const report = readFileSync(join(out.root, 'R0-R2-REPORT.md'), 'utf8');
+  assert.match(report, /## The partition material/);
+  assert.match(report, /[A-Za-z0-9_./-]+\.rs:\d+/);
+  assert.match(report, /Decide whether/i);
+  assert.match(report, /reads as a boundary/i);
+  // The direction of every crossing is stated even when no call count exists,
+  // so a crossing is never dropped for want of a measurement.
+  assert.match(report, /\| `src\/a` \| `src\/b` \|/);
+  assert.match(report, /\| `src\/b` \| `src\/a` \|/);
+  assert.match(report, /_not measured_/);
+  out.dispose();
+});
+
+test('IT the package set the cohesion is measured over is the set findPackageCycles condenses and the set the document publishes', () => {
+  const out = scratchOutput();
+  analyzeProject({ root: TWO_PACKAGE_ROOT, out: out.root, through: 'r2' });
+
+  const published = JSON.parse(readFileSync(join(out.root, 'DEPENDENCIES.json'), 'utf8'));
+  assert.deepEqual(published.cohesion.rows.map((row) => row.package), published.packages);
+  assert.deepEqual(published.density.population.packages, published.packages);
+  assert.deepEqual(published.packages, ['src/a', 'src/b']);
+  out.dispose();
+});
+
+test('IT the new keys do not perturb the edges, packages, cycles or declared modules the run already measured', () => {
+  const out = scratchOutput();
+  analyzeProject({ root: TWO_PACKAGE_ROOT, out: out.root, through: 'r2' });
+
+  const published = JSON.parse(readFileSync(join(out.root, 'DEPENDENCIES.json'), 'utf8'));
+  assert.equal(published.edges.length, FROZEN_EDGE_COUNT);
+  assert.equal(published.packages.length, FROZEN_PACKAGE_COUNT);
+  assert.equal(published.cycles.length, FROZEN_CYCLE_COUNT);
+  assert.equal(published.declaredModules.length, FROZEN_DECLARED_MODULE_COUNT);
+  assert.equal(published.coupling_claim, 'hypothesis');
+  assert.equal(published.represents_runtime_binding, false);
+  out.dispose();
+});
+
+test('IT countBoundaryCrossings reads the same extraction the claim ledger reads, so a crossing R3 can see is reported as measured', () => {
+  const dependencies = measureDependencies({ root: TWO_PACKAGE_ROOT });
+  const semantics = extractSemantics({ root: TWO_PACKAGE_ROOT, dependencies });
+
+  // The projection from R3's facts to call sites is the caller's, which is why
+  // countBoundaryCrossings takes call sites as data rather than reading Rust syntax.
+  const callSites = semantics.facts
+    .filter((fact) => CALL_SHAPED_KINDS.has(fact.kind))
+    .map((fact) => ({ file: fact.file, name: fact.text.split('(')[0].trim() }));
+
+  const rows = countBoundaryCrossings({ packages: dependencies.packages, edges: dependencies.edges, callSites });
+
+  assert.equal(rows.length, FROZEN_EDGE_COUNT);
+  assert.ok(rows.every((row) => row.measured === true));
+  const crossing = rows.find((row) => row.from === 'src/a' && row.to === 'src/b');
+  assert.equal(crossing.callSiteCount, 1, 'the call to send() in src/a names the target of this edge');
+  const unseen = rows.find((row) => row.from === 'src/b' && row.to === 'src/a');
+  assert.equal(unseen.callSiteCount, 0, 'dispatch is not in R3 vocabulary, and zero is reported rather than dropped');
 });
