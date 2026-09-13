@@ -141,6 +141,22 @@ export function writeSyntheticTree(root, filesByPath) {
   }
 }
 
+/**
+ * Write one throwaway file and hand back its name and path.
+ *
+ * A rule over text — a command file's gate placement, a module's declaration — is only
+ * ever run against conforming input unless a fixture is written that breaks it, and a
+ * check nobody has watched fail is a check nobody knows works. The name comes back
+ * without its extension because the callers' rules speak in file names, not in paths.
+ */
+export function createThrowawayFile(name, lines, { prefix = 'wsp-file-' } = {}) {
+// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+  const dir = mkdtempSync(path.join(os.tmpdir(), prefix));
+  const filePath = path.join(dir, name);
+  writeFileSync(filePath, lines.join('\n'), 'utf8');
+  return { name: name.replace(/\.[^.]+$/, ''), path: filePath };
+}
+
 /** Create a throwaway temporary tree from a path-to-content map. */
 export function createSyntheticTree(filesByPath, { prefix = 'wsp-synth-' } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), prefix));

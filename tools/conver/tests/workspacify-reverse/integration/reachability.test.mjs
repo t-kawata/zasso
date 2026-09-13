@@ -25,9 +25,19 @@ const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '
 const RUN_ENTRY = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/run.mjs');
 const MODULE_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/lib');
 
-/** The modules design §6 records as the absent entrances, minus the seven the stages take. */
+/**
+ * The modules design §6 records as the absent entrances, minus the seven the stages take.
+ *
+ * `invariant-audit.mjs` is not one of design §6's nine. It is listed here because it is a
+ * library module this walk cannot reach, and the honest answer to "why not" is a sentence
+ * rather than an omission: P23-12's audit measures the reverse chain's gates, and design
+ * §1.2 forbids it from doing so *as a gate*. Wiring it into `run.mjs` is precisely what
+ * would let it refuse a run. What executes it is the test suite, which is the entrance
+ * §1.2 asks for; an enforcement gate is the shape it forbids.
+ */
 const STILL_ABSENT = Object.freeze([
-// [::TICKET::] P23-7, P23-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-7|P23-8) --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7, P23-8, P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-7|P23-8|P23-12) --for-spec --no-implementation-order`.
+  'invariant-audit.mjs',
   'staleness.mjs',
   'two-pass.mjs',
 ]);
@@ -119,15 +129,15 @@ test('C004 invariant — the transitive closure also reaches the counterexample 
   }
 });
 
-test('C004 invariant — nine absent entrances become two, and the two are named', () => {
+test('C004 invariant — nine absent entrances become three, and the three are named', () => {
   const { unreachable } = reachableModules(RUN_ENTRY, MODULE_DIRECTORY);
 
   assert.deepEqual(
     unreachable,
     [...STILL_ABSENT].sort(),
-    'the absent entrances design 6 records, less the four R2.5 reaches, the one R6.5 reaches and the two R7 now serves',
+    'the absent entrances design 6 records, less the four R2.5 reaches, the one R6.5 reaches and the two R7 now serves, plus P23-12s audit which §1.2 keeps out of the run',
   );
-  assert.equal(unreachable.length, 2, 'nine before the stages, two after P23-8');
+  assert.equal(unreachable.length, 3, 'nine before the stages, two after P23-8, plus the audit P23-12 adds');
 });
 
 test('C004 invariant — the closure is recomputed rather than remembered, so a new unreachable module is reported', () => {

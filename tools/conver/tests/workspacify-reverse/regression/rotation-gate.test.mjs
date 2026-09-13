@@ -25,9 +25,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import {
@@ -42,6 +41,7 @@ import {
   rejectInadmissiblePredicates,
 } from '../../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs';
 import { resolveTreeMode, TREE_MODES } from '../../../.claude/scripts/workspacify-tree/lib/reverse-mode.mjs';
+import { createThrowawayFile } from '../helpers/scratch.mjs';
 import { resolveAllocateMode, ALLOCATE_MODES } from '../../../.claude/scripts/workspacify-allocate/lib/reverse-mode.mjs';
 
 const PROJECT_ROOT = resolve(import.meta.dirname, '../../..');
@@ -55,19 +55,9 @@ const bytesOf = (path) => createHash('sha256').update(readFileSync(path)).digest
 const linesOf = (path) => readFileSync(path, 'utf8').split('\n');
 const commandLines = (name) => linesOf(join(COMMANDS, `${name}.md`));
 
-/**
- * Write a throwaway command file and hand back its path and name.
- *
- * A fixture is used rather than the real files wherever a rule must be seen to
- * fail: a check that is only ever run against conforming input is a check nobody
- * has watched work.
- */
-// [::TICKET::] PX-210 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-210 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-210, P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-210|P23-12) --for-spec --no-implementation-order`.
 function fixture(name, lines) {
-  const dir = mkdtempSync(join(tmpdir(), 'px210-'));
-  const path = join(dir, name);
-  writeFileSync(path, lines.join('\n'), 'utf8');
-  return { name: name.replace(/\.md$/, ''), path };
+  return createThrowawayFile(name, lines, { prefix: 'px210-' });
 }
 
 /** The first non-blank line after the single reverse heading of a command file. */
