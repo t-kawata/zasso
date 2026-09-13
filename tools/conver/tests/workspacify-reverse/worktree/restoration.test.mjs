@@ -57,7 +57,7 @@ function ticketFixture() {
   return { ...RECONSTRUCTION_TICKET };
 }
 
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-19|P23-5) --for-spec --no-implementation-order`.
 function createFixture() {
   const tree = createGitBackedTree({ ...FIXTURE_FILES });
   const guardedPath = mkdtempSync(join(tmpdir(), 'wsp-guard-'));
@@ -125,7 +125,7 @@ function releaseLeftover(error) {
 test('the worktree is destroyed with certainty on completion', async () => {
   await withFixture(async ({ root, guardedPath }) => {
     const record = await withIsolatedWorktree(root, async () => ({ redProved: true }), {
-      productionPaths: [guardedPath],
+      guardedPaths: [guardedPath],
     });
 
     assert.deepEqual(RESTORATION_OUTCOMES, ['destroyed', 'failed']);
@@ -147,7 +147,7 @@ test('a worktree is destroyed even when the enclosed function throws partway', a
           worktreePath = path;
           throw new Error('the reconstruction failed partway');
         },
-        { productionPaths: [guardedPath] },
+        { guardedPaths: [guardedPath] },
       ),
     );
 
@@ -173,7 +173,7 @@ test('a restoration failure is reported, blocking, with the main tree still inta
           runGit(root, ['worktree', 'lock', worktreePath]);
           return { redProved: true };
         },
-        { productionPaths: [guardedPath] },
+        { guardedPaths: [guardedPath] },
       ),
     );
 
@@ -201,7 +201,7 @@ test('a restoration failure leads even when the execution also threw, and the ca
           runGit(root, ['worktree', 'lock', worktreePath]);
           throw new Error('the reconstruction failed partway');
         },
-        { productionPaths: [guardedPath] },
+        { guardedPaths: [guardedPath] },
       ),
     );
 
@@ -221,7 +221,7 @@ test('a Red that cannot be observed is recorded as not proved, never as success'
 
     const record = await executeReconstructionTicket(ticketFixture(), {
       root,
-      productionPaths: [guardedPath],
+      guardedPaths: [guardedPath],
       execute: async () => ({ redProved: false, observations: ['the suite stayed green'] }),
     });
 
@@ -235,7 +235,7 @@ test('a Red that cannot be observed is recorded as not proved, never as success'
     const pass = await runReconstructionPass({
       tickets: [ticketFixture()],
       root,
-      productionPaths: [guardedPath],
+      guardedPaths: [guardedPath],
       execute: async () => ({ redProved: false }),
     });
 
@@ -249,7 +249,7 @@ test('an execution result that does not say whether Red was proved is refused', 
     const silent = await captureRejection(
       executeReconstructionTicket(ticketFixture(), {
         root,
-        productionPaths: [guardedPath],
+        guardedPaths: [guardedPath],
         execute: async () => ({ observations: ['something happened'] }),
       }),
     );
@@ -261,7 +261,7 @@ test('an execution result that does not say whether Red was proved is refused', 
     const absent = await captureRejection(
       executeReconstructionTicket(ticketFixture(), {
         root,
-        productionPaths: [guardedPath],
+        guardedPaths: [guardedPath],
         execute: async () => undefined,
       }),
     );
@@ -282,7 +282,7 @@ test('a refusal is still a refusal when the value it refuses cannot be serialise
     const error = await captureRejection(
       executeReconstructionTicket(ticketFixture(), {
         root,
-        productionPaths: [guardedPath],
+        guardedPaths: [guardedPath],
         execute: async () => circular,
       }),
     );
@@ -304,7 +304,7 @@ test('an execution that throws something other than an Error is still named', as
         async () => {
           throw 'a bare string reason';
         },
-        { productionPaths: [guardedPath] },
+        { guardedPaths: [guardedPath] },
       ),
     );
 
@@ -342,7 +342,7 @@ test('a single ticket executes correctly and its evidence is stamped onto a copy
     const pass = await runReconstructionPass({
       tickets: [ticket],
       root,
-      productionPaths: [guardedPath],
+      guardedPaths: [guardedPath],
       execute: async () => ({ redProved: true, observations: ['the guard was removed and the suite failed'] }),
     });
 

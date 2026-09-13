@@ -76,12 +76,12 @@ function ticketFixture() {
 
 /**
  * A git repository to isolate, plus a guarded directory standing in for the
- * production paths the isolation must leave alone.
+ * guarded paths the isolation must leave alone.
  *
  * `expectedHash` is taken before anything runs, by a walker that shares no code
  * with the module under test.
  */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-19, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-19|P23-5) --for-spec --no-implementation-order`.
 function createFixture() {
   const tree = createGitBackedTree({ ...FIXTURE_FILES });
   const guardedPath = mkdtempSync(join(tmpdir(), 'wsp-guard-'));
@@ -148,7 +148,7 @@ test('a reconstruction ticket executes inside an isolated worktree and its Red e
   await withFixture(async ({ root, guardedPath }) => {
     const record = await executeReconstructionTicket(ticketFixture(), {
       root,
-      productionPaths: [guardedPath],
+      guardedPaths: [guardedPath],
       execute: async ({ worktreePath }) => ({
         redProved: true,
         observations: ['the suite exits 1 once the guard is removed'],
@@ -176,7 +176,7 @@ test('the main tree is byte-identical after execution, measured by an independen
         writeFileSync(join(worktreePath, 'src', 'packet.rs'), 'pub fn parse() -> bool {\n    false\n}\n');
         return { redProved: true };
       },
-      { productionPaths: [guardedPath] },
+      { guardedPaths: [guardedPath] },
     );
 
     assert.equal(record.mainTreeDigest.unchanged, true);
@@ -196,7 +196,7 @@ test('a change to a guarded path is caught, named and treated as blocking', asyn
           writeFileSync(join(guardedPath, 'contaminated.rs'), 'pub fn parse() -> bool {\n    true\n}\n');
           return { redProved: true };
         },
-        { productionPaths: [guardedPath] },
+        { guardedPaths: [guardedPath] },
       ),
     );
 
@@ -224,7 +224,7 @@ test('a worktree that cannot be created is reported and never falls back to the 
           reached = worktreePath;
           return { redProved: true };
         },
-        { productionPaths: [guardedPath] },
+        { guardedPaths: [guardedPath] },
       ),
     );
 
@@ -254,7 +254,7 @@ test('no execution path hands the enclosed function the main tree', async () => 
         });
         return { redProved: false };
       },
-      { productionPaths: [guardedPath] },
+      { guardedPaths: [guardedPath] },
     );
 
     assert.equal(seen.length, 1);
@@ -278,7 +278,7 @@ test('the worktree is created detached at the same commit as the main tree', asy
         };
         return { redProved: true };
       },
-      { productionPaths: [guardedPath] },
+      { guardedPaths: [guardedPath] },
     );
 
     // The exception recorded in the spec says the Red seen in the worktree cannot
@@ -292,14 +292,14 @@ test('the worktree is created detached at the same commit as the main tree', asy
 test('the result records whether the worktree diverges from the working tree', async () => {
   await withFixture(async ({ root, guardedPath }) => {
     // A clean tree: the worktree holds exactly what the caller is looking at.
-    const clean = await withIsolatedWorktree(root, async () => ({}), { productionPaths: [guardedPath] });
+    const clean = await withIsolatedWorktree(root, async () => ({}), { guardedPaths: [guardedPath] });
     assert.equal(clean.mainTreeCleanAtCreation, true);
 
     // Uncommitted work is deliberately not in the worktree, because it is taken
     // at HEAD. That divergence is recorded rather than left for the caller to
     // discover, since a Red observed against different bytes is different evidence.
     writeFileSync(join(root, 'src', 'packet.rs'), 'pub fn parse() -> bool {\n    false\n}\n');
-    const dirty = await withIsolatedWorktree(root, async () => ({}), { productionPaths: [guardedPath] });
+    const dirty = await withIsolatedWorktree(root, async () => ({}), { guardedPaths: [guardedPath] });
     assert.equal(dirty.mainTreeCleanAtCreation, false);
   });
 });

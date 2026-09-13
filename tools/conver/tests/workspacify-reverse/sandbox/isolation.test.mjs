@@ -4,9 +4,9 @@
  * The isolated environment: what makes a target startable, and what the evidence
  * it produces is allowed to say.
  *
- * Two failures are being held apart here. The first is touching production: a
+ * Two failures are being held apart here. The first is touching the subject: a
  * sandbox that damaged the tree it was made from would be attributed to the
- * reverse rotation rather than to the sandbox, so the production tree is
+ * reverse rotation rather than to the sandbox, so the subject tree is
  * measured before and after by an independent walker (`hashTree`), never by the
  * module under test. The second is the shape of the output: a run that reports
  * "no dynamic mechanism" when it means "I did not look there" converts the
@@ -36,7 +36,7 @@ import {
 } from '../../../.claude/scripts/workspacify-reverse/lib/dynamic-surface.mjs';
 import {
   SandboxError,
-  assertProductionUntouched,
+  assertSubjectUntouched,
   collectDynamicEvidence,
   createSandbox,
   discoverStartPlans,
@@ -91,16 +91,16 @@ const BROKEN_TARGET = Object.freeze({
 /**
  * Create a throwaway sandbox over a synthetic target.
  *
- * The production path is the target root itself, which is the real-world case:
+ * The guarded path is the target root itself, which is the real-world case:
  * the tree a sandbox is made from is the tree that must not change.
  */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
 function createSandboxOver(filesByPath, options = {}) {
   const target = createSyntheticTree(filesByPath, { prefix: 'wsp-p22-18-target-' });
   const scratch = createSyntheticTree({}, { prefix: 'wsp-p22-18-scratch-' });
   const handle = createSandbox(target.root, {
     scratchRoot: scratch.root,
-    productionPaths: [target.root],
+    guardedPaths: [target.root],
     ...options,
   });
   return {
@@ -297,7 +297,7 @@ test('UT-8 a target that requires no database is a valid sandbox', () => {
   }
 });
 
-test('UT-8 a declared database is resolved inside the sandbox and is never the production file', () => {
+test('UT-8 a declared database is resolved inside the sandbox and is never the file in the subject', () => {
   const { handle, dispose } = createSandboxOver(
     { ...CARGO_TARGET, 'data/state.db': 'SQLite format 3 initial\n' },
     { database: { kind: 'sqlite', path: 'data/state.db' } },
@@ -312,13 +312,13 @@ test('UT-8 a declared database is resolved inside the sandbox and is never the p
   }
 });
 
-test('UT-10 production is byte-identical before and after every operation, measured independently', { skip: CARGO_MISSING_SKIP }, () => {
+test('UT-10 the subject is byte-identical before and after every operation, measured independently', { skip: CARGO_MISSING_SKIP }, () => {
   const target = createSyntheticTree(CARGO_TARGET, { prefix: 'wsp-p22-18-prod-' });
   const scratch = createSyntheticTree({}, { prefix: 'wsp-p22-18-scratch-' });
   const before = hashTree(target.root);
   const handle = createSandbox(target.root, {
     scratchRoot: scratch.root,
-    productionPaths: [target.root],
+    guardedPaths: [target.root],
   });
   const insideTheSandbox = join(handle.sandboxRoot, 'written-by-a-transition.txt');
   try {
@@ -334,8 +334,8 @@ test('UT-10 production is byte-identical before and after every operation, measu
     resetSandbox(handle);
     assert.equal(existsSync(insideTheSandbox), false);
 
-    assert.deepEqual(hashTree(target.root), before, 'production must be byte-identical');
-    const audit = assertProductionUntouched(handle);
+    assert.deepEqual(hashTree(target.root), before, 'the subject must be byte-identical');
+    const audit = assertSubjectUntouched(handle);
     assert.equal(audit.untouched, true);
     assert.deepEqual(audit.changedPaths, []);
     assert.deepEqual(audit.before, audit.after);
@@ -605,7 +605,7 @@ test('IT-1 the real target is sandboxed, started in isolation, and reset to its 
   }
 });
 
-test('IT-2 the production tree is byte-identical after the real target was sandboxed and started', { skip: !reverseTreeAvailable || CARGO_MISSING_SKIP }, () => {
+test('IT-2 the subject tree is byte-identical after the real target was sandboxed and started', { skip: !reverseTreeAvailable || CARGO_MISSING_SKIP }, () => {
   const before = hashTree(REVERSE_ROOT);
   const scratch = createSyntheticTree({}, { prefix: 'wsp-p22-18-real-' });
   const handle = createSandbox(REVERSE_ROOT, { scratchRoot: scratch.root });
@@ -617,7 +617,7 @@ test('IT-2 the production tree is byte-identical after the real target was sandb
     scratch.dispose();
   }
   assert.deepEqual(hashTree(REVERSE_ROOT), before);
-  const audit = assertProductionUntouched(handle);
+  const audit = assertSubjectUntouched(handle);
   assert.equal(audit.untouched, true);
   assert.deepEqual(audit.changedPaths, []);
 });
@@ -689,7 +689,7 @@ test('H4 a symlink that leaves the target is refused rather than copied', () => 
   try {
     symlinkSync(join(outside.root, 'secret.txt'), join(target.root, 'escape.txt'));
     assert.throws(
-      () => createSandbox(target.root, { scratchRoot: scratch.root, productionPaths: [target.root] }),
+      () => createSandbox(target.root, { scratchRoot: scratch.root, guardedPaths: [target.root] }),
       (error) => {
         assert.equal(error instanceof SandboxError, true);
         assert.equal(error.reason, 'symlink-escapes-target');
@@ -705,10 +705,10 @@ test('H4 a symlink that leaves the target is refused rather than copied', () => 
   }
 });
 
-test('H4 a transition that reaches production is reported and the sandbox marked unusable', () => {
+test('H4 a transition that reaches the subject is reported and the sandbox marked unusable', () => {
   const target = createSyntheticTree(CARGO_TARGET, { prefix: 'wsp-p22-18-escape-' });
   const scratch = createSyntheticTree({}, { prefix: 'wsp-p22-18-scratch-' });
-  const handle = createSandbox(target.root, { scratchRoot: scratch.root, productionPaths: [target.root] });
+  const handle = createSandbox(target.root, { scratchRoot: scratch.root, guardedPaths: [target.root] });
   const escaped = join(target.root, 'escaped.txt');
   try {
     assert.throws(
@@ -719,7 +719,7 @@ test('H4 a transition that reaches production is reported and the sandbox marked
           args: ['--eval', `require('node:fs').writeFileSync(${JSON.stringify(escaped)}, 'x')`],
         }),
       (error) => {
-        assert.equal(error.reason, 'production-touched');
+        assert.equal(error.reason, 'subject-touched');
         assert.equal(error.message.includes(target.root), true);
         return true;
       },
@@ -733,13 +733,13 @@ test('H4 a transition that reaches production is reported and the sandbox marked
   }
 });
 
-test('L11 a production root that has vanished is reported as changed, not raised', () => {
+test('L11 a guarded root that has vanished is reported as changed, not raised', () => {
   const target = createSyntheticTree(CARGO_TARGET, { prefix: 'wsp-p22-18-vanish-' });
   const scratch = createSyntheticTree({}, { prefix: 'wsp-p22-18-scratch-' });
-  const handle = createSandbox(target.root, { scratchRoot: scratch.root, productionPaths: [target.root] });
+  const handle = createSandbox(target.root, { scratchRoot: scratch.root, guardedPaths: [target.root] });
   try {
     rmSync(target.root, { recursive: true, force: true });
-    const audit = assertProductionUntouched(handle);
+    const audit = assertSubjectUntouched(handle);
     assert.equal(audit.untouched, false);
     assert.deepEqual(audit.changedPaths, [target.root]);
   } finally {
@@ -750,7 +750,7 @@ test('L11 a production root that has vanished is reported as changed, not raised
 
 test('L10 a scratch parent this module created is removed with the sandbox', () => {
   const target = createSyntheticTree(CARGO_TARGET, { prefix: 'wsp-p22-18-owned-' });
-  const handle = createSandbox(target.root, { productionPaths: [target.root] });
+  const handle = createSandbox(target.root, { guardedPaths: [target.root] });
   const scratchBase = handle.scratchBase;
   try {
     assert.equal(handle.scratchBaseWasCreated, true);
@@ -768,7 +768,7 @@ test('IT-3 the sandbox runs the real target and the forward-rotation gate still 
   try {
     const session = startSession(handle, { tier: 'cargo' });
     assert.equal(session.transitions[0].exitCode, 0);
-    assert.equal(assertProductionUntouched(handle).untouched, true);
+    assert.equal(assertSubjectUntouched(handle).untouched, true);
 
     // The composition the Test Plan names, in one test: the sandbox ran a
     // startable target, and the forward rotation is still proved afterwards.

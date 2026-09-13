@@ -20,7 +20,8 @@
  *
  * The main tree is re-measured after every execution, and the answer travels
  * back in the result rather than staying a side note. The paths measured are the
- * same `PRODUCTION_PATHS` P22-18's sandbox guards and the walk is the same
+ * caller's guarded paths — `sandbox.mjs`'s `resolveGuardedPaths` over this
+ * subject, the same set P22-18's sandbox guards — and the walk is the same
  * `digestTree` the P22-1 gate uses, so two isolation mechanisms cannot disagree
  * about whether the tree moved.
  *
@@ -35,7 +36,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { PRODUCTION_PATHS, PROJECT_ROOT } from './sandbox.mjs';
+import { assertNoRenamedGuardOption, resolveGuardedPaths } from './sandbox.mjs';
 import { compareText, digestTree } from './holdout-ledger.mjs';
 
 /** The reason code a caller branches on, and the message a human reads. */
@@ -151,12 +152,6 @@ function assertIsolationRequest(root, fn) {
   }
 }
 
-/** When a caller names no guarded paths, the production roots this project declares. */
-// [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
-function resolveGuardedProductionPaths() {
-  return PRODUCTION_PATHS.map((name) => join(PROJECT_ROOT, name));
-}
-
 /** True when `root` is inside a working tree git can make another worktree of. */
 // [::TICKET::] P22-19 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-19 --for-spec --no-implementation-order`.
 function isGitRepository(root, runGit) {
@@ -266,12 +261,13 @@ function destroyWorktree(root, worktreePath, runGit) {
  * rather than raising: the question being asked is whether it changed, and "it
  * is no longer there" is an answer to that question.
  */
-export function digestMainTree(productionPaths = resolveGuardedProductionPaths()) {
+export function digestMainTree(guardedPaths) {
+// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
   const digests = {};
-  for (const productionPath of productionPaths) {
-    digests[productionPath] = existsSync(productionPath)
-      ? digestTree(productionPath)
-      : { fileCount: 0, sha256: null, unreadable: [productionPath] };
+  for (const guardedPath of guardedPaths) {
+    digests[guardedPath] = existsSync(guardedPath)
+      ? digestTree(guardedPath)
+      : { fileCount: 0, sha256: null, unreadable: [guardedPath] };
   }
   return digests;
 }
@@ -301,16 +297,18 @@ export function assertMainTreeUnchanged(before, after) {
  * @param {string} root - the working tree to isolate
  * @param {(worktreePath: string, context: {root: string}) => any} fn - what to run
  * @param {object} [options]
- * @param {Array<string>} [options.productionPaths] - absolute roots that must not change
+ * @param {Array<string>} [options.guardedPaths] - paths inside the subject that must not change
  * @param {string} [options.scratchRoot] - the directory the worktree is made in
  * @param {Function} [options.runGit] - the git runner, for a caller that needs its own
  * @returns {Promise<{root: string, worktreePath: string|null, scratchBase: string, mainTreeCleanAtCreation: boolean|null, execution: any, mainTreeDigest: object, restorationOutcome: string|null, restorationDetail: string|null}>}
  */
 export async function withIsolatedWorktree(root, fn, options = {}) {
+// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
   assertIsolationRequest(root, fn);
+  assertNoRenamedGuardOption(options);
 
   const runGit = options.runGit ?? runGitIn;
-  const guardedPaths = options.productionPaths ?? resolveGuardedProductionPaths();
+  const guardedPaths = resolveGuardedPaths({ subjectRoot: root, declared: options.guardedPaths });
   const mainTreeBefore = digestMainTree(guardedPaths);
   const scratch = openScratchDirectory(options.scratchRoot);
 

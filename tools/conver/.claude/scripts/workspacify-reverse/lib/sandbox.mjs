@@ -20,9 +20,13 @@
  *
  * The second is *the boundary*. The copy refuses to reproduce a symlink that
  * points outside the target, because a link carried over verbatim would put a
- * way out of the sandbox inside the sandbox. And production is re-measured
- * around every operation, not only when a caller remembers to ask.
+ * way out of the sandbox inside the sandbox. And the subject's guarded paths are
+ * re-measured around every operation, not only when a caller remembers to ask.
  *
+ * No part of that is about one project. The subject comes from the caller, the
+ * guard comes from the caller, and the ecosystems a start plan can come from are
+ * a declared table rather than a list of the ones the first caller happened to
+ * use — so an unstartable subject is reported rather than silently unmatched.
  * The third is *the shape of the answer*: a run reports what it resolved and
  * names the channels it never looked at, because the absence of a search must
  * not read as the absence of a mechanism. That model lives in
@@ -32,10 +36,11 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { listArtefacts } from './analysis-tech.mjs';
 import { EVIDENCE_MODES, buildDynamicSurface } from './dynamic-surface.mjs';
 import { SandboxError } from './sandbox-error.mjs';
 import { NEVER_WALKED_DIRECTORY_NAMES, compareText, digestTree } from './holdout-ledger.mjs';
@@ -45,34 +50,257 @@ export { SandboxError };
 /** The conver repository this module belongs to, walked back from its own location. */
 export const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
 
-/**
- * The roots a sandbox must never change, named once so that every isolation
- * mechanism checks the same set.
- *
- * P22-19's worktree isolation reads this same constant: two mechanisms guarding
- * different lists would each look correct and leave a gap between them.
- */
-export const PRODUCTION_PATHS = Object.freeze(['siprs-with-4layers', 'siprs-for-reverse']);
+// ---------------------------------------------------------------------------
+// The declared vocabulary
+//
+// Everything below is data a caller may read and a later ticket may extend by
+// adding a row. Nothing here names a project: the guards, the ecosystems and the
+// database indicators are declarations about how subjects are shaped, and the
+// subject itself arrives with the call.
+// ---------------------------------------------------------------------------
 
 /**
- * The kinds of start plan, most direct first.
+ * The paths a sandbox guards when the caller declares none.
  *
- * A service definition states how to start the thing itself, so it leads; a
- * crate manifest states how to build it, and is what remains when there is no
- * service. Both commands are bounded, offline and need no daemon.
+ * An empty declaration is not an absent guard. `resolveGuardedPaths` unions the
+ * declaration with the subject root, so the empty set reads "the subject and
+ * nothing else" — which is the only guard that is true of every subject. A
+ * module-level list of project directory names would be a guard that is wrong for
+ * every subject but the one it was written for.
  */
-export const START_PLAN_PRIORITY = Object.freeze(['compose', 'cargo']);
+export const DEFAULT_GUARDED_PATHS = Object.freeze([]);
 
-export const COMPOSE_MANIFEST_NAMES = Object.freeze([
-  'docker-compose.yml',
-  'docker-compose.yaml',
-  'compose.yml',
-  'compose.yaml',
+/** The file name a caller writes in a command shape to mean "the manifest that matched". */
+const MANIFEST_PLACEHOLDER = '<manifest>';
+
+/**
+ * The executables a declared command shape may name.
+ *
+ * The allow-list is what makes "adding an ecosystem is adding a row" safe to
+ * say: a row cannot reach an arbitrary program, so the table stays reviewable.
+ */
+export const START_PLAN_EXECUTABLES = Object.freeze([
+  'docker',
+  'cargo',
+  'npm',
+  'pnpm',
+  'yarn',
+  'go',
+  'python3',
+  'cmake',
+  'make',
 ]);
 
-export const CARGO_MANIFEST_NAME = 'Cargo.toml';
+/**
+ * The argument values that would turn a declared shape into a fetch.
+ *
+ * Matched as whole arguments rather than as substrings, because a flag like
+ * `-DCMAKE_FETCHCONTENT_FULLY_DISCONNECTED=ON` is the opposite of a fetch and
+ * must not be mistaken for one.
+ */
+export const START_PLAN_NETWORK_VERBS = Object.freeze([
+  'fetch',
+  'pull',
+  'push',
+  'publish',
+  'download',
+  'clone',
+  'get',
+  'remote',
+  'login',
+]);
 
-export const DATABASE_KINDS = Object.freeze(['none', 'sqlite']);
+/**
+ * Every ecosystem a start plan can come from, most direct first.
+ *
+ * A service definition states how to start the thing itself, so it leads; a
+ * build manifest states how to build it, and is what remains when there is no
+ * service. Every command is bounded, offline and needs no daemon, and each row
+ * states why in its own words: `offlineReason` is what a reviewer reads when a
+ * later row is added, and it is asserted to be present so a row cannot arrive
+ * without one.
+ *
+ * `manifestNames` is how the ecosystem is recognised, and `commandShape.args`
+ * may name the matched manifest with the placeholder, so a plan states the file
+ * it will read rather than a name someone remembered. `shapeSelectors` is the
+ * one conditional in the table, and it is data: a sibling artefact — a lock file
+ * naming the package manager, a pinned requirements file naming the installer —
+ * selects a different command for the same ecosystem.
+ */
+export const START_PLAN_ECOSYSTEMS = Object.freeze([
+  Object.freeze({
+    id: 'compose',
+    priority: 0,
+    manifestNames: Object.freeze(['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml']),
+    commandShape: Object.freeze({
+      command: 'docker',
+      args: Object.freeze(['compose', '-f', MANIFEST_PLACEHOLDER, 'config', '--quiet']),
+      environment: Object.freeze({}),
+    }),
+    offlineReason: 'compose config parses the manifest and prints it — it starts no service and pulls no image',
+  }),
+  Object.freeze({
+    id: 'cargo',
+    priority: 1,
+    manifestNames: Object.freeze(['Cargo.toml']),
+    commandShape: Object.freeze({
+      command: 'cargo',
+      args: Object.freeze(['metadata', '--no-deps', '--format-version', '1', '--offline']),
+      environment: Object.freeze({ CARGO_NET_OFFLINE: 'true' }),
+    }),
+    offlineReason: '--offline and CARGO_NET_OFFLINE forbid the registry, and --no-deps reads only this workspace',
+  }),
+  Object.freeze({
+    id: 'node',
+    priority: 2,
+    manifestNames: Object.freeze(['package.json']),
+    commandShape: Object.freeze({
+      command: 'npm',
+      args: Object.freeze(['install', '--ignore-scripts', '--no-audit', '--no-fund', '--offline']),
+      environment: Object.freeze({}),
+    }),
+    shapeSelectors: Object.freeze([
+      Object.freeze({
+        onArtefactNames: Object.freeze(['pnpm-lock.yaml']),
+        commandShape: Object.freeze({
+          command: 'pnpm',
+          args: Object.freeze(['install', '--ignore-scripts', '--offline']),
+          environment: Object.freeze({}),
+        }),
+      }),
+      Object.freeze({
+        onArtefactNames: Object.freeze(['yarn.lock']),
+        commandShape: Object.freeze({
+          command: 'yarn',
+          args: Object.freeze(['install', '--ignore-scripts', '--offline']),
+          environment: Object.freeze({}),
+        }),
+      }),
+      Object.freeze({
+        onArtefactNames: Object.freeze(['package-lock.json']),
+        commandShape: Object.freeze({
+          command: 'npm',
+          args: Object.freeze(['ci', '--ignore-scripts', '--offline']),
+          environment: Object.freeze({}),
+        }),
+      }),
+    ]),
+    offlineReason: '--offline installs from the local store only, and --ignore-scripts forbids a lifecycle script',
+  }),
+  Object.freeze({
+    id: 'go',
+    priority: 3,
+    manifestNames: Object.freeze(['go.mod']),
+    commandShape: Object.freeze({
+      command: 'go',
+      args: Object.freeze(['build', './...']),
+      environment: Object.freeze({ GOFLAGS: '-mod=mod', GOPROXY: 'off' }),
+    }),
+    offlineReason: 'GOPROXY=off forbids the module proxy, so a module outside the local cache is an error rather than a fetch',
+  }),
+  Object.freeze({
+    id: 'python',
+    priority: 4,
+    manifestNames: Object.freeze(['pyproject.toml', 'requirements.txt', 'setup.py']),
+    commandShape: Object.freeze({
+      command: 'python3',
+      args: Object.freeze(['-m', 'pip', 'install', '--no-index', '--no-deps', '--no-build-isolation', '.']),
+      environment: Object.freeze({ PIP_NO_INDEX: '1', PIP_NO_INPUT: '1' }),
+    }),
+    shapeSelectors: Object.freeze([
+      Object.freeze({
+        onArtefactNames: Object.freeze(['requirements.txt']),
+        commandShape: Object.freeze({
+          command: 'python3',
+          args: Object.freeze(['-m', 'pip', 'install', '--no-index', '--no-deps', '-r', MANIFEST_PLACEHOLDER]),
+          environment: Object.freeze({ PIP_NO_INDEX: '1', PIP_NO_INPUT: '1' }),
+        }),
+      }),
+    ]),
+    offlineReason: '--no-index and PIP_NO_INDEX forbid the package index, so the local cache is the only source',
+  }),
+  Object.freeze({
+    id: 'cmake',
+    priority: 5,
+    manifestNames: Object.freeze(['CMakeLists.txt']),
+    commandShape: Object.freeze({
+      command: 'cmake',
+      args: Object.freeze(['-S', '.', '-B', 'build', '-DCMAKE_FETCHCONTENT_FULLY_DISCONNECTED=ON']),
+      environment: Object.freeze({}),
+    }),
+    offlineReason: 'FETCHCONTENT_FULLY_DISCONNECTED forbids cmake from fetching a dependency it cannot find locally',
+  }),
+  Object.freeze({
+    id: 'make',
+    priority: 6,
+    manifestNames: Object.freeze(['Makefile', 'makefile', 'GNUmakefile']),
+    commandShape: Object.freeze({
+      command: 'make',
+      args: Object.freeze(['--no-print-directory', '--dry-run']),
+      environment: Object.freeze({}),
+    }),
+    offlineReason: '--dry-run resolves the rule graph and runs no recipe, so no rule can reach the network',
+  }),
+]);
+
+/**
+ * The database indicators a subject's configuration artefacts are read for.
+ *
+ * A kind is present when one of its markers appears as a whole word in a
+ * manifest the row names, and the marker that matched travels with the artefact
+ * it was read from — so "which database" is never a guess about a dependency's
+ * name. Markers are words rather than substrings because `pg` would match `pgp`,
+ * and a false positive here is a kind the subject does not use.
+ */
+export const DATABASE_INDICATORS = Object.freeze([
+  Object.freeze({
+    id: 'sqlite',
+    manifestNames: Object.freeze(['Cargo.toml', 'package.json', 'go.mod', 'pyproject.toml', 'requirements.txt', 'CMakeLists.txt', 'Makefile']),
+    markers: Object.freeze(['sqlite', 'rusqlite', 'better-sqlite3']),
+  }),
+  Object.freeze({
+    id: 'postgres',
+    manifestNames: Object.freeze(['Cargo.toml', 'package.json', 'go.mod', 'pyproject.toml', 'requirements.txt', 'CMakeLists.txt', 'Makefile']),
+    markers: Object.freeze(['postgres', 'postgresql', 'pgx', 'psycopg']),
+  }),
+  Object.freeze({
+    id: 'mysql',
+    manifestNames: Object.freeze(['Cargo.toml', 'package.json', 'go.mod', 'pyproject.toml', 'requirements.txt', 'CMakeLists.txt', 'Makefile']),
+    markers: Object.freeze(['mysql', 'mariadb']),
+  }),
+  Object.freeze({
+    id: 'mongodb',
+    manifestNames: Object.freeze(['Cargo.toml', 'package.json', 'go.mod', 'pyproject.toml', 'requirements.txt', 'CMakeLists.txt', 'Makefile']),
+    markers: Object.freeze(['mongodb', 'mongoose', 'pymongo']),
+  }),
+  Object.freeze({
+    id: 'redis',
+    manifestNames: Object.freeze(['Cargo.toml', 'package.json', 'go.mod', 'pyproject.toml', 'requirements.txt', 'CMakeLists.txt', 'Makefile']),
+    markers: Object.freeze(['redis']),
+  }),
+]);
+
+/**
+ * The database kinds a caller may declare to a sandbox.
+ *
+ * Derived from the indicators rather than enumerated beside them: a second list
+ * would let discovery report a kind the sandbox then refuses to contain.
+ */
+const DECLARABLE_DATABASE_KINDS = Object.freeze(['none', ...DATABASE_INDICATORS.map((indicator) => indicator.id)]);
+
+/** The reason code a guard that resolves outside its subject refuses with. */
+const GUARDED_PATH_OUTSIDE_SUBJECT_REASON = 'guarded-path-outside-subject';
+
+/** The reason a sandbox is marked unusable with when one of its guards moved. */
+export const SANDBOX_SUBJECT_TOUCHED_REASON = 'subject-touched';
+
+/**
+ * The option name P22-18 used, refused by name rather than ignored.
+ *
+ * A renamed option that is silently dropped is worse than a leftover constant:
+ * the caller believes a guard is in place and nothing reports that it is not.
+ */
+export const RENAMED_GUARD_OPTION = 'productionPaths';
 
 export const SANDBOX_TREE_DIRECTORY_NAME = 'tree';
 export const SANDBOX_SNAPSHOT_DIRECTORY_NAME = 'snapshot';
@@ -80,6 +308,15 @@ export const SANDBOX_SNAPSHOT_DIRECTORY_NAME = 'snapshot';
 /** The reason code a disposed sandbox refuses with, distinct from a failed reset. */
 export const SANDBOX_DISPOSED_REASON = 'sandbox-disposed';
 const SANDBOX_UNUSABLE_REASON = 'sandbox-unusable';
+
+// ---------------------------------------------------------------------------
+// The private token state
+//
+// The two WeakSets are the handle itself, held where no caller can reach them.
+// Generalising the names above must never route around them: they are what makes
+// "a session can only be recorded against a sandbox this process created"
+// unfabricatable, and no declaration in the block above changes that.
+// ---------------------------------------------------------------------------
 
 /**
  * The sandboxes this process created, and the ones whose reset is armed.
@@ -97,6 +334,10 @@ export function isObservedSandbox(handle) {
   return typeof handle === 'object' && handle !== null && OBSERVED_SANDBOXES.has(handle);
 }
 
+// ---------------------------------------------------------------------------
+// The operations
+// ---------------------------------------------------------------------------
+
 /** SHA-256 of a file's bytes, lowercase hex. */
 // [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function sha256File(filePath) {
@@ -107,6 +348,22 @@ function sha256File(filePath) {
 // [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
 function sha256(text) {
   return createHash('sha256').update(text).digest('hex');
+}
+
+/**
+ * Refuse the renamed guard option rather than dropping it.
+ *
+ * A caller written against the old name would otherwise be silently unguarded:
+ * the sandbox would guard the subject root and say nothing, and the caller would
+ * believe its own list was in force. Naming the replacement is the whole repair.
+ */
+export function assertNoRenamedGuardOption(options) {
+  if (options !== null && typeof options === 'object' && RENAMED_GUARD_OPTION in options) {
+    throw new SandboxError(
+      'guarded-option-renamed',
+      `the option "${RENAMED_GUARD_OPTION}" was renamed to "guardedPaths", and is refused rather than ignored — a dropped guard is one nobody reports. Declare the same paths as options.guardedPaths, relative to the subject root`,
+    );
+  }
 }
 
 /** Refuse a root that is absent, naming the path that was looked for. */
@@ -123,32 +380,101 @@ function assertTargetRoot(root) {
   }
 }
 
+/** How deep a relative path sits, counted in directory separators. */
+// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+function measurePathDepth(relativePath) {
+  return relativePath.split('/').length - 1;
+}
+
+/** The artefact paths a set of manifest names matches, shallowest first. */
+// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+function matchManifests(artefacts, manifestNames) {
+  const names = new Set(manifestNames);
+  return artefacts
+    .filter((artefact) => artefact.exclusion === false && artefact.kind === 'file' && artefact.readStatus === 'readable')
+    .map((artefact) => artefact.path)
+    .filter((relativePath) => names.has(basename(relativePath)))
+    .sort((left, right) => measurePathDepth(left) - measurePathDepth(right) || compareText(left, right));
+}
+
 /**
- * The plan that would start a target at this root, or null when the manifest it
- * would come from is not present.
+ * The declared shape a matched manifest uses, and the sibling artefact that chose it.
+ *
+ * A selector is read before the default, because a lock file beside a manifest
+ * is a statement about how this project is installed — more specific than the
+ * ecosystem's own default, and the reason the table needs no branch.
  */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
-function planFor(root, kind) {
-  if (kind === 'compose') {
-    const manifest = COMPOSE_MANIFEST_NAMES.find((name) => existsSync(join(root, name)));
-    if (manifest === undefined) return null;
+// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+function selectShape(ecosystem, matchedFrom, artefacts) {
+  const present = new Set(artefacts.filter((artefact) => artefact.exclusion === false).map((artefact) => artefact.path));
+  const directory = dirname(matchedFrom);
+  const prefix = directory === '.' ? '' : `${directory}/`;
+
+  for (const selector of ecosystem.shapeSelectors ?? []) {
+    const namedBy = selector.onArtefactNames.find((name) => present.has(`${prefix}${name}`));
+    if (namedBy !== undefined) {
+      return { shape: selector.commandShape, namedBy: `${prefix}${namedBy}` };
+    }
+  }
+  return { shape: ecosystem.commandShape, namedBy: null };
+}
+
+/** The plan one matched ecosystem declares, naming every artefact the choice rests on. */
+// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+function buildStartPlan(ecosystem, candidates, artefacts) {
+  const matchedFrom = candidates[0];
+  const { shape, namedBy } = selectShape(ecosystem, matchedFrom, artefacts);
+  return Object.freeze({
+    kind: ecosystem.id,
+    manifest: basename(matchedFrom),
+    matchedFrom,
+    alsoMatched: Object.freeze(candidates.slice(1)),
+    namedBy,
+    command: shape.command,
+    args: Object.freeze(shape.args.map((argument) => (argument === MANIFEST_PLACEHOLDER ? matchedFrom : argument))),
+  });
+}
+
+/**
+ * The start plan a subject declares, or a refusal naming every ecosystem searched.
+ *
+ * The refusal is a result rather than an empty list. "This subject declares no
+ * manifest I know" and "this subject declares no manifest at all" are different
+ * claims, and an empty plan renders them the same — which is the one reading a
+ * caller must never be given, because the second is impossible and the first is
+ * a statement about the registry.
+ *
+ * @param {string} root - the subject being planned for
+ * @param {object} [options]
+ * @param {Array} [options.ecosystems] - the registry to iterate, most direct first
+ * @param {Array} [options.artefacts] - the artefact walk, shared with the rest of the analysis
+ */
+export function detectStartPlan(root, { ecosystems = START_PLAN_ECOSYSTEMS, artefacts = listArtefacts(root) } = {}) {
+  const searchedEcosystems = Object.freeze(
+    ecosystems.map((ecosystem) =>
+      Object.freeze({ id: ecosystem.id, manifestNames: Object.freeze([...ecosystem.manifestNames]) }),
+    ),
+  );
+
+  const ranked = [...ecosystems].sort((left, right) => left.priority - right.priority || compareText(left.id, right.id));
+  const plans = [];
+  for (const ecosystem of ranked) {
+    const candidates = matchManifests(artefacts, ecosystem.manifestNames);
+    if (candidates.length === 0) continue;
+    plans.push(buildStartPlan(ecosystem, candidates, artefacts));
+  }
+
+  if (plans.length === 0) {
+    const looked = searchedEcosystems.map((row) => `${row.id} (${row.manifestNames.join(', ')})`).join(', ');
     return Object.freeze({
-      kind,
-      manifest,
-      command: 'docker',
-      args: Object.freeze(['compose', '-f', manifest, 'config', '--quiet']),
+      plan: null,
+      plans: Object.freeze([]),
+      searchedEcosystems,
+      reason: `the subject at ${root} matches no declared ecosystem — looked for ${looked}. An unstartable target is reported rather than yielding an empty evidence set`,
     });
   }
-  if (kind === 'cargo') {
-    if (!existsSync(join(root, CARGO_MANIFEST_NAME))) return null;
-    return Object.freeze({
-      kind,
-      manifest: CARGO_MANIFEST_NAME,
-      command: 'cargo',
-      args: Object.freeze(['metadata', '--no-deps', '--format-version', '1']),
-    });
-  }
-  return null;
+
+  return Object.freeze({ plan: plans[0], plans: Object.freeze(plans), searchedEcosystems, reason: null });
 }
 
 /**
@@ -157,9 +483,67 @@ function planFor(root, kind) {
  * A plan names the manifest it came from, so "startable" is never a guess about
  * a command someone remembered.
  */
-export function discoverStartPlans(root) {
-  if (typeof root !== 'string' || !existsSync(root) || !statSync(root).isDirectory()) return [];
-  return START_PLAN_PRIORITY.map((kind) => planFor(root, kind)).filter((plan) => plan !== null);
+export function discoverStartPlans(root, options = {}) {
+  if (typeof root !== 'string' || root.length === 0) return [];
+  if (!existsSync(root) || !statSync(root).isDirectory()) return [];
+  return [...detectStartPlan(root, options).plans];
+}
+
+/**
+ * The database kinds a subject's configuration artefacts name, and where each was read.
+ *
+ * A kind is reported once, from the shallowest manifest that names it. When none
+ * is found the answer says so and names the indicators that were searched, so
+ * "none present" can never be read as "not looked for".
+ *
+ * @param {string} root - the subject whose manifests are read
+ * @param {object} [options]
+ * @param {Array} [options.indicators] - the declared indicators to search for
+ * @param {Array} [options.artefacts] - the artefact walk, shared with the rest of the analysis
+ */
+export function discoverDatabaseKinds(root, { indicators = DATABASE_INDICATORS, artefacts = listArtefacts(root) } = {}) {
+  const searched = Object.freeze(
+    indicators.map((indicator) =>
+      Object.freeze({
+        id: indicator.id,
+        manifestNames: Object.freeze([...indicator.manifestNames]),
+        markers: Object.freeze([...indicator.markers]),
+      }),
+    ),
+  );
+
+  const kinds = [];
+  for (const indicator of indicators) {
+    for (const source of matchManifests(artefacts, indicator.manifestNames)) {
+      const marker = findMarker(readFileSync(join(root, source), 'utf8'), indicator.markers);
+      if (marker === null) continue;
+      kinds.push(Object.freeze({ id: indicator.id, readFrom: source, marker }));
+      break;
+    }
+  }
+
+  return Object.freeze({
+    kinds: Object.freeze(kinds),
+    found: kinds.length > 0,
+    searched,
+    reason:
+      kinds.length > 0
+        ? null
+        : `no database indicator was found in the subject at ${root} — searched ${searched.map((row) => row.id).join(', ')}`,
+  });
+}
+
+/** The first declared marker appearing as a whole word in the text, or null. */
+// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+function findMarker(text, markers) {
+  const haystack = text.toLowerCase();
+  return markers.find((marker) => new RegExp(`\\b${escapeRegExp(marker)}\\b`).test(haystack)) ?? null;
+}
+
+/** A literal string as a regular expression that matches only itself. */
+// [::TICKET::] P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-5 --for-spec --no-implementation-order`.
+function escapeRegExp(literal) {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
@@ -197,13 +581,13 @@ function copyTree(source, destination, excludeDirectoryNames) {
 }
 
 /** The declared database, resolved inside the sandbox and nowhere else. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
 function resolveDatabase(sandboxRoot, database) {
   const kind = database?.kind ?? 'none';
-  if (!DATABASE_KINDS.includes(kind)) {
+  if (!DECLARABLE_DATABASE_KINDS.includes(kind)) {
     throw new SandboxError(
       'database-kind-unknown',
-      `the declared database kind "${kind}" is not one of ${DATABASE_KINDS.join(', ')}`,
+      `the declared database kind "${kind}" is not one of ${DECLARABLE_DATABASE_KINDS.join(', ')}`,
     );
   }
   if (kind === 'none') {
@@ -232,28 +616,62 @@ function resolveDatabase(sandboxRoot, database) {
 }
 
 /**
- * Digest every production path, keyed by the path, so two moments can be compared.
+ * Digest every guarded path, keyed by the path, so two moments can be compared.
  *
- * A production root that has gone missing is recorded as a digest with no
- * content rather than raising: the question being asked is whether it changed,
- * and "it is no longer there" is an answer to that question.
+ * A guarded root that has gone missing is recorded as a digest with no content
+ * rather than raising: the question being asked is whether it changed, and "it
+ * is no longer there" is an answer to that question.
  */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
-function digestProduction(productionPaths) {
+// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
+function digestGuardedPaths(guardedPaths) {
   const digests = {};
-  for (const productionPath of productionPaths) {
-    digests[productionPath] = existsSync(productionPath)
-      ? digestTree(productionPath)
-      : { fileCount: 0, sha256: null, unreadable: [productionPath] };
+  for (const guardedPath of guardedPaths) {
+    digests[guardedPath] = existsSync(guardedPath)
+      ? digestTree(guardedPath)
+      : { fileCount: 0, sha256: null, unreadable: [guardedPath] };
   }
   return digests;
 }
 
-/** The absolute production paths this sandbox was told to guard. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
-function resolveProductionPaths(productionPaths) {
-  const declared = productionPaths ?? PRODUCTION_PATHS.map((name) => join(PROJECT_ROOT, name));
-  return Object.freeze([...declared].sort(compareText));
+/**
+ * The paths a sandbox must not change: the caller's declaration, unioned with the
+ * subject root itself.
+ *
+ * The subject root is always guarded, because it is the tree the sandbox was
+ * copied from and the only path whose change is unambiguously the sandbox's
+ * fault. A declaration is either relative to the subject or absolute:
+ *
+ * - A *relative* name is resolved against the subject, and one that resolves
+ *   outside it is refused by name. A caller who writes a path in terms of the
+ *   subject and escapes it has mis-scoped the guard, and the alternative to
+ *   refusing is a guard silently covering a tree they did not name.
+ * - An *absolute* path is taken as declared, wherever it points. The worktree
+ *   isolation legitimately guards a tree beside the subject, and each guarded
+ *   path is digested directly, so such a guard is checkable on its own terms.
+ *
+ * @param {object} request
+ * @param {string} request.subjectRoot - the tree the guard belongs to
+ * @param {Array<string>} [request.declared] - guarded paths, relative to the subject or absolute
+ * @returns {ReadonlyArray<string>} the guarded paths, absolute and sorted
+ */
+export function resolveGuardedPaths({ subjectRoot, declared = DEFAULT_GUARDED_PATHS } = {}) {
+  if (typeof subjectRoot !== 'string' || subjectRoot.length === 0) {
+    throw new SandboxError('subject-root-missing', 'a guarded set needs the subject root it belongs to, and none was given');
+  }
+
+  const subject = resolve(subjectRoot);
+  const guarded = new Set([subject]);
+  for (const name of declared) {
+    const absolute = resolve(subject, name);
+    if (!isAbsolute(name) && absolute !== subject && !absolute.startsWith(subject + sep)) {
+      throw new SandboxError(
+        GUARDED_PATH_OUTSIDE_SUBJECT_REASON,
+        `the guarded path "${name}" is declared relative to the subject and resolves to ${absolute}, which is outside the subject root ${subject} — a relative guard that escapes its subject is a mis-scoped guard, not a guard on another tree`,
+      );
+    }
+    guarded.add(absolute);
+  }
+  return Object.freeze([...guarded].sort(compareText));
 }
 
 /**
@@ -355,21 +773,21 @@ function markUnusable(handle, reason, detail) {
 }
 
 /**
- * Re-measure production and refuse to continue when it moved.
+ * Re-measure the guarded paths and refuse to continue when one moved.
  *
  * The isolation claim is checked around every operation rather than only when a
  * caller remembers to ask, because the damage this guards against is attributed
  * to the reverse rotation rather than to the sandbox.
  */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
-function assertProductionStillUntouched(handle, operation) {
-  const audit = assertProductionUntouched(handle);
+// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
+function assertSubjectStillUntouched(handle, operation) {
+  const audit = assertSubjectUntouched(handle);
   if (audit.untouched) return audit;
 
-  markUnusable(handle, 'production-touched', `production changed during ${operation}`);
+  markUnusable(handle, SANDBOX_SUBJECT_TOUCHED_REASON, `a guarded path changed during ${operation}`);
   throw new SandboxError(
-    'production-touched',
-    `the ${operation} changed the production path(s) ${audit.changedPaths.join(', ')} — the sandbox ${handle.sandboxId} is marked unusable`,
+    SANDBOX_SUBJECT_TOUCHED_REASON,
+    `the ${operation} changed the guarded path(s) ${audit.changedPaths.join(', ')} — the sandbox ${handle.sandboxId} is marked unusable`,
   );
 }
 
@@ -386,14 +804,15 @@ function assertProductionStillUntouched(handle, operation) {
  * @param {object} [options]
  * @param {string} [options.scratchRoot] - where the sandbox directory is made
  * @param {object} [options.database] - `{kind:'none'}` or `{kind:'sqlite', path}`
- * @param {Array} [options.productionPaths] - absolute roots that must not change
+ * @param {Array} [options.guardedPaths] - paths inside the subject that must not change
  * @returns {object} the sandbox handle
  */
 export function createSandbox(root, options = {}) {
+  assertNoRenamedGuardOption(options);
   const scratchRoot = options.scratchRoot ?? null;
   const excludeDirectoryNames = options.excludeDirectoryNames ?? NEVER_WALKED_DIRECTORY_NAMES;
   const database = options.database ?? { kind: 'none' };
-  const productionPaths = options.productionPaths ?? null;
+  const guardedPaths = options.guardedPaths ?? DEFAULT_GUARDED_PATHS;
 
   assertTargetRoot(root);
 
@@ -406,7 +825,7 @@ export function createSandbox(root, options = {}) {
     return assembleSandbox(root, sandboxDir, {
       excludeDirectoryNames,
       database,
-      productionPaths,
+      guardedPaths,
       scratchBase,
       scratchBaseWasCreated,
     });
@@ -426,11 +845,11 @@ export function createSandbox(root, options = {}) {
  * way back does not work is never returned and never becomes something a
  * destructive transition can be run against.
  */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
 function assembleSandbox(root, sandboxDir, setup) {
   const excludeDirectoryNames = setup.excludeDirectoryNames;
   const database = setup.database;
-  const productionPaths = setup.productionPaths;
+  const guardedPaths = setup.guardedPaths;
   const scratchBase = setup.scratchBase;
   const scratchBaseWasCreated = setup.scratchBaseWasCreated;
   const sandboxRoot = join(sandboxDir, SANDBOX_TREE_DIRECTORY_NAME);
@@ -439,7 +858,9 @@ function assembleSandbox(root, sandboxDir, setup) {
   copyTree(root, sandboxRoot, excludeDirectoryNames);
   copyTree(root, snapshotRoot, excludeDirectoryNames);
 
-  const startPlans = discoverStartPlans(root);
+  // One walk answers both the plan and the copy the handle records, so the two
+  // cannot disagree about what the subject contains.
+  const detection = detectStartPlan(root);
   const handle = {
     sandboxId: basename(sandboxDir),
     sandboxDir,
@@ -451,10 +872,11 @@ function assembleSandbox(root, sandboxDir, setup) {
     excludeDirectoryNames,
     initialDigest: digestTree(sandboxRoot, { excludedDirectoryNames: excludeDirectoryNames }),
     database: resolveDatabase(sandboxRoot, database),
-    productionPaths: resolveProductionPaths(productionPaths),
-    productionDigest: null,
-    startPlans,
-    startPlan: startPlans.length > 0 ? startPlans[0] : null,
+    guardedPaths: resolveGuardedPaths({ subjectRoot: root, declared: guardedPaths }),
+    guardedDigest: null,
+    startPlans: detection.plans,
+    startPlan: detection.plan,
+    unstartableReason: detection.reason,
     resetHandle: null,
     replayHandle: null,
     sandboxUsable: true,
@@ -462,7 +884,7 @@ function assembleSandbox(root, sandboxDir, setup) {
     unusableReasonDetail: null,
     transitions: [],
   };
-  handle.productionDigest = digestProduction(handle.productionPaths);
+  handle.guardedDigest = digestGuardedPaths(handle.guardedPaths);
   OBSERVED_SANDBOXES.add(handle);
 
   const rehearsal = restoreFromSnapshot(handle);
@@ -523,7 +945,7 @@ export function resetSandbox(handle) {
   }
 
   const database = databaseState(handle);
-  assertProductionStillUntouched(handle, 'reset');
+  assertSubjectStillUntouched(handle, 'reset');
   recordReset(handle);
   return { restored: true, matchesInitial: true, digest: restored.digest, database, transitionsCleared };
 }
@@ -582,12 +1004,12 @@ export function runTransition(handle, transition = {}) {
     })),
   };
   handle.transitions.push(record);
-  assertProductionStillUntouched(handle, `transition "${name}"`);
+  assertSubjectStillUntouched(handle, `transition "${name}"`);
   return record;
 }
 
 /** The plan a session will start from, or a refusal naming why there is none. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
 function resolveStartPlan(handle, tier) {
   if (tier !== null && tier !== undefined) {
     const plan = handle.startPlans.find((candidate) => candidate.kind === tier);
@@ -602,7 +1024,7 @@ function resolveStartPlan(handle, tier) {
   if (handle.startPlan === null) {
     throw new SandboxError(
       'unstartable',
-      `the target at ${handle.targetRoot} declares no manifest a start command could be derived from — looked for ${[...COMPOSE_MANIFEST_NAMES, CARGO_MANIFEST_NAME].join(', ')}. An unstartable target is reported rather than yielding an empty evidence set`,
+      handle.unstartableReason ?? `the target at ${handle.targetRoot} matches no declared ecosystem`,
     );
   }
   return handle.startPlan;
@@ -728,22 +1150,23 @@ export function collectDynamicEvidence(handle, session, options = {}) {
 }
 
 /**
- * Whether the production paths still hold the bytes they held at creation.
+ * Whether the subject's guarded paths still hold the bytes they held at creation.
  *
- * This is the claim the isolation is checked by, and it is deliberately the
- * same measurement the P22-1 gate takes: a digest over the same walk, with the
- * same exclusions.
+ * This is the claim the isolation is checked by, and it is deliberately the same
+ * measurement the P22-1 gate takes: a digest over the same walk, with the same
+ * exclusions. The subject is the tree the sandbox was copied from, so the
+ * statement holds for a Rust crate, a Node package or a C project alike.
  */
-export function assertProductionUntouched(handle) {
-  const after = digestProduction(handle.productionPaths);
-  const changedPaths = handle.productionPaths.filter((productionPath) => {
-    const before = handle.productionDigest[productionPath];
-    const now = after[productionPath];
+export function assertSubjectUntouched(handle) {
+  const after = digestGuardedPaths(handle.guardedPaths);
+  const changedPaths = handle.guardedPaths.filter((guardedPath) => {
+    const before = handle.guardedDigest[guardedPath];
+    const now = after[guardedPath];
     return before?.sha256 !== now?.sha256 || before?.fileCount !== now?.fileCount;
   });
   return {
     untouched: changedPaths.length === 0,
-    before: handle.productionDigest,
+    before: handle.guardedDigest,
     after,
     changedPaths: [...changedPaths].sort(compareText),
   };

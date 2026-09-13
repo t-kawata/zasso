@@ -55,13 +55,13 @@ const APPEND_SIDE_EFFECT = Object.freeze({
 });
 
 /** Create a throwaway sandbox over a synthetic target. */
-// [::TICKET::] P22-18 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-18 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-18, P23-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-18|P23-5) --for-spec --no-implementation-order`.
 function createSandboxOver(filesByPath = CARGO_TARGET, options = {}) {
   const target = createSyntheticTree(filesByPath, { prefix: 'wsp-p22-18-reset-target-' });
   const scratch = createSyntheticTree({}, { prefix: 'wsp-p22-18-reset-scratch-' });
   const handle = createSandbox(target.root, {
     scratchRoot: scratch.root,
-    productionPaths: [target.root],
+    guardedPaths: [target.root],
     ...options,
   });
   return {
@@ -105,7 +105,7 @@ test('UT-2 resetSandbox returns the environment to its recorded initial state', 
 
 test('UT-7 a sandbox with no recorded transitions resets to its initial state unchanged', () => {
   const { handle, target, dispose } = createSandboxOver();
-  const productionBefore = hashTree(target.root);
+  const subjectBefore = hashTree(target.root);
   try {
     const initial = handle.initialDigest;
     assert.deepEqual(handle.transitions, []);
@@ -116,7 +116,7 @@ test('UT-7 a sandbox with no recorded transitions resets to its initial state un
     assert.deepEqual(reset.digest, initial);
     assert.equal(reset.transitionsCleared, 0);
     assert.deepEqual(handle.transitions, []);
-    assert.deepEqual(hashTree(target.root), productionBefore, 'the production tree is byte-identical');
+    assert.deepEqual(hashTree(target.root), subjectBefore, 'the subject tree is byte-identical');
   } finally {
     dispose();
   }
@@ -140,8 +140,8 @@ test('UT-11 no destructive transition runs before its reset has been recorded', 
       resetArmed: true,
       resetHandle: { resetId: 'forged' },
       transitions: [],
-      productionPaths: [],
-      productionDigest: {},
+      guardedPaths: [],
+      guardedDigest: {},
     };
     assert.equal(isObservedSandbox(forged), false);
     assert.throws(
