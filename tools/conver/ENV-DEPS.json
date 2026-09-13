@@ -64,6 +64,48 @@
       "requiredFor": "reverse",
       "providedBy": "P22-4",
       "description": "The analysis tree: web-tree-sitter as the common syntax layer and the pinned grammar for each of the six target languages. Versions are pinned because a grammar change changes the AST and therefore every measurement taken from it."
+    },
+    {
+      "id": "tree-sitter-rust",
+      "path": ".claude/scripts/workspacify-reverse/node_modules/tree-sitter-rust",
+      "requiredFor": "reverse",
+      "providedBy": "P24-1",
+      "description": "The installed `tree-sitter-rust` grammar the reverse rotation parses rust with. Its own manifest declares no dependencies: the packages it is installed beside are declared by the root above, and this entry exists so that a grammar the capability matrix carries is a declared dependency rather than one that happened to be on the machine."
+    },
+    {
+      "id": "tree-sitter-typescript",
+      "path": ".claude/scripts/workspacify-reverse/node_modules/tree-sitter-typescript",
+      "requiredFor": "reverse",
+      "providedBy": "P24-1",
+      "description": "The installed `tree-sitter-typescript` grammar the reverse rotation parses typescript with. Its own manifest declares no dependencies: the packages it is installed beside are declared by the root above, and this entry exists so that a grammar the capability matrix carries is a declared dependency rather than one that happened to be on the machine."
+    },
+    {
+      "id": "tree-sitter-javascript",
+      "path": ".claude/scripts/workspacify-reverse/node_modules/tree-sitter-javascript",
+      "requiredFor": "reverse",
+      "providedBy": "P24-1",
+      "description": "The installed `tree-sitter-javascript` grammar the reverse rotation parses javascript with. Its own manifest declares no dependencies: the packages it is installed beside are declared by the root above, and this entry exists so that a grammar the capability matrix carries is a declared dependency rather than one that happened to be on the machine."
+    },
+    {
+      "id": "tree-sitter-go",
+      "path": ".claude/scripts/workspacify-reverse/node_modules/tree-sitter-go",
+      "requiredFor": "reverse",
+      "providedBy": "P24-1",
+      "description": "The installed `tree-sitter-go` grammar the reverse rotation parses go with. Its own manifest declares no dependencies: the packages it is installed beside are declared by the root above, and this entry exists so that a grammar the capability matrix carries is a declared dependency rather than one that happened to be on the machine."
+    },
+    {
+      "id": "tree-sitter-python",
+      "path": ".claude/scripts/workspacify-reverse/node_modules/tree-sitter-python",
+      "requiredFor": "reverse",
+      "providedBy": "P24-1",
+      "description": "The installed `tree-sitter-python` grammar the reverse rotation parses python with. Its own manifest declares no dependencies: the packages it is installed beside are declared by the root above, and this entry exists so that a grammar the capability matrix carries is a declared dependency rather than one that happened to be on the machine."
+    },
+    {
+      "id": "tree-sitter-cpp",
+      "path": ".claude/scripts/workspacify-reverse/node_modules/tree-sitter-cpp",
+      "requiredFor": "reverse",
+      "providedBy": "P24-1",
+      "description": "The installed `tree-sitter-cpp` grammar the reverse rotation parses c_cpp with. Its own manifest declares no dependencies: the packages it is installed beside are declared by the root above, and this entry exists so that a grammar the capability matrix carries is a declared dependency rather than one that happened to be on the machine."
     }
   ],
   "tools": [

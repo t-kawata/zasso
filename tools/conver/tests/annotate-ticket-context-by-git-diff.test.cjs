@@ -652,3 +652,87 @@ describe("processFile idempotence [PX-208]", () => {
     assert.strictEqual(countKey(file), 2, "the blank line ends the block, so this definition earns its own");
   });
 });
+
+// ---------------------------------------------------------------------------
+// 12. The comment token belongs to the language [P24-1]
+// ---------------------------------------------------------------------------
+
+/**
+ * The defect these tests pin: the annotator wrote `//` into every file it
+ * reached, whatever the language. In Python and Ruby that is a syntax error, so
+ * the file it was recording provenance for stopped being a file that runs — and
+ * the reader could not see a correct `#` annotation either, so the verification
+ * step reported the correct annotation as missing. Measured on P24-1's Python
+ * representative: `python3 -m py_compile` failed on the annotated file, and
+ * `--verify` listed every one of its definitions as unannotated.
+ */
+describe("the comment token is a fact about the language [P24-1]", () => {
+  const KEY = "P24-1";
+
+  let languageDir;
+
+  before(() => {
+    languageDir = fs.mkdtempSync(path.join(os.tmpdir(), "annot-lang-"));
+  });
+
+  after(() => {
+    fs.rmSync(languageDir, { recursive: true, force: true });
+  });
+
+// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+  function fixture(name, lines) {
+    const fixturePath = path.join(languageDir, name);
+    fs.writeFileSync(fixturePath, lines.join("\n"), "utf8");
+    return fixturePath;
+  }
+
+  const linesOf = (p) => fs.readFileSync(p, "utf8").split("\n");
+
+  it("C001 postcondition: a Python definition is annotated with `#`, not `//`", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("widget.py", ["def widget():", "    return 1"]);
+
+    mod.processFile(file, KEY, { cwd: languageDir, changedLines: new Set([1]) });
+
+    assert.strictEqual(mod.commentTokenFor("widget.py"), "#");
+    assert.match(linesOf(file)[0], /^# \[::TICKET::\] P24-1 changes\./);
+    assert.strictEqual(
+      linesOf(file).some((line) => line.startsWith("//")),
+      false,
+      "a `//` line in Python is a syntax error, which is what this pins against",
+    );
+  });
+
+  it("C001 postcondition: a Ruby definition is annotated with `#` too", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("widget.rb", ["def widget", "  1", "end"]);
+
+    mod.processFile(file, KEY, { cwd: languageDir, changedLines: new Set([1]) });
+
+    assert.strictEqual(mod.commentTokenFor("widget.rb"), "#");
+    assert.match(linesOf(file)[0], /^# \[::TICKET::\] /);
+  });
+
+  it("C001 boundary: a C-family file keeps `//`, so nothing changes for the languages that were already right", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("widget.ts", ["import { head } from './head.js';", "export function widget() { return 1; }"]);
+
+    mod.processFile(file, KEY, { cwd: languageDir, changedLines: new Set([2]) });
+
+    assert.strictEqual(mod.commentTokenFor("widget.ts"), "//");
+    assert.strictEqual(mod.commentTokenFor("widget.rs"), "//");
+    assert.match(linesOf(file)[0], /^\/\/ \[::/);
+  });
+
+  it("C001 invariant: a definition already carrying a `#` annotation is recognised as annotated, so a second run adds nothing", () => {
+    const mod = require(SCRIPT);
+    const annotation = mod.buildAnnotation(KEY, "#");
+    const file = fixture("annotated.py", [annotation, "def widget():", "    return 1"]);
+
+    const before = fs.readFileSync(file, "utf8");
+    const action = mod.processFile(file, KEY, { cwd: languageDir, changedLines: new Set([1]) });
+
+    assert.match(action, /already-annotated/, "reading `#` is what makes a correct annotation visible to the verifier");
+    assert.strictEqual(fs.readFileSync(file, "utf8"), before, "a second run must not touch a byte");
+  });
+});

@@ -6,17 +6,19 @@ property its tests read and nothing else. Naming that property here is what stop
 a later ticket adding a sixth fixture that duplicates the fifth.
 
 Two are representatives of an execution pattern rather than of a crate, and they
-live under `patterns/`. The rest are Rust subjects that the earlier stages read.
+live under `patterns/`. Five are the non-Rust language representatives, and they
+live under `languages/`. The rest are Rust subjects that the earlier stages read.
 
 | Fixture | The one property it exercises |
 |---|---|
 | `sample-project/` | a tree carrying forward-rotation traces at every layer — the subject `detect`, `scrub` and `verify` converge to zero residue over |
 | `unclosed-header-project/` | an `Initial Design Artifact` header that is never closed, which a header parser that trusted its terminator would read past |
 | `mixed-l3-project/` | production code sitting beside an L3 dependency, so whole-file removal is not available and the L3 rule has to stay where it is |
-| `r3-subject/` | a crate whose declarations R3's call vocabulary reads — a login path, a gated path, a session and an error type |
+| `r3-subject/` | a crate whose declarations R3's call vocabulary reads — a login path, a gated path, a session and an error type; also the **Rust language representative** |
 | `two-package-crate/` | two packages that import back into each other, so every boundary crossing runs both ways and the cycle is real |
 | `patterns/partial-conver-project/` | **pattern 3**: some conver artefacts and not the set — a design document and its ledger at the document's own directory, no graph, no Dirs-Tree, no DesignTree |
 | `patterns/spec-only-project/` | **pattern 4**: empty plus a long specification — a specification above the detection's declared threshold and no implementation source at all |
+| `languages/` | the five non-Rust language representatives, declared with their revisions, digests and constructs in `languages/LANGUAGES.json` — the instrument's validation population rather than a subject a rotation runs over |
 
 ## The two representatives
 

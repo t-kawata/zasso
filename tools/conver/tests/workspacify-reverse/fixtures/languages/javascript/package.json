@@ -1,0 +1,10 @@
+{
+  "name": "language-representative-javascript",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "The JavaScript representative: chosen for the constructs the syntax layer must reach, not for its size.",
+  "scripts": {
+    "test": "node --test src/__tests__/*.spec.js"
+  }
+}

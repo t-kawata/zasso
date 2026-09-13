@@ -1,0 +1,6 @@
+[project]
+name = "language-representative-python"
+version = "0.1.0"
+description = "The Python representative: chosen for the constructs the syntax layer must reach, not for its size."
+requires-python = ">=3.10"
+dependencies = []

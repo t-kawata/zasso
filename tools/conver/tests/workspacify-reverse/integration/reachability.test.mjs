@@ -34,10 +34,18 @@ const MODULE_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse
  * §1.2 forbids it from doing so *as a gate*. Wiring it into `run.mjs` is precisely what
  * would let it refuse a run. What executes it is the test suite, which is the entrance
  * §1.2 asks for; an enforcement gate is the shape it forbids.
+ *
+ * `language-representatives.mjs` is not one of design §6's nine either. It is listed for
+ * the same reason: what reads the language declaration is the suite and the later tickets
+ * that parameterise over the six representatives, and `run.mjs analyze` is pointed at one
+ * subject at a time rather than at a fixture population. Wiring it into the analysis path
+ * would put a declaration about test fixtures inside the run it is only evidence about.
  */
 const STILL_ABSENT = Object.freeze([
 // [::TICKET::] P23-7, P23-8, P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-7|P23-8|P23-12) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
   'invariant-audit.mjs',
+  'language-representatives.mjs',
   'staleness.mjs',
   'two-pass.mjs',
 ]);
@@ -129,15 +137,15 @@ test('C004 invariant — the transitive closure also reaches the counterexample 
   }
 });
 
-test('C004 invariant — nine absent entrances become three, and the three are named', () => {
+test('C004 invariant — nine absent entrances become four, and the four are named', () => {
   const { unreachable } = reachableModules(RUN_ENTRY, MODULE_DIRECTORY);
 
   assert.deepEqual(
     unreachable,
     [...STILL_ABSENT].sort(),
-    'the absent entrances design 6 records, less the four R2.5 reaches, the one R6.5 reaches and the two R7 now serves, plus P23-12s audit which §1.2 keeps out of the run',
+    'the absent entrances design 6 records, less the four R2.5 reaches, the one R6.5 reaches and the two R7 now serves, plus the audit P23-12 keeps out of the run and the fixture declaration P24-1 keeps out of the analysis path',
   );
-  assert.equal(unreachable.length, 3, 'nine before the stages, two after P23-8, plus the audit P23-12 adds');
+  assert.equal(unreachable.length, 4, 'nine before the stages, two after P23-8, plus the audit P23-12 adds and the declaration P24-1 adds');
 });
 
 test('C004 invariant — the closure is recomputed rather than remembered, so a new unreachable module is reported', () => {

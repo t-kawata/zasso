@@ -28,7 +28,7 @@ const fs = require("fs");
 const path = require("path");
 
 // Import annotation functions (format is always guaranteed by buildAnnotation)
-const { buildAnnotation, insertAnnotation } = require("./annotate-ticket-context-by-git-diff");
+const { buildAnnotation, commentTokenFor, insertAnnotation } = require("./annotate-ticket-context-by-git-diff");
 
 // Import definition patterns for listing
 const { DEFINITION_PATTERN_METAS } = require("./lib/scope-detection-constants");
@@ -193,7 +193,7 @@ function cleanAmbiguousArtifacts(lines) {
  * @param {number|number[]} definitionLines — 0-indexed line number(s) of target definitions
  * @returns {{success: boolean, error?: string, insertedAtLines?: number[]}}
  */
-// [::TICKET::] PX-64, PX-65, PX-147 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-64|PX-65|PX-147) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-64, PX-65, PX-147, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-64|PX-65|PX-147|P24-1) --for-spec --no-implementation-order`.
 function injectAt(filePath, ticketKey, definitionLines) {
   try {
     const content = fs.readFileSync(filePath, "utf8");
@@ -215,7 +215,7 @@ function injectAt(filePath, ticketKey, definitionLines) {
     const sorted = [...linesToInject].sort((a, b) => b - a);
 
     for (const dl of sorted) {
-      const comment = buildAnnotation(ticketKey);
+      const comment = buildAnnotation(ticketKey, commentTokenFor(filePath));
       // insertAnnotation uses 1-indexed
       lines = insertAnnotation(lines, dl + 1, comment);
     }

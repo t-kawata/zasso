@@ -43,13 +43,42 @@ const EXIT_FAILURE = 1;
 // ---------------------------------------------------------------------------
 
 /**
+ * The comment token each source language uses.
+ *
+ * Every language this annotator reaches is C-family except the two whose comment
+ * is `#`. Writing `//` into those is a syntax error, and reading their correct
+ * annotation back requires knowing the token is a comment at all — which is why
+ * the token is a fact about the extension rather than a constant.
+ */
+// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+const COMMENT_TOKEN_BY_EXTENSION = Object.freeze({ ".py": "#", ".rb": "#" });
+const DEFAULT_COMMENT_TOKEN = "//";
+
+/**
+ * Every comment form the reader accepts.
+ *
+ * A line is a comment when it opens with one of these. `*` is inside a block
+ * comment in JavaScript and a syntax error anywhere else, and a `#!` shebang
+ * never carries an annotation, so accepting the wider set costs nothing and is
+ * what lets a `#` annotation be read back rather than reported missing.
+ */
+// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+const COMMENT_PREFIXES = Object.freeze([DEFAULT_COMMENT_TOKEN, "/*", "*", "#"]);
+
+/** The comment token for a file, from its extension. */
+// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+function commentTokenFor(filePath) {
+  return COMMENT_TOKEN_BY_EXTENSION[path.extname(filePath).toLowerCase()] ?? DEFAULT_COMMENT_TOKEN;
+}
+
+/**
  * Build the annotation comment for a given ticket key.
  */
 // Implemented or modified under tickets: PX-60, PX-61, PX-62; for details, refer to the command `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-60|PX-61|PX-62) --for-spec --no-implementation-order`.
-// [::TICKET::] PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-63 --for-spec --no-implementation-order`.
-function buildAnnotation(ticketKey) {
+// [::TICKET::] PX-63, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-63|P24-1) --for-spec --no-implementation-order`.
+function buildAnnotation(ticketKey, commentToken = DEFAULT_COMMENT_TOKEN) {
   return (
-    `// [::TICKET::] ${ticketKey} changes. Details: \`node .claude/scripts/tickets/show-ticket-context.js ` +
+    `${commentToken} [::TICKET::] ${ticketKey} changes. Details: \`node .claude/scripts/tickets/show-ticket-context.js ` +
     `--ticket-key=${ticketKey} --for-spec --no-implementation-order\`.`
   );
 }
@@ -78,9 +107,9 @@ function buildMultiAnnotation(ticketKeys) {
  *
  * Returns { ticketKeys: string[], lineIndex: number } or null.
  */
-// [::TICKET::] PX-63 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-63 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-63, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-63|P24-1) --for-spec --no-implementation-order`.
 function detectAnnotationLine(line) {
-  if (typeof line !== "string" || !line.trimStart().startsWith("//")) {
+  if (typeof line !== "string" || !COMMENT_PREFIXES.some((prefix) => line.trimStart().startsWith(prefix))) {
     return null;
   }
   // Multi-format: "[::TICKET::] KEY1, KEY2 changes. Details: ...--ticket-key=(KEY1|KEY2)..."
@@ -129,15 +158,14 @@ function detectAnnotationAtLine(lines, defLine) {
  *
  * Returns [{ line, lineIndex }] in file order, lineIndex being 1-indexed.
  */
-// [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-208, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-208|P24-1) --for-spec --no-implementation-order`.
 function findCommentBlockAbove(lines, definitionLine) {
   const block = [];
   for (let index = definitionLine - 2; index >= 0; index -= 1) {
     const line = lines[index];
     if (typeof line !== "string") break;
     const trimmed = line.trimStart();
-    const isComment =
-      trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*");
+    const isComment = COMMENT_PREFIXES.some((prefix) => trimmed.startsWith(prefix));
     if (!isComment) break;
     block.push({ line, lineIndex: index + 1 });
   }
@@ -360,7 +388,7 @@ function prependCommentPreservingShebang(lines, comment) {
   return [comment, ...lines];
 }
 
-// [::TICKET::] PX-147, PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-147|PX-208) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-147, PX-208, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-147|PX-208|P24-1) --for-spec --no-implementation-order`.
 function processFile(filePath, ticketKey, opts) {
   const verbose = opts && opts.verbose;
   const cwd = opts && opts.cwd ? opts.cwd : process.cwd();
@@ -388,7 +416,9 @@ function processFile(filePath, ticketKey, opts) {
     // [::TICKET::] annotation by resolve-ambiguous-markers.js, so recognising
     // only the placeholder would insert over a marker already resolved.
     if (!carriesMarkerFor(lines, ticketKey)) {
-      const ambiguousComment = `// [::AMBIGUOUS::] Could not locate containing definition for changed line(s) in ticket ${ticketKey} — AI must resolve placement.`;
+      const ambiguousComment =
+        `${commentTokenFor(filePath)} [::AMBIGUOUS::] Could not locate containing definition for changed line(s) ` +
+        `in ticket ${ticketKey} — AI must resolve placement.`;
       const newLines = prependCommentPreservingShebang(lines, ambiguousComment);
       fs.writeFileSync(resolved, newLines.join("\n"), "utf8");
       if (verbose) console.error(`[annotate] Inserted AMBIGUOUS marker: ${filePath}`);
@@ -431,7 +461,7 @@ function processFile(filePath, ticketKey, opts) {
     }
 
     // Insert new annotation before this definition
-    const comment = buildAnnotation(ticketKey);
+    const comment = buildAnnotation(ticketKey, commentTokenFor(filePath));
     modifiedLines = insertAnnotation(modifiedLines, defLineOneIndexed, comment);
     if (verbose) console.error(`[annotate] Inserted at line ${defLineOneIndexed}: ${filePath}`);
     actions.push(`annotated:${defLineOneIndexed}`);
@@ -734,7 +764,7 @@ function main() {
  * @param {string[]} lines
  * @returns {number|null} — 1-indexed line number or null
  */
-// [::TICKET::] PX-147, PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-147|PX-208) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-147, PX-208, P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-147|PX-208|P24-1) --for-spec --no-implementation-order`.
 function detectFirstDefinition(lines) {
   if (!Array.isArray(lines)) return null;
   for (let i = 0; i < lines.length; i++) {
@@ -779,6 +809,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     buildAnnotation,
     buildMultiAnnotation,
+    commentTokenFor,
     detectAnnotationLine,
     detectAnnotationAtLine,
     findCommentBlockAbove,
