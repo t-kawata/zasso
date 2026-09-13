@@ -104,6 +104,7 @@ export const BUILD_BY_LANGUAGE = Object.freeze({
  * material to measure rather than a directory that happens to be there.
  */
 export const CONSTRUCT_MARKERS = Object.freeze({
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
   rust: Object.freeze({
     'enum-declaration': 'pub enum LoginError',
     'function-declaration': 'pub fn login',
@@ -114,6 +115,9 @@ export const CONSTRUCT_MARKERS = Object.freeze({
   typescript: Object.freeze({
     'export-star': 'export *',
     'declaration-merge': 'interface Box',
+    // P24-3: the dynamic load E6 reads as a mechanism site rather than E5 as an
+    // edge, because the specifier is a value and not a name.
+    'dynamic-import': 'import(moduleName)',
   }),
   javascript: Object.freeze({
     'computed-property-name': '[widgetKey]',
@@ -124,6 +128,9 @@ export const CONSTRUCT_MARKERS = Object.freeze({
     'build-tag': '//go:build linux',
     'embedded-struct': 'widgetBase',
     'table-driven-test': 'for _, testCase := range testCases',
+    // P24-3: a package of this module imported by another, so the representative
+    // carries a dependency across a directory boundary and not only within one.
+    'intra-module-import': 'example.test/widget/pkg/label',
   }),
   python: Object.freeze({
     metaclass: 'metaclass=RegistryMeta',

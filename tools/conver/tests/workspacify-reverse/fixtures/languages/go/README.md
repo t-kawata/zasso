@@ -13,6 +13,9 @@ It is chosen for the **constructs it contains**, not for its size:
   widget has are not the fields its declaration writes (`pkg/widget/widget.go`)
 - a table-driven test — one test function carrying three cases, so counting test
   functions is not counting expectations (`pkg/widget/widget_test.go`)
+- a package imported by another — `pkg/widget` reaches `pkg/label` through an
+  import statement, so the module carries a dependency across a directory
+  boundary and not only within one (`pkg/widget/widget.go`)
 
 Its manifest declares no dependency, so `LANGUAGES.json` records it as
 `offline: true` and the execution channels may run it.

@@ -161,8 +161,8 @@ export const LANGUAGES_WITH_EXTRACTORS = Object.freeze({
   E2: Object.freeze([...TARGET_LANGUAGES]),
   E3: Object.freeze([...TARGET_LANGUAGES]),
   E4: Object.freeze([...TARGET_LANGUAGES]),
-  E5: Object.freeze(['rust']),
-  E6: Object.freeze(['rust']),
+  E5: Object.freeze([...TARGET_LANGUAGES]),
+  E6: Object.freeze([...TARGET_LANGUAGES]),
 });
 
 /**
@@ -177,8 +177,12 @@ export const LANGUAGES_WITH_EXTRACTORS = Object.freeze({
  * adapter was not yet written, which became false the moment one existed.
  */
 const CAPABILITY_NOTES = Object.freeze({
-  'rust/E1-E6':
+  'rust/E1-E4':
     'Measured through tree-sitter-rust. Syntax alone: module declarations, item declarations, use declarations and mechanism markers are read; macro-generated items and cfg-selected composition are not resolved.',
+  'rust/E5':
+    'Measured through tree-sitter-rust over `mod` and `use` declarations. A `pub use` re-export names a module the reader must resolve, a `#[cfg]`-gated `mod` declaration exists in some builds only, and a `use` a macro writes is in no text this layer reads.',
+  'rust/E6':
+    'Measured through tree-sitter-rust. Mechanism markers are read where they are written: a cfg attribute, an include macro, a trait object, an extern block. A mechanism a macro expands into is not in the text, and one a build script writes is not in the tree.',
   'rust/E7-E16':
     'Not attempted by this instrument version. R3 and later stages consume these, and the semantic adapters they need are declared but not built here.',
   '*/E5-E16':
@@ -193,8 +197,45 @@ const CAPABILITY_NOTES = Object.freeze({
     'Measured through tree-sitter-python. Syntax alone: module-level assignments, class and function definitions and their decorators are read. `__getattr__` answers for names no body declares, a metaclass installs attributes as the class is created, and a decorator replaces the name the `def` statement bound.',
   'c_cpp/E1-E4':
     'Measured through tree-sitter-cpp. Syntax alone: declarations, definitions, typedefs and preprocessor definitions are read. The preprocessor decides what the compiler ever sees, macro expansion rewrites the text before this layer reads it, an include composes declarations from elsewhere, and per-translation-unit flags make one header mean different things.',
+  'typescript/E5':
+    'Measured through tree-sitter-typescript over import, re-export and literal `require` statements. A type-only import vanishes at compile time, and a re-export whose target is resolved at type-check time reaches a module this layer never reads.',
+  'javascript/E5':
+    'Measured through tree-sitter-javascript over import, export and literal `require` statements. A `require` whose argument is computed at run time names no module the syntax holds; it is recorded at R2.5 as a mechanism site and not counted here, so one dependency is never reported by two channels.',
+  'go/E5':
+    'Measured through tree-sitter-go over import declarations, resolved against the module path the manifest declares. A build tag or build constraint excludes a file from every build this reader does not model, so a declaration that exists in one build is absent from the graph of another.',
+  'python/E5':
+    'Measured through tree-sitter-python over import statements resolved against the tree. An import inside a function or under a conditional runs in some executions only, and `importlib` resolves a module by a name computed at run time.',
+  'c_cpp/E5':
+    'Measured through tree-sitter-cpp over preprocessor includes, resolved beside the file that writes them and along the include path the build declares. An `#include` composes declarations from elsewhere and what it composes depends on per-translation-unit flags, so one header means different things in two builds.',
+  'typescript/E6':
+    'Measured through tree-sitter-typescript. A dynamic `import()` with a computed specifier, `eval`, `Reflect` and `process.env` are read where they are written. A decorator that registers the declaration it is applied to is declared and not observed in this representative.',
+  'javascript/E6':
+    'Measured through tree-sitter-javascript. A `require` or `import()` with a computed specifier, `eval`, `Reflect` and `process.env` are read where they are written. A registration performed by a framework at load time leaves only the call that performs it.',
+  'go/E6':
+    'Measured through tree-sitter-go. A build constraint, an `init` function, a cgo import, the reflect package and interface values are read where they are written. A registration an `init` performs is decided while the package loads and is not in any declaration.',
+  'python/E6':
+    'Measured through tree-sitter-python. An attribute hook, a metaclass, a decorator, `importlib`, a foreign-function import and an environment read are read where they are written. What a metaclass installs is decided while the class statement runs and appears in no class body.',
+  'c_cpp/E6':
+    'Measured through tree-sitter-cpp. A macro definition, a preprocessor condition, an include and a call through a dereferenced function pointer are read where they are written. A function reached through a linker section or a constructor attribute is declared and not observed here.',
   '*/E13':
     'Semantic equivalence is undecidable for general programs. E13 is TCE — trivial, syntactic, compiler-normalisation equivalence — and only that is ever claimed.',
+});
+
+/**
+ * The note family an extraction item's reason is written under.
+ *
+ * An item absent from this table falls through to the language-wide note, which
+ * is what E7 and later read until the ticket that writes their adapters gives
+ * them a family of their own.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+const NOTE_FAMILY_BY_ITEM = Object.freeze({
+  E1: 'E1-E4',
+  E2: 'E1-E4',
+  E3: 'E1-E4',
+  E4: 'E1-E4',
+  E5: 'E5',
+  E6: 'E6',
 });
 
 /**
@@ -206,9 +247,20 @@ const CAPABILITY_NOTES = Object.freeze({
 // [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
 export function capabilityNoteFor(language, item) {
   if (item === 'E13') return CAPABILITY_NOTES['*/E13'];
+
+  // E1-E4 share one note because a reader that resolves nothing misses the same
+  // constructs in all four. E5 and E6 are separate families: the dependency form
+  // a language hides is a different fact from the mechanism form it hides, and a
+  // matrix whose E5 cell quoted the structure note would state a reason for a
+  // cell it does not explain.
+  const family = NOTE_FAMILY_BY_ITEM[item];
+  if (family !== undefined && CAPABILITY_NOTES[`${language}/${family}`] !== undefined) {
+    return CAPABILITY_NOTES[`${language}/${family}`];
+  }
+
   if (language === 'rust') {
     return LANGUAGES_WITH_EXTRACTORS[item]?.includes('rust')
-      ? CAPABILITY_NOTES['rust/E1-E6']
+      ? CAPABILITY_NOTES['rust/E1-E4']
       : CAPABILITY_NOTES['rust/E7-E16'];
   }
   return LANGUAGES_WITH_EXTRACTORS[item]?.includes(language)
@@ -301,6 +353,28 @@ export function renderCapabilityReasonsMarkdown() {
   const divider = '|---|---|';
   const rows = TARGET_LANGUAGES.map((language) => `| ${language} | ${capabilityNoteFor(language, 'E1')} |`);
   return [header, divider, ...rows].join('\n');
+}
+
+/**
+ * The per-language reasons for E5 and E6, as Markdown tables the document embeds.
+ *
+ * The E1-E4 table above says why a *structure* reading is partial. These say
+ * something else, and the difference is the point: which dependency form and
+ * which mechanism form each language puts beyond a syntax tree. A dependency the
+ * two channels could both claim is stated here as belonging to one of them —
+ * JavaScript's computed `require` is recorded by R2.5 as a mechanism site and
+ * not by R2 as an edge — so a reader of the recorded decision can see that the
+ * two do not double-count it.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+export function renderCouplingReasonsMarkdown(items = ['E5', 'E6']) {
+  return items
+    .flatMap((item) => [
+      `| Language | ${item} reason |`,
+      '|---|---|',
+      ...TARGET_LANGUAGES.map((language) => `| ${language} | ${capabilityNoteFor(language, item)} |`),
+    ])
+    .join('\n');
 }
 
 /**

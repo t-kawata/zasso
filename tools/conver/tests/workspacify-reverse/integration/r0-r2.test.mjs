@@ -475,3 +475,75 @@ test('IT a run through r2.5 over the experiment input publishes the coupling dif
     out.dispose();
   }
 });
+
+// ---------------------------------------------------------------------------
+// P24-3 — a full run through r2.5 over each of the six representatives
+// ---------------------------------------------------------------------------
+
+// @verifies C001
+// @verifies C002
+// @verifies C003
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+/**
+ * The six representatives, measured end to end.
+ *
+ * The unit suite asserts the shape of each language's extraction; this asserts
+ * that a real run over a real tree publishes it — that R2's edges and R2.5's
+ * mechanism block survive the trip through the artefact writer, and that the
+ * ledger a reader checks carries no skip row for a language the instrument
+ * claims to read.
+ */
+test('IT a run through r2.5 over each of the six representatives publishes its edges and its mechanism block', async () => {
+  const { REPRESENTATIVE_ROOTS } = await import('../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs');
+  const { NO_EDGE_EXTRACTOR_REASON } = await import('../../../.claude/scripts/workspacify-reverse/lib/dependencies.mjs');
+
+  for (const language of TARGET_LANGUAGES) {
+    const out = scratchOutput();
+    try {
+      await analyzeProject({ root: join(PROJECT_ROOT, REPRESENTATIVE_ROOTS[language]), out: out.root, through: THROUGH_R2_5 });
+
+      const dependencies = JSON.parse(readFileSync(join(out.root, 'DEPENDENCIES.json'), 'utf8'));
+      assert.equal(dependencies.coupling_claim, 'hypothesis', `${language}: the graph is still a hypothesis`);
+      assert.equal(dependencies.represents_runtime_binding, false, `${language}: an import graph binds nothing at run time`);
+      assert.ok(dependencies.edges.length > 0, `${language}: the run publishes the boundary the language states`);
+      assert.ok(
+        dependencies.edges.every((edge) => edge.language === language),
+        `${language}: an edge says which language produced it`,
+      );
+
+      const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
+      const inventory = coupling.mechanismInventory[language];
+      assert.ok(inventory !== undefined, `${language}: R2.5 publishes its own mechanism block`);
+      assert.ok(inventory.observedClasses.length > 0, `${language}: the declaration was checked against this tree`);
+      assert.equal(inventory.language, language);
+
+      const attempts = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-ATTEMPTS.json'), 'utf8'));
+      const skipped = attempts.rows.filter((row) => row.reason === NO_EDGE_EXTRACTOR_REASON);
+      assert.deepEqual(skipped, [], `${language}: no file of a target language is recorded as unread`);
+    } finally {
+      out.dispose();
+    }
+  }
+});
+
+test('IT the graph\'s caveat names, per language, how many mechanisms stand between it and the running program', async () => {
+  const { REPRESENTATIVE_ROOTS } = await import('../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs');
+  const { measureExecutionSurface } = await import('../../../.claude/scripts/workspacify-reverse/lib/execution-surface.mjs');
+  const { measureDependencies } = await import('../../../.claude/scripts/workspacify-reverse/lib/dependencies.mjs');
+
+  for (const language of TARGET_LANGUAGES) {
+    const root = join(PROJECT_ROOT, REPRESENTATIVE_ROOTS[language]);
+    const surface = measureExecutionSurface({ root });
+    const dependencies = measureDependencies({ root, surface });
+
+    // R2.5 runs before R2 for this reason: the graph's caveat has to name how
+    // many mechanisms stand between it and the running program, and a reader of
+    // a six-language population has to be able to tell which graph it is about.
+    assert.match(
+      dependencies.runtime_binding_caveat,
+      new RegExp(`by language, ${language}: \\d+`),
+      `${language}: the caveat names this language's own mechanism count`,
+    );
+    assert.equal(surface.mechanisms.every((site) => site.language === language), true);
+  }
+});

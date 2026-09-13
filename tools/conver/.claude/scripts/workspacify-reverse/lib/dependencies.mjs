@@ -15,11 +15,12 @@
  * one R0.5 already uses, reused rather than reimplemented, so the two stages
  * cannot disagree about which module a path names.
  */
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, posix } from 'node:path';
 
 import {
   ANALYSIS_MODES,
+  LANGUAGES_WITH_EXTRACTORS,
   assertAdapterResult,
   renderCappedList,
   emptyCoverage,
@@ -30,11 +31,12 @@ import { BUILD_MANIFESTS, compareText } from './holdout-ledger.mjs';
 import { groupKey } from './provenance.mjs';
 import { owningDirectoryOf, resolveSourceMember } from './claim-ledger.mjs';
 import {
-  collectRustModules,
+  collectModules,
   collectRustUses,
   parseSourceFile,
   syntaxLanguageOf,
   syntaxRecoveryDiagnostic,
+  walkNamed,
 } from './structure.mjs';
 
 /** The claim this measurement is allowed to make about coupling. */
@@ -152,7 +154,7 @@ function packageOf(relativePath) {
  * supported by one `use` and an edge supported by forty are different evidence
  * for the boundary work downstream, and discarding the count would hide that.
  */
-// [::TICKET::] P22-4, P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-5) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-5, P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-5|P24-3) --for-spec --no-implementation-order`.
 function edgesFrom(records) {
   const byPair = new Map();
   for (const record of records) {
@@ -161,9 +163,20 @@ function edgesFrom(records) {
     // `from: "src/a b"` with `to: "c"` and `from: "src/a"` with `to: "b c"`
     // both spell the same key, and the collision would silently merge two
     // package edges into one.
-    const key = groupKey(record.from, record.to);
+    //
+    // The language is part of the key because a tree can hold two of them, and
+    // a TypeScript file importing `src/lib` is a different edge from a Python
+    // file importing it. Merging them would attribute one language's dependency
+    // to the other.
+    const key = groupKey(record.language, record.from, record.to);
     if (!byPair.has(key)) {
-      byPair.set(key, { from: record.from, to: record.to, kind: 'syntactic_import', locations: [] });
+      byPair.set(key, {
+        from: record.from,
+        to: record.to,
+        language: record.language,
+        kind: 'syntactic_import',
+        locations: [],
+      });
     }
     byPair.get(key).locations.push({ file: record.file, line: record.line, spelling: record.spelling });
   }
@@ -462,6 +475,452 @@ function measuredFiles(root, excludedPaths) {
     .sort(compareText);
 }
 
+// ---------------------------------------------------------------------------
+// E5 — how each target language states a dependency, and where its own build
+// manifest says a name is looked for
+// ---------------------------------------------------------------------------
+
+/**
+ * Why a file carries no edge: this instrument has no query set for its language.
+ *
+ * Named rather than typed into the loop, because the skip is an act with a
+ * reader-facing meaning and because the test that asserts the six are read and
+ * the test that asserts a language outside them is not must point at one name.
+ */
+export const NO_EDGE_EXTRACTOR_REASON = 'no_edge_extractor_for_language';
+
+/**
+ * The file extensions a relative specifier is tried with, in the order it is tried.
+ *
+ * TypeScript writes `./alpha.js` for a module the tree holds as `alpha.ts`,
+ * because the specifier names the emitted file and not the source one. A
+ * resolver that trusted the spelling would find nothing and report a package
+ * with no dependencies, which is why the extension is a candidate rather than a
+ * fact.
+ */
+const EXTENSIONS_BY_LANGUAGE = Object.freeze({
+  typescript: Object.freeze(['.ts', '.tsx', '.js']),
+  javascript: Object.freeze(['.js', '.mjs', '.cjs', '.jsx']),
+  python: Object.freeze(['.py']),
+  c_cpp: Object.freeze(['.h', '.hpp', '.hh', '.hxx']),
+});
+
+/** The directory an include path is looked for in, as the build manifest declares it. */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+const CMAKE_INCLUDE_DIRECTIVE = /target_include_directories\s*\([^)]*?\b(?:PUBLIC|PRIVATE|INTERFACE)\b([^)]*)\)/;
+
+/** The module path a Go tree declares, which every import path is written against. */
+const GO_MODULE_CLAUSE = /^\s*module\s+(\S+)\s*$/m;
+
+/** Strips the quotes a string literal's text carries, or null when it is not one. */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function unquoted(text) {
+  const match = /^(['"`])(.*)\1$/s.exec(text ?? '');
+  return match === null ? null : match[2];
+}
+
+/** The directory a relative path sits in, as a POSIX path the tree index uses. */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function directoryOf(relativePath) {
+  return relativePath.includes('/') ? relativePath.slice(0, relativePath.lastIndexOf('/')) : '';
+}
+
+/** A specifier joined onto the importing file's directory, with `..` resolved. */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function resolveAgainst(importerDirectory, specifier) {
+  const joined = posix.normalize(posix.join(importerDirectory, specifier));
+  return joined.startsWith('./') ? joined.slice(2) : joined.replace(/^\/+/, '');
+}
+
+/**
+ * The file a relative specifier names, or null.
+ *
+ * The candidates are tried in a fixed order — the spelling as written, then the
+ * spelling under each extension the language emits, then the spelling as a
+ * directory holding an index module — so that a resolution is a fact about the
+ * tree rather than a preference between two files that both exist.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function resolveRelativeFile(root, importerDirectory, specifier, extensions) {
+  const base = resolveAgainst(importerDirectory, specifier);
+  if (base.length === 0) return null;
+
+  const stem = base.includes('.') && base.lastIndexOf('.') > base.lastIndexOf('/')
+    ? base.slice(0, base.lastIndexOf('.'))
+    : base;
+  const candidates = [base, ...extensions.map((extension) => `${stem}${extension}`)];
+  for (const extension of extensions) candidates.push(`${base}/index${extension}`);
+
+  for (const candidate of candidates) {
+    if (existsSync(join(root, candidate))) return candidate;
+  }
+  return null;
+}
+
+/**
+ * Every directory a C/C++ build declares as an include search path.
+ *
+ * The manifest is the only place the search path is written down; without it a
+ * quoted include resolves against the including file's directory alone, and the
+ * translation units that reach a shared header through the build's include path
+ * would read as having no dependency at all. A generator expression is a value
+ * this layer cannot resolve and is skipped rather than guessed at.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function declaredIncludeDirectories(root, files) {
+  const directories = new Set();
+  for (const manifest of files.filter((path) => path.split('/').pop() === 'CMakeLists.txt')) {
+    let text;
+    try {
+      text = readFileSync(join(root, manifest), 'utf8');
+    } catch {
+      continue;
+    }
+    const owner = directoryOf(manifest);
+    for (const line of text.split('\n')) {
+      const directive = CMAKE_INCLUDE_DIRECTIVE.exec(line);
+      if (directive === null) continue;
+      for (const token of directive[1].trim().split(/\s+/)) {
+        if (token.length === 0 || token.includes('$<')) continue;
+        directories.add(owner.length === 0 ? token : `${owner}/${token}`);
+      }
+    }
+  }
+  return [...directories].sort(compareText);
+}
+
+/** The Go module path the measured tree declares, or null when it declares none. */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function declaredGoModulePath(root, files) {
+  const manifest = files.find((path) => path === 'go.mod' || path.endsWith('/go.mod'));
+  if (manifest === undefined) return null;
+  try {
+    const clause = GO_MODULE_CLAUSE.exec(readFileSync(join(root, manifest), 'utf8'));
+    return clause === null ? null : clause[1];
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The files each top-level Python module name is declared by.
+ *
+ * A Python import names a module and not a path, so the tree is indexed by the
+ * name a module would answer to. A name that several files claim is left out
+ * rather than resolved to one of them: choosing between two would be a guess
+ * wearing a measurement's clothes.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function pythonModuleIndex(files) {
+  const byName = new Map();
+  for (const file of files) {
+    if (!file.endsWith('.py')) continue;
+    const stem = file.slice(file.lastIndexOf('/') + 1, -'.py'.length);
+    if (stem === '__init__') continue;
+    byName.set(stem, byName.has(stem) ? null : file);
+  }
+  return byName;
+}
+
+/** The package a resolved member belongs to, given whether that member is itself a directory. */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function packageOfMember(member, { isDirectory }) {
+  return isDirectory ? member : directoryOf(member);
+}
+
+/**
+ * The package a Rust path names, resolved the way R0.5 resolves a module path.
+ *
+ * Rust's first segment names a source member, not a file, so the resolution is
+ * the one `resolveSourceMember` already performs and is reused rather than
+ * reimplemented — the two stages cannot disagree about which module a path
+ * names.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function resolveRustSpecifier(specifier, { root }) {
+  const firstSegment = specifier.replace(/^(crate|self|super)::/, '').split('::')[0];
+  const member = resolveSourceMember(root, firstSegment);
+  return member === null ? null : owningDirectoryOf(member);
+}
+
+/** A relative specifier — one the importing file's own directory resolves. */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function resolveRelativeSpecifier(specifier, { language, file, root }) {
+  if (!specifier.startsWith('.')) return null;
+  const member = resolveRelativeFile(root, directoryOf(file), specifier, EXTENSIONS_BY_LANGUAGE[language]);
+  return member === null ? null : packageOfMember(member, { isDirectory: false });
+}
+
+/**
+ * The package a Go import path names: the remainder of the path under the module.
+ *
+ * A path that does not begin with the declared module path names something
+ * outside the tree — the standard library, or another module — and is recorded
+ * as unresolved rather than folded into the local graph.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function resolveGoSpecifier(specifier, { root, goModulePath }) {
+  if (goModulePath === null || !specifier.startsWith(`${goModulePath}/`)) return null;
+  const member = specifier.slice(goModulePath.length + 1);
+  return existsSync(join(root, member)) ? packageOfMember(member, { isDirectory: true }) : null;
+}
+
+/**
+ * The package a Python module name names.
+ *
+ * The importing file's own directory is tried first, because that is the
+ * sibling a reader looks for; a name that is not there is looked up in the
+ * tree-wide index, which is what a configured import root would have provided.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function resolvePythonSpecifier(specifier, { file, root, pythonModules }) {
+  const leaf = specifier.split('.').pop();
+  const sibling = resolveRelativeFile(root, directoryOf(file), `./${leaf}`, EXTENSIONS_BY_LANGUAGE.python);
+  if (sibling !== null) return packageOfMember(sibling, { isDirectory: false });
+  const indexed = pythonModules.get(leaf) ?? null;
+  return indexed === null ? null : packageOfMember(indexed, { isDirectory: false });
+}
+
+/**
+ * The package a C/C++ include names.
+ *
+ * A quoted include is looked for beside the file that writes it and then along
+ * the include path the build declares; an angled include is looked for only
+ * along that path, because that is the difference the two spellings carry.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function resolveIncludeSpecifier(specifier, { root, file, includeDirectories }) {
+  const searchPaths = specifier.quoted ? [directoryOf(file), ...includeDirectories] : [...includeDirectories];
+  for (const searchPath of searchPaths) {
+    const member = `${searchPath.length === 0 ? '' : `${searchPath}/`}${specifier.path}`;
+    if (existsSync(join(root, member))) return packageOfMember(member, { isDirectory: false });
+  }
+  return null;
+}
+
+/** Every `require('...')` a JavaScript file writes with a specifier it can name. */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function literalRequiresOf(tree, relativePath) {
+  const requires = [];
+  walkNamed(tree.rootNode, (node) => {
+    if (node.type !== 'call_expression') return;
+    if (node.childForFieldName?.('function')?.text !== 'require') return;
+    const [argument] = node.childForFieldName?.('arguments')?.namedChildren ?? [];
+    const specifier = argument?.type === 'string' ? unquoted(argument.text) : null;
+    // A `require` whose argument is a value rather than a literal names no
+    // module here. It is not dropped: R2.5 records it as a mechanism site, and
+    // counting it in both channels would report one dependency twice.
+    if (specifier === null) return;
+    requires.push({ specifier, line: node.startPosition.row + 1 });
+  });
+  return requires;
+}
+
+/** Every specifier one file states, as the language under measurement writes it. */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function importSpecifiersIn(language, tree, relativePath) {
+  if (language === 'rust') {
+    return collectRustUses(tree, relativePath).map((use) => ({ specifier: use.target, line: use.line }));
+  }
+
+  const specifiers = [];
+  walkNamed(tree.rootNode, (node) => {
+    const line = node.startPosition.row + 1;
+    if (language === 'go' && node.type === 'import_spec') {
+      const specifier = unquoted(node.childForFieldName?.('path')?.text);
+      if (specifier !== null) specifiers.push({ specifier, line });
+      return;
+    }
+    if (language === 'python') {
+      if (node.type === 'import_from_statement') {
+        const module = node.childForFieldName?.('module_name')?.text;
+        if (module !== undefined) specifiers.push({ specifier: module, line });
+        return;
+      }
+      if (node.type === 'import_statement') {
+        for (const name of node.namedChildren) {
+          if (name.type === 'dotted_name') specifiers.push({ specifier: name.text, line });
+        }
+        return;
+      }
+      return;
+    }
+    if (language === 'c_cpp' && node.type === 'preproc_include') {
+      const path = node.childForFieldName?.('path');
+      const spelling = unquoted(path?.text);
+      if (spelling !== null) specifiers.push({ specifier: { path: spelling, quoted: true }, line });
+      else if (path?.type === 'system_lib_string') {
+        specifiers.push({ specifier: { path: path.text.slice(1, -1), quoted: false }, line });
+      }
+      return;
+    }
+    if (language === 'typescript' || language === 'javascript') {
+      if (node.type === 'import_statement' || node.type === 'export_statement') {
+        const specifier = unquoted(node.childForFieldName?.('source')?.text);
+        if (specifier !== null) specifiers.push({ specifier, line });
+      }
+    }
+  });
+
+  if (language === 'javascript' || language === 'typescript') {
+    specifiers.push(...literalRequiresOf(tree, relativePath).map((row) => ({ specifier: row.specifier, line: row.line })));
+  }
+  return specifiers;
+}
+
+/**
+ * The query set each target language's dependency extractor reads its grammar with.
+ *
+ * One frozen row per language, so `measureDependencies` holds no branch on the
+ * language and adding a seventh language is adding a row rather than editing a
+ * function. Each row states which node types carry an import and how a specifier
+ * becomes a package, and the two are the same for all six only in that they are
+ * read here.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+export const EDGE_QUERIES_BY_LANGUAGE = Object.freeze({
+  rust: Object.freeze({ importNodeTypes: Object.freeze(['use_declaration']), resolve: resolveRustSpecifier }),
+  typescript: Object.freeze({ importNodeTypes: Object.freeze(['import_statement', 'export_statement']), resolve: resolveRelativeSpecifier }),
+  javascript: Object.freeze({ importNodeTypes: Object.freeze(['import_statement', 'export_statement', 'call_expression']), resolve: resolveRelativeSpecifier }),
+  go: Object.freeze({ importNodeTypes: Object.freeze(['import_spec']), resolve: resolveGoSpecifier }),
+  python: Object.freeze({ importNodeTypes: Object.freeze(['import_statement', 'import_from_statement']), resolve: resolvePythonSpecifier }),
+  c_cpp: Object.freeze({ importNodeTypes: Object.freeze(['preproc_include']), resolve: resolveIncludeSpecifier }),
+});
+
+/**
+ * Everything a resolution needs that is a fact about the tree rather than a file.
+ *
+ * Built once per measurement, so a resolver is a pure function of a specifier
+ * and this context and cannot read the tree behind the measurement's back.
+ *
+ * The population here is the whole in-scope tree and not the files the syntax
+ * layer reads: a Go import path is written against the module `go.mod` declares
+ * and a C/C++ include is looked for along the path `CMakeLists.txt` declares,
+ * and neither manifest is a source file any grammar carries. A context built
+ * from the syntax population would answer "no module path" and "no include
+ * path" for every tree, which is a fact about the reader and not about the tree.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function resolutionContextOf(root, excludedPaths) {
+  const excluded = new Set(excludedPaths);
+  const inScopePaths = listArtefacts(root)
+    .filter((artefact) => artefact.readStatus === 'readable' && !artefact.exclusion && !excluded.has(artefact.path))
+    .map((artefact) => artefact.path);
+
+  return {
+    root,
+    includeDirectories: declaredIncludeDirectories(root, inScopePaths),
+    goModulePath: declaredGoModulePath(root, inScopePaths),
+    pythonModules: pythonModuleIndex(inScopePaths),
+  };
+}
+
+/**
+ * Every dependency one file states, and how many of its specifiers did not resolve.
+ *
+ * A specifier that names no member of this tree is counted rather than dropped:
+ * the count travels into the report's limitations, so an absent edge reads as a
+ * gap in the measurement instead of as an absence of coupling.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+export function collectDependencyEdges(language, tree, relativePath, { context }) {
+  const queries = EDGE_QUERIES_BY_LANGUAGE[language];
+  if (queries === undefined) {
+    throw new Error(`${language} declares no edge query set, so no dependency can be read from ${relativePath}`);
+  }
+
+  const records = [];
+  let unresolved = 0;
+  for (const { specifier, line } of importSpecifiersIn(language, tree, relativePath)) {
+    const target = queries.resolve(specifier, { ...context, language, file: relativePath });
+    if (target === null) {
+      unresolved += 1;
+      continue;
+    }
+    records.push({
+      from: packageOf(relativePath),
+      to: target,
+      language,
+      file: relativePath,
+      line,
+      spelling: typeof specifier === 'string' ? specifier : specifier.path,
+    });
+  }
+  return { records, unresolved };
+}
+
+/**
+ * Whether this instrument reads dependencies written in a language.
+ *
+ * The answer is read from the declaration rather than from a list written here,
+ * so a language added to `TARGET_LANGUAGES` before its query row is written is
+ * skipped and recorded, and a row cannot exist without also widening this
+ * answer. Exported because the skip it guards is an invariant a test must be
+ * able to assert: the six never carry it and a language outside them always
+ * does, and a guard no test can reach cannot be asserted to persist.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+export function hasEdgeExtractor(language) {
+  return LANGUAGES_WITH_EXTRACTORS.E5.includes(language);
+}
+
+/**
+ * The row a file leaves behind when this instrument has no query set for its language.
+ *
+ * The skip is recorded rather than silent, which is why the report can say a
+ * language was not reached instead of printing a graph that quietly omits it.
+ * It fires for a language outside the six and never for one inside them: a
+ * target language whose query set went missing is a different fact, and
+ * recording it as "no extractor for this language" would hide it.
+ *
+ * Exported for the same reason `hasEdgeExtractor` is: the invariant is about
+ * the row, and a row no test can produce is a claim nobody checks.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+export function recordSkippedLanguage({ file, language }) {
+  return recordAttempt({
+    target: file,
+    configuration: 'syntax-only',
+    tool: `tree-sitter-${language}`,
+    outcome: {
+      phase: 'parse',
+      status: 'skipped',
+      extractedCount: 0,
+      reason: NO_EDGE_EXTRACTOR_REASON,
+    },
+  });
+}
+
+/**
+ * How many mechanisms stand between this graph and the running program, per language.
+ *
+ * The count is stated per language rather than as one total because a tree can
+ * hold more than one, and a reader who is told "twenty mechanisms" cannot say
+ * which of the graphs below is the one carrying them. This is the reason R2.5
+ * runs before R2: the caveat has to exist when the graph is read.
+ */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+function dynamicMechanismClause(surface) {
+  if (!Array.isArray(surface?.mechanisms)) return '';
+
+  const counted = new Map();
+  for (const site of surface.mechanisms) {
+    const language = site.language ?? 'unspecified';
+    counted.set(language, (counted.get(language) ?? 0) + 1);
+  }
+  if (counted.size === 0) {
+    return ' This run enumerated no dynamic mechanism at R2.5, which is a fact about this subject '
+      + 'and not a promise that none is there.';
+  }
+
+  const perLanguage = [...counted.entries()]
+    .sort((left, right) => compareText(left[0], right[0]))
+    .map(([language, count]) => `${language}: ${count}`)
+    .join(', ');
+  return ` This run enumerated ${surface.mechanisms.length} dynamic mechanism(s) at R2.5 — by language, ${perLanguage}; `
+    + 'each one is a place where the graph below and the running program can disagree.';
+}
+
 /**
  * R2 — the dependency measurement.
  *
@@ -478,21 +937,12 @@ export function measureDependencies({ root, excludedPaths = [], grammar, surface
 
   const files = measuredFiles(root, excludedPaths);
   coverage.files_discovered = files.length;
+  const context = resolutionContextOf(root, excludedPaths);
 
   for (const file of files) {
     const language = syntaxLanguageOf(file);
-    if (language !== 'rust') {
-      attempts.push(recordAttempt({
-        target: file,
-        configuration: 'syntax-only',
-        tool: `tree-sitter-${language}`,
-        outcome: {
-          phase: 'parse',
-          status: 'skipped',
-          extractedCount: 0,
-          reason: 'no_edge_extractor_for_language',
-        },
-      }));
+    if (!hasEdgeExtractor(language)) {
+      attempts.push(recordSkippedLanguage({ file, language }));
       continue;
     }
 
@@ -516,37 +966,21 @@ export function measureDependencies({ root, excludedPaths = [], grammar, surface
     coverage.files_parsed += 1;
     if (parsed.errorNodes) coverage.files_with_error_nodes += 1;
 
-    let resolved = 0;
-    let unresolved = 0;
-    for (const use of collectRustUses(parsed.tree, file)) {
-      const firstSegment = use.target.replace(/^(crate|self|super)::/, '').split('::')[0];
-      const member = resolveSourceMember(root, firstSegment);
-      if (member === null) {
-        // A `use` that names no source member is a gap in the graph, not an
-        // absent dependency. Counting it is what keeps the edge list from
-        // reading as the whole of the coupling the source states.
-        unresolved += 1;
-        continue;
-      }
-      records.push({
-        from: packageOf(file),
-        to: owningDirectoryOf(member),
-        file: use.file,
-        line: use.line,
-        spelling: use.target,
-      });
-      resolved += 1;
-    }
+    // A specifier that names no member of this tree is a gap in the graph, not
+    // an absent dependency. Counting it is what keeps the edge list from reading
+    // as the whole of the coupling the source states.
+    const { records: fileRecords, unresolved } = collectDependencyEdges(language, parsed.tree, file, { context });
+    records.push(...fileRecords);
     if (unresolved > 0) unresolvedByFile.push({ file, count: unresolved });
 
-    for (const module of collectRustModules(parsed.tree, file)) {
-      declaredModules.push({ ...module, from: packageOf(file) });
+    for (const module of collectModules(language, parsed.tree, file)) {
+      declaredModules.push({ ...module, language, from: packageOf(file) });
     }
 
     attempts.push(recordAttempt({
       target: file,
       configuration: 'syntax-only',
-      tool: 'tree-sitter-rust',
+      tool: `tree-sitter-${language}`,
       outcome: {
         phase: 'parse',
         // A grammar that had to recover could not read the file whole, which is a
@@ -555,7 +989,7 @@ export function measureDependencies({ root, excludedPaths = [], grammar, surface
         // one event, so this follows structure.mjs's C003 rule.
         status: parsed.errorNodes ? 'failed' : 'success',
         diagnostics: parsed.errorNodes ? [syntaxRecoveryDiagnostic(parsed.tree)] : [],
-        extractedCount: resolved,
+        extractedCount: fileRecords.length,
         reason: parsed.errorNodes ? 'grammar_recovered' : null,
       },
     }));
@@ -591,11 +1025,7 @@ export function measureDependencies({ root, excludedPaths = [], grammar, surface
     });
   }
 
-  const dynamicMechanismCount = Array.isArray(surface?.mechanisms) ? surface.mechanisms.length : null;
-  const caveat = dynamicMechanismCount === null
-    ? RUNTIME_BINDING_CAVEAT
-    : `${RUNTIME_BINDING_CAVEAT} This run enumerated ${dynamicMechanismCount} dynamic mechanism(s) at R2.5; `
-      + 'each one is a place where the graph below and the running program can disagree.';
+  const caveat = `${RUNTIME_BINDING_CAVEAT}${dynamicMechanismClause(surface)}`;
 
   return assertAdapterResult({
     analysis_mode: ANALYSIS_MODES[0],

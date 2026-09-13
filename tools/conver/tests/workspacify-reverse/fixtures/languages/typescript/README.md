@@ -11,6 +11,8 @@ It is chosen for the **constructs it contains**, not for its size:
   than the one that publishes it (`src/index.ts`)
 - a declaration merge — `interface Box` declared twice, so the shape a consumer
   sees is written in no single place (`src/model.ts`)
+- a dynamic import — `import(moduleName)`, whose specifier is a value rather than
+  a name, so the module that arrives is not in the text (`src/loader.ts`)
 
 Its build needs the TypeScript compiler, which is declared as a dependency and
 must be fetched, so `LANGUAGES.json` records it as `offline: false`. That is not

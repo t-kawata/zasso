@@ -1490,6 +1490,7 @@ function renderAdjudicationMarkdown(adjudication) {
 }
 
 export async function analyzeProject({
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
   root,
   out,
   through = ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
@@ -1576,6 +1577,12 @@ export async function analyzeProject({
     : runStage('r2.5', () => measureDynamicCoupling({
       root: scope.root,
       staticMechanisms: surface.mechanisms,
+      // The inventory R2.5 checked its declaration against travels with the
+      // difference, so the document states which language's prediction was
+      // verified and which classes stood unverified beside it. R2 derives it
+      // nowhere: a stage that re-derived its own would be free to disagree with
+      // the surface published next to it.
+      mechanismInventory: surface.mechanismInventory,
       sandboxOptions: {},
     }));
   const structure = stagesRun.includes('r1')

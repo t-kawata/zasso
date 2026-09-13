@@ -426,7 +426,8 @@ export function diffSurfaces(staticMechanisms = [], dynamicRecord = { observatio
  * diff what was seen against what was listed, and publish both with the caveat
  * that says what the difference is not.
  */
-export function measureDynamicCoupling({ root, staticMechanisms = [], sandboxOptions = {} } = {}) {
+export function measureDynamicCoupling({ root, staticMechanisms = [], mechanismInventory = {}, sandboxOptions = {} } = {}) {
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
   const channel = observeDynamically({ root, sandboxOptions });
 
   // An unrun channel has looked at nothing, so it places nothing: the three sets
@@ -458,6 +459,12 @@ export function measureDynamicCoupling({ root, staticMechanisms = [], sandboxOpt
       disposal: channel.disposal ?? null,
     },
     mechanisms,
+    // Which of each language's declared mechanism classes the static reading
+    // found, and which it did not. It travels with the difference because it is
+    // the caveat's own qualification: a language whose inventory was declared
+    // but not verified is a gap in this measurement, and a reader comparing the
+    // two surfaces needs to know which of them was checked.
+    mechanismInventory,
     difference,
     unmatched,
     caveat: channel.ran ? DYNAMIC_COUPLING_CAVEAT : DYNAMIC_CHANNEL_UNRUN_CAVEAT,

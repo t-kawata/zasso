@@ -86,8 +86,8 @@ F12, and the vocabulary exists so that a consumer cannot make that substitution 
 | E2 | partial | partial | partial | partial | partial | partial |
 | E3 | partial | partial | partial | partial | partial | partial |
 | E4 | partial | partial | partial | partial | partial | partial |
-| E5 | partial | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
-| E6 | partial | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
+| E5 | partial | partial | partial | partial | partial | partial |
+| E6 | partial | partial | partial | partial | partial | partial |
 | E7 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
 | E8 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
 | E9 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
@@ -133,10 +133,34 @@ names the constructs that language's syntax layer cannot see. The table below is
 | python | Measured through tree-sitter-python. Syntax alone: module-level assignments, class and function definitions and their decorators are read. `__getattr__` answers for names no body declares, a metaclass installs attributes as the class is created, and a decorator replaces the name the `def` statement bound. |
 | c_cpp | Measured through tree-sitter-cpp. Syntax alone: declarations, definitions, typedefs and preprocessor definitions are read. The preprocessor decides what the compiler ever sees, macro expansion rewrites the text before this layer reads it, an include composes declarations from elsewhere, and per-translation-unit flags make one header mean different things. |
 
+### The reasons for E5 and E6
+
+The same table for the two families the dependency measurement reads. Each language states the
+dependency form and the mechanism form its own syntax hides, and where two channels could both
+claim a construct, this says which one records it.
+
+| Language | E5 reason |
+|---|---|
+| rust | Measured through tree-sitter-rust over `mod` and `use` declarations. A `pub use` re-export names a module the reader must resolve, a `#[cfg]`-gated `mod` declaration exists in some builds only, and a `use` a macro writes is in no text this layer reads. |
+| typescript | Measured through tree-sitter-typescript over import, re-export and literal `require` statements. A type-only import vanishes at compile time, and a re-export whose target is resolved at type-check time reaches a module this layer never reads. |
+| javascript | Measured through tree-sitter-javascript over import, export and literal `require` statements. A `require` whose argument is computed at run time names no module the syntax holds; it is recorded at R2.5 as a mechanism site and not counted here, so one dependency is never reported by two channels. |
+| go | Measured through tree-sitter-go over import declarations, resolved against the module path the manifest declares. A build tag or build constraint excludes a file from every build this reader does not model, so a declaration that exists in one build is absent from the graph of another. |
+| python | Measured through tree-sitter-python over import statements resolved against the tree. An import inside a function or under a conditional runs in some executions only, and `importlib` resolves a module by a name computed at run time. |
+| c_cpp | Measured through tree-sitter-cpp over preprocessor includes, resolved beside the file that writes them and along the include path the build declares. An `#include` composes declarations from elsewhere and what it composes depends on per-translation-unit flags, so one header means different things in two builds. |
+| Language | E6 reason |
+|---|---|
+| rust | Measured through tree-sitter-rust. Mechanism markers are read where they are written: a cfg attribute, an include macro, a trait object, an extern block. A mechanism a macro expands into is not in the text, and one a build script writes is not in the tree. |
+| typescript | Measured through tree-sitter-typescript. A dynamic `import()` with a computed specifier, `eval`, `Reflect` and `process.env` are read where they are written. A decorator that registers the declaration it is applied to is declared and not observed in this representative. |
+| javascript | Measured through tree-sitter-javascript. A `require` or `import()` with a computed specifier, `eval`, `Reflect` and `process.env` are read where they are written. A registration performed by a framework at load time leaves only the call that performs it. |
+| go | Measured through tree-sitter-go. A build constraint, an `init` function, a cgo import, the reflect package and interface values are read where they are written. A registration an `init` performs is decided while the package loads and is not in any declaration. |
+| python | Measured through tree-sitter-python. An attribute hook, a metaclass, a decorator, `importlib`, a foreign-function import and an environment read are read where they are written. What a metaclass installs is decided while the class statement runs and appears in no class body. |
+| c_cpp | Measured through tree-sitter-cpp. A macro definition, a preprocessor condition, an include and a call through a dereferenced function pointer are read where they are written. A function reached through a linker section or a constructor attribute is declared and not observed here. |
+
 `not_attempted` in the remaining rows means exactly what it says: this instrument version writes
-no extractor for that family in that language. E5 and E6 are Rust's alone until P24-3 writes the
-dependency measurement's extractors; E7-E14 belong to P24-4 and P24-5. A later ticket that finds a
-cell impossible writes `unsupported_in_principle` and the reason with it.
+no extractor for that family in that language. E5 and E6 reach all six since P24-3 wrote the
+dependency measurement's extractors, so their rows are `partial` with the reason below them;
+E7-E14 belong to P24-4 and P24-5. A later ticket that finds a cell impossible writes
+`unsupported_in_principle` and the reason with it.
 
 ### E13 is `unsupported_in_principle` everywhere
 

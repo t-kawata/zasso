@@ -35,6 +35,7 @@ import {
   findCapabilityGaps,
   renderCapabilityMatrixMarkdown,
   renderCapabilityReasonsMarkdown,
+  renderCouplingReasonsMarkdown,
 } from '../../../.claude/scripts/workspacify-reverse/lib/analysis-tech.mjs';
 import {
   GRAMMAR_BY_LANGUAGE,
@@ -258,6 +259,7 @@ test('UT: [Normal] C001 postcondition — TypeScript E1, E2, E3 and E4 are produ
 });
 
 test('UT: [Normal] C001 postcondition — JavaScript, Go, Python and C/C++ each produce their four items', () => {
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
   const javascript = measureRepresentative('javascript');
   assert.ok(javascript.publicItems.some((item) => item.symbol === 'Widget' && item.file === 'src/widget.js'), 'JS E2 reads module.exports');
   assert.ok(javascript.publicItems.some((item) => item.symbol === 'loadModule'), 'JS E2 reads the second module');
@@ -265,7 +267,17 @@ test('UT: [Normal] C001 postcondition — JavaScript, Go, Python and C/C++ each 
   const go = measureRepresentative('go');
   assert.ok(go.types.some((type) => type.symbol === 'Widget' && type.typeKind === 'struct'), 'Go E3 names the struct');
   assert.ok(go.publicItems.some((item) => item.symbol === 'Render' && item.itemKind === 'method'), 'Go E2 names an exported method');
-  assert.ok(go.packages.every((pkg) => pkg.declaredModules.includes('widget')), 'Go E1 declares its package');
+  // The module holds two packages since P24-3 gave it a dependency to measure,
+  // so each is named by its own clause rather than every package being assumed
+  // to declare the one this test was written for.
+  assert.ok(
+    go.packages.some((pkg) => pkg.directory === 'pkg/widget' && pkg.declaredModules.includes('widget')),
+    'Go E1 declares the widget package',
+  );
+  assert.ok(
+    go.packages.some((pkg) => pkg.directory === 'pkg/label' && pkg.declaredModules.includes('label')),
+    'Go E1 declares the second package of the module, which E5 resolves an import against',
+  );
 
   const python = measureRepresentative('python');
   assert.ok(python.types.some((type) => type.symbol === 'Widget' && type.typeKind === 'class'), 'Python E3 names the class');
@@ -451,10 +463,17 @@ test('UT: [Error] C002 invariant — a declaration naming a language with no que
 });
 
 test('UT: [Boundary] C002 invariant — a family with no extractor reads not_attempted, which is not ran-and-found-nothing', () => {
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+  // P24-3 wrote the E5 and E6 extractors for the five, so those families moved
+  // from not_attempted to partial. E7 is where a family with no extractor still
+  // lives, and the boundary this test draws is asserted there: not_attempted is
+  // this instrument declining to look, which is not the same record as a reader
+  // that looked and found nothing.
   for (const language of NEW_FIVE) {
-    assert.equal(CAPABILITY_MATRIX[language].E5, 'not_attempted');
-    assert.equal(CAPABILITY_MATRIX[language].E6, 'not_attempted');
-    assert.notEqual(CAPABILITY_MATRIX[language].E5, CAPABILITY_MATRIX[language].E1);
+    assert.equal(CAPABILITY_MATRIX[language].E5, 'partial');
+    assert.equal(CAPABILITY_MATRIX[language].E6, 'partial');
+    assert.equal(CAPABILITY_MATRIX[language].E7, 'not_attempted');
+    assert.notEqual(CAPABILITY_MATRIX[language].E7, CAPABILITY_MATRIX[language].E1);
   }
   const blank = createSyntheticTree({ 'src/empty.py': '' }, { prefix: 'wsp-p24-2-empty-' });
   const ledger = buildAttemptLedger(measureStructure({ root: blank.root }).attempts);
@@ -464,6 +483,7 @@ test('UT: [Boundary] C002 invariant — a family with no extractor reads not_att
 });
 
 test('UT: [Invariant] no cell of the 96 reads success, and unsupported_in_principle is E13 alone', () => {
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
   const cells = TARGET_LANGUAGES.flatMap((language) => EXTRACTION_ITEMS.map((item) => [language, item, CAPABILITY_MATRIX[language][item]]));
   assert.equal(cells.length, TARGET_LANGUAGES.length * EXTRACTION_ITEMS.length);
   assert.deepEqual(cells.filter(([, , value]) => value === 'success').map(([language, item]) => `${language}/${item}`), []);
@@ -471,10 +491,19 @@ test('UT: [Invariant] no cell of the 96 reads success, and unsupported_in_princi
     [...new Set(cells.filter(([, , value]) => value === 'unsupported_in_principle').map(([, item]) => item))],
     ['E13'],
   );
+  // A family every language reaches carries a reason per language, because the
+  // dependency form one language hides is not the form another hides. E7 is what
+  // a family no language reaches reads like: one shared reason, because there is
+  // one fact to state — this instrument does not attempt it.
   assert.equal(
+    capabilityNoteFor('c_cpp', 'E7'),
+    capabilityNoteFor('go', 'E7'),
+    'a family no language reaches carries one shared reason',
+  );
+  assert.notEqual(
     capabilityNoteFor('c_cpp', 'E5'),
     capabilityNoteFor('go', 'E5'),
-    'a family no language reaches carries one shared reason',
+    'a family the six reach carries a reason naming each language\'s own hidden dependency form',
   );
 });
 
@@ -678,4 +707,13 @@ test('UT: [Normal] the decision document carries the rendered matrix and the ren
   const document = readFileSync(ANALYSIS_TECH_DOC, 'utf8');
   assert.ok(document.includes(renderCapabilityMatrixMarkdown()), 'the document must embed the rendered matrix verbatim');
   assert.ok(document.includes(renderCapabilityReasonsMarkdown()), 'the document must embed the rendered reasons verbatim');
+  // P24-3's edge case turns on a reader of the recorded decision being able to
+  // see that a JavaScript computed `require` is recorded by R2.5 as a mechanism
+  // site and not by R2 as an edge. That statement lives in the E5 reason, so the
+  // reason has to be in the document for the requirement to be met at all.
+  assert.ok(
+    document.includes(renderCouplingReasonsMarkdown()),
+    'the document must embed the E5 and E6 reasons, which state which channel records a non-literal import',
+  );
+  assert.match(document, /mechanism site and not counted here/, 'the JavaScript E5 reason states the channel split by name');
 });

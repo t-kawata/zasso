@@ -111,8 +111,8 @@
         "isOwnRepository": false
       },
       "treeDigest": {
-        "sha256": "835099cc853feff69544030a3a9825a8b1b5dcb9715fb3bbe77bfdf12bc81d4f",
-        "fileCount": 6,
+        "sha256": "d55791f523977c3ce12a3a4247ec45280fb503bbdc2620c65623b5bb919d2893",
+        "fileCount": 7,
         "unreadable": []
       },
       "environment": {
@@ -143,6 +143,12 @@
           "marker": "interface Box",
           "path": "src/model.ts",
           "line": 10
+        },
+        {
+          "id": "dynamic-import",
+          "marker": "import(moduleName)",
+          "path": "src/loader.ts",
+          "line": 14
         }
       ]
     },
@@ -207,8 +213,8 @@
         "isOwnRepository": false
       },
       "treeDigest": {
-        "sha256": "1531d9732d24b2052e5e30bb2f18f3891999b82dfe8637206b38488cafedc38d",
-        "fileCount": 5,
+        "sha256": "4973d1acc24589bf85dd388155cbf1703c073c37df3ffd07bd0a19607ada98b0",
+        "fileCount": 6,
         "unreadable": []
       },
       "environment": {
@@ -238,13 +244,19 @@
           "id": "embedded-struct",
           "marker": "widgetBase",
           "path": "pkg/widget/widget.go",
-          "line": 11
+          "line": 14
         },
         {
           "id": "table-driven-test",
           "marker": "for _, testCase := range testCases",
           "path": "pkg/widget/widget_test.go",
           "line": 21
+        },
+        {
+          "id": "intra-module-import",
+          "marker": "example.test/widget/pkg/label",
+          "path": "pkg/widget/widget.go",
+          "line": 6
         }
       ]
     },

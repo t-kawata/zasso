@@ -2202,3 +2202,383 @@ test('UT — a full R3.5 run over a subject where the rule fires demotes the cla
   tree.dispose();
   out.dispose();
 });
+
+// ---------------------------------------------------------------------------
+// P24-3 — E5 and E6 across the six languages
+// ---------------------------------------------------------------------------
+
+// @verifies C001
+// @verifies C002
+// @verifies C003
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+/**
+ * The Rust edge set this suite froze before the population was widened.
+ *
+ * E5 reaching five more languages must not move what it already said about the
+ * first one. The literal is written out rather than recomputed so that a change
+ * to the Rust resolution is a failing assertion here rather than a value the
+ * widened path happens to agree with.
+ *
+ * `language` is the one field the widening adds: every edge now says which
+ * language produced it, which is the schema change this ticket makes, so the
+ * frozen literal carries it too rather than the assertion being relaxed to
+ * ignore it.
+ */
+const RUST_EDGES_BEFORE_THE_WIDENING = [
+  {
+    from: 'src/api',
+    to: 'src',
+    language: 'rust',
+    kind: 'syntactic_import',
+    locations: [{ file: 'src/api/login.rs', line: 2, spelling: 'crate::error::LoginError' }],
+    count: 1,
+  },
+];
+
+/** Every target language measured over its own representative. */
+// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
+async function measureEveryRepresentative() {
+  const { REPRESENTATIVE_ROOTS } = await import('../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs');
+  const measured = new Map();
+  for (const language of TARGET_LANGUAGES) {
+    measured.set(language, {
+      root: REPRESENTATIVE_ROOTS[language],
+      result: measureDependencies({ root: REPRESENTATIVE_ROOTS[language] }),
+    });
+  }
+  return measured;
+}
+
+test('UT — the edge query set is declared for every target language, keyed by language rather than branched on', async () => {
+  const { EDGE_QUERIES_BY_LANGUAGE } = await import('../../../.claude/scripts/workspacify-reverse/lib/dependencies.mjs');
+
+  assert.deepEqual(
+    Object.keys(EDGE_QUERIES_BY_LANGUAGE).sort(),
+    [...TARGET_LANGUAGES].sort(),
+    'adding a seventh language is adding a row, so the table must carry a row per language',
+  );
+  for (const [language, row] of Object.entries(EDGE_QUERIES_BY_LANGUAGE)) {
+    assert.ok(row.importNodeTypes.length > 0, `${language} names the node types its imports are written as`);
+    assert.equal(typeof row.resolve, 'function', `${language} names how a specifier becomes a source member`);
+  }
+});
+
+test('UT — no target language is recorded as skipped for want of an edge extractor', async () => {
+  const { NO_EDGE_EXTRACTOR_REASON } = await import('../../../.claude/scripts/workspacify-reverse/lib/dependencies.mjs');
+  const measured = await measureEveryRepresentative();
+
+  for (const [language, { result }] of measured) {
+    assert.equal(
+      result.attempts.filter((attempt) => attempt.reason === NO_EDGE_EXTRACTOR_REASON).length,
+      0,
+      `${language} is inside the six and must not carry the skip that names a missing extractor`,
+    );
+    assert.equal(result.coverage.files_parsed > 0, true, `${language} was read rather than skipped`);
+  }
+});
+
+test('UT — the skip survives for a language outside the six, asserted beside the six that never carry it', async () => {
+  const { NO_EDGE_EXTRACTOR_REASON, hasEdgeExtractor, recordSkippedLanguage } = await import('../../../.claude/scripts/workspacify-reverse/lib/dependencies.mjs');
+  const measured = await measureEveryRepresentative();
+  for (const [language, { result }] of measured) {
+    assert.equal(result.attempts.some((attempt) => attempt.reason === NO_EDGE_EXTRACTOR_REASON), false, language);
+  }
+
+  // The guard reads the declaration rather than a list written beside it, so a
+  // language added to the target set before its query row exists is skipped and
+  // named. The six are all the syntax layer carries today, so no file can reach
+  // this branch — which is exactly why the guard and the row it records are
+  // asserted directly: a widening that deleted the skip would otherwise pass
+  // unnoticed, and this is the direction opposite to the six's assertion above.
+  for (const language of TARGET_LANGUAGES) {
+    assert.equal(hasEdgeExtractor(language), true, `${language} declares an edge query set`);
+  }
+  assert.equal(hasEdgeExtractor('ruby'), false, 'a language outside the six is not read');
+
+  const row = recordSkippedLanguage({ file: 'lib/a.rb', language: 'ruby' });
+  assert.equal(row.target, 'lib/a.rb');
+  assert.equal(row.status, 'skipped');
+  assert.equal(row.extracted_count, 0);
+  assert.equal(row.reason, NO_EDGE_EXTRACTOR_REASON);
+  assert.equal(row.configuration, 'syntax-only');
+  assert.equal(row.tool, 'tree-sitter-ruby', 'the row names the grammar that was not consulted');
+});
+
+test('UT — every one of the six publishes edges grounded in a file that exists', async () => {
+  const measured = await measureEveryRepresentative();
+
+  for (const [language, { root, result }] of measured) {
+    assert.ok(result.edges.length > 0, `${language} states at least one dependency across a boundary`);
+    for (const edge of result.edges) {
+      assert.ok(edge.locations.length > 0, `${language}: an edge with no location is a claim nobody can check`);
+      for (const location of edge.locations) {
+        assert.equal(existsSync(join(root, location.file)), true, `${language}: ${location.file} is where the edge says it is`);
+        assert.ok(Number.isInteger(location.line) && location.line > 0);
+        assert.ok(location.spelling.length > 0, 'the statement that produced the edge travels with it');
+      }
+    }
+  }
+});
+
+test('UT — the Go representative yields an edge naming its source package, its target package and the statement', async () => {
+  const measured = await measureEveryRepresentative();
+  const { result } = measured.get('go');
+
+  const edge = result.edges.find((candidate) => candidate.from === 'pkg/widget' && candidate.to === 'pkg/label');
+  assert.notEqual(edge, undefined, 'the Go representative imports a package of its own module');
+  assert.equal(edge.locations[0].file, 'pkg/widget/widget.go');
+  assert.match(edge.locations[0].spelling, /example\.test\/widget\/pkg\/label/);
+  assert.ok(Number.isInteger(edge.locations[0].line));
+});
+
+test('UT — a file that was measured leaves an attempt row, so no file disappears from the ledger', async () => {
+  const measured = await measureEveryRepresentative();
+
+  for (const [language, { result }] of measured) {
+    assert.equal(
+      result.coverage.files_discovered,
+      result.attempts.length,
+      `${language}: every discovered file leaves exactly one attempt, measured or skipped`,
+    );
+    for (const attempt of result.attempts) assert.ok(ATTEMPT_STATUSES.includes(attempt.status));
+  }
+});
+
+test('UT — the Rust edges are unchanged by the widening', async () => {
+  const measured = await measureEveryRepresentative();
+  assert.deepEqual(measured.get('rust').result.edges, RUST_EDGES_BEFORE_THE_WIDENING);
+});
+
+test('UT — the mechanism inventory is declared for all six from the channel\'s closed vocabulary', async () => {
+  const { DESIGN_E6_CLASSES, DYNAMIC_MECHANISMS_BY_LANGUAGE } = await import('../../../.claude/scripts/workspacify-reverse/lib/execution-surface.mjs');
+
+  assert.deepEqual(
+    Object.keys(DYNAMIC_MECHANISMS_BY_LANGUAGE).sort(),
+    [...TARGET_LANGUAGES].sort(),
+    'the inventory is keyed by language, so a language cannot be reached without a row',
+  );
+  for (const [language, entry] of Object.entries(DYNAMIC_MECHANISMS_BY_LANGUAGE)) {
+    const declared = entry.declared;
+    assert.ok(declared.length > 0, `${language} declares the mechanism classes it can express`);
+    for (const row of declared) {
+      assert.ok(
+        MECHANISM_KINDS.includes(row.class),
+        `${language}/${row.class} is outside the closed vocabulary, so the channel has no construct for it`,
+      );
+      assert.ok(row.markers.length > 0, `${language}/${row.class} declares the syntax marker that finds it`);
+      assert.ok(row.note.length > 0, `${language}/${row.class} says what the mechanism joins`);
+    }
+  }
+  assert.deepEqual(
+    DESIGN_E6_CLASSES.filter((name) => !MECHANISM_KINDS.includes(name)),
+    [],
+    'the seven classes the design names are a subset of the closed vocabulary, not a second vocabulary',
+  );
+});
+
+test('UT — every one of the six representatives observes a declared mechanism class', async () => {
+  const { DYNAMIC_MECHANISMS_BY_LANGUAGE, measureExecutionSurface } = await import('../../../.claude/scripts/workspacify-reverse/lib/execution-surface.mjs');
+  const { REPRESENTATIVE_ROOTS } = await import('../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs');
+
+  for (const language of TARGET_LANGUAGES) {
+    const surface = measureExecutionSurface({ root: REPRESENTATIVE_ROOTS[language] });
+    const inventory = surface.mechanismInventory[language];
+    assert.ok(
+      inventory.observedClasses.length > 0,
+      `${language}: the declared inventory was checked against its representative and found nothing, `
+      + `which means the declaration is a copy rather than a prediction`,
+    );
+    for (const site of surface.mechanisms) {
+      assert.ok(MECHANISM_KINDS.includes(site.kind), `${site.id} carries a class the vocabulary declares`);
+      assert.equal(existsSync(join(REPRESENTATIVE_ROOTS[language], site.file)), true);
+      assert.ok(Number.isInteger(site.line) && site.line > 0);
+    }
+    assert.equal(
+      surface.mechanisms.some((site) => !DYNAMIC_MECHANISMS_BY_LANGUAGE[language].declared.some((row) => row.class === site.kind)),
+      false,
+      `${language}: no site carries a class its own inventory does not declare`,
+    );
+  }
+});
+
+test('UT — the Python representative names its module-level __getattr__ and its metaclass as mechanism sites', async () => {
+  const { measureExecutionSurface } = await import('../../../.claude/scripts/workspacify-reverse/lib/execution-surface.mjs');
+  const { REPRESENTATIVE_ROOTS } = await import('../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs');
+
+  const surface = measureExecutionSurface({ root: REPRESENTATIVE_ROOTS.python });
+  const classes = new Set(surface.mechanisms.map((site) => site.kind));
+  assert.equal(classes.has('reflection'), true, 'a module-level __getattr__ answers for names no body declares');
+  assert.equal(classes.has('runtime_registration'), true, 'a metaclass installs a class as the class statement runs');
+  assert.equal(
+    surface.mechanisms.every((site) => site.file.endsWith('.py')),
+    true,
+    'the sites are grounded in the language under measurement',
+  );
+});
+
+test('UT — observed and unverified classes together are exactly the declared set, for every language', async () => {
+  const { DYNAMIC_MECHANISMS_BY_LANGUAGE, measureExecutionSurface } = await import('../../../.claude/scripts/workspacify-reverse/lib/execution-surface.mjs');
+  const { REPRESENTATIVE_ROOTS } = await import('../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs');
+
+  for (const language of TARGET_LANGUAGES) {
+    const surface = measureExecutionSurface({ root: REPRESENTATIVE_ROOTS[language] });
+    const inventory = surface.mechanismInventory[language];
+    const declared = DYNAMIC_MECHANISMS_BY_LANGUAGE[language].declared.map((row) => row.class);
+
+    assert.deepEqual(
+      [...new Set([...inventory.observedClasses, ...inventory.unverifiedClasses.map((row) => row.class)])].sort(),
+      [...new Set(declared)].sort(),
+      `${language}: an unverified class is recorded, never silently dropped, and never invented`,
+    );
+    assert.equal(
+      inventory.observedClasses.length + inventory.unverifiedClasses.length,
+      new Set(declared).size,
+      `${language}: no class is counted twice — observed and unverified are disjoint`,
+    );
+    for (const row of inventory.unverifiedClasses) assert.equal(row.language, language);
+  }
+});
+
+test('UT — a class observed in no representative is recorded as unverified rather than counted as absent', async () => {
+  const { DYNAMIC_MECHANISMS_BY_LANGUAGE, verifyMechanismInventory } = await import('../../../.claude/scripts/workspacify-reverse/lib/execution-surface.mjs');
+
+  // A tree that observes no class at all. Every declared class is then
+  // unverified, which is the record of a prediction that was checked and not
+  // confirmed — and it is not a zero, because a zero would claim the class was
+  // looked for and absent.
+  const unobserved = verifyMechanismInventory('go', []);
+  assert.deepEqual(unobserved.observedClasses, []);
+  assert.deepEqual(
+    unobserved.unverifiedClasses.map((row) => row.class).sort(),
+    [...new Set(DYNAMIC_MECHANISMS_BY_LANGUAGE.go.declared.map((row) => row.class))].sort(),
+    'the record of what was not verified names every class it did not verify',
+  );
+  assert.equal(
+    unobserved.declaredClasses.length,
+    unobserved.unverifiedClasses.length,
+    'nothing observed means nothing verified, and the declared set is fully accounted for',
+  );
+
+  // An inventory with no declarations at all is a different state: nothing was
+  // predicted, so nothing can stand unverified, and the two are distinguishable.
+  const emptied = { ...DYNAMIC_MECHANISMS_BY_LANGUAGE, go: { declared: [], detect: DYNAMIC_MECHANISMS_BY_LANGUAGE.go.detect } };
+  const nothing = verifyMechanismInventory('go', [], { inventory: emptied });
+  assert.deepEqual(nothing.declaredClasses, []);
+  assert.deepEqual(nothing.unverifiedClasses, []);
+});
+
+test('UT — a mechanism class outside the vocabulary is refused by name', async () => {
+  const { assertDeclaredMechanismClass } = await import('../../../.claude/scripts/workspacify-reverse/lib/execution-surface.mjs');
+
+  assert.equal(assertDeclaredMechanismClass('ffi'), 'ffi');
+  assert.throws(
+    () => assertDeclaredMechanismClass('eighth_class'),
+    /eighth_class/,
+    'a second language\'s extractor cannot introduce a class by accident',
+  );
+});
+
+test('UT — a representative that observes nothing is distinguishable from one never attempted', async () => {
+  const { measureExecutionSurface } = await import('../../../.claude/scripts/workspacify-reverse/lib/execution-surface.mjs');
+
+  const barren = createSyntheticTree({ 'src/plain.py': 'value = 1\n' }, { prefix: 'wsp-p243-barren-' });
+  const surface = measureExecutionSurface({ root: barren.root });
+  const [attempt] = surface.attempts;
+
+  assert.deepEqual(surface.mechanisms, [], 'a file with no mechanism yields no site');
+  assert.equal(attempt.status, 'success', 'looked-and-found-none is a success that extracted nothing');
+  assert.equal(attempt.extracted_count, 0);
+  assert.ok(
+    surface.mechanismInventory.python.unverifiedClasses.length > 0,
+    'finding none is recorded as an unverified declaration, not as a program without mechanisms',
+  );
+  barren.dispose();
+});
+
+test('UT — the six E5 reasons and the six E6 reasons are each pairwise distinct', async () => {
+  const { capabilityNoteFor } = await import('../../../.claude/scripts/workspacify-reverse/lib/analysis-tech.mjs');
+
+  const e5 = TARGET_LANGUAGES.map((language) => capabilityNoteFor(language, 'E5'));
+  const e6 = TARGET_LANGUAGES.map((language) => capabilityNoteFor(language, 'E6'));
+  assert.equal(new Set(e5).size, TARGET_LANGUAGES.length, 'each language states the dependency form its own syntax hides');
+  assert.equal(new Set(e6).size, TARGET_LANGUAGES.length, 'each language states the mechanism form its own syntax hides');
+  assert.match(capabilityNoteFor('c_cpp', 'E5'), /preprocessor/);
+  assert.match(capabilityNoteFor('go', 'E5'), /build tag|build constraint/);
+});
+
+test('UT — no E5 or E6 cell reads success in any language, and the frozen claims have not moved', async () => {
+  const measured = await measureEveryRepresentative();
+
+  for (const language of TARGET_LANGUAGES) {
+    for (const item of ['E5', 'E6']) {
+      const value = CAPABILITY_MATRIX[language][item];
+      assert.ok(CAPABILITY_VALUES.includes(value));
+      assert.equal(value, 'partial', `${language}/${item} is a syntax reading, which is not the whole answer`);
+    }
+  }
+  const rust = measured.get('rust').result;
+  assert.equal(rust.coupling_claim, 'hypothesis');
+  assert.equal(rust.represents_runtime_binding, false);
+});
+
+test('UT — a header included by two modules is one edge per importer and one E1 ownership record', async () => {
+  const measured = await measureEveryRepresentative();
+  const src = measured.get('c_cpp').result.cohesion.rows.find((row) => row.package === 'src');
+
+  // `src/widget.cpp` and `src/widget_extra.cpp` both include `widget.h`, and all
+  // three sit in one directory — so the pair is internal to `src` and the
+  // published edge list, which drops self-pairs, holds none of them. The
+  // coupling is still measured, and counting it is what keeps "no edge" from
+  // reading as "no dependency".
+  assert.equal(src.internalCoupling, 2, 'each translation unit that includes the header contributes one internal edge');
+  assert.equal(src.memberFiles.length, 2, 'the header is owned once by the package that holds it, not once per includer');
+  assert.equal(src.externalCoupling, 1, 'the one include the build resolves into another package is counted apart');
+});
+
+test('UT — a language whose inventory observes every declared class reports no unverified class', async () => {
+  const { DYNAMIC_MECHANISMS_BY_LANGUAGE, verifyMechanismInventory } = await import('../../../.claude/scripts/workspacify-reverse/lib/execution-surface.mjs');
+
+  const declared = [...new Set(DYNAMIC_MECHANISMS_BY_LANGUAGE.go.declared.map((row) => row.class))];
+  const everyClass = declared.map((kind) => ({ id: `${kind}:src/a.go:1`, kind, file: 'src/a.go', line: 1 }));
+  const inventory = verifyMechanismInventory('go', everyClass);
+
+  assert.deepEqual(inventory.unverifiedClasses, [], 'a fully verified inventory has nothing left to record');
+  assert.deepEqual(inventory.observedClasses, [...declared].sort());
+  assert.equal(inventory.declaredClasses.length, inventory.observedClasses.length);
+});
+
+test('UT — a tree holding two languages attributes every edge to the language that produced it', async () => {
+  const mixed = createSyntheticTree({
+    'src/alpha.ts': "export const ALPHA = 1;\n",
+    'src/__tests__/alpha.spec.ts': "import { ALPHA } from '../alpha.js';\n",
+    'src/helper.py': 'VALUE = 1\n',
+    'tests/test_helper.py': 'import helper\n',
+  }, { prefix: 'wsp-p243-mixed-' });
+
+  const measured = measureDependencies({ root: mixed.root });
+  const byLanguage = new Map(measured.edges.map((edge) => [edge.language, edge]));
+  assert.deepEqual([...byLanguage.keys()].sort(), ['python', 'typescript'], 'a two-language tree does not blend its graphs');
+  assert.equal(byLanguage.get('typescript').from, 'src/__tests__');
+  assert.equal(byLanguage.get('typescript').to, 'src');
+  assert.equal(byLanguage.get('python').from, 'tests');
+  assert.equal(byLanguage.get('python').to, 'src');
+  mixed.dispose();
+});
+
+test('UT — a specifier read for a language the edge query set does not carry is refused rather than emptied', async () => {
+  const { collectDependencyEdges } = await import('../../../.claude/scripts/workspacify-reverse/lib/dependencies.mjs');
+  const { parseSourceFile } = await import('../../../.claude/scripts/workspacify-reverse/lib/structure.mjs');
+
+  const tree = createSyntheticTree({ 'src/a.py': 'import b\n' }, { prefix: 'wsp-p243-refuse-' });
+  const parsed = parseSourceFile(tree.root, 'src/a.py');
+
+  // An extractor that silently returned an empty edge set would turn "this
+  // instrument has no reader for that language" into "that module has no
+  // dependencies" — the merge the design calls failure F12.
+  assert.throws(
+    () => collectDependencyEdges('ruby', parsed.tree, 'src/a.rb', { context: { root: tree.root } }),
+    /ruby.*declares no edge query set/,
+    'a language with no query row leaves a throw naming it rather than an empty graph',
+  );
+  tree.dispose();
+});
