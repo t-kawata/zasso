@@ -25,22 +25,38 @@ const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '
 const RUN_ENTRY = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/run.mjs');
 const MODULE_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/lib');
 
-/** The modules design §6 records as the absent entrances, minus the four this ticket takes. */
+/** The modules design §6 records as the absent entrances, minus the five the two stages take. */
 const STILL_ABSENT = Object.freeze([
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
   'reflexion.mjs',
   'security-lane.mjs',
   'staleness.mjs',
   'two-pass.mjs',
-  'worktree-isolation.mjs',
 ]);
 
 /** The modules R2.5's dynamic half reaches through `dynamic-coupling.mjs`. */
-const TAKEN_BY_THIS_STAGE = Object.freeze([
+const TAKEN_BY_DYNAMIC_HALF = Object.freeze([
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
   'dynamic-coupling.mjs',
   'dynamic-surface.mjs',
   'record-replay.mjs',
   'sandbox-error.mjs',
   'sandbox.mjs',
+]);
+
+/**
+ * The modules R6.5's executor reaches through `counterexample-run.mjs`.
+ *
+ * N2 measured `worktree-isolation.mjs` as an absent entrance: the isolation the
+ * counterexample channel was supposed to run in was reachable from nothing the
+ * command line could get to, which is why the channel received a literal empty
+ * array and falsified nothing.
+ */
+const TAKEN_BY_R65 = Object.freeze([
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+  'counterexample-run.mjs',
+  'counterexample.mjs',
+  'worktree-isolation.mjs',
 ]);
 
 /** Every `./sibling.mjs` specifier a file's text names, resolved to a file that exists. */
@@ -84,7 +100,7 @@ test('C004 invariant — the run entry point and the library it walks both exist
 test('C004 invariant — the transitive import closure from run.mjs reaches the dynamic channel', () => {
   const { unreachable } = reachableModules(RUN_ENTRY, MODULE_DIRECTORY);
 
-  for (const name of TAKEN_BY_THIS_STAGE) {
+  for (const name of TAKEN_BY_DYNAMIC_HALF) {
     assert.equal(
       unreachable.includes(name),
       false,
@@ -93,15 +109,27 @@ test('C004 invariant — the transitive import closure from run.mjs reaches the 
   }
 });
 
-test('C004 invariant — nine absent entrances become five, and the five are named', () => {
+test('C004 invariant — the transitive closure also reaches the counterexample channel and its isolation', () => {
+  const { unreachable } = reachableModules(RUN_ENTRY, MODULE_DIRECTORY);
+
+  for (const name of TAKEN_BY_R65) {
+    assert.equal(
+      unreachable.includes(name),
+      false,
+      `${name} must be reachable from run.mjs, or R6.5's executor is a guarantee nothing runs`,
+    );
+  }
+});
+
+test('C004 invariant — nine absent entrances become four, and the four are named', () => {
   const { unreachable } = reachableModules(RUN_ENTRY, MODULE_DIRECTORY);
 
   assert.deepEqual(
     unreachable,
     [...STILL_ABSENT].sort(),
-    'the absent entrances design 6 records, less the four R2.5 now reaches',
+    'the absent entrances design 6 records, less the four R2.5 reaches and the one R6.5 reaches',
   );
-  assert.equal(unreachable.length, 5, 'nine before this ticket, five after');
+  assert.equal(unreachable.length, 4, 'nine before the two stages, four after');
 });
 
 test('C004 invariant — the closure is recomputed rather than remembered, so a new unreachable module is reported', () => {

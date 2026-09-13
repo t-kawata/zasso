@@ -55,6 +55,7 @@ const targetAvailable = existsSync(REVERSE_ROOT);
  * running it.
  */
 // [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function runCli(args, { path } = {}) {
   const result = spawnSync(process.execPath, [RUNNER, ...args], {
     encoding: 'utf8',
@@ -182,12 +183,12 @@ test('C002 precondition: every declared stage is reached exactly once, in a decl
   );
 });
 
-test('C002 postcondition / UT-2 / IT-1: a single invocation runs R0 through R8 in series', () => {
+test('C002 postcondition / UT-2 / IT-1: a single invocation runs R0 through R8 in series', async () => {
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
   const out = scratchDirectory('wsp-cmd-out-');
   try {
     const observed = [];
-    analyzeProject({ root: tree.root, out: out.root, onStage: (stage) => observed.push(stage) });
+    await analyzeProject({ root: tree.root, out: out.root, options: { onStage: (stage) => observed.push(stage) } });
     assert.deepEqual(observed, [...ANALYSIS_EVALUATION_ORDER], 'every stage runs, and none runs out of turn');
 
     const run = runCli(['analyze', tree.root, `--out=${out.root}`]);
@@ -204,13 +205,13 @@ test('C002 postcondition / UT-2 / IT-1: a single invocation runs R0 through R8 i
   }
 });
 
-test('C002 invariant / UT-12: each stage adds its own documents and reaches back for none', () => {
+test('C002 invariant / UT-12: each stage adds its own documents and reaches back for none', async () => {
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
   const early = scratchDirectory('wsp-prefix-r65-');
   const late = scratchDirectory('wsp-prefix-r8-');
   try {
-    analyzeProject({ root: tree.root, out: early.root, through: 'r6.5' });
-    analyzeProject({ root: tree.root, out: late.root, through: 'r8' });
+    await analyzeProject({ root: tree.root, out: early.root, through: 'r6.5' });
+    await analyzeProject({ root: tree.root, out: late.root, through: 'r8' });
 
     const atR65 = publishedNames(early.root);
     const atR8 = publishedNames(late.root);
@@ -231,12 +232,12 @@ test('C002 invariant / UT-12: each stage adds its own documents and reaches back
   }
 });
 
-test('UT-9: a target holding a single file reaches every stage', () => {
+test('UT-9: a target holding a single file reaches every stage', async () => {
   const tree = createSyntheticTree({ 'src/one.rs': 'pub fn one() -> u8 { 1 }\n' });
   const out = scratchDirectory('wsp-single-');
   try {
     const observed = [];
-    analyzeProject({ root: tree.root, out: out.root, onStage: (stage) => observed.push(stage) });
+    await analyzeProject({ root: tree.root, out: out.root, options: { onStage: (stage) => observed.push(stage) } });
     assert.deepEqual(observed, [...ANALYSIS_EVALUATION_ORDER]);
     assert.equal(existsSync(join(out.root, 'ORIGIN-LONG-SPEC.json')), true);
   } finally {

@@ -55,14 +55,15 @@ const THROUGH_R2_5 = 'r2.5';
 
 /** A throwaway directory to publish into, so no test writes into the project. */
 // [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function scratchOutput() {
   const root = mkdtempSync(join(os.tmpdir(), 'wsp-r0r2-it-'));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
 }
 
-test('IT-1 a full run over the experiment input produces a scope file and a structure report', { skip: !targetAvailable }, () => {
+test('IT-1 a full run over the experiment input produces a scope file and a structure report', { skip: !targetAvailable }, async () => {
   const out = scratchOutput();
-  const outcome = analyzeProject({ root: REVERSE_ROOT, out: out.root , through: THROUGH_R2_5 });
+  const outcome = await analyzeProject({ root: REVERSE_ROOT, out: out.root , through: THROUGH_R2_5 });
 
   assert.ok(existsSync(join(out.root, 'ANALYSIS-SCOPE.json')));
   assert.ok(existsSync(join(out.root, 'SCOPE-BOUNDARY.json')));
@@ -116,17 +117,17 @@ test('IT-1 the crate root is not mistaken for its own repository', { skip: !targ
   assert.ok(scope.target_commit.path_within_work_tree.endsWith('siprs-for-reverse'));
 });
 
-test('IT-3 the target tree hash is unchanged by the run', { skip: !targetAvailable }, () => {
+test('IT-3 the target tree hash is unchanged by the run', { skip: !targetAvailable }, async () => {
   const out = scratchOutput();
   const before = hashTree(REVERSE_ROOT);
-  analyzeProject({ root: REVERSE_ROOT, out: out.root , through: THROUGH_R2_5 });
+  await analyzeProject({ root: REVERSE_ROOT, out: out.root , through: THROUGH_R2_5 });
   assert.deepEqual(hashTree(REVERSE_ROOT), before, 'the analysis must leave the target byte-identical');
   out.dispose();
 });
 
-test('IT-3 the run records the target digest it took, before and after', { skip: !targetAvailable }, () => {
+test('IT-3 the run records the target digest it took, before and after', { skip: !targetAvailable }, async () => {
   const out = scratchOutput();
-  analyzeProject({ root: REVERSE_ROOT, out: out.root , through: THROUGH_R2_5 });
+  await analyzeProject({ root: REVERSE_ROOT, out: out.root , through: THROUGH_R2_5 });
   const scope = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-SCOPE.json'), 'utf8'));
   assert.ok(scope.target_digest.sha256.length === 64);
   assert.equal(scope.target_digest.unmodified, true);
@@ -181,9 +182,9 @@ const CALL_SHAPED_KINDS = new Set([
   'test_expected_exception',
 ]);
 
-test('IT a run through r2 publishes cohesion, density and boundaryCrossings, and the cohesion identity holds over the published document', () => {
+test('IT a run through r2 publishes cohesion, density and boundaryCrossings, and the cohesion identity holds over the published document', async () => {
   const out = scratchOutput();
-  analyzeProject({ root: TWO_PACKAGE_ROOT, out: out.root, through: 'r2' });
+  await analyzeProject({ root: TWO_PACKAGE_ROOT, out: out.root, through: 'r2' });
 
   const published = JSON.parse(readFileSync(join(out.root, 'DEPENDENCIES.json'), 'utf8'));
   assert.ok(Array.isArray(published.cohesion.rows));
@@ -212,9 +213,9 @@ test('IT a run through r2 publishes cohesion, density and boundaryCrossings, and
   out.dispose();
 });
 
-test('IT the report renders the partition material as prose with file:line embedded and states the question the reader must answer', () => {
+test('IT the report renders the partition material as prose with file:line embedded and states the question the reader must answer', async () => {
   const out = scratchOutput();
-  analyzeProject({ root: TWO_PACKAGE_ROOT, out: out.root, through: 'r2' });
+  await analyzeProject({ root: TWO_PACKAGE_ROOT, out: out.root, through: 'r2' });
 
   const report = readFileSync(join(out.root, 'R0-R2-REPORT.md'), 'utf8');
   assert.match(report, /## The partition material/);
@@ -229,9 +230,9 @@ test('IT the report renders the partition material as prose with file:line embed
   out.dispose();
 });
 
-test('IT the package set the cohesion is measured over is the set findPackageCycles condenses and the set the document publishes', () => {
+test('IT the package set the cohesion is measured over is the set findPackageCycles condenses and the set the document publishes', async () => {
   const out = scratchOutput();
-  analyzeProject({ root: TWO_PACKAGE_ROOT, out: out.root, through: 'r2' });
+  await analyzeProject({ root: TWO_PACKAGE_ROOT, out: out.root, through: 'r2' });
 
   const published = JSON.parse(readFileSync(join(out.root, 'DEPENDENCIES.json'), 'utf8'));
   assert.deepEqual(published.cohesion.rows.map((row) => row.package), published.packages);
@@ -240,9 +241,9 @@ test('IT the package set the cohesion is measured over is the set findPackageCyc
   out.dispose();
 });
 
-test('IT the new keys do not perturb the edges, packages, cycles or declared modules the run already measured', () => {
+test('IT the new keys do not perturb the edges, packages, cycles or declared modules the run already measured', async () => {
   const out = scratchOutput();
-  analyzeProject({ root: TWO_PACKAGE_ROOT, out: out.root, through: 'r2' });
+  await analyzeProject({ root: TWO_PACKAGE_ROOT, out: out.root, through: 'r2' });
 
   const published = JSON.parse(readFileSync(join(out.root, 'DEPENDENCIES.json'), 'utf8'));
   assert.equal(published.edges.length, FROZEN_EDGE_COUNT);
@@ -317,10 +318,10 @@ const BARREN_SUBJECT_FILES = Object.freeze({
 const ELIGIBILITY_HEADING = '## Eligibility — the conditions, read before anything runs';
 const BOUNDARY_HEADING = '# R0.5 — the scope boundary';
 
-test('IT a run through r0.5 publishes ELIGIBILITY.json and the report carries the section under R0 with file:line and what would settle an unsettled condition', () => {
+test('IT a run through r0.5 publishes ELIGIBILITY.json and the report carries the section under R0 with file:line and what would settle an unsettled condition', async () => {
   const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
   const out = scratchOutput();
-  const outcome = analyzeProject({ root: subject.root, out: out.root, through: 'r0.5' });
+  const outcome = await analyzeProject({ root: subject.root, out: out.root, through: 'r0.5' });
 
   const published = JSON.parse(readFileSync(join(out.root, 'ELIGIBILITY.json'), 'utf8'));
   assert.equal(published.stage, ELIGIBILITY_STAGE);
@@ -342,14 +343,14 @@ test('IT a run through r0.5 publishes ELIGIBILITY.json and the report carries th
   out.dispose();
 });
 
-test('IT a barren subject and a well-formed one publish the same document set, so an eligibility finding can never change what is published', () => {
+test('IT a barren subject and a well-formed one publish the same document set, so an eligibility finding can never change what is published', async () => {
   const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
   const barrenTree = createSyntheticTree(BARREN_SUBJECT_FILES);
   const wellFormedOut = scratchOutput();
   const barrenOut = scratchOutput();
 
-  analyzeProject({ root: subject.root, out: wellFormedOut.root, through: 'r0.5' });
-  const barrenOutcome = analyzeProject({ root: barrenTree.root, out: barrenOut.root, through: 'r0.5' });
+  await analyzeProject({ root: subject.root, out: wellFormedOut.root, through: 'r0.5' });
+  const barrenOutcome = await analyzeProject({ root: barrenTree.root, out: barrenOut.root, through: 'r0.5' });
 
   assert.deepEqual(
     readdirSync(barrenOut.root).sort(),
@@ -374,10 +375,10 @@ test('IT a barren subject and a well-formed one publish the same document set, s
   barrenOut.dispose();
 });
 
-test('IT the six languages the analysable-language condition names are the instrument\'s own declaration, so the assessment cannot drift from it', () => {
+test('IT the six languages the analysable-language condition names are the instrument\'s own declaration, so the assessment cannot drift from it', async () => {
   const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
   const out = scratchOutput();
-  analyzeProject({ root: subject.root, out: out.root, through: 'r0.5' });
+  await analyzeProject({ root: subject.root, out: out.root, through: 'r0.5' });
 
   const published = JSON.parse(readFileSync(join(out.root, 'ELIGIBILITY.json'), 'utf8'));
   const language = published.conditions.find((condition) => condition.id === 'main_language_analysable');
@@ -389,13 +390,13 @@ test('IT the six languages the analysable-language condition names are the instr
   out.dispose();
 });
 
-test('IT the assessment is R0\'s output: it is published at the r0.5 prefix and its states do not move when later stages run', () => {
+test('IT the assessment is R0\'s output: it is published at the r0.5 prefix and its states do not move when later stages run', async () => {
   const subject = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
   const shallow = scratchOutput();
   const deep = scratchOutput();
 
-  const shallowOutcome = analyzeProject({ root: subject.root, out: shallow.root, through: 'r0.5' });
-  analyzeProject({ root: subject.root, out: deep.root, through: 'r2' });
+  const shallowOutcome = await analyzeProject({ root: subject.root, out: shallow.root, through: 'r0.5' });
+  await analyzeProject({ root: subject.root, out: deep.root, through: 'r2' });
 
   assert.equal(existsSync(join(shallow.root, 'ELIGIBILITY.json')), true);
   assert.equal(shallowOutcome.stagesRun.includes('r1'), false, 'r1 must not have run in this prefix');
@@ -423,10 +424,10 @@ test('IT the assessment is R0\'s output: it is published at the r0.5 prefix and 
 // ---------------------------------------------------------------------------
 
 // [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
-test('IT a run through r2.5 over the experiment input publishes the coupling difference and places every mechanism', { skip: !targetAvailable }, () => {
+test('IT a run through r2.5 over the experiment input publishes the coupling difference and places every mechanism', { skip: !targetAvailable }, async () => {
   const out = scratchOutput();
   try {
-    analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R2_5 });
+    await analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R2_5 });
 
     const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
     const surface = JSON.parse(readFileSync(join(out.root, 'EXECUTION-SURFACE.json'), 'utf8'));

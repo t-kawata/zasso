@@ -67,6 +67,7 @@ import { buildGapCandidate, classifyGaps, enumerateGaps, renderGapsReport } from
 import { assessOracleValidity, renderOracleGapReport } from './oracle-gap.mjs';
 import { planRedReconstruction, renderRedReconstructionReport } from './red-reconstruction.mjs';
 import { STAGE as COUNTEREXAMPLE_STAGE, applyCounterexamples, renderCounterexampleReport } from './counterexample.mjs';
+import { deriveCounterexamples, runCounterexamples } from './counterexample-run.mjs';
 import { generatePropertyTests, renderPropertyTestReport } from './property-tests.mjs';
 import { historyFromGit } from './evidence-independence.mjs';
 import { measureDependencies, renderDependencyReport } from './dependencies.mjs';
@@ -1032,6 +1033,40 @@ function propertyInvariantsIn(ledger) {
     }));
 }
 
+/**
+ * R6.5's two halves, built in one place.
+ *
+ * The counterexample half and the property half were two near-identical
+ * `stagesRun.includes('r6.5') && ledger !== null ? runStage(...) : null`
+ * expressions whose only difference was the function they called. Reading them
+ * together is what makes the stage legible: it derives the counterexamples from
+ * the plan R6 just built, runs each one through the isolation, and hands R3's
+ * invariants to the property generator.
+ *
+ * The derivation comes first and is not skippable. Handing the reverse edge a
+ * literal empty set — which is what this stage did — made a stage that had nothing
+ * to do indistinguishable from a plan that had nothing in it.
+ *
+ * @param {object} params
+ * @param {string} params.root - the subject every counterexample is isolated from
+ * @param {object} params.ledger - the claim ledger R6.5 revises
+ * @param {object} params.redPlan - the R6 plan the counterexamples are derived from
+ * @param {object} params.reconstruction - how R6.5 executes, as `{ executor }`
+ */
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+async function runR65({ root, ledger, redPlan, reconstruction }) {
+  const { executor = null } = reconstruction;
+  const derived = deriveCounterexamples({ redPlan, ledger });
+  const records = executor === null
+    ? derived
+    : (await runCounterexamples({ root, counterexamples: derived, execute: executor })).counterexamples;
+
+  return {
+    counterexamples: applyCounterexamples(records, ledger),
+    properties: generatePropertyTests(propertyInvariantsIn(ledger)),
+  };
+}
+
 // [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
 /**
  * R0 through R2.5 in series, published outside the target.
@@ -1040,21 +1075,30 @@ function propertyInvariantsIn(ledger) {
  * has measured nothing, so the two digests are compared rather than trusted,
  * and a difference is an error rather than a warning.
  *
- * @param {{root: string, out: string, through?: string, onStage?: Function}} params
- * @param {Function} [params.onStage] - called with each stage identifier as the pipeline reaches it,
- *        so a caller can attribute a failure to the stage it happened in
+ * The run is asynchronous because R6.5 executes: the counterexample channel runs
+ * each counterexample inside the disposable worktree the isolation owns, and that
+ * isolation is asynchronous. Every other stage is a synchronous reading, so the
+ * function returns a promise for the sake of the one stage that must wait.
+ *
+ * @param {{root: string, out: string, through?: string, options?: object}} params
+ * @param {object} [params.options] - the caller's own contributions to the run
+ * @param {Function} [params.options.onStage] - called with each stage identifier as the pipeline reaches
+ *        it, so a caller can attribute a failure to the stage it happened in
+ * @param {object} [params.options.reconstruction] - how R6.5 executes, as `{ executor }`. Without an executor
+ *        every counterexample is refused with `executor-missing`, which is a result rather than a gap
  */
 // The default is the last declared stage, derived rather than named. A hardcoded
 // name here went stale the moment a stage was added after it, and the library
 // entry point then silently ran a different prefix from the command line's.
 // [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
-export function analyzeProject({
 // [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+export async function analyzeProject({
   root,
   out,
   through = ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
-  onStage,
+  options = {},
 } = {}) {
+  const { onStage = null, reconstruction = {} } = options;
   if (!ANALYSIS_STAGES.includes(through)) {
     throw new AnalysisScopeError(
       `unknown analysis stage ${JSON.stringify(through)}; the stages are ${ANALYSIS_STAGES.join(', ')}. `
@@ -1183,16 +1227,16 @@ export function analyzeProject({
   const redPlan = stagesRun.includes('r6') && ledger !== null
     ? runStage('r6', () => planRedReconstruction({ ledger, oracleGap, gaps: classifiedGaps }))
     : null;
-  // A counterexample is obtained by executing a plan, which this stage does not
-  // do. The empty set is therefore the honest input, and it is reported as empty
-  // rather than omitted so that a stage which ran nothing cannot read as a stage
-  // that found nothing.
-  const counterexamples = stagesRun.includes('r6.5') && ledger !== null
-    ? runStage('r6.5', () => applyCounterexamples([], ledger))
+  // R6.5's input is derived from the plan R6 just built rather than manufactured
+  // empty: a hidden `[]` here made a stage that falsified nothing publish a
+  // document reading as a result over a plan carrying one entry per claim. An
+  // empty derived set is now a statement about the plan, and it is distinguishable
+  // from a plan whose counterexamples were all derived and none executed.
+  const r65 = stagesRun.includes('r6.5') && ledger !== null
+    ? await runStage('r6.5', () => runR65({ root: scope.root, ledger, redPlan, reconstruction }))
     : null;
-  const properties = stagesRun.includes('r6.5') && ledger !== null
-    ? generatePropertyTests(propertyInvariantsIn(ledger))
-    : null;
+  const counterexamples = r65 === null ? null : r65.counterexamples;
+  const properties = r65 === null ? null : r65.properties;
 
   // R7 and R8 are the analysis's exit. R7 serves the claims a human still has
   // to decide; R8 emits the spec every later command reads and states what this
@@ -1210,7 +1254,7 @@ export function analyzeProject({
     ))
     : null;
   const profile = stagesRun.includes('r8')
-    ? buildCapabilityProfile({ ledger, gaps: classifiedGaps, surface, redPlan })
+    ? buildCapabilityProfile({ ledger, gaps: classifiedGaps, surface, redPlan, counterexamples })
     : null;
 
   const after = digestTree(scope.root, { tolerateUnreadable: true });
@@ -1291,9 +1335,17 @@ export function analyzeProject({
     documents['COUNTEREXAMPLE-RESULTS.json'] = {
       root: scope.root,
       stage: COUNTEREXAMPLE_STAGE,
+      // True only when the plan carried no reconstruction ticket. The three counts
+      // beside it are what make the other emptiness — a plan whose counterexamples
+      // were all derived and none executed — readable as the different fact it is.
       empty: counterexamples.empty,
+      derivedCount: counterexamples.counts.derivedCount,
+      executedCount: counterexamples.counts.executedCount,
+      refusedCount: counterexamples.counts.refusedCount,
+      refusedByReason: counterexamples.counts.refusedByReason,
       applied: counterexamples.applied,
       unobservable: counterexamples.unobservable,
+      worktrees: counterexamples.applied.flatMap((record) => (record.worktreeRecord === null ? [] : [record.worktreeRecord])),
       revisions: counterexamples.ledger.revisions,
       verdict: counterexamples.ledger.verdict,
       caveat: counterexamples.caveat,

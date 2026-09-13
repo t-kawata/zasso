@@ -198,6 +198,7 @@ function syntheticCrate() {
 
 /** Materialise the synthetic crate with `src/gone.rs` as a dangling symlink. */
 // [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function syntheticCrateTree() {
   const tree = createSyntheticTree(syntheticCrate(), { prefix: 'wsp-r0r2-' });
   symlinkSync(join(tree.root, 'src', 'does-not-exist.rs'), join(tree.root, 'src', 'gone.rs'));
@@ -230,10 +231,10 @@ test('C001 precondition — a target root that cannot be read is refused by name
   tree.dispose();
 });
 
-test('C001 postcondition — ANALYSIS-SCOPE.json fixes commit, exclusions, permissions and transmission policy', () => {
+test('C001 postcondition — ANALYSIS-SCOPE.json fixes commit, exclusions, permissions and transmission policy', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root, through: 'r0.5' });
+  await analyzeProject({ root: tree.root, out: out.root, through: 'r0.5' });
 
   const scope = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-SCOPE.json'), 'utf8'));
   for (const key of ['target_commit', 'exclusion_rules', 'permissions', 'external_transmission']) {
@@ -247,19 +248,19 @@ test('C001 postcondition — ANALYSIS-SCOPE.json fixes commit, exclusions, permi
   out.dispose();
 });
 
-test('C001 invariant — a full run leaves the target byte-identical', () => {
+test('C001 invariant — a full run leaves the target byte-identical', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
   const before = hashTree(tree.root);
-  analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
+  await analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
   assert.deepEqual(hashTree(tree.root), before, 'the analysis must leave every byte as it found it');
   tree.dispose();
   out.dispose();
 });
 
-test('C001 invariant — publishing inside the target is refused rather than allowed to dirty it', () => {
+test('C001 invariant — publishing inside the target is refused rather than allowed to dirty it', async () => {
   const tree = syntheticCrateTree();
-  assert.throws(
+  assert.rejects(
     () => analyzeProject({ root: tree.root, out: join(tree.root, 'analysis') , through: THROUGH_R2_5 }),
     /inside the target/,
   );
@@ -551,10 +552,10 @@ test('C005 invariant — an attempt that extracted nothing is distinguishable fr
   assert.deepEqual(Object.keys(ledger).sort(), ['couldNotRunCount', 'extractedNothingCount', 'rows']);
 });
 
-test('C005 invariant — the run records a real "found nothing" row beside a real "could not run" row', () => {
+test('C005 invariant — the run records a real "found nothing" row beside a real "could not run" row', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
+  await analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
 
   const ledger = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-ATTEMPTS.json'), 'utf8'));
   const empty = ledger.rows.find((row) => row.target === 'src/empty.rs');
@@ -756,10 +757,10 @@ test('UT-7 a proposition touching a dynamic mechanism is demoted when no dynamic
   tree.dispose();
 });
 
-test('UT-8 an empty scope is reported as empty, not as a clean-looking empty report', () => {
+test('UT-8 an empty scope is reported as empty, not as a clean-looking empty report', async () => {
   const tree = createSyntheticTree({ 'README.md': '# nothing\n' }, { prefix: 'wsp-r0r2-empty2-' });
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
+  await analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
   const boundary = JSON.parse(readFileSync(join(out.root, 'SCOPE-BOUNDARY.json'), 'utf8'));
   assert.equal(boundary.inScopeCount, 0);
   assert.equal(boundary.isEmpty, true);
@@ -799,20 +800,20 @@ test('UT-10 an undetermined artefact is never merged into out_of_scope', () => {
   tree.dispose();
 });
 
-test('UT-11 the target tree is byte-identical after a full R0-R2.5 run', () => {
+test('UT-11 the target tree is byte-identical after a full R0-R2.5 run', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
   const before = hashTree(tree.root);
-  analyzeProject({ root: tree.root, out: out.root, through: 'r2.5' });
+  await analyzeProject({ root: tree.root, out: out.root, through: 'r2.5' });
   assert.deepEqual(hashTree(tree.root), before);
   tree.dispose();
   out.dispose();
 });
 
-test('UT-12 the import graph is never presented as runtime binding', () => {
+test('UT-12 the import graph is never presented as runtime binding', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
+  await analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
   const dependencies = JSON.parse(readFileSync(join(out.root, 'DEPENDENCIES.json'), 'utf8'));
   assert.equal(dependencies.represents_runtime_binding, false);
   assert.equal(dependencies.coupling_claim, 'hypothesis');
@@ -821,12 +822,12 @@ test('UT-12 the import graph is never presented as runtime binding', () => {
   out.dispose();
 });
 
-test('UT-13 re-running with the same input yields identical output', () => {
+test('UT-13 re-running with the same input yields identical output', async () => {
   const tree = syntheticCrateTree();
   const first = outputDirectory();
   const second = outputDirectory();
-  analyzeProject({ root: tree.root, out: first.root , through: THROUGH_R2_5 });
-  analyzeProject({ root: tree.root, out: second.root , through: THROUGH_R2_5 });
+  await analyzeProject({ root: tree.root, out: first.root , through: THROUGH_R2_5 });
+  await analyzeProject({ root: tree.root, out: second.root , through: THROUGH_R2_5 });
   for (const name of ['ANALYSIS-SCOPE.json', 'SCOPE-BOUNDARY.json', 'STRUCTURE.json', 'DEPENDENCIES.json', 'EXECUTION-SURFACE.json', 'ANALYSIS-ATTEMPTS.json']) {
     assert.equal(
       readFileSync(join(first.root, name), 'utf8'),
@@ -886,24 +887,24 @@ test('UT-17 a limitation that names no code, scope or effect fails validation', 
   assert.throws(() => validateLimitation({ code: 'X', scope: 'src/**', effect: undefined }), /effect/);
 });
 
-test('UT — the analyze run records which stages ran and refuses a stage it does not know', () => {
+test('UT — the analyze run records which stages ran and refuses a stage it does not know', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
-  const partial = analyzeProject({ root: tree.root, out: out.root, through: 'r1' });
+  const partial = await analyzeProject({ root: tree.root, out: out.root, through: 'r1' });
   assert.deepEqual(partial.stagesRun, ['r0', 'r0.5', 'r1']);
   assert.equal(existsSync(join(out.root, 'DEPENDENCIES.json')), false);
   assert.equal(existsSync(join(out.root, 'EXECUTION-SURFACE.json')), false);
 
-  assert.throws(() => analyzeProject({ root: tree.root, out: out.root, through: 'r9' }), /r9/);
-  assert.throws(() => analyzeProject({ root: tree.root, out: out.root, through: 'R1' }), /R1/);
+  assert.rejects(() => analyzeProject({ root: tree.root, out: out.root, through: 'r9' }), /r9/);
+  assert.rejects(() => analyzeProject({ root: tree.root, out: out.root, through: 'R1' }), /R1/);
   tree.dispose();
   out.dispose();
 });
 
-test('UT — the run report is Markdown written for a reader, and states what it did not measure', () => {
+test('UT — the run report is Markdown written for a reader, and states what it did not measure', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
+  await analyzeProject({ root: tree.root, out: out.root , through: THROUGH_R2_5 });
   const report = readFileSync(join(out.root, 'R0-R2-REPORT.md'), 'utf8');
   assert.match(report, /^# /m);
   assert.match(report, /analysis mode|analysis_mode/i);
@@ -1783,10 +1784,10 @@ test('UT: [Error] assessEligibility given no artefact list throws naming what it
   subject.dispose();
 });
 
-test('UT: [Boundary] an empty subject root yields all six conditions present and the run still publishes', () => {
+test('UT: [Boundary] an empty subject root yields all six conditions present and the run still publishes', async () => {
   const empty = createSyntheticTree({});
   const out = eligibilityScratchOutput();
-  const outcome = analyzeProject({ root: empty.root, out: out.root, through: 'r0.5' });
+  const outcome = await analyzeProject({ root: empty.root, out: out.root, through: 'r0.5' });
 
   const assessment = JSON.parse(readFileSync(join(out.root, 'ELIGIBILITY.json'), 'utf8'));
   assert.equal(assessment.conditions.length, ELIGIBILITY_CONDITIONS.length);
@@ -1924,14 +1925,14 @@ test('UT: [Normal] renderEligibility renders every condition as prose naming wha
   subject.dispose();
 });
 
-test('UT: [Error] Contract C002 invariant — a barren subject publishes the same document set as a well-formed one', () => {
+test('UT: [Error] Contract C002 invariant — a barren subject publishes the same document set as a well-formed one', async () => {
   const wellFormed = createSyntheticTree(ELIGIBLE_SUBJECT_FILES);
   const barren = createSyntheticTree({ 'main.py': 'print("no manifest, no tests, no history")\n' });
   const wellFormedOut = eligibilityScratchOutput();
   const barrenOut = eligibilityScratchOutput();
 
-  analyzeProject({ root: wellFormed.root, out: wellFormedOut.root, through: 'r0.5' });
-  analyzeProject({ root: barren.root, out: barrenOut.root, through: 'r0.5' });
+  await analyzeProject({ root: wellFormed.root, out: wellFormedOut.root, through: 'r0.5' });
+  await analyzeProject({ root: barren.root, out: barrenOut.root, through: 'r0.5' });
 
   assert.deepEqual(
     readdirSync(barrenOut.root).sort(),
@@ -2019,10 +2020,10 @@ test('UT: [Normal] a subject sitting inside another repository\'s work tree is r
 // ---------------------------------------------------------------------------
 
 // [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
-test('UT — a full R2.5 run publishes DYNAMIC-COUPLING.json carrying the static list and the dynamic record', () => {
+test('UT — a full R2.5 run publishes DYNAMIC-COUPLING.json carrying the static list and the dynamic record', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R2_5 });
+  await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R2_5 });
 
   const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
   assert.equal(coupling.stage, 'r2.5');
@@ -2041,10 +2042,10 @@ test('UT — a full R2.5 run publishes DYNAMIC-COUPLING.json carrying the static
   out.dispose();
 });
 
-test('UT — the three mechanism states partition the static list, and the difference covers it', () => {
+test('UT — the three mechanism states partition the static list, and the difference covers it', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R2_5 });
+  await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R2_5 });
 
   const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
   const counts = Object.fromEntries(DYNAMIC_MECHANISM_STATUSES.map((status) => [status, 0]));
@@ -2071,12 +2072,12 @@ test('UT — the three mechanism states partition the static list, and the diffe
   out.dispose();
 });
 
-test('UT — the run publishes the same coupling structure twice, the session identifier aside', () => {
+test('UT — the run publishes the same coupling structure twice, the session identifier aside', async () => {
   const tree = syntheticCrateTree();
   const first = outputDirectory();
   const second = outputDirectory();
-  analyzeProject({ root: tree.root, out: first.root, through: THROUGH_R2_5 });
-  analyzeProject({ root: tree.root, out: second.root, through: THROUGH_R2_5 });
+  await analyzeProject({ root: tree.root, out: first.root, through: THROUGH_R2_5 });
+  await analyzeProject({ root: tree.root, out: second.root, through: THROUGH_R2_5 });
 
   const read = (root) => JSON.parse(readFileSync(join(root, 'DYNAMIC-COUPLING.json'), 'utf8'));
   const left = read(first.root);
@@ -2102,10 +2103,10 @@ test('UT — the run publishes the same coupling structure twice, the session id
   second.dispose();
 });
 
-test('UT — the attempt ledger carries the dynamic channel beside every other attempt', () => {
+test('UT — the attempt ledger carries the dynamic channel beside every other attempt', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R2_5 });
+  await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R2_5 });
 
   const attempts = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-ATTEMPTS.json'), 'utf8'));
   const dynamicRows = attempts.rows.filter((row) => row.configuration === 'sandboxed-session');
@@ -2123,10 +2124,10 @@ test('UT — the attempt ledger carries the dynamic channel beside every other a
   out.dispose();
 });
 
-test('UT — an unrun dynamic channel is reported as skipped, never as a failed attempt', () => {
+test('UT — an unrun dynamic channel is reported as skipped, never as a failed attempt', async () => {
   const barren = createSyntheticTree({ 'src/a.rs': 'pub fn a() -> u8 { 1 }\n' });
   const out = outputDirectory();
-  analyzeProject({ root: barren.root, out: out.root, through: THROUGH_R2_5 });
+  await analyzeProject({ root: barren.root, out: out.root, through: THROUGH_R2_5 });
 
   const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
   assert.equal(coupling.dynamicChannel.ran, false);
@@ -2140,10 +2141,10 @@ test('UT — an unrun dynamic channel is reported as skipped, never as a failed 
   out.dispose();
 });
 
-test('UT — a full R3.5 run leaves no observed claim resting on source evidence alone while depending on a mechanism', () => {
+test('UT — a full R3.5 run leaves no observed claim resting on source evidence alone while depending on a mechanism', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root, through: 'r3.5' });
+  await analyzeProject({ root: tree.root, out: out.root, through: 'r3.5' });
 
   const ledger = JSON.parse(readFileSync(join(out.root, 'CLAIM-LEDGER.json'), 'utf8'));
   const violating = ledger.claims.filter(
@@ -2160,7 +2161,7 @@ test('UT — a full R3.5 run leaves no observed claim resting on source evidence
 });
 
 // [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
-test('UT — a full R3.5 run over a subject where the rule fires demotes the claim and names the mechanism', () => {
+test('UT — a full R3.5 run over a subject where the rule fires demotes the claim and names the mechanism', async () => {
   // The predicate and the join are asserted directly in the ledger suite, and
   // the rule's firing is asserted over the real probe there. What only a run can
   // show is that the mechanisms R2.5 measured actually reach R3.5 through the
@@ -2172,7 +2173,7 @@ test('UT — a full R3.5 run over a subject where the rule fires demotes the cla
     'src/config/mod.rs': 'pub const SETTING: u8 = 1;\n',
   });
   const out = outputDirectory();
-  analyzeProject({ root: tree.root, out: out.root, through: 'r3.5' });
+  await analyzeProject({ root: tree.root, out: out.root, through: 'r3.5' });
 
   const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
   assert.deepEqual(

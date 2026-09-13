@@ -19,15 +19,15 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import os from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ANALYSIS_STAGES, analyzeProject } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
-import { applyCounterexamples } from '../../../.claude/scripts/workspacify-reverse/lib/counterexample.mjs';
 import { checkBaselines } from '../../../.claude/scripts/workspacify-reverse/lib/regression-gate.mjs';
-import { createSyntheticTree } from '../helpers/scratch.mjs';
+import { createGitBackedTree, createSyntheticTree, hashTree } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
@@ -90,7 +90,7 @@ test('IT-1: a full run produces a plan in which every claim carries a plan ident
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
   const out = scratchOutput();
   try {
-    const outcome = analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R6_5 });
+    const outcome = await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R6_5 });
 
     assert.equal(existsSync(join(out.root, 'RED-RECONSTRUCTION-PLAN.json')), true);
     assert.equal(existsSync(join(out.root, 'COUNTEREXAMPLE-RESULTS.json')), true);
@@ -119,18 +119,60 @@ test('IT-1: a full run produces a plan in which every claim carries a plan ident
   }
 });
 
-test('IT-2: the run records the counterexample set as empty rather than omitting the stage', async () => {
+/**
+ * An executor that removes the asserted condition inside the worktree, then asks
+ * the fixture whether it survived.
+ *
+ * The observation is read from a command run inside the checkout the isolation
+ * made rather than asserted by the test, so the boolean the analysis records is
+ * evidence about that checkout.
+ */
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+async function breakApiCarrier({ worktreePath }) {
+  const carrier = join(worktreePath, 'src/api/login.rs');
+  writeFileSync(carrier, readFileSync(carrier, 'utf8').replace('assert!(!user.name.is_empty());', 'assert!(true);'));
+  const check = spawnSync(
+    process.execPath,
+    ['-e', 'const fs=require("fs");process.exit(fs.readFileSync("src/api/login.rs","utf8").includes("assert!(!user.name.is_empty())")?0:1)'],
+    { cwd: worktreePath, encoding: 'utf8' },
+  );
+  return {
+    redProved: check.status !== 0,
+    observations: [`the condition at src/api/login.rs:4 was removed and the check exited ${check.status}`],
+  };
+}
+
+test('IT-2: the run derives the counterexample set from the plan rather than manufacturing it empty', async () => {
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
   const out = scratchOutput();
   try {
-    const outcome = analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R6_5 });
+    const outcome = await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R6_5 });
+    const plan = JSON.parse(readFileSync(join(out.root, 'RED-RECONSTRUCTION-PLAN.json'), 'utf8'));
     const results = JSON.parse(readFileSync(join(out.root, 'COUNTEREXAMPLE-RESULTS.json'), 'utf8'));
 
     assert.equal(results.stage, 'r6.5');
-    assert.equal(results.empty, true);
-    assert.deepEqual(results.applied, []);
+    // The assertion that would have failed before this ticket: R6.5 was handed a
+    // literal empty array, so this document read `{empty: true, applied: []}`
+    // over a plan carrying one entry per claim.
+    assert.equal(results.derivedCount, plan.entries.length);
+    assert.ok(results.derivedCount > 0, `expected a counterexample per planned claim, found ${results.derivedCount}`);
+    assert.equal(results.empty, false, 'the plan was not empty, so neither is the derived set');
+    assert.equal(results.applied.length, results.derivedCount, 'every derived counterexample appears exactly once');
+    assert.equal(results.executedCount + results.refusedCount, results.derivedCount);
+
+    // This run supplies no executor, and that is a result rather than a gap.
+    assert.equal(results.executedCount, 0);
+    assert.equal(results.refusedCount, results.derivedCount);
+    assert.equal(results.refusedByReason['executor-missing'], results.derivedCount);
+    for (const record of results.applied) {
+      assert.equal(record.status, 'nothing-to-execute');
+      assert.equal(record.verdict, null, 'we could not test it is not we tested it and it held');
+      assert.equal(record.reason, 'executor-missing');
+      assert.equal(typeof record.invariant, 'string', 'each record names the invariant the counterexample targeted');
+    }
+    assert.deepEqual(results.worktrees, [], 'nothing ran, so no worktree was made and none was left behind');
     assert.deepEqual(results.revisions, []);
-    assert.equal(results.verdict, null, 'a stage that ran nothing concludes nothing');
+    assert.equal(results.verdict, null, 'a stage that executed nothing concludes nothing');
     assert.equal(outcome.counterexamples.ledger.verdict, null);
   } finally {
     tree.dispose();
@@ -138,33 +180,64 @@ test('IT-2: the run records the counterexample set as empty rather than omitting
   }
 });
 
-test('IT-2: a counterexample obtained later flows back and revises the claim it bears on', async () => {
-  const tree = createSyntheticTree(CLAIM_BEARING_TREE);
+test('IT-2: an executed counterexample flows back and revises the claim it bears on', async () => {
+  const tree = createGitBackedTree(CLAIM_BEARING_TREE);
   const out = scratchOutput();
   try {
-    const outcome = analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R6_5 });
+    const outcome = await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R6_5, options: { reconstruction: { executor: breakApiCarrier } } });
     const plan = JSON.parse(readFileSync(join(out.root, 'RED-RECONSTRUCTION-PLAN.json'), 'utf8'));
+    const results = JSON.parse(readFileSync(join(out.root, 'COUNTEREXAMPLE-RESULTS.json'), 'utf8'));
 
-    // Standing in for the execution P22-19 performs: the plan says which
-    // observation would count against the claim, and the counterexample reports
-    // that it happened.
+    assert.equal(results.executedCount, plan.entries.length, 'every planned claim was executed in its own worktree');
+    assert.equal(results.refusedCount, 0);
+    assert.equal(results.empty, false);
+    for (const record of results.applied) {
+      assert.equal(record.status, 'executed');
+      assert.equal(record.verdict, 'not-proved', 'the condition was removed and the check noticed, so the claim did not hold');
+      assert.equal(record.observed, 'red');
+      assert.equal(record.worktreeRecord.restorationOutcome, 'destroyed');
+    }
+    assert.equal(results.worktrees.length, plan.entries.length);
+    assert.equal(results.worktrees.every((record) => record.restorationOutcome === 'destroyed'), true);
+
     const entry = plan.entries[0];
-    const result = applyCounterexamples([{
-      counterexample_plan_id: entry.counterexample_plan_id,
-      claim_id: entry.claim_id,
-      observed: 'red',
-      observation: `the observation at ${entry.target.carrier} was made and no test failed`,
-    }], outcome.ledger);
-
-    assert.equal(result.applied.length, 1);
-    assert.equal(result.ledger.revisions.length, 1);
-    assert.equal(result.ledger.revisions[0].claim_id, entry.claim_id);
-    assert.ok(['retracted', 'split'].includes(result.ledger.revisions[0].revision));
-    assert.equal(result.ledger.verdict, null, 'the red is carried back without a verdict attached');
+    const revision = results.revisions.find((item) => item.claim_id === entry.claim_id);
+    assert.ok(revision, 'the red reached the claim it bears on');
+    assert.ok(['retracted', 'split'].includes(revision.revision));
+    assert.equal(results.verdict, null, 'the red is carried back without a verdict attached');
     assert.equal(
-      JSON.stringify(result.ledger).includes('specification_error'),
+      JSON.stringify(results).includes('specification_error'),
       false,
       'a red failure is never automatically concluded to be a specification error',
+    );
+    assert.equal(outcome.counterexamples.ledger.verdict, null);
+  } finally {
+    tree.dispose();
+    out.dispose();
+  }
+});
+
+test('IT-2: a full run that created and destroyed worktrees leaves the fixture subject byte-identical', async () => {
+  const tree = createGitBackedTree(CLAIM_BEARING_TREE);
+  const out = scratchOutput();
+  try {
+    const before = hashTree(tree.root);
+    await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R6_5, options: { reconstruction: { executor: breakApiCarrier } } });
+    const results = JSON.parse(readFileSync(join(out.root, 'COUNTEREXAMPLE-RESULTS.json'), 'utf8'));
+
+    assert.ok(results.worktrees.length > 0, 'the run made at least one worktree, or there is nothing to check');
+    // Digested here rather than read from the run's own comparison, so the two are
+    // independent checks of the same property.
+    assert.deepEqual(hashTree(tree.root), before, 'the subject the worktrees were cut from is byte-identical afterwards');
+    assert.deepEqual(
+      results.worktrees.filter((record) => record.restorationOutcome !== 'destroyed'),
+      [],
+      'a worktree that survived is reported, never silently left behind',
+    );
+    assert.deepEqual(
+      results.worktrees.filter((record) => existsSync(record.scratchBase)),
+      [],
+      'a released scratch directory is gone from disk',
     );
   } finally {
     tree.dispose();
@@ -176,7 +249,7 @@ test('IT-1: properties are recorded as not generated while no category has been 
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
   const out = scratchOutput();
   try {
-    analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R6_5 });
+    await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R6_5 });
     const properties = JSON.parse(readFileSync(join(out.root, 'GENERATED-PROPERTIES.json'), 'utf8'));
 
     assert.equal(properties.generated.length, 0);
@@ -192,10 +265,10 @@ test('IT-1: properties are recorded as not generated while no category has been 
   }
 });
 
-test('IT-1: over the real experiment input, every claim carries a plan identifier', { skip: !targetAvailable }, () => {
+test('IT-1: over the real experiment input, every claim carries a plan identifier', { skip: !targetAvailable }, async () => {
   const out = scratchOutput();
   try {
-    const outcome = analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R6_5 });
+    const outcome = await analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R6_5 });
     const plan = JSON.parse(readFileSync(join(out.root, 'RED-RECONSTRUCTION-PLAN.json'), 'utf8'));
 
     assert.equal(plan.entries.length, outcome.ledger.claims.length);

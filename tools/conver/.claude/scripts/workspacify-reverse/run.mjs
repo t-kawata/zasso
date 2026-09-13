@@ -314,8 +314,8 @@ function reportStage({ stage, input, error }) {
  * material for a reader, and a model-dependent search must not be able to reach a
  * stage that settles anything.
  */
-// [::TICKET::] P22-4, P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9) --for-spec --no-implementation-order`.
-function runAnalysisPipeline({ root, through, out, query }) {
+// [::TICKET::] P22-4, P22-9, P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7) --for-spec --no-implementation-order`.
+async function runAnalysisPipeline({ root, through, out, query }) {
   if (!root) {
     process.stderr.write(`${USAGE}\n`);
     return 2;
@@ -326,11 +326,11 @@ function runAnalysisPipeline({ root, through, out, query }) {
   let currentStage = null;
   let outcome;
   try {
-    outcome = analyzeProject({
+    outcome = await analyzeProject({
       root,
       out: destination,
       through,
-      onStage: (stage) => { currentStage = stage; },
+      options: { onStage: (stage) => { currentStage = stage; } },
     });
   } catch (error) {
     return reportStage({ stage: currentStage, input: { root, out: destination, through }, error });
@@ -680,8 +680,8 @@ function runSpikeSubcommand(options) {
   return runSpikeSlice(options);
 }
 
-// [::TICKET::] P22-4, P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9) --for-spec --no-implementation-order`.
-function main() {
+// [::TICKET::] P22-4, P22-9, P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7) --for-spec --no-implementation-order`.
+async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (!options.subcommand || !SUBCOMMANDS.includes(options.subcommand)) {
     process.stderr.write(`${USAGE}\n`);
@@ -701,4 +701,13 @@ function main() {
   return runVerify(options);
 }
 
-process.exitCode = main();
+// `analyze` awaits an execution, so the dispatch is asynchronous and the process
+// exit code is set once it settles. Every other subcommand returns its code on the
+// same tick it always did; the promise is the price of the one stage that waits.
+main().then(
+  (exitCode) => { process.exitCode = exitCode; },
+  (error) => {
+    process.stderr.write(`${error?.stack ?? error?.message ?? String(error)}\n`);
+    process.exitCode = 1;
+  },
+);

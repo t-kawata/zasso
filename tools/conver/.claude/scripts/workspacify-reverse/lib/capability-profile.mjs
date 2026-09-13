@@ -175,7 +175,7 @@ function observabilityDimension(analysis) {
 }
 
 /** How falsifiable the claims are, from the plan that says what would refute them. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8, P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-8|P23-7) --for-spec --no-implementation-order`.
 function falsifiabilityDimension(analysis) {
   const redPlan = analysis.redPlan;
   if (redPlan === null || redPlan === undefined) {
@@ -193,24 +193,47 @@ function falsifiabilityDimension(analysis) {
   const entries = redPlan.entries ?? [];
   const unassigned = redPlan.unassigned ?? [];
   const strong = redPlan.oracle_independence_counts?.strong ?? 0;
+  const counts = analysis.counterexamples?.counts ?? null;
+
+  // The channel's own counts replace the plan's promise as the evidence once R6.5
+  // has run. A plan says what would refute each claim; the counts say how many of
+  // those attempts were actually made, which is the question this dimension asks.
+  const executedEvidence = counts === null
+    ? redPlan.environment?.available === false
+      ? 'no execution environment exists in this run, and every plan records that'
+      : 'the execution environment was available'
+    : `${countOf(counts.executedCount, 'counterexample')} executed and ${counts.refusedCount} refused`;
 
   return dimensionOf('falsifiability', {
     canProve:
       `${countOf(entries.length, 'claim')} carry a plan naming the technique and the observation that would `
       + `refute them, so each is falsifiable in principle. Of those, ${strong} rest on an oracle independent `
-      + 'of the implementation.',
+      + `of the implementation. ${countOf(counts?.executedCount ?? 0, 'counterexample')} were actually `
+      + 'executed, and each records whether the red appeared.',
     cannotProve:
-      'Whether any plan can actually be executed is not settled by planning it. No isolated environment exists '
-      + 'in this run, so a plan that has never run refutes nothing yet — and a red result, once obtained, is '
-      + 'evidence rather than an automatic conclusion that the specification was wrong.',
+      counts === null
+        ? 'Whether any plan can actually be executed is not settled by planning it. No isolated environment '
+          + 'exists in this run, so a plan that has never run refutes nothing yet — and a red result, once '
+          + 'obtained, is evidence rather than an automatic conclusion that the specification was wrong.'
+        : `${countOf(counts.refusedCount, 'counterexample')} could not be executed and ${counts.executedCount} `
+          + 'produced no red, and neither is a statement that the claims hold: a red result, once obtained, is '
+          + 'evidence rather than an automatic conclusion that the specification was wrong.',
     evidence: [
       `${countOf(entries.length, 'planned claim')}; ${unassigned.length} had no applicable technique`,
-      redPlan.environment?.available === false
-        ? 'no execution environment exists in this run, and every plan records that'
-        : 'the execution environment was available',
+      executedEvidence,
+      ...(counts === null ? [] : [`refusals by reason: ${describeRefusalCounts(counts.refusedByReason)}`]),
     ],
     determined: true,
   });
+}
+
+/** The refusal counts as one readable phrase, or the statement that there were none. */
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+function describeRefusalCounts(refusedByReason) {
+  const named = Object.entries(refusedByReason ?? {})
+    .filter(([, count]) => count > 0)
+    .map(([reason, count]) => `${reason}: ${count}`);
+  return named.length === 0 ? 'none' : named.join(', ');
 }
 
 /** Where risk concentrates, from the gaps the analysis found and where it found them. */

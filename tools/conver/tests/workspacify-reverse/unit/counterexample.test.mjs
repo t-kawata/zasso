@@ -10,7 +10,11 @@ import assert from 'node:assert/strict';
 import {
   COUNTEREXAMPLE_CAVEAT,
   COUNTEREXAMPLE_FIELDS,
+  OBSERVED_NO_RED,
   OBSERVED_RED,
+  PASS_STATUSES,
+  REASON_CODES,
+  RED_VERDICTS,
   REVISIONS,
   applyCounterexample,
   applyCounterexamples,
@@ -50,6 +54,61 @@ function counterexampleFor({ claim_id = 'clm-login-invariant-3', observed = OBSE
     observation: `the assertion at src/api/login.rs:3 did not fire when user was the empty string`,
   };
   return narrowed_to === null ? record : { ...record, narrowed_to };
+}
+
+/**
+ * A counterexample as `runCounterexamples` records one that ran.
+ *
+ * The reverse edge reads a record rather than a bare observation, so that the
+ * document can say what happened to every counterexample the stage received.
+ */
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+function executedRecord({
+  claim_id = 'clm-login-invariant-3',
+  observed = OBSERVED_RED,
+  observations = ['the assertion at src/api/login.rs:3 did not fire when user was the empty string'],
+} = {}) {
+  return {
+    claim_id,
+    counterexample_plan_id: 'cxp-login-mutation-3',
+    invariant: 'mutate the asserted condition at src/api/login.rs:3',
+    technique: 'mutation',
+    carrier: 'src/api/login.rs:3',
+    status: 'executed',
+    verdict: observed === OBSERVED_RED ? 'not-proved' : 'proved',
+    reason: null,
+    detail: null,
+    observed,
+    observations,
+    worktreeRecord: null,
+  };
+}
+
+/** A counterexample the channel derived and nothing was offered to run. */
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+function derivedEntry(claim_id = 'clm-login-invariant-3') {
+  return {
+    claim_id,
+    counterexample_plan_id: 'cxp-login-mutation-3',
+    invariant: 'mutate the asserted condition at src/api/login.rs:3',
+    technique: 'mutation',
+    carrier: 'src/api/login.rs:3',
+  };
+}
+
+/** A counterexample a run refused, carrying the code from the declared vocabulary. */
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+function refusedRecord({ claim_id = 'clm-login-invariant-3', reason = 'executor-missing' } = {}) {
+  return {
+    ...derivedEntry(claim_id),
+    status: 'nothing-to-execute',
+    verdict: null,
+    reason,
+    detail: 'the reason in words',
+    observed: null,
+    observations: [],
+    worktreeRecord: null,
+  };
 }
 
 // --- The vocabulary -------------------------------------------------------------
@@ -147,14 +206,16 @@ test('C003 invariant: the revision carries the observation forward, and nothing 
 
 // --- Boundary -------------------------------------------------------------------
 
-test('UT-6: a counterexample whose red cannot be observed is reported, never counted as a falsification', () => {
-  const result = applyCounterexamples([counterexampleFor({ observed: 'unobservable' })], LEDGER);
+test('UT-6: a counterexample that ran and produced no red carries proved, and revises nothing', () => {
+  const result = applyCounterexamples([executedRecord({ observed: OBSERVED_NO_RED })], LEDGER);
 
   assert.equal(result.unobservable.length, 1);
   assert.equal(result.unobservable[0].claim_id, 'clm-login-invariant-3');
+  assert.equal(result.unobservable[0].verdict, 'proved', 'the check stayed quiet, so the claim held');
   assert.ok(result.unobservable[0].reason.length > 0);
-  assert.deepEqual(result.applied, []);
-  assert.equal(result.ledger.revisions.length, 0, 'an unobserved red revises nothing');
+  assert.equal(result.applied.length, 1, 'the counterexample stays in the published set');
+  assert.equal(result.applied[0].status, 'executed');
+  assert.equal(result.ledger.revisions.length, 0, 'a red that was not observed revises nothing');
   assert.equal(result.ledger.claims.some((claim) => claim.revision !== undefined), false);
 });
 
@@ -166,36 +227,83 @@ test('UT-7: an empty counterexample set is reported as empty', () => {
   assert.deepEqual(result.unobservable, []);
   assert.equal(result.ledger.revisions.length, 0);
   assert.ok(result.caveat.length > 0);
+  assert.deepEqual(result.counts, { derivedCount: 0, executedCount: 0, refusedCount: 0, refusedByReason: { 'plan-id-missing': 0, 'executor-missing': 0, 'invalid-execution-result': 0 } });
+});
+
+test('UT: the emptiness of the plan and the emptiness of a stage that ran nothing read differently', () => {
+  const emptyPlan = applyCounterexamples([], LEDGER);
+  const allRefused = applyCounterexamples([derivedEntry('clm-login-invariant-3'), derivedEntry('clm-login-invariant-7')], LEDGER);
+
+  assert.equal(emptyPlan.empty, true);
+  assert.equal(allRefused.empty, false, 'the plan was not empty, so neither is the set');
+  assert.equal(allRefused.counts.executedCount, 0);
+  assert.equal(allRefused.counts.refusedCount, 2);
+  assert.notEqual(renderCounterexampleReport(emptyPlan), renderCounterexampleReport(allRefused));
+  assert.match(renderCounterexampleReport(emptyPlan), /the plan was empty/);
+  assert.equal(/the plan was empty/.test(renderCounterexampleReport(allRefused)), false);
+  assert.match(renderCounterexampleReport(allRefused), /refused/);
 });
 
 test('UT: a set of counterexamples applies one edge per claim it names', () => {
   const result = applyCounterexamples(
-    [counterexampleFor({ claim_id: 'clm-login-invariant-3' }), counterexampleFor({ claim_id: 'clm-login-invariant-7' })],
+    [executedRecord({ claim_id: 'clm-login-invariant-3' }), executedRecord({ claim_id: 'clm-login-invariant-7' })],
     LEDGER,
   );
 
   assert.equal(result.empty, false);
   assert.equal(result.applied.length, 2);
   assert.equal(result.ledger.revisions.length, 2);
+  assert.deepEqual(result.counts, { derivedCount: 2, executedCount: 2, refusedCount: 0, refusedByReason: { 'plan-id-missing': 0, 'executor-missing': 0, 'invalid-execution-result': 0 } });
   assert.deepEqual(
     [...result.ledger.revisions.map((revision) => revision.claim_id)].sort(),
     ['clm-login-invariant-3', 'clm-login-invariant-7'],
   );
 });
 
-test('UT: a refusal whose claim is unobservable is not reported as a successful falsification', () => {
-  const result = applyCounterexamples([counterexampleFor({ observed: 'no_red' })], LEDGER);
+test('UT: a counterexample nothing ran is refused with its reason and stays in the published set', () => {
+  const result = applyCounterexamples([derivedEntry()], LEDGER);
 
-  assert.equal(result.applied.length, 0, 'observing no red is not a falsification');
-  assert.equal(result.unobservable.length, 1);
-  assert.match(result.unobservable[0].reason, /not a falsification/);
+  assert.equal(result.applied.length, 1, 'a refusal must not shrink the set and read as a counterexample never derived');
+  assert.equal(result.applied[0].status, 'nothing-to-execute');
+  assert.equal(result.applied[0].verdict, null, 'a refusal is not a result');
+  assert.equal(result.applied[0].reason, 'executor-missing');
+  assert.equal(result.counts.refusedCount, 1);
+  assert.equal(result.counts.executedCount, 0);
+  assert.equal(result.counts.derivedCount, 1);
+  assert.equal(result.ledger.revisions.length, 0);
+  assert.deepEqual(result.unobservable, [], 'a counterexample that never ran did not observe "no red" either');
+});
+
+test('UT: a refusal that is not a red failure is never rendered as a not-proved verdict', () => {
+  const result = applyCounterexamples([refusedRecord({ reason: 'plan-id-missing' })], LEDGER);
+
+  assert.equal(result.applied[0].verdict, null);
+  assert.equal(result.applied[0].reason, 'plan-id-missing');
+  assert.equal(result.counts.refusedByReason['plan-id-missing'], 1);
+  assert.match(result.applied[0].detail, /reason in words/);
+});
+
+test('UT: a record carrying a verdict a refusal may not have is refused rather than published', () => {
+  assert.throws(
+    () => applyCounterexamples([{ ...refusedRecord(), verdict: 'not-proved' }], LEDGER),
+    /verdict/,
+    'a refusal rendered as a verdict turns "we could not test it" into "we tested it"',
+  );
+  assert.throws(() => applyCounterexamples([{ ...executedRecord(), status: 'ran' }], LEDGER), /status/);
+  assert.throws(() => applyCounterexamples([{ ...executedRecord(), verdict: 'held' }], LEDGER), /verdict/);
+  assert.throws(() => applyCounterexamples([{ ...executedRecord(), observed: 'maybe' }], LEDGER), /observation/);
+  assert.throws(() => applyCounterexamples([{ ...refusedRecord(), reason: 'ran-out-of-time' }], LEDGER), /reason/);
 });
 
 test('C003: the reverse edge renders as Markdown an AI reads', () => {
-  const result = applyCounterexamples([counterexampleFor()], LEDGER);
+  const result = applyCounterexamples([executedRecord()], LEDGER);
   const report = renderCounterexampleReport(result);
 
   assert.match(report, /^## Counterexamples/m);
   assert.ok(report.includes(COUNTEREXAMPLE_CAVEAT));
   assert.equal(report.includes('{"'), false);
+  assert.match(report, /Counterexamples derived\*\*: 1/);
+  assert.ok(RED_VERDICTS.includes(result.applied[0].verdict));
+  assert.ok(PASS_STATUSES.includes(result.applied[0].status));
+  assert.ok(REASON_CODES.length === 3, 'the reason vocabulary is exactly the three declared, and no fourth');
 });

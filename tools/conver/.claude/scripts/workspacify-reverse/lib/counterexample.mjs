@@ -41,6 +41,61 @@ export const COUNTEREXAMPLE_FIELDS = Object.freeze([
  */
 export const OBSERVED_RED = 'red';
 
+/**
+ * The one other thing an executed counterexample can observe: no red appeared.
+ *
+ * It is a distinct value from a missing observation rather than its default. A
+ * counterexample that ran and found the claim holding is a result; one that never
+ * ran has no result at all, and the two must not collapse into one another.
+ */
+export const OBSERVED_NO_RED = 'no-red';
+
+/**
+ * What the machine is allowed to say about a claim, and nothing else.
+ *
+ * `not-proved` is the red appearing: the implementation broke and the check
+ * noticed, so the claim did not hold under this counterexample. `proved` is the
+ * check staying quiet, so the claim held. The conver layer's module of the same
+ * name reads the identical observation and calls it `proved` — there the subject
+ * is whether a ticket's Red exists, and here it is whether a claim survives, so
+ * the same fact answers two different questions. The analysis re-declares the
+ * values because the layer direction forbids importing them, and a test asserts
+ * the two declarations name the same strings.
+ */
+export const RED_PROVED = 'proved';
+export const RED_NOT_PROVED = 'not-proved';
+export const RED_VERDICTS = Object.freeze([RED_PROVED, RED_NOT_PROVED]);
+
+/** A pass either ran something or found nothing to run; neither is a success claim. */
+export const PASS_EXECUTED = 'executed';
+export const PASS_NOTHING_TO_EXECUTE = 'nothing-to-execute';
+export const PASS_STATUSES = Object.freeze([PASS_EXECUTED, PASS_NOTHING_TO_EXECUTE]);
+
+/** The reasons a counterexample cannot be executed, and no fourth is introduced. */
+export const REASON_PLAN_ID_MISSING = 'plan-id-missing';
+export const REASON_EXECUTOR_MISSING = 'executor-missing';
+export const REASON_INVALID_EXECUTION_RESULT = 'invalid-execution-result';
+export const REASON_CODES = Object.freeze([
+  REASON_PLAN_ID_MISSING,
+  REASON_EXECUTOR_MISSING,
+  REASON_INVALID_EXECUTION_RESULT,
+]);
+
+/**
+ * What a derived counterexample is refused with when this run supplied no executor.
+ *
+ * The refusal is about the run rather than about the claim: a counterexample that
+ * could not be executed has refuted nothing and has been refuted by nothing.
+ */
+export const NO_EXECUTOR_DETAIL =
+  'no executor was supplied to this run, so the counterexample was derived and never run — which is a '
+  + 'statement about the run and not about the claim';
+
+/** The verdict an observation decides, and the only place the two are related. */
+export function verdictOfObservation(observed) {
+  return observed === OBSERVED_RED ? RED_NOT_PROVED : RED_PROVED;
+}
+
 /** The two ways a counterexample can revise the claim it bears on. */
 export const REVISIONS = Object.freeze(['retracted', 'split']);
 
@@ -160,12 +215,88 @@ export function applyCounterexample(counterexample, ledger) {
 }
 
 /**
+ * The identity of a counterexample, which every record carries whether it ran or not.
+ *
+ * A record that has lost these would be indistinguishable from a claim about
+ * nothing, so they are copied rather than referenced.
+ */
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+function describeCounterexample(counterexample) {
+  return {
+    claim_id: counterexample.claim_id,
+    counterexample_plan_id: counterexample.counterexample_plan_id,
+    invariant: counterexample.invariant ?? null,
+    technique: counterexample.technique ?? null,
+    carrier: counterexample.carrier ?? null,
+  };
+}
+
+/** A counterexample that could not be executed, staying in the set with its reason. */
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+function refuseCounterexample(counterexample, reasonCode, detail) {
+  return {
+    ...describeCounterexample(counterexample),
+    status: PASS_NOTHING_TO_EXECUTE,
+    verdict: null,
+    reason: reasonCode,
+    detail,
+    observed: null,
+    observations: [],
+    worktreeRecord: null,
+  };
+}
+
+/**
+ * The record a run left for a counterexample, checked rather than trusted.
+ *
+ * The fields are validated because this is a boundary: a record claiming
+ * `executed` with no verdict, or a refusal carrying one, would put a statement
+ * into the published document that the run never made.
+ */
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+function assertRecord(record) {
+  if (typeof record !== 'object' || record === null) {
+    throw new Error('a counterexample record must be an object naming what happened; it was given none');
+  }
+  if (!PASS_STATUSES.includes(record.status)) {
+    throw new Error(`the record for ${record.claim_id} carries status ${JSON.stringify(record.status)}, which is not one of ${PASS_STATUSES.join(', ')}`);
+  }
+  if (record.status === PASS_EXECUTED) {
+    if (!RED_VERDICTS.includes(record.verdict)) {
+      throw new Error(`the executed record for ${record.claim_id} carries verdict ${JSON.stringify(record.verdict)}, which is not one of ${RED_VERDICTS.join(', ')}`);
+    }
+    if (record.observed !== OBSERVED_RED && record.observed !== OBSERVED_NO_RED) {
+      throw new Error(`the executed record for ${record.claim_id} carries observation ${JSON.stringify(record.observed)}, which states neither that a red appeared nor that none did`);
+    }
+    return {
+      ...describeCounterexample(record),
+      status: record.status,
+      verdict: record.verdict,
+      reason: null,
+      detail: null,
+      observed: record.observed,
+      observations: Array.isArray(record.observations) ? [...record.observations] : [],
+      worktreeRecord: record.worktreeRecord ?? null,
+    };
+  }
+  if (record.verdict !== null) {
+    throw new Error(`the refused record for ${record.claim_id} carries verdict ${JSON.stringify(record.verdict)}: a refusal is not a result, and rendering it as one would turn "we could not test it" into "we tested it"`);
+  }
+  if (!REASON_CODES.includes(record.reason)) {
+    throw new Error(`the refused record for ${record.claim_id} carries reason ${JSON.stringify(record.reason)}, which is not one of ${REASON_CODES.join(', ')}`);
+  }
+  return { ...refuseCounterexample(record, record.reason, record.detail ?? null), observations: Array.isArray(record.observations) ? [...record.observations] : [] };
+}
+
+/**
  * Apply a set of counterexamples, keeping the ones that revise nothing apart.
  *
- * `applied` revised a claim. `unobservable` produced no red, or produced no
- * observation at all, and is reported rather than counted: an empty result and
- * a falsification that could not be observed are different findings, and a
- * single "0 applied" would collapse them.
+ * `applied` carries one record per counterexample the stage received or derived,
+ * whatever happened to it: a refusal that vanished from the set would read as a
+ * counterexample that was never derived, which is the collapse this stage exists
+ * to prevent. `unobservable` is the subset that ran and produced no red — a
+ * result, reported rather than counted as a falsification, because a stage that
+ * found nothing and a stage that ran nothing are different findings.
  */
 export function applyCounterexamples(counterexamples, ledger) {
   if (ledger === null || typeof ledger !== 'object' || !Array.isArray(ledger.claims)) {
@@ -177,28 +308,54 @@ export function applyCounterexamples(counterexamples, ledger) {
 
   const applied = [];
   const unobservable = [];
+  const refusedByReason = Object.fromEntries(REASON_CODES.map((reasonCode) => [reasonCode, 0]));
   let revised = { ...ledger, claims: [...ledger.claims], revisions: [...(ledger.revisions ?? [])], verdict: UNREACHED_VERDICT };
 
   for (const counterexample of counterexamples) {
-    assertWellFormed(counterexample);
-    if (counterexample.observed !== OBSERVED_RED) {
+    // A derived counterexample carries no status because nothing ran it. It is
+    // refused rather than dropped, and the reason names what the run lacked.
+    const record = counterexample.status === undefined
+      ? refuseCounterexample(counterexample, REASON_EXECUTOR_MISSING, NO_EXECUTOR_DETAIL)
+      : assertRecord(counterexample);
+    applied.push(record);
+
+    if (record.status === PASS_NOTHING_TO_EXECUTE) {
+      refusedByReason[record.reason] += 1;
+      continue;
+    }
+    if (record.observed !== OBSERVED_RED) {
       unobservable.push({
-        claim_id: counterexample.claim_id,
-        counterexample_plan_id: counterexample.counterexample_plan_id,
-        observed: counterexample.observed,
-        reason: `the plan observed ${JSON.stringify(counterexample.observed)} rather than ${OBSERVED_RED}, so `
+        claim_id: record.claim_id,
+        counterexample_plan_id: record.counterexample_plan_id,
+        observed: record.observed,
+        verdict: record.verdict,
+        reason: `the plan observed ${JSON.stringify(record.observed)} rather than ${OBSERVED_RED}, so `
           + 'no red was established and this is not a falsification',
       });
       continue;
     }
-    revised = applyCounterexample(counterexample, revised);
-    applied.push({ claim_id: counterexample.claim_id, counterexample_plan_id: counterexample.counterexample_plan_id });
+    revised = applyCounterexample({
+      claim_id: record.claim_id,
+      counterexample_plan_id: record.counterexample_plan_id,
+      observed: record.observed,
+      observation: record.observations.join('\n'),
+    }, revised);
   }
+
+  const executedCount = applied.filter((record) => record.status === PASS_EXECUTED).length;
 
   return {
     ledger: revised,
     applied,
     unobservable,
+    counts: Object.freeze({
+      derivedCount: applied.length,
+      executedCount,
+      refusedCount: applied.length - executedCount,
+      refusedByReason: Object.freeze(refusedByReason),
+    }),
+    // True only when nothing was derived. A plan that was empty and a stage that
+    // ran nothing are different statements, and the document carries which one it is.
     empty: counterexamples.length === 0,
     caveat: COUNTEREXAMPLE_CAVEAT,
   };
@@ -211,42 +368,42 @@ export function applyCounterexamples(counterexamples, ledger) {
  * vanished would read as a stage that did not run.
  */
 export function renderCounterexampleReport(result, limit = 20) {
+  const { derivedCount, executedCount, refusedCount } = result.counts;
   const lines = [
     '## Counterexamples',
     '',
     `> ${COUNTEREXAMPLE_CAVEAT}`,
     '',
-    `**Counterexamples supplied**: ${result.applied.length + result.unobservable.length}. `
-      + `**Claims revised**: ${result.applied.length}. **No red observed**: ${result.unobservable.length}.`,
+    `**Counterexamples derived**: ${derivedCount}. **Executed**: ${executedCount}. **Refused**: ${refusedCount}. `
+      + `**Claims revised**: ${result.ledger.revisions.length}. **No red observed**: ${result.unobservable.length}.`,
     '',
   ];
 
   if (result.empty) {
     lines.push(
-      'The counterexample set is empty. Nothing was retracted and nothing was split, and this is not a',
-      'statement that the claims survived: no plan was executed in this run, so no counterexample could',
-      'have been obtained. Execution belongs to the ticket that owns the isolated environment.',
+      'The derived set is empty because the plan was empty: R6 produced no reconstruction ticket, so there',
+      'was no counterexample to derive. Nothing was retracted and nothing was split, and this says nothing',
+      'about whether the claims hold.',
       '',
     );
     return lines.join('\n');
   }
 
-  if (result.applied.length === 0) {
-    lines.push('No counterexample revised a claim.', '');
-  } else {
-    lines.push('| Claim | Revision | Plan |', '|---|---|---|');
-    for (const revision of result.ledger.revisions.slice(0, limit)) {
-      lines.push(`| \`${revision.claim_id}\` | ${revision.revision} | \`${revision.counterexample_plan_id}\` |`);
-    }
-    lines.push('');
+  lines.push('| Claim | Verdict | Status | Plan |', '|---|---|---|---|');
+  for (const record of result.applied.slice(0, limit)) {
+    lines.push(
+      `| \`${record.claim_id}\` | ${record.verdict ?? `(refused: ${record.reason})`} `
+      + `| ${record.status} | \`${record.counterexample_plan_id}\` |`,
+    );
   }
+  lines.push('');
 
   if (result.unobservable.length > 0) {
     lines.push(
       '### Counterexamples whose red could not be observed',
       '',
-      'These are reported rather than counted as falsifications. A run that observed nothing has not',
-      'shown that the claim holds and has not shown that it fails.',
+      'These ran and produced no red. They are reported rather than counted as falsifications: a check that',
+      'stayed quiet has not shown that the claim holds against every input, and it has not shown that it fails.',
       '',
       ...result.unobservable.slice(0, limit).map((item) => `- \`${item.claim_id}\` — ${item.reason}`),
       '',

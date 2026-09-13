@@ -54,6 +54,7 @@ const THROUGH_R7 = 'r7';
 
 /** A throwaway directory to publish into, so no test writes into the project. */
 // [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
 function scratchOutput() {
   const root = mkdtempSync(join(os.tmpdir(), 'wsp-r8-it-'));
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
@@ -110,11 +111,11 @@ test('IT-1: the stage list ends at R8, so a run without --through reaches it', (
   assert.equal(ANALYSIS_STAGES.includes('r6.5'), true, 'the stages before it are unchanged');
 });
 
-test('IT-1: a full run publishes an origin spec whose Markdown re-parses to its sidecar', () => {
+test('IT-1: a full run publishes an origin spec whose Markdown re-parses to its sidecar', async () => {
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
   const out = scratchOutput();
   try {
-    analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R8 });
+    await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R8 });
 
     assert.equal(existsSync(join(out.root, 'ORIGIN-LONG-SPEC.json')), true);
     assert.equal(existsSync(join(out.root, 'ORIGIN-LONG-SPEC.md')), true);
@@ -133,11 +134,11 @@ test('IT-1: a full run publishes an origin spec whose Markdown re-parses to its 
   }
 });
 
-test('IT-2: every observed claim in the output has evidence that exists at the stated location', () => {
+test('IT-2: every observed claim in the output has evidence that exists at the stated location', async () => {
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
   const out = scratchOutput();
   try {
-    analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R8 });
+    await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R8 });
     const sidecar = JSON.parse(readFileSync(join(out.root, 'ORIGIN-LONG-SPEC.json'), 'utf8'));
 
     const observed = sidecar.claims.filter((claim) => claim.claim_type === 'observed');
@@ -159,11 +160,11 @@ test('IT-2: every observed claim in the output has evidence that exists at the s
   }
 });
 
-test('IT-3: every unresolved claim in the output carries a question', () => {
+test('IT-3: every unresolved claim in the output carries a question', async () => {
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
   const out = scratchOutput();
   try {
-    analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R8 });
+    await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R8 });
     const sidecar = JSON.parse(readFileSync(join(out.root, 'ORIGIN-LONG-SPEC.json'), 'utf8'));
 
     for (const claim of sidecar.claims.filter((entry) => entry.claim_type === 'unresolved')) {
@@ -176,11 +177,11 @@ test('IT-3: every unresolved claim in the output carries a question', () => {
   }
 });
 
-test('IT-1: the run publishes the profile in five dimensions with no eligibility verdict', () => {
+test('IT-1: the run publishes the profile in five dimensions with no eligibility verdict', async () => {
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
   const out = scratchOutput();
   try {
-    analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R8 });
+    await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R8 });
     const profile = JSON.parse(readFileSync(join(out.root, 'CAPABILITY-PROFILE.json'), 'utf8'));
 
     assert.deepEqual(Object.keys(profile.dimensions).sort(), [...CAPABILITY_DIMENSIONS].sort());
@@ -195,10 +196,42 @@ test('IT-1: the run publishes the profile in five dimensions with no eligibility
   }
 });
 
-test('IT-1: over the real experiment input, the origin spec re-parses to its sidecar', { skip: !targetAvailable }, () => {
+test('IT-2: the falsifiability dimension reports the counterexample channel rather than a constant', async () => {
+  const tree = createSyntheticTree(CLAIM_BEARING_TREE);
   const out = scratchOutput();
   try {
-    const outcome = analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R8 });
+    await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R8 });
+    const profile = JSON.parse(readFileSync(join(out.root, 'CAPABILITY-PROFILE.json'), 'utf8'));
+    const results = JSON.parse(readFileSync(join(out.root, 'COUNTEREXAMPLE-RESULTS.json'), 'utf8'));
+    const falsifiability = profile.dimensions.falsifiability;
+
+    assert.equal(falsifiability.determined, true);
+    assert.equal(
+      falsifiability.evidence.includes('the R6 red-reconstruction plan did not run'),
+      false,
+      'the plan ran, so that sentence would be a lie about this run',
+    );
+    assert.equal(
+      falsifiability.evidence.includes(`0 counterexamples executed and ${results.refusedCount} refused`),
+      true,
+      "the evidence is the run's own counts, so a run that executed nothing says so rather than staying silent",
+    );
+    assert.equal(
+      falsifiability.evidence.some((line) => line.startsWith('refusals by reason:')),
+      true,
+      'the refusals are named by the reason code each one carries',
+    );
+    assert.equal(falsifiability.can_prove.includes('0 counterexamples were actually executed'), true);
+  } finally {
+    tree.dispose();
+    out.dispose();
+  }
+});
+
+test('IT-1: over the real experiment input, the origin spec re-parses to its sidecar', { skip: !targetAvailable }, async () => {
+  const out = scratchOutput();
+  try {
+    const outcome = await analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R8 });
 
     const sidecar = JSON.parse(readFileSync(join(out.root, 'ORIGIN-LONG-SPEC.json'), 'utf8'));
     const markdown = readFileSync(join(out.root, 'ORIGIN-LONG-SPEC.md'), 'utf8');
@@ -216,10 +249,10 @@ test('IT-1: over the real experiment input, the origin spec re-parses to its sid
   }
 });
 
-test('IT-5: the r8 comparison against the answer key names the differing headings', { skip: !bundleAvailable || !targetAvailable }, () => {
+test('IT-5: the r8 comparison against the answer key names the differing headings', { skip: !bundleAvailable || !targetAvailable }, async () => {
   const out = scratchOutput();
   try {
-    analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R8 });
+    await analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R8 });
     const knownDeltaPath = join(PROJECT_ROOT, KNOWN_DELTA_RELATIVE_PATH);
     const knownDelta = existsSync(knownDeltaPath) ? JSON.parse(readFileSync(knownDeltaPath, 'utf8')) : NO_KNOWN_DELTA;
 
@@ -245,11 +278,11 @@ test('IT-5: the r8 comparison against the answer key names the differing heading
 
 // --- The layered serving packet, through the pipeline that publishes it ----------
 
-test('IT-6: a run through R7 publishes a layered packet whose counts reconcile with its ledger', () => {
+test('IT-6: a run through R7 publishes a layered packet whose counts reconcile with its ledger', async () => {
   const tree = createSyntheticTree(LAYERED_SERVING_TREE);
   const out = scratchOutput();
   try {
-    analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R7 });
+    await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R7 });
 
     const ledger = JSON.parse(readFileSync(join(out.root, 'CLAIM-LEDGER.json'), 'utf8'));
     const markdown = readFileSync(join(out.root, 'R7-SERVING.md'), 'utf8');
@@ -270,11 +303,11 @@ test('IT-6: a run through R7 publishes a layered packet whose counts reconcile w
   }
 });
 
-test('IT-6: the published packet is the layered selection, card for card, and withholds rather than serves', () => {
+test('IT-6: the published packet is the layered selection, card for card, and withholds rather than serves', async () => {
   const tree = createSyntheticTree(LAYERED_SERVING_TREE);
   const out = scratchOutput();
   try {
-    analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R7 });
+    await analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R7 });
 
     const ledger = JSON.parse(readFileSync(join(out.root, 'CLAIM-LEDGER.json'), 'utf8'));
     const markdown = readFileSync(join(out.root, 'R7-SERVING.md'), 'utf8');
@@ -295,13 +328,13 @@ test('IT-6: the published packet is the layered selection, card for card, and wi
   }
 });
 
-test('IT-6: the same tree publishes a byte-identical packet on a second run', () => {
+test('IT-6: the same tree publishes a byte-identical packet on a second run', async () => {
   const tree = createSyntheticTree(LAYERED_SERVING_TREE);
   const first = scratchOutput();
   const second = scratchOutput();
   try {
-    analyzeProject({ root: tree.root, out: first.root, through: THROUGH_R7 });
-    analyzeProject({ root: tree.root, out: second.root, through: THROUGH_R7 });
+    await analyzeProject({ root: tree.root, out: first.root, through: THROUGH_R7 });
+    await analyzeProject({ root: tree.root, out: second.root, through: THROUGH_R7 });
 
     assert.equal(
       readFileSync(join(second.root, 'R7-SERVING.md'), 'utf8'),
@@ -315,10 +348,10 @@ test('IT-6: the same tree publishes a byte-identical packet on a second run', ()
   }
 });
 
-test('IT-6: over the real experiment input the packet layers and reconciles', { skip: !targetAvailable }, () => {
+test('IT-6: over the real experiment input the packet layers and reconciles', { skip: !targetAvailable }, async () => {
   const out = scratchOutput();
   try {
-    analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R7 });
+    await analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R7 });
 
     const ledger = JSON.parse(readFileSync(join(out.root, 'CLAIM-LEDGER.json'), 'utf8'));
     const markdown = readFileSync(join(out.root, 'R7-SERVING.md'), 'utf8');
