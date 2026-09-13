@@ -11,10 +11,12 @@
  */
 // [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
 import { WorkSpacifyTreeError } from '../../workspacify-tree/lib/errors.mjs';
-import { FORWARD_ARTIFACT_KINDS, assertReverseAdditions, extendForwardArtifacts } from './forward-extensions.mjs';
+import { FORWARD_ARTIFACT_KINDS, MODE, assertReverseAdditions, extendForwardArtifacts } from './forward-extensions.mjs';
 import { lookupInventoryItem } from './allocation-model.mjs';
 import { GRILL_QUESTION_SECTION_INDEX, renderResidualQuestions } from './self-grill.mjs';
 import {
+  CURRENT_SEED_FORMAT_VERSION,
+  SEED_FORMAT_MARKER,
   SEED_REQUIRED_SECTIONS,
   SEED_TITLE_PREFIX,
   SEED_AUTHORING_SECTION_INDEXES,
@@ -46,7 +48,11 @@ export function renderSeed({ package: pkg, machine, aiSections = {}, residualQue
   assertResidualsBelongToPackage(pkg, residualQuestions);
 
   const bodies = new Map();
-  bodies.set(1, buildMachineSectionBody(extendReferenceBlock(referenceBlock, machine, mode, reverseIndex), pkg));
+  bodies.set(1, buildMachineSectionBody(
+    extendReferenceBlock(referenceBlock, machine, mode, reverseIndex),
+    pkg,
+    declaredSeedFormat(mode),
+  ));
   bodies.set(2, buildContractSectionBody(pkg, contractEdges));
   bodies.set(3, buildAllocationSectionBody(expectedAllocation));
   for (const index of SEED_AUTHORING_SECTION_INDEXES) {
@@ -129,21 +135,37 @@ function extendReferenceBlock(referenceBlock, machine, mode, reverseIndex) {
   return extended;
 }
 
-// [::TICKET::] P22-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-10 --for-spec --no-implementation-order`.
-function buildMachineSectionBody(referenceBlock, pkg) {
+// [::TICKET::] P22-10, P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-10|P23-10) --for-spec --no-implementation-order`.
+function buildMachineSectionBody(referenceBlock, pkg, seedFormat) {
   if (!referenceBlock || typeof referenceBlock !== 'object') {
     throw new WorkSpacifyTreeError(`package ${pkg.id} has no reference block`, { gateId: 'G3.6' });
   }
+  const declared = seedFormat === null ? referenceBlock : { ...referenceBlock, [SEED_FORMAT_MARKER]: seedFormat };
   return [
     'The three reference paths, the verified implementation order and the contract ids below are',
     'machine-injected. Do not rewrite them: a disagreement with the manifests is a gate failure.',
     '',
     '```json',
-    JSON.stringify(referenceBlock, null, 2),
+    JSON.stringify(declared, null, 2),
     '```',
   ].join('\n');
 }
 
+/**
+ * The format the writer declares, or null when it has nothing to declare.
+ *
+ * The forward rotation writes the only format it knows, so declaring it would add
+ * a field to every forward seed without adding a fact — and it would make
+ * "unversioned" unreachable, which is the honest state of a seed written before
+ * the marker existed. The reverse rotation writes a seed a later conver must be
+ * able to place, so there the declaration earns its bytes.
+ */
+// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+function declaredSeedFormat(mode) {
+  return mode === MODE.REVERSE ? CURRENT_SEED_FORMAT_VERSION : null;
+}
+
+// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
 function buildContractSectionBody(pkg, contractEdges) {
   if (contractEdges.length === 0) {
     return [

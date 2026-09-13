@@ -20,9 +20,16 @@ import path from 'node:path';
 import { GATE_STATUS, WorkSpacifyTreeError } from '../../workspacify-tree/lib/errors.mjs';
 import { REVERSE_PROVENANCE_FIELD } from '../../workspacify-tree/lib/reverse-mode.mjs';
 import { MEASURED_TREE_EXCLUSIONS } from '../../workspacify-tree/lib/structure-parity.mjs';
-import { parseSeed, scanSeedHeadings } from './seed-parse.mjs';
+import { determineSeedFormat, parseSeed, reportSeedCompatibility, scanSeedHeadings, seedPackageName } from './seed-parse.mjs';
 import { runSeedParity } from './seed-parity.mjs';
-import { ALLOCATE_MANIFEST_FILE_NAME, SEED_FILE_NAME, SEED_REQUIRED_SECTIONS } from './seed-model.mjs';
+import {
+  ALLOCATE_MANIFEST_FILE_NAME,
+  SEED_COMPATIBILITY_FILE_NAME,
+  SEED_FILE_NAME,
+  SEED_REQUIRED_SECTIONS,
+  currentSeedFormat,
+  resolveSeedFormat,
+} from './seed-model.mjs';
 
 /** The two rotations. An input that names neither is forward. */
 export const ALLOCATE_MODES = Object.freeze({ FORWARD: 'forward', REVERSE: 'reverse' });
@@ -43,9 +50,6 @@ export const WRITE_ALLOW_LIST = Object.freeze([SEED_FILE_NAME, ALLOCATE_MANIFEST
  * whose only sin is having a `dist/` directory.
  */
 export const EXCLUDED_DIRECTORY_NAMES = MEASURED_TREE_EXCLUSIONS;
-
-/** Section 1 is where the reverse index lives; it is never a heading of its own. */
-const SECTION_ONE_INDEX = 1;
 
 /** The tree manifest a reverse run reads from its root. */
 export const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
@@ -255,12 +259,20 @@ export function assertSeedParity({ expectedByPackage, parsedByPackage }) {
 }
 
 /**
- * A4 — the reverse index lives inside section 1, and the heading count stays 14.
+ * A4 — the reverse index lives inside a section 1 the format declares, and the
+ * heading count matches that format.
  *
  * A fifteenth heading is the one change that would reach the forward rotation: the
  * reverse index therefore extends the machine block of section 1 in place. The
- * expected count is read from `SEED_REQUIRED_SECTIONS` and never written as a
- * literal, so this check and the forward parser cannot disagree about it.
+ * expected count is read from the format the seed declares and never written as a
+ * literal, so this check and the parser cannot disagree about it.
+ *
+ * A seed declaring a format this conver does not hold is *reported*, not refused.
+ * Design 1.2 makes incompleteness the input rather than a refusal condition, so the
+ * gap becomes a finding on this record and the run continues. What the finding must
+ * never become is an acceptance: a seed whose declaration resolves to nothing is
+ * still judged against the format this run reads, which is why the fifteenth
+ * heading and the transposed title keep failing exactly as they did before.
  *
  * @param {{ seedText: string, mode?: string }} input
  * @returns {object} gate record
@@ -269,31 +281,66 @@ export function assertSectionOneIndex({ seedText, mode } = {}) {
   const resolvedMode = resolveAllocateMode({ mode });
   const headings = scanSeedHeadings(seedText);
   const headingCount = headings.length;
-  const requiredCount = SEED_REQUIRED_SECTIONS.length;
+  const requiredFormat = currentSeedFormat();
+
+  let determinedFormat;
+  try {
+    determinedFormat = determineSeedFormat(seedText);
+  } catch (error) {
+    // A seed whose machine block is missing or malformed fails the parse that
+    // already exists for it, and it fails *here* as a record rather than as an
+    // exception: the run judges every gate even after one of them fails, and a
+    // seed this broken must not take A5's verdict down with it.
+    return gateRecord(
+      REVERSE_GATE_IDS.A4,
+      GATE_STATUS.BLOCKED,
+      { headingCount, required_headings: requiredFormat.sections.length, mode: resolvedMode, compatible: false },
+      [error.message],
+      { headingCount, compatibilityFindings: [] },
+    );
+  }
+
+  const declaredFormat = resolveSeedFormat(determinedFormat);
+  const checkedFormat = declaredFormat ?? requiredFormat;
+  const sectionsExpected = checkedFormat.sections.length;
+  const formatLabel = declaredFormat === null
+    ? `the format this run reads (${requiredFormat.version})`
+    : `the declared format ${declaredFormat.version}`;
+  const compatibilityFindings = declaredFormat?.version === requiredFormat.version
+    ? []
+    : [reportSeedCompatibility({
+      determined: determinedFormat,
+      required: requiredFormat,
+      seed: seedPackageName(seedText),
+    })];
 
   const reasons = [];
   let status = GATE_STATUS.PASS;
 
-  if (headingCount !== requiredCount) {
+  if (headingCount !== sectionsExpected) {
     status = GATE_STATUS.BLOCKED;
-    reasons.push(`the seed has ${headingCount} headings; the contract is exactly ${requiredCount}, and a fifteenth heading would reach the forward rotation`);
+    reasons.push(`the seed has ${headingCount} headings, but ${formatLabel} carries exactly ${sectionsExpected}`);
   }
 
-  if (resolvedMode === ALLOCATE_MODES.REVERSE && !sectionOneCarriesReverseIndex(headings)) {
+  if (resolvedMode === ALLOCATE_MODES.REVERSE && !machineSectionCarriesReverseIndex(headings, checkedFormat)) {
     status = GATE_STATUS.BLOCKED;
     reasons.push('section 1 does not carry a reverse_index, so the reverse provenance has nowhere to be recorded');
   }
 
+  if (compatibilityFindings.length > 0) {
+    reasons.push(`recorded, not failed: this seed does not declare the format this run reads — the reconciliation is published as ${SEED_COMPATIBILITY_FILE_NAME}`);
+  }
+
   if (status === GATE_STATUS.PASS) {
-    reasons.push(`section 1 carries the reverse index inside the existing heading and the heading count is ${requiredCount}`);
+    reasons.push(`section 1 carries the reverse index inside the existing heading and the heading count is ${sectionsExpected}`);
   }
 
   return gateRecord(
     REVERSE_GATE_IDS.A4,
     status,
-    { headingCount, required_headings: requiredCount, mode: resolvedMode },
+    { headingCount, required_headings: sectionsExpected, mode: resolvedMode, compatible: compatibilityFindings.length === 0 },
     reasons,
-    { headingCount },
+    { headingCount, compatibilityFindings },
   );
 }
 
@@ -399,10 +446,16 @@ export function runReverseAllocateGates(input = {}) {
  * One record rather than one per seed, because the operator repairs the renderer
  * once, not each document: a fifteenth heading in any seed is the same defect.
  */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12, P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-12|P23-10) --for-spec --no-implementation-order`.
 function judgeEverySeed(input) {
   const records = (input.seedTexts ?? []).map((seedText) => assertSectionOneIndex({ seedText, mode: input.mode }));
-  const counts = { headingCount: 0, required_headings: SEED_REQUIRED_SECTIONS.length, mode: resolveAllocateMode(input) };
+  const compatibilityFindings = records.flatMap((record) => record.compatibilityFindings ?? []);
+  const counts = {
+    headingCount: 0,
+    required_headings: SEED_REQUIRED_SECTIONS.length,
+    mode: resolveAllocateMode(input),
+    requiring_reconciliation: compatibilityFindings.length,
+  };
 
   if (records.length === 0) {
     return gateRecord(
@@ -410,18 +463,19 @@ function judgeEverySeed(input) {
       GATE_STATUS.BLOCKED,
       counts,
       ['no seed was rendered, so there is no section 1 to carry the reverse index'],
-      { headingCount: 0 },
+      { headingCount: 0, compatibilityFindings: [] },
     );
   }
 
   const failing = records.filter((record) => record.status !== GATE_STATUS.PASS);
+  const extra = { headingCount: (failing[0] ?? records[0]).headingCount, compatibilityFindings };
   if (failing.length === 0) {
     return gateRecord(
       REVERSE_GATE_IDS.A4,
       GATE_STATUS.PASS,
       { ...records[0].counts, seeds: records.length },
-      [`all ${records.length} seed(s) carry the reverse index inside section 1, and every heading count is ${SEED_REQUIRED_SECTIONS.length}`],
-      { headingCount: records[0].headingCount },
+      [`all ${records.length} seed(s) carry the reverse index inside section 1, and every heading count matches the format it declares`],
+      extra,
     );
   }
 
@@ -430,7 +484,7 @@ function judgeEverySeed(input) {
     GATE_STATUS.BLOCKED,
     { ...failing[0].counts, seeds: records.length, failing_seeds: failing.length },
     failing.flatMap((record) => record.reasons),
-    { headingCount: failing[0].headingCount },
+    extra,
   );
 }
 
@@ -475,6 +529,8 @@ export function renderReverseAllocateReport(records) {
     lines.push('');
   }
 
+  lines.push(...renderSeedCompatibilitySection(summary.records));
+
   if (summary.failing.length > 0) {
     lines.push(`Repair what ${summary.failing.join(', ')} reported, then run the step again. Nothing was published.`);
   } else {
@@ -482,6 +538,37 @@ export function renderReverseAllocateReport(records) {
   }
   lines.push('');
   return lines.join('\n');
+}
+
+/**
+ * The compatibility findings, published as the document they are named for.
+ *
+ * A seed that declares a format this conver does not hold is not refused — design
+ * 1.2 makes incompleteness the input — so the reconciliation has to reach the
+ * operator somewhere. It reaches them here, beside the allocate report and under
+ * the finding's own published name, which is the only place the reverse rotation
+ * may publish: its writes are the seeds and the manifest, and a third file would
+ * be a write outside the allow-list A2 enforces.
+ *
+ * @param {Array<object>} records - the gate records, in the order they were judged
+ * @returns {string[]} the report's lines for this section
+ */
+// [::TICKET::] P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-10 --for-spec --no-implementation-order`.
+function renderSeedCompatibilitySection(records) {
+  const findings = records.flatMap((record) => record.compatibilityFindings ?? []);
+  const lines = [`## ${SEED_COMPATIBILITY_FILE_NAME}`, ''];
+  if (findings.length === 0) {
+    lines.push('Every seed declares the format this run reads, so there is nothing to reconcile.', '');
+    return lines;
+  }
+  lines.push(
+    `${findings.length} seed(s) do not declare the format this run reads. Each was parsed under the format it declares and the run continued; the change that would reconcile each one is stated below.`,
+    '',
+  );
+  for (const finding of findings) {
+    lines.push(finding);
+  }
+  return lines;
 }
 
 /**
@@ -643,14 +730,14 @@ function pairRenames(vanished, appeared) {
   return pairs;
 }
 
-/** Whether section 1's machine block carries the reverse index. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
-function sectionOneCarriesReverseIndex(headings) {
-  const sectionOne = headings.find((heading) => heading.index === SECTION_ONE_INDEX);
-  if (!sectionOne) {
+/** Whether the machine section of the format under check carries the reverse index. */
+// [::TICKET::] P22-12, P23-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-12|P23-10) --for-spec --no-implementation-order`.
+function machineSectionCarriesReverseIndex(headings, format) {
+  const machineSection = headings.find((heading) => heading.index === format.machineSectionIndex);
+  if (!machineSection) {
     return false;
   }
-  const referenceBlock = parseSectionJson(sectionOne.body.join('\n'));
+  const referenceBlock = parseSectionJson(machineSection.body.join('\n'));
   return referenceBlock !== null && Object.prototype.hasOwnProperty.call(referenceBlock, 'reverse_index');
 }
 
