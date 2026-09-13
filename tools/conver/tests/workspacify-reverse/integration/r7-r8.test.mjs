@@ -25,13 +25,15 @@ import os from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ANALYSIS_STAGES, analyzeProject } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
+import { ANALYSIS_STAGES, analyzeProject, EMPTY_RECORD, runSpike } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
+import { CARD_LAYERING_THRESHOLD, renderServing } from '../../../.claude/scripts/workspacify-reverse/lib/packet.mjs';
+import { compareText } from '../../../.claude/scripts/workspacify-reverse/lib/holdout-ledger.mjs';
 import { parseOriginSpec } from '../../../.claude/scripts/workspacify-reverse/lib/origin-spec.mjs';
 import { CAPABILITY_DIMENSIONS } from '../../../.claude/scripts/workspacify-reverse/lib/capability-profile.mjs';
 import { checkBaselines } from '../../../.claude/scripts/workspacify-reverse/lib/regression-gate.mjs';
 import { KNOWN_DELTA_RELATIVE_PATH } from '../../../.claude/scripts/workspacify-reverse/lib/oracle-bundle.mjs';
 import { NO_KNOWN_DELTA, reconcile } from '../../../.claude/scripts/workspacify-reverse/lib/reconcile.mjs';
-import { createSyntheticTree } from '../helpers/scratch.mjs';
+import { createSyntheticTree, LAYERED_SERVING_TREE, SPIKE_SLICE_FILES } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
@@ -47,6 +49,9 @@ const bundleAvailable = existsSync(join(PROJECT_ROOT, 'tests/workspacify-reverse
  */
 const THROUGH_R8 = 'r8';
 
+/** R7 is the stage that publishes `R7-SERVING.md`, so it is where a packet run stops. */
+const THROUGH_R7 = 'r7';
+
 /** A throwaway directory to publish into, so no test writes into the project. */
 // [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function scratchOutput() {
@@ -60,6 +65,26 @@ function scratchOutput() {
  * One boundary crossing, one asserted condition and one error return, so the
  * spec has to carry claims of more than one shape rather than a single one.
  */
+/** The unresolved claims a published ledger holds: the population R7 serves. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function unresolvedIn(ledger) {
+  return ledger.claims.filter((claim) => claim.claim_type === 'unresolved');
+}
+
+/** The counts the serving packet states about itself, read out of the page a human reads. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function statedCounts(markdown) {
+  const served = /^(\d+) unresolved claim\(s\) are set out below/m.exec(markdown);
+  const withheld = /^(\d+) further unresolved claim\(s\) were not printed here/m.exec(markdown);
+  return { served: Number(served?.[1] ?? 0), withheld: Number(withheld?.[1] ?? 0) };
+}
+
+/** The claim ids the packet prints, in the order it prints them. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function documentedCardIds(markdown) {
+  return [...markdown.matchAll(/^### `([^`]+)`$/gm)].map((match) => match[1]);
+}
+
 const CLAIM_BEARING_TREE = Object.freeze({
   'src/api/login.rs': [
     'use crate::model::User;',
@@ -215,6 +240,112 @@ test('IT-5: the r8 comparison against the answer key names the differing heading
     }
   } finally {
     out.dispose();
+  }
+});
+
+// --- The layered serving packet, through the pipeline that publishes it ----------
+
+test('IT-6: a run through R7 publishes a layered packet whose counts reconcile with its ledger', () => {
+  const tree = createSyntheticTree(LAYERED_SERVING_TREE);
+  const out = scratchOutput();
+  try {
+    analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R7 });
+
+    const ledger = JSON.parse(readFileSync(join(out.root, 'CLAIM-LEDGER.json'), 'utf8'));
+    const markdown = readFileSync(join(out.root, 'R7-SERVING.md'), 'utf8');
+    const unresolved = unresolvedIn(ledger);
+
+    assert.ok(
+      unresolved.length > CARD_LAYERING_THRESHOLD,
+      `the fixture must carry more unresolved claims than the threshold, found ${unresolved.length}`,
+    );
+    const stated = statedCounts(markdown);
+    assert.equal(stated.served + stated.withheld, unresolved.length, 'no claim may be dropped by the selection and go uncounted');
+    assert.match(markdown, /^- \*\*boundary\*\* — \d+ card\(s\)/m);
+    assert.match(markdown, /^- \*\*contract\*\* — 0 card\(s\)/m, 'the contract level is withheld while its boundary is open');
+    assert.match(markdown, /^- \*\*bundle\*\* — \d+ card\(s\)/m);
+  } finally {
+    tree.dispose();
+    out.dispose();
+  }
+});
+
+test('IT-6: the published packet is the layered selection, card for card, and withholds rather than serves', () => {
+  const tree = createSyntheticTree(LAYERED_SERVING_TREE);
+  const out = scratchOutput();
+  try {
+    analyzeProject({ root: tree.root, out: out.root, through: THROUGH_R7 });
+
+    const ledger = JSON.parse(readFileSync(join(out.root, 'CLAIM-LEDGER.json'), 'utf8'));
+    const markdown = readFileSync(join(out.root, 'R7-SERVING.md'), 'utf8');
+    const packet = renderServing(ledger, { layered: true });
+
+    assert.deepEqual(
+      documentedCardIds(markdown),
+      packet.served.map((card) => card.claim_id),
+      'the page states the order the exit selected, so the exit asks for the layered shape',
+    );
+    assert.ok(packet.servedCount < unresolvedIn(ledger).length, 'the open boundary withholds its contract level');
+    assert.match(markdown, /at the \*\*bundle\*\* level/, 'a hung card says which card it hangs from');
+    assert.match(markdown, /^- \d+ withheld — .+$/m, 'the page names the rule it withheld under, not only the count');
+    assert.match(markdown, /^- \d+ withheld — .*`src\/api`/m, 'and the scope the rule applied to');
+  } finally {
+    tree.dispose();
+    out.dispose();
+  }
+});
+
+test('IT-6: the same tree publishes a byte-identical packet on a second run', () => {
+  const tree = createSyntheticTree(LAYERED_SERVING_TREE);
+  const first = scratchOutput();
+  const second = scratchOutput();
+  try {
+    analyzeProject({ root: tree.root, out: first.root, through: THROUGH_R7 });
+    analyzeProject({ root: tree.root, out: second.root, through: THROUGH_R7 });
+
+    assert.equal(
+      readFileSync(join(second.root, 'R7-SERVING.md'), 'utf8'),
+      readFileSync(join(first.root, 'R7-SERVING.md'), 'utf8'),
+      'the layering must not introduce run-to-run variation into a document a human decides from',
+    );
+  } finally {
+    tree.dispose();
+    first.dispose();
+    second.dispose();
+  }
+});
+
+test('IT-6: over the real experiment input the packet layers and reconciles', { skip: !targetAvailable }, () => {
+  const out = scratchOutput();
+  try {
+    analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R7 });
+
+    const ledger = JSON.parse(readFileSync(join(out.root, 'CLAIM-LEDGER.json'), 'utf8'));
+    const markdown = readFileSync(join(out.root, 'R7-SERVING.md'), 'utf8');
+    const unresolved = unresolvedIn(ledger);
+
+    assert.ok(unresolved.length > CARD_LAYERING_THRESHOLD);
+    const stated = statedCounts(markdown);
+    assert.equal(stated.served + stated.withheld, unresolved.length);
+    assert.ok(stated.served > 0 && stated.served < unresolved.length, 'the packet serves a part of what is open');
+    assert.match(markdown, /^- \*\*boundary\*\* — \d+ card\(s\)/m);
+    assert.match(markdown, /^- \*\*bundle\*\* — \d+ card\(s\)/m);
+  } finally {
+    out.dispose();
+  }
+});
+
+test('IT-6: the spike still produces the sequence it calibrated', () => {
+  const tree = createSyntheticTree(SPIKE_SLICE_FILES);
+  try {
+    const outcome = runSpike({ root: tree.root, slice: 'login', recorded: EMPTY_RECORD });
+    const ledgerOrder = outcome.ledger.claims.map((claim) => claim.claim_id).sort(compareText);
+
+    assert.deepEqual(outcome.cards.map((card) => card.claim_id), ledgerOrder);
+    assert.equal(outcome.cardRun.layered, false, 'the recorded slice sits below the threshold');
+    assert.equal(outcome.cardRun.suppressed, 0);
+  } finally {
+    tree.dispose();
   }
 });
 

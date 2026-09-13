@@ -1,5 +1,6 @@
 // [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
 /**
  * R7 — the decision packet: what a human is asked, and in what shape.
  *
@@ -12,13 +13,19 @@
  * saying so.
  *
  * Layering is the design's answer to decision fatigue. When the count would
- * exhaust a round, the design's two levels are used: a boundary claim is a
- * coarse decision and leads, and the contract level beneath it follows only when
- * that scope's boundary is settled. A boundary that is itself `unresolved`
- * withholds the whole contract level, because there is no point deciding what a
- * package does internally while it is unknown whether the package should exist.
- * What is withheld is always counted and always stated; silent truncation would
- * read as "everything was considered" when it was not.
+ * exhaust a round, the levels the design names are used — `boundary`, `contract`
+ * and the `bundle` a scope with no boundary claim gathers its conditions into
+ * (`PACKET_LEVELS`). A boundary claim is a coarse decision and leads, and the
+ * contract level beneath it follows only when that scope's boundary is settled.
+ * A boundary that is itself `unresolved` withholds the whole contract level,
+ * because there is no point deciding what a package does internally while it is
+ * unknown whether the package should exist.
+ *
+ * One selection decides that shape for both readers of this module: the spike's
+ * decision cards, which calibrated it, and the serving packet the exit publishes.
+ * What is withheld is always counted and always stated, with the rule that
+ * withheld it; silent truncation would read as "everything was considered" when
+ * it was not.
  */
 import { compareText } from './holdout-ledger.mjs';
 import { formatClaimAnchor } from './claim-ledger.mjs';
@@ -87,6 +94,32 @@ const CARD_SECTIONS = Object.freeze([
  * the one place that explains it.
  */
 export const CARD_LAYERING_THRESHOLD = 12;
+
+/**
+ * The levels a packet reads in, named as 7.4.1 names them.
+ *
+ * `boundary` is the coarse decision a scope's local conditions wait on;
+ * `contract` is a scope's contract level hung beneath the boundary it belongs
+ * to; `bundle` is the local conditions of a scope that has no boundary claim at
+ * all, gathered under the first of them. The names are held once so that the
+ * selection and the rendering cannot spell the same level two ways.
+ */
+export const PACKET_LEVELS = Object.freeze(['boundary', 'contract', 'bundle']);
+
+/** A threshold nothing crosses: the caller has not asked for the layered shape. */
+const NEVER_LAYERED = Number.POSITIVE_INFINITY;
+
+/**
+ * Why a claim the packet does not print was left out.
+ *
+ * The rule is reported alongside the count, never replaced by it: "1,614
+ * withheld" answers nothing a reader can act on, and the reader is the one who
+ * has to decide whether the withholding was right.
+ */
+export const WITHHOLDING_RULES = Object.freeze({
+  unresolvedBoundary: 'a scope whose boundary is unresolved withholds its contract level whole',
+  servingLimit: 'the claim lies beyond the serving limit',
+});
 
 /**
  * The answer every card offers, so a decision the machine cannot make is never lost.
@@ -197,13 +230,12 @@ function buildCard(claim) {
 }
 
 /**
- * The cards a ledger yields, layered when their number would exhaust a round.
+ * The claims a packet carries, and what hangs beneath what.
  *
- * Below the threshold every claim gets its own card. Above it the two levels the
- * design names are used: a boundary claim is a coarse decision and always leads,
- * and the contract level of a scope follows it only when that scope's boundary
- * is settled. Three things decide where a fine card goes.
+ * Below the threshold every claim leads its own card. Above it the levels the
+ * design names are used, and three things decide where a fine claim goes.
  *
+ *   - A boundary claim is a coarse decision and always leads, at `boundary`.
  *   - A scope with an `unresolved` boundary withholds its contract level whole
  *     (7.4.1). There is no point deciding what a package does internally while
  *     it is unknown whether the package should exist.
@@ -217,46 +249,90 @@ function buildCard(claim) {
  * The last branch is what keeps the threshold honest. Without it a slice whose
  * claims are all local emits every card flat while still reporting that layering
  * happened, which is the explosion the threshold exists to prevent.
+ *
+ * Selection and rendering are separated here: this function decides which claims
+ * are carried and in what structure, and the two callers — the spike's decision
+ * cards and the exit's serving packet — differ only in what they build from the
+ * result. One selection is what stops the shape the spike calibrated from
+ * drifting away from the shape the exit serves a second time.
+ *
+ * @returns {{cards: Array<object>, layered: boolean, suppressed: number}} one
+ *   entry per leading claim, in reading order, of the shape
+ *   `{claim, level, childLevel, children, suppressedChildren}`. `level` and
+ *   `childLevel` are `PACKET_LEVELS` values, and are `null` when the packet is
+ *   flat — a flat packet has no levels to be at.
  */
-export function renderDecisionCards(ledger) {
-  const cards = [...ledger.claims].sort((left, right) => compareText(left.claim_id, right.claim_id)).map(buildCard);
-  const thresholdCrossed = cards.length > CARD_LAYERING_THRESHOLD;
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+export function selectServingCards(ledger, { threshold = CARD_LAYERING_THRESHOLD } = {}) {
+  const claims = [...ledger.claims].sort((left, right) => compareText(left.claim_id, right.claim_id));
 
-  if (!thresholdCrossed) {
-    return { cards, layered: false, suppressed: 0 };
+  if (claims.length <= threshold) {
+    return { cards: claims.map((claim) => selectionEntry(claim, null, null)), layered: false, suppressed: 0 };
   }
 
-  const boundaryCards = cards.filter((card) => card.subjectKind === 'boundary_crossing');
-  const contractCards = cards.filter((card) => card.subjectKind !== 'boundary_crossing');
-  const scopes = [...new Set(cards.map((card) => card.scope))].sort(compareText);
+  const boundaryClaims = claims.filter((claim) => claim.subjectKind === 'boundary_crossing');
+  const contractClaims = claims.filter((claim) => claim.subjectKind !== 'boundary_crossing');
+  const scopes = [...new Set(claims.map((claim) => claim.scope))].sort(compareText);
   const scopesWithUnsettledBoundary = new Set(
-    boundaryCards.filter((card) => card.claimType === 'unresolved').map((card) => card.scope),
+    boundaryClaims.filter((claim) => claim.claim_type === 'unresolved').map((claim) => claim.scope),
   );
 
-  const emitted = [...boundaryCards];
+  const carried = boundaryClaims.map((claim) => selectionEntry(claim, PACKET_LEVELS[0], null));
   let suppressed = 0;
 
   for (const scope of scopes) {
-    const localCards = contractCards.filter((card) => card.scope === scope);
-    if (localCards.length === 0) continue;
+    const localClaims = contractClaims.filter((claim) => claim.scope === scope);
+    if (localClaims.length === 0) continue;
 
     if (scopesWithUnsettledBoundary.has(scope)) {
-      suppressed += localCards.length;
-      const leadIndex = emitted.findIndex((card) => card.scope === scope);
-      emitted[leadIndex] = { ...emitted[leadIndex], suppressedChildren: localCards.length };
+      suppressed += localClaims.length;
+      const leadIndex = carried.findIndex((entry) => entry.claim.scope === scope);
+      carried[leadIndex] = { ...carried[leadIndex], childLevel: PACKET_LEVELS[1], suppressedChildren: localClaims.length };
       continue;
     }
 
-    const leadBoundaryIndex = emitted.findIndex((card) => card.scope === scope);
+    const leadBoundaryIndex = carried.findIndex((entry) => entry.claim.scope === scope);
     if (leadBoundaryIndex === -1) {
-      const [leadingCard, ...followingCards] = localCards;
-      emitted.push(followingCards.length === 0 ? leadingCard : { ...leadingCard, children: followingCards });
+      const [leadingClaim, ...followingClaims] = localClaims;
+      carried.push(selectionEntry(leadingClaim, PACKET_LEVELS[2], PACKET_LEVELS[2], followingClaims));
       continue;
     }
-    emitted[leadBoundaryIndex] = { ...emitted[leadBoundaryIndex], children: localCards };
+    carried[leadBoundaryIndex] = { ...carried[leadBoundaryIndex], childLevel: PACKET_LEVELS[1], children: localClaims };
   }
 
-  return { cards: emitted, layered: true, suppressed };
+  return { cards: carried, layered: true, suppressed };
+}
+
+/** One claim leading a card, with the claims hung beneath it and the level they sit at. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function selectionEntry(claim, level, childLevel, children = [], suppressedChildren = 0) {
+  return { claim, level, childLevel, children, suppressedChildren };
+}
+
+/**
+ * The cards a ledger yields, layered when their number would exhaust a round.
+ *
+ * The selection is `selectServingCards`'s; this function builds the card a human
+ * answers from each claim the selection carries, and nothing else.
+ */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+export function renderDecisionCards(ledger) {
+  const selection = selectServingCards(ledger);
+
+  return {
+    cards: selection.cards.map(buildCardForEntry),
+    layered: selection.layered,
+    suppressed: selection.suppressed,
+  };
+}
+
+/** One selected claim as the decision card the human answers. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function buildCardForEntry(entry) {
+  const card = buildCard(entry.claim);
+  if (entry.suppressedChildren > 0) return { ...card, suppressedChildren: entry.suppressedChildren };
+  if (entry.children.length > 0) return { ...card, children: entry.children.map(buildCard) };
+  return card;
 }
 
 /** The cards as the Markdown the human reads before answering. */
@@ -312,6 +388,26 @@ export function renderCardsMarkdown(cards) {
  */
 export const SERVING_LIMIT = 100;
 
+/**
+ * Refuse a packet whose counts do not account for every unresolved claim.
+ *
+ * The three numbers are named in the failure because the reader has to be able
+ * to see which one moved: a packet that quietly shrank would read as an
+ * analysis that had less left open than it did, which is the one thing a serving
+ * stage must never say. The identity is checked rather than assumed, so a later
+ * change to the selection fails a run instead of dropping a claim.
+ */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+export function assertPacketReconciles({ unresolvedCount, servedCount, withheldFromServing }) {
+  if (servedCount + withheldFromServing === unresolvedCount) return undefined;
+  throw new Error(
+    `the serving packet accounts for ${servedCount} served and ${withheldFromServing} withheld claim(s), which is `
+    + `${servedCount + withheldFromServing} of the ${unresolvedCount} unresolved claim(s) the ledger holds. `
+    + 'A packet that does not account for every one of them may not be published: withheld is not dropped, and a '
+    + 'claim missing from both counts is a claim the reader was never told about.',
+  );
+}
+
 /** `file:line` and how the evidence was read, in the form a reader can act on. */
 // [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
 function renderServedEvidence(item) {
@@ -353,8 +449,17 @@ function buildServedClaim(claim) {
  * Only `unresolved` claims are served. The rest are not withheld — they are
  * settled — and the count of them is reported, so that a short packet cannot be
  * read as a small analysis.
+ *
+ * `layered` asks for the shape the spike calibrated: a boundary card leads and
+ * the contract level it governs follows it, instead of a flat list in
+ * identifier order. It is off by default so that the callers that have not asked
+ * for the change keep the packet they had; the exit asks for it at its one call
+ * site. It is not a ranking: a boundary leads because the level beneath it is
+ * undecidable while the boundary is open, so the ordering is a dependency and
+ * the reader must not read the first layer as the answer.
  */
-export function renderServing(ledger, { limit = SERVING_LIMIT } = {}) {
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+export function renderServing(ledger, { limit = SERVING_LIMIT, layered = false } = {}) {
   if (ledger === null || typeof ledger !== 'object' || !Array.isArray(ledger.claims)) {
     throw new Error('renderServing needs the claim ledger it is to serve; it was given no ledger with claims');
   }
@@ -362,62 +467,203 @@ export function renderServing(ledger, { limit = SERVING_LIMIT } = {}) {
     throw new Error(`the serving limit must be a whole number of claims; it was given ${JSON.stringify(limit)}`);
   }
 
-  const unresolved = [...ledger.claims]
-    .filter((claim) => claim.claim_type === 'unresolved')
-    .sort((left, right) => compareText(left.claim_id, right.claim_id));
-  const served = unresolved.slice(0, limit).map(buildServedClaim);
+  const unresolved = ledger.claims.filter((claim) => claim.claim_type === 'unresolved');
+  const selection = selectServingCards(
+    { ...ledger, claims: unresolved },
+    { threshold: layered ? CARD_LAYERING_THRESHOLD : NEVER_LAYERED },
+  );
+  const reading = flattenSelection(selection.cards);
+  // Every claim the packet carries is built, printed or not. A card that asks
+  // nothing is refused wherever it sits, rather than only on the page the limit
+  // happens to end at.
+  const carried = reading.map((piece) => ({ ...buildServedClaim(piece.claim), level: piece.level, lead: piece.lead }));
+  const served = carried.slice(0, limit);
+  const withheldFromServing = unresolved.length - served.length;
+
+  assertPacketReconciles({
+    unresolvedCount: unresolved.length,
+    servedCount: served.length,
+    withheldFromServing,
+  });
 
   return {
     served,
     servedCount: served.length,
     settledCount: ledger.claims.length - unresolved.length,
-    withheldFromServing: unresolved.length - served.length,
+    withheldFromServing,
     totalClaims: ledger.claims.length,
     empty: ledger.claims.length === 0,
+    layered: selection.layered,
+    layers: selection.layered ? summarizeLayers(served) : [],
+    withheld: summarizeWithholdings({ selection, reading, servedCount: served.length, withheldFromServing }),
   };
 }
 
-/** The serving packet as the Markdown the human reads before answering. */
-export function renderServingMarkdown(serving) {
-  const lines = ['## Serving — the claims a human has to decide', ''];
+/**
+ * A selection as the order its claims are read: each leading claim, then what
+ * hangs beneath it. `lead` names the card a hung claim sits under, so the reader
+ * can see which boundary a contract level belongs to.
+ */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function flattenSelection(entries) {
+  return entries.flatMap((entry) => [
+    { claim: entry.claim, level: entry.level, lead: null },
+    ...entry.children.map((claim) => ({ claim, level: entry.childLevel, lead: entry.claim.claim_id })),
+  ]);
+}
 
+/**
+ * The levels the packet serves, each with its card count and the scopes it covers.
+ *
+ * A level that holds nothing is reported at zero rather than omitted: a reader
+ * who cannot see the contract level is missing has no way to tell an empty level
+ * from one the packet failed to mention.
+ */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function summarizeLayers(served) {
+  return PACKET_LEVELS.map((level) => {
+    const atLevel = served.filter((card) => card.level === level);
+    return { level, cardCount: atLevel.length, scopes: scopeNamesOf(atLevel) };
+  });
+}
+
+/** Why the claims the packet does not print were left out, rule by rule. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function summarizeWithholdings({ selection, reading, servedCount, withheldFromServing }) {
+  const withheld = [];
+
+  if (selection.suppressed > 0) {
+    withheld.push({
+      rule: 'unresolvedBoundary',
+      count: selection.suppressed,
+      scopes: scopeNamesOf(selection.cards.filter((entry) => entry.suppressedChildren > 0).map((entry) => entry.claim)),
+    });
+  }
+
+  const beyondLimit = withheldFromServing - selection.suppressed;
+  if (beyondLimit > 0) {
+    withheld.push({
+      rule: 'servingLimit',
+      count: beyondLimit,
+      scopes: scopeNamesOf(reading.slice(servedCount).map((piece) => piece.claim)),
+    });
+  }
+
+  return withheld;
+}
+
+/** The scopes a set of claims covers, each named once, in code-unit order. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function scopeNamesOf(claims) {
+  return [...new Set(claims.map((claim) => claim.scope))].sort(compareText);
+}
+
+/** The heading every serving packet opens with, shared by the empty and full pages. */
+const SERVING_HEADING = '## Serving — the claims a human has to decide';
+
+/**
+ * The serving packet as the Markdown the human reads before answering.
+ *
+ * The page is built in the order it is read: the counts, then the levels when
+ * the packet is layered, then the cards themselves, and last what was withheld
+ * and why. The withholding note comes last because it is what a reader turns to
+ * after deciding, to see whether anything was held back.
+ */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+export function renderServingMarkdown(serving) {
   if (serving.empty) {
-    lines.push(
+    return [
+      SERVING_HEADING,
+      '',
       'This serving packet is empty. The ledger held no claim at all, so there was nothing to hand over: that',
       'is an explicit empty result from a run that looked, not a report that merely looks short.',
       '',
-    );
-    return lines.join('\n');
+    ].join('\n');
   }
 
-  lines.push(
+  const lines = [SERVING_HEADING, '', ...renderPacketHeader(serving)];
+
+  if (serving.layers.length > 0) {
+    lines.push(...renderLayerSummary(serving.layers));
+  }
+
+  for (const claim of serving.served) lines.push(...renderServedCard(claim));
+
+  lines.push(...renderWithholdingNote(serving));
+
+  return lines.join('\n');
+}
+
+/** The counts a reader needs before the cards: served, settled and withheld. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function renderPacketHeader(serving) {
+  return [
     `${serving.servedCount} unresolved claim(s) are set out below, each with the question it raises, the`,
     'evidence available for it and the answer that applies if nobody decides. The remaining',
     `${serving.settledCount} claim(s) were settled by the analysis and are not repeated here.`,
     '',
-  );
+  ];
+}
 
-  if (serving.withheldFromServing > 0) {
-    lines.push(
-      `${serving.withheldFromServing} further unresolved claim(s) were not printed here. They are withheld,`,
-      'not dropped: the JSON beside this report carries every one of them, and the count is stated so that',
-      'this page cannot read as the whole of what was left open.',
-      '',
-    );
-  }
+/**
+ * The levels this packet reads in, and the sentence that keeps the order honest.
+ *
+ * The first line denies the reading a layered page invites. A reader who takes
+ * the boundary layer for the important half has read a dependency as a ranking,
+ * and would answer the coarse card and treat the rest as detail.
+ */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function renderLayerSummary(layers) {
+  return [
+    'The packet is layered. A boundary card leads because the contract level beneath it cannot be',
+    'decided while that boundary is open — not because the boundary matters more.',
+    '',
+    ...layers.flatMap(renderLayer),
+  ];
+}
 
-  for (const claim of serving.served) {
-    lines.push(`### \`${claim.claim_id}\``, '');
-    lines.push(`One falsifiable proposition: ${claim.proposition}`, '');
-    lines.push(`**Question** — ${claim.question}`, '');
-    lines.push('- **Evidence**');
-    if (claim.evidence.length === 0) lines.push('  - none recorded');
-    for (const item of claim.evidence) lines.push(`  - ${item}`);
-    lines.push('- **Counterexamples**');
-    if (claim.counterexamples.length === 0) lines.push('  - none recorded');
-    for (const item of claim.counterexamples) lines.push(`  - ${item}`);
-    lines.push(`- **Default** — ${claim.default}`, '');
-  }
+/** One level of the packet, with how many cards it holds and the scopes they cover. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function renderLayer(layer) {
+  return [`- **${layer.level}** — ${layer.cardCount} card(s)${renderScopes(layer.scopes)}`, ''];
+}
 
-  return lines.join('\n');
+/** One served claim, stating the level it sits at and the card it hangs from. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function renderServedCard(claim) {
+  const lines = [`### \`${claim.claim_id}\``, ''];
+
+  if (claim.lead !== null) lines.push(`Under \`${claim.lead}\`, at the **${claim.level}** level.`, '');
+
+  lines.push(`One falsifiable proposition: ${claim.proposition}`, '');
+  lines.push(`**Question** — ${claim.question}`, '');
+  lines.push('- **Evidence**');
+  if (claim.evidence.length === 0) lines.push('  - none recorded');
+  for (const evidenceLine of claim.evidence) lines.push(`  - ${evidenceLine}`);
+  lines.push('- **Counterexamples**');
+  if (claim.counterexamples.length === 0) lines.push('  - none recorded');
+  for (const counterexample of claim.counterexamples) lines.push(`  - ${counterexample}`);
+  lines.push(`- **Default** — ${claim.default}`, '');
+
+  return lines;
+}
+
+/** What was not printed, and the rule each part of it was withheld under. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function renderWithholdingNote(serving) {
+  if (serving.withheldFromServing === 0) return [];
+
+  return [
+    `${serving.withheldFromServing} further unresolved claim(s) were not printed here. They are withheld,`,
+    'not dropped: the JSON beside this report carries every one of them, and the count is stated so that',
+    'this page cannot read as the whole of what was left open.',
+    '',
+    ...serving.withheld.map((entry) => `- ${entry.count} withheld — ${WITHHOLDING_RULES[entry.rule]}${renderScopes(entry.scopes)}`, ''),
+  ];
+}
+
+/** `, covering \`a\`, \`b\`` when any scope is named, and nothing when none is. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function renderScopes(scopes) {
+  return scopes.length === 0 ? '' : `, covering ${scopes.map((scope) => `\`${scope}\``).join(', ')}`;
 }

@@ -11,11 +11,28 @@
  * cannot be located is not observed — both are demoted and counted rather than
  * emitted with a dangling reference, because a silent drop would read as "this
  * was considered and settled".
+ *
+ * The third is the packet's shape. Above `CARD_LAYERING_THRESHOLD` the exit
+ * serves the layered decisions the spike calibrated rather than a flat list in
+ * identifier order, and what it does not print it counts and names the reason
+ * for. The selection is one function so that the experiment and the exit cannot
+ * drift apart a second time.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { renderServing, renderServingMarkdown, SERVING_LIMIT } from '../../../.claude/scripts/workspacify-reverse/lib/packet.mjs';
+import {
+  assertPacketReconciles,
+  CARD_LAYERING_THRESHOLD,
+  PACKET_LEVELS,
+  renderDecisionCards,
+  renderServing,
+  renderServingMarkdown,
+  selectServingCards,
+  SERVING_LIMIT,
+  WITHHOLDING_RULES,
+} from '../../../.claude/scripts/workspacify-reverse/lib/packet.mjs';
+import { compareText } from '../../../.claude/scripts/workspacify-reverse/lib/holdout-ledger.mjs';
 import {
   PROVENANCE_CHAIN_LINKS,
   DEMOTION_REASONS,
@@ -311,4 +328,286 @@ test('UT-5: a line number past the end of an existing file is unlocatable too', 
 
 test('C001: the four provenance values are the ledger vocabulary, not a second copy', () => {
   assert.deepEqual([...PROVENANCE_CLASSES], ['observed', 'inferred', 'normative', 'unresolved']);
+});
+
+// --- The layered packet ------------------------------------------------------------
+
+/** One unresolved claim in a named scope, of a named subject kind. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function claimInScope({ scope, subjectKind, index, overrides = {} }) {
+  return claimOf({
+    claim_id: `clm-${scope.replace(/[^a-z0-9]+/gi, '-')}-${subjectKind}-${index}`,
+    scope,
+    subjectKind,
+    ...overrides,
+  });
+}
+
+/** `count` unresolved contract claims in one scope: the level a boundary governs. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function unresolvedContracts(scope, count) {
+  return Array.from({ length: count }, (_, index) => claimInScope({ scope, subjectKind: 'invariant', index }));
+}
+
+/** A scope's boundary claim, settled or not. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function boundaryOf(scope, index, claimType) {
+  return claimInScope({
+    scope,
+    subjectKind: 'boundary_crossing',
+    index,
+    overrides: { claim_type: claimType },
+  });
+}
+
+/** Twenty ledgers whose unresolved counts and scope shapes vary without a random source. */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function generatedLedgers() {
+  return Array.from({ length: 20 }, (_, seed) => {
+    const scopes = ['src/api', 'src/db', 'src/model'].slice(0, (seed % 3) + 1);
+    return ledgerOf(scopes.flatMap((scope, index) => [
+      ...(seed % 2 === 0 ? [boundaryOf(scope, seed, 'unresolved')] : []),
+      ...unresolvedContracts(scope, CARD_LAYERING_THRESHOLD + seed + index),
+    ]));
+  });
+}
+
+test('C001 boundary: at the threshold the packet is flat, one claim above it is layered', () => {
+  const flat = renderServing(ledgerOf(unresolvedContracts('src/api', CARD_LAYERING_THRESHOLD)), { layered: true });
+  assert.equal(flat.layered, false, 'exactly at the threshold is still a flat packet');
+  assert.deepEqual(flat.layers, []);
+  assert.equal(flat.servedCount, CARD_LAYERING_THRESHOLD);
+
+  const layered = renderServing(ledgerOf(unresolvedContracts('src/api', CARD_LAYERING_THRESHOLD + 1)), { layered: true });
+  assert.equal(layered.layered, true, 'a ">" written as ">=" would change the shape without changing any count');
+  assert.equal(layered.servedCount, CARD_LAYERING_THRESHOLD + 1);
+});
+
+test('C001: the exit serves the sequence the spike calibrated, claim for claim', () => {
+  const ledger = ledgerOf([
+    boundaryOf('src/api', 1, 'unresolved'),
+    boundaryOf('src/db', 2, 'unresolved'),
+    ...unresolvedContracts('src/api', 20),
+  ]);
+  const spikeSequence = renderDecisionCards(ledger).cards
+    .flatMap((card) => [card.claim_id, ...(card.children ?? []).map((child) => child.claim_id)]);
+
+  const exitSequence = renderServing(ledger, { layered: true }).served.map((card) => card.claim_id);
+
+  assert.deepEqual(
+    exitSequence,
+    spikeSequence,
+    'the calibrated shape and the served shape cannot drift apart a second time',
+  );
+});
+
+test('C001: the packet reports the levels it served, and their counts sum to the served count', () => {
+  const ledger = ledgerOf([
+    boundaryOf('src/api', 1, 'unresolved'),
+    ...unresolvedContracts('src/api', 20),
+  ]);
+
+  const serving = renderServing(ledger, { layered: true });
+
+  assert.deepEqual(serving.layers.map((layer) => layer.level), [...PACKET_LEVELS]);
+  assert.equal(serving.layers.reduce((total, layer) => total + layer.cardCount, 0), serving.servedCount);
+  assert.equal(serving.served[0].level, 'boundary');
+  assert.equal(serving.served[0].lead, null, 'a leading card hangs from nothing');
+  assert.equal(serving.served[0].claim_id, ledger.claims.find((claim) => claim.subjectKind === 'boundary_crossing').claim_id);
+});
+
+test('C003: a scope whose boundary is unresolved withholds its contract level whole, by name', () => {
+  const serving = renderServing(ledgerOf([
+    boundaryOf('src/api', 1, 'unresolved'),
+    ...unresolvedContracts('src/api', 20),
+  ]), { layered: true });
+
+  assert.equal(serving.served.length, 1, 'the contract level is not decided while its boundary is open');
+  assert.equal(serving.withheldFromServing, 20);
+
+  const rule = serving.withheld.find((entry) => entry.rule === 'unresolvedBoundary');
+  assert.equal(rule.count, 20);
+  assert.deepEqual(rule.scopes, ['src/api'], 'the withholding is reported against the scope by name');
+  assert.equal(serving.layers.find((layer) => layer.level === 'contract').cardCount, 0);
+
+  const markdown = renderServingMarkdown(serving);
+  assert.equal(markdown.includes(WITHHOLDING_RULES.unresolvedBoundary), true, 'the reason is named, not only the number');
+  assert.match(markdown, /`src\/api`/, 'the scope the rule applied to is named');
+});
+
+test('C003: a scope with no boundary claim bundles its local conditions under the first of them', () => {
+  const serving = renderServing(ledgerOf(unresolvedContracts('src/api', CARD_LAYERING_THRESHOLD + 4)), { layered: true });
+
+  assert.equal(serving.layered, true, 'no boundary is not a reason to emit every card flat');
+  assert.equal(serving.layers.find((layer) => layer.level === 'bundle').cardCount, CARD_LAYERING_THRESHOLD + 4);
+  assert.equal(serving.layers.find((layer) => layer.level === 'boundary').cardCount, 0);
+
+  const lead = serving.served[0];
+  assert.equal(lead.level, 'bundle');
+  assert.equal(serving.served.filter((card) => card.lead === lead.claim_id).length, CARD_LAYERING_THRESHOLD + 3);
+});
+
+test('C003: two settled boundary cards for one scope hang the contract level from exactly one of them', () => {
+  const selection = selectServingCards(ledgerOf([
+    boundaryOf('src/api', 1, 'observed'),
+    boundaryOf('src/api', 2, 'observed'),
+    ...unresolvedContracts('src/api', CARD_LAYERING_THRESHOLD + 4),
+  ]));
+
+  assert.equal(selection.layered, true);
+  assert.equal(selection.suppressed, 0, 'a boundary that is not unresolved keeps its children');
+
+  const leads = selection.cards.filter((entry) => entry.children.length > 0);
+  assert.equal(leads.length, 1, 'hanging the same children from every sibling would carry each decision several times over');
+  assert.equal(leads[0].children.length, CARD_LAYERING_THRESHOLD + 4);
+  assert.equal(selection.cards.length, 2);
+});
+
+test('C003 invariant: no scope contributes more than one contract level', () => {
+  const selection = selectServingCards(ledgerOf([
+    boundaryOf('src/api', 1, 'observed'),
+    boundaryOf('src/api', 2, 'observed'),
+    ...unresolvedContracts('src/api', CARD_LAYERING_THRESHOLD + 4),
+    ...unresolvedContracts('src/db', CARD_LAYERING_THRESHOLD + 2),
+  ]));
+
+  const levelsByScope = new Map();
+  for (const entry of selection.cards.filter((candidate) => candidate.children.length > 0)) {
+    levelsByScope.set(entry.claim.scope, (levelsByScope.get(entry.claim.scope) ?? 0) + 1);
+  }
+
+  assert.deepEqual([...levelsByScope.keys()].sort(compareText), ['src/api', 'src/db']);
+  assert.equal(
+    [...levelsByScope.values()].every((levels) => levels === 1),
+    true,
+    'a scope hangs its contract level from one card, never from every sibling',
+  );
+  assert.equal(selection.cards.every((entry) => typeof entry.claim.scope === 'string'), true, 'every card names its scope');
+});
+
+test('C002 invariant: served plus withheld is the unresolved count, and the rules sum to the withheld count', () => {
+  const ledgers = [
+    ledgerOf([]),
+    ledgerOf(unresolvedContracts('src/api', CARD_LAYERING_THRESHOLD)),
+    ledgerOf(unresolvedContracts('src/api', CARD_LAYERING_THRESHOLD + 1)),
+    ledgerOf([
+      boundaryOf('src/api', 1, 'unresolved'),
+      ...unresolvedContracts('src/api', 20),
+      ...unresolvedContracts('src/db', 20),
+    ]),
+    ...generatedLedgers(),
+  ];
+
+  for (const ledger of ledgers) {
+    const unresolvedCount = ledger.claims.filter((claim) => claim.claim_type === 'unresolved').length;
+    const serving = renderServing(ledger, { layered: true });
+
+    assert.equal(serving.servedCount + serving.withheldFromServing, unresolvedCount, `ledger of ${unresolvedCount}`);
+    assert.equal(
+      serving.withheld.reduce((total, entry) => total + entry.count, 0),
+      serving.withheldFromServing,
+      `ledger of ${unresolvedCount}`,
+    );
+    // A flat packet has no levels to be at, so its levels account for nothing;
+    // a layered one reports every served card under one of them.
+    assert.equal(
+      serving.layers.reduce((total, layer) => total + layer.cardCount, 0),
+      serving.layered ? serving.servedCount : 0,
+      `ledger of ${unresolvedCount}`,
+    );
+  }
+});
+
+test('C002 postcondition: a ledger larger than the serving limit states what the limit withheld, and why', () => {
+  const ledger = ledgerOf(unresolvedContracts('src/api', 200));
+
+  const serving = renderServing(ledger, { layered: true });
+
+  assert.equal(serving.servedCount, SERVING_LIMIT, 'the packet stops at the limit');
+  assert.equal(serving.withheldFromServing, 200 - SERVING_LIMIT);
+
+  const rule = serving.withheld.find((entry) => entry.rule === 'servingLimit');
+  assert.equal(rule.count, 200 - SERVING_LIMIT);
+  assert.deepEqual(rule.scopes, ['src/api'], 'the rule says which scopes it applied to');
+
+  const markdown = renderServingMarkdown(serving);
+  assert.match(markdown, new RegExp(String(serving.withheldFromServing)), 'a cap that is not stated reads as "everything was considered"');
+  assert.equal(markdown.includes(WITHHOLDING_RULES.servingLimit), true, 'the reason is named, not only the number');
+});
+
+test('C002 error: a packet whose selection would drop a claim fails rather than shrinking', () => {
+  assert.throws(
+    () => assertPacketReconciles({ unresolvedCount: 3714, servedCount: 100, withheldFromServing: 3613 }),
+    (error) => /3714/.test(error.message) && /100/.test(error.message) && /3613/.test(error.message),
+    'the failure names the ledger count, the served count and the withheld count',
+  );
+  assert.equal(assertPacketReconciles({ unresolvedCount: 3714, servedCount: 100, withheldFromServing: 3614 }), undefined);
+});
+
+test('C002 error: an unresolved claim that asks nothing is refused beyond the printed page too', () => {
+  const claims = [
+    ...unresolvedContracts('src/api', CARD_LAYERING_THRESHOLD + 1),
+    claimInScope({ scope: 'src/db', subjectKind: 'invariant', index: 99, overrides: { grill_question: null } }),
+  ];
+  const refusal = /a card that asks nothing is not a decision, it is a statement with a box beside it/;
+
+  assert.throws(() => renderServing(ledgerOf(claims), { layered: true, limit: 2 }), refusal);
+  assert.throws(() => renderServing(ledgerOf(claims), { limit: 2 }), refusal);
+});
+
+test('C002 error: the layered path keeps the refusals the flat path had', () => {
+  assert.throws(() => renderServing(null, { layered: true }), /no ledger with claims/);
+  assert.throws(() => renderServing(ledgerOf([]), { layered: true, limit: -1 }), /whole number of claims/);
+  assert.throws(() => renderServing(ledgerOf([]), { layered: true, limit: 1.5 }), /1\.5/);
+
+  const serving = renderServing(ledgerOf(unresolvedContracts('src/api', CARD_LAYERING_THRESHOLD + 1)), { layered: true });
+  assert.equal(serving.layered, true, 'the option reaches the packet rather than being ignored');
+});
+
+test('C002 boundary: the empty ledger reports an explicit empty result with the layered option on', () => {
+  const serving = renderServing(ledgerOf([]), { layered: true });
+
+  assert.equal(serving.empty, true);
+  assert.equal(serving.servedCount, 0);
+  assert.deepEqual(serving.layers, []);
+  assert.deepEqual(serving.withheld, []);
+
+  const markdown = renderServingMarkdown(serving);
+  assert.match(markdown, /no claim/i);
+  assert.match(markdown, /empty/i);
+});
+
+test('C002 invariant: the packet never serves a claim that is not unresolved', () => {
+  const ledger = ledgerOf([
+    claimOf({ claim_id: 'clm-settled-001', claim_type: 'observed' }),
+    ...unresolvedContracts('src/api', CARD_LAYERING_THRESHOLD + 4),
+  ]);
+
+  const serving = renderServing(ledger, { layered: true });
+
+  assert.equal(serving.settledCount, 1);
+  assert.equal(serving.served.every((card) => card.claim_type === 'unresolved'), true);
+  assert.equal(serving.layers.find((layer) => layer.level === 'bundle').cardCount, CARD_LAYERING_THRESHOLD + 4);
+});
+
+test('C002 invariant: two runs over one ledger produce the same packet, each layer in claim_id order', () => {
+  const ledger = ledgerOf([
+    boundaryOf('src/api', 1, 'unresolved'),
+    boundaryOf('src/db', 2, 'unresolved'),
+    ...unresolvedContracts('src/api', CARD_LAYERING_THRESHOLD + 2),
+    ...unresolvedContracts('src/db', CARD_LAYERING_THRESHOLD + 2),
+  ]);
+
+  const first = renderServing(ledger, { layered: true });
+  const second = renderServing(ledger, { layered: true });
+
+  assert.deepEqual(first, second);
+
+  const boundaryLevel = first.served.filter((card) => card.level === 'boundary').map((card) => card.claim_id);
+  assert.equal(boundaryLevel.length, 2, 'both boundary claims lead, so the level is read and not merely absent');
+  assert.deepEqual(
+    boundaryLevel,
+    [...boundaryLevel].sort(compareText),
+    're-derivable means the same ledger renders the same bytes twice',
+  );
 });

@@ -1004,6 +1004,7 @@ function propertyInvariantsIn(ledger) {
 // The default is the last declared stage, derived rather than named. A hardcoded
 // name here went stale the moment a stage was added after it, and the library
 // entry point then silently ran a different prefix from the command line's.
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
 export function analyzeProject({
 // [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
   root,
@@ -1114,7 +1115,7 @@ export function analyzeProject({
   // that a claim resting on evidence that is not there is demoted rather than
   // emitted with a dangling reference.
   const serving = stagesRun.includes('r7') && ledger !== null
-    ? runStage('r7', () => renderServing(ledger))
+    ? runStage('r7', () => renderServing(ledger, { layered: true }))
     : null;
   const originSpec = stagesRun.includes('r8') && ledger !== null
     ? runStage('r8', () => validateOriginSpec(

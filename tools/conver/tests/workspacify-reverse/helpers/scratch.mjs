@@ -16,6 +16,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { CARD_LAYERING_THRESHOLD } from '../../../.claude/scripts/workspacify-reverse/lib/packet.mjs';
+
 const SUITE_ROOT = fileURLToPath(new URL('..', import.meta.url));
 
 /**
@@ -372,6 +374,59 @@ export const SPIKE_SINGLE_CLAIM_FILES = Object.freeze({
 export const SPIKE_LOGIN_TWO_DIRECTORY_FILES = Object.freeze({
   'src/api/login.rs': 'use crate::db::users::User;\npub fn login(u: &User) -> bool { !u.name.is_empty() }\n',
   'src/db/users.rs': 'pub struct User { pub name: String }\n',
+});
+
+/** How many gated crossings the layering fixture needs to cross the threshold. */
+const GATED_CROSSING_COUNT = CARD_LAYERING_THRESHOLD + 1;
+
+/** How many gated local conditions the layering fixture holds in a scope with no boundary. */
+const GATED_LOCAL_COUNT = 3;
+
+/**
+ * `count` Rust modules, each behind its own `#[cfg]` gate.
+ *
+ * The gate is what makes the claims unresolved: whether the item ships is a
+ * build-time question the text cannot answer, so every condition and every
+ * crossing these modules hold is handed to the grill rather than settled. A
+ * `provider` names the partition member the module refers to, and is omitted for
+ * a scope that crosses nothing.
+ */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function gatedModules({ prefix, count, provider = null }) {
+  const modules = [];
+  for (let index = 0; index < count; index += 1) {
+    modules.push(
+      '#[cfg(feature = "ffi")]',
+      `mod ${prefix}_${String(index).padStart(2, '0')} {`,
+      ...(provider === null ? [] : [`    use crate::${provider};`]),
+      '    pub fn check(value: u8) -> bool {',
+      '        assert!(value > 0);',
+      '        value > 0',
+      '    }',
+      '}',
+      '',
+    );
+  }
+  return modules.join('\n');
+}
+
+/**
+ * A tree whose ledger holds more unresolved claims than the packet layers above.
+ *
+ * `src/api/gated.rs` carries more gated crossings into `src/db` than
+ * `CARD_LAYERING_THRESHOLD`, and a gated condition in each of the same modules.
+ * The scope therefore has an unresolved boundary, so its contract level is
+ * withheld whole — the branch a serving packet must reach to withhold anything
+ * at all below the serving limit. `src/report/report.rs` carries gated
+ * conditions and no crossing, so its conditions are bundled under the first of
+ * them rather than withheld. Between the two scopes both branches of §7.4.1 the
+ * serving path can reach are exercised by a real run.
+ */
+export const LAYERED_SERVING_TREE = Object.freeze({
+  'Cargo.toml': '[package]\nname = "layered-serving-subject"\n',
+  'src/api/gated.rs': gatedModules({ prefix: 'gate', count: GATED_CROSSING_COUNT, provider: 'db::store::Store' }),
+  'src/report/report.rs': gatedModules({ prefix: 'local', count: GATED_LOCAL_COUNT }),
+  'src/db/store.rs': 'pub struct Store;\n\nimpl Store {\n    pub fn ready(&self) -> bool {\n        true\n    }\n}\n',
 });
 
 /** Both halves of the synthetic pair, plus one disposer for the pair. */
