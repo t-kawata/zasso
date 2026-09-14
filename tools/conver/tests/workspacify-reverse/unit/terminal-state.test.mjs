@@ -61,9 +61,9 @@ function stateFor(representative, packages, gates = {}) {
 }
 
 /** The rendered report for one comparison, so two renderings can be compared. */
-// [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-8, P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-8|P24-12) --for-spec --no-implementation-order`.
 function rendered(comparison) {
-  return renderTerminalStateReport({ states: [], comparison, ladder: { position: 'L0' } });
+  return renderTerminalStateReport({ states: [], comparison, verdict: { ladder: { position: 'L0' }, stages: null, outcome: 'not proved' } });
 }
 
 // ---------------------------------------------------------------------------
@@ -174,7 +174,7 @@ test('C004 postcondition — the outcome names the ladder position and states th
   const report = renderTerminalStateReport({
     states: [],
     comparison: compareTerminalStates([]),
-    ladder: { position: 'L2', residue: 'RESIDUE', omissionZero: { omissions: 0 } },
+    verdict: { ladder: { position: 'L2', residue: 'RESIDUE', omissionZero: { omissions: 0 } }, stages: null, outcome: 'not proved' },
   });
 
   assert.match(report, /L2/);
@@ -187,7 +187,7 @@ test('C004 postcondition — the outcome names the ladder position and states th
 
 test('C004 invariant — no line claims success, and the only line naming it denies it', () => {
   const text = renderTerminalStateReport({
-    states: [], comparison: compareTerminalStates([]), ladder: { position: 'L0' },
+    states: [], comparison: compareTerminalStates([]), verdict: { ladder: { position: 'L0' }, stages: null, outcome: 'not proved' },
   });
 
   const claiming = text.split('\n').filter((line) => /\b(success|verdict|score|passed)\b/i.test(line));
@@ -229,7 +229,7 @@ test('C001 error — a stage that refused is reported by name with its input rat
   assert.equal(summary.refused.length, 1);
   assert.equal(summary.refused[0].stage, 'r5.5');
   assert.equal(summary.complete, false, 'a refused stage means the chain did not run to completion');
-  const report = renderTerminalStateReport({ states: [], comparison: null, ladder: { position: 'L0' }, stages: summary });
+  const report = renderTerminalStateReport({ states: [], comparison: null, verdict: { ladder: { position: 'L0' }, stages: summary, outcome: 'not proved' } });
   assert.match(report, /r5\.5/);
   assert.match(report, /refused/);
 });

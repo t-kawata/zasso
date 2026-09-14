@@ -18,6 +18,7 @@
         ],
         "complete": false
       },
+      "outcome": "not proved",
       "missing": 50,
       "packages": 5
     },
@@ -33,6 +34,7 @@
         ],
         "complete": false
       },
+      "outcome": "not proved",
       "missing": 90,
       "packages": 11
     },
@@ -48,6 +50,7 @@
         ],
         "complete": false
       },
+      "outcome": "not proved",
       "missing": 25,
       "packages": 2
     },
@@ -57,921 +60,82 @@
         "reached": [],
         "refused": [
           {
-            "stage": "R5.5",
-            "input": "root=/var/folders/pv/p1xx0vzs3jngm6rmf38sr1dh0000gn/T/wsp-reverse-L5lnjM out=/var/folders/pv/p1xx0vzs3jngm6rmf38sr1dh0000gn/T/wsp-p24-8-w8aIwU through=r8"
+            "stage": "G2",
+            "input": "pipeline ended with status REVIEW_REQUIRED"
           }
         ],
         "complete": false
       },
-      "missing": 19,
+      "outcome": "not proved",
+      "missing": 18,
       "packages": 1
     }
   ],
+  "runs": [
+    {
+      "representative": "siprs-for-reverse",
+      "decisions": {
+        "input": "tests/workspacify-reverse/fixtures/patterns/siprs-for-reverse/DECISIONS.json",
+        "digest": "68d6a84fb85b6211cdeef0c01405e05ccaec8f7fd3d69aa24dd8ce276fc80ffd"
+      },
+      "analysed": 0,
+      "started_from": "5da48c08326de26d301ee30ced8596c23491a428d1b910e446a4d0b3ae8d3595"
+    },
+    {
+      "representative": "siprs-with-4layers",
+      "decisions": {
+        "input": "<scratch>",
+        "digest": "5157990420f6b007ce7668c49e7430f482b894a5d942b4f1e59a851a4d26bdf4"
+      },
+      "analysed": 0,
+      "started_from": "7fff58ff6d400d246603c0755cbac06abcf41d8dd595af02e2f91fa77e049da8"
+    },
+    {
+      "representative": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
+      "decisions": {
+        "input": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project/DECISIONS.json",
+        "digest": "694c1c923645bf200650ed568deda31d68164866b5cd3f83f20b5cc80ba27458"
+      },
+      "analysed": 0,
+      "started_from": "67f36e47b384edc16f4822b75ee5d136a2c0336fcfc3c7ce32e2058a839f8e18"
+    },
+    {
+      "representative": "tests/workspacify-reverse/fixtures/patterns/spec-only-project",
+      "decisions": {
+        "input": "<scratch>",
+        "digest": "5157990420f6b007ce7668c49e7430f482b894a5d942b4f1e59a851a4d26bdf4"
+      },
+      "analysed": 0,
+      "started_from": "0f1e95539f3bf1c8b12b614c54aeceb40791c1f3a2f3e09276eae3c44154145e"
+    }
+  ],
   "comparison": {
-    "representatives": [
-      "siprs-for-reverse",
-      "siprs-with-4layers",
-      "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
-      "tests/workspacify-reverse/fixtures/patterns/spec-only-project"
-    ],
-    "packagePaths": {
-      "siprs-for-reverse": [
-        "docker",
-        "examples",
-        "src",
-        "tests",
-        "vendor"
-      ],
-      "siprs-with-4layers": [
-        "archive",
-        "docker",
-        "docs",
-        "drills",
-        "examples",
-        "omissions",
-        "specs",
-        "src",
-        "tests",
-        "tickets",
-        "vendor"
-      ],
-      "tests/workspacify-reverse/fixtures/patterns/partial-conver-project": [
-        "docs",
-        "src"
-      ],
-      "tests/workspacify-reverse/fixtures/patterns/spec-only-project": [
-        "docs"
-      ]
-    },
-    "artefactNames": {
-      "siprs-for-reverse": {
-        "": [
-          "ARCHITECTURE-DELTA.json"
-        ]
-      },
-      "siprs-with-4layers": {
-        "": [
-          "ARCHITECTURE-DELTA.json",
-          "DesignTree.json",
-          "RFC-ROOT-BOUNDIFY-Status.json",
-          "RFC-ROOT-Dirs-Tree.json",
-          "RFC-ROOT-GRAPH.json",
-          "RFC-ROOT-GRAPHIFY-Status.json",
-          "RFC-ROOT-SPLIT-Status.json",
-          "RFC-ROOT.md",
-          "Tickets.json"
-        ]
-      },
-      "tests/workspacify-reverse/fixtures/patterns/partial-conver-project": {
-        "": [
-          "ARCHITECTURE-DELTA.json"
-        ],
-        "docs": [
-          "Tickets.json"
-        ]
-      },
-      "tests/workspacify-reverse/fixtures/patterns/spec-only-project": {}
-    },
-    "gates": {
-      "siprs-for-reverse": {},
-      "siprs-with-4layers": {},
-      "tests/workspacify-reverse/fixtures/patterns/partial-conver-project": {},
-      "tests/workspacify-reverse/fixtures/patterns/spec-only-project": {}
-    },
-    "differences": [
-      {
-        "representative": "siprs-with-4layers",
-        "dimension": "packagePaths",
-        "artefact": "packagePaths",
-        "detail": "siprs-with-4layers differs from siprs-for-reverse on packagePaths"
-      },
-      {
-        "representative": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
-        "dimension": "packagePaths",
-        "artefact": "packagePaths",
-        "detail": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project differs from siprs-for-reverse on packagePaths"
-      },
-      {
-        "representative": "tests/workspacify-reverse/fixtures/patterns/spec-only-project",
-        "dimension": "packagePaths",
-        "artefact": "packagePaths",
-        "detail": "tests/workspacify-reverse/fixtures/patterns/spec-only-project differs from siprs-for-reverse on packagePaths"
-      },
-      {
-        "representative": "siprs-with-4layers",
-        "dimension": "artefactNames",
-        "artefact": "artefactNames",
-        "detail": "siprs-with-4layers differs from siprs-for-reverse on artefactNames"
-      },
-      {
-        "representative": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
-        "dimension": "artefactNames",
-        "artefact": "artefactNames",
-        "detail": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project differs from siprs-for-reverse on artefactNames"
-      },
-      {
-        "representative": "tests/workspacify-reverse/fixtures/patterns/spec-only-project",
-        "dimension": "artefactNames",
-        "artefact": "artefactNames",
-        "detail": "tests/workspacify-reverse/fixtures/patterns/spec-only-project differs from siprs-for-reverse on artefactNames"
-      }
-    ],
+    "representatives": [],
+    "packagePaths": {},
+    "artefactNames": {},
+    "gates": {},
+    "differences": [],
     "reported": [
       {
         "dimension": "packagePaths",
-        "value": 3
+        "value": 0
       },
       {
         "dimension": "artefactNames",
-        "value": 3
+        "value": 0
       }
     ]
   },
+  "ladder": {
+    "position": "L0",
+    "omissionZero": {
+      "measured": false,
+      "reason": "this observation runs no find-omissions round; §5.9 makes the result material for the human’s judgement rather than this run’s output"
+    },
+    "residue": "0 difference(s) recorded and none resolved",
+    "disagreements": []
+  },
   "matrix": {
-    "states": [
-      {
-        "representative": "siprs-for-reverse",
-        "packages": [
-          "docker",
-          "examples",
-          "src",
-          "tests",
-          "vendor"
-        ],
-        "missing": [
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT.md"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-GRAPH.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-Dirs-Tree.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-SPLIT-Status.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "WORKSPACIFY-TREE-MANIFEST.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "WORKSPACIFY-ALLOCATE-MANIFEST.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "DesignTree.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-docker.md"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-docker-GRAPH.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-docker-Dirs-Tree.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-docker-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-docker-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-docker-SPLIT-Status.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "examples",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-examples.md"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-examples-GRAPH.json"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-examples-Dirs-Tree.json"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-examples-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-examples-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-examples-SPLIT-Status.json"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "src",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src.md"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-GRAPH.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-Dirs-Tree.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-SPLIT-Status.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "tests",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-tests.md"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-tests-GRAPH.json"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-tests-Dirs-Tree.json"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-tests-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-tests-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-tests-SPLIT-Status.json"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-vendor.md"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-vendor-GRAPH.json"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-vendor-Dirs-Tree.json"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-vendor-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-vendor-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-vendor-SPLIT-Status.json"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-SEED.md"
-          }
-        ]
-      },
-      {
-        "representative": "siprs-with-4layers",
-        "packages": [
-          "archive",
-          "docker",
-          "docs",
-          "drills",
-          "examples",
-          "omissions",
-          "specs",
-          "src",
-          "tests",
-          "tickets",
-          "vendor"
-        ],
-        "missing": [
-          {
-            "scope": "root",
-            "artefact": "WORKSPACIFY-TREE-MANIFEST.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "WORKSPACIFY-ALLOCATE-MANIFEST.json"
-          },
-          {
-            "scope": "archive",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "archive",
-            "artefact": "RFC-archive.md"
-          },
-          {
-            "scope": "archive",
-            "artefact": "RFC-archive-GRAPH.json"
-          },
-          {
-            "scope": "archive",
-            "artefact": "RFC-archive-Dirs-Tree.json"
-          },
-          {
-            "scope": "archive",
-            "artefact": "RFC-archive-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "archive",
-            "artefact": "RFC-archive-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "archive",
-            "artefact": "RFC-archive-SPLIT-Status.json"
-          },
-          {
-            "scope": "archive",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "docker",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-docker.md"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-docker-GRAPH.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-docker-Dirs-Tree.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-docker-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-docker-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-docker-SPLIT-Status.json"
-          },
-          {
-            "scope": "docker",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "docs",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs.md"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-GRAPH.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-Dirs-Tree.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-SPLIT-Status.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "drills",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "drills",
-            "artefact": "RFC-drills.md"
-          },
-          {
-            "scope": "drills",
-            "artefact": "RFC-drills-GRAPH.json"
-          },
-          {
-            "scope": "drills",
-            "artefact": "RFC-drills-Dirs-Tree.json"
-          },
-          {
-            "scope": "drills",
-            "artefact": "RFC-drills-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "drills",
-            "artefact": "RFC-drills-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "drills",
-            "artefact": "RFC-drills-SPLIT-Status.json"
-          },
-          {
-            "scope": "drills",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "examples",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-examples.md"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-examples-GRAPH.json"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-examples-Dirs-Tree.json"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-examples-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-examples-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-examples-SPLIT-Status.json"
-          },
-          {
-            "scope": "examples",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "omissions",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "omissions",
-            "artefact": "RFC-omissions.md"
-          },
-          {
-            "scope": "omissions",
-            "artefact": "RFC-omissions-GRAPH.json"
-          },
-          {
-            "scope": "omissions",
-            "artefact": "RFC-omissions-Dirs-Tree.json"
-          },
-          {
-            "scope": "omissions",
-            "artefact": "RFC-omissions-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "omissions",
-            "artefact": "RFC-omissions-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "omissions",
-            "artefact": "RFC-omissions-SPLIT-Status.json"
-          },
-          {
-            "scope": "omissions",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "specs",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "specs",
-            "artefact": "RFC-specs.md"
-          },
-          {
-            "scope": "specs",
-            "artefact": "RFC-specs-GRAPH.json"
-          },
-          {
-            "scope": "specs",
-            "artefact": "RFC-specs-Dirs-Tree.json"
-          },
-          {
-            "scope": "specs",
-            "artefact": "RFC-specs-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "specs",
-            "artefact": "RFC-specs-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "specs",
-            "artefact": "RFC-specs-SPLIT-Status.json"
-          },
-          {
-            "scope": "specs",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "src",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src.md"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-GRAPH.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-Dirs-Tree.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-SPLIT-Status.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "tests",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-tests.md"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-tests-GRAPH.json"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-tests-Dirs-Tree.json"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-tests-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-tests-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-tests-SPLIT-Status.json"
-          },
-          {
-            "scope": "tests",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "tickets",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "tickets",
-            "artefact": "RFC-tickets.md"
-          },
-          {
-            "scope": "tickets",
-            "artefact": "RFC-tickets-GRAPH.json"
-          },
-          {
-            "scope": "tickets",
-            "artefact": "RFC-tickets-Dirs-Tree.json"
-          },
-          {
-            "scope": "tickets",
-            "artefact": "RFC-tickets-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "tickets",
-            "artefact": "RFC-tickets-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "tickets",
-            "artefact": "RFC-tickets-SPLIT-Status.json"
-          },
-          {
-            "scope": "tickets",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-vendor.md"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-vendor-GRAPH.json"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-vendor-Dirs-Tree.json"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-vendor-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-vendor-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-vendor-SPLIT-Status.json"
-          },
-          {
-            "scope": "vendor",
-            "artefact": "RFC-SEED.md"
-          }
-        ]
-      },
-      {
-        "representative": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
-        "packages": [
-          "docs",
-          "src"
-        ],
-        "missing": [
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT.md"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-GRAPH.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-Dirs-Tree.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-SPLIT-Status.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "WORKSPACIFY-TREE-MANIFEST.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "WORKSPACIFY-ALLOCATE-MANIFEST.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "DesignTree.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs.md"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-GRAPH.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-Dirs-Tree.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-SPLIT-Status.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-SEED.md"
-          },
-          {
-            "scope": "src",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src.md"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-GRAPH.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-Dirs-Tree.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-src-SPLIT-Status.json"
-          },
-          {
-            "scope": "src",
-            "artefact": "RFC-SEED.md"
-          }
-        ]
-      },
-      {
-        "representative": "tests/workspacify-reverse/fixtures/patterns/spec-only-project",
-        "packages": [
-          "docs"
-        ],
-        "missing": [
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT.md"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-GRAPH.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-Dirs-Tree.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "RFC-ROOT-SPLIT-Status.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "WORKSPACIFY-TREE-MANIFEST.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "WORKSPACIFY-ALLOCATE-MANIFEST.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "ARCHITECTURE-DELTA.json"
-          },
-          {
-            "scope": "root",
-            "artefact": "DesignTree.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "Tickets.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs.md"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-GRAPH.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-Dirs-Tree.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-GRAPHIFY-Status.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-BOUNDIFY-Status.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-docs-SPLIT-Status.json"
-          },
-          {
-            "scope": "docs",
-            "artefact": "RFC-SEED.md"
-          }
-        ]
-      }
-    ]
+    "states": []
   }
 }

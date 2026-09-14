@@ -19,6 +19,11 @@
  * vocabulary is `proved` and `not proved` and nothing else, the L0-L3 ladder is
  * reported as a position rather than a grade, and only L3 may be called success
  * — which is a human's judgement after several rounds, not one run's output.
+ *
+ * `proved` is the narrower claim: it states that a measured tree satisfied §2.3's
+ * inventory, so the terminal state was reached and measured at all. It says nothing
+ * about whether the patterns converge, which is the judgement L3 reserves and this
+ * module is built not to make.
  */
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -73,6 +78,42 @@ export const ALLOCATE_REFUSAL_GATE = 'A1';
  */
 export const LADDER_POSITIONS = Object.freeze(['L0', 'L1', 'L2', 'L2.5', 'L3']);
 
+/**
+ * The machine's whole vocabulary for the outcome: two values, and nothing else.
+ *
+ * §5.9 says it in as many words. A third word — a grade, a percentage, a verdict —
+ * would look objective while encoding a threshold nobody chose (`ABOUT-REVERSE`
+ * §7.7.2), so `renderTerminalStateReport` refuses one rather than rendering it.
+ */
+export const TERMINAL_OUTCOMES = Object.freeze(['proved', 'not proved']);
+
+/** The caveat that both permits the word `success` and denies it to everything but L3. */
+const L3_CAVEAT =
+  'Only L3 may be called success, and that judgement is a human’s, taken after several rounds. This '
+  + 'report states a position rather than a grade and reaches no conclusion about the project.';
+
+/**
+ * The report's statement of where its own reach ends.
+ *
+ * A reader who cannot see the instrument's limit will assume there is none, and this
+ * observation has one the record shows plainly: no representative reached the
+ * terminal state, so the comparison has nothing to compare. Stated as a limit of the
+ * instrument, that is a measurement. Left unstated, the same fact reads as a property
+ * of the projects measured — which is the reading §7.3's own history warns against.
+ */
+const INSTRUMENT_LIMIT =
+  'Where a representative stopped short, the record names the stage that refused it. A gap here is a '
+  + 'limitation of the instrument rather than evidence about the project: it says this observation did '
+  + 'not produce a terminal state to measure, not that the project has none.';
+
+/** The verdict a caller that measured nothing is given, so the report still names a position. */
+const LADDER_UNREPORTED = Object.freeze({
+  ladder: Object.freeze({ position: 'L0' }),
+  stages: null,
+  outcome: 'not proved',
+});
+
+
 /** True when a path exists and is a directory. */
 // [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
 function isDirectory(path) {
@@ -97,6 +138,19 @@ function packagesUnder(root) {
 }
 
 /**
+ * True when the tree holds the artefact a scope names.
+ *
+ * The root's artefacts sit directly under it; every other scope is a package
+ * directory, so the artefact is looked for one level in. Spelled once here because
+ * the two paths are the whole content of the check and a reader has to see both to
+ * know which one a given scope takes.
+ */
+// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+function artefactExists(root, { scope, artefact }) {
+  return existsSync(scope === 'root' ? join(root, artefact) : join(root, scope, artefact));
+}
+
+/**
  * The state one representative's tree is in, against §2.3's list.
  *
  * `missing` is the finding: it names the scope and the artefact, so a tree that
@@ -115,11 +169,8 @@ export function measureTerminalState({ root, manifest = null } = {}) {
   const missing = [];
   const present = [];
   const record = (scope, artefact) => {
-    if (existsSync(join(root, scope === 'root' ? artefact : join(scope, artefact)))) {
-      present.push({ scope, artefact });
-    } else {
-      missing.push({ scope, artefact });
-    }
+    const entry = { scope, artefact };
+    (artefactExists(root, entry) ? present : missing).push(entry);
   };
 
   for (const artefact of TERMINAL_ARTEFACTS.root) record('root', artefact);
@@ -195,27 +246,22 @@ export function compareTerminalStates(states) {
   ];
 
   for (const { dimension, value } of dimensions) {
-    const seen = new Map();
-    for (const state of states) {
-      const rendered = value(state);
-      if (seen.has(rendered)) continue;
-      seen.set(rendered, state.representative);
-    }
-    // Zero is the count of representatives that stand apart from the first, so
-    // an agreeing pair reports 0 and is not silently dropped.
-    const apart = seen.size - (states.length === 0 ? 0 : 1);
-    reported.push({ dimension, value: Math.max(apart, 0) });
-    if (apart > 0) {
-      for (const [rendered, representative] of seen.entries()) {
-        const first = seen.entries().next().value;
-        if (first[0] === rendered) continue;
-        differences.push({
-          representative,
-          dimension,
-          artefact: dimension,
-          detail: `${representative} differs from ${first[1]} on ${dimension}`,
-        });
-      }
+    // The distinct renderings, in the order the representatives were measured, so the
+    // first entry is the reference the others are reported against and equal structures
+    // collapse into one. An empty comparison has no representatives at all, so there is
+    // nobody to stand apart and no reference to name.
+    const distinct = states.length === 0
+      ? []
+      : [...new Map(states.map((state) => [value(state), state.representative])).entries()];
+    const [reference] = distinct;
+    reported.push({ dimension, value: Math.max(distinct.length - 1, 0) });
+    for (const [, representative] of distinct.slice(1)) {
+      differences.push({
+        representative,
+        dimension,
+        artefact: dimension,
+        detail: `${representative} differs from ${reference[1]} on ${dimension}`,
+      });
     }
   }
 
@@ -255,6 +301,47 @@ export function summariseStages(records) {
 }
 
 /**
+ * The outcome, derived from what was measured rather than declared.
+ *
+ * `proved` is not a grade and not a claim about the project: it states that at least
+ * one measured tree satisfied §2.3's declared inventory, so the terminal state was
+ * reached and measured at all — which is the one fact this observation can establish
+ * and the fact §7.3 recorded as never established. Everything else is `not proved`,
+ * including the case a run exited zero and left the tree short an element, because an
+ * exit code is evidence that a program finished and never evidence of completeness.
+ *
+ * @param {ReadonlyArray<object>} states - the measured terminal states
+ * @returns {'proved'|'not proved'}
+ */
+export function outcomeOf(states = []) {
+  return Array.isArray(states) && states.some((state) => state?.complete === true) ? 'proved' : 'not proved';
+}
+
+/**
+ * What each measured state holds and what it is short of, as the report's table.
+ *
+ * The missing artefacts are rows beneath their representative rather than a count,
+ * because the finding is *which* element of §2.3 the tree does not hold: a reader
+ * checking the claim needs the name, and a bare total would have them re-run the
+ * measurement to recover it. The scope names where the artefact was looked for, so a
+ * tree that stopped at one layer reads differently from one that never began.
+ */
+// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+function stateTable(states) {
+  if (states.length === 0) return ['No representative reached the terminal state in this observation.', ''];
+
+  const rows = ['| Representative | Packages | Missing artefacts |', '|---|---|---|'];
+  for (const state of states) {
+    rows.push(`| ${state.representative} | ${state.packages.length} | ${state.missing.length} |`);
+    for (const entry of state.missing) {
+      rows.push(`| | ${entry.scope} | ${entry.artefact} |`);
+    }
+  }
+  rows.push('');
+  return rows;
+}
+
+/**
  * The outcome, rendered.
  *
  * The paragraph under the table is the instrument's own vocabulary: `proved` or
@@ -262,70 +349,114 @@ export function summariseStages(records) {
  * judgement is a human's. `omission 0` is reported as material and never as the
  * success condition, because §5.9 says in as many words that it is not.
  *
- * @param {{states: ReadonlyArray<object>, comparison: object|null, ladder: object, stages?: object|null}} params
+ * The verdict inputs travel together: an outcome is only meaningful against the ladder
+ * position and the stage summary that produced it, and passing one without the others
+ * is how a report comes to state a judgement its own measurement does not support.
+ *
+ * @param {{states: ReadonlyArray<object>, comparison: object|null, verdict?: {ladder: object, stages: object|null, outcome: string}}} params
  * @returns {string} the report
+ * @throws {TypeError} when the outcome is not one of `TERMINAL_OUTCOMES`
  */
-export function renderTerminalStateReport({
-  states = [], comparison = null, ladder = { position: 'L0' }, stages = null,
-} = {}) {
-  const lines = ['# Terminal state', ''];
-
-  if (states.length === 0) {
-    lines.push('No representative reached the terminal state in this observation.', '');
-  } else {
-    lines.push('| Representative | Packages | Missing artefacts |', '|---|---|---|');
-    for (const state of states) {
-      lines.push(`| ${state.representative} | ${state.packages.length} | ${state.missing.length} |`);
-      for (const entry of state.missing) {
-        lines.push(`| | ${entry.scope} | ${entry.artefact} |`);
-      }
-    }
-    lines.push('');
+export function renderTerminalStateReport({ states = [], comparison = null, verdict = null } = {}) {
+  const { ladder, stages, outcome } = verdict ?? LADDER_UNREPORTED;
+  if (!TERMINAL_OUTCOMES.includes(outcome)) {
+    throw new TypeError(`the outcome must be one of TERMINAL_OUTCOMES (${TERMINAL_OUTCOMES.join(' / ')}); make the observation state it, rather than asserting one: got ${JSON.stringify(outcome)}`);
   }
 
-  if (stages !== null) {
-    lines.push('## Stages', '');
-    lines.push(`Reached: ${stages.reached.join(', ') || 'none'}.`);
-    for (const refused of stages.refused) {
-      lines.push(`- \`${refused.stage}\` refused, with input \`${JSON.stringify(refused.input)}\`.`);
-    }
-    lines.push('');
-  }
-
-  if (comparison !== null) {
-    lines.push('## The comparison', '');
-    lines.push('Every dimension is reported for every representative, including where the value is zero.');
-    lines.push('');
-    lines.push('| Dimension | Representative | Value |', '|---|---|---|');
-    for (const entry of comparison.reported) {
-      lines.push(`| ${entry.dimension}${entry.artefact ? ` (${entry.artefact})` : ''} | all | ${entry.value} |`);
-    }
-    lines.push('');
-    if (comparison.differences.length === 0) {
-      lines.push(
-        'The structures agree on every dimension measured. A difference of zero is reported here as a '
-          + 'signal rather than as health: it says these representatives were compared and no difference '
-          + 'was found, not that the comparison was skipped.',
-        '',
-      );
-    } else {
-      lines.push('The differences below are recorded, not resolved. A recorded difference is not a contradiction.');
-      lines.push('');
-      for (const difference of comparison.differences) {
-        lines.push(`- \`${difference.representative}\` — ${difference.artefact}: ${difference.detail}`);
-      }
-      lines.push('');
-    }
-  }
-
-  lines.push('## The outcome', '');
-  lines.push(`Ladder position reached: \`${ladder.position}\`.`);
-  lines.push('');
-  lines.push(
-    'Only L3 may be called success, and that judgement is a human’s, taken after several rounds. This '
-      + 'report states a position rather than a grade and reaches no conclusion about the project.',
+  return [
+    '# Terminal state',
     '',
-  );
+    ...stateTable(states),
+    ...stageSection(stages),
+    ...comparisonSection(comparison),
+    ...outcomeSection({ ladder, outcome }),
+  ].join('\n');
+}
+
+/**
+ * The stages the chain ran, each refusal named with the input it was handed.
+ *
+ * A summary that omitted the refusing stage would report a broken run as a short one,
+ * so the refusals are listed rather than counted and the input is quoted beside the
+ * stage — an operator reading the report learns where the chain stopped and on what,
+ * without re-running the command to find out.
+ */
+// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+function stageSection(stages) {
+  if (stages === null) return [];
+
+  const lines = ['## Stages', '', `Reached: ${stages.reached.join(', ') || 'none'}.`];
+  for (const refused of stages.refused) {
+    lines.push(`- \`${refused.stage}\` refused, with input \`${JSON.stringify(refused.input)}\`.`);
+  }
+  return [...lines, ''];
+}
+
+/**
+ * The comparison, with its zeroes reported beside its differences.
+ *
+ * §2.4's rule is the shape of this section: a dimension where nothing differs is
+ * reported as a signal, not dropped, because a table that printed only the differences
+ * would leave a reader unable to tell agreement from a dimension nobody measured.
+ */
+// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+function comparisonSection(comparison) {
+  if (comparison === null) return [];
+
+  // A comparison over no representatives has nothing to put in the table, and its
+  // zeroes are not the agreement §2.4 warns about reading as health — they are the
+  // absence of anyone to compare. Rendering them as agreement would report the
+  // observation's own shortfall as a property of the structures.
+  if (comparison.representatives.length === 0) {
+    return [
+      '## The comparison',
+      '',
+      'There is nothing to compare: no structure was measured, which is the finding above and not a '
+        + 'result about the structures. The dimensions are reported as zero because nobody reached the '
+        + 'terminal state, never because two structures were found to agree.',
+      '',
+    ];
+  }
+
+  const lines = [
+    '## The comparison',
+    '',
+    'Every dimension is reported for every representative, including where the value is zero.',
+    '',
+    '| Dimension | Representative | Value |',
+    '|---|---|---|',
+  ];
+  for (const entry of comparison.reported) {
+    lines.push(`| ${entry.dimension}${entry.artefact ? ` (${entry.artefact})` : ''} | all | ${entry.value} |`);
+  }
+  lines.push('');
+
+  if (comparison.differences.length === 0) {
+    return [...lines,
+      'The structures agree on every dimension measured. A difference of zero is reported here as a '
+        + 'signal rather than as health: it says these representatives were compared and no difference '
+        + 'was found, not that the comparison was skipped.',
+      ''];
+  }
+
+  lines.push('The differences below are recorded, not resolved. A recorded difference is not a contradiction.', '');
+  for (const difference of comparison.differences) {
+    lines.push(`- \`${difference.representative}\` — ${difference.artefact}: ${difference.detail}`);
+  }
+  return [...lines, ''];
+}
+
+/**
+ * The outcome, and the material a human judges it against.
+ *
+ * The machine states a position and stops. `omission 0` is reported as material and
+ * never as the success condition, because §5.9 says in as many words that it is not.
+ */
+// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+function outcomeSection({ ladder, outcome }) {
+  const lines = ['## The outcome', '', `Outcome: ${outcome}.`, '', INSTRUMENT_LIMIT, ''];
+  lines.push(`Ladder position reached: \`${ladder.position}\`.`, '');
+  lines.push(L3_CAVEAT, '');
   if (ladder.omissionZero !== undefined) {
     lines.push(
       `\`omission 0\` result: ${JSON.stringify(ladder.omissionZero)}. It is material for the human’s `
@@ -336,5 +467,5 @@ export function renderTerminalStateReport({
   if (ladder.residue !== undefined) {
     lines.push(`Residue: ${JSON.stringify(ladder.residue)}.`, '');
   }
-  return lines.join('\n');
+  return lines;
 }

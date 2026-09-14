@@ -37,18 +37,20 @@ import {
   copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync,
 } from 'node:fs';
 import os from 'node:os';
-import { basename, join } from 'node:path';
+import { basename, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { PATTERN_REPRESENTATIVE_ROOTS } from '../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs';
 import {
   LADDER_POSITIONS,
+  TERMINAL_OUTCOMES,
   compareTerminalStates,
   measureTerminalState,
+  outcomeOf,
   renderTerminalStateReport,
   summariseStages,
 } from '../../../.claude/scripts/workspacify-reverse/lib/terminal-state.mjs';
-import { createScratchFrom, hashTree } from '../helpers/scratch.mjs';
+import { createScratchFrom, hashTree, sha256 } from '../helpers/scratch.mjs';
 import { buildGraphNodes } from '../helpers/graph-nodes.mjs';
 import { decisionsPathFor } from '../helpers/decisions-authoring.mjs';
 import { makeDecisions } from '../../workspacify-allocate/helpers/build-valid-manifest.mjs';
@@ -85,6 +87,24 @@ const SIDECAR_DIR = join(PROJECT_ROOT, 'tests', 'workspacify-reverse', 'analysis
 
 /** Where this observation's record is written, so it survives without being repeated. */
 const RECORD_PATH = join(PROJECT_ROOT, 'tests', 'workspacify-reverse', 'analysis', 'TERMINAL-STATE.json');
+
+/** The design document §7.3 lives in, and where the claim it records is replaced by a citation. */
+const DESIGN_PATH = join('docs', 'WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
+
+/** The design section §7.3 occupies, so the assertions read the claim rather than the whole document. */
+const NOT_VERIFIED_SECTION = Object.freeze({ from: '### 7.3', to: '### 7.4' });
+
+/**
+ * The ladder position this observation can witness: the analysis runs, and nothing above
+ * it is reached.
+ *
+ * §5.9's rungs above L0 are decided by a Red reconstruction, a residue count and a human's
+ * judgement, none of which this observation performs — it drives the reverse chain and
+ * measures the trees that come out, so it can report that the bottom rung was reached and
+ * no further. Recording a higher position would state a grade this run did not take.
+ */
+// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+const LADDER_WITNESSED_BY_THIS_OBSERVATION = LADDER_POSITIONS[0];
 
 /** A representative the chain cannot configure: it carries no source in any target language. */
 const KNOWN_UNCONFIGURABLE = 'spec-only-project';
@@ -151,6 +171,74 @@ function decisionsFor(representative, scratchRoot) {
   const path = join(scratchRoot, 'DECISIONS.json');
   if (!existsSync(path)) writeFileSync(path, `${JSON.stringify(DECISIONS_SKELETON, null, 2)}\n`, 'utf8');
   return path;
+}
+
+/** The placeholder a scratch path is recorded as, so the record names no machine. */
+const SCRATCH_PLACEHOLDER = '<scratch>';
+
+/**
+ * The decisions input one run read, and the digest that makes the reading reproducible.
+ *
+ * The path is recorded project-relative and the digest over the file's bytes, so a
+ * reader can tell whether the judgement this run rested on is still the one on disk.
+ * A path alone would not: it names where this operator happened to keep the file, and
+ * the file can be edited between runs without the path changing at all.
+ */
+// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+function decisionsDigestFor(representative) {
+  const authored = decisionsPathFor(representative, PROJECT_ROOT);
+  if (existsSync(authored)) {
+    return { input: relative(PROJECT_ROOT, authored), digest: sha256(readFileSync(authored, 'utf8')) };
+  }
+  // A representative the chain cannot configure reads the empty skeleton, which is
+  // written beside the scratch copy. The digest is over the skeleton's own bytes, so
+  // it names what the run actually read rather than only that nothing was authored.
+  return { input: SCRATCH_PLACEHOLDER, digest: sha256(JSON.stringify(DECISIONS_SKELETON)) };
+}
+
+/**
+ * A stage record with every scratch path replaced, so the record describes the run
+ * and not the machine it ran on.
+ *
+ * The refusal a stage publishes names the directories it was handed, and this
+ * observation hands it two throwaway ones per representative. Recorded verbatim they
+ * would be a different string on every machine and every run, which would make the
+ * committed record reproduce nowhere — the same defect the forward baseline carried
+ * until `normaliseMarkerRewritePaths` replaced its absolute path.
+ */
+// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+function normaliseScratchPaths(stages) {
+  return stages.map((entry) => ({
+    ...entry,
+    input: typeof entry.input === 'string' ? entry.input.split(os.tmpdir()).join(SCRATCH_PLACEHOLDER) : entry.input,
+  }));
+}
+
+/**
+ * §7.3's paragraph, as the document now carries it.
+ *
+ * Read as a slice rather than as the whole document, because the claim this ticket
+ * retires is one paragraph of it: `nobody has ever observed` appears nowhere else, so
+ * asserting against the whole file would accept a citation added elsewhere in place of
+ * the one §7.3 needs.
+ */
+// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+function sectionNotVerified() {
+  const design = readFileSync(join(PROJECT_ROOT, DESIGN_PATH), 'utf8');
+  const from = design.indexOf(NOT_VERIFIED_SECTION.from);
+  const to = design.indexOf(NOT_VERIFIED_SECTION.to);
+  if (from < 0 || to < 0) {
+    throw new Error(`${DESIGN_PATH} no longer carries ${NOT_VERIFIED_SECTION.from} … ${NOT_VERIFIED_SECTION.to}`);
+  }
+  return design.slice(from, to);
+}
+
+/** Assert §7.3 records a measurement rather than the claim that none was ever taken. */
+// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+function assertSectionCitesTheRecord() {
+  const section = sectionNotVerified();
+  assert.doesNotMatch(section, /Nobody has ever observed a project reach the terminal state/);
+  assert.match(section, /TERMINAL-STATE\.json/, '§7.3 cites the record the observation left');
 }
 
 /** Run one command of the chain and report its exit status and output. */
@@ -358,7 +446,8 @@ function runReverseChain({ subject, documents, through = 'allocate' }) {
 
 test('IT: the chain reaches the terminal state over each representative, or says which stage refused', { skip: !selected }, () => {
   const observations = [];
-  const states = [];
+  const runs = [];
+  const reaching = [];
 
   for (const representative of PATTERN_REPRESENTATIVE_ROOTS) {
     const subject = join(PROJECT_ROOT, representative);
@@ -386,51 +475,120 @@ test('IT: the chain reaches the terminal state over each representative, or says
       stages.push(...chained.stages);
     }
 
-    const summary = summariseStages(stages);
+    const summary = summariseStages(normaliseScratchPaths(stages));
     const measured = measureTerminalState({ root: source.root });
+    const outcome = outcomeOf(summary, measured);
     observations.push({
       representative,
       stages: summary,
+      outcome,
       missing: measured.missing.length,
       packages: measured.packages.length,
     });
-    states.push({ representative, ...measured, gates: {} });
+    runs.push({
+      representative,
+      decisions: decisionsDigestFor(representative),
+      analysed: analysed.status,
+      started_from: sha256(JSON.stringify(before)),
+    });
+
+    // C002's precondition, applied rather than assumed: the comparison is taken
+    // over the states that reached the terminal state, and no others. A refusal is
+    // not a member of that population — comparing a tree that stopped at T4 against
+    // one that stopped at G2 measures the refusals, not the terminal structures.
+    if (measured.complete) reaching.push({ representative, ...measured, gates: {} });
 
     // The representative itself was never the subject: the chain ran over a
     // copy, so a frozen instrument — and the answer key among them — is
     // byte-identical afterwards.
     assert.deepEqual(hashTree(subject), before, `${representative}: the representative was not modified`);
 
-    if (!summary.complete || !measured.complete) {
-      // Reported rather than worked around: the finding names the stage that
-      // stopped the chain, or the artefacts the tree is still missing, and the
-      // other representatives' observations stand beside it.
+    // C001's invariant, asserted for every representative whatever it did: an exit
+    // code is never evidence of completeness. A representative recorded as not proved
+    // names the stage that refused or the artefacts the tree is missing, and the
+    // others' observations stand beside it.
+    if (outcome === 'not proved') {
       assert.equal(
         summary.refused.length > 0 || measured.missing.length > 0,
         true,
-        `${representative}: stopping short names a refusing stage or a missing artefact`,
+        `${representative}: not proved names a refusing stage or a missing artefact`,
       );
     }
     source.dispose();
     out.dispose();
   }
 
-  const comparison = compareTerminalStates(states);
+  const comparison = compareTerminalStates(reaching);
+  const ladder = {
+    position: LADDER_WITNESSED_BY_THIS_OBSERVATION,
+    // §5.9 makes omission 0 material for the human's judgement, and this observation
+    // runs no find-omissions round — so it is recorded as unmeasured with the reason
+    // rather than reported as zero, which would read as a finding.
+    omissionZero: {
+      measured: false,
+      reason: 'this observation runs no find-omissions round; §5.9 makes the result material for the human’s judgement rather than this run’s output',
+    },
+    residue: `${comparison.differences.length} difference(s) recorded and none resolved`,
+    disagreements: comparison.differences,
+  };
+  // The verdict travels together: the outcome is derived from what was measured rather
+  // than declared, `proved` states that the terminal state was reached and measured at
+  // all, and the ladder position and the stage summary are the material a reader checks
+  // that claim against.
   const report = renderTerminalStateReport({
-    states,
+    states: reaching,
     comparison,
-    ladder: { position: 'L0' },
-    stages: null,
+    verdict: { ladder, stages: null, outcome: outcomeOf(reaching) },
   });
 
-  writeFileSync(RECORD_PATH, `${JSON.stringify({
-    observations, comparison, matrix: { states: states.map((state) => ({ representative: state.representative, packages: state.packages, missing: state.missing })) },
-  }, null, 2)}\n`, 'utf8');
+  const record = `${JSON.stringify({
+    observations,
+    runs,
+    comparison,
+    ladder,
+    matrix: { states: reaching.map((state) => ({ representative: state.representative, packages: state.packages, missing: state.missing })) },
+  }, null, 2)}\n`;
+  // A repeat run produces the same bytes, and rewriting identical bytes still touches a
+  // file in the suite tree that verification-surface.test.mjs digests around its own
+  // nested run — from a sibling process, so an unconditional write races it and fails
+  // that test once every few runs. Writing on change keeps the record fresh without
+  // making a concurrent reader see it move.
+  if (!existsSync(RECORD_PATH) || readFileSync(RECORD_PATH, 'utf8') !== record) {
+    writeFileSync(RECORD_PATH, record, 'utf8');
+  }
 
   assert.equal(observations.length, PATTERN_REPRESENTATIVE_ROOTS.length);
-  assert.equal(comparison.representatives.length, PATTERN_REPRESENTATIVE_ROOTS.length);
+  assert.equal(runs.length, PATTERN_REPRESENTATIVE_ROOTS.length);
+  assert.equal(comparison.representatives.length, reaching.length, 'the comparison is taken over the states that reached it, and no others');
   assert.match(report, /a human’s/i, 'the report states the judgement is a human’s, whatever the run did');
   assert.equal(LADDER_POSITIONS.includes('L0'), true);
+
+  // C003's postcondition: every run names the decisions input it read and the digest
+  // over that input's bytes, so a later reader can tell whether the judgement this
+  // observation rested on is still the one on disk.
+  for (const run of runs) {
+    assert.equal(typeof run.decisions.input, 'string', `${run.representative}: the decisions input is named`);
+    assert.match(run.decisions.digest, /^[0-9a-f]{64}$/, `${run.representative}: the digest is lowercase SHA-256 hex`);
+  }
+
+  // C004's vocabulary, applied to every representative the run recorded: two words
+  // and no third, and each stops short for a reason the record names.
+  for (const entry of observations) {
+    assert.equal(TERMINAL_OUTCOMES.includes(entry.outcome), true, `${entry.representative}: the outcome is one of ${TERMINAL_OUTCOMES.join(' / ')}`);
+  }
+  assert.equal(
+    observations.some((entry) => entry.outcome === 'not proved'),
+    true,
+    'a representative that stopped short is recorded as not proved rather than omitted',
+  );
+
+  // The record describes the run, not the machine: `mkdtempSync` hands out a different
+  // path on every run, so a record that carried one would commit a string no other
+  // checkout can reproduce.
+  assert.doesNotMatch(JSON.stringify({ observations, runs }), new RegExp(os.tmpdir()), 'the record names no scratch path');
+
+  // §7.3 stops reading as an unverified claim and cites the measurement instead.
+  assertSectionCitesTheRecord();
 
   const unconfigurable = observations.find((entry) => entry.representative.endsWith(KNOWN_UNCONFIGURABLE));
   if (unconfigurable !== undefined) {
@@ -899,5 +1057,19 @@ test('IT: the chain writes its decisions skeletons beside the copy, so no repres
     }
   } finally {
     scratch.dispose();
+  }
+});
+
+test('IT: §7.3 cites the record, so the claim that nothing was ever observed is retired', () => {
+  assertSectionCitesTheRecord();
+
+  // The record the citation stands on is committed beside the test that writes it, so
+  // the citation resolves to a file rather than to a promise that one will be written.
+  assert.equal(existsSync(RECORD_PATH), true, 'the record the citation names is in the tree');
+
+  const record = JSON.parse(readFileSync(RECORD_PATH, 'utf8'));
+  assert.deepEqual(Object.keys(record).sort(), ['comparison', 'ladder', 'matrix', 'observations', 'runs']);
+  for (const run of record.runs) {
+    assert.match(run.decisions.digest, /^[0-9a-f]{64}$/, `${run.representative}: the record names its decisions digest`);
   }
 });
