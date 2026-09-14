@@ -438,6 +438,34 @@ export function findDeadCode(dependencies, paths) {
 }
 
 /**
+ * The declarations E12 found unreachable, in the shape the gap list consumes.
+ *
+ * Only the unreachable are gaps. A region the syntax layer could not analyse is
+ * a blind spot of the reader and is carried by the reachability partition, not
+ * turned into a gap: reporting "we cannot see whether this is reached" under a
+ * kind whose meaning is "nothing references it" would state a finding the
+ * reading does not support.
+ *
+ * The provenance is `inferred` for the same reason `findDeadCode`'s is: the
+ * syntax layer resolves no names, so "no observed edge reaches this" is evidence
+ * about the import graph rather than proof about the running program.
+ */
+// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+export function findUnreachedRegions(reachability) {
+  return (reachability?.regions ?? [])
+    .filter((region) => region.state === 'unreachable')
+    .map((region) => gapOf('dead_code', region.file, region.line, 'inferred', {
+      symbol: region.symbol,
+      region_kind: region.regionKind,
+      unreachable_reason: region.reason,
+      evidence: [
+        region.detail ?? `no observed import edge reaches ${region.file}`,
+        'the syntax layer resolves no names, so a runtime or macro reference would not appear here',
+      ],
+    }));
+}
+
+/**
  * The public surface no test could fail for.
  *
  * A symbol counts as covered when a test file names it. That is a weaker test
@@ -613,6 +641,9 @@ export function findUnobservedSurface(surface, boundary, ledger) {
  * completed, and enumerating gaps from a partial analysis would report the
  * unmeasured as unobserved and the unobserved as missing. The refusal is
  * deliberate rather than a convenience.
+ *
+ * @param {object} source
+ * @param {object|null} [source.reachability] - E12's partition; its unreachable regions are gaps
  */
 export function enumerateGaps(source) {
   const {
@@ -623,6 +654,7 @@ export function enumerateGaps(source) {
     dependencies = null,
     surface = null,
     ledger = null,
+    reachability = null,
     readFile = readFileSync,
   } = source ?? {};
 
@@ -642,6 +674,7 @@ export function enumerateGaps(source) {
     ...findCircularReasoning(root, paths, { readFile }),
     ...findCommentCodeDrift(root, paths, { readFile }),
     ...findUnobservedSurface(surface, boundary, ledger),
+    ...findUnreachedRegions(reachability),
   ].sort((left, right) => compareText(
     `${left.file}:${String(left.line).padStart(6, '0')}:${left.kind}`,
     `${right.file}:${String(right.line).padStart(6, '0')}:${right.kind}`,
@@ -655,8 +688,12 @@ export function enumerateGaps(source) {
  * `unclassified` with the kind it claimed, rather than dropped. Dropping it
  * would make an unknown category invisible in the one list whose job is to make
  * the unknown visible.
+ *
+ * @param {ReadonlyArray<object>} gaps - the enumerated gaps
+ * @param {object} [params]
+ * @param {object|null} [params.reachability] - E12's partition, published beside the gaps it fed
  */
-export function classifyGaps(gaps) {
+export function classifyGaps(gaps, { reachability = null } = {}) {
   const classified = gaps.map((gap) => {
     if (GAP_KINDS.includes(gap.kind)) return { ...gap };
     return {
@@ -679,6 +716,10 @@ export function classifyGaps(gaps) {
     by_kind,
     known_count: known.length,
     unclassifiedCount: classified.length - known.length,
+    // E12's partition travels with the gaps it fed, so a reader can tell a
+    // population with nothing unreachable in it from one that was never
+    // partitioned. Present whether or not the list is empty, for the same reason.
+    reachability,
     // Present whether or not the list is empty, so a consumer cannot read an
     // empty list as a pass by finding no field to disagree with.
     requires_scrutiny: true,

@@ -465,18 +465,20 @@ test('UT: [Error] C002 invariant — a declaration naming a language with no que
 test('UT: [Boundary] C002 invariant — a family with no extractor reads not_attempted, which is not ran-and-found-nothing', () => {
 // [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
-  // P24-3 wrote the E5 and E6 extractors for the five, so those families moved
-  // from not_attempted to partial, and P24-4 did the same for E7-E11 once each
-  // language's vocabulary had been exercised over its own representative. E12 is
-  // where a family with no extractor still lives, and the boundary this test
-  // draws is asserted there: not_attempted is this instrument declining to look,
-  // which is not the same record as a reader that looked and found nothing.
+  // P24-3 wrote the E5 and E6 extractors for the five, P24-4 did the same for
+  // E7-E11, and P24-5 for E12 and E14, once each language's material had been
+  // read over its own representative. E15 is where a family with no reader still
+  // lives, and the boundary this test draws is asserted there: not_attempted is
+  // this instrument declining to look, which is not the same record as a reader
+  // that looked and found nothing.
   for (const language of NEW_FIVE) {
     assert.equal(CAPABILITY_MATRIX[language].E5, 'partial');
     assert.equal(CAPABILITY_MATRIX[language].E6, 'partial');
     assert.equal(CAPABILITY_MATRIX[language].E7, 'partial');
-    assert.equal(CAPABILITY_MATRIX[language].E12, 'not_attempted');
-    assert.notEqual(CAPABILITY_MATRIX[language].E12, CAPABILITY_MATRIX[language].E1);
+    assert.equal(CAPABILITY_MATRIX[language].E12, 'partial');
+    assert.equal(CAPABILITY_MATRIX[language].E14, 'partial');
+    assert.equal(CAPABILITY_MATRIX[language].E15, 'not_attempted');
+    assert.notEqual(CAPABILITY_MATRIX[language].E15, CAPABILITY_MATRIX[language].E1);
   }
   const blank = createSyntheticTree({ 'src/empty.py': '' }, { prefix: 'wsp-p24-2-empty-' });
   const ledger = buildAttemptLedger(measureStructure({ root: blank.root }).attempts);
@@ -496,13 +498,18 @@ test('UT: [Invariant] no cell of the 96 reads success, and unsupported_in_princi
     ['E13'],
   );
   // A family every language reaches carries a reason per language, because the
-  // construct one language hides is not the construct another hides. E12 is what
+  // construct one language hides is not the construct another hides. E15 is what
   // a family no language reaches reads like: one shared reason, because there is
   // one fact to state — this instrument does not attempt it.
   assert.equal(
+    capabilityNoteFor('c_cpp', 'E15'),
+    capabilityNoteFor('go', 'E15'),
+    'a family no language reaches carries one shared reason',
+  );
+  assert.notEqual(
     capabilityNoteFor('c_cpp', 'E12'),
     capabilityNoteFor('go', 'E12'),
-    'a family no language reaches carries one shared reason',
+    'E12 reaches the six, so its reason names each language\'s own invisible construct',
   );
   assert.notEqual(
     capabilityNoteFor('c_cpp', 'E7'),

@@ -174,6 +174,14 @@ export const LANGUAGES_WITH_EXTRACTORS = Object.freeze({
   E9: Object.freeze([...TARGET_LANGUAGES]),
   E10: Object.freeze([...TARGET_LANGUAGES]),
   E11: Object.freeze([...TARGET_LANGUAGES]),
+  // E12 and E14 are read over whatever language the run measured rather than by
+  // one query set per language: reachability folds the declarations R1 and the
+  // edges R2 found, and the property run writes for the engine `PROPERTY_ENGINES`
+  // declares per language. E13 is deliberately absent: its cell is decided before
+  // this table is read, and declaring it here would claim an extractor that does
+  // not exist.
+  E12: Object.freeze([...TARGET_LANGUAGES]),
+  E14: Object.freeze([...TARGET_LANGUAGES]),
 });
 
 /**
@@ -247,6 +255,37 @@ const CAPABILITY_NOTES = Object.freeze({
     'Measured through tree-sitter-python over the same four. `assert` is a statement rather than a call, `__getattr__` answers for names no body declares, and a metaclass installs state that no class body writes.',
   'c_cpp/E7-E11':
     'Measured through tree-sitter-cpp over the same four. The preprocessor decides what the compiler ever sees, macro expansion rewrites the guard before this layer reads it, and an error return is a sentinel value rather than a name a filter can read.',
+  // E12's reading is over the declarations R1 enumerated and the import edges R2
+  // observed, so each reason names what that language's syntax keeps out of both.
+  // A declaration under a conditional-compilation marker is not-analysable rather
+  // than unreachable, and the reason says which mechanism gated it.
+  'rust/E12':
+    'Measured through tree-sitter-rust over the declarations the text holds and the `mod` and `use` edges R2 observed. A `#[cfg]`-gated declaration is not-analysable, a macro-generated one is in no text this layer reads, and a `pub use` re-export reaches a module the dependency layer does not resolve.',
+  'typescript/E12':
+    'Measured through tree-sitter-typescript. An `export *` re-export reaches a module this reader does not resolve, a decorator rewrites the declaration it is applied to, and a `require` whose argument is computed names no module.',
+  'javascript/E12':
+    'Measured through tree-sitter-javascript. A `require` with a computed argument names no module, a method attached to the prototype after the class body is in no declaration read here, and a framework\'s load-time registration leaves only the call that performs it.',
+  'go/E12':
+    'Measured through tree-sitter-go. A build tag decides which declarations exist at all, embedding promotes methods the outer type never declares, and a registration an `init` performs is in no declaration.',
+  'python/E12':
+    'Measured through tree-sitter-python. `__getattr__` answers for names no body declares, a decorator replaces the name its `def` bound, and `importlib` resolves a module by a name computed at run time.',
+  'c_cpp/E12':
+    'Measured through tree-sitter-cpp. The preprocessor decides what the compiler ever sees, so a declaration inside a branch is not-analysable rather than unreachable, and per-translation-unit flags make one header mean different things in two builds.',
+  // E14's reason names what the declared engine cannot be asked to generate, or
+  // what this reader cannot hand it a predicate for. A property that cannot be
+  // expressed is reported with this reason, never dropped and never approximated.
+  'rust/E14':
+    'Written for `proptest` and run inside the disposable worktree. A property over a type whose fields are private and which derives no `Arbitrary` cannot be generated for, and is reported with that reason rather than approximated.',
+  'typescript/E14':
+    'Written for `fast-check` and run inside the disposable worktree. An interface has no run-time shape, so a property over one cannot be generated for unless the reading produced an explicit predicate.',
+  'javascript/E14':
+    'Written for `fast-check` and run inside the disposable worktree. A value whose shape exists only in a comment has no arbitrary to generate from, so a property over it is reported rather than approximated.',
+  'go/E14':
+    'Written for `rapid` and run inside the disposable worktree. A type whose fields are all unexported and which declares no constructor has no generator, so a property over it is reported with that reason.',
+  'python/E14':
+    'Written for `hypothesis` and run inside the disposable worktree. Hypothesis infers its strategy from a type hint, so a parameter carrying none cannot be generated for and the property is reported rather than approximated.',
+  'c_cpp/E14':
+    'Written for `RapidCheck` and run inside the disposable worktree. RapidCheck reflects over no member, so a property over a type that declares no generator is reported with that reason.',
 });
 
 /**
@@ -273,6 +312,10 @@ const NOTE_FAMILY_BY_ITEM = Object.freeze({
   E9: 'E7-E11',
   E10: 'E7-E11',
   E11: 'E7-E11',
+  // E12 and E14 reach the six, so each language's reason names what its own
+  // syntax puts beyond that reading rather than restating one shared limitation.
+  E12: 'E12',
+  E14: 'E14',
 });
 
 /**

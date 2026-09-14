@@ -28,6 +28,17 @@
  * verified (ABOUT-REVERSE 11.5 R-3: an invariant that cannot be classified into a
  * known category cannot be made into a property-based test).
  */
+// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+import { withIsolatedWorktree, WorktreeIsolationError, WORKTREE_REASONS } from './worktree-isolation.mjs';
+import {
+  PASS_EXECUTED,
+  PASS_NOTHING_TO_EXECUTE,
+  PASS_STATUSES,
+  RED_NOT_PROVED,
+  RED_PROVED,
+  RED_VERDICTS,
+} from './counterexample.mjs';
+
 /**
  * The oracle independence vocabulary, ordered strongest first.
  *
@@ -302,10 +313,24 @@ export function generatePropertyTests(invariants) {
     }
     const oracleIndependence = declared ?? DEFAULT_ORACLE_INDEPENDENCE;
 
+    const predicate = invariant.predicate ?? null;
+    if (predicate !== null && (typeof predicate !== 'string' || predicate.length === 0)) {
+      throw new Error(
+        `the invariant at ${sourceFact} carries a predicate that is not a non-empty string: `
+        + `${JSON.stringify(predicate)}. A predicate is what an engine can be asked to falsify, and an `
+        + 'empty one would render as a test that asserts nothing',
+      );
+    }
+
     generated.push({
       property_id: `prop-${known.id}-${slugOf(sourceFact)}-${lineOf(sourceFact)}`,
       engine: PROPERTY_ENGINES[invariant.language ?? 'unknown'] ?? PROPERTY_ENGINES.unknown,
       body: known.body,
+      // The executable form of the proposition, when the reading produced one.
+      // R3's material states propositions, not predicates, so this is null in an
+      // ordinary run — and a null is reported as the reason a property could not
+      // be written for its engine rather than filled in with a guess.
+      predicate,
       property_origin: {
         source_fact: sourceFact,
         category: known.id,
@@ -329,7 +354,8 @@ export function generatePropertyTests(invariants) {
       engine: 'declared per language in PROPERTY_ENGINES',
       available: true,
       reason: 'a property test is a generated artefact, so this stage produces one whether or not an '
-        + 'environment can execute it; execution belongs to P22-19',
+        + 'environment can execute it. Whether the engine ran it is reported by `runGeneratedProperties`, '
+        + 'which publishes the generated and executed counts apart so generation is never read as a result',
     },
     caveat: GENERATOR_CAVEAT,
   };
@@ -429,4 +455,478 @@ export function renderPropertyTestReport(result, limit = 20) {
   }
   lines.push('');
   return lines.join('\n');
+}
+
+// ---------------------------------------------------------------------------
+// E14 — the generated properties, actually run
+// ---------------------------------------------------------------------------
+
+/**
+ * The two statuses an execution ends in, taken from the counterexample channel.
+ *
+ * Imported rather than re-spelled: the two channels are one vocabulary reported
+ * twice, and a second declaration would drift on spelling while each channel's
+ * tests passed against its own copy.
+ */
+export const PROPERTY_STATUS_EXECUTED = PASS_EXECUTED;
+export const PROPERTY_STATUS_NOTHING_TO_EXECUTE = PASS_NOTHING_TO_EXECUTE;
+export const PROPERTY_STATUSES = PASS_STATUSES;
+
+/**
+ * The two verdicts a run ends in, likewise taken from the counterexample channel.
+ *
+ * `proved` means the engine produced a counterexample — the property was
+ * falsified. `not-proved` means it ran and produced none, which is not a proof:
+ * a property test can falsify and can never establish.
+ */
+export const PROPERTY_VERDICT_PROVED = RED_PROVED;
+export const PROPERTY_VERDICT_NOT_PROVED = RED_NOT_PROVED;
+export const PROPERTY_VERDICTS = RED_VERDICTS;
+
+/** The engine is not available to this run. */
+export const PROPERTY_REASON_ENGINE_UNAVAILABLE = 'engine-unavailable';
+
+/** The engine has no way to express this property. */
+export const PROPERTY_REASON_ENGINE_CANNOT_EXPRESS = 'engine-cannot-express';
+
+/** The execution ran and said nothing a verdict can rest on. */
+export const PROPERTY_REASON_INVALID_EXECUTION_RESULT = 'invalid-execution-result';
+
+/** The reasons a property is recorded as nothing-to-execute under. */
+export const PROPERTY_REASONS = Object.freeze([
+  PROPERTY_REASON_ENGINE_UNAVAILABLE,
+  PROPERTY_REASON_ENGINE_CANNOT_EXPRESS,
+  PROPERTY_REASON_INVALID_EXECUTION_RESULT,
+]);
+
+/**
+ * What running a generated property is, and what it is not.
+ *
+ * Constant rather than per-run, for the same reason the other caveats are.
+ */
+export const PROPERTY_RUN_CAVEAT =
+  'A property run searches for a counterexample and reports whether it found one. Finding none is not a '
+  + 'proof of the property — it is the absence of a falsification over the cases the engine generated. A '
+  + 'property that could not be written for its engine, or whose engine is unavailable, is recorded with '
+  + 'its reason and stays in the set: the executed count is never the generated count.';
+
+/** The isolation's reason for an execution that threw, named from its own list. */
+const ISOLATION_REASON_EXECUTION_FAILED = 'execution-failed';
+
+if (!WORKTREE_REASONS.includes(ISOLATION_REASON_EXECUTION_FAILED)) {
+  throw new Error(
+    `the isolation no longer declares ${ISOLATION_REASON_EXECUTION_FAILED}, so a failing execution cannot `
+    + `be told from a failing isolation. It declares: ${WORKTREE_REASONS.join(', ')}`,
+  );
+}
+
+/**
+ * A property this engine has no way to express.
+ *
+ * Refused rather than approximated: rendering a property whose predicate the
+ * reading never produced would mean writing an assertion nobody made, and a
+ * green from such a file would be evidence of nothing.
+ */
+export class PropertyExpressivenessError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'PropertyExpressivenessError';
+  }
+}
+
+/** The identifier a property's rendered artefact is named with. */
+function renderIdentOf(property) {
+  return String(property?.property_id ?? 'unnamed').replace(/[^A-Za-z0-9]+/g, '_');
+}
+
+/** The predicate a rendered property asserts, or a refusal naming what is missing. */
+function predicateOf(property) {
+  const predicate = property?.predicate;
+  if (typeof predicate !== 'string' || predicate.length === 0) {
+    throw new PropertyExpressivenessError(
+      `the property ${property?.property_id ?? '(unnamed)'} carries no predicate, so there is no `
+      + 'assertion an engine could falsify. R3 states propositions, and this module does not turn a '
+      + 'proposition into a predicate by guessing at one',
+    );
+  }
+  return predicate;
+}
+
+/** The comment each language writes a rendered file's provenance into. */
+const COMMENT_TOKEN_BY_LANGUAGE = Object.freeze({
+  rust: '//', typescript: '//', javascript: '//', go: '//', c_cpp: '//', python: '#',
+});
+
+/** The file extension each engine's rendered artefact carries. */
+const EXTENSION_BY_ENGINE = Object.freeze({
+  proptest: '.rs', 'fast-check-typescript': '.test.ts', 'fast-check-javascript': '.test.js', rapid: '_test.go', hypothesis: '.py', RapidCheck: '.cpp',
+});
+
+/** The provenance header every rendered artefact opens with. */
+function provenanceLines(language, property) {
+  const token = COMMENT_TOKEN_BY_LANGUAGE[language] ?? '//';
+  return [
+    `${token} Generated by R6.5 from R3's invariants. A candidate, not an approved specification.`,
+    `${token} category: ${property.property_origin?.category ?? 'unrecorded'}`,
+    `${token} source: ${property.property_origin?.source_fact ?? 'unrecorded'}`,
+    `${token} body: ${property.body}`,
+  ];
+}
+
+/**
+ * The per-engine renderers, one function each.
+ *
+ * One function per engine rather than one function with six branches: the form a
+ * property takes is a property of the engine, and a reader asking "what does a
+ * rapid property look like" should be able to read the answer directly.
+ */
+const PROPERTY_RENDERERS_BY_ENGINE = Object.freeze({
+  proptest: ({ language, property }) => ({
+    file: `${renderIdentOf(property)}.rs`,
+    source: [
+      ...provenanceLines(language, property),
+      'use proptest::prelude::*;',
+      '',
+      'proptest! {',
+      `    #[test]`,
+      `    fn ${renderIdentOf(property)}(value in any::<i64>()) {`,
+      `        prop_assert!(${predicateOf(property)});`,
+      '    }',
+      '}',
+      '',
+    ].join('\n'),
+  }),
+
+  'fast-check-typescript': ({ language, property }) => ({
+    file: `${renderIdentOf(property)}.test.ts`,
+    source: [
+      ...provenanceLines(language, property),
+      "import fc from 'fast-check';",
+      '',
+      `test('${renderIdentOf(property)}', () => {`,
+      '  fc.assert(',
+      '    fc.property(fc.integer(), (value) => {',
+      `      return (${predicateOf(property)});`,
+      '    }),',
+      '  );',
+      '});',
+      '',
+    ].join('\n'),
+  }),
+
+  'fast-check-javascript': ({ language, property }) => ({
+    file: `${renderIdentOf(property)}.test.js`,
+    source: [
+      ...provenanceLines(language, property),
+      "const fc = require('fast-check');",
+      '',
+      `test('${renderIdentOf(property)}', () => {`,
+      '  fc.assert(',
+      '    fc.property(fc.integer(), (value) => {',
+      `      return (${predicateOf(property)});`,
+      '    }),',
+      '  );',
+      '});',
+      '',
+    ].join('\n'),
+  }),
+
+  rapid: ({ language, property }) => ({
+    file: `${renderIdentOf(property)}_test.go`,
+    source: [
+      ...provenanceLines(language, property),
+      'package properties',
+      '',
+      'import (',
+      '\t"testing"',
+      '',
+      '\t"pgregory.net/rapid"',
+      ')',
+      '',
+      `func Test${renderIdentOf(property)}(t *testing.T) {`,
+      '\trapid.Check(t, func(t *rapid.T) {',
+      '\t\tvalue := rapid.Int().Draw(t, "value")',
+      `\t\tif !(${predicateOf(property)}) {`,
+      '\t\t\tt.Fatalf("the property was falsified for value %v", value)',
+      '\t\t}',
+      '\t})',
+      '}',
+      '',
+    ].join('\n'),
+  }),
+
+  hypothesis: ({ language, property }) => ({
+    file: `test_${renderIdentOf(property)}.py`,
+    source: [
+      ...provenanceLines(language, property),
+      'from hypothesis import given, strategies as st',
+      '',
+      '',
+      '@given(value=st.integers())',
+      `def test_${renderIdentOf(property)}(value):`,
+      `    assert ${predicateOf(property)}`,
+      '',
+    ].join('\n'),
+  }),
+
+  RapidCheck: ({ language, property }) => ({
+    file: `${renderIdentOf(property)}.cpp`,
+    source: [
+      ...provenanceLines(language, property),
+      '#include <rapidcheck.h>',
+      '',
+      'int main() {',
+      `  rc::check("${renderIdentOf(property)}", [](int value) {`,
+      `    RC_ASSERT(${predicateOf(property)});`,
+      '  });',
+      '  return 0;',
+      '}',
+      '',
+    ].join('\n'),
+  }),
+});
+
+/**
+ * The engine key a language's renderer is looked up under.
+ *
+ * A language whose engine serves two languages keys its renderer by language:
+ * `fast-check` renders TypeScript and JavaScript differently, and a single
+ * renderer for both would write one language's file into the other's tree.
+ */
+function rendererKeyFor(language, engine) {
+  if (engine === 'fast-check') return `fast-check-${language}`;
+  return engine;
+}
+
+/**
+ * One property written in its engine's declared form.
+ *
+ * Refuses an engine with no renderer rather than falling back to another
+ * engine's file: a property written for the wrong engine would be executed by
+ * the wrong runner and its verdict would describe neither.
+ *
+ * @param {object} params
+ * @param {string} params.language - the language the property is written for
+ * @param {object} params.property - a record from `generatePropertyTests`
+ * @param {string} params.engine - the engine `PROPERTY_ENGINES` declares for that language
+ * @returns {{language: string, engine: string, file: string, source: string, category: string, source_fact: string}}
+ */
+// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+export function renderPropertyForEngine({ language, property, engine } = {}) {
+  const key = rendererKeyFor(language, engine);
+  const renderer = PROPERTY_RENDERERS_BY_ENGINE[key];
+  if (renderer === undefined) {
+    throw new PropertyExpressivenessError(
+      `no renderer is declared for the engine ${JSON.stringify(engine)} in ${language}. The declared `
+      + `engines are: ${Object.keys(PROPERTY_RENDERERS_BY_ENGINE).join(', ')}. A property written for `
+      + 'another engine would be executed by a runner that cannot read it',
+    );
+  }
+  const rendered = renderer({ language, property });
+  return Object.freeze({
+    language,
+    engine,
+    file: rendered.file,
+    source: rendered.source,
+    category: property?.property_origin?.category ?? null,
+    source_fact: property?.property_origin?.source_fact ?? null,
+  });
+}
+
+/** The record a property that never reached the isolation leaves behind. */
+// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+function refusedProperty(property, language, engine, reason, detail, worktreeRecord = null) {
+  return {
+    property_id: property?.property_id ?? null,
+    language,
+    engine,
+    status: PROPERTY_STATUS_NOTHING_TO_EXECUTE,
+    verdict: null,
+    candidateFound: null,
+    reason,
+    detail,
+    observations: [],
+    worktreeRecord,
+  };
+}
+
+/** The worktree an execution left behind, or null when none was made. */
+// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+function worktreeRecordOf(outcome) {
+  if (outcome === null || typeof outcome !== 'object') return null;
+  return {
+    worktreePath: outcome.worktreePath ?? null,
+    scratchBase: outcome.scratchBase ?? null,
+    mainTreeCleanAtCreation: outcome.mainTreeCleanAtCreation ?? null,
+    mainTreeDigest: outcome.mainTreeDigest ?? null,
+    restorationOutcome: outcome.restorationOutcome ?? null,
+    restorationDetail: outcome.restorationDetail ?? null,
+  };
+}
+
+/** What an execution said, or a refusal naming why the answer cannot be a verdict. */
+// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+function readPropertyObservation(execution) {
+  if (execution === null || typeof execution !== 'object' || typeof execution.counterexampleFound !== 'boolean') {
+    throw new Error(
+      `the isolated execution returned ${execution === null ? 'null' : typeof execution}, which does not `
+      + 'state whether a counterexample was found — an unstated answer is refused rather than recorded as '
+      + 'a verdict',
+    );
+  }
+  return {
+    counterexampleFound: execution.counterexampleFound,
+    observations: Array.isArray(execution.observations) ? [...execution.observations] : [],
+  };
+}
+
+/** The record an executed property leaves behind. */
+// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+function executedProperty(property, language, engine, observation, outcome) {
+  return {
+    property_id: property?.property_id ?? null,
+    language,
+    engine,
+    status: PROPERTY_STATUS_EXECUTED,
+    verdict: observation.counterexampleFound ? PROPERTY_VERDICT_PROVED : PROPERTY_VERDICT_NOT_PROVED,
+    candidateFound: observation.counterexampleFound,
+    reason: null,
+    detail: null,
+    observations: observation.observations,
+    worktreeRecord: worktreeRecordOf(outcome),
+  };
+}
+
+/**
+ * Run every generated property, one disposable worktree each.
+ *
+ * The set is complete. A property that could not be written for its engine, one
+ * whose engine is unavailable, and one whose execution said nothing are all
+ * recorded with their reason and stay in the set: a refusal that vanished would
+ * make the set look smaller and cleaner than the run was, and would turn "we
+ * could not run this" into silence. The generated and executed counts are
+ * published separately for the same reason.
+ *
+ * Only the isolation's `execution-failed` is recorded and continued. A main tree
+ * that moved, or a worktree that could not be destroyed, is a failure of the
+ * isolation itself and is raised: publishing verdicts taken against a changed
+ * tree would make the whole channel worthless.
+ *
+ * @param {object} params
+ * @param {string} [params.root] - the working tree to isolate; required when `execute` is given
+ * @param {string} params.language - the language the properties are written for
+ * @param {ReadonlyArray<object>} params.properties - the records `generatePropertyTests` produced
+ * @param {string} params.engine - the engine `PROPERTY_ENGINES` declares for that language
+ * @param {Function} [params.execute] - what to run inside the worktree, given `{property, rendered, worktreePath}`
+ * @param {object} [params.isolationOptions] - the isolation's own options
+ * @returns {Promise<object>} the pass, with the generated and executed counts apart
+ */
+// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+export async function runGeneratedProperties({
+  root = null,
+  language,
+  properties,
+  engine,
+  execute = null,
+  isolationOptions = {},
+} = {}) {
+  if (typeof language !== 'string' || PROPERTY_ENGINES[language] === undefined) {
+    throw new Error(
+      `runGeneratedProperties needs a language PROPERTY_ENGINES declares an engine for; it was given `
+      + `${JSON.stringify(language)}. The declared languages are: ${Object.keys(PROPERTY_ENGINES).join(', ')}`,
+    );
+  }
+  const declared = PROPERTY_ENGINES[language];
+  if (engine !== declared) {
+    throw new Error(
+      `this run names the engine ${JSON.stringify(engine)} for ${language}, which PROPERTY_ENGINES declares `
+      + `as ${declared}. Substituting one engine for another would make the verdict describe a runner the `
+      + 'configuration does not name',
+    );
+  }
+  if (!Array.isArray(properties)) {
+    throw new Error('runGeneratedProperties needs the properties to run; it was given none');
+  }
+
+  const records = [];
+  const worktrees = [];
+  const refusedByReason = Object.fromEntries(PROPERTY_REASONS.map((reason) => [reason, 0]));
+
+  for (const property of properties) {
+    let rendered;
+    try {
+      rendered = renderPropertyForEngine({ language, property, engine });
+    } catch (error) {
+      const reason = error instanceof PropertyExpressivenessError
+        ? PROPERTY_REASON_ENGINE_CANNOT_EXPRESS
+        : PROPERTY_REASON_INVALID_EXECUTION_RESULT;
+      records.push(refusedProperty(property, language, engine, reason, error.message));
+      continue;
+    }
+
+    if (typeof execute !== 'function') {
+      records.push(refusedProperty(
+        property,
+        language,
+        engine,
+        PROPERTY_REASON_ENGINE_UNAVAILABLE,
+        `no runner was supplied for ${engine}, so the property written for it was not executed`,
+      ));
+      continue;
+    }
+
+    let outcome = null;
+    try {
+      outcome = await withIsolatedWorktree(
+        root,
+        (worktreePath) => execute({ property, rendered, engine, language, worktreePath }),
+        isolationOptions,
+      );
+      const record = executedProperty(property, language, engine, readPropertyObservation(outcome.execution), outcome);
+      records.push(record);
+      if (record.worktreeRecord !== null) worktrees.push(record.worktreeRecord);
+      continue;
+    } catch (error) {
+      const executorThrew = error instanceof WorktreeIsolationError;
+      if (executorThrew && error.reason !== ISOLATION_REASON_EXECUTION_FAILED) throw error;
+
+      const record = refusedProperty(
+        property,
+        language,
+        engine,
+        PROPERTY_REASON_INVALID_EXECUTION_RESULT,
+        executorThrew ? `the isolated execution threw: ${error.message}` : error.message,
+        worktreeRecordOf(error.outcome ?? outcome),
+      );
+      records.push(record);
+      if (record.worktreeRecord !== null) worktrees.push(record.worktreeRecord);
+    }
+  }
+
+  for (const record of records) {
+    if (record.status === PROPERTY_STATUS_NOTHING_TO_EXECUTE) refusedByReason[record.reason] += 1;
+  }
+
+  const executed = records.filter((record) => record.status === PROPERTY_STATUS_EXECUTED);
+  const refused = records.filter((record) => record.status === PROPERTY_STATUS_NOTHING_TO_EXECUTE);
+
+  return {
+    language,
+    engine,
+    // Whether this pass had a property to run, not whether one succeeded: a set
+    // with nothing in it and a set whose executions all failed are different.
+    status: records.length === 0 ? PROPERTY_STATUS_NOTHING_TO_EXECUTE : PROPERTY_STATUS_EXECUTED,
+    records,
+    executed,
+    refused,
+    worktrees,
+    counts: Object.freeze({
+      generatedCount: records.length,
+      executedCount: executed.length,
+      refusedCount: refused.length,
+      refusedByReason: Object.freeze(refusedByReason),
+    }),
+    empty: records.length === 0,
+    caveat: PROPERTY_RUN_CAVEAT,
+  };
 }

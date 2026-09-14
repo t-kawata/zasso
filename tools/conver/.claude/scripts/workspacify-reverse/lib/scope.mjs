@@ -97,7 +97,8 @@ import { assessOracleValidity, renderOracleGapReport } from './oracle-gap.mjs';
 import { planRedReconstruction, renderRedReconstructionReport } from './red-reconstruction.mjs';
 import { STAGE as COUNTEREXAMPLE_STAGE, applyCounterexamples, renderCounterexampleReport } from './counterexample.mjs';
 import { deriveCounterexamples, runCounterexamples } from './counterexample-run.mjs';
-import { generatePropertyTests, renderPropertyTestReport } from './property-tests.mjs';
+import { PROPERTY_ENGINES, generatePropertyTests, renderPropertyTestReport, runGeneratedProperties } from './property-tests.mjs';
+import { measureReachability } from './reachability.mjs';
 import { historyFromGit } from './evidence-independence.mjs';
 import { measureDependencies, renderDependencyReport } from './dependencies.mjs';
 import { measureExecutionSurface, renderExecutionSurfaceReport } from './execution-surface.mjs';
@@ -1107,19 +1108,55 @@ function propertyInvariantsIn(ledger) {
  * @param {string} params.root - the subject every counterexample is isolated from
  * @param {object} params.ledger - the claim ledger R6.5 revises
  * @param {object} params.redPlan - the R6 plan the counterexamples are derived from
- * @param {object} params.reconstruction - how R6.5 executes, as `{ executor }`
+ * @param {object} params.reconstruction - how R6.5 executes, as `{ executor, runProperty }`
+ * @param {string} params.language - the language this run measured, for the property engine
  */
 // [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
-async function runR65({ root, ledger, redPlan, reconstruction }) {
-  const { executor = null } = reconstruction;
+// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+async function runR65({ root, ledger, redPlan, reconstruction, language }) {
+  const { executor = null, runProperty = null } = reconstruction;
   const derived = deriveCounterexamples({ redPlan, ledger });
   const records = executor === null
     ? derived
     : (await runCounterexamples({ root, counterexamples: derived, execute: executor })).counterexamples;
 
+  // A subject whose dominant language is not one of the six runs under the
+  // `unknown` row: its properties are written for `unrecorded`, which has no
+  // renderer, so each one is refused by name rather than handed to a runner that
+  // cannot read it.
+  const propertyLanguage = PROPERTY_ENGINES[language] === undefined ? 'unknown' : language;
+  const engine = PROPERTY_ENGINES[propertyLanguage];
+
+  // The property half runs whether or not a runner was supplied: with none, every
+  // property is recorded as nothing-to-execute with the reason naming the engine,
+  // which is what keeps a generated count from reading as a verified one.
+  const generated = generatePropertyTests(propertyInvariantsIn(ledger));
+  const execution = await runGeneratedProperties({
+    root,
+    language: propertyLanguage,
+    properties: generated.generated,
+    engine,
+    execute: runProperty,
+  });
+
   return {
     counterexamples: applyCounterexamples(records, ledger),
-    properties: generatePropertyTests(propertyInvariantsIn(ledger)),
+    properties: {
+      ...generated,
+      execution: {
+        language: propertyLanguage,
+        engine,
+        status: execution.status,
+        generatedCount: execution.counts.generatedCount,
+        executedCount: execution.counts.executedCount,
+        refusedCount: execution.counts.refusedCount,
+        refusedByReason: execution.counts.refusedByReason,
+        records: execution.records,
+        worktrees: execution.worktrees,
+        empty: execution.empty,
+        caveat: execution.caveat,
+      },
+    },
   };
 }
 
@@ -1623,12 +1660,28 @@ export async function analyzeProject({
   const history = stagesRun.includes('r4')
     ? runStage('r4', () => reconstructHistory(scope.root, { paths: inScopePaths }))
     : null;
-  const gaps = stagesRun.includes('r5')
-    ? runStage('r5', () => enumerateGaps({ root: scope.root, paths: inScopePaths, boundary, structure, dependencies, surface, ledger }))
+  // E12's partition is measured before R5 enumerates, because its unreachable
+  // regions are part of R5's population. It reads the structure and dependency
+  // measurements directly rather than a re-derivation, so the two cannot
+  // disagree about which declaration sits where.
+  const analysisLanguage = dominantLanguageOf(inScopePaths);
+  const reachability = stagesRun.includes('r5')
+    ? runStage('r5', () => measureReachability({ language: analysisLanguage, structure, dependencies }))
     : null;
-  const classifiedGaps = gaps === null ? null : classifyGaps(gaps);
+  const gaps = stagesRun.includes('r5')
+    ? runStage('r5', () => enumerateGaps({ root: scope.root, paths: inScopePaths, boundary, structure, dependencies, surface, ledger, reachability }))
+    : null;
+  const classifiedGaps = gaps === null ? null : classifyGaps(gaps, { reachability });
+  // E13's pairs are the caller's, exactly as the contract's precondition states:
+  // a mutant and its original are *presented*, and this stage compares what it
+  // was given rather than generating mutants it has no build to run.
   const oracleGap = stagesRun.includes('r5.5')
-    ? runStage('r5.5', () => assessOracleValidity({ root: scope.root, ledger }))
+    ? runStage('r5.5', () => assessOracleValidity({
+      root: scope.root,
+      ledger,
+      language: analysisLanguage,
+      tcePairs: reconstruction.tcePairs ?? null,
+    }))
     : null;
 
   // R6 plans the red each claim needs, and R6.5 hands R3's invariants to the
@@ -1645,7 +1698,7 @@ export async function analyzeProject({
   // empty derived set is now a statement about the plan, and it is distinguishable
   // from a plan whose counterexamples were all derived and none executed.
   const r65 = stagesRun.includes('r6.5') && ledger !== null
-    ? await runStage('r6.5', () => runR65({ root: scope.root, ledger, redPlan, reconstruction }))
+    ? await runStage('r6.5', () => runR65({ root: scope.root, ledger, redPlan, reconstruction, language: analysisLanguage }))
     : null;
   const counterexamples = r65 === null ? null : r65.counterexamples;
   const properties = r65 === null ? null : r65.properties;
@@ -1784,7 +1837,18 @@ export async function analyzeProject({
       caveat: counterexamples.caveat,
     };
   }
-  if (properties !== null) documents['GENERATED-PROPERTIES.json'] = properties;
+  if (properties !== null) {
+    // The two counts are hoisted to the document's top level as well as living
+    // under `execution`, because a reader who takes one number from this file
+    // must be handed both: a generated count presented without the executed one
+    // reads as a verification it is not.
+    documents['GENERATED-PROPERTIES.json'] = {
+      ...properties,
+      generatedCount: properties.execution.generatedCount,
+      executedCount: properties.execution.executedCount,
+      refusedCount: properties.execution.refusedCount,
+    };
+  }
   // R7's serving packet is Markdown because a human reads it to decide; R8's
   // spec is published both ways, with the Markdown rendered from the sidecar
   // beside it so the two cannot disagree. The candidate is the form the final

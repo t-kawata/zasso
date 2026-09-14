@@ -93,12 +93,11 @@ F12, and the vocabulary exists so that a consumer cannot make that substitution 
 | E9 | partial | partial | partial | partial | partial | partial |
 | E10 | partial | partial | partial | partial | partial | partial |
 | E11 | partial | partial | partial | partial | partial | partial |
-| E12 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
+| E12 | partial | partial | partial | partial | partial | partial |
 | E13 | unsupported_in_principle | unsupported_in_principle | unsupported_in_principle | unsupported_in_principle | unsupported_in_principle | unsupported_in_principle |
-| E14 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
+| E14 | partial | partial | partial | partial | partial | partial |
 | E15 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
 | E16 | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted | not_attempted |
-
 ### Reading the Rust row
 
 `partial` rather than `success` for E1–E6 is deliberate and is not a hedge. A syntax tree is
@@ -132,7 +131,6 @@ names the constructs that language's syntax layer cannot see. The table below is
 | go | Measured through tree-sitter-go. Syntax alone: the package clause, type declarations, methods and initial capitalisation are read. A build tag decides which declarations exist at all, `go:generate` produces declarations no source holds, and embedding promotes methods the outer type never declares. |
 | python | Measured through tree-sitter-python. Syntax alone: module-level assignments, class and function definitions and their decorators are read. `__getattr__` answers for names no body declares, a metaclass installs attributes as the class is created, and a decorator replaces the name the `def` statement bound. |
 | c_cpp | Measured through tree-sitter-cpp. Syntax alone: declarations, definitions, typedefs and preprocessor definitions are read. The preprocessor decides what the compiler ever sees, macro expansion rewrites the text before this layer reads it, an include composes declarations from elsewhere, and per-translation-unit flags make one header mean different things. |
-
 ### The reasons for E5 and E6
 
 The same table for the two families the dependency measurement reads. Each language states the
