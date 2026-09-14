@@ -374,13 +374,24 @@ function capabilityRow(language) {
 }
 
 /**
- * The capability matrix: every target language against every extraction item.
+ * The capability matrix as **declared**: every target language against every
+ * extraction item, computed from the family declaration alone.
+ *
+ * This is the fallback a reader gets when there is no ledger to derive from, and
+ * it is what `docs/P22-ANALYSIS-TECH.md` embeds verbatim. A run publishes the
+ * **derived** form instead — `capability-matrix.mjs` reads the run's own attempt
+ * ledger, so a cell cannot claim an attempt that was never made and `failed`
+ * becomes reachable. This constant stayed a pure function of the language name
+ * for as long as it was the only form, and that is why the Rust row went stale:
+ * a sentence written before R3 through R6.5 existed was still being served after
+ * they had run.
  *
  * A gap here is a limitation of the instrument. It is not evidence that the
  * thing sought is absent from the project being analysed, and no consumer of
  * this matrix may read it that way.
  */
 export const CAPABILITY_MATRIX = Object.freeze(
+// [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
   Object.fromEntries(TARGET_LANGUAGES.map((language) => [language, Object.freeze(capabilityRow(language))])),
 );
 

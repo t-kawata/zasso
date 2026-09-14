@@ -972,6 +972,7 @@ function dynamicMechanismClause(surface) {
  * @param {{root: string, excludedPaths?: string[], grammar?: object|null, surface?: object|null}} params
  */
 export function measureDependencies({ root, excludedPaths = [], grammar, surface = null, configuration = null } = {}) {
+// [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
   const coverage = emptyCoverage();
   const attempts = [];
@@ -996,7 +997,11 @@ export function measureDependencies({ root, excludedPaths = [], grammar, surface
       attempts.push(recordAttempt({
         target: file,
         configuration: 'syntax-only',
-        tool: 'tree-sitter-rust',
+        // The tool names the language the row is about. It was spelled
+        // `tree-sitter-rust` here whatever the file was, so a TypeScript parse
+        // that failed was recorded as a Rust attempt — and a ledger row that
+        // names the wrong language moves a cell it does not belong to.
+        tool: `tree-sitter-${language}`,
         outcome: {
           phase: 'parse',
           status: 'failed',
