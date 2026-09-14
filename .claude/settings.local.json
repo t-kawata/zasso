@@ -1908,7 +1908,14 @@
       "Bash(perl -0pi -e 's/return \\\\[\\\\.\\\\.\\\\.files\\\\]\\\\.sort\\\\\\(\\\\\\)\\\\.map\\\\\\(\\\\\\(file\\\\\\) => \\\\\\(\\\\{ id: nodeIdFor\\\\\\(file\\\\\\), file \\\\}\\\\\\)\\\\\\);/return [];/' tests/workspacify-reverse/helpers/graph-nodes.mjs)",
       "Bash(perl -0pi -e 's/    graph: graphPath,\\\\n//' tests/workspacify-reverse/integration/terminal-state.test.mjs)",
       "Bash(node .claude/scripts/tickets/verify-final-contracts.js --ticket-key=\"P24-10\" --tickets=\"Tickets.json\")",
-      "Bash(grep -nE \"[^A-Za-z0-9_.'\\\\\"]\\\\b[0-9]{2,}\\\\b\" tests/workspacify-reverse/helpers/graph-nodes.mjs)"
+      "Bash(grep -nE \"[^A-Za-z0-9_.'\\\\\"]\\\\b[0-9]{2,}\\\\b\" tests/workspacify-reverse/helpers/graph-nodes.mjs)",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P24-11\" --phase=plan)",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P24-11\" --for-spec --plan)",
+      "Bash(echo \"--- exit $?\")",
+      "Bash(node /tmp/p2411-probe/chain.mjs siprs-for-reverse)",
+      "Bash(rm -rf alloc-nomanifest)",
+      "Bash(cp -R /Users/sh01/shyme/zasso/tools/conver/tests/workspacify-reverse/fixtures/patterns/partial-conver-project alloc-nomanifest)",
+      "Bash(node /Users/sh01/shyme/zasso/tools/conver/.claude/scripts/workspacify-allocate/run.mjs reverse --root=/tmp/p2411-probe/alloc-nomanifest --decisions=/Users/sh01/shyme/zasso/tools/conver/tests/workspacify-reverse/fixtures/patterns/partial-conver-project/DECISIONS.json)"
     ]
   }
 }
