@@ -197,6 +197,7 @@ export const LANGUAGES_WITH_EXTRACTORS = Object.freeze({
  */
 // [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
 const CAPABILITY_NOTES = Object.freeze({
+// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
   'rust/E1-E4':
     'Measured through tree-sitter-rust. Syntax alone: module declarations, item declarations, use declarations and mechanism markers are read; macro-generated items and cfg-selected composition are not resolved.',
   'rust/E5':
@@ -216,7 +217,7 @@ const CAPABILITY_NOTES = Object.freeze({
   'python/E1-E4':
     'Measured through tree-sitter-python. Syntax alone: module-level assignments, class and function definitions and their decorators are read. `__getattr__` answers for names no body declares, a metaclass installs attributes as the class is created, and a decorator replaces the name the `def` statement bound.',
   'c_cpp/E1-E4':
-    'Measured through tree-sitter-cpp. Syntax alone: declarations, definitions, typedefs and preprocessor definitions are read. The preprocessor decides what the compiler ever sees, macro expansion rewrites the text before this layer reads it, an include composes declarations from elsewhere, and per-translation-unit flags make one header mean different things.',
+    'Measured through tree-sitter-cpp. Syntax alone: declarations, definitions, typedefs and preprocessor definitions are read. The preprocessor decides what the compiler ever sees, macro expansion rewrites the text before this layer reads it, an include composes declarations from elsewhere, and per-translation-unit flags make one header mean different things. Those flags are read from `compile_commands.json`, so a subject that carries none is partitioned over a composition the analyser chose rather than one the project declares.',
   'typescript/E5':
     'Measured through tree-sitter-typescript over import, re-export and literal `require` statements. A type-only import vanishes at compile time, and a re-export whose target is resolved at type-check time reaches a module this layer never reads.',
   'javascript/E5':
@@ -226,7 +227,7 @@ const CAPABILITY_NOTES = Object.freeze({
   'python/E5':
     'Measured through tree-sitter-python over import statements resolved against the tree. An import inside a function or under a conditional runs in some executions only, and `importlib` resolves a module by a name computed at run time.',
   'c_cpp/E5':
-    'Measured through tree-sitter-cpp over preprocessor includes, resolved beside the file that writes them and along the include path the build declares. An `#include` composes declarations from elsewhere and what it composes depends on per-translation-unit flags, so one header means different things in two builds.',
+    'Measured through tree-sitter-cpp over preprocessor includes, resolved beside the file that writes them and along the include path `compile_commands.json` records. An `#include` composes declarations from elsewhere and what it composes depends on per-translation-unit flags, so one header means different things in two builds; where no database is read, the path the build file declares is all this layer has.',
   'typescript/E6':
     'Measured through tree-sitter-typescript. A dynamic `import()` with a computed specifier, `eval`, `Reflect` and `process.env` are read where they are written. A decorator that registers the declaration it is applied to is declared and not observed in this representative.',
   'javascript/E6':
@@ -236,7 +237,7 @@ const CAPABILITY_NOTES = Object.freeze({
   'python/E6':
     'Measured through tree-sitter-python. An attribute hook, a metaclass, a decorator, `importlib`, a foreign-function import and an environment read are read where they are written. What a metaclass installs is decided while the class statement runs and appears in no class body.',
   'c_cpp/E6':
-    'Measured through tree-sitter-cpp. A macro definition, a preprocessor condition, an include and a call through a dereferenced function pointer are read where they are written. A function reached through a linker section or a constructor attribute is declared and not observed here.',
+    'Measured through tree-sitter-cpp. A macro definition, a preprocessor condition, an include and a call through a dereferenced function pointer are read where they are written. A function reached through a linker section or a constructor attribute is declared and not observed here, and which of these mechanisms is compiled in at all is decided by the flags `compile_commands.json` records.',
   '*/E13':
     'Semantic equivalence is undecidable for general programs. E13 is TCE — trivial, syntactic, compiler-normalisation equivalence — and only that is ever claimed.',
   // E7-E11 are measured, and each language's reason names what its own syntax
@@ -254,7 +255,7 @@ const CAPABILITY_NOTES = Object.freeze({
   'python/E7-E11':
     'Measured through tree-sitter-python over the same four. `assert` is a statement rather than a call, `__getattr__` answers for names no body declares, and a metaclass installs state that no class body writes.',
   'c_cpp/E7-E11':
-    'Measured through tree-sitter-cpp over the same four. The preprocessor decides what the compiler ever sees, macro expansion rewrites the guard before this layer reads it, and an error return is a sentinel value rather than a name a filter can read.',
+    'Measured through tree-sitter-cpp over the same four. The preprocessor decides what the compiler ever sees, macro expansion rewrites the guard before this layer reads it, and an error return is a sentinel value rather than a name a filter can read. Which branch survives the preprocessor is decided by the flags `compile_commands.json` records.',
   // E12's reading is over the declarations R1 enumerated and the import edges R2
   // observed, so each reason names what that language's syntax keeps out of both.
   // A declaration under a conditional-compilation marker is not-analysable rather
@@ -270,7 +271,7 @@ const CAPABILITY_NOTES = Object.freeze({
   'python/E12':
     'Measured through tree-sitter-python. `__getattr__` answers for names no body declares, a decorator replaces the name its `def` bound, and `importlib` resolves a module by a name computed at run time.',
   'c_cpp/E12':
-    'Measured through tree-sitter-cpp. The preprocessor decides what the compiler ever sees, so a declaration inside a branch is not-analysable rather than unreachable, and per-translation-unit flags make one header mean different things in two builds.',
+    'Measured through tree-sitter-cpp. A declaration inside a conditional-compilation branch is not-analysable rather than unreachable, and per-translation-unit flags make one header mean different things in two builds. Which units exist and which branches are taken is what `compile_commands.json` records, so a subject that carries none is partitioned over the analyser’s composition.',
   // E14's reason names what the declared engine cannot be asked to generate, or
   // what this reader cannot hand it a predicate for. A property that cannot be
   // expressed is reported with this reason, never dropped and never approximated.

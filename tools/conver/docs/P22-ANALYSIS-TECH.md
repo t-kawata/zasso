@@ -130,7 +130,7 @@ names the constructs that language's syntax layer cannot see. The table below is
 | javascript | Measured through tree-sitter-javascript. Syntax alone: module.exports and exports assignments, function and class declarations are read. A computed property name is a value rather than a name, a `require` whose argument is resolved at run time names no module, and a method attached to a prototype after the constructor is not in the class body. |
 | go | Measured through tree-sitter-go. Syntax alone: the package clause, type declarations, methods and initial capitalisation are read. A build tag decides which declarations exist at all, `go:generate` produces declarations no source holds, and embedding promotes methods the outer type never declares. |
 | python | Measured through tree-sitter-python. Syntax alone: module-level assignments, class and function definitions and their decorators are read. `__getattr__` answers for names no body declares, a metaclass installs attributes as the class is created, and a decorator replaces the name the `def` statement bound. |
-| c_cpp | Measured through tree-sitter-cpp. Syntax alone: declarations, definitions, typedefs and preprocessor definitions are read. The preprocessor decides what the compiler ever sees, macro expansion rewrites the text before this layer reads it, an include composes declarations from elsewhere, and per-translation-unit flags make one header mean different things. |
+| c_cpp | Measured through tree-sitter-cpp. Syntax alone: declarations, definitions, typedefs and preprocessor definitions are read. The preprocessor decides what the compiler ever sees, macro expansion rewrites the text before this layer reads it, an include composes declarations from elsewhere, and per-translation-unit flags make one header mean different things. Those flags are read from `compile_commands.json`, so a subject that carries none is partitioned over a composition the analyser chose rather than one the project declares. |
 ### The reasons for E5 and E6
 
 The same table for the two families the dependency measurement reads. Each language states the
@@ -144,7 +144,7 @@ claim a construct, this says which one records it.
 | javascript | Measured through tree-sitter-javascript over import, export and literal `require` statements. A `require` whose argument is computed at run time names no module the syntax holds; it is recorded at R2.5 as a mechanism site and not counted here, so one dependency is never reported by two channels. |
 | go | Measured through tree-sitter-go over import declarations, resolved against the module path the manifest declares. A build tag or build constraint excludes a file from every build this reader does not model, so a declaration that exists in one build is absent from the graph of another. |
 | python | Measured through tree-sitter-python over import statements resolved against the tree. An import inside a function or under a conditional runs in some executions only, and `importlib` resolves a module by a name computed at run time. |
-| c_cpp | Measured through tree-sitter-cpp over preprocessor includes, resolved beside the file that writes them and along the include path the build declares. An `#include` composes declarations from elsewhere and what it composes depends on per-translation-unit flags, so one header means different things in two builds. |
+| c_cpp | Measured through tree-sitter-cpp over preprocessor includes, resolved beside the file that writes them and along the include path `compile_commands.json` records. An `#include` composes declarations from elsewhere and what it composes depends on per-translation-unit flags, so one header means different things in two builds; where no database is read, the path the build file declares is all this layer has. |
 | Language | E6 reason |
 |---|---|
 | rust | Measured through tree-sitter-rust. Mechanism markers are read where they are written: a cfg attribute, an include macro, a trait object, an extern block. A mechanism a macro expands into is not in the text, and one a build script writes is not in the tree. |
@@ -152,7 +152,7 @@ claim a construct, this says which one records it.
 | javascript | Measured through tree-sitter-javascript. A `require` or `import()` with a computed specifier, `eval`, `Reflect` and `process.env` are read where they are written. A registration performed by a framework at load time leaves only the call that performs it. |
 | go | Measured through tree-sitter-go. A build constraint, an `init` function, a cgo import, the reflect package and interface values are read where they are written. A registration an `init` performs is decided while the package loads and is not in any declaration. |
 | python | Measured through tree-sitter-python. An attribute hook, a metaclass, a decorator, `importlib`, a foreign-function import and an environment read are read where they are written. What a metaclass installs is decided while the class statement runs and appears in no class body. |
-| c_cpp | Measured through tree-sitter-cpp. A macro definition, a preprocessor condition, an include and a call through a dereferenced function pointer are read where they are written. A function reached through a linker section or a constructor attribute is declared and not observed here. |
+| c_cpp | Measured through tree-sitter-cpp. A macro definition, a preprocessor condition, an include and a call through a dereferenced function pointer are read where they are written. A function reached through a linker section or a constructor attribute is declared and not observed here, and which of these mechanisms is compiled in at all is decided by the flags `compile_commands.json` records. |
 
 `not_attempted` in the remaining rows means exactly what it says: this instrument version writes
 no extractor for that family in that language. E5 and E6 reach all six since P24-3 wrote the
@@ -272,9 +272,17 @@ carries the tool identity per file.
 With `compile_commands.json`, per-translation-unit flags, working directory and include conditions
 can be replayed. Without it, a Clang AST is an approximation the analyser chose for itself. A run
 that cannot find the database must say so in `limitations` and must not silently degrade. The
-`c_cpp` column carries the preprocessor as its stated boundary: the syntax layer reads the text
+`c_cpp` column carries the build database as its stated boundary: the syntax layer reads the text
 after preprocessing has been approximated, so a cell that reads `partial` is naming a construct
 the tree does not contain rather than a measurement this version declined to make.
+
+**P24-6 makes that boundary addressable.** The database is searched for by its declared names, its
+entries are read into one record per translation unit, and the C/C++ extraction runs under the
+working directory and include paths those records carry. A subject that carries none is not
+refused: its `analysis_mode` is `syntax_only`, and it records a limitation naming the absence, its
+scope and what the conclusion loses. The three ways a database fails to configure a run — absent,
+present but unreadable, present and naming no unit — are three limitations rather than one,
+because they call for different repairs.
 
 ---
 
