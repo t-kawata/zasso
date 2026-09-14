@@ -80,6 +80,26 @@ function mockSessionWithUpdates(
   };
 }
 
+/**
+ * process.stdout.write を差し替えて書き出された行を収集する。
+ * verbose 出力は行単位で書き出されるため、書き込みの単位ではなく
+ * 連結結果として検証できるようにする。
+ */
+function captureStdout(): { lines: string[]; restore: () => void } {
+  const lines: string[] = [];
+  const originalWrite = process.stdout.write.bind(process.stdout);
+  process.stdout.write = ((chunk: string | Uint8Array) => {
+    lines.push(chunk.toString());
+    return true;
+  }) as typeof process.stdout.write;
+  return {
+    lines,
+    restore: () => {
+      process.stdout.write = originalWrite;
+    },
+  };
+}
+
 // --- buildClientApp ---
 
 describe("buildClientApp", () => {
@@ -123,9 +143,7 @@ describe("runCommand", () => {
   });
 
   it("verbose=true 時 agent_message_chunk を出力", async () => {
-    const lines: string[] = [];
-    const orig = process.stdout.write.bind(process.stdout);
-    process.stdout.write = ((s: string) => { lines.push(s); return true; }) as any;
+    const captured = captureStdout();
 
     try {
       const session = mockSession({
@@ -138,17 +156,15 @@ describe("runCommand", () => {
         ]) as any,
       });
       await runCommand(session, "/test", { timeoutMs: 5000, verbose: true });
-      assert.strictEqual(lines.length, 1);
-      assert.ok(lines[0]!.includes("chunk1"));
+      assert.strictEqual(captured.lines.length, 1);
+      assert.ok(captured.lines[0]!.includes("chunk1"));
     } finally {
-      process.stdout.write = orig;
+      captured.restore();
     }
   });
 
   it("verbose=false 時 chunk を出力しない", async () => {
-    const lines: string[] = [];
-    const orig = process.stdout.write.bind(process.stdout);
-    process.stdout.write = ((s: string) => { lines.push(s); return true; }) as any;
+    const captured = captureStdout();
 
     try {
       const session = mockSession({
@@ -158,9 +174,61 @@ describe("runCommand", () => {
         ]) as any,
       });
       await runCommand(session, "/test", { timeoutMs: 5000, verbose: false });
-      assert.strictEqual(lines.length, 0);
+      assert.strictEqual(captured.lines.length, 0);
     } finally {
-      process.stdout.write = orig;
+      captured.restore();
+    }
+  });
+
+  it("verbose=true 時、区切りの無いチャンクは stop で1行にまとめて改行される", async () => {
+    const captured = captureStdout();
+
+    try {
+      const session = mockSession({
+        session: mockSessionWithUpdates([
+          {
+            kind: "session_update",
+            update: { sessionUpdate: "agent_message_chunk", content: { text: "chunk1" } },
+          },
+          {
+            kind: "session_update",
+            update: { sessionUpdate: "agent_message_chunk", content: { text: "chunk2" } },
+          },
+          { kind: "stop", response: "" },
+        ]) as any,
+      });
+
+      await runCommand(session, "/test", { timeoutMs: 5000, verbose: true });
+
+      assert.deepStrictEqual(captured.lines, ["chunk1chunk2\n"]);
+    } finally {
+      captured.restore();
+    }
+  });
+
+  it("verbose=true 時、文末記号で区切られたチャンクは文ごとに改行される", async () => {
+    const captured = captureStdout();
+
+    try {
+      const session = mockSession({
+        session: mockSessionWithUpdates([
+          {
+            kind: "session_update",
+            update: { sessionUpdate: "agent_message_chunk", content: { text: "完了しました。" } },
+          },
+          {
+            kind: "session_update",
+            update: { sessionUpdate: "agent_message_chunk", content: { text: "次の作業" } },
+          },
+          { kind: "stop", response: "" },
+        ]) as any,
+      });
+
+      await runCommand(session, "/test", { timeoutMs: 5000, verbose: true });
+
+      assert.deepStrictEqual(captured.lines, ["完了しました。\n", "次の作業\n"]);
+    } finally {
+      captured.restore();
     }
   });
 

@@ -20,6 +20,7 @@ import { Writable, Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import * as acp from "@agentclientprotocol/sdk";
 import { CommandTimeoutError } from "./error.js";
+import { MessageLineWriter } from "./line-writer.js";
 
 // claude-agent-acp バイナリの検索
 //
@@ -271,7 +272,8 @@ export async function runSession<T>(
 // ACP セッションでコマンドを実行する
 //
 // prompt でコマンドを送信後、nextUpdate でストリーミング更新を読み取る。
-// verbose モード時は agent_message_chunk を stdout に書き出す。
+// verbose モード時は agent_message_chunk を MessageLineWriter 経由で stdout に
+// 書き出し、メッセージが横に連結しないよう行単位で改行する。
 // timeoutMs 超過時は CommandTimeoutError を throw する。
 export async function runCommand(
   acpSession: AcpSession,
@@ -299,6 +301,9 @@ export async function runCommand(
     );
   };
   acpSession.proc.once("exit", onChildExit);
+
+  // verbose 出力の行組み立て。finally の flush で端数を必ず改行して閉じる。
+  const messageWriter = new MessageLineWriter((line) => process.stdout.write(line));
 
   try {
     // prompt() は非同期で開始し、nextUpdate() でストリーミング更新を
@@ -331,30 +336,26 @@ export async function runCommand(
       }
 
       if (msg.kind === "stop") {
+        messageWriter.flush();
         fullResponse = msg.response?.toString() ?? "";
         break;
       }
 
-      // verbose モード: agent_message_chunk を出力
-      // 1回のメッセージが完了した（句点等で終わる）タイミングで改行する
+      // verbose モード: agent_message_chunk（トークン単位の差分）を行単位で出力
       if (
         options.verbose &&
         msg.kind === "session_update" &&
         msg.update?.sessionUpdate === "agent_message_chunk"
       ) {
         const text = (msg.update.content as { text?: string })?.text ?? "";
-        if (text) {
-          process.stdout.write(text);
-          // 句点・改行・閉じ括弧などメッセージの区切りで改行する
-          if (/[。．\n！？）」】]/.test(text)) {
-            process.stdout.write("\n");
-          }
-        }
+        messageWriter.push(text);
       }
     }
 
     return fullResponse;
   } finally {
+    // タイムアウトや子プロセス終了で抜けた場合も、保留中の行を改行して閉じる。
+    messageWriter.flush();
     // Always remove the exit listener so a teardown-time exit cannot reject an
     // already-settled promise or leak listeners across runCommand calls.
     acpSession.proc.off("exit", onChildExit);
