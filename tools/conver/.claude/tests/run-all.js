@@ -38,6 +38,7 @@ function walkFiles(dir, acc = []) {
 }
 
 function discoverTestFiles() {
+// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
   // Discover tests from .claude/tests/ (legacy location)
   const legacyFiles = walkFiles(testsDir)
     .map(fullPath => path.relative(conftestDir, fullPath))
@@ -61,13 +62,13 @@ const testFiles = discoverTestFiles();
 const BOX_W = 58; // inner width between ║ delimiters
 const boxLine = s => `║${s.padEnd(BOX_W)}║`;
 
-console.log('╔' + '═'.repeat(BOX_W) + '╗');
-console.log(boxLine('           Everything Claude Code - Test Suite'));
-console.log('╚' + '═'.repeat(BOX_W) + '╝');
-console.log();
+process.stdout.write('╔' + '═'.repeat(BOX_W) + '╗' + '\n');
+process.stdout.write(boxLine('           Everything Claude Code - Test Suite') + '\n');
+process.stdout.write('╚' + '═'.repeat(BOX_W) + '╝' + '\n');
+process.stdout.write('\n');
 
 if (testFiles.length === 0) {
-  console.log(`✗ No test files matched ${TEST_GLOB}`);
+  process.stdout.write(`✗ No test files matched ${TEST_GLOB}` + '\n');
   process.exit(1);
 }
 
@@ -81,11 +82,11 @@ for (const testFile of testFiles) {
   const displayPath = testFile.split(path.sep).join('/');
 
   if (!fs.existsSync(testPath)) {
-    console.log(`WARNING Skipping ${displayPath} (file not found)`);
+    process.stdout.write(`WARNING Skipping ${displayPath} (file not found)` + '\n');
     continue;
   }
 
-  console.log(`\n━━━ Running ${displayPath} ━━━`);
+  process.stdout.write(`\n━━━ Running ${displayPath} ━━━` + '\n');
 
   const result = spawnSync('node', [testPath], {
     encoding: 'utf8',
@@ -96,8 +97,8 @@ for (const testFile of testFiles) {
   const stderr = result.stderr || '';
 
   // Show both stdout and stderr so hook warnings are visible
-  if (stdout) console.log(stdout);
-  if (stderr) console.log(stderr);
+  if (stdout) process.stdout.write(stdout + '\n');
+  if (stderr) process.stdout.write(stderr + '\n');
 
   // Parse results from combined output
   const combined = stdout + stderr;
@@ -108,25 +109,25 @@ for (const testFile of testFiles) {
   if (failedMatch) totalFailed += parseInt(failedMatch[1], 10);
 
   if (result.error) {
-    console.log(`✗ ${displayPath} failed to start: ${result.error.message}`);
+    process.stdout.write(`✗ ${displayPath} failed to start: ${result.error.message}` + '\n');
     totalFailed += failedMatch ? 0 : 1;
     continue;
   }
 
   if (result.status !== 0) {
-    console.log(`✗ ${displayPath} exited with status ${result.status}`);
+    process.stdout.write(`✗ ${displayPath} exited with status ${result.status}` + '\n');
     totalFailed += failedMatch ? 0 : 1;
   }
 }
 
 totalTests = totalPassed + totalFailed;
 
-console.log('\n╔' + '═'.repeat(BOX_W) + '╗');
-console.log(boxLine('                     Final Results'));
-console.log('╠' + '═'.repeat(BOX_W) + '╣');
-console.log(boxLine(`  Total Tests: ${String(totalTests).padStart(4)}`));
-console.log(boxLine(`  Passed:      ${String(totalPassed).padStart(4)}  ✓`));
-console.log(boxLine(`  Failed:      ${String(totalFailed).padStart(4)}  ${totalFailed > 0 ? '✗' : ' '}`));
-console.log('╚' + '═'.repeat(BOX_W) + '╝');
+process.stdout.write('\n╔' + '═'.repeat(BOX_W) + '╗' + '\n');
+process.stdout.write(boxLine('                     Final Results') + '\n');
+process.stdout.write('╠' + '═'.repeat(BOX_W) + '╣' + '\n');
+process.stdout.write(boxLine(`  Total Tests: ${String(totalTests).padStart(4)}`) + '\n');
+process.stdout.write(boxLine(`  Passed:      ${String(totalPassed).padStart(4)}  ✓`) + '\n');
+process.stdout.write(boxLine(`  Failed:      ${String(totalFailed).padStart(4)}  ${totalFailed > 0 ? '✗' : ' '}`) + '\n');
+process.stdout.write('╚' + '═'.repeat(BOX_W) + '╝' + '\n');
 
 process.exit(totalFailed > 0 ? 1 : 0);

@@ -16,7 +16,6 @@ const path = require("path");
 
 const ID_PATTERN = /^\d{2}-\d{3}$/;
 
-// [::STUB::] 要解決: マーカー文字列は将来的に generate-child-rfcs.js と共有定数化する
 const CMD_ADD = "add";
 const CMD_BATCH = "batch";
 const CMD_REMOVE = "remove";

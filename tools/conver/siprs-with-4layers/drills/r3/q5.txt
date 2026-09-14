@@ -1,0 +1,10 @@
+Q5: CallResumed の発火設計（resume の観測手段）
+
+背景: CallResumed は SipEventPayload enum に定義されるが、構築箇所はゼロで一度も発火しない（src/api/event_model_payload_bus.rs）。resume（hold 解除）時は MediaActive が publish される（メディア状態機械の既存挙動）。H11 RESIDUE は「CallResumed を publish する経路を実装するか、『resume は MediaActive で観測』と明記する設計判断を確定」を求めている。round 2 では CallRejected を「観測されないイベントは削除」の方針で削除した（§62.14）。選択の観点は、未使用 enum バリアントの扱い（削除 vs 実装 vs 放置）である。
+
+選択肢:
+A) hold 解除時の MediaStateChanged から CallResumed を生成する経路を実装する
+B) 「resume は MediaActive で観測」と設計判断を確定し、CallResumed を enum から削除する（CallRejected と同様の統一方針）
+C) CallResumed は残すが現状は発火しない旨をドキュメントで明記する（現状維持 + 注記）
+
+推奨: B を推奨。CallResumed は構築箇所ゼロで、resume は MediaActive で既に観測可能である。round 2 の「観測されないイベントは削除して統一」方針（CallRejected）に一貫する。A は media hold 状態機械が新たに必要で、現状のメディア経路（MediaActive publish）に不要な複雑性を追加する（YAGNI）。C は「存在するが発火しない」enum バリアントを残し、RESIDUE の指摘を解消しない。

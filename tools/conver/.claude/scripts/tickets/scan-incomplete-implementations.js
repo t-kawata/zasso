@@ -55,6 +55,8 @@ const TARGET_EXTS = CFG.review.targetExtensions;
 // Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-90 --for-spec --no-implementation-order`
 const EXCLUDED_FILENAMES = new Set(['Tickets.json', 'Malfeasance.json']);
 
+const VALID_MODES = ['all', 'stubs', 'suppress'];
+
 function parseArgs() {
   const args = process.argv.slice(2);
   let dirPath = '.';
@@ -63,11 +65,10 @@ function parseArgs() {
     if (a.startsWith('--dir=')) dirPath = a.slice('--dir='.length);
     if (a.startsWith('--mode=')) mode = a.slice('--mode='.length);
   }
-  if (!['all', 'stubs', 'suppress'].includes(mode)) {
-    console.error('[ERROR] Invalid mode: ' + mode + ' (expected all|stubs|suppress)');
-    process.exit(2);
+  if (!VALID_MODES.includes(mode)) {
+    return { error: 'Invalid mode: ' + mode + ' (expected ' + VALID_MODES.join('|') + ')' };
   }
-  return { dirPath: path.resolve(dirPath), mode };
+  return { dirPath: path.resolve(dirPath), mode: mode };
 }
 
 function scanFile(filePath, mode, content) {
@@ -140,25 +141,35 @@ function scanDirectory(dirPath, mode) {
 }
 
 function main() {
-  const { dirPath, mode } = parseArgs();
+  const args = parseArgs();
 
-  if (!fs.existsSync(dirPath)) {
-    console.error('[ERROR] Directory not found: ' + dirPath);
-    process.exit(2);
+  if (args.error) {
+    console.error('[ERROR] ' + args.error);
+    process.exitCode = 2;
+    return;
   }
 
-  const findings = scanDirectory(dirPath, mode);
+  if (!fs.existsSync(args.dirPath)) {
+    console.error('[ERROR] Directory not found: ' + args.dirPath);
+    process.exitCode = 2;
+    return;
+  }
+
+  const findings = scanDirectory(args.dirPath, args.mode);
 
   const result = {
     ok: findings.length === 0,
-    mode: mode,
+    mode: args.mode,
     total: findings.length,
     findings: findings,
   };
 
+  // The findings payload exceeds the 64 KiB pipe buffer, so process.exit() would terminate
+  // before stdout drains and hand every child_process consumer truncated JSON. Setting
+  // exitCode lets Node exit on its own once stdio is flushed.
   console.log(JSON.stringify(result, null, 2));
 
-  if (findings.length > 0) process.exit(1);
+  if (findings.length > 0) process.exitCode = 1;
 }
 
 if (require.main === module) main();

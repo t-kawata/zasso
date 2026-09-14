@@ -1,0 +1,30 @@
+{
+  "title": "Config unification — RFC §10 ClientConfig promotion, STUN/TURN/ICE type unification, Vec-ization",
+  "nodeIds": ["N0070"],
+  "scope": [
+    "client_config_spec 版 ClientConfig を唯一の公開型に昇格し lib.rs で再公開する（§62.1）。",
+    "旧 src/config.rs の ClientConfig / StunServerConfig を完全削除し、SipClient::new のシグネチャを RFC 型に移行する。",
+    "StunServerConfig / TurnServerConfig の二重定義（config.rs:71 と transport_ice_spec.rs:143）を一元化し、stun_servers/turn_servers を Vec 化する。",
+    "§13 の ICE 既定値（enabled=true / aggressive_nomination=true / max_host_candidates=16）に一致させる。",
+    "§42 の validate() を SipClient::new 冒頭で fail-fast 実行する。"
+  ],
+  "testUnit": [
+    "ClientConfig::validate() が §42 規則（event_bus_capacity>=16, sample rate 8/16/24/48k, raw_sip 容量制約）を検査すること。",
+    "IceConfig 既定値が §13（enabled=true / aggressive_nomination=true / max_host_candidates=16）と一致すること。",
+    "TurnServerConfig が StunServerConfig と別型であること（型バグ解消）。"
+  ],
+  "testIntegration": [
+    "SipClient::new(RFC型ClientConfig) が Ok を返し ClientInitialized を publish すること。",
+    "不正な ClientConfig（event_bus_capacity<16）で Err(InvalidConfig) を返すこと。"
+  ],
+  "testExceptions": [
+    "実 PJSIP への設定反映は pjsua-native feature（Layer 3+）で検証する。"
+  ],
+  "changes": [
+    { "before": "lib.rs は旧 config.rs 型を公開", "after": "lib.rs が client_config_spec 版 ClientConfig を唯一の公開型として再公開", "description": "公開 ClientConfig の RFC §10 型への昇格" },
+    { "before": "src/config.rs に旧 ClientConfig / StunServerConfig が存在", "after": "旧型を完全削除", "description": "二重定義の排除" },
+    { "before": "client_config_spec.rs / transport_ice_spec.rs に単一型・旧既定値", "after": "stun_servers/turn_servers の Vec 化と §13 ICE 既定値への一致", "description": "STUN/TURN/ICE 型の一元化" },
+    { "before": "SipClient::new が旧 config 型を受理", "after": "SipClient::new が RFC 型を受理し validate() を fail-fast 実行", "description": "公開 API のシグネチャ移行" }
+  ],
+  "phaseName": "Implementation Integration — RESIDUE Resolution (§62)"
+}

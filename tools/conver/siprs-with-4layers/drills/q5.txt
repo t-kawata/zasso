@@ -1,0 +1,5 @@
+Q5: 公開 API 拡充の範囲を確定します。現在、SipClient に answer / reject / send_dtmf / hangup(cancel) / unsubscribe が存在せず、RFC §19（answer semantics・decline 486/603）、§20（DTMF）、§15.6（subscribe/unsubscribe）のシグネチャが未実装です。SipCall 側のローカル遷移のみで reactor/wire に届かないため、README の「着信と応答」「DTMF 送受信」「イベントの購読と受信」セクションが書けません。選択肢:
+A) 今回の進化で全 API を追加する（SipClient::answer(call_id,code) / reject(call_id) / send_dtmf(call_id,digits,method) / hangup(call_id) / unsubscribe）。decline コード 486/603 も受理。
+B) 通話系（answer/reject/hangup）のみ先行し、send_dtmf / unsubscribe は次回進化に回す。
+C) 最小限（answer/reject のみ）を先行し、他は既存 SipCall メソッドの配線に任せる。
+推奨: A を推します。README の完全記述には5 API すべてが前提であり、一度に設計すればシグネチャの一貫性（call_id 基準）が保てます。部分追加は RFC 追補を何度も書くことになり、進化の効率を損ないます。

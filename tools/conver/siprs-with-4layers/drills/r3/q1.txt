@@ -1,0 +1,10 @@
+Q1: raw SIP 生産経路の設計 — vendored PJSIP < 2.13 の on_rx_msg 欠如への対応
+
+背景: §62.13（round 2 Q3）は raw SIP publisher を pjsua_callback の on_rx_msg コールバックから実装すると設計した。しかし実装段階で vendored PJSIP の pjsua_callback に on_rx_msg フィールドが存在しないことが判明した（PJSIP < 2.13、src/ffi/callback.rs:143-144）。enqueue_raw_sip_bytes / raw SIP キュー / install_raw_sip_queue は実装済みで、subscribe_raw_sip() は Some を返すが、生産コードから enqueue_raw_sip_bytes を呼ぶコールバックが存在しない。結果、raw SIP 受信チャネルは無音（H8 RESIDUE）。選択の観点は、PJSIP 更新の影響範囲 vs 未配線の明文化 vs 代替フックの安全性である。
+
+選択肢:
+A) vendored PJSIP を 2.13+ へ更新し、pjsua_callback.on_rx_msg を登録して §62.13 の設計をそのまま実現する
+B) vendored PJSIP を維持し、PJSIP core レベルの代替フック（pjsip_tpmgr / pjsip_endpt の受信フック）から raw SIP を取得する
+C) raw SIP 受信は今回「未配線」と確定し、enqueue_raw_sip_bytes 注入点とキュー・publisher は維持したまま、README / RFC に「raw SIP 受信は PJSIP 更新時に on_rx_msg 接続で有効化」と明記する
+
+推奨: C を推奨。vendored PJSIP の更新は bindgen 出力・FFI 定数・他コールバック構造体への影響が広範で、raw SIP 受信のためだけに更新するのはリスクが高い。B は tpmgr 内部構造への依存が深く、unsafe 境界の安全性確保とテスト容易性の両立が困難。C は既存の注入点（enqueue_raw_sip_bytes）と購読 API（subscribe_raw_sip）の価値を保持しつつ、未配線を明示的に契約化する。RESIDUE 自身も「PJSIP 2.13+ への更新か、README に未配線と明記」を許容している。

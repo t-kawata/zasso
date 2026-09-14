@@ -1,0 +1,142 @@
+[package]
+name = "siprs"
+version = "0.1.0"
+description = "Safe asynchronous SIP voice communication via PJSUA for Rust"
+authors = ["Toshimi Kawata"]
+edition = "2021"
+rust-version = "1.95"
+license = "MIT OR Apache-2.0"
+
+[features]
+# [::TICKET::] P15-7: cpal-input is a default feature so open_default_microphone_source
+# connects to a real input device in the default build (§62.6).
+default = ["serde", "tls", "cpal-input"]
+serde = ["dep:serde", "dep:serde_json"]
+# [::TICKET::] P10-2: pjsua-native gates the bindgen-generated PJSIP FFI layer.
+# When enabled, build.rs detects a system PJSIP install and src/ffi/bindings.rs
+# is replaced by bindgen output (P8-5/P11-5). When disabled, stub aliases keep
+# the crate compiling without a system PJSIP install (RFC §28).
+pjsua-native = []
+tls = []
+srtp = []
+metrics = []
+# [::TICKET::] P3-3: cli feature gates clap-based CLI arg parsing for standalone binary mode.
+cli = ["dep:clap"]
+# [::TICKET::] P3-3: server feature gates Axum HTTP server deps for standalone server mode.
+server = ["dep:axum", "dep:tower-http"]
+# [::TICKET::] P8-7: cpal-input feature now pulls the cpal optional dependency.
+cpal-input = ["dep:cpal"]
+zeroize = ["dep:zeroize"]
+# [::TICKET::] P2-3: sqlite-storage feature gates SeaORM/rusqlite dependencies.
+# This keeps the default crate light — SQLite deps only enabled when needed.
+sqlite-storage = ["dep:rusqlite", "dep:sea-orm", "dep:chrono"]
+# [::TICKET::] P15-3: test-util gates the deterministic TestBackend and the
+# create_backend test branch for integration tests (tests/*.rs) that spawn a
+# live reactor without pjsua-native. Never enabled by default, so a production
+# build without pjsua-native still fails fast (RFC §62.2).
+test-util = []
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cpal-input", "pjsua-native", "test-util"))'] }
+
+[dependencies]
+# P0-4: tokio sync for EventBus broadcast channels (control/raw_sip)
+# [::TICKET::] P7-2: test-util enables tokio::time::pause()/advance() for the deterministic DtmfSent timeout test (O-002)
+# [::TICKET::] P19-1: process enables tokio::process::Command used by tests/sip_integration.rs::originate_call_to (P16-10), required by the pjsua-native test-integration gate.
+tokio = { version = "1", features = ["sync", "rt", "rt-multi-thread", "time", "macros", "net", "process", "test-util"] }
+thiserror = "2"
+# [::TICKET::] P1-2: tracing for #[tracing::instrument] on public operations
+tracing = "0.1"
+# [::TICKET::] P1-2: cfg-if for clean feature-gated compilation of metrics types
+cfg-if = "1"
+# [::TICKET::] P1-2: zeroize for SecretString memory zeroization (optional)
+zeroize = { version = "1", optional = true }
+# [::TICKET::] P1-2: serde for Serialize/Deserialize on public types (optional, behind serde feature)
+serde = { version = "1", optional = true, features = ["derive"] }
+# [::TICKET::] P4-4: serde_json for WsEvent payload type and AuthRequest/AuthResponse serde
+serde_json = { version = "1", optional = true }
+# [::TICKET::] P0-6: dashmap for lock-free AudioMixer source management.
+dashmap = "6"
+async-trait = "0.1"
+# [::TICKET::] P2-2: jsonwebtoken for JWT encode/decode in auth_jwt_middleware
+jsonwebtoken = "9"
+# [::TICKET::] P3-2: crossbeam-queue for lock-free ArrayQueue used in AudioMixer RT boundary.
+crossbeam-queue = "0.3"
+# [::TICKET::] P2-3: rusqlite bundled for SQLite persistence (no system lib dependency)
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+# [::TICKET::] P2-3: sea-orm for type-safe database operations with SQLite backend
+sea-orm = { version = "1", features = ["sqlx-sqlite", "macros", "runtime-tokio-rustls"], optional = true }
+# [::TICKET::] P2-3: chrono for SQLite TEXT timestamp handling
+chrono = { version = "0.4", optional = true }
+# [::TICKET::] P3-3: clap for optional CLI arg parsing (behind 'cli' feature).
+clap = { version = "4", optional = true }
+# [::TICKET::] P3-3: axum for optional HTTP server mode (behind 'server' feature).
+axum = { version = "0.7", optional = true }
+# [::TICKET::] P3-3: tower-http for CORS middleware (behind 'server' feature).
+tower-http = { version = "0.5", features = ["cors"], optional = true }
+# [::TICKET::] P8-7: cpal for the optional device-backed microphone source (cpal-input feature).
+cpal = { version = "0.18", optional = true }
+
+[build-dependencies]
+# [::TICKET::] P11-5: bindgen generates the PJSIP FFI layer in build.rs when the
+# `pjsua-native` feature is enabled. Pinned — bindgen output varies by version,
+# so a fixed version keeps the generated bindings deterministic and reviewable.
+bindgen = "0.69"
+
+[dev-dependencies]
+# [::TICKET::] P1-2: serde_json for serde roundtrip tests
+serde_json = "1"
+# [::TICKET::] P3-3: axum/tower-http in dev-deps for integration tests.
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors"] }
+# [::TICKET::] P7-1: tower for axum::test oneshot requests (ServiceExt::oneshot on Router).
+tower = { version = "0.5", features = ["util"] }
+
+# Example declarations. All five examples (client_init, account_register,
+# make_call, audio_tap, tts_source) build by default.
+
+[[example]]
+name = "client_init"
+
+[[example]]
+name = "account_register"
+
+[[example]]
+name = "make_call"
+
+[[example]]
+name = "audio_tap"
+
+[[example]]
+name = "tts_source"
+
+# [::TICKET::] P15-3: live-reactor integration tests require the test-util
+# feature so the library build selects TestBackend (the non-feature, non-test
+# build returns an explicit unsupported error per RFC §62.2). Without the
+# feature these targets are skipped rather than failing on a missing backend.
+[[test]]
+name = "verify_spec_p9_1"
+required-features = ["test-util"]
+
+[[test]]
+name = "verify_spec_p10_1"
+required-features = ["test-util"]
+
+[[test]]
+name = "runtime_audio_lifecycle"
+required-features = ["test-util"]
+
+[[test]]
+name = "verify_spec_p8_2"
+required-features = ["test-util"]
+
+[[test]]
+name = "verify_spec_p9_2"
+required-features = ["test-util"]
+
+# [::TICKET::] P16-10: the real-SIP integration suite runs only under
+# pjsua-native (docker Asterisk/coturn, §62.19 Q9a). `make test-integration`
+# supplies this feature; `make test` (test-util) skips the target cleanly.
+[[test]]
+name = "sip_integration"
+required-features = ["pjsua-native"]

@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "nodes": [
+    { "id": "n1", "title": "Configuration", "status": "resolved", "children": [
+      { "id": "n1.1", "title": "Loading", "status": "open", "children": [] }
+    ] }
+  ]
+}

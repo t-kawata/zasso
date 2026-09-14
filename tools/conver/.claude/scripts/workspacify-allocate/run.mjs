@@ -15,7 +15,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import process from 'node:process';
 
-import { EXIT_CODES, WorkSpacifyTreeError } from '../workspacify-tree/lib/errors.mjs';
+import { EXIT_CODES, GATE_STATUS, WorkSpacifyTreeError } from '../workspacify-tree/lib/errors.mjs';
 import { validateAgainstSchema } from '../workspacify-tree/lib/manifest-schema.mjs';
 
 import { loadTreeManifest, checkAllocateEntryGate, readManifestSource } from './lib/tree-manifest-input.mjs';
@@ -33,7 +33,7 @@ import { buildIntegrationGraph, runGraphViolations } from './lib/wig.mjs';
 import { deriveImplementationOrder, verifyOrderAgainstStage1 } from './lib/implementation-order.mjs';
 import { walkSeedContracts } from './walk-seed-contracts.mjs';
 import { adviseFailure } from '../workspacify-tree/lib/gate-advice.mjs';
-import { buildAllocateManifest } from './lib/allocate-manifest.mjs';
+import { buildAllocateManifest, renderAllocateManifest } from './lib/allocate-manifest.mjs';
 import { publishWorkspace } from './publish-allocate-manifest.mjs';
 import { removeWorkspaceArtifacts } from './cleanup-workspace-artifacts.mjs';
 import { reloadAndVerify } from './lib/allocate-reload.mjs';
@@ -42,6 +42,23 @@ import { parseSeed } from './lib/seed-parse.mjs';
 import { runSeedParity } from './lib/seed-parity.mjs';
 import { runSeedLocalChecks } from './lib/seed-local-checks.mjs';
 import { validateSelfGrill, partitionResiduals } from './lib/self-grill.mjs';
+// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+import {
+  ALLOCATE_MODES,
+  TREE_MANIFEST_FILE_NAME,
+  assertAdditionsOnly,
+  assertSeedPlacement,
+  buildReverseIndex,
+  findPlacedSeedPaths,
+  measureExistingDirectories,
+  measureTopLevelDirectories,
+  packagesRequiringSeed,
+  readPackageImplementations,
+  renderReverseAllocateReport,
+  runReverseAllocateGates,
+  sidecarReferenceOf,
+  summarizeReverseAllocateGates,
+} from './lib/reverse-mode.mjs';
 
 const DECISIONS_SCHEMA_PATH = fileURLToPath(new URL('./schemas/workspacify-allocate-decisions.schema.json', import.meta.url));
 
@@ -187,7 +204,9 @@ function orderEntryForPackage({ manifest, packageId }) {
   };
 }
 
-function renderAllSeeds({ manifest, manifestPath, manifestDir, expectedByPackage, decisions }) {
+// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+function renderAllSeeds({ manifestRef, expectedByPackage, decisions, reverse }) {
+  const { manifest, manifestPath, manifestDir } = manifestRef;
   const packages = manifest.workspace?.packages ?? [];
   const segmentIds = (manifest.structure?.segments ?? []).map((segment) => segment.id);
   const parsedByPackage = new Map();
@@ -213,7 +232,7 @@ function renderAllSeeds({ manifest, manifestPath, manifestDir, expectedByPackage
     const rendered = renderOneSeed({
       pkg,
       decisions,
-      workspace: { manifest, manifestPath, manifestDir, segmentIds },
+      workspace: { manifest, manifestPath, manifestDir, segmentIds, reverse },
       expectedAllocation: expectedByPackage.get(pkg.id) ?? [],
       residualQuestions: residualByPackage.get(pkg.id) ?? [],
     });
@@ -244,8 +263,9 @@ function renderAllSeeds({ manifest, manifestPath, manifestDir, expectedByPackage
  * this seed must answer. Parsing straight back proves the document is well formed
  * before any gate looks at its content.
  */
+// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
 function renderOneSeed({ pkg, decisions, workspace, expectedAllocation, residualQuestions }) {
-  const { manifest, manifestPath, manifestDir, segmentIds } = workspace;
+  const { manifest, manifestPath, manifestDir, segmentIds, reverse } = workspace;
   const decision = packageDecisionByPackageId(decisions, pkg.id);
   if (!decision?.aiSections) {
     throw new WorkSpacifyTreeError(`decisions is missing seed content for package ${pkg.id}`, { gateId: 'G3' });
@@ -260,9 +280,12 @@ function renderOneSeed({ pkg, decisions, workspace, expectedAllocation, residual
       sourceSegments: collectPackageSegments({ manifest, packageId: pkg.id }),
     },
   });
+  // In reverse mode the reference block also carries the reverse index and the
+  // sidecar reference; in forward mode `reverse` is absent and the block is the
+  // object the forward rotation has always rendered.
   const { seedText } = renderSeed({
     package: pkg,
-    machine: { manifest, expectedAllocation, referenceBlock, contractEdges },
+    machine: { manifest, expectedAllocation, referenceBlock, contractEdges, ...(reverse ?? {}) },
     aiSections: decision.aiSections,
     residualQuestions,
   });
@@ -407,7 +430,7 @@ export function runGate(args) {
   const { manifest, manifestDir } = loadLockedInput(manifestPath);
   const decisions = loadDecisions(decisionsPath);
   const { expectedByPackage } = deriveExpectedAllocation({ ownershipEntries: manifest.workspace?.ownership?.entries ?? [], packages: manifest.workspace?.packages ?? [] });
-  const gateRun = renderAllSeeds({ manifest, manifestPath, manifestDir, expectedByPackage, decisions });
+  const gateRun = renderAllSeeds({ manifestRef: { manifest, manifestPath, manifestDir }, expectedByPackage, decisions });
   assertSourceCoverage({ manifest, expectedByPackage, parsedByPackage: gateRun.parsedByPackage });
   assertWorkspaceCoupling({ manifest, parsedByPackage: gateRun.parsedByPackage });
   assertSemanticApproval(decisions);
@@ -439,7 +462,7 @@ export function runFinalize(args) {
   }
 
   const { expectedByPackage } = deriveExpectedAllocation({ ownershipEntries: manifest.workspace?.ownership?.entries ?? [], packages });
-  const { renderedByPackage, parsedByPackage, selfGrill } = renderAllSeeds({ manifest, manifestPath, manifestDir, expectedByPackage, decisions });
+  const { renderedByPackage, parsedByPackage, selfGrill } = renderAllSeeds({ manifestRef: { manifest, manifestPath, manifestDir }, expectedByPackage, decisions });
   assertSourceCoverage({ manifest, expectedByPackage, parsedByPackage });
   const coupling = assertWorkspaceCoupling({ manifest, parsedByPackage, expectedByPackage });
   assertSemanticApproval(decisions);
@@ -497,12 +520,165 @@ export function runFinalize(args) {
   guide('Finalize PASS: the workspace tree, one RFC-SEED.md per package and WORKSPACIFY-ALLOCATE-MANIFEST.json were published together and reload-verified. Intermediate artefacts were removed.');
 }
 
+/**
+ * Reverse mode: place one RFC-SEED into each package of a tree that already exists.
+ *
+ * The safety guarantee is inverted, not weakened. Forward refuses anything that
+ * pre-exists; reverse refuses anything that does not match the plan, and refuses to
+ * rename a single top-level entry. The writes are the seeds and the manifest, and a
+ * failure publishes nothing.
+ */
+// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+export function runReverse(args) {
+  const root = optionValue(args, '--root');
+  const decisionsPath = optionValue(args, '--decisions');
+  if (!root || !decisionsPath) {
+    throw new WorkSpacifyTreeError('reverse requires --root=<project directory> and --decisions=<path>', { gateId: 'A1' });
+  }
+
+  const manifestDir = path.resolve(root);
+  const manifestPath = path.join(manifestDir, TREE_MANIFEST_FILE_NAME);
+  const { manifest, sourceText } = loadLockedInput(manifestPath);
+  const decisions = loadDecisions(decisionsPath);
+  const packages = manifest.workspace?.packages ?? [];
+
+  const plan = buildDirectoryPlan({ tree: manifest.workspace?.tree, packages });
+  if (!plan.consistent) {
+    throw new WorkSpacifyTreeError(plan.errors.join('; '), { gateId: 'G2' });
+  }
+  const safety = checkPlannedPathSafety({ root: manifestDir, relativeDirs: plan.relativeDirs });
+  if (!safety.ok) {
+    throw new WorkSpacifyTreeError(safety.unsafe.map((entry) => `${entry.path}: ${entry.reason}`).join('; '), { gateId: 'G2.2' });
+  }
+
+  // A1 — the plan and the measured project must be the same project. This is the
+  // inverted form of `fresh-workspace only`, and it is judged before anything is
+  // rendered or written.
+  const topLevelBefore = measureTopLevelDirectories(manifestDir);
+
+  const { expectedByPackage } = deriveExpectedAllocation({ ownershipEntries: manifest.workspace?.ownership?.entries ?? [], packages });
+  // The reverse index is read from the provenance the reverse tree run recorded,
+  // not invented here: a manifest without it is a manifest this step cannot render.
+  const rendered = renderAllSeeds({
+    manifestRef: { manifest, manifestPath, manifestDir },
+    expectedByPackage,
+    decisions,
+    reverse: {
+      mode: ALLOCATE_MODES.REVERSE,
+      reverseIndex: buildReverseIndex(manifest),
+      sidecarReference: sidecarReferenceOf(manifest),
+    },
+  });
+  const seedTexts = [...rendered.renderedByPackage.values()].map((entry) => entry.seedText);
+
+  // The packets supply the consumer implementations: the only material that
+  // answers why a symbol exists.
+  const incomingImplementations = readPackageImplementations(manifestDir, manifest);
+  const packets = packagesRequiringSeed(packages).map((pkg) => buildAuthoringPacket({
+    manifest,
+    sourceText,
+    packageId: pkg.id,
+    reverse: { mode: ALLOCATE_MODES.REVERSE, incomingImplementations },
+  }));
+
+  const plannedWrites = packagesRequiringSeed(packages)
+    .map((pkg) => ({ path: `${pkg.path}/${SEED_FILE_NAME}` }));
+  plannedWrites.push({ path: ALLOCATE_MANIFEST_FILE_NAME });
+
+  // Every gate, judged once, before anything is written. A2 is judged here on the
+  // tree as it stands and judged again below on the tree as it then stands.
+  const judged = runReverseAllocateGates({
+    mode: ALLOCATE_MODES.REVERSE,
+    plannedPaths: plan.relativeDirs,
+    existingPaths: measureExistingDirectories(manifestDir),
+    seedTexts,
+    expectedByPackage,
+    parsedByPackage: rendered.allocationRowsByPackage,
+    packets,
+    writes: plannedWrites,
+    topLevelDirectoriesBefore: topLevelBefore,
+    topLevelDirectoriesAfter: topLevelBefore,
+  });
+  const prePublication = summarizeReverseAllocateGates(judged);
+  if (prePublication.status !== GATE_STATUS.COMPLETE) {
+    return reportReverseOutcome(judged);
+  }
+
+  const coupling = assertWorkspaceCoupling({ manifest, parsedByPackage: rendered.parsedByPackage, expectedByPackage });
+  assertSourceCoverage({ manifest, expectedByPackage, parsedByPackage: rendered.parsedByPackage });
+  assertSemanticApproval(decisions);
+
+  const allocateManifest = buildAllocateManifest({
+    manifestRef: { manifest, manifestPath, manifestDir },
+    plan,
+    renderedByPackage: rendered.renderedByPackage,
+    proof: { ...coupling, parsedByPackage: rendered.parsedByPackage },
+    review: {
+      gateResults: [{ id: 'A1', status: 'PASS' }, { id: 'A3', status: 'PASS' }, { id: 'A5', status: 'PASS' }],
+      semanticReview: decisions.semantic_review,
+      selfGrill: { record: decisions.self_grill, residual: rendered.selfGrill.residual },
+    },
+  });
+
+  writeReverseSeeds({ manifestDir, renderedByPackage: rendered.renderedByPackage });
+  writeFileSync(path.join(manifestDir, ALLOCATE_MANIFEST_FILE_NAME), renderAllocateManifest(allocateManifest), 'utf8');
+
+  // A2 — judged again against the tree as it now stands. A top-level entry that
+  // changed name is a rename, and a rename is what moving `src/` would look like.
+  const additionsOnly = assertAdditionsOnly({
+    writes: plannedWrites,
+    topLevelDirectoriesBefore: topLevelBefore,
+    topLevelDirectoriesAfter: measureTopLevelDirectories(manifestDir),
+  });
+
+  // C002's postcondition, read back from the tree rather than assumed from the
+  // write loop: exactly one RFC-SEED in each package, and nowhere else.
+  const placement = assertSeedPlacement({ packages, placedSeedPaths: findPlacedSeedPaths(manifestDir) });
+
+  const records = [judged[0], additionsOnly, placement, ...judged.slice(2)];
+  const summary = summarizeReverseAllocateGates(records);
+  if (summary.status !== GATE_STATUS.COMPLETE) {
+    return reportReverseOutcome(records);
+  }
+
+  process.stdout.write(`${renderReverseAllocateReport(records)}\n`);
+  emit({
+    status: GATE_STATUS.COMPLETE,
+    workspaceRoot: manifestDir,
+    allocateManifestPath: path.join(manifestDir, ALLOCATE_MANIFEST_FILE_NAME),
+    seedCount: rendered.renderedByPackage.size,
+    plannedDirectoryCount: plan.relativeDirs.length,
+    packageCount: packages.length,
+    gateSummary: 'A1:PASS A2:PASS A3:PASS A4:PASS A5:PASS',
+  });
+  guide('Reverse PASS: every existing path matched the plan, one RFC-SEED.md now sits in each package, and no top-level entry was moved. The forward manifest_hash is unchanged because the forward path was never entered.');
+}
+
+/** Publish the Markdown report, and say why when a gate refused. */
+// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+function reportReverseOutcome(records) {
+  const summary = summarizeReverseAllocateGates(records);
+  process.stdout.write(`${renderReverseAllocateReport(records)}\n`);
+  emit({ status: summary.status, failing: summary.failing, gateSummary: 'A none' });
+  guide(`Reverse ${summary.status}: ${summary.failing.join(', ')} did not pass, so nothing was published. The project tree was not modified.`);
+  process.exit(EXIT_CODES.FAIL);
+}
+
+/** Write one seed into each package directory. Nothing else is written. */
+// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+function writeReverseSeeds({ manifestDir, renderedByPackage }) {
+  for (const { seedText, package: pkg } of renderedByPackage.values()) {
+    writeFileSync(path.join(manifestDir, pkg.path, SEED_FILE_NAME), seedText, 'utf8');
+  }
+}
+
 const SUBCOMMANDS = {
   validate: runValidate,
   plan: runPlan,
   packet: runPacket,
   gate: runGate,
   finalize: runFinalize,
+  reverse: runReverse,
 };
 
 function main() {

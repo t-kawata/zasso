@@ -1,0 +1,26 @@
+{
+  "title": "Error native_status preservation — SipError.native_status i32, M20 converter unification on production path",
+  "nodeIds": ["N0077"],
+  "scope": [
+    "SipError に native_status: Option<i32> を保持し、reactor 経路のエラー変換で m20_runtime_command_error.rs の M20 converter を呼び出す（§62.8）。",
+    "pjsua_status → native_status の写像を §14.1 テーブル準拠で一元化する。",
+    "src/error.rs:299-307 の None 設定と backend.rs の map_pjsua_status による文字列埋め込みを排除する。"
+  ],
+  "testUnit": [
+    "m20_runtime_command_error::classify が pjsip_status_code を §14.1 準拠の SipErrorKind に写像すること。",
+    "SipError::with_status が native_status を保持すること。",
+    "エラー変換経路で native_status が None にならないこと。"
+  ],
+  "testIntegration": [
+    "TestBackend でエラーが発生した際に SipError.native_status() が Some を返すこと。"
+  ],
+  "testExceptions": [
+    "実 pjsip エラーは pjsua-native（Layer 3+）で検証する。"
+  ],
+  "changes": [
+    { "before": "SipError.native_status が変換経路で None 化", "after": "native_status: Option<i32> を保持し with_status で設定", "description": "native_status の保存" },
+    { "before": "backend.rs の map_pjsua_status が文字列埋め込み", "after": "map_native_error が M20 converter を呼び出し §14.1 準拠で写像", "description": "エラー変換の一元化" },
+    { "before": "error.rs:299-307 が None を設定", "after": "None 設定を排除し reactor 経路で native_status を維持", "description": "変換経路の整合" }
+  ],
+  "phaseName": "Implementation Integration — RESIDUE Resolution (§62)"
+}

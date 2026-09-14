@@ -1,0 +1,16 @@
+{
+  "headerPaths": {
+    "graphRelPath": "tools/conver/RFC-ROOT-GRAPH.json",
+    "dirsTreeRelPath": "tools/conver/RFC-ROOT-Dirs-Tree.json",
+    "sourceRelPath": "tools/conver/RFC-ROOT.md"
+  },
+  "mappedNodeIds": [
+    { "nodeId": "N0001", "kind": "module", "title": "Config Loader" },
+    { "nodeId": "N0002", "kind": "function", "title": "load_config" }
+  ],
+  "crossRefs": [
+    { "file": "src/config/mod.rs", "nodeId": "N0001" }
+  ],
+  "sourceBasename": "RFC-ROOT.md",
+  "lang": "rust"
+}

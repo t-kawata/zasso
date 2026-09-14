@@ -1,0 +1,372 @@
+{
+  "version": 1,
+  "comment": "The six language representatives: the instrument's validation population. Each entry is measured from its tree — the digest, the construct lines and the build flag are read, not typed. Regenerating it with the recorded revisions produces this file byte for byte; a digest that stops reproducing is reported rather than re-pinned.",
+  "populations": {
+    "experiment": {
+      "purpose": "The experiment's own subject. The reverse rotation runs over `siprs-for-reverse`, with `siprs-with-4layers` frozen as the key it reconciles against. Nothing in this population is a validation tree.",
+      "roots": [
+        "siprs-for-reverse"
+      ]
+    },
+    "oracle": {
+      "purpose": "The frozen answer key: the layered tree the experiment is reconciled against, and never an input to it.",
+      "roots": [
+        "siprs-with-4layers"
+      ]
+    },
+    "patterns": {
+      "purpose": "The four pattern representatives P23-12's audit reads — the experiment pair and the two fixtures under `fixtures/patterns/`. They are separate from the language population, so no validation tree can be reached as an answer key.",
+      "roots": [
+        "siprs-for-reverse",
+        "siprs-with-4layers",
+        "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
+        "tests/workspacify-reverse/fixtures/patterns/spec-only-project"
+      ],
+      "declaredBy": "P23-11"
+    },
+    "languages": {
+      "purpose": "The instrument's validation population: the six representatives the six-language vocabulary, name filters and grammars are measured against. It is not the experiment's input and not the pattern audit's input — it exists to make an untested table a tested one.",
+      "roots": [
+        "tests/workspacify-reverse/fixtures/r3-subject",
+        "tests/workspacify-reverse/fixtures/languages/typescript",
+        "tests/workspacify-reverse/fixtures/languages/javascript",
+        "tests/workspacify-reverse/fixtures/languages/go",
+        "tests/workspacify-reverse/fixtures/languages/python",
+        "tests/workspacify-reverse/fixtures/languages/c_cpp"
+      ],
+      "declaredBy": "P24-1"
+    }
+  },
+  "languages": [
+    {
+      "language": "rust",
+      "root": "tests/workspacify-reverse/fixtures/r3-subject",
+      "revision": {
+        "root": "/Users/kawata/shyme/zasso",
+        "pathWithinWorkTree": "tools/conver/tests/workspacify-reverse/fixtures/r3-subject",
+        "commit": "2124f75a9569ba8b415f94e3b869aa541d4dbfe3",
+        "isOwnRepository": false
+      },
+      "treeDigest": {
+        "sha256": "59ec16108bd62b5255006977c4f1d832bf8e90861ae43938e80b10348840df2a",
+        "fileCount": 6,
+        "unreadable": []
+      },
+      "environment": {
+        "os": "darwin",
+        "arch": "arm64",
+        "commandLine": "node -e \"import('./.claude/scripts/workspacify-reverse/lib/language-representatives.mjs').then((module) => process.stdout.write(module.digestRepresentative('rust').sha256))\""
+      },
+      "build": {
+        "command": "cargo test",
+        "offline": false,
+        "reason": "Cargo.toml is present and the tree declares no crate root (src/lib.rs or src/main.rs), so cargo test cannot build it — a valid subject for the static measurements and not for the execution channels"
+      },
+      "flat": false,
+      "dominantLanguage": "rust",
+      "languagesInTree": [
+        "rust"
+      ],
+      "testFileCount": 1,
+      "constructs": [
+        {
+          "id": "enum-declaration",
+          "marker": "pub enum LoginError",
+          "path": "src/error.rs",
+          "line": 2
+        },
+        {
+          "id": "function-declaration",
+          "marker": "pub fn login",
+          "path": "src/api/login.rs",
+          "line": 4
+        },
+        {
+          "id": "impl-block",
+          "marker": "impl Session",
+          "path": "src/api/session.rs",
+          "line": 7
+        },
+        {
+          "id": "conditional-compilation",
+          "marker": "#[cfg(feature = \"ffi\")]",
+          "path": "src/api/gated.rs",
+          "line": 2
+        },
+        {
+          "id": "test-attribute",
+          "marker": "#[test]",
+          "path": "tests/login_test.rs",
+          "line": 2
+        }
+      ]
+    },
+    {
+      "language": "typescript",
+      "root": "tests/workspacify-reverse/fixtures/languages/typescript",
+      "revision": {
+        "root": "/Users/kawata/shyme/zasso",
+        "pathWithinWorkTree": "tools/conver/tests/workspacify-reverse/fixtures/languages/typescript",
+        "commit": "2124f75a9569ba8b415f94e3b869aa541d4dbfe3",
+        "isOwnRepository": false
+      },
+      "treeDigest": {
+        "sha256": "d55791f523977c3ce12a3a4247ec45280fb503bbdc2620c65623b5bb919d2893",
+        "fileCount": 7,
+        "unreadable": []
+      },
+      "environment": {
+        "os": "darwin",
+        "arch": "arm64",
+        "commandLine": "node -e \"import('./.claude/scripts/workspacify-reverse/lib/language-representatives.mjs').then((module) => process.stdout.write(module.digestRepresentative('typescript').sha256))\""
+      },
+      "build": {
+        "command": "npx --no-install tsc --noEmit",
+        "offline": false,
+        "reason": "package.json declares typescript, which must be present before npx --no-install tsc --noEmit can run"
+      },
+      "flat": false,
+      "dominantLanguage": "typescript",
+      "languagesInTree": [
+        "typescript"
+      ],
+      "testFileCount": 1,
+      "constructs": [
+        {
+          "id": "export-star",
+          "marker": "export *",
+          "path": "src/index.ts",
+          "line": 10
+        },
+        {
+          "id": "declaration-merge",
+          "marker": "interface Box",
+          "path": "src/model.ts",
+          "line": 10
+        },
+        {
+          "id": "dynamic-import",
+          "marker": "import(moduleName)",
+          "path": "src/loader.ts",
+          "line": 14
+        }
+      ]
+    },
+    {
+      "language": "javascript",
+      "root": "tests/workspacify-reverse/fixtures/languages/javascript",
+      "revision": {
+        "root": "/Users/kawata/shyme/zasso",
+        "pathWithinWorkTree": "tools/conver/tests/workspacify-reverse/fixtures/languages/javascript",
+        "commit": "2124f75a9569ba8b415f94e3b869aa541d4dbfe3",
+        "isOwnRepository": false
+      },
+      "treeDigest": {
+        "sha256": "e93e6274edd5367832eb9faf108f14ed4214af143d3791d93acf2c601e582ae5",
+        "fileCount": 5,
+        "unreadable": []
+      },
+      "environment": {
+        "os": "darwin",
+        "arch": "arm64",
+        "commandLine": "node -e \"import('./.claude/scripts/workspacify-reverse/lib/language-representatives.mjs').then((module) => process.stdout.write(module.digestRepresentative('javascript').sha256))\""
+      },
+      "build": {
+        "command": "node --test src/__tests__/*.spec.js",
+        "offline": true,
+        "reason": "package.json declares no dependency outside the tree, so the build reaches no network"
+      },
+      "flat": false,
+      "dominantLanguage": "javascript",
+      "languagesInTree": [
+        "javascript"
+      ],
+      "testFileCount": 1,
+      "constructs": [
+        {
+          "id": "computed-property-name",
+          "marker": "[widgetKey]",
+          "path": "src/widget.js",
+          "line": 15
+        },
+        {
+          "id": "dynamic-require",
+          "marker": "require(moduleName)",
+          "path": "src/loader.js",
+          "line": 12
+        },
+        {
+          "id": "prototype-method",
+          "marker": "Widget.prototype.render",
+          "path": "src/widget.js",
+          "line": 25
+        }
+      ]
+    },
+    {
+      "language": "go",
+      "root": "tests/workspacify-reverse/fixtures/languages/go",
+      "revision": {
+        "root": "/Users/kawata/shyme/zasso",
+        "pathWithinWorkTree": "tools/conver/tests/workspacify-reverse/fixtures/languages/go",
+        "commit": "2124f75a9569ba8b415f94e3b869aa541d4dbfe3",
+        "isOwnRepository": false
+      },
+      "treeDigest": {
+        "sha256": "4973d1acc24589bf85dd388155cbf1703c073c37df3ffd07bd0a19607ada98b0",
+        "fileCount": 6,
+        "unreadable": []
+      },
+      "environment": {
+        "os": "darwin",
+        "arch": "arm64",
+        "commandLine": "node -e \"import('./.claude/scripts/workspacify-reverse/lib/language-representatives.mjs').then((module) => process.stdout.write(module.digestRepresentative('go').sha256))\""
+      },
+      "build": {
+        "command": "go test ./...",
+        "offline": true,
+        "reason": "go.mod declares no dependency outside the tree, so the build reaches no network"
+      },
+      "flat": false,
+      "dominantLanguage": "go",
+      "languagesInTree": [
+        "go"
+      ],
+      "testFileCount": 1,
+      "constructs": [
+        {
+          "id": "build-tag",
+          "marker": "//go:build linux",
+          "path": "pkg/widget/widget_linux.go",
+          "line": 2
+        },
+        {
+          "id": "embedded-struct",
+          "marker": "widgetBase",
+          "path": "pkg/widget/widget.go",
+          "line": 14
+        },
+        {
+          "id": "table-driven-test",
+          "marker": "for _, testCase := range testCases",
+          "path": "pkg/widget/widget_test.go",
+          "line": 21
+        },
+        {
+          "id": "intra-module-import",
+          "marker": "example.test/widget/pkg/label",
+          "path": "pkg/widget/widget.go",
+          "line": 6
+        }
+      ]
+    },
+    {
+      "language": "python",
+      "root": "tests/workspacify-reverse/fixtures/languages/python",
+      "revision": {
+        "root": "/Users/kawata/shyme/zasso",
+        "pathWithinWorkTree": "tools/conver/tests/workspacify-reverse/fixtures/languages/python",
+        "commit": "2124f75a9569ba8b415f94e3b869aa541d4dbfe3",
+        "isOwnRepository": false
+      },
+      "treeDigest": {
+        "sha256": "4d2f1a9dccb943bad9097174ab749115c49a43d115193b7daa2ef76d74e80470",
+        "fileCount": 6,
+        "unreadable": []
+      },
+      "environment": {
+        "os": "darwin",
+        "arch": "arm64",
+        "commandLine": "node -e \"import('./.claude/scripts/workspacify-reverse/lib/language-representatives.mjs').then((module) => process.stdout.write(module.digestRepresentative('python').sha256))\""
+      },
+      "build": {
+        "command": "python3 -B -m unittest discover -s tests",
+        "offline": true,
+        "reason": "pyproject.toml declares no dependency outside the tree, so the build reaches no network"
+      },
+      "flat": false,
+      "dominantLanguage": "python",
+      "languagesInTree": [
+        "python"
+      ],
+      "testFileCount": 1,
+      "constructs": [
+        {
+          "id": "metaclass",
+          "marker": "metaclass=RegistryMeta",
+          "path": "src/registry.py",
+          "line": 24
+        },
+        {
+          "id": "decorator",
+          "marker": "@traced",
+          "path": "src/widget.py",
+          "line": 18
+        },
+        {
+          "id": "getattr-hook",
+          "marker": "def __getattr__",
+          "path": "src/widget.py",
+          "line": 26
+        }
+      ]
+    },
+    {
+      "language": "c_cpp",
+      "root": "tests/workspacify-reverse/fixtures/languages/c_cpp",
+      "revision": {
+        "root": "/Users/kawata/shyme/zasso",
+        "pathWithinWorkTree": "tools/conver/tests/workspacify-reverse/fixtures/languages/c_cpp",
+        "commit": "2124f75a9569ba8b415f94e3b869aa541d4dbfe3",
+        "isOwnRepository": false
+      },
+      "treeDigest": {
+        "sha256": "0e2c81474f631ade0d10eddceb890712aa818b98a9233ec98914277e0dc3ed98",
+        "fileCount": 6,
+        "unreadable": []
+      },
+      "environment": {
+        "os": "darwin",
+        "arch": "arm64",
+        "commandLine": "node -e \"import('./.claude/scripts/workspacify-reverse/lib/language-representatives.mjs').then((module) => process.stdout.write(module.digestRepresentative('c_cpp').sha256))\""
+      },
+      "build": {
+        "command": "cmake -S . -B build && cmake --build build && ctest --test-dir build",
+        "offline": true,
+        "reason": "CMakeLists.txt declares no dependency outside the tree, so the build reaches no network"
+      },
+      "flat": false,
+      "dominantLanguage": "c_cpp",
+      "languagesInTree": [
+        "c_cpp"
+      ],
+      "testFileCount": 1,
+      "constructs": [
+        {
+          "id": "function-like-macro",
+          "marker": "#define MAX_OF(",
+          "path": "src/widget.h",
+          "line": 9
+        },
+        {
+          "id": "conditional-compilation",
+          "marker": "#if defined(WIDGET_FAST)",
+          "path": "src/widget.cpp",
+          "line": 8
+        },
+        {
+          "id": "shared-header",
+          "marker": "#include \"widget.h\"",
+          "path": "src/widget.cpp",
+          "line": 1
+        },
+        {
+          "id": "shared-header-again",
+          "marker": "#include \"widget.h\"",
+          "path": "src/widget_extra.cpp",
+          "line": 1
+        }
+      ]
+    }
+  ]
+}

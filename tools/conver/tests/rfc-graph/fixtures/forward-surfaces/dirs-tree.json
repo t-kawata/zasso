@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "trees": {
+    "rust": {
+      "name": "src",
+      "mappedNodeIds": [
+        { "nodeId": "N0001", "title": "Config Loader" },
+        "N0002",
+        { "nodeId": "N0003", "title": "Session Store" }
+      ],
+      "children": [
+        {
+          "name": "config",
+          "mappedNodeIds": [{ "nodeId": "N0004", "title": "Codec Policy" }],
+          "children": []
+        },
+        {
+          "name": "session",
+          "mappedNodeIds": ["N0005", { "notANodeId": true }],
+          "children": []
+        }
+      ]
+    }
+  }
+}

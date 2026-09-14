@@ -1,0 +1,29 @@
+{
+  "protocolVersion": 1,
+  "rule": "A candidate is a proposal, never a decision. Whether a project can be reverse rotated is judged by a human against ABOUT-REVERSE 3.6 and 7.7.2; the machine supplies a capability, observability, falsifiability and risk profile and no verdict. Freezing a candidate that is not present records it as not selected rather than fabricating a digest.",
+  "selection": "Each candidate covers a different language and a different domain, because a technology that only handles the first target is an implementation tuned to that target. None of them is siprs.",
+  "placement": "Each project is checked out at its declared path with its full history at the recorded commit, so the freeze is reproducible from the commit alone and the history ABOUT-REVERSE 3.6 asks about is readable from the checkout. The trees are working material rather than vendored source: the ledger records a digest, the trees are not committed, and a holdout that is absent from a checkout is reported as not selected rather than fabricated.",
+  "candidates": [
+    {
+      "id": "rg",
+      "path": "tests/workspacify-reverse/holdout/corpus/rg",
+      "domain": "text processing — a command-line search tool",
+      "declaredLanguage": "rust",
+      "provenance": "BurntSushi/ripgrep at commit 3fce3b5bb0236da2df6d99672afb8a719642eca7, checked out with full history at the declared path. Presence, language and history are measured and recorded in the ledger. Whether it builds and whether its suite runs are the checks ABOUT-REVERSE 3.6 leaves to a human; the profile reports the manifest and the test command the tree declares, and does not claim either was run."
+    },
+    {
+      "id": "zod",
+      "path": "tests/workspacify-reverse/holdout/corpus/zod",
+      "domain": "developer tooling — runtime schema validation for TypeScript",
+      "declaredLanguage": "typescript",
+      "provenance": "colinhacks/zod at commit 62311eb2c4a93c7348a8b1c5abbde1ec77c66b67, checked out with full history at the declared path. Presence, language and history are measured and recorded in the ledger. Whether it builds and whether its suite runs are the checks ABOUT-REVERSE 3.6 leaves to a human; the profile reports the manifest and the test command the tree declares, and does not claim either was run."
+    },
+    {
+      "id": "httpx",
+      "path": "tests/workspacify-reverse/holdout/corpus/httpx",
+      "domain": "networking — a synchronous and asynchronous HTTP client",
+      "declaredLanguage": "python",
+      "provenance": "encode/httpx at commit b5addb64f0161ff6bfe94c124ef76f6a1fba5254, checked out with full history at the declared path. Presence, language and history are measured and recorded in the ledger. Whether it builds and whether its suite runs are the checks ABOUT-REVERSE 3.6 leaves to a human; the profile reports the manifest and the test command the tree declares, and does not claim either was run."
+    }
+  ]
+}

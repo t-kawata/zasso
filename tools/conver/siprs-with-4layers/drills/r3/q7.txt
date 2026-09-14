@@ -1,0 +1,10 @@
+Q7: tap 駆動の生産経路 — pjsua_conf_set_callback 欠如への対応
+
+背景: §62.16（round 2 Q6）は conf port メディアコールバック（pjsua_conf_set_callback）で tap レジストリへ供給すると設計した。しかし vendored PJSIP には pjsua_conf_set_callback が存在しない（src/runtime/backend.rs:1214 のコメント）。実装は RustMediaPort を custom pjmedia_port として pjsua_conf_add_port で登録し、各 call の conf slot を conf_connect で接続する方針に変更された。push_media_frame（PjsuaBackend 実装）は tap レジストリを駆動できるが、ネイティブメディアコールバックから push_media_frame を呼ぶ経路の確定が必要（H13 RESIDUE）。選択の観点は、conf bridge 経由メディアのどの時点で tap へ供給するかである。
+
+選択肢:
+A) RustMediaPort の port ops（get_frame / put_frame）内で push_media_frame を呼び、conf bridge 経由のメディアを tap へ供給する（現実装方針を RFC 設計として確定）
+B) AudioWorker の process_frame 後（out_queue / in_queue への push と同列）に push_media_frame を呼び、明示的なメディアパイプラインステップとして tap へ供給する
+C) tap 駆動はテストバックエンド / 明示 push 経路のみとし、実 conf bridge 経由は pjsua_conf_set_callback が使える PJSIP 更新後に回す
+
+推奨: A を推奨。実装は既に RustMediaPort + conf_connect 方針で進んでおり、conf bridge 経由のメディアは port ops を通過する。port ops 内で push_media_frame（→ tap.try_push、非ブロック）を呼ぶのが最も直接的な生産経路である。B は out/in_queue がネットワーク送信・再生用であり、受信通話音声の購読（tap）とは経路が異なる。C は H13 の解消にならず、audio_tap example の永久待機を放置する。

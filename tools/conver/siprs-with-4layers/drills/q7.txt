@@ -1,0 +1,5 @@
+Q7: シャットダウン手順の production 配線を確定します。この設計判断が必要な理由は、ShutdownSpec.execute_sequence（src/state/shutdown_specification.rs）が §32 の完全手順（通話終了→登録解除→音声破棄→pjsua_destroy）を実装済みだがテスト専用で、reactor の Shutdown アーム（reactor.rs:460-468）は backend.shutdown()+terminated=true しか実行せず、ClientShutdown イベントも publish されないからです。M20 の ShutdownCommandRouter も reactor ループに未接続です。選択肢:
+A) reactor Shutdown アームから ShutdownSpec.execute_sequence を非同期で呼び出し（PhaseTimeout 含む）、ClientShutdown イベントを publish、ShutdownCommandRouter を is_shutting_down ゲート付きでコマンド受信ループに接続。
+B) 新設の ShutdownCoordinator タスクに execute_sequence を委譲し、reactor は開始だけを依頼。
+C) 最小配線として ClientShutdown publish + backend.shutdown() のみ追加し、execute_sequence は将来対応。
+推奨: A を推します。理由は、既存の ShutdownSpec をそのまま production 経路から呼ぶのが最小侵襲で、§32 の順序保証と ShutdownCommandRouter のゲートを一度に満たせるからです。B は余分なタスク管理を増やし、C は §32 の要求を満たしません。

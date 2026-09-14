@@ -248,12 +248,20 @@ function collectEdges(graph, nodeIds) {
 }
 
 /**
- * Build a reverse-lookup map from nodeId to filePath from Dirs-Tree.json
+ * Build a reverse-lookup map from nodeId to the path that owns it in Dirs-Tree.json
  *
- * Recursively traverse all trees and build a map from nodes with mappedNodeIds.
+ * `trees` is keyed by language rather than being a single root, so every tree is
+ * walked and each path is relative to its own tree's root.
+ *
+ * A node id can appear on more than one entry — a node describing a directory and
+ * one of its files is declared on both — and the **first** path reached wins. The
+ * walk visits a parent before its children, so a directory's path is kept over a
+ * file's. The path is therefore the coarsest one that owns the node, which is
+ * what a reader asking "where does this design node live" wants; a caller that
+ * needs the file rather than the directory resolves it further itself.
  *
  * @param {Object} dirsTree — Parsed Dirs-Tree.json
- * @returns {Object<string, string>} nodeId → filePath mapping
+ * @returns {Object<string, string>} nodeId → path mapping
  */
 function buildNodeIdToPathMap(dirsTree) {
   const map = {};
@@ -267,18 +275,40 @@ function buildNodeIdToPathMap(dirsTree) {
 }
 
 /**
- * Recursively traverse tree nodes and add to nodeId → filePath map
+ * The node id an entry of `mappedNodeIds` names.
+ *
+ * The Dirs-Tree carries `{nodeId, title}` objects — `boundify-helpers.js` declares
+ * that shape and every generated tree uses it — while trees written before that
+ * schema carry bare id strings. Reading only one of the two collapses every id to
+ * `"[object Object]"` and leaves the map with a single unusable key, so both are
+ * read. An entry carrying neither returns null and is skipped rather than
+ * poisoning the map with an object's string form.
+ *
+ * @param {string|{nodeId?: string}} entry — one element of a mappedNodeIds array
+ * @returns {string|null}
+ */
+// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
+function mappedNodeIdOf(entry) {
+  if (typeof entry === 'string') return entry;
+  if (entry !== null && typeof entry === 'object' && typeof entry.nodeId === 'string') return entry.nodeId;
+  return null;
+}
+
+/**
+ * Recursively traverse tree nodes and add to nodeId → path map
  *
  * @param {Object} node — Tree node
  * @param {string} parentPath — Accumulated path from parent directory
  * @param {Object<string, string>} map — Target map to write to
  */
+// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function traverseTree(node, parentPath, map) {
   const currentPath = parentPath ? `${parentPath}/${node.name}` : node.name;
 
   if (Array.isArray(node.mappedNodeIds)) {
-    for (const nodeId of node.mappedNodeIds) {
-      if (!map[nodeId]) {
+    for (const entry of node.mappedNodeIds) {
+      const nodeId = mappedNodeIdOf(entry);
+      if (nodeId !== null && !map[nodeId]) {
         map[nodeId] = currentPath;
       }
     }
@@ -538,8 +568,9 @@ function appendToSpec(specPath, section) {
 /**
  * Display usage information
  */
+// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function printUsage() {
-  console.log(
+  process.stdout.write(
     'dump-node-context-to-spec.js — Auto-write design context to spec\n' +
     '\n' +
     'Usage:\n' +
@@ -559,7 +590,8 @@ function printUsage() {
     '\n' +
     'Exit codes:\n' +
     '  0  Normal completion\n' +
-    '  1  Argument error or file load error\n'
+    '  1  Argument error or file load error\n' +
+    '\n'
   );
 }
 
@@ -582,6 +614,7 @@ function printUsage() {
  *
  * All errors are output to stderr using the 3-line template and exit with code 1.
  */
+// [::TICKET::] P22-14 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-14 --for-spec --no-implementation-order`.
 function main() {
   let ticketsPath, graphPath, dirsTreePath, ticketKeys;
 
@@ -640,14 +673,13 @@ function main() {
     const nodes = collectNodeDetails(graph, nodeIds);
     const edges = collectEdges(graph, nodeIds);
 
-    // Generate blocks (pure functions)
+    // Assemble the three blocks, then write the section to stdout
     const block1 = formatNodeDetailsBlock(nodes, ticketInfo.title);
     const block2 = formatEdgeRelationsBlock(edges, allNodes);
     const block3 = formatFilePathsBlock(nodes, edges, dirsTree, ticketInfo);
 
-    // Combine
     const section = combineBlocks(block1, block2, block3, graphFileName);
-    console.log(section); // Output to stdout
+    process.stdout.write(`${section}\n`);
 
     // Append to spec file
     const specPath = resolveSpecPath(ticketKey, ticketsPath);

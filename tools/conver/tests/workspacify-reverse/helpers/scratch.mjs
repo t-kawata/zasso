@@ -1,0 +1,460 @@
+// [::TICKET::] PX-203 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-203 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
+/**
+ * Shared test helpers for the workspacify-reverse suite.
+ *
+ * Every test that scrubs must operate on a throwaway copy: the fixtures under
+ * tests/workspacify-reverse/fixtures are the single source of truth and must
+ * never be mutated by a test run.
+ */
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readdirSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { CARD_LAYERING_THRESHOLD } from '../../../.claude/scripts/workspacify-reverse/lib/packet.mjs';
+
+const SUITE_ROOT = fileURLToPath(new URL('..', import.meta.url));
+
+/**
+ * The environment every test-run git command runs under.
+ *
+ * The identity and the default branch are fixed rather than inherited from the
+ * machine. A commit that fails because the operator has no `user.email`, or a
+ * `main` that is really a `master`, is a test that passes on one laptop and
+ * fails on the next — and the failure would read as a history bug rather than
+ * as an environment leak.
+ */
+export const GIT_ENV = Object.freeze({
+  ...process.env,
+  GIT_AUTHOR_NAME: 'workspacify-reverse test',
+  GIT_AUTHOR_EMAIL: 'test@example.invalid',
+  GIT_COMMITTER_NAME: 'workspacify-reverse test',
+  GIT_COMMITTER_EMAIL: 'test@example.invalid',
+  GIT_CONFIG_GLOBAL: '/dev/null',
+  GIT_CONFIG_SYSTEM: '/dev/null',
+});
+
+/** Absolute path of the fixture project that mirrors a contaminated tree. */
+export const FIXTURE_PROJECT = path.join(SUITE_ROOT, 'fixtures', 'sample-project');
+
+/** Absolute path of a fixture holding only the pathological header case. */
+export const FIXTURE_UNCLOSED_HEADER = path.join(SUITE_ROOT, 'fixtures', 'unclosed-header-project');
+
+/** Absolute path of a fixture mixing production code with an L3 dependency. */
+export const FIXTURE_MIXED_L3 = path.join(SUITE_ROOT, 'fixtures', 'mixed-l3-project');
+
+/**
+ * Copy a fixture project into a fresh temporary directory.
+ * @param {string} [fixturePath] — fixture to copy; defaults to the main project
+ * @returns {{ root: string, dispose: () => void }}
+ */
+export function createScratchFrom(fixturePath = FIXTURE_PROJECT) {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'wsp-reverse-'));
+  cpSync(fixturePath, root, { recursive: true });
+  return {
+    root,
+    dispose: () => rmSync(root, { recursive: true, force: true }),
+  };
+}
+
+/** Copy the main contaminated fixture project into a fresh temporary directory. */
+export function createScratchProject() {
+  return createScratchFrom(FIXTURE_PROJECT);
+}
+
+/** Read a file as an array of lines (newline characters stripped). */
+export function readLines(filePath) {
+  return readFileSync(filePath, 'utf8').split('\n');
+}
+
+/** Keep only lines that are not comment-only lines. */
+export function nonCommentLines(lines) {
+  return lines.filter((line) => !/^\s*(\/\/|\/\/!|\/\*|\*)/.test(line));
+}
+
+/** SHA-256 of a string. */
+export function sha256(text) {
+  return createHash('sha256').update(text).digest('hex');
+}
+
+/**
+ * SHA-256 of every file under a root, keyed by path relative to that root.
+ * Used to prove that a scrub did not touch anything outside its target.
+ *
+ * An entry that cannot be read is recorded as `unreadable` rather than raising,
+ * so a tree holding one — a dangling symlink, a file this process may not read
+ * — can still be compared before and after a run. The comparison stays as
+ * strong as it was: every readable file must hash the same.
+ */
+export function hashTree(root) {
+// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+  const hashes = {};
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir).sort()) {
+      const full = path.join(dir, entry);
+      const relativePath = path.relative(root, full);
+      let stats;
+      try {
+        stats = statSync(full);
+      } catch {
+        hashes[relativePath] = 'unreadable';
+        continue;
+      }
+      if (stats.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      try {
+        hashes[relativePath] = sha256(readFileSync(full));
+      } catch {
+        hashes[relativePath] = 'unreadable';
+      }
+    }
+  };
+  walk(root);
+  return hashes;
+}
+
+/** Write lines back to a file, preserving a trailing newline when present. */
+export function writeLines(filePath, lines) {
+  writeFileSync(filePath, lines.join('\n'));
+}
+
+/**
+ * Materialise a path-to-content map beneath an existing directory.
+ *
+ * Parents are created on demand so a caller declares only the files it cares
+ * about. Used by the P22-2 holdout and oracle suites, which need synthetic
+ * candidate projects and a miniature answer-key/subject pair rather than the
+ * multi-thousand-file real trees.
+ */
+export function writeSyntheticTree(root, filesByPath) {
+  for (const [relativePath, content] of Object.entries(filesByPath)) {
+    const full = path.join(root, relativePath);
+    mkdirSync(path.dirname(full), { recursive: true });
+    writeFileSync(full, content);
+  }
+}
+
+/**
+ * Write one throwaway file and hand back its name and path.
+ *
+ * A rule over text — a command file's gate placement, a module's declaration — is only
+ * ever run against conforming input unless a fixture is written that breaks it, and a
+ * check nobody has watched fail is a check nobody knows works. The name comes back
+ * without its extension because the callers' rules speak in file names, not in paths.
+ */
+export function createThrowawayFile(name, lines, { prefix = 'wsp-file-' } = {}) {
+// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+  const dir = mkdtempSync(path.join(os.tmpdir(), prefix));
+  const filePath = path.join(dir, name);
+  writeFileSync(filePath, lines.join('\n'), 'utf8');
+  return { name: name.replace(/\.[^.]+$/, ''), path: filePath };
+}
+
+/** Create a throwaway temporary tree from a path-to-content map. */
+export function createSyntheticTree(filesByPath, { prefix = 'wsp-synth-' } = {}) {
+  const root = mkdtempSync(path.join(os.tmpdir(), prefix));
+  writeSyntheticTree(root, filesByPath);
+  return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
+}
+
+/**
+ * Run one git command in a tree, refusing to continue when it fails.
+ *
+ * R4 reads history, and a test that silently proceeded after a failed `git
+ * commit` would be asserting against a tree whose history is not what the test
+ * believes it set up. The failure is therefore raised here, at the point the
+ * setup went wrong, rather than surfacing later as a puzzling empty reading.
+ */
+export function runGit(root, args) {
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8', env: GIT_ENV });
+  if (result.status !== 0) {
+    throw new Error(`git ${args.join(' ')} failed in ${root}: ${result.stderr ?? result.error?.message ?? 'no output'}`);
+  }
+  return result.stdout;
+}
+
+/** Create a throwaway revision by committing whatever the tree currently holds. */
+export function commitAll(root, message) {
+  runGit(root, ['add', '-A']);
+  runGit(root, ['commit', '--allow-empty', '-m', message]);
+  return runGit(root, ['rev-parse', 'HEAD']).trim();
+}
+
+/**
+ * A synthetic tree that is also a git repository, with one commit per stage.
+ *
+ * R4 reads history, and a tree with no repository has no history to read — so a
+ * fixture for R4 must be committed, not merely written. Each entry in `commits`
+ * is a path-to-content map applied on top of the previous one and committed
+ * under its own message, which is what makes transitions, co-changes and
+ * decision provenance observable at all.
+ *
+ * `commits: []` yields an initialised repository with no commit, which is the
+ * single case UT-4 needs: a repository whose history is genuinely empty.
+ */
+export function createGitBackedTree(filesByPath, { commits = [], prefix = 'wsp-git-' } = {}) {
+  const root = mkdtempSync(path.join(os.tmpdir(), prefix));
+  runGit(root, ['init', '--initial-branch=main']);
+  writeSyntheticTree(root, filesByPath);
+  if (Object.keys(filesByPath).length > 0) commitAll(root, 'initial import');
+  for (const { files, message } of commits) {
+    writeSyntheticTree(root, files);
+    commitAll(root, message);
+  }
+  return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
+}
+
+/** A synthetic tree that is deliberately not a git repository. */
+export function createNonRepositoryTree(filesByPath) {
+  return createSyntheticTree(filesByPath, { prefix: 'wsp-nogit-' });
+}
+
+/**
+ * A miniature forward-rotated tree: the answer key a reverse rotation would be
+ * measured against. It carries every artefact kind the oracle bundle extracts.
+ */
+export const ORACLE_FIXTURE_FILES = Object.freeze({
+  'Cargo.toml': [
+    '[package]',
+    'name = "mini"',
+    '',
+    '[[test]]',
+    'name = "verify_spec_p0_1"',
+    '',
+    '[[test]]',
+    'name = "verify_spec_p7_3"',
+    '',
+  ].join('\n'),
+  'RFC-ROOT.md': '# Mini RFC\n\n## Purpose\n\nAudio only.\n\n## Scope\n\nSmall.\n',
+  'RFC-ROOT-GRAPH.json': `${JSON.stringify(
+    {
+      sourceFile: 'RFC-ROOT.md',
+      mainLanguage: 'rust',
+      nodes: [
+        { id: 'N0001', title: 'Purpose', kind: 'requirement' },
+        { id: 'N0002', title: 'Scope', kind: 'requirement' },
+      ],
+      edges: [{ from: 'N0001', to: 'N0002', type: 'refines', attributes: {}, contracts: [{ id: 'C001' }] }],
+    },
+    null,
+    2,
+  )}\n`,
+  'RFC-ROOT-Dirs-Tree.json': `${JSON.stringify(
+    {
+      schemaVersion: 1,
+      generatedAt: '2026-09-10T00:00:00Z',
+      sourceGraph: 'RFC-ROOT-GRAPH.json',
+      sourceFile: 'RFC-ROOT.md',
+      analysis: { nodeCount: 2, edgeCount: 1 },
+      trees: {
+        rust: {
+          name: 'src',
+          type: 'directory',
+          kind: 'root',
+          children: [
+            {
+              name: 'audio',
+              type: 'directory',
+              kind: 'architecture',
+              mappedNodeIds: [{ nodeId: 'N0001', title: 'Purpose' }],
+              children: [{ name: 'mod.rs', type: 'file', kind: 'api_contract', mappedNodeIds: [], declarationStub: 'pub fn a() {}' }],
+            },
+          ],
+        },
+      },
+      dependencyDirections: { rust: [] },
+      warnings: [],
+    },
+    null,
+    2,
+  )}\n`,
+  'Tickets.json': `${JSON.stringify(
+    { title: 'Mini', round: 1, metadata: {}, phases: [{ id: 0, tickets: [{ id: 1, phaseId: 0, title: 'Foundation' }] }] },
+    null,
+    2,
+  )}\n`,
+  'omissions/OMISSIONS-1.json': '{ "omissions": [] }\n',
+  'src/audio/mod.rs': [
+    '// =================================================================',
+    '// Initial Design Artifact — RFC-driven Implementation',
+    '// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1`',
+    '// =================================================================',
+    'pub fn a() -> u8 { 1 }',
+    '',
+  ].join('\n'),
+  'tests/verify_feature.rs': [
+    '// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1`',
+    'pub fn shared() -> u8 { 7 }',
+    '',
+  ].join('\n'),
+  'tests/verify_spec_p0_1.rs': [
+    '// @verifies C001',
+    '// [::TICKET::] P0-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P0-1`',
+    'pub fn read_spec() -> u8 { 1 }',
+    '',
+    'pub fn rfc_source_referenced() {',
+    '    let spec = "RFC-ROOT";',
+    '    assert!(spec.contains("RFC"));',
+    '}',
+    '',
+  ].join('\n'),
+  'tests/verify_spec_p7_3.rs': [
+    '// @verifies C002',
+    '// [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3`',
+    'pub fn ordered() -> u8 { 2 }',
+    '',
+  ].join('\n'),
+});
+
+/**
+ * The same project after a trace scrub: provenance comments are gone, two test
+ * files are renamed to content-hash names, one L3 test function is removed
+ * whole, and one production function differs substantively.
+ */
+export const SUBJECT_FIXTURE_FILES = Object.freeze({
+  'Cargo.toml': [
+    '[package]',
+    'name = "mini"',
+    '',
+    '[[test]]',
+    'name = "verify_spec_4b35a676"',
+    '',
+    '[[test]]',
+    'name = "verify_spec_26d77120"',
+    '',
+  ].join('\n'),
+  'src/audio/mod.rs': 'pub fn a() -> u8 { 2 }\n',
+  'tests/verify_feature.rs': 'pub fn shared() -> u8 { 7 }\n',
+  'tests/verify_spec_4b35a676.rs': ['pub fn read_spec() -> u8 { 1 }', ''].join('\n'),
+  'tests/verify_spec_26d77120.rs': ['pub fn ordered() -> u8 { 2 }', ''].join('\n'),
+});
+
+// [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
+
+/**
+ * A vertical slice that crosses a boundary: `src/api/login.rs` names the slice,
+ * and its `crate::` references carry it into `src/db` and `src/config`.
+ *
+ * `login_ffi.rs` sits inside a `#[cfg(feature = "ffi")]` gate, so the claim its
+ * assertion yields cannot be `observed` without build evidence — the spike's
+ * third provenance value is exercised by the fixture rather than asserted into
+ * existence.
+ */
+export const SPIKE_SLICE_FILES = Object.freeze({
+  'Cargo.toml': '[package]\nname = "spike-subject"\n',
+  'src/api/login.rs': [
+    'use crate::config::policy::Policy;',
+    'use crate::db::users::User;',
+    '',
+    'pub fn login(user: &User, policy: &Policy) -> Result<Session, LoginError> {',
+    '    assert!(!user.name.is_empty());',
+    '    if policy.locked {',
+    '        return Err(LoginError::Locked);',
+    '    }',
+    '    Ok(Session::new(user))',
+    '}',
+    '',
+  ].join('\n'),
+  'src/api/login_ffi.rs': [
+    '#[cfg(feature = "ffi")]',
+    'mod ffi_bridge {',
+    '    pub fn bridge_login() {',
+    '        assert!(true);',
+    '    }',
+    '}',
+    '',
+  ].join('\n'),
+  'src/db/users.rs': 'pub struct User {\n    pub name: String,\n}\n',
+  'src/config/policy.rs': 'pub struct Policy {\n    pub locked: bool,\n}\n',
+});
+
+/** A resolvable slice whose file carries nothing classifiable: zero claims. */
+export const SPIKE_CLAIMLESS_FILES = Object.freeze({
+  'src/api/ping.rs': 'pub fn ping() -> u8 { 1 }\n',
+});
+
+/** A resolvable slice whose single boundary crossing yields exactly one claim. */
+export const SPIKE_SINGLE_CLAIM_FILES = Object.freeze({
+  'src/api/solo.rs': 'use crate::db::store::Store;\n',
+  'src/db/store.rs': 'pub struct Store;\n',
+});
+
+/** The minimal tree the plan's C001 precondition names, in the shape it names it. */
+export const SPIKE_LOGIN_TWO_DIRECTORY_FILES = Object.freeze({
+  'src/api/login.rs': 'use crate::db::users::User;\npub fn login(u: &User) -> bool { !u.name.is_empty() }\n',
+  'src/db/users.rs': 'pub struct User { pub name: String }\n',
+});
+
+/** How many gated crossings the layering fixture needs to cross the threshold. */
+const GATED_CROSSING_COUNT = CARD_LAYERING_THRESHOLD + 1;
+
+/** How many gated local conditions the layering fixture holds in a scope with no boundary. */
+const GATED_LOCAL_COUNT = 3;
+
+/**
+ * `count` Rust modules, each behind its own `#[cfg]` gate.
+ *
+ * The gate is what makes the claims unresolved: whether the item ships is a
+ * build-time question the text cannot answer, so every condition and every
+ * crossing these modules hold is handed to the grill rather than settled. A
+ * `provider` names the partition member the module refers to, and is omitted for
+ * a scope that crosses nothing.
+ */
+// [::TICKET::] P23-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-3 --for-spec --no-implementation-order`.
+function gatedModules({ prefix, count, provider = null }) {
+  const modules = [];
+  for (let index = 0; index < count; index += 1) {
+    modules.push(
+      '#[cfg(feature = "ffi")]',
+      `mod ${prefix}_${String(index).padStart(2, '0')} {`,
+      ...(provider === null ? [] : [`    use crate::${provider};`]),
+      '    pub fn check(value: u8) -> bool {',
+      '        assert!(value > 0);',
+      '        value > 0',
+      '    }',
+      '}',
+      '',
+    );
+  }
+  return modules.join('\n');
+}
+
+/**
+ * A tree whose ledger holds more unresolved claims than the packet layers above.
+ *
+ * `src/api/gated.rs` carries more gated crossings into `src/db` than
+ * `CARD_LAYERING_THRESHOLD`, and a gated condition in each of the same modules.
+ * The scope therefore has an unresolved boundary, so its contract level is
+ * withheld whole — the branch a serving packet must reach to withhold anything
+ * at all below the serving limit. `src/report/report.rs` carries gated
+ * conditions and no crossing, so its conditions are bundled under the first of
+ * them rather than withheld. Between the two scopes both branches of §7.4.1 the
+ * serving path can reach are exercised by a real run.
+ */
+export const LAYERED_SERVING_TREE = Object.freeze({
+  'Cargo.toml': '[package]\nname = "layered-serving-subject"\n',
+  'src/api/gated.rs': gatedModules({ prefix: 'gate', count: GATED_CROSSING_COUNT, provider: 'db::store::Store' }),
+  'src/report/report.rs': gatedModules({ prefix: 'local', count: GATED_LOCAL_COUNT }),
+  'src/db/store.rs': 'pub struct Store;\n\nimpl Store {\n    pub fn ready(&self) -> bool {\n        true\n    }\n}\n',
+});
+
+/** Both halves of the synthetic pair, plus one disposer for the pair. */
+export function createSyntheticOraclePair() {
+  const oracle = createSyntheticTree(ORACLE_FIXTURE_FILES, { prefix: 'wsp-oracle-' });
+  const subject = createSyntheticTree(SUBJECT_FIXTURE_FILES, { prefix: 'wsp-subject-' });
+  return {
+    oracleRoot: oracle.root,
+    subjectRoot: subject.root,
+    dispose: () => {
+      oracle.dispose();
+      subject.dispose();
+    },
+  };
+}

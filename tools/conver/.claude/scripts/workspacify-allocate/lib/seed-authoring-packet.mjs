@@ -9,9 +9,11 @@
  * forbidden edges that must not become contracts, and segment-bounded excerpts of
  * the counterpart's own material. Everything here is derived from the manifest.
  */
+// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
 import { WorkSpacifyTreeError } from '../../workspacify-tree/lib/errors.mjs';
 import { deriveExpectedAllocation, lookupInventoryItem } from './allocation-model.mjs';
 import { contractIdForBoundary } from './contract-model.mjs';
+import { ALLOCATE_MODES, resolveAllocateMode } from './reverse-mode.mjs';
 import { CORE_CONTRACT_CLAUSES } from '../../workspacify-tree/lib/contract-clauses.mjs';
 
 /** Default excerpt window expressed in specification lines. */
@@ -20,11 +22,17 @@ export const DEFAULT_EXCERPT_WINDOW_LINES = 3;
 /**
  * Build the authoring packet for one package.
  *
- * @param {{ manifest: object, sourceText: string, packageId: string, windowLines?: number }} input
+ * In reverse mode the packet gains one field and the forward packet is returned
+ * unchanged — the same object, not a copy that happens to serialise alike. That is
+ * the difference between a forward output that cannot drift and one that has not
+ * drifted yet.
+ *
+ * @param {{ manifest: object, sourceText: string, packageId: string, windowLines?: number, reverse?: { mode?: string, incomingImplementations?: Map<string, Array<{path: string, text: string}>> } }} input
  * @returns {object} packet
  * @throws {Error} when the package is not in the manifest catalog
  */
-export function buildAuthoringPacket({ manifest, sourceText, packageId, windowLines = DEFAULT_EXCERPT_WINDOW_LINES }) {
+export function buildAuthoringPacket({ manifest, sourceText, packageId, windowLines = DEFAULT_EXCERPT_WINDOW_LINES, reverse }) {
+  const { mode, incomingImplementations } = reverse ?? {};
   const packages = manifest.workspace?.packages ?? [];
   const pkg = packages.find((candidate) => candidate.id === packageId);
   if (!pkg) {
@@ -69,7 +77,7 @@ export function buildAuthoringPacket({ manifest, sourceText, packageId, windowLi
       };
     });
 
-  return {
+  const packet = {
     package: {
       id: pkg.id,
       name: pkg.name,
@@ -86,6 +94,83 @@ export function buildAuthoringPacket({ manifest, sourceText, packageId, windowLi
     review_required: unresolvedItems.length > 0 || ownedItems.some((item) => item.review_status === 'REVIEW_REQUIRED'),
     unresolved_items: unresolvedItems,
   };
+
+  if (resolveAllocateMode({ mode }) !== ALLOCATE_MODES.REVERSE) {
+    return packet;
+  }
+  return {
+    ...packet,
+    // The count is what lets A3 tell a dropped excerpt from a package the manifest
+    // declares nothing consumes; the excerpts alone cannot distinguish the two.
+    incoming_boundary_count: incomingBoundariesOf(manifest, packageId).length,
+    incoming_dependency_excerpts: resolveIncomingDependencyExcerpts({ packageId, manifest, incomingImplementations, windowLines }),
+  };
+}
+
+/** The boundaries on which this package is the provider, so something consumes it. */
+// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+function incomingBoundariesOf(manifest, packageId) {
+  return (manifest.dependencies?.boundaries ?? []).filter((boundary) => boundary.provider_package === packageId);
+}
+
+/**
+ * The implementation of the packages that use this one (A6).
+ *
+ * A function with no visible callers is a function whose purpose has to be guessed
+ * at. This hands the author the consumer's actual code, so the reason the function
+ * exists is read rather than inferred.
+ *
+ * @param {{ packageId: string, manifest: object, incomingImplementations?: Map<string, Array<object>>, windowLines: number }} input
+ * @returns {Array<object>} one excerpt per consumer file
+ */
+// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+function resolveIncomingDependencyExcerpts({ packageId, manifest, incomingImplementations, windowLines }) {
+  const packages = manifest.workspace?.packages ?? [];
+  const packageById = new Map(packages.map((candidate) => [candidate.id, candidate]));
+  const implementations = normaliseImplementations(incomingImplementations);
+  const excerpts = [];
+
+  for (const boundary of manifest.dependencies?.boundaries ?? []) {
+    if (boundary.provider_package !== packageId) {
+      continue;
+    }
+    const consumerId = boundary.consumer_package;
+    const consumer = packageById.get(consumerId);
+    for (const file of implementations.get(consumerId) ?? []) {
+      excerpts.push({
+        boundary_id: boundary.id,
+        counterpart_package: {
+          id: consumerId,
+          name: consumer?.name ?? null,
+          path: consumer?.path ?? null,
+          responsibilities: [...(consumer?.responsibilities ?? [])],
+        },
+        file_path: file.path,
+        line_start: 1,
+        line_end: boundedWindowEnd(file.text, windowLines),
+        text: excerptLines(file.text, 1, 1, windowLines),
+      });
+    }
+  }
+  return excerpts;
+}
+
+/** Accept a Map or a plain object, so a caller need not choose one. */
+// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+function normaliseImplementations(incomingImplementations) {
+  if (incomingImplementations instanceof Map) {
+    return incomingImplementations;
+  }
+  if (incomingImplementations && typeof incomingImplementations === 'object') {
+    return new Map(Object.entries(incomingImplementations));
+  }
+  return new Map();
+}
+
+/** The line the bounded window ends on, clamped to the file. */
+// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+function boundedWindowEnd(text, windowLines) {
+  return Math.min(String(text ?? '').split('\n').length, 1 + windowLines);
 }
 
 /**

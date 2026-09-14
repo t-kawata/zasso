@@ -5,7 +5,8 @@
   "scripts": {
     "build": "esbuild src/entry.ts --bundle --platform=node --external:node:* --outfile=dist/conver.js --format=esm --minify",
     "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node tests/run-all-surfaces.mjs"
   },
   "dependencies": {
     "@agentclientprotocol/claude-agent-acp": "^0.52.0",
@@ -17,5 +18,8 @@
     "@types/node-cron": "^3.0.11",
     "esbuild": "^0.28.1",
     "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

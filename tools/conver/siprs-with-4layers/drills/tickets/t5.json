@@ -1,0 +1,30 @@
+{
+  "title": "Registration state machine production wiring — typed RegistrationState, M20 converter drive, register_on_start consumption",
+  "nodeIds": ["N0073"],
+  "scope": [
+    "AccountEntry.registration を String から typed RegistrationState（§33）に変更する（§62.4）。",
+    "M20 変換器（m20_registr_cmd_pat.rs）が NativeEvent::RegistrationStateChanged を消費し、registr_state_machine.rs を駆動して実 REGISTER 成功時のみ Registered へ遷移させる。",
+    "Mock/TestBackend の初期値を §17 どおり Disabled / Idle に修正する。",
+    "register_on_start をランタイムで消費し、UpdateAccount 後に再登録 / 解除を発行する。"
+  ],
+  "testUnit": [
+    "registr_state_machine::transition が全状態遷移（Disabled→Registering→Registered→...）を正しく決定すること。",
+    "AccountEntry.registration が RegistrationState enum 型であること。",
+    "初期値が Disabled であること。"
+  ],
+  "testIntegration": [
+    "TestBackend 上で register() を実行し RegistrationStateChanged(Registering→Registered) が publish されること。",
+    "unregister() で Unregistering→Idle に遷移しイベントが発火すること。",
+    "update_config で register_on_start 変更後に set_registration が呼ばれること。"
+  ],
+  "testExceptions": [
+    "実 REGISTER の成否は pjsua-native（Layer 3+）で検証する。"
+  ],
+  "changes": [
+    { "before": "AccountEntry.registration が String", "after": "typed RegistrationState（§33）に変更", "description": "登録状態の型安全化" },
+    { "before": "MockBackend が Registered をハードコード", "after": "M20 変換器が NativeEvent を消費し状態機械を駆動", "description": "実 REGISTER 成功時のみ Registered へ遷移" },
+    { "before": "register_on_start が未消費", "after": "UpdateAccount 後に set_registration を発行", "description": "register_on_start のランタイム消費" },
+    { "before": "TestBackend 初期値が Registered", "after": "§17 どおり Disabled / Idle に修正", "description": "初期状態の整合" }
+  ],
+  "phaseName": "Implementation Integration — RESIDUE Resolution (§62)"
+}

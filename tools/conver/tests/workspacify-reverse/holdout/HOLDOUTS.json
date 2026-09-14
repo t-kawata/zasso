@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": 1,
+  "frozenAt": "2026-09-10T00:00:00Z",
+  "rule": "a holdout is frozen by content digest; the ledger is append-only and never rewritten",
+  "holdouts": [
+    {
+      "id": "httpx",
+      "path": "tests/workspacify-reverse/holdout/corpus/httpx",
+      "domain": "networking — a synchronous and asynchronous HTTP client",
+      "language": "python",
+      "languageReason": "60 of 60 classified source files are python (.py)",
+      "fileCount": 125,
+      "sha256": "304f99aad18653bb21c273d90916e81fb881a8b950bc8d188e81b65ab68689d6",
+      "frozenAt": "2026-09-10T00:00:00Z",
+      "rule": "sha256 over the sorted tree listing of relative path and per-file digest, target/ and .git/ excluded",
+      "profile": {
+        "capability": {
+          "buildManifestPresent": true,
+          "historyIsRepository": true,
+          "documentationPresent": true,
+          "primaryLanguageAnalysable": true,
+          "structureCarriesMeaning": {
+            "distinctSourceDirectories": 6,
+            "dominantDirectoryShare": 0.32
+          },
+          "evidence": [
+            "build manifest: pyproject.toml",
+            "29 markdown file(s) in the project's own source",
+            "6 source-bearing top-level path(s), largest holding 0.32 of them"
+          ]
+        },
+        "observability": {
+          "sourceFileCount": 125,
+          "excludedFileCount": 0,
+          "languagesPresent": [
+            "python"
+          ],
+          "testFileCount": 43,
+          "testCommand": "pytest",
+          "evidence": [
+            "125 file(s) in the project's own source, 0 more under dependency or build directories",
+            "60 of 60 classified source files are python (.py)",
+            "test command implied by pyproject.toml: pytest"
+          ]
+        },
+        "falsifiability": {
+          "testFileCount": 43,
+          "historyCommitCount": 1523,
+          "designDocumentPresent": true,
+          "evidence": [
+            "43 test file(s): a reconstruction can be refuted by running them",
+            "1523 commit(s) reachable from HEAD"
+          ]
+        },
+        "risk": {
+          "signals": [],
+          "evidence": [
+            "none of the danger signals in ABOUT-REVERSE 3.6 were detected"
+          ]
+        },
+        "reasons": [
+          "capability: build manifest: pyproject.toml; 29 markdown file(s) in the project's own source; 6 source-bearing top-level path(s), largest holding 0.32 of them",
+          "observability: 125 file(s) in the project's own source, 0 more under dependency or build directories; 60 of 60 classified source files are python (.py); test command implied by pyproject.toml: pytest",
+          "falsifiability: 43 test file(s): a reconstruction can be refuted by running them; 1523 commit(s) reachable from HEAD",
+          "risk: none of the danger signals in ABOUT-REVERSE 3.6 were detected",
+          "readiness, observability, falsifiability and risk are reported as material; which of them a project can tolerate is a human decision"
+        ]
+      }
+    },
+    {
+      "id": "rg",
+      "path": "tests/workspacify-reverse/holdout/corpus/rg",
+      "domain": "text processing — a command-line search tool",
+      "language": "rust",
+      "languageReason": "110 of 112 classified source files are rust (.rs)",
+      "fileCount": 237,
+      "sha256": "da5ae0996718e10ccc4d6077d70f63bed6ec92233f0af0b57104c1e50df69c04",
+      "frozenAt": "2026-09-10T00:00:00Z",
+      "rule": "sha256 over the sorted tree listing of relative path and per-file digest, target/ and .git/ excluded",
+      "profile": {
+        "capability": {
+          "buildManifestPresent": true,
+          "historyIsRepository": true,
+          "documentationPresent": true,
+          "primaryLanguageAnalysable": true,
+          "structureCarriesMeaning": {
+            "distinctSourceDirectories": 11,
+            "dominantDirectoryShare": 0.6203
+          },
+          "evidence": [
+            "build manifest: Cargo.toml",
+            "23 markdown file(s) in the project's own source",
+            "11 source-bearing top-level path(s), largest holding 0.6203 of them"
+          ]
+        },
+        "observability": {
+          "sourceFileCount": 237,
+          "excludedFileCount": 0,
+          "languagesPresent": [
+            "ruby",
+            "rust"
+          ],
+          "testFileCount": 30,
+          "testCommand": "cargo test",
+          "evidence": [
+            "237 file(s) in the project's own source, 0 more under dependency or build directories",
+            "110 of 112 classified source files are rust (.rs)",
+            "test command implied by Cargo.toml: cargo test"
+          ]
+        },
+        "falsifiability": {
+          "testFileCount": 30,
+          "historyCommitCount": 2287,
+          "designDocumentPresent": true,
+          "evidence": [
+            "30 test file(s): a reconstruction can be refuted by running them",
+            "2287 commit(s) reachable from HEAD"
+          ]
+        },
+        "risk": {
+          "signals": [],
+          "evidence": [
+            "none of the danger signals in ABOUT-REVERSE 3.6 were detected"
+          ]
+        },
+        "reasons": [
+          "capability: build manifest: Cargo.toml; 23 markdown file(s) in the project's own source; 11 source-bearing top-level path(s), largest holding 0.6203 of them",
+          "observability: 237 file(s) in the project's own source, 0 more under dependency or build directories; 110 of 112 classified source files are rust (.rs); test command implied by Cargo.toml: cargo test",
+          "falsifiability: 30 test file(s): a reconstruction can be refuted by running them; 2287 commit(s) reachable from HEAD",
+          "risk: none of the danger signals in ABOUT-REVERSE 3.6 were detected",
+          "readiness, observability, falsifiability and risk are reported as material; which of them a project can tolerate is a human decision"
+        ]
+      }
+    },
+    {
+      "id": "zod",
+      "path": "tests/workspacify-reverse/holdout/corpus/zod",
+      "domain": "developer tooling — runtime schema validation for TypeScript",
+      "language": "typescript",
+      "languageReason": "509 of 518 classified source files are typescript (.ts, .tsx)",
+      "fileCount": 732,
+      "sha256": "97f58068f44c229054d83f85cff8679457e939b0e418f034da30342333ff0d53",
+      "frozenAt": "2026-09-10T00:00:00Z",
+      "rule": "sha256 over the sorted tree listing of relative path and per-file digest, target/ and .git/ excluded",
+      "profile": {
+        "capability": {
+          "buildManifestPresent": true,
+          "historyIsRepository": true,
+          "documentationPresent": true,
+          "primaryLanguageAnalysable": true,
+          "structureCarriesMeaning": {
+            "distinctSourceDirectories": 13,
+            "dominantDirectoryShare": 0.8975
+          },
+          "evidence": [
+            "build manifest: package.json",
+            "28 markdown file(s) in the project's own source",
+            "13 source-bearing top-level path(s), largest holding 0.8975 of them"
+          ]
+        },
+        "observability": {
+          "sourceFileCount": 732,
+          "excludedFileCount": 0,
+          "languagesPresent": [
+            "javascript",
+            "typescript"
+          ],
+          "testFileCount": 211,
+          "testCommand": "npm test",
+          "evidence": [
+            "732 file(s) in the project's own source, 0 more under dependency or build directories",
+            "509 of 518 classified source files are typescript (.ts, .tsx)",
+            "test command implied by package.json: npm test"
+          ]
+        },
+        "falsifiability": {
+          "testFileCount": 211,
+          "historyCommitCount": 3210,
+          "designDocumentPresent": true,
+          "evidence": [
+            "211 test file(s): a reconstruction can be refuted by running them",
+            "3210 commit(s) reachable from HEAD"
+          ]
+        },
+        "risk": {
+          "signals": [],
+          "evidence": [
+            "none of the danger signals in ABOUT-REVERSE 3.6 were detected"
+          ]
+        },
+        "reasons": [
+          "capability: build manifest: package.json; 28 markdown file(s) in the project's own source; 13 source-bearing top-level path(s), largest holding 0.8975 of them",
+          "observability: 732 file(s) in the project's own source, 0 more under dependency or build directories; 509 of 518 classified source files are typescript (.ts, .tsx); test command implied by package.json: npm test",
+          "falsifiability: 211 test file(s): a reconstruction can be refuted by running them; 3210 commit(s) reachable from HEAD",
+          "risk: none of the danger signals in ABOUT-REVERSE 3.6 were detected",
+          "readiness, observability, falsifiability and risk are reported as material; which of them a project can tolerate is a human decision"
+        ]
+      }
+    }
+  ],
+  "notSelected": []
+}

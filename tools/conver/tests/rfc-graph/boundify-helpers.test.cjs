@@ -564,14 +564,11 @@ describe('generateHeaderComment', () => {
     graphFlagForCmd: '--graph="RFC-ROOT-GRAPH.json"',
   };
   const mappedNodeIds = [{ nodeId: 'N0005', title: 'Database Connection Config' }];
-  const nodeMetaList = [{ nodeId: 'N0005', title: 'Database Connection Config' }];
-  const graphBasename = 'RFC-ROOT-GRAPH.json';
   const sourceBasename = 'RFC-ROOT.md';
 
   it('should generate Rust-style comment with // syntax', () => {
     const comment = generateHeaderComment(
-      headerPaths, mappedNodeIds, nodeMetaList, [],
-      graphBasename, sourceBasename, 'rust'
+      headerPaths, mappedNodeIds, [], sourceBasename, 'rust'
     );
     assert.ok(comment.startsWith('//'));
     assert.ok(comment.includes(HEADER_SEPARATOR));
@@ -582,8 +579,7 @@ describe('generateHeaderComment', () => {
 
   it('should generate Go-style comment with // syntax', () => {
     const comment = generateHeaderComment(
-      headerPaths, mappedNodeIds, nodeMetaList, [],
-      graphBasename, sourceBasename, 'go'
+      headerPaths, mappedNodeIds, [], sourceBasename, 'go'
     );
     assert.ok(comment.startsWith('//'));
     assert.ok(comment.includes('Initial Design Artifact'));
@@ -591,16 +587,14 @@ describe('generateHeaderComment', () => {
 
   it('should generate TypeScript-style comment with // syntax', () => {
     const comment = generateHeaderComment(
-      headerPaths, mappedNodeIds, nodeMetaList, [],
-      graphBasename, sourceBasename, 'typescript'
+      headerPaths, mappedNodeIds, [], sourceBasename, 'typescript'
     );
     assert.ok(comment.startsWith('//'));
   });
 
   it('should include mapped node info', () => {
     const comment = generateHeaderComment(
-      headerPaths, mappedNodeIds, nodeMetaList, [],
-      graphBasename, sourceBasename, 'rust'
+      headerPaths, mappedNodeIds, [], sourceBasename, 'rust'
     );
     assert.ok(comment.includes('N0005'));
     assert.ok(comment.includes('Database Connection Config'));
@@ -608,8 +602,7 @@ describe('generateHeaderComment', () => {
 
   it('should show "No direct node mapping" when mappedNodeIds is empty', () => {
     const comment = generateHeaderComment(
-      headerPaths, [], [], [],
-      graphBasename, sourceBasename, 'rust'
+      headerPaths, [], [], sourceBasename, 'rust'
     );
     assert.ok(comment.includes('No direct node mapping'));
   });
@@ -627,8 +620,7 @@ describe('generateHeaderComment', () => {
       },
     ];
     const comment = generateHeaderComment(
-      headerPaths, mappedNodeIds, nodeMetaList, crossRefs,
-      graphBasename, sourceBasename, 'rust'
+      headerPaths, mappedNodeIds, crossRefs, sourceBasename, 'rust'
     );
     assert.ok(comment.includes('Cross-referenced design context'));
     assert.ok(comment.includes('rationale/Why Adopt EDA'));
@@ -637,8 +629,7 @@ describe('generateHeaderComment', () => {
 
   it('should include graph exploration commands', () => {
     const comment = generateHeaderComment(
-      headerPaths, mappedNodeIds, nodeMetaList, [],
-      graphBasename, sourceBasename, 'rust'
+      headerPaths, mappedNodeIds, [], sourceBasename, 'rust'
     );
     assert.ok(comment.includes('Full graph exploration'));
     assert.ok(comment.includes('show-graph-summary-markdown.js'));

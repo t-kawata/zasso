@@ -217,6 +217,52 @@ describe('buildNodeIdToPathMap', () => {
     const map = buildNodeIdToPathMap({ trees: {} });
     assert.deepEqual(map, {});
   });
+
+  // The shape every generated Dirs-Tree actually carries: boundify-helpers.js
+  // declares `mappedNodeIds` as objects with a nodeId, and reading them as bare
+  // strings collapses the whole map onto one "[object Object]" key.
+  it('normal: reads the {nodeId, title} entries every generated tree carries', () => {
+    const map = buildNodeIdToPathMap({
+      trees: {
+        rust: {
+          name: 'src',
+          type: 'directory',
+          mappedNodeIds: [{ nodeId: 'N0001', title: '§1 Purpose' }],
+          children: [
+            { name: 'lib.rs', type: 'file', mappedNodeIds: [{ nodeId: 'N0002', title: '§2 API' }] },
+          ],
+        },
+      },
+    });
+
+    assert.deepEqual(map, { N0001: 'src', N0002: 'src/lib.rs' });
+  });
+
+  it('normal: the first path reached owns the node, so a directory beats its file', () => {
+    const map = buildNodeIdToPathMap({
+      trees: {
+        rust: {
+          name: 'src',
+          type: 'directory',
+          children: [
+            { name: 'config', type: 'directory', mappedNodeIds: [{ nodeId: 'N0006', title: '§4' }], children: [
+              { name: 'versioning_policy.rs', type: 'file', mappedNodeIds: [{ nodeId: 'N0006', title: '§4' }] },
+            ] },
+          ],
+        },
+      },
+    });
+
+    assert.equal(map['N0006'], 'src/config');
+  });
+
+  it('error: skips an entry carrying no node identifier rather than keying the map by an object', () => {
+    const map = buildNodeIdToPathMap({
+      trees: { rust: { name: 'src', type: 'directory', mappedNodeIds: [{ title: 'no id' }, 7, null] } },
+    });
+
+    assert.deepEqual(map, {});
+  });
 });
 
 // ============================================================

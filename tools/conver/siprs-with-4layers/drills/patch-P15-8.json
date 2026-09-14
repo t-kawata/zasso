@@ -1,0 +1,32 @@
+{
+  "contracts": [
+    {
+      "id": "C076",
+      "sourceEdge": "N0076→N0068",
+      "precondition": "The §62 parent section exists (N0068). Testable form: shutdown_wiring.rs is declared in crate::state::mod and its §62.7 wiring functions (execute_shutdown_sequence, gate_command, client_shutdown_event, shutdown_phase_timeout, native_account_ids, native_call_ids) are importable from the crate.",
+      "postcondition": "§62.7 is described as part of §62: shutdown_wiring.rs hosts the production wiring of the reactor shutdown arm. Testable form: a compile-time test imports every documented §62.7 function from crate::state::shutdown_wiring.",
+      "invariant": "The shutdown procedure remains consistent with §32. Testable form: execute_shutdown_sequence must route through ShutdownSpec.execute_sequence, proven by spec.is_shutdown_started() == true after a run."
+    },
+    {
+      "id": "C088",
+      "sourceEdge": "N0076→N0043",
+      "precondition": "N0043 defines the §32 Shutdown specification. Testable form: ShutdownPhase::all() yields exactly [StopCommands, CancelCalls, UnregisterAccounts, DrainAudio, InvokeDestroy] — the order execute_shutdown_sequence relies on.",
+      "postcondition": "§62.7 wires ShutdownSpec.execute_sequence for production. Testable form: execute_shutdown_sequence(backend, client_state, spec) awaits spec.execute_sequence(backend, &native_account_ids(client_state), &native_call_ids(client_state)) and returns its Result.",
+      "invariant": "The §32 order BYE/CANCEL → unregister → audio drain → pjsua_destroy is guaranteed. Testable form: after execute_shutdown_sequence, TestBackend.hangup_calls records the call native ids (CancelCalls), and backend.initialized == false (InvokeDestroy) with UnregisterAccounts between them per ShutdownPhase::all() ordering."
+    },
+    {
+      "id": "C089",
+      "sourceEdge": "N0076 shutdown wiring → ClientShutdown event publish (§62.3 single EventBus)",
+      "precondition": "The reactor Shutdown arm has entered the shutdown sequence. Testable form: client_shutdown_event() returns a SipEvent whose payload is SipEventPayload::ClientShutdown with neutral EventMeta (account_id None, call_id None).",
+      "postcondition": "After the sequence, SipEventPayload::ClientShutdown is published on the single client-owned EventBus. Testable form: publishing client_shutdown_event() on an EventBus is received by subscribe_control() subscribers.",
+      "invariant": "ClientShutdown is published exactly once per reactor shutdown. Testable form: a single publish of client_shutdown_event() delivers exactly one event to EventBus subscribers."
+    },
+    {
+      "id": "C090",
+      "sourceEdge": "N0076 shutdown wiring → command gate (M20 N0044 ShutdownCommandRouter)",
+      "precondition": "The reactor is shutting down (is_shutting_down true) and a non-Shutdown command is dequeued. Testable form: gate_command(cmd, true) classifies the DispatchCommand against the M20 routing.",
+      "postcondition": "The gated command is rejected: its reply is resolved with Err(ReactorError::BackendError) carrying the shutdown-reject message (or dropped for a reply-less NativeEvent), it is not dispatched, and the reactor logs the drop. Testable form: a gated DispatchCommand::Execute oneshot receives the error — the caller never hangs.",
+      "invariant": "Shutdown and GetAccountInfo are always permitted by the gate. Testable form: gate_command returns ShutdownGate::Permit for both even when is_shutting_down is true."
+    }
+  ]
+}

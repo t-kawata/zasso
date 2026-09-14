@@ -1,0 +1,9 @@
+Q1 本番バックエンド基盤の設計方針（H1: クイックスタート）を確定します。
+
+【背景と理由】RESIDUE H1 は 3 つの根因を持ちます。(1) `pjsua-native` feature で `cargo build` が 39 エラー（bindgen allowlist とコード期待の不一致: `PJ_SUCCESS` 等の定数欠如、`pjsua_acc_config.registrar_uri` 欠如、`SecretString::expose_secret` 未実装、`pjsip_inv_state` / `pjsua_call_media_status` の constified enum モジュール未適用）。(2) `config.transports` が初期化時に未処理（`PjsuaBackend::initialize` が `_config` を無視して `ffi::backend_calls::initialize()` を呼ぶのみ、`src/runtime/backend.rs:576-587`）。(3) `create_transport` が null config を `pjsua_transport_create` へ渡すため UDP/TCP/TLS 種別とポート番号が破棄される（`src/runtime/backend.rs:590-605`、`src/ffi/backend_calls.rs:55-62`）。RFC は §12（TransportConfig 完全仕様）・§27（PJSIP FFI 層）・§28（build.rs 戦略）を持ち、§62.2 でバックエンド選択を確定済みです。設計判断の選択肢とトレードオフは以下のとおりです。
+
+A) トランスポート配線 + ビルド修復方針の両方を今回の RFC 追補で完全設計する（Initialize アームで `config.transports` を列挙 → `pjsua_transport_create` へ種別+ポートを反映、bindgen allowlist とコード期待の整合方針を §27/§28 追補として明記）
+B) トランスポート配線のみ RFC 追補し、ビルド修復（39 エラー）の具体策は実装チケットに委ねる（RFC には「bindgen allowlist 整合」の方針のみ記載）
+C) 本番バックエンドの実装整合は今回のスコープ外とし、README を「TestBackend 上で検証可能な範囲（状態記録まで）」に限定して完全記述する
+
+【推奨】B を推奨します。トランスポート配線は §12/§27 と整合する RFC 設計として確定すべきであり、graphify/boundify が I/O 境界（入力=TransportConfig、出力=pjsua_transport_create 呼び出しとネイティブ transport id）を分割判断できます。一方、39 エラーの bindgen 修正は実装作業であり、RFC 設計書にエラーバイエラーの対処を羅列すると過剰仕様になります。C は H1 の confirmedContent「トランスポート（UDP/TCP/TLS）と STUN を設定した実用的な初期化コード」を放棄することになり不適切です。A はビルド修復の詳細を設計書に書くことになり設計としての価値が低いです。

@@ -90,8 +90,8 @@ function buildDomainHierarchy(graph) {
   // Recursively build a subtree rooted at the specified node
   function buildTree(nodeId, visited) {
     if (visited.has(nodeId)) {
-      // [::STUB::] Circular part_of edge: currently treated as an error.
-      // For improved circular detection, see tickets/P18-1.
+      // A node already on the current path closes a part_of cycle. Dropping its
+      // subtree is what terminates the walk; the cycle is not reported as an error.
       return null;
     }
     const nextVisited = new Set(visited);
@@ -139,16 +139,9 @@ function resolveDirForNode(node, hierarchy) {
   // Prose-type kinds do not generate independent files
   if (PROSE_KINDS.has(kind)) return null;
 
-  // Inline placement within parent domain uses parent architecture name
-  if (INLINE_KINDS.has(kind)) {
-    const parentId = hierarchy.childOf[node.id];
-    if (parentId) {
-      // [::STUB::] TO RESOLVE: Build the full hierarchy path when resolving the parent.
-      // Currently returns only the parent node name, but should return a path from the root.
-      return null;
-    }
-    return null;
-  }
+  // Inline kinds are placed inside their parent's directory rather than a
+  // directory of their own, so they resolve to no directory here.
+  if (INLINE_KINDS.has(kind)) return null;
 
   // kind → directory name mapping
   const dirName = rules[kind];

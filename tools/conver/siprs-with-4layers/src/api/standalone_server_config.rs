@@ -1,0 +1,1386 @@
+// ============================================================================
+// Initial Design Artifact — RFC-driven Implementation
+// !!! NEVER DELETE OR EDIT THIS COMMENT — it is the heart of design traceability and the bloodstream of provenance information !!!
+// ============================================================================
+// "Node" refers to a design fragment bounded by safe I/O boundaries in the Original RFC. Each node captures a distinct architectural concern that must be carefully implemented with attention to its relationships.
+//
+// Graph:        ../../RFC-ROOT-GRAPH.json
+// Directory:    ../../RFC-ROOT-Dirs-Tree.json
+// Original RFC: ../../RFC-ROOT.md
+//
+// Mapped node(s):
+//   - NODE_ID=N0061:  §53 Standalone Server Mode & Config
+//     → To show details: (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=N0061 --hops=2)
+//
+// Full graph exploration:
+//   (cd ../.. && node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md")
+//   (cd ../.. && node .claude/scripts/rfc-graph/query.js --graph="RFC-ROOT-GRAPH.json" --source="RFC-ROOT.md" --dirs-tree="RFC-ROOT-Dirs-Tree.json" --id=Nxxxx (e.g. N0001) --hops=<N> (hop count: 1=direct edges only, 2+=includes grandchildren, etc.)
+// ============================================================================
+
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Instant;
+
+/// Axum State extractor — imported behind server feature gate.
+#[cfg(feature = "server")]
+use axum::extract::State;
+
+/// Account restoration types — imported behind sqlite-storage feature gate.
+#[cfg(feature = "sqlite-storage")]
+use crate::config::account_config_spec::{AccountConfig, AccountTransportPolicy};
+#[cfg(feature = "sqlite-storage")]
+use crate::model::sqlite_schema::AccountEntity;
+#[cfg(feature = "sqlite-storage")]
+use crate::security::SecretString;
+
+/// Default bind port for siprs-server.
+pub const DEFAULT_SIPRS_PORT: u16 = 3910;
+
+/// Default JWT expiry in seconds.
+pub const DEFAULT_JWT_EXPIRY_SECS: u64 = 3600;
+
+/// Default SQLite database path (home-directory expansion is the caller's responsibility).
+pub const DEFAULT_DB_PATH: &str = "~/.siprs/data.db";
+
+/// Configuration error for siprs-server startup validation.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ConfigError {
+    #[error("LocalhostOnly mode requires a loopback address, got {0}")]
+    LocalhostRequiresLoopback(SocketAddr),
+    #[error("JWT mode requires jwt_secret to be set")]
+    JwtRequiresSecret,
+}
+
+/// Standalone siprs-server authentication mode.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum AuthMode {
+    /// Only listen on localhost (127.0.0.1). No authentication required.
+    LocalhostOnly,
+    /// API Key authentication.
+    ApiKey { key: crate::security::SecretString },
+    /// JWT authentication via SIP account credentials.
+    Jwt,
+}
+
+/// Authentication configuration for siprs-server.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct AuthConfig {
+    /// Authentication mode.
+    pub mode: AuthMode,
+    /// JWT signing secret (required when mode == Jwt).
+    pub jwt_secret: Option<crate::security::SecretString>,
+    /// JWT token expiry in seconds (default: 3600).
+    pub jwt_expiry_secs: u64,
+}
+
+// [::TICKET::] P3-3: Use DEFAULT_JWT_EXPIRY_SECS constant.
+// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+impl Default for AuthConfig {
+    // [::TICKET::] P3-3: Use DEFAULT_JWT_EXPIRY_SECS constant.
+    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    fn default() -> Self {
+        Self {
+            mode: AuthMode::LocalhostOnly,
+            jwt_secret: None,
+            jwt_expiry_secs: DEFAULT_JWT_EXPIRY_SECS,
+        }
+    }
+}
+
+// [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+impl AuthConfig {
+    /// Validate the auth config against the bind address.
+    ///
+    /// - `LocalhostOnly` requires `bind_addr` to be a loopback address.
+    /// - `Jwt` requires `jwt_secret` to be set.
+    /// - `ApiKey` always passes validation.
+    pub fn validate(&self, bind_addr: &SocketAddr) -> Result<(), ConfigError> {
+        match &self.mode {
+            AuthMode::LocalhostOnly => {
+                if !bind_addr.ip().is_loopback() {
+                    return Err(ConfigError::LocalhostRequiresLoopback(*bind_addr));
+                }
+            }
+            AuthMode::Jwt => {
+                if self.jwt_secret.is_none() {
+                    return Err(ConfigError::JwtRequiresSecret);
+                }
+            }
+            AuthMode::ApiKey { .. } => {}
+        }
+        Ok(())
+    }
+}
+
+/// siprs-server startup configuration.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ServerConfig {
+    /// Bind address (default: 127.0.0.1:3910).
+    pub bind_addr: SocketAddr,
+    /// Path to SQLite database file (default: ~/.siprs/data.db).
+    pub db_path: PathBuf,
+    /// Optional external config file for ClientConfig and AccountConfig.
+    pub config_file: Option<PathBuf>,
+    /// Allowed CORS origins.
+    pub allowed_origins: Vec<String>,
+    /// Authentication configuration.
+    pub auth: AuthConfig,
+}
+
+// [::TICKET::] P3-3: Add Default for ServerConfig using localhost:3910 and default AuthConfig.
+// [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+impl Default for ServerConfig {
+    // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
+    fn default() -> Self {
+        Self {
+            bind_addr: format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT)
+                .parse()
+                .expect("static default bind address must be valid"),
+            db_path: PathBuf::from(DEFAULT_DB_PATH),
+            config_file: None,
+            allowed_origins: vec![],
+            auth: AuthConfig::default(),
+        }
+    }
+}
+
+/// Shared application state for the Axum HTTP server.
+///
+/// Wraps SipClient and (optionally) DatabasePool in `Arc` for thread-safe
+/// access from route handlers via axum's State extractor.
+#[derive(Clone)]
+pub struct AppState {
+    /// SIP client handle, shared across all route handlers.
+    pub sip_client: Arc<crate::client::SipClient>,
+    /// Database connection pool (only available when sqlite-storage feature is enabled).
+    #[cfg(feature = "sqlite-storage")]
+    pub db: Arc<crate::model::sqlite_schema::DatabasePool>,
+    /// Server uptime start instant.
+    pub server_start_time: Instant,
+}
+
+// [::TICKET::] P3-3: ServerConfig CLI parsing and server builder helpers.
+/// # Feature gates
+///
+/// - `cli` feature: enables `from_args()` and `from_args_with()` for CLI arg parsing via clap.
+/// - `server` feature: enables `build_router()` and the HTTP handlers.
+// [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
+impl ServerConfig {
+    /// Parse server config from CLI arguments.
+    ///
+    /// Uses clap to parse `--port`, `--bind-addr`, `--db-path`, `--config-file`,
+    /// `--auth-mode`, `--jwt-secret`, and `--jwt-expiry` from `std::env::args()`.
+    ///
+    /// # Errors
+    /// Returns `SipError` if argument parsing fails (e.g., non-numeric port).
+    #[cfg(feature = "cli")]
+    pub fn from_args() -> Result<Self, crate::error::SipError> {
+        let args: Vec<String> = std::env::args().skip(1).collect();
+        Self::from_args_with(&args)
+    }
+
+    /// Parse server config from a custom argument list (useful for testing).
+    ///
+    /// # Errors
+    /// Returns `SipError` if argument parsing fails.
+    #[cfg(feature = "cli")]
+    pub fn from_args_with(args: &[String]) -> Result<Self, crate::error::SipError> {
+        use clap::{Arg, Command};
+
+        let matches = Command::new("siprs-server")
+            .no_binary_name(true)
+            .arg(
+                Arg::new("port")
+                    .long("port")
+                    .default_value("3910")
+                    .help("Server bind port"),
+            )
+            .arg(
+                Arg::new("bind-addr")
+                    .long("bind-addr")
+                    .default_value("127.0.0.1")
+                    .help("Server bind address"),
+            )
+            .arg(
+                Arg::new("db-path")
+                    .long("db-path")
+                    .default_value(DEFAULT_DB_PATH)
+                    .help("Path to SQLite database file"),
+            )
+            .arg(
+                Arg::new("config-file")
+                    .long("config-file")
+                    .help("Path to external config file"),
+            )
+            .arg(
+                Arg::new("auth-mode")
+                    .long("auth-mode")
+                    .default_value("localhost")
+                    .help("Authentication mode: localhost, apikey, jwt"),
+            )
+            .arg(
+                Arg::new("jwt-secret")
+                    .long("jwt-secret")
+                    .help("JWT signing secret (required when auth-mode=jwt)"),
+            )
+            .arg(
+                Arg::new("jwt-expiry")
+                    .long("jwt-expiry")
+                    .default_value("3600")
+                    .help("JWT token expiry in seconds"),
+            )
+            .try_get_matches_from(args)
+            .map_err(|e| {
+                crate::error::SipError::new(
+                    crate::error::SipErrorKind::InvalidConfig,
+                    format!("CLI argument parsing failed: {e}"),
+                )
+            })?;
+
+        let port: u16 = matches
+            .get_one::<String>("port")
+            .and_then(|p| p.parse().ok())
+            .ok_or_else(|| {
+                crate::error::SipError::new(
+                    crate::error::SipErrorKind::InvalidConfig,
+                    "port must be a valid number between 0 and 65535".to_string(),
+                )
+            })?;
+
+        let bind_addr_raw = matches
+            .get_one::<String>("bind-addr")
+            .map(|s| s.as_str())
+            .unwrap_or("127.0.0.1");
+        let bind_addr: SocketAddr = format!("{bind_addr_raw}:{port}").parse().map_err(|_| {
+            crate::error::SipError::new(
+                crate::error::SipErrorKind::InvalidConfig,
+                format!("invalid bind address: {bind_addr_raw}:{port}"),
+            )
+        })?;
+
+        let db_path_raw = matches
+            .get_one::<String>("db-path")
+            .map(|s| s.as_str())
+            .unwrap_or(DEFAULT_DB_PATH);
+        if db_path_raw.trim().is_empty() {
+            return Err(crate::error::SipError::new(
+                crate::error::SipErrorKind::InvalidConfig,
+                "db-path must not be empty".to_string(),
+            ));
+        }
+        let db_path = PathBuf::from(db_path_raw);
+
+        let config_file = matches.get_one::<String>("config-file").map(PathBuf::from);
+
+        let auth_mode_str = matches
+            .get_one::<String>("auth-mode")
+            .map(|s| s.as_str())
+            .unwrap_or("localhost");
+
+        let auth = match auth_mode_str {
+            "apikey" => AuthConfig {
+                mode: AuthMode::ApiKey {
+                    key: crate::security::SecretString::new(String::new()),
+                },
+                jwt_secret: None,
+                jwt_expiry_secs: DEFAULT_JWT_EXPIRY_SECS,
+            },
+            "jwt" => {
+                let secret = matches.get_one::<String>("jwt-secret").ok_or_else(|| {
+                    crate::error::SipError::new(
+                        crate::error::SipErrorKind::InvalidConfig,
+                        "jwt-secret is required when auth-mode=jwt".to_string(),
+                    )
+                })?;
+                AuthConfig {
+                    mode: AuthMode::Jwt,
+                    jwt_secret: Some(crate::security::SecretString::new(secret.clone())),
+                    jwt_expiry_secs: matches
+                        .get_one::<String>("jwt-expiry")
+                        .and_then(|s| s.parse().ok())
+                        .unwrap_or(DEFAULT_JWT_EXPIRY_SECS),
+                }
+            }
+            _ => AuthConfig {
+                mode: AuthMode::LocalhostOnly,
+                jwt_secret: None,
+                jwt_expiry_secs: DEFAULT_JWT_EXPIRY_SECS,
+            },
+        };
+
+        Ok(Self {
+            bind_addr,
+            db_path,
+            config_file,
+            allowed_origins: vec![],
+            auth,
+        })
+    }
+}
+
+// [::TICKET::] P3-3: Axum HTTP server router and handlers (behind server feature).
+/// Build the Axum router with health check and shutdown endpoints.
+///
+/// This is the minimal router for P3-3. Additional routes (REST, WebSocket)
+/// are added in P4-3.
+#[cfg(feature = "server")]
+pub fn build_router(state: AppState) -> axum::Router {
+    use axum::routing::{get, post};
+    use tower_http::cors::CorsLayer;
+
+    let shared_state = Arc::new(state);
+
+    axum::Router::new()
+        .route("/api/v1/health", get(health_check_handler))
+        .route("/api/v1/shutdown", post(shutdown_handler))
+        .layer(CorsLayer::permissive())
+        .with_state(shared_state)
+}
+
+/// Health check handler — returns HTTP 200 with server uptime.
+#[cfg(feature = "server")]
+async fn health_check_handler(State(state): State<Arc<AppState>>) -> axum::Json<serde_json::Value> {
+    axum::Json(serde_json::json!({
+        "status": "ok",
+        "uptime_secs": state.server_start_time.elapsed().as_secs()
+    }))
+}
+
+/// Shutdown handler — initiates graceful shutdown via SipClient::shutdown().
+#[cfg(feature = "server")]
+async fn shutdown_handler(State(state): State<Arc<AppState>>) -> axum::Json<serde_json::Value> {
+    let _ = state.sip_client.shutdown().await;
+    axum::Json(serde_json::json!({
+        "status": "shutting_down"
+    }))
+}
+
+/// Run the standalone server with the given config.
+///
+/// Initializes SipClient, DatabasePool, builds the Axum router,
+/// and starts serving on the configured bind address.
+#[cfg(feature = "server")]
+pub async fn run_server(config: ServerConfig) -> Result<(), crate::error::SipError> {
+    use crate::client::SipClient;
+    use crate::config::ClientConfig;
+
+    tracing::info!(
+        bind_addr = %config.bind_addr,
+        db_path = %config.db_path.display(),
+        "Starting siprs-server"
+    );
+
+    // Validate the auth configuration against the bind address before any
+    // startup side effects (system-boundary input validation).
+    config.auth.validate(&config.bind_addr).map_err(|e| {
+        crate::error::SipError::new(
+            crate::error::SipErrorKind::InvalidConfig,
+            format!("invalid server auth config: {e}"),
+        )
+    })?;
+
+    let sip_client = SipClient::new(ClientConfig::default()).await?;
+    let sip_client = sip_client.0; // Discard event receiver — caller can subscribe via SipClient API
+
+    #[cfg(feature = "sqlite-storage")]
+    let db = {
+        let pool = crate::model::sqlite_schema::DatabasePool::open(&config.db_path)
+            .await
+            .map_err(|e| {
+                crate::error::SipError::new(
+                    crate::error::SipErrorKind::NativeError,
+                    format!("DatabasePool open failed: {e}"),
+                )
+            })?;
+        Arc::new(pool)
+    };
+
+    // Restore persisted accounts before serving: the schema must exist first
+    // (C065 postcondition), then each saved account is re-registered via
+    // sip_client.add_account(). A DB error aborts startup; an individual
+    // account failure is logged and skipped, never fatal.
+    #[cfg(feature = "sqlite-storage")]
+    {
+        db.init_schema().await.map_err(|e| {
+            crate::error::SipError::new(
+                crate::error::SipErrorKind::NativeError,
+                format!("DatabasePool init_schema failed: {e}"),
+            )
+        })?;
+        restore_accounts_from_db(&sip_client, &db).await?;
+    }
+
+    #[cfg(feature = "sqlite-storage")]
+    let app_state = AppState {
+        sip_client: Arc::new(sip_client),
+        db,
+        server_start_time: Instant::now(),
+    };
+    #[cfg(not(feature = "sqlite-storage"))]
+    let app_state = AppState {
+        sip_client: Arc::new(sip_client),
+        server_start_time: Instant::now(),
+    };
+
+    let router = build_router(app_state);
+
+    let listener = tokio::net::TcpListener::bind(config.bind_addr)
+        .await
+        .map_err(|e| {
+            crate::error::SipError::new(
+                crate::error::SipErrorKind::NativeError,
+                format!("TCP bind failed on {}: {e}", config.bind_addr),
+            )
+        })?;
+
+    tracing::info!(
+        local_addr = %listener.local_addr().map_or_else(|_| "unknown".into(), |a| a.to_string()),
+        "Server listening"
+    );
+    axum::serve(listener, router).await.map_err(|e| {
+        crate::error::SipError::new(
+            crate::error::SipErrorKind::NativeError,
+            format!("Axum serve error: {e}"),
+        )
+    })?;
+
+    Ok(())
+}
+
+/// Map a persisted `AccountEntity` to the `AccountConfig` consumed by
+/// `SipClient::add_account` (C015/C052 fail-fast validation).
+///
+/// The password BLOB is passed through lossy UTF-8 because decryption belongs
+/// to the persist path (out of scope for P12-2). An unknown transport string
+/// falls back to `Udp` (the default policy).
+#[cfg(feature = "sqlite-storage")]
+// [::TICKET::] P12-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P12-2 --for-spec --no-implementation-order`.
+fn account_entity_to_config(entity: &AccountEntity) -> AccountConfig {
+    AccountConfig {
+        display_name: entity.display_name.clone(),
+        username: entity.username.clone(),
+        auth_username: entity.auth_username.clone(),
+        password: SecretString::new(String::from_utf8_lossy(&entity.password).into_owned()),
+        domain: entity.domain.clone(),
+        registrar_uri: entity.registrar_uri.clone(),
+        transport: match entity.transport.to_lowercase().as_str() {
+            "tcp" => AccountTransportPolicy::Tcp,
+            "tls" => AccountTransportPolicy::Tls,
+            _ => AccountTransportPolicy::Udp,
+        },
+        register_on_start: entity.register_on_start,
+        allow_outbound_without_register: entity.allow_outbound_without_register,
+        ..AccountConfig::default()
+    }
+}
+
+/// Re-register every persisted account at server startup.
+///
+/// A DB error from `load_accounts` is fatal (typed `SipError`) so the server
+/// never silently starts with zero accounts on a read failure; an individual
+/// account that fails `add_account` (e.g. an invalid config) is logged with a
+/// warning and skipped — it is never fatal to startup.
+#[cfg(feature = "sqlite-storage")]
+async fn restore_accounts_from_db(
+    sip_client: &crate::client::SipClient,
+    db: &crate::model::sqlite_schema::DatabasePool,
+) -> Result<(), crate::error::SipError> {
+    let entities = db.load_accounts().await.map_err(|e| {
+        crate::error::SipError::new(
+            crate::error::SipErrorKind::NativeError,
+            format!("load_accounts failed: {e}"),
+        )
+    })?;
+
+    for entity in entities {
+        let config = account_entity_to_config(&entity);
+        match sip_client.add_account(config).await {
+            Ok(_handle) => {
+                tracing::info!(account_id = entity.id, "Restored account from database")
+            }
+            Err(e) => tracing::warn!(
+                account_id = entity.id,
+                error = %e,
+                "Skipping account restoration (add_account failed)"
+            ),
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Invariant: AuthMode has exactly 3 variants ─────────────────────
+
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn test_auth_mode_variant_count() {
+        // Compile-time exhaustiveness check — match must cover 3 variants
+        // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+        fn assert_exhaustive(mode: AuthMode) {
+            match mode {
+                AuthMode::LocalhostOnly => {}
+                AuthMode::ApiKey { .. } => {}
+                AuthMode::Jwt => {}
+            }
+        }
+        let _ = assert_exhaustive;
+    }
+
+    // ── Invariant: ConfigError has exactly 2 variants ──────────────────
+
+    #[test]
+    // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+    fn test_config_error_variant_count() {
+        // Compile-time exhaustiveness check — match must cover both variants.
+        // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+        fn assert_exhaustive(err: ConfigError) {
+            match err {
+                ConfigError::LocalhostRequiresLoopback(_) => {}
+                ConfigError::JwtRequiresSecret => {}
+            }
+        }
+        let _ = assert_exhaustive;
+    }
+
+    // ── Invariant: Default mode is LocalhostOnly ───────────────────────
+
+    #[test]
+    // @verifies C062
+    // [::TICKET::] P2-2, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1) --for-spec --no-implementation-order`.
+    fn test_auth_config_default_localhost_only() {
+        let config = AuthConfig::default();
+        assert_eq!(
+            config.mode,
+            AuthMode::LocalhostOnly,
+            "Default auth mode must be LocalhostOnly"
+        );
+        // C062 invariant (O-002): jwt_secret must default to None — LocalhostOnly requires no secret.
+        assert!(
+            config.jwt_secret.is_none(),
+            "Default jwt_secret must be None"
+        );
+    }
+
+    // ── Normal: AuthConfig valid configurations ────────────────────────
+
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn test_auth_config_localhost_valid() {
+        let config = AuthConfig {
+            mode: AuthMode::LocalhostOnly,
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr =
+            format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse().unwrap();
+        assert!(
+            config.validate(&bind).is_ok(),
+            "LocalhostOnly with loopback address must be valid"
+        );
+    }
+
+    #[test]
+    // O-003: IPv6 loopback ::1 must be accepted by LocalhostOnly validation.
+    // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+    fn test_auth_config_localhost_ipv6_loopback_valid() -> Result<(), Box<dyn std::error::Error>> {
+        let config = AuthConfig::default();
+        let bind: std::net::SocketAddr = format!("[::1]:{}", DEFAULT_SIPRS_PORT).parse()?;
+        assert!(
+            config.validate(&bind).is_ok(),
+            "IPv6 loopback ::1 must be accepted by LocalhostOnly"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn test_auth_config_apikey_valid() {
+        let config = AuthConfig {
+            mode: AuthMode::ApiKey {
+                key: crate::security::SecretString::new(String::from("test-key")),
+            },
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr = format!("0.0.0.0:{}", DEFAULT_SIPRS_PORT).parse().unwrap();
+        assert!(
+            config.validate(&bind).is_ok(),
+            "ApiKey mode must accept any bind address"
+        );
+    }
+
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn test_auth_config_jwt_valid() {
+        let config = AuthConfig {
+            mode: AuthMode::Jwt,
+            jwt_secret: Some(crate::security::SecretString::new(String::from(
+                "jwt-secret",
+            ))),
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr = format!("0.0.0.0:{}", DEFAULT_SIPRS_PORT).parse().unwrap();
+        assert!(
+            config.validate(&bind).is_ok(),
+            "Jwt mode with secret must be valid"
+        );
+    }
+
+    // ── Boundary (O-004): port 0 (OS auto-assign) ─────────────────────
+
+    #[test]
+    // O-004: Port 0 (OS auto-assign) must be accepted by AuthConfig validation in ApiKey mode.
+    // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+    fn test_auth_config_apikey_port_zero_valid() -> Result<(), Box<dyn std::error::Error>> {
+        let config = AuthConfig {
+            mode: AuthMode::ApiKey {
+                key: crate::security::SecretString::new(String::from("test-key")),
+            },
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr = "0.0.0.0:0".parse()?;
+        assert!(
+            config.validate(&bind).is_ok(),
+            "ApiKey mode must accept port 0 (OS auto-assign)"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // O-004: Port 0 (OS auto-assign) must be accepted by AuthConfig validation in Jwt mode.
+    // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+    fn test_auth_config_jwt_port_zero_valid() -> Result<(), Box<dyn std::error::Error>> {
+        let config = AuthConfig {
+            mode: AuthMode::Jwt,
+            jwt_secret: Some(crate::security::SecretString::new(String::from(
+                "jwt-secret",
+            ))),
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr = "0.0.0.0:0".parse()?;
+        assert!(
+            config.validate(&bind).is_ok(),
+            "Jwt mode must accept port 0 (OS auto-assign)"
+        );
+        Ok(())
+    }
+
+    // ── Error: AuthConfig invalid configurations ──────────────────────
+
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn test_auth_config_localhost_rejects_external() {
+        let config = AuthConfig {
+            mode: AuthMode::LocalhostOnly,
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr = format!("0.0.0.0:{}", DEFAULT_SIPRS_PORT).parse().unwrap();
+        let result = config.validate(&bind);
+        assert!(
+            result.is_err(),
+            "LocalhostOnly must reject non-loopback address"
+        );
+        assert!(
+            result.unwrap_err().to_string().contains("LocalhostOnly"),
+            "Error message must mention LocalhostOnly"
+        );
+    }
+
+    #[test]
+    // [::TICKET::] P2-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P2-2 --for-spec --no-implementation-order`.
+    fn test_auth_config_jwt_requires_secret() {
+        let config = AuthConfig {
+            mode: AuthMode::Jwt,
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr =
+            format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse().unwrap();
+        let result = config.validate(&bind);
+        assert!(result.is_err(), "Jwt mode without secret must return error");
+        assert!(
+            result.unwrap_err().to_string().contains("secret"),
+            "Error message must mention missing secret"
+        );
+    }
+
+    // ── P7-3 O-005: Exact ConfigError variant assertions ──────────────
+
+    #[test]
+    // @verifies C064
+    // [::TICKET::] P7-3: O-005 — assert the exact ConfigError variant, not a message substring.
+    // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    fn test_auth_config_localhost_exact_variant() -> Result<(), Box<dyn std::error::Error>> {
+        let config = AuthConfig {
+            mode: AuthMode::LocalhostOnly,
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr = format!("0.0.0.0:{}", DEFAULT_SIPRS_PORT).parse()?;
+        // ConfigError derives PartialEq — exact-variant equality proves the
+        // error kind (a wrong-kind error with the same Display would fail).
+        assert_eq!(
+            config.validate(&bind),
+            Err(ConfigError::LocalhostRequiresLoopback(bind)),
+            "LocalhostOnly + non-loopback must yield the exact LocalhostRequiresLoopback variant"
+        );
+        Ok(())
+    }
+
+    #[test]
+    // @verifies C064
+    // [::TICKET::] P7-3: O-005 — assert the exact ConfigError variant, not a message substring.
+    // [::TICKET::] P7-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-3 --for-spec --no-implementation-order`.
+    fn test_auth_config_jwt_exact_variant() -> Result<(), Box<dyn std::error::Error>> {
+        let config = AuthConfig {
+            mode: AuthMode::Jwt,
+            jwt_secret: None,
+            jwt_expiry_secs: 3600,
+        };
+        let bind: std::net::SocketAddr = format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse()?;
+        assert_eq!(
+            config.validate(&bind),
+            Err(ConfigError::JwtRequiresSecret),
+            "Jwt + None secret must yield the exact JwtRequiresSecret variant"
+        );
+        Ok(())
+    }
+
+    // ── Normal: ServerConfig struct construction ───────────────────────
+
+    #[test]
+    // [::TICKET::] P2-2, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P15-2) --for-spec --no-implementation-order`.
+    fn test_server_config_struct_fields() {
+        let config = ServerConfig {
+            bind_addr: format!("127.0.0.1:{}", DEFAULT_SIPRS_PORT).parse().unwrap(),
+            db_path: std::path::PathBuf::from("~/.siprs/data.db"),
+            config_file: None,
+            allowed_origins: vec![],
+            auth: AuthConfig::default(),
+        };
+        assert_eq!(config.auth.jwt_expiry_secs, 3600);
+        assert_eq!(config.bind_addr.port(), DEFAULT_SIPRS_PORT);
+    }
+
+    // ── Invariant: Send + Sync ─────────────────────────────────────────
+
+    #[test]
+    // [::TICKET::] P2-2, P7-1, P11-2, P12-2, P12-7, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2|P12-2|P12-7|P15-2) --for-spec --no-implementation-order`.
+    fn test_server_config_send_sync() {
+        // [::TICKET::] P2-2, P7-1, P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P7-1|P11-2) --for-spec --no-implementation-order`.
+        fn assert_send<T: Send>() {}
+        // [::TICKET::] P2-2, P3-3, P7-1, P11-2, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P2-2|P3-3|P7-1|P11-2|P15-2|P15-3) --for-spec --no-implementation-order`.
+        fn assert_sync<T: Sync>() {}
+        assert_send::<ServerConfig>();
+        assert_sync::<ServerConfig>();
+        assert_send::<AuthConfig>();
+        assert_sync::<AuthConfig>();
+        // Invariant: AuthMode and ConfigError are also Send + Sync (used across
+        // the tokio reactor boundary and axum handler threads).
+        assert_send::<AuthMode>();
+        assert_sync::<AuthMode>();
+        assert_send::<ConfigError>();
+        assert_sync::<ConfigError>();
+    }
+
+    // ── P3-3: ServerConfig default values ────────────────────────────────
+
+    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    #[test]
+    // [::TICKET::] P3-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P15-2) --for-spec --no-implementation-order`.
+    fn test_server_config_default_values() -> Result<(), Box<dyn std::error::Error>> {
+        let config = ServerConfig::default();
+        assert_eq!(
+            config.bind_addr.to_string(),
+            format!("127.0.0.1:{DEFAULT_SIPRS_PORT}")
+        );
+        assert_eq!(config.db_path.to_str().unwrap(), "~/.siprs/data.db");
+        assert_eq!(config.auth.mode, AuthMode::LocalhostOnly);
+        assert!(config.config_file.is_none());
+        assert!(config.allowed_origins.is_empty());
+        Ok(())
+    }
+
+    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    #[test]
+    // @verifies C062
+    // [::TICKET::] P3-3, P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P11-2) --for-spec --no-implementation-order`.
+    fn test_server_config_serde_roundtrip() -> Result<(), Box<dyn std::error::Error>> {
+        // Roundtrip a fully-populated config so every field is asserted — a
+        // default-only roundtrip would not detect a #[serde(skip)] regression on
+        // config_file / allowed_origins / jwt_secret (all None/[]/None by default).
+        let config = ServerConfig {
+            bind_addr: "0.0.0.0:8080".parse()?,
+            db_path: PathBuf::from("/tmp/custom.db"),
+            config_file: Some(PathBuf::from("/etc/siprs/custom.toml")),
+            allowed_origins: vec!["https://app.example.com".to_string()],
+            auth: AuthConfig {
+                mode: AuthMode::Jwt,
+                jwt_secret: Some(crate::security::SecretString::new(
+                    "roundtrip-secret".to_string(),
+                )),
+                jwt_expiry_secs: 7200,
+            },
+        };
+        let json = serde_json::to_string(&config)?;
+        let restored: ServerConfig = serde_json::from_str(&json)?;
+        assert_eq!(config.bind_addr, restored.bind_addr);
+        assert_eq!(config.db_path, restored.db_path);
+        assert_eq!(config.config_file, restored.config_file);
+        assert_eq!(config.allowed_origins, restored.allowed_origins);
+        assert_eq!(config.auth, restored.auth);
+        Ok(())
+    }
+
+    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    #[test]
+    // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
+    fn test_default_jwt_expiry_secs() {
+        assert_eq!(DEFAULT_JWT_EXPIRY_SECS, 3600);
+    }
+
+    #[test]
+    // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+    fn test_default_siprs_port_matches_constant() {
+        assert_eq!(DEFAULT_SIPRS_PORT, 3910);
+    }
+
+    // ── P3-3: AuthConfig uses DEFAULT_JWT_EXPIRY_SECS ────────────────────
+
+    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    #[test]
+    // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+    fn test_auth_config_default_jwt_expiry_matches_constant() {
+        let config = AuthConfig::default();
+        assert_eq!(config.jwt_expiry_secs, DEFAULT_JWT_EXPIRY_SECS);
+    }
+
+    // ── P11-2: DatabasePool & rusqlite compile checks (C065, sqlite-storage) ──
+    //
+    // These lock two contract elements of N0064→N0061: DatabasePool::open()
+    // stays generic over AsRef<Path> (both &str and PathBuf callable from the
+    // main entry point), and the rusqlite dependency keeps the bundled feature.
+    // Each is compiled only when sqlite-storage is enabled, so the checks run
+    // under `cargo test --features server,cli,sqlite-storage`.
+
+    #[cfg(feature = "sqlite-storage")]
+    #[test]
+    // @verifies C065
+    // [::TICKET::] P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-2 --for-spec --no-implementation-order`.
+    fn database_pool_open_accepts_str_and_pathbuf() {
+        use crate::model::sqlite_schema::DatabasePool;
+
+        async fn _accepts_str(path: &str) -> Result<DatabasePool, sea_orm::DbErr> {
+            DatabasePool::open(path).await
+        }
+        async fn _accepts_pathbuf(
+            path: std::path::PathBuf,
+        ) -> Result<DatabasePool, sea_orm::DbErr> {
+            DatabasePool::open(path).await
+        }
+        let _ = (_accepts_str, _accepts_pathbuf);
+    }
+
+    #[cfg(feature = "sqlite-storage")]
+    #[test]
+    // @verifies C065
+    // [::TICKET::] P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-2 --for-spec --no-implementation-order`.
+    fn rusqlite_bundled_open_in_memory_compiles() {
+        // [::TICKET::] P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-2 --for-spec --no-implementation-order`.
+        fn _rusqlite_bundled_available() {
+            let _ = rusqlite::Connection::open_in_memory();
+        }
+        let _ = _rusqlite_bundled_available;
+    }
+
+    // ── P3-3: ServerConfig CLI tests (feature-gated) ─────────────────────
+
+    #[cfg(all(test, feature = "cli"))]
+    mod cli_tests {
+        use super::*;
+
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        #[test]
+        // [::TICKET::] P3-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P15-2) --for-spec --no-implementation-order`.
+        fn test_from_args_default_port() -> Result<(), Box<dyn std::error::Error>> {
+            let config = ServerConfig::from_args_with(&[])?;
+            assert_eq!(config.bind_addr.port(), DEFAULT_SIPRS_PORT);
+            assert_eq!(config.auth.mode, AuthMode::LocalhostOnly);
+            Ok(())
+        }
+
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        #[test]
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        fn test_from_args_port_override() -> Result<(), Box<dyn std::error::Error>> {
+            let config = ServerConfig::from_args_with(&["--port".to_string(), "3911".to_string()])?;
+            assert_eq!(config.bind_addr.port(), 3911);
+            Ok(())
+        }
+
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        #[test]
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        fn test_from_args_db_path_override() -> Result<(), Box<dyn std::error::Error>> {
+            let config = ServerConfig::from_args_with(&[
+                "--db-path".to_string(),
+                "/tmp/test.db".to_string(),
+            ])?;
+            assert_eq!(config.db_path.to_str().unwrap(), "/tmp/test.db");
+            Ok(())
+        }
+
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        #[test]
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        fn test_from_args_rejects_non_numeric_port() {
+            let result = ServerConfig::from_args_with(&["--port".to_string(), "abc".to_string()]);
+            assert!(result.is_err(), "Non-numeric port must return error");
+        }
+
+        // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+        #[test]
+        // O-004: Numeric but out-of-range port (u16 overflow) must be rejected.
+        // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+        fn test_from_args_rejects_out_of_range_port() {
+            let result = ServerConfig::from_args_with(&["--port".to_string(), "70000".to_string()]);
+            assert!(
+                result.is_err(),
+                "Out-of-range port must return error (u16 parse overflow)"
+            );
+        }
+
+        // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+        #[test]
+        // Empty db-path must be rejected with a descriptive error.
+        // [::TICKET::] P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P7-1 --for-spec --no-implementation-order`.
+        fn test_from_args_rejects_empty_db_path() {
+            let result = ServerConfig::from_args_with(&["--db-path".to_string(), "".to_string()]);
+            assert!(result.is_err(), "Empty db-path must return error");
+            assert!(
+                result.unwrap_err().to_string().contains("db-path"),
+                "Error message must mention db-path"
+            );
+        }
+
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        #[test]
+        // [::TICKET::] P3-3, P15-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P15-2) --for-spec --no-implementation-order`.
+        fn test_from_args_rejects_invalid_bind_addr() {
+            let result = ServerConfig::from_args_with(&[
+                "--bind-addr".to_string(),
+                "not-an-ip".to_string(),
+                "--port".to_string(),
+                DEFAULT_SIPRS_PORT.to_string(),
+            ]);
+            assert!(result.is_err(), "Invalid bind-addr must return error");
+        }
+
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        #[test]
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        fn test_from_args_auth_mode_apikey() -> Result<(), Box<dyn std::error::Error>> {
+            let config =
+                ServerConfig::from_args_with(&["--auth-mode".to_string(), "apikey".to_string()])?;
+            assert!(matches!(config.auth.mode, AuthMode::ApiKey { .. }));
+            Ok(())
+        }
+
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        #[test]
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        fn test_from_args_auth_mode_jwt_with_secret() -> Result<(), Box<dyn std::error::Error>> {
+            let config = ServerConfig::from_args_with(&[
+                "--auth-mode".to_string(),
+                "jwt".to_string(),
+                "--jwt-secret".to_string(),
+                "my-secret".to_string(),
+            ])?;
+            assert_eq!(config.auth.mode, AuthMode::Jwt);
+            assert!(config.auth.jwt_secret.is_some());
+            Ok(())
+        }
+
+        // Jwt mode without --jwt-secret must be rejected — the guard at
+        // from_args_with (matches.get_one::<String>("jwt-secret").ok_or_else(...))
+        // would otherwise be dead code.
+        #[test]
+        // @verifies C062
+        // [::TICKET::] P11-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P11-2 --for-spec --no-implementation-order`.
+        fn test_from_args_rejects_jwt_without_secret() -> Result<(), Box<dyn std::error::Error>> {
+            let result =
+                ServerConfig::from_args_with(&["--auth-mode".to_string(), "jwt".to_string()]);
+            let err = result.expect_err("jwt mode without --jwt-secret must be rejected");
+            assert_eq!(err.kind, crate::error::SipErrorKind::InvalidConfig);
+            assert!(
+                err.to_string().contains("jwt-secret"),
+                "error message must mention jwt-secret"
+            );
+            Ok(())
+        }
+    }
+
+    // ── P7-1: AppState + build_router behavioral tests (feature-gated) ──
+    //
+    // The reactor runs on TestBackend (src/runtime/reactor.rs), so a real
+    // SipClient can be constructed in tests without PJSIP native init.
+    // The RFC §10 ClientConfig::default() passes §42 validation (P15-2), so
+    // the helper uses the default config directly.
+
+    #[cfg(all(test, feature = "server"))]
+    mod server_tests {
+        use super::*;
+
+        // [::TICKET::] P3-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P3-3 --for-spec --no-implementation-order`.
+        #[test]
+        // [::TICKET::] P3-3, P7-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1) --for-spec --no-implementation-order`.
+        fn test_app_state_send_sync() {
+            // [::TICKET::] P3-3, P7-1, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1|P15-2|P15-3) --for-spec --no-implementation-order`.
+            fn assert_send<T: Send>() {}
+            // [::TICKET::] P3-3, P7-1, P15-2, P15-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P3-3|P7-1|P15-2|P15-3) --for-spec --no-implementation-order`.
+            fn assert_sync<T: Sync>() {}
+            assert_send::<AppState>();
+            assert_sync::<AppState>();
+        }
+
+        /// Build a real AppState backed by a TestBackend reactor (no PJSIP).
+        ///
+        /// With `sqlite-storage`, opens an in-memory DatabasePool for the `db` field.
+        #[cfg(feature = "sqlite-storage")]
+        async fn build_test_app_state() -> Result<AppState, Box<dyn std::error::Error>> {
+            use crate::client::SipClient;
+            use crate::config::ClientConfig;
+            use crate::model::sqlite_schema::DatabasePool;
+
+            let client_config = ClientConfig::default();
+            let (sip_client, _rx) = SipClient::new(client_config).await?;
+            let db = DatabasePool::open(":memory:").await?;
+            Ok(AppState {
+                sip_client: Arc::new(sip_client),
+                db: Arc::new(db),
+                server_start_time: Instant::now(),
+            })
+        }
+
+        /// Build a real AppState backed by a TestBackend reactor (no PJSIP).
+        #[cfg(not(feature = "sqlite-storage"))]
+        async fn build_test_app_state() -> Result<AppState, Box<dyn std::error::Error>> {
+            use crate::client::SipClient;
+            use crate::config::ClientConfig;
+
+            let client_config = ClientConfig::default();
+            let (sip_client, _rx) = SipClient::new(client_config).await?;
+            Ok(AppState {
+                sip_client: Arc::new(sip_client),
+                server_start_time: Instant::now(),
+            })
+        }
+
+        // Behavioral health check — GET /api/v1/health must respond HTTP 200
+        // before any account is registered (readiness probe).
+        #[tokio::test]
+        async fn test_health_check_returns_ok() -> Result<(), Box<dyn std::error::Error>> {
+            use axum::body::Body;
+            use axum::http::{Request, StatusCode};
+            use tower::ServiceExt;
+
+            let app = build_router(build_test_app_state().await?);
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .uri("/api/v1/health")
+                        .body(Body::empty())?,
+                )
+                .await?;
+            assert_eq!(response.status(), StatusCode::OK);
+
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await?;
+            let body: serde_json::Value = serde_json::from_slice(&bytes)?;
+            assert_eq!(body["status"], "ok", "health body must contain status:ok");
+            Ok(())
+        }
+
+        // Shutdown endpoint — POST /api/v1/shutdown must respond HTTP 200 with
+        // {"status":"shutting_down"} and call the idempotent SipClient::shutdown().
+        #[tokio::test]
+        async fn test_shutdown_returns_ok() -> Result<(), Box<dyn std::error::Error>> {
+            use axum::body::Body;
+            use axum::http::{Request, StatusCode};
+            use tower::ServiceExt;
+
+            let app = build_router(build_test_app_state().await?);
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/shutdown")
+                        .body(Body::empty())?,
+                )
+                .await?;
+            assert_eq!(response.status(), StatusCode::OK);
+
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await?;
+            let body: serde_json::Value = serde_json::from_slice(&bytes)?;
+            assert_eq!(body["status"], "shutting_down");
+            Ok(())
+        }
+
+        // run_server must surface a typed SipError (never panic) when startup fails.
+        // The RFC §10 ClientConfig::default() now passes §42 validation (P15-2),
+        // so the deterministic startup failure is the auth-config boundary
+        // validation: Jwt mode without a jwt_secret is rejected before any port
+        // binding.
+        #[tokio::test]
+        async fn test_run_server_returns_typed_error_on_invalid_auth_config(
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            let config = ServerConfig {
+                auth: AuthConfig {
+                    mode: AuthMode::Jwt,
+                    jwt_secret: None,
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            let result = run_server(config).await;
+            let err = result.expect_err("run_server must return a typed error");
+            assert_eq!(
+                err.kind,
+                crate::error::SipErrorKind::InvalidConfig,
+                "startup failure must be InvalidConfig"
+            );
+            Ok(())
+        }
+
+        // build_router must provide an extensible router type — future P4-3
+        // routes merge in by chaining additional routes. A sealed or wrapper
+        // type would fail to compile here, and the added route must actually
+        // be reachable, so this test locks the C063 invariant route-addition
+        // behavior.
+        #[tokio::test]
+        // @verifies C063
+        async fn test_build_router_allows_route_addition() -> Result<(), Box<dyn std::error::Error>>
+        {
+            use axum::body::Body;
+            use axum::http::{Request, StatusCode};
+            use axum::routing::get;
+            use tower::ServiceExt;
+
+            let router = build_router(build_test_app_state().await?);
+            let extended = router.route("/api/v1/test", get(|| async { "ok" }));
+            let response = extended
+                .oneshot(Request::builder().uri("/api/v1/test").body(Body::empty())?)
+                .await?;
+            assert_eq!(response.status(), StatusCode::OK);
+            let bytes = axum::body::to_bytes(response.into_body(), usize::MAX).await?;
+            assert_eq!(String::from_utf8(bytes.to_vec())?, "ok");
+            Ok(())
+        }
+
+        // ── P12-2: startup account restoration (restore_accounts_from_db) ──
+
+        /// Insert a persisted account row via raw SQL (P12-2 test helper).
+        #[cfg(feature = "sqlite-storage")]
+        async fn insert_persisted_account(
+            pool: &crate::model::sqlite_schema::DatabasePool,
+            sql: &str,
+        ) -> Result<(), sea_orm::DbErr> {
+            use sea_orm::{ConnectionTrait, DatabaseBackend};
+            pool.connection()
+                .execute(sea_orm::Statement::from_string(
+                    DatabaseBackend::Sqlite,
+                    sql.to_string(),
+                ))
+                .await?;
+            Ok(())
+        }
+
+        #[cfg(feature = "sqlite-storage")]
+        #[tokio::test]
+        // @verifies C065, C063
+        // [::TICKET::] P12-2: each persisted account is re-registered via add_account.
+        async fn restore_accounts_adds_each_loaded_account(
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            let state = build_test_app_state().await?;
+            state.db.init_schema().await?;
+            insert_persisted_account(
+                &state.db,
+                "INSERT INTO accounts (username, password, domain) \
+                 VALUES ('alice', X'70617373', 'sip.example.com')",
+            )
+            .await?;
+            insert_persisted_account(
+                &state.db,
+                "INSERT INTO accounts (username, password, domain) \
+                 VALUES ('bob', X'70617373', 'sip.example.net')",
+            )
+            .await?;
+
+            restore_accounts_from_db(&state.sip_client, &state.db).await?;
+
+            let snapshots = state.sip_client.accounts().await?;
+            assert_eq!(
+                snapshots.len(),
+                2,
+                "both persisted accounts must be restored"
+            );
+            let uris: Vec<String> = snapshots.iter().map(|a| a.uri.clone()).collect();
+            assert!(uris.contains(&"sip:alice@sip.example.com".to_string()));
+            assert!(uris.contains(&"sip:bob@sip.example.net".to_string()));
+            Ok(())
+        }
+
+        #[cfg(feature = "sqlite-storage")]
+        #[tokio::test]
+        // @verifies C065, C015
+        // [::TICKET::] P12-2: an account that fails add_account is skipped, never fatal.
+        async fn restore_accounts_skips_invalid_and_continues(
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            let state = build_test_app_state().await?;
+            state.db.init_schema().await?;
+            insert_persisted_account(
+                &state.db,
+                "INSERT INTO accounts (username, password, domain) \
+                 VALUES ('alice', X'70617373', 'sip.example.com')",
+            )
+            .await?;
+            // Empty password BLOB → AccountConfig::validate() fails (C052) → skipped.
+            insert_persisted_account(
+                &state.db,
+                "INSERT INTO accounts (username, password, domain) \
+                 VALUES ('broken', X'', 'sip.example.com')",
+            )
+            .await?;
+
+            let result = restore_accounts_from_db(&state.sip_client, &state.db).await;
+            assert!(
+                result.is_ok(),
+                "an account failing add_account must be skipped, not fatal"
+            );
+            assert_eq!(
+                state.sip_client.accounts().await?.len(),
+                1,
+                "only the valid account is registered"
+            );
+            Ok(())
+        }
+
+        #[cfg(feature = "sqlite-storage")]
+        #[tokio::test]
+        // @verifies C065
+        // [::TICKET::] P12-2: an empty accounts table is a no-op restoration.
+        async fn restore_accounts_empty_db_is_noop() -> Result<(), Box<dyn std::error::Error>> {
+            let state = build_test_app_state().await?;
+            state.db.init_schema().await?;
+
+            restore_accounts_from_db(&state.sip_client, &state.db).await?;
+
+            assert!(
+                state.sip_client.accounts().await?.is_empty(),
+                "empty accounts table restores zero accounts"
+            );
+            Ok(())
+        }
+
+        #[cfg(feature = "sqlite-storage")]
+        #[tokio::test]
+        // @verifies C065
+        // [::TICKET::] P12-2: a load_accounts DB error aborts startup with a typed SipError.
+        async fn restore_accounts_db_error_is_fatal() -> Result<(), Box<dyn std::error::Error>> {
+            let state = build_test_app_state().await?;
+            // init_schema() is intentionally NOT called — the accounts table is missing.
+            let err = restore_accounts_from_db(&state.sip_client, &state.db)
+                .await
+                .expect_err("a load_accounts DB error must abort startup");
+            assert_eq!(err.kind, crate::error::SipErrorKind::NativeError);
+            Ok(())
+        }
+
+        #[cfg(feature = "sqlite-storage")]
+        #[test]
+        // @verifies C015
+        // [::TICKET::] P12-2: AccountEntity → AccountConfig maps the add_account fields.
+        // [::TICKET::] P12-2, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-2|P12-7) --for-spec --no-implementation-order`.
+        fn account_entity_to_config_maps_core_fields() {
+            use crate::model::sqlite_schema::AccountEntity;
+
+            let entity = AccountEntity {
+                id: 1,
+                display_name: Some("Alice".into()),
+                username: "alice".into(),
+                auth_username: None,
+                password: b"pw".to_vec(),
+                domain: "sip.example.com".into(),
+                registrar_uri: None,
+                transport: "tcp".into(),
+                register_on_start: true,
+                allow_outbound_without_register: false,
+                created_at: String::new(),
+                updated_at: String::new(),
+            };
+            let cfg = account_entity_to_config(&entity);
+            assert_eq!(cfg.username, "alice");
+            assert_eq!(cfg.domain, "sip.example.com");
+            assert_eq!(cfg.display_name.as_deref(), Some("Alice"));
+            assert_eq!(
+                cfg.transport,
+                crate::config::account_config_spec::AccountTransportPolicy::Tcp
+            );
+            assert!(cfg.register_on_start);
+            assert!(!cfg.allow_outbound_without_register);
+            assert_eq!(cfg.registrar_uri, None);
+            assert_eq!(cfg.auth_username, None);
+        }
+
+        #[cfg(feature = "sqlite-storage")]
+        #[test]
+        // @verifies C015
+        // [::TICKET::] P12-2: unknown transport strings fall back to Udp.
+        // [::TICKET::] P12-2, P12-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P12-2|P12-7) --for-spec --no-implementation-order`.
+        fn account_entity_to_config_transport_fallback() {
+            use crate::config::account_config_spec::AccountTransportPolicy;
+            use crate::model::sqlite_schema::AccountEntity;
+
+            let base = AccountEntity {
+                id: 1,
+                display_name: None,
+                username: "alice".into(),
+                auth_username: None,
+                password: b"pw".to_vec(),
+                domain: "d".into(),
+                registrar_uri: None,
+                transport: String::new(),
+                register_on_start: true,
+                allow_outbound_without_register: false,
+                created_at: String::new(),
+                updated_at: String::new(),
+            };
+
+            let udp = account_entity_to_config(&AccountEntity {
+                transport: "udp".into(),
+                ..base.clone()
+            });
+            assert_eq!(udp.transport, AccountTransportPolicy::Udp);
+            let tcp = account_entity_to_config(&AccountEntity {
+                transport: "tcp".into(),
+                ..base.clone()
+            });
+            assert_eq!(tcp.transport, AccountTransportPolicy::Tcp);
+            let tls = account_entity_to_config(&AccountEntity {
+                transport: "tls".into(),
+                ..base.clone()
+            });
+            assert_eq!(tls.transport, AccountTransportPolicy::Tls);
+            let unknown = account_entity_to_config(&AccountEntity {
+                transport: "sctp".into(),
+                ..base
+            });
+            assert_eq!(unknown.transport, AccountTransportPolicy::Udp);
+        }
+    }
+} // mod tests

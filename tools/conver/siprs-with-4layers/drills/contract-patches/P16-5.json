@@ -1,0 +1,18 @@
+{
+ "contracts": [
+  {
+   "id": "C073",
+   "sourceEdge": "N0073→N0068",
+   "precondition": "§62 親セクションが存在する",
+   "postcondition": "62.4 が §62 の一部として記述される",
+   "invariant": "登録状態機械は §17/§33 と整合する"
+  },
+  {
+   "id": "C085",
+   "sourceEdge": "N0073→N0025",
+   "precondition": "N0025 が §17 登録状態機械を定義する",
+   "postcondition": "62.4 が typed RegistrationState と M20 変換器駆動を規定する",
+   "invariant": "実 REGISTER 成功時のみ Registered へ遷移する"
+  }
+ ]
+}

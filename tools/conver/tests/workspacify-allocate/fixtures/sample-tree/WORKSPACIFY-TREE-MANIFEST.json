@@ -1,0 +1,296 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "artifact_kind": "workspacify-tree-manifest",
+  "schema_version": "1.0.0",
+  "status": "COMPLETE",
+  "run": {},
+  "input": {
+    "spec_path": "spec.md",
+    "source_hash": "e46567e253287a3da41f09a9770091b94fe08d4c681ab9feac4a0c27d827d32c",
+    "source_bytes": 119
+  },
+  "structure": {
+    "segment_count": 2,
+    "covered_bytes": 119,
+    "segments": [
+      {
+        "id": "s-000001",
+        "heading_id": "h-000001",
+        "title": "Alpha",
+        "level": 2,
+        "line_start": 1,
+        "line_end": 4,
+        "byte_start": 0,
+        "byte_end": 53,
+        "sha256": "9964f4200b1da48cfc46bbe660ad2d89dde31b7f47243cb7cbbd30d4b4319f54",
+        "subheading_ids": [],
+        "owned_inventory_ids": [
+          "obj-000001"
+        ]
+      },
+      {
+        "id": "s-000002",
+        "heading_id": "h-000002",
+        "title": "Beta",
+        "level": 2,
+        "line_start": 5,
+        "line_end": 7,
+        "byte_start": 53,
+        "byte_end": 119,
+        "sha256": "8c6b857211fceed2e27bf068b49207e679dd66a3f778d03a05ab33b894ab3f75",
+        "subheading_ids": [],
+        "owned_inventory_ids": [
+          "obj-000002"
+        ]
+      }
+    ]
+  },
+  "inventory": {
+    "objects": [
+      {
+        "id": "obj-000001",
+        "canonical_name": "Alpha Record",
+        "classification": "record",
+        "source_refs": [
+          {
+            "segment_id": "s-000001",
+            "section_id": "h-000001",
+            "line_start": 3,
+            "line_end": 3,
+            "byte_start": 20,
+            "byte_end": 40,
+            "snippet": "obj-000001"
+          }
+        ],
+        "normalization_status": "CONFIRMED"
+      },
+      {
+        "id": "obj-000002",
+        "canonical_name": "Beta Record",
+        "classification": "record",
+        "source_refs": [
+          {
+            "segment_id": "s-000002",
+            "section_id": "h-000002",
+            "line_start": 7,
+            "line_end": 7,
+            "byte_start": 99,
+            "byte_end": 118,
+            "snippet": "obj-000002"
+          }
+        ],
+        "normalization_status": "CONFIRMED"
+      }
+    ],
+    "claims": [],
+    "invariants": [],
+    "state_machines": [],
+    "error_codes": [],
+    "required_tests": [],
+    "terms": [],
+    "normalization_decisions": [],
+    "unresolved_candidates": []
+  },
+  "requirements": {},
+  "workspace": {
+    "tree": [
+      {
+        "name": "crates",
+        "path": "crates",
+        "kind": "dir",
+        "children": [
+          {
+            "name": "protocol",
+            "path": "crates/protocol",
+            "kind": "dir",
+            "children": [
+              {
+                "name": "alpha",
+                "path": "crates/protocol/alpha",
+                "kind": "dir",
+                "children": []
+              },
+              {
+                "name": "beta",
+                "path": "crates/protocol/beta",
+                "kind": "dir",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "packages": [
+      {
+        "id": "pkg-a",
+        "name": "alpha",
+        "path": "crates/protocol/alpha",
+        "layer": "protocol",
+        "kind": "production-library",
+        "responsibilities": [
+          "own the alpha and beta records and their validity"
+        ],
+        "seed_required": true,
+        "owns": {
+          "objects": [
+            "obj-000001",
+            "obj-000002"
+          ]
+        }
+      },
+      {
+        "id": "pkg-b",
+        "name": "beta",
+        "path": "crates/protocol/beta",
+        "layer": "protocol",
+        "kind": "production-library",
+        "responsibilities": [
+          "own the beta consumer obligation"
+        ],
+        "seed_required": true,
+        "owns": {}
+      }
+    ],
+    "ownership": {
+      "entries": [
+        {
+          "inventory_ref": "obj-000001",
+          "canonical_name": "Alpha Record",
+          "category": "object",
+          "owner_package": "pkg-a"
+        },
+        {
+          "inventory_ref": "obj-000002",
+          "canonical_name": "Beta Record",
+          "category": "object",
+          "owner_package": "pkg-a"
+        }
+      ],
+      "packages": [
+        "pkg-a",
+        "pkg-b"
+      ]
+    }
+  },
+  "adapters": {},
+  "dependencies": {
+    "orientation": "consumer_to_direct_dependency",
+    "normal_edges": [
+      {
+        "from": "pkg-b",
+        "to": "pkg-a",
+        "reasonCode": "canonical-object",
+        "reason": "beta consumes the alpha record"
+      }
+    ],
+    "forbidden_edges": [],
+    "forbidden_layer_rules": [],
+    "dev_dependency_policy": [],
+    "boundaries": [
+      {
+        "id": "boundary-001",
+        "consumer_package": "pkg-b",
+        "provider_package": "pkg-a",
+        "dependency_reason_code": "canonical-object",
+        "stage2_contract_scope": [
+          "input",
+          "output",
+          "preconditions",
+          "postconditions",
+          "invariants",
+          "errors",
+          "canonicalization",
+          "tests"
+        ]
+      }
+    ],
+    "dag": {
+      "node_count": 2,
+      "edge_count": 1,
+      "declared_forbidden_edge_count": 0,
+      "unknown_dependency_count": 0,
+      "self_loop_count": 0,
+      "duplicate_edge_count": 0,
+      "forbidden_edge_count": 0,
+      "forbidden_edge_reasons": [],
+      "layer_violation_count": 0,
+      "cycle_count": 0,
+      "cycles": [],
+      "topological_order": [
+        "pkg-b",
+        "pkg-a"
+      ],
+      "canonical_edges": [
+        {
+          "from": "pkg-b",
+          "to": "pkg-a"
+        }
+      ],
+      "implementation_order": {
+        "serial": [
+          "pkg-a",
+          "pkg-b"
+        ],
+        "levels": [
+          [
+            "pkg-a"
+          ],
+          [
+            "pkg-b"
+          ]
+        ]
+      }
+    }
+  },
+  "conformance": {},
+  "stage2_handoff": {
+    "eligible": true,
+    "entry_gate": {
+      "required_status": "COMPLETE"
+    },
+    "contract_definition_order": [
+      "Alpha Record"
+    ],
+    "contract_boundaries": [
+      {
+        "id": "boundary-001",
+        "consumer_package": "pkg-b",
+        "provider_package": "pkg-a",
+        "dependency_reason_code": "canonical-object",
+        "stage2_contract_scope": [
+          "input",
+          "output",
+          "preconditions",
+          "postconditions",
+          "invariants",
+          "errors",
+          "canonicalization",
+          "tests"
+        ]
+      }
+    ]
+  },
+  "gates": {},
+  "final_audit": {
+    "status": "PASS",
+    "orphan_object_count": 0,
+    "orphan_claim_count": 0,
+    "owner_collision_count": 0,
+    "unknown_dependency_count": 0,
+    "forbidden_dependency_count": 0,
+    "layer_violation_count": 0,
+    "cycle_count": 0,
+    "review_required_count": 0,
+    "unresolved_count": 0,
+    "unallocated_count": 0,
+    "missing_responsibilities_count": 0
+  },
+  "integrity": {
+    "canonicalization": "workspacify-tree-json-v1",
+    "manifest_hash_algorithm": "SHA-256",
+    "manifest_hash": "8a633f8eca61f7dd621fe51712c6092f95d8244dfa73eb99814c5efaed93f6de",
+    "reload_validation": "PASS",
+    "input_hash_verified_at_finalize": true
+  }
+}

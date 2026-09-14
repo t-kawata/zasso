@@ -1,0 +1,27 @@
+{
+  "title": "Shutdown wiring — ShutdownSpec.execute_sequence production wiring, ClientShutdown publish, command router gate",
+  "nodeIds": ["N0076"],
+  "scope": [
+    "reactor の Shutdown アームから ShutdownSpec.execute_sequence（§32: BYE/CANCEL → unregister → audio drain → pjsua_destroy、PhaseTimeout 含む）を非同期で実行する（§62.7）。",
+    "完了後に ClientShutdown イベントを publish し、is_terminated ゲートを設定する。",
+    "ShutdownCommandRouter をコマンド受信ループに接続し、is_shutting_down ゲートで shutdown 中のコマンドを破棄（ログ）する。"
+  ],
+  "testUnit": [
+    "ShutdownSpec.execute_sequence が §32 の順序（通話終了→登録解除→音声破棄→pjsua_destroy）を守ること。",
+    "shutdown() のべき等性（is_terminated ゲート）が維持されること。",
+    "ShutdownCommandRouter::is_shutting_down が shutdown 対象コマンドを正しく判定すること。"
+  ],
+  "testIntegration": [
+    "shutdown() 実行後に ClientShutdown が publish されること。",
+    "shutdown 後のコマンド送信が拒否（ドロップ）されること。"
+  ],
+  "testExceptions": [
+    "実 pjsua_destroy は pjsua-native（Layer 3+）で検証する。"
+  ],
+  "changes": [
+    { "before": "reactor Shutdown アームが backend.shutdown のみ実行", "after": "ShutdownSpec.execute_sequence（BYE/CANCEL→unregister→audio drain→pjsua_destroy）を実行", "description": "§32 完全手順の production 配線" },
+    { "before": "ClientShutdown イベントが未 publish", "after": "完了後に publish し is_terminated ゲートを設定", "description": "シャットダウン通知" },
+    { "before": "ShutdownCommandRouter が未接続", "after": "command_loop に is_shutting_down ゲートを追加", "description": "シャットダウン中のコマンド拒否" }
+  ],
+  "phaseName": "Implementation Integration — RESIDUE Resolution (§62)"
+}

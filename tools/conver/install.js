@@ -1,35 +1,56 @@
 #!/usr/bin/env node
-// install.js — .claude ディレクトリのインストーラ
-//
-// 使用法:
-//   install.js -t /path/to/target/.claude          # 上書きは1件ずつ確認
-//   install.js -y -t /path/to/target/.claude        # 全て上書きを自動承認
-//
-// このスクリプトは import.meta.url で自身の位置を特定するため、
-// どのカレントディレクトリから実行されても正しく動作する。
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+/**
+ * install.js — install a conver project's `.claude` tree and resolve its environment.
+ *
+ * Usage:
+ *   install.js                      # install into ./.claude, deciding every file itself
+ *   install.js -t /path/to/.claude  # install into an explicit target
+ *
+ * The script locates itself through import.meta.url, so it runs correctly from
+ * any current directory, and it never opens stdin: a prompt cannot be answered
+ * by an automated session, and a user facing several hundred questions answers
+ * them wrongly.
+ *
+ * What to do with a file that already exists is decided by comparing the
+ * target, the source and the record of the previous installation — never by
+ * asking. A file the user changed is preserved and named; a file that differs
+ * only because conver moved on is updated.
+ */
 
 import fs from 'node:fs';
 import path from 'node:path';
-import readline from 'node:readline';
+import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import installDeps from './install-deps.cjs';
+import envManifest from './env-manifest.cjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const SOURCE_DIR_NAME = '.claude';
-const EXCLUDE_PATTERNS = ['.DS_Store', 'node_modules'];
+const EXCLUDE_PATTERNS = ['.DS_Store', 'node_modules', installDeps.INSTALL_STATE_FILE_NAME];
+const BASELINE_RELATIVE_PATH = 'tests/workspacify-tree/baselines/manifest-hashes.json';
+
+// The installer is a command line tool, so stdout is its product rather than a
+// debugging channel: the report a user reads and the exit code are the interface.
+const print = (line) => process.stdout.write(`${line}\n`);
+const printError = (line) => process.stderr.write(`${line}\n`);
 
 /**
- * コマンドライン引数を解析する。
+ * Parse the command line.
+ *
+ * `-y` is still accepted and still means "do not ask" — there is simply nothing
+ * left to ask, because the installer decides every overwrite itself.
+ *
  * @param {string[]} argv - process.argv
- * @returns {{ targetDir: string, overwriteAll: boolean, noInstallDeps: boolean } | null}
- *   解析成功時はオプションオブジェクト、失敗時は null
+ * @returns {{ targetDir: string|null, noInstallDeps: boolean } | null} null on a usage error
  */
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const args = argv.slice(2);
   let targetDir = null;
-  let overwriteAll = false;
   let noInstallDeps = false;
 
   for (let i = 0; i < args.length; i++) {
@@ -37,48 +58,37 @@ function parseArgs(argv) {
     if (arg === '-t' || arg === '--target') {
       i++;
       if (i >= args.length) {
-        console.error('エラー: -t の後にターゲットパスを指定してください。');
+        printError('error: -t must be followed by a target path');
         return null;
       }
       targetDir = path.resolve(args[i]);
     } else if (arg === '-y') {
-      overwriteAll = true;
+      // Accepted for compatibility; the installer no longer prompts.
     } else if (arg === '--no-install-deps') {
       noInstallDeps = true;
     } else {
-      console.error('エラー: 未知のオプションです: ' + arg);
+      printError(`error: unknown option: ${arg}`);
       return null;
     }
   }
 
-  if (!targetDir) {
-    console.error('エラー: 必須オプション -t が指定されていません。');
-    return null;
-  }
-
-  return { targetDir, overwriteAll, noInstallDeps };
+  return { targetDir: targetDir ?? path.join(process.cwd(), SOURCE_DIR_NAME), noInstallDeps };
 }
 
-/**
- * 使用方法を表示する。
- */
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
 function showUsage() {
-  console.log('使用法:');
-  console.log('  install.js -t /path/to/target/.claude');
-  console.log('  install.js -y -t /path/to/target/.claude');
-  console.log('');
-  console.log('オプション:');
-  console.log('  -t, --target <path>   インストール先ディレクトリ（必須）');
-  console.log('  -y                    全ての上書きを自動承認');
-  console.log('  --no-install-deps      依存関係の解決をスキップ');
+  print('usage:');
+  print('  install.js                       install into ./.claude');
+  print('  install.js -t /path/to/.claude   install into an explicit target');
+  print('');
+  print('options:');
+  print('  -t, --target <path>   target directory (defaults to ./.claude)');
+  print('  -y                    accepted for compatibility; the installer never prompts');
+  print('  --no-install-deps     skip dependency resolution');
 }
 
-/**
- * 指定ディレクトリ以下から全ファイルを再帰収集し、起点からの相対パスを返す。
- * @param {string} dirPath - 収集起点ディレクトリ
- * @param {string} baseDir - 相対パスの基準ディレクトリ
- * @returns {string[]} baseDir からの相対パスの配列
- */
+/** Collect every file beneath a directory, as paths relative to a base directory. */
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
 function collectFilesWithRelative(dirPath, baseDir) {
   const entries = fs.readdirSync(dirPath, { withFileTypes: true });
   const files = [];
@@ -89,8 +99,7 @@ function collectFilesWithRelative(dirPath, baseDir) {
     }
     const fullPath = path.join(dirPath, entry.name);
     if (entry.isDirectory()) {
-      const subFiles = collectFilesWithRelative(fullPath, baseDir);
-      files.push(...subFiles);
+      files.push(...collectFilesWithRelative(fullPath, baseDir));
     } else {
       files.push(path.relative(baseDir, fullPath));
     }
@@ -99,125 +108,88 @@ function collectFilesWithRelative(dirPath, baseDir) {
   return files;
 }
 
-/**
- * 1ファイルの上書きについてユーザーに確認する。
- * @param {string} relativePath - 確認対象の相対パス
- * @param {boolean} overwriteAll - -y フラグで全自動承認
- * @returns {Promise<boolean>} 上書きする場合は true
- */
-function promptOverwrite(relativePath, overwriteAll) {
-  if (overwriteAll) {
-    return Promise.resolve(true);
+/** SHA-256 of a file's contents, or null when there is no file to read. */
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+function digestFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return null;
   }
-
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  return new Promise((resolve) => {
-    rl.question(`${relativePath} は既に存在します。上書きしますか？ [y/n] `, (answer) => {
-      rl.close();
-      const normalized = answer.trim().toLowerCase();
-      resolve(normalized === 'y' || normalized === 'yes');
-    });
-  });
+  return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
 /**
- * 1ファイルをコピーする（必要に応じてプロンプト表示）。
- * @param {string} sourcePath - コピー元の絶対パス
- * @param {string} targetPath - コピー先の絶対パス
- * @param {string} relativePath - 表示用の相対パス
- * @param {boolean} overwriteAll - -y フラグ
- * @returns {Promise<'copied' | 'skipped' | 'overwritten'>} コピー結果
- */
-async function copyFileWithPrompt(sourcePath, targetPath, relativePath, overwriteAll) {
-  const targetExists = fs.existsSync(targetPath);
-
-  if (targetExists) {
-    const shouldOverwrite = await promptOverwrite(relativePath, overwriteAll);
-    if (!shouldOverwrite) {
-      return 'skipped';
-    }
-    fs.cpSync(sourcePath, targetPath);
-    return 'overwritten';
-  }
-
-  const targetDir = path.dirname(targetPath);
-  fs.mkdirSync(targetDir, { recursive: true });
-  fs.cpSync(sourcePath, targetPath);
-  return 'copied';
-}
-
-/**
- * インストールのサマリーを表示する。
- */
-function showSummary(stats) {
-  console.log('');
-  console.log(`インストール完了: 合計 ${stats.total} ファイル`);
-  console.log(`  新規コピー: ${stats.copied}`);
-  console.log(`  上書き:     ${stats.overwritten}`);
-  console.log(`  スキップ:   ${stats.skipped}`);
-}
-
-/**
- * メイン処理 — 全体の流れを制御する。
- */
-async function main() {
-  const options = parseArgs(process.argv);
-  if (!options) {
-    showUsage();
-    process.exit(1);
-  }
-
-  const { targetDir, overwriteAll, noInstallDeps } = options;
-  const scriptDir = __dirname;
-  const sourceClaudeDir = path.join(scriptDir, SOURCE_DIR_NAME);
-
-  // ソース .claude の存在確認
-  if (!fs.existsSync(sourceClaudeDir)) {
-    console.error(`エラー: ${sourceClaudeDir} が見つかりません。`);
-    console.error('install.js と同じディレクトリに .claude ディレクトリが存在する必要があります。');
-    process.exit(1);
-  }
-
-  // ファイル一覧を収集
-  const files = collectFilesWithRelative(sourceClaudeDir, sourceClaudeDir);
-  if (files.length === 0) {
-    console.log('コピーするファイルがありません。');
-    return;
-  }
-
-  console.log(`インストールを開始します: ${sourceClaudeDir} → ${targetDir}`);
-  console.log(`対象ファイル数: ${files.length}`);
-  console.log('');
-
-  const stats = { total: files.length, copied: 0, overwritten: 0, skipped: 0 };
-
-  for (const relativePath of files) {
-    const sourcePath = path.join(sourceClaudeDir, relativePath);
-    const targetPath = path.join(targetDir, relativePath);
-
-    const result = await copyFileWithPrompt(sourcePath, targetPath, relativePath, overwriteAll);
-    stats[result]++;
-  }
-
-  if (!noInstallDeps) {
-    await resolveDependenciesForTarget(sourceClaudeDir, targetDir);
-  }
-
-  showSummary(stats);
-}
-
-/**
- * ターゲットの .claude を破壊しない方法で依存関係を解決する。
+ * Load what the previous installation recorded.
  *
- * 1. 宣言された全依存が解決済みなら何もしない（ゼロミューテーション）。
- * 2. 既存の node_modules には一切触らない（存在すればスキップして報告）。
- * 3. node_modules 不在時のみ、安全フラグ付き npm install で新規作成する。
- * 4. インストール失敗時は自動作成分の node_modules のみをロールバックする。
+ * Absent or unreadable, the record is empty: unknown provenance is resolved
+ * toward safety rather than toward overwriting.
+ *
+ * @param {string} targetDir
+ * @returns {{version: number, files: Record<string, string>}}
  */
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+function loadInstallState(targetDir) {
+  const statePath = path.join(targetDir, installDeps.INSTALL_STATE_FILE_NAME);
+  if (!fs.existsSync(statePath)) {
+    return { version: 1, files: {} };
+  }
+  try {
+    const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    return { version: 1, files: state.files ?? {} };
+  } catch {
+    return { version: 1, files: {} };
+  }
+}
+
+/**
+ * Install one file, deciding from the target, the source and the record.
+ *
+ * @returns {{ action: 'install'|'unchanged'|'update'|'preserve', sourceDigest: string }}
+ */
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+function installFile({ sourcePath, targetPath, previousSourceDigest }) {
+  const sourceDigest = digestFile(sourcePath);
+  const targetDigest = digestFile(targetPath);
+  const action = installDeps.decideFileAction({
+    targetExists: targetDigest !== null,
+    targetDigest,
+    sourceDigest,
+    previousSourceDigest: previousSourceDigest ?? null,
+  });
+
+  if (action === 'install' || action === 'update') {
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.cpSync(sourcePath, targetPath);
+  }
+
+  return { action, sourceDigest };
+}
+
+/** Report what happened, naming every file that was preserved. */
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+function showSummary({ counts, preservedNames, targetDir }) {
+  const changed = counts.install + counts.update;
+  print('');
+  if (changed === 0 && counts.preserve === 0) {
+    print(`nothing changed: all ${counts.unchanged} files in ${targetDir} already match the source`);
+  } else {
+    print(`installed into ${targetDir}`);
+    print(`  new: ${counts.install}   updated: ${counts.update}   unchanged: ${counts.unchanged}   preserved: ${counts.preserve}`);
+  }
+
+  if (preservedNames.length > 0) {
+    print('');
+    print(`preserved ${preservedNames.length} file(s) you had modified — they were not overwritten:`);
+    for (const name of preservedNames) {
+      print(`  - ${name}`);
+    }
+  }
+}
+
+/**
+ * Resolve the declared dependencies of the installed `.claude`, without
+ * destroying anything that was already there.
+ */
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
 async function resolveDependenciesForTarget(sourceClaudeDir, targetDir) {
   const manifestPath = path.join(sourceClaudeDir, 'package.json');
   const dependencyEntries = Object.keys(installDeps.readManifestDependencies(manifestPath));
@@ -228,23 +200,149 @@ async function resolveDependenciesForTarget(sourceClaudeDir, targetDir) {
   });
 
   const summaryByStatus = {
-    'no-dependencies': '依存関係の宣言がないため、依存解決をスキップしました。',
-    resolved: '全ての依存関係は解決済みのため、インストールしません。',
-    'skipped-existing': '既存の node_modules を保護するため、依存解決をスキップしました。手動で解決してください。',
-    installed: '依存関係をターゲットの .claude にインストールしました。',
+    'no-dependencies': 'no dependencies are declared, so none were installed',
+    resolved: 'every declared dependency already resolves; nothing was installed',
+    'skipped-existing': 'an existing node_modules was left untouched; resolve its dependencies manually',
+    installed: 'dependencies installed into the target .claude',
   };
 
   if (result.status === 'install-failed') {
-    console.error('エラー: 依存関係のインストールに失敗しました（ロールバック済み）。');
-    console.error('  詳細: ' + result.error);
-    console.error('--no-install-deps フラグで依存解決をスキップできます。');
+    printError(`error: dependency installation failed and was rolled back: ${result.error}`);
+    printError('use --no-install-deps to skip dependency resolution');
     process.exit(1);
   }
 
-  console.log(summaryByStatus[result.status]);
+  print(summaryByStatus[result.status]);
 }
 
-main().catch((err) => {
-  console.error('予期しないエラーが発生しました:', err.message);
+/**
+ * Resolve every declared npm root and every declared external tool, write the
+ * record, and print the report.
+ *
+ * The declaration describes the conver toolchain and lives beside install.js, so
+ * the environment is resolved against conver's own project root rather than the
+ * directory being installed into — a foreign project has no ENV-DEPS.json and
+ * should not be asked for one.
+ *
+ * Forward readiness and reverse readiness are printed separately: one
+ * undifferentiated verdict would hide the fact that the forward rotation works
+ * while the reverse rotation's toolchain has not been chosen yet.
+ *
+ * @param {string} projectRoot - conver's own root, i.e. the directory holding ENV-DEPS.json
+ */
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+function resolveAndReportEnvironment(projectRoot) {
+  const declaration = envManifest.readDeclaration(projectRoot);
+
+  if (envManifest.declarationIsEmpty(declaration)) {
+    print('');
+    print(envManifest.renderEnvironmentReport({ platform: process.platform, architecture: process.arch, nodeVersion: process.version, npmRoots: [], tools: [] }));
+    return null;
+  }
+
+  const converged = envManifest.readConvergedTicketKeys(path.join(projectRoot, envManifest.TICKETS_FILE_NAME));
+  const environment = { platform: process.platform, arch: process.arch, nodeVersion: process.version };
+  const outcome = envManifest.resolveEnvironment({
+    declaration,
+    projectRoot,
+    environment,
+    commandRunner: installDeps.defaultCommandRunner,
+    converged,
+  });
+  const record = envManifest.recordEnvironmentManifest({ outcome, projectRoot, environment });
+
+  print('');
+  print(envManifest.renderEnvironmentReport(record));
+  return record;
+}
+
+/**
+ * Prove readiness rather than claim it: when this project has a frozen forward
+ * baseline, run the gate and report its verdict.
+ */
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+function reportRegressionVerdict(projectRoot) {
+  if (!fs.existsSync(path.join(projectRoot, BASELINE_RELATIVE_PATH))) {
+    print('no forward baseline is frozen in this project, so there is no regression verdict to report');
+    return;
+  }
+  const runScript = path.join(projectRoot, '.claude', 'scripts', 'workspacify-reverse', 'run.mjs');
+  const result = spawnSync(process.execPath, [runScript, 'regression', 'check'], { cwd: projectRoot, encoding: 'utf8' });
+  process.stdout.write(result.stdout ?? '');
+  if (result.status !== 0) {
+    print('the forward-rotation regression gate did not prove the tree unchanged; see the report above');
+  }
+}
+
+// [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
+async function main() {
+  const options = parseArgs(process.argv);
+  if (!options) {
+    showUsage();
+    process.exit(1);
+  }
+
+  const { targetDir, noInstallDeps } = options;
+  const sourceClaudeDir = path.join(__dirname, SOURCE_DIR_NAME);
+
+  if (!fs.existsSync(sourceClaudeDir)) {
+    printError(`error: ${sourceClaudeDir} was not found`);
+    printError(`install.js must sit beside a ${SOURCE_DIR_NAME} directory`);
+    process.exit(1);
+  }
+
+  const files = collectFilesWithRelative(sourceClaudeDir, sourceClaudeDir);
+  if (files.length === 0) {
+    print('there is nothing to copy');
+    return;
+  }
+
+  const previousState = loadInstallState(targetDir);
+  const counts = { install: 0, update: 0, unchanged: 0, preserve: 0 };
+  const preservedNames = [];
+  const nextState = { version: 1, files: {} };
+
+  print(`installing ${sourceClaudeDir} -> ${targetDir} (${files.length} files)`);
+
+  for (const relativePath of files) {
+    const sourcePath = path.join(sourceClaudeDir, relativePath);
+    const targetPath = path.join(targetDir, relativePath);
+
+    const { action, sourceDigest } = installFile({
+      sourcePath,
+      targetPath,
+      previousSourceDigest: previousState.files[relativePath],
+    });
+
+    counts[action]++;
+    if (action === 'preserve') {
+      preservedNames.push(relativePath);
+    } else {
+      nextState.files[relativePath] = sourceDigest;
+    }
+  }
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  fs.writeFileSync(path.join(targetDir, installDeps.INSTALL_STATE_FILE_NAME), `${JSON.stringify(nextState, null, 2)}\n`);
+
+  if (!noInstallDeps) {
+    await resolveDependenciesForTarget(sourceClaudeDir, targetDir);
+  }
+
+  showSummary({ counts, preservedNames, targetDir });
+
+  const environmentRecord = resolveAndReportEnvironment(__dirname);
+  if (environmentRecord && !envManifest.rotationIsReady(environmentRecord, 'forward')) {
+    // A report that names what is missing but exits zero would read as ready, and
+    // the one thing this entry point must never do is claim a readiness it lacks.
+    printError('the forward rotation is not ready: resolve the entries named above, then run this again');
+    process.exit(1);
+  }
+
+  reportRegressionVerdict(__dirname);
+}
+
+main().catch((error) => {
+  printError(`unexpected error: ${error.message}`);
   process.exit(1);
 });

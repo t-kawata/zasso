@@ -1,0 +1,165 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-24T04:12:12.932Z",
+  "nodes": [
+    {
+      "id": "Q1",
+      "title": "Public ClientConfig unification policy (RFC §10 type promoted, legacy config.rs retired)",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-24T04:01:13.447Z",
+          "answer": "A: RFC §10 準拠 ClientConfig（client_config_spec 版）を唯一の公開型に昇格し、旧 config.rs 版を完全削除。lib.rs で再公開し SipClient::new のシグネチャを移行。"
+        }
+      ]
+    },
+    {
+      "id": "Q2",
+      "title": "STUN/TURN/ICE config type unification and Vec-ization",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-24T04:01:13.512Z",
+          "answer": "A: StunServerConfig/TurnServerConfig を一元化（二重定義解消）、stun_servers/turn_servers を Vec 化、TurnServerConfig の型バグ修正。§13 の既定値（ICE enabled=true 等）に一致させる。"
+        }
+      ]
+    },
+    {
+      "id": "Q3",
+      "title": "Backend selection mechanism (MockBackend vs PjsuaBackend feature gate)",
+      "status": "resolved",
+      "children": [
+        {
+          "id": "Q3a",
+          "title": "Test double strategy after MockBackend deletion (cfg(test) SipBackend double vs module removal)",
+          "status": "resolved",
+          "children": [],
+          "questions": [
+            {
+              "resolvedAt": "2026-08-24T04:12:12.796Z",
+              "answer": "A: MockBackend 生産コードを完全削除。SipBackend trait（§27a）実装の TestBackend を cfg(test) 専用（src/runtime/backend.rs 内 #[cfg(test)] mod または tests/）として配置。Layer 2 決定性テストを PJSIP 不要のまま維持。mock-backend feature は作らない。"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-24T04:01:13.578Z",
+          "answer": "A+ユーザー指示: pjsua-native へ完全統一。MockBackend は実装過程の残骸（ゴミ）と判断し削除。SipBackend trait（§27a）は維持し、テストは trait 実装のテストダブルのみで駆動。reactor.rs:74-75 の無条件 Mock 生成を排除。"
+        }
+      ]
+    },
+    {
+      "id": "Q4",
+      "title": "Event bus unification topology (reactor dispatch into client bus)",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-24T04:01:13.648Z",
+          "answer": "A+ユーザー指示: 単一 EventBus を SipClient が所有し、reactor は dispatch_event で直接 publish する完全配線。subscribe_account の account_id フィルタ死滅・subscribe_raw_sip の None 問題を構造的に解決。RawSipEventConfig.enabled に応じた raw_sip チャネル生成。"
+        }
+      ]
+    },
+    {
+      "id": "Q5",
+      "title": "Registration state machine production wiring (typed state, register_on_start consumption)",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-24T04:12:12.595Z",
+          "answer": "A: AccountEntry.registration を typed RegistrationState 化。Mock 初期値 Disabled/Idle 修正。M20 変換器（m20_registr_cmd_pat.rs）が NativeEvent(RegistrationStateChanged) を消費し registr_state_machine.rs を駆動。実 REGISTER 成功時のみ Registered へ遷移。register_on_start をランタイムで消費（更新後再登録/解除）。"
+        }
+      ]
+    },
+    {
+      "id": "Q6",
+      "title": "Public API expansion scope (answer/reject, send_dtmf, hangup/cancel, unsubscribe)",
+      "status": "resolved",
+      "children": [
+        {
+          "id": "Q6a",
+          "title": "API audit findings: add answer/hangup/hold/unhold/transfer/send_dtmf/call_state(call_id), unsubscribe decision",
+          "status": "resolved",
+          "children": [],
+          "questions": [
+            {
+              "resolvedAt": "2026-08-24T04:02:08.421Z",
+              "answer": "監査結果: SipClient に answer(call_id,code 180/183/200/486/603)/hangup(call_id,reason)/hold/unhold/transfer(call_id,target)/send_dtmf(call_id,digits,method)/call_state(call_id)->CallState を追加。現行 call_state()->Vec<CallEntry> とシグネチャ衝突 → 整合が必要。unsubscribe は明示 API or drop 依存を設計判断。"
+            }
+          ]
+        },
+        {
+          "id": "Q6b",
+          "title": "call_state signature reconciliation (RFC per-call call_state(call_id) vs existing list call_state())",
+          "status": "resolved",
+          "children": [],
+          "questions": [
+            {
+              "resolvedAt": "2026-08-24T04:12:12.931Z",
+              "answer": "A: 現行 call_state() -> Vec<CallEntry> を calls() に改名。新設 call_state(call_id) -> Result<CallState, SipError> が §19 の正名を引き継ぐ。"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-24T04:01:13.713Z",
+          "answer": "A+ユーザー指示: 公開 API を全追加（SipClient::answer/reject/send_dtmf/hangup/unsubscribe）。decline 486/603 を受理。API 漏れの完全性監査を実施し必要分を追加。"
+        }
+      ]
+    },
+    {
+      "id": "Q7",
+      "title": "Media path architecture (per-call AudioMixer, IN/OUT/BOTH routing, tap push, mic source)",
+      "status": "resolved",
+      "children": [
+        {
+          "id": "Q7a",
+          "title": "Unified audio injection API with channel-direction flag (IN/OUT/BOTH)",
+          "status": "resolved",
+          "children": [],
+          "questions": [
+            {
+              "resolvedAt": "2026-08-24T04:12:12.864Z",
+              "answer": "A: SipClient::add_audio_source(call_id, source, channels: ChannelSelector) を公開。ChannelSelector ∈ {In, Out, Both}。単一コマンド AddAudioSource{call_id, channels} を submit し、reactor 内部で IN 経路（受話取得）と OUT 経路（送話 mix&送信）に分岐。"
+            }
+          ]
+        }
+      ],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-24T04:01:13.784Z",
+          "answer": "A+ユーザー指示: per-call AudioMixer + 初期化時 AudioWorkerTask spawn + AddAudioSource に call_id 付与。IN/OUT/BOTH は独立経路だが、注入方法はチャネルフラグ（IN/OUT/BOTH）で切替可能な統一 API を採用。"
+        }
+      ]
+    },
+    {
+      "id": "Q8",
+      "title": "Shutdown sequence production wiring (ShutdownSpec, ClientShutdown event, command router)",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-24T04:12:12.660Z",
+          "answer": "A: reactor Shutdown アームから ShutdownSpec.execute_sequence を非同期呼び出し（PhaseTimeout 含む BYE/CANCEL→unregister→audio drain→pjsua_destroy）。ClientShutdown イベントを publish。ShutdownCommandRouter を is_shutting_down ゲート付きでコマンド受信ループに接続。"
+        }
+      ]
+    },
+    {
+      "id": "Q9",
+      "title": "Error conversion native_status preservation (M20 converters on production path)",
+      "status": "resolved",
+      "children": [],
+      "questions": [
+        {
+          "resolvedAt": "2026-08-24T04:12:12.731Z",
+          "answer": "A: SipError.native_status を i32 保持。reactor 経路のエラー変換で m20_runtime_command_error.rs の M20 converter を呼び出し pjsua_status→native_status 写像を §14.1 テーブル準拠で一元化。backend.rs の文字列埋め込みを排除。"
+        }
+      ]
+    }
+  ]
+}

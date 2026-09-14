@@ -129,6 +129,7 @@ function parseArgs(argv) {
  * @returns {Array<{type:string, path:string, size?:number, content?:string}>}
  *   Array of items to generate (no file creation)
  */
+// [::TICKET::] P22-15 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-15 --for-spec --no-implementation-order`.
 function discover(node, currentPath, headerContext) {
   const fullPath = path.join(currentPath, node.name);
   const created = [];
@@ -168,9 +169,7 @@ function discover(node, currentPath, headerContext) {
       const headerComment = helpers.generateHeaderComment(
         headerPaths,
         node.mappedNodeIds || [],
-        mappedNodeIdStrings,
         fileCrossRefs,
-        headerContext.graphBasename,
         headerContext.sourceBasename,
         headerContext.lang
       );

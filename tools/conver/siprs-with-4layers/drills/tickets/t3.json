@@ -1,0 +1,27 @@
+{
+  "title": "Backend selection — PjsuaBackend full unification, MockBackend deletion, TestBackend (cfg test)",
+  "nodeIds": ["N0071"],
+  "scope": [
+    "本番バックエンドを pjsua-native feature 選択の PjsuaBackend に完全統一する（§62.2）。",
+    "MockBackend の生産コード（src/runtime/backend.rs 非 test 実装、reactor.rs:74-75 の無条件生成）を完全削除する。",
+    "SipBackend trait（§27a）は維持し、cfg(test) 専用の TestBackend で Layer 2 決定性テストを駆動する。",
+    "mock-backend feature は作らない。非 feature 非 test ビルドは明示的エラーを返す。"
+  ],
+  "testUnit": [
+    "create_backend の cfg 分岐（feature 有無 × test 有無）が正しい backend を返すこと。",
+    "TestBackend::add_account が RegistrationState::Disabled 初期値を返すこと。",
+    "TestBackend::set_registration が enable/disable に応じて Registering/Unregistering を返すこと。"
+  ],
+  "testIntegration": [
+    "TestBackend 上で register→RegistrationSucceeded の決定性シーケンスが完走すること（Layer 2）。"
+  ],
+  "testExceptions": [
+    "実 PJSIP 検証は pjsua-native feature が有効なビルドでのみ実施する。"
+  ],
+  "changes": [
+    { "before": "reactor.rs:74-75 が MockBackend を無条件生成", "after": "create_backend の feature 分岐（pjsua-native）で PjsuaBackend を選択", "description": "バックエンド選択機構の実装" },
+    { "before": "src/runtime/backend.rs に MockBackend 生産実装が存在", "after": "MockBackend を削除し TestBackend（cfg test）を追加", "description": "MockBackend 削除とテストダブル移行" },
+    { "before": "非 feature 非 test ビルドが Mock に依存", "after": "明示的エラー（SipError::unsupported）を返す", "description": "pjsua 完全統一の方針反映" }
+  ],
+  "phaseName": "Implementation Integration — RESIDUE Resolution (§62)"
+}

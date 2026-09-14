@@ -1,0 +1,28 @@
+# PJSIP ソースコード本体は zasso git で管理 — 不要なサブディレクトリのみ除外
+vendor/pjsip/.github/
+vendor/pjsip/.gitignore
+vendor/pjsip/aconfigure
+vendor/pjsip/aconfigure.ac
+vendor/pjsip/build.symbian
+vendor/pjsip/config.guess
+vendor/pjsip/config.sub
+vendor/pjsip/configure
+vendor/pjsip/configure.ac
+vendor/pjsip/depcomp
+vendor/pjsip/install-sh
+vendor/pjsip/ltmain.sh
+vendor/pjsip/missing
+vendor/pjsip/pjlib/build/
+vendor/pjsip/pjlib-util/build/
+vendor/pjsip/pjmedia/build/
+vendor/pjsip/pjnath/build/
+vendor/pjsip/pjsip/build/
+vendor/pjsip/pjsip-apps/
+vendor/pjsip/tests/
+
+# Prebuilt バイナリ — RFC §28.1 戦略に基づき git 管理対象
+# 各 target-triple 配下の .a ファイルは build.rs の auto-deploy が自動配置する
+!vendor/prebuilt/
+
+# .gitkeep は git 管理対象とする
+!vendor/.gitkeep

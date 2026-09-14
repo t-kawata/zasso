@@ -1,0 +1,665 @@
+
+use sea_orm::{ConnectOptions, Database, DatabaseConnection, DbErr, Statement};
+
+use std::path::Path;
+use std::time::Duration;
+
+// ── Database connection pool ──────────────────────────────────────────────
+
+/// Connection pool wrapper for siprs-server SQLite access.
+///
+/// Provides a thin abstraction over SeaORM's `DatabaseConnection`, with
+/// pre-configured connection options optimized for SQLite.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use siprs::model::sqlite_schema::DatabasePool;
+///
+/// let pool = DatabasePool::open("siprs.db").await?;
+/// ```
+#[derive(Debug, Clone)]
+pub struct DatabasePool {
+    conn: DatabaseConnection,
+}
+
+impl DatabasePool {
+    /// Open or create a SQLite database at the given path.
+    ///
+    /// If the database file does not exist, it is created (due to `mode=rwc`
+    /// in the connection URL). The connection pool uses a single connection
+    /// (SQLite is file-locked for writes).
+    ///
+    /// # Errors
+    ///
+    /// Returns `DbErr` if the path is invalid, the directory is unwritable,
+    /// or SQLite reports an error during open.
+    pub async fn open(path: impl AsRef<Path>) -> Result<Self, DbErr> {
+        let url = format!("sqlite:{}?mode=rwc", path.as_ref().display());
+        let mut opts = ConnectOptions::new(&url);
+        // SQLite-specific tuning: busy timeout to avoid "database is locked"
+        opts.max_connections(1)
+            .min_connections(1)
+            .connect_timeout(Duration::from_secs(5))
+            .idle_timeout(Duration::from_secs(30))
+            .sqlx_logging(false); // SQLx internal logging disabled — sea-orm handles it
+        let conn = Database::connect(opts).await?;
+        Ok(Self { conn })
+    }
+
+    /// Get a reference to the underlying SeaORM database connection.
+    ///
+    /// Use this to execute queries, run migrations, or access SeaORM entities.
+    pub fn connection(&self) -> &DatabaseConnection {
+        &self.conn
+    }
+
+    /// Consume the pool and return the underlying connection.
+    pub fn into_inner(self) -> DatabaseConnection {
+        self.conn
+    }
+
+    /// Initialize the database schema by creating all 4 tables.
+    ///
+    /// Uses `CREATE TABLE IF NOT EXISTS` so this is safe to call on startup
+    /// even if tables already exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DbErr` if any CREATE TABLE statement fails.
+    pub async fn init_schema(&self) -> Result<(), DbErr> {
+        use sea_orm::ConnectionTrait;
+
+        let statements = [
+            CREATE_TABLE_ACCOUNTS,
+            CREATE_TABLE_TRANSPORT_CONFIGS,
+            CREATE_TABLE_CLIENT_SETTINGS,
+            CREATE_TABLE_TLS_CONFIGS,
+        ];
+
+        for stmt in &statements {
+            self.conn
+                .execute(Statement::from_string(
+                    sea_orm::DatabaseBackend::Sqlite,
+                    stmt.to_string(),
+                ))
+                .await?;
+        }
+        Ok(())
+    }
+
+    /// Query the list of table names in the database.
+    ///
+    /// Returns the names of all user tables (excluding sqlite_* system tables).
+    #[cfg(test)]
+    pub(crate) async fn query_tables(&self) -> Result<Vec<String>, DbErr> {
+        use sea_orm::ConnectionTrait;
+
+        let rows = self
+            .conn
+            .query_all(Statement::from_string(
+                sea_orm::DatabaseBackend::Sqlite,
+                String::from("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"),
+            ))
+            .await?;
+
+        Ok(rows
+            .iter()
+            .filter_map(|row| row.try_get_by_index::<String>(0).ok())
+            .collect())
+    }
+
+    /// Load all persisted accounts from the `accounts` table, ordered by id.
+    ///
+    /// Returns an empty `Vec` when the table is empty. The caller must ensure
+    /// the table exists — `run_server` calls `init_schema()` before
+    /// `load_accounts()` so a fresh database starts with zero accounts instead
+    /// of a missing-table error (C065 postcondition).
+    ///
+    /// # Errors
+    ///
+    /// Returns `DbErr` if the query fails or any row cannot be decoded (e.g.
+    /// the `accounts` table is missing because `init_schema()` was never called).
+    pub async fn load_accounts(&self) -> Result<Vec<AccountEntity>, DbErr> {
+        use sea_orm::ConnectionTrait;
+
+        let rows = self
+            .conn
+            .query_all(Statement::from_string(
+                sea_orm::DatabaseBackend::Sqlite,
+                String::from(
+                    "SELECT id, display_name, username, auth_username, password, domain, \
+                     registrar_uri, transport, register_on_start, \
+                     allow_outbound_without_register, created_at, updated_at \
+                     FROM accounts ORDER BY id",
+                ),
+            ))
+            .await?;
+
+        rows.iter().map(row_to_account_entity).collect()
+    }
+}
+
+/// Map one SeaORM `QueryResult` row into an `AccountEntity`.
+///
+/// NULL columns (`display_name`, `auth_username`, `registrar_uri`) decode to
+/// `None`; INTEGER columns (`register_on_start`, `allow_outbound_without_register`)
+/// decode to `bool`; the password BLOB decodes to `Vec<u8>`.
+///
+/// The positional index mirrors the SELECT column order in `load_accounts`.
+fn row_to_account_entity(row: &sea_orm::QueryResult) -> Result<AccountEntity, DbErr> {
+    Ok(AccountEntity {
+        id: row.try_get_by_index(0)?,
+        display_name: row.try_get_by_index(1)?,
+        username: row.try_get_by_index(2)?,
+        auth_username: row.try_get_by_index(3)?,
+        password: row.try_get_by_index(4)?,
+        domain: row.try_get_by_index(5)?,
+        registrar_uri: row.try_get_by_index(6)?,
+        transport: row.try_get_by_index(7)?,
+        register_on_start: row.try_get_by_index(8)?,
+        allow_outbound_without_register: row.try_get_by_index(9)?,
+        created_at: row.try_get_by_index(10)?,
+        updated_at: row.try_get_by_index(11)?,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Migration SQL — CREATE TABLE statements matching RFC §56
+// ---------------------------------------------------------------------------
+
+/// SQL to create the `accounts` table.
+pub(crate) const CREATE_TABLE_ACCOUNTS: &str = "CREATE TABLE IF NOT EXISTS accounts (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    display_name  TEXT,
+    username      TEXT NOT NULL,
+    auth_username TEXT,
+    password      BLOB NOT NULL,
+    domain        TEXT NOT NULL,
+    registrar_uri TEXT,
+    transport     TEXT NOT NULL DEFAULT 'udp',
+    register_on_start INTEGER NOT NULL DEFAULT 1,
+    allow_outbound_without_register INTEGER NOT NULL DEFAULT 1,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+)";
+
+/// SQL to create the `transport_configs` table.
+pub(crate) const CREATE_TABLE_TRANSPORT_CONFIGS: &str =
+    "CREATE TABLE IF NOT EXISTS transport_configs (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind     TEXT NOT NULL CHECK(kind IN ('udp','tcp','tls')),
+    bind_addr TEXT NOT NULL,
+    port     INTEGER NOT NULL,
+    tls_config_id INTEGER REFERENCES tls_configs(id)
+)";
+
+/// SQL to create the `client_settings` table.
+pub(crate) const CREATE_TABLE_CLIENT_SETTINGS: &str = "CREATE TABLE IF NOT EXISTS client_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+)";
+
+/// SQL to create the `tls_configs` table.
+pub(crate) const CREATE_TABLE_TLS_CONFIGS: &str = "CREATE TABLE IF NOT EXISTS tls_configs (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    verify_server         INTEGER NOT NULL DEFAULT 1,
+    ca_cert_path          TEXT,
+    client_cert_path      TEXT,
+    server_name           TEXT
+)";
+
+/// Account entity — stores SIP account configuration per RFC §56.
+///
+/// Maps to the `accounts` SQLite table.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccountEntity {
+    pub id: i64,
+    pub display_name: Option<String>,
+    pub username: String,
+    pub auth_username: Option<String>,
+    pub password: Vec<u8>,
+    pub domain: String,
+    pub registrar_uri: Option<String>,
+    pub transport: String,
+    pub register_on_start: bool,
+    pub allow_outbound_without_register: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Transport configuration entity — defines per-transport bindings per RFC §56.
+///
+/// Maps to the `transport_configs` SQLite table.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransportConfigEntity {
+    pub id: i64,
+    pub kind: TransportKind,
+    pub bind_addr: String,
+    pub port: u16,
+    pub tls_config_id: Option<i64>,
+}
+
+/// Supported SIP transport protocol kinds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransportKind {
+    Udp,
+    Tcp,
+    Tls,
+}
+
+impl TransportKind {
+    /// Create from a string value (as stored in the database).
+    ///
+    /// Named `from_db_value` rather than `from_str` to avoid colliding with the
+    /// `std::str::FromStr::from_str` trait method (clippy::should_implement_trait).
+    pub fn from_db_value(s: &str) -> Option<Self> {
+        match s.to_lowercase().as_str() {
+            "udp" => Some(Self::Udp),
+            "tcp" => Some(Self::Tcp),
+            "tls" => Some(Self::Tls),
+            _ => None,
+        }
+    }
+
+    /// Serialize to a string value for database storage.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Udp => "udp",
+            Self::Tcp => "tcp",
+            Self::Tls => "tls",
+        }
+    }
+}
+
+/// Client settings entity — key-value settings storage per RFC §56.
+///
+/// Maps to the `client_settings` SQLite table.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientSettingEntity {
+    pub key: String,
+    pub value: String,
+}
+
+/// TLS configuration entity — certificate paths and verification per RFC §56.
+///
+/// Maps to the `tls_configs` SQLite table.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TlsConfigEntity {
+    pub id: i64,
+    pub verify_server: bool,
+    pub ca_cert_path: Option<String>,
+    pub client_cert_path: Option<String>,
+    pub server_name: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Normal: DatabasePool construction ─────────────────────────────
+
+    #[tokio::test]
+    async fn test_database_pool_in_memory() -> Result<(), DbErr> {
+        // Open an in-memory SQLite database
+        let pool = DatabasePool::open(":memory:").await?;
+        // Must succeed — :memory: is always writable
+        let _conn = pool.connection();
+        // Connection obtained successfully
+        Ok(())
+    }
+
+    // ── Normal: AccountEntity field access ────────────────────────────
+
+    #[test]
+    fn test_account_entity_construction() {
+        let entity = AccountEntity {
+            id: 1,
+            display_name: Some("Alice".into()),
+            username: "alice".into(),
+            auth_username: None,
+            password: b"encrypted".to_vec(),
+            domain: "sip.example.com".into(),
+            registrar_uri: Some("sip:registrar.example.com".into()),
+            transport: "udp".into(),
+            register_on_start: true,
+            allow_outbound_without_register: true,
+            created_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: "2026-01-01T00:00:00Z".into(),
+        };
+        assert_eq!(entity.username, "alice");
+        assert_eq!(entity.domain, "sip.example.com");
+        assert_eq!(&entity.password, b"encrypted");
+    }
+
+    // ── Normal: TransportKind conversion ──────────────────────────────
+
+    #[test]
+    fn test_transport_kind_from_db_value() {
+        assert_eq!(
+            TransportKind::from_db_value("udp"),
+            Some(TransportKind::Udp)
+        );
+        assert_eq!(
+            TransportKind::from_db_value("tcp"),
+            Some(TransportKind::Tcp)
+        );
+        assert_eq!(
+            TransportKind::from_db_value("tls"),
+            Some(TransportKind::Tls)
+        );
+        assert_eq!(
+            TransportKind::from_db_value("UDP"),
+            Some(TransportKind::Udp)
+        );
+        assert_eq!(TransportKind::from_db_value("unknown"), None);
+    }
+
+    #[test]
+    fn test_transport_kind_as_str() {
+        assert_eq!(TransportKind::Udp.as_str(), "udp");
+        assert_eq!(TransportKind::Tcp.as_str(), "tcp");
+        assert_eq!(TransportKind::Tls.as_str(), "tls");
+    }
+
+    // ── Normal: TransportConfigEntity construction ────────────────────
+
+    #[test]
+    fn test_transport_config_entity() {
+        let entity = TransportConfigEntity {
+            id: 1,
+            kind: TransportKind::Udp,
+            bind_addr: "0.0.0.0".into(),
+            port: 5060,
+            tls_config_id: None,
+        };
+        assert_eq!(entity.port, 5060);
+        assert_eq!(entity.kind.as_str(), "udp");
+    }
+
+    // ── Normal: ClientSettingEntity ───────────────────────────────────
+
+    #[test]
+    fn test_client_setting_entity() {
+        let entity = ClientSettingEntity {
+            key: "theme".into(),
+            value: "dark".into(),
+        };
+        assert_eq!(entity.key, "theme");
+        assert_eq!(entity.value, "dark");
+    }
+
+    // ── Normal: TlsConfigEntity ───────────────────────────────────────
+
+    #[test]
+    fn test_tls_config_entity() {
+        let entity = TlsConfigEntity {
+            id: 1,
+            verify_server: true,
+            ca_cert_path: Some("/etc/ssl/ca.pem".into()),
+            client_cert_path: None,
+            server_name: None,
+        };
+        assert!(entity.verify_server);
+        assert_eq!(entity.ca_cert_path.as_deref(), Some("/etc/ssl/ca.pem"));
+    }
+
+    // ── Normal: Entity trait implementations ──────────────────────────
+
+    #[test]
+    fn test_entities_are_send_sync() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+        assert_send::<AccountEntity>();
+        assert_sync::<AccountEntity>();
+        assert_send::<DatabasePool>();
+        assert_sync::<DatabasePool>();
+    }
+
+    // ── Invariant: AccountEntity has all required fields ──────────────
+
+    #[test]
+    fn test_account_entity_required_fields() {
+        // All required (non-Option) fields must be set
+        let entity = AccountEntity {
+            id: 1,
+            display_name: None,
+            username: "req_user".into(),
+            auth_username: None,
+            password: b"req_pass".to_vec(),
+            domain: "req_domain".into(),
+            registrar_uri: None,
+            transport: "udp".into(),
+            register_on_start: false,
+            allow_outbound_without_register: false,
+            created_at: String::new(),
+            updated_at: String::new(),
+        };
+        assert!(!entity.username.is_empty(), "username is required");
+        assert!(!entity.password.is_empty(), "password is required");
+        assert!(!entity.domain.is_empty(), "domain is required");
+    }
+
+    // ── P4-3: Migration SQL constants ──────────────────────────────
+
+    #[test]
+    fn test_create_table_accounts_sql_is_valid() {
+        assert!(CREATE_TABLE_ACCOUNTS.starts_with("CREATE TABLE IF NOT EXISTS accounts"));
+        assert!(CREATE_TABLE_ACCOUNTS.contains("username"));
+        assert!(CREATE_TABLE_ACCOUNTS.contains("password"));
+        assert!(CREATE_TABLE_ACCOUNTS.contains("domain"));
+    }
+
+    #[test]
+    fn test_create_table_transport_configs_sql_is_valid() {
+        assert!(CREATE_TABLE_TRANSPORT_CONFIGS
+            .starts_with("CREATE TABLE IF NOT EXISTS transport_configs"));
+        assert!(CREATE_TABLE_TRANSPORT_CONFIGS.contains("CHECK(kind IN"));
+    }
+
+    #[test]
+    fn test_create_table_client_settings_sql_is_valid() {
+        assert!(
+            CREATE_TABLE_CLIENT_SETTINGS.starts_with("CREATE TABLE IF NOT EXISTS client_settings")
+        );
+        assert!(CREATE_TABLE_CLIENT_SETTINGS.contains("key"));
+        assert!(CREATE_TABLE_CLIENT_SETTINGS.contains("value"));
+    }
+
+    #[test]
+    fn test_create_table_tls_configs_sql_is_valid() {
+        assert!(CREATE_TABLE_TLS_CONFIGS.starts_with("CREATE TABLE IF NOT EXISTS tls_configs"));
+        assert!(CREATE_TABLE_TLS_CONFIGS.contains("verify_server"));
+        assert!(CREATE_TABLE_TLS_CONFIGS.contains("ca_cert_path"));
+    }
+
+    #[test]
+    fn test_all_create_table_constants_are_unique() {
+        let tables = [
+            CREATE_TABLE_ACCOUNTS,
+            CREATE_TABLE_TRANSPORT_CONFIGS,
+            CREATE_TABLE_CLIENT_SETTINGS,
+            CREATE_TABLE_TLS_CONFIGS,
+        ];
+        assert_eq!(tables.len(), 4, "must have exactly 4 table constants");
+        // Verify each contains a distinct table name
+        assert!(CREATE_TABLE_ACCOUNTS.contains("accounts"));
+        assert!(CREATE_TABLE_TRANSPORT_CONFIGS.contains("transport_configs"));
+        assert!(CREATE_TABLE_CLIENT_SETTINGS.contains("client_settings"));
+        assert!(CREATE_TABLE_TLS_CONFIGS.contains("tls_configs"));
+    }
+
+
+    #[tokio::test]
+    async fn init_schema_creates_4_tables() -> Result<(), DbErr> {
+        let pool = DatabasePool::open(":memory:").await?;
+        pool.init_schema().await?;
+        let tables: std::collections::HashSet<String> =
+            pool.query_tables().await?.into_iter().collect();
+        for want in [
+            "accounts",
+            "transport_configs",
+            "client_settings",
+            "tls_configs",
+        ] {
+            assert!(
+                tables.contains(want),
+                "table {} must exist after init_schema()",
+                want
+            );
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn open_invalid_path_returns_err() {
+        let result = DatabasePool::open("/nonexistent-dir/nope.db").await;
+        assert!(
+            result.is_err(),
+            "open on a nonexistent directory must return Err, never panic"
+        );
+    }
+
+
+    /// Normalize SQL whitespace so column-type assertions are robust to the
+    /// aligned formatting used in the CREATE TABLE constants.
+    fn normalize_sql_whitespace(sql: &str) -> String {
+        sql.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+
+    #[test]
+    fn test_create_table_accounts_column_types_exact() {
+        let accounts = normalize_sql_whitespace(CREATE_TABLE_ACCOUNTS);
+        // A type change (e.g. username TEXT -> username INTEGER) must fail.
+        assert!(
+            accounts.contains("username TEXT NOT NULL"),
+            "accounts.username must be TEXT NOT NULL"
+        );
+        assert!(
+            accounts.contains("password BLOB NOT NULL"),
+            "accounts.password must be BLOB NOT NULL"
+        );
+        assert!(
+            accounts.contains("domain TEXT NOT NULL"),
+            "accounts.domain must be TEXT NOT NULL"
+        );
+    }
+
+    #[test]
+    fn test_create_table_other_column_types_exact() {
+        let transport = normalize_sql_whitespace(CREATE_TABLE_TRANSPORT_CONFIGS);
+        assert!(
+            transport.contains("kind TEXT NOT NULL CHECK(kind IN ('udp','tcp','tls'))"),
+            "transport_configs.kind must be TEXT NOT NULL with udp/tcp/tls CHECK"
+        );
+        let settings = normalize_sql_whitespace(CREATE_TABLE_CLIENT_SETTINGS);
+        assert!(
+            settings.contains("key TEXT PRIMARY KEY"),
+            "client_settings.key must be TEXT PRIMARY KEY"
+        );
+        assert!(
+            settings.contains("value TEXT NOT NULL"),
+            "client_settings.value must be TEXT NOT NULL"
+        );
+        let tls = normalize_sql_whitespace(CREATE_TABLE_TLS_CONFIGS);
+        assert!(
+            tls.contains("verify_server INTEGER NOT NULL DEFAULT 1"),
+            "tls_configs.verify_server must be INTEGER NOT NULL DEFAULT 1"
+        );
+    }
+
+    // ── P12-2: DatabasePool::load_accounts (startup account restoration) ──
+
+    #[tokio::test]
+    async fn load_accounts_returns_inserted_entities() -> Result<(), DbErr> {
+        use sea_orm::{ConnectionTrait, DatabaseBackend};
+
+        let pool = DatabasePool::open(":memory:").await?;
+        pool.init_schema().await?;
+        pool.connection()
+            .execute(Statement::from_string(
+                DatabaseBackend::Sqlite,
+                "INSERT INTO accounts (username, password, domain) \
+                 VALUES ('alice', X'70617373', 'sip.example.com')"
+                    .to_string(),
+            ))
+            .await?;
+        pool.connection()
+            .execute(Statement::from_string(
+                DatabaseBackend::Sqlite,
+                "INSERT INTO accounts (username, password, domain) \
+                 VALUES ('bob', X'70617373', 'sip.example.net')"
+                    .to_string(),
+            ))
+            .await?;
+
+        let accounts = pool.load_accounts().await?;
+        assert_eq!(accounts.len(), 2, "both inserted accounts must be loaded");
+        assert_eq!(accounts[0].id, 1);
+        assert_eq!(accounts[0].username, "alice");
+        assert_eq!(accounts[0].domain, "sip.example.com");
+        assert_eq!(accounts[0].password, b"pass");
+        assert_eq!(accounts[1].username, "bob");
+        assert_eq!(accounts[1].domain, "sip.example.net");
+        assert!(accounts[0].id < accounts[1].id, "rows are ordered by id");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn load_accounts_empty_table_returns_empty() -> Result<(), DbErr> {
+        let pool = DatabasePool::open(":memory:").await?;
+        pool.init_schema().await?;
+        let accounts = pool.load_accounts().await?;
+        assert!(
+            accounts.is_empty(),
+            "empty accounts table must yield an empty Vec"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn load_accounts_missing_table_returns_err() -> Result<(), DbErr> {
+        let pool = DatabasePool::open(":memory:").await?;
+        // init_schema() is intentionally NOT called — the accounts table is absent.
+        let result = pool.load_accounts().await;
+        assert!(
+            result.is_err(),
+            "load_accounts on a missing table must return Err(DbErr)"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn load_accounts_maps_null_and_bool_columns() -> Result<(), DbErr> {
+        use sea_orm::{ConnectionTrait, DatabaseBackend};
+
+        let pool = DatabasePool::open(":memory:").await?;
+        pool.init_schema().await?;
+        pool.connection()
+            .execute(Statement::from_string(
+                DatabaseBackend::Sqlite,
+                "INSERT INTO accounts (display_name, username, auth_username, password, domain, \
+                 registrar_uri, transport, register_on_start, allow_outbound_without_register) \
+                 VALUES (NULL, 'carol', NULL, X'70617373', 'sip.example.org', NULL, 'tcp', 0, 1)"
+                    .to_string(),
+            ))
+            .await?;
+
+        let accounts = pool.load_accounts().await?;
+        assert_eq!(accounts.len(), 1);
+        let entity = &accounts[0];
+        assert_eq!(entity.display_name, None);
+        assert_eq!(entity.auth_username, None);
+        assert_eq!(entity.registrar_uri, None);
+        assert_eq!(entity.transport, "tcp");
+        assert!(
+            !entity.register_on_start,
+            "register_on_start=0 decodes to false"
+        );
+        assert!(
+            entity.allow_outbound_without_register,
+            "allow_outbound_without_register=1 decodes to true"
+        );
+        Ok(())
+    }
+}

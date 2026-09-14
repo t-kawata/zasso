@@ -1,0 +1,5 @@
+Q11: call_state シグネチャの整合方法を確定します。この設計判断が必要な理由は、RFC §19 が SipClient::call_state(call_id: CallId) -> Result<CallState, SipError> を要求する一方、現行実装は引数なしの call_state() -> Result<Vec<CallEntry>, SipError>（client.rs:333）でシグネチャが衝突するからです。README の「通話イベントと状態遷移」解説は §18 の CallState を per-call で参照するため、§19 準拠の API が必要です。選択肢:
+A) 現行の call_state() -> Vec<CallEntry> を calls() に改名し、新設の call_state(call_id) -> CallState が §19 の名前を引き継ぐ。
+B) 現行を §19 準拠の call_state(call_id) に置換し、一覧取得は account(call_id) の別経路に委ねる。
+C) 両方を残し、call_state(call_id) は新設、一覧は引数なし call_state() のまま（名前衝突はオーバーロードで回避）。
+推奨: A を推します。理由は、§19 の call_state(call_id) が RFC の正名であり、一覧取得の calls() 改名で破壊的変更を最小にしつつ名前衝突を解消できるからです。C のオーバーロードは Rust で実装不能です。

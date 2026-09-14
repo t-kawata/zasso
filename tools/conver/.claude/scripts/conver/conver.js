@@ -34,7 +34,7 @@ Options:
             })));
           }
         }
-
+        
         if (${H}.value === undefined) {
           if (${B} in input) {
             newResult[${B}] = undefined;
@@ -42,7 +42,7 @@ Options:
         } else {
           newResult[${B}] = ${H}.value;
         }
-
+        
       `):Zt?z.write(`
         if (${H}.issues.length) {
           payload.issues = payload.issues.concat(${H}.issues.map(iss => ({
@@ -50,7 +50,7 @@ Options:
             path: iss.path ? [${B}, ...iss.path] : [${B}]
           })));
         }
-
+        
         if (${H}.value === undefined) {
           if (${B} in input) {
             newResult[${B}] = undefined;
@@ -58,7 +58,7 @@ Options:
         } else {
           newResult[${B}] = ${H}.value;
         }
-
+        
       `):z.write(`
         const ${H}_present = ${B} in input;
         if (${H}.issues.length) {

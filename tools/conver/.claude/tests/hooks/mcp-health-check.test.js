@@ -175,6 +175,7 @@ function waitForHttpReady(urlString, timeoutMs = 5000) {
   });
 }
 
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
 async function runTests() {
   console.log('\n=== Testing mcp-health-check.js ===\n');
 
@@ -565,7 +566,13 @@ async function runTests() {
           CLAUDE_HOOK_EVENT_NAME: 'PreToolUse',
           ECC_MCP_CONFIG_PATH: configPath,
           ECC_MCP_HEALTH_STATE_PATH: statePath,
-          ECC_MCP_HEALTH_TIMEOUT_MS: '100'
+          // The budget must outlast this fixture's own start and exit: the probe
+          // reads a process still running when the deadline fires as a live stdio
+          // server, so a budget shorter than one Node start on a loaded machine
+          // makes the probe answer "healthy" for a server that had not exited
+          // yet. The `process.exit(1)` case above uses this same budget for the
+          // same reason, and this assertion is only reachable through the exit.
+          ECC_MCP_HEALTH_TIMEOUT_MS: '1000'
         }
       );
 

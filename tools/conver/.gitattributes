@@ -1,0 +1,3 @@
+# A Windows checkout must not turn the shebang line into CRLF, which would stop
+# the launcher script from executing at all.
+*.sh text eol=lf

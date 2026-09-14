@@ -1,0 +1,5 @@
+Q10: 音声注入 API の統一インターフェースを確定します。この設計判断が必要な理由は、ユーザー指示で IN/OUT/BOTH は独立経路でありながら注入方法はフラグで切り替えられる統一化が望ましいとされたため、現行の AddAudioSource コマンド（command.rs:193、call_id なし・チャネル指定なし）と RFC §24.4 の per-call スコープを整合させる必要があるからです。選択肢:
+A) SipClient::add_audio_source(call_id, source, channels: ChannelSelector) を公開し、ChannelSelector ∈ {In, Out, Both} で単一コマンド AddAudioSource{call_id, channels} を submit。内部で IN 経路（受話取得）と OUT 経路（送話 mix & 送信）に分岐。
+B) add_audio_source_in / add_audio_source_out / add_audio_source_both の3メソッドに分離。
+C) ビルダーパターン（AudioSourceBuilder::channels(...).build()）で統一。
+推奨: A を推します。理由は、単一 API + チャネルフラグがユーザー指示の「統一化」を最も直接満たし、reactor 側で IN/OUT 独立経路へ分岐するため内部実装の自由度も保てるからです。B は API 面が増え、C は過剰設計です。

@@ -9,6 +9,7 @@
  */
 
 const assert = require("node:assert");
+const { createHash } = require("node:crypto");
 const { describe, it, before, after } = require("node:test");
 const { execFileSync } = require("child_process");
 const fs = require("fs");
@@ -32,13 +33,13 @@ after(function () {
 
 /** Write lines to a temp file and return its path */
 function writeTempFile(lines) {
-  const p = path.join(dir, `test_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.ts`);
-  fs.writeFileSync(p, lines.join("\n") + "\n");
-  return p;
+  const tempPath = path.join(dir, `test_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.ts`);
+  fs.writeFileSync(tempPath, lines.join("\n") + "\n");
+  return tempPath;
 }
 
 // ---------------------------------------------------------------------------
-// 1. Module export tests (importable functions)
+// 1. Module export tests (the importable surface)
 // ---------------------------------------------------------------------------
 
 describe("annotate-ticket-context-by-git-diff.js — module exports [RED]", () => {
@@ -208,7 +209,7 @@ describe("detectFirstDefinition [RED]", () => {
       "// another comment",
       "const PI = 3.14;", // const is a definition too
     ];
-    // Let's actually check: const should be caught by our patterns
+    // A file of comments alone offers no definition to attach an annotation to.
     const result = mod.detectFirstDefinition(["// just a comment", "// another comment"]);
     assert.strictEqual(result, null);
   });
@@ -494,5 +495,244 @@ describe("CLI integration [RED]", () => {
       // RED: may fail because script doesn't exist yet
       assert.ok(e.code === "MODULE_NOT_FOUND" || e.status !== undefined);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 11. Idempotence of processFile — the annotation must not stack [PX-208]
+// ---------------------------------------------------------------------------
+
+/**
+ * The defect these tests pin: the guard read exactly one line above the
+ * definition (`checkIndex = defLine - 2`), so an annotation separated from its
+ * definition by any interposed comment was invisible to it and a second
+ * annotation was inserted. Measured in the tree: nine locations, eleven excess
+ * lines, spanning PX-159, P22-8, P22-9 and PX-207. The PX-207 instance drifted a
+ * frozen fixture and failed fourteen downstream tests.
+ */
+describe("processFile idempotence [PX-208]", () => {
+  const KEY = "PX-208";
+  const ANNOT =
+    "// [::TICKET::] " + KEY + " changes. Details: `node .claude/scripts/tickets/show-ticket-context.js " +
+    "--ticket-key=" + KEY + " --for-spec --no-implementation-order`.";
+
+  let idemDir;
+
+  before(() => {
+    idemDir = fs.mkdtempSync(path.join(os.tmpdir(), "annot-idem-"));
+  });
+
+  after(() => {
+    fs.rmSync(idemDir, { recursive: true, force: true });
+  });
+
+  const sha256 = (p) => createHash("sha256").update(fs.readFileSync(p)).digest("hex");
+  const countKey = (p) =>
+    fs.readFileSync(p, "utf8").split("\n").filter((l) => l.includes("[::TICKET::] " + KEY)).length;
+
+  function fixture(name, lines) {
+    const fixturePath = path.join(idemDir, name);
+    fs.writeFileSync(fixturePath, lines.join("\n"), "utf8");
+    return fixturePath;
+  }
+
+  it("C001 postcondition: the adjacent shape is pinned, so widening the guard cannot break it", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("adjacent.js", [ANNOT, "function target() { return 1; }"]);
+
+    const before = sha256(file);
+    const action = mod.processFile(file, KEY, { cwd: idemDir, changedLines: new Set([1]) });
+
+    assert.match(action, /already-annotated/);
+    assert.strictEqual(sha256(file), before);
+  });
+
+  it("C001 postcondition: an interposed comment between the annotation and its definition", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("interposed.js", [
+      ANNOT,
+      "// P22-1 asserted the absence of this file as a precondition of its own moment.",
+      "function target() { return 1; }",
+      "module.exports = { target };",
+    ]);
+
+    const before = sha256(file);
+    const action = mod.processFile(file, KEY, { cwd: idemDir, changedLines: new Set([2]) });
+
+    assert.match(action, /already-annotated/, "the comment block above the definition is searched, not one line");
+    assert.strictEqual(sha256(file), before, "a second run must not touch a byte");
+    assert.strictEqual(countKey(file), 1, "the key must appear exactly once");
+  });
+
+  it("C001 postcondition: an AMBIGUOUS marker already resolved to TICKET must not be re-inserted", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("resolved.js", [ANNOT, "const x = 1;", "module.exports = { x };"]);
+
+    const before = sha256(file);
+    // changedLines names a line belonging to no definition, so the file takes the
+    // file-level path — which is the route the PX-207 incident took.
+    const action = mod.processFile(file, KEY, { cwd: idemDir, changedLines: new Set([99]) });
+
+    assert.match(action, /already-annotated/);
+    assert.strictEqual(sha256(file), before);
+    assert.strictEqual(fs.readFileSync(file, "utf8").includes("[::AMBIGUOUS::]"), false, "no fresh ambiguous marker");
+  });
+
+  it("C001 invariant: three consecutive runs leave the digest and the count unchanged", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("n-runs.js", [ANNOT, "// prose", "function target() { return 1; }"]);
+
+    const first = sha256(file);
+    const counts = [];
+    for (let run = 0; run < 3; run += 1) {
+      mod.processFile(file, KEY, { cwd: idemDir, changedLines: new Set([2]) });
+      counts.push(countKey(file));
+    }
+
+    assert.strictEqual(sha256(file), first, "sha256 after run N equals sha256 after run 1");
+    assert.deepStrictEqual(counts, [1, 1, 1], "the count never increases");
+  });
+
+  it("C001 boundary: two adjacent changed definitions each still earn their own annotation", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("two.js", [
+      "function alpha() { return 1; }",
+      "function beta() { return 2; }",
+      "module.exports = { alpha, beta };",
+    ]);
+
+    mod.processFile(file, KEY, { cwd: idemDir, changedLines: new Set([0, 1]) });
+
+    const lines = fs.readFileSync(file, "utf8").split("\n");
+    assert.strictEqual(countKey(file), 2, "each changed definition earns its own annotation");
+    assert.strictEqual(lines[0], ANNOT, "alpha is annotated");
+    assert.strictEqual(lines[2], ANNOT, "beta is annotated without the scan reaching alpha's annotation");
+  });
+
+  it("C001 postcondition: a block comment between the annotation and its definition", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("block-comment.js", [
+      ANNOT,
+      "/**",
+      " * Load the tree, then print the listing.",
+      " */",
+      "function main() { return 1; }",
+    ]);
+
+    const before = sha256(file);
+    const action = mod.processFile(file, KEY, { cwd: idemDir, changedLines: new Set([4]) });
+
+    assert.match(action, /already-annotated/, "a block comment is a comment: the annotation above it still belongs to the definition");
+    assert.strictEqual(sha256(file), before);
+    assert.strictEqual(countKey(file), 1);
+  });
+
+  it("C001 postcondition: the live shape in list-phases-and-tickets.js is found", () => {
+    // This file carries the shape in the tree today: an annotation, a JSDoc block,
+    // then the entry point below. The guard returned null for it before this fix,
+    // so a future ticket touching that entry point would have inserted a second
+    // annotation.
+    const mod = require(SCRIPT);
+    const live = path.resolve(__dirname, "../.claude/scripts/tickets/list-phases-and-tickets.js");
+    const lines = fs.readFileSync(live, "utf8").split("\n");
+    const mainLine = lines.findIndex((line) => line.startsWith("function main()")) + 1;
+
+    assert.ok(mainLine > 0, "the guard test needs function main() to exist");
+    const found = mod.detectAnnotationInCommentBlock(lines, mainLine);
+    assert.ok(found, "the annotation above the JSDoc block belongs to main() and must be found");
+    assert.ok(found.ticketKeys.includes("PX-99"), "and it must name the keys it carries: " + found.ticketKeys.join(","));
+  });
+
+  it("C001 boundary: a blank line ends the comment block, so a separated annotation does not suppress", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("blank.js", [ANNOT, "", "function target() { return 1; }"]);
+
+    mod.processFile(file, KEY, { cwd: idemDir, changedLines: new Set([2]) });
+
+    assert.strictEqual(countKey(file), 2, "the blank line ends the block, so this definition earns its own");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 12. The comment token belongs to the language [P24-1]
+// ---------------------------------------------------------------------------
+
+/**
+ * The defect these tests pin: the annotator wrote `//` into every file it
+ * reached, whatever the language. In Python and Ruby that is a syntax error, so
+ * the file it was recording provenance for stopped being a file that runs — and
+ * the reader could not see a correct `#` annotation either, so the verification
+ * step reported the correct annotation as missing. Measured on P24-1's Python
+ * representative: `python3 -m py_compile` failed on the annotated file, and
+ * `--verify` listed every one of its definitions as unannotated.
+ */
+describe("the comment token is a fact about the language [P24-1]", () => {
+  const KEY = "P24-1";
+
+  let languageDir;
+
+  before(() => {
+    languageDir = fs.mkdtempSync(path.join(os.tmpdir(), "annot-lang-"));
+  });
+
+  after(() => {
+    fs.rmSync(languageDir, { recursive: true, force: true });
+  });
+
+// [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
+  function fixture(name, lines) {
+    const fixturePath = path.join(languageDir, name);
+    fs.writeFileSync(fixturePath, lines.join("\n"), "utf8");
+    return fixturePath;
+  }
+
+  const linesOf = (p) => fs.readFileSync(p, "utf8").split("\n");
+
+  it("C001 postcondition: a Python definition is annotated with `#`, not `//`", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("widget.py", ["def widget():", "    return 1"]);
+
+    mod.processFile(file, KEY, { cwd: languageDir, changedLines: new Set([1]) });
+
+    assert.strictEqual(mod.commentTokenFor("widget.py"), "#");
+    assert.match(linesOf(file)[0], /^# \[::TICKET::\] P24-1 changes\./);
+    assert.strictEqual(
+      linesOf(file).some((line) => line.startsWith("//")),
+      false,
+      "a `//` line in Python is a syntax error, which is what this pins against",
+    );
+  });
+
+  it("C001 postcondition: a Ruby definition is annotated with `#` too", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("widget.rb", ["def widget", "  1", "end"]);
+
+    mod.processFile(file, KEY, { cwd: languageDir, changedLines: new Set([1]) });
+
+    assert.strictEqual(mod.commentTokenFor("widget.rb"), "#");
+    assert.match(linesOf(file)[0], /^# \[::TICKET::\] /);
+  });
+
+  it("C001 boundary: a C-family file keeps `//`, so nothing changes for the languages that were already right", () => {
+    const mod = require(SCRIPT);
+    const file = fixture("widget.ts", ["import { head } from './head.js';", "export function widget() { return 1; }"]);
+
+    mod.processFile(file, KEY, { cwd: languageDir, changedLines: new Set([2]) });
+
+    assert.strictEqual(mod.commentTokenFor("widget.ts"), "//");
+    assert.strictEqual(mod.commentTokenFor("widget.rs"), "//");
+    assert.match(linesOf(file)[0], /^\/\/ \[::/);
+  });
+
+  it("C001 invariant: a definition already carrying a `#` annotation is recognised as annotated, so a second run adds nothing", () => {
+    const mod = require(SCRIPT);
+    const annotation = mod.buildAnnotation(KEY, "#");
+    const file = fixture("annotated.py", [annotation, "def widget():", "    return 1"]);
+
+    const before = fs.readFileSync(file, "utf8");
+    const action = mod.processFile(file, KEY, { cwd: languageDir, changedLines: new Set([1]) });
+
+    assert.match(action, /already-annotated/, "reading `#` is what makes a correct annotation visible to the verifier");
+    assert.strictEqual(fs.readFileSync(file, "utf8"), before, "a second run must not touch a byte");
   });
 });

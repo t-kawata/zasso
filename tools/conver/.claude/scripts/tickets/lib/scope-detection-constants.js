@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-209 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-209 --for-spec --no-implementation-order`.
 /**
  * scope-detection-constants.js
  *
@@ -12,11 +14,94 @@
 
 /**
  * Source file extensions that the annotation system supports.
- * Ported verbatim from annotate-ticket-context-by-git-diff.js lines 34-37.
+ *
+ * This set is checked against the repository rather than trusted. A file the
+ * mechanism does not know about is never reported on, so an omission here is
+ * invisible: it produces no error and no output, only an absence. `.mjs` was
+ * added by P22-4 for that reason, and `.cjs` was left behind at that moment —
+ * 134 tracked files, this repository's own tests, none of them able to carry the
+ * annotation binding an implementation to the design context it came from.
+ *
+ * `lib/scope-extensions-census.js` derives the extensions this repository
+ * actually contains and `tests/scope-extensions.test.cjs` asserts that every one
+ * of them is in this set or in EXCLUDED_SOURCE_EXTENSIONS. An extension present
+ * in the repository and absent from both fails that test by name.
+ *
+ * What the check cannot do is tell whether a decision is right. It can only tell
+ * that a decision was written down. `.sh` is excluded on a measurement, not on a
+ * principle; a reader who disagrees with the measurement should change the
+ * measurement and the entry together.
  */
 const SOURCE_EXTENSIONS = new Set([
-  ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".vue",
+// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+  ".rs", ".go", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".vue",
   ".py", ".rb", ".swift", ".kt", ".java", ".cs",
+]);
+
+/**
+ * Path prefixes the census ignores.
+ *
+ * These are complete copies of other projects' trees, neither of them owned by
+ * this repository: `siprs-with-4layers/` has no `.git` of its own and has
+ * already diverged from this toolchain, and `siprs-for-reverse/` vendors pjsip.
+ * Between them they hold 2253 C/C++ files and the WebRTC build files, which is
+ * what reduces the census from forty undecided extensions to four.
+ *
+ * The exclusion is by path, not by extension, so a vendored `.rs` is excluded
+ * exactly as a vendored `.h` is, and a `.h` file in this repository's own tree
+ * would still owe a decision.
+ */
+const VENDORED_ROOTS = ["siprs-with-4layers/", "siprs-for-reverse/"];
+
+/**
+ * Extensions present in this repository that the annotation system deliberately
+ * does not support, each with the reason the decision was made.
+ *
+ * The reasons are measurements or ownership facts, not preferences: an entry
+ * that says "not needed" is a decision nobody can review.
+ */
+const EXCLUDED_SOURCE_EXTENSIONS = new Map([
+  [
+    ".md",
+    "Prose. The checklist generators write Markdown for a human to read, and the " +
+      "definition parser matches brace-shaped lines, so it would annotate sentences. " +
+      "417 tracked files.",
+  ],
+  [
+    ".json",
+    "Data. A JSON file has no definitions to bind an annotation to, and most of these " +
+      "are fixtures whose bytes the regression gate freezes — writing a comment into " +
+      "one would break a frozen digest, not record provenance. 100 tracked files.",
+  ],
+  [
+    ".sh",
+    "Measured, not assumed: a ten-file sample of the 18 tracked shell scripts yielded " +
+      "0/10 with a definition detected, while a hand-written `function helper() { ` " +
+      "fixture does match. Admitting it would annotate nothing while claiming support.",
+  ],
+  [
+    ".toml",
+    "Data. A Cargo manifest declares no definition for the parser to bind an " +
+      "annotation to — measured 0 across the manifests this repository tracks — and " +
+      "`buildAnnotation` writes `//`, which TOML does not read as a comment, so " +
+      "admitting it would insert a line the manifest cannot parse rather than record " +
+      "provenance.",
+  ],
+  [
+    ".cpp",
+    "Ownership. This repository owns no C/C++ source: 136 of the 139 `.cpp` files it " +
+      "tracks are pjsip's, under an ignored root, and the 3 that are its own are the " +
+      "C/C++ language representatives P24-1 added under " +
+      "`tests/workspacify-reverse/fixtures/languages/`. Those are the material the R1 " +
+      "measurement reads and whose `file:line` its tests assert, so a comment written " +
+      "into one would edit the thing under measurement rather than record provenance.",
+  ],
+  [
+    ".h",
+    "The `.cpp` decision, made name by name because the census counts by name. The " +
+      "C/C++ language representatives carry one header of this repository's own; the " +
+      "other 2344 tracked headers are pjsip's, under an ignored root.",
+  ],
 ]);
 
 /**
@@ -98,6 +183,8 @@ const DEFINITION_KINDS = {
 
 module.exports = {
   SOURCE_EXTENSIONS,
+  EXCLUDED_SOURCE_EXTENSIONS,
+  VENDORED_ROOTS,
   DEFINITION_PATTERNS,
   DEFINITION_PATTERN_METAS,
   DEFINITION_KINDS,

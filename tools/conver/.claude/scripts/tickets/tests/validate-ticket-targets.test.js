@@ -395,6 +395,25 @@ console.log('\n## PX-95 Check 11 — false_positive note ghost ticket check\n');
   assert(result.pass === true, 'C11 pass: note with no ticket reference');
 })();
 
+// ===== CLI diagnostics: an unknown ticket key must never fail silently =====
+console.log('\n## CLI diagnostics — unknown ticket key\n');
+
+(function () {
+  const { spawnSync } = require('child_process');
+  const ticketsFile = path.join(tmpDir, 'Tickets.json');
+  fs.writeFileSync(ticketsFile, JSON.stringify({ phases: [] }));
+
+  const run = spawnSync(process.execPath, [
+    path.join(__dirname, '..', 'validate-ticket-targets.js'),
+    '--ticket-key=NOPE-999',
+    '--tickets=' + ticketsFile,
+  ], { encoding: 'utf8' });
+
+  assertStrictEqual(run.status, 1, 'unknown ticket key exits 1');
+  assert(/Ticket not found/.test(run.stderr + run.stdout),
+    'unknown ticket key reports a diagnostic instead of failing silently');
+})();
+
 // Cleanup
 fs.rmSync(tmpDir, { recursive: true, force: true });
 

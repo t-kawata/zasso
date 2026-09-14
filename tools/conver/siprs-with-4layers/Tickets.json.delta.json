@@ -1,0 +1,638 @@
+{
+  "sourceFile": "~/shyme/zasso/crates/siprs/RFC-ROOT.md",
+  "newTickets": [
+    {
+      "id": 1,
+      "title": "Consumer/bindgen alignment — pjsua-native build repair (§62.31–62.35)",
+      "nodeIds": [
+        "N0100",
+        "N0101",
+        "N0102",
+        "N0103",
+        "N0104"
+      ],
+      "status": "todo",
+      "phaseId": 18
+    },
+    {
+      "id": 2,
+      "title": "Producer: crates/pjsip-prebuilt + CI commit (§62.36–62.37)",
+      "nodeIds": [
+        "N0105",
+        "N0106"
+      ],
+      "status": "todo",
+      "phaseId": 18
+    },
+    {
+      "id": 1,
+      "title": "H8: raw SIP 実 PJSIP 検証経路（§62.38）",
+      "nodeIds": [
+        "N0107"
+      ],
+      "status": "todo",
+      "phaseId": 19
+    },
+    {
+      "id": 2,
+      "title": "H8: on_ice_transport_error 登録と IceTransportError 経路（§62.39）",
+      "nodeIds": [
+        "N0108"
+      ],
+      "status": "todo",
+      "phaseId": 19
+    },
+    {
+      "id": 3,
+      "title": "H13: push_media_frame 生産経路の配線（§62.40）",
+      "nodeIds": [
+        "N0109"
+      ],
+      "status": "todo",
+      "phaseId": 19
+    },
+    {
+      "id": 4,
+      "title": "H14: AddAudioSource 時 RustMediaPort conf bridge 再登録（§62.41）",
+      "nodeIds": [
+        "N0110"
+      ],
+      "status": "todo",
+      "phaseId": 19
+    },
+    {
+      "id": 5,
+      "title": "H15/EXAMPLES: 実 PJSIP プロトコル + RTP 統合テスト（§62.42）",
+      "nodeIds": [
+        "N0111"
+      ],
+      "status": "todo",
+      "phaseId": 19
+    },
+    {
+      "id": 6,
+      "title": "Round 4 チケット構造 & I/O 境界（§62.43–62.44）",
+      "nodeIds": [
+        "N0112",
+        "N0113"
+      ],
+      "status": "todo",
+      "phaseId": 19
+    }
+  ],
+  "editedTickets": [],
+  "existingStatuses": [
+    {
+      "id": 1,
+      "status": "reviewed"
+    },
+    {
+      "id": 2,
+      "status": "reviewed"
+    },
+    {
+      "id": 3,
+      "status": "reviewed"
+    },
+    {
+      "id": 1,
+      "status": "R1"
+    },
+    {
+      "id": 2,
+      "status": "R1"
+    },
+    {
+      "id": 3,
+      "status": "R1"
+    },
+    {
+      "id": 4,
+      "status": "R1"
+    },
+    {
+      "id": 5,
+      "status": "R1"
+    },
+    {
+      "id": 6,
+      "status": "R1"
+    },
+    {
+      "id": 1,
+      "status": "R1"
+    },
+    {
+      "id": 2,
+      "status": "R1"
+    },
+    {
+      "id": 3,
+      "status": "R1"
+    },
+    {
+      "id": 1,
+      "status": "R1"
+    },
+    {
+      "id": 2,
+      "status": "R1"
+    },
+    {
+      "id": 3,
+      "status": "R1"
+    },
+    {
+      "id": 1,
+      "status": "R1"
+    },
+    {
+      "id": 2,
+      "status": "R1"
+    },
+    {
+      "id": 3,
+      "status": "R1"
+    },
+    {
+      "id": 1,
+      "status": "R1"
+    },
+    {
+      "id": 2,
+      "status": "R1"
+    },
+    {
+      "id": 3,
+      "status": "R1"
+    },
+    {
+      "id": 1,
+      "status": "R1"
+    },
+    {
+      "id": 2,
+      "status": "R1"
+    },
+    {
+      "id": 1,
+      "status": "R2"
+    },
+    {
+      "id": 2,
+      "status": "R2"
+    },
+    {
+      "id": 3,
+      "status": "R2"
+    },
+    {
+      "id": 1,
+      "status": "R2"
+    },
+    {
+      "id": 2,
+      "status": "R2"
+    },
+    {
+      "id": 3,
+      "status": "R2"
+    },
+    {
+      "id": 1,
+      "status": "R2"
+    },
+    {
+      "id": 2,
+      "status": "R2"
+    },
+    {
+      "id": 3,
+      "status": "R2"
+    },
+    {
+      "id": 4,
+      "status": "R2"
+    },
+    {
+      "id": 5,
+      "status": "R2"
+    },
+    {
+      "id": 6,
+      "status": "R2"
+    },
+    {
+      "id": 7,
+      "status": "R3"
+    },
+    {
+      "id": 8,
+      "status": "R2"
+    },
+    {
+      "id": 9,
+      "status": "R2"
+    },
+    {
+      "id": 10,
+      "status": "R2"
+    },
+    {
+      "id": 11,
+      "status": "R2"
+    },
+    {
+      "id": 12,
+      "status": "R2"
+    },
+    {
+      "id": 13,
+      "status": "R2"
+    },
+    {
+      "id": 14,
+      "status": "R2"
+    },
+    {
+      "id": 15,
+      "status": "R2"
+    },
+    {
+      "id": 16,
+      "status": "R2"
+    },
+    {
+      "id": 17,
+      "status": "R2"
+    },
+    {
+      "id": 18,
+      "status": "R2"
+    },
+    {
+      "id": 19,
+      "status": "R2"
+    },
+    {
+      "id": 20,
+      "status": "R2"
+    },
+    {
+      "id": 21,
+      "status": "R2"
+    },
+    {
+      "id": 22,
+      "status": "R2"
+    },
+    {
+      "id": 23,
+      "status": "R2"
+    },
+    {
+      "id": 24,
+      "status": "R2"
+    },
+    {
+      "id": 25,
+      "status": "R2"
+    },
+    {
+      "id": 26,
+      "status": "R2"
+    },
+    {
+      "id": 27,
+      "status": "R2"
+    },
+    {
+      "id": 28,
+      "status": "R2"
+    },
+    {
+      "id": 29,
+      "status": "R2"
+    },
+    {
+      "id": 30,
+      "status": "R2"
+    },
+    {
+      "id": 31,
+      "status": "R2"
+    },
+    {
+      "id": 32,
+      "status": "R2"
+    },
+    {
+      "id": 33,
+      "status": "R2"
+    },
+    {
+      "id": 34,
+      "status": "R2"
+    },
+    {
+      "id": 1,
+      "status": "R3"
+    },
+    {
+      "id": 2,
+      "status": "R3"
+    },
+    {
+      "id": 3,
+      "status": "R3"
+    },
+    {
+      "id": 4,
+      "status": "R3"
+    },
+    {
+      "id": 5,
+      "status": "R3"
+    },
+    {
+      "id": 6,
+      "status": "R3"
+    },
+    {
+      "id": 1,
+      "status": "R3"
+    },
+    {
+      "id": 2,
+      "status": "R3"
+    },
+    {
+      "id": 3,
+      "status": "R3"
+    },
+    {
+      "id": 4,
+      "status": "R3"
+    },
+    {
+      "id": 5,
+      "status": "R3"
+    },
+    {
+      "id": 6,
+      "status": "R3"
+    },
+    {
+      "id": 1,
+      "status": "R3"
+    },
+    {
+      "id": 2,
+      "status": "R3"
+    },
+    {
+      "id": 3,
+      "status": "R3"
+    },
+    {
+      "id": 4,
+      "status": "R3"
+    },
+    {
+      "id": 5,
+      "status": "R3"
+    },
+    {
+      "id": 6,
+      "status": "R3"
+    },
+    {
+      "id": 7,
+      "status": "R3"
+    },
+    {
+      "id": 8,
+      "status": "R3"
+    },
+    {
+      "id": 9,
+      "status": "R3"
+    },
+    {
+      "id": 10,
+      "status": "R3"
+    },
+    {
+      "id": 11,
+      "status": "R3"
+    },
+    {
+      "id": 12,
+      "status": "R3"
+    },
+    {
+      "id": 13,
+      "status": "R3"
+    },
+    {
+      "id": 14,
+      "status": "R3"
+    },
+    {
+      "id": 15,
+      "status": "R3"
+    },
+    {
+      "id": 16,
+      "status": "R3"
+    },
+    {
+      "id": 1,
+      "status": "R3"
+    },
+    {
+      "id": 2,
+      "status": "R3"
+    },
+    {
+      "id": 3,
+      "status": "R3"
+    },
+    {
+      "id": 4,
+      "status": "R3"
+    },
+    {
+      "id": 5,
+      "status": "R3"
+    },
+    {
+      "id": 6,
+      "status": "R3"
+    },
+    {
+      "id": 7,
+      "status": "R3"
+    },
+    {
+      "id": 8,
+      "status": "R3"
+    },
+    {
+      "id": 9,
+      "status": "R3"
+    },
+    {
+      "id": 10,
+      "status": "R3"
+    },
+    {
+      "id": 1,
+      "status": "R4"
+    },
+    {
+      "id": 2,
+      "status": "R4"
+    },
+    {
+      "id": 3,
+      "status": "R4"
+    },
+    {
+      "id": 4,
+      "status": "R4"
+    },
+    {
+      "id": 1,
+      "status": "reviewed"
+    },
+    {
+      "id": 2,
+      "status": "reviewed"
+    },
+    {
+      "id": 3,
+      "status": "reviewed"
+    },
+    {
+      "id": 1,
+      "status": "reviewed"
+    },
+    {
+      "id": 2,
+      "status": "reviewed"
+    },
+    {
+      "id": 3,
+      "status": "reviewed"
+    },
+    {
+      "id": 4,
+      "status": "reviewed"
+    },
+    {
+      "id": 5,
+      "status": "reviewed"
+    },
+    {
+      "id": 6,
+      "status": "reviewed"
+    },
+    {
+      "id": 7,
+      "status": "reviewed"
+    },
+    {
+      "id": 8,
+      "status": "reviewed"
+    },
+    {
+      "id": 9,
+      "status": "reviewed"
+    },
+    {
+      "id": 1,
+      "status": "reviewed"
+    },
+    {
+      "id": 2,
+      "status": "reviewed"
+    },
+    {
+      "id": 3,
+      "status": "reviewed"
+    },
+    {
+      "id": 4,
+      "status": "reviewed"
+    },
+    {
+      "id": 5,
+      "status": "reviewed"
+    },
+    {
+      "id": 6,
+      "status": "reviewed"
+    },
+    {
+      "id": 7,
+      "status": "reviewed"
+    },
+    {
+      "id": 8,
+      "status": "reviewed"
+    },
+    {
+      "id": 9,
+      "status": "reviewed"
+    },
+    {
+      "id": 10,
+      "status": "reviewed"
+    },
+    {
+      "id": 11,
+      "status": "reviewed"
+    },
+    {
+      "id": 1,
+      "status": "reviewed"
+    },
+    {
+      "id": 2,
+      "status": "reviewed"
+    },
+    {
+      "id": 3,
+      "status": "reviewed"
+    },
+    {
+      "id": 4,
+      "status": "reviewed"
+    },
+    {
+      "id": 5,
+      "status": "reviewed"
+    },
+    {
+      "id": 6,
+      "status": "reviewed"
+    },
+    {
+      "id": 7,
+      "status": "reviewed"
+    },
+    {
+      "id": 8,
+      "status": "reviewed"
+    },
+    {
+      "id": 9,
+      "status": "reviewed"
+    },
+    {
+      "id": 10,
+      "status": "reviewed"
+    }
+  ]
+}

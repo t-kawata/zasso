@@ -1,0 +1,234 @@
+{
+  "P16-1": [
+    {
+      "id": "C091",
+      "sourceEdge": "N0079→N0068",
+      "precondition": "§62 親セクションが存在する",
+      "postcondition": "62.10 がラウンド 2 スコープを定義する",
+      "invariant": "進化スコープは §62.1–62.9 と矛盾しない"
+    }
+  ],
+  "P16-2": [
+    {
+      "id": "C092",
+      "sourceEdge": "N0080→N0068",
+      "precondition": "§62 親セクションが存在する",
+      "postcondition": "62.11 がトランスポート配線と bindgen 方針を定義する",
+      "invariant": "トランスポート配線は §12/§27 と矛盾しない"
+    },
+    {
+      "id": "C093",
+      "sourceEdge": "N0080→N0037",
+      "precondition": "N0037 が §27 PJSIP FFI 層を定義する",
+      "postcondition": "62.11 が pjsua_transport_create への反映を規定する",
+      "invariant": "FFI 呼び出しは §62.8 の native_status 保持に従う"
+    },
+    {
+      "id": "C094",
+      "sourceEdge": "N0080→N0015",
+      "precondition": "N0015 が §12 TransportConfig を定義する",
+      "postcondition": "62.11 が config.transports の列挙と種別/ポート反映を規定する",
+      "invariant": "UDP/TCP/TLS の種別選択は §12 の enum に従う"
+    }
+  ],
+  "P16-3": [
+    {
+      "id": "C095",
+      "sourceEdge": "N0081→N0068",
+      "precondition": "§62 親セクションが存在する",
+      "postcondition": "62.12 が登録・アカウント経路を定義する",
+      "invariant": "登録経路は §17 の状態遷移と矛盾しない"
+    },
+    {
+      "id": "C096",
+      "sourceEdge": "N0081→N0025",
+      "precondition": "N0025 が §17 登録状態機械を定義する",
+      "postcondition": "62.12 が register_on_start 自動登録とイベント統一を規定する",
+      "invariant": "実 REGISTER 成功時のみ Registered へ遷移する"
+    },
+    {
+      "id": "C097",
+      "sourceEdge": "N0081→N0073",
+      "precondition": "N0073 が 62.4 登録状態機械の production 配線を定義する",
+      "postcondition": "62.12 が add_account 時の自動登録と AccountRemoved を追補する",
+      "invariant": "RegistrationSucceeded/Failed は残さない"
+    }
+  ],
+  "P16-4": [
+    {
+      "id": "C098",
+      "sourceEdge": "N0082→N0068",
+      "precondition": "§62 親セクションが存在する",
+      "postcondition": "62.13 がイベント経路の完成を定義する",
+      "invariant": "イベント経路は §15 のバス一元化と矛盾しない"
+    },
+    {
+      "id": "C099",
+      "sourceEdge": "N0082→N0037",
+      "precondition": "N0037 が §27 FFI 層を定義する",
+      "postcondition": "62.13 が FFI キュー drain タスクを規定する",
+      "invariant": "NativeEvent は M20 変換器経由でバスへ統合される"
+    },
+    {
+      "id": "C100",
+      "sourceEdge": "N0082→N0018",
+      "precondition": "N0018 が §15 イベントモデルを定義する",
+      "postcondition": "62.13 が raw SIP publisher と P1/P2 変換を規定する",
+      "invariant": "raw SIP は §16 の redact 規則に従う"
+    }
+  ],
+  "P16-5": [
+    {
+      "id": "C101",
+      "sourceEdge": "N0083→N0068",
+      "precondition": "§62 親セクションが存在する",
+      "postcondition": "62.14 が着信・通話イベントを定義する",
+      "invariant": "着信処理は §18/§19 の状態モデルと矛盾しない"
+    },
+    {
+      "id": "C102",
+      "sourceEdge": "N0083→N0027",
+      "precondition": "N0027 が §19 Call API を定義する",
+      "postcondition": "62.14 が answer の account 解決と CallConnected publish を規定する",
+      "invariant": "answer は 180/183/200/486/603 を受理する"
+    },
+    {
+      "id": "C103",
+      "sourceEdge": "N0083→N0048",
+      "precondition": "N0048 が §37 着信と §38 REFER を定義する",
+      "postcondition": "62.14 が IncomingCall の CallEntry 登録を追補する",
+      "invariant": "着信 call は calls() と call_state() で解決できる"
+    },
+    {
+      "id": "C104",
+      "sourceEdge": "N0083→N0022",
+      "precondition": "N0022 が M20 CallState 変換を定義する",
+      "postcondition": "62.14 が CallState 全遷移の Some() 化を参照する",
+      "invariant": "CallRejected は CallDisconnected に統一される"
+    }
+  ],
+  "P16-6": [
+    {
+      "id": "C105",
+      "sourceEdge": "N0084→N0068",
+      "precondition": "§62 親セクションが存在する",
+      "postcondition": "62.15 が DTMF 実装整合を定義する",
+      "invariant": "DTMF 整合は §20 の仕様と矛盾しない"
+    },
+    {
+      "id": "C106",
+      "sourceEdge": "N0084→N0028",
+      "precondition": "N0028 が §20 DTMF 仕様を定義する",
+      "postcondition": "62.15 が DtmfMethod 一元化と method 反映を規定する",
+      "invariant": "DtmfMethod は Inband/Info/Rfc4733 の単一定義"
+    },
+    {
+      "id": "C107",
+      "sourceEdge": "N0084→N0029",
+      "precondition": "N0029 が DtmfSentInfo と二相設計を定義する",
+      "postcondition": "62.15 が DtmfSent{Ok} の publish 経路を追補する",
+      "invariant": "DtmfSent は Ok/Timeout/PjsipError の 3 状態"
+    }
+  ],
+  "P16-7": [
+    {
+      "id": "C108",
+      "sourceEdge": "N0085→N0068",
+      "precondition": "§62 親セクションが存在する",
+      "postcondition": "62.16 がメディア経路の完成を定義する",
+      "invariant": "メディア経路は §21–§24 と矛盾しない"
+    },
+    {
+      "id": "C109",
+      "sourceEdge": "N0085→N0049",
+      "precondition": "N0049 が §39 Media Bridge を定義する",
+      "postcondition": "62.16 が conf port コールバック配線を規定する",
+      "invariant": "push_media_frame は tap を駆動する"
+    },
+    {
+      "id": "C110",
+      "sourceEdge": "N0085→N0033",
+      "precondition": "N0033 が §24 AudioMixer RT 境界を定義する",
+      "postcondition": "62.16 が out/in_queue 消費と conf_connect を規定する",
+      "invariant": "RustMediaPort がキュー唯一の消費点である"
+    }
+  ],
+  "P16-8": [
+    {
+      "id": "C111",
+      "sourceEdge": "N0086→N0068",
+      "precondition": "§62 親セクションが存在する",
+      "postcondition": "62.17 が STUN/TURN/ICE 配線を定義する",
+      "invariant": "STUN/TURN/ICE 配線は §13 と矛盾しない"
+    },
+    {
+      "id": "C112",
+      "sourceEdge": "N0086→N0015",
+      "precondition": "N0015 が §12/§13 Transport/ICE 仕様を定義する",
+      "postcondition": "62.17 が pjsua_config への反映を規定する",
+      "invariant": "stun_srv/turn_cfg/ICE 設定は §13 の既定値に従う"
+    },
+    {
+      "id": "C113",
+      "sourceEdge": "N0086→N0070",
+      "precondition": "N0070 が 62.1 設定一本化を定義する",
+      "postcondition": "62.17 が STUN/TURN/ICE の実配線を追補する",
+      "invariant": "単一の StunServerConfig/TurnServerConfig/IceConfig を使用する"
+    }
+  ],
+  "P16-9": [
+    {
+      "id": "C114",
+      "sourceEdge": "N0087→N0068",
+      "precondition": "§62 親セクションが存在する",
+      "postcondition": "62.18 が Examples 設計を定義する",
+      "invariant": "Examples は §41 の使用例と矛盾しない"
+    },
+    {
+      "id": "C115",
+      "sourceEdge": "N0087→N0050",
+      "precondition": "N0050 が §40/§41 使用例を定義する",
+      "postcondition": "62.18 が E1-E5 の契約を参照する",
+      "invariant": "各 example は実 Asterisk / TestBackend で検証可能"
+    }
+  ],
+  "P16-10": [
+    {
+      "id": "C116",
+      "sourceEdge": "N0088→N0068",
+      "precondition": "§62 親セクションが存在する",
+      "postcondition": "62.19 が統合テスト基盤を定義する",
+      "invariant": "統合テスト基盤は §43/§44 と矛盾しない"
+    },
+    {
+      "id": "C117",
+      "sourceEdge": "N0088→N0052",
+      "precondition": "N0052 が §43 テスト戦略を定義する",
+      "postcondition": "62.19 が docker ゲート付き統合テストを規定する",
+      "invariant": "Layer 3/4 の実 SIP 相互接続を保証する"
+    },
+    {
+      "id": "C118",
+      "sourceEdge": "N0088→N0054",
+      "precondition": "N0054 が §44 CI/CD を定義する",
+      "postcondition": "62.19 が Asterisk/coturn コンテナ構成を規定する",
+      "invariant": "CI では docker が常に使用可能で実質必須ゲート"
+    }
+  ],
+  "P16-11": [
+    {
+      "id": "C119",
+      "sourceEdge": "N0089→N0068",
+      "precondition": "§62 親セクションが存在する",
+      "postcondition": "62.20 がラウンド 2 の I/O 境界を定義する",
+      "invariant": "I/O 境界は §61/§62.9 と整合する"
+    },
+    {
+      "id": "C120",
+      "sourceEdge": "N0089→N0078",
+      "precondition": "N0078 が 62.9 I/O 境界を定義する",
+      "postcondition": "62.20 がラウンド 2 の I/O 境界を参照する",
+      "invariant": "graphify/boundify が分割判断に使用する"
+    }
+  ]
+}

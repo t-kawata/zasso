@@ -1,0 +1,2398 @@
+
+#[cfg(any(test, feature = "test-util"))]
+use std::collections::BTreeMap;
+use std::collections::HashMap;
+#[cfg(any(test, feature = "pjsua-native"))]
+use std::sync::RwLock;
+use std::sync::{Arc, Mutex};
+
+use crate::error::error_design_siperror::SipError;
+// P18-1: `bindings` is referenced only under pjsua-native (native transport
+// ids, conf-bridge registration) and in tests — gate the import to match.
+#[cfg(any(test, feature = "pjsua-native"))]
+use crate::ffi::bindings;
+#[cfg(any(test, feature = "pjsua-native"))]
+use crate::ffi::media_port_adapter::MediaPortAdapter;
+// P18-1 §62.31 (E0433): the pjsua-native make_call/get_account_info branches
+// build AccountId from the native account id, so the import must be active in
+// the native build as well as the test/test-util builds.
+#[cfg(any(test, feature = "test-util", feature = "pjsua-native"))]
+use crate::model::AccountId;
+// AudioMixer / RustMediaPort back the cfg-gated `audio_mixers` field and the
+// test/native conf-bridge registration path (PX-3).
+#[cfg(any(test, feature = "pjsua-native"))]
+use crate::runtime::audio_worker::{AudioMixer, RustMediaPort};
+// CallState / CallDirection are used by TestBackend::make_call (test/test-util)
+// and PjsuaBackend::make_call's pjsua-native branch.
+use crate::runtime::command::ReactorError;
+use crate::runtime::state::{AccountEntry, CallEntry};
+#[cfg(any(test, feature = "test-util", feature = "pjsua-native"))]
+use crate::state::call_state_model::CallState;
+#[cfg(any(test, feature = "test-util", feature = "pjsua-native"))]
+use crate::state::m20_callstate_mapping::CallDirection;
+// and the model pair types.
+use crate::audio::pipeline::ProcessedFrame;
+use crate::model::AudioChunkPair;
+use crate::model::CallId;
+
+/// Shared `subscribe_audio` tap producer registry (§62.6).
+///
+/// Each entry pairs the call's `AccountId` with its tap producer so
+/// `push_media_frame` can build a real `AudioChunkPair`. The `SipClient` owns
+/// the registry and shares a clone with the backend at reactor boot.
+pub(crate) type AudioTapRegistry = Arc<
+    Mutex<
+        HashMap<
+            crate::model::CallId,
+            (
+                crate::model::AccountId,
+                crate::api::audio_subscribe_bp::AudioTapSender,
+            ),
+        >,
+    >,
+>;
+
+use crate::state::m20_registr_cmd_pat::AccountInfoSnapshot;
+// `take_native_events` returns a `Vec<NativeEvent>`.
+use crate::state::m20_native_event_conv::NativeEvent;
+
+/// Push a processed frame into the call's subscribed tap, if any.
+///
+/// The single supply point for `subscribe_audio` taps (§62.28 / Q7): both
+/// `PjsuaBackend::push_media_frame` and the `RustMediaPort` port ops delegate
+/// here. Looks up the shared registry by public `CallId`, builds an
+/// `AudioChunkPair` (IN = left, OUT = right of the stereo frame) using the
+/// stored `AccountId`, and pushes it synchronously via
+/// `AudioTapSender::try_push` (Realtime, never blocks — §62.6). An
+/// unsubscribed call is a no-op — the RT callback must never block or error.
+pub(crate) fn push_frame_to_tap(call_id: CallId, frame: &ProcessedFrame, taps: &AudioTapRegistry) {
+    let lock = taps.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some((account_id, tap)) = lock.get(&call_id) {
+        let pair = AudioChunkPair::from_processed_frame(call_id, *account_id, frame);
+        tap.try_push(pair);
+    }
+}
+
+/// Abstract interface for SIP operations that the reactor dispatches.
+///
+/// The reactor's event loop calls `SipBackend` trait methods — not raw FFI.
+/// This allows:
+/// 1. Unit-testing the reactor with `TestBackend`
+/// 2. Swapping the real `PjsuaBackend` without changing reactor code
+/// 3. Encapsulating `conf_port_id` management inside the backend
+pub trait SipBackend: Send {
+    /// Initialize the SIP stack with the given configuration.
+    fn initialize(&mut self, config: &crate::config::ClientConfig) -> Result<(), ReactorError>;
+
+    /// Create a SIP transport (UDP/TCP/TLS).
+    fn create_transport(
+        &mut self,
+        config: &crate::config::transport_ice_spec::TransportConfig,
+    ) -> Result<(), ReactorError>;
+
+    /// Register a SIP account.
+    fn add_account(
+        &mut self,
+        config: &crate::config::account_config_spec::AccountConfig,
+    ) -> Result<(i32, AccountEntry), ReactorError>;
+
+    /// Remove a previously registered account.
+    fn remove_account(&mut self, native_acc_id: i32) -> Result<(), ReactorError>;
+
+    /// Update the configuration of a previously registered account.
+    ///
+    /// The `config` is the merged, validated result of `AccountConfigPatch::apply`
+    /// (P10-3) — the backend replaces its stored config, never a partial patch.
+    fn update_account(
+        &mut self,
+        native_acc_id: i32,
+        config: &crate::config::account_config_spec::AccountConfig,
+    ) -> Result<(), ReactorError>;
+
+    /// Enable or disable SIP registration for an account.
+    fn set_registration(&mut self, native_acc_id: i32, enabled: bool) -> Result<(), ReactorError>;
+
+    /// Place an outgoing call.
+    fn make_call(
+        &mut self,
+        native_acc_id: i32,
+        request: &crate::api::call_types::OutgoingCallRequest,
+    ) -> Result<(i32, CallEntry), ReactorError>;
+
+    /// Answer an incoming call with the given response code.
+    fn answer_call(&mut self, native_call_id: i32, code: u16) -> Result<(), ReactorError>;
+
+    /// Hang up an active call.
+    fn hangup(&mut self, native_call_id: i32) -> Result<(), ReactorError>;
+
+    /// Send DTMF digits on an active call.
+    fn send_dtmf(
+        &mut self,
+        native_call_id: i32,
+        method: &crate::config::account_config_spec::DtmfMethod,
+        digits: &str,
+    ) -> Result<(), ReactorError>;
+
+    /// Configure codec preferences.
+    fn configure_codecs(&mut self) -> Result<(), ReactorError>;
+
+    /// Transfer an active call to a target URI.
+    fn transfer_call(&mut self, native_call_id: i32, target: &str) -> Result<(), ReactorError>;
+
+    /// Put an active call on hold (`pjsua_call_set_hold`).
+    fn hold(&mut self, native_call_id: i32) -> Result<(), ReactorError>;
+
+    /// Resume a held call (`pjsua_call_reinvite` with default media).
+    fn unhold(&mut self, native_call_id: i32) -> Result<(), ReactorError>;
+
+    /// Shut down the SIP stack.
+    fn shutdown(&mut self) -> Result<(), ReactorError>;
+
+    /// Resolve `conf_port_id` for a given native call id.
+    ///
+    /// conf_port_id is **never** stored in `CallEntry` — it lives here.
+    fn resolve_conf_port(&self, native_call_id: i32) -> Result<i32, ReactorError>;
+
+    /// Get account info for registration state retrieval.
+    fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError>;
+
+    /// Connect a call's media to the conference bridge.
+    fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
+
+    /// Disconnect a call's media from the conference bridge.
+    fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError>;
+
+    /// Push a processed media frame into the call's audio tap (subscribe_audio).
+    ///
+    /// §62.6 tap push (OMISSIONS F9 resolution): the backend media callback
+    /// drives the tap with real data. `call_id` is the public `CallId` value
+    /// (not the native id). Implementations must be non-blocking — this is
+    /// invoked from the RT media callback context.
+    fn push_media_frame(
+        &mut self,
+        call_id: u64,
+        frame: crate::audio::pipeline::ProcessedFrame,
+    ) -> Result<(), ReactorError>;
+
+    /// Register the conf-port media callback that drives the tap registry.
+    ///
+    /// §62.16 (C109): the conf port callback (`pjsua_conf_set_callback` is
+    /// unavailable in the vendored PJSIP, so the RustMediaPort is registered
+    /// via `pjsua_conf_add_port` under `pjsua-native`) registers a
+    /// `RustMediaPort` per call; the conf bridge then drives its port ops,
+    /// which supply the subscribed taps via `on_conf_frame` →
+    /// `push_frame_to_tap` (§62.40 / N0109). In the default build (no native
+    /// conf bridge) this is a documented no-op.
+    fn register_conf_callback(&mut self) -> Result<(), ReactorError>;
+
+    /// Ensure a call's media port is registered in the conf bridge, if any.
+    ///
+    /// §62.40 / N0109 (P19-3): the real PJSIP conf bridge drives the
+    /// `RustMediaPort` port ops only when the port is registered
+    /// (`pjsua_conf_add_port`) and connected to the call's conf slot. The
+    /// reactor calls this when a call connects (after ensuring a mixer exists)
+    /// so a post-boot call's media reaches the tap registry. The default is a
+    /// no-op so backends without a native conf bridge (TestBackend, default
+    /// build) stay unchanged.
+    fn ensure_conf_port_for_call(&mut self, _call_id: u64) -> Result<(), ReactorError> {
+        Ok(())
+    }
+
+    /// Collect native events the backend generated for the reactor to process.
+    ///
+    /// The real FFI path owns event collection through the §62.13 queue drain,
+    /// so the default is empty. `TestBackend`, as the deterministic simulator,
+    /// returns the events it fired itself (its buffer stands in for the FFI
+    /// queue — RFC §62.24 / P17-4).
+    fn take_native_events(&mut self) -> Vec<NativeEvent> {
+        Vec::new()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TestBackend — deterministic canned responses for reactor unit tests
+// ---------------------------------------------------------------------------
+
+/// Deterministic implementation of `SipBackend` for driving reactor command
+/// dispatch in tests (Layer 2 — §43.2). Test-only: compiled for unit tests and
+/// for the `test-util` feature that integration tests enable.
+///
+/// All methods yield deterministic canned responses without side effects.
+/// The `initialized` flag tracks whether `initialize()` was called.
+///
+/// RegistrationStateChanged flow (Ok(200) by default, or Err to exercise the
+/// failure publication path).
+///
+/// every `(source, sink)` invocation so tests can prove the from_runtime_command
+/// closure actually dispatched to the backend (a backend method with no observable
+/// side effect is untestable).
+#[derive(Default)]
+#[cfg(any(test, feature = "test-util"))]
+pub struct TestBackend {
+    pub initialized: bool,
+    /// Configurable result for `get_account_info`. `Some` short-circuits the
+    /// registry lookup so tests can inject failures or canned snapshots.
+    pub get_account_info_result: Option<Result<AccountInfoSnapshot, ReactorError>>,
+    /// Configurable result for `send_dtmf` (P11-6). `Some` short-circuits the
+    /// default `Ok(())` so tests can inject a backend failure and prove the
+    /// reactor SendDtmf handler spawns no timeout timer on error.
+    pub send_dtmf_result: Option<Result<(), ReactorError>>,
+    /// The method most recently received by `send_dtmf` (P16-6 §62.15). Lets
+    /// tests prove the reactor passes the unified method through to the backend.
+    pub last_dtmf_method: Option<crate::config::account_config_spec::DtmfMethod>,
+    /// Configurable result for `make_call` (P12-1). `Some` short-circuits the
+    /// default incrementing-id path so tests can inject a canned
+    /// `(native_call_id, CallEntry)` pair or a backend failure.
+    pub make_call_result: Option<Result<(i32, CallEntry), ReactorError>>,
+    /// Configurable result for `answer_call` (P16-5 §62.14). `Some` short-circuits
+    /// the default `Ok(())` so tests can inject a backend failure and prove the
+    /// reactor Answer handler preserves state and publishes no event on error.
+    pub answer_call_result: Option<Result<(), ReactorError>>,
+    /// Account registry keyed by native_acc_id — the source from which
+    /// `get_account_info` derives its snapshot (P10-1).
+    pub accounts: BTreeMap<i32, AccountEntry>,
+    /// Registration state keyed by native_acc_id, kept in lockstep with
+    /// `accounts[id].registration` (§62.2 TestBackend semantics).
+    pub registrations: BTreeMap<i32, crate::state::registr_state_machine::RegistrationState>,
+    /// Next logical/native id assigned by `add_account` (first = 1).
+    next_id: i32,
+    /// Next logical/native call id assigned by `make_call` (first = 1).
+    next_call_id: i32,
+    /// Recorded `(source, sink)` pairs from every `conf_connect` invocation.
+    pub conf_connect_calls: Vec<(i32, i32)>,
+    /// Recorded `(source, sink)` pairs from every `conf_disconnect` invocation.
+    pub conf_disconnect_calls: Vec<(i32, i32)>,
+    /// Recorded native call ids from every `hold` invocation (P11-11).
+    pub hold_calls: Vec<i32>,
+    /// Recorded native call ids from every `unhold` invocation (P11-11).
+    pub unhold_calls: Vec<i32>,
+    /// Recorded `(native_call_id, code)` pairs from every `answer_call` (P15-6).
+    pub answer_calls: Vec<(i32, u16)>,
+    /// Recorded native call ids from every `hangup` invocation (P15-6).
+    pub hangup_calls: Vec<i32>,
+    /// Recorded `(native_call_id, target)` pairs from every `transfer_call` (P15-6).
+    pub transfer_calls: Vec<(i32, String)>,
+    /// Recorded `(call_id, frame)` pairs from every `push_media_frame` (P15-7).
+    pub push_media_frame_calls: Vec<(u64, crate::audio::pipeline::ProcessedFrame)>,
+    /// Number of `register_conf_callback` invocations (P16-7 §62.16). Lets tests
+    /// prove the conf-callback registration path was reached on the backend.
+    pub register_conf_callback_calls: usize,
+    /// Recorded `(native_acc_id, enabled)` pairs from every `set_registration`
+    /// invocation (P16-3 §62.12). Records the attempt even when a configured
+    /// failure short-circuits, so tests can prove unregister-first ordering.
+    pub set_registration_calls: Vec<(i32, bool)>,
+    /// Recorded native account ids from every `remove_account` invocation (P16-3).
+    pub remove_account_calls: Vec<i32>,
+    /// Configurable result for `set_registration` (P16-3). `Some` short-circuits
+    /// the §62.2 transition so tests can inject a backend failure and prove the
+    /// remove_account sequence aborts before removal.
+    pub set_registration_result: Option<Result<(), ReactorError>>,
+    /// Configurable result for `remove_account` (P16-3). `Some` short-circuits
+    /// so tests can prove the account is retained in ClientState on failure.
+    pub remove_account_result: Option<Result<(), ReactorError>>,
+    /// Configurable result for `add_account` (P16-3). `Some` short-circuits so
+    /// tests can prove a backend add failure leaves ClientState untouched and
+    /// never issues the automatic REGISTER (fail-fast, no partial state).
+    pub add_account_result: Option<Result<(i32, AccountEntry), ReactorError>>,
+    /// Events fired by the deterministic simulator, standing in for the §62.13
+    /// FFI queue. `set_registration` pushes `RegistrationStateChanged` here; the
+    /// reactor drains via `take_native_events` (P17-4 §62.24).
+    pub native_events: Vec<NativeEvent>,
+}
+
+#[cfg(any(test, feature = "test-util"))]
+impl TestBackend {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// The registration state tracked for `native_acc_id`, if the account exists.
+    ///
+    /// Exposes the §62.2 registration transitions to tests so they can assert
+    /// the state machine edges (`Disabled` → `Registering`/`Unregistering`)
+    /// without round-tripping through the reactor.
+    pub fn registration_state(
+        &self,
+        native_acc_id: i32,
+    ) -> Option<crate::state::registr_state_machine::RegistrationState> {
+        self.registrations.get(&native_acc_id).copied()
+    }
+
+    /// Advance the account to `Registered` so tests can exercise the success
+    /// shape (`get_account_info` → status 200) of the registration flow.
+    ///
+    /// The full `Registering` → `Registered` transition on a native success
+    /// response is production-wired by P15-5 (§62.4); this helper lets tests
+    /// set up the post-success state directly.
+    pub fn mark_registered(&mut self, native_acc_id: i32) {
+        if let Some(entry) = self.accounts.get_mut(&native_acc_id) {
+            entry.registration = crate::state::registr_state_machine::RegistrationState::Registered;
+        }
+        self.registrations.insert(
+            native_acc_id,
+            crate::state::registr_state_machine::RegistrationState::Registered,
+        );
+    }
+}
+
+/// Resolve the simulated outcome state a `set_registration` call reports.
+///
+/// The deterministic simulator completes the REGISTER round-trip synchronously:
+/// enabling ends `Registered`, disabling ends `Idle` (M20 maps native status 0
+/// → `Idle`). Keeping the outcome in a named helper keeps `set_registration`
+/// readable as "resolve the outcome, update the account, fire the event".
+#[cfg(any(test, feature = "test-util"))]
+fn resolve_registration_outcome(
+    enabled: bool,
+) -> crate::state::registr_state_machine::RegistrationState {
+    if enabled {
+        crate::state::registr_state_machine::RegistrationState::Registered
+    } else {
+        crate::state::registr_state_machine::RegistrationState::Idle
+    }
+}
+
+#[cfg(any(test, feature = "test-util"))]
+impl SipBackend for TestBackend {
+    fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
+        self.initialized = true;
+        Ok(())
+    }
+
+    fn create_transport(
+        &mut self,
+        _config: &crate::config::transport_ice_spec::TransportConfig,
+    ) -> Result<(), ReactorError> {
+        Ok(())
+    }
+
+    fn add_account(
+        &mut self,
+        config: &crate::config::account_config_spec::AccountConfig,
+    ) -> Result<(i32, AccountEntry), ReactorError> {
+        // P16-3 §62.12: a configured failure short-circuits so tests can prove
+        // the reactor's AddAccount arm leaves ClientState untouched (fail-fast).
+        if let Some(result) = self.add_account_result.take() {
+            return result;
+        }
+        // Assign incrementing logical/native ids (first = 1) so the registry and
+        // the reactor's ClientState stay in lockstep for multi-account tests.
+        let id = self.next_id + 1;
+        self.next_id = id;
+        let entry = AccountEntry {
+            id: id as u64,
+            native_id: id,
+            config: config.clone(),
+            // §62.2/§62.4: a freshly added account starts with registration Disabled.
+            registration: crate::state::registr_state_machine::RegistrationState::Disabled,
+        };
+        self.accounts.insert(id, entry.clone());
+        self.registrations.insert(
+            id,
+            crate::state::registr_state_machine::RegistrationState::Disabled,
+        );
+        Ok((id, entry))
+    }
+
+    fn remove_account(&mut self, native_acc_id: i32) -> Result<(), ReactorError> {
+        self.remove_account_calls.push(native_acc_id);
+        if let Some(result) = self.remove_account_result.take() {
+            return result;
+        }
+        self.accounts.remove(&native_acc_id);
+        Ok(())
+    }
+
+    fn update_account(
+        &mut self,
+        native_acc_id: i32,
+        config: &crate::config::account_config_spec::AccountConfig,
+    ) -> Result<(), ReactorError> {
+        let entry = self.accounts.get_mut(&native_acc_id).ok_or_else(|| {
+            ReactorError::BackendError(format!("unknown native account id: {native_acc_id}"))
+        })?;
+        entry.config = config.clone();
+        Ok(())
+    }
+
+    fn set_registration(&mut self, native_acc_id: i32, enabled: bool) -> Result<(), ReactorError> {
+        // P16-3 §62.12: record the attempt first so tests can prove unregister-first
+        // ordering even when a configured failure short-circuits the transition.
+        self.set_registration_calls.push((native_acc_id, enabled));
+        if let Some(result) = self.set_registration_result.take() {
+            return result;
+        }
+        // P17-4 §62.24: the simulator compresses "REGISTER request + response"
+        // into one synchronous step, so the account reports the OUTCOME state
+        // (Registered for enable, Idle for disable). get_account_info then
+        // returns a publishable status (200/0) and process_registration_state_changed
+        // completes the Registering→Registered / Unregistering→Idle transition.
+        let outcome = resolve_registration_outcome(enabled);
+        let mut account_known = false;
+        if let Some(entry) = self.accounts.get_mut(&native_acc_id) {
+            entry.registration = outcome;
+            account_known = true;
+        }
+        self.registrations.insert(native_acc_id, outcome);
+        // Real FFI path event series (on_reg_state2 → queue → drain → reactor):
+        // fire the registration-state change as a native event the reactor drains.
+        // `pjsua_acc_set_registration` fires on_reg_state2 only for a valid
+        // acc_id — an unknown account fires no event (mirrored here).
+        if account_known {
+            self.native_events
+                .push(NativeEvent::RegistrationStateChanged {
+                    acc_id: native_acc_id as u32,
+                });
+        }
+        Ok(())
+    }
+
+    fn take_native_events(&mut self) -> Vec<NativeEvent> {
+        std::mem::take(&mut self.native_events)
+    }
+
+    fn make_call(
+        &mut self,
+        native_acc_id: i32,
+        _request: &crate::api::call_types::OutgoingCallRequest,
+    ) -> Result<(i32, CallEntry), ReactorError> {
+        // Test injection path (P12-1): a canned result short-circuits the
+        // default incrementing-id assignment so tests can exercise the reactor's
+        // error/panic handling without a real PJSUA call.
+        if let Some(result) = self.make_call_result.take() {
+            return result;
+        }
+        let id = self.next_call_id + 1;
+        self.next_call_id = id;
+        let account_id = crate::model::AccountId::from_u64(native_acc_id as u64).map_err(|e| {
+            ReactorError::BackendError(format!("make_call: invalid account id: {e}"))
+        })?;
+        let entry = CallEntry {
+            id: id as u64,
+            native_id: id,
+            account_id,
+            state: CallState::Calling,
+            media: "none".into(),
+            direction: CallDirection::Outgoing,
+            remote_uri: String::new(),
+        };
+        Ok((id, entry))
+    }
+
+    // can prove the reactor Answer handler dispatched to the backend.
+    fn answer_call(&mut self, native_call_id: i32, code: u16) -> Result<(), ReactorError> {
+        self.answer_calls.push((native_call_id, code));
+        // P16-5: an injected failure short-circuits the default Ok(()) so tests
+        // can prove the Answer handler preserves state and publishes nothing.
+        if let Some(result) = self.answer_call_result.take() {
+            return result;
+        }
+        Ok(())
+    }
+
+    // prove the reactor Hangup handler dispatched to the backend.
+    fn hangup(&mut self, native_call_id: i32) -> Result<(), ReactorError> {
+        self.hangup_calls.push(native_call_id);
+        Ok(())
+    }
+
+    fn send_dtmf(
+        &mut self,
+        _native_call_id: i32,
+        method: &crate::config::account_config_spec::DtmfMethod,
+        _digits: &str,
+    ) -> Result<(), ReactorError> {
+        self.last_dtmf_method = Some(*method);
+        self.send_dtmf_result.take().unwrap_or(Ok(()))
+    }
+
+    fn configure_codecs(&mut self) -> Result<(), ReactorError> {
+        Ok(())
+    }
+
+    // so integration tests can prove the reactor Transfer handler dispatched.
+    fn transfer_call(&mut self, native_call_id: i32, target: &str) -> Result<(), ReactorError> {
+        self.transfer_calls
+            .push((native_call_id, target.to_string()));
+        Ok(())
+    }
+
+    fn hold(&mut self, native_call_id: i32) -> Result<(), ReactorError> {
+        self.hold_calls.push(native_call_id);
+        Ok(())
+    }
+
+    fn unhold(&mut self, native_call_id: i32) -> Result<(), ReactorError> {
+        self.unhold_calls.push(native_call_id);
+        Ok(())
+    }
+
+    fn shutdown(&mut self) -> Result<(), ReactorError> {
+        self.initialized = false;
+        Ok(())
+    }
+
+    fn resolve_conf_port(&self, _native_call_id: i32) -> Result<i32, ReactorError> {
+        // Return a fixed conf_port_id for testing
+        Ok(1)
+    }
+
+    fn get_account_info(&self, native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError> {
+        // P10-1: without an injected result, derive the snapshot from the registry.
+        match &self.get_account_info_result {
+            Some(result) => result.clone(),
+            None => {
+                let entry = self.accounts.get(&(native_acc_id as i32)).ok_or_else(|| {
+                    ReactorError::BackendError(format!(
+                        "TestBackend::get_account_info: unknown native_acc_id {native_acc_id}"
+                    ))
+                })?;
+                account_entry_to_snapshot(entry)
+            }
+        }
+    }
+
+    // assert the backend method was actually reached.
+    fn conf_connect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError> {
+        self.conf_connect_calls.push((source, sink));
+        Ok(())
+    }
+
+    // assert the backend method was actually reached.
+    fn conf_disconnect(&mut self, source: i32, sink: i32) -> Result<(), ReactorError> {
+        self.conf_disconnect_calls.push((source, sink));
+        Ok(())
+    }
+
+    fn push_media_frame(
+        &mut self,
+        call_id: u64,
+        frame: crate::audio::pipeline::ProcessedFrame,
+    ) -> Result<(), ReactorError> {
+        self.push_media_frame_calls.push((call_id, frame));
+        Ok(())
+    }
+
+    fn register_conf_callback(&mut self) -> Result<(), ReactorError> {
+        self.register_conf_callback_calls += 1;
+        Ok(())
+    }
+}
+
+/// Derive an `AccountInfoSnapshot` from a stored `AccountEntry`.
+///
+/// `Registered` maps to the PJSIP success shape (status 200, 1h expiry, online);
+/// every other registration state maps to the unregistered shape (0, None, offline).
+/// The `uri` is the entry's config (the mock stores the account username there).
+#[cfg(any(test, feature = "test-util"))]
+fn account_entry_to_snapshot(entry: &AccountEntry) -> Result<AccountInfoSnapshot, ReactorError> {
+    let account_id = AccountId::from_u64(entry.id).map_err(|_| {
+        ReactorError::BackendError(format!(
+            "TestBackend: account entry has invalid id {}",
+            entry.id
+        ))
+    })?;
+    let registered =
+        entry.registration == crate::state::registr_state_machine::RegistrationState::Registered;
+    Ok(AccountInfoSnapshot {
+        acc_id: account_id,
+        registration_status: if registered { 200 } else { 0 },
+        registration_expires: if registered { Some(3600) } else { None },
+        online_status: registered,
+        uri: format!("sip:{}@{}", entry.config.username, entry.config.domain),
+    })
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// PjsuaBackend — real PJSUA FFI-backed implementation
+// ---------------------------------------------------------------------------
+
+/// Map a PJSUA `pj_status_t` to a `SipError` via the unified §14.1 mapper.
+///
+/// Reads as prose: classify the status into a semantic kind, then build a
+/// `SipError` that preserves the native status as a structured field (not a
+/// string-embedded diagnostic).
+pub(crate) fn map_native_error(status: i32, detail: &str) -> SipError {
+    let kind = crate::error::m20_runtime_command_error::classify(status);
+    SipError::with_status(kind, detail, status)
+}
+
+/// Map a PJSUA `pj_status_t` to a `ReactorError`, preserving the diagnostic.
+///
+/// `PJ_SUCCESS` (0) maps to `Ok`; any non-zero status produces
+/// `Err(ReactorError::NativeError)` carrying the raw code as a structured field.
+/// A canned `Ok(())` for an unexecuted FFI call is prohibited (C111).
+pub(crate) fn map_pjsua_status(status: i32, operation: &str) -> Result<(), ReactorError> {
+    // P18-1 §62.32: PJ_SUCCESS is a crate-internal constant (bindgen cannot
+    // emit enum enumerators as free bindings vars).
+    if status == crate::ffi::constants::PJ_SUCCESS {
+        Ok(())
+    } else {
+        let detail = format!("PjsuaBackend::{operation} failed");
+        let err = map_native_error(status, &detail);
+        Err(ReactorError::NativeError {
+            message: err.message,
+            native_status: status,
+        })
+    }
+}
+
+/// Real PJSUA-backed SipBackend implementation.
+///
+/// Every method invokes the corresponding bindgen FFI symbol under
+/// `#[cfg(feature = "pjsua-native")]` and maps the `pj_status_t` through
+/// [`map_pjsua_status`]. Without the feature the backend cannot drive PJSUA and
+/// each method returns a clear precondition error — the crate still compiles
+/// (RFC §28, C058) and tests use the deterministic `TestBackend`.
+///
+/// `audio_taps` is the shared `subscribe_audio` producer registry (§62.6): the
+/// media callback pushes a frame into the call's tap via `push_media_frame`.
+/// Each entry carries the call's `AccountId` so a pushed frame can build an
+/// `AudioChunkPair` with real account context.
+///
+/// `audio_mixers` is the reactor-owned per-call [`AudioMixer`] map (PX-3 /
+/// §62.16): `register_conf_callback` reads it to build one [`RustMediaPort`]
+/// per call and register it into the PJSIP conf bridge.
+pub struct PjsuaBackend {
+    /// Shared tap producer registry keyed by public `CallId`.
+    audio_taps: AudioTapRegistry,
+    /// Shared per-call `AudioMixer` map keyed by public `CallId` (§62.6).
+    ///
+    /// A clone of the reactor's `Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>`
+    /// threaded through `create_backend` (PX-3 / C119-pre). Read-only from the
+    /// backend; the reactor is the single writer. Exists only where the
+    /// conf-bridge registration path is compiled (test builds / `pjsua-native`).
+    #[cfg(any(test, feature = "pjsua-native"))]
+    audio_mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
+    /// Number of media ports registered into the conf bridge (PX-3 / C119-post).
+    ///
+    /// Populated by `register_media_ports_for_calls`; observable by tests.
+    #[cfg(any(test, feature = "pjsua-native"))]
+    registered_port_count: usize,
+    /// Number of call conf slots connected (PX-3 / C119-post).
+    #[cfg(any(test, feature = "pjsua-native"))]
+    connected_call_count: usize,
+    /// Recorded `(port_slot, call_slot)` pairs from the conf-bridge registration
+    /// (PX-3 / C119-post) — the test observable for the per-call wiring.
+    #[cfg(any(test, feature = "pjsua-native"))]
+    conf_connect_pairs: Vec<(i32, i32)>,
+    /// Call ids whose `RustMediaPort` is already registered in the conf bridge
+    /// (P19-3 / §62.40). Makes per-call registration idempotent so a call's
+    /// port is added exactly once even when `connect_media_for_call` re-runs.
+    #[cfg(any(test, feature = "pjsua-native"))]
+    registered_port_ids: std::collections::HashSet<u64>,
+    /// Native transport ids created from `ClientConfig.transports` (§62.11).
+    ///
+    /// Populated by `initialize` / `create_transport` and drained by `shutdown`
+    /// (§32 step 5) before `pjsua_destroy`. The field exists only under
+    /// `pjsua-native`, where the FFI creates and destroys transports; the
+    /// default build has no native transports to track.
+    #[cfg(feature = "pjsua-native")]
+    transport_ids: Vec<bindings::pjsua_transport_id>,
+}
+
+impl PjsuaBackend {
+    pub fn new() -> Self {
+        Self {
+            audio_taps: Arc::new(Mutex::new(HashMap::new())),
+            #[cfg(any(test, feature = "pjsua-native"))]
+            audio_mixers: Arc::new(RwLock::new(HashMap::new())),
+            #[cfg(any(test, feature = "pjsua-native"))]
+            registered_port_count: 0,
+            #[cfg(any(test, feature = "pjsua-native"))]
+            connected_call_count: 0,
+            #[cfg(any(test, feature = "pjsua-native"))]
+            conf_connect_pairs: Vec::new(),
+            #[cfg(any(test, feature = "pjsua-native"))]
+            registered_port_ids: std::collections::HashSet::new(),
+            #[cfg(feature = "pjsua-native")]
+            transport_ids: Vec::new(),
+        }
+    }
+
+    /// Construct the backend sharing a `subscribe_audio` tap registry.
+    ///
+    /// `SipClient` owns the registry and hands a clone to the backend at
+    /// reactor boot so `push_media_frame` can drive the subscribed taps. The
+    /// tap-push wiring is exercised on Layer 2 (P19-3 production wiring is the
+    /// `push_media_frame` stub), so this constructor is compiled under test.
+    #[cfg(test)]
+    pub(crate) fn with_taps(audio_taps: AudioTapRegistry) -> Self {
+        Self {
+            audio_taps,
+            audio_mixers: Arc::new(RwLock::new(HashMap::new())),
+            registered_port_count: 0,
+            connected_call_count: 0,
+            conf_connect_pairs: Vec::new(),
+            registered_port_ids: std::collections::HashSet::new(),
+            #[cfg(feature = "pjsua-native")]
+            transport_ids: Vec::new(),
+        }
+    }
+
+    /// Construct the backend sharing the tap registry and the per-call
+    /// [`AudioMixer`] map (PX-3 / C119-pre).
+    ///
+    /// The reactor owns the mixer map (single-writer rule); the backend holds a
+    /// clone so `register_conf_callback` can build a [`RustMediaPort`] per call.
+    #[cfg(any(test, feature = "pjsua-native"))]
+    pub(crate) fn with_registries(
+        audio_taps: AudioTapRegistry,
+        audio_mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>>,
+    ) -> Self {
+        Self {
+            audio_taps,
+            audio_mixers,
+            registered_port_count: 0,
+            connected_call_count: 0,
+            conf_connect_pairs: Vec::new(),
+            registered_port_ids: std::collections::HashSet::new(),
+            #[cfg(feature = "pjsua-native")]
+            transport_ids: Vec::new(),
+        }
+    }
+
+    /// The shared per-call [`AudioMixer`] map (PX-3 / C119-pre).
+    #[cfg(test)]
+    pub(crate) fn audio_mixers(&self) -> Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> {
+        self.audio_mixers.clone()
+    }
+
+    /// Number of media ports registered into the conf bridge (PX-3 / C119-post).
+    #[cfg(test)]
+    pub(crate) fn registered_port_count(&self) -> usize {
+        self.registered_port_count
+    }
+
+    /// Number of call conf slots connected (PX-3 / C119-post).
+    #[cfg(test)]
+    pub(crate) fn connected_call_count(&self) -> usize {
+        self.connected_call_count
+    }
+
+    /// Recorded `(port_slot, call_slot)` pairs from the conf-bridge registration
+    /// (PX-3 / C119-post).
+    #[cfg(test)]
+    pub(crate) fn conf_connect_pairs(&self) -> &[(i32, i32)] {
+        &self.conf_connect_pairs
+    }
+
+    /// Call ids whose `RustMediaPort` is registered in the conf bridge
+    /// (P19-3 / §62.40) — the idempotency guard observed by tests.
+    #[cfg(test)]
+    pub(crate) fn registered_port_ids(&self) -> &std::collections::HashSet<u64> {
+        &self.registered_port_ids
+    }
+
+    /// Register one [`RustMediaPort`] per `audio_mixers` entry into the PJSIP
+    /// conf bridge and connect each call's conf slot (PX-3 / C119-post).
+    ///
+    /// Reads as prose: reset the per-pass observables, then for each `call_id`
+    /// delegate to `ensure_conf_port_for_call` — the same idempotent per-call
+    /// registration the AddAudioSource path uses (§62.41 / N0110). A call whose
+    /// port is already registered (at boot or by an earlier ensure) is a no-op,
+    /// so re-running after a mixer appears registers only the new mixers. Any
+    /// non-success status surfaces as [`ReactorError::NativeError`] via
+    /// `map_pjsua_status`.
+    ///
+    /// The default build exercises the same loop against the deterministic
+    /// conf-bridge stubs (test builds); the native build drives the real bridge.
+    #[cfg(any(test, feature = "pjsua-native"))]
+    pub(crate) fn register_media_ports_for_calls(&mut self) -> Result<(), ReactorError> {
+        self.registered_port_count = 0;
+        self.connected_call_count = 0;
+        self.conf_connect_pairs.clear();
+        let call_ids: Vec<u64> = self
+            .audio_mixers
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .keys()
+            .copied()
+            .collect();
+        for call_id in call_ids {
+            self.ensure_conf_port_for_call(call_id)?;
+        }
+        Ok(())
+    }
+}
+
+impl Default for PjsuaBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SipBackend for PjsuaBackend {
+    fn initialize(&mut self, _config: &crate::config::ClientConfig) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            let config = _config;
+            map_pjsua_status(crate::ffi::backend_calls::initialize(config), "initialize")?;
+            let ids =
+                crate::ffi::transport_wiring::wire_transports(&config.transports, |transport| {
+                    let (status, native_id) =
+                        crate::ffi::transport_wiring::native_transport_create(transport);
+                    map_pjsua_status(status, "create_native_transport")?;
+                    Ok(native_id)
+                })?;
+            self.transport_ids = ids;
+            Ok(())
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::initialize requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn create_transport(
+        &mut self,
+        _config: &crate::config::transport_ice_spec::TransportConfig,
+    ) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            let config = _config;
+            let (status, native_id) = crate::ffi::transport_wiring::native_transport_create(config);
+            map_pjsua_status(status, "create_transport")?;
+            self.transport_ids.push(native_id);
+            Ok(())
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::create_transport requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn add_account(
+        &mut self,
+        _config: &crate::config::account_config_spec::AccountConfig,
+    ) -> Result<(i32, AccountEntry), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            let (status, _native_acc_id) = crate::ffi::backend_calls::add_account(_config);
+            map_pjsua_status(status, "add_account")?;
+            let entry = AccountEntry {
+                id: _native_acc_id as u64,
+                native_id: _native_acc_id,
+                config: _config.clone(),
+                // §62.4: a freshly added account starts with registration Disabled.
+                registration: crate::state::registr_state_machine::RegistrationState::Disabled,
+            };
+            Ok((_native_acc_id, entry))
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::add_account requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn remove_account(&mut self, _native_acc_id: i32) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::remove_account(_native_acc_id),
+                "remove_account",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::remove_account requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn set_registration(
+        &mut self,
+        _native_acc_id: i32,
+        _enabled: bool,
+    ) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::set_registration(_native_acc_id, _enabled),
+                "set_registration",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::set_registration requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn update_account(
+        &mut self,
+        _native_acc_id: i32,
+        _config: &crate::config::account_config_spec::AccountConfig,
+    ) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::update_account(_native_acc_id, _config),
+                "update_account",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::update_account requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn make_call(
+        &mut self,
+        _native_acc_id: i32,
+        _request: &crate::api::call_types::OutgoingCallRequest,
+    ) -> Result<(i32, CallEntry), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            let (status, call_id) =
+                crate::ffi::backend_calls::make_call(_native_acc_id, &_request.target_uri);
+            map_pjsua_status(status, "make_call")?;
+            let account_id = AccountId::from_u64(_native_acc_id as u64).map_err(|e| {
+                ReactorError::BackendError(format!("make_call: invalid account id: {e}"))
+            })?;
+            let entry = CallEntry {
+                id: call_id as u64,
+                native_id: call_id,
+                account_id,
+                state: CallState::Calling,
+                media: "none".into(),
+                direction: CallDirection::Outgoing,
+                remote_uri: String::new(),
+            };
+            Ok((call_id, entry))
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::make_call requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn answer_call(&mut self, _native_call_id: i32, _code: u16) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::answer_call(_native_call_id, _code),
+                "answer_call",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::answer_call requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn hangup(&mut self, _native_call_id: i32) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::hangup_call(_native_call_id),
+                "hangup",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::hangup requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn send_dtmf(
+        &mut self,
+        _native_call_id: i32,
+        _method: &crate::config::account_config_spec::DtmfMethod,
+        _digits: &str,
+    ) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::send_dtmf(_native_call_id, *_method, _digits),
+                "send_dtmf",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::send_dtmf requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn configure_codecs(&mut self) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::configure_codecs(),
+                "configure_codecs",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::configure_codecs requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn transfer_call(&mut self, _native_call_id: i32, _target: &str) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::transfer_call(_native_call_id, _target),
+                "transfer_call",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::transfer_call requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn hold(&mut self, _native_call_id: i32) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::hold_call(_native_call_id),
+                "hold",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::hold requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn unhold(&mut self, _native_call_id: i32) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::unhold_call(_native_call_id),
+                "unhold",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::unhold requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn shutdown(&mut self) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            let ids = std::mem::take(&mut self.transport_ids);
+            crate::ffi::transport_wiring::destroy_transports(&ids, |native_id| {
+                let (status, _) = crate::ffi::transport_wiring::destroy_native_transport(native_id);
+                map_pjsua_status(status, "close_transport")
+            })?;
+            map_pjsua_status(crate::ffi::backend_calls::shutdown(), "shutdown")
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::shutdown requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn resolve_conf_port(&self, _native_call_id: i32) -> Result<i32, ReactorError> {
+        // backend_calls::resolve_conf_port is available in both modes (the stub
+        // pjsua_call_get_info under the default build, the real symbol under
+        // pjsua-native), so this needs no cfg gate.
+        let (status, conf_slot) = crate::ffi::backend_calls::resolve_conf_port(_native_call_id);
+        map_pjsua_status(status, "resolve_conf_port")?;
+        Ok(conf_slot)
+    }
+
+    fn get_account_info(&self, _native_acc_id: u32) -> Result<AccountInfoSnapshot, ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            let (status, reg_last_err, online, uri) =
+                crate::ffi::backend_calls::get_account_info(_native_acc_id);
+            map_pjsua_status(status, "get_account_info")?;
+            let acc_id = AccountId::from_u64(_native_acc_id as u64).map_err(|e| {
+                ReactorError::BackendError(format!("get_account_info: invalid account id: {e}"))
+            })?;
+            Ok(AccountInfoSnapshot {
+                acc_id,
+                registration_status: if reg_last_err == 0 { 200 } else { reg_last_err },
+                registration_expires: None,
+                online_status: online,
+                uri,
+            })
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::get_account_info requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn conf_connect(&mut self, _source: i32, _sink: i32) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::conf_connect(_source, _sink),
+                "conf_connect",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::conf_connect requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    fn conf_disconnect(&mut self, _source: i32, _sink: i32) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            map_pjsua_status(
+                crate::ffi::backend_calls::conf_disconnect(_source, _sink),
+                "conf_disconnect",
+            )
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            Err(ReactorError::BackendError(
+                "PjsuaBackend::conf_disconnect requires the pjsua-native feature".into(),
+            ))
+        }
+    }
+
+    /// Push a processed frame into the call's subscribed tap, if any.
+    ///
+    /// Validates the public `CallId` and delegates the tap supply to the shared
+    /// [`push_frame_to_tap`] helper (§62.28 / Q7), keeping this method the
+    /// trait-boundary entry point and the helper the single supply point.
+    /// An unsubscribed call is a no-op — the RT callback must never block or
+    /// error (§62.6 tap push).
+    fn push_media_frame(
+        &mut self,
+        call_id: u64,
+        frame: crate::audio::pipeline::ProcessedFrame,
+    ) -> Result<(), ReactorError> {
+        let call_id = CallId::from_u64(call_id)
+            .map_err(|_| ReactorError::BackendError(format!("invalid CallId {call_id}")))?;
+        push_frame_to_tap(call_id, &frame, &self.audio_taps);
+        Ok(())
+    }
+
+    fn register_conf_callback(&mut self) -> Result<(), ReactorError> {
+        #[cfg(feature = "pjsua-native")]
+        {
+            // §62.16: the vendored PJSIP has no pjsua_conf_set_callback, so the
+            // RustMediaPort is registered as a custom pjmedia_port via
+            // pjsua_conf_add_port and each call's conf slot is connected via
+            // pjsua_call_get_conf_port + pjsua_conf_connect. Media then flows
+            // to the tap registry through the conf bridge.
+            self.register_media_ports_for_calls()
+        }
+        #[cfg(not(feature = "pjsua-native"))]
+        {
+            // No native conf bridge in the default build: the tap registry is
+            // still driven by `push_media_frame` directly, so this is a
+            // documented no-op rather than a stub. The real FFI registration
+            // happens under the `pjsua-native` feature.
+            tracing::debug!("register_conf_callback: no-op without pjsua-native");
+            Ok(())
+        }
+    }
+
+    #[cfg(any(test, feature = "pjsua-native"))]
+    fn ensure_conf_port_for_call(&mut self, call_id: u64) -> Result<(), ReactorError> {
+        // Idempotent: a call whose port is already registered (at boot via
+        // register_conf_callback, or on an earlier connect) is a no-op.
+        if self.registered_port_ids.contains(&call_id) {
+            return Ok(());
+        }
+        // No mixer yet → nothing to wrap; the reactor creates the mixer on
+        // connect before calling this, so a missing mixer is a transient no-op.
+        let mixer = match self
+            .audio_mixers
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&call_id)
+        {
+            Some(mixer) => mixer.clone(),
+            None => return Ok(()),
+        };
+        // Mirror register_media_ports_for_calls: build the port, register it
+        // via pjsua_conf_add_port, resolve the call's conf slot, and connect.
+        let media_port = RustMediaPort::new(mixer, call_id, self.audio_taps.clone());
+        let mut adapter = MediaPortAdapter::new(media_port);
+        #[cfg(feature = "pjsua-native")]
+        let pool: *mut std::ffi::c_void = crate::ffi::backend_calls::create_conf_pool();
+        #[cfg(not(feature = "pjsua-native"))]
+        let pool: *mut std::ffi::c_void = std::ptr::null_mut();
+        let mut port_slot: bindings::pjsua_conf_port_id = -1;
+        let status =
+            crate::ffi::backend_calls::conf_add_port(pool, adapter.port_mut(), &mut port_slot);
+        map_pjsua_status(status, "conf_add_port")?;
+        let call_slot = crate::ffi::backend_calls::call_conf_port(call_id as i32);
+        if call_slot < 0 {
+            // A call whose media is not established yet has no conf slot; its
+            // port stays registered for when media becomes active.
+            tracing::warn!(call_id, "call conf slot not established; skipping connect");
+            self.registered_port_ids.insert(call_id);
+            return Ok(());
+        }
+        let status = crate::ffi::backend_calls::conf_connect(port_slot, call_slot);
+        map_pjsua_status(status, "conf_connect")?;
+        self.registered_port_count += 1;
+        self.connected_call_count += 1;
+        self.conf_connect_pairs.push((port_slot, call_slot));
+        self.registered_port_ids.insert(call_id);
+        Ok(())
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::error::error_design_siperror::SipErrorKind;
+
+    // ── SipBackend trait ──────────────────────────────────────────
+
+    #[test]
+    fn sip_backend_trait_object_is_object_safe() {
+        // Box<dyn SipBackend> must be constructable (object-safe).
+        let _backend: Box<dyn SipBackend> = Box::new(TestBackend::new());
+        // Compile-time verification: Box<dyn SipBackend> is constructable.
+    }
+
+    // ── TestBackend — §62.2 registration semantics ────────────────
+
+    #[test]
+    fn test_backend_add_account_assigns_ids_from_one() {
+        let mut backend = TestBackend::default();
+        let config = crate::config::account_config_spec::AccountConfig::default();
+        let (first, _) = backend.add_account(&config).unwrap();
+        let (second, _) = backend.add_account(&config).unwrap();
+        assert_eq!(first, 1, "first native id is 1");
+        assert_eq!(second, 2, "ids increment monotonically");
+    }
+
+    #[test]
+    fn test_backend_add_account_starts_disabled() {
+        let mut backend = TestBackend::default();
+        let config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            ..Default::default()
+        };
+        let (id, entry) = backend.add_account(&config).unwrap();
+        assert_eq!(
+            entry.registration,
+            crate::state::registr_state_machine::RegistrationState::Disabled,
+            "RFC §62.2 Disabled initial"
+        );
+        assert_eq!(
+            backend.registration_state(id),
+            Some(crate::state::registr_state_machine::RegistrationState::Disabled)
+        );
+    }
+
+    #[test]
+    fn test_backend_set_registration_reaches_outcome_state(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::default();
+        let config = crate::config::account_config_spec::AccountConfig::default();
+        let (id, _) = backend.add_account(&config)?;
+        // P17-4 §62.24: the simulator compresses "REGISTER request + response"
+        // into one synchronous step, so the account reports the OUTCOME state
+        // (Registered for enable, Idle for disable) — get_account_info then
+        // returns a publishable status (200/0).
+        backend.set_registration(id, true)?;
+        assert_eq!(
+            backend.registration_state(id),
+            Some(crate::state::registr_state_machine::RegistrationState::Registered)
+        );
+        assert_eq!(
+            backend.accounts[&id].registration,
+            crate::state::registr_state_machine::RegistrationState::Registered
+        );
+        backend.set_registration(id, false)?;
+        assert_eq!(
+            backend.registration_state(id),
+            Some(crate::state::registr_state_machine::RegistrationState::Idle)
+        );
+        assert_eq!(
+            backend.accounts[&id].registration,
+            crate::state::registr_state_machine::RegistrationState::Idle
+        );
+        Ok(())
+    }
+
+    // ── P17-4 §62.24: set_registration fires native registration events ──
+
+    #[test]
+    fn test_backend_set_registration_fires_event_and_drains(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let (id, _) =
+            backend.add_account(&crate::config::account_config_spec::AccountConfig::default())?;
+        backend.set_registration(id, true)?;
+        assert_eq!(
+            backend.native_events,
+            vec![NativeEvent::RegistrationStateChanged { acc_id: id as u32 }],
+            "set_registration must fire exactly one RegistrationStateChanged event"
+        );
+        let drained = backend.take_native_events();
+        assert_eq!(
+            drained,
+            vec![NativeEvent::RegistrationStateChanged { acc_id: id as u32 }],
+            "take_native_events must return the fired event"
+        );
+        assert!(
+            backend.take_native_events().is_empty(),
+            "drain must empty the buffer"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_backend_set_registration_enable_reports_registered(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let (id, _) =
+            backend.add_account(&crate::config::account_config_spec::AccountConfig::default())?;
+        backend.set_registration(id, true)?;
+        let snapshot = backend.get_account_info(id as u32)?;
+        assert_eq!(
+            snapshot.registration_status, 200,
+            "enabled outcome must report status 200 so Registering→Registered is valid"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_backend_set_registration_disable_reports_idle() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut backend = TestBackend::new();
+        let (id, _) =
+            backend.add_account(&crate::config::account_config_spec::AccountConfig::default())?;
+        backend.set_registration(id, false)?;
+        let snapshot = backend.get_account_info(id as u32)?;
+        assert_eq!(
+            snapshot.registration_status, 0,
+            "disabled outcome must report status 0 so Unregistering→Idle is valid"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_backend_set_registration_unknown_account_no_event(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.set_registration(999, true)?;
+        assert!(
+            backend.native_events.is_empty(),
+            "an unknown account must not fire a registration event"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_backend_take_native_events_fifo_and_empty() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let (id, _) =
+            backend.add_account(&crate::config::account_config_spec::AccountConfig::default())?;
+        backend.set_registration(id, true)?;
+        backend.set_registration(id, false)?;
+        assert_eq!(
+            backend.native_events.len(),
+            2,
+            "one event per set_registration call, FIFO order preserved"
+        );
+        assert_eq!(backend.take_native_events().len(), 2);
+        assert!(
+            backend.take_native_events().is_empty(),
+            "a second drain returns empty (std::mem::take)"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_backend_set_registration_failure_injection_no_event(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let (id, _) =
+            backend.add_account(&crate::config::account_config_spec::AccountConfig::default())?;
+        backend.set_registration_result = Some(Err(ReactorError::BackendError("injected".into())));
+        assert!(backend.set_registration(id, true).is_err());
+        assert!(
+            backend.native_events.is_empty(),
+            "a short-circuited set_registration must not fire an event"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_backend_set_registration_records_calls() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let (id, _) =
+            backend.add_account(&crate::config::account_config_spec::AccountConfig::default())?;
+        backend.set_registration(id, true)?;
+        assert_eq!(
+            backend.set_registration_calls,
+            vec![(id, true)],
+            "the attempt must be recorded even when the event fires"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_backend_mark_registered_yields_200_snapshot() {
+        let mut backend = TestBackend::default();
+        let config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            domain: "example.com".into(),
+            ..Default::default()
+        };
+        let (id, _) = backend.add_account(&config).unwrap();
+        backend.mark_registered(id);
+        let snapshot = backend.get_account_info(id as u32).unwrap();
+        assert_eq!(snapshot.registration_status, 200);
+        assert_eq!(snapshot.registration_expires, Some(3600));
+        assert!(snapshot.online_status);
+        assert_eq!(snapshot.uri, "sip:alice@example.com");
+    }
+
+    #[test]
+    fn test_backend_get_account_info_unknown_id_returns_error() {
+        let backend = TestBackend::default();
+        let result = backend.get_account_info(99);
+        assert!(
+            result.is_err(),
+            "unknown native id must return Err, not a canned snapshot"
+        );
+    }
+
+    #[test]
+    fn test_backend_update_account_unknown_id_returns_error() {
+        let mut backend = TestBackend::default();
+        let result = backend.update_account(
+            99,
+            &crate::config::account_config_spec::AccountConfig::default(),
+        );
+        assert!(
+            result.is_err(),
+            "update of an unknown account must return Err"
+        );
+    }
+
+    // ── map_pjsua_status (C111) ───────────────────────────────────
+
+    #[test]
+    fn map_pjsua_status_success_is_ok() {
+        let result = map_pjsua_status(crate::ffi::bindings::PJ_SUCCESS, "hangup");
+        assert!(result.is_ok(), "PJ_SUCCESS must map to Ok(())");
+    }
+
+    #[test]
+    fn map_pjsua_status_error_preserves_diagnostic() {
+        let err = map_pjsua_status(crate::ffi::bindings::PJ_EUNKNOWN, "hangup").unwrap_err();
+        match err {
+            ReactorError::NativeError {
+                message,
+                native_status,
+            } => {
+                assert!(
+                    message.contains("hangup"),
+                    "message must name the operation: {message}"
+                );
+                assert_eq!(
+                    native_status,
+                    crate::ffi::bindings::PJ_EUNKNOWN,
+                    "native_status must preserve the code as a structured field"
+                );
+            }
+            _ => panic!("expected NativeError, got {err:?}"),
+        }
+    }
+
+    #[test]
+    fn map_native_error_preserves_status_via_classify() {
+        // produces a SipError carrying native_status = Some(status).
+        let err = map_native_error(crate::ffi::bindings::PJ_EBUSY, "conf_connect failed");
+        assert_eq!(err.native_status(), Some(crate::ffi::bindings::PJ_EBUSY));
+        assert_eq!(err.kind, SipErrorKind::NativeError);
+        assert_eq!(err.message, "conf_connect failed");
+        assert!(err.retryable);
+    }
+
+    #[test]
+    fn map_pjsua_status_non_zero_produces_native_error_with_status() {
+        // Ok for an unexecuted FFI call is prohibited (C111).
+        let err = map_pjsua_status(crate::ffi::bindings::PJ_EUNKNOWN, "answer_call").unwrap_err();
+        match err {
+            ReactorError::NativeError { native_status, .. } => {
+                assert_eq!(native_status, crate::ffi::bindings::PJ_EUNKNOWN);
+            }
+            _ => panic!("expected NativeError, got {err:?}"),
+        }
+        assert!(map_pjsua_status(crate::ffi::bindings::PJ_SUCCESS, "answer_call").is_ok());
+    }
+
+    #[test]
+    fn map_pjsua_status_non_zero_never_ok() {
+        // A canned Ok for an unexecuted FFI call is prohibited (C111 invariant):
+        // every non-zero pj_status_t must yield Err.
+        assert!(map_pjsua_status(70001, "answer_call").is_err());
+        assert!(map_pjsua_status(70013, "conf_connect").is_err());
+        assert!(map_pjsua_status(70007, "make_call").is_err());
+    }
+
+    // ── TestBackend ──────────────────────────────────────────────
+
+    #[test]
+    fn mock_backend_initialize_sets_flag() {
+        let mut backend = TestBackend::new();
+        let config = crate::config::ClientConfig::default();
+        let result = backend.initialize(&config);
+        assert!(result.is_ok(), "TestBackend::initialize must succeed");
+        assert!(backend.initialized, "initialized flag must be true");
+    }
+
+    #[test]
+    fn mock_backend_shutdown_clears_flag() {
+        let mut backend = TestBackend::new();
+        let config = crate::config::ClientConfig::default();
+        backend.initialize(&config).unwrap();
+        assert!(backend.initialized);
+
+        let result = backend.shutdown();
+        assert!(result.is_ok(), "TestBackend::shutdown must succeed");
+        assert!(!backend.initialized, "initialized flag must be cleared");
+    }
+
+    #[test]
+    fn mock_backend_conf_connect_disconnect_returns_ok() {
+        let mut backend = TestBackend::new();
+        assert!(backend.conf_connect(1, 2).is_ok());
+        assert!(backend.conf_disconnect(1, 2).is_ok());
+    }
+
+    #[test]
+    // tests can prove the from_runtime_command closure actually invoked it.
+    fn mock_backend_conf_connect_records_invocation() {
+        let mut backend = TestBackend::new();
+        backend.conf_connect(3, 4).unwrap();
+        backend.conf_connect(5, 6).unwrap();
+        assert_eq!(
+            backend.conf_connect_calls,
+            vec![(3i32, 4i32), (5i32, 6i32)],
+            "conf_connect must record each (source, sink)"
+        );
+    }
+
+    #[test]
+    fn mock_backend_conf_disconnect_records_invocation() {
+        let mut backend = TestBackend::new();
+        backend.conf_disconnect(7, 8).unwrap();
+        assert_eq!(
+            backend.conf_disconnect_calls,
+            vec![(7i32, 8i32)],
+            "conf_disconnect must record each (source, sink)"
+        );
+    }
+
+    #[test]
+    fn test_backend_push_media_frame_records_invocation() {
+        let mut backend = TestBackend::new();
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        backend.push_media_frame(42, frame.clone()).unwrap();
+        assert_eq!(backend.push_media_frame_calls.len(), 1);
+        assert_eq!(backend.push_media_frame_calls[0].0, 42);
+        assert_eq!(backend.push_media_frame_calls[0].1, frame);
+    }
+
+    #[test]
+    fn pjsua_push_media_frame_unsubscribed_call_is_noop() {
+        let mut backend = PjsuaBackend::new();
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        // No tap registered — must yield Ok(()) without panicking (RT safety).
+        assert!(backend.push_media_frame(42, frame).is_ok());
+    }
+
+    #[tokio::test]
+    // real AudioChunkPair (OMISSIONS F9 resolution, §62.6).
+    async fn push_media_frame_drives_subscribed_tap() -> Result<(), Box<dyn std::error::Error>> {
+        let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let mut backend = PjsuaBackend::with_taps(registry.clone());
+        let (sender, mut handle) = crate::api::audio_subscribe_bp::tap_channel(
+            4,
+            crate::api::audio_subscribe_bp::AudioTapMode::Realtime,
+        );
+        registry.lock().unwrap_or_else(|p| p.into_inner()).insert(
+            crate::model::CallId::from_u64(42)?,
+            (crate::model::AccountId::from_u64(1)?, sender),
+        );
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2, 3, 4],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        backend.push_media_frame(42, frame)?;
+        let pair = handle
+            .recv()
+            .await
+            .expect("tap must receive the pushed pair");
+        assert_eq!(pair.in_chunk, crate::model::AudioChunk::I16(vec![1, 3]));
+        assert_eq!(pair.out_chunk, crate::model::AudioChunk::I16(vec![2, 4]));
+        Ok(())
+    }
+
+    // ── P17-8: shared push_frame_to_tap helper (C132) ──────────────────────
+
+    #[tokio::test]
+    // ProcessedFrame (IN=L, OUT=R) and drives the subscribed tap.
+    async fn push_frame_to_tap_builds_pair_and_drives_subscribed_tap(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let (sender, mut handle) = crate::api::audio_subscribe_bp::tap_channel(
+            4,
+            crate::api::audio_subscribe_bp::AudioTapMode::Realtime,
+        );
+        registry
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(CallId::from_u64(42)?, (AccountId::from_u64(1)?, sender));
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2, 3, 4],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        push_frame_to_tap(CallId::from_u64(42)?, &frame, &registry);
+        let pair = handle
+            .recv()
+            .await
+            .expect("tap must receive the pushed pair");
+        assert_eq!(pair.in_chunk, crate::model::AudioChunk::I16(vec![1, 3]));
+        assert_eq!(pair.out_chunk, crate::model::AudioChunk::I16(vec![2, 4]));
+        assert_eq!(pair.call_id, CallId::from_u64(42)?);
+        assert_eq!(pair.account_id, AccountId::from_u64(1)?);
+        Ok(())
+    }
+
+    #[tokio::test]
+    // frame; the push path never blocks (try_push, §62.6).
+    async fn push_frame_to_tap_never_blocks_on_full_queue() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let (sender, mut handle) = crate::api::audio_subscribe_bp::tap_channel(
+            2,
+            crate::api::audio_subscribe_bp::AudioTapMode::Realtime,
+        );
+        registry
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .insert(CallId::from_u64(1)?, (AccountId::from_u64(1)?, sender));
+        let frame = |n: i16| crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![n, n],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        push_frame_to_tap(CallId::from_u64(1)?, &frame(1), &registry);
+        push_frame_to_tap(CallId::from_u64(1)?, &frame(2), &registry);
+        // Third push on a full queue returns synchronously and evicts frame 1.
+        push_frame_to_tap(CallId::from_u64(1)?, &frame(3), &registry);
+        let first = handle.recv().await.expect("frame 2 admitted");
+        assert_eq!(first.in_chunk, crate::model::AudioChunk::I16(vec![2]));
+        let second = handle.recv().await.expect("frame 3 admitted");
+        assert_eq!(second.in_chunk, crate::model::AudioChunk::I16(vec![3]));
+        Ok(())
+    }
+
+    #[test]
+    fn push_frame_to_tap_unsubscribed_call_is_noop() -> Result<(), Box<dyn std::error::Error>> {
+        let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        // No tap registered for call 99: the push is a clean no-op.
+        push_frame_to_tap(CallId::from_u64(99)?, &frame, &registry);
+        Ok(())
+    }
+
+    #[test]
+    // via into_inner and the RT push path does not panic.
+    fn push_frame_to_tap_recovers_from_poisoned_registry() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let poisoned = Arc::clone(&registry);
+        let handle = std::thread::spawn(move || {
+            let _guard = poisoned.lock().unwrap();
+            panic!("poison the registry mutex");
+        });
+        assert!(handle.join().is_err(), "panic must poison the mutex");
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![1i16, 2],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        // The helper recovers via into_inner and completes without panicking.
+        push_frame_to_tap(CallId::from_u64(99)?, &frame, &registry);
+        Ok(())
+    }
+
+    #[test]
+    // pjsua_conf_set_callback (absent in vendored PJSIP 2.17). The bare name
+    // may appear in comments documenting its absence; only a real call would
+    // create a dependency, so the test scans for the call pattern. The needle
+    // is built in two pieces so the test does not match its own source.
+    fn pjsua_conf_set_callback_is_not_referenced_in_media_path() {
+        let call_pattern = format!("pjsua_conf_set_callback{}", "(");
+        for path in [
+            "src/runtime/backend.rs",
+            "src/runtime/audio_worker.rs",
+            "src/ffi/media_port_adapter.rs",
+        ] {
+            let src = std::fs::read_to_string(path).unwrap_or_default();
+            assert!(
+                !src.contains(&call_pattern),
+                "{path} must not call pjsua_conf_set_callback"
+            );
+        }
+    }
+
+    // TestBackend so dispatch-path tests can assert the method was reached.
+    #[test]
+    fn test_backend_register_conf_callback_records_invocation() -> Result<(), ReactorError> {
+        let mut backend = TestBackend::new();
+        assert_eq!(backend.register_conf_callback_calls, 0);
+        backend.register_conf_callback()?;
+        backend.register_conf_callback()?;
+        assert_eq!(backend.register_conf_callback_calls, 2);
+        Ok(())
+    }
+
+    // ── PjsuaBackend conf-bridge registration (PX-3 / C119) ─────────────────
+
+    #[test]
+    fn pjsua_backend_with_registries_holds_audio_mixers_map() {
+        let mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
+        mixers
+            .write()
+            .unwrap()
+            .insert(1, Arc::new(AudioMixer::default()));
+        let taps: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let backend = PjsuaBackend::with_registries(taps, mixers.clone());
+        let audio_mixers_shared = backend.audio_mixers();
+        assert!(Arc::ptr_eq(&audio_mixers_shared, &mixers));
+        let read = audio_mixers_shared.read().unwrap();
+        assert!(read.get(&1).is_some(), "call 1 mixer reachable");
+        assert!(read.get(&2).is_none(), "absent call_id yields None");
+    }
+
+    #[test]
+    fn register_media_ports_for_calls_registers_and_connects_every_audio_mixer_entry(
+    ) -> Result<(), ReactorError> {
+        // P17-4 (boy-scout): the mutex-guarded helper keeps the conf-add-port
+        // stub at PJ_SUCCESS for this test — a parallel test forcing PJ_EUNKNOWN
+        // no longer leaks in (pre-existing test-isolation race).
+        bindings::stub_test_hooks::with_conf_add_port_status(bindings::PJ_SUCCESS, || {
+            let mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+                Arc::new(RwLock::new(HashMap::new()));
+            mixers
+                .write()
+                .unwrap()
+                .insert(1, Arc::new(AudioMixer::default()));
+            mixers
+                .write()
+                .unwrap()
+                .insert(2, Arc::new(AudioMixer::default()));
+            let taps: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+            let mut backend = PjsuaBackend::with_registries(taps, mixers);
+            backend.register_media_ports_for_calls()?;
+            assert_eq!(backend.registered_port_count(), 2, "one conf port per call");
+            assert_eq!(
+                backend.connected_call_count(),
+                2,
+                "each call conf slot connected"
+            );
+            assert_eq!(backend.conf_connect_pairs().len(), 2);
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn register_media_ports_for_calls_surfaces_native_error_on_conf_add_failure() {
+        // P17-4 (boy-scout): route through the mutex-guarded helper so the forced
+        // PJ_EUNKNOWN never leaks into a parallel sibling test, and is restored
+        // to PJ_SUCCESS when the closure returns.
+        bindings::stub_test_hooks::with_conf_add_port_status(bindings::PJ_EUNKNOWN, || {
+            let mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+                Arc::new(RwLock::new(HashMap::new()));
+            mixers
+                .write()
+                .unwrap()
+                .insert(1, Arc::new(AudioMixer::default()));
+            let taps: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+            let mut backend = PjsuaBackend::with_registries(taps, mixers);
+            let err = backend.register_media_ports_for_calls().unwrap_err();
+            match err {
+                ReactorError::NativeError { native_status, .. } => {
+                    assert_eq!(native_status, bindings::PJ_EUNKNOWN)
+                }
+                other => panic!("expected NativeError, got {other:?}"),
+            }
+        });
+    }
+
+    // ── P19-3: per-call conf-bridge registration (ensure_conf_port_for_call) ─
+
+    #[test]
+    // connects the call slot; a second ensure is an idempotent no-op.
+    fn ensure_conf_port_for_call_registers_and_connects_a_call() -> Result<(), ReactorError> {
+        bindings::stub_test_hooks::with_conf_add_port_status(bindings::PJ_SUCCESS, || {
+            let mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+                Arc::new(RwLock::new(HashMap::new()));
+            mixers
+                .write()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(1, Arc::new(AudioMixer::default()));
+            let taps: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+            let mut backend = PjsuaBackend::with_registries(taps, mixers);
+            backend.ensure_conf_port_for_call(1)?;
+            assert!(
+                backend.registered_port_ids.contains(&1),
+                "port registered for call 1"
+            );
+            assert_eq!(backend.conf_connect_pairs().len(), 1, "call slot connected");
+            // Idempotent: a second ensure must not add a duplicate port/connect.
+            backend.ensure_conf_port_for_call(1)?;
+            assert_eq!(
+                backend.conf_connect_pairs().len(),
+                1,
+                "no duplicate connect"
+            );
+            Ok(())
+        })
+    }
+
+    #[test]
+    // (the reactor creates the mixer on connect before ensure runs).
+    fn ensure_conf_port_for_call_missing_mixer_is_noop() -> Result<(), ReactorError> {
+        let mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+            Arc::new(RwLock::new(HashMap::new()));
+        let taps: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let mut backend = PjsuaBackend::with_registries(taps, mixers);
+        backend.ensure_conf_port_for_call(7)?;
+        assert!(
+            !backend.registered_port_ids.contains(&7),
+            "no mixer → nothing registered"
+        );
+        assert_eq!(backend.conf_connect_pairs().len(), 0);
+        Ok(())
+    }
+
+    #[test]
+    // NativeError and leaves the call unregistered (no half-registered state).
+    fn ensure_conf_port_for_call_surfaces_conf_add_error() {
+        bindings::stub_test_hooks::with_conf_add_port_status(bindings::PJ_EUNKNOWN, || {
+            let mixers: Arc<RwLock<HashMap<u64, Arc<AudioMixer>>>> =
+                Arc::new(RwLock::new(HashMap::new()));
+            mixers
+                .write()
+                .unwrap_or_else(|e| e.into_inner())
+                .insert(1, Arc::new(AudioMixer::default()));
+            let taps: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+            let mut backend = PjsuaBackend::with_registries(taps, mixers);
+            let err = backend.ensure_conf_port_for_call(1).unwrap_err();
+            match err {
+                ReactorError::NativeError { native_status, .. } => {
+                    assert_eq!(native_status, bindings::PJ_EUNKNOWN)
+                }
+                other => panic!("expected NativeError, got {other:?}"),
+            }
+            assert!(
+                !backend.registered_port_ids.contains(&1),
+                "failed conf_add_port must not mark the call registered"
+            );
+        });
+    }
+
+    #[test]
+    fn default_build_register_conf_callback_is_noop_ok() {
+        let mut backend = PjsuaBackend::new();
+        let result = backend.register_conf_callback();
+        assert!(result.is_ok(), "default build must keep the no-op");
+        assert_eq!(
+            backend.registered_port_count(),
+            0,
+            "no FFI registration in default build"
+        );
+    }
+
+    // push_media_frame drives the subscribed tap (§62.6 conf-callback wiring).
+    #[tokio::test]
+    async fn conf_callback_and_push_media_frame_drive_subscribed_tap(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let registry: AudioTapRegistry = Arc::new(Mutex::new(HashMap::new()));
+        let (sender, mut handle) = crate::api::audio_subscribe_bp::tap_channel(
+            4,
+            crate::api::audio_subscribe_bp::AudioTapMode::Realtime,
+        );
+        registry.lock().unwrap_or_else(|p| p.into_inner()).insert(
+            crate::model::CallId::from_u64(42)?,
+            (crate::model::AccountId::from_u64(1)?, sender),
+        );
+        let mut backend = PjsuaBackend::with_taps(registry);
+        backend.register_conf_callback()?;
+        let frame = crate::audio::pipeline::ProcessedFrame {
+            stereo_interleaved: vec![10i16, 20],
+            negotiated_codec: crate::config::codec_policy_fallback::NegotiatedCodec::Pcmu,
+            timestamp: std::time::Instant::now(),
+        };
+        backend.push_media_frame(42, frame)?;
+        let pair = handle
+            .recv()
+            .await
+            .ok_or("subscribed tap must receive the pushed pair")?;
+        assert_eq!(pair.in_chunk, crate::model::AudioChunk::I16(vec![10]));
+        assert_eq!(pair.out_chunk, crate::model::AudioChunk::I16(vec![20]));
+        Ok(())
+    }
+
+    #[test]
+    fn mock_backend_hold_unhold_records_invocation() {
+        let mut backend = TestBackend::new();
+        backend.hold(9).unwrap();
+        backend.hold(10).unwrap();
+        backend.unhold(9).unwrap();
+        assert_eq!(
+            backend.hold_calls,
+            vec![9, 10],
+            "hold must record each call id"
+        );
+        assert_eq!(
+            backend.unhold_calls,
+            vec![9],
+            "unhold must record each call id"
+        );
+    }
+
+    #[test]
+    fn pjsua_backend_hold_requires_native_feature() {
+        // Without pjsua-native the backend cannot drive PJSUA — a clear
+        // precondition error, matching every other PjsuaBackend method.
+        let mut backend = PjsuaBackend::new();
+        let err = backend.hold(1).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("requires the pjsua-native feature"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn pjsua_backend_unhold_requires_native_feature() {
+        let mut backend = PjsuaBackend::new();
+        let err = backend.unhold(1).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("requires the pjsua-native feature"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn mock_backend_resolve_conf_port_returns_ok() {
+        let backend = TestBackend::new();
+        let port = backend.resolve_conf_port(42);
+        assert!(port.is_ok(), "resolve_conf_port must succeed");
+        assert_eq!(port.unwrap(), 1, "mock must return fixed port 1");
+    }
+
+    #[test]
+    fn mock_backend_add_account_returns_entry() {
+        let mut backend = TestBackend::new();
+        let config = crate::config::account_config_spec::AccountConfig {
+            username: "test".into(),
+            ..crate::config::account_config_spec::AccountConfig::default()
+        };
+        let result = backend.add_account(&config);
+        assert!(result.is_ok(), "add_account must succeed");
+        let (native_id, _entry) = result.unwrap();
+        assert_eq!(native_id, 1, "mock native_acc_id must be 1");
+    }
+
+    #[test]
+    fn mock_backend_configure_codecs_returns_ok() {
+        let mut backend = TestBackend::new();
+        assert!(backend.configure_codecs().is_ok());
+    }
+
+
+    #[test]
+    fn test_backend_get_account_info_derives_registered_snapshot(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let config = crate::config::account_config_spec::AccountConfig {
+            username: "alice".into(),
+            domain: "sip.example.com".into(),
+            ..crate::config::account_config_spec::AccountConfig::default()
+        };
+        backend.add_account(&config)?;
+        // account to Registered so the 200 success shape is exercised.
+        backend.mark_registered(1);
+        let snapshot = backend.get_account_info(1)?;
+        assert_eq!(snapshot.acc_id, AccountId::from_u64(1)?);
+        assert_eq!(snapshot.registration_status, 200);
+        assert_eq!(snapshot.registration_expires, Some(3600));
+        assert!(snapshot.online_status);
+        assert_eq!(
+            snapshot.uri, "sip:alice@sip.example.com",
+            "uri must be derived from the stored AccountConfig (P10-3 stores the full config)"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn mock_backend_get_account_info_result_configurable() {
+        let mut backend = TestBackend::new();
+        backend.get_account_info_result =
+            Some(Err(ReactorError::BackendError("mock backend down".into())));
+
+        let result = backend.get_account_info(1);
+        assert!(
+            matches!(result, Err(ReactorError::BackendError(_))),
+            "expected configured Err, got {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn mock_backend_transfer_call_returns_ok() {
+        let mut backend = TestBackend::new();
+        assert!(backend.transfer_call(1, "sip:target@example.com").is_ok());
+    }
+
+    // ── PjsuaBackend ─────────────────────────────────────────────
+
+    #[test]
+    fn pjsua_backend_returns_error_for_all_operations() {
+        let mut backend = PjsuaBackend::new();
+        let config = crate::config::ClientConfig::default();
+        let result = backend.initialize(&config);
+        assert!(
+            result.is_err(),
+            "PjsuaBackend must return error when the pjsua-native feature is off"
+        );
+        let err_msg = format!("{}", result.unwrap_err());
+        assert!(
+            err_msg.contains("pjsua-native"),
+            "error must name the pjsua-native prerequisite, got: {err_msg}"
+        );
+    }
+
+    #[test]
+    fn pjsua_backend_all_methods_return_unimplemented() {
+        let mut backend = PjsuaBackend::new();
+        use std::net::SocketAddr;
+        let transport = crate::config::transport_ice_spec::TransportConfig::Udp(
+            crate::config::transport_ice_spec::UdpTransportConfig {
+                bind_addr: "0.0.0.0:5060".parse::<SocketAddr>().unwrap(),
+            },
+        );
+        assert!(backend.create_transport(&transport).is_err());
+        assert!(backend.remove_account(1).is_err());
+        assert!(backend.hangup(1).is_err());
+        assert!(backend.shutdown().is_err());
+    }
+
+    // ── Invariant ────────────────────────────────────────────────
+
+    #[test]
+    fn sip_backend_trait_methods_use_rust_types() {
+        // Compile-time verification: all SipBackend method parameters
+        // are Rust types (AccountConfig, OutgoingCallRequest, DtmfMethod, etc.)
+        // — never bare PJSIP C types. This test passes at compile time.
+        //
+        // Check that Box<dyn SipBackend> does not require any PJSIP FFI types
+        // at the trait boundary.
+        fn _assert_object_safe<T: SipBackend + ?Sized>() {}
+        _assert_object_safe::<dyn SipBackend>();
+    }
+
+    #[test]
+    fn test_backend_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<TestBackend>();
+        assert_send::<PjsuaBackend>();
+    }
+
+    // ── P10-1: account registry derives account-info snapshots ──────────
+
+    fn account_config(username: &str) -> crate::config::account_config_spec::AccountConfig {
+        crate::config::account_config_spec::AccountConfig {
+            username: username.into(),
+            domain: "example.com".into(),
+            ..crate::config::account_config_spec::AccountConfig::default()
+        }
+    }
+
+    #[test]
+    fn mock_backend_get_account_info_derives_idle_snapshot(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.add_account(&account_config("bob"))?;
+        // Mutate the stored entry to Idle — the snapshot must derive the
+        // unregistered shape, not a canned 200.
+        let entry = backend
+            .accounts
+            .get_mut(&1)
+            .ok_or("registry must hold the added account")?;
+        entry.registration = crate::state::registr_state_machine::RegistrationState::Idle;
+        let snapshot = backend.get_account_info(1)?;
+        assert_eq!(snapshot.registration_status, 0);
+        assert_eq!(snapshot.registration_expires, None);
+        assert!(!snapshot.online_status);
+        assert_eq!(
+            snapshot.uri, "sip:bob@example.com",
+            "uri must be derived from the stored AccountConfig AOR"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn mock_backend_get_account_info_unknown_native_id_returns_err() {
+        // P10-1: no canned fallback — an unknown native_acc_id is Err when no
+        // injected get_account_info_result is set.
+        let backend = TestBackend::new();
+        let result = backend.get_account_info(99);
+        assert!(
+            matches!(result, Err(ReactorError::BackendError(_))),
+            "expected Err for unknown native id, got {result:?}"
+        );
+    }
+
+    #[test]
+    fn mock_backend_add_account_assigns_incrementing_ids() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut backend = TestBackend::new();
+        let (native1, entry1) = backend.add_account(&account_config("alice"))?;
+        let (native2, entry2) = backend.add_account(&account_config("bob"))?;
+        assert_eq!(native1, 1, "first account native_id must be 1");
+        assert_eq!(entry1.id, 1, "first account id must be 1");
+        assert_eq!(native2, 2, "second account native_id must be 2");
+        assert_eq!(entry2.id, 2, "second account id must be 2");
+        // Both entries are stored in the registry keyed by native_acc_id.
+        assert_eq!(backend.accounts.len(), 2);
+        Ok(())
+    }
+
+    #[test]
+    fn mock_backend_remove_account_removes_registry_entry() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut backend = TestBackend::new();
+        backend.add_account(&account_config("alice"))?;
+        assert!(backend.get_account_info(1).is_ok());
+        backend.remove_account(1)?;
+        assert!(
+            backend.get_account_info(1).is_err(),
+            "after remove_account, get_account_info must be Err"
+        );
+        Ok(())
+    }
+
+    // ── P10-3: TestBackend::update_account + full-config storage ───────
+
+    #[test]
+    fn mock_backend_add_account_stores_full_config() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        let mut config = account_config("alice");
+        config.domain = "pbx.example.com".into();
+        backend.add_account(&config)?;
+        let entry = backend.accounts.get(&1).ok_or("entry must be stored")?;
+        assert_eq!(entry.config.username, "alice");
+        assert_eq!(
+            entry.config.domain, "pbx.example.com",
+            "the full AccountConfig must be retained, not just the username"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn mock_backend_update_account_updates_stored_config() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mut backend = TestBackend::new();
+        backend.add_account(&account_config("alice"))?;
+        let mut new_config = account_config("bob");
+        new_config.domain = "pbx.example.com".into();
+        backend.update_account(1, &new_config)?;
+        let entry = backend.accounts.get(&1).ok_or("entry must exist")?;
+        assert_eq!(entry.config.username, "bob");
+        assert_eq!(entry.config.domain, "pbx.example.com");
+        Ok(())
+    }
+
+    #[test]
+    fn mock_backend_update_account_unknown_id_returns_err() {
+        let mut backend = TestBackend::new();
+        assert!(
+            backend.update_account(99, &account_config("x")).is_err(),
+            "update_account on an unknown native id must return Err"
+        );
+    }
+
+    #[test]
+    fn pjsua_backend_update_account_returns_unimplemented() {
+        let mut backend = PjsuaBackend::new();
+        assert!(
+            backend.update_account(1, &account_config("alice")).is_err(),
+            "PjsuaBackend::update_account must return Err until FFI lands (P3-2)"
+        );
+    }
+
+    // ── P12-1: TestBackend::make_call assigns deterministic incrementing ids ─
+
+    fn test_call_request() -> crate::api::call_types::OutgoingCallRequest {
+        crate::api::call_types::OutgoingCallRequest {
+            target_uri: "sip:bob@example.com".into(),
+            headers: vec![],
+            auth_override: None,
+            preferred_transport: None,
+            media: crate::api::call_types::CallMediaPreferences::default(),
+            auto_answer_refer: false,
+        }
+    }
+
+    #[test]
+    fn mock_make_call_increments_call_ids() {
+        let mut backend = TestBackend::new();
+        let (native_id1, entry1) = backend.make_call(1, &test_call_request()).unwrap();
+        let (native_id2, entry2) = backend.make_call(1, &test_call_request()).unwrap();
+        assert_eq!(native_id1, 1, "first make_call native id is 1");
+        assert_eq!(entry1.id, 1, "first CallEntry.id is 1");
+        assert_eq!(entry1.native_id, 1);
+        assert_eq!(native_id2, 2, "second make_call native id is 2");
+        assert_eq!(entry2.id, 2, "second CallEntry.id is 2");
+        assert_eq!(
+            entry2.account_id,
+            crate::model::AccountId::from_u64(1).unwrap(),
+            "CallEntry.account_id derives from the native acc id"
+        );
+        assert_eq!(
+            entry2.state,
+            CallState::Calling,
+            "initial call state is Calling"
+        );
+    }
+
+    #[test]
+    fn mock_make_call_result_injection_ok() {
+        let mut backend = TestBackend::new();
+        let entry = CallEntry {
+            id: 42,
+            native_id: 42,
+            account_id: crate::model::AccountId::from_u64(1).unwrap(),
+            state: CallState::Calling,
+            media: "none".into(),
+            direction: CallDirection::Outgoing,
+            remote_uri: String::new(),
+        };
+        backend.make_call_result = Some(Ok((42, entry.clone())));
+        let (native_id, got) = backend.make_call(1, &test_call_request()).unwrap();
+        assert_eq!(native_id, 42, "injected native id is surfaced");
+        assert_eq!(got.id, 42, "injected CallEntry.id is surfaced");
+    }
+
+    #[test]
+    fn mock_make_call_result_injection_err() {
+        let mut backend = TestBackend::new();
+        backend.make_call_result = Some(Err(ReactorError::BackendError("invite rejected".into())));
+        let result = backend.make_call(1, &test_call_request());
+        assert!(
+            matches!(result, Err(ReactorError::BackendError(_))),
+            "injected backend error must propagate"
+        );
+    }
+
+    #[test]
+    fn mock_make_call_zero_native_id_returns_err() {
+        let mut backend = TestBackend::new();
+        let result = backend.make_call(0, &test_call_request());
+        assert!(
+            result.is_err(),
+            "AccountId::from_u64(0) is Err — make_call must map it, never expect()"
+        );
+    }
+
+    // ── P15-6: answer/hangup/transfer recorders ───────────────────────
+
+    #[test]
+    // integration tests can prove the reactor Answer handler dispatched.
+    fn test_backend_records_answer_calls() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.answer_call(1, 200)?;
+        backend.answer_call(2, 486)?;
+        assert_eq!(
+            backend.answer_calls,
+            vec![(1, 200), (2, 486)],
+            "answer_call must record (native_call_id, code) in order"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_backend_records_hangup_calls() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.hangup(5)?;
+        backend.hangup(6)?;
+        assert_eq!(
+            backend.hangup_calls,
+            vec![5, 6],
+            "hangup must record native call ids in order"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_backend_records_transfer_calls() -> Result<(), Box<dyn std::error::Error>> {
+        let mut backend = TestBackend::new();
+        backend.transfer_call(3, "sip:bob@example.com")?;
+        backend.transfer_call(4, "sip:carol@example.com")?;
+        assert_eq!(
+            backend.transfer_calls,
+            vec![
+                (3, "sip:bob@example.com".to_string()),
+                (4, "sip:carol@example.com".to_string()),
+            ],
+            "transfer_call must record (native_call_id, target) in order"
+        );
+        Ok(())
+    }
+}

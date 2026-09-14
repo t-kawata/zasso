@@ -1,0 +1,27 @@
+{
+  "title": "Event bus unification — single EventBus owned by SipClient, reactor dispatch_event direct publish",
+  "nodeIds": ["N0072"],
+  "scope": [
+    "単一 EventBus を SipClient（ClientInner.events）が所有し、reactor の dispatch_event がそのバスへ直接 publish する（§62.3 / §15.6 一元化）。",
+    "RawSipEventConfig.enabled（default true）に応じて raw_sip チャネルを生成し、subscribe_raw_sip は無効時のみ None を返す。",
+    "subscribe_account の account_id フィルタ死滅を解消するため、全イベントに meta.account_id を付与する配線を実装する。"
+  ],
+  "testUnit": [
+    "EventBus::new(control_capacity, Some(raw_capacity)) が raw_sip チャネルを生成すること。",
+    "EventBus::new(control_capacity, None) で subscribe_raw_sip が None を返すこと。"
+  ],
+  "testIntegration": [
+    "reactor が publish した SipEvent が SipClient::subscribe() の receiver で受信できること。",
+    "subscribe_account(id) が meta.account_id でフィルタしたイベントのみ受信すること。",
+    "subscribe_raw_sip() が RawSipMessage を受信できること（enabled 時）。"
+  ],
+  "testExceptions": [
+    "raw_sip 無効時の None は単体テストで固定する。"
+  ],
+  "changes": [
+    { "before": "client.rs と reactor.rs が別バスを持つ", "after": "単一 EventBus を SipClient が所有し reactor の dispatch_event が直接 publish", "description": "イベントバス一元化" },
+    { "before": "raw_sip チャネルが None 固定", "after": "RawSipEventConfig.enabled に応じて生成", "description": "raw_sip チャネルの条件生成" },
+    { "before": "subscribe_account のフィルタが 0 件", "after": "全イベントに meta.account_id を付与しフィルタ成立", "description": "account_id フィルタ死滅の解消" }
+  ],
+  "phaseName": "Implementation Integration — RESIDUE Resolution (§62)"
+}
