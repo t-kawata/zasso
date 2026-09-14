@@ -1,0 +1,141 @@
+{
+  "observations": [
+    {
+      "representative": "siprs-for-reverse",
+      "stages": {
+        "reached": [
+          "T1",
+          "T2",
+          "T3",
+          "T5",
+          "T6"
+        ],
+        "refused": [
+          {
+            "stage": "T4",
+            "input": "the measured DAG contains 18 cycle(s), so it has no implementation order: pkg-0004 -> pkg-0005 -> pkg-0004; pkg-0005 -> pkg-0010 -> pkg-0005; pkg-0005 -> pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0005; pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0010; pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0011; pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0010; pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0011; pkg-0005 -> pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0005; pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0007; pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0010; pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0011; pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0012; pkg-0013 -> pkg-0014 -> pkg-0013; pkg-0005 -> pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0016 -> pkg-0005; pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0016 -> pkg-0010; pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0016 -> pkg-0012; pkg-0014 -> pkg-0016 -> pkg-0014; pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0010"
+          }
+        ],
+        "complete": false
+      },
+      "outcome": "not proved",
+      "missing": 50,
+      "packages": 5
+    },
+    {
+      "representative": "siprs-with-4layers",
+      "stages": {
+        "reached": [],
+        "refused": [
+          {
+            "stage": "G2",
+            "input": "pipeline ended with status REVIEW_REQUIRED"
+          }
+        ],
+        "complete": false
+      },
+      "outcome": "not proved",
+      "missing": 90,
+      "packages": 11
+    },
+    {
+      "representative": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
+      "stages": {
+        "reached": [],
+        "refused": [
+          {
+            "stage": "G3",
+            "input": "pipeline ended with status REVIEW_REQUIRED"
+          }
+        ],
+        "complete": false
+      },
+      "outcome": "not proved",
+      "missing": 25,
+      "packages": 2
+    },
+    {
+      "representative": "tests/workspacify-reverse/fixtures/patterns/spec-only-project",
+      "stages": {
+        "reached": [],
+        "refused": [
+          {
+            "stage": "G2",
+            "input": "pipeline ended with status REVIEW_REQUIRED"
+          }
+        ],
+        "complete": false
+      },
+      "outcome": "not proved",
+      "missing": 18,
+      "packages": 1
+    }
+  ],
+  "runs": [
+    {
+      "representative": "siprs-for-reverse",
+      "decisions": {
+        "input": "tests/workspacify-reverse/fixtures/patterns/siprs-for-reverse/DECISIONS.json",
+        "digest": "68d6a84fb85b6211cdeef0c01405e05ccaec8f7fd3d69aa24dd8ce276fc80ffd"
+      },
+      "analysed": 0,
+      "started_from": "5da48c08326de26d301ee30ced8596c23491a428d1b910e446a4d0b3ae8d3595"
+    },
+    {
+      "representative": "siprs-with-4layers",
+      "decisions": {
+        "input": "<scratch>",
+        "digest": "5157990420f6b007ce7668c49e7430f482b894a5d942b4f1e59a851a4d26bdf4"
+      },
+      "analysed": 0,
+      "started_from": "7fff58ff6d400d246603c0755cbac06abcf41d8dd595af02e2f91fa77e049da8"
+    },
+    {
+      "representative": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
+      "decisions": {
+        "input": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project/DECISIONS.json",
+        "digest": "694c1c923645bf200650ed568deda31d68164866b5cd3f83f20b5cc80ba27458"
+      },
+      "analysed": 0,
+      "started_from": "67f36e47b384edc16f4822b75ee5d136a2c0336fcfc3c7ce32e2058a839f8e18"
+    },
+    {
+      "representative": "tests/workspacify-reverse/fixtures/patterns/spec-only-project",
+      "decisions": {
+        "input": "<scratch>",
+        "digest": "5157990420f6b007ce7668c49e7430f482b894a5d942b4f1e59a851a4d26bdf4"
+      },
+      "analysed": 0,
+      "started_from": "0f1e95539f3bf1c8b12b614c54aeceb40791c1f3a2f3e09276eae3c44154145e"
+    }
+  ],
+  "comparison": {
+    "representatives": [],
+    "packagePaths": {},
+    "artefactNames": {},
+    "gates": {},
+    "differences": [],
+    "reported": [
+      {
+        "dimension": "packagePaths",
+        "value": 0
+      },
+      {
+        "dimension": "artefactNames",
+        "value": 0
+      }
+    ]
+  },
+  "ladder": {
+    "position": "L0",
+    "omissionZero": {
+      "measured": false,
+      "reason": "this observation runs no find-omissions round; §5.9 makes the result material for the human’s judgement rather than this run’s output"
+    },
+    "residue": "0 difference(s) recorded and none resolved",
+    "disagreements": []
+  },
+  "matrix": {
+    "states": []
+  }
+}

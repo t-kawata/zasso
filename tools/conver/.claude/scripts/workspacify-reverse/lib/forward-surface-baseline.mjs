@@ -30,7 +30,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join } from 'node:path';
+import { dirname, isAbsolute, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { canonicalSerialize } from '../../workspacify-tree/lib/canonical-json.mjs';
@@ -49,6 +49,9 @@ export const FORWARD_SURFACES_KEY = 'forwardSurfaces';
 /** The fixtures this baseline's values are produced from. */
 export const FORWARD_SURFACE_FIXTURES = 'tests/rfc-graph/fixtures/forward-surfaces';
 
+/** The stub the marker-rewrite surface checks, inside its fixture directory. */
+export const MARKER_REWRITE_STUB_FILE_NAME = 'PX-1-sample.js';
+
 /** Recorded for a value that did not reproduce, so it is never mistaken for frozen. */
 export const NON_DETERMINISTIC_KIND = 'non-deterministic';
 
@@ -57,6 +60,17 @@ export const CHECKLIST_TIMESTAMP_FIELD = 'timestamp';
 
 /** The replacement the normalisation substitutes, so two runs compare equal. */
 export const CHECKLIST_TIMESTAMP_PLACEHOLDER = '<generated-at>';
+
+/**
+ * The replacement the marker-rewrite normalisation substitutes for the root.
+ *
+ * A failure path is absolute because that is what a human running the check
+ * needs to read, and an absolute path in a frozen value records the machine the
+ * baseline was captured on: every other machine then sees drift that is the path
+ * and not the check. The root is substituted rather than the whole path so the
+ * fixture's own location survives into the record.
+ */
+export const PROJECT_ROOT_PLACEHOLDER = '<project-root>';
 
 /** The forward trees whose diff defines the population the gate must cover. */
 const FORWARD_TREE_PREFIXES = Object.freeze([
@@ -106,9 +120,16 @@ export const FORWARD_SURFACES = Object.freeze([
     kind: 'fixture-verdict',
     inputPath: `${FORWARD_SURFACE_FIXTURES}/marker-rewrite`,
     covers: ['.claude/scripts/rfc-graph/phasify-omissions.js'],
+    normalisation: `the project root is replaced with ${PROJECT_ROOT_PLACEHOLDER}`,
     producer: ({ projectRoot, input }) => ({
-      conforming: freezeMarkerRewrite({ projectRoot, fixture: input }),
-      violating: freezeMarkerRewriteViolation({ projectRoot, fixture: input }),
+      conforming: normaliseMarkerRewritePaths(
+        freezeMarkerRewrite({ projectRoot, fixture: input }),
+        { projectRoot, fixture: input },
+      ),
+      violating: normaliseMarkerRewritePaths(
+        freezeMarkerRewriteViolation({ projectRoot, fixture: input }),
+        { projectRoot, fixture: input },
+      ),
     }),
   },
   {
@@ -186,7 +207,7 @@ export function freezeTicketGuard({ projectRoot }) {
  */
 export function freezeMarkerRewrite({ projectRoot, fixture = join(FORWARD_SURFACE_FIXTURES, 'marker-rewrite') }) {
   const { verifyMarkerRewrites } = require$cjs(join(projectRoot, '.claude/scripts/rfc-graph/phasify-omissions.js'));
-  const stubPath = join(projectRoot, fixture, 'PX-1-sample.js');
+  const stubPath = join(projectRoot, fixture, MARKER_REWRITE_STUB_FILE_NAME);
 
   // The stub's line is found rather than asserted as a literal. It moved once
   // already, when a provenance annotation was injected above it, and a surface
@@ -196,7 +217,9 @@ export function freezeMarkerRewrite({ projectRoot, fixture = join(FORWARD_SURFAC
     .split('\n')
     .findIndex((line) => line.includes('[::STUB::]'));
   if (stubLine < 0) {
-    throw new Error(`the marker-rewrite fixture carries no [::STUB::] line to check: ${fixture}/PX-1-sample.js`);
+    throw new Error(
+      `the marker-rewrite fixture carries no [::STUB::] line to check: ${fixture}/${MARKER_REWRITE_STUB_FILE_NAME}`,
+    );
   }
 
   return verifyMarkerRewrites({
@@ -215,6 +238,41 @@ export function freezeMarkerRewrite({ projectRoot, fixture = join(FORWARD_SURFAC
 }
 
 /**
+ * A marker-rewrite verdict with the project root taken out of every failure path.
+ *
+ * `verifyMarkerRewrites` names the file it refused absolutely, which is right for
+ * the human running the check and wrong for a frozen value: the baseline would
+ * record the machine it was captured on, and the gate would report drift on every
+ * other machine — a moved checkout rendering as a moved check.
+ *
+ * The substituted string is the stub's own absolute path, built by the same
+ * `join` the producer built it with, rather than the project root followed by a
+ * separator. Callers reach a project root by different routes and `fileURLToPath`
+ * hands one over with a trailing separator while `process.cwd` does not; splitting
+ * on the root then either eats the separator or misses the path entirely, and
+ * either way the frozen value stops reproducing. Substituting the path keeps the
+ * fixture's location — the part that says *which* stub was refused — in the record.
+ *
+ * @param {{ ok: boolean, failures: string[] }} verdict the check's own verdict
+ * @param {{ projectRoot: string, fixture?: string }} args
+ * @returns {{ ok: boolean, failures: string[] }}
+ */
+export function normaliseMarkerRewritePaths(
+  verdict,
+  { projectRoot, fixture = join(FORWARD_SURFACE_FIXTURES, 'marker-rewrite') },
+) {
+  const stubPath = join(projectRoot, fixture, MARKER_REWRITE_STUB_FILE_NAME);
+  // Forward slashes in the frozen value, so a baseline captured on one platform
+  // reproduces on another. The substitution is otherwise a platform artefact.
+  const relativeStubPath = join(fixture, MARKER_REWRITE_STUB_FILE_NAME).split(sep).join('/');
+  return {
+    ok: verdict.ok,
+    failures: verdict.failures.map((failure) =>
+      failure.split(stubPath).join(`${PROJECT_ROOT_PLACEHOLDER}/${relativeStubPath}`)),
+  };
+}
+
+/**
  * The same check against a stub that still carries its old key, so the surface is
  * known to be able to fail.
  *
@@ -227,7 +285,7 @@ export function freezeMarkerRewrite({ projectRoot, fixture = join(FORWARD_SURFAC
  */
 export function freezeMarkerRewriteViolation({ projectRoot, fixture = join(FORWARD_SURFACE_FIXTURES, 'marker-rewrite') }) {
   const { verifyMarkerRewrites } = require$cjs(join(projectRoot, '.claude/scripts/rfc-graph/phasify-omissions.js'));
-  const stubPath = join(projectRoot, fixture, 'PX-1-sample.js');
+  const stubPath = join(projectRoot, fixture, MARKER_REWRITE_STUB_FILE_NAME);
   const stubLine = readFileSync(stubPath, 'utf8')
     .split('\n')
     .findIndex((line) => line.includes('[::STUB::]'));

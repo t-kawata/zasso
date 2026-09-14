@@ -1,0 +1,26 @@
+{
+  "caveat": "Mutation is a means of reconstructing red; it is not proof of contract coverage, and this plan is not a coverage measurement. A survivor is a question about the oracle, not a failure of the implementation, and a red failure is evidence rather than a verdict.",
+  "entries": [],
+  "environment": {
+    "available": false,
+    "kind": "isolated_environment",
+    "provided_by": "P22-18",
+    "reason": "no isolated environment exists in this run. This stage builds plans and does not execute them: the environment is supplied by P22-18 and the plans are executed by P22-19, so every plan is recorded as not executable here rather than dropped."
+  },
+  "oracle_independence_counts": {
+    "caveat": "Every oracle above is read from the implementation or from a reading of it, unless it is differential or metamorphic. A mutation plan's oracle is the suite that ships with the carrier, which the implementation produced and which therefore cannot corroborate it.",
+    "differential": 0,
+    "external_format_derived": 0,
+    "implementation_derived": 0,
+    "implementation_reverse_engineered": 0,
+    "metamorphic": 0,
+    "strong": 0,
+    "weak": 0
+  },
+  "root": "/Users/sh01/shyme/zasso/tools/conver/tmp/repro-empty",
+  "stage": "r6",
+  "unassigned": [],
+  "unavailable": [
+    "no isolated environment exists in this run. This stage builds plans and does not execute them: the environment is supplied by P22-18 and the plans are executed by P22-19, so every plan is recorded as not executable here rather than dropped."
+  ]
+}

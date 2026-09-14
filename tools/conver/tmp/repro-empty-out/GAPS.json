@@ -1,0 +1,34 @@
+{
+  "by_kind": {},
+  "caveat": "A gap list measures the detector and its population, not the project. A small number of gaps is never read as quality or success: gaps are the measurement itself, and a run that found none has more to explain than one that found several. Nothing below claims a region is absent — a region this instrument did not look at is unobserved, and the two are not the same word.",
+  "gap_count": 0,
+  "gaps": [],
+  "interpretation": "Zero gaps is a finding that requires scrutiny, not a pass. It is the signature of F1 — a ratification document that found nothing to disagree with — rather than a statement of quality. Examine the detector, the population it ran over, and the coverage denominator before reading this as a clean result.",
+  "kind_meanings": {
+    "absent_red": "a public surface with no test that could fail for it",
+    "circular_reasoning": "a test written from the design, so it agrees with the implementation by construction",
+    "comment_code_drift": "a comment and the code beneath it disagree",
+    "dead_code": "nothing in the analysed population references it",
+    "stub": "an incomplete implementation: a stub marker, a deferred-work note, a panic, or an empty body",
+    "unobserved_surface": "a construct, path or boundary never observed — which is not the same as absent"
+  },
+  "known_count": 0,
+  "reachability": {
+    "caveat": "This reading is over declarations the syntax layer enumerated and the import edges it observed, and nothing else. It resolves no names, follows no runtime dispatch and models no build configuration, so a region reported unreachable is one no observed edge reaches — which is not a claim that the region is absent from the program. A region this reader could not examine is not-analysable and never unreachable, and the three counts are asserted to sum to the population.",
+    "counts": {
+      "notAnalysable": 0,
+      "population": 0,
+      "reachable": 0,
+      "unreachable": 0
+    },
+    "entrypoints": [],
+    "language": "unknown",
+    "notes": [
+      "no entrypoint was declared, so no-entrypoint-path was not used: a package is reported reachable when an observed import edge points at it, and unreachable when none does. Naming a root is what would let this reading tell an unimported package from an unreferenced one"
+    ],
+    "regions": [],
+    "stage": "r5"
+  },
+  "requires_scrutiny": true,
+  "unclassifiedCount": 0
+}
