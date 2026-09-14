@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 
 import { CAPABILITY_MATRIX, TARGET_LANGUAGES } from '../../../.claude/scripts/workspacify-reverse/lib/analysis-tech.mjs';
 import { REPRESENTATIVE_ROOTS } from '../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs';
+import { PROPERTY_ENGINES } from '../../../.claude/scripts/workspacify-reverse/lib/property-tests.mjs';
 import { analyzeProject } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
 import { TCE_VERDICTS, NOT_TRIVIALLY_EQUIVALENT, TRIVIALLY_EQUIVALENT } from '../../../.claude/scripts/workspacify-reverse/lib/tce.mjs';
 import { hashTree } from '../helpers/scratch.mjs';
@@ -222,4 +223,68 @@ test('IT: the run\'s own before-and-after digest and this suite\'s independent o
   const scope = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-SCOPE.json'), 'utf8'));
   assert.equal(scope.target_digest.unmodified, true);
   out.dispose();
+});
+
+/**
+ * The row `PROPERTY_ENGINES` carries for a language whose engine is not recorded.
+ *
+ * It is the absence of an engine rather than one: a property under it is refused
+ * by name, so there is nothing for the environment to provide and nothing to
+ * declare.
+ */
+const UNRECORDED_LANGUAGE = 'unknown';
+
+/** Every ticket key `Tickets.json` holds, as `P{phase}-{ticket}`. */
+// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+function ticketKeys(tickets) {
+  const keys = new Set();
+  const pending = [tickets];
+
+  while (pending.length > 0) {
+    const value = pending.pop();
+    if (Array.isArray(value)) { for (const entry of value) pending.push(entry); continue; }
+    if (value === null || typeof value !== 'object') continue;
+    if (typeof value.id === 'number' && typeof value.phaseId === 'number') {
+      keys.add(`P${value.phaseId}-${value.id}`);
+    }
+    for (const entry of Object.values(value)) pending.push(entry);
+  }
+
+  return keys;
+}
+
+test('IT: every engine E14 writes a property for is declared in ENV-DEPS.json with the ticket that provides it', () => {
+  const environment = JSON.parse(readFileSync(join(PROJECT_ROOT, 'ENV-DEPS.json'), 'utf8'));
+  const declaredEngines = environment.propertyEngines ?? [];
+  const byEngine = new Map(declaredEngines.map((entry) => [entry.id, entry]));
+
+  // The engines a property can actually be written and run for. The comparison is
+  // made against the module rather than against a second list typed into the test,
+  // because a copied list drifts on spelling and each side's own assertions would
+  // still pass against its own copy.
+  const executedEngines = new Map(
+    Object.entries(PROPERTY_ENGINES).filter(([language]) => language !== UNRECORDED_LANGUAGE),
+  );
+
+  assert.deepEqual(
+    [...byEngine.keys()].sort(),
+    [...new Set(executedEngines.values())].sort(),
+    'the engines declared for the environment and the ones PROPERTY_ENGINES holds are the same set, both ways',
+  );
+
+  const known = ticketKeys(JSON.parse(readFileSync(join(PROJECT_ROOT, 'Tickets.json'), 'utf8')));
+
+  for (const [language, engine] of executedEngines) {
+    const entry = byEngine.get(engine);
+
+    assert.equal(entry.requiredFor, 'reverse', `${engine} is needed by the reverse rotation`);
+    assert.equal(
+      known.has(entry.providedBy), true,
+      `${engine} names ${entry.providedBy} as the ticket that provides it, and that ticket exists`,
+    );
+    assert.equal(
+      entry.languages.includes(language), true,
+      `${engine} names ${language} among the languages it serves`,
+    );
+  }
 });

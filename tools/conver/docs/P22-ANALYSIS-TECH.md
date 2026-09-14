@@ -337,9 +337,20 @@ is allowed to assert.
 
 **No engine is installed by this decision.** P22-7 writes each generated property as text and records
 the engine it is written for; nothing in this repository shells out to a PBT library. That is why
-this section adds no entry to `ENV-DEPS.json`: §7 item 5 governs *tools the analysis runs*, and a
-recorded engine name is not one. The first ticket that actually executes a generated property is the
-ticket that must declare the engine it executes it with.
+this section added no entry to `ENV-DEPS.json` at P22-7: §7 item 5 governs *tools the analysis runs*,
+and a recorded engine name is not one. The first ticket that actually executes a generated property is
+the ticket that must declare the engine it executes it with, and **P24-5 is that ticket**. It added the
+`propertyEngines` section to `ENV-DEPS.json`, one entry per engine the table above names, each carrying
+`requiredFor: "reverse"` and the ticket that provides it, and a test asserts the declared set and
+`PROPERTY_ENGINES` are the same set in both directions.
+
+The engines are recorded rather than probed, and that is not a gap: an engine is resolved by the
+subject's own package manager inside the disposable worktree, so this repository has no command that
+reports its version — of the six engines above, only `hypothesis` ships one. Declaring them under
+`tools` would mean inventing a probe that reports a version for something that has no command to
+report it, so the section exists to hold exactly those dependencies whose presence is decided by the
+worktree rather than by this machine. An engine that is unavailable is reported by the run as
+`nothing-to-execute` with that reason, never turned into a zero.
 
 The section below is the part that does carry weight, and it is why a generated property is never
 evidence on its own. An oracle read off the implementation agrees with the implementation because it
