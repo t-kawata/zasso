@@ -40,13 +40,21 @@ const MODULE_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse
  * that parameterise over the six representatives, and `run.mjs analyze` is pointed at one
  * subject at a time rather than at a fixture population. Wiring it into the analysis path
  * would put a declaration about test fixtures inside the run it is only evidence about.
+ *
+ * `terminal-state.mjs` is listed for the same reason. What reads §2.3's inventory and
+ * compares terminal states is the observation test that drives the three-command chain,
+ * not the analysis: the terminal state is a property of a run of the whole chain, and
+ * `run.mjs analyze` is one command of it. Wiring this into the analysis path would put a
+ * measurement of the chain inside one of the chain's own steps.
  */
 const STILL_ABSENT = Object.freeze([
+// [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
 // [::TICKET::] P23-7, P23-8, P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-7|P23-8|P23-12) --for-spec --no-implementation-order`.
 // [::TICKET::] P24-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-1 --for-spec --no-implementation-order`.
   'invariant-audit.mjs',
   'language-representatives.mjs',
   'staleness.mjs',
+  'terminal-state.mjs',
   'two-pass.mjs',
 ]);
 
@@ -145,7 +153,7 @@ test('C004 invariant — nine absent entrances become four, and the four are nam
     [...STILL_ABSENT].sort(),
     'the absent entrances design 6 records, less the four R2.5 reaches, the one R6.5 reaches and the two R7 now serves, plus the audit P23-12 keeps out of the run and the fixture declaration P24-1 keeps out of the analysis path',
   );
-  assert.equal(unreachable.length, 4, 'nine before the stages, two after P23-8, plus the audit P23-12 adds and the declaration P24-1 adds');
+  assert.equal(unreachable.length, 5, 'nine before the stages, two after P23-8, plus the audit P23-12 adds, the declaration P24-1 adds and the terminal-state measurement P24-8 adds');
 });
 
 test('C004 invariant — the closure is recomputed rather than remembered, so a new unreachable module is reported', () => {
