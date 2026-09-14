@@ -1845,7 +1845,19 @@
       "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P19-6\" --phase=start)",
       "Bash(make -n test)",
       "Bash(git -C /Users/sh01/shyme/zasso rev-parse --show-toplevel)",
-      "Bash(echo \"=== siprs Makefile targets ===\"; grep -nE '^[a-zA-Z0-9_.-]+:' /Users/sh01/shyme/zasso/crates/siprs/Makefile 2>/dev/null | head -40; echo \"=== root Makefile targets ===\"; grep -nE '^[a-zA-Z0-9_.-]+:' /Users/sh01/shyme/zasso/Makefile 2>/dev/null | head -40)"
+      "Bash(echo \"=== siprs Makefile targets ===\"; grep -nE '^[a-zA-Z0-9_.-]+:' /Users/sh01/shyme/zasso/crates/siprs/Makefile 2>/dev/null | head -40; echo \"=== root Makefile targets ===\"; grep -nE '^[a-zA-Z0-9_.-]+:' /Users/sh01/shyme/zasso/Makefile 2>/dev/null | head -40)",
+      "Bash(node .claude/scripts/tickets/check-ticket-status.js --ticket-key=\"P24-9\" --phase=plan)",
+      "Bash(node \".claude/scripts/tickets/show-ticket-context.js\" --ticket-key=\"P24-9\" --for-spec --plan)",
+      "Bash(awk '/^function evaluateReferenceResolution/,/^}/' .claude/scripts/workspacify-tree/lib/validation.mjs)",
+      "Bash(awk '/^function validatePackageResponsibilities/,/^}/' .claude/scripts/workspacify-tree/lib/validation.mjs)",
+      "Bash(awk '/^function evaluateSemanticApproval/,/^}/' .claude/scripts/workspacify-tree/lib/validation.mjs)",
+      "Bash(cp .claude/scripts/workspacify-tree/run.mjs /tmp/run.mjs.p24-9)",
+      "Bash(node --test tests/workspacify-tree/reverse/cli-reverse.test.mjs)",
+      "Bash(cp .claude/scripts/workspacify-tree/run.mjs /tmp/p24-9-keep/run.mjs)",
+      "Bash(make test-workspacify-reverse *)",
+      "Bash(echo \"baseline exit=$?\")",
+      "Bash(cp /tmp/p24-9-keep/run.mjs .claude/scripts/workspacify-tree/run.mjs)",
+      "Bash(cp -R /tmp/p24-9-keep/siprs-fixture-dir tests/workspacify-reverse/fixtures/patterns/siprs-for-reverse)"
     ]
   }
 }
