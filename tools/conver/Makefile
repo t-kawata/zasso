@@ -3,7 +3,7 @@
 # 「最新」と判断して何も実行しない（実際に無言で何もしなかった）。
 .PHONY: list-tickets list-px-tickets list-active-tickets \
         build-conver typecheck run-conver \
-        test-conver test test-rfc-graph test-tickets-reverse test-grill-reverse \
+        test-conver test test-all test-rfc-graph test-tickets-reverse test-grill-reverse \
         test-workspacify-reverse test-workspacify test-crystalize-readme \
         test-drill-rfc-down test-stub-resolution \
         check-conventions check-bundle-fresh \
@@ -35,10 +35,20 @@ run-conver:
 test-conver:
 		npx tsc && node --experimental-test-module-mocks --test dist/error.test.js dist/cli.test.js dist/tickets.test.js dist/notifier.test.js dist/session.test.js dist/line-writer.test.js dist/runner.test.js dist/supervisor.test.js dist/conver.test.js dist/watcher.test.js dist/time-window.test.js dist/cron-scheduler.test.js dist/check-and-start-loop.test.js dist/step-timer.test.js
 
-# test: リポジトリの全テストを1コマンドで実行する（3面の合併）
+# test: リポジトリのテストを1コマンドで実行する（3面の合併）
 #   PX-204: 集約器が discovery を行い、面ごとに実行して欠落を照合する。
 #   既知の .claude/tests の14失敗はベースラインとして報告され、失敗にはしない。
+#   重い計測スイートは TEST_EXCLUDES で外す。外したファイルはレポートに
+#   Deferred として名前つきで出るため、黙って消えることはない。
+#   実測（2026-09-14）: workspacify-reverse/integration は単独 156 秒、
+#   それ以外の全ディレクトリは 18 秒以下。
+TEST_EXCLUDES := --exclude=tests/workspacify-reverse/integration
+
 test:
+		node tests/run-all-surfaces.mjs $(TEST_EXCLUDES)
+
+# test-all: 除外なしで全サーフェス・全ファイルを実行する（夜間・リリース前）
+test-all:
 		node tests/run-all-surfaces.mjs
 
 # check-conventions: 各スクリプトディレクトリが宣言どおりのモジュール方式を使っているか、

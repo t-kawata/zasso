@@ -31,7 +31,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -117,6 +117,22 @@ function digestTree(root) {
 
 const PASSING = "import { test } from 'node:test';\ntest('ok', () => {});\n";
 const FAILING = "import { test } from 'node:test';\ntest('nope', () => { throw new Error('boom'); });\n";
+
+/**
+ * A test file that records that it ran.
+ *
+ * The report's counters say what the runner believes; a marker on disk says what
+ * the runtime did. A deferred file that was counted as deferred but executed
+ * anyway would pass a counter-only assertion, so the property is pinned to the
+ * artifact rather than to the number.
+ */
+function witnessing(marker) {
+  return (
+    "import { test } from 'node:test';\n"
+    + "import { writeFileSync } from 'node:fs';\n"
+    + `test('witness', () => { writeFileSync(${JSON.stringify(marker)}, 'ran'); });\n`
+  );
+}
 
 // ===========================================================================
 // Fixture-tree tests — the properties of the runner itself
@@ -224,6 +240,76 @@ test('UT-14 an unsupported extension is reported rather than silently ignored', 
     const { report } = runAggregate({ root, arguments: ['--surface=project-mjs'] });
     assert.equal(report.discovered, 1);
     assert.deepEqual(report.unsupported.map((file) => file.split(sep).pop()), ['b.test.ts']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ===========================================================================
+// Cost control — a subtree the routine run defers, named rather than dropped
+// ===========================================================================
+
+test('UT-25 an excluded subtree is not executed and is named as deferred', () => {
+  const marker = join(mkdtempSync(join(tmpdir(), 'px204-witness-')), 'ran');
+  const root = makeFixtureTree({
+    [`${TESTS_ROOT}/unit/a.test.mjs`]: PASSING,
+    [`${TESTS_ROOT}/slow/b.test.mjs`]: witnessing(marker),
+  });
+  try {
+    const { report, status } = runAggregate({
+      root,
+      arguments: ['--surface=project-mjs', '--exclude=tests/slow'],
+    });
+
+    assert.equal(status, 0, 'deferring a subtree is a decision, not a failure');
+    assert.deepEqual(
+      report.deferred.map((file) => file.split(sep).pop()),
+      ['b.test.mjs'],
+      'a deferred file must be named in the report',
+    );
+    assert.equal(existsSync(marker), false, 'a deferred file must not be executed');
+    assert.equal(report.executed, 1, 'everything else still runs');
+    assert.deepEqual(report.missing, [], 'deferring a file is not the same as losing it');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('UT-26 an exclusion that matches no test file is refused by name', () => {
+  const root = makeFixtureTree({ [`${TESTS_ROOT}/unit/a.test.mjs`]: PASSING });
+  try {
+    const result = spawnSync(
+      process.execPath,
+      [RUNNER, `--root=${root}`, '--surface=project-mjs', '--exclude=tests/nope'],
+      { cwd: PROJECT_ROOT, encoding: 'utf8' },
+    );
+
+    assert.notEqual(result.status, 0, 'an exclusion that matches nothing must not be silently ignored');
+    assert.match(result.stderr, /tests\/nope/, 'the refused exclusion must appear in the error');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('UT-27 the aggregate own tests are never deferred', () => {
+  const marker = join(mkdtempSync(join(tmpdir(), 'px204-witness-')), 'ran');
+  const root = makeFixtureTree({
+    [`${TESTS_ROOT}/slow/${SELF_TEST_FILE_NAMES[0]}`]: witnessing(marker),
+    [`${TESTS_ROOT}/slow/other.test.mjs`]: PASSING,
+  });
+  try {
+    const { report } = runAggregate({
+      root,
+      arguments: ['--surface=project-mjs', '--exclude=tests/slow'],
+      env: { [AGGREGATE_DEPTH_ENV]: null },
+    });
+
+    assert.deepEqual(
+      report.deferred.map((file) => file.split(sep).pop()),
+      ['other.test.mjs'],
+      'the guard on the runner cannot be deferred by the run it guards',
+    );
+    assert.equal(existsSync(marker), true, 'the aggregate own test must still be executed');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

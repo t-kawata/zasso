@@ -516,6 +516,8 @@ npm run build
 | `npm run typecheck` | TypeScript の型チェックのみ（`tsc --noEmit`） |
 | `make build-conver` | esbuild バンドル＋`.claude/scripts/conver/` に配置 |
 | `make typecheck` | `npm run typecheck` と同じ |
+| `make test` | リポジトリのテスト（重い計測スイート `tests/workspacify-reverse/integration` は `--exclude` で外す。外した分はレポートに Deferred として明示） |
+| `make test-all` | 除外なしの全テスト（夜間・リリース前） |
 | `make test-conver` | conver.js 本体のユニットテスト（tsc コンパイル後 `node --test`） |
 | `make test-rfc-graph` | rfc-graph 全スクリプトのテスト |
 | `make run-conver` | `ARGS` を指定して conver.js を実行 |

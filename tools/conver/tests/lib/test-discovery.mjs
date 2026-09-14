@@ -17,7 +17,7 @@
  * to close.
  */
 import { readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 
 /** The two roots discovery walks, relative to a project root. */
 export const TESTS_ROOT = 'tests';
@@ -150,6 +150,42 @@ export function partitionSelfTests(files, { nested }) {
   return {
     runnable: files.filter((file) => !isSelfTest(file)),
     selfExcluded: files.filter(isSelfTest),
+  };
+}
+
+/**
+ * Whether a file sits inside one of the exclusion roots.
+ *
+ * A root matches itself and everything beneath it, never a path that merely
+ * starts with the same characters: `tests/unit-2` is not inside `tests/unit`.
+ *
+ * @param {string} file — an absolute path
+ * @param {string[]} exclusionRoots — absolute paths
+ * @returns {boolean}
+ */
+export function isUnderAny(file, exclusionRoots) {
+  return exclusionRoots.some((root) => file === root || file.startsWith(`${root}${sep}`));
+}
+
+/**
+ * Split a surface's files into the ones this run executes and the ones an explicit
+ * exclusion defers.
+ *
+ * Deferring is a decision about cost, never about coverage: a deferred file is
+ * named in the report, so it can never be confused with one that was forgotten.
+ * The aggregate's own tests are never deferred — they guard the runner, and a
+ * routine run that deferred its own guard would report a broken runner as a clean
+ * one.
+ *
+ * @param {string[]} files — the surface's runnable files
+ * @param {string[]} exclusionRoots — absolute paths
+ * @returns {{ kept: string[], deferred: string[] }}
+ */
+export function partitionDeferred(files, exclusionRoots) {
+  const isSelfTest = (file) => SELF_TEST_FILE_NAMES.some((name) => file.endsWith(`/${name}`) || file.endsWith(name));
+  return {
+    kept: files.filter((file) => isSelfTest(file) || !isUnderAny(file, exclusionRoots)),
+    deferred: files.filter((file) => !isSelfTest(file) && isUnderAny(file, exclusionRoots)),
   };
 }
 

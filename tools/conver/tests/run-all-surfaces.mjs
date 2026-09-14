@@ -24,12 +24,17 @@
  *     reported. A file that exists but did not run is the failure this command
  *     exists to make visible, so it fails the run rather than reducing a total.
  *
- * Usage: node tests/run-all-surfaces.mjs [--root=<dir>] [--surface=<name>]... [--json] [--verbose]
+ * Usage: node tests/run-all-surfaces.mjs [--root=<dir>] [--surface=<name>]... [--exclude=<path>]... [--json] [--verbose]
  *
  *   --root      the tree to analyse; defaults to the project this runner lives in
  *   --surface   run only the named surfaces, repeatable; the rest are reported as
  *               not-run, never as passing. A caller that is itself a test of this
  *               runner must not name the surface it lives in — see the note below.
+ *   --exclude   defer the test files under a path, repeatable. A deferred file is
+ *               named in the report rather than dropped, so a routine run that
+ *               leaves out an expensive suite cannot be confused with one that
+ *               lost it. An exclusion matching no test file is refused. The
+ *               aggregate's own tests are never deferred.
  *   --json      emit the machine-readable report instead of the Markdown one
  *   --verbose   stream each child's output even when the surface passed
  *
@@ -41,7 +46,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
@@ -60,8 +65,10 @@ import {
   groupBySurface,
   isLegacySkipNotice,
   isNestedRun,
+  isUnderAny,
   parseNodeTestTotals,
   parseLegacyFileOutput,
+  partitionDeferred,
   partitionSelfTests,
   summariseSurface,
   unexpectedFailuresOf,
@@ -99,9 +106,11 @@ function childEnvironment() {
 // [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function parseArguments(argv) {
   const selected = new Set();
-  const options = { selected, json: false, verbose: false, root: MODULE_ROOT };
+  const excluded = [];
+  const options = { selected, excluded, json: false, verbose: false, root: MODULE_ROOT };
   for (const argument of argv) {
     if (argument.startsWith('--surface=')) selected.add(argument.slice('--surface='.length));
+    else if (argument.startsWith('--exclude=')) excluded.push(argument.slice('--exclude='.length));
     else if (argument.startsWith('--root=')) options.root = argument.slice('--root='.length);
     else if (argument === '--json') options.json = true;
     else if (argument === '--verbose') options.verbose = true;
@@ -115,6 +124,33 @@ function parseArguments(argv) {
     throw new Error(`--root names a directory that does not exist: ${options.root}`);
   }
   return options;
+}
+
+/**
+ * Resolve the requested exclusions and refuse one that would defer nothing.
+ *
+ * An exclusion is a policy about what the routine run pays for. A policy that
+ * matches no test file is either a typo or a stale path, and both read in the
+ * report as "the expensive suite was left out" while leaving it in — so it is
+ * refused by name instead.
+ *
+ * @param {string[]} excluded — paths as given on the command line
+ * @param {string[]} discovered — every test file below the root
+ * @param {string} projectRoot
+ * @returns {string[]} absolute exclusion roots
+ */
+// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+function resolveExclusions(excluded, discovered, projectRoot) {
+  const roots = excluded.map((relative) => resolve(projectRoot, relative));
+  const unmatched = excluded.filter((relative, index) => !discovered.some((file) => isUnderAny(file, [roots[index]])));
+  if (unmatched.length > 0) {
+    throw new Error(
+      `--exclude matched no test file: ${unmatched.join(', ')}. `
+      + 'An exclusion that defers nothing is refused rather than ignored, because it would report '
+      + 'the work as left out while still paying for it.',
+    );
+  }
+  return roots;
 }
 
 /** Whether a surface was asked for. An empty selection means every surface. */
@@ -216,6 +252,19 @@ function runProjectSurface(projectRoot, files) {
   return { totals: parseNodeTestTotals(output), executedFiles: files, output };
 }
 
+/** How many deferred names the Markdown report lists before it summarises the rest. */
+const DEFERRED_LIST_LIMIT = 5;
+
+/**
+ * Render a list for a person: the first few names, then how many were left out.
+ * The JSON report carries every name, so nothing is lost by capping here.
+ */
+// [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
+function cappedList(names, limit = DEFERRED_LIST_LIMIT) {
+  if (names.length <= limit) return names.join(', ');
+  return `${names.slice(0, limit).join(', ')}, …and ${names.length - limit} more`;
+}
+
 /** Render the report a person reads. */
 // [::TICKET::] PX-204 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-204 --for-spec --no-implementation-order`.
 function renderReport(report) {
@@ -234,6 +283,9 @@ function renderReport(report) {
     );
   }
   lines.push('', `Discovered ${report.discovered} test file(s); ran ${report.executed}.`);
+  if (report.deferred.length > 0) {
+    lines.push(`Deferred by --exclude, not executed (${report.deferred.length} file(s)): ${cappedList(report.deferred)}`);
+  }
   if (report.skipped.length > 0) {
     lines.push(`Declined to run, reporting nothing (named, not counted as failures): ${report.skipped.join(', ')}`);
   }
@@ -261,10 +313,12 @@ function main() {
   const nested = isNestedRun(process.env);
   const discovered = discoverTestFiles(options.root);
   const unsupported = findUnsupportedTestFiles(options.root);
+  const exclusionRoots = resolveExclusions(options.excluded, discovered, options.root);
   const bySurface = groupBySurface(discovered);
 
   const surfaces = {};
   const executedFiles = [];
+  const deferredFiles = [];
   const skippedFiles = [];
   const uncountedFiles = [];
   const failures = [];
@@ -275,20 +329,27 @@ function main() {
     const { runnable, selfExcluded: excluded } = partitionSelfTests(surfaceFiles, { nested });
     selfExcluded.push(...excluded);
 
+    // Deferred files are removed from the run set rather than counted as missing:
+    // the exclusion is what the caller asked for, and the report names every file
+    // it covered so the difference between "left out on purpose" and "lost" stays
+    // readable.
+    const { kept, deferred } = partitionDeferred(runnable, exclusionRoots);
+    deferredFiles.push(...deferred);
+
     if (!isSelected(options.selected, surfaceName)) {
-      surfaces[surfaceName] = summariseSurface({ name: surfaceName, files: runnable, totals: null, selected: false });
+      surfaces[surfaceName] = summariseSurface({ name: surfaceName, files: kept, totals: null, selected: false });
       continue;
     }
     // A surface with no files is not run at all. Attempting it would report a
     // zero-test pass, and a surface that passed with nothing in it reads as a
     // success — the failure mode this runner exists to remove.
-    if (runnable.length === 0) {
-      surfaces[surfaceName] = summariseSurface({ name: surfaceName, files: runnable, totals: null });
+    if (kept.length === 0) {
+      surfaces[surfaceName] = summariseSurface({ name: surfaceName, files: kept, totals: null });
       continue;
     }
     try {
-      const run = surfaceName === SURFACE_NAMES.CLAUDE_TESTS ? runLegacySurface(options.root, runnable) : runProjectSurface(options.root, runnable);
-      surfaces[surfaceName] = summariseSurface({ name: surfaceName, files: runnable, totals: run.totals });
+      const run = surfaceName === SURFACE_NAMES.CLAUDE_TESTS ? runLegacySurface(options.root, kept) : runProjectSurface(options.root, kept);
+      surfaces[surfaceName] = summariseSurface({ name: surfaceName, files: kept, totals: run.totals });
       executedFiles.push(...run.executedFiles);
       skippedFiles.push(...(run.skipped ?? []));
       uncountedFiles.push(...(run.uncounted ?? []));
@@ -305,7 +366,7 @@ function main() {
     } catch (error) {
       if (!(error instanceof SurfaceUnavailableError)) throw error;
       unavailable.push(`${surfaceName}: ${error.message}`);
-      surfaces[surfaceName] = summariseSurface({ name: surfaceName, files: runnable, totals: null });
+      surfaces[surfaceName] = summariseSurface({ name: surfaceName, files: kept, totals: null });
     }
   }
 
@@ -331,6 +392,7 @@ function main() {
     unsupported,
     skipped: skippedFiles,
     uncounted: uncountedFiles,
+    deferred: deferredFiles.map((file) => relativeTo(options.root, file)).sort(),
     selfExcluded,
     nested,
     baselineFailures,
