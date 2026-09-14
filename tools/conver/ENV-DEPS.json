@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "comment": "The single declaration of every dependency a conver project has. Adding a dependency means adding one entry here — never a new mechanism. `requiredFor` says which rotation needs it; `providedBy` names the ticket that introduces it, so an entry whose ticket has not converged is reported as not yet required rather than as missing.",
+  "comment": "The single declaration of every dependency a conver project has. Adding a dependency means adding one entry here — never a new mechanism. `requiredFor` says which rotation needs it; `providedBy` names the ticket that introduces it, so an entry whose ticket has not converged is reported as not yet required rather than as missing. The three sections differ in what resolving an entry means: `npmRoots` are trees this repository installs and resolves, `tools` are executables it probes, and `propertyEngines` are libraries a generated property is written for, which the subject's own package manager resolves — so this repository records them and probes none of them.",
   "npmRoots": [
     {
       "id": "claude",
@@ -298,6 +298,54 @@
         "linux": "npm install -g @zvec/zvec-grep",
         "win32": "npm install -g @zvec/zvec-grep"
       }
+    }
+  ],
+  "propertyEngines": [
+    {
+      "id": "proptest",
+      "languages": [
+        "rust"
+      ],
+      "requiredFor": "reverse",
+      "providedBy": "P24-5",
+      "description": "The engine R6.5 writes a Rust property for. It is a crate rather than an executable — `PROPERTY_ENGINES` names it, the property E14 writes declares it, and `cargo test` resolves and runs it inside the disposable worktree — so there is no command that reports its version and this entry is recorded rather than probed."
+    },
+    {
+      "id": "fast-check",
+      "languages": [
+        "typescript",
+        "javascript"
+      ],
+      "requiredFor": "reverse",
+      "providedBy": "P24-5",
+      "description": "The engine R6.5 writes a TypeScript and a JavaScript property for, resolved by `npm` inside the disposable worktree. It serves two languages and E14 renders it once per language, because a single rendering would write one language's file into the other's tree."
+    },
+    {
+      "id": "rapid",
+      "languages": [
+        "go"
+      ],
+      "requiredFor": "reverse",
+      "providedBy": "P24-5",
+      "description": "The engine R6.5 writes a Go property for, resolved by `go test` inside the disposable worktree. It is a module rather than an executable, and it declares no version command, so the entry is recorded rather than probed."
+    },
+    {
+      "id": "hypothesis",
+      "languages": [
+        "python"
+      ],
+      "requiredFor": "reverse",
+      "providedBy": "P24-5",
+      "description": "The engine R6.5 writes a Python property for, resolved by the interpreter inside the disposable worktree. Hypothesis infers its strategy from a type hint, which is why a parameter carrying none is reported as inexpressible rather than approximated."
+    },
+    {
+      "id": "RapidCheck",
+      "languages": [
+        "c_cpp"
+      ],
+      "requiredFor": "reverse",
+      "providedBy": "P24-5",
+      "description": "The engine R6.5 writes a C/C++ property for, compiled into the disposable worktree by the same CMake project that builds the subject. Its C/C++ results carry the preprocessor boundary until P24-6 resolves which translation units a build actually composes."
     }
   ]
 }

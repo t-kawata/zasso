@@ -100,6 +100,8 @@ import { deriveCounterexamples, runCounterexamples } from './counterexample-run.
 import { PROPERTY_ENGINES, generatePropertyTests, renderPropertyTestReport, runGeneratedProperties } from './property-tests.mjs';
 import { measureReachability } from './reachability.mjs';
 import { historyFromGit } from './evidence-independence.mjs';
+import { discoverBuildDatabase, summariseBuildDatabase } from './build-database.mjs';
+import { deriveCapabilityMatrix, renderDerivedMatrixMarkdown } from './capability-matrix.mjs';
 import { measureDependencies, renderDependencyReport } from './dependencies.mjs';
 import { measureExecutionSurface, renderExecutionSurfaceReport } from './execution-surface.mjs';
 import { measureDynamicCoupling, renderDynamicCoupling } from './dynamic-coupling.mjs';
@@ -968,6 +970,7 @@ export function buildAnalysisAttemptLedger({ structure, dependencies, surface, s
  * should.
  */
 export function renderAnalysisReport(run) {
+// [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
   const {
     scope,
     pattern = null,
@@ -986,6 +989,7 @@ export function renderAnalysisReport(run) {
     counterexamples = null,
     properties = null,
     attempts,
+    capabilityMatrix = null,
     stagesRun,
   } = run;
   // The title names the last stage that actually ran, and the stages that did
@@ -1028,6 +1032,22 @@ export function renderAnalysisReport(run) {
   if (redPlan !== null) lines.push(renderRedReconstructionReport(redPlan));
   if (counterexamples !== null) lines.push(renderCounterexampleReport(counterexamples));
   if (properties !== null) lines.push(renderPropertyTestReport(properties));
+
+  // The matrix is the ledger read per language and per item, so it is rendered
+  // immediately before the ledger it summarises. Its explanations are read from
+  // the same derivation that produced the cells, so the table and the rows it
+  // names cannot disagree.
+  if (capabilityMatrix !== null) {
+    lines.push(
+      '',
+      '## Capability matrix',
+      '',
+      renderDerivedMatrixMarkdown(capabilityMatrix.matrix, {
+        explain: ({ language, item }) => capabilityMatrix.sources[`${language}/${item}`],
+      }),
+      '',
+    );
+  }
 
   lines.push(
     '# The analysis attempt ledger',
@@ -1527,6 +1547,8 @@ function renderAdjudicationMarkdown(adjudication) {
 }
 
 export async function analyzeProject({
+// [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
 // [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
   root,
   out,
@@ -1583,6 +1605,13 @@ export async function analyzeProject({
     .filter((artefact) => artefact.coverage === 'out_of_scope')
     .map((artefact) => artefact.path);
 
+  // R0.5's build database. It is discovered once, from the same walk R0 read,
+  // and travels to the two measurements that consume it — R1 for the mode it
+  // earns and R2 for the include paths it resolves along. A discovery per
+  // consumer would be three readings of one file and three chances to disagree
+  // about whether the subject is configured.
+  const buildDatabase = runStage('r0.5', () => discoverBuildDatabase({ root: scope.root, artefacts }));
+
   // R0's eligibility assessment. It reads the R0 channel — the artefact walk, the
   // subject root and the target commit R0 resolved — and nothing later, so its
   // findings are the same at every depth a run can stop at, and the material
@@ -1623,10 +1652,12 @@ export async function analyzeProject({
       sandboxOptions: {},
     }));
   const structure = stagesRun.includes('r1')
-    ? runStage('r1', () => measureStructure({ root: scope.root, excludedPaths }))
+    ? runStage('r1', () => measureStructure({ root: scope.root, excludedPaths, configuration: buildDatabase }))
     : null;
   const dependencies = stagesRun.includes('r2')
-    ? runStage('r2', () => measureDependencies({ root: scope.root, excludedPaths, surface }))
+    ? runStage('r2', () => measureDependencies({
+      root: scope.root, excludedPaths, surface, configuration: buildDatabase,
+    }))
     : null;
 
   // R3 reads its population from the boundary R2 measured, so it runs after the
@@ -1749,6 +1780,11 @@ export async function analyzeProject({
   }
 
   const attempts = buildAnalysisAttemptLedger({ structure, dependencies, surface, semantics, dynamicCoupling });
+  // The matrix answers "how far can this instrument see, per language and per
+  // item", and it is read off this run's own ledger rather than asserted. It is
+  // material: no stage consults it, and a cell reading `not_attempted` states
+  // what the run did not do rather than what the project lacks.
+  const capabilityMatrix = deriveCapabilityMatrix({ ledger: attempts });
   const report = renderAnalysisReport({
     scope,
     pattern,
@@ -1764,12 +1800,17 @@ export async function analyzeProject({
     gaps: classifiedGaps,
     oracleGap,
     attempts,
+    capabilityMatrix,
     stagesRun,
   });
 
   const documents = {
     'ANALYSIS-SCOPE.json': {
       ...scope,
+      // A fact about what the run could see, beside the boundary it fixed:
+      // whether the subject declared how it is built, and how many translation
+      // units that declaration named.
+      buildDatabase: summariseBuildDatabase(buildDatabase),
       target_digest: {
         sha256: before.sha256,
         file_count: before.fileCount,
@@ -1789,6 +1830,9 @@ export async function analyzeProject({
     [PATTERN_FILE_NAME]: pattern,
     'ELIGIBILITY.json': eligibility,
     'ANALYSIS-ATTEMPTS.json': attempts,
+    // Published by every run, beside the ledger it is read from: a document
+    // set that changed shape with what was found would make the finding a gate.
+    'CAPABILITY-MATRIX.json': capabilityMatrix,
     'R0-R2-REPORT.md': report,
   };
   if (structure !== null) documents['STRUCTURE.json'] = structure;

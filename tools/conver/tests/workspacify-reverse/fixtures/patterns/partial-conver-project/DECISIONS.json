@@ -1,0 +1,92 @@
+{
+  "workspace": [
+    {
+      "id": "pkg-0001",
+      "name": "auth",
+      "path": "src",
+      "layer": "core",
+      "kind": "production-library",
+      "responsibilities": [
+        "owns the authentication entry point the subject declares in src/auth.rs"
+      ],
+      "seed_required": true,
+      "owns": {
+        "objects": [],
+        "claims": [],
+        "invariants": [],
+        "state_machines": [],
+        "error_codes": [],
+        "required_tests": []
+      }
+    },
+    {
+      "id": "pkg-0002",
+      "name": "design-record",
+      "path": "docs",
+      "layer": "foundation",
+      "kind": "conformance",
+      "responsibilities": [
+        "holds the subject's own design record: RFC-AUTH.md and Tickets.json, which are material about the project rather than implementation of it"
+      ],
+      "seed_required": false,
+      "owns": {
+        "objects": [],
+        "claims": [],
+        "invariants": [],
+        "state_machines": [],
+        "error_codes": [],
+        "required_tests": []
+      }
+    }
+  ],
+  "ownership": [],
+  "dependencies": [],
+  "adapters": [],
+  "approvals": [],
+  "semantic_review": {
+    "status": "APPROVED",
+    "statement": "The origin spec this run produced is empty: it observed 0 claims, inferred 0 and carried 0 normative statements, and demoted none. There is no semantic design to approve, so what is approved here is the reading itself - that the emptiness is an explicit result from a run that looked, not a report that dropped material. The subject is a partial conver project whose own analysis found no claim to carry, and inventing a partition for it would put directories where the material states none.",
+    "approver": "P24-8 observation, authored from the packet material this run served"
+  },
+  "spec_defects": [
+    {
+      "candidate_id": "pulse-000001",
+      "ai_interpretation": "The Scope chapter is a fixed section of the origin spec rather than a statement about a directory. It carries the run's own metadata - schema version, kind and root - so no chapter refers to it and no harvested item belongs to it.",
+      "chosen_default": "It reaches no directory. The section is read as the spec's own header and is not seeded to any package.",
+      "rationale": "A section that describes the document cannot also describe the project, and treating it as project material would put a package boundary around the report's own preamble."
+    },
+    {
+      "candidate_id": "pulse-000002",
+      "ai_interpretation": "The Provenance chapter reports the run's evidence counts, and every count is zero because the population held no claim.",
+      "chosen_default": "It reaches no directory. The zero counts are read as an explicit empty result and are not re-expressed as absence of provenance in a package.",
+      "rationale": "Recording a per-directory provenance note for a run that found nothing to carry would convert 'we looked and found none' into a statement about a package, which is the substitution the run's own caveat forbids."
+    },
+    {
+      "candidate_id": "pulse-000003",
+      "ai_interpretation": "The Claims chapter states in words that the spec is empty because the population held no claim.",
+      "chosen_default": "It reaches no directory. The statement is read as the spec's explicit empty result.",
+      "rationale": "The claim is about the instrument's finding rather than about the subject's content, and a package seeded from it would carry a fact about the reading as if it were a fact about the code."
+    },
+    {
+      "candidate_id": "pulse-000004",
+      "ai_interpretation": "The Demotions chapter reports that no claim was demoted, which is what a run with no claims must report.",
+      "chosen_default": "It reaches no directory. The absence of demotions is read as consistent with the absence of claims.",
+      "rationale": "A chapter that reports the absence of an operation is not material for a partition, and seeding it would invent a directory to hold a statement that nothing happened."
+    }
+  ],
+  "residual_questions": [],
+  "tree": [
+    {
+      "name": "docs",
+      "path": "docs",
+      "kind": "dir",
+      "children": []
+    },
+    {
+      "name": "src",
+      "path": "src",
+      "kind": "dir",
+      "children": []
+    }
+  ]
+}
