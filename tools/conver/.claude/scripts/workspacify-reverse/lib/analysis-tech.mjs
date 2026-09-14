@@ -712,10 +712,20 @@ export function listArtefacts(root) {
   return artefacts;
 }
 
+/**
+ * The value `languageOfPath` returns when an extension names no language.
+ *
+ * It is a sentinel and not a language: no grammar, capability row or TCE
+ * configuration is declared for it, so a consumer that passes it on where a
+ * language is expected raises instead of reporting. Declared once so those
+ * consumers can recognise it by name rather than by re-spelling the string.
+ */
+export const UNKNOWN_LANGUAGE = 'unknown';
+
 /** The language an artefact is written in, or `unknown`. Named for E1's package grouping. */
 export function languageOfPath(relativePath) {
   const extension = relativePath.slice(relativePath.lastIndexOf('.'));
-  return LANGUAGE_BY_EXTENSION_SHARED[extension] ?? 'unknown';
+  return LANGUAGE_BY_EXTENSION_SHARED[extension] ?? UNKNOWN_LANGUAGE;
 }
 
 /**

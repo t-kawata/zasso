@@ -1915,7 +1915,25 @@
       "Bash(node /tmp/p2411-probe/chain.mjs siprs-for-reverse)",
       "Bash(rm -rf alloc-nomanifest)",
       "Bash(cp -R /Users/sh01/shyme/zasso/tools/conver/tests/workspacify-reverse/fixtures/patterns/partial-conver-project alloc-nomanifest)",
-      "Bash(node /Users/sh01/shyme/zasso/tools/conver/.claude/scripts/workspacify-allocate/run.mjs reverse --root=/tmp/p2411-probe/alloc-nomanifest --decisions=/Users/sh01/shyme/zasso/tools/conver/tests/workspacify-reverse/fixtures/patterns/partial-conver-project/DECISIONS.json)"
+      "Bash(node /Users/sh01/shyme/zasso/tools/conver/.claude/scripts/workspacify-allocate/run.mjs reverse --root=/tmp/p2411-probe/alloc-nomanifest --decisions=/Users/sh01/shyme/zasso/tools/conver/tests/workspacify-reverse/fixtures/patterns/partial-conver-project/DECISIONS.json)",
+      "Bash(ls /Users/sh01/shyme/zasso/.claude/scripts/tickets/ | head -60 && echo \"---MAKEFILE---\" && cat /Users/sh01/shyme/zasso/tools/conver/Makefile)",
+      "Bash(node tests/run-all-surfaces.mjs)",
+      "Bash(echo \"PREFLIGHT_EXIT=$?\")",
+      "Bash(node .claude/scripts/tickets/enumerate-ticket-targets.js --dir=. --ticket-key=\"/Users/sh01/shyme/zasso/tools/conver\" --tickets=\"Tickets.json\")",
+      "Bash(cd /Users/sh01/shyme/zasso && grep -rn \"4272\" --include=*.md . 2>/dev/null | grep -v node_modules | head -20)",
+      "Bash(node install-deps.cjs --help)",
+      "Bash(node env-manifest.cjs)",
+      "Bash(awk '{print $1}')",
+      "Bash(awk '/^## 3\\\\./,/^## 5\\\\./' docs/ANSWER-KEY.md)",
+      "Bash(git -C /Users/sh01/shyme/zasso status --porcelain)",
+      "Bash(git -C /Users/sh01/shyme/zasso diff --stat)",
+      "Bash(git -C /Users/sh01/shyme/zasso diff -- tools/conver/.claude/scripts/workspacify-reverse/lib/holdout-ledger.mjs)",
+      "Bash(node tmp/resolve-ticket/measure.mjs)",
+      "Bash(node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order)",
+      "Bash(git -C /Users/sh01/shyme/zasso ls-files tools/conver/siprs-with-4layers/.claude)",
+      "Bash(git -C /Users/sh01/shyme/zasso ls-files tools/conver/siprs-with-4layers/.claude/package-lock.json tools/conver/siprs-with-4layers/.claude/package.json)",
+      "Bash(git -C /Users/sh01/shyme/zasso diff --stat -- tools/conver/siprs-with-4layers/.claude/)",
+      "Bash(node tmp/resolve-ticket/delta-now.mjs)"
     ]
   }
 }

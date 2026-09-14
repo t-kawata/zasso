@@ -410,11 +410,12 @@
         },
         "violating": {
           "failures": [
-            "/Users/kawata/shyme/zasso/tools/conver/tests/rfc-graph/fixtures/forward-surfaces/marker-rewrite/PX-1-sample.js:1 still references an old key"
+            "<project-root>/tests/rfc-graph/fixtures/forward-surfaces/marker-rewrite/PX-1-sample.js:1 still references an old key"
           ],
           "ok": false
         }
-      }
+      },
+      "normalisation": "the project root is replaced with <project-root>"
     },
     {
       "surface": "checklist-output",
