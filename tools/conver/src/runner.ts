@@ -22,10 +22,15 @@
 //       P1-1 (tickets.ts — loadPendingTickets / checkAllReviewed / getGraphPathFromTickets)
 import path from "node:path";
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
 import { withSession, runCommand } from "./session.js";
 import type { RunCommandOptions, AcpSession, SessionConfig } from "./session.js";
+import {
+  buildSupervisorRequest,
+  generateCompletionMessage,
+} from "./supervisor.js";
+import type { PriorInstruction, SupervisorIngredients } from "./supervisor.js";
+import { COMPLETION_TEMPLATE, completionPolicy } from "./completion-policy.js";
 import {
   sendSlackError,
   sendSlackSuccess,
@@ -217,26 +222,37 @@ function parseTicketKey(key: string): { phaseId: number; id: number } {
 }
 
 /**
+ * チケットが見つからない・ファイルが読めないときに返す status。
+ * 未着手として扱うのが安全側 — 完了と誤認すると取りこぼし、未着手と誤認しても
+ * 余分に1回処理されるだけである。
+ */
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+const UNSTARTED_STATUS = "todo";
+
+/**
  * Tickets.json を読み直し、指定チケットの現在の status を返す（PX-174 C003 status 再読込）。
- * チケットが見つからない・ファイルが読めない場合は "todo" を返す（新規扱いで安全側）。
+ * チケットが見つからない・ファイルが読めない場合は UNSTARTED_STATUS を返す（新規扱いで安全側）。
  */
 // [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
-function readTicketStatus(ticketsPath: string, key: string): string {
-  let raw: string;
-  try {
-    raw = readFileSync(ticketsPath, "utf-8");
-  } catch {
-    return "todo";
-  }
-  const ticketsData: TicketsJson = JSON.parse(raw);
+export function readTicketStatus(ticketsPath: string, key: string): string {
   const { phaseId, id } = parseTicketKey(key);
-  for (const phase of ticketsData.phases) {
-    if (phase.id !== phaseId) continue;
-    const ticket = (phase.tickets || []).find((t) => t.id === id);
-    if (!ticket) return "todo";
-    return ticket.status;
+  try {
+    const ticketsData: TicketsJson = JSON.parse(
+      readFileSync(ticketsPath, "utf-8"),
+    );
+    for (const phase of ticketsData.phases) {
+      if (phase.id !== phaseId) continue;
+      return (
+        (phase.tickets || []).find((t) => t.id === id)?.status ??
+        UNSTARTED_STATUS
+      );
+    }
+  } catch {
+    // 読めない・壊れている場合は未着手として扱う。完了側に倒すと未処理チケットを
+    // 取りこぼすが、未着手側に倒せば余分に1回処理されるだけで済む
+    return UNSTARTED_STATUS;
   }
-  return "todo";
+  return UNSTARTED_STATUS;
 }
 
 /** status 文字列が terminal（reviewed または R<round>）か判定する（PX-174 review ゲート用）。 */
@@ -254,37 +270,260 @@ function isTerminalStatus(ticketsPath: string, key: string): boolean {
   return isTerminalStatusValue(readTicketStatus(ticketsPath, key));
 }
 
-/** 実行するフェーズの定義（runPhaseIfNeeded に渡す） */
-// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
-interface PhaseSpec {
+/**
+ * 実行するフェーズの定義。
+ * shouldRun は前条件であり、その否定がそのまま後条件（このフェーズ自身の出力が
+ * 揃ったか）になる。両者を別々に宣言すると必ずずれるため、宣言は1つに保つ。
+ */
+// [::TICKET::] PX-174, PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-174|PX-211) --for-spec --no-implementation-order`.
+export interface PhaseSpec {
   /** 実行コマンド（例: "/make-ticket"） */
   command: string;
-  /** チケットタイトル（ログ用） */
-  title: string;
+  /** 完了時に status がとる値。supervisor に「完了とは何か」を伝える */
+  expectedStatus: string;
+  /** このコマンドの完了が何を意味するかの一文。supervisor にそのまま渡す */
+  completionDefinition: string;
   /** 現在 status を受け、フェーズを実行すべきか判定する述語 */
   shouldRun: (status: string) => boolean;
 }
 
+/** 4つのフェーズの前条件。否定がそのまま後条件になる */
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+export const PHASE_SPECS: readonly PhaseSpec[] = [
+  {
+    command: "/make-ticket",
+    expectedStatus: "made",
+    completionDefinition:
+      "The status must advance from todo to made via update-ticket.js once the spec file is written.",
+    shouldRun: (status) => status === "todo",
+  },
+  {
+    command: "/plan-ticket",
+    expectedStatus: "planned",
+    completionDefinition:
+      "The status must advance from todo or made to planned via update-ticket.js once the plan is approved.",
+    shouldRun: (status) => status === "todo" || status === "made",
+  },
+  {
+    command: "/start-ticket",
+    expectedStatus: "done",
+    completionDefinition:
+      "The status must advance to done. Step 9 writes notes and changes with update-ticket.js --append; Step 10 emits the transition with update-ticket.js.",
+    shouldRun: (status) => ["todo", "made", "planned"].includes(status),
+  },
+  {
+    command: "/review-ticket",
+    expectedStatus: "reviewed",
+    completionDefinition:
+      "The status must reach reviewed, or R<n>, via update-ticket.js.",
+    shouldRun: (status) => !isTerminalStatusValue(status),
+  },
+];
+
+/** コマンド名からフェーズ仕様を引く。未知のコマンドは実装の誤りなので即座に落とす */
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+function phaseFor(command: string): PhaseSpec {
+  const found = PHASE_SPECS.find((spec) => spec.command === command);
+  if (!found) {
+    throw new Error(`未知のフェーズコマンドです: ${command}`);
+  }
+  return found;
+}
+
+/** 作業ツリーの変更ファイル数を数える。git が使えなければ throw する */
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+function countChangedFiles(cwd: string): number {
+  const output = execSync("git status --porcelain", { cwd, encoding: "utf-8" });
+  return output.split("\n").filter((line) => line.trim().length > 0).length;
+}
+
 /**
- * 1つのフェーズを「status 再読込 → 枠外待機 → 実行」の順で行う（PX-174 C003）。
- * 現在の status で phase.shouldRun が false なら完了済みとみなし、フェーズをスキップする。
- * セッション再試行時も status 再読込により完了済みフェーズは再実行されない。
+ * 変更ファイル数を測る。測れなければ null。
+ * これは助言的な文脈であり、欠けた状態は supervisor 側で既に扱える。
+ * 計測の失敗が完了ループを止めてはならない（自律性が最優先）。
  */
-// [::TICKET::] PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-174 --for-spec --no-implementation-order`.
-async function runPhaseIfNeeded(
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+function measureChangedFiles(cwd: string): number | null {
+  try {
+    return contextProbe.countChangedFiles(cwd);
+  } catch {
+    return null;
+  }
+}
+
+/** supervisor に渡す生のチケット文脈（切り詰めは supervisor 側が行う） */
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+interface TicketContextIngredients {
+  title: string;
+  acceptanceCriteria: string;
+  scope: string[];
+  notes: string;
+}
+
+/**
+ * Tickets.json から supervisor 用の文脈を読む。
+ * 読めない場合は空の文脈を返す — 文脈が欠けても継続指示は出せる方が、
+ * 例外で完了ループを止めるより望ましい（自律性が最優先）。
+ */
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+function readTicketContext(
+  ticketsPath: string,
+  ticketId: string,
+): TicketContextIngredients {
+  const { phaseId, id } = parseTicketKey(ticketId);
+  try {
+    const ticketsData: TicketsJson = JSON.parse(
+      readFileSync(ticketsPath, "utf-8"),
+    );
+    const ticket = ticketsData.phases
+      .find((phase) => phase.id === phaseId)
+      ?.tickets.find((candidate) => candidate.id === id);
+    return {
+      title: ticket?.title ?? "",
+      acceptanceCriteria: (ticket?.acceptanceCriteria ?? []).join("\n"),
+      scope: ticket?.scope ?? [],
+      notes: ticket?.notes ?? "",
+    };
+  } catch {
+    return { title: "", acceptanceCriteria: "", scope: [], notes: "" };
+  }
+}
+
+/**
+ * 外部世界から文脈を集める処理の差し替えシーム。
+ * テストは git 管理外の作業ディレクトリや読み取り不能なチケットファイルを
+ * 実環境を汚さずに再現できる。どちらも「欠けても判断は成立する」助言的な文脈である。
+ */
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+export const contextProbe: {
+  /** 変更ファイル数を数える。測れない場合は null を返してよい */
+  countChangedFiles: (cwd: string) => number | null;
+  readTicketContext: (
+    ticketsPath: string,
+    ticketId: string,
+  ) => TicketContextIngredients;
+} = {
+  countChangedFiles,
+  readTicketContext,
+};
+
+/** 完了ループの1回分の試行。supervisor に渡す素材はここから組み立てる */
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+interface CompletionAttempt {
+  /** チケットの作業ディレクトリ。変更ファイル数の計測に使う */
+  cwd: string;
+  options: LoopOptions;
+  ticketId: string;
+  phase: PhaseSpec;
+  /** コマンド実行前の status — 「どこから動いていないか」を supervisor に伝える */
+  statusAtStart: string;
+  attempt: number;
+  priorInstructions: PriorInstruction[];
+  agentLastMessage: string;
+}
+
+/** supervisor 用の素材を組み立てる（切り詰めと本文整形は supervisor 側の責務） */
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+function buildIngredients(attempt: CompletionAttempt): SupervisorIngredients {
+  const context = contextProbe.readTicketContext(
+    attempt.options.ticketsPath,
+    attempt.ticketId,
+  );
+  return {
+    command: attempt.phase.command,
+    ticketId: attempt.ticketId,
+    attempt: attempt.attempt,
+    maxAttempts: completionPolicy.maxAttempts,
+    statusAtStart: attempt.statusAtStart,
+    statusCurrent: readTicketStatus(attempt.options.ticketsPath, attempt.ticketId),
+    expectedOnCompletion: attempt.phase.expectedStatus,
+    completionDefinition: attempt.phase.completionDefinition,
+    priorInstructions: attempt.priorInstructions,
+    agentLastMessageTail: attempt.agentLastMessage,
+    workspaceChangedFiles: measureChangedFiles(attempt.cwd),
+    ticketTitle: context.title,
+    acceptanceCriteria: context.acceptanceCriteria,
+    scope: context.scope,
+    notes: context.notes,
+  };
+}
+
+/**
+ * 1つのフェーズを、status が動くまで同じセッション内で走らせる。
+ *
+ * 流れ: 枠外待機 → 前条件判定 → コマンド実行 → (status が動くまで) 継続指示を送る。
+ * 継続指示は1〜2回目が定型文、3回目以降は supervisor が状況から生成する。
+ * 上限に達しても throw せず、既存の wave retry に委ねる（セッションを中断させない）。
+ */
+// [::TICKET::] PX-174, PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-174|PX-211) --for-spec --no-implementation-order`.
+export async function runPhaseToCompletion(
   session: AcpSession,
   options: LoopOptions,
   ticketId: string,
   phase: PhaseSpec,
+  title: string = "",
 ): Promise<void> {
   await waitForWindow(options.watcherConfig);
-  const current = readTicketStatus(options.ticketsPath, ticketId);
-  if (!phase.shouldRun(current)) {
+
+  // PX-174 C003: 実行前に status を再読込し、完了済みフェーズは再実行しない
+  const statusAtStart = readTicketStatus(options.ticketsPath, ticketId);
+  if (!phase.shouldRun(statusAtStart)) {
     return;
   }
-  printCommandHeader(phase.command, ticketId, phase.title);
-  await runCommand(session, `${phase.command} ${ticketId}`, toRunCommandOptions(options));
-  process.stdout.write(`\n>>> ✅ ${phase.command.replace("/", "")} 完了\n`);
+
+  printCommandHeader(phase.command, ticketId, title);
+  const runOptions = toRunCommandOptions(options);
+  const cwd = path.resolve(process.cwd());
+
+  let agentLastMessage = await runCommand(
+    session,
+    `${phase.command} ${ticketId}`,
+    runOptions,
+  );
+  const priorInstructions: PriorInstruction[] = [];
+
+  for (let attempt = 1; attempt <= completionPolicy.maxAttempts; attempt++) {
+    if (!phase.shouldRun(readTicketStatus(options.ticketsPath, ticketId))) {
+      process.stdout.write(`\n>>> ✅ ${phase.command.replace("/", "")} 完了\n`);
+      return;
+    }
+
+    const useTemplate = attempt <= completionPolicy.templateAttempts;
+    const instruction = useTemplate
+      ? COMPLETION_TEMPLATE
+      : await generateCompletionMessage(
+          buildSupervisorRequest(
+            buildIngredients({
+              cwd,
+              options,
+              ticketId,
+              phase,
+              statusAtStart,
+              attempt,
+              priorInstructions,
+              agentLastMessage,
+            }),
+          ),
+          toSessionConfig(options),
+        );
+
+    process.stdout.write(
+      `\n>>> ${useTemplate ? "⏳ 定型" : "🧠 LLM生成"} ${phase.command} ${ticketId} ` +
+        `未完了 (${attempt}/${completionPolicy.maxAttempts}) — 継続指示を送信\n`,
+    );
+
+    priorInstructions.push({
+      attempt,
+      kind: useTemplate ? "template" : "generated",
+      text: instruction,
+    });
+    agentLastMessage = await runCommand(session, instruction, runOptions);
+  }
+
+  process.stdout.write(
+    `\n>>> ⚠️ ${phase.command} ${ticketId} は ${completionPolicy.maxAttempts} 回の継続指示でも` +
+      `完了せず — 次waveで再試行\n`,
+  );
 }
 
 /** resolve + epush を実行する（PX-146: resolveEvery のリズムと find 前の最終 resolve を一元化）。 */
@@ -358,16 +597,16 @@ function printCommandHeader(
 }
 
 /** Tickets.json から処理済みチケットをフェーズ別に整形する */
-// [::TICKET::] PX-116 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-116 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-116, PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-116|PX-211) --for-spec --no-implementation-order`.
 function buildProcessedText(
   ticketsPath: string,
   processed: Array<{ id: string; title: string; phaseId: number }>,
 ): string[] {
   try {
     const raw = readFileSync(ticketsPath, "utf-8");
-    const data = JSON.parse(raw);
+    const ticketsData = JSON.parse(raw);
     const phaseNames = new Map<number, string>();
-    for (const phase of data.phases || []) {
+    for (const phase of ticketsData.phases || []) {
       phaseNames.set(phase.id, phase.name);
     }
 
@@ -381,11 +620,11 @@ function buildProcessedText(
 
     const lines: string[] = [];
     const sortedPhaseIds = [...byPhase.keys()].sort((a, b) => a - b);
-    for (const pid of sortedPhaseIds) {
-      const pname = phaseNames.get(pid) ?? "";
-      const phaseLabel = pid === -1 ? "PX" : `P${pid}`;
-      lines.push(`${phaseLabel}: ${pname}`);
-      for (const ticket of byPhase.get(pid)!) {
+    for (const sortedPhaseId of sortedPhaseIds) {
+      const phaseName = phaseNames.get(sortedPhaseId) ?? "";
+      const phaseLabel = sortedPhaseId === -1 ? "PX" : `P${sortedPhaseId}`;
+      lines.push(`${phaseLabel}: ${phaseName}`);
+      for (const ticket of byPhase.get(sortedPhaseId) ?? []) {
         lines.push(`    * ${ticket.id}: ${ticket.title}`);
       }
     }
@@ -479,11 +718,11 @@ export async function runLoop(options: LoopOptions): Promise<void> {
             cwd,
             toSessionConfig(options),
             async (session) => {
-              await runPhaseIfNeeded(session, options, ticketId, { command: "/make-ticket", title: ticket.title, shouldRun: (s) => s === "todo" });
-              await runPhaseIfNeeded(session, options, ticketId, { command: "/plan-ticket", title: ticket.title, shouldRun: (s) => s === "todo" || s === "made" });
-              await runPhaseIfNeeded(session, options, ticketId, { command: "/start-ticket", title: ticket.title, shouldRun: (s) => ["todo", "made", "planned"].includes(s) });
+              await runPhaseToCompletion(session, options, ticketId, phaseFor("/make-ticket"), ticket.title);
+              await runPhaseToCompletion(session, options, ticketId, phaseFor("/plan-ticket"), ticket.title);
+              await runPhaseToCompletion(session, options, ticketId, phaseFor("/start-ticket"), ticket.title);
               if (bindReview) {
-                await runPhaseIfNeeded(session, options, ticketId, { command: "/review-ticket", title: ticket.title, shouldRun: (s) => !isTerminalStatusValue(s) });
+                await runPhaseToCompletion(session, options, ticketId, phaseFor("/review-ticket"), ticket.title);
               }
             },
           );

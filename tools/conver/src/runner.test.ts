@@ -12,8 +12,10 @@ import assert from "node:assert/strict";
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { LoopOptions } from "./runner.js";
+import type { LoopOptions, PhaseSpec } from "./runner.js";
 import { CommandTimeoutError } from "./error.js";
+import type { SupervisorRequest } from "./supervisor.js";
+import { COMPLETION_TEMPLATE, completionPolicy } from "./completion-policy.js";
 
 // --- 共有モック状態 ---
 // mock.module() は各モジュールに1度しか呼べないため、
@@ -29,7 +31,7 @@ interface FindOutcomeMock {
 }
 
 /** 共有モック状態の型 — プロパティ絞り込みを避けるため明示的に型付けする */
-// [::TICKET::] PX-117, PX-146, PX-150, PX-151, PX-174 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-117|PX-146|PX-150|PX-151|PX-174) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-117, PX-146, PX-150, PX-151, PX-174, PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-117|PX-146|PX-150|PX-151|PX-174|PX-211) --for-spec --no-implementation-order`.
 interface MockState {
   runCommandImpl: (cmd: string) => Promise<string>;
   slackCalls: Array<{ ticketId: string; phase: string }>;
@@ -47,6 +49,12 @@ interface MockState {
   withSessionBaseUrls: string[];
   /** withSession の呼び出し回数（PX-174 C002 セッション数検証用） */
   withSessionCallCount: number;
+  /** generateCompletionMessage に渡されたリクエストの記録（PX-211 完了ループ検証用） */
+  supervisorRequests: SupervisorRequest[];
+  /** generateCompletionMessage が返す指示（PX-211 制御用） */
+  supervisorMessage: string;
+  /** runCommand が受け取ったセッション参照の記録（PX-211 C006 検証用） */
+  commandSessions: unknown[];
 }
 
 const mockState: MockState = {
@@ -65,6 +73,9 @@ const mockState: MockState = {
   withSessionFailures: 0,
   withSessionBaseUrls: [],
   withSessionCallCount: 0,
+  supervisorRequests: [],
+  supervisorMessage: "keep going",
+  commandSessions: [],
 };
 
 /** find 関連モック状態をリセットする（型絞り込みを避けるため関数経由） */
@@ -149,6 +160,8 @@ describe("runLoop", () => {
           return fn({ sessionId: "mock" });
         },
         runCommand: async (_session: unknown, cmd: string) => {
+          // PX-211 C006: 完了ループが単一セッションに留まることを検証するため参照を記録する
+          mockState.commandSessions.push(_session);
           // PX-146 C002: /review-ticket 成功時、事後検証が通るようチケットを reviewed に遷移させる。
           if (cmd.startsWith("/review-ticket") && mockState.reviewMarksReviewed) {
             markReviewed(ticketPath, extractTicketKey(cmd));
@@ -213,6 +226,25 @@ describe("runLoop", () => {
         // PX-174: フェーズ境界の待機はモックで即通過（待機ロジック自体は step-timer.test.ts で検証）
         waitForWindow: async () => {
           mockStepTimerState.waitCalls++;
+        },
+      },
+    });
+
+    // PX-211: supervisor はモックする。定数（completionPolicy / COMPLETION_TEMPLATE）は
+    // completion-policy.js 側にあるためモックの影響を受けず、実物の上限値に対して
+    // 「runCommand が正確に何回呼ばれたか」を主張できる。
+    // buildSupervisorRequest は入力をそのまま通す — 切り詰め自体は supervisor.test.ts が検証する。
+    mock.module("./supervisor.js", {
+      exports: {
+        // 実物と同じく配列を複製する。参照をそのまま返すと、ループが事後に追記した
+        // 内容が捕捉済みリクエストに映り、呼び出し時点の内容を検証できなくなる。
+        buildSupervisorRequest: (ingredients: SupervisorRequest) => ({
+          ...ingredients,
+          priorInstructions: [...ingredients.priorInstructions],
+        }),
+        generateCompletionMessage: async (request: SupervisorRequest) => {
+          mockState.supervisorRequests.push(request);
+          return mockState.supervisorMessage;
         },
       },
     });
@@ -956,5 +988,404 @@ describe("runLoop", () => {
     writeTickets([{ id: 0, name: "P0", tickets: [{ id: 1, phaseId: 0, status: "reviewed", title: "Done" }] }]);
     await runLoop(baseOptions({ ticketsPath: ticketPath }));
     assert.strictEqual(mockState.clearCalls, 1, "clearForNextRound called once at entry");
+  });
+
+  // --- PX-211: コマンド完了ループ ---
+  //
+  // 完了の判定は status のみ（決定論）で行い、エージェントの発話は判定に使わない。
+  // ループは Tickets.json を読むだけで書かない。上限到達でも throw しない。
+
+  describe("PX-211 completion loop", () => {
+    let runner: typeof import("./runner.js");
+
+    before(async () => {
+      // mock.module() の登録後に runner.js を読み込む（既存テストと同じ理由）
+      runner = await import("./runner.js");
+    });
+
+    const STATUS_VOCABULARY = [
+      "todo", "made", "planned", "done", "reviewed", "remanded", "R1", "R2",
+    ] as const;
+
+    /** 各フェーズの前条件を具体値で固定する。双対性はこの表に対して検証する */
+    const EXPECTED_SHOULD_RUN: Record<string, Record<string, boolean>> = {
+      "/make-ticket":   { todo: true,  made: false, planned: false, done: false, reviewed: false, remanded: false, R1: false, R2: false },
+      "/plan-ticket":   { todo: true,  made: true,  planned: false, done: false, reviewed: false, remanded: false, R1: false, R2: false },
+      "/start-ticket":  { todo: true,  made: true,  planned: true,  done: false, reviewed: false, remanded: false, R1: false, R2: false },
+      "/review-ticket": { todo: true,  made: true,  planned: true,  done: true,  reviewed: false, remanded: true,  R1: false, R2: false },
+    };
+
+    /** fixture の status を書き換える — スクリプト化されたタイムラインの駆動源 */
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+    function setStatus(path: string, ticketId: string, status: string): void {
+      const data = JSON.parse(readFileSync(path, "utf-8"));
+      for (const phase of data.phases) {
+        for (const ticket of phase.tickets) {
+          if (`P${phase.id}-${ticket.id}` === ticketId) ticket.status = status;
+        }
+      }
+      writeFileSync(path, JSON.stringify(data, null, 2));
+    }
+
+    /** runPhaseToCompletion の実行中に stdout へ書かれた断片を捕まえる */
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+    async function captureStdout(run: () => Promise<void>): Promise<string[]> {
+      const written: string[] = [];
+      const originalWrite = process.stdout.write.bind(process.stdout);
+      process.stdout.write = ((chunk: string | Uint8Array) => {
+        written.push(String(chunk));
+        return true;
+      }) as typeof process.stdout.write;
+      try {
+        await run();
+      } finally {
+        process.stdout.write = originalWrite;
+      }
+      return written;
+    }
+
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+    function phaseSpec(command: string): PhaseSpec {
+      const found = runner.PHASE_SPECS.find((spec) => spec.command === command);
+      assert.ok(found, `phase spec not found: ${command}`);
+      return found;
+    }
+
+    /** status が planned のチケット1件だけを持つ fixture */
+// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+    function writeSinglePlannedTicket(): void {
+      writeTickets([
+        { id: 22, name: "P22", tickets: [{ id: 2, phaseId: 22, status: "planned", title: "t" }] },
+      ]);
+    }
+
+    const FAKE_SESSION =
+      { sessionId: "mock" } as unknown as Parameters<typeof runner.runPhaseToCompletion>[0];
+
+    // @verifies C001
+    for (const command of Object.keys(EXPECTED_SHOULD_RUN)) {
+      for (const status of STATUS_VOCABULARY) {
+        it(`C001 ${command} vs ${status} — shouldRun matches the table and excludes isComplete`, () => {
+          const shouldRun = phaseSpec(command).shouldRun(status);
+          const isComplete = !shouldRun;
+
+          assert.equal(
+            shouldRun,
+            EXPECTED_SHOULD_RUN[command][status],
+            "shouldRun must match the expected table",
+          );
+          assert.ok(!(shouldRun && isComplete), "never both true");
+          assert.ok(shouldRun || isComplete, "never both false");
+        });
+      }
+    }
+
+    // @verifies C001
+    it("C001 issues no prompt when the status already satisfies the postcondition", async () => {
+      const commands: string[] = [];
+      writeTickets([
+        { id: 22, name: "P22", tickets: [{ id: 2, phaseId: 22, status: "done", title: "t" }] },
+      ]);
+      mockState.runCommandImpl = async (cmd: string) => {
+        commands.push(cmd);
+        return "ok";
+      };
+
+      await runner.runPhaseToCompletion(
+        FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+      );
+
+      assert.deepEqual(commands, [], "a completed phase must not issue any command");
+    });
+
+    // @verifies C002
+    it("C002 sends the template verbatim on attempts 1 and 2", async () => {
+      const prompts: string[] = [];
+      writeSinglePlannedTicket();
+      mockState.supervisorRequests = [];
+      mockState.runCommandImpl = async (cmd: string) => {
+        prompts.push(cmd);
+        return "stopped";
+      };
+
+      await runner.runPhaseToCompletion(
+        FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+      );
+
+      assert.equal(prompts[0], "/start-ticket P22-2");
+      assert.equal(prompts[1], COMPLETION_TEMPLATE);
+      assert.equal(prompts[2], COMPLETION_TEMPLATE);
+      assert.equal(prompts[1], prompts[2], "attempts 1 and 2 must be byte-identical");
+    });
+
+    // @verifies C003
+    it("C003 dispatches the supervisor from attempt 3 and sends its text", async () => {
+      const prompts: string[] = [];
+      writeSinglePlannedTicket();
+      mockState.supervisorRequests = [];
+      mockState.supervisorMessage = "Run the Step 10 transition now.";
+      mockState.runCommandImpl = async (cmd: string) => {
+        prompts.push(cmd);
+        return "the agent stopped here";
+      };
+
+      await runner.runPhaseToCompletion(
+        FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+      );
+
+      const expectedSupervisorCalls =
+        completionPolicy.maxAttempts - completionPolicy.templateAttempts;
+
+      assert.equal(mockState.supervisorRequests.length, expectedSupervisorCalls);
+      assert.equal(mockState.supervisorRequests[0].attempt, 3);
+      assert.equal(mockState.supervisorRequests[0].agentLastMessageTail, "the agent stopped here");
+      assert.equal(prompts[3], mockState.supervisorMessage, "the generated text must be the fourth prompt");
+    });
+
+    // @verifies C004
+    it("C004 calls runCommand exactly 1 + maxAttempts times and resolves without throwing", async () => {
+      let callCount = 0;
+      writeSinglePlannedTicket();
+      mockState.supervisorRequests = [];
+      mockState.runCommandImpl = async () => {
+        callCount++;
+        return "stopped";
+      };
+
+      await assert.doesNotReject(() =>
+        runner.runPhaseToCompletion(
+          FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+        ),
+      );
+
+      assert.equal(callCount, 1 + completionPolicy.maxAttempts);
+    });
+
+    // @verifies C004
+    it("C004 stops as soon as the postcondition holds, without any supervisor call", async () => {
+      let callCount = 0;
+      writeSinglePlannedTicket();
+      mockState.supervisorRequests = [];
+      mockState.runCommandImpl = async () => {
+        callCount++;
+        if (callCount === 2) setStatus(ticketPath, "P22-2", "done");
+        return "stopped";
+      };
+
+      await runner.runPhaseToCompletion(
+        FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+      );
+
+      assert.equal(callCount, 2);
+      assert.equal(
+        mockState.supervisorRequests.length, 0,
+        "the template path must be able to converge without a provider call",
+      );
+    });
+
+    // @verifies C004
+    it("C004 converges on the supervisor path after the third prompt", async () => {
+      let callCount = 0;
+      writeSinglePlannedTicket();
+      mockState.supervisorRequests = [];
+      mockState.runCommandImpl = async () => {
+        callCount++;
+        if (callCount === 4) setStatus(ticketPath, "P22-2", "done");
+        return "stopped";
+      };
+
+      await runner.runPhaseToCompletion(
+        FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+      );
+
+      assert.equal(callCount, 4);
+      assert.equal(mockState.supervisorRequests.length, 1);
+    });
+
+    // @verifies C005
+    it("C005 leaves Tickets.json byte-identical after a full exhausting loop", async () => {
+      writeSinglePlannedTicket();
+      mockState.supervisorRequests = [];
+      mockState.runCommandImpl = async () => "stopped";
+      const before = readFileSync(ticketPath);
+
+      await runner.runPhaseToCompletion(
+        FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+      );
+
+      assert.deepEqual(readFileSync(ticketPath), before);
+    });
+
+    // @verifies C006
+    it("C006 issues every prompt on one session and never opens a new one", async () => {
+      writeSinglePlannedTicket();
+      mockState.commandSessions = [];
+      mockState.supervisorRequests = [];
+      mockState.withSessionCallCount = 0;
+      mockState.runCommandImpl = async () => "stopped";
+
+      await runner.runPhaseToCompletion(
+        FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+      );
+
+      assert.equal(new Set(mockState.commandSessions).size, 1, "one session for the whole loop");
+      assert.equal(mockState.withSessionCallCount, 0, "the loop must not create a session");
+    });
+
+    // @verifies C007
+    it("C007 an exhausted phase does not prevent the next phase from running", async () => {
+      const commands: string[] = [];
+      writeSinglePlannedTicket();
+      mockState.supervisorRequests = [];
+      mockState.reviewMarksReviewed = false;
+      mockState.runCommandImpl = async (cmd: string) => {
+        commands.push(cmd);
+        return "stopped";
+      };
+
+      const options = baseOptions({ ticketsPath: ticketPath });
+      await runner.runPhaseToCompletion(FAKE_SESSION, options, "P22-2", phaseSpec("/start-ticket"));
+      await runner.runPhaseToCompletion(FAKE_SESSION, options, "P22-2", phaseSpec("/review-ticket"));
+
+      mockState.reviewMarksReviewed = true;
+
+      assert.ok(
+        commands.some((cmd) => cmd.startsWith("/review-ticket")),
+        "phase two must still run after phase one exhausted",
+      );
+      assert.equal(runner.readTicketStatus(ticketPath, "P22-2"), "planned");
+    });
+
+    // @verifies C004
+    it("C004 emits the completion marker only on convergence and the exhaustion marker otherwise", async () => {
+      writeSinglePlannedTicket();
+      mockState.supervisorRequests = [];
+      let callCount = 0;
+      mockState.runCommandImpl = async () => {
+        callCount++;
+        if (callCount === 2) setStatus(ticketPath, "P22-2", "done");
+        return "stopped";
+      };
+
+      const converged = await captureStdout(() =>
+        runner.runPhaseToCompletion(
+          FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+        ),
+      );
+
+      assert.ok(converged.some((line) => line.includes("✅")), "convergence must emit the completion marker");
+      assert.ok(!converged.some((line) => line.includes("⚠️")), "convergence must not emit the exhaustion marker");
+
+      writeSinglePlannedTicket();
+      mockState.supervisorRequests = [];
+      mockState.runCommandImpl = async () => "stopped";
+
+      const exhausted = await captureStdout(() =>
+        runner.runPhaseToCompletion(
+          FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+        ),
+      );
+
+      assert.ok(exhausted.some((line) => line.includes("⚠️")), "exhaustion must emit the exhaustion marker");
+      assert.ok(!exhausted.some((line) => line.includes("✅")), "exhaustion must not emit the completion marker");
+    });
+
+    // @verifies C004
+    it("C004 hands each supervisor call the instructions accumulated so far", async () => {
+      writeSinglePlannedTicket();
+      mockState.supervisorRequests = [];
+      mockState.runCommandImpl = async () => "stopped";
+
+      await runner.runPhaseToCompletion(
+        FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+      );
+
+      const firstRequest = mockState.supervisorRequests[0];
+      const lastRequest = mockState.supervisorRequests[mockState.supervisorRequests.length - 1];
+
+      assert.equal(firstRequest.attempt, 3);
+      assert.equal(firstRequest.priorInstructions.length, 2, "attempt 3 sees only the two template sends");
+      assert.deepEqual(firstRequest.priorInstructions.map((i) => i.kind), ["template", "template"]);
+      assert.deepEqual(firstRequest.priorInstructions.map((i) => i.attempt), [1, 2]);
+
+      assert.equal(
+        lastRequest.priorInstructions.length,
+        completionPolicy.maxAttempts - 1,
+        "the final attempt sees every earlier send",
+      );
+      assert.deepEqual(
+        lastRequest.priorInstructions.map((i) => i.kind),
+        ["template", "template", "generated", "generated", "generated"],
+      );
+      assert.deepEqual(lastRequest.priorInstructions.map((i) => i.attempt), [1, 2, 3, 4, 5]);
+    });
+
+    // @verifies C003
+    it("C003 hands the supervisor the reply from the immediately preceding command", async () => {
+      writeSinglePlannedTicket();
+      mockState.supervisorRequests = [];
+      let callCount = 0;
+      mockState.runCommandImpl = async () => {
+        callCount++;
+        return `response-${callCount}`;
+      };
+
+      await runner.runPhaseToCompletion(
+        FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+      );
+
+      // 直前の送信は attempt 2 の定型文であり、最初のコマンドではない。
+      // 一度だけ捕捉する実装は response-1 を送り続けるため、ここで判別できる。
+      assert.equal(mockState.supervisorRequests[0].agentLastMessageTail, "response-3");
+      assert.equal(mockState.supervisorRequests[1].agentLastMessageTail, "response-4");
+      assert.notEqual(mockState.supervisorRequests[0].agentLastMessageTail, "response-1");
+    });
+
+    // @verifies C003
+    for (const probeCase of [
+      { name: "yields null", probe: () => null },
+      {
+        name: "throws",
+        probe: () => {
+          throw new Error("not a git repository");
+        },
+      },
+    ]) {
+      it(`C003 still dispatches the supervisor when the workspace probe ${probeCase.name}`, async () => {
+        writeSinglePlannedTicket();
+        mockState.supervisorRequests = [];
+        mockState.runCommandImpl = async () => "stopped";
+        const originalProbe = runner.contextProbe.countChangedFiles;
+        runner.contextProbe.countChangedFiles = probeCase.probe;
+
+        try {
+          await runner.runPhaseToCompletion(
+            FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+          );
+        } finally {
+          runner.contextProbe.countChangedFiles = originalProbe;
+        }
+
+        assert.ok(
+          mockState.supervisorRequests.length > 0,
+          "an unusable workspace signal must not stop the loop",
+        );
+        assert.equal(mockState.supervisorRequests[0].workspaceChangedFiles, null);
+      });
+    }
+
+    // @verifies C003
+    it("C003 still dispatches the supervisor when the agent message is empty", async () => {
+      writeSinglePlannedTicket();
+      mockState.supervisorRequests = [];
+      mockState.runCommandImpl = async () => "";
+
+      await runner.runPhaseToCompletion(
+        FAKE_SESSION, baseOptions({ ticketsPath: ticketPath }), "P22-2", phaseSpec("/start-ticket"),
+      );
+
+      assert.ok(mockState.supervisorRequests.length > 0, "an empty reply must not stop the loop");
+      assert.equal(mockState.supervisorRequests[0].agentLastMessageTail, "");
+    });
   });
 });

@@ -12,7 +12,7 @@ import path from "node:path";
 import os from "node:os";
 
 /** 単一チケットの情報 */
-// [::TICKET::] PX-145, PX-146 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-145, PX-146, PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-145|PX-146|PX-211) --for-spec --no-implementation-order`.
 export interface Ticket {
   id: number;
   phaseId: number;
@@ -23,6 +23,8 @@ export interface Ticket {
   referenceSection?: string;
   background?: string;
   scope?: string[];
+  /** 合格条件。supervisor が「情報は既に存在する」根拠として読む（PX-211） */
+  acceptanceCriteria?: string[];
   testUnit?: string[];
   testExceptions?: string[];
   instrumentation?: string;
