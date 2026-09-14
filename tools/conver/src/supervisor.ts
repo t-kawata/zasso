@@ -277,17 +277,31 @@ export function postJsonHttps(
   });
 }
 
-/** 応答本文から指示文を取り出す。取り出せなければ null */
-// [::TICKET::] PX-211 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-211 --for-spec --no-implementation-order`.
+/**
+ * 応答本文から指示文を取り出す。取り出せなければ null。
+ *
+ * ブロックの位置を仮定しない。プロバイダは thinking ブロックを text より前に返す
+ * ことがあり、content[0] を読む実装は常に失敗して定型文へ縮退する（PX-212 で実測）。
+ * 位置ではなく type で選ぶため、ブロック構成が変わっても壊れない。
+ */
+// [::TICKET::] PX-211, PX-212 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-211|PX-212) --for-spec --no-implementation-order`.
 function extractInstruction(responseBody: string): string | null {
-  let parsed: { content?: Array<{ text?: string }> };
+  let parsed: { content?: Array<{ type?: string; text?: string }> };
   try {
-    parsed = JSON.parse(responseBody) as { content?: Array<{ text?: string }> };
+    parsed = JSON.parse(responseBody) as {
+      content?: Array<{ type?: string; text?: string }>;
+    };
   } catch {
     return null;
   }
-  const text = parsed.content?.[0]?.text;
-  return typeof text === "string" && text.trim().length > 0 ? text : null;
+
+  const instructionBlock = parsed.content?.find(
+    (block) =>
+      block.type === "text" &&
+      typeof block.text === "string" &&
+      block.text.trim().length > 0,
+  );
+  return instructionBlock?.text ?? null;
 }
 
 /** 縮退を観測可能にしつつ定型文を返す — 失敗を黙って飲み込まない */

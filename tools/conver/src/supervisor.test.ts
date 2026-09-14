@@ -279,3 +279,151 @@ describe("generateCompletionMessage", () => {
     assert.equal(seenHeaders["x-api-key"], "test-key");
   });
 });
+
+// --- レスポンス形状 (PX-212) ---
+//
+// PX-211 の suite は content が要素1つで先頭が text という前提の偽 transport しか
+// 持たず、実装と同じ誤った前提を共有していたため、抽出の誤りを検出できなかった。
+// ここでは実プロバイダで観測された形状をそのまま固定する。
+
+/**
+ * 2026-09-14 に https://api.deepseek.com/anthropic/v1/messages から実際に返った本文。
+ * content[0] は thinking ブロックで text を持たず、content[1] が指示文である。
+ * 当時の抽出は content[0].text を読んでいたため、常に定型文へ縮退していた。
+ */
+const CAPTURED_PROVIDER_BODY = JSON.stringify({
+  id: "ae022f37-ac4c-4ec8-8462-c557d1487437",
+  type: "message",
+  role: "assistant",
+  model: "deepseek-flash",
+  content: [
+    {
+      type: "thinking",
+      thinking: "The agent stopped mid-work; name the missing transition.",
+      signature: "ae022f37-ac4c-4ec8-8462-c557d1487437",
+    },
+    {
+      type: "text",
+      text: "Finish the run: emit the status transition to done before returning.",
+    },
+  ],
+  stop_reason: "end_turn",
+});
+
+const CAPTURED_INSTRUCTION =
+  "Finish the run: emit the status transition to done before returning.";
+
+/** 本文だけを差し替える輸送層 */
+// [::TICKET::] PX-212 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-212 --for-spec --no-implementation-order`.
+function transportReturning(body: string): HttpPostJson {
+  return async () => ({ statusCode: 200, body });
+}
+
+describe("extractInstruction — response shapes", () => {
+  const request = buildSupervisorRequest(ingredients());
+
+  // @verifies C001
+  it("C001 extracts the text block when a thinking block precedes it", async () => {
+    const message = await generateCompletionMessage(
+      request,
+      CONFIG,
+      transportReturning(CAPTURED_PROVIDER_BODY),
+    );
+
+    assert.equal(message, CAPTURED_INSTRUCTION);
+    assert.notEqual(message, COMPLETION_TEMPLATE);
+  });
+
+  // @verifies C001
+  const EXTRACTION_CASES: Array<{ name: string; content: unknown[]; expected: string }> = [
+    { name: "text only", content: [{ type: "text", text: "go" }], expected: "go" },
+    {
+      name: "thinking then text",
+      content: [{ type: "thinking", thinking: "x" }, { type: "text", text: "go" }],
+      expected: "go",
+    },
+    {
+      name: "unknown block then text",
+      content: [{ type: "tool_use", id: "t1" }, { type: "text", text: "go" }],
+      expected: "go",
+    },
+    {
+      name: "several text blocks",
+      content: [{ type: "text", text: "first" }, { type: "text", text: "second" }],
+      expected: "first",
+    },
+    {
+      name: "untyped block first",
+      content: [{ text: "orphan" }, { type: "text", text: "real" }],
+      expected: "real",
+    },
+  ];
+
+  for (const extractionCase of EXTRACTION_CASES) {
+    it(`C001 extracts the instruction: ${extractionCase.name}`, async () => {
+      const message = await generateCompletionMessage(
+        request,
+        CONFIG,
+        transportReturning(JSON.stringify({ content: extractionCase.content })),
+      );
+
+      assert.equal(message, extractionCase.expected);
+    });
+  }
+
+  // @verifies C002
+  const DEGRADATION_CASES: Array<{ name: string; body: string }> = [
+    {
+      name: "thinking only",
+      body: JSON.stringify({ content: [{ type: "thinking", thinking: "x" }] }),
+    },
+    { name: "empty text", body: JSON.stringify({ content: [{ type: "text", text: "" }] }) },
+    { name: "whitespace text", body: JSON.stringify({ content: [{ type: "text", text: "   " }] }) },
+    { name: "no content key", body: JSON.stringify({}) },
+    { name: "null content", body: JSON.stringify({ content: null }) },
+    { name: "malformed json", body: "not json" },
+  ];
+
+  for (const degradationCase of DEGRADATION_CASES) {
+    it(`C002 degrades to the template: ${degradationCase.name}`, async () => {
+      const message = await generateCompletionMessage(
+        request,
+        CONFIG,
+        transportReturning(degradationCase.body),
+      );
+
+      assert.equal(message, COMPLETION_TEMPLATE);
+      assert.ok(message.trim().length > 0);
+    });
+  }
+
+  // @verifies C003
+  it("C003 never rejects and always resolves to a non-empty string", async () => {
+    const transports: HttpPostJson[] = [
+      transportReturning(CAPTURED_PROVIDER_BODY),
+      transportReturning(JSON.stringify({ content: [{ type: "thinking", thinking: "x" }] })),
+      async () => ({ statusCode: 500, body: "{}" }),
+      async () => {
+        throw new Error("ECONNRESET");
+      },
+    ];
+
+    for (const transport of transports) {
+      const message = await generateCompletionMessage(request, CONFIG, transport);
+      assert.equal(typeof message, "string");
+      assert.ok(message.length > 0, "an instruction must always be sendable");
+    }
+  });
+
+  // @verifies C001
+  it("passes the captured instruction through byte-for-byte", async () => {
+    const message = await generateCompletionMessage(
+      request,
+      CONFIG,
+      transportReturning(CAPTURED_PROVIDER_BODY),
+    );
+
+    assert.equal(message, CAPTURED_INSTRUCTION);
+    assert.equal(message.length, CAPTURED_INSTRUCTION.length);
+  });
+});
