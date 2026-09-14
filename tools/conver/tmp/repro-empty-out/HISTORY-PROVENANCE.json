@@ -1,0 +1,18 @@
+{
+  "caveat": "A commit records what changed, never why. It is not proof of design intent. Co-change is evidence that two artefacts are not independent; it is never evidence that they are. Every provenance entry below is a candidate for a human to decide, and the message that carries it is evidence about the change, never about the reason for it.",
+  "coChanges": [],
+  "commit": "6b87071842d6b0c48a587d23a02a358b933bc6d7",
+  "commitCount": 994,
+  "decisionProvenance": [],
+  "historyQuality": {
+    "commitsInScope": 0,
+    "confidence": "high",
+    "factors": [],
+    "profile": "clean"
+  },
+  "isRepository": true,
+  "pathWithinWorkTree": "tools/conver/tmp/repro-empty",
+  "transitions": [],
+  "unavailable": [],
+  "unreadableCommits": []
+}

@@ -1,0 +1,31 @@
+{
+  "commit": null,
+  "contract_coverage_proved": false,
+  "discarded": [],
+  "mutationResultsSupplied": false,
+  "mutation_score_claim": "A mutation score measures how many injected changes the current tests detect. It is not a measure of contract coverage, and no score is emitted here. A survivor is a question about the oracle, not a failure of the implementation.",
+  "root": "/Users/sh01/shyme/zasso/tools/conver/tmp/repro-empty",
+  "survivors": {
+    "by_cause": {},
+    "results": [],
+    "unclassifiedCount": 0
+  },
+  "tce": {
+    "caveat": "A trivial comparison decides whether two texts normalise to the same tree under one named grammar. It is not a decision about meaning: semantic equivalence is undecidable for general programs, so this stage never claims it, and every verdict records the two normalised forms it rested on so a reader can see what was compared.",
+    "comparisons": [],
+    "configuration": null,
+    "counts": {
+      "comparisons": 0,
+      "notTriviallyEquivalent": 0,
+      "triviallyEquivalent": 0,
+      "unreadable": 0
+    },
+    "language": null,
+    "unavailable": [
+      "no language was named for this stage, so no TCE configuration could be published"
+    ]
+  },
+  "unavailable": [
+    "no mutation results were supplied to this run, so no survivor was classified and no equivalence was decided. This is a missing channel, not a suite with no gaps: mutation execution belongs to a stage that can build and run the target."
+  ]
+}

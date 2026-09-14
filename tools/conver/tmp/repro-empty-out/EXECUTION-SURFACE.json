@@ -1,0 +1,16 @@
+{
+  "analysis_mode": "syntax_only",
+  "attempts": [],
+  "coverage": {
+    "configs_analyzed": 0,
+    "configs_enumerated": 0,
+    "files_discovered": 0,
+    "files_parsed": 0,
+    "files_semantically_resolved": 0,
+    "files_with_error_nodes": 0
+  },
+  "limitations": [],
+  "mechanismInventory": {},
+  "mechanisms": [],
+  "presence_not_absence": "This list is evidence of presence, not proof of absence. A mechanism not listed here is one this instrument did not find, which is not the same as one that is not there — no static analysis of an arbitrary program can be exhaustive about dynamic mechanisms."
+}

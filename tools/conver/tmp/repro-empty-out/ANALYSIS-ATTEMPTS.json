@@ -1,0 +1,16 @@
+{
+  "couldNotRunCount": 0,
+  "extractedNothingCount": 0,
+  "rows": [
+    {
+      "configuration": "sandboxed-session",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "execute",
+      "reason": "no-start-plan",
+      "status": "skipped",
+      "target": "/Users/sh01/shyme/zasso/tools/conver/tmp/repro-empty",
+      "tool": "bounded-offline-start-plan"
+    }
+  ]
+}

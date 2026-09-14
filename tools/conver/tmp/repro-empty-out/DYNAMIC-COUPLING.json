@@ -1,0 +1,41 @@
+{
+  "attempts": [
+    {
+      "configuration": "sandboxed-session",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "execute",
+      "reason": "no-start-plan",
+      "status": "skipped",
+      "target": "/Users/sh01/shyme/zasso/tools/conver/tmp/repro-empty",
+      "tool": "bounded-offline-start-plan"
+    }
+  ],
+  "caveat": "The dynamic channel did not run, so it has looked at nothing. The three difference sets are published empty because nothing was observed, and not because nothing was found: an unrun channel cannot disagree with the static reading, and its silence is not evidence about the program.",
+  "difference": {
+    "both": {
+      "count": 0,
+      "members": []
+    },
+    "dynamicOnly": {
+      "count": 0,
+      "members": []
+    },
+    "staticOnly": {
+      "count": 0,
+      "members": []
+    }
+  },
+  "dynamicChannel": {
+    "detail": "the subject at /Users/sh01/shyme/zasso/tools/conver/tmp/repro-empty matches no declared ecosystem — looked for compose (docker-compose.yml, docker-compose.yaml, compose.yml, compose.yaml), cargo (Cargo.toml), node (package.json), go (go.mod), python (pyproject.toml, requirements.txt, setup.py), cmake (CMakeLists.txt), make (Makefile, makefile, GNUmakefile). An unstartable target is reported rather than yielding an empty evidence set The ecosystems searched were compose, cargo, node, go, python, cmake, make",
+    "disposal": null,
+    "ran": false,
+    "reason": "no-start-plan",
+    "sessionId": null
+  },
+  "mechanismInventory": {},
+  "mechanisms": [],
+  "root": "/Users/sh01/shyme/zasso/tools/conver/tmp/repro-empty",
+  "stage": "r2.5",
+  "unmatched": []
+}

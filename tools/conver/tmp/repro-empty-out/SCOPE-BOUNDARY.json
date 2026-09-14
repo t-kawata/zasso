@@ -1,0 +1,11 @@
+{
+  "artefacts": [],
+  "counts": {
+    "in_scope": 0,
+    "out_of_scope": 0,
+    "undetermined": 0
+  },
+  "inScopeCount": 0,
+  "isEmpty": true,
+  "root": "/Users/sh01/shyme/zasso/tools/conver/tmp/repro-empty"
+}

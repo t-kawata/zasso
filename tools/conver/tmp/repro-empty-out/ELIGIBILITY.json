@@ -1,0 +1,251 @@
+{
+  "conditions": [
+    {
+      "dangerSignals": [
+        "no_tests_or_tests_do_not_pass"
+      ],
+      "evidence": [
+        {
+          "line": null,
+          "note": "no declared build manifest was found beneath this root, so the ecosystem this project builds under is not named anywhere this channel reads",
+          "path": "."
+        }
+      ],
+      "evidenceMode": null,
+      "id": "builds",
+      "measured": {
+        "manifestPresent": false,
+        "unreadableManifests": 0
+      },
+      "question": "Does the project build?",
+      "settlesBy": "build_semantic",
+      "state": "not_measurable_statically",
+      "whatWouldSettleIt": "Whether it builds is a `build_semantic` question, and this read-only run takes no build channel. Running the project's own build would settle it; so would a manifest it can be run from."
+    },
+    {
+      "dangerSignals": [
+        "no_tests_or_tests_do_not_pass"
+      ],
+      "evidence": [
+        {
+          "line": null,
+          "note": "no test file was found in the project's own source, by directory name or by file name — a test declared inside a source file, as a Rust `#[cfg(test)]` module is, is invisible to that reading",
+          "path": "."
+        }
+      ],
+      "evidenceMode": null,
+      "id": "tests_exist_and_can_run",
+      "measured": {
+        "testCommand": null,
+        "testFileCount": 0
+      },
+      "question": "Do tests exist, and can they be run?",
+      "settlesBy": "runtime_dynamic",
+      "state": "not_measurable_statically",
+      "whatWouldSettleIt": "Whether any test exists and can be run is a `runtime_dynamic` question, and this read-only run executes nothing. A declared test command would give the run something to name; executing the suite would settle it."
+    },
+    {
+      "dangerSignals": [
+        "no_history"
+      ],
+      "evidence": [
+        {
+          "line": null,
+          "note": "the run fixed this subject at commit 6b87071842d6, and this project sits inside the work tree at /Users/sh01/shyme/zasso and is not a repository of its own",
+          "path": "."
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "git_history_exists",
+      "measured": {
+        "commit": "6b87071842d6b0c48a587d23a02a358b933bc6d7",
+        "commitPresent": true,
+        "isOwnRepository": false
+      },
+      "note": "A history exists and this run has its commit. Whether that history carries meaning — squashed, rewritten, or migrated from another VCS — is what R4 reads into `HISTORY-PROVENANCE.json`, and the danger signal below reports that half as unread rather than as clean.",
+      "question": "Does a git history exist?",
+      "settlesBy": "source_static",
+      "state": "established_statically"
+    },
+    {
+      "dangerSignals": [
+        "dynamic_language_metaprogramming_dominates"
+      ],
+      "evidence": [
+        {
+          "line": null,
+          "note": "no source file was found beneath this root, so no language could be named as dominant",
+          "path": "."
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "main_language_analysable",
+      "measured": {
+        "dominantLanguage": null,
+        "dominantLanguageCount": 0,
+        "languagesConsidered": [
+          "rust",
+          "typescript",
+          "javascript",
+          "go",
+          "python",
+          "c_cpp"
+        ]
+      },
+      "note": "The six languages this instrument declares are rust, typescript, javascript, go, python, c_cpp. Whether one of them dominates decides this, and the count beside the dominant language is the whole of the reading.",
+      "question": "Is the main language analysable?",
+      "settlesBy": "source_static",
+      "state": "not_established_statically",
+      "whatWouldSettleIt": "Which language dominates is read from the source text, so a `source_static` reading settles this. rust, typescript, javascript, go, python, c_cpp are the languages this instrument declares; a corpus dominated by one of them is analysable in principle."
+    },
+    {
+      "dangerSignals": [
+        "generated_code_dominates"
+      ],
+      "evidence": [
+        {
+          "line": null,
+          "note": "there is no source file beneath this root, so there is no structure to read",
+          "path": "."
+        }
+      ],
+      "evidenceMode": null,
+      "id": "directory_structure_carries_meaning",
+      "measured": {
+        "directoryCount": 0,
+        "largestDirectoryShare": 0,
+        "sourceFileCount": 0
+      },
+      "question": "Does the directory structure carry meaning?",
+      "settlesBy": "source_static",
+      "state": "not_measurable_statically",
+      "whatWouldSettleIt": "A `source_static` reading of the tree settles this once the tree holds a source file; with none there, this channel has nothing to measure rather than a structure it cannot see."
+    },
+    {
+      "dangerSignals": [
+        "knowledge_closed_to_one_person"
+      ],
+      "evidence": [
+        {
+          "line": null,
+          "note": "no documentation file and no comment line were found in the project's own source",
+          "path": "."
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "documentation_or_comments_survive",
+      "measured": {
+        "commentFilesScanned": 0,
+        "commentFound": false,
+        "documentationFileCount": 0,
+        "firstComment": null,
+        "unreadable": []
+      },
+      "question": "Do documentation or comments survive somewhere?",
+      "settlesBy": "source_static",
+      "state": "not_established_statically",
+      "whatWouldSettleIt": "Both halves are read from the source text, and a `source_static` reading settles this: the documentation population is counted by extension and the comment population by the prefix each language uses. Finding a document or a comment anywhere would settle it the other way."
+    }
+  ],
+  "note": "These are the conditions and the signals of ABOUT-REVERSE 3.6, read from the source text and published before anything runs. This is not a judgement about whether the reverse rotation will succeed, and no field here combines them into one: the conditions and the signals are material for a human deciding whether to start, or to rebuild from zero (design 4.1), and the decision is yours.",
+  "root": "/Users/sh01/shyme/zasso/tools/conver/tmp/repro-empty",
+  "signals": [
+    {
+      "evidence": [
+        {
+          "line": null,
+          "note": "no test file was found in the project's own source, by directory name or by file name",
+          "path": "."
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "no_tests_or_tests_do_not_pass",
+      "note": "This is evidence of a missing foundation for the Red reconstruction: there is no test to build on. It is not evidence of the project being unsuitable, and it is not a count towards any total.",
+      "question": "Are tests missing, or present and not passing?",
+      "raisesBy": "runtime_dynamic",
+      "state": "established_statically",
+      "whatWouldRaiseIt": "No further channel is needed for the half read: the absence of a test file is a source fact. Running a suite would raise the other half."
+    },
+    {
+      "evidence": [
+        {
+          "line": null,
+          "note": "the run resolved a commit for this subject, so the \"no history\" half of this signal does not fire from the source text",
+          "path": "."
+        }
+      ],
+      "evidenceMode": null,
+      "id": "no_history",
+      "note": "This is evidence of a history being reachable. It is not evidence of that history being intact; reporting it as dismissed would be reading a channel limit as an absence (F12).",
+      "question": "Is the history gone — squashed, or migrated from another VCS?",
+      "raisesBy": "source_static",
+      "state": "not_measurable_statically",
+      "whatWouldRaiseIt": "Whether that history was squashed or migrated is read by R4 into `HISTORY-PROVENANCE.json` — `source_static` evidence this run has not taken. R4 settles it."
+    },
+    {
+      "evidence": [
+        {
+          "line": null,
+          "note": "0 artefact(s) sit under directories the analysis records rather than measures, against 0 in the project's own source",
+          "path": "."
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "generated_code_dominates",
+      "note": "This is evidence of how much material the analysis records rather than reads as the project's own source. It is not evidence of that material having been generated, and the two are different claims.",
+      "question": "Does material the analysis records rather than reads dominate the tree?",
+      "raisesBy": "source_static",
+      "state": "not_established_statically",
+      "whatWouldRaiseIt": "A `source_static` reading settles this and this one was taken; no further channel is needed."
+    },
+    {
+      "evidence": [
+        {
+          "line": null,
+          "note": "no source file was found, so no language dominates the population",
+          "path": "."
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "dynamic_language_metaprogramming_dominates",
+      "note": "This is evidence of the language the population is written in. It is not evidence of metaprogramming being absent — the mechanism markers are not read for any of the six languages.",
+      "question": "Is a dynamic language with dominant metaprogramming the population?",
+      "raisesBy": "source_static",
+      "state": "not_established_statically",
+      "whatWouldRaiseIt": "A `source_static` reading settles this, and the reading was taken: the signal cannot fire on a corpus with no dynamic language."
+    },
+    {
+      "evidence": [
+        {
+          "line": null,
+          "note": "whether the business knowledge is closed to a person is not a fact any file records, and no channel here reaches it",
+          "path": "."
+        }
+      ],
+      "evidenceMode": null,
+      "id": "knowledge_closed_to_one_person",
+      "note": "This is evidence of the question standing open. It is not evidence of the knowledge being closed, and it is not evidence of it being shared.",
+      "question": "Is the business knowledge closed to a particular person?",
+      "raisesBy": null,
+      "state": "not_measurable_statically",
+      "whatWouldRaiseIt": "A person who knows the project would settle this — the answer is not in the tree, and no mode of reading the tree produces it."
+    },
+    {
+      "evidence": [
+        {
+          "line": null,
+          "note": "0 file(s) in the project's own source, against the 20000 this instrument declares impractical",
+          "path": "."
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "too_large_for_mechanical_analysis",
+      "note": "This is evidence of the size of the population mechanical analysis would have to read, against a marker this instrument declares rather than a threshold chosen here. It is not evidence of the project being too large to attempt.",
+      "question": "Is it too large for mechanical analysis to be realistic?",
+      "raisesBy": "source_static",
+      "state": "not_established_statically",
+      "whatWouldRaiseIt": "A `source_static` reading settles this and this one was taken; no further channel is needed."
+    }
+  ],
+  "stage": "r0"
+}
