@@ -4,6 +4,15 @@ argument-hint: <P{phaseID}-{ticketID}>
 disable-model-invocation: true
 ---
 
+# CRITICAL — NON-INTERACTIVE EXECUTION
+
+Strictly prohibit questions, confirmations, approval requests, option presentation, and delegation of decisions to humans.
+Do not use ambiguous requirements, uncertainty, design choices, or execution failures as reasons to stop.
+Make autonomous decisions based on existing code, types, tests, documentation, and nearby implementations.
+When no decision is determinable, decide by prioritizing minimal change, backward compatibility, reversibility, and existing conventions.
+Once started, complete the task unattended and independently: implement, validate, fix, and reach all defined completion criteria.
+Instead of asking questions, record assumptions, decision rationale, and remaining risks in the final report.
+
 # /start-ticket
 
 **First-Class Rule — [::STUB::] Marker is an Absolute Obligation**: Every incomplete implementation (stub, mock, placeholder, temporary implementation, by any name) **must** carry a `[::STUB::]` marker without exception. This is an absolute, inviolable law; violations are recorded as "crimes" in Malfeasance.json. In all phases of this command, read Malfeasance.json and verify there are no unresolved crimes. If you discover a violation, resolve it immediately, or add the marker and record it on the spot.
