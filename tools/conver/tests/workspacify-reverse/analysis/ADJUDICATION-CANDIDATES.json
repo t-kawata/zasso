@@ -1,0 +1,2346 @@
+{
+  "adjudicationState": "unresolved",
+  "candidates": [
+    {
+      "adjudication": "unresolved",
+      "candidate_id": "cand-physical-faithful",
+      "counterexamples": [
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "derivedFrom": "physical_faithful",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "groups": [
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "."
+          ],
+          "name": "."
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "examples"
+          ],
+          "name": "examples"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "examples/common"
+          ],
+          "name": "examples/common"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src"
+          ],
+          "name": "src"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/api"
+          ],
+          "name": "src/api"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/architecture"
+          ],
+          "name": "src/architecture"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/audio"
+          ],
+          "name": "src/audio"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/build"
+          ],
+          "name": "src/build"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/concurrency_contexts"
+          ],
+          "name": "src/concurrency_contexts"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/config"
+          ],
+          "name": "src/config"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/error"
+          ],
+          "name": "src/error"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/ffi"
+          ],
+          "name": "src/ffi"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/model"
+          ],
+          "name": "src/model"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/runtime"
+          ],
+          "name": "src/runtime"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/security"
+          ],
+          "name": "src/security"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/state"
+          ],
+          "name": "src/state"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/tests"
+          ],
+          "name": "src/tests"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "tests"
+          ],
+          "name": "tests"
+        }
+      ],
+      "physical": {
+        "groups": [
+          {
+            "members": [
+              "."
+            ],
+            "name": "."
+          },
+          {
+            "members": [
+              "examples"
+            ],
+            "name": "examples"
+          },
+          {
+            "members": [
+              "examples/common"
+            ],
+            "name": "examples/common"
+          },
+          {
+            "members": [
+              "src"
+            ],
+            "name": "src"
+          },
+          {
+            "members": [
+              "src/api"
+            ],
+            "name": "src/api"
+          },
+          {
+            "members": [
+              "src/architecture"
+            ],
+            "name": "src/architecture"
+          },
+          {
+            "members": [
+              "src/audio"
+            ],
+            "name": "src/audio"
+          },
+          {
+            "members": [
+              "src/build"
+            ],
+            "name": "src/build"
+          },
+          {
+            "members": [
+              "src/concurrency_contexts"
+            ],
+            "name": "src/concurrency_contexts"
+          },
+          {
+            "members": [
+              "src/config"
+            ],
+            "name": "src/config"
+          },
+          {
+            "members": [
+              "src/error"
+            ],
+            "name": "src/error"
+          },
+          {
+            "members": [
+              "src/ffi"
+            ],
+            "name": "src/ffi"
+          },
+          {
+            "members": [
+              "src/model"
+            ],
+            "name": "src/model"
+          },
+          {
+            "members": [
+              "src/runtime"
+            ],
+            "name": "src/runtime"
+          },
+          {
+            "members": [
+              "src/security"
+            ],
+            "name": "src/security"
+          },
+          {
+            "members": [
+              "src/state"
+            ],
+            "name": "src/state"
+          },
+          {
+            "members": [
+              "src/tests"
+            ],
+            "name": "src/tests"
+          },
+          {
+            "members": [
+              "tests"
+            ],
+            "name": "tests"
+          }
+        ]
+      },
+      "propositions": [
+        "every measured directory is a logical unit of its own"
+      ]
+    },
+    {
+      "adjudication": "unresolved",
+      "candidate_id": "cand-cycle-collapsed",
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree."
+      ],
+      "derivedFrom": "cycle_collapsed",
+      "evidence": [
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together"
+      ],
+      "groups": [
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "."
+          ],
+          "name": "."
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "examples"
+          ],
+          "name": "examples"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "examples/common"
+          ],
+          "name": "examples/common"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src",
+            "src/api",
+            "src/audio",
+            "src/config",
+            "src/error",
+            "src/ffi",
+            "src/model",
+            "src/runtime",
+            "src/state"
+          ],
+          "name": "src"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/architecture"
+          ],
+          "name": "src/architecture"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/build"
+          ],
+          "name": "src/build"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/concurrency_contexts"
+          ],
+          "name": "src/concurrency_contexts"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/security"
+          ],
+          "name": "src/security"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/tests"
+          ],
+          "name": "src/tests"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "tests"
+          ],
+          "name": "tests"
+        }
+      ],
+      "physical": {
+        "groups": [
+          {
+            "members": [
+              "."
+            ],
+            "name": "."
+          },
+          {
+            "members": [
+              "examples"
+            ],
+            "name": "examples"
+          },
+          {
+            "members": [
+              "examples/common"
+            ],
+            "name": "examples/common"
+          },
+          {
+            "members": [
+              "src"
+            ],
+            "name": "src"
+          },
+          {
+            "members": [
+              "src/api"
+            ],
+            "name": "src/api"
+          },
+          {
+            "members": [
+              "src/architecture"
+            ],
+            "name": "src/architecture"
+          },
+          {
+            "members": [
+              "src/audio"
+            ],
+            "name": "src/audio"
+          },
+          {
+            "members": [
+              "src/build"
+            ],
+            "name": "src/build"
+          },
+          {
+            "members": [
+              "src/concurrency_contexts"
+            ],
+            "name": "src/concurrency_contexts"
+          },
+          {
+            "members": [
+              "src/config"
+            ],
+            "name": "src/config"
+          },
+          {
+            "members": [
+              "src/error"
+            ],
+            "name": "src/error"
+          },
+          {
+            "members": [
+              "src/ffi"
+            ],
+            "name": "src/ffi"
+          },
+          {
+            "members": [
+              "src/model"
+            ],
+            "name": "src/model"
+          },
+          {
+            "members": [
+              "src/runtime"
+            ],
+            "name": "src/runtime"
+          },
+          {
+            "members": [
+              "src/security"
+            ],
+            "name": "src/security"
+          },
+          {
+            "members": [
+              "src/state"
+            ],
+            "name": "src/state"
+          },
+          {
+            "members": [
+              "src/tests"
+            ],
+            "name": "src/tests"
+          },
+          {
+            "members": [
+              "tests"
+            ],
+            "name": "tests"
+          }
+        ]
+      },
+      "propositions": [
+        "`src`, `src/api`, `src/audio`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/state` are one logical unit"
+      ]
+    },
+    {
+      "adjudication": "unresolved",
+      "candidate_id": "cand-depth-collapsed",
+      "counterexamples": [
+        "a first path segment is a naming choice; no measurement says it is a logical unit"
+      ],
+      "derivedFrom": "depth_collapsed",
+      "evidence": [
+        "R2 measured 55 import edge(s) across the tree",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers"
+      ],
+      "groups": [
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "."
+          ],
+          "name": "."
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "examples",
+            "examples/common"
+          ],
+          "name": "examples"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src",
+            "src/api",
+            "src/architecture",
+            "src/audio",
+            "src/build",
+            "src/concurrency_contexts",
+            "src/config",
+            "src/error",
+            "src/ffi",
+            "src/model",
+            "src/runtime",
+            "src/security",
+            "src/state",
+            "src/tests"
+          ],
+          "name": "src"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "tests"
+          ],
+          "name": "tests"
+        }
+      ],
+      "physical": {
+        "groups": [
+          {
+            "members": [
+              "."
+            ],
+            "name": "."
+          },
+          {
+            "members": [
+              "examples"
+            ],
+            "name": "examples"
+          },
+          {
+            "members": [
+              "examples/common"
+            ],
+            "name": "examples/common"
+          },
+          {
+            "members": [
+              "src"
+            ],
+            "name": "src"
+          },
+          {
+            "members": [
+              "src/api"
+            ],
+            "name": "src/api"
+          },
+          {
+            "members": [
+              "src/architecture"
+            ],
+            "name": "src/architecture"
+          },
+          {
+            "members": [
+              "src/audio"
+            ],
+            "name": "src/audio"
+          },
+          {
+            "members": [
+              "src/build"
+            ],
+            "name": "src/build"
+          },
+          {
+            "members": [
+              "src/concurrency_contexts"
+            ],
+            "name": "src/concurrency_contexts"
+          },
+          {
+            "members": [
+              "src/config"
+            ],
+            "name": "src/config"
+          },
+          {
+            "members": [
+              "src/error"
+            ],
+            "name": "src/error"
+          },
+          {
+            "members": [
+              "src/ffi"
+            ],
+            "name": "src/ffi"
+          },
+          {
+            "members": [
+              "src/model"
+            ],
+            "name": "src/model"
+          },
+          {
+            "members": [
+              "src/runtime"
+            ],
+            "name": "src/runtime"
+          },
+          {
+            "members": [
+              "src/security"
+            ],
+            "name": "src/security"
+          },
+          {
+            "members": [
+              "src/state"
+            ],
+            "name": "src/state"
+          },
+          {
+            "members": [
+              "src/tests"
+            ],
+            "name": "src/tests"
+          },
+          {
+            "members": [
+              "tests"
+            ],
+            "name": "tests"
+          }
+        ]
+      },
+      "propositions": [
+        "`examples`, `examples/common` are one logical unit",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` are one logical unit"
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:.",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `.` as a logical unit on the strength of cycle_collapsed, depth_collapsed, physical_faithful"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [],
+      "options": [
+        "`.` stays a unit of its own (cycle_collapsed, depth_collapsed, physical_faithful)"
+      ],
+      "proposition": "the directory `.` is a unit of the logical architecture",
+      "question": "Is `.` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": ".",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:examples",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `examples` as a logical unit on the strength of cycle_collapsed, physical_faithful",
+        "the RFC records 2 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "examples",
+          "mappedNodeIds": [],
+          "path": "examples"
+        }
+      ],
+      "options": [
+        "`examples` stays a unit of its own (cycle_collapsed, physical_faithful)",
+        "`examples`, `examples/common` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `examples` is a unit of the logical architecture",
+      "question": "Is `examples` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "examples",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:examples/common",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `examples/common` as a logical unit on the strength of cycle_collapsed, physical_faithful",
+        "the RFC records 2 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "examples",
+          "mappedNodeIds": [],
+          "path": "examples/common"
+        }
+      ],
+      "options": [
+        "`examples/common` stays a unit of its own (cycle_collapsed, physical_faithful)",
+        "`examples`, `examples/common` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `examples/common` is a unit of the logical architecture",
+      "question": "Is `examples/common` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "examples/common",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src` as a logical unit on the strength of physical_faithful",
+        "the RFC records 9 directories as one logical unit, and every measured crossing between them becomes an internal detail (cycle_collapsed)",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-cycle-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src"
+        },
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src"
+        }
+      ],
+      "options": [
+        "`src` stays a unit of its own (physical_faithful)",
+        "`src`, `src/api`, `src/audio`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/state` become one unit (cycle_collapsed)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src` is a unit of the logical architecture",
+      "question": "Is `src` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/api",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/api` as a logical unit on the strength of physical_faithful",
+        "the RFC records 9 directories as one logical unit, and every measured crossing between them becomes an internal detail (cycle_collapsed)",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-cycle-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/api"
+        },
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/api"
+        }
+      ],
+      "options": [
+        "`src/api` stays a unit of its own (physical_faithful)",
+        "`src`, `src/api`, `src/audio`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/state` become one unit (cycle_collapsed)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/api` is a unit of the logical architecture",
+      "question": "Is `src/api` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/api",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/architecture",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/architecture` as a logical unit on the strength of cycle_collapsed, physical_faithful",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/architecture"
+        }
+      ],
+      "options": [
+        "`src/architecture` stays a unit of its own (cycle_collapsed, physical_faithful)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/architecture` is a unit of the logical architecture",
+      "question": "Is `src/architecture` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/architecture",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/audio",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/audio` as a logical unit on the strength of physical_faithful",
+        "the RFC records 9 directories as one logical unit, and every measured crossing between them becomes an internal detail (cycle_collapsed)",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-cycle-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/audio"
+        },
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/audio"
+        }
+      ],
+      "options": [
+        "`src/audio` stays a unit of its own (physical_faithful)",
+        "`src`, `src/api`, `src/audio`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/state` become one unit (cycle_collapsed)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/audio` is a unit of the logical architecture",
+      "question": "Is `src/audio` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/audio",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/build",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/build` as a logical unit on the strength of cycle_collapsed, physical_faithful",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/build"
+        }
+      ],
+      "options": [
+        "`src/build` stays a unit of its own (cycle_collapsed, physical_faithful)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/build` is a unit of the logical architecture",
+      "question": "Is `src/build` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/build",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/concurrency_contexts",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/concurrency_contexts` as a logical unit on the strength of cycle_collapsed, physical_faithful",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/concurrency_contexts"
+        }
+      ],
+      "options": [
+        "`src/concurrency_contexts` stays a unit of its own (cycle_collapsed, physical_faithful)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/concurrency_contexts` is a unit of the logical architecture",
+      "question": "Is `src/concurrency_contexts` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/concurrency_contexts",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/config",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/config` as a logical unit on the strength of physical_faithful",
+        "the RFC records 9 directories as one logical unit, and every measured crossing between them becomes an internal detail (cycle_collapsed)",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-cycle-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/config"
+        },
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/config"
+        }
+      ],
+      "options": [
+        "`src/config` stays a unit of its own (physical_faithful)",
+        "`src`, `src/api`, `src/audio`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/state` become one unit (cycle_collapsed)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/config` is a unit of the logical architecture",
+      "question": "Is `src/config` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/config",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/error",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/error` as a logical unit on the strength of physical_faithful",
+        "the RFC records 9 directories as one logical unit, and every measured crossing between them becomes an internal detail (cycle_collapsed)",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-cycle-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/error"
+        },
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/error"
+        }
+      ],
+      "options": [
+        "`src/error` stays a unit of its own (physical_faithful)",
+        "`src`, `src/api`, `src/audio`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/state` become one unit (cycle_collapsed)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/error` is a unit of the logical architecture",
+      "question": "Is `src/error` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/error",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/ffi",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/ffi` as a logical unit on the strength of physical_faithful",
+        "the RFC records 9 directories as one logical unit, and every measured crossing between them becomes an internal detail (cycle_collapsed)",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-cycle-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/ffi"
+        },
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/ffi"
+        }
+      ],
+      "options": [
+        "`src/ffi` stays a unit of its own (physical_faithful)",
+        "`src`, `src/api`, `src/audio`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/state` become one unit (cycle_collapsed)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/ffi` is a unit of the logical architecture",
+      "question": "Is `src/ffi` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/ffi",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/model",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/model` as a logical unit on the strength of physical_faithful",
+        "the RFC records 9 directories as one logical unit, and every measured crossing between them becomes an internal detail (cycle_collapsed)",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-cycle-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/model"
+        },
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/model"
+        }
+      ],
+      "options": [
+        "`src/model` stays a unit of its own (physical_faithful)",
+        "`src`, `src/api`, `src/audio`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/state` become one unit (cycle_collapsed)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/model` is a unit of the logical architecture",
+      "question": "Is `src/model` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/model",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/runtime",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/runtime` as a logical unit on the strength of physical_faithful",
+        "the RFC records 9 directories as one logical unit, and every measured crossing between them becomes an internal detail (cycle_collapsed)",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-cycle-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/runtime"
+        },
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/runtime"
+        }
+      ],
+      "options": [
+        "`src/runtime` stays a unit of its own (physical_faithful)",
+        "`src`, `src/api`, `src/audio`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/state` become one unit (cycle_collapsed)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/runtime` is a unit of the logical architecture",
+      "question": "Is `src/runtime` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/runtime",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/security",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/security` as a logical unit on the strength of cycle_collapsed, physical_faithful",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/security"
+        }
+      ],
+      "options": [
+        "`src/security` stays a unit of its own (cycle_collapsed, physical_faithful)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/security` is a unit of the logical architecture",
+      "question": "Is `src/security` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/security",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/state",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/state` as a logical unit on the strength of physical_faithful",
+        "the RFC records 9 directories as one logical unit, and every measured crossing between them becomes an internal detail (cycle_collapsed)",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-cycle-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/state"
+        },
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/state"
+        }
+      ],
+      "options": [
+        "`src/state` stays a unit of its own (physical_faithful)",
+        "`src`, `src/api`, `src/audio`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/state` become one unit (cycle_collapsed)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/state` is a unit of the logical architecture",
+      "question": "Is `src/state` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/state",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:src/tests",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `src/tests` as a logical unit on the strength of cycle_collapsed, physical_faithful",
+        "the RFC records 14 directories as one logical unit, and every measured crossing between them becomes an internal detail (depth_collapsed)"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [
+        {
+          "candidate_id": "cand-depth-collapsed",
+          "kind": "merged",
+          "layer": "src",
+          "mappedNodeIds": [],
+          "path": "src/tests"
+        }
+      ],
+      "options": [
+        "`src/tests` stays a unit of its own (cycle_collapsed, physical_faithful)",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` become one unit (depth_collapsed)"
+      ],
+      "proposition": "the directory `src/tests` is a unit of the logical architecture",
+      "question": "Is `src/tests` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "src/tests",
+      "subjectKind": "boundary_crossing"
+    },
+    {
+      "adjudication": "unresolved",
+      "claim_id": "boundary:tests",
+      "consequences": [
+        "the boundary stays where the layout put it, and the RFC records `tests` as a logical unit on the strength of cycle_collapsed, depth_collapsed, physical_faithful"
+      ],
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree.",
+        "a first path segment is a naming choice; no measurement says it is a logical unit",
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "default": "hand it to the human grill as unresolved",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "R2 measured 55 import edge(s) across the tree",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "mismatches": [],
+      "options": [
+        "`tests` stays a unit of its own (cycle_collapsed, depth_collapsed, physical_faithful)"
+      ],
+      "proposition": "the directory `tests` is a unit of the logical architecture",
+      "question": "Is `tests` a logical unit in its own right, or does it belong with the directories the measured coupling ties it to?",
+      "scope": "tests",
+      "subjectKind": "boundary_crossing"
+    }
+  ],
+  "cardsWithNoMismatch": 2,
+  "empty": false,
+  "generated": [
+    {
+      "adjudication": "unresolved",
+      "candidate_id": "cand-physical-faithful",
+      "counterexamples": [
+        "the layout keeps 9 directories apart that R2 measured inside a cycle"
+      ],
+      "derivedFrom": "physical_faithful",
+      "evidence": [
+        "R1 measured 18 directories holding at least one file",
+        "this candidate takes each one as a logical unit, which is what the layout already looks like"
+      ],
+      "groups": [
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "."
+          ],
+          "name": "."
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "examples"
+          ],
+          "name": "examples"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "examples/common"
+          ],
+          "name": "examples/common"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src"
+          ],
+          "name": "src"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/api"
+          ],
+          "name": "src/api"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/architecture"
+          ],
+          "name": "src/architecture"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/audio"
+          ],
+          "name": "src/audio"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/build"
+          ],
+          "name": "src/build"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/concurrency_contexts"
+          ],
+          "name": "src/concurrency_contexts"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/config"
+          ],
+          "name": "src/config"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/error"
+          ],
+          "name": "src/error"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/ffi"
+          ],
+          "name": "src/ffi"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/model"
+          ],
+          "name": "src/model"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/runtime"
+          ],
+          "name": "src/runtime"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/security"
+          ],
+          "name": "src/security"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/state"
+          ],
+          "name": "src/state"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/tests"
+          ],
+          "name": "src/tests"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "tests"
+          ],
+          "name": "tests"
+        }
+      ],
+      "physical": {
+        "groups": [
+          {
+            "members": [
+              "."
+            ],
+            "name": "."
+          },
+          {
+            "members": [
+              "examples"
+            ],
+            "name": "examples"
+          },
+          {
+            "members": [
+              "examples/common"
+            ],
+            "name": "examples/common"
+          },
+          {
+            "members": [
+              "src"
+            ],
+            "name": "src"
+          },
+          {
+            "members": [
+              "src/api"
+            ],
+            "name": "src/api"
+          },
+          {
+            "members": [
+              "src/architecture"
+            ],
+            "name": "src/architecture"
+          },
+          {
+            "members": [
+              "src/audio"
+            ],
+            "name": "src/audio"
+          },
+          {
+            "members": [
+              "src/build"
+            ],
+            "name": "src/build"
+          },
+          {
+            "members": [
+              "src/concurrency_contexts"
+            ],
+            "name": "src/concurrency_contexts"
+          },
+          {
+            "members": [
+              "src/config"
+            ],
+            "name": "src/config"
+          },
+          {
+            "members": [
+              "src/error"
+            ],
+            "name": "src/error"
+          },
+          {
+            "members": [
+              "src/ffi"
+            ],
+            "name": "src/ffi"
+          },
+          {
+            "members": [
+              "src/model"
+            ],
+            "name": "src/model"
+          },
+          {
+            "members": [
+              "src/runtime"
+            ],
+            "name": "src/runtime"
+          },
+          {
+            "members": [
+              "src/security"
+            ],
+            "name": "src/security"
+          },
+          {
+            "members": [
+              "src/state"
+            ],
+            "name": "src/state"
+          },
+          {
+            "members": [
+              "src/tests"
+            ],
+            "name": "src/tests"
+          },
+          {
+            "members": [
+              "tests"
+            ],
+            "name": "tests"
+          }
+        ]
+      },
+      "propositions": [
+        "every measured directory is a logical unit of its own"
+      ]
+    },
+    {
+      "adjudication": "unresolved",
+      "candidate_id": "cand-cycle-collapsed",
+      "counterexamples": [
+        "An import graph is a hypothesis about coupling read from use declarations. It does not represent runtime binding: dynamic dispatch, dependency injection, plugin registration, configuration-driven selection and reflection all couple code that no import names. The execution surface measured at R2.5 lists those mechanisms separately, and a proposition touching one of them may not be classified observed on this graph alone. This run enumerated 795 dynamic mechanism(s) at R2.5 — by language, c_cpp: 3, rust: 792; each one is a place where the graph below and the running program can disagree."
+      ],
+      "derivedFrom": "cycle_collapsed",
+      "evidence": [
+        "R2 measured 1 import cycle(s) among the packages it placed",
+        "the cycle src -> src/api -> src/audio -> src/config -> src/error -> src/ffi -> src/model -> src/runtime -> src/state ties 9 directories together"
+      ],
+      "groups": [
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "."
+          ],
+          "name": "."
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "examples"
+          ],
+          "name": "examples"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "examples/common"
+          ],
+          "name": "examples/common"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src",
+            "src/api",
+            "src/audio",
+            "src/config",
+            "src/error",
+            "src/ffi",
+            "src/model",
+            "src/runtime",
+            "src/state"
+          ],
+          "name": "src"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/architecture"
+          ],
+          "name": "src/architecture"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/build"
+          ],
+          "name": "src/build"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/concurrency_contexts"
+          ],
+          "name": "src/concurrency_contexts"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/security"
+          ],
+          "name": "src/security"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src/tests"
+          ],
+          "name": "src/tests"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "tests"
+          ],
+          "name": "tests"
+        }
+      ],
+      "physical": {
+        "groups": [
+          {
+            "members": [
+              "."
+            ],
+            "name": "."
+          },
+          {
+            "members": [
+              "examples"
+            ],
+            "name": "examples"
+          },
+          {
+            "members": [
+              "examples/common"
+            ],
+            "name": "examples/common"
+          },
+          {
+            "members": [
+              "src"
+            ],
+            "name": "src"
+          },
+          {
+            "members": [
+              "src/api"
+            ],
+            "name": "src/api"
+          },
+          {
+            "members": [
+              "src/architecture"
+            ],
+            "name": "src/architecture"
+          },
+          {
+            "members": [
+              "src/audio"
+            ],
+            "name": "src/audio"
+          },
+          {
+            "members": [
+              "src/build"
+            ],
+            "name": "src/build"
+          },
+          {
+            "members": [
+              "src/concurrency_contexts"
+            ],
+            "name": "src/concurrency_contexts"
+          },
+          {
+            "members": [
+              "src/config"
+            ],
+            "name": "src/config"
+          },
+          {
+            "members": [
+              "src/error"
+            ],
+            "name": "src/error"
+          },
+          {
+            "members": [
+              "src/ffi"
+            ],
+            "name": "src/ffi"
+          },
+          {
+            "members": [
+              "src/model"
+            ],
+            "name": "src/model"
+          },
+          {
+            "members": [
+              "src/runtime"
+            ],
+            "name": "src/runtime"
+          },
+          {
+            "members": [
+              "src/security"
+            ],
+            "name": "src/security"
+          },
+          {
+            "members": [
+              "src/state"
+            ],
+            "name": "src/state"
+          },
+          {
+            "members": [
+              "src/tests"
+            ],
+            "name": "src/tests"
+          },
+          {
+            "members": [
+              "tests"
+            ],
+            "name": "tests"
+          }
+        ]
+      },
+      "propositions": [
+        "`src`, `src/api`, `src/audio`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/state` are one logical unit"
+      ]
+    },
+    {
+      "adjudication": "unresolved",
+      "candidate_id": "cand-depth-collapsed",
+      "counterexamples": [
+        "a first path segment is a naming choice; no measurement says it is a logical unit"
+      ],
+      "derivedFrom": "depth_collapsed",
+      "evidence": [
+        "R2 measured 55 import edge(s) across the tree",
+        "this candidate groups by the first path segment, which is the coarsest split the layout offers"
+      ],
+      "groups": [
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "."
+          ],
+          "name": "."
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "examples",
+            "examples/common"
+          ],
+          "name": "examples"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "src",
+            "src/api",
+            "src/architecture",
+            "src/audio",
+            "src/build",
+            "src/concurrency_contexts",
+            "src/config",
+            "src/error",
+            "src/ffi",
+            "src/model",
+            "src/runtime",
+            "src/security",
+            "src/state",
+            "src/tests"
+          ],
+          "name": "src"
+        },
+        {
+          "mappedNodeIds": [],
+          "members": [
+            "tests"
+          ],
+          "name": "tests"
+        }
+      ],
+      "physical": {
+        "groups": [
+          {
+            "members": [
+              "."
+            ],
+            "name": "."
+          },
+          {
+            "members": [
+              "examples"
+            ],
+            "name": "examples"
+          },
+          {
+            "members": [
+              "examples/common"
+            ],
+            "name": "examples/common"
+          },
+          {
+            "members": [
+              "src"
+            ],
+            "name": "src"
+          },
+          {
+            "members": [
+              "src/api"
+            ],
+            "name": "src/api"
+          },
+          {
+            "members": [
+              "src/architecture"
+            ],
+            "name": "src/architecture"
+          },
+          {
+            "members": [
+              "src/audio"
+            ],
+            "name": "src/audio"
+          },
+          {
+            "members": [
+              "src/build"
+            ],
+            "name": "src/build"
+          },
+          {
+            "members": [
+              "src/concurrency_contexts"
+            ],
+            "name": "src/concurrency_contexts"
+          },
+          {
+            "members": [
+              "src/config"
+            ],
+            "name": "src/config"
+          },
+          {
+            "members": [
+              "src/error"
+            ],
+            "name": "src/error"
+          },
+          {
+            "members": [
+              "src/ffi"
+            ],
+            "name": "src/ffi"
+          },
+          {
+            "members": [
+              "src/model"
+            ],
+            "name": "src/model"
+          },
+          {
+            "members": [
+              "src/runtime"
+            ],
+            "name": "src/runtime"
+          },
+          {
+            "members": [
+              "src/security"
+            ],
+            "name": "src/security"
+          },
+          {
+            "members": [
+              "src/state"
+            ],
+            "name": "src/state"
+          },
+          {
+            "members": [
+              "src/tests"
+            ],
+            "name": "src/tests"
+          },
+          {
+            "members": [
+              "tests"
+            ],
+            "name": "tests"
+          }
+        ]
+      },
+      "propositions": [
+        "`examples`, `examples/common` are one logical unit",
+        "`src`, `src/api`, `src/architecture`, `src/audio`, `src/build`, `src/concurrency_contexts`, `src/config`, `src/error`, `src/ffi`, `src/model`, `src/runtime`, `src/security`, `src/state`, `src/tests` are one logical unit"
+      ]
+    }
+  ],
+  "logical": null,
+  "logicalReason": "No prior partition is on disk at RFC-ROOT-Dirs-Tree.json, which is the normal case for a project that came in by pattern 1 or 3: the logical partition is undecided, so the cards below are a prompt rather than a comparison.",
+  "logicalState": "undecided",
+  "mismatchCounts": {
+    "extra": 0,
+    "merged": 25,
+    "missing": 0
+  },
+  "mismatchCountsByCandidate": {
+    "cand-cycle-collapsed": 9,
+    "cand-depth-collapsed": 16,
+    "cand-physical-faithful": 0
+  },
+  "mismatches": [
+    {
+      "candidate_id": "cand-cycle-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src"
+    },
+    {
+      "candidate_id": "cand-cycle-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/api"
+    },
+    {
+      "candidate_id": "cand-cycle-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/audio"
+    },
+    {
+      "candidate_id": "cand-cycle-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/config"
+    },
+    {
+      "candidate_id": "cand-cycle-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/error"
+    },
+    {
+      "candidate_id": "cand-cycle-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/ffi"
+    },
+    {
+      "candidate_id": "cand-cycle-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/model"
+    },
+    {
+      "candidate_id": "cand-cycle-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/runtime"
+    },
+    {
+      "candidate_id": "cand-cycle-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/state"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "examples",
+      "mappedNodeIds": [],
+      "path": "examples"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "examples",
+      "mappedNodeIds": [],
+      "path": "examples/common"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/api"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/architecture"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/audio"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/build"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/concurrency_contexts"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/config"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/error"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/ffi"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/model"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/runtime"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/security"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/state"
+    },
+    {
+      "candidate_id": "cand-depth-collapsed",
+      "kind": "merged",
+      "layer": "src",
+      "mappedNodeIds": [],
+      "path": "src/tests"
+    }
+  ],
+  "physical": {
+    "groups": [
+      {
+        "members": [
+          "."
+        ],
+        "name": "."
+      },
+      {
+        "members": [
+          "examples"
+        ],
+        "name": "examples"
+      },
+      {
+        "members": [
+          "examples/common"
+        ],
+        "name": "examples/common"
+      },
+      {
+        "members": [
+          "src"
+        ],
+        "name": "src"
+      },
+      {
+        "members": [
+          "src/api"
+        ],
+        "name": "src/api"
+      },
+      {
+        "members": [
+          "src/architecture"
+        ],
+        "name": "src/architecture"
+      },
+      {
+        "members": [
+          "src/audio"
+        ],
+        "name": "src/audio"
+      },
+      {
+        "members": [
+          "src/build"
+        ],
+        "name": "src/build"
+      },
+      {
+        "members": [
+          "src/concurrency_contexts"
+        ],
+        "name": "src/concurrency_contexts"
+      },
+      {
+        "members": [
+          "src/config"
+        ],
+        "name": "src/config"
+      },
+      {
+        "members": [
+          "src/error"
+        ],
+        "name": "src/error"
+      },
+      {
+        "members": [
+          "src/ffi"
+        ],
+        "name": "src/ffi"
+      },
+      {
+        "members": [
+          "src/model"
+        ],
+        "name": "src/model"
+      },
+      {
+        "members": [
+          "src/runtime"
+        ],
+        "name": "src/runtime"
+      },
+      {
+        "members": [
+          "src/security"
+        ],
+        "name": "src/security"
+      },
+      {
+        "members": [
+          "src/state"
+        ],
+        "name": "src/state"
+      },
+      {
+        "members": [
+          "src/tests"
+        ],
+        "name": "src/tests"
+      },
+      {
+        "members": [
+          "tests"
+        ],
+        "name": "tests"
+      }
+    ]
+  },
+  "recordedMismatchCount": 25,
+  "withheld": []
+}

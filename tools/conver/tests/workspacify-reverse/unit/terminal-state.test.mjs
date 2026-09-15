@@ -15,14 +15,16 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
   LADDER_POSITIONS,
+  SCOPE_SOURCES,
   TERMINAL_ARTEFACTS,
   compareTerminalStates,
   measureTerminalState,
+  packagesFromPartition,
   renderTerminalStateReport,
   summariseStages,
 } from '../../../.claude/scripts/workspacify-reverse/lib/terminal-state.mjs';
@@ -249,4 +251,150 @@ test('C001 — the report says a representative that never began carries a prior
   writeFileSync(join(tree.root, 'docs', 'Tickets.json'), '{}\n', 'utf8');
   assert.equal(measureTerminalState({ root: tree.root }).manifestPresent, false, 'a nested Tickets.json is not the manifest');
   tree.dispose();
+});
+
+// ---------------------------------------------------------------------------
+// The scope: the declared partition, or the directory walk when there is none
+// ---------------------------------------------------------------------------
+
+/** Every file a terminal tree holds for a declared scope, at the path it declares. */
+// [::TICKET::] P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+function terminalFilesFor(scopes) {
+  const files = {};
+  for (const name of [...TERMINAL_ARTEFACTS.root, ...TERMINAL_ARTEFACTS.fifthLayer]) files[name] = '{}\n';
+  for (const scope of scopes) {
+    for (const name of TERMINAL_ARTEFACTS.package) files[join(scope.path, name)] = '{}\n';
+    for (const template of TERMINAL_ARTEFACTS.packageNamed) {
+      files[join(scope.path, template.replace('{package}', scope.name))] = '{}\n';
+    }
+    for (const name of TERMINAL_ARTEFACTS.packageFifthLayer) files[join(scope.path, name)] = '# seed\n';
+  }
+  return files;
+}
+
+test('C001 precondition: a declared partition places each package artefact at the path it declares, not at the root', () => {
+  const partition = [{ name: 'src-api', path: 'src/api' }, { name: 'docs', path: 'docs' }];
+  const tree = createSyntheticTree(terminalFilesFor(partition), { prefix: 'wsp-p25-3-' });
+  try {
+    assert.ok(
+      existsSync(join(tree.root, 'src/api/RFC-src-api.md')),
+      'the fixture carries the nested package material at the declared path',
+    );
+    assert.ok(
+      !existsSync(join(tree.root, 'RFC-src-api.md')),
+      'and not directly under the root, which is where a one-level reader would look',
+    );
+  } finally {
+    tree.dispose();
+  }
+});
+
+test('C001 postcondition: one entry per declared package, each artefact checked at the declared path, with the scope source recorded', () => {
+  const partition = [{ name: 'src-api', path: 'src/api' }, { name: 'docs', path: 'docs' }];
+  const tree = createSyntheticTree(terminalFilesFor(partition), { prefix: 'wsp-p25-3-' });
+  try {
+    const measured = measureTerminalState({ root: tree.root, partition });
+
+    assert.equal(measured.scopeSource, SCOPE_SOURCES.PARTITION);
+    assert.deepEqual([...measured.packages].sort(), ['docs', 'src/api']);
+    assert.deepEqual(measured.missing, [], 'every declared artefact exists at its declared path');
+    assert.ok(
+      measured.present.some((entry) => entry.scope === 'src/api' && entry.artefact === 'RFC-src-api.md'),
+      'the nested package is reported under its path and named by the identifier the partition declares',
+    );
+    assert.equal(measured.present.length, 11 + 2 * 8, 'the root inventory once, plus eight for each declared package');
+    assert.equal(measured.complete, true);
+  } finally {
+    tree.dispose();
+  }
+});
+
+test('C001 invariant: the scope source is always recorded, and an absent partition is not an empty one', () => {
+  const partition = [{ name: 'src-api', path: 'src/api' }, { name: 'docs', path: 'docs' }];
+  const tree = createSyntheticTree(terminalFilesFor(partition), { prefix: 'wsp-p25-3-' });
+  try {
+    const declared = measureTerminalState({ root: tree.root, partition });
+    assert.equal(declared.complete, declared.missing.length === 0);
+    assert.ok(
+      Object.values(SCOPE_SOURCES).includes(declared.scopeSource),
+      'the source is one of the declared values rather than any truthy marker',
+    );
+
+    const walked = measureTerminalState({ root: tree.root });
+    assert.equal(walked.scopeSource, SCOPE_SOURCES.DIRECTORY_WALK);
+    assert.notDeepEqual(
+      walked.packages,
+      declared.packages,
+      'the two sources are distinguishable in the state, so neither can be read as the other',
+    );
+
+    const empty = measureTerminalState({ root: tree.root, partition: [] });
+    assert.equal(empty.scopeSource, SCOPE_SOURCES.PARTITION, 'a declared empty partition is an answer, not an absence');
+    assert.deepEqual(empty.packages, []);
+    assert.equal(
+      empty.present.length + empty.missing.length,
+      11,
+      'and it reports the root artefacts alone, rather than falling back to the directories the fixture also has',
+    );
+    assert.equal(empty.present.length, 11, 'which this complete fixture satisfies');
+  } finally {
+    tree.dispose();
+  }
+});
+
+test('C001 boundary: a package declared at the root is the root, and adds no rows of its own', () => {
+  const partition = [{ name: 'project-root', path: '.' }, { name: 'docs', path: 'docs' }];
+  const tree = createSyntheticTree(terminalFilesFor([{ name: 'docs', path: 'docs' }]), { prefix: 'wsp-p25-3-root-' });
+  try {
+    const measured = measureTerminalState({ root: tree.root, partition });
+
+    assert.deepEqual([...measured.packages].sort(), ['.', 'docs'], 'both declared packages are in the scope');
+    assert.equal(
+      measured.missing.length,
+      0,
+      'the root package is measured at the root, whose inventory is the eleven the root already owes',
+    );
+    assert.equal(measured.present.length, 11 + 8, 'and it adds no twelfth row: eleven plus one package of eight');
+  } finally {
+    tree.dispose();
+  }
+});
+
+test('C001 error: a partition naming a path that is absent from disk is reported rather than counted as satisfied', () => {
+  const tree = createSyntheticTree({ 'README.md': '# nothing\n' }, { prefix: 'wsp-p25-3-absent-' });
+  try {
+    const measured = measureTerminalState({ root: tree.root, partition: [{ name: 'docs', path: 'docs' }] });
+
+    assert.equal(measured.present.length, 0, 'a scope absent from disk satisfies nothing');
+    assert.equal(measured.missing.length, 11 + 8);
+    assert.ok(measured.missing.some((entry) => entry.scope === 'docs' && entry.artefact === 'RFC-docs.md'));
+    assert.ok(measured.missing.some((entry) => entry.scope === 'root' && entry.artefact === 'RFC-ROOT.md'));
+    assert.equal(measured.complete, false);
+  } finally {
+    tree.dispose();
+  }
+});
+
+test('C001 boundary: packagesFromPartition reads name and path, and keeps an empty partition empty', () => {
+  assert.deepEqual(packagesFromPartition([{ name: 'src-api', path: 'src/api' }]), [
+    { name: 'src-api', path: 'src/api' },
+  ]);
+  assert.deepEqual(packagesFromPartition([]), []);
+  assert.deepEqual(packagesFromPartition(undefined), []);
+});
+
+test('C003 invariant: the inventory is design section 2.3\'s list, eleven at the root and eight per package', () => {
+  assert.equal(TERMINAL_ARTEFACTS.root.length + TERMINAL_ARTEFACTS.fifthLayer.length, 11);
+  assert.equal(
+    TERMINAL_ARTEFACTS.package.length + TERMINAL_ARTEFACTS.packageNamed.length + TERMINAL_ARTEFACTS.packageFifthLayer.length,
+    8,
+    'one name that does not vary, six that carry the package identifier, and the fifth layer seed',
+  );
+  assert.deepEqual(Object.keys(TERMINAL_ARTEFACTS), ['root', 'fifthLayer', 'package', 'packageNamed', 'packageFifthLayer']);
+  for (const name of TERMINAL_ARTEFACTS.packageNamed) {
+    assert.ok(name.includes('{package}'), name + ' carries the identifier slot');
+  }
+  for (const name of [...TERMINAL_ARTEFACTS.root, ...TERMINAL_ARTEFACTS.fifthLayer, ...TERMINAL_ARTEFACTS.package, ...TERMINAL_ARTEFACTS.packageFifthLayer]) {
+    assert.ok(!name.includes('{package}'), name + ' carries no identifier slot, because its group is not the named one');
+  }
 });

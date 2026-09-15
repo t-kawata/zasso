@@ -1,6 +1,6 @@
 {
-  "couldNotRunCount": 0,
-  "extractedNothingCount": 122,
+  "couldNotRunCount": 3,
+  "extractedNothingCount": 125,
   "rows": [
     {
       "configuration": "syntax-only",
@@ -782,8 +782,8 @@
       ],
       "extracted_count": 31,
       "phase": "parse",
-      "reason": null,
-      "status": "partial",
+      "reason": "grammar_recovered",
+      "status": "failed",
       "target": "src/ffi/backend_calls.rs",
       "tool": "tree-sitter-rust"
     },
@@ -1512,8 +1512,8 @@
       "diagnostics": [],
       "extracted_count": 0,
       "phase": "parse",
-      "reason": "no_extractor_for_language",
-      "status": "skipped",
+      "reason": null,
+      "status": "success",
       "target": "wrapper.h",
       "tool": "tree-sitter-c_cpp"
     },
@@ -2297,8 +2297,8 @@
       ],
       "extracted_count": 7,
       "phase": "parse",
-      "reason": null,
-      "status": "partial",
+      "reason": "grammar_recovered",
+      "status": "failed",
       "target": "src/ffi/backend_calls.rs",
       "tool": "tree-sitter-rust"
     },
@@ -3027,8 +3027,8 @@
       "diagnostics": [],
       "extracted_count": 0,
       "phase": "parse",
-      "reason": "no_edge_extractor_for_language",
-      "status": "skipped",
+      "reason": null,
+      "status": "success",
       "target": "wrapper.h",
       "tool": "tree-sitter-c_cpp"
     },
@@ -3812,8 +3812,8 @@
       ],
       "extracted_count": 33,
       "phase": "parse",
-      "reason": null,
-      "status": "partial",
+      "reason": "grammar_recovered",
+      "status": "failed",
       "target": "src/ffi/backend_calls.rs",
       "tool": "tree-sitter-rust"
     },
@@ -4540,10 +4540,10 @@
     {
       "configuration": "syntax-only",
       "diagnostics": [],
-      "extracted_count": 0,
+      "extracted_count": 3,
       "phase": "parse",
-      "reason": "no_mechanism_extractor_for_language",
-      "status": "skipped",
+      "reason": null,
+      "status": "success",
       "target": "wrapper.h",
       "tool": "tree-sitter-c_cpp"
     },
@@ -6061,6 +6061,16 @@
       "status": "success",
       "target": "wrapper.h",
       "tool": "tree-sitter"
+    },
+    {
+      "configuration": "sandboxed-session",
+      "diagnostics": [],
+      "extracted_count": 0,
+      "phase": "execute",
+      "reason": null,
+      "status": "success",
+      "target": "/Users/kawata/shyme/zasso/tools/conver/siprs-for-reverse",
+      "tool": "bounded-offline-start-plan"
     }
   ]
 }

@@ -296,14 +296,20 @@ test('C002 invariant — an out-of-scope artefact is recorded as out_of_scope, n
   const tree = syntheticCrateTree();
   const boundary = classifyArtefacts({ root: tree.root, scope: resolveScope(tree.root) });
 
-  const vendored = boundary.artefacts.filter((a) => a.path.startsWith('vendor/'));
-  const buildOutput = boundary.artefacts.filter((a) => a.path.startsWith('target/'));
+  // An excluded subtree is one entry that says how much of the tree it stands
+  // for, rather than one entry per file inside it. What this test is about is
+  // unchanged by that resolution: the subtree is recorded and marked
+  // out_of_scope, which is not the same claim as being absent.
+  const vendored = boundary.artefacts.find((a) => a.path === 'vendor');
+  const buildOutput = boundary.artefacts.find((a) => a.path === 'target');
 
-  assert.ok(vendored.length > 0, 'the vendored tree exists and must appear in the record');
-  assert.ok(buildOutput.length > 0, 'build output exists and must appear in the record');
-  for (const artefact of [...vendored, ...buildOutput]) {
+  assert.ok(vendored, 'the vendored tree exists and must appear in the record');
+  assert.ok(buildOutput, 'build output exists and must appear in the record');
+  for (const artefact of [vendored, buildOutput]) {
     assert.equal(artefact.coverage, 'out_of_scope');
     assert.notEqual(artefact.coverage, 'undetermined');
+    assert.ok(artefact.count > 0, 'and says how many files it stands for');
+    assert.ok(artefact.size > 0, 'and how many bytes they hold');
   }
 
   const report = renderBoundaryReport(boundary);
@@ -675,8 +681,13 @@ test('UT-2 source files are in scope and dependency directories never are', () =
 
   assert.equal(byPath.get('src/lib.rs').coverage, 'in_scope');
   assert.equal(byPath.get('src/lib.rs').kind, 'handwritten');
-  assert.equal(byPath.get('vendor/pjsip/pjlib.h').coverage, 'out_of_scope');
-  assert.equal(byPath.get('target/debug/artifact.bin').coverage, 'out_of_scope');
+  // A dependency tree and a build-output tree are each one entry, so the path
+  // asserted is the directory rather than a file inside it. The claim is the
+  // same one: never in scope.
+  assert.equal(byPath.get('vendor').coverage, 'out_of_scope');
+  assert.equal(byPath.get('vendor').kind, 'dependency');
+  assert.equal(byPath.get('target').coverage, 'out_of_scope');
+  assert.equal(byPath.get('target').kind, 'build_output');
   assert.equal(byPath.get('Cargo.toml').kind, 'config');
   tree.dispose();
 });

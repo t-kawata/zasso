@@ -57,3 +57,18 @@ ECC_zasso_PLUGIN_ROOT.md
 # Windows reserved device names (git cannot add these)
 nul
 .DS_Store
+
+# Bytecode caches. Python writes one beside the module it imports, so several trees
+# in this repository carry a copy and any test run rewrites them: a tracked cache
+# is a working tree that dirties itself, holding bytes that describe the
+# interpreter which produced them rather than anything this repository decided.
+# The rule sits at the root because only a root pattern reaches every tree; an
+# ignore file inside one toolchain cannot see past its own directory.
+#
+# One cache, under tools/conver/siprs-with-4layers/, stays tracked. That tree is
+# the frozen answer key and tests assert nothing writes into it, so a rewrite there
+# is a finding rather than dirt. An ignore rule never applies to a tracked file, so
+# this rule leaves that one exactly as it was.
+__pycache__/
+*.pyc
+

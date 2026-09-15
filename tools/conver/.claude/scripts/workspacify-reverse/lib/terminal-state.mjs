@@ -124,9 +124,49 @@ function isDirectory(path) {
   }
 }
 
-/** The package directories a terminal tree declares under its root. */
-// [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
-function packagesUnder(root) {
+/**
+ * The two questions the scope list can answer, named so a reader can tell them apart.
+ *
+ * The design records what reading one as evidence about the other costs: an earlier
+ * reading of `measureExistingDirectories` as evidence about `measureDirectoryTree`
+ * produced a wrong conclusion about root ownership, because the two answer different
+ * questions. A state that did not say which source produced its scope would put the
+ * same mistake one call away.
+ */
+export const SCOPE_SOURCES = Object.freeze({
+  PARTITION: 'partition',
+  DIRECTORY_WALK: 'directory-walk',
+});
+
+/**
+ * The label the root's artefacts are recorded under.
+ *
+ * A label rather than a path: the root has no name of its own, and `.` is the path a
+ * partition uses for the package that *is* the root. Both reach the same eleven
+ * artefacts, and spelling the label as a path would invite `join(root, '.', a)`.
+ */
+const ROOT_SCOPE = 'root';
+
+/** The path a declared partition gives the package that is the tree's own root. */
+const ROOT_PACKAGE_PATH = '.';
+
+/** Whether a declared package path names the root rather than a directory under it. */
+// [::TICKET::] P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+function isRootPackagePath(path) {
+  return path === ROOT_PACKAGE_PATH || path === '';
+}
+
+/**
+ * The directories under a root, as the fallback scope when no partition is declared.
+ *
+ * This is the fallback and the name says so. It cannot know the partition: it sees
+ * every directory, so a build output directory is a package to it. `siprs-for-reverse`
+ * carries an ignored `target/`, and this walk counts it — which is why the partition
+ * is the source of record where one exists, and why the state records which source
+ * produced the scope it reports.
+ */
+// [::TICKET::] P24-8, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-8|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+function directoriesUnder(root) {
   try {
     return readdirSync(root)
       .filter((entry) => isDirectory(join(root, entry)))
@@ -138,16 +178,41 @@ function packagesUnder(root) {
 }
 
 /**
+ * The packages a declared partition names, as `{name, path}` pairs.
+ *
+ * A partition entry carries both because the two are used for different things: the
+ * path is where the package's directory is, and the name is the identifier its
+ * artefacts carry. `RFC-{package}.md` is named after the identifier, not after the
+ * directory, and the two differ as soon as a package is nested — `src-api` is the
+ * name of the package at `src/api`.
+ *
+ * An entry without both is dropped rather than guessed at: a partition that cannot
+ * say where a package is cannot be measured against, and inventing a path from the
+ * name would produce a scope that looks checked and is not.
+ *
+ * @param {Array<{name: string, path: string}>|null|undefined} partition
+ * @returns {Array<{name: string, path: string}>}
+ */
+// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
+export function packagesFromPartition(partition) {
+  if (!Array.isArray(partition)) return [];
+  return partition
+    .filter((entry) => entry && typeof entry.name === 'string' && typeof entry.path === 'string')
+    .map((entry) => ({ name: entry.name, path: entry.path }));
+}
+
+/**
  * True when the tree holds the artefact a scope names.
  *
  * The root's artefacts sit directly under it; every other scope is a package
  * directory, so the artefact is looked for one level in. Spelled once here because
  * the two paths are the whole content of the check and a reader has to see both to
- * know which one a given scope takes.
+ * know which one a given scope takes. The scope is a path — `src/api` for a nested
+ * package — or the root label for the eleven the root owes.
  */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-12|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function artefactExists(root, { scope, artefact }) {
-  return existsSync(scope === 'root' ? join(root, artefact) : join(root, scope, artefact));
+  return existsSync(scope === ROOT_SCOPE ? join(root, artefact) : join(root, scope, artefact));
 }
 
 /**
@@ -158,10 +223,20 @@ function artefactExists(root, { scope, artefact }) {
  * else — never an exit code, and never an inference from the documents a run
  * happened to publish.
  *
- * @param {{root: string, manifest?: object|null}} params
+ * The scope is the partition a caller declares, and the directory walk only when no
+ * partition is declared. `partition` being null and being `[]` are different answers:
+ * null says nothing declared the packages and the walk stands in, while an empty list
+ * says the partition declared none — which is a measurement of a tree whose root is
+ * all there is, not a reason to look at its directories instead.
+ *
+ * The state says which source produced its scope. Two readings that answer different
+ * questions are one call apart here, and the design records what confusing them cost
+ * the last time it happened.
+ *
+ * @param {{root: string, manifest?: object|null, partition?: Array<{name: string, path: string}>|null}} params
  * @returns {object} the measured state
  */
-export function measureTerminalState({ root, manifest = null } = {}) {
+export function measureTerminalState({ root, manifest = null, partition = null } = {}) {
   if (typeof root !== 'string' || root.length === 0) {
     throw new Error('measureTerminalState needs the tree root it measures');
   }
@@ -173,21 +248,33 @@ export function measureTerminalState({ root, manifest = null } = {}) {
     (artefactExists(root, entry) ? present : missing).push(entry);
   };
 
-  for (const artefact of TERMINAL_ARTEFACTS.root) record('root', artefact);
-  for (const artefact of TERMINAL_ARTEFACTS.fifthLayer) record('root', artefact);
+  for (const artefact of TERMINAL_ARTEFACTS.root) record(ROOT_SCOPE, artefact);
+  for (const artefact of TERMINAL_ARTEFACTS.fifthLayer) record(ROOT_SCOPE, artefact);
 
-  const packages = packagesUnder(root);
-  for (const name of packages) {
-    for (const artefact of TERMINAL_ARTEFACTS.package) record(name, artefact);
+  const declared = partition === null ? null : packagesFromPartition(partition);
+  const scopes = declared === null
+    ? directoriesUnder(root).map((name) => ({ name, path: name }))
+    : declared;
+  const scopeSource = declared === null ? SCOPE_SOURCES.DIRECTORY_WALK : SCOPE_SOURCES.PARTITION;
+
+  const packages = [];
+  for (const scope of scopes) {
+    packages.push(isRootPackagePath(scope.path) ? ROOT_PACKAGE_PATH : scope.path);
+    // The package that is the root has no per-package rows: its material carries the
+    // root's names, and adding eight more would count the same directory twice.
+    if (isRootPackagePath(scope.path)) continue;
+
+    for (const artefact of TERMINAL_ARTEFACTS.package) record(scope.path, artefact);
     for (const template of TERMINAL_ARTEFACTS.packageNamed) {
-      record(name, template.replace('{package}', name));
+      record(scope.path, template.replace('{package}', scope.name));
     }
-    for (const artefact of TERMINAL_ARTEFACTS.packageFifthLayer) record(name, artefact);
+    for (const artefact of TERMINAL_ARTEFACTS.packageFifthLayer) record(scope.path, artefact);
   }
 
   return {
     root,
     packages,
+    scopeSource,
     present,
     missing,
     complete: missing.length === 0,

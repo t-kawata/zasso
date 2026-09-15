@@ -45,6 +45,7 @@ import {
   LADDER_POSITIONS,
   TERMINAL_OUTCOMES,
   compareTerminalStates,
+  SCOPE_SOURCES,
   measureTerminalState,
   outcomeOf,
   renderTerminalStateReport,
@@ -141,6 +142,20 @@ const GROUNDED_DECISIONS = join('tests', 'workspacify-tree', 'fixtures', 'decisi
 const DECISIONS_SKELETON = Object.freeze({
   workspace: [], ownership: [], dependencies: [], adapters: [], approvals: [],
 });
+
+/**
+ * The packages a representative's decisions input declares, or null when it declares none.
+ *
+ * Null rather than an empty list, because the two are different answers: a skeleton
+ * input carries no `tree` key at all and says nothing about the packages, while an
+ * input carrying `tree: []` says there are none. The instrument reports which of the
+ * two it was given, so this reader must not collapse them.
+ */
+// [::TICKET::] P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+function readDecisionsPartition(decisionsPath) {
+  const parsed = JSON.parse(readFileSync(decisionsPath, 'utf8'));
+  return Array.isArray(parsed.tree) ? parsed.tree : null;
+}
 
 /** True when this observation was selected deliberately. */
 const selected = process.env.WSP_TERMINAL_STATE === '1';
@@ -476,15 +491,36 @@ test('IT: the chain reaches the terminal state over each representative, or says
     }
 
     const summary = summariseStages(normaliseScratchPaths(stages));
-    const measured = measureTerminalState({ root: source.root });
+    // The partition the run was given. Measured 2026-09-15: no representative carries
+    // a tree manifest — the chain refuses before one is written — so the manifest
+    // cannot be the source. The frozen decisions input declares the packages and is
+    // the list a manifest is built from, and two representatives have none, which is
+    // what the walk fallback is for.
+    const declared = readDecisionsPartition(decisions);
+    const measured = measureTerminalState({ root: source.root, partition: declared });
     const outcome = outcomeOf(summary, measured);
     observations.push({
       representative,
       stages: summary,
       outcome,
+      scopeSource: measured.scopeSource,
       missing: measured.missing.length,
       packages: measured.packages.length,
     });
+
+    // The scope agrees with the input this representative was given, asserted where
+    // both readings are in hand rather than re-derived afterwards from a path that
+    // has gone out of scope.
+    assert.ok(
+      Object.values(SCOPE_SOURCES).includes(measured.scopeSource),
+      `${representative}: the scope says which source produced it`,
+    );
+    if (declared === null) {
+      assert.equal(measured.scopeSource, SCOPE_SOURCES.DIRECTORY_WALK, `${representative}: declares no partition, so the walk stands in`);
+    } else {
+      assert.equal(measured.scopeSource, SCOPE_SOURCES.PARTITION, `${representative}: declares a partition, so the partition is the scope`);
+      assert.equal(measured.packages.length, declared.length, `${representative}: the scope is the declared packages, not the directories`);
+    }
     runs.push({
       representative,
       decisions: decisionsDigestFor(representative),
@@ -575,6 +611,17 @@ test('IT: the chain reaches the terminal state over each representative, or says
   // and no third, and each stops short for a reason the record names.
   for (const entry of observations) {
     assert.equal(TERMINAL_OUTCOMES.includes(entry.outcome), true, `${entry.representative}: the outcome is one of ${TERMINAL_OUTCOMES.join(' / ')}`);
+  }
+
+  // The scope the record kept agrees with what the representative's input declares,
+  // which is the assertion this ticket exists to make possible: the count is the
+  // declared packages where a partition is declared, and the directories only where
+  // none is. A record whose count came from somewhere else would be a number without
+  // a question behind it.
+  const declaredForSiprs = observations.find((entry) => entry.representative === 'siprs-for-reverse');
+  if (declaredForSiprs !== undefined) {
+    assert.equal(declaredForSiprs.scopeSource, SCOPE_SOURCES.PARTITION, 'the configured representative declares a partition');
+    assert.equal(declaredForSiprs.packages, 18, 'the frozen input declares eighteen packages, the root among them');
   }
   assert.equal(
     observations.some((entry) => entry.outcome === 'not proved'),
@@ -1072,4 +1119,15 @@ test('IT: §7.3 cites the record, so the claim that nothing was ever observed is
   for (const run of record.runs) {
     assert.match(run.decisions.digest, /^[0-9a-f]{64}$/, `${run.representative}: the record names its decisions digest`);
   }
+
+  // A count without its source is a number a reader cannot use: `packages: 12` could
+  // be a declared partition or a walk that counted a build directory, and the two
+  // answer different questions. The record says which, for every observation.
+  for (const entry of record.observations) {
+    assert.ok(
+      Object.values(SCOPE_SOURCES).includes(entry.scopeSource),
+      `${entry.representative}: the committed record names the source of its scope count`,
+    );
+  }
+  assert.doesNotMatch(JSON.stringify(record), /wsp-p25-3-|wsp-p24-8-/, 'and no scratch path was committed with it');
 });

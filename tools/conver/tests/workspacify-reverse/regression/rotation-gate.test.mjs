@@ -1,3 +1,6 @@
+// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-210 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-210 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
@@ -30,12 +33,12 @@ import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 
 import {
-  COMMAND_FILE_NAMES,
   DECLARED_ROTATION_PREDICATES,
   FORWARD_PROCEDURE_HEADING_PATTERNS,
   ROTATION_GATE_PATTERN,
   compareDigests,
   digestCommandFiles,
+  REVERSE_SECTION_COMMAND_FILES,
   lintRotationGates,
   lintRotationPlacement,
   rejectInadmissiblePredicates,
@@ -79,7 +82,7 @@ test('C001: no reverse heading precedes a forward procedure heading in any of th
 });
 
 test('C001: every file carries an anchor, so the rule cannot pass vacuously', () => {
-  for (const name of COMMAND_FILE_NAMES) {
+  for (const name of REVERSE_SECTION_COMMAND_FILES) {
     assert.ok(
       commandLines(name).some((line) => FORWARD_PROCEDURE_HEADING_PATTERNS.some((pattern) => pattern.test(line))),
       `${name}.md carries no forward procedure heading, so the placement rule has nothing to anchor on`,
@@ -108,7 +111,7 @@ test('C001: boundify-graph.md reaches Step 3 without meeting a step-removing sen
 });
 
 test('C001: no command file removes a step before its forward procedure ends', () => {
-  for (const name of COMMAND_FILE_NAMES) {
+  for (const name of REVERSE_SECTION_COMMAND_FILES) {
     const lines = commandLines(name);
     const anchors = lines
       .map((line, index) => ({ line, index }))
@@ -189,7 +192,7 @@ test('C002: every reverse section opens with a gate naming a declared predicate'
 });
 
 test('C002: each of the nine carries exactly one reverse heading', () => {
-  for (const name of COMMAND_FILE_NAMES) {
+  for (const name of REVERSE_SECTION_COMMAND_FILES) {
     const reverse = commandLines(name).filter((line) => /^#{1,6} .*[Rr]everse/.test(line));
     assert.strictEqual(reverse.length, 1, `${name}.md carries ${reverse.length} reverse headings`);
   }
@@ -262,7 +265,7 @@ test('C003: every declared predicate carries a kind, a reason and forwardDefault
 
 test('C003: every predicate named by a gate in the nine files is a member of the table', () => {
   const declared = new Set(DECLARED_ROTATION_PREDICATES.map((entry) => entry.name));
-  for (const name of COMMAND_FILE_NAMES) {
+  for (const name of REVERSE_SECTION_COMMAND_FILES) {
     const named = ROTATION_GATE_PATTERN.exec(gateLineOf(name))?.[1];
     assert.ok(named !== undefined, `${name}.md carries no parseable gate sentence`);
     assert.ok(declared.has(named), `${name}.md names undeclared predicate ${named}`);
@@ -270,7 +273,7 @@ test('C003: every predicate named by a gate in the nine files is a member of the
 });
 
 test('C003: every declared predicate is named by at least one gate', () => {
-  const named = new Set(COMMAND_FILE_NAMES.map((name) => ROTATION_GATE_PATTERN.exec(gateLineOf(name))?.[1]));
+  const named = new Set(REVERSE_SECTION_COMMAND_FILES.map((name) => ROTATION_GATE_PATTERN.exec(gateLineOf(name))?.[1]));
   const unused = DECLARED_ROTATION_PREDICATES
     .map((entry) => entry.name)
     .filter((name) => !named.has(name));
@@ -347,7 +350,7 @@ test('C004: compareDigests over the PX-205 baseline returns no findings', () => 
 
 test('C004: the frozen Language Protocol and First-Class Rule digests are unchanged', () => {
   const current = digestCommandFiles(PROJECT_ROOT);
-  for (const name of COMMAND_FILE_NAMES) {
+  for (const name of REVERSE_SECTION_COMMAND_FILES) {
     assert.strictEqual(
       current[name].languageProtocolDigest,
       BASELINE.commandFileDigests[name].languageProtocolDigest,
@@ -371,7 +374,7 @@ test('C004: the digest adds no key the frozen baseline carries no value for', ()
   // open item against `documentDigest`. It is not added a second time.
   const current = digestCommandFiles(PROJECT_ROOT);
 
-  for (const name of COMMAND_FILE_NAMES) {
+  for (const name of REVERSE_SECTION_COMMAND_FILES) {
     const frozen = BASELINE.commandFileDigests[name];
     const withoutValue = Object.keys(current[name]).filter((key) => !(key in frozen));
     assert.deepStrictEqual(

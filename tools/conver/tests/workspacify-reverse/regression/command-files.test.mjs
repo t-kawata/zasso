@@ -1,3 +1,6 @@
+// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
 /**
  * The command-file digest: proof that an edit was an edit.
@@ -9,7 +12,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -29,6 +32,7 @@ import {
   digestCommandFiles,
   extractCommandFileSections,
 } from '../../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs';
+import { FROZEN_FIRST_CLASS_RULE_CARRIERS, SCRIPTLESS_COMMAND_FILES } from '../helpers/command-file.mjs';
 
 const MODULE_ROOT = process.cwd();
 
@@ -54,9 +58,39 @@ test('C002 postcondition: every command file yields the three protected sections
       assert.match(entry.firstClassRuleDigest, /^[0-9a-f]{64}$/, name + ' must digest the First-Class Rule line');
     }
     const documentDigests = Object.values(digests).map((entry) => entry.documentDigest);
-    assert.equal(new Set(documentDigests).size, COMMAND_FILE_NAMES.length, 'the nine digests must be distinct');
+    assert.equal(
+      new Set(documentDigests).size,
+      COMMAND_FILE_NAMES.length,
+      'the frozen definitions are distinct files, so no two may share a digest',
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('C002 boundary: a command file that names no script is exempt, and the exempt set is named rather than implied', () => {
+  // The digest protects a definition that instructs an operator to run something.
+  // A file with no script in it has nothing for the freeze to bind, so it is exempt
+  // — and the exemption is a decision with a reason, written down and asserted in
+  // both directions: a file that starts naming a script leaves this list, and one
+  // that stops leaves it from the other side.
+  const commandsDirectory = join(MODULE_ROOT, COMMANDS_RELATIVE_DIR);
+  const namesScriptless = (name) =>
+    !readFileSync(join(commandsDirectory, `${name}.md`), 'utf8').includes('.claude/scripts/');
+
+  const measured = readdirSync(commandsDirectory)
+    .filter((file) => file.endsWith('.md'))
+    .map((file) => file.replace(/\.md$/, ''))
+    .filter(namesScriptless)
+    .sort();
+
+  assert.deepEqual(measured, [...SCRIPTLESS_COMMAND_FILES].sort(), 'the exempt set is the recorded one, measured rather than assumed');
+  for (const name of SCRIPTLESS_COMMAND_FILES) {
+    assert.equal(
+      COMMAND_FILE_NAMES.includes(name),
+      false,
+      `${name} names no script, so freeing it would freeze nothing and claim otherwise`,
+    );
   }
 });
 
@@ -158,8 +192,16 @@ test('C002 postcondition: the obligation sentence is frozen where it exists and 
 
     // A section heading that merely shares the wording is not the obligation
     // sentence, and must not be mistaken for it.
-    const carrying = COMMAND_FILE_NAMES.filter((name) => digests[name].firstClassRuleDigest !== sha256OfEmpty);
-    assert.deepEqual(carrying, [], 'measured 2026-09-10: none of the nine carries the obligation sentence');
+    //
+    // Measured 2026-09-10 on the nine: none carried the sentence. P25-2 widened the
+    // freeze to fifteen and the measurement moved — four carry the PX-era wording and
+    // `consolidate-stubs` carries a different law under the same opening. The record is
+    // the list rather than a count, so a fifth carrier cannot join it unnamed and one of
+    // these five cannot quietly lose the sentence.
+    const carrying = COMMAND_FILE_NAMES
+      .filter((name) => digests[name].firstClassRuleDigest !== sha256OfEmpty)
+      .sort();
+    assert.deepEqual(carrying, [...FROZEN_FIRST_CLASS_RULE_CARRIERS].sort(), 'the carriers are the recorded five');
     assert.ok(
       readFileSync(commandPath(root, 'grill-me-for-rfc'), 'utf8').includes('First-Class Rules'),
       'the wording does appear as a section heading, which is why the match must be specific',

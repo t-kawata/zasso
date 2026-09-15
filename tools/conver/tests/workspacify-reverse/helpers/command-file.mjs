@@ -1,3 +1,5 @@
+// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -33,6 +35,54 @@ export const JUDGEMENT_SURFACE_SIZE = 6;
 
 /** The formulations design §5.7 forbids. The count is asserted, not assumed. */
 export const FORBIDDEN_FORMULATION_COUNT = 6;
+
+/**
+ * How many command definitions the digest freezes.
+ *
+ * Nine were the files that existed before P22. P25-2 adds the six that name a
+ * script and were never guarded — `make-ticket`, `plan-ticket`, `start-ticket`,
+ * `review-ticket`, `resolve-ticket` and `consolidate-stubs` — because a definition
+ * that instructs an operator to run a script is exactly what the freeze claims to
+ * protect. `workspacify-reverse.md` stays outside: it is the creation P22-9 made
+ * rather than an edit to a pre-P22 file, and its own shape is held by
+ * `assertCommandFileStructure` instead.
+ */
+export const EXPECTED_FROZEN_COMMAND_FILES = 15;
+
+/**
+ * The frozen definitions that carry the First-Class Rule obligation sentence.
+ *
+ * Measured 2026-09-15, and recorded rather than required: the sentence is not shared
+ * across the set. Four carry the PX-era wording, `consolidate-stubs` carries a
+ * different law under the same opening, and the rest carry none — which is what
+ * `compareDigests` already models, freezing the sentence where it exists and its
+ * absence where it does not. The record exists so a fifth carrier cannot join
+ * unnamed, and so removing the sentence from one of these five is reported.
+ */
+export const FROZEN_FIRST_CLASS_RULE_CARRIERS = Object.freeze([
+  'consolidate-stubs',
+  'plan-ticket',
+  'resolve-ticket',
+  'review-ticket',
+  'start-ticket',
+]);
+
+/**
+ * The command definitions that name no script.
+ *
+ * They are exempt from the freeze because there is nothing in them for it to bind:
+ * the digest protects a definition that instructs an operator to run something. The
+ * list is a decision with a reason rather than a default, so it is written down and
+ * asserted — a command file that starts naming a script leaves this list, and one
+ * that stops leaves it in the other direction.
+ */
+export const SCRIPTLESS_COMMAND_FILES = Object.freeze([
+  'epush-branch',
+  'jpush-branch',
+  'plan',
+  'sessions',
+  'skill-health',
+]);
 
 /** Where the instrument's subcommands are catalogued. */
 export const SCRIPTS_USED_HEADING = '## Scripts used';
@@ -281,4 +331,41 @@ export function assertJudgementSurface(text) {
 /** The bullets of the machine's half of the judgement section, for the split assertion. */
 export function extractMachineDecisions(text) {
   return sectionLines(text, JUDGEMENT_HEADING).filter((line) => BULLET.test(line));
+}
+
+/**
+ * Where an absence section and the measured closure contradict each other.
+ *
+ * Checked in both directions, because they are two different defects. A module the
+ * walk cannot reach and the section does not name is an absence the operator is not
+ * told about; a module the walk *does* reach and the section names as absent is a
+ * refusal of something that is there. Neither direction can be checked by counting:
+ * the assertion this replaces required six row identifiers to be present and went on
+ * passing after every one of those rows had been closed, because a name that should
+ * have been removed is not a name that is missing.
+ *
+ * The section is passed as text rather than as a path so a fixture can drive the
+ * check. A guard that can only be pointed at the real file can only ever be seen to
+ * pass.
+ *
+ * @param {{ sectionText: string, unreachable: string[], reachable: string[] }} input
+ * @returns {Array<{ kind: string, module: string }>} one finding per contradiction
+ */
+// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
+export function findAbsenceContradictions({ sectionText: section, unreachable, reachable }) {
+  const findings = [];
+
+  for (const module of unreachable) {
+    if (!section.includes(module)) {
+      findings.push({ kind: 'unnamed-absence', module });
+    }
+  }
+
+  for (const module of reachable) {
+    if (section.includes(module)) {
+      findings.push({ kind: 'reachable-named-absent', module });
+    }
+  }
+
+  return findings;
 }

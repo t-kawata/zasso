@@ -391,11 +391,14 @@ incompleteness is not reported and left; it is *converted*. And `ABOUT-REVERSE` 
 
 Before designing the content, the permissions:
 
-- The file is **not** in `COMMAND_FILE_NAMES` (`command-file-digest.mjs:43`), which freezes **nine**
-  command files. `command.test.mjs:159` asserts this explicitly:
-  *"the tenth file is deliberately outside the frozen digest: it is a creation, not an edit"*.
-  `P22-9` **created** it as a new file, so the append-only discipline that binds the nine does not
-  bind it. **A rewrite is permitted.**
+- The file is **not** in `COMMAND_FILE_NAMES` (`command-file-digest.mjs:50`), which freezes
+  **fifteen** command files. `command.test.mjs:159` asserts this explicitly:
+  *"the reverse file is deliberately outside the frozen digest: it is a creation, not an edit"*.
+  `P22-9` **created** it as a new file, so the append-only discipline that binds the frozen set does
+  not bind it. **A rewrite is permitted.**
+  *(P25-2: the set was nine when this section was written. It is fifteen now — the six definitions
+  that name a script and were never guarded joined it — and this file stayed outside, for the reason
+  above.)*
 - But eight structural assertions **do** bind it (`command.test.mjs:162-183`). A rewrite must keep
   all of them:
 
@@ -405,18 +408,22 @@ Before designing the content, the permissions:
 | 2 | it carries `description:` |
 | 3 | it carries `argument-hint:` |
 | 4 | it carries `disable-model-invocation: true` |
-| 5 | its Language Protocol table is **byte-identical** to the nine's |
+| 5 | its Language Protocol table is **byte-identical** to the other carriers' |
 | 6 | its First-Class Rule line matches `/First-Class Rule\s*—\s*\[::STUB::\]/` |
 | 7 | at least one heading matches `/Step \d/` |
 | 8 | it carries `## Scripts used`, `## Arguments`, and the text `run.mjs analyze` |
 
 The frontmatter is kept byte-identical: `/workspacify-reverse <root>` is `P22-9`'s API contract.
 
-### 5.2 The current file's diagnosis
+### 5.2 The diagnosis this section was written from
 
-The current file is 159 lines and is **a description of the entrance, not a procedure for the
-work**. Its five steps are an *invocation* sequence (probe zg → run analyze → read the report →
-serve candidates → report). Concretely:
+The file was **159 lines and a description of the entrance, not a procedure for the work** — five
+steps that were an *invocation* sequence (probe zg → run analyze → read the report → serve
+candidates → report). The five defects below were measured then and closed by `P23-1`, which
+rewrote the file into a nine-step procedure. **The file is 289 lines now**, and the absence section
+it carries is held to the measured import closure rather than to a remembered list (`P25-2`).
+
+The defects are kept here as the record of what the rewrite was for:
 
 | # | Defect |
 |---|---|
@@ -622,22 +629,32 @@ either a fabricated success or an abort — both worse than silence. So each of 
 the file** rather than omitted, which is the same discipline the instruments apply to unobserved
 regions (F12; `unobserved` is a first-class state and is never rendered as "no disagreement").
 
-**Reachability measured**: of the 39 modules under `workspacify-reverse/lib/`, **nine are not
-reachable from `run.mjs`**:
+**Reachability measured 2026-09-15**: of the **51** modules under `workspacify-reverse/lib/`,
+**five are not reachable from `run.mjs`**:
 
 ```
-sandbox.mjs  record-replay.mjs  dynamic-surface.mjs  sandbox-error.mjs
-worktree-isolation.mjs  reflexion.mjs  two-pass.mjs  staleness.mjs  security-lane.mjs
+invariant-audit.mjs  language-representatives.mjs  staleness.mjs  terminal-state.mjs  two-pass.mjs
 ```
 
-| # | Absent entrance | Design home | What is lost |
+The set is no longer read from this page. `tests/workspacify-reverse/helpers/module-closure.mjs`
+computes it from the files on every run, and two guards hold their subjects to it — the command
+file's absence section in both directions, and `reachability.test.mjs` for the set itself. **A
+module that falls out of the closure fails there by name rather than being rediscovered here.**
+
+| Module | Kind | Design home | What is lost |
 |---|---|---|---|
-| **N1** | `sandbox.mjs` / `record-replay.mjs` / `dynamic-surface.mjs` | R2.5's dynamic half (`measure-dynamic-coupling.mjs`, 80%, `ABOUT-REVERSE` §6.2) | **Measured**: the capability profile reports 792 activation mechanisms, all read statically, and says of the rest — *"Mechanisms that leave no static trace … are invisible to a static reading and are not counted above."* Rule R-1 therefore fires wherever a mechanism is listed and `observed` is never reached there |
-| **N2** | `worktree-isolation.mjs` | R6.5's execution (`ABOUT-REVERSE` §9 design problem 3, recorded as **unfinished**) | `scope.mjs` calls `applyCounterexamples([], ledger)` with a **literal empty array**. **Measured**: `COUNTEREXAMPLE-RESULTS.json` is `{empty: true, applied: []}`. The falsification stage falsifies nothing |
-| **N3** | `security-lane.mjs` | R7/R8 (`P22-22`) | `classifySecurityLane(ledger)` has **no caller outside its unit test**. Failure mode **F15** — ratification of safety and authority boundaries |
-| **N4** | `reflexion.mjs` | R7/R8 (`P22-20`) | `renderAdjudicationCards` has **no caller outside its unit test**. Failure mode **F14** — conflating the logical and the physical boundary |
-| **N5** | *(a defect, not an absence)* | R7 | **The exit serves a different shape from the one the spike calibrated.** `renderDecisionCards` (layered, threshold 12) is called only by `runSpike`. `analyze`'s R7 uses `renderServing`, which is **flat and capped at 100**. **Measured**: 3,714 unresolved claims, **100 printed, 3,614 withheld**. The design's own anti-decision-fatigue mechanism (F7) does not operate at the exit |
-| **N6** | *(not implemented)* | R0 | `ABOUT-REVERSE` §3.6 requires the eligibility assessment to be mechanised and presented at R0; `REVIEW-2` Q1 specifies it. Nothing computes it. `capability-profile.mjs` answers five different questions at R8 |
+| `two-pass.mjs` | **absence, unowned** | `ABOUT-REVERSE` §7.7.1 | The 2-Pass Hybrid — vertical at the boundaries, horizontal inside. Without it the analysis sweeps each package without first fixing the boundaries it crosses, so a package's contract is settled from that package alone. **The unit test executes the module; no run does** |
+| `staleness.mjs` | **absence, unowned** | `ABOUT-REVERSE` §6.12.2 | The evolution loop's signal (**F13**). A dependency, a configuration, a schema or an external contract moves on, the canonical record keeps its shape and quietly stops describing the code, and nothing turns red. **Its unit and integration tests execute the module; no run does** |
+| `invariant-audit.mjs` | exclusion, `P23-12` | §1.2, as a non-gate | Nothing. The audit measures this chain's gates, and §1.2 forbids it from doing so **as a gate** — wiring it in is precisely what would let it refuse a run. The regression suite is the entrance §1.2 asks for |
+| `language-representatives.mjs` | exclusion, `P24-1` | R1's language measurement | Nothing. What reads the language declaration is the suite and the tickets that parameterise over the six representatives; a run is pointed at one subject at a time, never at a fixture population |
+| `terminal-state.mjs` | exclusion, `P24-8` | §2.2 / §2.3 | Nothing. The terminal state is a property of a run of the whole chain, and this entrance is one command of that chain. The observation test that drives the chain reads the inventory, not one of its own steps |
+
+**N1–N6 are closed.** The rows this section carried were six consequences of nine unreachable
+modules, and the stages took seven of those nine: N1 (R2.5's dynamic half), N2 (R6.5's executor)
+and N3/N4 (R7/R8's two lanes) are reachable now, N5 was a defect in the exit's serving shape and was
+repaired, and N6's eligibility assessment was implemented. The two rows that remain are the two
+above, and they carry no N-number because a numbering that survives its rows invites a reader to
+think the rows are still there.
 
 ---
 
@@ -655,12 +672,16 @@ worktree-isolation.mjs  reflexion.mjs  two-pass.mjs  staleness.mjs  security-lan
 | Graph / Dirs-Tree sit beside their RFC | `.claude/commands/boundify-graph.md` |
 | The isolation check rejects a pattern-2 tree | `holdout isolation siprs-with-4layers` → exit 1, 9 artefacts named |
 | The `.delta.json` family is the evolution loop's | `drill-rfc-down/boundify-step.js:66` |
+| The interrupted cycle's **in-flight work** is accounted for (§3.3) | `reverse-split.js` reads the declared tickets' lifecycles (`TERMINAL_TICKET_STATUSES`, `ticketLifecyclesFrom`) and reports every non-terminal one, re-homed or named as re-homed-nowhere, with the declared key set and the partition it came from (`renderInFlightReport`). A ticket whose document declares no status is reported as absent rather than assumed terminal. `P23-9`, measured 2026-09-13 |
 
 ### 7.2 Verified as *absent*
 
-| Obligation | Finding |
+**Nothing is recorded here as absent.** One obligation was, and it has been discharged rather than
+deleted from this page, so that a reader can tell an emptied section from a section nobody wrote.
+
+| Obligation | Discharged by |
 |---|---|
-| Handling the interrupted cycle's **in-flight work** (§3.3) | `reverse-split.js:590` reads the existing `Tickets.json` for its **declared key set only** (`readDeclaredTicketKeys`). No ticket lifecycle status is consulted. Line 525 writes a **new** ledger into `--out`. S1–S6 address *tests without tickets*; they do not address *tickets with work in flight*. **The two are different populations, and only the first has a gate** |
+| Handling the interrupted cycle's **in-flight work** (§3.3) | `P23-9`. When this section was written, `reverse-split.js` read the existing `Tickets.json` for its declared key set only and consulted no ticket lifecycle, so *tests without tickets* and *tickets with work in flight* were two populations and only the first had a gate. The module now reads the lifecycles and reports the second population. The measurement is in §7.1 |
 
 ### 7.3 Not verified
 
@@ -779,9 +800,25 @@ node -e "…" # over /tmp/wsp-r8-probe
 
 ### A.5 Reachability from `run.mjs`
 
+Measured **2026-09-11**:
+
 ```bash
 # transitive import closure from run.mjs over lib/*.mjs
 # reachable 30 · unreachable 9:
 #   dynamic-surface, record-replay, reflexion, sandbox-error, sandbox,
 #   security-lane, staleness, two-pass, worktree-isolation
 ```
+
+Re-measured **2026-09-15**, because the stages between those dates were what moved it — this is one
+of the appendix entries the P23/P24 work changed, and it is corrected here rather than left with a
+date that would make a current-looking number out of an old run:
+
+```bash
+# reachable 46 · unreachable 5:
+#   invariant-audit, language-representatives, staleness, terminal-state, two-pass
+```
+
+Seven of the nine became reachable: R2.5's dynamic half and R6.5's executor among them. Four of the
+five remaining are named in §6 with a reason each; `staleness.mjs` and `two-pass.mjs` are the two
+absences nobody owns. Do not read this number from the page — §6 states how it is computed and
+which guard fails when it moves.

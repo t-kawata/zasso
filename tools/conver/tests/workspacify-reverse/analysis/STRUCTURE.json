@@ -781,8 +781,8 @@
       ],
       "extracted_count": 31,
       "phase": "parse",
-      "reason": null,
-      "status": "partial",
+      "reason": "grammar_recovered",
+      "status": "failed",
       "target": "src/ffi/backend_calls.rs",
       "tool": "tree-sitter-rust"
     },
@@ -1511,17 +1511,17 @@
       "diagnostics": [],
       "extracted_count": 0,
       "phase": "parse",
-      "reason": "no_extractor_for_language",
-      "status": "skipped",
+      "reason": null,
+      "status": "success",
       "target": "wrapper.h",
       "tool": "tree-sitter-c_cpp"
     }
   ],
   "coverage": {
-    "configs_analyzed": 1,
+    "configs_analyzed": 0,
     "configs_enumerated": 1,
     "files_discovered": 151,
-    "files_parsed": 150,
+    "files_parsed": 151,
     "files_semantically_resolved": 0,
     "files_with_error_nodes": 1
   },
@@ -1549,14 +1549,6 @@
       "symbol": "AuthOverride",
       "typeKind": "enum",
       "variants": [
-        {
-          "line": 10,
-          "symbol": "Pcmu"
-        },
-        {
-          "line": 11,
-          "symbol": "Opus"
-        },
         {
           "line": 39,
           "symbol": "Credentials"
@@ -1661,18 +1653,6 @@
         {
           "line": 34,
           "symbol": "JwtRequiresSecret"
-        },
-        {
-          "line": 41,
-          "symbol": "LocalhostOnly"
-        },
-        {
-          "line": 43,
-          "symbol": "ApiKey"
-        },
-        {
-          "line": 45,
-          "symbol": "Jwt"
         }
       ]
     },
@@ -1728,14 +1708,6 @@
       "typeKind": "enum",
       "variants": [
         {
-          "line": 39,
-          "symbol": "Present"
-        },
-        {
-          "line": 41,
-          "symbol": "Absent"
-        },
-        {
           "line": 59,
           "symbol": "UnsupportedOs"
         },
@@ -1769,38 +1741,6 @@
       "symbol": "VersionError",
       "typeKind": "enum",
       "variants": [
-        {
-          "line": 6,
-          "symbol": "ZeroX"
-        },
-        {
-          "line": 8,
-          "symbol": "Stable"
-        },
-        {
-          "line": 15,
-          "symbol": "Breaking"
-        },
-        {
-          "line": 17,
-          "symbol": "Additive"
-        },
-        {
-          "line": 19,
-          "symbol": "Fix"
-        },
-        {
-          "line": 26,
-          "symbol": "Major"
-        },
-        {
-          "line": 28,
-          "symbol": "Minor"
-        },
-        {
-          "line": 30,
-          "symbol": "Patch"
-        },
         {
           "line": 38,
           "symbol": "BreakingRequiresMajor"
@@ -1940,48 +1880,8 @@
       "typeKind": "enum",
       "variants": [
         {
-          "line": 27,
-          "symbol": "Hz8000"
-        },
-        {
-          "line": 29,
-          "symbol": "Hz16000"
-        },
-        {
-          "line": 31,
-          "symbol": "Hz24000"
-        },
-        {
-          "line": 33,
-          "symbol": "Hz48000"
-        },
-        {
-          "line": 57,
-          "symbol": "I16"
-        },
-        {
-          "line": 59,
-          "symbol": "F32"
-        },
-        {
-          "line": 73,
-          "symbol": "Mono"
-        },
-        {
-          "line": 75,
-          "symbol": "StereoInOut"
-        },
-        {
           "line": 136,
           "symbol": "InvalidFrameMs"
-        },
-        {
-          "line": 160,
-          "symbol": "I16"
-        },
-        {
-          "line": 162,
-          "symbol": "F32"
         }
       ]
     },
@@ -2063,170 +1963,6 @@
         {
           "line": 15,
           "symbol": "NativeError"
-        },
-        {
-          "line": 104,
-          "symbol": "Initialize"
-        },
-        {
-          "line": 108,
-          "symbol": "AddAccount"
-        },
-        {
-          "line": 119,
-          "symbol": "UpdateAccount"
-        },
-        {
-          "line": 125,
-          "symbol": "RemoveAccount"
-        },
-        {
-          "line": 130,
-          "symbol": "CreateTransport"
-        },
-        {
-          "line": 134,
-          "symbol": "SetRegistration"
-        },
-        {
-          "line": 139,
-          "symbol": "MakeCall"
-        },
-        {
-          "line": 147,
-          "symbol": "Answer"
-        },
-        {
-          "line": 156,
-          "symbol": "Hangup"
-        },
-        {
-          "line": 161,
-          "symbol": "Hold"
-        },
-        {
-          "line": 165,
-          "symbol": "Unhold"
-        },
-        {
-          "line": 170,
-          "symbol": "Transfer"
-        },
-        {
-          "line": 175,
-          "symbol": "SendDtmf"
-        },
-        {
-          "line": 184,
-          "symbol": "GetAccountInfo"
-        },
-        {
-          "line": 191,
-          "symbol": "QueryState"
-        },
-        {
-          "line": 197,
-          "symbol": "ConfConnect"
-        },
-        {
-          "line": 203,
-          "symbol": "ConfDisconnect"
-        },
-        {
-          "line": 212,
-          "symbol": "AddAudioSource"
-        },
-        {
-          "line": 218,
-          "symbol": "RemoveAudioSource"
-        },
-        {
-          "line": 222,
-          "symbol": "SetAudioSourceGain"
-        },
-        {
-          "line": 227,
-          "symbol": "MuteAudioSource"
-        },
-        {
-          "line": 232,
-          "symbol": "Shutdown"
-        },
-        {
-          "line": 280,
-          "symbol": "Execute"
-        },
-        {
-          "line": 289,
-          "symbol": "SendDtmf"
-        },
-        {
-          "line": 299,
-          "symbol": "AddAudioSource"
-        },
-        {
-          "line": 307,
-          "symbol": "RemoveAudioSource"
-        },
-        {
-          "line": 311,
-          "symbol": "SetAudioSourceGain"
-        },
-        {
-          "line": 316,
-          "symbol": "MuteAudioSource"
-        },
-        {
-          "line": 321,
-          "symbol": "GetAccountInfo"
-        },
-        {
-          "line": 330,
-          "symbol": "AddAccount"
-        },
-        {
-          "line": 340,
-          "symbol": "MakeCall"
-        },
-        {
-          "line": 350,
-          "symbol": "Answer"
-        },
-        {
-          "line": 359,
-          "symbol": "Hangup"
-        },
-        {
-          "line": 367,
-          "symbol": "Transfer"
-        },
-        {
-          "line": 377,
-          "symbol": "UpdateAccount"
-        },
-        {
-          "line": 388,
-          "symbol": "SetRegistration"
-        },
-        {
-          "line": 396,
-          "symbol": "RemoveAccount"
-        },
-        {
-          "line": 403,
-          "symbol": "CreateTransport"
-        },
-        {
-          "line": 407,
-          "symbol": "QueryState"
-        },
-        {
-          "line": 415,
-          "symbol": "NativeEvent"
-        },
-        {
-          "line": 418,
-          "symbol": "Shutdown"
         }
       ]
     },
@@ -2293,26 +2029,6 @@
       "symbol": "ShutdownError",
       "typeKind": "enum",
       "variants": [
-        {
-          "line": 19,
-          "symbol": "StopCommands"
-        },
-        {
-          "line": 21,
-          "symbol": "CancelCalls"
-        },
-        {
-          "line": 23,
-          "symbol": "UnregisterAccounts"
-        },
-        {
-          "line": 25,
-          "symbol": "DrainAudio"
-        },
-        {
-          "line": 27,
-          "symbol": "InvokeDestroy"
-        },
         {
           "line": 62,
           "symbol": "PhaseFailed"
@@ -3666,9 +3382,9 @@
   ],
   "limitations": [
     {
-      "code": "EXTRACTOR_NOT_WRITTEN",
-      "effect": "c_cpp is reachable by the syntax layer, which carries a grammar for it, but this instrument version has no extractor for it — so nothing was extracted from those files",
-      "scope": "**/*.c_cpp"
+      "code": "no_build_database",
+      "effect": "compile_commands.json was not found, so include resolution and translation-unit composition were chosen by the analyser rather than taken from the project — an approximation the analyser chose for itself, and the E1 and E5 readings for C/C++ are conclusions of that approximation",
+      "scope": "the C/C++ extraction"
     }
   ],
   "modules": [
@@ -5353,7 +5069,8 @@
       ],
       "directory": ".",
       "files": [
-        "build.rs"
+        "build.rs",
+        "wrapper.h"
       ],
       "language": "rust"
     },

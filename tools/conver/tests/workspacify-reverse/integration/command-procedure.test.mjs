@@ -1,3 +1,6 @@
+// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -27,11 +30,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+
+import { readModuleClosure, reachableModulesIn } from '../helpers/module-closure.mjs';
 
 import {
   COMMAND_FILE_NAMES,
@@ -54,6 +59,7 @@ import {
   auditForbiddenFormulations,
   extractJudgementItems,
   extractMachineDecisions,
+  findAbsenceContradictions,
   readCommandFile,
   regionsOf,
   sectionText,
@@ -61,8 +67,12 @@ import {
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const RUNNER = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/run.mjs');
+const MODULE_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/lib');
 const COMMAND_PATH = join(PROJECT_ROOT, COMMANDS_RELATIVE_DIR, 'workspacify-reverse.md');
 const BASELINE_PATH = 'tests/workspacify-tree/baselines/manifest-hashes.json';
+
+/** The section that names what the entrance cannot reach, held to the measured closure. */
+const ABSENCE_HEADING = '## What this command cannot yet reach';
 
 // [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
 const TEXT = readFileSync(COMMAND_PATH, 'utf8');
@@ -299,11 +309,55 @@ test('C003/UT: the two modes are named, and an operational run is in the operati
   assert.match(modes, /must not gate an operational run/i, 'the experiment mode does not gate an operational run');
 });
 
-test('C003/UT: the six absences of design §6 are named rather than omitted', () => {
-  const absences = sectionText(TEXT, '## What this command cannot yet reach');
-  for (const identifier of ['N1', 'N2', 'N3', 'N4', 'N5', 'N6']) {
-    assert.ok(absences.includes(identifier), `absence ${identifier} is named`);
+test('C003/UT: the absence section names exactly the modules the closure reports as unreachable', () => {
+  const absences = sectionText(TEXT, ABSENCE_HEADING);
+  const { reached, unreachable } = readModuleClosure(RUNNER, MODULE_DIRECTORY);
+
+  // Neither reading may be empty, or an agreement between nothing and nothing
+  // reads exactly like an agreement between a section and a measurement.
+  assert.ok(existsSync(RUNNER), 'the entry point the closure is measured from must exist');
+  assert.ok(reached.size > 0, 'an empty walk would make every agreement below vacuous');
+  assert.ok(absences.trim().length > 0, 'the section must be present, not absent-and-therefore-agreeing');
+
+  assert.deepStrictEqual(
+    findAbsenceContradictions({ sectionText: absences, unreachable, reachable: reachableModulesIn(RUNNER, MODULE_DIRECTORY) }),
+    [],
+    'an unreachable module the section omits, and a reachable module it names absent, are both contradictions',
+  );
+});
+
+test('C003/UT: the closed rows of design §6 are gone from the section rather than left standing', () => {
+  const absences = sectionText(TEXT, ABSENCE_HEADING);
+
+  // The assertion this replaces required N1 to N6 to be present, and went on
+  // passing after every one of those rows had been implemented: a name that should
+  // have been removed is not a name that is missing. N5 was a defect rather than an
+  // absence, and N6 was not implemented at all — both were closed by later tickets,
+  // so both identifiers must now be absent from the section.
+  for (const closed of ['N1', 'N2', 'N3', 'N4', 'N5', 'N6']) {
+    assert.ok(!absences.includes(closed), `the closed row ${closed} must be gone, not left standing`);
   }
+});
+
+test('C003/UT: the absence guard is falsifiable, shown on a fixture rather than only satisfiable by the real file', () => {
+  const unreachable = ['absent-one.mjs'];
+  const reachable = ['present-one.mjs'];
+
+  assert.deepStrictEqual(
+    findAbsenceContradictions({ sectionText: 'It cannot reach absent-one.mjs.', unreachable, reachable }),
+    [],
+    'a section that names the absence and not the present module agrees',
+  );
+  assert.deepStrictEqual(
+    findAbsenceContradictions({ sectionText: 'It cannot reach absent-one.mjs and present-one.mjs.', unreachable, reachable }),
+    [{ kind: 'reachable-named-absent', module: 'present-one.mjs' }],
+    'naming a reachable module as absent is reported by name',
+  );
+  assert.deepStrictEqual(
+    findAbsenceContradictions({ sectionText: 'Nothing is absent.', unreachable, reachable }),
+    [{ kind: 'unnamed-absence', module: 'absent-one.mjs' }],
+    'omitting an absence is reported by name',
+  );
 });
 
 test('C003/UT: --through is stated as the only prefix instrument, with the evaluation order and its reason', () => {
@@ -459,7 +513,7 @@ test('C002 boundary: a file that cannot be read is reported by path, not thrown 
 
 // --- Invariants: the rewrite did not escape its box --------------------------
 
-test('C001 invariant: the nine protected files are byte-stable across the rewrite', () => {
+test('C001 invariant: the frozen command files are byte-stable across the rewrite', () => {
   const baseline = JSON.parse(readFileSync(join(PROJECT_ROOT, BASELINE_PATH), 'utf8'));
   assert.deepEqual(
     compareDigests(baseline.commandFileDigests, digestCommandFiles(PROJECT_ROOT)),
@@ -469,7 +523,7 @@ test('C001 invariant: the nine protected files are byte-stable across the rewrit
   assert.deepEqual(
     Object.keys(baseline.commandFileDigests).sort(),
     [...COMMAND_FILE_NAMES].sort(),
-    'the baseline freezes exactly the nine',
+    'the baseline freezes exactly the frozen set',
   );
 });
 

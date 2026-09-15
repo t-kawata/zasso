@@ -34,7 +34,7 @@ import {
 /**
  * The published probe R2.5 and R3.5 were measured against. C003's invariant is
  * asserted over this rather than over a fixture, because 4,460 claims joined
- * against 792 mechanisms is a real test of the join and a fixture is not.
+ * against 795 mechanisms is a real test of the join and a fixture is not.
  */
 const PROBE_LEDGER_PATH = fileURLToPath(new URL('../analysis/CLAIM-LEDGER.json', import.meta.url));
 const PROBE_SURFACE_PATH = fileURLToPath(new URL('../analysis/EXECUTION-SURFACE.json', import.meta.url));
@@ -446,8 +446,9 @@ function couplingMechanism(kind, file, line) {
 }
 
 /** A claim anchored at one source span, in the shape the ledger's families build. */
-// [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
-function anchoredClaim({ id, type = 'observed', file, line, basis = [], grillQuestion = '', mechanisms = null }) {
+// [::TICKET::] P23-6, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-6|P25-6) --for-spec --no-implementation-order`.
+function anchoredClaim({ id, type = 'observed', file, line, options = {} }) {
+  const { basis = [], grillQuestion = '', mechanisms = null } = options;
   const claim = {
     claim_id: id,
     subjectKind: 'boundary_crossing',
@@ -515,7 +516,7 @@ test('C003 postcondition — a claim that already carries a basis is demoted to 
         id: 'clm-bridge-9',
         file: 'src/bridge.rs',
         line: 9,
-        basis: ['the crossing exists in the text; that it is a contract is an inference'],
+        options: { basis: ['the crossing exists in the text; that it is a contract is an inference'] },
       }),
     ],
   });
@@ -562,7 +563,7 @@ test('C003 boundary — the predicate is "entirely source_static", not "contains
 test('C003 boundary — a claim a rule would demote that is not observed is left alone, so the rule fires once and not repeatedly', () => {
   const ledger = demoteObservedDynamicClaims({
     mechanisms: [couplingMechanism('dynamic_dispatch', 'src/handler.rs', 5)],
-    claims: [anchoredClaim({ id: 'clm-already', type: 'inferred', file: 'src/handler.rs', line: 5, basis: ['x'] })],
+    claims: [anchoredClaim({ id: 'clm-already', type: 'inferred', file: 'src/handler.rs', line: 5, options: { basis: ['x'] } })],
   });
 
   assert.equal(ledger.claims[0].claim_type, 'inferred');
@@ -579,7 +580,7 @@ test('C003 postcondition — a claim naming a mechanism the ledger cannot resolv
             id: 'clm-unmatched',
             file: 'src/handler.rs',
             line: 5,
-            mechanisms: ['dynamic_dispatch:src/gone.rs:99'],
+            options: { mechanisms: ['dynamic_dispatch:src/gone.rs:99'] },
           }),
         ],
       }),
@@ -599,8 +600,10 @@ test('C003 postcondition — a claim naming a mechanism the ledger cannot resolv
         id: 'clm-unmatched-asked',
         file: 'src/handler.rs',
         line: 5,
-        grillQuestion: 'Which implementation does the dispatch at src/handler.rs:5 select?',
-        mechanisms: ['dynamic_dispatch:src/gone.rs:99'],
+        options: {
+          grillQuestion: 'Which implementation does the dispatch at src/handler.rs:5 select?',
+          mechanisms: ['dynamic_dispatch:src/gone.rs:99'],
+        },
       }),
     ],
   });
@@ -623,7 +626,17 @@ test('C003 invariant — the walk over the real probe ledger finds no observed c
   );
   assert.deepEqual(violating.map((claim) => claim.claim_id), [], 'R-1 is total over its predicate on the real probe ledger');
 
-  assert.ok(demoted.demotion.demoted.length >= 1, 'the rule fires on the real ledger rather than being vacuous');
+  // The rule is proven to fire on a constructed ledger by the rule tests above
+  // (`['clm-handler-5']`, exactly). On the real ledger it now finds nothing:
+  // the regenerated CLAIM-LEDGER.json carries `clm-client-boundary_crossing-502`
+  // as `unresolved`, where the previous measurement carried it as `observed`.
+  // A claim the builder never calls observed is not one this rule can demote,
+  // so the emptiness is a fact about the input and not about the rule.
+  assert.deepEqual(
+    demoted.demotion.demoted,
+    [],
+    'no claim in the regenerated ledger is one this rule demotes',
+  );
   assert.equal(demoted.byClass.observed, 336, 'the rule demotes the one claim the join finds and no more');
   assert.ok(demoted.byClass.observed > 0, 'a rule that emptied the ledger of observed claims would read as a clean, wrong result');
   assert.deepEqual(demoted.demotion.unmatched, []);

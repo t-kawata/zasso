@@ -15,11 +15,24 @@
  * carry it means a rebase and a force push, which is outward-facing and needs
  * explicit authorisation. This module reports the state it finds and never
  * rewrites anything.
+ *
+ * The second subject is the files a run produces. `tools/conver/tmp/` was tracked
+ * by the release-branch commit 5c08ac3e and its `.txt` logs turned `make test` red
+ * three days after the extension census was written; four bytecode caches are
+ * tracked the same way and a test run rewrites them, so the working tree dirties
+ * itself. They are the same paragraph as the backup — an artefact that should not
+ * be tracked, and the proof that removing it took nothing else with it — so they
+ * are measured here rather than in a second module that would re-spell `runGit`,
+ * `isGitRepository` and `trackedPaths`.
+ *
+ * One asymmetry is recorded rather than smoothed: the bytecode caches are
+ * rewritten by the next test run, so no digest is frozen for them. Absence from the
+ * index and presence on disk is the whole of what can be asserted about them.
  */
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
 
 /** The tracked backup this module is about. */
 export const UNTRACKED_BACKUP_NAME = 'Tickets.json.p22-ja.bak';
@@ -65,6 +78,24 @@ export function isGitRepository(projectRoot) {
 export function trackedPaths(projectRoot) {
   if (!isGitRepository(projectRoot)) return [];
   return runGit(projectRoot, ['ls-files']).stdout.split('\n').filter(Boolean).sort();
+}
+
+/**
+ * The root of the repository a directory belongs to.
+ *
+ * Asked of git rather than counted in `..` segments: how many levels separate a
+ * test file from the repository root is a fact about where that file sits, and a
+ * miscount does not throw — it yields a different directory whose empty answers
+ * read as a clean repository.
+ *
+ * @param {string} directory
+ * @returns {string|null} null when the directory belongs to no repository
+ */
+// [::TICKET::] P25-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-1 --for-spec --no-implementation-order`.
+export function repositoryRootFrom(directory) {
+  const result = runGit(directory, ['rev-parse', '--show-toplevel']);
+  if (result.status !== 0) return null;
+  return result.stdout.trim();
 }
 
 /**
@@ -115,6 +146,161 @@ export function assertBackupUntracked({ projectRoot, name = UNTRACKED_BACKUP_NAM
     absent: !present,
     stalePatterns: redundantIgnoreRules(projectRoot, name),
   };
+}
+
+/**
+ * Directories whose contents are produced by a run and describe the machine it
+ * happened on. Named as path prefixes, relative to the repository root.
+ */
+export const DERIVED_ARTEFACT_PREFIXES = Object.freeze(['tools/conver/tmp/']);
+
+/**
+ * Bytecode caches outside the answer key, named one by one because a report can
+ * only act on a name. A wildcard would say "somewhere" rather than "here".
+ */
+export const BYTECODE_CACHE_PATHS = Object.freeze([
+  '.claude/scripts/lib/__pycache__/ecc_dashboard_runtime.cpython-314.pyc',
+  'crates/siprs/.claude/scripts/lib/__pycache__/ecc_dashboard_runtime.cpython-314.pyc',
+  'tools/conver/.claude/scripts/lib/__pycache__/ecc_dashboard_runtime.cpython-314.pyc',
+]);
+
+/**
+ * The bytecode cache that stays tracked, because it lives inside the answer key.
+ *
+ * `siprs-with-4layers/` is the frozen forward-rotation tree, and three tests in
+ * `tests/workspacify-reverse/spike/reconcile-slice.test.mjs` read
+ * `git status --porcelain -- siprs-with-4layers/` to assert that nothing writes to
+ * it. Untracking a path inside it makes the answer key read as modified, and the
+ * rewrite this cache receives is exactly the signal those tests exist to give. So
+ * the cache is part of what was frozen rather than debris to be hidden, and this
+ * list records the decision instead of leaving it as an omission.
+ */
+export const FROZEN_BYTECODE_CACHE_PATHS = Object.freeze([
+  'tools/conver/siprs-with-4layers/.claude/scripts/lib/__pycache__/ecc_dashboard_runtime.cpython-314.pyc',
+]);
+
+/**
+ * The digest of the run output as it stood when it left the index.
+ *
+ * This is the assertion `git rm` without `--cached` cannot survive: the paths would
+ * be untracked and ignored either way, and only the bytes say whether the files
+ * were kept. Re-measure with `measureDerivedArtefacts(...).prefixDigest` and record
+ * the new value; never adjust it to make a run pass.
+ */
+export const FROZEN_DERIVED_ARTEFACT_DIGEST = '1ced02bf1375e674c5a889b0d224e84a1d67c5c6a9704e385542977660090a18';
+
+/**
+ * Every file beneath a directory, as paths relative to it and sorted.
+ *
+ * @param {string} directory
+ * @returns {string[]}
+ */
+// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+function filesUnder(directory) {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true, recursive: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => relative(directory, join(entry.parentPath, entry.name)).split(sep).join('/'))
+    .sort();
+}
+
+/**
+ * One digest over a set of files, so the proof is one constant and not thirty-seven.
+ *
+ * Each line pairs the path with the digest of its bytes, so a file that moved and a
+ * file that changed are different findings rather than the same one.
+ *
+ * @param {{ repositoryRoot: string, paths: string[] }} input
+ * @returns {string}
+ */
+export function aggregateDigest({ repositoryRoot, paths }) {
+  const lines = [...paths].sort().map((path) =>
+    path + '\0' + createHash('sha256').update(readFileSync(join(repositoryRoot, path))).digest('hex'));
+  return createHash('sha256').update(lines.join('\n')).digest('hex');
+}
+
+/**
+ * The ignore rule that actually decides a path.
+ *
+ * `git check-ignore -v` names the file and the pattern that matched last, which is
+ * git's answer rather than a re-reading of the ignore files. That distinction is
+ * the point here: which file carries the rule is what proves the rule is reachable
+ * from the path, and a rule written into an ignore file that cannot see the path
+ * would decide nothing.
+ *
+ * @param {{ repositoryRoot: string, path: string }} input
+ * @returns {{ file: string, pattern: string }|null} null when nothing ignores the path
+ */
+export function decidingIgnoreRule({ repositoryRoot, path }) {
+  const result = runGit(repositoryRoot, ['check-ignore', '-v', path]);
+  if (result.status !== 0) return null;
+
+  const [source] = result.stdout.trim().split('\t');
+  const firstColon = source.indexOf(':');
+  const secondColon = source.indexOf(':', firstColon + 1);
+  if (firstColon < 0 || secondColon < 0) return null;
+  return { file: source.slice(0, firstColon), pattern: source.slice(secondColon + 1) };
+}
+
+/**
+ * Measure whether the files a run produced have left the index and stayed on disk.
+ *
+ * @param {{ repositoryRoot: string, prefixes?: readonly string[], cachePaths?: readonly string[] }} input
+ * @returns {{ unavailable: string|undefined, trackedPrefixPaths: string[]|null, trackedCachePaths: string[]|null, missingOnDisk: string[]|null, prefixFiles: number|null, prefixDigest: string|null }}
+ */
+export function measureDerivedArtefacts({
+  repositoryRoot,
+  prefixes = DERIVED_ARTEFACT_PREFIXES,
+  cachePaths = BYTECODE_CACHE_PATHS,
+}) {
+  if (!isGitRepository(repositoryRoot)) {
+    return {
+      unavailable: NOT_A_REPOSITORY,
+      trackedPrefixPaths: null,
+      trackedCachePaths: null,
+      missingOnDisk: null,
+      prefixFiles: null,
+      prefixDigest: null,
+    };
+  }
+
+  const tracked = trackedPaths(repositoryRoot);
+  const producedPaths = prefixes.flatMap((prefix) =>
+    filesUnder(join(repositoryRoot, prefix)).map((relative) => prefix + relative));
+
+  return {
+    unavailable: undefined,
+    trackedPrefixPaths: tracked.filter((path) => prefixes.some((prefix) => path.startsWith(prefix))),
+    trackedCachePaths: tracked.filter((path) => cachePaths.includes(path)),
+    missingOnDisk: [...producedPaths, ...cachePaths].filter((path) => !existsSync(join(repositoryRoot, path))),
+    prefixFiles: producedPaths.length,
+    prefixDigest: producedPaths.length > 0 ? aggregateDigest({ repositoryRoot, paths: producedPaths }) : null,
+  };
+}
+
+/**
+ * Render the derived-artefact measurement as the report a person reads.
+ *
+ * @param {ReturnType<typeof measureDerivedArtefacts>} report
+ * @returns {string} Markdown
+ */
+export function renderDerivedArtefactReport(report) {
+  if (report.unavailable === NOT_A_REPOSITORY) {
+    return '## Derived artefacts\n\n**unavailable** — no git repository at this path, so nothing can be said about the files a run produced';
+  }
+  const lines = [
+    '## Derived artefacts',
+    '',
+    `- tracked run-output paths: **${report.trackedPrefixPaths.length}**${report.trackedPrefixPaths.length > 0 ? ' — ' + report.trackedPrefixPaths.join(', ') : ''}`,
+    `- tracked bytecode caches: **${report.trackedCachePaths.length}**${report.trackedCachePaths.length > 0 ? ' — ' + report.trackedCachePaths.join(', ') : ''}`,
+    `- files present on disk: **${report.prefixFiles}** of the recorded run output`,
+    `- recorded files missing from disk: **${report.missingOnDisk.length}**${report.missingOnDisk.length > 0 ? ' — ' + report.missingOnDisk.join(', ') : ''}`,
+  ];
+  const pass = report.trackedPrefixPaths.length === 0
+    && report.trackedCachePaths.length === 0
+    && report.missingOnDisk.length === 0;
+  lines.push('', pass ? '**pass**' : '**fail**');
+  return lines.join('\n');
 }
 
 /**

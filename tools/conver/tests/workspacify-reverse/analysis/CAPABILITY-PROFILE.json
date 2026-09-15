@@ -1,0 +1,66 @@
+{
+  "dimensions": {
+    "falsifiability": {
+      "can_prove": "4460 claims carry a plan naming the technique and the observation that would refute them, so each is falsifiable in principle. Of those, 0 rest on an oracle independent of the implementation. 0 counterexamples were actually executed, and each records whether the red appeared.",
+      "cannot_prove": "4460 counterexamples could not be executed and 0 produced no red, and neither is a statement that the claims hold: a red result, once obtained, is evidence rather than an automatic conclusion that the specification was wrong.",
+      "determined": true,
+      "dimension": "falsifiability",
+      "evidence": [
+        "4460 planned claims; 0 had no applicable technique",
+        "0 counterexamples executed and 4460 refused",
+        "refusals by reason: executor-missing: 4460"
+      ],
+      "question": "How falsifiable are its claims?"
+    },
+    "observability": {
+      "can_prove": "0 entrypoints and 795 activation mechanisms were found by reading the source, so the paths into this system that leave a static trace are known.",
+      "cannot_prove": "Mechanisms that leave no static trace — a dispatch decided at run time, a plugin resolved from configuration, a handler registered by a framework — are invisible to a static reading and are not counted above.",
+      "determined": true,
+      "dimension": "observability",
+      "evidence": [
+        "0 entrypoints, 795 mechanisms",
+        "the import graph is not treated as a proxy for execution coupling"
+      ],
+      "question": "How observable is the system?"
+    },
+    "provable": {
+      "can_prove": "336 claims were read from the source text and carry 4460 evidence records, folding to 47 independent components. 0 clauses rest on a recorded human decision. Those are proved, under the tree hash this run fixed.",
+      "cannot_prove": "No claim about runtime behaviour, dynamic dispatch, post-preprocessing composition or generated code is proved here: each of those needs execution, build or trace evidence, and this run gathered evidence from the source text alone.",
+      "determined": true,
+      "dimension": "provable",
+      "evidence": [
+        "observed 336, inferred 409, normative 0, unresolved 3715",
+        "4413 record(s) folded into another and therefore count once"
+      ],
+      "question": "What can the analysis prove?"
+    },
+    "risk_concentration": {
+      "can_prove": "2064 gaps were enumerated across 6 kinds, so the kinds that dominate are known and the regions carrying them can be read from the register.",
+      "cannot_prove": "Whether that concentration is acceptable is not a question the analysis answers. The count is material; the judgement belongs to the reader, and a small count is not evidence that the system is sound.",
+      "determined": true,
+      "dimension": "risk_concentration",
+      "evidence": [
+        "absent_red: 700",
+        "circular_reasoning: 10",
+        "comment_code_drift: 956",
+        "dead_code: 102",
+        "stub: 293",
+        "unobserved_surface: 3"
+      ],
+      "question": "Where does risk concentrate?"
+    },
+    "unprovable": {
+      "can_prove": "The unprovable set is bounded rather than open: it is exactly the regions the unobserved entries name. 3 regions were recorded as not looked at, which is a stated limit and not an empty set.",
+      "cannot_prove": "A region that was not observed cannot be shown to be empty. The absence of a finding in an unobserved region is absence of evidence, and reading it as evidence of absence is the failure this dimension exists to prevent.",
+      "determined": true,
+      "dimension": "unprovable",
+      "evidence": [
+        "build_semantic unavailable: layer C is not built here (docs/P22-ANALYSIS-TECH.md §7): name resolution, type checking and cfg evaluation need a semantic adapter, so a proposition resting on any of them is not observed",
+        "runtime_dynamic unavailable: no execution, build or trace evidence was collected, so dynamic dispatch targets, generated code and post-preprocessing composition are not observable in this run"
+      ],
+      "question": "What can it not prove?"
+    }
+  },
+  "note": "These five dimensions are material for a decision, not the decision: which of these limits a project can tolerate depends on its domain and its obligations, and that is a human's to judge.",
+  "stage": "r8"
+}

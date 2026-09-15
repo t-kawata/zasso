@@ -37,8 +37,11 @@ import {
 } from '../../../.claude/scripts/workspacify-reverse/lib/dependencies.mjs';
 import { extractSemantics } from '../../../.claude/scripts/workspacify-reverse/lib/semantics.mjs';
 import { createSyntheticTree, hashTree } from '../helpers/scratch.mjs';
+import { requestPipelineRun } from '../helpers/shared-run.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
+// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-5 --for-spec --no-implementation-order`.
 const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
 const targetAvailable = existsSync(REVERSE_ROOT);
 
@@ -62,33 +65,55 @@ function scratchOutput() {
 }
 
 test('IT-1 a full run over the experiment input produces a scope file and a structure report', { skip: !targetAvailable }, async () => {
-  const out = scratchOutput();
-  const outcome = await analyzeProject({ root: REVERSE_ROOT, out: out.root , through: THROUGH_R2_5 });
+  const run = await requestPipelineRun({ root: REVERSE_ROOT, through: THROUGH_R2_5 });
 
-  assert.ok(existsSync(join(out.root, 'ANALYSIS-SCOPE.json')));
-  assert.ok(existsSync(join(out.root, 'SCOPE-BOUNDARY.json')));
-  assert.ok(existsSync(join(out.root, 'STRUCTURE.json')));
-  assert.ok(existsSync(join(out.root, 'EXECUTION-SURFACE.json')));
+  assert.ok(existsSync(join(run.root, 'ANALYSIS-SCOPE.json')));
+  assert.ok(existsSync(join(run.root, 'SCOPE-BOUNDARY.json')));
+  assert.ok(existsSync(join(run.root, 'STRUCTURE.json')));
+  assert.ok(existsSync(join(run.root, 'EXECUTION-SURFACE.json')));
 
-  assert.ok(outcome.structure.coverage.files_parsed > 0, 'the crate must actually parse');
-  assert.ok(outcome.structure.packages.length > 0);
-  assert.ok(outcome.dependencies.edges.length > 0, 'a real crate has real module edges');
-  assert.ok(outcome.surface.mechanisms.length > 0, 'the crate carries dynamic mechanisms');
-  out.dispose();
+  // Every reading below comes from what the run published, because a run this
+  // process did not execute has no in-memory outcome to hand back. Each value
+  // the call would have returned is present in the artefact beside it.
+  const structure = JSON.parse(readFileSync(join(run.root, 'STRUCTURE.json'), 'utf8'));
+  const dependencies = JSON.parse(readFileSync(join(run.root, 'DEPENDENCIES.json'), 'utf8'));
+  const surface = JSON.parse(readFileSync(join(run.root, 'EXECUTION-SURFACE.json'), 'utf8'));
+
+  assert.ok(structure.coverage.files_parsed > 0, 'the crate must actually parse');
+  assert.ok(structure.packages.length > 0);
+  assert.ok(dependencies.edges.length > 0, 'a real crate has real module edges');
+  assert.ok(surface.mechanisms.length > 0, 'the crate carries dynamic mechanisms');
 });
 
 test('IT-1 the artefact set matches the measured tree in both directions', { skip: !targetAvailable }, () => {
   const boundary = classifyArtefacts({ root: REVERSE_ROOT, scope: resolveScope(REVERSE_ROOT) });
   const recorded = new Set(boundary.artefacts.map((artefact) => artefact.path));
+  const subtrees = boundary.artefacts.filter((artefact) => 'count' in artefact);
+  const inTree = Object.keys(hashTree(REVERSE_ROOT));
 
-  // Direction one: nothing that exists in the tree is missing from the record.
-  const missing = hashTree(REVERSE_ROOT);
-  for (const path of Object.keys(missing)) {
-    assert.ok(recorded.has(path), `${path} exists in the tree but is missing from the artefact record`);
+  // An excluded subtree is one entry standing for the files inside it, so a
+  // file on disk is accounted for either by its own entry or by a subtree
+  // entry above it — never by neither.
+  const standsFor = (path) => subtrees.some((subtree) => path.startsWith(`${subtree.path}/`));
+
+  // Direction one: nothing that exists in the tree is unaccounted for.
+  for (const path of inTree) {
+    assert.ok(
+      recorded.has(path) || standsFor(path),
+      `${path} exists in the tree but no entry accounts for it`,
+    );
   }
   // Direction two: nothing is recorded that does not exist.
   for (const path of recorded) {
     assert.ok(existsSync(join(REVERSE_ROOT, path)), `${path} is recorded but does not exist in the tree`);
+  }
+  // A subtree entry says how many files it stands for, and the number is
+  // checked against the tree rather than trusted — a count the per-file record
+  // could not be held to.
+  assert.ok(subtrees.length > 0, 'the tree holds the excluded subtrees this checks');
+  for (const subtree of subtrees) {
+    const beneath = inTree.filter((path) => path.startsWith(`${subtree.path}/`));
+    assert.equal(subtree.count, beneath.length, `${subtree.path} says how many files it stands for`);
   }
 });
 
@@ -99,9 +124,17 @@ test('IT-1 the measured tree is the one the ticket names', { skip: !targetAvaila
   );
   assert.equal(rustSources.length, 150, 'the ticket fixes the input at 150 .rs files outside target/');
 
-  const vendored = boundary.artefacts.filter((artefact) => artefact.path.startsWith('vendor/'));
-  assert.ok(vendored.length > 0, 'vendor/ is present and must be excluded, not ignored');
-  for (const artefact of vendored) assert.equal(artefact.coverage, 'out_of_scope');
+  // A dependency tree is one entry standing for the files inside it, so the
+  // path asserted is the directory. The claim is the one it always was: present
+  // and out of scope, which is not the same as ignored.
+  const vendored = boundary.artefacts.find((artefact) => artefact.path === 'vendor');
+  assert.ok(vendored, 'vendor/ is present and must be excluded, not ignored');
+  assert.equal(vendored.coverage, 'out_of_scope');
+  assert.ok(vendored.count > 0, 'and says how much of the tree it stands for');
+
+  const buildOutput = boundary.artefacts.find((artefact) => artefact.path === 'target');
+  assert.ok(buildOutput, 'target/ is present and must be excluded, not ignored');
+  assert.equal(buildOutput.coverage, 'out_of_scope');
 
   const tests = boundary.artefacts.filter(
     (artefact) => artefact.path.startsWith('tests/') && artefact.path.endsWith('.rs'),
@@ -118,20 +151,16 @@ test('IT-1 the crate root is not mistaken for its own repository', { skip: !targ
 });
 
 test('IT-3 the target tree hash is unchanged by the run', { skip: !targetAvailable }, async () => {
-  const out = scratchOutput();
   const before = hashTree(REVERSE_ROOT);
-  await analyzeProject({ root: REVERSE_ROOT, out: out.root , through: THROUGH_R2_5 });
+  await requestPipelineRun({ root: REVERSE_ROOT, through: THROUGH_R2_5 });
   assert.deepEqual(hashTree(REVERSE_ROOT), before, 'the analysis must leave the target byte-identical');
-  out.dispose();
 });
 
 test('IT-3 the run records the target digest it took, before and after', { skip: !targetAvailable }, async () => {
-  const out = scratchOutput();
-  await analyzeProject({ root: REVERSE_ROOT, out: out.root , through: THROUGH_R2_5 });
-  const scope = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-SCOPE.json'), 'utf8'));
+  const run = await requestPipelineRun({ root: REVERSE_ROOT, through: THROUGH_R2_5 });
+  const scope = JSON.parse(readFileSync(join(run.root, 'ANALYSIS-SCOPE.json'), 'utf8'));
   assert.ok(scope.target_digest.sha256.length === 64);
   assert.equal(scope.target_digest.unmodified, true);
-  out.dispose();
 });
 
 test('IT-2 the forward rotation still reproduces every frozen value', () => {
@@ -426,12 +455,10 @@ test('IT the assessment is R0\'s output: it is published at the r0.5 prefix and 
 // [::TICKET::] P23-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-6 --for-spec --no-implementation-order`.
 test('IT a run through r2.5 over the experiment input publishes the coupling difference and places every mechanism', { skip: !targetAvailable }, async () => {
 // [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
-  const out = scratchOutput();
-  try {
-    await analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R2_5 });
-
-    const coupling = JSON.parse(readFileSync(join(out.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
-    const surface = JSON.parse(readFileSync(join(out.root, 'EXECUTION-SURFACE.json'), 'utf8'));
+  const run = await requestPipelineRun({ root: REVERSE_ROOT, through: THROUGH_R2_5 });
+  {
+    const coupling = JSON.parse(readFileSync(join(run.root, 'DYNAMIC-COUPLING.json'), 'utf8'));
+    const surface = JSON.parse(readFileSync(join(run.root, 'EXECUTION-SURFACE.json'), 'utf8'));
 
     // A 1.1 GB subject is copied into the sandbox, so the channel may legitimately
     // fail to start on a machine without the toolchain. What it may never do is
@@ -441,7 +468,7 @@ test('IT a run through r2.5 over the experiment input publishes the coupling dif
       assert.equal(
         coupling.difference.both.count + coupling.difference.staticOnly.count,
         surface.mechanisms.length,
-        'both and staticOnly together cover the 792 mechanisms the static reading lists',
+        'both and staticOnly together cover the 795 mechanisms the static reading lists',
       );
     } else {
       assert.ok(coupling.dynamicChannel.reason.length > 0);
@@ -449,7 +476,7 @@ test('IT a run through r2.5 over the experiment input publishes the coupling dif
       assert.match(coupling.caveat, /did not run|looked at nothing/i);
     }
 
-    const attempts = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-ATTEMPTS.json'), 'utf8'));
+    const attempts = JSON.parse(readFileSync(join(run.root, 'ANALYSIS-ATTEMPTS.json'), 'utf8'));
     assert.ok(
       attempts.rows.some((row) => row.configuration === 'sandboxed-session'),
       'the dynamic channel reports its attempt in the same ledger every other attempt lives in',
@@ -471,8 +498,6 @@ test('IT a run through r2.5 over the experiment input publishes the coupling dif
       assert.notEqual(row.configuration, 'sandboxed-session', 'a channel that did not run is not a stage that could not run');
       assert.ok(row.diagnostics.length > 0, 'a could-not-run names the construct it could not read');
     }
-  } finally {
-    out.dispose();
   }
 });
 

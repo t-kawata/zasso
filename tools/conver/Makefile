@@ -6,7 +6,7 @@
         test-conver test test-all test-rfc-graph test-tickets-reverse test-grill-reverse \
         test-workspacify-reverse test-workspacify test-crystalize-readme \
         test-drill-rfc-down test-stub-resolution \
-        check-conventions check-bundle-fresh \
+        check-conventions check-bundle-fresh test-coverage \
         deploy stubs crimes
 
 # list-tickets: チケット一覧を表示する（私用ヘルパー）
@@ -50,6 +50,20 @@ test:
 # test-all: 除外なしで全サーフェス・全ファイルを実行する（夜間・リリース前）
 test-all:
 		node tests/run-all-surfaces.mjs
+
+# test-coverage: 逆回転ライブラリの分岐カバレッジを測り、閾値を下回れば失敗させる。
+#   閾値 80 はプロジェクト規則（rules/common/testing.md）の最低線であり、実測値ではない。
+#   実測（2026-09-15、51モジュール）: branch 88.19% / line 96.56% / funcs 97.90%。
+#   実測値を閾値にすると些細な変更で赤くなるため、規則の下限をゲートに置き、実測値は記録に残す。
+#   c8 は devDependencies に無く、使うには依存の追加が要る。Node の組み込みカバレッジが
+#   同じ閾値ゲート（--test-coverage-branches）を持つため、依存は足さない。
+COVERAGE_LIBRARY := .claude/scripts/workspacify-reverse/lib/**
+
+test-coverage:
+		node --test --experimental-test-coverage \
+		  "--test-coverage-include=$(COVERAGE_LIBRARY)" \
+		  --test-coverage-branches=80 \
+		  $$(node -e 'import("./tests/lib/test-discovery.mjs").then((m) => process.stdout.write(m.collectTestFilesUnder("tests/workspacify-reverse").join(" ")))')
 
 # check-conventions: 各スクリプトディレクトリが宣言どおりのモジュール方式を使っているか、
 #   および .claude/rules/node.md の表がファイルシステムと一致しているかを検査する。

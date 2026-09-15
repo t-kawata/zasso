@@ -1,3 +1,6 @@
+// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -38,7 +41,7 @@ import {
   analyzeProject,
 } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
 import { ZG_REPORT_FILE_NAME } from '../../../.claude/scripts/workspacify-reverse/lib/zg-probe.mjs';
-import { assertCommandFileStructure } from '../helpers/command-file.mjs';
+import { EXPECTED_FROZEN_COMMAND_FILES, assertCommandFileStructure } from '../helpers/command-file.mjs';
 import { createSyntheticTree } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
@@ -124,22 +127,22 @@ const CLAIM_BEARING_TREE = Object.freeze({
   'src/model.rs': 'pub struct User { pub name: String }\n',
 });
 
-// --- C001: the command file, and the nine it stands beside --------------------
+// --- C001: the command file, and the fifteen it stands beside ------------------
 
-test('C001 precondition: the nine protected command files are present and the tenth is created', () => {
-  assert.equal(COMMAND_FILE_NAMES.length, 9);
+test('C001 precondition: the frozen command files are present, and the reverse definition is created rather than frozen', () => {
+  assert.equal(COMMAND_FILE_NAMES.length, EXPECTED_FROZEN_COMMAND_FILES);
   for (const name of COMMAND_FILE_NAMES) {
     assert.equal(existsSync(join(PROJECT_ROOT, COMMANDS_RELATIVE_DIR, `${name}.md`)), true, `${name}.md must exist`);
   }
-  assert.equal(existsSync(NEW_COMMAND_PATH), true, 'P22-9 creates the tenth command file');
+  assert.equal(existsSync(NEW_COMMAND_PATH), true, 'P22-9 creates the reverse command file');
   assert.equal(
     COMMAND_FILE_NAMES.includes('workspacify-reverse'),
     false,
-    'the tenth file is deliberately outside the frozen digest: it is a creation, not an edit',
+    'the reverse file is deliberately outside the frozen digest: it is a creation, not an edit',
   );
 });
 
-test('C001 postcondition / UT-1: the new command file carries the same structural elements as the nine', () => {
+test('C001 postcondition / UT-1: the reverse command file carries the eight structural elements', () => {
 // [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
   // The eight assertions live in `helpers/command-file.mjs`, so this test and the
   // procedure guard added by P23-1 hold the file to one definition of them.
@@ -158,7 +161,7 @@ test('C001 invariant / UT-10 / IT-2: no protected command file is modified again
   assert.deepEqual(
     Object.keys(baseline.commandFileDigests).sort(),
     [...COMMAND_FILE_NAMES].sort(),
-    'the baseline freezes exactly the nine',
+    'the baseline freezes exactly the frozen set',
   );
 });
 

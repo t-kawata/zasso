@@ -240,18 +240,19 @@ Decide the package boundary — the first of the six items. Because the terminal
 
 A command file is a prompt. Instructing an operator to run an entrance that does not exist produces either a fabricated success or an abort, and both are worse than silence. So each of these is **named** rather than omitted — the same discipline the instruments apply to unobserved regions, where `unobserved` is a first-class state and is never rendered as "no disagreement".
 
-Of the modules under `workspacify-reverse/lib/`, nine are not reachable from the entrance. Six consequences follow from them:
+**The set is measured, not remembered.** `tests/workspacify-reverse/helpers/module-closure.mjs` computes the import closure from the entrance over the library, and `tests/workspacify-reverse/integration/command-procedure.test.mjs` holds this section to it in **both** directions: a module the closure cannot reach and this section does not name fails, and so does a module the closure *does* reach and this section names absent. Recompute the closure rather than re-reading this paragraph; the guard reports the disagreement by name if the two have parted.
 
-| # | Absent entrance | What is lost |
-|---|---|---|
-| **N1** | `sandbox.mjs` / `record-replay.mjs` / `dynamic-surface.mjs` | R2.5's dynamic half. The capability profile reports the activation mechanisms it can read statically and says of the rest that mechanisms leaving no static trace are invisible to a static reading; `observed` is therefore never reached for them |
-| **N2** | `worktree-isolation.mjs` | R6.5's execution. The counterexample plan is applied with an empty array, so `COUNTEREXAMPLE-RESULTS.json` is `{empty: true}` and the falsification stage falsifies nothing |
-| **N3** | `security-lane.mjs` | R7/R8's security lane. It has no caller outside its unit test, so safety and authority boundaries go unratified (failure mode F15) |
-| **N4** | `reflexion.mjs` | R7/R8's adjudication cards. They have no caller outside their unit test, so the logical and the physical boundary can be conflated (failure mode F14) |
-| **N5** | *(a defect, not an absence)* | The exit serves a **different shape from the one the spike calibrated**: R7 renders a flat serving capped at 100 rather than the layered decision cards the spike exercised. The design's own anti-decision-fatigue mechanism does not operate at the exit, so most unresolved claims are withheld rather than served |
-| **N6** | *(not implemented)* | R0's eligibility assessment. The design requires it to be mechanised and presented at R0; nothing computes it, and the capability profile answers five different questions at R8 instead |
+Five modules stand outside the closure. Two are absences nobody owns; three are exclusions this design chose and states.
 
-**Read these as absences, not as findings about the subject.** A run that reaches R8 without them is a complete run with six fewer sections. Each is removed by a later ticket in this phase; until then, this section is correct and must not be deleted.
+| Module | Kind | Why it is here | What is lost |
+|---|---|---|---|
+| `two-pass.mjs` | absence, unowned | Nothing imports it. | The 2-Pass Hybrid (ABOUT-REVERSE §7.7.1): the analysis sweeps each package without first fixing the boundaries it crosses, so a package's contract is settled from that package alone and boundedness is a hope rather than a property of the input. The unit test executes the module; no run does |
+| `staleness.mjs` | absence, unowned | Nothing imports it. | The evolution loop's signal (F13): a dependency, a configuration, a schema or an external contract moves on, the canonical record keeps its shape and quietly stops describing the code, and nothing turns red. Its unit and integration tests execute the module; no run does |
+| `invariant-audit.mjs` | exclusion, P23-12 | The audit measures this chain's gates, and design §1.2 forbids it from doing so *as a gate* — wiring it in is precisely what would let it refuse a run. The regression suite is the entrance §1.2 asks for | Nothing. The audit is not a stage, and an enforcement gate is the shape §1.2 forbids |
+| `language-representatives.mjs` | exclusion, P24-1 | What reads the language declaration is the suite and the tickets that parameterise over the six representatives. A run is pointed at one subject at a time, never at a fixture population | Nothing. Wiring it in would put a declaration about test fixtures inside the run it is only evidence about |
+| `terminal-state.mjs` | exclusion, P24-8 | The terminal state is a property of a run of the whole chain, and this entrance is one command of that chain | Nothing. The inventory is read by the observation test that drives the chain, not by one of the chain's own steps |
+
+**Read these as absences and exclusions, not as findings about the subject.** A run that reaches R8 without the first two is a complete run with two fewer sections. The three exclusions are decisions rather than debts, and they are listed because a reader who finds a module in the library and no mention of it here cannot tell a decision from an omission.
 
 ## A round, and what success is
 

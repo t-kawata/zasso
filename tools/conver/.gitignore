@@ -27,3 +27,11 @@ tests/workspacify-reverse/holdout/corpus/
 # At over 500 MB it is also the reason a push fails, since GitHub rejects any
 # single file above 100 MB. Rebuild it with zg instead of cloning it.
 .zvec-grep/
+
+# Run output. The logs and JSON dumps here are the evidence a measurement left
+# behind, kept so a maintainer can still read them; they describe the machine the
+# run happened on, and tracking them states one machine's answer as if it were
+# everyone's. What forced the decision was a `.txt` test log: the extension census
+# in tests/scope-extensions.test.cjs reads `git ls-files`, so tracking three of
+# them turned `make test` red three days after that check was written.
+tmp/
