@@ -18,9 +18,9 @@
  *   analyze    — the entrance to the reverse rotation. It fixes the analysis
  *                boundary, measures structure, dependencies and the execution
  *                surface, and runs R0 through R8 in series, publishing the origin
- *                spec outside the target. It also probes zg and serves the
- *                candidate material that search returns; no stage of the analysis
- *                reads a zg result, because a search is not a determination.
+ *                spec outside the target. The documents it publishes are the ones
+ *                the stages produce, so the set is the same whatever the host has
+ *                installed.
  *
  * The process performs no semantic judgement: which traces exist and whether
  * they are gone are facts, not opinions. Deciding what the cleaned tree then
@@ -63,7 +63,6 @@ import { NO_KNOWN_DELTA, reconcile, renderReconciliation } from './lib/reconcile
 import { ANALYSIS_STAGES, analyzeProject, buildPartitionCandidate, renderDisagreements, renderSpikeReport, runSpike, stageLabel } from './lib/scope.mjs';
 import { buildClaimCandidate, renderClaimLedger } from './lib/claim-ledger.mjs';
 import { renderCardsMarkdown } from './lib/packet.mjs';
-import { ZG_AVAILABILITY, ZG_REPORT_FILE_NAME, probeZg, renderZgReport } from './lib/zg-probe.mjs';
 
 /** The project this entry point belongs to: `.claude/scripts/workspacify-reverse` walked back to the root. */
 const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -81,7 +80,38 @@ const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'orac
 const ROOT_TAKING_SUBCOMMANDS = ['detect', 'scrub', 'verify', 'analyze'];
 
 /** The options that name a value; every other `--name` is a switch. */
-const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--out', '--recorded', '--through', '--query'];
+const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--out', '--recorded', '--through'];
+
+/**
+ * The options the entrance used to honour and no longer does, with the reason each left.
+ *
+ * A withdrawn option is refused rather than ignored. The entrance ignores a switch it
+ * does not know, which is the right answer for a typo and the wrong one here: a caller
+ * asking a question the instrument can no longer answer would receive a complete-looking
+ * analysis with the question silently dropped, and a question dropped in silence reads
+ * exactly like a search that found nothing. The refusal is raised as the same kind of
+ * error an unknown stage raises, so it is reported by the same path and publishes
+ * nothing, for the same reason.
+ */
+const WITHDRAWN_OPTIONS = Object.freeze({
+  '--query': 'the serving layer asks no search tool anything, so the question would be dropped in silence; '
+    + 'ask a search tool directly and read what it returns as candidates, never as findings.',
+});
+
+/** The withdrawn options present in an argument list, named rather than counted. */
+// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+function withdrawnOptionsUsed(optionArgs) {
+  return Object.keys(WITHDRAWN_OPTIONS).filter((name) =>
+    optionArgs.some((token) => token === name || token.startsWith(`${name}=`)));
+}
+
+/** Refuse a withdrawn option, naming it and the reason it cannot be honoured. */
+// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+function refuseWithdrawnOptions(withdrawn) {
+  if (withdrawn.length === 0) return;
+  const reasons = withdrawn.map((name) => `${name}: ${WITHDRAWN_OPTIONS[name]}`).join(' ');
+  throw new Error(`withdrawn option ${withdrawn.map((name) => JSON.stringify(name)).join(', ')} — ${reasons}`);
+}
 
 /** Where an analysis publishes its sidecars when the caller names no directory. */
 const ANALYSIS_OUTPUT_DIRECTORY = 'tests/workspacify-reverse/analysis';
@@ -101,7 +131,7 @@ const SPIKE_STAGES = Object.freeze(['r1', 'r3']);
 
 const USAGE = [
   'Usage: run.mjs <detect|scrub|verify> <root> [options]',
-  '       run.mjs analyze <root> [--through=<stage>] [--out=<dir>] [--query=<text>]',
+  '       run.mjs analyze <root> [--through=<stage>] [--out=<dir>]',
   '       run.mjs regression <capture|check>',
   '       run.mjs holdout [freeze|isolation <root>] [--project-root=<path>] [--frozen-at=<ISO-8601>]',
   '       run.mjs oracle <freeze|compare --stage <stage> --candidate <path>> [--project-root=<path>] [--frozen-at=<ISO-8601>]',
@@ -137,8 +167,6 @@ const USAGE = [
   // here: a hardcoded name went stale the moment a stage was added after it.
   `  --through=<stage>            Last stage an analysis runs, inclusive (analyze; default ${ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1]})`,
   '  --recorded=<path>            JSON holding the interventions and decision samples a spike recorded',
-  '  --query=<text>               Ask zg for candidate material on this question. Served beside the',
-  '                               analysis and read by no stage of it: a search is a candidate, never a proof',
   '  --out=<dir>                  Where an analysis or a spike writes its documents',
 ].join('\n');
 
@@ -177,7 +205,15 @@ function positionalArgs(args) {
   return positionals;
 }
 
-/** The switches every subcommand shares; an unrecognised `--name` is simply absent. */
+/**
+ * The switches every subcommand shares.
+ *
+ * An unrecognised `--name` is simply absent, which is the right answer for a typo. A
+ * withdrawn option is the one exception, refused where the subcommand that once read
+ * it runs: an option honoured once and ignored now would let a caller believe a
+ * question was asked when nothing was listening.
+ */
+// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
 function commonOptions(subcommand, rest) {
   const flags = new Set(rest);
   return {
@@ -238,7 +274,7 @@ function parseSpikeArguments(second, rest, argv) {
   };
 }
 
-// [::TICKET::] P22-4, P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P25-7) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const [subcommand, second, ...rest] = argv;
   const common = commonOptions(subcommand, rest);
@@ -269,7 +305,7 @@ function parseArgs(argv) {
       root: positionalArgs(argv.slice(1))[0] ?? null,
       through: flagValue(optionArgs, '--through') ?? ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
       out: flagValue(optionArgs, '--out'),
-      query: flagValue(optionArgs, '--query'),
+      withdrawn: withdrawnOptionsUsed(optionArgs),
     };
   }
 
@@ -309,23 +345,22 @@ function reportStage({ stage, input, error }) {
  * reason the caller did not choose.
  *
  * The pipeline publishes only after every stage has run and the target has been
- * shown unchanged, so a stage that cannot run leaves nothing behind. The zg probe
- * runs before it and its result is never passed into it: candidate discovery is
- * material for a reader, and a model-dependent search must not be able to reach a
- * stage that settles anything.
+ * shown unchanged, so a stage that cannot run leaves nothing behind. What it
+ * publishes is what the stages produce and nothing beside it, so the set a reader
+ * receives does not depend on what the host has installed.
  */
-// [::TICKET::] P22-4, P22-9, P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7) --for-spec --no-implementation-order`.
-async function runAnalysisPipeline({ root, through, out, query }) {
+// [::TICKET::] P22-4, P22-9, P23-7, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|P25-7) --for-spec --no-implementation-order`.
+async function runAnalysisPipeline({ root, through, out, withdrawn }) {
   if (!root) {
     process.stderr.write(`${USAGE}\n`);
     return 2;
   }
   const destination = out === null ? join(PROJECT_ROOT, ANALYSIS_OUTPUT_DIRECTORY) : resolve(out);
-  const candidateSearch = probeZg({ root, query });
 
   let currentStage = null;
   let outcome;
   try {
+    refuseWithdrawnOptions(withdrawn);
     outcome = await analyzeProject({
       root,
       out: destination,
@@ -337,12 +372,6 @@ async function runAnalysisPipeline({ root, through, out, query }) {
   }
 
   process.stdout.write(`${outcome.report}\n`);
-  // The section is written only when there is one to serve, so an absent tool
-  // cannot leave behind a file that reads as a search which found nothing.
-  if (candidateSearch.availability === ZG_AVAILABILITY.available) {
-    writeDocument(join(destination, ZG_REPORT_FILE_NAME), `${renderZgReport(candidateSearch)}\n`);
-  }
-  process.stdout.write(`\n${renderZgReport(candidateSearch)}\n`);
   process.stdout.write(
     `\nStages ${outcome.stagesRun.map((stage) => `\`${stage}\``).join(', ')} published to \`${destination}\`.\n`,
   );

@@ -9,6 +9,14 @@
  *   - exit 0: no markers found (all fields filled)
  *   - exit 1: one or more markers found (unfilled fields), details JSON to stderr
  *   - stdout: JSON { ok: true/false, count: N, density: { ... } }
+ *
+ * What this does not check is the change record. A ticket that reached `done` or
+ * `reviewed` owes a non-empty `changes` array, and whether it carries one is
+ * reported by `reportEmptyChangeSets()` in `lib/validate-tickets.js` — reported
+ * rather than validated, because `validateTickets` gates every write and
+ * completeness must not gate writes (`tests/change-record.test.cjs` holds the two
+ * apart). A reader who finds no markers here has not thereby found a complete
+ * record, and a reader looking for the record will not find it in this file.
  */
 
 const fs = require("fs");
@@ -36,6 +44,7 @@ const FIELD_EXPECTED = {
   boyScoutPlan: 1,
 };
 
+// [::TICKET::] P25-1, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-1|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function main() {
   const ticketsPath = process.argv[2];
   const ticketKey = process.argv[3];

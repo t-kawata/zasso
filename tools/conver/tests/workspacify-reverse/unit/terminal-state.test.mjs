@@ -15,7 +15,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
@@ -23,6 +25,8 @@ import {
   SCOPE_SOURCES,
   TERMINAL_ARTEFACTS,
   compareTerminalStates,
+  decisionsInputDigest,
+  decisionsInputText,
   measureTerminalState,
   packagesFromPartition,
   renderTerminalStateReport,
@@ -397,4 +401,48 @@ test('C003 invariant: the inventory is design section 2.3\'s list, eleven at the
   for (const name of [...TERMINAL_ARTEFACTS.root, ...TERMINAL_ARTEFACTS.fifthLayer, ...TERMINAL_ARTEFACTS.package, ...TERMINAL_ARTEFACTS.packageFifthLayer]) {
     assert.ok(!name.includes('{package}'), name + ' carries no identifier slot, because its group is not the named one');
   }
+});
+
+// ---------------------------------------------------------------------------
+// The decisions input a run reads, and the digest the record names it by
+// ---------------------------------------------------------------------------
+
+/** A skeleton whose pretty and compact serializations differ, as the real one's do. */
+const SERIALIZATION_SAMPLE = Object.freeze({
+// [::TICKET::] P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-1 --for-spec --no-implementation-order`.
+  tree: [{ path: 'src', owned: true }],
+  notes: ['a skeleton the chain could not configure'],
+});
+
+test('C004 postcondition: the recorded decisions digest is over the bytes the file holds', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'wsp-decisions-'));
+  try {
+    const path = join(directory, 'DECISIONS.json');
+    writeFileSync(path, decisionsInputText(SERIALIZATION_SAMPLE), 'utf8');
+    const onDisk = readFileSync(path, 'utf8');
+    assert.equal(
+      decisionsInputDigest(SERIALIZATION_SAMPLE),
+      createHash('sha256').update(onDisk, 'utf8').digest('hex'),
+      'the digest names the bytes a reader will find, not a differently-serialized copy of them',
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('C004 invariant: the written input parses back to the skeleton the run was given', () => {
+  assert.deepEqual(JSON.parse(decisionsInputText(SERIALIZATION_SAMPLE)), SERIALIZATION_SAMPLE);
+});
+
+test('C004 boundary: the compact serialization is not what the file holds', () => {
+  // The digest was taken over `JSON.stringify(skeleton)` while the file held the
+  // indented form. Both name the same object, so nothing looked wrong — the record
+  // simply described bytes that were never written, and two representatives that
+  // read the same skeleton could not be told apart by the field that exists to say
+  // what each run read.
+  assert.notEqual(
+    decisionsInputDigest(SERIALIZATION_SAMPLE),
+    createHash('sha256').update(JSON.stringify(SERIALIZATION_SAMPLE), 'utf8').digest('hex'),
+    'a compact rendering is not the input file, so its digest is not the input digest',
+  );
 });

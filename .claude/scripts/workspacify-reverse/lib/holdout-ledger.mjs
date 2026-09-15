@@ -574,9 +574,15 @@ export function freezeLedger({ projectRoot, candidates, frozenAt }) {
 /**
  * Read the ledger and recompute every recorded digest. Read-only.
  *
- * A holdout that has changed, or is no longer present, is drift and is named by
- * id with both values. This is what makes "the holdout is frozen" mean
+ * A holdout whose tree is present and whose digest has moved is drift and is
+ * named by id with both values: that is what makes "the holdout is frozen" mean
  * something after the first run.
+ *
+ * A holdout whose tree is absent from this checkout travels separately. The
+ * ledger is append-only and the corpora are working material no checkout
+ * carries, so folding absence into drift would report every fresh clone as a
+ * broken freeze and make the one finding that matters — a tree that changed —
+ * indistinguishable from a tree that was never here.
  */
 export function loadLedger({ projectRoot }) {
   const ledgerPath = join(projectRoot, LEDGER_RELATIVE_PATH);
@@ -589,10 +595,16 @@ export function loadLedger({ projectRoot }) {
 
   const recomputed = [];
   const drifted = [];
+  const absent = [];
   for (const entry of ledger.holdouts ?? []) {
     const root = join(projectRoot, entry.path);
     if (!existsSync(root)) {
-      drifted.push({ id: entry.id, frozen: entry.sha256, observed: '(absent)', reason: 'the holdout tree is no longer present' });
+      absent.push({
+        id: entry.id,
+        path: entry.path,
+        frozen: entry.sha256,
+        reason: 'the holdout tree is absent from this checkout, so its digest was not recomputed',
+      });
       continue;
     }
     const digest = digestTree(root);
@@ -607,6 +619,7 @@ export function loadLedger({ projectRoot }) {
     entryCount: (ledger.holdouts ?? []).length,
     recomputed,
     drifted,
+    absent,
     notSelected: ledger.notSelected ?? [],
     protocolVersion: ledger.protocolVersion,
   };
@@ -644,6 +657,17 @@ export function renderLedgerReport(result) {
       lines.push(`  - frozen \`${entry.frozen}\``);
       lines.push(`  - observed \`${entry.observed}\``);
     }
+    lines.push('');
+  }
+
+  if (result.absent.length > 0) {
+    lines.push('### Frozen but absent from this checkout', '');
+    for (const entry of result.absent) {
+      lines.push(`- \`${entry.id}\` (\`${entry.path}\`) — ${entry.reason}`);
+      lines.push(`  - frozen \`${entry.frozen}\``);
+    }
+    lines.push('');
+    lines.push('This is a statement about the checkout and not about the holdout: the digest stands frozen, and the tree is reproduced from the commit the candidate declares.');
     lines.push('');
   }
 

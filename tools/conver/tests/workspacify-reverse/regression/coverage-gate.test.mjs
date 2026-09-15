@@ -14,9 +14,10 @@
  * branch percentages and `--test-coverage-branches=<n>` fails the run below them.
  *
  * The threshold is 80, which is the project's own stated minimum rather than the
- * measured figure. Measured 2026-09-15 over 51 modules: **88.19% branch**, 96.56%
- * line, 97.90% functions. Gating at the measured number would make the gate brittle
- * against any small change; gating at the standard leaves the figure as the record.
+ * measured figure. Measured 2026-09-15 over the 50 modules the library holds, on the
+ * routine basis the Makefile gates: **84.51% branch**, 94.19% line, 95.29% functions.
+ * Gating at the measured number would make the gate brittle against any small change;
+ * gating at the standard leaves the figure as the record.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -88,12 +89,13 @@ test('C003 postcondition: a figure below the threshold fails, so the number is a
   assert.match(refused.stdout, /does not meet threshold/, 'and the failure says so rather than exiting quietly');
 });
 
+// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
 test('C003 invariant: the measurement is over the library and not over the tests, and the threshold is applied rather than printed', () => {
   assert.ok(!LIBRARY_GLOB.includes('tests/'), "a glob that caught the suite would report the tests' own coverage as the library's");
   assert.match(MAKEFILE, /--test-coverage-branches=\d+/, 'the flag is present, so the number is applied');
   assert.equal(
     readdirSync(MODULE_DIRECTORY).filter((name) => name.endsWith('.mjs')).length,
-    51,
+    50,
     'the library the measurement is taken over',
   );
 });

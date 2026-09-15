@@ -94,8 +94,9 @@ describe('declarationIsEmpty', () => {
   });
 });
 
+// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
 describe('classifyTool', () => {
-  const reverseTool = { id: 'zg', probe: 'zg version', minVersion: '0.1.0', requiredFor: 'reverse', providedBy: 'P22-9', optional: false };
+  const reverseTool = { id: 'joern', probe: 'joern --version', minVersion: '2.0.0', requiredFor: 'reverse', providedBy: 'P22-4', optional: false };
 
   it('reports a tool whose providing ticket has not converged as not yet required', () => {
     const verdict = classifyTool({ entry: reverseTool, probeResult: { status: null }, converged: new Set() });
@@ -104,7 +105,7 @@ describe('classifyTool', () => {
   });
 
   it('reports the same tool as absent once its ticket has converged', () => {
-    const verdict = classifyTool({ entry: reverseTool, probeResult: { status: null }, converged: new Set(['P22-9']) });
+    const verdict = classifyTool({ entry: reverseTool, probeResult: { status: null }, converged: new Set(['P22-4']) });
     assert.equal(verdict.status, 'absent');
   });
 
@@ -166,6 +167,45 @@ describe('readConvergedTicketKeys', () => {
     assert.equal(converged.has('P1-3'), false);
     assert.equal(converged.has('P1-4'), false, 'a missing status is todo');
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+describe('the declaration this project ships', () => {
+  /** The fields `resolveEnvironment` and the installer read from each entry. */
+  const DECLARED_TOOL_FIELDS = Object.freeze([
+    'id', 'probe', 'minVersion', 'requiredFor', 'providedBy', 'optional', 'os', 'description', 'obtain',
+  ]);
+
+  it('gives every declared tool every field its readers take', () => {
+    const declaration = readDeclaration(PROJECT_ROOT);
+    const incomplete = [];
+    for (const tool of declaration.tools) {
+      for (const field of DECLARED_TOOL_FIELDS) {
+        if (!Object.prototype.hasOwnProperty.call(tool, field)) incomplete.push(`${tool.id}.${field}`);
+      }
+    }
+    assert.deepEqual(incomplete, [], `these declarations are missing a field: ${incomplete.join(', ')}`);
+  });
+
+  it('probes each tool with the command line the entry declares, and never with a substituted one', () => {
+    // A probe that does not match its entry is how a tool gets reported present for
+    // something else's version, which is the failure the entry's `probe` exists to
+    // prevent — the removal of one entry must leave the others' probes untouched.
+    const declaration = readDeclaration(PROJECT_ROOT);
+    const probes = new Map(declaration.tools.map((tool) => [tool.id, tool.probe]));
+    const seen = [];
+    resolveEnvironment({
+      declaration,
+      projectRoot: PROJECT_ROOT,
+      environment: { platform: 'darwin', arch: 'arm64', nodeVersion: 'v26.0.0' },
+      commandRunner: (call) => { seen.push(call); return { status: null, stdout: '', stderr: '' }; },
+      converged: new Set(),
+    });
+    for (const call of seen.filter((entry) => entry.command !== undefined)) {
+      const declared = [...probes.values()].some((probe) => probe.startsWith(call.command));
+      assert.equal(declared, true, `${call.command} is not the first word of any declared probe`);
+    }
   });
 });
 
@@ -241,7 +281,7 @@ describe('rotationIsReady — a readiness claim must be earned', () => {
   });
 
   it('does not count not-yet-required as ready: the tool is absent either way', () => {
-    const record = { npmRoots: [], tools: [{ id: 'zg', status: 'not-yet-required', requiredFor: 'reverse', providedBy: 'P22-9' }] };
+    const record = { npmRoots: [], tools: [{ id: 'joern', status: 'not-yet-required', requiredFor: 'reverse', providedBy: 'P22-4' }] };
     assert.equal(rotationIsReady(record, 'reverse'), false, 'a toolchain that has not been chosen cannot be called ready');
   });
 
@@ -263,7 +303,7 @@ describe('renderEnvironmentReport', () => {
       npmRoots: [{ id: 'claude', status: 'resolved', requiredFor: 'forward', path: '.claude' }],
       tools: [
         { id: 'node', status: 'present', requiredFor: 'forward', version: 'v26.0.0' },
-        { id: 'zg', status: 'not-yet-required', requiredFor: 'reverse', providedBy: 'P22-9', remedy: 'npm install -g @zvec/zvec-grep' },
+        { id: 'joern', status: 'not-yet-required', requiredFor: 'reverse', providedBy: 'P22-4', remedy: 'https://joern.io/docs' },
       ],
     };
     const report = renderEnvironmentReport(record);
@@ -271,7 +311,7 @@ describe('renderEnvironmentReport', () => {
     assert.match(report, /reverse/i);
     assert.match(report, /ready/i);
     assert.match(report, /not yet required/i);
-    assert.match(report, /P22-9/, 'the ticket that will provide it must be named');
+    assert.match(report, /P22-4/, 'the ticket that will provide it must be named');
   });
 
   it('reports an empty declaration as empty', () => {

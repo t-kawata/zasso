@@ -42,7 +42,20 @@ test-conver:
 #   Deferred として名前つきで出るため、黙って消えることはない。
 #   実測（2026-09-14）: workspacify-reverse/integration は単独 156 秒、
 #   それ以外の全ディレクトリは 18 秒以下。
-TEST_EXCLUDES := --exclude=tests/workspacify-reverse/integration
+#
+#   日常実行から外すパスは DEFERRED_TEST_PATH の1箇所が持つ。除外を指定する
+#   ターゲットは必ずこの変数を参照する。以前は test-coverage が
+#   tests/workspacify-reverse を除外引数なしで集めており、test の隣で
+#   20ファイルを黙って走らせていた。どちらのターゲットも相手を知らなかったため、
+#   食い違いを報告するものは無かった。
+#   規約テスト tests/conventions/makefile-test-runs.test.mjs が、このパスに
+#   到達する全ターゲットのレシピを宣言と突き合わせる。
+DEFERRED_TEST_PATH := tests/workspacify-reverse/integration
+TEST_EXCLUDES := --exclude=$(DEFERRED_TEST_PATH)
+
+# 重い計測スイートを意図的に全部走らせるターゲット。ここに名前が無いターゲットは
+# 除外を参照しなければならず、その逆も同じ。除外の有無はコメントではなくデータで決まる。
+HEAVY_TEST_TARGETS := test-all test-workspacify-reverse
 
 test:
 		node tests/run-all-surfaces.mjs $(TEST_EXCLUDES)
@@ -53,7 +66,11 @@ test-all:
 
 # test-coverage: 逆回転ライブラリの分岐カバレッジを測り、閾値を下回れば失敗させる。
 #   閾値 80 はプロジェクト規則（rules/common/testing.md）の最低線であり、実測値ではない。
-#   実測（2026-09-15、51モジュール）: branch 88.19% / line 96.56% / funcs 97.90%。
+#   実測（2026-09-15、50モジュール、DEFERRED_TEST_PATH を除外した日常の基盤）:
+#     branch 84.5%（2回の実測で 84.55 / 84.54）/ line 94.20% / funcs 95.27%、
+#     所要 33 秒。閾値 80 を満たし、exit 0 を確認済み。
+#   以前ここに記録していた 88.19% は統合スイートを含む基盤の値である。その基盤は
+#   日常実行から外してあり、ゲートの基準は日常実行の側なので、記録も日常の側に合わせた。
 #   実測値を閾値にすると些細な変更で赤くなるため、規則の下限をゲートに置き、実測値は記録に残す。
 #   c8 は devDependencies に無く、使うには依存の追加が要る。Node の組み込みカバレッジが
 #   同じ閾値ゲート（--test-coverage-branches）を持つため、依存は足さない。
@@ -63,7 +80,7 @@ test-coverage:
 		node --test --experimental-test-coverage \
 		  "--test-coverage-include=$(COVERAGE_LIBRARY)" \
 		  --test-coverage-branches=80 \
-		  $$(node -e 'import("./tests/lib/test-discovery.mjs").then((m) => process.stdout.write(m.collectTestFilesUnder("tests/workspacify-reverse").join(" ")))')
+		  $$(node -e 'import("./tests/lib/test-discovery.mjs").then((m) => process.stdout.write(m.collectTestFilesUnder("tests/workspacify-reverse").filter((file) => !file.includes("$(DEFERRED_TEST_PATH)")).join(" ")))')
 
 # check-conventions: 各スクリプトディレクトリが宣言どおりのモジュール方式を使っているか、
 #   および .claude/rules/node.md の表がファイルシステムと一致しているかを検査する。

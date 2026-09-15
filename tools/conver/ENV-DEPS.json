@@ -279,25 +279,6 @@
         "linux": "https://joern.io/docs (or the joern-install.sh script)",
         "win32": "https://joern.io/docs (under WSL)"
       }
-    },
-    {
-      "id": "zg",
-      "probe": "zg version",
-      "minVersion": "0.1.0",
-      "requiredFor": "reverse",
-      "providedBy": "P22-9",
-      "optional": false,
-      "os": [
-        "darwin",
-        "linux",
-        "win32"
-      ],
-      "description": "zvec-grep, embedded into the serving layer by P22-9.",
-      "obtain": {
-        "darwin": "npm install -g @zvec/zvec-grep",
-        "linux": "npm install -g @zvec/zvec-grep",
-        "win32": "npm install -g @zvec/zvec-grep"
-      }
     }
   ],
   "propertyEngines": [

@@ -30,15 +30,22 @@ import { createHash } from 'node:crypto';
 export const COMMANDS_RELATIVE_DIR = '.claude/commands';
 
 /**
- * The nine command files that existed before P22. P22-9 creates a tenth
- * (`workspacify-reverse.md`), which is a new file rather than an edit and is
- * therefore deliberately absent from this list.
+ * The command files whose three protected sections are frozen.
  *
- * That absence has a cost worth naming: the three `Branch making-reverse commit
- * on v0.24.635` commits each added a trailing space to that file's
- * `# /workspacify-reverse` heading, and nothing detects it because the file is
- * outside this set. Widening the set is a separate decision about what the digest
- * claims to protect, and is not taken here.
+ * The first nine are the files that existed before P22. P25-2 adds the six that
+ * name a script and were never guarded: a definition instructing an operator to run
+ * something is exactly what this digest claims to protect, and a definition outside
+ * the set is one whose headings, Language Protocol table and obligation sentence can
+ * change with nothing to report it.
+ *
+ * `workspacify-reverse.md` stays outside. P22-9 created it as a new file rather than
+ * editing a pre-P22 one, and `tests/workspacify-reverse/helpers/command-file.mjs`
+ * holds its shape instead — the eight structural assertions, which are checked
+ * against that file by `command.test.mjs` and `command-procedure.test.mjs`.
+ *
+ * That absence has a cost worth naming: the three `Branch making-reverse commit on
+ * v0.24.635` commits each added a trailing space to that file's `# /workspacify-reverse`
+ * heading, and nothing detects it because the file is outside this set.
  */
 export const COMMAND_FILE_NAMES = [
   'workspacify-tree',
@@ -50,6 +57,12 @@ export const COMMAND_FILE_NAMES = [
   'find-omissions',
   'crystalize-readme',
   'drill-rfc-down',
+  'make-ticket',
+  'plan-ticket',
+  'start-ticket',
+  'review-ticket',
+  'resolve-ticket',
+  'consolidate-stubs',
 ];
 
 /** A line that opens an ATX heading. */
@@ -73,6 +86,34 @@ const ABSENT_SECTION_DIGEST = sha256Hex('');
 
 /** A heading that opens a reverse-only section. */
 const REVERSE_HEADING = /^#{1,6} .*[Rr]everse/;
+
+/**
+ * The command files that carry a reverse-only section, and are therefore linted by
+ * the rotation rules.
+ *
+ * This was `COMMAND_FILE_NAMES` until P25-2 widened the freeze, and the two were
+ * never the same idea. The freeze protects any definition that tells an operator to
+ * run something; the rotation lints apply only to a file that carries a reverse
+ * section, because that is what they are about — a reverse section placed inside the
+ * forward steps, or opening without a gate naming a declared predicate. The nine
+ * files that existed before P22 each carry exactly one such section, and
+ * `workspacify-reverse.md` carries one too while staying outside the freeze.
+ *
+ * Left as one list, widening the freeze would have applied a reverse-section rule to
+ * six definitions that carry no reverse section, and reported each of them as a
+ * defect for not having one.
+ */
+export const REVERSE_SECTION_COMMAND_FILES = Object.freeze([
+  'workspacify-tree',
+  'workspacify-allocate',
+  'grill-me-for-rfc',
+  'graphify-rfc',
+  'boundify-graph',
+  'split-to-tickets',
+  'find-omissions',
+  'crystalize-readme',
+  'drill-rfc-down',
+]);
 
 /**
  * The headings that mark a file's forward procedure.
@@ -366,8 +407,12 @@ function readSoleGateLine(lines) {
 }
 
 /**
- * Read the command files a lint runs over: the nine named ones under a project
- * root, or an injected list.
+ * Read the command files a lint runs over: the reverse-section files under a
+ * project root, or an injected list.
+ *
+ * The default is `REVERSE_SECTION_COMMAND_FILES` rather than the frozen set. The
+ * two were one list until P25-2 widened the freeze, and using the frozen set here
+ * would apply a reverse-section rule to definitions that carry no reverse section.
  *
  * Injection is the point. A lint that can only be pointed at the real tree can
  * only ever be seen to pass, and a check nobody has watched fail is a check
@@ -381,9 +426,9 @@ function readSoleGateLine(lines) {
  *
  * @returns {Array<{name: string, path: string, lines: string[]|null, unreadableReason?: string}>}
  */
-// [::TICKET::] PX-210 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-210 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-210, P25-2, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-210|P25-2|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function readCommandFiles({ projectRoot, files }) {
-  const targets = files ?? COMMAND_FILE_NAMES.map((name) => ({
+  const targets = files ?? REVERSE_SECTION_COMMAND_FILES.map((name) => ({
     name,
     path: join(projectRoot, COMMANDS_RELATIVE_DIR, `${name}.md`),
   }));

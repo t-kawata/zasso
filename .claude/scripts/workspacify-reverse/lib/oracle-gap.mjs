@@ -29,7 +29,8 @@
  * bounded: an AST-normalised match under a *named* configuration, which is what
  * rung three claims and nothing more.
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5, P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-5|P24-12) --for-spec --no-implementation-order`.
+import { UNKNOWN_LANGUAGE } from './analysis-tech.mjs';
 import {
   TCE_LADDER_STEPS,
   UNKNOWN_LADDER_STEP,
@@ -303,6 +304,23 @@ const NO_PAIR_PRESENTED =
   'no mutant pair was presented to this run, so no comparison was computed. E13 decides a pair, and an '
   + 'empty comparison list is the absence of an input rather than a clean result';
 
+/**
+ * The language this block can be configured under, or null when none was named.
+ *
+ * `languageOfPath` answers `UNKNOWN_LANGUAGE` for an extension it cannot place,
+ * and `dominantLanguageOf` carries that answer forward when a tree holds no
+ * source in a target language — an empty target and a spec-only target both
+ * arrive here that way. The sentinel is not a language any grammar is declared
+ * for, so it is folded to null at the one boundary that decides, and the block
+ * then records the missing channel instead of raising out of the run. A run that
+ * refused would publish nothing at all, which reads as a broken instrument
+ * rather than as a target with no language to compare.
+ */
+// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+function configurableLanguage(declared) {
+  return declared === null || declared === undefined || declared === UNKNOWN_LANGUAGE ? null : declared;
+}
+
 /** One pair's language, refused when the pairs disagree about it. */
 // [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
 function languageOfPairs(tcePairs) {
@@ -317,9 +335,17 @@ function languageOfPairs(tcePairs) {
   return languages[0];
 }
 
-/** The comparisons a run's presented pairs yield, with a refusal recorded rather than raised. */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
-function comparePairs(language, tcePairs) {
+/**
+ * The comparisons a run's presented pairs yield, with a refusal recorded rather
+ * than raised.
+ *
+ * The configuration is a parameter rather than a per-row lookup because the
+ * refusal path needs it too: resolving it twice inside the `catch` made the
+ * handler raise the very error it was handling whenever the language was one no
+ * grammar is declared for, so a per-row refusal became an abort of the run.
+ */
+// [::TICKET::] P24-5, P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-5|P24-12) --for-spec --no-implementation-order`.
+function comparePairs(language, configuration, tcePairs) {
   return tcePairs.map((pair) => {
     const mutantId = pair?.mutant_id ?? null;
     try {
@@ -336,8 +362,8 @@ function comparePairs(language, tcePairs) {
         normalised_original: null,
         normalised_mutant: null,
         readable: false,
-        configuration_id: tceConfigurationFor(language).configuration_id,
-        grammar: tceConfigurationFor(language).grammar,
+        configuration_id: configuration.configuration_id,
+        grammar: configuration.grammar,
         comments: null,
         reason: error.message,
       });
@@ -352,28 +378,30 @@ function comparePairs(language, tcePairs) {
  * reader asking which grammar this run compared under is asking a question the
  * run can answer even when it had nothing to compare.
  */
-// [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-5, P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-5|P24-12) --for-spec --no-implementation-order`.
 function buildTceBlock({ language, tcePairs }) {
   const pairs = Array.isArray(tcePairs) ? tcePairs : [];
-  const compared = pairs.length === 0 ? null : languageOfPairs(pairs);
-  if (compared !== null && language !== null && compared !== language) {
+  const compared = pairs.length === 0 ? null : configurableLanguage(languageOfPairs(pairs));
+  const measured = configurableLanguage(language);
+  if (compared !== null && measured !== null && compared !== measured) {
     throw new Error(
-      `the presented pairs name ${compared} and this run measured ${language}. A comparison recorded under `
+      `the presented pairs name ${compared} and this run measured ${measured}. A comparison recorded under `
       + 'one language\'s configuration while presenting another language\'s texts would state a provenance '
       + 'the verdict does not have',
     );
   }
 
-  const resolved = compared ?? language;
-  const comparisons = resolved === null ? [] : comparePairs(resolved, pairs);
-  const unavailable = resolved === null
+  const resolved = compared ?? measured;
+  const configuration = resolved === null ? null : tceConfigurationFor(resolved);
+  const comparisons = configuration === null ? [] : comparePairs(resolved, configuration, pairs);
+  const unavailable = configuration === null
     ? ['no language was named for this stage, so no TCE configuration could be published']
     : [];
-  if (pairs.length === 0 && resolved !== null) unavailable.push(NO_PAIR_PRESENTED);
+  if (pairs.length === 0 && configuration !== null) unavailable.push(NO_PAIR_PRESENTED);
 
   return Object.freeze({
     language: resolved,
-    configuration: resolved === null ? null : Object.freeze(tceConfigurationFor(resolved)),
+    configuration: configuration === null ? null : Object.freeze(configuration),
     comparisons: Object.freeze(comparisons),
     counts: Object.freeze({
       comparisons: comparisons.length,

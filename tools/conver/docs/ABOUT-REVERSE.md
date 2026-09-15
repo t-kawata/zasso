@@ -962,8 +962,8 @@ omission チケット
 | **−1-b** | **RFC-SEED 逆回転索引の格納先確定** | §1 の機械注入内容を拡張する設計を確定し、`seed-parse.mjs` の見出し数チェック（完全一致）を**変更しない**ことを確認する | 15番目の見出しは順回転を壊す（6.4節 A4） |
 | **−1-c** | **最小スパイク（R0.5 → R3.5 → R7）** | 1本の垂直スライスで設計仮説を検証し、**claim 数・カード枚数・`unresolved` 率・AI 判断時間・人間介入回数**を実測する（R-7） | **設計仮説そのものを最小コストで先に知る。** Phase 0 の後に置くと手遅れになる |
 | **−1-d** | **新設ゲートの受け入れ基準** | 6.14節の表をテストケースに落とす | 受け入れ基準の無いゲートは、**効いているか分からない**ので存在しないのと同じ |
-| **−1-e** | **Phase 0 の依存順序の確定** | 下記 6.13.2 の順序を確定する | 9項目が集合のままだと着手できない |
-| **−1-f** | **実行側の3穴の Phase への組み込み** | 動的解析基盤（→ Phase 0.5）／`zg` の給仕層への組み込み（→ Phase 0）／Red 再建の実行経路（→ Phase 2） | 分析側だけ精密でも、**実行できなければ意味がない** |
+| **−1-e** | **Phase 0 の依存順序の確定** | 下記 6.13.2 の順序を確定する | 8項目が集合のままだと着手できない |
+| **−1-f** | **実行側の3穴の Phase への組み込み** | 動的解析基盤（→ Phase 0.5）／Red 再建の実行経路（→ Phase 2） | 分析側だけ精密でも、**実行できなければ意味がない** |
 
 #### 6.13.2 Phase 0 の依存順序
 
@@ -977,8 +977,7 @@ omission チケット
 | 6 | invariant mutation ＋ TCE | 独立 |
 | 7 | テスト import/mock → R2 凝集度への逆流辺 | 独立 |
 | 8 | capability profile | 2・3 |
-| 9 | `zg` を給仕層へ組み込む（R1〜R4 の候補発見） | 独立 |
-| — | **順回転回帰ゲートは 2〜9 の各項目の後に毎回実行する** | 1 |
+| — | **順回転回帰ゲートは 2〜8 の各項目の後に毎回実行する** | 1 |
 
 #### 6.13.3 Phase 0 の完了条件
 
@@ -1317,154 +1316,6 @@ Pass 2: パッケージ水平掃海 (Horizontal Sweep)
 - [ ] 判断カードの粒度は適切か（粗すぎれば判断が雑に、細かすぎれば枚数が爆発する）
 - [ ] 人間の専門家（ドメイン知識保有者）を**どこでループに入れる**のが最も効果的か
 - [ ] 3.6 節の適格条件は妥当か。**見落としている前提条件**はないか
-
----
-
-## 8. zg（zvec-grep）の活用
-
-詳細は別紙 **`ZG-FOR-REVERSE.md`** を参照。ここでは conver 逆回転への組み込み方と、環境構築の要点を記す。
-
-### 8.1 zg とは
-
-`zg` は **zvec-grep** の CLI である。ローカルワークスペースを索引化し、4つの検索経路を単一の操作系に統合する。
-
-| 検索経路 | 使う場面 | 代表例 |
-|---|---|---|
-| ripgrep 互換（`--rg`） | 文字列・識別子・パス・正規表現を**漏れなく**探す | `AuthService`、`/v1/token`、エラーコード |
-| BM25（`--fts`） | 既知の語を関連度順に集める | `session revoke`、`TLS handshake` |
-| ベクトル（`--vector`） | 実装上の命名を知らず、**概念から**探す | 「資格情報はどこで検証されるか」 |
-| ハイブリッド（既定の `zg query`） | 語と意味の両方で、入口不明の構造を探索する | 「起動時に設定を復元する流れ」 |
-
-**これが逆回転に効く理由**: 索引検索はファイル・シンボル・行などの**出所情報を伴う候補**を返す。したがって、LLM や人間の「もっともらしい説明」を採用するのではなく、**検索結果のパス・行・原文を一次証拠として読み、結論を検証する**用途に向く。これは本設計の「evidence 必須」原則と完全に一致する。
-
-### 8.2 逆回転への組み込み方（提案）
-
-| 段 | zg の使い方 | 注意 |
-|---|---|---|
-| R1 / R2 | `--rg` による識別子・パス・エラー文字列の**完全列挙** | 決定論的な確定に使える |
-| R3 | 既定ハイブリッド／`--vector` で**契約候補・不変条件・状態機械の候補を発見** | **候補発見であり完全列挙ではない** |
-| R4 | コミットメッセージ・CHANGELOG・コメントから「なぜ」の候補を収集 | 候補発見 |
-| R5 | エラーコード・設定キー・feature flag の全参照列挙 | `--rg -F` で完全確認 |
-| 全段 | 発見した結論は**必ず原文を開いて検証**し、パス・行を証拠として記録 | 検索ヒットだけで制御フローを確定しない |
-
-> **重要な位置づけ**: zg のベクトル／BM25 検索は**モデル依存であり決定論ではない**。したがって zg は **「給仕（材料屋）」の層**に置く。**確定（証明）には使わない**。確定は `--rg` による完全列挙と、AST／型に基づく決定論的解析で行う。この切り分けは 2.5 節の三層の境界と一致する。
-
-### 8.3 環境構築（完全情報）
-
-**(1) Node.js 22 以上と zg の導入**
-
-```bash
-node --version          # 22 以上が必要
-npm --version
-npm install -g @zvec/zvec-grep
-zg version
-zg help
-zg help index
-zg help query
-```
-
-`npm` 成功後も `zg: command not found` なら、npm のグローバル bin が `PATH` に無い。mise / nvm / fnm / Volta 等の設定を確認し、再ログイン後に `command -v zg` を実行する。
-
-> **オプションはリリースで変わり得る。本節の例を流用する前に、導入した版の `zg help <command>` を正とすること。**
-
-**(2) 対象の固定と衛生確認**
-
-```bash
-git clone <authorized-repository-url> target-repo
-cd target-repo
-git status --short
-git rev-parse HEAD
-git submodule status --recursive
-find . -maxdepth 3 \( -name '.env' -o -name '*.pem' -o -name '*.key' \) -print
-```
-
-解析の再現性を優先するなら、**専用 worktree または固定コミット**を使う。ビルドや依存取得の**前に**初回索引を行えば、`node_modules` 等のノイズを持ち込む危険を減らせる。
-
-**(3) 埋め込みモデルの選択**（ローカルモデルの既定ダウンロード先は `~/.zvec-grep/models`）
-
-| プロジェクト特性 | 推奨開始モデル | 留意点 |
-|---|---|---|
-| 主にコード、初回の速度重視 | `local/potion-code-16m-v2` | Potion 系は GPU で高速化されない |
-| 日本語を含む仕様・コメント・多言語文書 | `local/potion-multilingual-128m` または `local/multilingual-e5-small` | 初回時間・メモリを測定する |
-| 多言語かつ長いコード・文書 | `local/jina-embeddings-v2-base-code` | ONNX Q8。CPU/GPU 設定を検証する |
-| 品質優先の多言語コード・文書 | `local/embeddinggemma-300m` または `local/qwen3-embedding-0.6b` | 端末性能・レイテンシを測る |
-
-Transformer/GGUF 系は `ZVEC_GREP_DEVICE=auto|cpu|metal|vulkan|cuda` を設定できる。Apple Silicon なら `metal`、CUDA 環境なら `cuda` を試す価値がある。**モデルを変えるとベクトル空間が変わるため、既存索引のまま比較してはいけない。モデル変更には再構築が必要である。**
-
-**(4) 初回索引**
-
-```bash
-cd /absolute/path/to/target-repo
-zg index --embedding local/potion-code-16m-v2
-zg status
-```
-
-`.zvec-grep/` がワークスペース直下に作られる。**Git 管理しない**：
-
-```bash
-printf '\n# local zg index\n.zvec-grep/\n' >> .gitignore
-```
-
-> 既に追跡済みの `.zvec-grep/` がある場合は、チームの合意を得て `git rm -r --cached .zvec-grep` を行う。これは Git の追跡状態を変更する操作なので、勝手に実行しない。
-
-成功後、4経路を一度ずつ実行して対象が期待通り読めているか確認する：
-
-```bash
-zg query --human --limit 8 "起動時に設定を読み込み、永続化状態を復元する処理"
-zg query --fts --human --limit 10 "authentication session token"
-zg query --vector --human --limit 8 "where access credentials are validated and rejected"
-zg query --rg -n -F "AuthService" src
-```
-
-失敗・スキップが疑われる場合：
-
-```bash
-zg index --debug
-zg status --mode direct --debug
-zg query --debug "authentication flow"
-```
-
-大規模リポジトリでは、いきなり全域を索引せず、`zg help index` で関連ディレクトリ・glob・型・ignore・深さ・最大ファイルサイズを確認してスコープする。**スコープ設定は最初の索引に保存され、既存索引はその設定を再利用する**（広げたい場合は `--reset-paths`）。
-
-**(5) エージェント接続（任意）**
-
-```bash
-zg install
-zg install --target opencode --yes    # 非対話で特定エージェントのみ
-```
-
-設定後、エージェントを再起動する。既定で公開される MCP ツールは `zvec_grep_search` のみであり、**索引作成・再構築・削除は明示的 CLI 操作に留められる**（エージェントが勝手に永続索引を変更しない）。
-
-**(6) 索引の鮮度を保つ運用**
-
-| 状況 | 実行 |
-|---|---|
-| 通常のソース変更を反映 | `zg index`（増分更新） |
-| 今のクエリだけ最新で検索したい | `zg query --refresh wait "..."` |
-| 対話検索で待ち時間を減らしたい | `zg query --refresh background "..."`（freshness を確認） |
-| 状態や失敗を確認 | `zg status`、必要時 `zg status --mode direct --debug` |
-| 埋め込みモデルを変更 | `zg index --rebuild --embedding <new-model>` |
-| 保存済みスコープを置換 | `zg index --reset-paths ...` |
-| 索引を廃棄 | `zg index --drop --yes`（破壊的） |
-
-`--rebuild` を「更新のたび」に使わない。**再構築はモデル変更または保存済み設定を意図的に替える場合に限定する。**
-
-Git hook（`post-merge` / `post-checkout`）で更新を自動化する場合は、並行実行を避けるロック付きラッパーを介する。`.git/hooks/` は通常 Git 管理されないため、チーム配布には `core.hooksPath` やセットアップスクリプトを用いる。バックグラウンド実行は `possibly_stale` な結果を返し得るので、直後の厳密な調査は `--refresh wait` を使う。
-
-**(7) 調査品質のチェックリスト**
-
-- 検索ヒットだけで制御フローを確定しない。呼び出し元・呼び出し先・条件分岐・例外・テストを読む
-- 動的ディスパッチ、reflection、DI、コード生成、macro、feature flag、環境変数、非同期キュー、plugin は**静的検索だけで欠落しやすい**。実行時検証を計画する
-- `possibly_stale` の結果を設計レビューの確定根拠にしない
-- **変更作業をするエージェントと、証拠を集めるエージェントの役割を分ける**。前者にはテスト・diff を、後者にはパス・行・根拠を要求する
-
-**(8) 限界とセキュリティ**
-
-- PDF、Office 文書、アーカイブ、コンパイル成果物、DB、音声・動画、空ファイル、バイナリ判定ファイル、サイズ上限超過ファイルは**既定で索引化されない**
-- `zg` は逆コンパイラ、動的トレーサ、デバッガ、SAST の**代替ではない**。バイナリや実行時挙動の解明には Ghidra/IDA、デバッガ、eBPF、テストなどを併用する
-- 機密コードでは**ローカル埋め込みモデルのみ**を用いる。**リモート埋め込みは、認証情報の設定だけでは送信許可にならず、明示的な許可が必要である**
-- 索引とモデルキャッシュを、共有キャッシュ・外部 artifact・リモートログへ不用意に出さない
-- 対象は**自組織のソース、明示的に許可を得た顧客・OSS・監査対象**に限る。アクセス制御の回避、ライセンス違反、秘密情報の持出し、第三者サービスへの不正アクセスを目的とした利用は対象外
 
 ---
 
@@ -1833,7 +1684,7 @@ TCE の本質は「正規化して比較」である。**ただし、何を比�
 
 ### 11.8 実装順
 
-**6.13節**に確定版を示した。**Phase −1（計画の基盤固め）→ Phase 0（9項目）→ Phase 0.5（動的解析基盤）→ Phase 1〜4** の順である。Phase 0 だけで、両専門家が指摘した最大の危険——**高性能な追認装置になること**——の主要部分は潰せる。
+**6.13節**に確定版を示した。**Phase −1（計画の基盤固め）→ Phase 0（8項目）→ Phase 0.5（動的解析基盤）→ Phase 1〜4** の順である。Phase 0 だけで、両専門家が指摘した最大の危険——**高性能な追認装置になること**——の主要部分は潰せる。
 
 ### 11.9 計画自体の自己監査（第1ラウンド後）
 
@@ -1846,23 +1697,8 @@ TCE の本質は「正規化して比較」である。**ただし、何を比�
 | 3 | **RFC-SEED の14見出し契約を壊す設計だった** — 逆回転索引を15番目の見出しとして足す計画だったが、`seed-parse.mjs:48` が `headings.length !== SEED_REQUIRED_SECTIONS.length` で**完全一致を強制**している | 実装の確認 | **§1 の機械注入内容を拡張する**方式に変更（見出し数は 14 のまま） |
 | 4 | **動的解析基盤の構築が計画に無かった** — R-1 が動的証拠を必須にしたのに、その証拠を取る環境を作る工程が無い。**W3 の撤退条件が常時成立してしまう** | 計画の内部整合 | **Phase 0.5** を新設 |
 | 5 | **新設ゲートに受け入れ基準が無かった** — 「何を検出したら FAIL か」が未定義で、実装しても効いているか分からない | 計画の内部整合 | **6.14節** を新設 |
-| 6 | **`zg` と Red 再建の実行経路が Phase に現れなかった** — §8 で提案した `zg` が Phase 0〜4 に無く、Red 再建は「実装ループ以降は最小」では済まない（既存実装を壊して red を確認するには作業ツリー隔離が要る） | 計画の内部整合 | `zg` → Phase 0-9、Red 再建 → Phase 2 に組み込み |
+| 6 | **Red 再建の実行経路が Phase に現れなかった** — Red 再建は「実装ループ以降は最小」では済まない（既存実装を壊して red を確認するには作業ツリー隔離が要る） | 計画の内部整合 | Red 再建 → Phase 2 に組み込み |
 
 > **この監査が示すこと**: 専門家レビューは**設計の欠陥**をよく捉えたが、**実装の事実に由来する欠陥**（#1〜#3）と**計画の内部整合**（#4〜#6）は捉えていなかった。**レビューの回数ではなく、実装との突き合わせが欠陥を減らす。**
 
 **計画は依然として仮説である。** 1695行はまだ1行も実装されていない。**Phase −1-c の最小スパイクが、この仮説を最小コストで検証する最初の機会である。**
-
----
-
-## 付録: 参考文献
-
-- [Zvec-Grep documentation](https://zvec.org/en/docs/zvec-grep/)
-- [Manage an Index](https://zvec.org/en/docs/zvec-grep/indexing/)
-- [Search Guide](https://zvec.org/en/docs/zvec-grep/search/)
-- [Embedding Models](https://zvec.org/en/docs/zvec-grep/embedding-models/)
-- [Supported Content](https://zvec.org/en/docs/zvec-grep/supported-content/)
-- [Connect AI Agents](https://zvec.org/en/docs/zvec-grep/agents/)
-- [CLI Reference](https://zvec.org/en/docs/zvec-grep/cli/)
-- [Troubleshooting](https://zvec.org/en/docs/zvec-grep/troubleshooting/)
-
-`zg` の手順は公開ドキュメントを基にした運用テンプレートである。実行前には必ず利用中のバージョンで `zg help`、`zg help index`、`zg help query` を実行し、オプションと挙動を確認すること。

@@ -112,11 +112,11 @@ Evidence, all from the code:
 | Fact | Source |
 |---|---|
 | `RFC-SEED.md` is written into **every package directory** | `allocate-manifest.mjs:43` — `` path: `${pkg.path}/${SEED_FILE_NAME}` `` |
-| There is exactly one seed per package | `workspacify-allocate/lib/reverse-mode.mjs:206` — *"each of the N seed-bearing package(s) holds exactly one `RFC-SEED.md`"* |
-| The seed names its package | `seed-render.mjs:70` — `` `${SEED_TITLE_PREFIX}${pkg.name}` `` where `SEED_TITLE_PREFIX = '# RFC Seed: '` |
-| `Tickets.json` is generated **in the same directory as its design document** | `.claude/commands/split-to-tickets.md:37-38` — *"e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`"* |
+| There is exactly one seed per package | `workspacify-allocate/lib/reverse-mode.mjs:210` — *"each of the N seed-bearing package(s) holds exactly one `RFC-SEED.md`"* |
+| The seed names its package | `seed-render.mjs:76` — `` `${SEED_TITLE_PREFIX}${pkg.name}` `` where `SEED_TITLE_PREFIX = '# RFC Seed: '` |
+| `Tickets.json` is generated **in the same directory as its design document** | `.claude/commands/split-to-tickets.md:46-47` — *"e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`"* |
 | The graph and the Dirs-Tree sit **beside their RFC** | `.claude/commands/boundify-graph.md` — `basename="$(basename "$1" -GRAPH.json)"`, `dirsTreePath="${graphDir}/${basename}-Dirs-Tree.json"` |
-| The workspace root **is itself a package**, path `.` | `workspacify-tree/lib/structure-parity.mjs` — `ROOT_PACKAGE_PATH = '.'` (line 69); the comment and the assignment at lines 126–131 read *"A file at the project root is owned by the package whose path is `.` … Without this a project with a root-level `build.rs` could satisfy neither gate"*; `packageOwnsPath` (line 173) treats `.` as owning everything |
+| The workspace root **is itself a package**, path `.` | `workspacify-tree/lib/structure-parity.mjs` — `ROOT_PACKAGE_PATH = '.'` (line 69); the comment and the assignment at lines 126–131 read *"A file at the project root is owned by the package whose path is `.` … Without this a project with a root-level `build.rs` could satisfy neither gate"*; `packageOwnsPath` (line 172) treats `.` as owning everything |
 
 So `RFC-ROOT-GRAPH.json` is not a special name for a project-wide graph. `ROOT` is the **directory
 identifier**, and the file is the graph of the directory named ROOT. A subdirectory `src/auth` gets
@@ -166,11 +166,16 @@ package the partition declares:
 
 **Fifth layer (the partition):**
 `WORKSPACIFY-TREE-MANIFEST.json`, `WORKSPACIFY-ALLOCATE-MANIFEST.json`, `ARCHITECTURE-DELTA.json`,
-`RFC-SEED.md` (one per package directory)
+`DesignTree.json`, `RFC-SEED.md` (one per package directory)
 
 **Fourth layer (per package):**
 `RFC-<PKG>.md`, `RFC-<PKG>-GRAPH.json`, `RFC-<PKG>-Dirs-Tree.json`, `Tickets.json`,
 `RFC-<PKG>-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json`
+
+That is eleven at the root — the seven above plus the fifth layer's four — and eight
+per package. `terminal-state.mjs`'s `TERMINAL_ARTEFACTS` states the list as data and the
+observation measures against it rather than against whatever a run emitted; the two are
+held to each other by `tests/workspacify-reverse/unit/terminal-state.test.mjs`.
 
 **Grounding annotations:**
 `Initial Design Artifact` file headers, `[::TICKET::]` annotations, `@verifies` annotations,
@@ -203,8 +208,9 @@ The web, at every level of the directory tree:
 | Planned paths ≡ existing paths | **A1** | Exact set equality. One extra is BLOCKED |
 | Writes limited to `RFC-SEED.md` and the manifest; no top-level rename | **A2** | Additions only |
 | Every package's packet has a non-empty incoming-dependency excerpt | **A3** | Non-empty, so "why does this function exist?" is answerable |
-| §1 carries the reverse index; heading count remains exactly 14 | **A4** | `seed-parse.mjs` enforces exact equality with `SEED_REQUIRED_SECTIONS` |
+| §1 carries the reverse index; heading count remains exactly 14 | **A4** | `seed-local-checks.mjs:36` compares the count against `SEED_REQUIRED_SECTIONS`, and `seed-parse.mjs` compares it against the declared format's own section list. The two lists coincide by construction |
 | Allocation Index ↔ ownership is a bijection | **A5** | 0 missing / 0 duplicated / 0 leaked |
+| Every package's packet carries its incoming-dependency excerpt | **A6**, folded into **A3** | `REVERSE_GATE_IDS` declares A6, and the acceptance table folds it into A3 because it asks for the same material — so A3's record is the verdict on both and no separate record is emitted (`workspacify-allocate/lib/reverse-mode.mjs:419`) |
 | Every `normative` claim has a `normative_decision` | **G4** | No waiting-for-approval state is ever created |
 | `normative_authority` is a stable role ID | **G5** | Not a person's name |
 | Contract-candidate ↔ RFC-contract differences are all recorded | **GF2** | Recorded is PASS; a difference of zero is a signal |
@@ -218,7 +224,7 @@ The web, at every level of the directory tree:
 | No `observed` claim touching a dynamic mechanism without dynamic evidence | §6.14.7 | Demoted to `inferred` or `unresolved` |
 | No `normative` claim with a broken provenance chain | §6.14.7 | |
 | No dependent evidence counted as independent | §6.14.7 | |
-| No out-of-scope region written as "does not exist" | §6.14.7 | `out_of_scope` is a first-class state |
+| No out-of-scope region written as "does not exist" | §6.14.7 | `out_of_scope` is a first-class state, distinct from absence (`scope.mjs:496` names the three coverage states). The substitution is made unrepresentable rather than scanned for: there is no state a region can be in that reads as "does not exist" |
 
 These gates are **hierarchical**: T1/T4/A1/A5 apply between the root package and each sub-package as
 much as between the manifest and the filesystem. A per-directory `*-Dirs-Tree.json` that does not
@@ -392,14 +398,16 @@ incompleteness is not reported and left; it is *converted*. And `ABOUT-REVERSE` 
 Before designing the content, the permissions:
 
 - The file is **not** in `COMMAND_FILE_NAMES` (`command-file-digest.mjs:50`), which freezes
-  **fifteen** command files. `command.test.mjs:159` asserts this explicitly:
+  **fifteen** command files. `command.test.mjs:142` asserts this explicitly:
   *"the reverse file is deliberately outside the frozen digest: it is a creation, not an edit"*.
   `P22-9` **created** it as a new file, so the append-only discipline that binds the frozen set does
   not bind it. **A rewrite is permitted.**
   *(P25-2: the set was nine when this section was written. It is fifteen now — the six definitions
   that name a script and were never guarded joined it — and this file stayed outside, for the reason
   above.)*
-- But eight structural assertions **do** bind it (`command.test.mjs:162-183`). A rewrite must keep
+- But eight structural assertions **do** bind it. They are defined in
+  `helpers/command-file.mjs:217` (`assertCommandFileStructure`) and applied to this file at
+  `command.test.mjs:150`. A rewrite must keep
   all of them:
 
 | # | Assertion |
@@ -418,8 +426,8 @@ The frontmatter is kept byte-identical: `/workspacify-reverse <root>` is `P22-9`
 ### 5.2 The diagnosis this section was written from
 
 The file was **159 lines and a description of the entrance, not a procedure for the work** — five
-steps that were an *invocation* sequence (probe zg → run analyze → read the report → serve
-candidates → report). The five defects below were measured then and closed by `P23-1`, which
+steps that were an *invocation* sequence (invoke the entrance → read the report → decide → report).
+The five defects below were measured then and closed by `P23-1`, which
 rewrote the file into a nine-step procedure. **The file is 289 lines now**, and the absence section
 it carries is held to the measured import closure rather than to a remembered list (`P25-2`).
 
@@ -445,6 +453,7 @@ The defects are kept here as the record of what the rewrite was for:
 ## The four principles                      ← NEW: the spine
 ## What the machine decides, and what you decide   ← rewritten
 ## The terminal state this command serves    ← NEW: §2, so the reader knows what "done" is
+## Two modes, never conflated                 ← NEW: §5.8, so the two are never confused
 ## The canonical output and its constraints  ← kept
 ## Scripts used                              ← kept (assertion 8)
 ## Statuses and gates                        ← kept, exit codes made explicit
@@ -493,7 +502,7 @@ Three mechanical facts the file must state, because without them the operator mi
 outcome:
 
 1. **Publishing is atomic.** `publishDocuments` is called **once**, after every stage in the prefix
-   has run and the target has been re-digested (`scope.mjs:1222`). A run that stops **publishes
+   has run and the target has been re-digested (`scope.mjs:1929`). A run that stops **publishes
    nothing**. There is no partial-document state to clean up.
 2. **`--through` is the only prefix instrument.** Because of (1), a failure late in a long run costs
    the whole run, and the only way to see where it went wrong is to stop earlier and let a complete
@@ -504,7 +513,7 @@ outcome:
    **But**: a full run reached R8 in about **three minutes** (Appendix A.1). The ladder is a
    diagnostic, not a ritual. Run to the exit; descend only if the exit is refused.
 3. **The target is digested before and after.** A single byte moved and the run refuses to publish
-   (`scope.mjs:1128-1134`). The tree must be quiescent, and the analysis never writes to it.
+   (`scope.mjs:1791-1797`). The tree must be quiescent, and the analysis never writes to it.
 
 #### Movement III — Serve, decide, hand over (Steps 4–8)
 
@@ -514,7 +523,7 @@ outcome:
 | **5** | **Decide the partition** — the one load-bearing decision (§5.6) | The AI decides. Everything downstream is instantiated from this |
 | **6** | Record the seam (patterns 2 and 3 only) | The old partition, the in-flight work, the difference — recorded, never eliminated (§3.4) |
 | **7** | Hand over | `/workspacify-tree` reverse mode consumes `ORIGIN-LONG-SPEC.md` |
-| **8** | Report | *proved* / *not proved*, the stage list, the destination, the zg statement. **Never whether the reverse engineering succeeded** (§3.3 of `ABOUT-REVERSE`) |
+| **8** | Report | *proved* / *not proved*, the stage list, the destination. **Never whether the reverse engineering succeeded** (§3.3 of `ABOUT-REVERSE`) |
 
 The material, in reading order:
 
@@ -525,7 +534,11 @@ The material, in reading order:
 | `R7-SERVING.md` | the claims a human still has to decide |
 | `ORIGIN-LONG-SPEC.md` | the spec itself; every claim states what would falsify it |
 | `CAPABILITY-PROFILE.json` | what the analysis can and cannot prove, in five dimensions. **It carries no verdict** |
-| `ZG-CANDIDATES.md` | present **only** when zg is installed and a question was asked. When zg is absent the file does not exist, so a missing search tool can never read as a search that found nothing |
+
+The set is **closed**: every document is one a stage published, so the same tree yields the same
+set on any machine. A search over the codebase is a reasonable thing to do while deciding what a
+claim means, and it belongs to the reader rather than to the rotation — its results are candidates,
+never findings, and no stage may read one (`P25-7`).
 
 ### 5.5 The four principles, and where each is realised
 
@@ -576,7 +589,7 @@ Each of these is a formulation that was tried and rejected:
 | `holdout isolation` as a precondition | **Measured**: it exits **1** on `siprs-with-4layers`, naming `RFC-ROOT.md`, `RFC-ROOT-GRAPH.json`, `Tickets.json` as "contamination". For pattern 2 those are the project's **legitimate prior work**. The check exists to *manufacture the experiment input*, not to qualify a real project |
 | `scrub` / `detect` / `verify` as workflow steps | `scrub` **removes** forward traces. On a pattern-2 project those traces are its 143 `Initial Design Artifact` headers and its `@verifies` annotations. Removing them is supreme law 4 territory and destroys exactly what must be carried forward |
 | `oracle compare` as a workflow step | An answer key exists only in the paired-tree experiment. No real project has one |
-| `run.mjs regression check` as a precondition | It takes **no root** (`ROOT_TAKING_SUBCOMMANDS = ['detect','scrub','verify','analyze']`). It measures the conver repository, and its fixtures are not installed into a user's project |
+| `run.mjs regression check` as a precondition | It takes **no root** (`.claude/scripts/workspacify-reverse/run.mjs:80` — `ROOT_TAKING_SUBCOMMANDS = ['detect','scrub','verify','analyze']`). It measures the conver repository, and its fixtures are not installed into a user's project |
 | Any statement that the project must already be a complete conver project | §1.2 |
 
 > **The general rule behind the table.** *The same file is an input in one mode and a contaminant in
@@ -629,7 +642,7 @@ either a fabricated success or an abort — both worse than silence. So each of 
 the file** rather than omitted, which is the same discipline the instruments apply to unobserved
 regions (F12; `unobserved` is a first-class state and is never rendered as "no disagreement").
 
-**Reachability measured 2026-09-15**: of the **51** modules under `workspacify-reverse/lib/`,
+**Reachability measured 2026-09-15**: of the **50** modules under `workspacify-reverse/lib/`,
 **five are not reachable from `run.mjs`**:
 
 ```
@@ -664,11 +677,11 @@ think the rows are still there.
 
 | Claim | How it was checked |
 |---|---|
-| The exit is reachable | `analyze --through=r8` on `siprs-for-reverse` → exit 0, ~3 min, 21 documents published (A.1) |
+| The exit is reachable | Measured 2026-09-11: `analyze --through=r8` on `siprs-for-reverse` → exit 0, ~3 min (A.1). Re-evidenced in the tree on 2026-09-15: `tests/workspacify-reverse/analysis/` holds that run's documents, 29 of them after the removal recorded in A.1, and `ORIGIN-LONG-SPEC.json` is published only when the r8 stage ran (`scope.mjs:1923`), so its presence is the exit having been reached rather than a memory of one |
 | The analysis does not write to its subject | The run's own digest comparison; plus `git status` clean afterwards |
-| The workspace root is a package, path `.` | `structure-parity.mjs` lines 69, 126–131, 173 |
-| `RFC-SEED.md` is per-package | `allocate-manifest.mjs:43`, `reverse-mode.mjs:206` |
-| `Tickets.json` is per-design-document | `.claude/commands/split-to-tickets.md:37-38` |
+| The workspace root is a package, path `.` | `structure-parity.mjs` lines 69, 126–131, 172 |
+| `RFC-SEED.md` is per-package | `allocate-manifest.mjs:43`, `workspacify-allocate/lib/reverse-mode.mjs:210` |
+| `Tickets.json` is per-design-document | `.claude/commands/split-to-tickets.md:46-47` |
 | Graph / Dirs-Tree sit beside their RFC | `.claude/commands/boundify-graph.md` |
 | The isolation check rejects a pattern-2 tree | `holdout isolation siprs-with-4layers` → exit 1, 9 artefacts named |
 | The `.delta.json` family is the evolution loop's | `drill-rfc-down/boundify-step.js:66` |
@@ -743,7 +756,7 @@ All measurements were taken on **2026-09-11** in `/Users/kawata/shyme/zasso/tool
 node .claude/scripts/workspacify-reverse/run.mjs analyze siprs-for-reverse \
      --out=/tmp/wsp-r8-probe --through=r8
 # → exit 0, ~3 minutes
-# → 21 documents published, including:
+# → 30 documents published in that run, including:
 #     ORIGIN-LONG-SPEC.json          5,266,764 B
 #     ORIGIN-LONG-SPEC.md            3,182,772 B
 #     ORIGIN-SPEC-CANDIDATE.json       563,840 B
@@ -753,13 +766,23 @@ node .claude/scripts/workspacify-reverse/run.mjs analyze siprs-for-reverse \
 #     GENERATED-PROPERTIES.json      1,222,727 B
 #     COUNTEREXAMPLE-RESULTS.json          499 B
 # → "Stages r0 … r8 published"
-# → zg: not installed; ZG-CANDIDATES.md correctly absent
+# → [corrected 2026-09-15] the candidate-discovery line this run printed was removed with
+#     the search tool it named, which the instrument no longer carries (P25-7)
 # → git status after the run: clean
 ```
 
 This is the measurement that reframes the problem. **The instrument is not broken. What was
 missing was a procedure that told anyone to run it to the exit, and what to do with what comes
-out.** `tests/workspacify-reverse/analysis/` holds the sidecars of an earlier `--through=r5.5` run.
+out.** `tests/workspacify-reverse/analysis/` holds the documents of a later run to the
+exit — 29 of them, committed 2026-09-15. That run published 30, and 1 of those,
+`ZG-CANDIDATES.md`, was the candidate material a search tool served beside the analysis; the tool
+was removed from this instrument and the document was removed from this directory with it, which
+is the whole of the difference between the transcript above and what the directory holds. The
+count is larger than the 21 this appendix
+measured because the stages P23 and P24 added publish documents of their own
+(`PATTERN.json`, `ELIGIBILITY.json`, `CAPABILITY-MATRIX.json`, `R7-ADJUDICATION.md` and
+`R7-SECURITY-LANE.md` among them). The count is not the claim; reachability is, and
+`ORIGIN-LONG-SPEC.json` being present is that claim's evidence rather than a date.
 
 ### A.2 The isolation check rejects a pattern-2 tree
 

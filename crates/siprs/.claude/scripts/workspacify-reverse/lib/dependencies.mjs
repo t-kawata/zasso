@@ -27,6 +27,7 @@ import {
   listArtefacts,
   recordAttempt,
 } from './analysis-tech.mjs';
+import { readTranslationUnits, reportDatabaseLimitation } from './build-database.mjs';
 import { BUILD_MANIFESTS, compareText } from './holdout-ledger.mjs';
 import { groupKey } from './provenance.mjs';
 import { owningDirectoryOf, resolveSourceMember } from './claim-ledger.mjs';
@@ -800,19 +801,59 @@ export const EDGE_QUERIES_BY_LANGUAGE = Object.freeze({
  * from the syntax population would answer "no module path" and "no include
  * path" for every tree, which is a fact about the reader and not about the tree.
  */
-// [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
-function resolutionContextOf(root, excludedPaths) {
+// [::TICKET::] P24-3, P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-3|P24-6) --for-spec --no-implementation-order`.
+function resolutionContextOf(root, excludedPaths, configuration = null) {
   const excluded = new Set(excludedPaths);
   const inScopePaths = listArtefacts(root)
     .filter((artefact) => artefact.readStatus === 'readable' && !artefact.exclusion && !excluded.has(artefact.path))
     .map((artefact) => artefact.path);
 
+  const recorded = recordedIncludeDirectories(root, configuration);
+
   return {
     root,
-    includeDirectories: declaredIncludeDirectories(root, inScopePaths),
+    // The manifest is the fallback, not the preference: a subject that records
+    // how it is compiled is read under those flags, and one that does not is
+    // read under the path its build file declares. Running both together would
+    // resolve an include the real build never composed.
+    includeDirectories: recorded.all.length > 0 ? recorded.all : declaredIncludeDirectories(root, inScopePaths),
+    includeDirectoriesByFile: recorded.byFile,
     goModulePath: declaredGoModulePath(root, inScopePaths),
     pythonModules: pythonModuleIndex(inScopePaths),
   };
+}
+
+/**
+ * The include search paths the build database records, per translation unit.
+ *
+ * A recorded path is relative to the working directory its own translation unit
+ * was compiled from, so it is resolved against that directory rather than
+ * against the process's. The paths are returned root-relative because that is
+ * the form the package graph is keyed in.
+ *
+ * @param {string} root - the subject root
+ * @param {object|null} configuration - a discovery record from `discoverBuildDatabase`
+ * @returns {{all: ReadonlyArray<string>, byFile: object}} the recorded paths
+ */
+// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+function recordedIncludeDirectories(root, configuration) {
+  if (configuration === null || reportDatabaseLimitation({ discovery: configuration }) !== null) {
+    return { all: [], byFile: {} };
+  }
+
+  const byFile = {};
+  const all = new Set();
+  for (const unit of readTranslationUnits(configuration)) {
+    const directories = unit.includePaths
+      .map((includePath) => {
+        const absolute = includePath.startsWith('/') ? includePath : join(unit.workingDirectory, includePath);
+        return absolute.startsWith(root) ? absolute.slice(root.length + 1) : null;
+      })
+      .filter((directory) => directory !== null);
+    byFile[unit.file] = directories;
+    for (const directory of directories) all.add(directory);
+  }
+  return { all: [...all].sort(compareText), byFile };
 }
 
 /**
@@ -832,7 +873,11 @@ export function collectDependencyEdges(language, tree, relativePath, { context }
   const records = [];
   let unresolved = 0;
   for (const { specifier, line } of importSpecifiersIn(language, tree, relativePath)) {
-    const target = queries.resolve(specifier, { ...context, language, file: relativePath });
+    // A translation unit's recorded include paths are its own: two units in one
+    // tree can be compiled with different flags, and reading one unit under
+    // another's would attribute one build's composition to the other.
+    const includeDirectories = context.includeDirectoriesByFile?.[relativePath] ?? context.includeDirectories;
+    const target = queries.resolve(specifier, { ...context, language, file: relativePath, includeDirectories });
     if (target === null) {
       unresolved += 1;
       continue;
@@ -926,7 +971,8 @@ function dynamicMechanismClause(surface) {
  *
  * @param {{root: string, excludedPaths?: string[], grammar?: object|null, surface?: object|null}} params
  */
-export function measureDependencies({ root, excludedPaths = [], grammar, surface = null } = {}) {
+export function measureDependencies({ root, excludedPaths = [], grammar, surface = null, configuration = null } = {}) {
+// [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
   const coverage = emptyCoverage();
   const attempts = [];
@@ -937,7 +983,7 @@ export function measureDependencies({ root, excludedPaths = [], grammar, surface
 
   const files = measuredFiles(root, excludedPaths);
   coverage.files_discovered = files.length;
-  const context = resolutionContextOf(root, excludedPaths);
+  const context = resolutionContextOf(root, excludedPaths, configuration);
 
   for (const file of files) {
     const language = syntaxLanguageOf(file);
@@ -951,7 +997,11 @@ export function measureDependencies({ root, excludedPaths = [], grammar, surface
       attempts.push(recordAttempt({
         target: file,
         configuration: 'syntax-only',
-        tool: 'tree-sitter-rust',
+        // The tool names the language the row is about. It was spelled
+        // `tree-sitter-rust` here whatever the file was, so a TypeScript parse
+        // that failed was recorded as a Rust attempt — and a ledger row that
+        // names the wrong language moves a cell it does not belong to.
+        tool: `tree-sitter-${language}`,
         outcome: {
           phase: 'parse',
           status: 'failed',

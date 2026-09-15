@@ -226,7 +226,9 @@ function enumeratedRegions(structure) {
 
 /** The state one enumerated region carries, and the reason it carries it. */
 // [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
-function decideRegion(region, { language, packageOfFile, referenced, reachedFromEntrypoints, hasEntrypoints }) {
+function decideRegion(region, context) {
+  const { language, packageOfFile, referenced, reachedFromEntrypoints, hasEntrypoints } = context;
+
   if (region.cfgGated) {
     return {
       state: NOT_ANALYSABLE,

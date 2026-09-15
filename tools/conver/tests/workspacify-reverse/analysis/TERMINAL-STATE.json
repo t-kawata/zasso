@@ -89,7 +89,7 @@
       "representative": "siprs-with-4layers",
       "decisions": {
         "input": "<scratch>",
-        "digest": "5157990420f6b007ce7668c49e7430f482b894a5d942b4f1e59a851a4d26bdf4"
+        "digest": "631f102db822472741936371db78ce52b39a486c4323e7bc123a62b93aa63987"
       },
       "analysed": 0,
       "started_from": "079cdf1d787042a2ad66bd2e1d073cd8f0a385ad5c6ede7929f195d4c5ccf081"
@@ -107,7 +107,7 @@
       "representative": "tests/workspacify-reverse/fixtures/patterns/spec-only-project",
       "decisions": {
         "input": "<scratch>",
-        "digest": "5157990420f6b007ce7668c49e7430f482b894a5d942b4f1e59a851a4d26bdf4"
+        "digest": "631f102db822472741936371db78ce52b39a486c4323e7bc123a62b93aa63987"
       },
       "analysed": 0,
       "started_from": "0f1e95539f3bf1c8b12b614c54aeceb40791c1f3a2f3e09276eae3c44154145e"

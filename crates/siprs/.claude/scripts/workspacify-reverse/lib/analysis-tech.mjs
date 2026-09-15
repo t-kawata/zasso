@@ -197,6 +197,7 @@ export const LANGUAGES_WITH_EXTRACTORS = Object.freeze({
  */
 // [::TICKET::] P24-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-4 --for-spec --no-implementation-order`.
 const CAPABILITY_NOTES = Object.freeze({
+// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
   'rust/E1-E4':
     'Measured through tree-sitter-rust. Syntax alone: module declarations, item declarations, use declarations and mechanism markers are read; macro-generated items and cfg-selected composition are not resolved.',
   'rust/E5':
@@ -216,7 +217,7 @@ const CAPABILITY_NOTES = Object.freeze({
   'python/E1-E4':
     'Measured through tree-sitter-python. Syntax alone: module-level assignments, class and function definitions and their decorators are read. `__getattr__` answers for names no body declares, a metaclass installs attributes as the class is created, and a decorator replaces the name the `def` statement bound.',
   'c_cpp/E1-E4':
-    'Measured through tree-sitter-cpp. Syntax alone: declarations, definitions, typedefs and preprocessor definitions are read. The preprocessor decides what the compiler ever sees, macro expansion rewrites the text before this layer reads it, an include composes declarations from elsewhere, and per-translation-unit flags make one header mean different things.',
+    'Measured through tree-sitter-cpp. Syntax alone: declarations, definitions, typedefs and preprocessor definitions are read. The preprocessor decides what the compiler ever sees, macro expansion rewrites the text before this layer reads it, an include composes declarations from elsewhere, and per-translation-unit flags make one header mean different things. Those flags are read from `compile_commands.json`, so a subject that carries none is partitioned over a composition the analyser chose rather than one the project declares.',
   'typescript/E5':
     'Measured through tree-sitter-typescript over import, re-export and literal `require` statements. A type-only import vanishes at compile time, and a re-export whose target is resolved at type-check time reaches a module this layer never reads.',
   'javascript/E5':
@@ -226,7 +227,7 @@ const CAPABILITY_NOTES = Object.freeze({
   'python/E5':
     'Measured through tree-sitter-python over import statements resolved against the tree. An import inside a function or under a conditional runs in some executions only, and `importlib` resolves a module by a name computed at run time.',
   'c_cpp/E5':
-    'Measured through tree-sitter-cpp over preprocessor includes, resolved beside the file that writes them and along the include path the build declares. An `#include` composes declarations from elsewhere and what it composes depends on per-translation-unit flags, so one header means different things in two builds.',
+    'Measured through tree-sitter-cpp over preprocessor includes, resolved beside the file that writes them and along the include path `compile_commands.json` records. An `#include` composes declarations from elsewhere and what it composes depends on per-translation-unit flags, so one header means different things in two builds; where no database is read, the path the build file declares is all this layer has.',
   'typescript/E6':
     'Measured through tree-sitter-typescript. A dynamic `import()` with a computed specifier, `eval`, `Reflect` and `process.env` are read where they are written. A decorator that registers the declaration it is applied to is declared and not observed in this representative.',
   'javascript/E6':
@@ -236,7 +237,7 @@ const CAPABILITY_NOTES = Object.freeze({
   'python/E6':
     'Measured through tree-sitter-python. An attribute hook, a metaclass, a decorator, `importlib`, a foreign-function import and an environment read are read where they are written. What a metaclass installs is decided while the class statement runs and appears in no class body.',
   'c_cpp/E6':
-    'Measured through tree-sitter-cpp. A macro definition, a preprocessor condition, an include and a call through a dereferenced function pointer are read where they are written. A function reached through a linker section or a constructor attribute is declared and not observed here.',
+    'Measured through tree-sitter-cpp. A macro definition, a preprocessor condition, an include and a call through a dereferenced function pointer are read where they are written. A function reached through a linker section or a constructor attribute is declared and not observed here, and which of these mechanisms is compiled in at all is decided by the flags `compile_commands.json` records.',
   '*/E13':
     'Semantic equivalence is undecidable for general programs. E13 is TCE — trivial, syntactic, compiler-normalisation equivalence — and only that is ever claimed.',
   // E7-E11 are measured, and each language's reason names what its own syntax
@@ -254,7 +255,7 @@ const CAPABILITY_NOTES = Object.freeze({
   'python/E7-E11':
     'Measured through tree-sitter-python over the same four. `assert` is a statement rather than a call, `__getattr__` answers for names no body declares, and a metaclass installs state that no class body writes.',
   'c_cpp/E7-E11':
-    'Measured through tree-sitter-cpp over the same four. The preprocessor decides what the compiler ever sees, macro expansion rewrites the guard before this layer reads it, and an error return is a sentinel value rather than a name a filter can read.',
+    'Measured through tree-sitter-cpp over the same four. The preprocessor decides what the compiler ever sees, macro expansion rewrites the guard before this layer reads it, and an error return is a sentinel value rather than a name a filter can read. Which branch survives the preprocessor is decided by the flags `compile_commands.json` records.',
   // E12's reading is over the declarations R1 enumerated and the import edges R2
   // observed, so each reason names what that language's syntax keeps out of both.
   // A declaration under a conditional-compilation marker is not-analysable rather
@@ -270,7 +271,7 @@ const CAPABILITY_NOTES = Object.freeze({
   'python/E12':
     'Measured through tree-sitter-python. `__getattr__` answers for names no body declares, a decorator replaces the name its `def` bound, and `importlib` resolves a module by a name computed at run time.',
   'c_cpp/E12':
-    'Measured through tree-sitter-cpp. The preprocessor decides what the compiler ever sees, so a declaration inside a branch is not-analysable rather than unreachable, and per-translation-unit flags make one header mean different things in two builds.',
+    'Measured through tree-sitter-cpp. A declaration inside a conditional-compilation branch is not-analysable rather than unreachable, and per-translation-unit flags make one header mean different things in two builds. Which units exist and which branches are taken is what `compile_commands.json` records, so a subject that carries none is partitioned over the analyser’s composition.',
   // E14's reason names what the declared engine cannot be asked to generate, or
   // what this reader cannot hand it a predicate for. A property that cannot be
   // expressed is reported with this reason, never dropped and never approximated.
@@ -373,13 +374,24 @@ function capabilityRow(language) {
 }
 
 /**
- * The capability matrix: every target language against every extraction item.
+ * The capability matrix as **declared**: every target language against every
+ * extraction item, computed from the family declaration alone.
+ *
+ * This is the fallback a reader gets when there is no ledger to derive from, and
+ * it is what `docs/P22-ANALYSIS-TECH.md` embeds verbatim. A run publishes the
+ * **derived** form instead — `capability-matrix.mjs` reads the run's own attempt
+ * ledger, so a cell cannot claim an attempt that was never made and `failed`
+ * becomes reachable. This constant stayed a pure function of the language name
+ * for as long as it was the only form, and that is why the Rust row went stale:
+ * a sentence written before R3 through R6.5 existed was still being served after
+ * they had run.
  *
  * A gap here is a limitation of the instrument. It is not evidence that the
  * thing sought is absent from the project being analysed, and no consumer of
  * this matrix may read it that way.
  */
 export const CAPABILITY_MATRIX = Object.freeze(
+// [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
   Object.fromEntries(TARGET_LANGUAGES.map((language) => [language, Object.freeze(capabilityRow(language))])),
 );
 
@@ -622,15 +634,165 @@ export function isExcludedPath(relativePath) {
 }
 
 /**
+ * Names an excluded subtree still records one entry for.
+ *
+ * A build system writes its database where its output goes, so
+ * `compile_commands.json` is found under `target/` at least as often as beside
+ * the manifest — and it is what configures the analysis, so a run that cannot
+ * see it falls back to syntax-only mode on exactly the projects that took the
+ * trouble to describe their build. Excluded means "not the project's own
+ * source", not "invisible".
+ *
+ * This is a name list and not an import from `build-database.mjs`: the walk
+ * must not depend on a consumer of it. `artefact-walk.test.mjs` asserts that
+ * this list covers every name `BUILD_DATABASE_NAMES` holds, so the two cannot
+ * drift apart in silence.
+ */
+export const EXCLUDED_SUBTREE_RECORDED_NAMES = Object.freeze(['compile_commands.json']);
+
+/** The kind an artefact record carries. Declared once so the shape is not spelled at each push. */
+const ARTEFACT_KIND = Object.freeze({
+  FILE: 'file',
+  SYMLINK: 'symlink',
+  DIRECTORY: 'directory',
+  UNREADABLE: 'unreadable',
+});
+
+/** Whether the instrument could read what it recorded. */
+const READ_STATUS = Object.freeze({ READABLE: 'readable', UNREADABLE: 'unreadable' });
+
+/** An entry the instrument could not read, carrying why rather than vanishing. */
+// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+function unreadableEntry({ path, exclusion, reason }) {
+  return {
+    path,
+    kind: ARTEFACT_KIND.UNREADABLE,
+    size: null,
+    readStatus: READ_STATUS.UNREADABLE,
+    exclusion,
+    reason,
+  };
+}
+
+/**
+ * The one entry that stands for an excluded subtree.
+ *
+ * An excluded directory is measured to the extent of saying how much of the
+ * tree it holds — how many files and how many bytes — and is then recorded as
+ * that summary instead of as one entry per file. The summary is what keeps the
+ * walk's cost, and the boundary it publishes, proportional to the source a run
+ * measures rather than to the build output it has already excluded.
+ *
+ * The directory is still present in the record, which is the point: dropping
+ * it would make "we did not measure it" indistinguishable from "it is not
+ * there" (failure F12). What changes is the resolution, not the existence.
+ *
+ * A subtree the instrument could not fully read reports `count` and `size` as
+ * null rather than as a partial total, because a number that silently omits
+ * what could not be read is the same silent shrink the walk exists to prevent.
+ *
+ * A file inside the subtree whose name is in `EXCLUDED_SUBTREE_RECORDED_NAMES`
+ * is returned beside the summary as its own entry, because excluding a tree
+ * must not hide the file that configures the analysis of it. The summary still
+ * counts it, so `count` is what the subtree holds rather than what the record
+ * lists.
+ *
+ * @returns {Array<object>} the summary, then one entry per recorded name
+ */
+// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+function summarizeExcludedSubtree(directory, relativePath) {
+  let count = 0;
+  let size = 0;
+  let unreadableReason = null;
+  const recordedInside = [];
+
+  const walk = (current) => {
+    let entries;
+    try {
+      entries = readdirSync(current).sort(compareText);
+    } catch (error) {
+      unreadableReason ??= `${error.code ?? 'error'}: the directory's contents could not be listed`;
+      return;
+    }
+
+    for (const entry of entries) {
+      if (NOT_ENUMERATED_DIRECTORY_NAMES.includes(entry)) continue;
+      let stats;
+      try {
+        stats = statSync(join(current, entry));
+      } catch (error) {
+        unreadableReason ??= `${error.code ?? 'error'}: the entry could not be read`;
+        continue;
+      }
+      if (stats.isDirectory()) {
+        walk(join(current, entry));
+        continue;
+      }
+      count += 1;
+      size += stats.size;
+      if (EXCLUDED_SUBTREE_RECORDED_NAMES.includes(entry)) {
+        recordedInside.push({
+          path: join(relativePath, ...relativeOf(current, directory), entry),
+          kind: stats.isSymbolicLink() ? ARTEFACT_KIND.SYMLINK : ARTEFACT_KIND.FILE,
+          size: stats.size,
+          readStatus: READ_STATUS.READABLE,
+          exclusion: true,
+          reason: null,
+        });
+      }
+    }
+  };
+
+  walk(directory);
+
+  const summary = unreadableReason !== null
+    ? {
+      path: relativePath,
+      kind: ARTEFACT_KIND.DIRECTORY,
+      size: null,
+      count: null,
+      readStatus: READ_STATUS.UNREADABLE,
+      exclusion: true,
+      reason: unreadableReason,
+    }
+    : {
+      path: relativePath,
+      kind: ARTEFACT_KIND.DIRECTORY,
+      size,
+      count,
+      readStatus: READ_STATUS.READABLE,
+      exclusion: true,
+      reason: null,
+    };
+
+  // The summary is one entry; the names a consumer must be able to find are a
+  // second, so that excluding a tree does not hide the file that configures the
+  // analysis of it.
+  return [summary, ...recordedInside];
+}
+
+/** The path segments between an ancestor and what a walk below it has reached. */
+// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+function relativeOf(current, ancestor) {
+  if (current === ancestor) return [];
+  const remainder = current.slice(ancestor.length + 1);
+  return remainder === '' ? [] : remainder.split('/');
+}
+
+/**
  * Every artefact beneath a root, with what happened when the instrument tried
  * to read it.
  *
- * The walk descends into excluded directories rather than skipping them. A
- * vendored tree and a build output directory are recorded and marked
- * `out_of_scope`; only `.git` is absent from the record, because it is the
- * version-control database rather than an artefact of the project. Dropping an
- * excluded subtree from the walk would make "we did not measure it"
- * indistinguishable from "it is not there", which is failure F12.
+ * An excluded directory is recorded as one entry that summarizes the subtree
+ * it stands for, and the walk does not descend into it. It is still present in
+ * the record and still marked `out_of_scope`: dropping it would make "we did
+ * not measure it" indistinguishable from "it is not there", which is failure
+ * F12. What the collapse changes is the resolution, not the existence — the
+ * entry says how many files and bytes the subtree holds rather than listing
+ * them, so the walk costs what the measured source costs instead of what the
+ * build output costs. Measured on `siprs-for-reverse`, that is 7,785 of 7,945
+ * entries. Only `.git` is absent from the record entirely, because it is the
+ * version-control database rather than an artefact of the project.
  *
  * An entry that cannot be stat-ed — a dangling symlink, a permission failure —
  * is recorded as `unreadable` with the reason. Skipping it silently would
@@ -651,14 +813,11 @@ export function listArtefacts(root) {
       // could not read, so it is recorded as one rather than throwing away the
       // whole walk. It is not skipped: an entry that vanishes from the record
       // reads as absent, which is the one thing this walk exists to prevent.
-      artefacts.push({
+      artefacts.push(unreadableEntry({
         path: prefix === '' ? directory : prefix,
-        kind: 'unreadable',
-        size: null,
-        readStatus: 'unreadable',
         exclusion: isExcludedPath(prefix),
         reason: `${error.code ?? 'error'}: the directory's contents could not be listed`,
-      });
+      }));
       return;
     }
 
@@ -670,26 +829,27 @@ export function listArtefacts(root) {
       try {
         stats = statSync(join(directory, entry));
       } catch (error) {
-        artefacts.push({
+        artefacts.push(unreadableEntry({
           path: relativePath,
-          kind: 'unreadable',
-          size: null,
-          readStatus: 'unreadable',
           exclusion: isExcludedPath(relativePath),
           reason: `${error.code ?? 'error'}: the entry could not be read`,
-        });
+        }));
         continue;
       }
 
       if (stats.isDirectory()) {
+        if (isExcludedPath(relativePath)) {
+          artefacts.push(...summarizeExcludedSubtree(join(directory, entry), relativePath));
+          continue;
+        }
         walk(join(directory, entry), relativePath);
         continue;
       }
       artefacts.push({
         path: relativePath,
-        kind: stats.isSymbolicLink() ? 'symlink' : 'file',
+        kind: stats.isSymbolicLink() ? ARTEFACT_KIND.SYMLINK : ARTEFACT_KIND.FILE,
         size: stats.size,
-        readStatus: 'readable',
+        readStatus: READ_STATUS.READABLE,
         exclusion: isExcludedPath(relativePath),
         reason: null,
       });
@@ -700,10 +860,20 @@ export function listArtefacts(root) {
   return artefacts;
 }
 
+/**
+ * The value `languageOfPath` returns when an extension names no language.
+ *
+ * It is a sentinel and not a language: no grammar, capability row or TCE
+ * configuration is declared for it, so a consumer that passes it on where a
+ * language is expected raises instead of reporting. Declared once so those
+ * consumers can recognise it by name rather than by re-spelling the string.
+ */
+export const UNKNOWN_LANGUAGE = 'unknown';
+
 /** The language an artefact is written in, or `unknown`. Named for E1's package grouping. */
 export function languageOfPath(relativePath) {
   const extension = relativePath.slice(relativePath.lastIndexOf('.'));
-  return LANGUAGE_BY_EXTENSION_SHARED[extension] ?? 'unknown';
+  return LANGUAGE_BY_EXTENSION_SHARED[extension] ?? UNKNOWN_LANGUAGE;
 }
 
 /**
