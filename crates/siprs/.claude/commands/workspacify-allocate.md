@@ -4,6 +4,15 @@ argument-hint: <path-to-WORKSPACIFY-TREE-MANIFEST.json>
 disable-model-invocation: true
 ---
 
+# CRITICAL — NON-INTERACTIVE EXECUTION
+
+Strictly prohibit questions, confirmations, approval requests, option presentation, and delegation of decisions to humans.
+Do not use ambiguous requirements, uncertainty, design choices, or execution failures as reasons to stop.
+Make autonomous decisions based on existing code, types, tests, documentation, and nearby implementations.
+When no decision is determinable, decide by prioritizing minimal change, backward compatibility, reversibility, and existing conventions.
+Once started, complete the task unattended and independently: implement, validate, fix, and reach all defined completion criteria.
+Instead of asking questions, record assumptions, decision rationale, and remaining risks in the final report.
+
 # /workspacify-allocate
 
 **Role**: Take as its only argument the `WORKSPACIFY-TREE-MANIFEST.json` published by stage one `/workspacify-tree` (see `.claude/commands/workspacify-tree.md`; the direct predecessor of this command), generate the real directory tree **in the same directory as the manifest**, and run stage two, which places **exactly one `RFC-SEED.md`** in each package directory. An RFC seed is not a finished RFC: it is the seed from which `/grill-me-for-rfc` produces the canonical RFC, directory by directory. This command itself starts neither a grill nor an implementation loop.
