@@ -634,15 +634,165 @@ export function isExcludedPath(relativePath) {
 }
 
 /**
+ * Names an excluded subtree still records one entry for.
+ *
+ * A build system writes its database where its output goes, so
+ * `compile_commands.json` is found under `target/` at least as often as beside
+ * the manifest — and it is what configures the analysis, so a run that cannot
+ * see it falls back to syntax-only mode on exactly the projects that took the
+ * trouble to describe their build. Excluded means "not the project's own
+ * source", not "invisible".
+ *
+ * This is a name list and not an import from `build-database.mjs`: the walk
+ * must not depend on a consumer of it. `artefact-walk.test.mjs` asserts that
+ * this list covers every name `BUILD_DATABASE_NAMES` holds, so the two cannot
+ * drift apart in silence.
+ */
+export const EXCLUDED_SUBTREE_RECORDED_NAMES = Object.freeze(['compile_commands.json']);
+
+/** The kind an artefact record carries. Declared once so the shape is not spelled at each push. */
+const ARTEFACT_KIND = Object.freeze({
+  FILE: 'file',
+  SYMLINK: 'symlink',
+  DIRECTORY: 'directory',
+  UNREADABLE: 'unreadable',
+});
+
+/** Whether the instrument could read what it recorded. */
+const READ_STATUS = Object.freeze({ READABLE: 'readable', UNREADABLE: 'unreadable' });
+
+/** An entry the instrument could not read, carrying why rather than vanishing. */
+// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+function unreadableEntry({ path, exclusion, reason }) {
+  return {
+    path,
+    kind: ARTEFACT_KIND.UNREADABLE,
+    size: null,
+    readStatus: READ_STATUS.UNREADABLE,
+    exclusion,
+    reason,
+  };
+}
+
+/**
+ * The one entry that stands for an excluded subtree.
+ *
+ * An excluded directory is measured to the extent of saying how much of the
+ * tree it holds — how many files and how many bytes — and is then recorded as
+ * that summary instead of as one entry per file. The summary is what keeps the
+ * walk's cost, and the boundary it publishes, proportional to the source a run
+ * measures rather than to the build output it has already excluded.
+ *
+ * The directory is still present in the record, which is the point: dropping
+ * it would make "we did not measure it" indistinguishable from "it is not
+ * there" (failure F12). What changes is the resolution, not the existence.
+ *
+ * A subtree the instrument could not fully read reports `count` and `size` as
+ * null rather than as a partial total, because a number that silently omits
+ * what could not be read is the same silent shrink the walk exists to prevent.
+ *
+ * A file inside the subtree whose name is in `EXCLUDED_SUBTREE_RECORDED_NAMES`
+ * is returned beside the summary as its own entry, because excluding a tree
+ * must not hide the file that configures the analysis of it. The summary still
+ * counts it, so `count` is what the subtree holds rather than what the record
+ * lists.
+ *
+ * @returns {Array<object>} the summary, then one entry per recorded name
+ */
+// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+function summarizeExcludedSubtree(directory, relativePath) {
+  let count = 0;
+  let size = 0;
+  let unreadableReason = null;
+  const recordedInside = [];
+
+  const walk = (current) => {
+    let entries;
+    try {
+      entries = readdirSync(current).sort(compareText);
+    } catch (error) {
+      unreadableReason ??= `${error.code ?? 'error'}: the directory's contents could not be listed`;
+      return;
+    }
+
+    for (const entry of entries) {
+      if (NOT_ENUMERATED_DIRECTORY_NAMES.includes(entry)) continue;
+      let stats;
+      try {
+        stats = statSync(join(current, entry));
+      } catch (error) {
+        unreadableReason ??= `${error.code ?? 'error'}: the entry could not be read`;
+        continue;
+      }
+      if (stats.isDirectory()) {
+        walk(join(current, entry));
+        continue;
+      }
+      count += 1;
+      size += stats.size;
+      if (EXCLUDED_SUBTREE_RECORDED_NAMES.includes(entry)) {
+        recordedInside.push({
+          path: join(relativePath, ...relativeOf(current, directory), entry),
+          kind: stats.isSymbolicLink() ? ARTEFACT_KIND.SYMLINK : ARTEFACT_KIND.FILE,
+          size: stats.size,
+          readStatus: READ_STATUS.READABLE,
+          exclusion: true,
+          reason: null,
+        });
+      }
+    }
+  };
+
+  walk(directory);
+
+  const summary = unreadableReason !== null
+    ? {
+      path: relativePath,
+      kind: ARTEFACT_KIND.DIRECTORY,
+      size: null,
+      count: null,
+      readStatus: READ_STATUS.UNREADABLE,
+      exclusion: true,
+      reason: unreadableReason,
+    }
+    : {
+      path: relativePath,
+      kind: ARTEFACT_KIND.DIRECTORY,
+      size,
+      count,
+      readStatus: READ_STATUS.READABLE,
+      exclusion: true,
+      reason: null,
+    };
+
+  // The summary is one entry; the names a consumer must be able to find are a
+  // second, so that excluding a tree does not hide the file that configures the
+  // analysis of it.
+  return [summary, ...recordedInside];
+}
+
+/** The path segments between an ancestor and what a walk below it has reached. */
+// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+function relativeOf(current, ancestor) {
+  if (current === ancestor) return [];
+  const remainder = current.slice(ancestor.length + 1);
+  return remainder === '' ? [] : remainder.split('/');
+}
+
+/**
  * Every artefact beneath a root, with what happened when the instrument tried
  * to read it.
  *
- * The walk descends into excluded directories rather than skipping them. A
- * vendored tree and a build output directory are recorded and marked
- * `out_of_scope`; only `.git` is absent from the record, because it is the
- * version-control database rather than an artefact of the project. Dropping an
- * excluded subtree from the walk would make "we did not measure it"
- * indistinguishable from "it is not there", which is failure F12.
+ * An excluded directory is recorded as one entry that summarizes the subtree
+ * it stands for, and the walk does not descend into it. It is still present in
+ * the record and still marked `out_of_scope`: dropping it would make "we did
+ * not measure it" indistinguishable from "it is not there", which is failure
+ * F12. What the collapse changes is the resolution, not the existence — the
+ * entry says how many files and bytes the subtree holds rather than listing
+ * them, so the walk costs what the measured source costs instead of what the
+ * build output costs. Measured on `siprs-for-reverse`, that is 7,785 of 7,945
+ * entries. Only `.git` is absent from the record entirely, because it is the
+ * version-control database rather than an artefact of the project.
  *
  * An entry that cannot be stat-ed — a dangling symlink, a permission failure —
  * is recorded as `unreadable` with the reason. Skipping it silently would
@@ -663,14 +813,11 @@ export function listArtefacts(root) {
       // could not read, so it is recorded as one rather than throwing away the
       // whole walk. It is not skipped: an entry that vanishes from the record
       // reads as absent, which is the one thing this walk exists to prevent.
-      artefacts.push({
+      artefacts.push(unreadableEntry({
         path: prefix === '' ? directory : prefix,
-        kind: 'unreadable',
-        size: null,
-        readStatus: 'unreadable',
         exclusion: isExcludedPath(prefix),
         reason: `${error.code ?? 'error'}: the directory's contents could not be listed`,
-      });
+      }));
       return;
     }
 
@@ -682,26 +829,27 @@ export function listArtefacts(root) {
       try {
         stats = statSync(join(directory, entry));
       } catch (error) {
-        artefacts.push({
+        artefacts.push(unreadableEntry({
           path: relativePath,
-          kind: 'unreadable',
-          size: null,
-          readStatus: 'unreadable',
           exclusion: isExcludedPath(relativePath),
           reason: `${error.code ?? 'error'}: the entry could not be read`,
-        });
+        }));
         continue;
       }
 
       if (stats.isDirectory()) {
+        if (isExcludedPath(relativePath)) {
+          artefacts.push(...summarizeExcludedSubtree(join(directory, entry), relativePath));
+          continue;
+        }
         walk(join(directory, entry), relativePath);
         continue;
       }
       artefacts.push({
         path: relativePath,
-        kind: stats.isSymbolicLink() ? 'symlink' : 'file',
+        kind: stats.isSymbolicLink() ? ARTEFACT_KIND.SYMLINK : ARTEFACT_KIND.FILE,
         size: stats.size,
-        readStatus: 'readable',
+        readStatus: READ_STATUS.READABLE,
         exclusion: isExcludedPath(relativePath),
         reason: null,
       });

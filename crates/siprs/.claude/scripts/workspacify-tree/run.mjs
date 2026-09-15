@@ -73,17 +73,32 @@ const GENERATOR_VERSION = '1.0.0';
  * the two never interfere and an AI reading the tool output is told what to do
  * next and why a step failed.
  */
+/**
+ * Exit once the streams have drained.
+ *
+ * `process.exit()` discards whatever a pipe has not accepted yet, so a
+ * subcommand answering with megabytes — `extract` lists every pulse candidate it
+ * observed — hands its reader a truncated document and still reports success.
+ * Setting the exit code and returning lets both writes finish before the process
+ * ends; no subcommand leaves a handle open, so it ends as soon as they do.
+ */
+// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+function exitWhenDrained(code) {
+  process.exitCode = code;
+}
+
+// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function guide(text) {
   process.stderr.write(`[guide] ${text}\n`);
 }
 
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P24-9) --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const subcommand = args[0];
   if (subcommand === undefined) {
     process.stdout.write(printUsage());
-    process.exit(EXIT_CODES.USAGE);
+    return exitWhenDrained(EXIT_CODES.USAGE);
   }
 
   try {
@@ -99,17 +114,18 @@ function main() {
       runReverse(args);
     } else {
       process.stdout.write(printUsage());
-      process.exit(EXIT_CODES.USAGE);
+      return exitWhenDrained(EXIT_CODES.USAGE);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const gateId = error?.gateId ?? 'GENERAL';
     process.stdout.write(formatFailure({ gateId, reason: message, fixHint: 'correct the reported input or design decision' }));
     guide(`The command stopped at gate ${gateId}. Reason: ${message}. Fix the reported input or decision, then re-run the step; a failed run never publishes or overwrites a manifest.`);
-    process.exit(EXIT_CODES.FAIL);
+    return exitWhenDrained(EXIT_CODES.FAIL);
   }
 }
 
+// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function runParse(specPath) {
   if (!specPath) {
     throw new Error('parse requires exactly one <path-to-specification.md>');
@@ -127,9 +143,10 @@ function runParse(specPath) {
   if (analysis.reconstruction.status === 'PASS') {
     guide(`Parse PASS: input locked (source hash ${analysis.sourceHash.slice(0, 12)}...), ${analysis.headings.length} headings, ${analysis.segments.length} segments, reconstruction verified byte-for-byte. Next: run extract to harvest candidates.`);
   }
-  process.exit(analysis.reconstruction.status === 'PASS' ? EXIT_CODES.OK : EXIT_CODES.FAIL);
+  return exitWhenDrained(analysis.reconstruction.status === 'PASS' ? EXIT_CODES.OK : EXIT_CODES.FAIL);
 }
 
+// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function runExtract(specPath) {
   if (!specPath) {
     throw new Error('extract requires exactly one <path-to-specification.md>');
@@ -143,9 +160,10 @@ function runExtract(specPath) {
   const specPulse = buildSpecPulseForAnalysis(analysis, inventory);
   process.stdout.write(JSON.stringify({ ...report.stats, spec_pulse: specPulse }) + '\n');
   guide(`Extract PASS: harvested ${report.stats.harvested} candidates (${report.stats.confirmed} confirmed, ${report.stats.review_required} need AI review, ${report.stats.unresolved} unresolved) and observed ${specPulse.candidates.length} specification pulse candidate(s). In Step 3, resolve every REVIEW_REQUIRED item through approvals and settle every pulse candidate in spec_defects or residual_questions; leaving unknown/unresolved candidates prevents COMPLETE.`);
-  process.exit(EXIT_CODES.OK);
+  return exitWhenDrained(EXIT_CODES.OK);
 }
 
+// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
 function runGate(args) {
   const specPath = optionValue(args, '--spec');
   const decisionsPath = optionValue(args, '--decisions');
@@ -197,10 +215,10 @@ function runGate(args) {
       .join(', ');
     guide(`Gate ${pipeline.status}: the pipeline is not yet safe to publish. Review finalAudit counts and fix in Step 3: ${hints}. Re-run gate after each decision edit until it reports COMPLETE.`);
   }
-  process.exit(pipeline.status === 'COMPLETE' ? EXIT_CODES.OK : EXIT_CODES.FAIL);
+  return exitWhenDrained(pipeline.status === 'COMPLETE' ? EXIT_CODES.OK : EXIT_CODES.FAIL);
 }
 
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P24-9) --for-spec --no-implementation-order`.
 function runFinalize(args) {
   const specPath = optionValue(args, '--spec');
   const decisionsPath = optionValue(args, '--decisions');
@@ -209,7 +227,7 @@ function runFinalize(args) {
   }
   const prepared = prepareForwardPipeline(specPath, decisionsPath);
   if (prepared.pipeline.status !== 'COMPLETE') {
-    reportPipelineFailure(prepared.pipeline, 'Finalize');
+    return reportPipelineFailure(prepared.pipeline, 'Finalize');
   }
 
   const manifest = assembleManifest(buildForwardManifestSections(prepared));
@@ -229,7 +247,7 @@ function runFinalize(args) {
         fixHint: FINALIZE_REFUSAL_HINTS[published.refusal],
       }),
     );
-    process.exit(EXIT_CODES.FAIL);
+    return exitWhenDrained(EXIT_CODES.FAIL);
   }
 
   process.stdout.write(
@@ -241,7 +259,7 @@ function runFinalize(args) {
     }) + '\n'
   );
   guide(`Finalize PASS: WORKSPACIFY-TREE-MANIFEST.json was atomically published to the current directory, reload-verified, and passes the ALLOCATE entry-gate parity (all categories owned, tree consistent, boundaries covered). This file is the single input for the next stage /workspacify-allocate.`);
-  process.exit(EXIT_CODES.OK);
+  return exitWhenDrained(EXIT_CODES.OK);
 }
 
 /**
@@ -360,7 +378,7 @@ function buildForwardManifestSections(prepared) {
  * gates and an operator reading "Finalize blocked" during a reverse run would
  * re-run the wrong step.
  */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P24-9) --for-spec --no-implementation-order`.
 function reportPipelineFailure(pipeline, stepName) {
   const failingGate = pipeline.gates.find((gate) => gate.status !== 'PASS');
   process.stdout.write(
@@ -375,7 +393,7 @@ function reportPipelineFailure(pipeline, stepName) {
   for (const line of adviseFailure({ gateId: failingGate.id, reason: reasons, stage: 'workspacify-tree' })) {
     guide(line);
   }
-  process.exit(EXIT_CODES.FAIL);
+  return exitWhenDrained(EXIT_CODES.FAIL);
 }
 
 /**
@@ -388,14 +406,14 @@ function reportPipelineFailure(pipeline, stepName) {
  * manifest gains is `reverse_provenance`; `COMPLETE` keeps the meaning it has in
  * the forward rotation.
  */
-// [::TICKET::] P22-11, P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P23-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P23-9, P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P23-9|P24-9) --for-spec --no-implementation-order`.
 function runReverse(args) {
   const specPath = optionValue(args, '--spec');
   const decisionsPath = optionValue(args, '--decisions');
   const root = optionValue(args, '--root');
   if (!specPath || !decisionsPath || !root) {
     process.stdout.write(printUsage());
-    process.exit(EXIT_CODES.USAGE);
+    return exitWhenDrained(EXIT_CODES.USAGE);
   }
 
   const outDir = path.resolve(optionValue(args, '--out') ?? process.cwd());
@@ -404,7 +422,7 @@ function runReverse(args) {
 
   const prepared = prepareForwardPipeline(specPath, decisionsPath);
   if (prepared.pipeline.status !== 'COMPLETE') {
-    reportPipelineFailure(prepared.pipeline, 'Reverse mode');
+    return reportPipelineFailure(prepared.pipeline, 'Reverse mode');
   }
 
   const packages = prepared.decisions.workspace;
@@ -436,7 +454,7 @@ function runReverse(args) {
   });
   const summary = summarizeReverseGates(records);
   if (summary.status !== 'COMPLETE') {
-    reportReverseFailure(records, summary);
+    return reportReverseFailure(records, summary);
   }
 
   publishAndReportReverse({ outcome: { manifest, records, prepared, outDir, measuredRoot }, seam });
@@ -454,7 +472,7 @@ function runReverse(args) {
  * two partitions named together with the classes between them, which is what the prose
  * carries and the delta's arrays do not.
  */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P23-9, P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-9|P24-9) --for-spec --no-implementation-order`.
 function publishAndReportReverse({ outcome, seam = null }) {
   const { manifest, records, prepared, outDir, measuredRoot } = outcome;
   const published = publishAcceptedManifest({
@@ -467,7 +485,7 @@ function publishAndReportReverse({ outcome, seam = null }) {
     process.stdout.write(
       formatFailure({ gateId: 'G5', reason: published.reason, fixHint: REVERSE_REFUSAL_HINTS[published.refusal] }) + '\n'
     );
-    process.exit(EXIT_CODES.FAIL);
+    return exitWhenDrained(EXIT_CODES.FAIL);
   }
 
   process.stdout.write(
@@ -483,7 +501,7 @@ function publishAndReportReverse({ outcome, seam = null }) {
     process.stdout.write(renderLayerStructureSeam(seam));
   }
   process.stdout.write(renderReverseReport(records));
-  process.exit(EXIT_CODES.OK);
+  return exitWhenDrained(EXIT_CODES.OK);
 }
 
 /** Everything a reverse run is given: the tree, the sidecars, and the delta with its seam. */
@@ -579,7 +597,7 @@ const REVERSE_REFUSAL_HINTS = Object.freeze({
  * Every failing gate is named, not only the first: a run that reported one
  * problem at a time would make the operator re-run the step once per problem.
  */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P24-9) --for-spec --no-implementation-order`.
 function reportReverseFailure(records, summary) {
   const failingGate = records.find((record) => record.status !== 'PASS');
   process.stdout.write(
@@ -591,7 +609,7 @@ function reportReverseFailure(records, summary) {
   );
   guide(`Reverse mode stopped at ${summary.failing.join(', ')}. Nothing was published and no existing manifest was replaced.`);
   process.stdout.write(renderReverseReport(records));
-  process.exit(EXIT_CODES.FAIL);
+  return exitWhenDrained(EXIT_CODES.FAIL);
 }
 
 /** The regular files directly inside a sidecar directory, name-sorted. */

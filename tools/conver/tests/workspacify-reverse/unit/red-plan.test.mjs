@@ -1,3 +1,4 @@
+// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
@@ -12,6 +13,7 @@ import {
   GAP_TECHNIQUE,
   ISOLATED_ENVIRONMENT,
   PLAN_REQUIRED_FIELDS,
+  DEFAULT_GUARDED_REFERENCES,
   PRODUCTION_MARKERS,
   RED_PLAN_CAVEAT,
   TECHNIQUE_BY_SUBJECT_KIND,
@@ -185,6 +187,63 @@ test('C001 invariant: no plan targets production state', () => {
   assert.throws(() => assertNoProductionTarget({ target: { kind: ISOLATED_ENVIRONMENT, ref: 'production/cluster' } }), /production/);
   assert.throws(() => assertNoProductionTarget({ target: { kind: 'live_tree', ref: 'siprs-for-reverse/src' } }), /isolated environment/);
   assert.equal(assertNoProductionTarget({ target: { kind: ISOLATED_ENVIRONMENT, ref: 'worktree/siprs-for-reverse/src' } }), true);
+});
+
+test('C001 postcondition: each generic marker refuses its own reference and is named in the finding', () => {
+  for (const marker of PRODUCTION_MARKERS) {
+    assert.throws(
+      () => assertNoProductionTarget({ target: { kind: ISOLATED_ENVIRONMENT, ref: `isolated/${marker}/x.rs` } }),
+      new RegExp(marker.replace(/\//g, '\\/')),
+      `${marker} must be refused, and the finding must name it`,
+    );
+  }
+});
+
+test('C001 postcondition: a declared reference is refused when the set is supplied and admitted when it is not', () => {
+  const carriesDeclared = { claim_id: 'C-1', target: { kind: ISOLATED_ENVIRONMENT, ref: 'isolated/src/siprs-with-4layers/x.rs' } };
+
+  assert.throws(
+    () => assertNoProductionTarget(carriesDeclared, { declared: ['siprs-with-4layers'] }),
+    /siprs-with-4layers/,
+    'a declared entry refuses the reference that carries it',
+  );
+  assert.equal(
+    assertNoProductionTarget(carriesDeclared),
+    true,
+    'and the same reference is admitted when nothing is declared, so the declaration is what decided',
+  );
+  assert.deepEqual([...DEFAULT_GUARDED_REFERENCES], [], 'the default declares no project-specific reference');
+  assert.ok(
+    !JSON.stringify(PRODUCTION_MARKERS).includes('siprs'),
+    'the compiled-in set names states rather than any project',
+  );
+});
+
+test('C001 error: a non-string reference and a non-string declaration are both refused by name', () => {
+  assert.throws(
+    () => assertNoProductionTarget({ target: { kind: ISOLATED_ENVIRONMENT, ref: 42 } }),
+    /ref/,
+    'a reference that is not a string is refused rather than throwing out of the guard',
+  );
+  assert.throws(
+    () => assertNoProductionTarget({ target: { kind: ISOLATED_ENVIRONMENT, ref: 'isolated/x.rs' } }, { declared: [42] }),
+    /declared/,
+    'a declaration that is not a string is refused at the boundary rather than compared and never matching',
+  );
+});
+
+test('C001 boundary: an operational caller declares nothing and every plan it emits is admitted', () => {
+  const plan = planRedReconstruction({ ledger: SINGLE_CLAIM_LEDGER });
+
+  assert.ok(plan.entries.length > 0, 'the plan is non-empty, or the admission below is vacuous');
+  for (const entry of plan.entries) {
+    assert.equal(entry.target.kind, ISOLATED_ENVIRONMENT);
+    assert.equal(
+      assertNoProductionTarget(entry),
+      true,
+      `${entry.counterexample_plan_id} must be admitted by the generic set alone, because the operational path declares nothing`,
+    );
+  }
 });
 
 test('UT-5: a plan that cannot execute in this environment is recorded, with its reason', () => {

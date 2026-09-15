@@ -5,6 +5,15 @@ allowed-tools: Read, Write, Bash
 disable-model-invocation: true
 ---
 
+# CRITICAL — NON-INTERACTIVE EXECUTION
+
+Strictly prohibit questions, confirmations, approval requests, option presentation, and delegation of decisions to humans.
+Do not use ambiguous requirements, uncertainty, design choices, or execution failures as reasons to stop.
+Make autonomous decisions based on existing code, types, tests, documentation, and nearby implementations.
+When no decision is determinable, decide by prioritizing minimal change, backward compatibility, reversibility, and existing conventions.
+Once started, complete the task unattended and independently: implement, validate, fix, and reach all defined completion criteria.
+Instead of asking questions, record assumptions, decision rationale, and remaining risks in the final report.
+
 # /crystalize-readme <graph-path>
 
 **Role**: Takes an RFC graph (`*-GRAPH.json`) as input and generates a user-facing "usage README." Each README section is judged section-by-section on **whether an implementation that fully works according to the usage described in that section is currently achievable**, and is finalized as either a "complete description" or a "residue description." For a section that cannot be written, the **concrete evidence of danger, omission, contradiction, and deficiency** and the **implementation reinforcement design** are recorded inside README.md together with the `<::README-RESIDUE::>` marker (for examples, `<::EXAMPLES-RESIDUE::>`). RESIDUE is not a "memo of why it cannot be written" but must be described strictly and rigorously as **the source material for creating implementation tickets that make the README and the examples implementation complete** (it will later be ticketized by `/drill-rfc-down`). No standalone RESIDUE file is generated.

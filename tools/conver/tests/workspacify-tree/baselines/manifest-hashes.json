@@ -76,15 +76,31 @@
         "### On Schema Validation Error",
         "### Recovery on Error",
         "### Mode Switching",
-        "### Reverse Mode",
         "## Step 3: Batch File Generation",
         "### Structure of Generated Files",
         "### Recovery on Error",
-        "## Completion Report"
+        "## Completion Report",
+        "### Reverse Mode"
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "f927c53a4a122421e80a7194e6472e1e44f02c37c169149e82354e0a7e1851d3"
+      "documentDigest": "42eccab5fe61fc02cc30f3f83dc8ede9e77c6bab9d98133905c3410c43c478a3"
+    },
+    "consolidate-stubs": {
+      "headings": [
+        "# /consolidate-stubs",
+        "## Why",
+        "## Design Principles",
+        "## Workflow",
+        "### Step 1 — Enumerate",
+        "### Step 2 — Group into units (AI judgment — the only non-deterministic step)",
+        "### Step 3 — Author the units decision file",
+        "### Step 4 — Verify the plan, then apply (batch-update-stub.js)",
+        "### Step 5 — Verify the result (blocking gate)"
+      ],
+      "languageProtocolDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "firstClassRuleDigest": "bafc5883e14ec090630bc90fb691e018b32b09c2d1ed0f7f6c56421a568ff5bf",
+      "documentDigest": "ba4482cb53bac73d0617e429069a36ef3b368f63da48addd432b3a755d18028d"
     },
     "crystalize-readme": {
       "headings": [
@@ -243,6 +259,117 @@
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "documentDigest": "db8a0faae0aa17a1c3ca41d98effb2868016aefa5cce63510b2802d6171607c5"
     },
+    "make-ticket": {
+      "headings": [
+        "# /make-ticket",
+        "## Language Protocol",
+        "## Position in the Workflow",
+        "## Argument Interpretation",
+        "## Boy Scout Rule",
+        "## List of Scripts Used",
+        "## Workflow",
+        "### Step 1: Display context (show-ticket-context.js)",
+        "### Step 2: Decision branching",
+        "### Step 3: Insert template markers into ticket",
+        "### Step 4: Full understanding of Universal Implementation Order",
+        "#### Reference — Implementation Order (TDD Red-Green-Refactor)",
+        "##### 1. Red — Fully Implement Failing Tests",
+        "##### 2. Green — Implement Behavior (No Stubs, No Test Modification)",
+        "##### 3. Refactor — Apply the Boy Scout Rule (Green State Only)",
+        "##### Definition of Done",
+        "#### Test Field Reference",
+        "### Step 5: Design and source code investigation",
+        "### Step 6: Replace template markers",
+        "### Step 7: Contracts verification",
+        "### Step 8: STUB enumeration and validation (mandatory)",
+        "### Step 9: Write spec file",
+        "### Step 10: Update ticket status"
+      ],
+      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
+      "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "documentDigest": "07732ce654ee203dbf53a115640c6b5f75ebe500fa137562cbbda8d1c7f00c42"
+    },
+    "plan-ticket": {
+      "headings": [
+        "# /plan-ticket",
+        "## Language Protocol",
+        "## Position in the Workflow",
+        "## Argument Interpretation",
+        "## Boy Scout Rule",
+        "### Translatability Checks (common to all languages; select grep patterns per language)",
+        "## List of Scripts Used",
+        "## Workflow",
+        "### Step 0: Status gate — verify ticket is ready for planning",
+        "### Step 1: Existence check + retrieve ticket information",
+        "### Step 2: Explore and understand design information, related design information, related ticket information, and source code",
+        "### Step 3: Crime and stub inspection (mandatory — First-Class Rule)",
+        "### Step 3.5 — Phase 1.5: Contract-to-test-code translation (mandatory)",
+        "### Step 4: Formulate the plan",
+        "#### Reference — Implementation Order (TDD Red-Green-Refactor)",
+        "##### 1. Red — Fully Implement Failing Tests",
+        "##### 2. Green — Implement Behavior (No Stubs, No Test Modification)",
+        "##### 3. Refactor — Apply the Boy Scout Rule (Green State Only)",
+        "##### Definition of Done",
+        "### Step 4.5 — Gate P: Verify contract-to-test-code translation",
+        "### Step 5: Spec re-export → status update → report plan completion",
+        "#### 5-1: Re-export spec file",
+        "#### 5-2: Update ticket status"
+      ],
+      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
+      "firstClassRuleDigest": "f208c14c2d726ef629962b7b77f0571951addab3ddd8bdff0ad2b933d6fab01c",
+      "documentDigest": "f4bed2d0529e2324d1fda2cefbacd89d7fd28382429495865731361c9dbd63bd"
+    },
+    "resolve-ticket": {
+      "headings": [
+        "# /resolve-ticket",
+        "## Language Protocol",
+        "## Argument Interpretation",
+        "## List of Scripts Used",
+        "## Workflow",
+        "### Step 1: Run compilation check and tests, capture warnings and errors",
+        "### Step 2: Resolve warnings and errors",
+        "### Step 3: List stubs (directory-scoped)",
+        "### Step 4: Pre-cleanup gate (preflight)",
+        "### Step 5: Register unresolved stubs as crimes",
+        "### Step 6: Allocate unresolvable stubs to subsequent tickets",
+        "### Step 7: List crimes (directory-scoped)",
+        "### Step 8: Resolve all crimes",
+        "### Step 9: Full scan + no-excuse gate (mandatory)",
+        "### Step 10: Final verification"
+      ],
+      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
+      "firstClassRuleDigest": "f208c14c2d726ef629962b7b77f0571951addab3ddd8bdff0ad2b933d6fab01c",
+      "documentDigest": "2a532b97f23ccc7265e7eb879cc0dea2db313b90b4e2449196ce1a83535e5279"
+    },
+    "review-ticket": {
+      "headings": [
+        "# /review-ticket",
+        "## Language Protocol",
+        "## Position in the Workflow",
+        "## Argument Interpretation",
+        "## Boy Scout Rule — Review Perspective",
+        "## List of Scripts Used",
+        "## Workflow",
+        "### Step 0: Status gate — verify ticket is ready for review",
+        "### Step 1: Existence check + retrieve ticket information",
+        "### Step 2: Explore and understand design information, related design information, related ticket information, and source code",
+        "### Step 3: Emergency crime resolution (highest priority — First-Class Rule)",
+        "### Step 4: List and evaluate [::STUB::] markers",
+        "### Step 5: Active search for incomplete implementations (mandatory)",
+        "### Step 6: Compilation verification and unit test verification",
+        "### Step 7: Thoroughly inspect implementation completeness",
+        "### Step 8: Static quality check",
+        "### Step 9: Translatability check",
+        "### Step 10: Save review report",
+        "#### Re-export spec file (final snapshot)",
+        "### Step 10b: Verify final contract fulfillment",
+        "### Step 11: Transition to reviewed",
+        "### Step 12: Commit the pipeline changes (no push)"
+      ],
+      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
+      "firstClassRuleDigest": "f208c14c2d726ef629962b7b77f0571951addab3ddd8bdff0ad2b933d6fab01c",
+      "documentDigest": "f8c8512d1673259aad42c7a8ba63f555f2ffe9f66afc13fe96042663f15f08b0"
+    },
     "split-to-tickets": {
       "headings": [
         "# /split-to-tickets",
@@ -289,6 +416,43 @@
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "documentDigest": "c9acfb43e19dd28993aa6d560b099f5407bbe9620a5947c65ce14bee48edda6d"
+    },
+    "start-ticket": {
+      "headings": [
+        "# /start-ticket",
+        "## Language Protocol",
+        "## Position in the Workflow",
+        "## Argument Interpretation",
+        "## Boy Scout Rule",
+        "## List of Scripts Used",
+        "## Workflow",
+        "### Step 0: Status gate — verify ticket is ready for implementation",
+        "### Step 1: Block unless /plan-ticket was executed immediately before in the same session",
+        "### Step 2: Record implementation start date",
+        "### Step 3: Emergency crime resolution (highest priority — First-Class Rule)",
+        "### Step 4: Resolve stubs",
+        "### Step 5: Implementation",
+        "#### **Reference — Implementation Order (TDD Red-Green-Refactor)**",
+        "##### 1. Red — Fully Implement Failing Tests",
+        "##### 2. Green — Implement Behavior (No Stubs, No Test Modification)",
+        "##### 3. Refactor — Apply the Boy Scout Rule (Green State Only)",
+        "##### Definition of Done",
+        "#### **No-Justification Rule**",
+        "#### **MANDATORY STUB RESOLUTION**",
+        "#### **ABSOLUTE PROHIBITION — NEVER DELETE OR EDIT THE `Initial Design Artifact` HEADER**",
+        "### Step 5a: Annotate generated code with ticket-key provenance",
+        "### Step 5b: Verify Red contract coverage",
+        "### Step 5c: Validate target resolution (mandatory)",
+        "### Step 6: Active search for incomplete implementations (mandatory)",
+        "### Step 7: Compilation verification and testing",
+        "### Step 8: Quality check",
+        "### Step 9: Save implementation results",
+        "#### Re-export spec file with implementation locations",
+        "### Step 10: Transition to done"
+      ],
+      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
+      "firstClassRuleDigest": "f208c14c2d726ef629962b7b77f0571951addab3ddd8bdff0ad2b933d6fab01c",
+      "documentDigest": "a5c62472334ec5c1ca883eef6dcf2a654bcd040c269bf4ee48a2352fcd78b253"
     },
     "workspacify-allocate": {
       "headings": [

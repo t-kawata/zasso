@@ -1,0 +1,629 @@
+# Security lane — what a human must approve before it is canonised
+
+A claim is in this lane when the source text at its anchor names authorization, tenancy, secrets,
+deletion or audit. For these propositions the code records what the program currently does, which is
+the weakest possible evidence for what it ought to do: a missing or incorrect check is invisible in
+the code that is present.
+
+## What was measured
+
+- claims read: 4460
+- in the security lane: 115
+- in the ordinary lane: 4339
+- reported rather than settled: 6
+
+## Where the risk was found
+
+- **authorization** (cross-cutting) — 71 claim(s)
+- **tenancy** (cross-cutting) — none found — a measurement about this corpus, not a statement that the surface is absent
+- **secrets** (cross-cutting) — 63 claim(s)
+- **deletion** (cross-cutting) — 8 claim(s)
+- **audit** (cross-cutting) — none found — a measurement about this corpus, not a statement that the surface is absent
+- **safety** — 4 claim(s)
+- **money** — none found — a measurement about this corpus, not a statement that the surface is absent
+- **cryptography** — 2 claim(s)
+
+## Claims awaiting a human authority and a strong falsification
+
+- `clm-client-invariant-279` — secrets
+  - anchor: examples/common/client.rs:279
+  - statement: the condition asserted at examples/common/client.rs:279 holds
+- `clm-call_types-invariant-123` — authorization, secrets
+  - anchor: src/api/call_types.rs:123
+  - statement: the condition asserted at src/api/call_types.rs:123 holds
+- `clm-call_types-invariant-126` — authorization
+  - anchor: src/api/call_types.rs:126
+  - statement: the condition asserted at src/api/call_types.rs:126 holds
+- `clm-http_ws_protocol-invariant-235` — authorization
+  - anchor: src/api/http_ws_protocol.rs:235
+  - statement: the condition asserted at src/api/http_ws_protocol.rs:235 holds
+- `clm-public_api_design-boundary_crossing-333` — secrets
+  - anchor: src/api/public_api_design.rs:333
+  - statement: src/api consumes src/security through the reference at src/api/public_api_design.rs:333
+- `clm-standalone_server_config-boundary_crossing-17` — secrets
+  - anchor: src/api/standalone_server_config.rs:17
+  - statement: src/api consumes src/security through the reference at src/api/standalone_server_config.rs:17
+- `clm-standalone_server_config-boundary_crossing-43` — secrets
+  - anchor: src/api/standalone_server_config.rs:43
+  - statement: src/api consumes src/security through the reference at src/api/standalone_server_config.rs:43
+- `clm-standalone_server_config-boundary_crossing-54` — secrets
+  - anchor: src/api/standalone_server_config.rs:54
+  - statement: src/api consumes src/security through the reference at src/api/standalone_server_config.rs:54
+- `clm-standalone_server_config-failure_contract-84` — secrets
+  - anchor: src/api/standalone_server_config.rs:84
+  - statement: the failure at src/api/standalone_server_config.rs:84 is a contracted outcome the caller may rely on
+- `clm-standalone_server_config-boundary_crossing-256` — secrets
+  - anchor: src/api/standalone_server_config.rs:256
+  - statement: src/api consumes src/security through the reference at src/api/standalone_server_config.rs:256
+- `clm-standalone_server_config-boundary_crossing-270` — secrets
+  - anchor: src/api/standalone_server_config.rs:270
+  - statement: src/api consumes src/security through the reference at src/api/standalone_server_config.rs:270
+- `clm-standalone_server_config-boundary_crossing-563` — secrets
+  - anchor: src/api/standalone_server_config.rs:563
+  - statement: src/api consumes src/security through the reference at src/api/standalone_server_config.rs:563
+- `clm-standalone_server_config-boundary_crossing-579` — secrets
+  - anchor: src/api/standalone_server_config.rs:579
+  - statement: src/api consumes src/security through the reference at src/api/standalone_server_config.rs:579
+- `clm-standalone_server_config-boundary_crossing-596` — secrets
+  - anchor: src/api/standalone_server_config.rs:596
+  - statement: src/api consumes src/security through the reference at src/api/standalone_server_config.rs:596
+- `clm-standalone_server_config-boundary_crossing-613` — secrets
+  - anchor: src/api/standalone_server_config.rs:613
+  - statement: src/api consumes src/security through the reference at src/api/standalone_server_config.rs:613
+- `clm-standalone_server_config-failure_contract-693` — secrets
+  - anchor: src/api/standalone_server_config.rs:693
+  - statement: the failure at src/api/standalone_server_config.rs:693 is a contracted outcome the caller may rely on
+- `clm-standalone_server_config-invariant-710` — authorization, secrets
+  - anchor: src/api/standalone_server_config.rs:710
+  - statement: the condition asserted at src/api/standalone_server_config.rs:710 holds
+- `clm-standalone_server_config-invariant-742` — authorization
+  - anchor: src/api/standalone_server_config.rs:742
+  - statement: the condition asserted at src/api/standalone_server_config.rs:742 holds
+- `clm-standalone_server_config-boundary_crossing-760` — secrets
+  - anchor: src/api/standalone_server_config.rs:760
+  - statement: src/api consumes src/security through the reference at src/api/standalone_server_config.rs:760
+- `clm-standalone_server_config-invariant-772` — authorization
+  - anchor: src/api/standalone_server_config.rs:772
+  - statement: the condition asserted at src/api/standalone_server_config.rs:772 holds
+- `clm-standalone_server_config-invariant-778` — secrets
+  - anchor: src/api/standalone_server_config.rs:778
+  - statement: the condition asserted at src/api/standalone_server_config.rs:778 holds
+- `clm-standalone_server_config-invariant-791` — secrets
+  - anchor: src/api/standalone_server_config.rs:791
+  - statement: the condition asserted at src/api/standalone_server_config.rs:791 holds
+- `clm-standalone_server_config-invariant-837` — authorization
+  - anchor: src/api/standalone_server_config.rs:837
+  - statement: the condition asserted at src/api/standalone_server_config.rs:837 holds
+- `clm-standalone_server_config-invariant-899` — authorization, secrets
+  - anchor: src/api/standalone_server_config.rs:899
+  - statement: the condition asserted at src/api/standalone_server_config.rs:899 holds
+- `clm-standalone_server_config-invariant-911` — authorization, secrets
+  - anchor: src/api/standalone_server_config.rs:911
+  - statement: the condition asserted at src/api/standalone_server_config.rs:911 holds
+- `clm-standalone_server_config-invariant-912` — authorization, secrets
+  - anchor: src/api/standalone_server_config.rs:912
+  - statement: the condition asserted at src/api/standalone_server_config.rs:912 holds
+- `clm-standalone_server_config-invariant-1225` — authorization
+  - anchor: src/api/standalone_server_config.rs:1225
+  - statement: the condition asserted at src/api/standalone_server_config.rs:1225 holds
+- `clm-io_boundary_round4-invariant-320` — deletion
+  - anchor: src/architecture/io_boundary_round4.rs:320
+  - statement: the condition asserted at src/architecture/io_boundary_round4.rs:320 holds
+- `clm-io_boundary_round4-invariant-434` — deletion
+  - anchor: src/architecture/io_boundary_round4.rs:434
+  - statement: the condition asserted at src/architecture/io_boundary_round4.rs:434 holds
+- `clm-client-boundary_crossing-1275` — secrets
+  - anchor: src/client.rs:1275
+  - statement: src consumes src/security through the reference at src/client.rs:1275
+- `clm-command_serialization-boundary_crossing-11` — deletion
+  - anchor: src/concurrency_contexts/command_serialization.rs:11
+  - statement: src/concurrency_contexts consumes src/runtime through the reference at src/concurrency_contexts/command_serialization.rs:11
+- `clm-config-boundary_crossing-41` — secrets
+  - anchor: src/config.rs:41
+  - statement: src consumes src/security through the reference at src/config.rs:41
+- `clm-config-boundary_crossing-51` — authorization
+  - anchor: src/config.rs:51
+  - statement: src consumes src/api through the reference at src/config.rs:51
+- `clm-config-boundary_crossing-52` — authorization
+  - anchor: src/config.rs:52
+  - statement: src consumes src/api through the reference at src/config.rs:52
+- `clm-config-boundary_crossing-113` — secrets
+  - anchor: src/config.rs:113
+  - statement: src consumes src/security through the reference at src/config.rs:113
+- `clm-config-invariant-123` — secrets
+  - anchor: src/config.rs:123
+  - statement: the condition asserted at src/config.rs:123 holds
+- `clm-account_config_spec-boundary_crossing-3` — secrets
+  - anchor: src/config/account_config_spec.rs:3
+  - statement: src/config consumes src/security through the reference at src/config/account_config_spec.rs:3
+- `clm-account_config_spec-invariant-788` — authorization
+  - anchor: src/config/account_config_spec.rs:788
+  - statement: the condition asserted at src/config/account_config_spec.rs:788 holds
+- `clm-account_config_spec-invariant-789` — secrets
+  - anchor: src/config/account_config_spec.rs:789
+  - statement: the condition asserted at src/config/account_config_spec.rs:789 holds
+- `clm-account_config_spec-invariant-825` — secrets
+  - anchor: src/config/account_config_spec.rs:825
+  - statement: the condition asserted at src/config/account_config_spec.rs:825 holds
+- `clm-client_config_spec-invariant-258` — authorization
+  - anchor: src/config/client_config_spec.rs:258
+  - statement: the condition asserted at src/config/client_config_spec.rs:258 holds
+- `clm-stun_turn_ice_wiring-boundary_crossing-211` — secrets
+  - anchor: src/config/stun_turn_ice_wiring.rs:211
+  - statement: src/config consumes src/security through the reference at src/config/stun_turn_ice_wiring.rs:211
+- `clm-stun_turn_ice_wiring-invariant-306` — secrets
+  - anchor: src/config/stun_turn_ice_wiring.rs:306
+  - statement: the condition asserted at src/config/stun_turn_ice_wiring.rs:306 holds
+- `clm-transport_ice_spec-boundary_crossing-2` — secrets
+  - anchor: src/config/transport_ice_spec.rs:2
+  - statement: src/config consumes src/security through the reference at src/config/transport_ice_spec.rs:2
+- `clm-transport_ice_spec-invariant-301` — secrets
+  - anchor: src/config/transport_ice_spec.rs:301
+  - statement: the condition asserted at src/config/transport_ice_spec.rs:301 holds
+- `clm-media_port_adapter-invariant-203` — deletion
+  - anchor: src/ffi/media_port_adapter.rs:203
+  - statement: the condition asserted at src/ffi/media_port_adapter.rs:203 holds
+- `clm-sqlite_schema-invariant-332` — secrets
+  - anchor: src/model/sqlite_schema.rs:332
+  - statement: the condition asserted at src/model/sqlite_schema.rs:332 holds
+- `clm-sqlite_schema-invariant-439` — secrets
+  - anchor: src/model/sqlite_schema.rs:439
+  - statement: the condition asserted at src/model/sqlite_schema.rs:439 holds
+- `clm-sqlite_schema-invariant-601` — secrets
+  - anchor: src/model/sqlite_schema.rs:601
+  - statement: the condition asserted at src/model/sqlite_schema.rs:601 holds
+- `clm-sqlite_schema-invariant-652` — authorization
+  - anchor: src/model/sqlite_schema.rs:652
+  - statement: the condition asserted at src/model/sqlite_schema.rs:652 holds
+- `clm-backend-boundary_crossing-1104` — deletion
+  - anchor: src/runtime/backend.rs:1104
+  - statement: src/runtime consumes src/ffi through the reference at src/runtime/backend.rs:1104
+- `clm-backend-boundary_crossing-1105` — deletion
+  - anchor: src/runtime/backend.rs:1105
+  - statement: src/runtime consumes src/ffi through the reference at src/runtime/backend.rs:1105
+- `clm-reactor-boundary_crossing-3114` — secrets
+  - anchor: src/runtime/reactor.rs:3114
+  - statement: src/runtime consumes src/security through the reference at src/runtime/reactor.rs:3114
+- `clm-reactor-boundary_crossing-3151` — secrets
+  - anchor: src/runtime/reactor.rs:3151
+  - statement: src/runtime consumes src/security through the reference at src/runtime/reactor.rs:3151
+- `clm-auth_jwt_middleware-invariant-105` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:105
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:105 holds
+- `clm-auth_jwt_middleware-invariant-106` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:106
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:106 holds
+- `clm-auth_jwt_middleware-invariant-107` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:107
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:107 holds
+- `clm-auth_jwt_middleware-invariant-108` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:108
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:108 holds
+- `clm-auth_jwt_middleware-invariant-109` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:109
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:109 holds
+- `clm-auth_jwt_middleware-invariant-123` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:123
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:123 holds
+- `clm-auth_jwt_middleware-invariant-124` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:124
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:124 holds
+- `clm-auth_jwt_middleware-invariant-125` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:125
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:125 holds
+- `clm-auth_jwt_middleware-invariant-144` — authorization, secrets, cryptography
+  - anchor: src/security/auth_jwt_middleware.rs:144
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:144 holds
+- `clm-auth_jwt_middleware-failure_contract-144` — authorization, secrets, cryptography
+  - anchor: src/security/auth_jwt_middleware.rs:144
+  - statement: the failure at src/security/auth_jwt_middleware.rs:144 is a contracted outcome the caller may rely on
+- `clm-auth_jwt_middleware-invariant-159` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:159
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:159 holds
+- `clm-auth_jwt_middleware-failure_contract-159` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:159
+  - statement: the failure at src/security/auth_jwt_middleware.rs:159 is a contracted outcome the caller may rely on
+- `clm-auth_jwt_middleware-invariant-166` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:166
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:166 holds
+- `clm-auth_jwt_middleware-failure_contract-166` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:166
+  - statement: the failure at src/security/auth_jwt_middleware.rs:166 is a contracted outcome the caller may rely on
+- `clm-auth_jwt_middleware-invariant-181` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:181
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:181 holds
+- `clm-auth_jwt_middleware-failure_contract-182` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:182
+  - statement: the failure at src/security/auth_jwt_middleware.rs:182 is a contracted outcome the caller may rely on
+- `clm-auth_jwt_middleware-invariant-211` — authorization, secrets
+  - anchor: src/security/auth_jwt_middleware.rs:211
+  - statement: the condition asserted at src/security/auth_jwt_middleware.rs:211 holds
+- `clm-security_platform_diffs-invariant-33` — authorization
+  - anchor: src/security/security_platform_diffs.rs:33
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:33 holds
+- `clm-security_platform_diffs-invariant-34` — authorization
+  - anchor: src/security/security_platform_diffs.rs:34
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:34 holds
+- `clm-security_platform_diffs-invariant-128` — authorization, secrets
+  - anchor: src/security/security_platform_diffs.rs:128
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:128 holds
+- `clm-security_platform_diffs-invariant-138` — authorization
+  - anchor: src/security/security_platform_diffs.rs:138
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:138 holds
+- `clm-security_platform_diffs-invariant-156` — authorization
+  - anchor: src/security/security_platform_diffs.rs:156
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:156 holds
+- `clm-security_platform_diffs-invariant-160` — authorization
+  - anchor: src/security/security_platform_diffs.rs:160
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:160 holds
+- `clm-security_platform_diffs-invariant-164` — authorization
+  - anchor: src/security/security_platform_diffs.rs:164
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:164 holds
+- `clm-security_platform_diffs-invariant-190` — authorization
+  - anchor: src/security/security_platform_diffs.rs:190
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:190 holds
+- `clm-security_platform_diffs-invariant-194` — authorization
+  - anchor: src/security/security_platform_diffs.rs:194
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:194 holds
+- `clm-security_platform_diffs-invariant-198` — authorization
+  - anchor: src/security/security_platform_diffs.rs:198
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:198 holds
+- `clm-security_platform_diffs-invariant-202` — authorization
+  - anchor: src/security/security_platform_diffs.rs:202
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:202 holds
+- `clm-security_platform_diffs-invariant-206` — authorization
+  - anchor: src/security/security_platform_diffs.rs:206
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:206 holds
+- `clm-security_platform_diffs-invariant-210` — authorization
+  - anchor: src/security/security_platform_diffs.rs:210
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:210 holds
+- `clm-security_platform_diffs-invariant-214` — authorization
+  - anchor: src/security/security_platform_diffs.rs:214
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:214 holds
+- `clm-security_platform_diffs-invariant-215` — authorization
+  - anchor: src/security/security_platform_diffs.rs:215
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:215 holds
+- `clm-security_platform_diffs-invariant-216` — authorization
+  - anchor: src/security/security_platform_diffs.rs:216
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:216 holds
+- `clm-security_platform_diffs-invariant-223` — authorization
+  - anchor: src/security/security_platform_diffs.rs:223
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:223 holds
+- `clm-security_platform_diffs-invariant-224` — authorization
+  - anchor: src/security/security_platform_diffs.rs:224
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:224 holds
+- `clm-security_platform_diffs-invariant-231` — authorization
+  - anchor: src/security/security_platform_diffs.rs:231
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:231 holds
+- `clm-security_platform_diffs-invariant-232` — authorization
+  - anchor: src/security/security_platform_diffs.rs:232
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:232 holds
+- `clm-security_platform_diffs-invariant-238` — authorization, secrets
+  - anchor: src/security/security_platform_diffs.rs:238
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:238 holds
+- `clm-security_platform_diffs-invariant-244` — authorization, secrets
+  - anchor: src/security/security_platform_diffs.rs:244
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:244 holds
+- `clm-security_platform_diffs-invariant-250` — authorization, secrets
+  - anchor: src/security/security_platform_diffs.rs:250
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:250 holds
+- `clm-security_platform_diffs-invariant-257` — authorization
+  - anchor: src/security/security_platform_diffs.rs:257
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:257 holds
+- `clm-security_platform_diffs-invariant-265` — authorization
+  - anchor: src/security/security_platform_diffs.rs:265
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:265 holds
+- `clm-security_platform_diffs-invariant-266` — authorization
+  - anchor: src/security/security_platform_diffs.rs:266
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:266 holds
+- `clm-security_platform_diffs-invariant-274` — authorization
+  - anchor: src/security/security_platform_diffs.rs:274
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:274 holds
+- `clm-security_platform_diffs-invariant-276` — authorization
+  - anchor: src/security/security_platform_diffs.rs:276
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:276 holds
+- `clm-security_platform_diffs-invariant-287` — authorization, secrets
+  - anchor: src/security/security_platform_diffs.rs:287
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:287 holds
+- `clm-security_platform_diffs-invariant-289` — authorization, secrets
+  - anchor: src/security/security_platform_diffs.rs:289
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:289 holds
+- `clm-security_platform_diffs-invariant-298` — authorization, secrets
+  - anchor: src/security/security_platform_diffs.rs:298
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:298 holds
+- `clm-security_platform_diffs-invariant-307` — authorization, secrets
+  - anchor: src/security/security_platform_diffs.rs:307
+  - statement: the condition asserted at src/security/security_platform_diffs.rs:307 holds
+- `clm-shutdown_specification-invariant-337` — deletion
+  - anchor: src/state/shutdown_specification.rs:337
+  - statement: the condition asserted at src/state/shutdown_specification.rs:337 holds
+- `clm-shutdown_specification-invariant-346` — deletion
+  - anchor: src/state/shutdown_specification.rs:346
+  - statement: the condition asserted at src/state/shutdown_specification.rs:346 holds
+- `clm-test_apilayer5-boundary_crossing-22` — authorization
+  - anchor: src/tests/test_apilayer5.rs:22
+  - statement: src/tests consumes src/api through the reference at src/tests/test_apilayer5.rs:22
+- `clm-test_apilayer5-invariant-38` — authorization
+  - anchor: src/tests/test_apilayer5.rs:38
+  - statement: the condition asserted at src/tests/test_apilayer5.rs:38 holds
+- `clm-test_apilayer5-invariant-92` — authorization
+  - anchor: src/tests/test_apilayer5.rs:92
+  - statement: the condition asserted at src/tests/test_apilayer5.rs:92 holds
+- `clm-test_apilayer5-invariant-93` — authorization, secrets
+  - anchor: src/tests/test_apilayer5.rs:93
+  - statement: the condition asserted at src/tests/test_apilayer5.rs:93 holds
+- `clm-ownership_ffi_boundary-invariant-21` — safety
+  - anchor: tests/ownership_ffi_boundary.rs:21
+  - statement: the condition asserted at tests/ownership_ffi_boundary.rs:21 holds
+- `clm-ownership_ffi_boundary-invariant-22` — safety
+  - anchor: tests/ownership_ffi_boundary.rs:22
+  - statement: the condition asserted at tests/ownership_ffi_boundary.rs:22 holds
+- `clm-ownership_ffi_boundary-invariant-23` — safety
+  - anchor: tests/ownership_ffi_boundary.rs:23
+  - statement: the condition asserted at tests/ownership_ffi_boundary.rs:23 holds
+- `clm-verify_spec_26d77120-invariant-168` — authorization
+  - anchor: tests/verify_spec_26d77120.rs:168
+  - statement: the condition asserted at tests/verify_spec_26d77120.rs:168 holds
+- `clm-verify_spec_26d77120-invariant-176` — authorization
+  - anchor: tests/verify_spec_26d77120.rs:176
+  - statement: the condition asserted at tests/verify_spec_26d77120.rs:176 holds
+- `clm-verify_unsafe_isolation-invariant-103` — safety
+  - anchor: tests/verify_unsafe_isolation.rs:103
+  - statement: the condition asserted at tests/verify_unsafe_isolation.rs:103 holds
+
+## Claims reported rather than classified
+
+- `clm-standalone_server_config-invariant-657` — the line at src/api/standalone_server_config.rs:657 names secrets only inside a string literal or a comment, where the code neither performs nor omits the check; whether this is a risk proposition is a human call
+- `clm-vendored_pjsip_strategy-boundary_crossing-9` — the line at src/build/vendored_pjsip_strategy.rs:9 names secrets only inside a string literal or a comment, where the code neither performs nor omits the check; whether this is a risk proposition is a human call
+- `clm-account_config_spec-invariant-518` — the line at src/config/account_config_spec.rs:518 names secrets only inside a string literal or a comment, where the code neither performs nor omits the check; whether this is a risk proposition is a human call
+- `clm-sqlite_schema-invariant-449` — the line at src/model/sqlite_schema.rs:449 names secrets only inside a string literal or a comment, where the code neither performs nor omits the check; whether this is a risk proposition is a human call
+- `clm-shutdown_specification-invariant-415` — the line at src/state/shutdown_specification.rs:415 names deletion only inside a string literal or a comment, where the code neither performs nor omits the check; whether this is a risk proposition is a human call
+- `clm-shutdown_wiring-invariant-256` — the line at src/state/shutdown_wiring.rs:256 names deletion only inside a string literal or a comment, where the code neither performs nor omits the check; whether this is a risk proposition is a human call
+
+## What the lane requires
+
+A claim is in the security lane when the source text at its anchor — the file path, the provider member or the line itself — names one of the risk categories. A lane claim is canonised only with a human authority record naming a stable role, team or council identifier, and a falsification plan that observes behaviour rather than re-reading the text. A claim the classifier cannot settle is reported, never placed in the ordinary lane.
+
+
+## What is blocked from canonisation
+
+- served: 115
+- withheld: 0
+
+- blocked from canonisation: 115
+
+- `clm-client-invariant-279` — clm-client-invariant-279 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-call_types-invariant-123` — clm-call_types-invariant-123 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-call_types-invariant-126` — clm-call_types-invariant-126 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-http_ws_protocol-invariant-235` — clm-http_ws_protocol-invariant-235 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-public_api_design-boundary_crossing-333` — clm-public_api_design-boundary_crossing-333 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-boundary_crossing-17` — clm-standalone_server_config-boundary_crossing-17 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-boundary_crossing-43` — clm-standalone_server_config-boundary_crossing-43 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-boundary_crossing-54` — clm-standalone_server_config-boundary_crossing-54 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-failure_contract-84` — clm-standalone_server_config-failure_contract-84 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-boundary_crossing-256` — clm-standalone_server_config-boundary_crossing-256 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-boundary_crossing-270` — clm-standalone_server_config-boundary_crossing-270 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-boundary_crossing-563` — clm-standalone_server_config-boundary_crossing-563 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-boundary_crossing-579` — clm-standalone_server_config-boundary_crossing-579 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-boundary_crossing-596` — clm-standalone_server_config-boundary_crossing-596 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-boundary_crossing-613` — clm-standalone_server_config-boundary_crossing-613 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-failure_contract-693` — clm-standalone_server_config-failure_contract-693 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-invariant-710` — clm-standalone_server_config-invariant-710 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-invariant-742` — clm-standalone_server_config-invariant-742 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-boundary_crossing-760` — clm-standalone_server_config-boundary_crossing-760 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-invariant-772` — clm-standalone_server_config-invariant-772 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-invariant-778` — clm-standalone_server_config-invariant-778 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-invariant-791` — clm-standalone_server_config-invariant-791 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-invariant-837` — clm-standalone_server_config-invariant-837 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-invariant-899` — clm-standalone_server_config-invariant-899 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-invariant-911` — clm-standalone_server_config-invariant-911 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-invariant-912` — clm-standalone_server_config-invariant-912 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-standalone_server_config-invariant-1225` — clm-standalone_server_config-invariant-1225 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-io_boundary_round4-invariant-320` — clm-io_boundary_round4-invariant-320 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-io_boundary_round4-invariant-434` — clm-io_boundary_round4-invariant-434 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-client-boundary_crossing-1275` — clm-client-boundary_crossing-1275 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-command_serialization-boundary_crossing-11` — clm-command_serialization-boundary_crossing-11 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-config-boundary_crossing-41` — clm-config-boundary_crossing-41 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-config-boundary_crossing-51` — clm-config-boundary_crossing-51 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-config-boundary_crossing-52` — clm-config-boundary_crossing-52 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-config-boundary_crossing-113` — clm-config-boundary_crossing-113 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-config-invariant-123` — clm-config-invariant-123 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-account_config_spec-boundary_crossing-3` — clm-account_config_spec-boundary_crossing-3 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-account_config_spec-invariant-788` — clm-account_config_spec-invariant-788 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-account_config_spec-invariant-789` — clm-account_config_spec-invariant-789 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-account_config_spec-invariant-825` — clm-account_config_spec-invariant-825 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-client_config_spec-invariant-258` — clm-client_config_spec-invariant-258 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-stun_turn_ice_wiring-boundary_crossing-211` — clm-stun_turn_ice_wiring-boundary_crossing-211 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-stun_turn_ice_wiring-invariant-306` — clm-stun_turn_ice_wiring-invariant-306 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-transport_ice_spec-boundary_crossing-2` — clm-transport_ice_spec-boundary_crossing-2 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-transport_ice_spec-invariant-301` — clm-transport_ice_spec-invariant-301 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-media_port_adapter-invariant-203` — clm-media_port_adapter-invariant-203 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-sqlite_schema-invariant-332` — clm-sqlite_schema-invariant-332 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-sqlite_schema-invariant-439` — clm-sqlite_schema-invariant-439 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-sqlite_schema-invariant-601` — clm-sqlite_schema-invariant-601 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-sqlite_schema-invariant-652` — clm-sqlite_schema-invariant-652 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-backend-boundary_crossing-1104` — clm-backend-boundary_crossing-1104 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-backend-boundary_crossing-1105` — clm-backend-boundary_crossing-1105 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-reactor-boundary_crossing-3114` — clm-reactor-boundary_crossing-3114 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-reactor-boundary_crossing-3151` — clm-reactor-boundary_crossing-3151 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-105` — clm-auth_jwt_middleware-invariant-105 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-106` — clm-auth_jwt_middleware-invariant-106 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-107` — clm-auth_jwt_middleware-invariant-107 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-108` — clm-auth_jwt_middleware-invariant-108 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-109` — clm-auth_jwt_middleware-invariant-109 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-123` — clm-auth_jwt_middleware-invariant-123 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-124` — clm-auth_jwt_middleware-invariant-124 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-125` — clm-auth_jwt_middleware-invariant-125 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-144` — clm-auth_jwt_middleware-invariant-144 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-failure_contract-144` — clm-auth_jwt_middleware-failure_contract-144 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-159` — clm-auth_jwt_middleware-invariant-159 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-failure_contract-159` — clm-auth_jwt_middleware-failure_contract-159 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-166` — clm-auth_jwt_middleware-invariant-166 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-failure_contract-166` — clm-auth_jwt_middleware-failure_contract-166 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-181` — clm-auth_jwt_middleware-invariant-181 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-failure_contract-182` — clm-auth_jwt_middleware-failure_contract-182 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-auth_jwt_middleware-invariant-211` — clm-auth_jwt_middleware-invariant-211 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-33` — clm-security_platform_diffs-invariant-33 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-34` — clm-security_platform_diffs-invariant-34 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-128` — clm-security_platform_diffs-invariant-128 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-138` — clm-security_platform_diffs-invariant-138 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-156` — clm-security_platform_diffs-invariant-156 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-160` — clm-security_platform_diffs-invariant-160 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-164` — clm-security_platform_diffs-invariant-164 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-190` — clm-security_platform_diffs-invariant-190 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-194` — clm-security_platform_diffs-invariant-194 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-198` — clm-security_platform_diffs-invariant-198 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-202` — clm-security_platform_diffs-invariant-202 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-206` — clm-security_platform_diffs-invariant-206 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-210` — clm-security_platform_diffs-invariant-210 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-214` — clm-security_platform_diffs-invariant-214 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-215` — clm-security_platform_diffs-invariant-215 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-216` — clm-security_platform_diffs-invariant-216 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-223` — clm-security_platform_diffs-invariant-223 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-224` — clm-security_platform_diffs-invariant-224 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-231` — clm-security_platform_diffs-invariant-231 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-232` — clm-security_platform_diffs-invariant-232 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-238` — clm-security_platform_diffs-invariant-238 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-244` — clm-security_platform_diffs-invariant-244 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-250` — clm-security_platform_diffs-invariant-250 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-257` — clm-security_platform_diffs-invariant-257 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-265` — clm-security_platform_diffs-invariant-265 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-266` — clm-security_platform_diffs-invariant-266 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-274` — clm-security_platform_diffs-invariant-274 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-276` — clm-security_platform_diffs-invariant-276 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-287` — clm-security_platform_diffs-invariant-287 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-289` — clm-security_platform_diffs-invariant-289 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-298` — clm-security_platform_diffs-invariant-298 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-security_platform_diffs-invariant-307` — clm-security_platform_diffs-invariant-307 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-shutdown_specification-invariant-337` — clm-shutdown_specification-invariant-337 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-shutdown_specification-invariant-346` — clm-shutdown_specification-invariant-346 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-test_apilayer5-boundary_crossing-22` — clm-test_apilayer5-boundary_crossing-22 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-test_apilayer5-invariant-38` — clm-test_apilayer5-invariant-38 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-test_apilayer5-invariant-92` — clm-test_apilayer5-invariant-92 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-test_apilayer5-invariant-93` — clm-test_apilayer5-invariant-93 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-ownership_ffi_boundary-invariant-21` — clm-ownership_ffi_boundary-invariant-21 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-ownership_ffi_boundary-invariant-22` — clm-ownership_ffi_boundary-invariant-22 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-ownership_ffi_boundary-invariant-23` — clm-ownership_ffi_boundary-invariant-23 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-verify_spec_26d77120-invariant-168` — clm-verify_spec_26d77120-invariant-168 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-verify_spec_26d77120-invariant-176` — clm-verify_spec_26d77120-invariant-176 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+- `clm-verify_unsafe_isolation-invariant-103` — clm-verify_unsafe_isolation-invariant-103 concerns a risk category and cannot be canonised without a human authority record and a strong falsification
+  - falsification channels found: 1, required: 2
+
+A blocked claim is withheld from canonisation, not from this page: every one of them is listed above,
+and the block is a refusal to promote it into what the code ought to do. Whether the authority for a
+safety boundary is the right authority is not mechanisable and is not claimed here; the lane publishes
+which authority is required and leaves the judgement with the reader (ABOUT-REVERSE 4.6).

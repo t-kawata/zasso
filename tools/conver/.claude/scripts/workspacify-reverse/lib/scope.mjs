@@ -1,3 +1,4 @@
+// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-5 --for-spec --no-implementation-order`.
@@ -633,6 +634,7 @@ function readTargetCommit(root) {
  * @returns {object} the fixed scope, as `ANALYSIS-SCOPE.json` carries it
  */
 export function resolveScope(root, { permissions = READ_ONLY_PERMISSIONS } = {}) {
+// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
   assertAnalysableRoot(root);
   const resolvedRoot = realpathSync(root);
 
@@ -713,12 +715,20 @@ export function classifyArtefacts({ root, scope, undeterminedPaths = [], artefac
     } else {
       coverage = 'in_scope';
     }
+    // A collapsed excluded subtree carries how much of the tree it stands for.
+    // Dropping the totals here would leave the boundary unable to say what it
+    // did not measure, which is the one thing the entry exists to record.
+    const subtreeTotals = artefact.kind === 'directory'
+      ? { count: artefact.count, size: artefact.size }
+      : {};
+
     return {
       path: artefact.path,
       kind,
       coverage,
       readStatus: artefact.readStatus,
       reason: artefact.reason,
+      ...subtreeTotals,
     };
   }).sort((left, right) => compareText(left.path, right.path));
 
@@ -1720,6 +1730,13 @@ export async function analyzeProject({
   // bears on. Neither executes anything: the environment is P22-18's and the
   // ticket that runs a plan is P22-19, so a plan that cannot execute yet is
   // recorded with that reason rather than dropped.
+  // No guarded references are declared here, and that is the operational answer
+  // rather than a missing argument: a subject that must not be mutated is the
+  // operator's intent, and a project name compiled into this path would be a rule
+  // about everyone's project that names one of them. `assertNoProductionTarget`
+  // refuses the generic markers alone, and a caller that protects something
+  // declares it — `tests/workspacify-reverse/regression/genericity.test.mjs` holds
+  // this path to carrying no project name at all.
   const redPlan = stagesRun.includes('r6') && ledger !== null
     ? runStage('r6', () => planRedReconstruction({ ledger, oracleGap, gaps: classifiedGaps }))
     : null;

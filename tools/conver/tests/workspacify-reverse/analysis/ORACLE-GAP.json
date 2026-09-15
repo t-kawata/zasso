@@ -10,6 +10,27 @@
     "results": [],
     "unclassifiedCount": 0
   },
+  "tce": {
+    "caveat": "A trivial comparison decides whether two texts normalise to the same tree under one named grammar. It is not a decision about meaning: semantic equivalence is undecidable for general programs, so this stage never claims it, and every verdict records the two normalised forms it rested on so a reader can see what was compared.",
+    "comparisons": [],
+    "configuration": {
+      "comments": "stripped",
+      "configuration_id": "tree-sitter-rust@0.23.2",
+      "grammar": "tree-sitter-rust",
+      "language": "rust",
+      "wasm": "tree-sitter-rust.wasm"
+    },
+    "counts": {
+      "comparisons": 0,
+      "notTriviallyEquivalent": 0,
+      "triviallyEquivalent": 0,
+      "unreadable": 0
+    },
+    "language": "rust",
+    "unavailable": [
+      "no mutant pair was presented to this run, so no comparison was computed. E13 decides a pair, and an empty comparison list is the absence of an input rather than a clean result"
+    ]
+  },
   "unavailable": [
     "no mutation results were supplied to this run, so no survivor was classified and no equivalence was decided. This is a missing channel, not a suite with no gaps: mutation execution belongs to a stage that can build and run the target."
   ]

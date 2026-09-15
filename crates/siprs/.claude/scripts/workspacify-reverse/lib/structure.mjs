@@ -37,6 +37,7 @@ import {
   listArtefacts,
   recordAttempt,
 } from './analysis-tech.mjs';
+import { discoverBuildDatabase, recordConfigurationUse, reportDatabaseLimitation } from './build-database.mjs';
 import { BUILD_MANIFESTS, compareText } from './holdout-ledger.mjs';
 import { groupKey } from './provenance.mjs';
 
@@ -372,10 +373,18 @@ function syntaxPopulation(root, { excludedPaths = [] } = {}) {
     .sort(compareText);
 }
 
-/** The build and configuration manifests the tree declares, for the coverage block. */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-function configManifestsIn(root) {
-  return listArtefacts(root)
+/**
+ * The build and configuration manifests the tree declares, for the coverage block.
+ *
+ * The walk is handed in rather than taken again: R0.5 and the database search
+ * read the same tree, and three walks of one subject are three chances to
+ * disagree about what is on disk.
+ *
+ * @param {ReadonlyArray<object>} artefacts - a walk from `listArtefacts`
+ */
+// [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
+function configManifestsIn(artefacts) {
+  return artefacts
     .filter((artefact) => !artefact.exclusion && artefact.readStatus === 'readable')
     .filter((artefact) => BUILD_MANIFESTS.includes(artefact.path.split('/').pop()))
     .map((artefact) => artefact.path)
@@ -411,22 +420,52 @@ function packagesFrom(files, modules) {
  * rests on evidence being locatable: a finding a reader cannot go and look at
  * is not evidence, it is an assertion.
  *
- * @param {{root: string, excludedPaths?: string[], grammar?: object|null}} params
+ * @param {{root: string, excludedPaths?: string[], grammar?: object|null, configuration?: object|null}} params
  */
-export function measureStructure({ root, excludedPaths = [], grammar } = {}) {
+export function measureStructure({ root, excludedPaths = [], grammar, configuration = null } = {}) {
   const files = syntaxPopulation(root, { excludedPaths });
-  const collected = buildStructureItems({ root, files, grammar, queries: QUERIES_BY_LANGUAGE });
-  const limitations = limitationsOf({ files, attempts: collected.attempts });
+  const artefacts = listArtefacts(root);
+  // The C/C++ reading is the one whose conclusions the build configuration
+  // bounds, so the database is searched for once here and travels with the
+  // measurement rather than being re-derived by each consumer.
+  const discovery = configuration ?? discoverBuildDatabase({ root, artefacts });
+  const carriesCCpp = files.some((file) => syntaxLanguageOf(file) === 'c_cpp');
+
+  const configurationName = carriesCCpp && reportDatabaseLimitation({ discovery }) === null
+    ? discovery.path
+    : 'syntax-only';
+
+  const collected = buildStructureItems({
+    root, files, grammar, queries: QUERIES_BY_LANGUAGE, configurationName,
+  });
+  const limitations = limitationsOf({ files, attempts: collected.attempts, discovery, carriesCCpp });
+
+  // A configuration is a thing the run enumerated: a declared build manifest, or
+  // a build database. They are counted together because both answer "what does
+  // this project say about how it is built"; what is *not* counted together is
+  // the number of translation units actually read under one, which is the other
+  // counter and a different question.
+  const counters = recordConfigurationUse({
+    discovered: configManifestsIn(artefacts).length + (discovery.found ? 1 : 0),
+    analysed: configurationName === 'syntax-only' ? 0 : discovery.translationUnitCount,
+  });
 
   return assertAdapterResult({
-    // This layer resolves nothing, so `syntax_only` is the only mode it can
-    // honestly claim — and it is the floor of the scale, which is why a missing
-    // grammar is reported through `limitations` rather than by lowering it.
-    analysis_mode: ANALYSIS_MODES[0],
+    // Nothing here resolves a name, so `syntax_only` is the floor and the only
+    // claim a reading without a configuration can honestly make. A C/C++
+    // subject whose own translation-unit configuration was read is a stronger
+    // claim than that and a weaker one than name resolution — the mode states
+    // which side of the design's hard C/C++ boundary the run stood on.
+    // The mode is raised exactly when no limitation is owed, so the claim and
+    // the caveat that qualifies it cannot come apart.
+    analysis_mode: carriesCCpp && reportDatabaseLimitation({ discovery }) === null
+      ? ANALYSIS_MODES[1]
+      : ANALYSIS_MODES[0],
     coverage: {
       ...collected.coverage,
       files_semantically_resolved: 0,
-      configs_analyzed: collected.coverage.configs_enumerated,
+      configs_enumerated: counters.configsEnumerated,
+      configs_analyzed: counters.configsAnalyzed,
     },
     limitations,
     packages: packagesFrom([...collected.parseable].sort(compareText), collected.modules),
@@ -451,8 +490,8 @@ export function measureStructure({ root, excludedPaths = [], grammar } = {}) {
  * the row its language names, so this function holds no branch on the language
  * and adding a seventh language is adding a row.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
-function buildStructureItems({ root, files, grammar, queries }) {
+// [::TICKET::] P24-2, P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-2|P24-6) --for-spec --no-implementation-order`.
+function buildStructureItems({ root, files, grammar, queries, configurationName }) {
   const attempts = [];
   const parseable = new Set();
   const modules = [];
@@ -461,9 +500,11 @@ function buildStructureItems({ root, files, grammar, queries }) {
   const errorTypes = [];
   const uses = [];
   const impls = [];
+  // The per-file counts only. How many configurations the subject declares is a
+  // fact about the subject rather than about any file, and is read where the
+  // configuration was fixed.
   const coverage = emptyCoverage();
   coverage.files_discovered = files.length;
-  coverage.configs_enumerated = configManifestsIn(root).length;
 
   for (const file of files) {
     const language = syntaxLanguageOf(file);
@@ -471,7 +512,7 @@ function buildStructureItems({ root, files, grammar, queries }) {
     if (querySet === undefined) {
       attempts.push(recordAttempt({
         target: file,
-        configuration: 'syntax-only',
+        configuration: configurationName,
         tool: `tree-sitter-${language}`,
         outcome: {
           phase: 'parse',
@@ -487,7 +528,7 @@ function buildStructureItems({ root, files, grammar, queries }) {
     if (!parsed.ok) {
       attempts.push(recordAttempt({
         target: file,
-        configuration: 'syntax-only',
+        configuration: configurationName,
         tool: `tree-sitter-${language}`,
         outcome: {
           phase: 'parse',
@@ -520,7 +561,7 @@ function buildStructureItems({ root, files, grammar, queries }) {
 
     attempts.push(recordAttempt({
       target: file,
-      configuration: 'syntax-only',
+      configuration: configurationName,
       tool: `tree-sitter-${language}`,
       outcome: {
         phase: 'parse',
@@ -560,9 +601,17 @@ function implementationsFor(language, tree, file, signals) {
  * noise. The scope names the extensions the population actually carried rather
  * than the language identifier: a reader who globs for `.c_cpp` finds no file.
  */
-// [::TICKET::] P24-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-2 --for-spec --no-implementation-order`.
-function limitationsOf({ files, attempts }) {
+// [::TICKET::] P24-2, P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-2|P24-6) --for-spec --no-implementation-order`.
+function limitationsOf({ files, attempts, discovery, carriesCCpp }) {
   const limitations = [];
+
+  // Only a subject that carries C/C++ is bounded by a C/C++ build database: a
+  // Rust tree that declares none has no configuration gap, and reporting one
+  // would state a limitation about a language the run never read.
+  if (carriesCCpp) {
+    const databaseLimitation = reportDatabaseLimitation({ discovery });
+    if (databaseLimitation !== null) limitations.push(databaseLimitation);
+  }
 
   if (parserFailure !== null) {
     limitations.push({

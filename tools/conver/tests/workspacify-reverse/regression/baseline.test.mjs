@@ -1,3 +1,6 @@
+// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-208 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-208 --for-spec --no-implementation-order`.
 // [::TICKET::] P22-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-1 --for-spec --no-implementation-order`.
 /**
@@ -43,6 +46,7 @@ import {
   TREE_FIXTURES_RELATIVE_DIR,
   ALLOCATE_FIXTURES_RELATIVE_DIR,
 } from '../../../.claude/scripts/workspacify-reverse/lib/regression-gate.mjs';
+import { EXPECTED_FROZEN_COMMAND_FILES } from '../helpers/command-file.mjs';
 
 const MODULE_ROOT = process.cwd();
 
@@ -317,15 +321,15 @@ test('UT-13: two consecutive captures produce byte-identical JSON', () => {
 // premise is now false, so the assertion is updated to the truth rather than
 // dropped, and tightened: the tenth file exists, and it stays outside the set
 // the digest freezes — an edit may append to the nine, a creation is not one.
-test('C002 precondition: the nine command files exist, and the tenth P22-9 created stands beside them', () => {
+test('C002 precondition: the frozen command files exist, and the reverse definition stands beside them', () => {
   const projectRoot = makeTempProject();
   try {
-    assert.equal(COMMAND_FILE_NAMES.length, 9);
+    assert.equal(COMMAND_FILE_NAMES.length, EXPECTED_FROZEN_COMMAND_FILES);
     for (const name of COMMAND_FILE_NAMES) {
       assert.equal(existsSync(join(projectRoot, COMMANDS_RELATIVE_DIR, name + '.md')), true, name + '.md must exist');
     }
-    assert.equal(existsSync(join(projectRoot, COMMANDS_RELATIVE_DIR, 'workspacify-reverse.md')), true, 'P22-9 creates the tenth file');
-    assert.equal(COMMAND_FILE_NAMES.includes('workspacify-reverse'), false, 'the tenth file is a creation, not an edit of the nine');
+    assert.equal(existsSync(join(projectRoot, COMMANDS_RELATIVE_DIR, 'workspacify-reverse.md')), true, 'P22-9 creates the reverse command file');
+    assert.equal(COMMAND_FILE_NAMES.includes('workspacify-reverse'), false, 'the reverse file is a creation, not an edit of a pre-P22 file');
   } finally {
     rmSync(projectRoot, { recursive: true, force: true });
   }

@@ -735,7 +735,8 @@ export function renderPropertyForEngine({ language, property, engine } = {}) {
 
 /** The record a property that never reached the isolation leaves behind. */
 // [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
-function refusedProperty(property, language, engine, reason, detail, worktreeRecord = null) {
+function refusedProperty(options) {
+  const { property, language, engine, reason, detail, worktreeRecord = null } = options;
   return {
     property_id: property?.property_id ?? null,
     language,
@@ -822,14 +823,16 @@ function executedProperty(property, language, engine, observation, outcome) {
  * @returns {Promise<object>} the pass, with the generated and executed counts apart
  */
 // [::TICKET::] P24-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-5 --for-spec --no-implementation-order`.
-export async function runGeneratedProperties({
-  root = null,
-  language,
-  properties,
-  engine,
-  execute = null,
-  isolationOptions = {},
-} = {}) {
+export async function runGeneratedProperties(options = {}) {
+  const {
+    root = null,
+    language,
+    properties,
+    engine,
+    execute = null,
+    isolationOptions = {},
+  } = options;
+
   if (typeof language !== 'string' || PROPERTY_ENGINES[language] === undefined) {
     throw new Error(
       `runGeneratedProperties needs a language PROPERTY_ENGINES declares an engine for; it was given `
@@ -860,18 +863,18 @@ export async function runGeneratedProperties({
       const reason = error instanceof PropertyExpressivenessError
         ? PROPERTY_REASON_ENGINE_CANNOT_EXPRESS
         : PROPERTY_REASON_INVALID_EXECUTION_RESULT;
-      records.push(refusedProperty(property, language, engine, reason, error.message));
+      records.push(refusedProperty({ property, language, engine, reason, detail: error.message }));
       continue;
     }
 
     if (typeof execute !== 'function') {
-      records.push(refusedProperty(
+      records.push(refusedProperty({
         property,
         language,
         engine,
-        PROPERTY_REASON_ENGINE_UNAVAILABLE,
-        `no runner was supplied for ${engine}, so the property written for it was not executed`,
-      ));
+        reason: PROPERTY_REASON_ENGINE_UNAVAILABLE,
+        detail: `no runner was supplied for ${engine}, so the property written for it was not executed`,
+      }));
       continue;
     }
 
@@ -890,14 +893,14 @@ export async function runGeneratedProperties({
       const executorThrew = error instanceof WorktreeIsolationError;
       if (executorThrew && error.reason !== ISOLATION_REASON_EXECUTION_FAILED) throw error;
 
-      const record = refusedProperty(
+      const record = refusedProperty({
         property,
         language,
         engine,
-        PROPERTY_REASON_INVALID_EXECUTION_RESULT,
-        executorThrew ? `the isolated execution threw: ${error.message}` : error.message,
-        worktreeRecordOf(error.outcome ?? outcome),
-      );
+        reason: PROPERTY_REASON_INVALID_EXECUTION_RESULT,
+        detail: executorThrew ? `the isolated execution threw: ${error.message}` : error.message,
+        worktreeRecord: worktreeRecordOf(error.outcome ?? outcome),
+      });
       records.push(record);
       if (record.worktreeRecord !== null) worktrees.push(record.worktreeRecord);
     }

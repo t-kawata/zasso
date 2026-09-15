@@ -19,8 +19,9 @@
         "complete": false
       },
       "outcome": "not proved",
-      "missing": 50,
-      "packages": 5
+      "scopeSource": "partition",
+      "missing": 146,
+      "packages": 18
     },
     {
       "representative": "siprs-with-4layers",
@@ -35,8 +36,9 @@
         "complete": false
       },
       "outcome": "not proved",
-      "missing": 90,
-      "packages": 11
+      "scopeSource": "directory-walk",
+      "missing": 98,
+      "packages": 12
     },
     {
       "representative": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
@@ -51,6 +53,7 @@
         "complete": false
       },
       "outcome": "not proved",
+      "scopeSource": "partition",
       "missing": 25,
       "packages": 2
     },
@@ -67,6 +70,7 @@
         "complete": false
       },
       "outcome": "not proved",
+      "scopeSource": "directory-walk",
       "missing": 18,
       "packages": 1
     }
@@ -79,16 +83,16 @@
         "digest": "68d6a84fb85b6211cdeef0c01405e05ccaec8f7fd3d69aa24dd8ce276fc80ffd"
       },
       "analysed": 0,
-      "started_from": "5da48c08326de26d301ee30ced8596c23491a428d1b910e446a4d0b3ae8d3595"
+      "started_from": "b6dbffdd319c7cd29dd4af03468992a052c146de3c95665280279b10728d237c"
     },
     {
       "representative": "siprs-with-4layers",
       "decisions": {
         "input": "<scratch>",
-        "digest": "5157990420f6b007ce7668c49e7430f482b894a5d942b4f1e59a851a4d26bdf4"
+        "digest": "631f102db822472741936371db78ce52b39a486c4323e7bc123a62b93aa63987"
       },
       "analysed": 0,
-      "started_from": "7fff58ff6d400d246603c0755cbac06abcf41d8dd595af02e2f91fa77e049da8"
+      "started_from": "079cdf1d787042a2ad66bd2e1d073cd8f0a385ad5c6ede7929f195d4c5ccf081"
     },
     {
       "representative": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
@@ -103,7 +107,7 @@
       "representative": "tests/workspacify-reverse/fixtures/patterns/spec-only-project",
       "decisions": {
         "input": "<scratch>",
-        "digest": "5157990420f6b007ce7668c49e7430f482b894a5d942b4f1e59a851a4d26bdf4"
+        "digest": "631f102db822472741936371db78ce52b39a486c4323e7bc123a62b93aa63987"
       },
       "analysed": 0,
       "started_from": "0f1e95539f3bf1c8b12b614c54aeceb40791c1f3a2f3e09276eae3c44154145e"

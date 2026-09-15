@@ -29,6 +29,10 @@
  * by default; the chain over four representatives costs what three commands over
  * four trees cost, so it is selected deliberately — set `WSP_TERMINAL_STATE` to
  * run it.
+ *
+ * When it runs it asserts the committed record rather than refreshing it, so a
+ * record the chain no longer produces fails instead of being silently rewritten.
+ * Replacing the record is a separate, deliberate act: `WSP_TERMINAL_STATE_REGENERATE=1`.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -45,6 +49,9 @@ import {
   LADDER_POSITIONS,
   TERMINAL_OUTCOMES,
   compareTerminalStates,
+  SCOPE_SOURCES,
+  decisionsInputDigest,
+  decisionsInputText,
   measureTerminalState,
   outcomeOf,
   renderTerminalStateReport,
@@ -52,7 +59,7 @@ import {
 } from '../../../.claude/scripts/workspacify-reverse/lib/terminal-state.mjs';
 import { createScratchFrom, hashTree, sha256 } from '../helpers/scratch.mjs';
 import { buildGraphNodes } from '../helpers/graph-nodes.mjs';
-import { decisionsPathFor } from '../helpers/decisions-authoring.mjs';
+import { DECISIONS_INPUT_SKELETON, decisionsPathFor } from '../helpers/decisions-authoring.mjs';
 import { makeDecisions } from '../../workspacify-allocate/helpers/build-valid-manifest.mjs';
 import { assembleManifest } from '../../../.claude/scripts/workspacify-tree/lib/render.mjs';
 import { REVERSE_PROVENANCE_FIELD } from '../../../.claude/scripts/workspacify-tree/lib/reverse-mode.mjs';
@@ -87,6 +94,15 @@ const SIDECAR_DIR = join(PROJECT_ROOT, 'tests', 'workspacify-reverse', 'analysis
 
 /** Where this observation's record is written, so it survives without being repeated. */
 const RECORD_PATH = join(PROJECT_ROOT, 'tests', 'workspacify-reverse', 'analysis', 'TERMINAL-STATE.json');
+
+/**
+ * The flag that replaces the record instead of checking it.
+ *
+ * Set only to regenerate the observation after reading the difference. Without it the
+ * run asserts the committed bytes, so a record the chain no longer produces fails here
+ * rather than being quietly rewritten.
+ */
+const RECORD_REGENERATE_ENV = 'WSP_TERMINAL_STATE_REGENERATE';
 
 /** The design document §7.3 lives in, and where the claim it records is replaced by a citation. */
 const DESIGN_PATH = join('docs', 'WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
@@ -137,10 +153,19 @@ const GROUNDED_SPEC = join('tests', 'workspacify-tree', 'fixtures', 'objects-tab
 /** The partition that fixture's measured tree holds, so T1 compares two sets that agree. */
 const GROUNDED_DECISIONS = join('tests', 'workspacify-tree', 'fixtures', 'decisions-complete.json');
 
-/** The sections a frozen decisions input carries, empty until a human's judgement fills them. */
-const DECISIONS_SKELETON = Object.freeze({
-  workspace: [], ownership: [], dependencies: [], adapters: [], approvals: [],
-});
+/**
+ * The packages a representative's decisions input declares, or null when it declares none.
+ *
+ * Null rather than an empty list, because the two are different answers: a skeleton
+ * input carries no `tree` key at all and says nothing about the packages, while an
+ * input carrying `tree: []` says there are none. The instrument reports which of the
+ * two it was given, so this reader must not collapse them.
+ */
+// [::TICKET::] P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+function readDecisionsPartition(decisionsPath) {
+  const parsed = JSON.parse(readFileSync(decisionsPath, 'utf8'));
+  return Array.isArray(parsed.tree) ? parsed.tree : null;
+}
 
 /** True when this observation was selected deliberately. */
 const selected = process.env.WSP_TERMINAL_STATE === '1';
@@ -164,12 +189,12 @@ function scratchOutput() {
  * key the oracle rests on. A skeleton written into a subject would edit the very
  * instrument the digest exists to prove untouched.
  */
-// [::TICKET::] P24-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11, P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-11|P26-1) --for-spec --no-implementation-order`.
 function decisionsFor(representative, scratchRoot) {
   const authored = decisionsPathFor(representative);
   if (existsSync(authored)) return authored;
   const path = join(scratchRoot, 'DECISIONS.json');
-  if (!existsSync(path)) writeFileSync(path, `${JSON.stringify(DECISIONS_SKELETON, null, 2)}\n`, 'utf8');
+  if (!existsSync(path)) writeFileSync(path, decisionsInputText(DECISIONS_INPUT_SKELETON), 'utf8');
   return path;
 }
 
@@ -184,16 +209,17 @@ const SCRATCH_PLACEHOLDER = '<scratch>';
  * A path alone would not: it names where this operator happened to keep the file, and
  * the file can be edited between runs without the path changing at all.
  */
-// [::TICKET::] P24-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-12, P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-12|P26-1) --for-spec --no-implementation-order`.
 function decisionsDigestFor(representative) {
   const authored = decisionsPathFor(representative, PROJECT_ROOT);
   if (existsSync(authored)) {
     return { input: relative(PROJECT_ROOT, authored), digest: sha256(readFileSync(authored, 'utf8')) };
   }
   // A representative the chain cannot configure reads the empty skeleton, which is
-  // written beside the scratch copy. The digest is over the skeleton's own bytes, so
-  // it names what the run actually read rather than only that nothing was authored.
-  return { input: SCRATCH_PLACEHOLDER, digest: sha256(JSON.stringify(DECISIONS_SKELETON)) };
+  // written beside the scratch copy. `decisionsInputDigest` hashes the bytes
+  // `decisionsInputText` writes, so this names the file the run actually opened
+  // rather than only that nothing was authored.
+  return { input: SCRATCH_PLACEHOLDER, digest: decisionsInputDigest(DECISIONS_INPUT_SKELETON) };
 }
 
 /**
@@ -476,15 +502,36 @@ test('IT: the chain reaches the terminal state over each representative, or says
     }
 
     const summary = summariseStages(normaliseScratchPaths(stages));
-    const measured = measureTerminalState({ root: source.root });
+    // The partition the run was given. Measured 2026-09-15: no representative carries
+    // a tree manifest — the chain refuses before one is written — so the manifest
+    // cannot be the source. The frozen decisions input declares the packages and is
+    // the list a manifest is built from, and two representatives have none, which is
+    // what the walk fallback is for.
+    const declared = readDecisionsPartition(decisions);
+    const measured = measureTerminalState({ root: source.root, partition: declared });
     const outcome = outcomeOf(summary, measured);
     observations.push({
       representative,
       stages: summary,
       outcome,
+      scopeSource: measured.scopeSource,
       missing: measured.missing.length,
       packages: measured.packages.length,
     });
+
+    // The scope agrees with the input this representative was given, asserted where
+    // both readings are in hand rather than re-derived afterwards from a path that
+    // has gone out of scope.
+    assert.ok(
+      Object.values(SCOPE_SOURCES).includes(measured.scopeSource),
+      `${representative}: the scope says which source produced it`,
+    );
+    if (declared === null) {
+      assert.equal(measured.scopeSource, SCOPE_SOURCES.DIRECTORY_WALK, `${representative}: declares no partition, so the walk stands in`);
+    } else {
+      assert.equal(measured.scopeSource, SCOPE_SOURCES.PARTITION, `${representative}: declares a partition, so the partition is the scope`);
+      assert.equal(measured.packages.length, declared.length, `${representative}: the scope is the declared packages, not the directories`);
+    }
     runs.push({
       representative,
       decisions: decisionsDigestFor(representative),
@@ -548,13 +595,29 @@ test('IT: the chain reaches the terminal state over each representative, or says
     ladder,
     matrix: { states: reaching.map((state) => ({ representative: state.representative, packages: state.packages, missing: state.missing })) },
   }, null, 2)}\n`;
-  // A repeat run produces the same bytes, and rewriting identical bytes still touches a
-  // file in the suite tree that verification-surface.test.mjs digests around its own
-  // nested run — from a sibling process, so an unconditional write races it and fails
-  // that test once every few runs. Writing on change keeps the record fresh without
-  // making a concurrent reader see it move.
-  if (!existsSync(RECORD_PATH) || readFileSync(RECORD_PATH, 'utf8') !== record) {
+  // The record is asserted, and regenerated only when that is asked for.
+  //
+  // It used to be written whenever it differed, which made it unfalsifiable: a record
+  // that had stopped describing the chain was corrected by the run of the test that
+  // exists to notice it, and nothing ever reported the difference. Staleness was not
+  // detected, it was erased — and this file is the measurement §7.3 rests on, so a
+  // record nobody can falsify is the one thing it must not be.
+  //
+  // The write also raced `verification-surface.test.mjs`, a sibling process that digests
+  // this tree around its own nested run. Asserting removes the race at its source, since
+  // the measured case no longer touches the file at all.
+  //
+  // Regeneration stays available and stays deliberate: set the flag, read the diff, and
+  // commit the bytes knowingly rather than discovering them in a working tree later.
+  if (process.env[RECORD_REGENERATE_ENV] === '1') {
     writeFileSync(RECORD_PATH, record, 'utf8');
+  } else {
+    assert.equal(
+      readFileSync(RECORD_PATH, 'utf8'),
+      record,
+      `the committed observation at ${relative(PROJECT_ROOT, RECORD_PATH)} is not the one this chain produces. `
+        + `Read the difference, then regenerate it knowingly with ${RECORD_REGENERATE_ENV}=1.`,
+    );
   }
 
   assert.equal(observations.length, PATTERN_REPRESENTATIVE_ROOTS.length);
@@ -575,6 +638,17 @@ test('IT: the chain reaches the terminal state over each representative, or says
   // and no third, and each stops short for a reason the record names.
   for (const entry of observations) {
     assert.equal(TERMINAL_OUTCOMES.includes(entry.outcome), true, `${entry.representative}: the outcome is one of ${TERMINAL_OUTCOMES.join(' / ')}`);
+  }
+
+  // The scope the record kept agrees with what the representative's input declares,
+  // which is the assertion this ticket exists to make possible: the count is the
+  // declared packages where a partition is declared, and the directories only where
+  // none is. A record whose count came from somewhere else would be a number without
+  // a question behind it.
+  const declaredForSiprs = observations.find((entry) => entry.representative === 'siprs-for-reverse');
+  if (declaredForSiprs !== undefined) {
+    assert.equal(declaredForSiprs.scopeSource, SCOPE_SOURCES.PARTITION, 'the configured representative declares a partition');
+    assert.equal(declaredForSiprs.packages, 18, 'the frozen input declares eighteen packages, the root among them');
   }
   assert.equal(
     observations.some((entry) => entry.outcome === 'not proved'),
@@ -1072,4 +1146,15 @@ test('IT: §7.3 cites the record, so the claim that nothing was ever observed is
   for (const run of record.runs) {
     assert.match(run.decisions.digest, /^[0-9a-f]{64}$/, `${run.representative}: the record names its decisions digest`);
   }
+
+  // A count without its source is a number a reader cannot use: `packages: 12` could
+  // be a declared partition or a walk that counted a build directory, and the two
+  // answer different questions. The record says which, for every observation.
+  for (const entry of record.observations) {
+    assert.ok(
+      Object.values(SCOPE_SOURCES).includes(entry.scopeSource),
+      `${entry.representative}: the committed record names the source of its scope count`,
+    );
+  }
+  assert.doesNotMatch(JSON.stringify(record), /wsp-p25-3-|wsp-p24-8-/, 'and no scratch path was committed with it');
 });

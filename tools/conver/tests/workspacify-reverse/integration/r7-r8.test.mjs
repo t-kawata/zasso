@@ -56,8 +56,10 @@ import { checkBaselines } from '../../../.claude/scripts/workspacify-reverse/lib
 import { KNOWN_DELTA_RELATIVE_PATH } from '../../../.claude/scripts/workspacify-reverse/lib/oracle-bundle.mjs';
 import { NO_KNOWN_DELTA, reconcile } from '../../../.claude/scripts/workspacify-reverse/lib/reconcile.mjs';
 import { createSyntheticTree, LAYERED_SERVING_TREE, SPIKE_SLICE_FILES } from '../helpers/scratch.mjs';
+import { requestPipelineRun } from '../helpers/shared-run.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
+// [::TICKET::] P25-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-5 --for-spec --no-implementation-order`.
 const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
 const targetAvailable = existsSync(REVERSE_ROOT);
 const bundleAvailable = existsSync(join(PROJECT_ROOT, 'tests/workspacify-reverse/oracle/ORACLE-BUNDLE.json'));
@@ -251,14 +253,13 @@ test('IT-2: the falsifiability dimension reports the counterexample channel rath
 });
 
 test('IT-1: over the real experiment input, the origin spec re-parses to its sidecar', { skip: !targetAvailable }, async () => {
-  const out = scratchOutput();
-  try {
-    const outcome = await analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R8 });
+  const run = await requestPipelineRun({ root: REVERSE_ROOT, through: THROUGH_R8 });
+  {
+    const sidecar = JSON.parse(readFileSync(join(run.root, 'ORIGIN-LONG-SPEC.json'), 'utf8'));
+    const markdown = readFileSync(join(run.root, 'ORIGIN-LONG-SPEC.md'), 'utf8');
+    const ledger = JSON.parse(readFileSync(join(run.root, 'CLAIM-LEDGER.json'), 'utf8'));
 
-    const sidecar = JSON.parse(readFileSync(join(out.root, 'ORIGIN-LONG-SPEC.json'), 'utf8'));
-    const markdown = readFileSync(join(out.root, 'ORIGIN-LONG-SPEC.md'), 'utf8');
-
-    assert.equal(sidecar.claims.length, outcome.ledger.claims.length);
+    assert.equal(sidecar.claims.length, ledger.claims.length);
     assert.ok(sidecar.claims.length > 1000, `expected the real population, found ${sidecar.claims.length}`);
     assert.deepEqual(parseOriginSpec(markdown), sidecar);
     assert.equal(
@@ -266,22 +267,19 @@ test('IT-1: over the real experiment input, the origin spec re-parses to its sid
         .every((claim) => claim.grill_question.length > 0),
       true,
     );
-  } finally {
-    out.dispose();
   }
 });
 
 test('IT-5: the r8 comparison against the answer key names the differing headings', { skip: !bundleAvailable || !targetAvailable }, async () => {
-  const out = scratchOutput();
-  try {
-    await analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R8 });
+  const run = await requestPipelineRun({ root: REVERSE_ROOT, through: THROUGH_R8 });
+  {
     const knownDeltaPath = join(PROJECT_ROOT, KNOWN_DELTA_RELATIVE_PATH);
     const knownDelta = existsSync(knownDeltaPath) ? JSON.parse(readFileSync(knownDeltaPath, 'utf8')) : NO_KNOWN_DELTA;
 
     const result = reconcile({
       stage: 'r8',
       projectRoot: PROJECT_ROOT,
-      candidatePath: join(out.root, 'ORIGIN-SPEC-CANDIDATE.json'),
+      candidatePath: join(run.root, 'ORIGIN-SPEC-CANDIDATE.json'),
       knownDelta,
     });
 
@@ -293,8 +291,6 @@ test('IT-5: the r8 comparison against the answer key names the differing heading
       assert.ok(disagreement.kind.length > 0);
       assert.ok(disagreement.name.length > 0, 'a disagreement names the heading it is about');
     }
-  } finally {
-    out.dispose();
   }
 });
 
@@ -371,12 +367,10 @@ test('IT-6: the same tree publishes a byte-identical packet on a second run', as
 });
 
 test('IT-6: over the real experiment input the packet layers and reconciles', { skip: !targetAvailable }, async () => {
-  const out = scratchOutput();
-  try {
-    await analyzeProject({ root: REVERSE_ROOT, out: out.root, through: THROUGH_R7 });
-
-    const ledger = JSON.parse(readFileSync(join(out.root, 'CLAIM-LEDGER.json'), 'utf8'));
-    const markdown = readFileSync(join(out.root, 'R7-SERVING.md'), 'utf8');
+  const run = await requestPipelineRun({ root: REVERSE_ROOT, through: THROUGH_R7 });
+  {
+    const ledger = JSON.parse(readFileSync(join(run.root, 'CLAIM-LEDGER.json'), 'utf8'));
+    const markdown = readFileSync(join(run.root, 'R7-SERVING.md'), 'utf8');
     const unresolved = unresolvedIn(ledger);
 
     assert.ok(unresolved.length > CARD_LAYERING_THRESHOLD);
@@ -385,8 +379,6 @@ test('IT-6: over the real experiment input the packet layers and reconciles', { 
     assert.ok(stated.served > 0 && stated.served < unresolved.length, 'the packet serves a part of what is open');
     assert.match(markdown, /^- \*\*boundary\*\* — \d+ card\(s\)/m);
     assert.match(markdown, /^- \*\*bundle\*\* — \d+ card\(s\)/m);
-  } finally {
-    out.dispose();
   }
 });
 

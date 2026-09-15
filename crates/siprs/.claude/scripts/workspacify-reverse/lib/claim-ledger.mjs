@@ -144,7 +144,23 @@ export function resolveSourceMember(root, moduleName) {
  */
 // [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
 export function owningDirectoryOf(member) {
-  return member.endsWith(SOURCE_EXTENSION) ? directoryOf(member) : member;
+  return isFilePath(member) ? directoryOf(member) : member;
+}
+
+/**
+ * True when a member's last segment names a file rather than a directory.
+ *
+ * The distinction has to be made from the path alone, because the caller holds
+ * no walk. A dot in the last segment is what separates `wrapper.h` and
+ * `build.rs` from `src/api`; keying on the Rust extension instead made every
+ * non-Rust file its own owner, so `wrapper.h` — an in-scope file the root
+ * package holds — was reported as belonging to a package named after itself.
+ * A directory whose name contains a dot is not a case this tree has.
+ */
+// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
+function isFilePath(member) {
+  const lastSegment = member.split('/').pop() ?? member;
+  return lastSegment.includes('.') && !lastSegment.startsWith('.');
 }
 
 /**

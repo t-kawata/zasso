@@ -1,3 +1,6 @@
+// [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -37,8 +40,7 @@ import {
   ANALYSIS_STAGES,
   analyzeProject,
 } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
-import { ZG_REPORT_FILE_NAME } from '../../../.claude/scripts/workspacify-reverse/lib/zg-probe.mjs';
-import { assertCommandFileStructure } from '../helpers/command-file.mjs';
+import { EXPECTED_FROZEN_COMMAND_FILES, assertCommandFileStructure } from '../helpers/command-file.mjs';
 import { createSyntheticTree } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
@@ -51,12 +53,12 @@ const targetAvailable = existsSync(REVERSE_ROOT);
 /**
  * Run the command and capture what an operator would see.
  *
- * `PATH` is overridden per call rather than inherited so the zg branch is
- * chosen by the test and not by whatever happens to be installed on the machine
- * running it.
+ * `PATH` is overridden per call rather than inherited, so what the host has installed
+ * cannot decide what a test measures.
  */
 // [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
 // [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
 function runCli(args, { path } = {}) {
   const result = spawnSync(process.execPath, [RUNNER, ...args], {
     encoding: 'utf8',
@@ -72,8 +74,9 @@ function scratchDirectory(prefix) {
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
 }
 
-/** A PATH holding a stand-in zg and nothing of this project's. */
+/** A PATH holding a stand-in search tool, so a run can be shown to ignore one that is present. */
 // [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
 function zgBinDirectory() {
   const root = mkdtempSync(join(tmpdir(), 'wsp-zg-bin-'));
   const script = join(root, 'zg');
@@ -89,8 +92,9 @@ function zgBinDirectory() {
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
 }
 
-/** A PATH on which zg cannot be found, whatever the machine has installed. */
+/** A PATH on which no search tool resolves, whatever the machine has installed. */
 // [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
 function emptyPathDirectory() {
   return scratchDirectory('wsp-no-zg-');
 }
@@ -124,22 +128,22 @@ const CLAIM_BEARING_TREE = Object.freeze({
   'src/model.rs': 'pub struct User { pub name: String }\n',
 });
 
-// --- C001: the command file, and the nine it stands beside --------------------
+// --- C001: the command file, and the fifteen it stands beside ------------------
 
-test('C001 precondition: the nine protected command files are present and the tenth is created', () => {
-  assert.equal(COMMAND_FILE_NAMES.length, 9);
+test('C001 precondition: the frozen command files are present, and the reverse definition is created rather than frozen', () => {
+  assert.equal(COMMAND_FILE_NAMES.length, EXPECTED_FROZEN_COMMAND_FILES);
   for (const name of COMMAND_FILE_NAMES) {
     assert.equal(existsSync(join(PROJECT_ROOT, COMMANDS_RELATIVE_DIR, `${name}.md`)), true, `${name}.md must exist`);
   }
-  assert.equal(existsSync(NEW_COMMAND_PATH), true, 'P22-9 creates the tenth command file');
+  assert.equal(existsSync(NEW_COMMAND_PATH), true, 'P22-9 creates the reverse command file');
   assert.equal(
     COMMAND_FILE_NAMES.includes('workspacify-reverse'),
     false,
-    'the tenth file is deliberately outside the frozen digest: it is a creation, not an edit',
+    'the reverse file is deliberately outside the frozen digest: it is a creation, not an edit',
   );
 });
 
-test('C001 postcondition / UT-1: the new command file carries the same structural elements as the nine', () => {
+test('C001 postcondition / UT-1: the reverse command file carries the eight structural elements', () => {
 // [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
   // The eight assertions live in `helpers/command-file.mjs`, so this test and the
   // procedure guard added by P23-1 hold the file to one definition of them.
@@ -158,7 +162,7 @@ test('C001 invariant / UT-10 / IT-2: no protected command file is modified again
   assert.deepEqual(
     Object.keys(baseline.commandFileDigests).sort(),
     [...COMMAND_FILE_NAMES].sort(),
-    'the baseline freezes exactly the nine',
+    'the baseline freezes exactly the frozen set',
   );
 });
 
@@ -312,113 +316,114 @@ test('UT-4: an unknown stage is refused by name rather than silently running eve
   }
 });
 
-// --- C003: zg in the serving layer --------------------------------------------
+// --- The published set is closed, and a withdrawn question is refused ---------
 
-test('IT-4 / UT-11: the deterministic documents do not depend on zg, and the candidate section does', () => {
+// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+test('IT-4: the published set is the same whatever the host has installed', () => {
+  // The stand-in is kept on PATH rather than dropped with the tool, because the
+  // property is that an installed search tool changes nothing — a PATH without one
+  // cannot show that. This is the property the removed section's own test asserted,
+  // and it outlives the section it was written beside.
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
-  const withZg = scratchDirectory('wsp-with-zg-');
-  const withoutZg = scratchDirectory('wsp-without-zg-');
-  const zgBin = zgBinDirectory();
-  const noZg = emptyPathDirectory();
+  const served = scratchDirectory('wsp-with-tool-');
+  const bare = scratchDirectory('wsp-without-tool-');
+  const toolBin = zgBinDirectory();
+  const noTool = emptyPathDirectory();
   try {
-    const present = runCli(['analyze', tree.root, `--out=${withZg.root}`, '--query=where credentials are validated'], {
-      path: `${zgBin.root}:${process.env.PATH}`,
-    });
-    const absent = runCli(['analyze', tree.root, `--out=${withoutZg.root}`, '--query=where credentials are validated'], {
-      path: noZg.root,
-    });
+    const withTool = runCli(['analyze', tree.root, `--out=${served.root}`], { path: `${toolBin.root}:${process.env.PATH}` });
+    const withoutTool = runCli(['analyze', tree.root, `--out=${bare.root}`], { path: noTool.root });
 
-    assert.equal(present.status, 0, present.stderr);
-    assert.equal(absent.status, 0, absent.stderr);
+    assert.equal(withTool.status, 0, withTool.stderr);
+    assert.equal(withoutTool.status, 0, withoutTool.stderr);
+    assert.deepEqual(
+      publishedNames(served.root),
+      publishedNames(bare.root),
+      'a search tool on PATH adds no document and removes none',
+    );
 
-    const namesWith = publishedNames(withZg.root).filter((name) => name !== ZG_REPORT_FILE_NAME);
-    const namesWithout = publishedNames(withoutZg.root).filter((name) => name !== ZG_REPORT_FILE_NAME);
-    assert.deepEqual(namesWith, namesWithout, 'zg adds no deterministic document and removes none');
-    assert.deepEqual(namesWith, publishedNames(withoutZg.root), 'and the absent run publishes no candidate section');
-
-    for (const name of namesWith) {
+    for (const name of publishedNames(served.root)) {
       assert.equal(
-        readFileSync(join(withZg.root, name), 'utf8'),
-        readFileSync(join(withoutZg.root, name), 'utf8'),
-        `${name} must be byte-identical: no deterministic stage may consume a zg result`,
+        readFileSync(join(served.root, name), 'utf8'),
+        readFileSync(join(bare.root, name), 'utf8'),
+        `${name} must be byte-identical: no stage may read the host`,
       );
     }
-
-    assert.equal(existsSync(join(withZg.root, ZG_REPORT_FILE_NAME)), true, 'zg present serves a candidate section');
-    assert.equal(existsSync(join(withoutZg.root, ZG_REPORT_FILE_NAME)), false, 'an absent zg is served as no candidate section');
   } finally {
     tree.dispose();
-    withZg.dispose();
-    withoutZg.dispose();
-    zgBin.dispose();
-    noZg.dispose();
+    served.dispose();
+    bare.dispose();
+    toolBin.dispose();
+    noTool.dispose();
   }
 });
 
-test('IT-4: the candidate section is present and says in plain English that a candidate is not a finding', () => {
+/** The `## Arguments` section of a command file, which is where an option is documented. */
+function argumentsSection(text) {
+  const start = text.indexOf('## Arguments');
+  assert.notEqual(start, -1, 'the command file has an Arguments section');
+  const end = text.indexOf('\n## ', start + 1);
+  return text.slice(start, end === -1 ? text.length : end);
+}
+
+test('UT: an option is documented exactly when the entrance declares it', () => {
+  // An option is documented when it heads a list item; one named inside a sentence is
+  // being talked about, which is how the withdrawn option appears.
+  const documented = new Set(
+    [...argumentsSection(readFileSync(NEW_COMMAND_PATH, 'utf8')).matchAll(/^\s+- `(--[a-z-]+)/gm)]
+      .map(([, name]) => name),
+  );
+
+  const source = readFileSync(RUNNER, 'utf8');
+  const usage = /const USAGE = \[([\s\S]*?)\]\.join\('\\n'\)/.exec(source);
+  assert.notEqual(usage, null, 'the entrance declares its options in one block');
+  const declared = new Set([...usage[1].matchAll(/--[a-z-]+/g)].map(([name]) => name));
+
+  const undeclared = [...documented].filter((name) => !declared.has(name));
+  assert.deepEqual(undeclared, [], `the command file documents options the entrance does not declare: ${undeclared.join(', ')}`);
+
+  const analyzeLine = /run\.mjs analyze <root>([^']*)'/.exec(source);
+  assert.notEqual(analyzeLine, null, 'the entrance prints how analyze is invoked');
+  const undocumented = [...new Set([...analyzeLine[1].matchAll(/--[a-z-]+/g)].map(([name]) => name))]
+    .filter((name) => !documented.has(name));
+  assert.deepEqual(undocumented, [], `the entrance accepts options the command file does not document: ${undocumented.join(', ')}`);
+});
+
+test('UT: a withdrawn question is refused by name, and nothing is published', () => {
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
-  const out = scratchDirectory('wsp-candidates-');
-  const zgBin = zgBinDirectory();
+  const out = scratchDirectory('wsp-withdrawn-');
   try {
-    const run = runCli(['analyze', tree.root, `--out=${out.root}`, '--query=where credentials are validated'], {
-      path: `${zgBin.root}:${process.env.PATH}`,
-    });
+    const run = runCli(['analyze', tree.root, `--out=${out.root}`, '--query=where credentials are validated']);
+
+    assert.notEqual(run.status, 0, 'a question the entrance cannot answer is not a success');
+    assert.match(run.stderr, /--query/, 'the option is named rather than the failure being left anonymous');
+    assert.match(run.stderr, /Nothing was published/);
+    assert.deepEqual(publishedNames(out.root), [], 'a refused run leaves no document behind');
+  } finally {
+    tree.dispose();
+    out.dispose();
+  }
+});
+
+test('UT: the entrance serves the pipeline\'s documents and none of its own', async () => {
+  const tree = createSyntheticTree(CLAIM_BEARING_TREE);
+  const throughEntrance = scratchDirectory('wsp-entrance-');
+  const throughPipeline = scratchDirectory('wsp-pipeline-');
+  try {
+    const run = runCli(['analyze', tree.root, `--out=${throughEntrance.root}`]);
     assert.equal(run.status, 0, run.stderr);
+    await analyzeProject({ root: tree.root, out: throughPipeline.root, through: 'r8' });
 
-    const section = readFileSync(join(out.root, ZG_REPORT_FILE_NAME), 'utf8');
-    assert.match(section, /^## /m, 'the candidate section is a section');
-    assert.match(section, /candidate/i);
-    assert.match(section, /does not settle a claim/i, 'the section states what a candidate may not be used for');
-    assert.match(section, /src\/api\/login\.rs:4/, 'a hit is served with its location, not as a bare statement');
+    // This is what makes the set closed: a document that exists because of what the
+    // host has installed would appear here and nowhere in the pipeline's own output.
+    assert.deepEqual(
+      publishedNames(throughEntrance.root),
+      publishedNames(throughPipeline.root),
+      'the entrance adds no document to the ones the stages publish',
+    );
   } finally {
     tree.dispose();
-    out.dispose();
-    zgBin.dispose();
-  }
-});
-
-test('IT-4: an installed zg with no question asked does not break the invocation the command file documents', () => {
-  const tree = createSyntheticTree(CLAIM_BEARING_TREE);
-  const out = scratchDirectory('wsp-zg-unasked-');
-  const zgBin = zgBinDirectory();
-  try {
-    // No `--query`: this is the form the command definition's Step 1 gives, and
-    // it is the form an operator runs. An installed search tool with nothing to
-    // search for is as ordinary as an absent one, and must not be a failure.
-    const run = runCli(['analyze', tree.root, `--out=${out.root}`], { path: `${zgBin.root}:${process.env.PATH}` });
-
-    assert.equal(run.status, 0, run.stderr);
-    assert.match(run.stdout, /zg is installed/);
-    assert.match(run.stdout, /no question was asked/i);
-    assert.doesNotMatch(run.stderr, /TypeError|renderZgReport/, 'a normal state is never reported as a stack trace');
-
-    assert.equal(existsSync(join(out.root, 'ORIGIN-LONG-SPEC.json')), true, 'the analysis is complete without a search');
-    const section = readFileSync(join(out.root, ZG_REPORT_FILE_NAME), 'utf8');
-    assert.match(section, /^## /m);
-    assert.match(section, /no question was asked/i);
-  } finally {
-    tree.dispose();
-    out.dispose();
-    zgBin.dispose();
-  }
-});
-
-test('UT-5 / UT-8: an unavailable zg is reported and the run completes without it', () => {
-  const tree = createSyntheticTree(CLAIM_BEARING_TREE);
-  const out = scratchDirectory('wsp-no-zg-out-');
-  const noZg = emptyPathDirectory();
-  try {
-    const run = runCli(['analyze', tree.root, `--out=${out.root}`], { path: noZg.root });
-
-    assert.equal(run.status, 0, 'an absent search tool never aborts a run');
-    assert.match(run.stdout, /zg/, 'the absence is reported');
-    assert.match(run.stdout, /not installed|unavailable/i);
-    assert.equal(existsSync(join(out.root, ZG_REPORT_FILE_NAME)), false);
-    assert.equal(existsSync(join(out.root, 'ORIGIN-LONG-SPEC.json')), true, 'a complete analysis is still produced');
-  } finally {
-    tree.dispose();
-    out.dispose();
-    noZg.dispose();
+    throughEntrance.dispose();
+    throughPipeline.dispose();
   }
 });
 

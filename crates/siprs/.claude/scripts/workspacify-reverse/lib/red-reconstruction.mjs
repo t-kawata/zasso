@@ -125,14 +125,31 @@ export const ISOLATED_ENVIRONMENT = 'isolated_environment';
  * The list is checked against every target a plan emits, so that a target which
  * would have to be restored by hand — or not restored at all — is refused where
  * it is written rather than discovered when it is broken.
+ *
+ * **The list names states, not projects.** It carried `siprs-with-4layers` until
+ * P25-4: a rule applied to every subject that named one of them protects that one
+ * and leaves the rest refused only if their paths happen to contain a word above.
+ * A tree that must not be mutated declares itself through `DEFAULT_GUARDED_REFERENCES`
+ * below, which is the shape `sandbox.mjs` already uses for the same reason. Adding a
+ * project name back here would restore the defect the sweep in
+ * `tests/workspacify-reverse/regression/genericity.test.mjs` exists to catch.
  */
 export const PRODUCTION_MARKERS = Object.freeze([
   'production',
   'prod/',
   'live',
   'cluster',
-  'siprs-with-4layers',
 ]);
+
+/**
+ * The references a caller declares in addition to the generic markers.
+ *
+ * Empty by default, and an empty set is a legitimate configuration rather than a
+ * missing one: the operational path declares nothing, because a subject that must
+ * not be mutated is the operator's intent and not something this module can infer.
+ * An experiment caller declares the trees it protects.
+ */
+export const DEFAULT_GUARDED_REFERENCES = Object.freeze([]);
 
 /** The ticket that supplies the environment a plan executes in. */
 export const ENVIRONMENT_PROVIDED_BY = 'P22-18';
@@ -279,7 +296,7 @@ export function selectTechnique(claim, { gaps = null, oracleGap = null } = {}) {
  * Exported so a caller can assert the invariant over a plan it did not build,
  * and called on every entry this module emits.
  */
-export function assertNoProductionTarget(entry) {
+export function assertNoProductionTarget(entry, { declared = DEFAULT_GUARDED_REFERENCES } = {}) {
   const target = entry?.target;
   if (target?.kind !== ISOLATED_ENVIRONMENT) {
     throw new Error(
@@ -288,7 +305,23 @@ export function assertNoProductionTarget(entry) {
       + 'production state is forbidden',
     );
   }
-  for (const marker of PRODUCTION_MARKERS) {
+  if (typeof target.ref !== 'string') {
+    throw new Error(
+      `the plan for ${entry?.claim_id ?? '(unnamed)'} carries a ref that is not a string `
+      + `(${typeof target.ref}): a reference that cannot be read cannot be checked, and comparing it `
+      + 'would match nothing while reporting nothing',
+    );
+  }
+  for (const reference of declared) {
+    if (typeof reference !== 'string') {
+      throw new Error(
+        `a declared reference is not a string (${typeof reference}): declarations are compared against `
+        + 'target references, so one that cannot be compared would be a guard that silently does not guard',
+      );
+    }
+  }
+
+  for (const marker of [...PRODUCTION_MARKERS, ...declared]) {
     if (target.ref.includes(marker)) {
       throw new Error(
         `the plan for ${entry?.claim_id ?? '(unnamed)'} names ${target.ref}, which carries the `
@@ -300,8 +333,8 @@ export function assertNoProductionTarget(entry) {
 }
 
 /** One plan entry, with every field the schema names and the environment's verdict. */
-// [::TICKET::] P22-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-7 --for-spec --no-implementation-order`.
-function buildEntry(claim, { selected, environment }) {
+// [::TICKET::] P22-7, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-7|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
+function buildEntry(claim, { selected, environment, guarded }) {
   const anchor = anchorOf(claim);
   const technique = selected.technique;
   const effects = technique === null ? null : TECHNIQUE_EFFECTS[technique];
@@ -340,7 +373,7 @@ function buildEntry(claim, { selected, environment }) {
   };
   if (technique === null) entry.reason = selected.reason;
 
-  assertNoProductionTarget(entry);
+  assertNoProductionTarget(entry, { declared: guarded });
   return entry;
 }
 
@@ -381,11 +414,20 @@ function countOracleIndependence(entries) {
  * that it cannot run. That is not a gap in this stage — this stage plans, and
  * P22-19 executes once the environment exists.
  */
-export function planRedReconstruction({ ledger, oracleGap = null, gaps = null, environment = null } = {}) {
+export function planRedReconstruction({
+  ledger,
+  oracleGap = null,
+  gaps = null,
+  guarded = DEFAULT_GUARDED_REFERENCES,
+} = {}) {
   if (ledger === null || typeof ledger !== 'object' || !Array.isArray(ledger.claims)) {
     throw new Error('planRedReconstruction needs the claim ledger to plan against; it was given none');
   }
-  const resolvedEnvironment = environment ?? {
+  // The environment is not an input. It was one until P25-4 and no caller ever
+  // supplied it: every call site passed the ledger and the refinements, so the
+  // parameter could only ever hold the value below. A plan that cannot execute is
+  // recorded with its reason, which is the honest outcome while no sandbox exists.
+  const resolvedEnvironment = {
     kind: ISOLATED_ENVIRONMENT,
     available: false,
     provided_by: ENVIRONMENT_PROVIDED_BY,
@@ -398,7 +440,7 @@ export function planRedReconstruction({ ledger, oracleGap = null, gaps = null, e
   const unassigned = [];
   for (const claim of ledger.claims) {
     const selected = selectTechnique(claim, { gaps, oracleGap });
-    const entry = buildEntry(claim, { selected, environment: resolvedEnvironment });
+    const entry = buildEntry(claim, { selected, environment: resolvedEnvironment, guarded });
     entries.push(entry);
     if (entry.technique === null) unassigned.push({ claim_id: entry.claim_id, reason: selected.reason });
   }

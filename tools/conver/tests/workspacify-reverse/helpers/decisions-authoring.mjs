@@ -79,6 +79,24 @@ function emptyOwns() {
 const DECISIONS_MIRROR = join('tests', 'workspacify-reverse', 'fixtures', 'patterns');
 
 /**
+ * The decisions input a representative the chain cannot configure reads.
+ *
+ * Every section a frozen decisions input carries, empty until a human's judgement
+ * fills them. It is written beside the scratch copy rather than inside the
+ * representative, because the representatives are frozen instruments and one of them
+ * is the answer key the oracle rests on.
+ *
+ * It is declared here, beside the path that locates an authored input, so that the
+ * bytes a run reads and the digest the observation records it by are computed from
+ * one declaration. The observation is checked against them from the unit surface,
+ * which is the only surface that runs on every routine test run.
+ */
+export const DECISIONS_INPUT_SKELETON = Object.freeze({
+// [::TICKET::] P26-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-1 --for-spec --no-implementation-order`.
+  workspace: [], ownership: [], dependencies: [], adapters: [], approvals: [],
+});
+
+/**
  * Where the authored decisions input for one representative lives.
  *
  * A representative under `tests/` is a fixture and already holds its own files,

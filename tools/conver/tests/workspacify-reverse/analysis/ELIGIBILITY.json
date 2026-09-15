@@ -1,0 +1,1280 @@
+{
+  "conditions": [
+    {
+      "dangerSignals": [
+        "no_tests_or_tests_do_not_pass"
+      ],
+      "evidence": [
+        {
+          "line": 1,
+          "note": "the manifest declares the project at this line; that it is present is a source fact, and whether it builds is not",
+          "path": "Cargo.toml"
+        }
+      ],
+      "evidenceMode": null,
+      "id": "builds",
+      "measured": {
+        "manifestPresent": true
+      },
+      "question": "Does the project build?",
+      "settlesBy": "build_semantic",
+      "state": "not_measurable_statically",
+      "whatWouldSettleIt": "A manifest is present, and whether it builds is a `build_semantic` question this read-only run does not answer — a build writes to the subject and the analysis refuses to publish when a byte moved. Running the declared build would settle it."
+    },
+    {
+      "dangerSignals": [
+        "no_tests_or_tests_do_not_pass"
+      ],
+      "evidence": [
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/api/dtmf_spec_received.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/config/account_config_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/config/client_config_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/config/transport_ice_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/model/dtmf_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/model/raw_sip_message_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/tests/docker_asterisk_it.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/tests/m20_test_dual_client.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/tests/mod.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/tests/raw_sip_real_test.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/tests/real_pjsip_itest.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/tests/test_apilayer5.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "src/tests/test_strategy_4layer.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/non_exhaustive.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/ownership_ffi_boundary.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/runtime_audio_lifecycle.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/sip_integration.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/verify_feature_additive_build.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/verify_spec_0963da9b.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/verify_spec_26d77120.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/verify_spec_36123930.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/verify_spec_4b35a676.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/verify_spec_64eff610.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/verify_spec_7c1bb4d6.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/verify_spec_7e78be0d.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/verify_spec_a4ecaf0f.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/verify_spec_e0606bc3.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/verify_spec_f330ed39.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file, counted from the path alone; whether it runs and passes is not a fact this channel reads",
+          "path": "tests/verify_unsafe_isolation.rs"
+        }
+      ],
+      "evidenceMode": null,
+      "id": "tests_exist_and_can_run",
+      "measured": {
+        "testCommand": "cargo test",
+        "testFileCount": 29
+      },
+      "question": "Do tests exist, and can they be run?",
+      "settlesBy": "runtime_dynamic",
+      "state": "not_measurable_statically",
+      "whatWouldSettleIt": "Whether these tests run and pass is a `runtime_dynamic` question, and this read-only run executes nothing. `cargo test` is the command the declared `Cargo.toml` implies, and running it would settle the condition."
+    },
+    {
+      "dangerSignals": [
+        "no_history"
+      ],
+      "evidence": [
+        {
+          "line": null,
+          "note": "the run fixed this subject at commit 1266a9137ef7, and this project sits inside the work tree at /Users/kawata/shyme/zasso and is not a repository of its own",
+          "path": "."
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "git_history_exists",
+      "measured": {
+        "commit": "1266a9137ef7065fd5c7e2d86c8e8eb439778248",
+        "commitPresent": true,
+        "isOwnRepository": false
+      },
+      "note": "A history exists and this run has its commit. Whether that history carries meaning — squashed, rewritten, or migrated from another VCS — is what R4 reads into `HISTORY-PROVENANCE.json`, and the danger signal below reports that half as unread rather than as clean.",
+      "question": "Does a git history exist?",
+      "settlesBy": "source_static",
+      "state": "established_statically"
+    },
+    {
+      "dangerSignals": [
+        "dynamic_language_metaprogramming_dominates"
+      ],
+      "evidence": [
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "build.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "examples/account_register.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "examples/audio_tap.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "examples/client_init.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "examples/common/cli.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "examples/common/client.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "examples/make_call.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "examples/tts_source.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/account.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/asyncaudiosrc_adapter.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/audio_subscribe_bp.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/call_api_expansion.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/call_api_semantics.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/call_types.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/dtmf_spec_received.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/dtmf_unification.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/event_bus_guarantees.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/event_bus_unify.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/event_model_payload_bus.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/eventbus_receiver.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/http_ws_crate_split.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/http_ws_protocol.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/incoming_call_events.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/incoming_call_refer.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/m20_dtmfsent_twophase.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/mod.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/public_api_design.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/api/standalone_server_config.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/architecture/crate_scope.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/architecture/examples_e1e5.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/architecture/impl_integration_design.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/architecture/io_boundary_round2.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/architecture/io_boundary_round3.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/architecture/io_boundary_round4.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/architecture/mod.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/architecture/policy_reference.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/architecture/round2_scope_rootcause.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/architecture/round3_scope_rootcause.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/architecture/round4_scope_rootcause.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/architecture/round4_tickets.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/audio/audiomixer_rt_boundary.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/audio/media_path_arch.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/audio/media_path_wiring.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/audio/mod.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/audio/pipeline.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/build/bindgen_enum_generation.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/build/build_rs_resolution.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/build/build_script_bindgen.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/build/build_strategy_os_deps.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/build/cicd_docker_prebuilt.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/build/mod.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/build/prebuilt_ci_commit.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/build/prebuilt_producer.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/build/static_link_strategy.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/build/vendored_pjsip_strategy.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/call.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/client.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/concurrency_contexts/command_serialization.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/config.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/config/account_config_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/config/client_config_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/config/client_config_unify.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/config/codec_policy_fallback.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/config/m20_codec_auto_mode.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/config/observability_metrics.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/config/semver_sip_networking.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/config/srtp_transport_reconnect.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/config/stun_turn_ice_wiring.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/config/transport_ice_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/config/versioning_policy.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/error.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/error/challenges_panic_policy.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/error/error_design_siperror.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/error/error_native_status.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/error/m20_runtime_command_error.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/error/m20_shutdown_routing.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/event.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/ffi/backend_calls.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/ffi/bindings.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/ffi/callback.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/ffi/constants.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/ffi/ice_transport_error.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/ffi/m20_dual_client_routing.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/ffi/media_port_adapter.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/ffi/mod.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/ffi/pj_str.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/ffi/pjsip_ffi_layer.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/ffi/raw_sip_module.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/ffi/transport_wiring.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/lib.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/model/audio_aligner.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/model/audio_format_chunkpair.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/model/audio_resampler.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/model/dtmf_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/model/id_design_newtype.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/model/media_bridge.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/model/memory_ownership_defaults.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/model/mod.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/model/raw_sip_message_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/model/sqlite_schema.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/add_audio_source.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/audio_worker.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/audioworker_lifecycle.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/backend.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/backend_selection.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/command.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/event_path_wiring.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/handle.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/mod.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/push_media_frame.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/reactor.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/runtime_state_lock_rules.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/runtime/state.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/security/auth_jwt_middleware.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/security/mod.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/security/security_platform_diffs.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/state/call_state_model.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/state/m20_callstate_mapping.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/state/m20_native_event_conv.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/state/m20_registr_cmd_pat.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/state/mod.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/state/reg_account_lifecycle.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/state/registr_state_machine.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/state/registr_wiring.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/state/shutdown_specification.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/state/shutdown_wiring.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/tests/docker_asterisk_it.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/tests/m20_test_dual_client.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/tests/mod.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/tests/raw_sip_real_test.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/tests/real_pjsip_itest.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/tests/test_apilayer5.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/tests/test_strategy_4layer.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "src/transport.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/non_exhaustive.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/ownership_ffi_boundary.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/runtime_audio_lifecycle.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/sip_integration.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/verify_feature_additive_build.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/verify_spec_0963da9b.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/verify_spec_26d77120.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/verify_spec_36123930.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/verify_spec_4b35a676.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/verify_spec_64eff610.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/verify_spec_7c1bb4d6.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/verify_spec_7e78be0d.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/verify_spec_a4ecaf0f.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/verify_spec_e0606bc3.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/verify_spec_f330ed39.rs"
+        },
+        {
+          "line": null,
+          "note": "rust, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "tests/verify_unsafe_isolation.rs"
+        },
+        {
+          "line": null,
+          "note": "c_cpp, classified from the path alone; the classification is a fact about the extension, so no line of the file is where it was read",
+          "path": "wrapper.h"
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "main_language_analysable",
+      "measured": {
+        "dominantLanguage": "rust",
+        "dominantLanguageCount": 150,
+        "languagesConsidered": [
+          "rust",
+          "typescript",
+          "javascript",
+          "go",
+          "python",
+          "c_cpp"
+        ]
+      },
+      "note": "rust dominates with 150 source file(s), and `GRAMMAR_BY_LANGUAGE` carries the `tree-sitter-rust` grammar for it. A grammar being installed is not the same as an extractor being written: the capability matrix carries that second half, and this condition claims only the first.",
+      "question": "Is the main language analysable?",
+      "settlesBy": "source_static",
+      "state": "established_statically"
+    },
+    {
+      "dangerSignals": [
+        "generated_code_dominates"
+      ],
+      "evidence": [
+        {
+          "line": null,
+          "note": "151 source file(s) sit in 17 source-bearing directories, the largest holding 0.1258 of them",
+          "path": "."
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "directory_structure_carries_meaning",
+      "measured": {
+        "directoryCount": 17,
+        "largestDirectoryShare": 0.1258,
+        "sourceFileCount": 151
+      },
+      "question": "Does the directory structure carry meaning?",
+      "settlesBy": "source_static",
+      "state": "established_statically"
+    },
+    {
+      "dangerSignals": [
+        "knowledge_closed_to_one_person"
+      ],
+      "evidence": [
+        {
+          "line": 1,
+          "note": "the first comment line in the source population, read from the text with the comment prefix its language uses",
+          "path": "build.rs"
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "documentation_or_comments_survive",
+      "measured": {
+        "commentFilesScanned": 1,
+        "commentFound": true,
+        "documentationFileCount": 0,
+        "firstComment": {
+          "line": 1,
+          "path": "build.rs"
+        },
+        "unreadable": []
+      },
+      "question": "Do documentation or comments survive somewhere?",
+      "settlesBy": "source_static",
+      "state": "established_statically"
+    }
+  ],
+  "note": "These are the conditions and the signals of ABOUT-REVERSE 3.6, read from the source text and published before anything runs. This is not a judgement about whether the reverse rotation will succeed, and no field here combines them into one: the conditions and the signals are material for a human deciding whether to start, or to rebuild from zero (design 4.1), and the decision is yours.",
+  "root": "/Users/kawata/shyme/zasso/tools/conver/siprs-for-reverse",
+  "signals": [
+    {
+      "evidence": [
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/api/dtmf_spec_received.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/config/account_config_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/config/client_config_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/config/transport_ice_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/model/dtmf_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/model/raw_sip_message_spec.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/tests/docker_asterisk_it.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/tests/m20_test_dual_client.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/tests/mod.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/tests/raw_sip_real_test.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/tests/real_pjsip_itest.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/tests/test_apilayer5.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "src/tests/test_strategy_4layer.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/non_exhaustive.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/ownership_ffi_boundary.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/runtime_audio_lifecycle.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/sip_integration.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/verify_feature_additive_build.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/verify_spec_0963da9b.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/verify_spec_26d77120.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/verify_spec_36123930.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/verify_spec_4b35a676.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/verify_spec_64eff610.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/verify_spec_7c1bb4d6.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/verify_spec_7e78be0d.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/verify_spec_a4ecaf0f.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/verify_spec_e0606bc3.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/verify_spec_f330ed39.rs"
+        },
+        {
+          "line": null,
+          "note": "a test file that exists; whether it passes is not a fact this channel reads",
+          "path": "tests/verify_unsafe_isolation.rs"
+        }
+      ],
+      "evidenceMode": null,
+      "id": "no_tests_or_tests_do_not_pass",
+      "note": "This is evidence of test files being present. It is not evidence of their passing, and the two halves are reported apart so the first is never read as the second.",
+      "question": "Are tests missing, or present and not passing?",
+      "raisesBy": "runtime_dynamic",
+      "state": "not_measurable_statically",
+      "whatWouldRaiseIt": "Running the suite is what would raise or dismiss the second half — `runtime_dynamic` evidence, which this read-only run does not take."
+    },
+    {
+      "evidence": [
+        {
+          "line": null,
+          "note": "the run resolved a commit for this subject, so the \"no history\" half of this signal does not fire from the source text",
+          "path": "."
+        }
+      ],
+      "evidenceMode": null,
+      "id": "no_history",
+      "note": "This is evidence of a history being reachable. It is not evidence of that history being intact; reporting it as dismissed would be reading a channel limit as an absence (F12).",
+      "question": "Is the history gone — squashed, or migrated from another VCS?",
+      "raisesBy": "source_static",
+      "state": "not_measurable_statically",
+      "whatWouldRaiseIt": "Whether that history was squashed or migrated is read by R4 into `HISTORY-PROVENANCE.json` — `source_static` evidence this run has not taken. R4 settles it."
+    },
+    {
+      "evidence": [
+        {
+          "line": null,
+          "note": "2 artefact(s) sit under directories the analysis records rather than measures, against 151 in the project's own source",
+          "path": "."
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "generated_code_dominates",
+      "note": "This is evidence of how much material the analysis records rather than reads as the project's own source. It is not evidence of that material having been generated, and the two are different claims.",
+      "question": "Does material the analysis records rather than reads dominate the tree?",
+      "raisesBy": "source_static",
+      "state": "not_established_statically",
+      "whatWouldRaiseIt": "A `source_static` reading settles this and this one was taken; no further channel is needed."
+    },
+    {
+      "evidence": [
+        {
+          "line": null,
+          "note": "rust dominates the population, and it composes statically",
+          "path": "."
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "dynamic_language_metaprogramming_dominates",
+      "note": "This is evidence of the language the population is written in. It is not evidence of metaprogramming being absent — the mechanism markers are not read for any of the six languages.",
+      "question": "Is a dynamic language with dominant metaprogramming the population?",
+      "raisesBy": "source_static",
+      "state": "not_established_statically",
+      "whatWouldRaiseIt": "A `source_static` reading settles this, and the reading was taken: the signal cannot fire on a corpus with no dynamic language."
+    },
+    {
+      "evidence": [
+        {
+          "line": null,
+          "note": "whether the business knowledge is closed to a person is not a fact any file records, and no channel here reaches it",
+          "path": "."
+        }
+      ],
+      "evidenceMode": null,
+      "id": "knowledge_closed_to_one_person",
+      "note": "This is evidence of the question standing open. It is not evidence of the knowledge being closed, and it is not evidence of it being shared.",
+      "question": "Is the business knowledge closed to a particular person?",
+      "raisesBy": null,
+      "state": "not_measurable_statically",
+      "whatWouldRaiseIt": "A person who knows the project would settle this — the answer is not in the tree, and no mode of reading the tree produces it."
+    },
+    {
+      "evidence": [
+        {
+          "line": null,
+          "note": "151 file(s) in the project's own source, against the 20000 this instrument declares impractical",
+          "path": "."
+        }
+      ],
+      "evidenceMode": "source_static",
+      "id": "too_large_for_mechanical_analysis",
+      "note": "This is evidence of the size of the population mechanical analysis would have to read, against a marker this instrument declares rather than a threshold chosen here. It is not evidence of the project being too large to attempt.",
+      "question": "Is it too large for mechanical analysis to be realistic?",
+      "raisesBy": "source_static",
+      "state": "not_established_statically",
+      "whatWouldRaiseIt": "A `source_static` reading settles this and this one was taken; no further channel is needed."
+    }
+  ],
+  "stage": "r0"
+}

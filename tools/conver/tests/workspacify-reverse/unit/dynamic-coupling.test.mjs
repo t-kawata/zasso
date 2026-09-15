@@ -61,6 +61,7 @@ const CARGO_MISSING_SKIP =
     : 'cargo is not on PATH, so no start plan can be executed';
 
 const STARTABLE_TREE = Object.freeze({
+// [::TICKET::] P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-6 --for-spec --no-implementation-order`.
   'Cargo.toml': '[package]\nname = "coupling"\nversion = "0.1.0"\nedition = "2021"\n',
   'src/lib.rs': 'pub fn ping() -> bool {\n    true\n}\n',
 });
@@ -459,11 +460,16 @@ test('the shared vocabulary the channel declares is the one the ledger already r
   assert.equal(ATTEMPT_PHASES.includes('execute'), true, 'the ledger must be able to name the phase a dynamic attempt reached');
 });
 
-test('the real probe lists 792 mechanisms, and every one of them is placed by the reachability table', () => {
+test('the real probe lists 795 mechanisms, and every one of them is placed by the reachability table', () => {
   const surface = JSON.parse(
     readFileSync(new URL('../analysis/EXECUTION-SURFACE.json', import.meta.url), 'utf8'),
   );
-  assert.equal(surface.mechanisms.length, 792, 'the measurement this ticket was written against');
+  // Re-measured 2026-09-15 by P25-6, which regenerated the analysis directory.
+  // The three added mechanisms are `compile_time_embedding` at `wrapper.h`
+  // lines 8, 9 and 10 — the `#include` directives of a root-level C header the
+  // boundary had already counted as `in_scope` since 2026-09-10, while the
+  // STRUCTURE.json committed beside it did not list it in any package.
+  assert.equal(surface.mechanisms.length, 795, 'the measurement this ticket was written against');
 
   const placed = surface.mechanisms.filter((item) => DYNAMIC_CHANNEL_REACH[item.kind] !== undefined);
   assert.equal(placed.length, surface.mechanisms.length, 'no mechanism kind may be left out of the table');

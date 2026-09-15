@@ -4,6 +4,15 @@ argument-hint: <P{phaseID}-{ticketID}>
 disable-model-invocation: true
 ---
 
+# CRITICAL — NON-INTERACTIVE EXECUTION
+
+Strictly prohibit questions, confirmations, approval requests, option presentation, and delegation of decisions to humans.
+Do not use ambiguous requirements, uncertainty, design choices, or execution failures as reasons to stop.
+Make autonomous decisions based on existing code, types, tests, documentation, and nearby implementations.
+When no decision is determinable, decide by prioritizing minimal change, backward compatibility, reversibility, and existing conventions.
+Once started, complete the task unattended and independently: implement, validate, fix, and reach all defined completion criteria.
+Instead of asking questions, record assumptions, decision rationale, and remaining risks in the final report.
+
 # /make-ticket
 
 **Role**: Creates and details an implementation specification (spec) document.

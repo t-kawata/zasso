@@ -29,8 +29,9 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { listArtefacts } from '../../../.claude/scripts/workspacify-reverse/lib/analysis-tech.mjs';
-import { analyzeProject } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
+import { ANALYSIS_STAGES, analyzeProject } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
 import { PATTERNS, PATTERN_FILE_NAME, detectPattern } from '../../../.claude/scripts/workspacify-reverse/lib/pattern-detection.mjs';
+import { requestPipelineRun } from '../helpers/shared-run.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
@@ -38,6 +39,14 @@ const LAYERED_ROOT = join(PROJECT_ROOT, 'siprs-with-4layers');
 const PATTERNS_FIXTURES = join(PROJECT_ROOT, 'tests/workspacify-reverse/fixtures/patterns');
 const DESIGN_DOCUMENT = join(PROJECT_ROOT, 'docs/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
 const SCOPE_MODULE = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/lib/scope.mjs');
+
+/**
+ * The last stage the pipeline knows, named the way `analyzeProject` defaults it.
+ *
+ * A full run means whatever the pipeline's last stage is; writing `'r8'` here
+ * would freeze the test at a stage the default may move past.
+ */
+const FULL_STAGE = ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1];
 
 /** The four representatives, in the declared order, each with the pattern it is. */
 const REPRESENTATIVES = Object.freeze([
@@ -54,15 +63,27 @@ function scratchDirectory(prefix) {
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
 }
 
-/** Run the pipeline over every representative, publish each beside its own record, and clean up. */
-// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
-async function runsOverEverything({ through, prefix }) {
+/**
+ * Run the pipeline over every representative and report what each published.
+ *
+ * A run is shared with every other test that asks for the same tree and stage,
+ * so it is read from the directory it published into and is never disposed
+ * here: disposing it would take the run out from under the next test to ask.
+ * A run this process did not execute also has no in-memory outcome to return,
+ * which is why every reading below comes from a published artefact.
+ */
+// [::TICKET::] P23-11, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-11|P25-5|P25-6) --for-spec --no-implementation-order`.
+async function runsOverEveryRepresentative({ through }) {
+  // Requested in turn rather than at once. Asking for all four together was
+  // measured on 2026-09-15 and made this file slower (146s against 112s): the
+  // two expensive runs then compete for one disk, and a stage over the 3.0G
+  // tree costs more under that contention than it saves.
   const runs = [];
   for (const representative of REPRESENTATIVES) {
-    const out = scratchDirectory(prefix);
-    runs.push({ ...representative, out, outcome: await analyzeProject({ ...representative, out: out.root, through }) });
+    const run = await requestPipelineRun({ root: representative.root, through });
+    runs.push({ ...representative, out: run.root });
   }
-  return { runs, dispose: () => runs.forEach((run) => run.out.dispose()) };
+  return runs;
 }
 
 /** The names a run published, read from the directory rather than from a declared list. */
@@ -82,45 +103,36 @@ function publishedPattern(root) {
 // ---------------------------------------------------------------------------
 
 test('IT: the scope prefix over the four representatives publishes one key set and four patterns', async () => {
-  const { runs, dispose } = await runsOverEverything({ through: 'r0.5', prefix: 'wsp-pattern-r05-' });
-  try {
-    const reference = publishedNames(runs[0].out.root);
-    for (const run of runs) {
-      const published = publishedPattern(run.out.root);
-      assert.equal(published.pattern, run.patternId, `${run.root} is published as ${run.patternId}`);
-      assert.equal(published.root, run.root);
-      assert.equal(run.outcome.pattern.pattern, run.patternId, 'and the run reports the value it published');
-      assert.deepEqual(publishedNames(run.out.root), reference, 'design 1.2: the pattern changes no published key');
-      assert.ok(published.present.length + published.absent.length > 0, 'the decision material travels with the answer');
-    }
-    assert.equal(new Set(runs.map((run) => publishedPattern(run.out.root).pattern)).size, 4);
-    assert.deepEqual(
-      [...new Set(runs.map((run) => publishedPattern(run.out.root).pattern))].sort(),
-      PATTERNS.map((row) => row.id).sort(),
-    );
-  } finally {
-    dispose();
+  const runs = await runsOverEveryRepresentative({ through: 'r0.5' });
+  const reference = publishedNames(runs[0].out);
+  for (const run of runs) {
+    const published = publishedPattern(run.out);
+    assert.equal(published.pattern, run.patternId, `${run.root} is published as ${run.patternId}`);
+    assert.equal(published.root, run.root);
+    assert.deepEqual(publishedNames(run.out), reference, 'design 1.2: the pattern changes no published key');
+    assert.ok(published.present.length + published.absent.length > 0, 'the decision material travels with the answer');
   }
+  assert.equal(new Set(runs.map((run) => publishedPattern(run.out).pattern)).size, 4);
+  assert.deepEqual(
+    [...new Set(runs.map((run) => publishedPattern(run.out).pattern))].sort(),
+    PATTERNS.map((row) => row.id).sort(),
+  );
 });
 
 test('IT: the pattern and the evidence cannot disagree with the boundary the run published beside them', async () => {
-  const { runs, dispose } = await runsOverEverything({ through: 'r0.5', prefix: 'wsp-pattern-evidence-' });
-  try {
-    for (const run of runs) {
-      const published = publishedPattern(run.out.root);
-      const boundaryPaths = new Set(
-        JSON.parse(readFileSync(join(run.out.root, 'SCOPE-BOUNDARY.json'), 'utf8'))
-          .artefacts.map((artefact) => artefact.path),
+  const runs = await runsOverEveryRepresentative({ through: 'r0.5' });
+  for (const run of runs) {
+    const published = publishedPattern(run.out);
+    const boundaryPaths = new Set(
+      JSON.parse(readFileSync(join(run.out, 'SCOPE-BOUNDARY.json'), 'utf8'))
+        .artefacts.map((artefact) => artefact.path),
+    );
+    for (const entry of published.evidence.filter((row) => row.found)) {
+      assert.ok(
+        boundaryPaths.has(entry.path),
+        `${run.root}: ${entry.path} is evidence, so it must be an artefact the same run enumerated`,
       );
-      for (const entry of published.evidence.filter((row) => row.found)) {
-        assert.ok(
-          boundaryPaths.has(entry.path),
-          `${run.root}: ${entry.path} is evidence, so it must be an artefact the same run enumerated`,
-        );
-      }
     }
-  } finally {
-    dispose();
   }
 });
 
@@ -146,20 +158,16 @@ test('IT: the detection is deterministic over a real tree — two runs publish b
 // ---------------------------------------------------------------------------
 
 test('IT: a full run over each of the four representatives reaches the origin spec and publishes the same key set', async () => {
-  const { runs, dispose } = await runsOverEverything({ prefix: 'wsp-pattern-r8-' });
-  try {
-    const reference = publishedNames(runs[0].out.root);
-    for (const run of runs) {
-      assert.equal(
-        existsSync(join(run.out.root, 'ORIGIN-LONG-SPEC.json')),
-        true,
-        `${run.patternId} (${run.root}) reaches the origin spec rather than being refused`,
-      );
-      assert.equal(existsSync(join(run.out.root, PATTERN_FILE_NAME)), true, 'and still publishes the identification');
-      assert.deepEqual(publishedNames(run.out.root), reference, `${run.patternId} publishes what every other pattern publishes`);
-    }
-  } finally {
-    dispose();
+  const runs = await runsOverEveryRepresentative({ through: FULL_STAGE });
+  const reference = publishedNames(runs[0].out);
+  for (const run of runs) {
+    assert.equal(
+      existsSync(join(run.out, 'ORIGIN-LONG-SPEC.json')),
+      true,
+      `${run.patternId} (${run.root}) reaches the origin spec rather than being refused`,
+    );
+    assert.equal(existsSync(join(run.out, PATTERN_FILE_NAME)), true, 'and still publishes the identification');
+    assert.deepEqual(publishedNames(run.out), reference, `${run.patternId} publishes what every other pattern publishes`);
   }
 });
 
