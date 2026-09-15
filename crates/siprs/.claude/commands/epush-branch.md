@@ -2,6 +2,15 @@
 description: "Commit uncommitted changes and push unpushed commits for the current branch (-u creates remote branch)"
 ---
 
+# CRITICAL — NON-INTERACTIVE EXECUTION
+
+Strictly prohibit questions, confirmations, approval requests, option presentation, and delegation of decisions to humans.
+Do not use ambiguous requirements, uncertainty, design choices, or execution failures as reasons to stop.
+Make autonomous decisions based on existing code, types, tests, documentation, and nearby implementations.
+When no decision is determinable, decide by prioritizing minimal change, backward compatibility, reversibility, and existing conventions.
+Once started, complete the task unattended and independently: implement, validate, fix, and reach all defined completion criteria.
+Instead of asking questions, record assumptions, decision rationale, and remaining risks in the final report.
+
 # EPush Branch — English Commit & Branch Push
 
 Process the current branch's changes and push to remote. Handles two scenarios automatically:

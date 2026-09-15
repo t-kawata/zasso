@@ -2,6 +2,15 @@
 description: "現在のブランチの未コミット変更・未pushコミットを処理してリモートにプッシュ（-u でブランチ自動作成）"
 ---
 
+# CRITICAL — NON-INTERACTIVE EXECUTION
+
+Strictly prohibit questions, confirmations, approval requests, option presentation, and delegation of decisions to humans.
+Do not use ambiguous requirements, uncertainty, design choices, or execution failures as reasons to stop.
+Make autonomous decisions based on existing code, types, tests, documentation, and nearby implementations.
+When no decision is determinable, decide by prioritizing minimal change, backward compatibility, reversibility, and existing conventions.
+Once started, complete the task unattended and independently: implement, validate, fix, and reach all defined completion criteria.
+Instead of asking questions, record assumptions, decision rationale, and remaining risks in the final report.
+
 # JPush Branch — 日本語コミット＆ブランチプッシュ
 
 現在のブランチの変更を処理してリモートにプッシュする。以下の2つを自動的に処理する：

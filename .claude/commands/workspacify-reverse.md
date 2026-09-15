@@ -4,6 +4,15 @@ argument-hint: <path-to-the-project-root>
 disable-model-invocation: true
 ---
 
+# CRITICAL — NON-INTERACTIVE EXECUTION
+
+Strictly prohibit questions, confirmations, approval requests, option presentation, and delegation of decisions to humans.
+Do not use ambiguous requirements, uncertainty, design choices, or execution failures as reasons to stop.
+Make autonomous decisions based on existing code, types, tests, documentation, and nearby implementations.
+When no decision is determinable, decide by prioritizing minimal change, backward compatibility, reversibility, and existing conventions.
+Once started, complete the task unattended and independently: implement, validate, fix, and reach all defined completion criteria.
+Instead of asking questions, record assumptions, decision rationale, and remaining risks in the final report.
+
 # /workspacify-reverse
 
 **Role**: Take an existing project that already contains a substantial implementation and run the whole of the reverse rotation's analysis over it — R0 through R8, in series, once — publishing `ORIGIN-LONG-SPEC.json` and the Markdown rendered from it. This is the single entrance every later reverse-mode command calls; it is not a step in a sequence a human assembles by hand. This command does not decide whether the reverse engineering succeeded: that judgement is a human's, taken after several loop rounds.
