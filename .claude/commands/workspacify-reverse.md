@@ -172,7 +172,7 @@ node .claude/scripts/workspacify-reverse/run.mjs analyze
 node .claude/scripts/workspacify-reverse/run.mjs analyze
 ```
 
-The stages, in the order the machine evaluates them:
+The stages, in the order the machine evaluates them — each written lowercase because it is the identifier the command line matches and the code declares, and every other mention in this file writes the label a reader sees, `R2.5`:
 
 ```
 r0, r0.5, r2.5, r1, r2, r3, r3.5, r4, r5, r5.5, r6, r6.5, r7, r8

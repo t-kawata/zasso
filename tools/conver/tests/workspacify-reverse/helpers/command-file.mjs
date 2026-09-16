@@ -369,3 +369,74 @@ export function findAbsenceContradictions({ sectionText: section, unreachable, r
 
   return findings;
 }
+
+/**
+ * The sentence a command file must carry where it spells a stage identifier lowercase.
+ *
+ * The file writes a stage two ways and the case carries the meaning: lowercase is the
+ * identifier the command line matches and `ANALYSIS_EVALUATION_ORDER` declares,
+ * uppercase is the label a reader sees (`stageLabel` in `lib/scope.mjs`, which derives
+ * it so a stage can never be displayed under a name it is not invoked by). One line is
+ * therefore supposed to be lowercase — the block quoting the declared order — and
+ * without the rule stated beside it that line reads as an inconsistency.
+ *
+ * It sits beside its only consumer rather than with the constants at the top because
+ * `design-citations.test.mjs` pins `command-file.mjs:217` to `assertCommandFileStructure`:
+ * a constant added above that line moves it, and the guard reports the drift.
+ *
+ * The sentence is matched rather than quoted so the wording can be improved without a
+ * test edit, while the two facts it must carry — the case, and the reason — cannot be
+ * dropped.
+ */
+export const CASE_CONVENTION = /lowercase[^.;]*identifier the command line matches[^.;]*label a reader sees/i;
+
+/**
+ * Where a command file spells a stage lowercase without stating the convention.
+ *
+ * The section is passed as text rather than as a path so a fixture can drive the
+ * check, for the same reason `findAbsenceContradictions` takes its section that way:
+ * a guard that can only be pointed at the real file can only ever be seen to pass.
+ *
+ * @param {{ text: string, heading: string }} input
+ * @returns {Array<{ kind: string, region: string }>} one finding when the rule is unstated
+ */
+// [::TICKET::] PX-216 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-216 --for-spec --no-implementation-order`.
+export function findUnstatedCaseConvention({ text, heading }) {
+  return CASE_CONVENTION.test(sectionText(text, heading))
+    ? []
+    : [{ kind: 'unstated-case-convention', region: heading }];
+}
+
+/**
+ * Where a command file spells a stage identifier in lowercase.
+ *
+ * The vocabulary is passed in rather than imported so a fixture can drive the check.
+ * Matching is case sensitive and longest token first, so `r2.5` is one occurrence
+ * rather than `r2` followed by `.5`, uppercase `R0` is no occurrence at all, and the
+ * `r2` inside a word like `render2` is neither — a finding is a stage the command line
+ * would match, not a substring that resembles one.
+ *
+ * @param {{ text: string, vocabulary: string[] }} input
+ * @returns {Array<{ line: number, token: string, text: string }>} one finding per occurrence
+ */
+// [::TICKET::] PX-216 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-216 --for-spec --no-implementation-order`.
+export function findLowercaseStageLines({ text, vocabulary }) {
+  if (vocabulary.length === 0) {
+    return [];
+  }
+
+  const alternation = [...vocabulary]
+    .map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .sort((left, right) => right.length - left.length)
+    .join('|');
+  const tokenPattern = new RegExp(`(?<![A-Za-z0-9_.])(${alternation})(?![0-9])`, 'g');
+  const findings = [];
+
+  for (const [index, line] of text.split('\n').entries()) {
+    for (const match of line.matchAll(tokenPattern)) {
+      findings.push({ line: index + 1, token: match[1], text: line.trim() });
+    }
+  }
+
+  return findings;
+}
