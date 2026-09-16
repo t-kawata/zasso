@@ -1,6 +1,6 @@
-# conver — RFC収束型4ループ開発パイプライン
+# conver — RFC収束型5層ループ開発パイプライン
 
-conver は、**「正典 RFC へ実装を収束させる」** と同時に、**「正典自体を安全に進化させ続ける」** ことを可能にする、4つのループから成る開発パイプラインです。
+conver は、**「正典 RFC へ実装を収束させる」** と同時に、**「正典自体を安全に進化させ続ける」** ことを可能にする、5つの層から成る開発パイプラインです。**適合ループ**（第五層・workspacify）が、続く4つのループ（上流・実装・出荷・進化）を包み込みます。
 
 ## なぜ必要か — 変化し続けるビジネスと「再投資可能性」
 
@@ -8,8 +8,9 @@ conver は、**「正典 RFC へ実装を収束させる」** と同時に、**�
 
 しかし長期にわたる開発で最も恐ろしいのは、**「変化がシステムを矛盾だらけにする」**ことです。過去の設計判断がどこに記録されたか分からなくなり、実装が設計から乖離し、テストが嘘をつき始める——そうなると再投資はリスクにしかならず、ビジネスは変化を諦めるか、破壊的な作り直しを強いられます。
 
-conver はこの問題を、**「正典 RFC」を中心とした4つのループ**で解決します。
+conver はこの問題を、**「正典 RFC」を中心とした4つのループ**と、その外側で4つのループの前提を整える**適合ループ**で解決します。適合ループはワークスペースをパッケージに分割し、**4つのループをパッケージディレクトリごとに再実体化**します。
 
+- **適合ループ（第五層・workspacify）**: 入力（空＋仕様書、または既存実装）を、4つのループが回る形へ適合させる。既存実装は逆回転で、空のプロジェクトは順回転で、同じ終端状態へ到達する
 - **上流ループ（分解）**: AIと人間が共同で 正典 RFC を書き、論理グラフ化し、ディレクトリ境界を決め、チケットに分解する
 - **実装ループ（収束）**: AIが全チケットを自動実装し、RFC 設計とのギャップを計測・解消して収束させる
 - **出荷ループ（商品化判定）**: 「ユーザーにとっての使い方がユーザーにとって素敵か」という視点から実装を解析・検証し、不足（RESIDUE）を洗い出す。RESIDUE がゼロになり、「ユーザーにとって素敵な使い方」が README.md として書き上がり、実装とテストがそれを満たすことが点検突破した状態を「出荷」とする。
@@ -19,9 +20,17 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 
 ---
 
-## 全体像 — 4つのループが出荷に至るまで
+## 全体像 — 5層ループが出荷に至るまで
 
 ```
+  適合ループ（第五層・workspacify・人間＋AI 実行）   ← 4つのループを包み込む外殻
+    入力: 空＋仕様書（パターン4） / 既存実装（パターン1・2・3）
+    /workspacify-reverse → /workspacify-tree → /workspacify-allocate
+      ORIGIN-LONG-SPEC.json → WORKSPACIFY-TREE-MANIFEST.json
+      → 実ディレクトリ ＋ 各パッケージの RFC-SEED.md
+      → 分割が確定し、4つのループが パッケージディレクトリごとに再実体化される
+        │
+        ▼ 各パッケージディレクトリで（ルートも path "." の1パッケージ）
   上流ループ（分解・人間＋AI 実行）
     /grill-me-for-rfc → /graphify-rfc → /boundify-graph → /split-to-tickets
     正典RFC → *-GRAPH.json → *-Dirs-Tree.json → Tickets.json
@@ -43,14 +52,83 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
       入力: crystalize の RESIDUE / ユーザーとの自由会話 / 与えられた資料
       grill（詳細確定）→ graphify → boundify → split → verify を「差分」として内部実行
       → 正典RFC・GRAPH・Dirs-Tree・Tickets を矛盾なく更新 → 積み増しチケットを実装ループへ
+        │
+        ▼ 実装が進むと、前回の分割に無かったディレクトリとコードが生まれる
+  適合ループへ戻る（2周目以降は必ずパターン2として再入）→ プロジェクト全体の健康を保つ
 ```
 
-| ループ | 実行主体 | コマンド | 責務 |
+| 層（ループ） | 実行主体 | コマンド | 責務 |
 |--------|----------|----------|------|
+| **適合ループ（第五層）** | 人間＋AI（Claude Code 上で実行） | `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` | 入力（空＋仕様書 / 既存実装）を4つのループが回る形へ適合させ、**4つのループをパッケージディレクトリごとに再実体化**する。一周で終わらず、内側が実装を進めるたびに繰り返す |
 | **上流ループ** | 人間＋AI（Claude Code 上で実行） | `/grill-me-for-rfc` → `/graphify-rfc` → `/boundify-graph` → `/split-to-tickets` | RFC 設計書の作成 → 論理グラフ化 → ディレクトリ境界生成 → チケット分解 |
 | **実装ループ** | AI（`conver.js` が自動実行） | `/make-ticket` → `/plan-ticket` → `/start-ticket` → `/review-ticket` → `/resolve-ticket` → `/consolidate-stubs` → `/find-omissions` | チケット実装 → 品質検証 → 警告・犯罪・スタブ解決 → スタブのチケット単位束ね直し → 契約ギャップ計測 → 収束 |
 | **出荷ループ** | 人間＋AI（Claude Code 上で実行） | `/crystalize-readme` | 使い方 README をセクション単位で「ユーザーにとって素敵か」の視点で検証し、書けないセクションを RESIDUE として洗い出す。RESIDUE ゼロで「素敵な使い方」が README.md に書き上がり、実装とテストがそれを満たす点検突破で出荷 |
 | **進化ループ** | 人間＋AI（Claude Code 上で実行） | `/drill-rfc-down` | RESIDUE・自由会話・資料を入力に grill で詳細を確定し、正典RFC・GRAPH・Dirs-Tree・Tickets を差分として矛盾なく進化させ、最後に verify で5成果物（RFC / GRAPH / Dirs-Tree / src / Tickets）の相互整合性を6チェックで機械検証する。ビジネスの再投資と進化・適応を安全に進める |
+
+---
+
+## 適合ループ — 4つの入口と第五層
+
+### 第五層とは何か
+
+`/workspacify-tree` と `/workspacify-allocate` は、4つのループを**包み込む外殻**です。ループ間の辺ではなく**第五層**にあたります。第五層は「マニフェストが1枚増える」ことではなく、**ワークスペースをパッケージに分割し、4つのループをパッケージディレクトリごとに再実体化する**ことです。
+
+- `RFC-SEED.md` は**全パッケージディレクトリにちょうど1つ**置かれます。これは完成 RFC ではなく `/grill-me-for-rfc` の**種**で、14見出し固定。**§1（Identity/Position）と §2（Coupling Contracts）は機械注入で、AI は書けません**
+- `Tickets.json` は**その設計文書と同じディレクトリ**に生成されます
+- グラフと Dirs-Tree は**自分の RFC の隣**に座ります
+- **ワークスペースルート自身がパッケージ（path `.`）**です。`RFC-ROOT-GRAPH.json` の `ROOT` は「プロジェクト全体」の特別名ではなく**ディレクトリ識別子**で、サブディレクトリ `src/auth` は自分の `RFC-AUTH.md` の隣に `RFC-AUTH-GRAPH.json` を持ちます
+
+### 終端状態 — 4つの入口が到達すべき形
+
+```
+<workspace root>/
+  RFC-ROOT.md  RFC-ROOT-GRAPH.json  RFC-ROOT-Dirs-Tree.json  Tickets.json
+  RFC-ROOT-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json      ← ROOT パッケージ自身の4層（7点）
+  WORKSPACIFY-TREE-MANIFEST.json  WORKSPACIFY-ALLOCATE-MANIFEST.json
+  ARCHITECTURE-DELTA.json  DesignTree.json            ← 第五層（4点）
+
+  src/auth/
+    RFC-SEED.md                                       ← 第五層の種
+    RFC-AUTH.md  RFC-AUTH-GRAPH.json  RFC-AUTH-Dirs-Tree.json  Tickets.json
+    RFC-AUTH-{GRAPHIFY,BOUNDIFY,SPLIT}-Status.json    ← このディレクトリ自身の4層（8点）
+```
+
+ルートに**11点**（4層の7点 ＋ 第五層の4点）、各パッケージに**8点**です。**予約ルート `workspacify/` はこのレイアウトの外にあり、第五層はその中に入りません**（後述）。
+
+### 4つのパターン — 入口の分類
+
+区別の基準は**ディスク上に既に存在する conver の足場だけ**で、それ以外ではありません。
+
+| # | 入力プロジェクト | 入口 | 起きること |
+|---|---|---|---|
+| **1** | 独立実装。conver 成果物が一切ない（RFC もグラフもチケットもヘッダも無い） | `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` → … | 4層を**作成**する |
+| **2** | conver の4層ループで既に駆動済み（ルートに `RFC-ROOT.md` / `RFC-ROOT-GRAPH.json` / `RFC-ROOT-Dirs-Tree.json` / `Tickets.json` / `DesignTree.json`） | 同上 | 4層を**ディレクトリごとに再実体化**する。追加ではなく**中断** |
+| **3** | 個別コマンド（`/make-ticket` 〜 `/resolve-ticket`）だけを使い、4層ループは通っていない。成果物は一部 | 同上 | 1・2 と同じ終端状態へ。**あるものは保ち、無いものを作る** |
+| **4** | 空 ＋ 長い仕様書 | **`/workspacify-tree` → `/workspacify-allocate` → …**（逆回転なし） | 通常の順回転。再建するものが無い |
+
+**4つを束ねる不変条件** — この設計の荷重文です:
+
+> 4つのいずれも、**「プロジェクトが不完全な conver プロジェクトである」という理由で阻害・中止されてはならない**。不完全性は**入力**であって拒否条件ではない。
+
+順回転は「正典 RFC が既に根元に存在する」ことを前提にしています。`/workspacify-tree` は ATX 見出しを含む仕様書を要求し、`/workspacify-allocate` は `fresh-workspace only`（既存パスがあれば BLOCKED）です。**既に実装が進んだプロジェクトは順回転の入口を通れない**——これがパターン1・2・3 に逆回転が必要な理由です。
+
+### 一度で終わらない
+
+適合ループは1回で終わりではありません。内側の4つのループが実装を進めると、**前回の分割に無かったディレクトリと、分割後に書かれたコード**が生まれます。そこで改めてリバースエンジニアリングから適合し直すことで、プロジェクト全体の健康を保ちます。
+
+**2周目以降、プロジェクトは必ずパターン2として再入します**（自分が作った conver 成果物を持つため）。したがって上の不変条件は初回だけでなく**毎周回で効く**必要があり、パターン判定は入場審査ではなく**毎回の再測定**です。
+
+### 現在地（正直な記録）
+
+4つのパターンが同一の終端構造へ収束することは、**まだ証明されていません**。4つの入口それぞれの代表（独立実装 / 既に4層で駆動済み / 部分的な conver プロジェクト / 空＋仕様書）を実際に走らせた測定があり、**いずれも終端状態に達していません**。停止した段は、逆回転の実装順序の証明（T4）と、順回転のゲート（G2 / G3）です。T4 で止まった代表は、測定した依存グラフに18の循環があり、実装順序が存在しないためです。終端に達した代表が1つも無いので比較対象が無く、収束は**設計上の主張＋測定1回**です。
+
+機械の語彙は **`proved` / `not proved`** だけで、「成功／失敗」は機械の語彙ではありません。逆回転の成功条件は `/crystalize-readme` の **RESIDUE 0** であり、**ループを複数回回したうえで人間が判断**します。ラダーは L0（解析は走るが RFC が純粋な追認）〜 L3（RESIDUE 0 ＋ 全チケットの Red 証拠 ＋ 人間の判定）で、**L3 だけが成功**です。
+
+### 逆回転に固有の最深の論点 — Red の再建
+
+conver の最高法規は「red 無き green は違反」と定めますが、**既存実装のテストは最初から green です**。したがって逆回転では、`/start-ticket` が要求する「実装が無いから失敗する」という証拠を**遡って生成し直す**必要があります。手段は確定しており（不変条件の書き換え注入＝invariant mutation / 構文等価の証明＝TCE / プロパティベーステストの自動生成＝PBT）、`/split-to-tickets` の逆対応が**Red を持たない契約をすべて記録し、欠落ごとに再建チケットを1枚生成**します。これが無ければ、リバースエンジニアリングから始めた全体が**最初から偽の green** になります。
+
+最大の失敗モードは**追認 RFC** です。既存コードを文章化しただけの RFC は5つの整合性が表面上すべて成立し、`/find-omissions` が**循環論法で全通過**します。逆回転に要求されるのは「実装と一致する RFC を書く」ことではなく、**「実装の正しさを判定できる規範的 RFC を再建する」**ことです。
 
 ---
 
@@ -69,6 +147,8 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 ---
 
 ## 再投資可能性 — 正典が安全に進化できるための5つの整合性
+
+> ここでの「5つ」は**整合性の数**です。「[適合ループ](#適合ループ--4つの入口と第五層)」節の**5層**（適合・上流・実装・出荷・進化）とは別の5つです。
 
 **再投資可能性（reinvestment capability）** とは、ビジネスが市場の変化に応じて**何度でも安全に開発へ再投資できる**構造のことです。conver はこれを技術的・物理的に保証します。
 
@@ -128,6 +208,40 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 
 ## コマンド一覧
 
+### 適合ループ（第五層・人間＋AI 実行）
+
+#### `/workspacify-reverse`
+
+既存プロジェクトを解析し、逆回転の入口となる origin spec を発行します（R0〜R8 を直列に1回）。**順回転が通れないプロジェクトのための入口**です。
+
+- **引数はありません。** 主題は**カレントディレクトリ**、出力先は**その下の `workspacify/reverse`** で、どちらも選択できません
+- 予約ルート `workspacify` は**文書倉庫**です。解析のどの走査もこの名前のディレクトリへ降りないため、書き込んでも測った木は測ったままです。解析は前後で木をダイジェストし、予約ディレクトリの外で1バイトでも動いていれば何も発行しません
+- かつて受けていた引数（`--out` / `--through` / `--query`）は**名前で拒否**されます。黙って落とされた問いは、答えられた問いと全く同じに見えるためです
+- **出力**: `ORIGIN-LONG-SPEC.json` と、そこから描画した Markdown
+
+#### `/workspacify-tree <仕様書パス>`
+
+長い Markdown 仕様書を解析し、**stage one** の正典 `WORKSPACIFY-TREE-MANIFEST.json` を**カレントディレクトリ**に発行します。この時点では実装しません。
+
+- **引数**: `<path-to-specification.md>`（ATX 見出しを1つ以上含む）。**これだけは隠せません** — パターン4 では、空のプロジェクトに仕様書の在処を導出する材料が無いためです
+- **6 Step**: `parse`（G0/G1 入力ロック）→ `extract`（G2 要求インベントリのハーベスト）→ decision JSON 執筆 → `gate`（G3/G4 自己修復ループ）→ `finalize`（G5 原子的公開）→ report
+- **ゲート階層**: G0 入力ロック → G1 構造 → G2 要求インベントリ → G3 ワークスペース（カタログ／owner 一意性／過分割／必須責務）→ G4 依存（DAG／層規則／循環／**実装順序の証明**）→ G5 成果物完全性。**親が PASS でない子は決して PASS にならない**
+- AI が書く decisions 文書は `workspacify/tree/DECISIONS.json` から読みます。これは**staging**（成功した publish が機械的に削除する中間成果物）で、記録は公開された manifest です
+- **逆対応（リバースモード）**: 既存ディレクトリ構造を完全に守って manifest を生成します
+
+#### `/workspacify-allocate <TREEマニフェストパス>`
+
+**stage two**。stage one の manifest を唯一の引数に、**manifest と同じディレクトリ**に実ディレクトリツリーを生成し、各パッケージディレクトリへ**ちょうど1つ** `RFC-SEED.md` を置きます。
+
+- **引数**: `<path-to-WORKSPACIFY-TREE-MANIFEST.json>`。**これも隠せません** — そのディレクトリが**ワークスペースルートそのもの**（`workspaceRoot = dirname(manifestPath)`）で、標準的な場所に置くと生成物が予約ルートの中に出来て**4パターンすべてが破綻**します
+- **ゲート階層**: G0 入力ロック → G2 転送基礎・安全性 → G3 seed レンダ・局所検査 → **G3.7 self-grill と residual の到達** → G4 双方向契約 → G5 **WIG**（Workspace Integration Graph: 誰も履行できない結合・二重 owner・二重変更・検証者なき証明を違反として検出）＋実装順序 → G6 公開・reload・cleanup
+- **self-grill** は、AI が自分自身を敵対的に5焦点（`implementer` / `counterpart` / `test` / `grill` / `adversarial`）でレビューし、最終パスで findings が 0 になるまで収束させる機構です。解けなかった問いだけが **residual** となり、後段の人間 grill へ構造的に引き継がれます。`TODO` / `TBD` / `ask the human` / `waiting for approval` 等は**全文禁止**
+- **出力は3種のみ**: 実ディレクトリツリー / 各パッケージの `RFC-SEED.md` / `WORKSPACIFY-ALLOCATE-MANIFEST.json`
+- AI が書く decisions 文書は `workspacify/allocate/DECISIONS.json` から読みます（tree と同じく staging）
+- **逆対応（リバースモード）**: 既存構造を守ったまま、全ディレクトリへ `RFC-SEED.md` を配置します
+
+**引数の面の規則**（適合ループの3コマンドに共通）: **引数は、隠すことが4パターンのいずれかを破綻させない限り隠蔽します。** 生存するのは `/workspacify-tree` の仕様書パスと `/workspacify-allocate` のマニフェストパスの2つだけで、どちらも「隠すと4パターンのどれかが入力を持てなくなる」ため残っています。それ以外の、パスを自分で導出できる引数（出力先・グラフ・実測値・サイドカー・差分・事前分割・decisions の在処）はすべて撤回され、**名前で拒否**されます。**撤退と拒否は同じ規則の裏表**です — 黙って無視された引数は「効かなかった」と読めますが、黙って落とされた問いは「答えられた問い」と全く同じに見えるためです。
+
 ### 上流ループ（人間＋AI 実行）
 
 #### `/grill-me-for-rfc <調査情報パス> <RFC出力パス>`
@@ -137,6 +251,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 - **入力**: 調査情報のファイル/ディレクトリパス + RFC 出力先 `.md`
 - **プロセス**: `init.js` が DesignTree / Status.json / CheckList.md を初期化 → AI が設計判断を質問（Yes/No または選択肢形式）→ DesignTree のノードを resolved にしていく → 全ノード解決で CheckList 生成 → RFC 執筆 → I/O 境界参照情報を追記
 - **制約**: 完全網羅・スコープ委譲禁止・スタブ禁止。TBD / TODO / 委譲の混入禁止。各設計判断にコードスニペット必須。IETF スタイル（Abstract / Motivation / Design / Implementation / Appendix）
+- **逆対応（リバースモード）**: 入力は `/workspacify-allocate` が逆モードで発行した `RFC-SEED.md`（§1 にリバース索引を機械注入で持つ）。逆対応の質問生成器が §1 の索引と residual から質問候補を生成し、**未解決 claim ごとに「意図か偶然か」の問い**を挿入します。順回転の seed は名前で拒否されます（順回転の seed はこの grill の入力ではありません）
 
 #### `/graphify-rfc <RFCファイルパス>`
 
@@ -145,6 +260,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 - **7 Step 進行制御**: 見出し重複排除 → ノード分割（4軸: セクション階層 / 単一 kind / 外部依存の有無 / 言語割当）→ エッジ付与（12種 + 契約 annotation）→ 機械検証（未カバー行・孤立ノード）→ 自己検証（headingRefs 解決性）→ ランダム抜き打ち品質検査 → 最終品質検証（全グラフ要約）
 - **常にチケット粒度より細かく分割（発散）** する。後段 `/split-to-tickets` / `/boundify-graph` が粗い粒度で抽出・束ねる
 - 生成されたグラフは `/boundify-graph` と `/split-to-tickets` の入力となり、`/make-ticket` 〜 `/review-ticket` でも設計参照に利用される
+- **逆対応（リバースモード）**: GF1 / GF2 ゲートを持ち、差分を方向別に数えます。**差分ゼロは信じる対象ではなく精査する対象**として報告されます
 
 #### `/boundify-graph <GRAPHファイルパス>`
 
@@ -155,6 +271,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 - **宣言スタブ**: 実装のない空ファイルには言語・kind に応じた宣言スタブ（関数シグネチャ + 実装 TODO）を自動付与
 - **Prose 除外**: `rationale` / `glossary` / `requirement` の 3 kind はファイル生成対象外（設計情報は接続先ファイルのヘッダコメントに相互参照として埋め込む）
 - 循環依存の検出と警告
+- **逆対応（B1/B2/B3）**: 逆モードの処理はファイルを生成せず、欠けている `Initial Design Artifact` ヘッダを付与し、差分をヘッダのみに制限します。**既存ヘッダは1バイトも書き換えません**（最高法規4）。`--apply` を付けない限り、測った木には何も書きません
 
 #### `/split-to-tickets <RFCファイルパス> <GRAPHファイルパス> <Dirs-Treeファイルパス>`
 
@@ -165,6 +282,7 @@ conver はこの問題を、**「正典 RFC」を中心とした4つのループ
 - **詳細度ガイドライン**: `background` 300字以上 / `scope` を型シグネチャ付きで列挙 / `notes` 複数セクション 500字以上 / `testUnit`・`testIntegration`・`testExceptions` を明記（TDD 必須）
 - **フェーズ統合**: 3 チケット未満のフェーズは後方のフェーズへ自動マージ（Step 5-3）
 - 出力先は RFC と同階層の `Tickets.json`（既存ファイルがあれば上書き確認）
+- **逆対応（S1〜S6）**: 逆モードの処理が既存テストをチケットへ対応付け、**Red を持たない契約をすべて記録**し、欠落ごとに再建チケットを1枚生成します（Red の再建 — 「[適合ループ](#適合ループ--4つの入口と第五層)」節の「逆回転に固有の最深の論点」を参照）
 
 ### 実装ループ（AI 自動実行）
 
@@ -440,9 +558,59 @@ CRYSTALIZE-Status.json
 └── 各 Step の進行状態（/crystalize-readme の update-step-status.js が更新）
 ```
 
+### 第五層（適合ループの成果物）
+
+```
+WORKSPACIFY-TREE-MANIFEST.json（/workspacify-tree の出力・stage one の単一の正典。カレントディレクトリに出力）
+├── artifact_kind: "workspacify-tree-manifest" / schema_version / status: "COMPLETE"
+├── input: { spec_path, source_hash }（仕様書の実在と再ハッシュ）
+├── workspace: { tree, packages[], ownership }
+│     packages[]: { id, name, path, layer, kind, responsibilities, seed_required, owns }
+├── structure / inventory / requirements / adapters / dependencies / conformance
+├── stage2_handoff: { eligible, entry_gate, contract_definition_order, contract_boundaries }
+├── gates[] / final_audit{...}（final_audit の各値は 0 でなければならない）
+└── integrity: { manifest_hash }（自己ハッシュ。stage two が受け取り時に照合する）
+
+WORKSPACIFY-ALLOCATE-MANIFEST.json（/workspacify-allocate の出力・stage two の最終権威。manifest と同じディレクトリに出力）
+├── artifact_kind: "workspacify-allocate-manifest" / status: "COMPLETE"
+├── run: { workspace_root: ".", planned_directory_count }
+├── input_tree_manifest: { path, hash, spec: { path, sha256 } }
+├── seed_index[]: { package, path, sha256 }（パッケージごとにちょうど1つ）
+├── contract_registry[] / source_coverage{} / implementation_order: { serial, levels }
+├── wig: { summary, counts, hash, violations[] }（Workspace Integration Graph）
+├── self_grill: { passes, converged, focuses, rounds[], residual_count }
+├── handoff_summary（人間 grill が読み始める引き継ぎ）
+└── gates[] / allocation{} / semantic_review{} / completion_decision / integrity{ manifest_hash }
+
+RFC-SEED.md（全パッケージディレクトリにちょうど1つ）
+├── 14見出し固定。完成 RFC ではなく /grill-me-for-rfc の種
+└── §1（Identity/Position）と §2（Coupling Contracts）は機械注入 — AI は書けない
+
+ARCHITECTURE-DELTA.json（/workspacify-tree のリバースモードがワークスペースルートに発行）
+└── 論理モデルと物理レイアウトの不一致の記録。不一致ゼロでも「比較した」ことを示す記録として必要
+
+DesignTree.json（/grill-me-for-rfc のノード機構が持つ設計判断の木。終端状態の第五層インベントリに数えられる）
+
+workspacify/（予約ルート・終端レイアウトの外。文書倉庫）
+├── reverse/   逆回転の作業文書（ORIGIN-LONG-SPEC.{json,md} ほか）
+├── tree/      DECISIONS.json（staging — 成功した publish が機械的に掃除する）
+└── allocate/  DECISIONS.json（同上）
+```
+
+**予約ルートは文書倉庫であり、第五層はその中に入りません。** 解析のどの走査もこの名前のディレクトリへ降りないため、書き込んでも測った木は測ったままです。decisions 文書は**staging**であって記録ではなく、記録は公開された manifest です。
+
 ---
 
 ## スクリプトリファレンス
+
+### 適合ループ（workspacify）
+
+| 段階 | 実行体が担うこと |
+|------|------------------|
+| 逆回転の入口（`/workspacify-reverse`） | R0〜R8 を直列に1回。引数を取らず、主題（カレントディレクトリ）と出力先（その下の予約ルート）を導出する。構造の測定・依存の測定・クレーム台帳・origin spec の描画・パターン判定・Red 再建計画・終端状態の観測を含む |
+| stage one（`/workspacify-tree`） | `parse` / `extract` / `gate` / `finalize` の4段と G0〜G5。仕様書の分割・候補のハーベスト・ワークスペース設計・owner 一意性・過分割の検査・依存 DAG と実装順序の証明・原子的公開 |
+| stage two（`/workspacify-allocate`） | G0〜G6。マニフェストの受け取り検証（自己ハッシュと仕様書の再ハッシュ）・ディレクトリ計画・seed の描画と読み戻し・self-grill と residual の到達・双方向契約・WIG・公開と reload と後片付け |
+| 共有される規約 | 予約ルートの名前は1箇所で宣言され、逆回転の出力先と「どの走査もその名前へ降りない」規則の両方がそこから導出される。staging の decisions 文書は公開の成功時に削除され、パッケージの走査からは予約ルートが除外される |
 
 ### 上流ループ（`.claude/scripts/rfc-graph/`）
 
@@ -520,6 +688,8 @@ npm run build
 | `make test-all` | 除外なしの全テスト（夜間・リリース前） |
 | `make test-conver` | conver.js 本体のユニットテスト（tsc コンパイル後 `node --test`） |
 | `make test-rfc-graph` | rfc-graph 全スクリプトのテスト |
+| `make test-workspacify` | 適合ループ stage one / stage two（workspacify-tree / workspacify-allocate）のテスト |
+| `make test-workspacify-reverse` | 逆回転の解析パイプライン本体のテスト（重い統合スイートを含む） |
 | `make run-conver` | `ARGS` を指定して conver.js を実行 |
 | `make deploy TARGET=path` | esbuild バンドルをビルドし配置 |
 | `make list-tickets` | チケット一覧をチェックリスト形式で表示 |
@@ -546,6 +716,15 @@ install.js -y -t /path/to/target/.claude
 
 ## はじめかた
 
+### 入口の選択（適合ループ）
+
+作業を始める前に、プロジェクトがどのパターンで入るかを決めます（基準は**ディスク上に既に存在する conver の足場だけ**です）。
+
+- **既存実装がある（パターン1・2・3）**: `/workspacify-reverse` → `/workspacify-tree` → `/workspacify-allocate` の順に実行し、`ORIGIN-LONG-SPEC` から manifest を作り、全パッケージディレクトリへ `RFC-SEED.md` を置きます
+- **空＋仕様書（パターン4）**: `/workspacify-tree <仕様書パス>` → `/workspacify-allocate <TREEマニフェストパス>` の2つだけです（逆回転は不要）
+
+以後の手順1〜4は、**パッケージディレクトリごとに**実行します（ルートも path `.` の1パッケージです）。
+
 ### スラッシュコマンド経由（Claude Code 内）
 
 1. `/grill-me-for-rfc` で設計判断を確定し、RFC 設計書を書く
@@ -558,6 +737,7 @@ install.js -y -t /path/to/target/.claude
 8. find の積み増しが数ラウンドで収束したら、`/crystalize-readme` で「ユーザーにとって素敵か」の視点から使い方 README をセクション単位で検証（出荷ループ）
 9. RESIDUE が出たら `/drill-rfc-down` がチケット化して積み増し → 手順5へ戻って再実装。RESIDUE がゼロになり、「ユーザーにとって素敵な使い方」が README.md に書き上がり、実装とテストがそれを満たすことを点検突破したら出荷
 10. 市場変化や新要件があれば `/drill-rfc-down` で正典を進化させ（進化ループ）、積み増しチケットを手順5から再実装
+11. 実装が進んだら**適合ループへ戻ります**（`/workspacify-reverse` からの再適合）。2周目以降は必ず**パターン2**として再入し、パターン判定は入場審査ではなく毎回の再測定です（「[適合ループ — 4つの入口と第五層](#適合ループ--4つの入口と第五層)」を参照）
 
 ### CLI 直接実行
 
@@ -579,6 +759,8 @@ node dist/conver.js -k <api_key> -s <slack_url> -c 5 -r 2 -p 1
 6. 全てのスラッシュコマンドを「絵筆のように使いこなせるように」なったら conver.js へ移行せよ
 
 ## 手動実行訓練のイメージ
+
+> 適合ループを回す場合、手順1の「モジュール単位に切る」は `/workspacify-tree` → `/workspacify-allocate` が機械的に行い、訓練は**各ディレクトリに `RFC-SEED.md` が置かれた状態**から始まります（手順2以降はパッケージディレクトリごとに実行します）。
 
 1. ターゲットの開発をモジュール単位に設計として切る（必ず安全な I/O 境界で切り、ディレクトリが独立する単位）
 2. /grill-me-for-rfc でモジュール単位の RFC を生成 -> RFC を必ず全部読め。
