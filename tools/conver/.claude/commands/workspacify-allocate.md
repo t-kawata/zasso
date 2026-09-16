@@ -30,8 +30,9 @@ Instead of asking questions, record assumptions, decision rationale, and remaini
 ## Arguments
 
 - First argument (required, the only one): the path to the manifest stage one published (`<path-to-WORKSPACIFY-TREE-MANIFEST.json>`)
+  - **Why this argument survives when everything else is derived**: its directory **is** the workspace root. §2.1 makes that root a package of its own (path `.`) and §2.2 draws the fifth layer beside its four layers, which the rotation implements as `workspaceRoot = dirname(manifestPath)`. A standard manifest path would create the generated workspace inside the reserve and break all four patterns (1, 2, 3 and 4) at once. The rule the family applies is stated in `docs/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md` §9: an argument is hidden unless hiding it breaks one of the four patterns
   - Requirements: a regular file / decodable as UTF-8 / non-empty / JSON-parseable / conforms to the tree-manifest schema / `artifact_kind == "workspacify-tree-manifest"` / `status == "COMPLETE"` / `final_audit.status == "PASS"` / `stage2_handoff.eligible == true` / self-hash matches / the recorded specification sits in the same directory as the manifest and re-hashes to `input.source_hash`
-  - It requires no additional arguments, dialogue, environment variable, hook or external fetch. `--decisions` points at the AI-authored input for gate/finalize (described below)
+  - It requires no additional arguments, dialogue, environment variable, hook or external fetch. The AI-authored input for gate/finalize is read from `workspacify/allocate/DECISIONS.json` beneath the manifest's directory (described below)
   - If there is free-form input other than the argument, treat it as additional information
 
 ## The canonical output and its constraints
@@ -61,9 +62,9 @@ Under `.claude/scripts/workspacify-allocate/`.
 | `run.mjs validate <manifest>` | Input lock: schema / self-hash / COMPLETE / final_audit / stage2_handoff / spec re-hash (G0/G1). Returns PASS/FAIL through the exit code |
 | `run.mjs plan <manifest>` | The directory plan (ancestors + leaves, leaf↔package bijection) + path safety + existing-output policy (G2) |
 | `run.mjs packet <manifest> [--package=<id>]` | AI authoring support: prints, as JSON, the per-package authoring packet (owned inventory, source excerpts, boundary context) |
-| `run.mjs gate <manifest> --decisions=<path>` | decisions schema/authoring surface → the self-grill loop (G3.7: 5 focuses, convergence, residual shape, verbatim carrying of stage-1 residuals, forbidden vocabulary) → render every seed → seed-local (3 references, contract completeness) → parity → zero transfer loss (coverage of material segments plus the recording of non-material ones) → bilateral contracts (G4) → WIG (G5) → implementation order match → APPROVED presence. Only COMPLETE exits 0 |
-| `run.mjs finalize <manifest> --decisions=<path>` | Re-runs every gate → builds the manifest → atomically publishes tree + seeds + allocate manifest → reload re-verification → cleanup (G6). On success only the three kinds are published |
-| `run.mjs reverse --root=<dir> --decisions=<path>` | **Reverse mode.** Inverts the safety guarantee: the existing tree must match the proved plan exactly, and one extra path is BLOCKED. Judges A1 to A5, then places one RFC-SEED.md per package and the allocate manifest. Never renames a top-level entry; a failing gate publishes nothing |
+| `run.mjs gate <manifest>` | decisions schema/authoring surface → the self-grill loop (G3.7: 5 focuses, convergence, residual shape, verbatim carrying of stage-1 residuals, forbidden vocabulary) → render every seed → seed-local (3 references, contract completeness) → parity → zero transfer loss (coverage of material segments plus the recording of non-material ones) → bilateral contracts (G4) → WIG (G5) → implementation order match → APPROVED presence. Only COMPLETE exits 0 |
+| `run.mjs finalize <manifest>` | Re-runs every gate → builds the manifest → atomically publishes tree + seeds + allocate manifest → reload re-verification → cleanup (G6). On success only the three kinds are published |
+| `run.mjs reverse` | **Reverse mode.** Inverts the safety guarantee: the existing tree must match the proved plan exactly, and one extra path is BLOCKED. Judges A1 to A5, then places one RFC-SEED.md per package and the allocate manifest. Never renames a top-level entry; a failing gate publishes nothing |
 
 ## Statuses and gates
 
@@ -191,14 +192,15 @@ Read the packet and the specification, and write the semantic body of every pack
   - [ ] It does not redefine another package's semantic owner (dependencies are described as dependency_context / consumer_obligation)
   - [ ] The self-grill loop was run to convergence, and only the questions that could not be solved were left as residuals with a grill question in §12 (leaving them unattended and asking a human are both forbidden)
   - [ ] There is no over-splitting and no unnatural boundary (if there is, decide to return to stage one)
-- Create the decisions outside the specification's directory (for example in `os.tmpdir()`). The schema is machine-verified against `schemas/workspacify-allocate-decisions.schema.json`
+- Create the decisions at **`workspacify/allocate/DECISIONS.json` beneath the workspace root** — the directory the stage-one manifest was found in. The location is derived, not chosen: the gate reads it there and the finalize applies it there, so the semantics approved are the semantics applied. Nothing selects it — no argument, no environment variable and no pre-existing file can move it. The schema is machine-verified against `schemas/workspacify-allocate-decisions.schema.json`
+  - **It is staging, not a record.** The published `WORKSPACIFY-ALLOCATE-MANIFEST.json` is the record of what was decided, so the finalize sweeps this document — and the directories that held nothing else — once the published set has been reload-verified. A run that is refused leaves it in place, so the decisions can be repaired rather than re-authored
 
 ## Step 4: the gate loop (G3/G4/G5/order)
 
 **Purpose**: verify with the machine's real gate pipeline whether the decisions and the rendered seeds "conform to the objective rules".
 
 ```bash
-node .claude/scripts/workspacify-allocate/run.mjs gate "$ARGUMENTS" "--decisions=<decision.json>"
+node .claude/scripts/workspacify-allocate/run.mjs gate "$ARGUMENTS"
 ```
 
 - **Success condition**: `{status:"COMPLETE", gateSummary}` is printed and it exits 0
@@ -210,7 +212,7 @@ node .claude/scripts/workspacify-allocate/run.mjs gate "$ARGUMENTS" "--decisions
 **Purpose**: only when every gate is PASS and the semantic approval is recorded, build the tree + seeds + `WORKSPACIFY-ALLOCATE-MANIFEST.json` in staging, **publish them together atomically**, and re-verify the published artefacts themselves.
 
 ```bash
-node .claude/scripts/workspacify-allocate/run.mjs finalize "$ARGUMENTS" "--decisions=<decision.json>"
+node .claude/scripts/workspacify-allocate/run.mjs finalize "$ARGUMENTS"
 ```
 
 - **Condition to run**: every gate PASS and `semantic_review.status === "APPROVED"`. Otherwise it does not reach COMPLETE and exits non-zero
@@ -283,10 +285,10 @@ The machine recovers this table with `lib/seed-parse.mjs` and, with `lib/seed-pa
 $ node .claude/scripts/workspacify-allocate/run.mjs validate ./WORKSPACIFY-TREE-MANIFEST.json
 {"status":"PASS","workspaceRoot":"/work/specs","sourceHash":"ab12…","manifestHash":"cd34…","gateSummary":"G0:PASS G1:PASS"}
 
-$ node .claude/scripts/workspacify-allocate/run.mjs gate ./WORKSPACIFY-TREE-MANIFEST.json --decisions=/tmp/decisions.json
+$ node .claude/scripts/workspacify-allocate/run.mjs gate ./WORKSPACIFY-TREE-MANIFEST.json
 {"status":"COMPLETE","gateSummary":"G0:PASS G2:PASS G3:PASS G4:PASS G5:PASS order:PASS semantic:APPROVED"}
 
-$ node .claude/scripts/workspacify-allocate/run.mjs finalize ./WORKSPACIFY-TREE-MANIFEST.json --decisions=/tmp/decisions.json
+$ node .claude/scripts/workspacify-allocate/run.mjs finalize ./WORKSPACIFY-TREE-MANIFEST.json
 {"published":true,"workspaceRoot":"/work/specs","allocateManifestPath":"/work/specs/WORKSPACIFY-ALLOCATE-MANIFEST.json",
  "allocateManifestHash":"ef56…","residue":["WORKSPACIFY-ALLOCATE-MANIFEST.json","WORKSPACIFY-TREE-MANIFEST.json","crates","spec.md"],
  "inputManifestHash":"cd34…","directoryCount":7,"packageCount":3,"seedCount":3,"contractCount":2,"waveCount":2,
@@ -363,7 +365,11 @@ Success is consolidated into the coexistence of **① the AI's final semantic ap
 
 **Role**: when the project already exists, the directory tree cannot be created — it is already there, and it is the thing the whole phase exists to preserve. Reverse mode keeps the forward gates G0 to G5 exactly as they are and adds a second safety guarantee, pointing the other way.
 
-**Invocation**: `run.mjs reverse --root=<project directory> --decisions=<path>`, with the stage-1 manifest read from `<root>/WORKSPACIFY-TREE-MANIFEST.json`.
+**Invocation**: `run.mjs reverse`. The subject is the directory the command is run in, and it is the only subject there can be.
+
+- **The stage-1 manifest** is read from `WORKSPACIFY-TREE-MANIFEST.json` at that directory's root, not from a path the caller supplies. That directory **is** the workspace this command is asked to allocate into, so a different root would name a different workspace and the manifest would then have to be found there by a second spelling of the same decision
+- **The options this invocation once honoured are refused by name rather than ignored**: `--root`, because a caller who names one is naming the workspace the command already knows, and the decisions argument, which is read from `workspacify/allocate/DECISIONS.json` beneath that directory. A silently dropped path reads as a scope that was applied
+- It needs no dialogue, environment variable, hook or external fetch
 
 **The inversion.** Forward mode guarantees `fresh-workspace only` and publishes by renaming each top-level directory into place. In the reverse direction that same rename would move the existing `src/` and `tests/`. So the guarantee is re-tensioned rather than dropped: **every planned path must exist, every existing path must be planned, and a single extra path is BLOCKED with the path named.** The strength is identical; only the direction of the comparison changed.
 

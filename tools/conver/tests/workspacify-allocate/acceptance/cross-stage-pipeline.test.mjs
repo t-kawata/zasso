@@ -17,6 +17,8 @@ import { harvestObjectCandidates } from '../../../.claude/scripts/workspacify-tr
 import { settlePulseCandidates } from '../../workspacify-tree/helpers/settle-pulse.mjs';
 import { settleDependencyReviews } from '../../workspacify-tree/helpers/settle-dependency-reviews.mjs';
 import { settleSelfGrill } from '../helpers/self-grill-fixture.mjs';
+import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
+import { stageTreeDecisions } from '../../workspacify-tree/helpers/stage-tree-decisions.mjs';
 import { buildHeadingTree } from '../../../.claude/scripts/workspacify-tree/lib/headings.mjs';
 import { segmentAtHeadings } from '../../../.claude/scripts/workspacify-tree/lib/segmentation.mjs';
 
@@ -114,6 +116,7 @@ function stageTwoDecisions(manifest) {
   });
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose segment included', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wt-196-cross-'));
   try {
@@ -121,11 +124,12 @@ test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose seg
     cpSync(SPEC_FIXTURE, specPath);
     const objectIds = harvestCandidateIds(specPath);
     assert.ok(objectIds.length >= 2, 'the fixture specification yields at least two objects');
-    const treeDecisionsPath = join(dir, 'tree-decisions.json');
-    // The stage-1 AI settles every pulse candidate of its specification before publishing.
-    writeFileSync(treeDecisionsPath, JSON.stringify(settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions: stageOneDecisions(objectIds) }) })));
+    // The stage-1 AI settles every pulse candidate of its specification before
+    // publishing, and stages the document where the rotation derives it: the command
+    // line names the specification and nothing else.
+    stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions: stageOneDecisions(objectIds) }) }));
 
-    const stageOne = spawnSync(process.execPath, [TREE_RUN, 'finalize', `--spec=${specPath}`, `--decisions=${treeDecisionsPath}`], { cwd: dir, encoding: 'utf8' });
+    const stageOne = spawnSync(process.execPath, [TREE_RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
     assert.equal(stageOne.status, 0, stageOne.stdout + stageOne.stderr);
 
     const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
@@ -139,14 +143,13 @@ test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose seg
     assert.ok(prose.length >= 1, 'at least one segment carries no material');
     assert.deepEqual(manifest.dependencies.dag.implementation_order.serial, ['pkg-a', 'pkg-b']);
 
-    const decisionsPath = join(dir, 'allocate-decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(stageTwoDecisions(manifest)));
+    stageAllocateDecisions(dir, stageTwoDecisions(manifest));
 
     for (const stage of [['validate', manifestPath], ['plan', manifestPath]]) {
       const run = spawnSync(process.execPath, [ALLOCATE_RUN, ...stage], { encoding: 'utf8' });
       assert.equal(run.status, 0, `${stage[0]}: ${run.stdout}${run.stderr}`);
     }
-    const finalize = spawnSync(process.execPath, [ALLOCATE_RUN, 'finalize', manifestPath, `--decisions=${decisionsPath}`], { encoding: 'utf8' });
+    const finalize = spawnSync(process.execPath, [ALLOCATE_RUN, 'finalize', manifestPath], { encoding: 'utf8' });
     assert.equal(finalize.status, 0, finalize.stdout + finalize.stderr);
     const summary = JSON.parse(finalize.stdout);
     assert.equal(summary.published, true);
@@ -162,9 +165,10 @@ test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose seg
     assert.deepEqual(allocateManifest.source_coverage.material_segments.sort(), material.map((segment) => segment.id).sort());
     assert.deepEqual(allocateManifest.source_coverage.non_material_segments.sort(), prose.map((segment) => segment.id).sort());
     assert.deepEqual(allocateManifest.implementation_order.serial, ['pkg-a', 'pkg-b']);
+    // The residue is the published set plus the pre-existing files, and nothing
+    // else: both staging documents were swept, and the reserve with them.
     assert.deepEqual(readdirSync(dir).sort(), [
-      'WORKSPACIFY-ALLOCATE-MANIFEST.json', 'WORKSPACIFY-TREE-MANIFEST.json',
-      'allocate-decisions.json', 'crates', 'spec.md', 'tree-decisions.json',
+      'WORKSPACIFY-ALLOCATE-MANIFEST.json', 'WORKSPACIFY-TREE-MANIFEST.json', 'crates', 'spec.md',
     ]);
 
     // The seeds carry the contract on both sides and reference the published manifest.
@@ -189,14 +193,15 @@ test('C002/C003 a real stage-1 manifest drives a real stage-2 publish, prose seg
     }
 
     // A stage-1 residual dropped from the loop stops the run and names the candidate.
-    const droppedPath = join(dir, 'dropped-decisions.json');
-    writeFileSync(droppedPath, JSON.stringify({ ...stageTwoDecisions(manifest), self_grill: { ...stageTwoDecisions(manifest).self_grill, residual: [] } }));
-    const dropped = spawnSync(process.execPath, [ALLOCATE_RUN, 'gate', manifestPath, `--decisions=${droppedPath}`], { encoding: 'utf8' });
+    stageAllocateDecisions(dir, { ...stageTwoDecisions(manifest), self_grill: { ...stageTwoDecisions(manifest).self_grill, residual: [] } });
+    const dropped = spawnSync(process.execPath, [ALLOCATE_RUN, 'gate', manifestPath], { encoding: 'utf8' });
     assert.notEqual(dropped.status, 0, 'an empire that forgets a stage-1 question must not pass');
     assert.ok((dropped.stdout + dropped.stderr).includes(carried[0].candidate_id), dropped.stdout + dropped.stderr);
 
     // A second run is BLOCKED and leaves the published workspace untouched.
-    const second = spawnSync(process.execPath, [ALLOCATE_RUN, 'finalize', manifestPath, `--decisions=${decisionsPath}`], { encoding: 'utf8' });
+    // Staged again: the finalize above published, and a published run sweeps the document.
+    stageAllocateDecisions(dir, stageTwoDecisions(manifest));
+    const second = spawnSync(process.execPath, [ALLOCATE_RUN, 'finalize', manifestPath], { encoding: 'utf8' });
     assert.notEqual(second.status, 0);
     assert.equal(readFileSync(join(dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), 'utf8'), `${JSON.stringify(allocateManifest, null, 2)}\n`);
   } finally {
@@ -211,10 +216,8 @@ test('C002 a stage-2 run refuses a stage-1 manifest that does not declare segmen
     cpSync(SPEC_FIXTURE, specPath);
     const objectIds = harvestCandidateIds(specPath);
     assert.ok(objectIds.length >= 2, 'the fixture specification yields at least two objects');
-    const treeDecisionsPath = join(dir, 'tree-decisions.json');
-    // The stage-1 AI settles every pulse candidate of its specification before publishing.
-    writeFileSync(treeDecisionsPath, JSON.stringify(settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions: stageOneDecisions(objectIds) }) })));
-    const stageOne = spawnSync(process.execPath, [TREE_RUN, 'finalize', `--spec=${specPath}`, `--decisions=${treeDecisionsPath}`], { cwd: dir, encoding: 'utf8' });
+    stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions: stageOneDecisions(objectIds) }) }));
+    const stageOne = spawnSync(process.execPath, [TREE_RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
     assert.equal(stageOne.status, 0, stageOne.stdout + stageOne.stderr);
 
     const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');

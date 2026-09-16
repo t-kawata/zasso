@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import { runFinalize } from '../../../.claude/scripts/workspacify-allocate/run.mjs';
 import { materializeSeedFixture, makeDecisions } from '../helpers/build-valid-manifest.mjs';
 import { makeSelfGrill, validResidual } from '../helpers/self-grill-fixture.mjs';
+import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 
 function silent(callback) {
   const stdout = process.stdout.write;
@@ -31,13 +32,14 @@ function silent(callback) {
   }
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function fixture() {
   const { dir, manifestPath, manifest } = materializeSeedFixture();
   const decisions = makeDecisions(manifest);
-  const decisionsPath = join(dir, 'decisions.json');
-  writeFileSync(decisionsPath, JSON.stringify(decisions));
+  const decisionsRoot = dir;
+  stageAllocateDecisions(decisionsRoot, decisions);
   // The manifest describes a published workspace, so publish one first.
-  silent(() => runFinalize(['finalize', manifestPath, `--decisions=${decisionsPath}`]));
+  silent(() => runFinalize(['finalize', manifestPath]));
   const parsedByPackage = new Map(decisions.seeds.map((seed) => [seed.packageId, { contractEdges: seed.contractEdges }]));
   const contractIndex = buildContractIndex({ parsedByPackage, manifest });
   const graph = buildIntegrationGraph({ contractIndex, manifest });

@@ -19,15 +19,16 @@ const CONVER_ROOT = process.cwd();
 const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
 const FIXTURES = join(CONVER_ROOT, 'tests/workspacify-tree/fixtures');
 const MANIFEST_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
+import { stageTreeDecisionsFrom } from '../helpers/stage-tree-decisions.mjs';
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('entry parity C005 [@verifies C005]: a gaia-like spec yields a manifest that passes the ALLOCATE entry gate', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-parity-'));
   const specPath = join(dir, 'gaia-like-spec.md');
-  const decisionsPath = join(dir, 'gaia-decisions.json');
   cpSync(join(FIXTURES, 'gaia-like-spec.md'), specPath);
-  cpSync(join(FIXTURES, 'gaia-decisions.json'), decisionsPath);
+  stageTreeDecisionsFrom(dir, join(FIXTURES, 'gaia-decisions.json'));
 
-  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], {
+  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], {
     cwd: dir,
     encoding: 'utf8',
   });

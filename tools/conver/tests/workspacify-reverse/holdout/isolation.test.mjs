@@ -271,15 +271,16 @@ test('a switch after the isolation root does not consume it', () => {
   }
 });
 
-test('a subcommand that needs a root refuses to run without one', () => {
-  // `detect` and `scrub` take a root. Before the holdout and oracle subcommands
-  // were added the entry point required it for every subcommand, so an operator
-  // who forgot it got the usage text and a non-zero exit. A report over
-  // `undefined` reads as a clean tree, which is the one answer it must not give.
+// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+test('a subcommand that measures a subject refuses a root it was handed', () => {
+  // `detect`, `scrub` and `verify` measure the directory the command is run
+  // in, so a root is not a thing they take. Handing one is refused by name rather
+  // than ignored: an operator who scoped a run has to learn that the scope was
+  // never theirs, and a silently dropped root reads as a scope that was applied.
   for (const subcommand of ['detect', 'scrub']) {
-    const run = spawnSync(process.execPath, [RUN_SCRIPT, subcommand], { cwd: PROJECT_ROOT, encoding: 'utf8' });
-    assert.equal(run.status, 2, `${subcommand} without a root must exit 2, not report on nothing`);
-    assert.match(run.stderr, /Usage:/);
-    assert.doesNotMatch(run.stdout, /Target root not found/, `${subcommand} must not emit a report for an absent root`);
+    const run = spawnSync(process.execPath, [RUN_SCRIPT, subcommand, '/some/other/project'], { cwd: PROJECT_ROOT, encoding: 'utf8' });
+    assert.notEqual(run.status, 0, `${subcommand} must not accept a root it cannot honour`);
+    assert.match(run.stderr, /\/some\/other\/project/, `${subcommand} names the argument it refused`);
+    assert.doesNotMatch(run.stdout, /Target root not found/, `${subcommand} must not emit a report for an argument it refused`);
   }
 });

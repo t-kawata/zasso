@@ -9,6 +9,7 @@ import { join } from 'node:path';
 
 import { runGate } from '../../../.claude/scripts/workspacify-allocate/run.mjs';
 import { materializeSeedFixture, makeDecisions } from '../helpers/build-valid-manifest.mjs';
+import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 
 function silent(callback) {
   const stdout = process.stdout.write;
@@ -29,38 +30,39 @@ function decisionsWith(manifest, mutate) {
   return decisions;
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C005 a dropped side, an undeclared contract and a weakened clause all stop the run', () => {
   const fixture = materializeSeedFixture();
   try {
-    const decisionsPath = join(fixture.dir, 'decisions.json');
+    const decisionsRoot = fixture.dir;
 
     // The provider seed drops its declared contract: the seed-local gate catches it first.
-    writeFileSync(decisionsPath, JSON.stringify(decisionsWith(fixture.manifest, (decisions) => {
+    stageAllocateDecisions(decisionsRoot, decisionsWith(fixture.manifest, (decisions) => {
       decisions.seeds = decisions.seeds.map((seed) => (seed.packageId === 'pkg-a' ? { ...seed, contractEdges: [] } : seed));
-    })));
+    }));
     assert.throws(
-      () => runGate(['gate', fixture.manifestPath, `--decisions=${decisionsPath}`]),
+      () => runGate(['gate', fixture.manifestPath]),
       (error) => error.gateId === 'G3' && /contract-boundary-001/.test(error.message),
     );
 
     // A contract without a declared boundary is rejected by the local gate too.
-    writeFileSync(decisionsPath, JSON.stringify(decisionsWith(fixture.manifest, (decisions) => {
+    stageAllocateDecisions(decisionsRoot, decisionsWith(fixture.manifest, (decisions) => {
       decisions.seeds[0].contractEdges = [{ ...decisions.seeds[0].contractEdges[0], contract_id: 'contract-ghost' }];
-    })));
+    }));
     assert.throws(
-      () => runGate(['gate', fixture.manifestPath, `--decisions=${decisionsPath}`]),
+      () => runGate(['gate', fixture.manifestPath]),
       (error) => error.gateId === 'G3' && /contract-ghost/.test(error.message),
     );
 
     // Both sides present and individually valid, but the provider weakens a clause:
     // only the bilateral symmetry gate can see this.
-    writeFileSync(decisionsPath, JSON.stringify(decisionsWith(fixture.manifest, (decisions) => {
+    stageAllocateDecisions(decisionsRoot, decisionsWith(fixture.manifest, (decisions) => {
       decisions.seeds = decisions.seeds.map((seed) => (seed.packageId === 'pkg-a'
         ? { ...seed, contractEdges: seed.contractEdges.map((edge) => ({ ...edge, clauses: { ...edge.clauses, postconditions: ['the provider returns whatever it likes'] } })) }
         : seed));
-    })));
+    }));
     assert.throws(
-      () => runGate(['gate', fixture.manifestPath, `--decisions=${decisionsPath}`]),
+      () => runGate(['gate', fixture.manifestPath]),
       (error) => error.gateId === 'G4' && /contract-boundary-001/.test(error.message),
     );
   } finally {
@@ -71,15 +73,15 @@ test('C005 a dropped side, an undeclared contract and a weakened clause all stop
 test('C005 a clean payload passes with the cross-seed gates in the summary', () => {
   const fixture = materializeSeedFixture();
   try {
-    const decisionsPath = join(fixture.dir, 'decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(makeDecisions(fixture.manifest)));
+    const decisionsRoot = fixture.dir;
+    stageAllocateDecisions(decisionsRoot, makeDecisions(fixture.manifest));
     let output = '';
     const stdout = process.stdout.write;
     const stderr = process.stderr.write;
     process.stdout.write = (chunk) => { output += chunk; return true; };
     process.stderr.write = () => true;
     try {
-      runGate(['gate', fixture.manifestPath, `--decisions=${decisionsPath}`]);
+      runGate(['gate', fixture.manifestPath]);
     } finally {
       process.stdout.write = stdout;
       process.stderr.write = stderr;

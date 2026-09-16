@@ -12,6 +12,7 @@ import { reloadAndVerify } from '../../../.claude/scripts/workspacify-allocate/l
 import { runFinalize } from '../../../.claude/scripts/workspacify-allocate/run.mjs';
 import { materializeSeedFixture, makeDecisions } from '../helpers/build-valid-manifest.mjs';
 import { settleSelfGrill, validResidual } from '../helpers/self-grill-fixture.mjs';
+import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 import { ALLOCATE_MANIFEST_FILE_NAME, SEED_FILE_NAME } from '../../../.claude/scripts/workspacify-allocate/lib/seed-model.mjs';
 import { computeAllocateSelfHash } from '../../../.claude/scripts/workspacify-allocate/lib/allocate-manifest.mjs';
 import { sha256Hex } from '../../../.claude/scripts/workspacify-tree/lib/hash.mjs';
@@ -29,11 +30,11 @@ function silent(callback) {
   }
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function publish() {
   const fixture = materializeSeedFixture();
-  const decisionsPath = join(fixture.dir, 'decisions.json');
-  writeFileSync(decisionsPath, JSON.stringify(makeDecisions(fixture.manifest)));
-  silent(() => runFinalize(['finalize', fixture.manifestPath, `--decisions=${decisionsPath}`]));
+  const decisionsPath = stageAllocateDecisions(fixture.dir, makeDecisions(fixture.manifest));
+  silent(() => runFinalize(['finalize', fixture.manifestPath]));
   return { ...fixture, decisionsPath, plan: { relativeDirs: ['crates', 'crates/protocol', 'crates/protocol/alpha', 'crates/protocol/beta'] } };
 }
 
@@ -108,9 +109,8 @@ test('C003 a published seed that lost its grill question is detected through the
       manifest: { ...fixture.manifest, stage2_handoff: { ...fixture.manifest.stage2_handoff, residual_questions: [] } },
       packageId: 'pkg-a',
     });
-    const decisionsPath = join(fixture.dir, 'decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(decisions));
-    silent(() => runFinalize(['finalize', fixture.manifestPath, `--decisions=${decisionsPath}`]));
+    const decisionsPath = stageAllocateDecisions(fixture.dir, decisions);
+    silent(() => runFinalize(['finalize', fixture.manifestPath]));
 
     const allocatePath = join(fixture.dir, ALLOCATE_MANIFEST_FILE_NAME);
     const published = JSON.parse(readFileSync(allocatePath, 'utf8'));

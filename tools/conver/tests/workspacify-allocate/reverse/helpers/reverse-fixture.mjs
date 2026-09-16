@@ -10,8 +10,10 @@
  * directories and therefore outside the directory-set contract.
  */
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+
+import { RESERVED_ROOT_NAME } from '../../../../.claude/scripts/workspacify-tree/lib/reserved-root.mjs';
 import { tmpdir } from 'node:os';
 
 import { runDagChecks } from '../../../../.claude/scripts/workspacify-tree/lib/dag.mjs';
@@ -131,7 +133,9 @@ export function writeFiles(root, layout) {
  *             plannedPaths: string[], expectedTopLevel: string[] }}
  */
 export function buildReverseWorkspace({ extraDirectories = [], extraFiles = {} } = {}) {
-  const dir = mkdtempSync(join(tmpdir(), 'allocate-reverse-'));
+  // Resolved, because the reverse rotation reports `process.cwd()` in the platform's
+  // canonical spelling and files staged beneath it have to answer to that spelling.
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'allocate-reverse-')));
   const { manifest, decisions } = buildReverseManifest();
 
   writeFileSync(join(dir, 'spec.md'), DEFAULT_SPEC_TEXT);
@@ -222,11 +226,17 @@ export function collectSeedPaths(root) {
  * @param {string} root - absolute directory
  * @returns {string[]} one line per entry
  */
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 export function fingerprintTree(root) {
   const lines = [];
   const visit = (abs, rel) => {
     const entries = readdirSync(abs, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name));
     for (const entry of entries) {
+      // The reserve is where the rotation stages its own documents. It is not part
+      // of the project this fingerprint is taken of, for the same reason no walk of
+      // the analysis descends into it — and a fingerprint that counted it would
+      // report the run's own staging as a change to the project.
+      if (entry.isDirectory() && entry.name === RESERVED_ROOT_NAME) continue;
       const relPath = rel ? `${rel}/${entry.name}` : entry.name;
       const absolute = join(abs, entry.name);
       if (entry.isDirectory()) {

@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { loadDecisionInput, assertDecisionSchema } from '../../../.claude/scripts/workspacify-tree/lib/decision-input.mjs';
+import { stageTreeDecisions, stageTreeDecisionsFrom } from '../helpers/stage-tree-decisions.mjs';
 
 const CONVER_ROOT = process.cwd();
 const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
@@ -49,6 +50,7 @@ function extractStep3DecisionJson(markdownText) {
   assert.fail('no Step 3 decision JSON block containing workspace was found');
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('command C001 [@verifies C001]: the command markdown exists, is written in English, and carries the required contract', () => {
   assert.equal(existsSync(MD_PATH), true);
   const md = readFileSync(MD_PATH, 'utf8');
@@ -68,20 +70,28 @@ test('command C001 invariant [@verifies C001]: the command file declares success
 });
 
 test('gate C002 [@verifies C002]: a real spec with review-required candidates does not report PASS', () => {
-  const gate = runCli(['gate', `--spec=${SPEC}`, `--decisions=${join(FIXTURES, 'decisions-long-ok.json')}`]);
+  // The working directory is a scratch directory, because the decisions document is
+  // derived at the subject: a call that inherited the repository would stage a
+  // document into the repository.
+  const dir = mkdtempSync(join(tmpdir(), 'wst-cmd-'));
+  stageTreeDecisionsFrom(dir, join(FIXTURES, 'decisions-long-ok.json'));
+  const gate = runCli(['gate', `--spec=${SPEC}`], dir);
   assert.notEqual(gate.status, 0);
   assert.ok(!gate.stdout.includes('"status":"PASS"'));
 });
 
 test('gate C002 invariant [@verifies C002]: gate PASS only when the real gate pipeline passes', () => {
-  const gate = runCli(['gate', `--spec=${SPEC}`, `--decisions=${join(FIXTURES, 'decisions-complete.json')}`]);
+  const dir = mkdtempSync(join(tmpdir(), 'wst-cmd-'));
+  stageTreeDecisionsFrom(dir, join(FIXTURES, 'decisions-complete.json'));
+  const gate = runCli(['gate', `--spec=${SPEC}`], dir);
   assert.equal(gate.status, 0, gate.stdout);
   assert.ok(gate.stdout.includes('COMPLETE'));
 });
 
 test('ownership C003 [@verifies C003]: finalize applies decisions ownership and a real spec reaches COMPLETE', () => {
   const outDir = mkdtempSync(join(tmpdir(), 'wst-cmd-'));
-  const finalize = runCli(['finalize', `--spec=${SPEC}`, `--decisions=${join(FIXTURES, 'decisions-complete.json')}`], outDir);
+  stageTreeDecisionsFrom(outDir, join(FIXTURES, 'decisions-complete.json'));
+  const finalize = runCli(['finalize', `--spec=${SPEC}`], outDir);
   assert.equal(finalize.status, 0, finalize.stdout);
   const manifest = JSON.parse(readFileSync(join(outDir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
   assert.equal(manifest.status, 'COMPLETE');
@@ -90,7 +100,8 @@ test('ownership C003 [@verifies C003]: finalize applies decisions ownership and 
 
 test('ownership C003 invariant [@verifies C003]: exactly one manifest is published and reload passes', () => {
   const outDir = mkdtempSync(join(tmpdir(), 'wst-cmd-'));
-  const finalize = runCli(['finalize', `--spec=${SPEC}`, `--decisions=${join(FIXTURES, 'decisions-complete.json')}`], outDir);
+  stageTreeDecisionsFrom(outDir, join(FIXTURES, 'decisions-complete.json'));
+  const finalize = runCli(['finalize', `--spec=${SPEC}`], outDir);
   assert.equal(finalize.status, 0);
   const files = readdirSync(outDir).filter((file) => file.endsWith('.json'));
   assert.deepEqual(files, ['WORKSPACIFY-TREE-MANIFEST.json']);
@@ -120,7 +131,8 @@ test('schema C004 invariant [@verifies C004]: a valid complete decisions object 
 
 test('manifest C005 [@verifies C005]: published manifest carries database_policy and contract_boundaries', () => {
   const outDir = mkdtempSync(join(tmpdir(), 'wst-cmd-'));
-  const finalize = runCli(['finalize', `--spec=${SPEC}`, `--decisions=${join(FIXTURES, 'decisions-complete.json')}`], outDir);
+  stageTreeDecisionsFrom(outDir, join(FIXTURES, 'decisions-complete.json'));
+  const finalize = runCli(['finalize', `--spec=${SPEC}`], outDir);
   assert.equal(finalize.status, 0);
   const manifest = JSON.parse(readFileSync(join(outDir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
   assert.ok(manifest.adapters.database_policy !== undefined);
@@ -173,9 +185,8 @@ test('PX-187 C004 [PX-187 @verifies C004]: gate without semantic_review is not C
   const dir = mkdtempSync(join(tmpdir(), 'wst-sr-'));
   const decisions = loadDecisionInput(join(FIXTURES, 'decisions-complete.json'));
   delete decisions.semantic_review;
-  const missingPath = join(dir, 'missing-sr.json');
-  writeFileSync(missingPath, JSON.stringify(decisions));
-  const gate = runCli(['gate', `--spec=${SPEC}`, `--decisions=${missingPath}`]);
+  stageTreeDecisions(dir, decisions);
+  const gate = runCli(['gate', `--spec=${SPEC}`], dir);
   assert.notEqual(gate.status, 0, 'gate exits non-zero');
   assert.ok(!gate.stdout.includes('COMPLETE'), 'no COMPLETE status');
 });

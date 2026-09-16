@@ -14,12 +14,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { checkTreeEntryGate } from '../../../.claude/scripts/workspacify-tree/lib/entry-parity.mjs';
+import { stageTreeDecisions, stageTreeDecisionsFrom } from '../helpers/stage-tree-decisions.mjs';
 
 const CONVER_ROOT = process.cwd();
 const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
 const MD_PATH = join(CONVER_ROOT, '.claude/commands/workspacify-tree.md');
 const FIXTURES = join(CONVER_ROOT, 'tests/workspacify-tree/fixtures');
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('doc C001 [@verifies C001]: Step 3 describes an information-raising iteration', () => {
   const md = readFileSync(MD_PATH, 'utf8');
   assert.match(md, /## Step 3/);
@@ -53,15 +55,13 @@ test('loop C003 [@verifies C003]: incomplete decisions fail the gate, complete d
   cpSync(join(FIXTURES, 'gaia-like-spec.md'), specPath);
 
   // Incomplete decisions: no ownership/approvals/tree -> gate must not pass.
-  const incompletePath = join(dir, 'incomplete.json');
-  writeFileSync(incompletePath, JSON.stringify({ workspace: [], ownership: [], dependencies: [], adapters: {}, approvals: [] }));
-  const incomplete = spawnSync(process.execPath, [RUN_SCRIPT, 'gate', `--spec=${specPath}`, `--decisions=${incompletePath}`], { cwd: dir, encoding: 'utf8' });
+  stageTreeDecisions(dir, { workspace: [], ownership: [], dependencies: [], adapters: {}, approvals: [] });
+  const incomplete = spawnSync(process.execPath, [RUN_SCRIPT, 'gate', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
   assert.notEqual(incomplete.status, 0);
 
   // Complete decisions -> finalize COMPLETE and entry gate ok.
-  const completePath = join(dir, 'gaia-decisions.json');
-  cpSync(join(FIXTURES, 'gaia-decisions.json'), completePath);
-  const finalize = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`, `--decisions=${completePath}`], { cwd: dir, encoding: 'utf8' });
+  stageTreeDecisionsFrom(dir, join(FIXTURES, 'gaia-decisions.json'));
+  const finalize = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
   assert.equal(finalize.status, 0, finalize.stdout);
   const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
   assert.equal(manifest.status, 'COMPLETE');

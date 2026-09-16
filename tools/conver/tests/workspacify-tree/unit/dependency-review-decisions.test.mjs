@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import { buildDependencyReviewForDecisions, validateDependencyReviews, REVIEW_DECISIONS } from '../../../.claude/scripts/workspacify-tree/lib/dependency-review.mjs';
 import { settlePulseCandidates } from '../helpers/settle-pulse.mjs';
+import { stageTreeDecisions } from '../helpers/stage-tree-decisions.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-tree/run.mjs', import.meta.url));
 
@@ -22,6 +23,7 @@ function review(overrides = {}) {
   return { candidate_id: 'review-000001', decision: 'keep', rationale: 'the edge carries the record the consumer needs', alternatives: ['replace the edge with a port'], ...overrides };
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C002 the decision vocabulary is closed and every candidate needs one decision', () => {
   assert.deepEqual([...REVIEW_DECISIONS].sort(), ['keep', 'merge', 'replace_with_port', 'residual', 'split'].sort());
   assert.equal(validateDependencyReviews({ candidates: CANDIDATES, reviews: [review()], normalEdges: EDGES, boundaries: [] }).ok, true);
@@ -97,10 +99,9 @@ test('C003 the CLI publishes the review set and merges its residuals into the ha
         alternatives: ['keep the package as one directory'], why_unresolved: 'ownership of the rule is unresolved',
       })),
     };
-    const decisionsPath = join(dir, 'decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(settlePulseCandidates({ specPath, decisions: settled })));
+    stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions: settled }));
 
-    const result = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], { cwd: dir, encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stdout + result.stderr);
     const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
     assert.equal(manifest.stage2_handoff.dependency_reviews.length, review_.candidates.length);
@@ -111,9 +112,9 @@ test('C003 the CLI publishes the review set and merges its residuals into the ha
     assert.ok(manifest.stage2_handoff.residual_questions.length > review_.candidates.length);
 
     // An undecided candidate stops the run and names the candidate.
-    const undecidedPath = join(dir, 'undecided.json');
-    writeFileSync(undecidedPath, JSON.stringify(settlePulseCandidates({ specPath, decisions: { ...settled, dependency_reviews: [] } })));
-    const blocked = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`, `--decisions=${undecidedPath}`], { cwd: dir, encoding: 'utf8' });
+    // Staged again: the run above published, and a published run sweeps the document.
+    stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions: { ...settled, dependency_reviews: [] } }));
+    const blocked = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(blocked.status, 0);
     assert.ok((blocked.stdout + blocked.stderr).includes(review_.candidates[0].id), blocked.stdout + blocked.stderr);
     assert.ok((blocked.stdout + blocked.stderr).includes('no recorded decision'), blocked.stdout + blocked.stderr);

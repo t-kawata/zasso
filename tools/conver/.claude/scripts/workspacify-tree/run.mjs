@@ -9,7 +9,7 @@
  */
 import path from 'node:path';
 import process from 'node:process';
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 
 import { EXIT_CODES } from './lib/errors.mjs';
 import {
@@ -33,6 +33,19 @@ import {
   summarizeReverseGates,
 } from './lib/reverse-mode.mjs';
 import { measureDirectoryTree } from './lib/structure-parity.mjs';
+// The reserved root is declared once, in this layer, where both later stages may
+// read it without the forward rotation depending on the reverse tree.
+import {
+  RESERVED_DECISIONS_FILE_NAME,
+  RESERVED_MEASURED_EDGES_FILE_NAME,
+  RESERVED_ORIGIN_SPEC_FILE_NAME,
+  RESERVED_REVERSE_SUBDIRECTORY,
+  RESERVED_ROOT_NAME,
+  RESERVED_TREE_SUBDIRECTORY,
+  reservedReverseDirectory,
+  reservedTreeDecisionsPath,
+} from './lib/reserved-root.mjs';
+import { sweepStagingDecisions } from './lib/staging-decisions.mjs';
 import { LAYER_FORBIDDEN_TARGETS } from './lib/workspace-model.mjs';
 import { readSpecInput } from './lib/fs-safe.mjs';
 import { normalizeTextBytes } from './lib/normalization.mjs';
@@ -163,18 +176,39 @@ function runExtract(specPath) {
   return exitWhenDrained(EXIT_CODES.OK);
 }
 
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+/**
+ * Refuse a decisions argument on a subcommand that derives the document.
+ *
+ * Judged before anything is read, so the refusal answers about the argument rather
+ * than about a document: a caller who learned the old surface is told the location
+ * is not theirs to choose, instead of being read from a file they did not name.
+ * The whole token travels, because a refusal naming only the option would leave the
+ * path they chose unaccounted for — the dropped question the refusal exists to
+ * prevent.
+ */
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+function refuseDecisionsArgument(args) {
+  const drawn = args.filter((token) => token === '--decisions' || token.startsWith('--decisions='));
+  if (drawn.length === 0) return;
+  throw new Error(
+    `withdrawn option ${drawn.map((token) => JSON.stringify(token)).join(', ')} — the decisions document is read `
+    + `from ${reservedTreeDecisionsPath(process.cwd())}, which is derived from the subject and is not selectable`,
+  );
+}
+
+// [::TICKET::] P24-9, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-9|PX-215) --for-spec --no-implementation-order`.
 function runGate(args) {
+  refuseDecisionsArgument(args.slice(1));
   const specPath = optionValue(args, '--spec');
-  const decisionsPath = optionValue(args, '--decisions');
-  if (!specPath || !decisionsPath) {
-    throw new Error('gate requires --spec=<path> and --decisions=<path>');
+  if (!specPath) {
+    throw new Error('gate requires --spec=<path>');
   }
+  const decisionsPath = reservedTreeDecisionsPath(process.cwd());
   const analysis = analyzeSpec(specPath);
   const decisions = loadDecisionInput(path.resolve(decisionsPath));
   const schemaReport = assertDecisionSchema(decisions);
   if (!schemaReport.ok) {
-    throw new Error(`decision schema invalid: ${schemaReport.errors.map((entry) => entry.message).join('; ')}`);
+    throw new Error(`decision schema invalid at ${decisionsPath}: ${schemaReport.errors.map((entry) => entry.message).join('; ')}`);
   }
   const inventory = prepareInventory(analysis, decisions);
   // The pulse is computed once and handed to the pipeline, so the defect gate sees
@@ -218,13 +252,14 @@ function runGate(args) {
   return exitWhenDrained(pipeline.status === 'COMPLETE' ? EXIT_CODES.OK : EXIT_CODES.FAIL);
 }
 
-// [::TICKET::] P22-11, P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P24-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P24-9, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P24-9|PX-215) --for-spec --no-implementation-order`.
 function runFinalize(args) {
+  refuseDecisionsArgument(args.slice(1));
   const specPath = optionValue(args, '--spec');
-  const decisionsPath = optionValue(args, '--decisions');
-  if (!specPath || !decisionsPath) {
-    throw new Error('finalize requires --spec=<path> and --decisions=<path>');
+  if (!specPath) {
+    throw new Error('finalize requires --spec=<path>');
   }
+  const decisionsPath = reservedTreeDecisionsPath(process.cwd());
   const prepared = prepareForwardPipeline(specPath, decisionsPath);
   if (prepared.pipeline.status !== 'COMPLETE') {
     return reportPipelineFailure(prepared.pipeline, 'Finalize');
@@ -249,6 +284,12 @@ function runFinalize(args) {
     );
     return exitWhenDrained(EXIT_CODES.FAIL);
   }
+
+  // Staging, and the doctrine says the script deletes it: the published manifest is
+  // the record of what was decided, and this document is what the gate read on the
+  // way there. Swept only after a publication that succeeded, so a refused run
+  // leaves the author's document where they can repair it.
+  sweepStagingDecisions(decisionsPath);
 
   process.stdout.write(
     formatSuccess({
@@ -298,13 +339,13 @@ const FINALIZE_REFUSAL_HINTS = Object.freeze({
  * Both the forward finalize and the reverse entry point call this, so the
  * reverse rotation judges exactly the manifest the forward rotation publishes.
  */
-// [::TICKET::] P22-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|PX-215) --for-spec --no-implementation-order`.
 function prepareForwardPipeline(specPath, decisionsPath) {
   const analysis = analyzeSpec(specPath);
   const decisions = loadDecisionInput(path.resolve(decisionsPath));
   const schemaReport = assertDecisionSchema(decisions);
   if (!schemaReport.ok) {
-    throw new Error(`decision schema invalid: ${schemaReport.errors.map((entry) => entry.message).join('; ')}`);
+    throw new Error(`decision schema invalid at ${decisionsPath}: ${schemaReport.errors.map((entry) => entry.message).join('; ')}`);
   }
   const inventory = prepareInventory(analysis, decisions);
   const specPulse = buildSpecPulseForAnalysis(analysis, inventory);
@@ -397,6 +438,72 @@ function reportPipelineFailure(pipeline, stepName) {
 }
 
 /**
+ * The options `reverse` once honoured and no longer does, each with the reason it left.
+ *
+ * Withdrawal belongs to the entrance that lost the option rather than to the file,
+ * which is why `--spec` is here while `gate` and `finalize` still take it: a caller
+ * who names a document is asking a question this subcommand has already settled, and
+ * a question dropped in silence reads exactly like one that was answered. The reason
+ * travels with the name so the refusal teaches the derived place instead of only
+ * reporting that something was wrong.
+ */
+const WITHDRAWN_FROM_REVERSE_OPTIONS = Object.freeze({
+  '--spec': `the origin spec is read from ${RESERVED_ROOT_NAME}/${RESERVED_REVERSE_SUBDIRECTORY}/${RESERVED_ORIGIN_SPEC_FILE_NAME} beneath the subject, and a copy of it is placed at the workspace root before the gates read it.`,
+  '--graph': 'the graph is the subject\'s own RFC-ROOT-GRAPH.json. An absent graph keeps the meaning it had when the flag was omitted: T3 judges it exactly as before, because an omitted measurement and an empty one are different claims.',
+  '--measured': `the measured dependency report is ${RESERVED_ROOT_NAME}/${RESERVED_REVERSE_SUBDIRECTORY}/${RESERVED_MEASURED_EDGES_FILE_NAME} beneath the subject. An absent report keeps the meaning it had when the flag was omitted, for the same reason as --graph.`,
+  '--sidecars': 'the sidecar bundle is the reserved directory itself, which is where the analysis publishes.',
+  '--root': `the subject is the directory the command is run in (${process.cwd()}). A caller who named one would be naming, on the next command line, a document this one already knows the place of.`,
+  '--delta': `the delta is ${ARCHITECTURE_DELTA_FILE_NAME} at the workspace root, which is also where it is published.`,
+  '--out': 'the destination is not selectable. The manifest and the delta belong at the workspace root, beside the ROOT package\'s own four layers.',
+  '--prior-partition': 'the layer-structure seam is the subject\'s own RFC-ROOT-Dirs-Tree.json. A subject that carries none is judged exactly as it was before the seam existed.',
+  '--decisions': `the decisions document is read from ${RESERVED_ROOT_NAME}/${RESERVED_TREE_SUBDIRECTORY}/${RESERVED_DECISIONS_FILE_NAME} beneath the subject. It is the same document the forward gate and finalize read, read once, so the semantics approved are the semantics applied.`,
+});
+
+/**
+ * The withdrawn options present in an argument list, as the tokens the caller wrote.
+ *
+ * The whole token travels rather than the option's name, so `--root=/tmp/x` is
+ * reported with the value the caller chose in it: a refusal that named only the
+ * option would leave that value unaccounted for, which is the dropped question the
+ * refusal exists to prevent.
+ */
+// [::TICKET::] PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
+function withdrawnReverseOptionsUsed(args) {
+  return args.flatMap((token) => {
+    const name = Object.keys(WITHDRAWN_FROM_REVERSE_OPTIONS)
+      .find((candidate) => token === candidate || token.startsWith(`${candidate}=`));
+    return name === undefined ? [] : [{ name, token }];
+  });
+}
+
+/** Refuse the withdrawn options a caller used, naming each token and why it cannot be honoured. */
+// [::TICKET::] PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
+function refuseWithdrawnReverseOptions(drawn) {
+  if (drawn.length === 0) return;
+  const reasons = drawn.map(({ name, token }) => `${token}: ${WITHDRAWN_FROM_REVERSE_OPTIONS[name]}`).join(' ');
+  throw new Error(`withdrawn option ${drawn.map(({ token }) => JSON.stringify(token)).join(', ')} — ${reasons}`);
+}
+
+/**
+ * Refuse a bare argument handed to `reverse`.
+ *
+ * The subcommand takes none: its subject is the directory it is run in. Ignoring a
+ * root the caller supplied would leave them believing a run had been scoped when the
+ * scope was never theirs — the same dropped question the withdrawn options are
+ * refused for.
+ */
+// [::TICKET::] PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
+function refuseReversePositionalArguments(positionals) {
+  if (positionals.length === 0) return;
+  throw new Error(
+    `the reverse subcommand takes no arguments, and ${positionals.map((token) => JSON.stringify(token)).join(', ')} `
+    + `was given. The subject is the directory the command is run in (${process.cwd()}), and the origin spec, the `
+    + `sidecars and the measured edges are read from ${RESERVED_ROOT_NAME}/${RESERVED_REVERSE_SUBDIRECTORY} beneath it; `
+    + 'neither is selectable',
+  );
+}
+
+/**
  * Reverse mode: partition a project that already exists.
  *
  * The forward pipeline still runs and still has to reach COMPLETE, because the
@@ -406,19 +513,23 @@ function reportPipelineFailure(pipeline, stepName) {
  * manifest gains is `reverse_provenance`; `COMPLETE` keeps the meaning it has in
  * the forward rotation.
  */
-// [::TICKET::] P22-11, P23-9, P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P23-9|P24-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P23-9, P24-9, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P23-9|P24-9|PX-214|PX-215) --for-spec --no-implementation-order`.
 function runReverse(args) {
-  const specPath = optionValue(args, '--spec');
-  const decisionsPath = optionValue(args, '--decisions');
-  const root = optionValue(args, '--root');
-  if (!specPath || !decisionsPath || !root) {
-    process.stdout.write(printUsage());
-    return exitWhenDrained(EXIT_CODES.USAGE);
-  }
+  // Judged before anything is read: a run that refused only after reading its
+  // inputs would still have answered over a subject the caller did not name.
+  const given = args.slice(1);
+  refuseWithdrawnReverseOptions(withdrawnReverseOptionsUsed(given));
+  refuseReversePositionalArguments(given.filter((token) => !token.startsWith('--')));
 
-  const outDir = path.resolve(optionValue(args, '--out') ?? process.cwd());
-  const measuredRoot = path.resolve(root);
-  const deltaPath = path.resolve(optionValue(args, '--delta') ?? path.join(outDir, ARCHITECTURE_DELTA_FILE_NAME));
+  const decisionsPath = reservedTreeDecisionsPath(process.cwd());
+
+  // The subject is the directory the command is run in, and the destination is
+  // that same directory: the fifth layer belongs at the workspace root, beside
+  // the ROOT package's own four layers, and not beneath the reserved root where
+  // the analysis keeps its documents.
+  const derived = resolveReverseInputs();
+  const { measuredRoot, graphPath, outDir } = derived;
+  const specPath = placeOriginSpecBesideTheManifest(derived);
 
   const prepared = prepareForwardPipeline(specPath, decisionsPath);
   if (prepared.pipeline.status !== 'COMPLETE') {
@@ -426,7 +537,7 @@ function runReverse(args) {
   }
 
   const packages = prepared.decisions.workspace;
-  const { measured, sidecarFiles, seam, delta } = readReverseInputs({ args, measuredRoot, packages, deltaPath });
+  const { measured, sidecarFiles, seam, delta } = readReverseInputs({ derived, packages });
 
   const reverseProvenance = {
     sidecar_bundle_hash: computeSidecarBundleHash(digestSidecarFiles(sidecarFiles)),
@@ -445,7 +556,7 @@ function runReverse(args) {
     mode: TREE_MODES.REVERSE,
     manifest,
     measured,
-    graph: { nodes: readGraphNodes(optionValue(args, '--graph')) },
+    graph: { nodes: readGraphNodes(graphPath) },
     resolveFilePath: (file) => path.resolve(measuredRoot, file),
     delta,
     seam,
@@ -457,6 +568,11 @@ function runReverse(args) {
     return reportReverseFailure(records, summary);
   }
 
+  // Swept for the same reason the forward finalize sweeps it: the manifest this run
+  // published is the record of what was decided, and the document the gate read is
+  // staging. Leaving it would put a second copy of the decisions beside a manifest
+  // that already carries them.
+  sweepStagingDecisions(decisionsPath);
   publishAndReportReverse({ outcome: { manifest, records, prepared, outDir, measuredRoot }, seam });
 }
 
@@ -505,42 +621,107 @@ function publishAndReportReverse({ outcome, seam = null }) {
 }
 
 /** Everything a reverse run is given: the tree, the sidecars, and the delta with its seam. */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
-function readReverseInputs({ args, measuredRoot, packages, deltaPath }) {
-  const measuredTree = measureDirectoryTree(measuredRoot);
+// [::TICKET::] P23-9, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-9|PX-214|PX-215) --for-spec --no-implementation-order`.
+function readReverseInputs({ derived, packages }) {
+  const measuredTree = measureDirectoryTree(derived.measuredRoot);
   return {
     measured: {
       directories: measuredTree.directories,
       sourceFiles: measuredTree.sourceFiles,
-      edges: readMeasuredEdges(optionValue(args, '--measured')),
+      edges: readMeasuredEdges(derived.measuredEdgesPath),
     },
-    sidecarFiles: listSidecarFiles(optionValue(args, '--sidecars')),
-    ...resolveDeltaWithSeam({ args, measuredRoot, packages, deltaPath }),
+    sidecarFiles: listSidecarFiles(derived.sidecarDir),
+    ...resolveDeltaWithSeam({ derived, packages }),
   };
 }
 
 /**
- * The delta T5 will judge, with the seam taken and published when the caller asked for one.
+ * The delta T5 will judge, with the seam taken and published when the subject carries one.
  *
- * Absent `--prior-partition` the authored delta is returned untouched, so a run that does
- * not declare a prior is judged exactly as it was before the seam existed.
+ * A subject with no prior partition is judged exactly as it was before the seam
+ * existed: the authored delta is returned untouched, and no seam is published.
  */
-// [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
-function resolveDeltaWithSeam({ args, measuredRoot, packages, deltaPath }) {
-  const authoredDelta = loadArchitectureDelta(deltaPath);
-  const priorPartitionPath = optionValue(args, '--prior-partition') ?? null;
+// [::TICKET::] P23-9, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-9|PX-214|PX-215) --for-spec --no-implementation-order`.
+function resolveDeltaWithSeam({ derived, packages }) {
+  const authoredDelta = loadArchitectureDelta(derived.deltaPath);
 
-  if (priorPartitionPath === null) {
+  if (derived.priorPartitionPath === null) {
     return { seam: null, delta: authoredDelta };
   }
   return publishLayerStructureSeam({
-    priorPartitionPath: path.resolve(priorPartitionPath),
-    measuredRoot,
+    priorPartitionPath: derived.priorPartitionPath,
+    measuredRoot: derived.measuredRoot,
     packages,
-    deltaPath,
+    deltaPath: derived.deltaPath,
     authoredDelta,
   });
 }
+
+/**
+ * The inputs a reverse run derives for itself.
+ *
+ * The rotation measures the directory it is run in, and everything it needs in
+ * order to judge that measurement is already on disk: the origin spec the
+ * analysis published, the sidecar bundle that analysis produced, and — for a
+ * subject that was already driven through conver's loop — its own graph and its
+ * own directory tree. Deriving them removes the class of error a caller makes
+ * when they name the same document by a different spelling on the next command
+ * line; the gates then report a mistyped path as an absent measurement.
+ *
+ * Two of the lookups are expected to find nothing. A subject that carries no
+ * graph and no measurement is judged by T3 and T4 exactly as it was when those
+ * flags were omitted, because an omitted measurement and an empty one are
+ * different claims and the gates have to be able to tell them apart. So this is
+ * a lookup in a declared place rather than a default: the day a stage publishes
+ * one, the same call finds it.
+ */
+// [::TICKET::] PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
+function resolveReverseInputs() {
+  const measuredRoot = process.cwd();
+  const reserve = reservedReverseDirectory(measuredRoot);
+  return {
+    measuredRoot,
+    // The manifest and the delta are published at the workspace root, beside the
+    // ROOT package's own four layers: §2.2 puts the fifth layer there, and the
+    // allocate step reads its plan from exactly that directory.
+    outDir: measuredRoot,
+    specPath: path.join(reserve, RESERVED_ORIGIN_SPEC_FILE_NAME),
+    sidecarDir: reserve,
+    measuredEdgesPath: path.join(reserve, RESERVED_MEASURED_EDGES_FILE_NAME),
+    graphPath: path.join(measuredRoot, ROOT_GRAPH_FILE_NAME),
+    priorPartitionPath: existsSync(path.join(measuredRoot, ROOT_DIRS_TREE_FILE_NAME))
+      ? path.join(measuredRoot, ROOT_DIRS_TREE_FILE_NAME)
+      : null,
+    deltaPath: path.join(measuredRoot, ARCHITECTURE_DELTA_FILE_NAME),
+  };
+}
+
+/**
+ * Put the origin spec at the workspace root and return the path to read it from.
+ *
+ * Stage two resolves the recorded `input.spec_path`, which is a basename, against
+ * the manifest's directory and refuses a specification that is not there — its
+ * own gate advice says to keep the specification *next to the manifest*. The
+ * analysis publishes the origin spec beneath the reserved root, where its own
+ * walks can write, so the rotation places it at the workspace root before
+ * anything reads it. A run that skipped this would assemble a manifest whose
+ * specification stage two cannot find, and would only discover that one command
+ * later.
+ */
+// [::TICKET::] PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
+function placeOriginSpecBesideTheManifest({ specPath, outDir }) {
+  const beside = path.join(outDir, path.basename(specPath));
+  if (beside !== specPath && !existsSync(beside)) {
+    copyFileSync(specPath, beside);
+  }
+  return beside;
+}
+
+/** The subject's own graph, which a project already driven through conver's loop carries. */
+const ROOT_GRAPH_FILE_NAME = 'RFC-ROOT-GRAPH.json';
+
+/** The subject's own directory tree, which is the layer-structure seam such a subject carries. */
+const ROOT_DIRS_TREE_FILE_NAME = 'RFC-ROOT-Dirs-Tree.json';
 
 /**
  * Take the seam, publish it into the delta, and hand back the record T5 will judge.
@@ -970,20 +1151,27 @@ function optionValue(args, flag) {
   return undefined;
 }
 
-// [::TICKET::] P22-11, P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P23-9) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-11, P23-9, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-11|P23-9|PX-214|PX-215) --for-spec --no-implementation-order`.
 function printUsage() {
   return [
     'usage: /workspacify-tree <path-to-specification.md>',
     'subcommands:',
     '  parse <spec>',
     '  extract <spec>',
-    '  gate --spec=<path> --decisions=<path>',
-    '  finalize --spec=<path> --decisions=<path>',
-    '  reverse --spec=<origin-spec.md> --decisions=<path> --root=<project directory>',
-    '          [--graph=<path>] [--measured=<path>] [--sidecars=<dir>] [--delta=<path>] [--out=<dir>]',
-    '          [--prior-partition=<old Dirs-Tree>]',
-    '          --prior-partition records the layer-structure seam a pattern-2 or pattern-3',
-    '          subject carries, publishing it into the delta. Absent, no seam is taken.',
+    '  gate --spec=<path>',
+    '  finalize --spec=<path>',
+    '  reverse',
+    '          The specification is the one argument, and it survives because it is the',
+    '          entire input of pattern 4: an empty project holds nothing from which a',
+    '          specification path could be derived.',
+    `          The decisions document is read from ${RESERVED_ROOT_NAME}/${RESERVED_TREE_SUBDIRECTORY}/${RESERVED_DECISIONS_FILE_NAME}`,
+    '          beneath the subject, which is the directory the command is run in. So is',
+    '          everything reverse derives: the origin spec and the sidecar bundle from the',
+    '          reserved directory beneath it, the graph and the layer-structure seam from the',
+    '          subject itself, and the manifest and the delta are published beside them, at',
+    '          the workspace root. None of those is selectable, because a caller who named',
+    '          one would be naming on the next command line a document this one already knows',
+    '          the place of.',
   ].join('\n') + '\n';
 }
 

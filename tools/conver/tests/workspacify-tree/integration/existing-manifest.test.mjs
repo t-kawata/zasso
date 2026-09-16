@@ -12,15 +12,17 @@ import { join } from 'node:path';
 const CONVER_ROOT = process.cwd();
 const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
 const FIXTURES = join(CONVER_ROOT, 'tests/workspacify-tree/fixtures');
+import { stageTreeDecisionsFrom } from '../helpers/stage-tree-decisions.mjs';
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('existing manifest with a different source hash is preserved (BLOCKED)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-exist-'));
   cpSync(join(FIXTURES, 'long-spec.md'), join(dir, 'long-spec.md'));
-  cpSync(join(FIXTURES, 'decisions-long-ok.json'), join(dir, 'decisions-long-ok.json'));
+  stageTreeDecisionsFrom(dir, join(FIXTURES, 'decisions-long-ok.json'));
   const oldManifest = JSON.stringify({ status: 'COMPLETE', input: { source_hash: 'e'.repeat(64) } });
   writeFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), oldManifest);
 
-  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${join(dir, 'long-spec.md')}`, `--decisions=${join(dir, 'decisions-long-ok.json')}`], {
+  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${join(dir, 'long-spec.md')}`], {
     cwd: dir,
     encoding: 'utf8',
   });

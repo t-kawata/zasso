@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import { runValidate, runPlan, runPacket, runGate, runFinalize } from '../../../.claude/scripts/workspacify-allocate/run.mjs';
 import { parseSeed } from '../../../.claude/scripts/workspacify-allocate/lib/seed-parse.mjs';
 import { validateDecisionsAuthoringSurface } from '../../../.claude/scripts/workspacify-allocate/lib/seed-model.mjs';
+import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 import { computeSelfHash } from '../../../.claude/scripts/workspacify-tree/lib/render.mjs';
 
 function boundary() {
@@ -38,6 +39,7 @@ function edge(overrides = {}) {
     });
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('contract-model C003: seed-level validation reports every defect class', () => {
   const boundariesById = indexBoundariesByContractId(buildValidManifest().manifest);
   assert.equal(validateSeedContractEdges({ contractEdges: [edge()], boundariesById, packageId: 'pkg-b' }).ok, true);
@@ -222,8 +224,8 @@ test('seed-authoring-packet C005: support kinds, missing counterparts and unreso
 test('run.mjs C001/C003/C004: in-process handlers over a real fixture', () => {
   const fixture = materializeSeedFixture();
   try {
-    const decisionsPath = join(fixture.dir, 'decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(makeDecisions(fixture.manifest)));
+    const decisionsRoot = fixture.dir;
+    stageAllocateDecisions(decisionsRoot, makeDecisions(fixture.manifest));
     const quiet = (callback) => {
       const stdout = process.stdout.write;
       const stderr = process.stderr.write;
@@ -239,8 +241,8 @@ test('run.mjs C001/C003/C004: in-process handlers over a real fixture', () => {
     assert.doesNotThrow(() => quiet(() => runValidate(['validate', fixture.manifestPath])));
     assert.doesNotThrow(() => quiet(() => runPlan(['plan', fixture.manifestPath])));
     assert.doesNotThrow(() => quiet(() => runPacket(['packet', fixture.manifestPath, '--package=pkg-b'])));
-    assert.doesNotThrow(() => quiet(() => runGate(['gate', fixture.manifestPath, `--decisions=${decisionsPath}`])));
-    assert.doesNotThrow(() => quiet(() => runFinalize(['finalize', fixture.manifestPath, `--decisions=${decisionsPath}`])));
+    assert.doesNotThrow(() => quiet(() => runGate(['gate', fixture.manifestPath])));
+    assert.doesNotThrow(() => quiet(() => runFinalize(['finalize', fixture.manifestPath])));
 
     // The published seed carries the machine block and the provider-side contract.
     const seedText = readFileSync(join(fixture.dir, 'crates/protocol/alpha/RFC-SEED.md'), 'utf8');
@@ -250,8 +252,8 @@ test('run.mjs C001/C003/C004: in-process handlers over a real fixture', () => {
     assert.ok(parsed.referenceBlock.implementation_order.wave >= 0);
 
     // A decisions payload that authors a machine section is rejected before rendering.
-    writeFileSync(decisionsPath, JSON.stringify({ ...makeDecisions(fixture.manifest), seeds: [{ packageId: 'pkg-a', aiSections: { ...baseAiSections(), 1: 'nope' } }] }));
-    assert.throws(() => runGate(['gate', fixture.manifestPath, `--decisions=${decisionsPath}`]), (error) => error.gateId === 'G3');
+    stageAllocateDecisions(decisionsRoot, { ...makeDecisions(fixture.manifest), seeds: [{ packageId: 'pkg-a', aiSections: { ...baseAiSections(), 1: 'nope' } }] });
+    assert.throws(() => runGate(['gate', fixture.manifestPath]), (error) => error.gateId === 'G3');
 
     // The published set is the tree, the seeds and the allocate manifest.
     assert.equal(existsSync(join(fixture.dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json')), true);
@@ -304,22 +306,24 @@ test('coverage-proof C004: per-package segments and reasonless not_applicable ar
 test('run.mjs C002/C005: failure paths stay typed and publish nothing', () => {
   const fixture = materializeSeedFixture();
   try {
-    const decisionsPath = join(fixture.dir, 'decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(makeDecisions(fixture.manifest)));
+    const decisionsRoot = fixture.dir;
+    stageAllocateDecisions(decisionsRoot, makeDecisions(fixture.manifest));
 
-    // Missing arguments are rejected before any work.
+    // Missing arguments are rejected before any work. The manifest is the only
+    // argument these subcommands take; the decisions document is derived, so a bare
+    // invocation is the missing-argument case.
     assert.throws(() => runFinalize(['finalize']), (error) => error.gateId !== undefined);
-    assert.throws(() => runGate(['gate', fixture.manifestPath]), (error) => error.gateId !== undefined);
+    assert.throws(() => runGate(['gate']), (error) => error.gateId !== undefined);
 
     // Malformed decisions JSON is rejected at the decisions load.
-    writeFileSync(decisionsPath, '{ not json');
-    assert.throws(() => runGate(['gate', fixture.manifestPath, `--decisions=${decisionsPath}`]), (error) => error.gateId === 'G3');
+    stageAllocateDecisions(decisionsRoot, '{ not json');
+    assert.throws(() => runGate(['gate', fixture.manifestPath]), (error) => error.gateId === 'G3');
 
     // A non-fresh workspace blocks finalize before anything is staged.
     mkdirSync(join(fixture.dir, 'crates', 'protocol', 'alpha'), { recursive: true });
     writeFileSync(join(fixture.dir, 'crates', 'protocol', 'alpha', 'sentinel.txt'), 'keep');
-    writeFileSync(decisionsPath, JSON.stringify(makeDecisions(fixture.manifest)));
-    assert.throws(() => runFinalize(['finalize', fixture.manifestPath, `--decisions=${decisionsPath}`]), (error) => error.gateId !== undefined);
+    stageAllocateDecisions(decisionsRoot, makeDecisions(fixture.manifest));
+    assert.throws(() => runFinalize(['finalize', fixture.manifestPath]), (error) => error.gateId !== undefined);
     assert.equal(readFileSync(join(fixture.dir, 'crates', 'protocol', 'alpha', 'sentinel.txt'), 'utf8'), 'keep');
   } finally {
     rmSync(fixture.dir, { recursive: true, force: true });
@@ -357,10 +361,10 @@ test('run.mjs C001: a package without responsibilities blocks the reference bloc
     stripped.workspace.packages[0].responsibilities = [];
     stripped.integrity.manifest_hash = computeSelfHash(stripped);
     writeFileSync(fixture.manifestPath, JSON.stringify(stripped));
-    const decisionsPath = join(fixture.dir, 'decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(makeDecisions(stripped)));
+    const decisionsRoot = fixture.dir;
+    stageAllocateDecisions(decisionsRoot, makeDecisions(stripped));
     assert.throws(
-      () => runGate(['gate', fixture.manifestPath, `--decisions=${decisionsPath}`]),
+      () => runGate(['gate', fixture.manifestPath]),
       (error) => error.gateId !== undefined && /responsibilit/i.test(error.message),
     );
   } finally {

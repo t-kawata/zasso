@@ -23,9 +23,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+
+import { RESERVED_REVERSE_SUBDIRECTORY, RESERVED_ROOT_NAME } from '../../../.claude/scripts/workspacify-reverse/lib/holdout-ledger.mjs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+import { stageTreeDecisionsFrom } from '../../workspacify-tree/helpers/stage-tree-decisions.mjs';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -95,6 +99,7 @@ function makePartition(source, paths) {
   return { present: true, source, paths };
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C002 the five classes are the vocabulary the count and the assertion share', () => {
   assert.deepEqual(SEAM_DIFFERENCE_CLASSES, ['unchanged', 'split', 'merged', 'new', 'disappeared']);
   assert.equal(ROOT_PACKAGE_PATH, '.');
@@ -439,65 +444,68 @@ test('C002/C003 IT-22: the seam reaches T5 through the gate runner, and the wiri
   }
 });
 
-test('C002 IT-23: a reverse run over a subject with no prior partition records that there was none', () => {
+// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+test('C002 IT-23: a reverse run over a subject with no prior partition takes no seam, and says so by recording none', () => {
   const decisions = JSON.parse(readFileSync(join(FIXTURES, 'decisions-complete.json'), 'utf8'));
   const packagePath = decisions.workspace[0].path;
-  const dir = mkdtempSync(join(tmpdir(), 'p23-9-seam-cli-'));
+  // Resolved, because the rotation reports `process.cwd()` in the platform's canonical spelling.
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'p23-9-seam-cli-')));
   try {
     const measuredRoot = join(dir, 'measured');
     const sourcePath = join(packagePath, 'mod.rs');
-    writeFileSync(join(dir, 'measured-edges.json'), JSON.stringify({ edges: [] }, null, 2));
-    writeFileSync(
-      join(dir, 'graph.json'),
-      `${JSON.stringify({ sourceFile: 'RFC-ROOT.md', nodes: [{ id: 'N0001', title: 'Purpose', file: sourcePath }] }, null, 2)}\n`,
-    );
-    const outDir = join(dir, 'out');
+    const outDir = measuredRoot;
+    const reserve = join(measuredRoot, RESERVED_ROOT_NAME, RESERVED_REVERSE_SUBDIRECTORY);
     const deltaPath = join(outDir, ARCHITECTURE_DELTA_FILE_NAME);
-    mkdirSync(outDir, { recursive: true });
-
-    const runOnce = (extraArgs) => {
-      writeFileSync(deltaPath, `${JSON.stringify({ mismatches: [] }, null, 2)}\n`);
-      return spawnSync(process.execPath, [
-        RUN_SCRIPT, 'reverse',
-        `--spec=${join(FIXTURES, 'objects-table.md')}`,
-        `--decisions=${join(FIXTURES, 'decisions-complete.json')}`,
-        `--root=${measuredRoot}`,
-        `--graph=${join(dir, 'graph.json')}`,
-        `--measured=${join(dir, 'measured-edges.json')}`,
-        `--sidecars=${join(dir, 'sidecars')}`,
-        `--delta=${deltaPath}`,
-        `--out=${outDir}`,
-        ...extraArgs,
-      ], { cwd: PROJECT_ROOT, encoding: 'utf8' });
-    };
 
     // The fixture tree the reverse run measures: one source file in the declared package.
     mkdirSync(join(measuredRoot, packagePath), { recursive: true });
     writeFileSync(join(measuredRoot, sourcePath), 'pub fn call() {}\n');
-    const sidecarDir = join(dir, 'sidecars');
-    mkdirSync(sidecarDir, { recursive: true });
-    writeFileSync(join(sidecarDir, 'ANALYSIS-SCOPE.json'), '{\n  "scope": "the fixture project"\n}\n');
+    // The subject's own graph, and the analysis documents the rotation reads: the
+    // origin spec, the measured edges and the sidecar bundle, all beneath the
+    // reserved root. Nothing is passed, so the placement is what is under test.
+    mkdirSync(reserve, { recursive: true });
+    copyFileSync(join(FIXTURES, 'objects-table.md'), join(reserve, 'ORIGIN-LONG-SPEC.md'));
+    writeFileSync(join(reserve, 'DEPENDENCIES.json'), JSON.stringify({ edges: [] }, null, 2));
+    writeFileSync(join(reserve, 'ANALYSIS-SCOPE.json'), '{\n  "scope": "the fixture project"\n}\n');
+    writeFileSync(
+      join(measuredRoot, 'RFC-ROOT-GRAPH.json'),
+      `${JSON.stringify({ sourceFile: 'RFC-ROOT.md', nodes: [{ id: 'N0001', title: 'Purpose', file: sourcePath }] }, null, 2)}\n`,
+    );
 
-    const withoutPrior = runOnce([]);
-    assert.doesNotMatch(readFileSync(deltaPath, 'utf8'), /layerStructureChange/, 'no flag, no seam');
+    const runOnce = () => {
+      writeFileSync(deltaPath, `${JSON.stringify({ mismatches: [] }, null, 2)}\n`);
+      // Staged before every run, because a reverse run that publishes sweeps the
+      // document: the manifest it wrote is the record of what was decided.
+      stageTreeDecisionsFrom(measuredRoot, join(FIXTURES, 'decisions-complete.json'));
+      return spawnSync(process.execPath, [RUN_SCRIPT, 'reverse'], { cwd: measuredRoot, encoding: 'utf8' });
+    };
 
-    // The subject carries no Dirs-Tree, which is why the record says no prior existed.
+    const withoutPrior = runOnce();
+    assert.doesNotMatch(readFileSync(deltaPath, 'utf8'), /layerStructureChange/, 'no Dirs-Tree on the subject, no seam');
+
+    // The subject now carries a Dirs-Tree, which is the prior the seam is taken from.
     const priorPath = join(measuredRoot, 'RFC-ROOT-Dirs-Tree.json');
-    const withPrior = runOnce([`--prior-partition=${priorPath}`]);
+    writeFileSync(priorPath, `${JSON.stringify({ tree: [] }, null, 2)}\n`);
+    const withPrior = runOnce();
 
-    assert.equal(withPrior.status, withoutPrior.status, 'the flag is opt-in and changes no verdict');
+    assert.equal(withPrior.status, withoutPrior.status, 'taking a seam changes no verdict');
     const deltaText = readFileSync(deltaPath, 'utf8');
     const delta = JSON.parse(deltaText);
-    assert.equal(delta.layerStructureChange.priorPresent, false);
-    assert.equal(delta.layerStructureChange.difference, null);
-    assert.match(deltaText, /no prior partition existed/);
+    // A subject that carries no Dirs-Tree carries no prior, and the record says so
+    // by recording no seam at all: the run does not invent a prior to compare
+    // against, and the section the operator reads is absent for the same reason.
+    assert.equal('layerStructureChange' in delta, true, 'a subject with a Dirs-Tree takes a seam');
+    assert.equal(delta.layerStructureChange.priorPresent, true, 'and records that the prior it read was there');
     assert.ok(Array.isArray(delta.mismatches), 'the document keeps the shape T5 reads');
 
     // The operator reads the record, so the seam reaches the report and not only the file:
     // an array of class names is not a sentence about what the act redrew.
     assert.match(withPrior.stdout, /## Layer-structure change — ARCHITECTURE-DELTA\.json/);
-    assert.match(withPrior.stdout, /no prior partition existed/);
-    assert.doesNotMatch(withoutPrior.stdout, /## Layer-structure change/, 'no flag, no section to read');
+    assert.doesNotMatch(
+      withoutPrior.stdout,
+      /## Layer-structure change/,
+      'a subject with no Dirs-Tree takes no seam, and the report carries no section to read',
+    );
 
     // And with a prior that really differs, the report names the partitions and the classes.
     writeFileSync(priorPath, `${JSON.stringify(PRIOR_DOCUMENT, null, 2)}\n`);

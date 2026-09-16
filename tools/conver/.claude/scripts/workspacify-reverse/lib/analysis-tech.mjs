@@ -29,7 +29,12 @@
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { DEPENDENCY_DIRECTORY_NAMES, NEVER_WALKED_DIRECTORY_NAMES, compareText } from './holdout-ledger.mjs';
+import {
+  DEPENDENCY_DIRECTORY_NAMES,
+  NEVER_WALKED_DIRECTORY_NAMES,
+  RESERVED_ROOT_NAME,
+  compareText,
+} from './holdout-ledger.mjs';
 
 /**
  * Directories whose contents are recorded as `out_of_scope` rather than
@@ -42,14 +47,24 @@ export const EXCLUSION_RULES = Object.freeze([
 ]);
 
 /**
- * The one directory name the record does not enumerate at all.
+ * The directory names the record does not enumerate at all.
  *
  * `.git` holds the version-control database, which is machinery about the
- * project rather than an artefact of it. Everything else inside an excluded
- * directory is still enumerated and marked `out_of_scope`, because "we did not
- * measure it" must remain distinguishable from "it is not there".
+ * project rather than an artefact of it; the reserved root holds the machinery
+ * the family itself produces. Both are named here rather than merely excluded,
+ * because enumerating them would put them in the record as material the run
+ * declined to measure — and what the run wrote is not material at all.
+ * Everything else inside an excluded directory is still enumerated and marked
+ * `out_of_scope`, because "we did not measure it" must remain distinguishable
+ * from "it is not there".
+ *
+ * The root is named, and not the subdirectory beneath it: the match is a
+ * directory name at any depth, so an excluded root already makes its contents
+ * unreachable, and naming the subdirectory separately would only add a second
+ * generic name to a list every measured project is read against.
  */
-export const NOT_ENUMERATED_DIRECTORY_NAMES = Object.freeze(['.git']);
+// [::TICKET::] PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-213|PX-214) --for-spec --no-implementation-order`.
+export const NOT_ENUMERATED_DIRECTORY_NAMES = Object.freeze(['.git', RESERVED_ROOT_NAME]);
 
 /** The six target languages, in the order the capability matrix renders them. */
 export const TARGET_LANGUAGES = Object.freeze([

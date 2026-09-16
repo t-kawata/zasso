@@ -18,9 +18,9 @@
  *   analyze    — the entrance to the reverse rotation. It fixes the analysis
  *                boundary, measures structure, dependencies and the execution
  *                surface, and runs R0 through R8 in series, publishing the origin
- *                spec outside the target. The documents it publishes are the ones
- *                the stages produce, so the set is the same whatever the host has
- *                installed.
+ *                spec into the reserved directory beneath the subject. The
+ *                documents it publishes are the ones the stages produce, so the
+ *                set is the same whatever the host has installed.
  *
  * The process performs no semantic judgement: which traces exist and whether
  * they are gone are facts, not opinions. Deciding what the cleaned tree then
@@ -39,14 +39,13 @@
  */
 import process from 'node:process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 import { detectForwardTraces } from './lib/detect-forward-traces.mjs';
 import { planScrub, scrubForwardTraces } from './lib/scrub-forward-traces.mjs';
 import { verifyScrub, exitCodeFor, renderVerification } from './lib/verify-scrub.mjs';
 import { captureBaselines, checkBaselines, renderCaptureReport, renderCheckReport } from './lib/regression-gate.mjs';
-import { CANDIDATES_RELATIVE_PATH, LEDGER_RELATIVE_PATH, freezeLedger, loadLedger, renderLedgerReport } from './lib/holdout-ledger.mjs';
+import { CANDIDATES_RELATIVE_PATH, LEDGER_RELATIVE_PATH, RESERVED_REVERSE_SUBDIRECTORY, RESERVED_ROOT_NAME, freezeLedger, loadLedger, renderLedgerReport, reservedReverseDirectory } from './lib/holdout-ledger.mjs';
 import { FORWARD_ROTATION_PATTERNS, renderIsolationReport, verifyIsolation } from './lib/isolation-check.mjs';
 import {
   BUNDLE_RELATIVE_PATH,
@@ -64,23 +63,23 @@ import { ANALYSIS_STAGES, analyzeProject, buildPartitionCandidate, renderDisagre
 import { buildClaimCandidate, renderClaimLedger } from './lib/claim-ledger.mjs';
 import { renderCardsMarkdown } from './lib/packet.mjs';
 
-/** The project this entry point belongs to: `.claude/scripts/workspacify-reverse` walked back to the root. */
-const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-
 const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike', 'analyze'];
 
 /**
- * The subcommands whose subject is a tree the caller names.
+ * The subcommands whose subject is the directory the command is run in, and
+ * which therefore take no argument at all.
  *
- * `regression`, `holdout` and `oracle` measure the project this entry point
- * belongs to and take no root; the rest read whatever tree they are handed.
- * Missing one must be an error rather than a report over `undefined`, which
- * reads as a clean tree and is the answer a broken invocation must never give.
+ * These four measure a subject the operator is standing in. `regression` says so
+ * in its own comment; the other three say it here, because the same rule is what
+ * makes a run reproducible from its directory alone. A subcommand that names a
+ * fixture instead — `holdout isolation <root>`, `spike <root> <slice>`, and the
+ * ledger flags the experiment instruments carry — keeps its argument, because
+ * *which* fixture is a choice with no derivable answer.
  */
-const ROOT_TAKING_SUBCOMMANDS = ['detect', 'scrub', 'verify', 'analyze'];
+const ARGUMENT_FREE_SUBCOMMANDS = ['analyze', 'detect', 'scrub', 'verify'];
 
 /** The options that name a value; every other `--name` is a switch. */
-const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--out', '--recorded', '--through'];
+const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--recorded'];
 
 /**
  * The options the entrance used to honour and no longer does, with the reason each left.
@@ -96,25 +95,57 @@ const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candi
 const WITHDRAWN_OPTIONS = Object.freeze({
   '--query': 'the serving layer asks no search tool anything, so the question would be dropped in silence; '
     + 'ask a search tool directly and read what it returns as candidates, never as findings.',
+  '--out': 'the destination is not selectable. The analysis publishes into the reserved directory beneath '
+    + 'the directory the command is run in, and a spike writes its candidates where `oracle compare` reads '
+    + 'them; both are declared, so a caller who named somewhere else would leave the next command reading '
+    + 'a directory nobody filled.',
+  '--through': 'the command line has no prefix instrument. The API can still stop at a stage, but a run '
+    + 'from here reaches the last declared stage or publishes nothing.',
 });
 
-/** The withdrawn options present in an argument list, named rather than counted. */
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+/**
+ * The withdrawn options present in an argument list, as the tokens the caller wrote.
+ *
+ * The whole token travels rather than the option's name, so `--through=r99` is
+ * reported with the stage the caller asked for in it. A refusal that named only
+ * the option would leave the value it was given unaccounted for, which is the
+ * same dropped question the refusal exists to prevent.
+ */
+// [::TICKET::] P25-7, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
 function withdrawnOptionsUsed(optionArgs) {
-  return Object.keys(WITHDRAWN_OPTIONS).filter((name) =>
-    optionArgs.some((token) => token === name || token.startsWith(`${name}=`)));
+  return optionArgs.flatMap((token) => {
+    const name = Object.keys(WITHDRAWN_OPTIONS)
+      .find((candidate) => token === candidate || token.startsWith(`${candidate}=`));
+    return name === undefined ? [] : [{ name, token }];
+  });
 }
 
 /** Refuse a withdrawn option, naming it and the reason it cannot be honoured. */
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P25-7, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
 function refuseWithdrawnOptions(withdrawn) {
   if (withdrawn.length === 0) return;
-  const reasons = withdrawn.map((name) => `${name}: ${WITHDRAWN_OPTIONS[name]}`).join(' ');
-  throw new Error(`withdrawn option ${withdrawn.map((name) => JSON.stringify(name)).join(', ')} — ${reasons}`);
+  const reasons = withdrawn.map(({ name, token }) => `${token}: ${WITHDRAWN_OPTIONS[name]}`).join(' ');
+  throw new Error(`withdrawn option ${withdrawn.map(({ token }) => JSON.stringify(token)).join(', ')} — ${reasons}`);
 }
 
-/** Where an analysis publishes its sidecars when the caller names no directory. */
-const ANALYSIS_OUTPUT_DIRECTORY = 'tests/workspacify-reverse/analysis';
+/**
+ * Refuse a bare argument the entrance was handed.
+ *
+ * The entrance takes none: its subject is the directory it is run in, and its
+ * destination is the reserved directory beneath that. Ignoring a root the caller
+ * supplied would leave them believing a run had been scoped when the scope was
+ * never theirs — the same dropped question the withdrawn options are refused
+ * for, and the reason this names the argument rather than discarding it.
+ */
+// [::TICKET::] PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-213|PX-214) --for-spec --no-implementation-order`.
+function refusePositionalArguments(positionals) {
+  if (positionals.length === 0) return;
+  throw new Error(
+    `the subcommand takes no arguments, and ${positionals.map((token) => JSON.stringify(token)).join(', ')} `
+    + `was given. The subject is the directory the command is run in (${process.cwd()}), and the documents `
+    + `are published into ${RESERVED_ROOT_NAME}/${RESERVED_REVERSE_SUBDIRECTORY} beneath it; neither is selectable`,
+  );
+}
 
 const HOLDOUT_ACTIONS = ['freeze', 'isolation'];
 const ORACLE_ACTIONS = ['freeze', 'compare', 'delta'];
@@ -130,19 +161,18 @@ const SPIKE_REPORT_RELATIVE_PATH = 'docs/SPIKE-REPORT.md';
 const SPIKE_STAGES = Object.freeze(['r1', 'r3']);
 
 const USAGE = [
-  'Usage: run.mjs <detect|scrub|verify> <root> [options]',
-  '       run.mjs analyze <root> [--through=<stage>] [--out=<dir>]',
+  'Usage: run.mjs <detect|scrub|verify|analyze> [options]',
   '       run.mjs regression <capture|check>',
   '       run.mjs holdout [freeze|isolation <root>] [--project-root=<path>] [--frozen-at=<ISO-8601>]',
   '       run.mjs oracle <freeze|compare --stage <stage> --candidate <path>> [--project-root=<path>] [--frozen-at=<ISO-8601>]',
-  '       run.mjs spike <root> <slice> [--project-root=<path>] [--recorded=<json>] [--out=<dir>]',
-  '       run.mjs spike reconcile [--project-root=<path>] [--out=<dir>]',
+  '       run.mjs spike <root> <slice> [--project-root=<path>] [--recorded=<json>]',
+  '       run.mjs spike reconcile [--project-root=<path>]',
   '',
-  '  detect <root>                    Report L1-L4 traces as Markdown',
-  '  scrub  <root> [--dry-run]        Report what would be removed',
-  '  scrub  <root> --apply            Remove L1/L2 traces and rename keyed files',
-  '  verify <root>                    Exit 0 when no trace remains, 1 otherwise',
-  `  analyze <root>                   The entrance: run R0 through ${stageLabel(ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1])} in series and publish the origin spec outside the target`,
+  '  detect                           Report L1-L4 traces as Markdown',
+  '  scrub [--dry-run]                Report what would be removed',
+  '  scrub --apply                    Remove L1/L2 traces and rename keyed files',
+  '  verify                           Exit 0 when no trace remains, 1 otherwise',
+  `  analyze                          The entrance: run R0 through ${stageLabel(ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1])} in series and publish the origin spec into ${RESERVED_ROOT_NAME}/${RESERVED_REVERSE_SUBDIRECTORY}`,
   '  regression capture               Freeze the forward rotation as it behaves now',
   '  regression check                 Exit 0 when every frozen value is reproduced',
   '  holdout                          Verify the ledger and isolate every frozen holdout',
@@ -154,6 +184,9 @@ const USAGE = [
   '  spike <root> <slice>             Run one vertical slice through R0.5, R3.5 and R7, and measure it',
   '  spike reconcile                  Add the disagreement list to the spike report, from the frozen bundle',
   '',
+  '  detect, scrub, verify and analyze measure the directory the command is run in and take no argument.',
+  '  holdout isolation and spike name which fixture or slice they act on, so they keep theirs.',
+  '',
   'Options:',
   '  --apply                      Perform the removal (scrub only)',
   '  --dry-run                    Plan only; never write (scrub only)',
@@ -163,11 +196,7 @@ const USAGE = [
   '  --frozen-at=<ISO-8601>       Freeze timestamp recorded in the artefact',
   '  --stage=<stage>              Stage to compare (oracle compare)',
   '  --candidate=<path>           The stage output document (oracle compare)',
-  // The default is the last declared stage, so it is derived rather than written
-  // here: a hardcoded name went stale the moment a stage was added after it.
-  `  --through=<stage>            Last stage an analysis runs, inclusive (analyze; default ${ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1]})`,
   '  --recorded=<path>            JSON holding the interventions and decision samples a spike recorded',
-  '  --out=<dir>                  Where an analysis or a spike writes its documents',
 ].join('\n');
 
 /** `--name=value` or `--name value`, whichever the caller wrote. */
@@ -213,9 +242,13 @@ function positionalArgs(args) {
  * them runs: an option honoured once and ignored now would leave the caller believing
  * their question had been asked when nothing was listening.
  */
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
-function commonOptions(subcommand, rest) {
-  const flags = new Set(rest);
+// [::TICKET::] P25-7, PX-214, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-7|PX-214|PX-213) --for-spec --no-implementation-order`.
+function commonOptions(subcommand, optionArgs) {
+  // The switches are read from every token after the subcommand, not from the
+  // tokens after the second slot: a subcommand that takes no positional puts its
+  // first switch in that slot, and reading only what follows it would drop the
+  // switch and perform a plan while the caller asked for the removal.
+  const flags = new Set(optionArgs);
   return {
     subcommand,
     apply: flags.has('--apply'),
@@ -252,10 +285,16 @@ function parseLedgerArguments(subcommand, second, rest) {
   };
 }
 
+// [::TICKET::] PX-214, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-213) --for-spec --no-implementation-order`.
 function parseSpikeArguments(second, rest, argv) {
   const optionArgs = optionTokens(second, rest);
   const projectRoot = flagValue(optionArgs, '--project-root') ?? process.cwd();
-  const out = flagValue(optionArgs, '--out');
+  // The candidate directory is declared rather than chosen: `oracle compare` reads
+  // what a spike wrote, so a caller who moved one would leave the other reading a
+  // directory nobody filled. It is left unset here so the single resolution point
+  // below places it against the project root, which is what keeps a run pointed at
+  // a scratch project from writing into whichever tree it happens to stand in.
+  const out = null;
 
   if (SPIKE_ACTIONS.includes(second)) {
     return { action: second, projectRoot, out };
@@ -274,10 +313,10 @@ function parseSpikeArguments(second, rest, argv) {
   };
 }
 
-// [::TICKET::] P22-4, P22-9, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P25-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P25-7, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const [subcommand, second, ...rest] = argv;
-  const common = commonOptions(subcommand, rest);
+  const common = commonOptions(subcommand, optionTokens(second, rest));
 
   if (subcommand === 'regression') {
     // The gate measures the project the operator is standing in — the one whose
@@ -297,22 +336,31 @@ function parseArgs(argv) {
 
   if (subcommand === 'analyze') {
     const optionArgs = optionTokens(second, rest);
-    // `--through` selects an inclusive prefix of the stages, so the default has
-    // to be the last one rather than a hardcoded name: a stage added later must
-    // be run by default instead of silently skipped.
+    // The subject and the destination are both derived from where the operator
+    // stands, so neither is read from the argument list. `through` has to be the
+    // last declared stage rather than a hardcoded name: a stage added later must
+    // be run instead of silently skipped.
     return {
       ...common,
-      root: positionalArgs(argv.slice(1))[0] ?? null,
-      through: flagValue(optionArgs, '--through') ?? ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
-      out: flagValue(optionArgs, '--out'),
+      root: process.cwd(),
+      out: reservedReverseDirectory(process.cwd()),
+      through: ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
       withdrawn: withdrawnOptionsUsed(optionArgs),
+      positionals: positionalArgs(argv.slice(1)),
     };
   }
 
-  // The root is the first bare argument, never a switch: `verify --json <tree>`
-  // must verify `<tree>` rather than a directory named `--json`, which does not
-  // exist and would be reported clean.
-  return { ...common, root: positionalArgs(argv.slice(1))[0] ?? null };
+  // Every subcommand that measures a subject measures the one the operator is
+  // standing in, so none of them reads a root from the argument list. A bare
+  // argument is carried forward rather than dropped, so the refusal can name
+  // what was passed: a caller who scoped a run has to learn that the scope was
+  // never theirs, and a silently ignored root reads as a scope that was applied.
+  return {
+    ...common,
+    root: process.cwd(),
+    withdrawn: withdrawnOptionsUsed(optionTokens(second, rest)),
+    positionals: positionalArgs(argv.slice(1)),
+  };
 }
 
 /**
@@ -323,7 +371,7 @@ function parseArgs(argv) {
  * stopped and a run that finished are indistinguishable from an exit code alone,
  * and a partial origin spec reads exactly like a complete one.
  */
-// [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-9, PX-214, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-9|PX-214|PX-213) --for-spec --no-implementation-order`.
 function reportStage({ stage, input, error }) {
   const subject = stage === null ? 'The arguments' : `Stage ${stageLabel(stage)}`;
   process.stderr.write(
@@ -339,41 +387,36 @@ function reportStage({ stage, input, error }) {
 /**
  * The entrance to the reverse rotation: R0 through R8 in series, once.
  *
- * The destination defaults to a directory this project owns rather than to the
- * caller's working directory, because publishing into the tree being measured is
- * refused and a default that could be refused would make the command fail for a
- * reason the caller did not choose.
+ * The subject is the directory the command is run in, and the destination is the
+ * reserved directory beneath it. Those are the only pair the entrance has: a run
+ * is reproducible from its directory alone, and there is no invocation that
+ * scopes it elsewhere. The destination is sound beneath the subject because no
+ * walk of the analysis descends into it, which is what makes the before-and-after
+ * digest a statement about the subject rather than about the run's own output.
  *
  * The pipeline publishes only after every stage has run and the target has been
  * shown unchanged, so a stage that cannot run leaves nothing behind. What it
  * publishes is what the stages produce and nothing beside it, so the set a reader
  * receives does not depend on what the host has installed.
  */
-// [::TICKET::] P22-4, P22-9, P23-7, P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|P25-7) --for-spec --no-implementation-order`.
-async function runAnalysisPipeline({ root, through, out, withdrawn }) {
-  if (!root) {
-    process.stderr.write(`${USAGE}\n`);
-    return 2;
-  }
-  const destination = out === null ? join(PROJECT_ROOT, ANALYSIS_OUTPUT_DIRECTORY) : resolve(out);
-
+// [::TICKET::] P22-4, P22-9, P23-7, P25-7, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
+async function runAnalysisPipeline({ root, through, out }) {
   let currentStage = null;
   let outcome;
   try {
-    refuseWithdrawnOptions(withdrawn);
     outcome = await analyzeProject({
       root,
-      out: destination,
+      out,
       through,
       options: { onStage: (stage) => { currentStage = stage; } },
     });
   } catch (error) {
-    return reportStage({ stage: currentStage, input: { root, out: destination, through }, error });
+    return reportStage({ stage: currentStage, input: { root, out, through }, error });
   }
 
   process.stdout.write(`${outcome.report}\n`);
   process.stdout.write(
-    `\nStages ${outcome.stagesRun.map((stage) => `\`${stage}\``).join(', ')} published to \`${destination}\`.\n`,
+    `\nStages ${outcome.stagesRun.map((stage) => `\`${stage}\``).join(', ')} published to \`${out}\`.\n`,
   );
   return 0;
 }
@@ -709,16 +752,28 @@ function runSpikeSubcommand(options) {
   return runSpikeSlice(options);
 }
 
-// [::TICKET::] P22-4, P22-9, P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P23-7, PX-214, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|PX-214|PX-213) --for-spec --no-implementation-order`.
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (!options.subcommand || !SUBCOMMANDS.includes(options.subcommand)) {
     process.stderr.write(`${USAGE}\n`);
     return 2;
   }
-  if (ROOT_TAKING_SUBCOMMANDS.includes(options.subcommand) && !options.root) {
-    process.stderr.write(`${USAGE}\n`);
-    return 2;
+  // Withdrawal is a property of the entrance rather than of one subcommand, so
+  // it is judged here, over the whole argument list, instead of inside whichever
+  // branch happened to collect the tokens first.
+  const withdrawn = withdrawnOptionsUsed(process.argv.slice(2).filter((token) => token.startsWith('--')));
+  try {
+    refuseWithdrawnOptions(withdrawn);
+    if (ARGUMENT_FREE_SUBCOMMANDS.includes(options.subcommand)) {
+      refusePositionalArguments(options.positionals ?? []);
+    }
+  } catch (error) {
+    return reportStage({
+      stage: null,
+      input: { root: options.root, out: options.out ?? 'the reserved directory', through: options.through ?? 'the last stage' },
+      error,
+    });
   }
   if (options.subcommand === 'detect') return runDetect(options);
   if (options.subcommand === 'scrub') return runScrub(options);

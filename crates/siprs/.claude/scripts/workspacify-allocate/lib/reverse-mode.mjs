@@ -20,6 +20,8 @@ import path from 'node:path';
 import { GATE_STATUS, WorkSpacifyTreeError } from '../../workspacify-tree/lib/errors.mjs';
 import { REVERSE_PROVENANCE_FIELD } from '../../workspacify-tree/lib/reverse-mode.mjs';
 import { MEASURED_TREE_EXCLUSIONS } from '../../workspacify-tree/lib/structure-parity.mjs';
+// The reserved root is declared by the tree layer, which both later stages may read.
+import { RESERVED_ROOT_NAME } from '../../workspacify-tree/lib/reserved-root.mjs';
 import { determineSeedFormat, parseSeed, reportSeedCompatibility, scanSeedHeadings, seedPackageName } from './seed-parse.mjs';
 import { runSeedParity } from './seed-parity.mjs';
 import {
@@ -627,14 +629,22 @@ export function sidecarReferenceOf(manifest) {
  * it is what lets A1 judge the *plan* against the *project* rather than against the
  * build directory of the moment.
  *
+ * The reserved root is excluded for a different reason and by its own name: it is
+ * the family's machinery rather than a directory of the project, and no package
+ * ever declares it. Counting it would block A1 on every reverse run over a subject
+ * that had already been analysed — the one case the reverse rotation exists for.
+ * It is named here rather than added to `MEASURED_TREE_EXCLUSIONS`, whose own
+ * contract forbids a name that can also be a real source directory.
+ *
  * @param {string} root - the project root
  * @returns {string[]} root-relative POSIX directory paths, sorted
  */
+// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
 export function measureExistingDirectories(root) {
   const directories = [];
   const visit = (abs, rel) => {
     for (const entry of readDirectories(abs)) {
-      if (EXCLUDED_DIRECTORY_NAMES.includes(entry.name)) {
+      if (EXCLUDED_DIRECTORY_NAMES.includes(entry.name) || entry.name === RESERVED_ROOT_NAME) {
         continue;
       }
       const relPath = rel ? `${rel}/${entry.name}` : entry.name;

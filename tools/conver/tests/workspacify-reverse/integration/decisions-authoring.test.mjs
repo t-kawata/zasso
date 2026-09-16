@@ -23,11 +23,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import os from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { reservedReverseDirectory } from '../../../.claude/scripts/workspacify-reverse/lib/holdout-ledger.mjs';
 import { sha256Hex } from '../../../.claude/scripts/workspacify-tree/lib/hash.mjs';
 import { validateSpecDefects } from '../../../.claude/scripts/workspacify-tree/lib/spec-defects.mjs';
 import {
@@ -36,6 +36,7 @@ import {
   settleCandidates,
 } from '../helpers/decisions-authoring.mjs';
 import { createScratchFrom, hashTree } from '../helpers/scratch.mjs';
+import { stageTreeDecisionsFrom } from '../../workspacify-tree/helpers/stage-tree-decisions.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 
@@ -62,13 +63,6 @@ const PINNED_DECISIONS_DIGEST = '68d6a84fb85b6211cdeef0c01405e05ccaec8f7fd3d69aa
 const CLAIM_CARRYING = 'siprs-for-reverse';
 const ZERO_CLAIM = join('tests', 'workspacify-reverse', 'fixtures', 'patterns', 'partial-conver-project');
 
-/** A throwaway directory, so no command publishes into the project. */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
-function scratchOutput() {
-  const root = mkdtempSync(join(os.tmpdir(), 'wsp-p24-9-'));
-  return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
-}
-
 /**
  * Run one command of the chain and report its exit status and output.
  *
@@ -77,10 +71,10 @@ function scratchOutput() {
  * buffer is sized for the real output rather than the default, and a buffer
  * that filled anyway is raised instead of parsed as truncated JSON.
  */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
-function runChain(command, args) {
+// [::TICKET::] P24-9, PX-213, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-9|PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
+function runChain(command, args, { cwd = PROJECT_ROOT } = {}) {
   const result = spawnSync(process.execPath, [join(COMMAND_ROOT, command), ...args], {
-    cwd: PROJECT_ROOT,
+    cwd,
     encoding: 'utf8',
     env: { ...process.env, NO_COLOR: '1' },
     maxBuffer: OUTPUT_BUFFER_BYTES,
@@ -92,15 +86,18 @@ function runChain(command, args) {
 }
 
 /** Publish the origin spec of a representative from a scratch copy, and hand back where it landed. */
-// [::TICKET::] P24-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-9 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-9, PX-213, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-9|PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
 function publishOriginSpec(representative) {
   const subject = join(PROJECT_ROOT, representative);
   const source = createScratchFrom(subject);
-  const out = scratchOutput();
-  const analysed = runChain('workspacify-reverse/run.mjs', ['analyze', source.root, '--through=r8', `--out=${out.root}`]);
+  // The entrance publishes beneath the directory it is run in, so the analysis
+  // documents land inside the scratch copy of the subject and are disposed of
+  // with it. There is no second directory to close.
+  const analysisRoot = reservedReverseDirectory(source.root);
+  const analysed = runChain('workspacify-reverse/run.mjs', ['analyze'], { cwd: source.root });
   assert.equal(analysed.status, 0, `${representative}: the reverse run publishes the origin spec`);
-  assert.equal(existsSync(join(out.root, ORIGIN_SPEC_FILE)), true, `${representative}: ${ORIGIN_SPEC_FILE} was published`);
-  return { subject, source, out, specPath: join(out.root, ORIGIN_SPEC_FILE) };
+  assert.equal(existsSync(join(analysisRoot, ORIGIN_SPEC_FILE)), true, `${representative}: ${ORIGIN_SPEC_FILE} was published`);
+  return { subject, source, specPath: join(analysisRoot, ORIGIN_SPEC_FILE) };
 }
 
 test('IT — the pinned decisions input is the reading that was taken, byte for byte', () => {
@@ -143,7 +140,7 @@ test('IT C002 — every pulse candidate of the run\'s own list is settled exactl
     assert.deepEqual(pinnedIds.slice().sort(), candidates.map((candidate) => candidate.id).sort());
   } finally {
     published.source.dispose();
-    published.out.dispose();
+    published.source.dispose();
   }
 });
 
@@ -151,11 +148,11 @@ test('IT C001 — the gate prints COMPLETE over a scratch copy of the claim-carr
   const before = hashTree(join(PROJECT_ROOT, CLAIM_CARRYING));
   const published = publishOriginSpec(CLAIM_CARRYING);
   try {
-    const gated = runChain('workspacify-tree/run.mjs', [
-      'gate',
-      `--spec=${published.specPath}`,
-      `--decisions=${decisionsPathFor(CLAIM_CARRYING, PROJECT_ROOT)}`,
-    ]);
+    // The subject is the scratch copy, and the decisions document is placed where
+    // the rotation derives it: the command line names the specification and nothing
+    // else. A call that inherited the repository would stage into the repository.
+    stageTreeDecisionsFrom(published.source.root, decisionsPathFor(CLAIM_CARRYING, PROJECT_ROOT));
+    const gated = runChain('workspacify-tree/run.mjs', ['gate', `--spec=${published.specPath}`], { cwd: published.source.root });
     const summary = JSON.parse(gated.stdout);
 
     assert.equal(gated.status, 0, `the gate exits 0:\n${gated.stderr.slice(0, 2000)}`);
@@ -165,7 +162,7 @@ test('IT C001 — the gate prints COMPLETE over a scratch copy of the claim-carr
     assert.equal(summary.finalAudit.ownership_disagreement_count, 0);
   } finally {
     published.source.dispose();
-    published.out.dispose();
+    published.source.dispose();
   }
 
   assert.deepEqual(hashTree(join(PROJECT_ROOT, CLAIM_CARRYING)), before, 'the representative was not modified');
@@ -174,11 +171,8 @@ test('IT C001 — the gate prints COMPLETE over a scratch copy of the claim-carr
 test('IT C001 boundary — a representative whose spec carries no claim is reported as not proved, with the gate and the reason named', () => {
   const published = publishOriginSpec(ZERO_CLAIM);
   try {
-    const refused = runChain('workspacify-tree/run.mjs', [
-      'gate',
-      `--spec=${published.specPath}`,
-      `--decisions=${decisionsPathFor(ZERO_CLAIM, PROJECT_ROOT)}`,
-    ]);
+    stageTreeDecisionsFrom(published.source.root, decisionsPathFor(ZERO_CLAIM, PROJECT_ROOT));
+    const refused = runChain('workspacify-tree/run.mjs', ['gate', `--spec=${published.specPath}`], { cwd: published.source.root });
     const refusal = JSON.parse(refused.stdout);
 
     assert.equal(refusal.status, 'REVIEW_REQUIRED', 'a zero-claim subject is not proved rather than presented as complete');
@@ -186,6 +180,6 @@ test('IT C001 boundary — a representative whose spec carries no claim is repor
     assert.match(refused.stderr, /production-library pkg-\d+ owns no objects or claims; likely a speculative split/);
   } finally {
     published.source.dispose();
-    published.out.dispose();
+    published.source.dispose();
   }
 });

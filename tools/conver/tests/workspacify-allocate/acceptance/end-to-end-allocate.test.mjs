@@ -10,16 +10,17 @@ import { fileURLToPath } from 'node:url';
 import { materializeSeedFixture, makeDecisions } from '../helpers/build-valid-manifest.mjs';
 import { parseSeed } from '../../../.claude/scripts/workspacify-allocate/lib/seed-parse.mjs';
 import { SEED_REQUIRED_SECTIONS } from '../../../.claude/scripts/workspacify-allocate/lib/seed-model.mjs';
+import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-allocate/run.mjs', import.meta.url));
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C005 acceptance: a COMPLETE tree manifest becomes a real workspace with grill-ready seeds', () => {
   const { dir, manifestPath, manifest } = materializeSeedFixture();
   try {
-    const decisionsPath = join(dir, 'decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(makeDecisions(manifest)));
+    stageAllocateDecisions(dir, makeDecisions(manifest));
 
-    const finalize = spawnSync(process.execPath, [RUN, 'finalize', manifestPath, `--decisions=${decisionsPath}`], { encoding: 'utf8' });
+    const finalize = spawnSync(process.execPath, [RUN, 'finalize', manifestPath], { encoding: 'utf8' });
     assert.equal(finalize.status, 0, finalize.stderr);
     const summary = JSON.parse(finalize.stdout);
     assert.equal(summary.published, true);
@@ -50,7 +51,9 @@ test('C005 acceptance: a COMPLETE tree manifest becomes a real workspace with gr
     }
 
     // A second finalize is BLOCKED (fresh-workspace-only policy).
-    const second = spawnSync(process.execPath, [RUN, 'finalize', manifestPath, `--decisions=${decisionsPath}`], { encoding: 'utf8' });
+    // Staged again: the first finalize published, and a published run sweeps the document.
+    stageAllocateDecisions(dir, makeDecisions(manifest));
+    const second = spawnSync(process.execPath, [RUN, 'finalize', manifestPath], { encoding: 'utf8' });
     assert.notEqual(second.status, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });

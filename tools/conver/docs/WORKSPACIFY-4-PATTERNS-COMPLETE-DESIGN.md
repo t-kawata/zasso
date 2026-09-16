@@ -112,7 +112,7 @@ Evidence, all from the code:
 | Fact | Source |
 |---|---|
 | `RFC-SEED.md` is written into **every package directory** | `allocate-manifest.mjs:43` — `` path: `${pkg.path}/${SEED_FILE_NAME}` `` |
-| There is exactly one seed per package | `workspacify-allocate/lib/reverse-mode.mjs:210` — *"each of the N seed-bearing package(s) holds exactly one `RFC-SEED.md`"* |
+| There is exactly one seed per package | `workspacify-allocate/lib/reverse-mode.mjs:212` — *"each of the N seed-bearing package(s) holds exactly one `RFC-SEED.md`"* |
 | The seed names its package | `seed-render.mjs:76` — `` `${SEED_TITLE_PREFIX}${pkg.name}` `` where `SEED_TITLE_PREFIX = '# RFC Seed: '` |
 | `Tickets.json` is generated **in the same directory as its design document** | `.claude/commands/split-to-tickets.md:46-47` — *"e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`"* |
 | The graph and the Dirs-Tree sit **beside their RFC** | `.claude/commands/boundify-graph.md` — `basename="$(basename "$1" -GRAPH.json)"`, `dirsTreePath="${graphDir}/${basename}-Dirs-Tree.json"` |
@@ -154,6 +154,19 @@ identifier**, and the file is the graph of the directory named ROOT. A subdirect
     RFC-DB-GRAPH.json
     …
 ```
+
+**The reserved root is not part of this layout, and the fifth layer is not inside it.** The reverse
+rotation publishes its working documents — the origin spec, the measured dependency report, the
+sidecar bundle — into `workspacify/reverse/` beneath the directory it is run in. That root is
+reserved for the reason the read-only guarantee survives publishing at all: **no walk of the
+analysis descends into a directory of that name**, so a run that writes there leaves the tree it
+measured exactly as it found it. It is a **document repository and nothing else** — it holds no
+source file, and the manifest, the delta and the seeds are not published into it.
+
+**The fifth layer stays at the workspace root**, beside the ROOT package's own four layers and not
+beneath the reserve. `workspacify-allocate/run.mjs:90` derives the generated workspace's root as
+`path.dirname(absPath)` of the manifest it is given, so a manifest hidden inside `workspacify/`
+would create the whole workspace inside the reserve.
 
 **The same shape holds for all four patterns.** A pattern-4 project (never reversed) reaches it by
 the ordinary forward path; a pattern-1 project reaches it by reverse then forward; a pattern-2
@@ -398,7 +411,7 @@ incompleteness is not reported and left; it is *converted*. And `ABOUT-REVERSE` 
 Before designing the content, the permissions:
 
 - The file is **not** in `COMMAND_FILE_NAMES` (`command-file-digest.mjs:50`), which freezes
-  **fifteen** command files. `command.test.mjs:142` asserts this explicitly:
+  **fifteen** command files. `command.test.mjs:147` asserts this explicitly:
   *"the reverse file is deliberately outside the frozen digest: it is a creation, not an edit"*.
   `P22-9` **created** it as a new file, so the append-only discipline that binds the frozen set does
   not bind it. **A rewrite is permitted.**
@@ -407,7 +420,7 @@ Before designing the content, the permissions:
   above.)*
 - But eight structural assertions **do** bind it. They are defined in
   `helpers/command-file.mjs:217` (`assertCommandFileStructure`) and applied to this file at
-  `command.test.mjs:150`. A rewrite must keep
+  `command.test.mjs:155`. A rewrite must keep
   all of them:
 
 | # | Assertion |
@@ -483,7 +496,7 @@ Assertion 7 (`/Step \d/`) is satisfied by `## Step 0` … `## Step 8`.
 |---|---|---|---|---|
 | **0** | Identify the pattern | Read the disk. Which conver artefacts exist: root `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` / `RFC-*.md`; per-directory `RFC-SEED.md`; `WORKSPACIFY-*MANIFEST*` | Presence and absence are facts, read from the filesystem | The pattern must **not** be inferred by asking, and must **not** be a gate |
 | **1** | Record what is already there | The artefacts Step 0 found, plus the in-flight state (§3.3): ticket lifecycle statuses, the `DesignTree`, the old partition | The inventory is mechanical | Silent continuation of an existing cycle; silent deletion of anything |
-| **2** | Fix the boundary and the scope | `analyze … --through=r0.5` | The scope, the target commit, the tree hash, exclusions, permissions, the external-transmission policy | — |
+| **2** | Fix the boundary and the scope | `run.mjs analyze`, then read `ANALYSIS-SCOPE.json` first | The scope, the target commit, the tree hash, the directories the digest did not cover, exclusions, permissions, the external-transmission policy | — |
 
 **There is no gate before Step 3 that can stop the run because the project is incomplete.** That is
 the whole point of §1.2. Conver's own self-check (`run.mjs regression check`) measures the *conver
@@ -494,26 +507,35 @@ a precondition here.** Naming it as a precondition is one of the errors this des
 #### Movement II — Measure (Step 3)
 
 ```bash
-node .claude/scripts/workspacify-reverse/run.mjs analyze "$ARGUMENTS" \
-     --out=<destination-outside-the-target> [--through=<stage>] [--query="<question>"]
+node .claude/scripts/workspacify-reverse/run.mjs analyze
 ```
+
+The entrance takes **no arguments**: its subject is the directory it is run in, and its destination
+is `workspacify/reverse` beneath that directory. The second half is what lets the read-only
+guarantee survive publishing at all — the reserved name is a member of the never-walked set, so a
+run that writes there leaves the tree it measured as it found it. A destination directly in the
+working directory would not be sound: the next run would measure its own output, and a walk that
+descended into the reserved directory would put the run's own documents into `SCOPE-BOUNDARY.json`
+as material it had declined to measure.
 
 Three mechanical facts the file must state, because without them the operator misreads every
 outcome:
 
 1. **Publishing is atomic.** `publishDocuments` is called **once**, after every stage in the prefix
-   has run and the target has been re-digested (`scope.mjs:1929`). A run that stops **publishes
+   has run and the target has been re-digested (`scope.mjs:1948`). A run that stops **publishes
    nothing**. There is no partial-document state to clean up.
-2. **`--through` is the only prefix instrument.** Because of (1), a failure late in a long run costs
-   the whole run, and the only way to see where it went wrong is to stop earlier and let a complete
-   prefix publish. The evaluation order is **not** the stage numbering:
+2. **There is no command-line prefix instrument.** Because of (1), a failure late in a long run
+   costs the whole run, and the command line offers no way to stop earlier and let a complete
+   prefix publish. `analyzeProject` still takes `through`, so a prefix is reachable from a program;
+   it is not reachable from the command line. The evaluation order is **not** the stage numbering:
    `r0, r0.5, r2.5, r1, r2, r3, r3.5, r4, r5, r5.5, r6, r6.5, r7, r8` — R2.5 runs before R1 and R2
    because the dependency graph's caveat must state how many mechanisms stand between it and the
    running program.
-   **But**: a full run reached R8 in about **three minutes** (Appendix A.1). The ladder is a
-   diagnostic, not a ritual. Run to the exit; descend only if the exit is refused.
-3. **The target is digested before and after.** A single byte moved and the run refuses to publish
-   (`scope.mjs:1791-1797`). The tree must be quiescent, and the analysis never writes to it.
+   **But**: a full run reached R8 in about **three minutes** (Appendix A.1). Run to the exit.
+3. **The target is digested before and after.** A single byte moved outside the reserved directory
+   and the run refuses to publish (`scope.mjs:1806-1811`). The tree must be quiescent, and the
+   digest record names the directories it did not cover, so the claim is read as what it is rather
+   than as a claim over the whole tree.
 
 #### Movement III — Serve, decide, hand over (Steps 4–8)
 
@@ -589,7 +611,8 @@ Each of these is a formulation that was tried and rejected:
 | `holdout isolation` as a precondition | **Measured**: it exits **1** on `siprs-with-4layers`, naming `RFC-ROOT.md`, `RFC-ROOT-GRAPH.json`, `Tickets.json` as "contamination". For pattern 2 those are the project's **legitimate prior work**. The check exists to *manufacture the experiment input*, not to qualify a real project |
 | `scrub` / `detect` / `verify` as workflow steps | `scrub` **removes** forward traces. On a pattern-2 project those traces are its 143 `Initial Design Artifact` headers and its `@verifies` annotations. Removing them is supreme law 4 territory and destroys exactly what must be carried forward |
 | `oracle compare` as a workflow step | An answer key exists only in the paired-tree experiment. No real project has one |
-| `run.mjs regression check` as a precondition | It takes **no root** (`.claude/scripts/workspacify-reverse/run.mjs:80` — `ROOT_TAKING_SUBCOMMANDS = ['detect','scrub','verify','analyze']`). It measures the conver repository, and its fixtures are not installed into a user's project |
+| An invocation that hands a rotation a path the rotation can derive | §9. The criterion the family applies is that an argument is hidden unless hiding it breaks one of the four patterns. `--root`, `--graph`, `--measured`, `--sidecars`, `--delta`, `--out` and `--prior-partition` left the reverse rotation for this reason, and the decisions document left both forward rotations; all of them are refused by name rather than ignored, because a question dropped in silence reads exactly like one answered |
+| `run.mjs regression check` as a precondition | It takes **no root** (`.claude/scripts/workspacify-reverse/run.mjs:321-326` — the branch fixes `action: second, root: process.cwd()` and states that requiring a root would make the command unrunnable by the automated sessions that run it before every later ticket's step). It measures the conver repository, and its fixtures are not installed into a user's project |
 | Any statement that the project must already be a complete conver project | §1.2 |
 
 > **The general rule behind the table.** *The same file is an input in one mode and a contaminant in
@@ -680,7 +703,7 @@ think the rows are still there.
 | The exit is reachable | Measured 2026-09-11: `analyze --through=r8` on `siprs-for-reverse` → exit 0, ~3 min (A.1). Re-evidenced in the tree on 2026-09-15: `tests/workspacify-reverse/analysis/` holds that run's documents, 29 of them after the removal recorded in A.1, and `ORIGIN-LONG-SPEC.json` is published only when the r8 stage ran (`scope.mjs:1923`), so its presence is the exit having been reached rather than a memory of one |
 | The analysis does not write to its subject | The run's own digest comparison; plus `git status` clean afterwards |
 | The workspace root is a package, path `.` | `structure-parity.mjs` lines 69, 126–131, 172 |
-| `RFC-SEED.md` is per-package | `allocate-manifest.mjs:43`, `workspacify-allocate/lib/reverse-mode.mjs:210` |
+| `RFC-SEED.md` is per-package | `allocate-manifest.mjs:43`, `workspacify-allocate/lib/reverse-mode.mjs:212` |
 | `Tickets.json` is per-design-document | `.claude/commands/split-to-tickets.md:46-47` |
 | Graph / Dirs-Tree sit beside their RFC | `.claude/commands/boundify-graph.md` |
 | The isolation check rejects a pattern-2 tree | `holdout isolation siprs-with-4layers` → exit 1, 9 artefacts named |
@@ -745,6 +768,50 @@ produced a wrong conclusion about root ownership, which §7.1 now records correc
 | **L0–L3** | the partial-success ladder. Only L3 is success (§5.9) |
 
 ---
+
+## 9. The argument surface of the workspacify family
+
+> **The criterion**: an argument is hidden unless hiding it breaks one of the four patterns.
+
+An invocation hands over only what the instrument cannot derive from its own subject. Everything
+else is a standard the scripts hold, not a choice the running AI makes on the command line. The
+rule was applied in series: PX-213 emptied the reverse entrance, PX-214 emptied the reverse
+rotation, and PX-215 emptied the two forward rotations of the decisions document — the last path
+in the family that a run asked the AI to invent, and the one place where a gate and a finalize
+could read two different files while claiming one approval.
+
+**The two facts that survive.** Each is spelled more than once, because the subcommands that take
+it name it differently, and each is spelled here with the §1.1 pattern whose input would vanish if
+it were hidden:
+
+| Survivor | Where it is spelled | The pattern it protects, and why hiding it breaks that pattern |
+|---|---|---|
+| `--spec` | `workspacify-tree gate`, `finalize`, and the `parse` / `extract` positionals | **pattern 4.** §1.1 row 4 is "Empty, plus a long specification document". An empty project holds nothing from which a specification path could be derived, so hiding it would leave that pattern with no entry at all rather than tidy the surface |
+| `<path-to-WORKSPACIFY-TREE-MANIFEST.json>` | the positional on every `workspacify-allocate` subcommand | **patterns 1, 2, 3 and 4.** §2.1 makes the workspace root a package of its own (path `.`), §2.2 draws the fifth layer beside its four layers, and `workspacify-allocate/run.mjs` implements both as `workspaceRoot = dirname(manifestPath)`. A standard manifest path would create the generated workspace inside the reserve and break all four at once |
+
+**What was withdrawn.** `--root`, `--graph`, `--measured`, `--sidecars`, `--delta`, `--out` and
+`--prior-partition` left the reverse rotation in PX-214; the decisions document left `gate` and
+`finalize` in both rotations, and `reverse` in both, in PX-215. Each is refused **by name with the
+whole token**, together with the reason it left: an option once honoured and no longer is a
+question the caller is still asking, and ignoring it would leave them reading a run that answered
+a question they did not ask.
+
+**Where the decisions document went.** It is read from `workspacify/tree/DECISIONS.json` beneath
+the tree rotation's subject and from `workspacify/allocate/DECISIONS.json` beneath the allocate
+rotation's workspace root. One binding, `reservedTreeDecisionsPath` / `reservedAllocateDecisionsPath`
+in `workspacify-tree/lib/reserved-root.mjs`, so the gate and the finalize of a single run resolve
+the same string and the semantics approved are the semantics applied. It is **staging**, not a
+record: the published manifest is the record of what was decided, so the finalize sweeps the
+document and the directories that held nothing else, leaving the published set plus whatever
+pre-existed.
+
+**How the surface is held.** `printUsage()` in each script is the one declaration; the guard in
+each rotation's `integration/argument-surface.test.mjs` reads that declaration rather than
+restating it, and fails in both directions — an option added to the script alone, and an option
+deleted from the script alone. A survivor that cannot name the pattern its absence would break
+fails as well. A guard holding its own copy of the list would be a third rendering of the fact and
+would drift from the scripts exactly as a document would, which is the failure the guard exists to
+prevent.
 
 ## Appendix A — measurements taken
 

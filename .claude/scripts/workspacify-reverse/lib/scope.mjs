@@ -39,7 +39,16 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
-import { BUILD_MANIFESTS, compareText, digestTree, listTreeFiles } from './holdout-ledger.mjs';
+import {
+  BUILD_MANIFESTS,
+  NEVER_WALKED_DIRECTORY_NAMES,
+  RESERVED_REVERSE_SUBDIRECTORY,
+  RESERVED_ROOT_NAME,
+  compareText,
+  digestTree,
+  listTreeFiles,
+  reservedReverseDirectory,
+} from './holdout-ledger.mjs';
 import {
   SOURCE_DIRECTORY,
   SOURCE_EXTENSION,
@@ -848,21 +857,27 @@ function realpathOfNearestExisting(path) {
 }
 
 /**
- * Refuse to publish inside what is being measured.
+ * Refuse a destination the run's own walks would see.
  *
- * The read-only guarantee is meant to hold by construction rather than by the
- * caller's good behaviour, and this is the construction: the write path is
- * unreachable when it points into the target, so a mistyped `--out` cannot
- * dirty the subject of its own measurement.
+ * The read-only guarantee holds by construction rather than by the caller's good
+ * behaviour, and this is the construction: a destination is accepted only where
+ * no walk descends, so writing there provably cannot change what was measured.
+ * That is why the reserved reverse directory is the single exception beneath the
+ * target — its root is a member of the never-walked set, so a run publishing
+ * into it leaves `digestTree(root)` where it found it. Every other path beneath
+ * the target is refused, because the digest would move and the run that moved it
+ * would be reporting on a tree it had changed.
  */
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
-function assertOutputIsOutsideTarget(out, root) {
+// [::TICKET::] P22-4, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|PX-213|PX-214) --for-spec --no-implementation-order`.
+function assertOutputCannotChangeWhatIsMeasured(out, root) {
   const target = realpathOfNearestExisting(root);
   const destination = realpathOfNearestExisting(out);
+  if (destination === realpathOfNearestExisting(reservedReverseDirectory(target))) return;
   if (destination === target || destination.startsWith(`${target}${sep}`)) {
     throw new AnalysisScopeError(
-      `the output directory ${out} is inside the target ${root}; the analysis writes only outside what `
-      + 'it measures, so that a run cannot change its own subject',
+      `the output directory ${out} is inside the target ${root}; the analysis writes only where its own `
+      + `walks do not descend, so that a run cannot change its own subject. The one destination beneath `
+      + `the target it accepts is ${RESERVED_ROOT_NAME}/${RESERVED_REVERSE_SUBDIRECTORY}, which no walk reads`,
     );
   }
 }
@@ -1576,7 +1591,7 @@ export async function analyzeProject({
   if (typeof out !== 'string' || out.length === 0) {
     throw new AnalysisScopeError('an analysis run must name the directory it publishes into');
   }
-  assertOutputIsOutsideTarget(out, root);
+  assertOutputCannotChangeWhatIsMeasured(out, root);
 
   // The caller may watch a run go past. A stage that fails is then reported by
   // the caller under the name of the stage it failed in, rather than arriving
@@ -1835,6 +1850,10 @@ export async function analyzeProject({
         // a digest over all of it, which is how an unreadable entry becomes
         // invisible in the one record that is meant to prove nothing moved.
         unreadable_paths: [...before.unreadable],
+        // The same argument one level up: the walk skips these directories, and
+        // the run writes into one of them, so a reader who is not told which
+        // would take the digest for a claim over the whole tree.
+        excluded_directories: [...NEVER_WALKED_DIRECTORY_NAMES],
         unmodified: true,
       },
     },

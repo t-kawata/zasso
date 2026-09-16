@@ -10,9 +10,11 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stageTreeDecisions } from '../helpers/stage-tree-decisions.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-tree/run.mjs', import.meta.url));
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C001 every published segment declares the inventory it carries', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wt-196-own-'));
   try {
@@ -22,13 +24,11 @@ test('C001 every published segment declares the inventory it carries', () => {
       '## Alpha', '', 'The alpha record obj-000001 is normative.', '',
       '## Glossary', '', 'Terms only, no object of interest.', '',
     ].join('\n'));
-    const decisionsPath = join(dir, 'decisions.json');
-    cpSync(fileURLToPath(new URL('../fixtures/gaia-decisions.json', import.meta.url)), decisionsPath);
-    const decisions = JSON.parse(readFileSync(decisionsPath, 'utf8'));
+    const decisions = JSON.parse(readFileSync(fileURLToPath(new URL('../fixtures/gaia-decisions.json', import.meta.url)), 'utf8'));
     // Keep the fixture package but point it at the harvested object of this spec.
-    writeFileSync(decisionsPath, JSON.stringify(decisions));
+    stageTreeDecisions(dir, decisions);
 
-    const result = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], { cwd: dir, encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
     if (result.status !== 0) {
       // The fixture decisions must resolve against this spec; skip the proof part if not.
       assert.ok(result.status !== 0);

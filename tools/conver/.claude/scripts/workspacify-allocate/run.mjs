@@ -17,6 +17,15 @@ import process from 'node:process';
 
 import { EXIT_CODES, GATE_STATUS, WorkSpacifyTreeError } from '../workspacify-tree/lib/errors.mjs';
 import { validateAgainstSchema } from '../workspacify-tree/lib/manifest-schema.mjs';
+// The reserved root is declared once, in the tree layer, where both later stages may
+// read it without the forward rotation depending on the reverse tree.
+import {
+  RESERVED_ALLOCATE_SUBDIRECTORY,
+  RESERVED_DECISIONS_FILE_NAME,
+  RESERVED_ROOT_NAME,
+  reservedAllocateDecisionsPath,
+} from '../workspacify-tree/lib/reserved-root.mjs';
+import { sweepStagingDecisions } from '../workspacify-tree/lib/staging-decisions.mjs';
 
 import { loadTreeManifest, checkAllocateEntryGate, readManifestSource } from './lib/tree-manifest-input.mjs';
 import { buildDirectoryPlan } from './lib/directory-plan.mjs';
@@ -422,13 +431,13 @@ export function runPacket(args) {
 }
 
 export function runGate(args) {
+  refuseDecisionsArgument(args.slice(1));
   const manifestPath = args[1];
-  const decisionsPath = optionValue(args, '--decisions');
-  if (!manifestPath || !decisionsPath) {
-    throw new WorkSpacifyTreeError('gate requires <manifest> and --decisions=<path>', { gateId: 'G3' });
+  if (!manifestPath) {
+    throw new WorkSpacifyTreeError('gate requires exactly one <path-to-WORKSPACIFY-TREE-MANIFEST.json>', { gateId: 'G0' });
   }
   const { manifest, manifestDir } = loadLockedInput(manifestPath);
-  const decisions = loadDecisions(decisionsPath);
+  const decisions = loadDecisions(reservedAllocateDecisionsPath(manifestDir));
   const { expectedByPackage } = deriveExpectedAllocation({ ownershipEntries: manifest.workspace?.ownership?.entries ?? [], packages: manifest.workspace?.packages ?? [] });
   const gateRun = renderAllSeeds({ manifestRef: { manifest, manifestPath, manifestDir }, expectedByPackage, decisions });
   assertSourceCoverage({ manifest, expectedByPackage, parsedByPackage: gateRun.parsedByPackage });
@@ -439,12 +448,13 @@ export function runGate(args) {
 }
 
 export function runFinalize(args) {
+  refuseDecisionsArgument(args.slice(1));
   const manifestPath = args[1];
-  const decisionsPath = optionValue(args, '--decisions');
-  if (!manifestPath || !decisionsPath) {
-    throw new WorkSpacifyTreeError('finalize requires <manifest> and --decisions=<path>', { gateId: 'G3' });
+  if (!manifestPath) {
+    throw new WorkSpacifyTreeError('finalize requires exactly one <path-to-WORKSPACIFY-TREE-MANIFEST.json>', { gateId: 'G0' });
   }
   const { manifest, manifestDir } = loadLockedInput(manifestPath);
+  const decisionsPath = reservedAllocateDecisionsPath(manifestDir);
   const decisions = loadDecisions(decisionsPath);
   const packages = manifest.workspace?.packages ?? [];
 
@@ -501,6 +511,10 @@ export function runFinalize(args) {
     throw new WorkSpacifyTreeError(`reload seed parity failed: ${describeParity(reloadParity)}`, { gateId: 'G6.5' });
   }
 
+  // Staging, swept where the doctrine calls it staging and only after a publication
+  // that succeeded: the allocate manifest is the record of what was decided, and this
+  // document is what the gate read on the way there.
+  sweepStagingDecisions(decisionsPath);
   const cleanup = removeWorkspaceArtifacts({ workspaceRoot: manifestDir, stagingRoot: null });
   emit({
     published: true,
@@ -521,6 +535,82 @@ export function runFinalize(args) {
 }
 
 /**
+ * The options `reverse` once honoured and no longer does, each with the reason it left.
+ *
+ * Withdrawal belongs to the entrance that lost the option: a caller who names a root
+ * is asking a question this subcommand has already settled, and a question dropped in
+ * silence reads exactly like one that was answered. The reason travels with the token
+ * so the refusal teaches the derived subject instead of only reporting a problem.
+ */
+const WITHDRAWN_FROM_REVERSE_OPTIONS = Object.freeze({
+  '--root': `the subject is the directory the command is run in (${process.cwd()}), and it is the only subject there can be: that directory IS the workspace this subcommand allocates into, so a second spelling of it would name a different workspace.`,
+  '--decisions': `the decisions document is read from ${RESERVED_ROOT_NAME}/${RESERVED_ALLOCATE_SUBDIRECTORY}/${RESERVED_DECISIONS_FILE_NAME} beneath the workspace root, which is the directory the command is run in.`,
+});
+
+/**
+ * Refuse a decisions argument on a subcommand that derives the document.
+ *
+ * Judged before anything is read, so the refusal answers about the argument rather
+ * than about a document: a caller who learned the old surface is told the location
+ * is not theirs to choose, instead of being read from a file they did not name. The
+ * whole token travels, because a refusal naming only the option would leave the path
+ * they chose unaccounted for — the dropped question the refusal exists to prevent.
+ *
+ * The manifest is not affected: it is a positional, it survives, and §2.1/§2.2 make
+ * its directory the workspace root.
+ */
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+function refuseDecisionsArgument(args) {
+  const drawn = args.filter((token) => token === '--decisions' || token.startsWith('--decisions='));
+  if (drawn.length === 0) return;
+  throw new WorkSpacifyTreeError(
+    `withdrawn option ${drawn.map((token) => JSON.stringify(token)).join(', ')} — the decisions document is read `
+    + `from ${RESERVED_ROOT_NAME}/${RESERVED_ALLOCATE_SUBDIRECTORY}/${RESERVED_DECISIONS_FILE_NAME} beneath the `
+    + 'workspace root, which is derived from the stage-one manifest and is not selectable',
+    { gateId: 'G3' },
+  );
+}
+
+/** The withdrawn options present in an argument list, as the tokens the caller wrote. */
+// [::TICKET::] PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
+function withdrawnReverseOptionsUsed(args) {
+  return args.flatMap((token) => {
+    const name = Object.keys(WITHDRAWN_FROM_REVERSE_OPTIONS)
+      .find((candidate) => token === candidate || token.startsWith(`${candidate}=`));
+    return name === undefined ? [] : [{ name, token }];
+  });
+}
+
+/** Refuse the withdrawn options a caller used, naming each token and why it cannot be honoured. */
+// [::TICKET::] PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
+function refuseWithdrawnReverseOptions(drawn) {
+  if (drawn.length === 0) return;
+  const reasons = drawn.map(({ name, token }) => `${token}: ${WITHDRAWN_FROM_REVERSE_OPTIONS[name]}`).join(' ');
+  throw new WorkSpacifyTreeError(
+    `withdrawn option ${drawn.map(({ token }) => JSON.stringify(token)).join(', ')} — ${reasons}`,
+    { gateId: 'A1' },
+  );
+}
+
+/**
+ * Refuse a bare argument handed to `reverse`.
+ *
+ * The stage-1 manifest is read from the working directory's root, so a positional
+ * would name a workspace the subcommand never looks at. Ignoring it would leave the
+ * caller believing the run was scoped to the tree they named.
+ */
+// [::TICKET::] PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-214|PX-215) --for-spec --no-implementation-order`.
+function refuseReversePositionalArguments(positionals) {
+  if (positionals.length === 0) return;
+  throw new WorkSpacifyTreeError(
+    `the reverse subcommand takes no arguments, and ${positionals.map((token) => JSON.stringify(token)).join(', ')} `
+    + `was given. The subject is the directory the command is run in (${process.cwd()}), and the stage-1 manifest is `
+    + 'read from its root; neither is selectable',
+    { gateId: 'A1' },
+  );
+}
+
+/**
  * Reverse mode: place one RFC-SEED into each package of a tree that already exists.
  *
  * The safety guarantee is inverted, not weakened. Forward refuses anything that
@@ -528,16 +618,23 @@ export function runFinalize(args) {
  * rename a single top-level entry. The writes are the seeds and the manifest, and a
  * failure publishes nothing.
  */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-12, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-12|PX-214) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
 export function runReverse(args) {
-  const root = optionValue(args, '--root');
-  const decisionsPath = optionValue(args, '--decisions');
-  if (!root || !decisionsPath) {
-    throw new WorkSpacifyTreeError('reverse requires --root=<project directory> and --decisions=<path>', { gateId: 'A1' });
-  }
+  // Judged before the manifest is read: a run that refused only after loading its
+  // inputs would still have answered over a workspace the caller did not name.
+  const given = args.slice(1);
+  refuseWithdrawnReverseOptions(withdrawnReverseOptionsUsed(given));
+  refuseReversePositionalArguments(given.filter((token) => !token.startsWith('--')));
 
-  const manifestDir = path.resolve(root);
+  // The subject is the directory the command is run in. The stage-one manifest
+  // is read from its root rather than from a path the caller supplies, because
+  // that directory IS the workspace this command is asked to allocate into: a
+  // different root would name a different workspace, and the manifest would then
+  // have to be found there by a second spelling of the same decision.
+  const manifestDir = process.cwd();
   const manifestPath = path.join(manifestDir, TREE_MANIFEST_FILE_NAME);
+  const decisionsPath = reservedAllocateDecisionsPath(manifestDir);
   const { manifest, sourceText } = loadLockedInput(manifestPath);
   const decisions = loadDecisions(decisionsPath);
   const packages = manifest.workspace?.packages ?? [];
@@ -641,6 +738,10 @@ export function runReverse(args) {
     return reportReverseOutcome(records);
   }
 
+  // Swept for the same reason the forward finalize sweeps it: the manifest this run
+  // publishes is the record of what was decided, and the document the gates read is
+  // staging.
+  sweepStagingDecisions(decisionsPath);
   process.stdout.write(`${renderReverseAllocateReport(records)}\n`);
   emit({
     status: GATE_STATUS.COMPLETE,
@@ -681,12 +782,47 @@ const SUBCOMMANDS = {
   reverse: runReverse,
 };
 
+/**
+ * The surface this entrance declares, in one place.
+ *
+ * The operator, the guard in `tests/workspacify-allocate/integration/argument-surface.test.mjs`
+ * and the command file all read this block, so the surface has one home rather than
+ * three renderings that drift. The manifest survives because §2.1 makes the workspace
+ * root a package of its own and §2.2 draws the fifth layer beside its four layers,
+ * which the rotation implements as `workspaceRoot = dirname(manifestPath)`; the
+ * decisions document is derived and is named here so a reader learns where it went.
+ */
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+function printUsage() {
+  return [
+    'Usage: run.mjs <validate|plan|packet|gate|finalize> <path-to-WORKSPACIFY-TREE-MANIFEST.json>',
+    '       run.mjs reverse',
+    '       run.mjs packet <manifest> [--package=<id>]',
+    '',
+    '  validate <manifest>   Judge the stage-one manifest against the allocate entry gate',
+    '  plan <manifest>       Judge path safety and fresh-workspace-ness (G2)',
+    '  packet <manifest>     Print the per-package authoring material, for one package or for all',
+    '  gate <manifest>       Run the automatic gates and require the recorded semantic approval',
+    '  finalize <manifest>   Publish the tree, one RFC-SEED.md per package and the allocate manifest',
+    '  reverse               Allocate into a project that already exists, in the directory the command is run in',
+    '',
+    '  The manifest is the positional, and it survives because hiding it would break every',
+    '  pattern at once: its directory IS the workspace root, so a standard manifest path',
+    '  would create the generated workspace inside the reserve.',
+    `  The decisions document is read from ${RESERVED_ROOT_NAME}/${RESERVED_ALLOCATE_SUBDIRECTORY}/${RESERVED_DECISIONS_FILE_NAME}`,
+    '  beneath the workspace root, and beneath the directory the command is run in for reverse.',
+    '  It is not selectable: no argument, no environment variable and no pre-existing file',
+    '  can move it.',
+  ].join('\n') + '\n';
+}
+
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function main() {
   const args = process.argv.slice(2);
   const subcommand = args[0];
   const handler = SUBCOMMANDS[subcommand];
   if (!handler) {
-    guide('Usage: run.mjs <validate|plan|packet|gate|finalize> <path-to-WORKSPACIFY-TREE-MANIFEST.json> [--decisions=<path>] [--package=<id>]');
+    guide(printUsage());
     process.exit(EXIT_CODES.USAGE);
   }
   try {

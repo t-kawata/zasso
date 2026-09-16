@@ -33,6 +33,12 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { canonicalSerialize } from '../../workspacify-tree/lib/canonical-json.mjs';
+import {
+  RESERVED_ALLOCATE_SUBDIRECTORY,
+  RESERVED_DECISIONS_FILE_NAME,
+  RESERVED_ROOT_NAME,
+  RESERVED_TREE_SUBDIRECTORY,
+} from '../../workspacify-tree/lib/reserved-root.mjs';
 import { COMMAND_FILE_NAMES, COMMANDS_RELATIVE_DIR, compareDigests, digestCommandFiles } from './command-file-digest.mjs';
 // [::TICKET::] PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-207 --for-spec --no-implementation-order`.
 import { FORWARD_SURFACES_KEY, captureForwardSurfaces, checkForwardSurfaces } from './forward-surface-baseline.mjs';
@@ -154,6 +160,20 @@ export function readFixtureDigests(projectRoot) {
   return sortKeys(digests);
 }
 
+/**
+ * Place a fixture at the name the rotation derives, inside the run's own directory.
+ *
+ * The staging directory is created here rather than assumed: a copied fixture
+ * directory carries no reserve, and a rotation asked to read a document that is not
+ * there refuses — which is the behaviour the gate would then report as a regression.
+ */
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
+function stageDecisions(stagingDirectory, sourcePath) {
+  mkdirSync(stagingDirectory, { recursive: true });
+  cpSync(sourcePath, join(stagingDirectory, RESERVED_DECISIONS_FILE_NAME));
+}
+
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function sortKeys(record) {
   const sorted = {};
   for (const key of Object.keys(record).sort()) {
@@ -176,13 +196,14 @@ export function runTreePair({ pair, projectRoot }) {
   const workDir = mkdtempSync(join(tmpdir(), 'p22-1-tree-pair-'));
   try {
     const specPath = join(workDir, pair.spec);
-    const decisionsPath = join(workDir, pair.decisions);
     cpSync(join(fixtureRoot, pair.spec), specPath);
-    cpSync(join(fixtureRoot, pair.decisions), decisionsPath);
+    // Staged where the rotation derives it, because the rotation selects nothing:
+    // the working directory alone fixes the document's location.
+    stageDecisions(join(workDir, RESERVED_ROOT_NAME, RESERVED_TREE_SUBDIRECTORY), join(fixtureRoot, pair.decisions));
 
     const result = spawnSync(
       process.execPath,
-      [join(MODULE_ROOT, TREE_RUN_SCRIPT_RELATIVE_PATH), 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`],
+      [join(MODULE_ROOT, TREE_RUN_SCRIPT_RELATIVE_PATH), 'finalize', `--spec=${specPath}`],
       { cwd: workDir, encoding: 'utf8' },
     );
     const manifestPath = join(workDir, TREE_MANIFEST_FILE_NAME);
@@ -211,6 +232,9 @@ export function runAllocateFixture({ fixture, projectRoot }) {
   const workDir = mkdtempSync(join(tmpdir(), 'p22-1-allocate-'));
   try {
     cpSync(fixtureDir, workDir, { recursive: true });
+    // Staged where the rotation derives it: `workspacify/allocate` beneath the
+    // workspace root, which is the directory the stage-one manifest sits in.
+    stageDecisions(join(workDir, RESERVED_ROOT_NAME, RESERVED_ALLOCATE_SUBDIRECTORY), join(workDir, fixture.decisions));
 
     const result = spawnSync(
       process.execPath,
@@ -218,7 +242,6 @@ export function runAllocateFixture({ fixture, projectRoot }) {
         join(MODULE_ROOT, ALLOCATE_RUN_SCRIPT_RELATIVE_PATH),
         'finalize',
         join(workDir, fixture.manifest),
-        `--decisions=${join(workDir, fixture.decisions)}`,
       ],
       { cwd: workDir, encoding: 'utf8' },
     );

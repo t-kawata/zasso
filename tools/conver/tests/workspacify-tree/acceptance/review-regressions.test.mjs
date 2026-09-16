@@ -16,6 +16,7 @@ import { harvestObjectCandidates } from '../../../.claude/scripts/workspacify-tr
 import { buildHeadingTree } from '../../../.claude/scripts/workspacify-tree/lib/headings.mjs';
 import { segmentAtHeadings } from '../../../.claude/scripts/workspacify-tree/lib/segmentation.mjs';
 import { settlePulseCandidates } from '../helpers/settle-pulse.mjs';
+import { stageTreeDecisions } from '../helpers/stage-tree-decisions.mjs';
 import { settleDependencyReviews } from '../helpers/settle-dependency-reviews.mjs';
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
@@ -52,6 +53,7 @@ function decisionsFor(objectIds) {
 }
 
 /** Run finalize over a payload built from the base decisions through one mutation. */
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function finalizeWith(mutate) {
   const dir = mkdtempSync(join(tmpdir(), 'wst-202-reg-'));
   const specPath = join(dir, 'spec.md');
@@ -62,9 +64,8 @@ function finalizeWith(mutate) {
   const objectIds = harvestObjectCandidates({ sourceText, headings, segments }).map((item) => item.id);
   const decisions = mutate(decisionsFor(objectIds));
   const settled = settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions }) });
-  const decisionsPath = join(dir, 'decisions.json');
-  writeFileSync(decisionsPath, JSON.stringify(settled));
-  const result = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], { cwd: dir, encoding: 'utf8' });
+  stageTreeDecisions(dir, settled);
+  const result = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
   return { dir, result, manifestPath: join(dir, 'WORKSPACIFY-TREE-MANIFEST.json') };
 }
 

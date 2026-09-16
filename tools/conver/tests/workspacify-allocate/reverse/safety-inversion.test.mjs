@@ -40,6 +40,7 @@ import { SEED_REQUIRED_SECTIONS, SEED_FILE_NAME, ALLOCATE_MANIFEST_FILE_NAME } f
 import { compareDigests, digestCommandFiles } from '../../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs';
 import { sidecarReference } from '../../../.claude/scripts/workspacify-allocate/lib/forward-extensions.mjs';
 import { buildValidManifest, baseAiSections } from '../helpers/build-valid-manifest.mjs';
+import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 import {
   FIXTURE_SIDECAR_BUNDLE_HASH,
   FIXTURE_TOP_LEVEL_DIRECTORIES,
@@ -400,14 +401,16 @@ test('the report is Markdown the AI can read, and it names what has to be repair
 // end-to-end: the CLI, the filesystem, and the forward rotation
 // ---------------------------------------------------------------------------
 
+// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('IT-1 every package receives exactly one seed and the measured tree is byte-identical afterwards', () => {
   const workspace = buildReverseWorkspace();
   try {
     const before = fingerprintTree(workspace.dir);
+    stageDecisions(workspace);
     const run = spawnSync(
       process.execPath,
-      [ALLOCATE_RUN, 'reverse', `--root=${workspace.dir}`, `--decisions=${writeDecisions(workspace)}`],
-      { encoding: 'utf8' },
+      [ALLOCATE_RUN, 'reverse'],
+      { cwd: workspace.dir, encoding: 'utf8' },
     );
     assert.equal(run.status, 0, `reverse allocate must exit 0\nstdout: ${run.stdout}\nstderr: ${run.stderr}`);
 
@@ -442,6 +445,7 @@ test('IT-1 every package receives exactly one seed and the measured tree is byte
   }
 });
 
+// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('IT-2 a tree with one extra path is BLOCKED, the path is named, and nothing is written', () => {
   // `docker` is a real directory no package claims. `vendor` would not do: it is a
   // dependency population the reverse measurement never counts, so an A1 that
@@ -449,10 +453,11 @@ test('IT-2 a tree with one extra path is BLOCKED, the path is named, and nothing
   const workspace = buildReverseWorkspace({ extraDirectories: ['docker'] });
   try {
     const before = fingerprintTree(workspace.dir);
+    stageDecisions(workspace);
     const run = spawnSync(
       process.execPath,
-      [ALLOCATE_RUN, 'reverse', `--root=${workspace.dir}`, `--decisions=${writeDecisions(workspace)}`],
-      { encoding: 'utf8' },
+      [ALLOCATE_RUN, 'reverse'],
+      { cwd: workspace.dir, encoding: 'utf8' },
     );
 
     assert.notEqual(run.status, 0, 'an extra path stops the run');
@@ -524,23 +529,54 @@ test('A1 follows a linked directory, because the tree measurement that produced 
   }
 });
 
+// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('IT-2b a tree missing one planned path is BLOCKED, the path is named, and no top-level rename occurs', () => {
   const workspace = buildReverseWorkspace();
   try {
     const missingPath = join(workspace.dir, 'crates/protocol/beta');
     rmSync(missingPath, { recursive: true, force: true });
+    // Staged before the measurement: A2 asks whether any top-level entry moved, and
+    // it counts the reserve, so the two readings have to include it alike.
+    stageDecisions(workspace);
     const topLevelBefore = readTopLevelDirectories(workspace.dir);
 
     const run = spawnSync(
       process.execPath,
-      [ALLOCATE_RUN, 'reverse', `--root=${workspace.dir}`, `--decisions=${writeDecisions(workspace)}`],
-      { encoding: 'utf8' },
+      [ALLOCATE_RUN, 'reverse'],
+      { cwd: workspace.dir, encoding: 'utf8' },
     );
 
     assert.notEqual(run.status, 0, 'a missing path stops the run');
     assert.match(`${run.stdout}${run.stderr}`, /crates\/protocol\/beta/);
     assert.deepEqual(readTopLevelDirectories(workspace.dir), topLevelBefore, 'no top-level entry moved');
     assert.equal(existsSync(join(workspace.dir, 'crates/protocol/alpha/mod.rs')), true, 'the surviving package is untouched');
+  } finally {
+    removeTree(workspace.dir);
+  }
+});
+
+// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+test('IT-2c a withdrawn --root is refused by name rather than silently dropped', () => {
+  const workspace = buildReverseWorkspace();
+  try {
+    // The subject is the directory the command is run in, and it is the only
+    // subject there can be. A root that was honoured once and is dropped in
+    // silence would leave an operator believing the run was scoped to a
+    // workspace this command never looked at.
+    stageDecisions(workspace);
+    const run = spawnSync(
+      process.execPath,
+      [ALLOCATE_RUN, 'reverse', '--root=/some/other/project'],
+      { cwd: workspace.dir, encoding: 'utf8' },
+    );
+
+    assert.notEqual(run.status, 0, 'a root the subcommand can no longer honour stops the run');
+    assert.match(`${run.stdout}${run.stderr}`, /--root=\/some\/other\/project/, 'the whole token is named');
+    assert.equal(
+      existsSync(join(workspace.dir, workspace.manifest.workspace.packages[0].path, SEED_FILE_NAME)),
+      false,
+      'a refused run writes no seed',
+    );
   } finally {
     removeTree(workspace.dir);
   }
@@ -560,13 +596,11 @@ test('IT-4 the forward-rotation regression gate still exits 0 and reports "prove
   assert.match(check.stdout, /0 pipeline run\(s\) disagreed/);
 });
 
-/** Write the decisions payload beside the workspace so the CLI can read it. */
-// [::TICKET::] P22-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-12 --for-spec --no-implementation-order`.
-// [::TICKET::] PX-206, PX-207 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207) --for-spec --no-implementation-order`.
-function writeDecisions(workspace) {
-  const path = `${workspace.dir}.decisions.json`;
-  writeFileSync(path, JSON.stringify(workspace.decisions));
-  return path;
+/** Stage the decisions payload where the reverse rotation derives it. */
+// [::TICKET::] P22-12, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-12|PX-215) --for-spec --no-implementation-order`.
+// [::TICKET::] PX-206, PX-207, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-206|PX-207|PX-215) --for-spec --no-implementation-order`.
+function stageDecisions(workspace) {
+  return stageAllocateDecisions(workspace.dir, workspace.decisions);
 }
 
 test('the fixture really is the shape the gates are judged against', () => {

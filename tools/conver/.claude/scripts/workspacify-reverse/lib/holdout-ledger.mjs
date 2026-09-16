@@ -34,11 +34,59 @@ export const LEDGER_SCHEMA_VERSION = 1;
 export const PROTOCOL_VERSION = 1;
 
 /**
+ * The reserved root, and everything beneath it, declared by the layer both may use.
+ *
+ * The declaration lives in `workspacify-tree/lib/reserved-root.mjs` and is
+ * re-exported here so the modules that already import it from this file keep
+ * working. It is not declared here because the forward rotation must not depend on
+ * the reverse tree, and both later stages need this name; declaring it in the tree
+ * is what keeps that edge pointing the permitted way.
+ */
+// [::TICKET::] PX-213, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
+import {
+  RESERVED_ALLOCATE_SUBDIRECTORY,
+  RESERVED_DECISIONS_FILE_NAME,
+  RESERVED_MEASURED_EDGES_FILE_NAME,
+  RESERVED_ORIGIN_SPEC_FILE_NAME,
+  RESERVED_REVERSE_SUBDIRECTORY,
+  RESERVED_ROOT_NAME,
+  RESERVED_TREE_SUBDIRECTORY,
+  reservedAllocateDecisionsPath,
+  reservedReverseDirectory,
+  reservedTreeDecisionsPath,
+} from '../../workspacify-tree/lib/reserved-root.mjs';
+
+export {
+  RESERVED_ALLOCATE_SUBDIRECTORY,
+  RESERVED_DECISIONS_FILE_NAME,
+  RESERVED_MEASURED_EDGES_FILE_NAME,
+  RESERVED_ORIGIN_SPEC_FILE_NAME,
+  RESERVED_REVERSE_SUBDIRECTORY,
+  RESERVED_ROOT_NAME,
+  RESERVED_TREE_SUBDIRECTORY,
+  reservedAllocateDecisionsPath,
+  reservedReverseDirectory,
+  reservedTreeDecisionsPath,
+};
+
+/**
  * Directories that are never walked at all. Build output and version-control
  * metadata are not project content, so counting them would make a digest
- * depend on whether anyone had compiled.
+ * depend on whether anyone had compiled. The reserved root is here for a
+ * stronger reason: the run writes beneath it, so a digest that covered it would
+ * be comparing a tree against a tree the run itself had changed.
+ *
+ * The match is a directory name at any depth, so `workspacify` is skipped
+ * wherever a measured project happens to use the name. That is a wider net than
+ * a dotted leaf name would cast, and it is why `ANALYSIS-SCOPE.json` records the
+ * excluded names: a blind spot that is written down is not a silent one.
  */
-export const NEVER_WALKED_DIRECTORY_NAMES = Object.freeze(['target', '.git']);
+// [::TICKET::] PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(PX-213|PX-214) --for-spec --no-implementation-order`.
+export const NEVER_WALKED_DIRECTORY_NAMES = Object.freeze([
+  'target',
+  '.git',
+  RESERVED_ROOT_NAME,
+]);
 
 /**
  * Directories that are walked but are somebody else's source. A vendored

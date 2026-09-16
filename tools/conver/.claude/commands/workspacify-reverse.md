@@ -1,6 +1,6 @@
 ---
 description: Run R0 through R8 over an existing implementation and publish the origin spec (the entrance to the reverse rotation)
-argument-hint: <path-to-the-project-root>
+argument-hint: ""
 disable-model-invocation: true
 ---
 
@@ -31,13 +31,12 @@ Instead of asking questions, record assumptions, decision rationale, and remaini
 
 ## Arguments
 
-- First argument (required, the only one): the path to the project root to analyse (`<path-to-the-project-root>`)
-  - Requirements: a regular directory / readable / listable / not a path the analysis would refuse to scope. A root that cannot be read is reported with its path and the run stops
-  - The target is **read-only**. The analysis digests the tree before and after and refuses to publish anything if a single byte moved — a run that changes what it measured cannot be believed
-- Optional flags:
-  - `--out=<dir>` — where the documents are published. Defaults to `tests/workspacify-reverse/analysis` under this project. A destination **inside** the target is refused, because publishing into the tree being measured is not a measurement
-  - `--through=<stage>` — stop after an inclusive prefix of the stages (`r0` … `r8`). The default is the last declared stage, so a run without it reaches R8. An unrecognised stage is refused by name rather than ignored, and nothing is published. **This is the only way to see a prefix**, because publishing is atomic (Step 3)
-- An option the entrance used to honour and no longer does is refused by name rather than ignored, for the same reason an unrecognised stage is: a question silently dropped reads as a question answered. `--query` is the only such option today
+**It takes no arguments.** The subject and the destination are both derived from where the command is run, and neither is selectable.
+
+- **The subject is the current working directory.** It is a regular directory, readable and listable, and it is what the analysis measures. A directory that cannot be read is reported by its path and the run stops
+- **The destination is `workspacify/reverse` beneath the current working directory.** `workspacify` is a reserved root and it is reserved for the reason the read-only guarantee survives publishing at all: no walk of the analysis descends into it, so a run that writes there leaves the tree it measured exactly as it found it. The documents are where you ran the command, not in the project the tool happens to live in. The root is named once, in the library, and both the destination and the walk exclusion are derived from that one binding
+- The target is **read-only** otherwise. The analysis digests the tree before and after and refuses to publish anything if a single byte moved outside the reserved directory — a run that changes what it measured cannot be believed. The digest record names the directories it did not cover, so the claim is read as what it is
+- **Options the entrance once honoured and no longer does are refused by name rather than ignored**, for the same reason an unrecognised stage is: a question silently dropped reads as a question answered. A bare argument is refused the same way, and naming a root is exactly such a question. The withdrawn options today are `--out` (where the documents are published — now the reserved directory beneath the working directory, the one place beneath the subject that no walk reads), `--through` (the last stage to run — now the last declared stage, because the command line has no prefix instrument at all), and `--query` (a question for a search tool). Each is refused with the reason it can no longer be honoured, and the token you wrote is named
 - It requires no additional dialogue, environment variable, hook or external fetch
 
 ## The four principles
@@ -107,10 +106,10 @@ Under `.claude/scripts/workspacify-reverse/`.
 
 | Script | Description |
 |---|---|
-| `run.mjs analyze <root>` | **The entrance.** Runs R0 through R8 in series and publishes the origin spec outside the target. Exit 0 on success; 1 when a stage could not run or a withdrawn option was passed (the cause is named on stderr); 2 on a usage error |
-| `run.mjs detect <root>` | Reports the forward-rotation traces (L1–L4) in a tree as Markdown. Experiment only |
-| `run.mjs scrub <root> [--apply]` | Plans, or performs, the removal of the removable traces. Experiment only |
-| `run.mjs verify <root>` | Re-detects; exits 0 when no trace remains, 1 otherwise. Experiment only |
+| `run.mjs analyze` | **The entrance.** Runs R0 through R8 in series over the current directory and publishes the origin spec into `workspacify/reverse` beneath it. Exit 0 on success; 1 when a stage could not run or a withdrawn option was passed (the cause is named on stderr); 2 on a usage error |
+| `run.mjs detect` | Reports the forward-rotation traces (L1–L4) in the current directory as Markdown. Experiment only |
+| `run.mjs scrub [--apply]` | Plans, or performs, the removal of the removable traces, in the current directory. Experiment only |
+| `run.mjs verify` | Re-detects in the current directory; exits 0 when no trace remains, 1 otherwise. Experiment only |
 | `run.mjs regression <capture\|check>` | Freezes, or reproduces, the forward rotation's observable output. A maintainer's instrument: it measures the conver repository, not the subject |
 | `run.mjs holdout [freeze\|isolation <root>]` | Freezes, verifies and isolates the projects generality is measured on. Experiment only |
 | `run.mjs oracle <freeze\|delta\|compare>` | Freezes the answer key, measures the delta between the two trees, or lists one stage's disagreements against it. A comparison lists disagreements; it never scores. Experiment only |
@@ -155,22 +154,22 @@ The reading is re-derived mechanically rather than left as an impression: Step 2
 
 **The purpose of this step**: fix, before anything is measured, the conditions under which every later measurement means something.
 
-- Run the entrance with the prefix instrument, so that only R0 and R0.5 do the work and the scope is published on its own:
+- The entrance fixes the scope as its first act. Read `ANALYSIS-SCOPE.json` **before** any other document, because it is the record of what every later measurement is a measurement *of*:
 
 ```bash
-node .claude/scripts/workspacify-reverse/run.mjs analyze "$ARGUMENTS" --out=<destination-outside-the-target> --through=r0.5
+node .claude/scripts/workspacify-reverse/run.mjs analyze
 ```
 
-- What this fixes: the analysis scope (`ANALYSIS-SCOPE.json`), the target commit, the tree hash, the exclusion rules, the read permission held over the target, and the external-transmission policy
-- **Without this step fixed, the meaning of every later piece of evidence changes.** That is the whole reason the scope is a stage rather than a convention
-- If the destination is inside the target, the run refuses. Name one outside it
+- What this fixes: the analysis scope (`ANALYSIS-SCOPE.json`), the target commit, the tree hash, the directories the digest did not cover, the exclusion rules, the read permission held over the target, and the external-transmission policy
+- **Without this step fixed, the meaning of every later piece of evidence changes.** That is the whole reason the scope is a stage rather than a convention — it is published by the same run as everything else, and read first
+- The subject and the destination are the working directory and `workspacify/reverse` beneath it. Neither is selectable, so there is no destination to get wrong and no root to name
 
 ## Step 3: reach the exit
 
 **The purpose of this step**: reach R8 in one invocation, each stage consuming only what the previous stage produced.
 
 ```bash
-node .claude/scripts/workspacify-reverse/run.mjs analyze "$ARGUMENTS" --out=<destination-outside-the-target>
+node .claude/scripts/workspacify-reverse/run.mjs analyze
 ```
 
 The stages, in the order the machine evaluates them:
@@ -182,10 +181,10 @@ r0, r0.5, r2.5, r1, r2, r3, r3.5, r4, r5, r5.5, r6, r6.5, r7, r8
 Three mechanical facts. Without them every outcome is misread:
 
 1. **Publishing is atomic.** Every document is published once, after every stage in the prefix has run and the target has been re-digested. **A run that stops publishes nothing**, so there is no partial-document state to clean up
-2. **`--through` is the only instrument for seeing a prefix** — precisely because of (1). A failure late in a long run costs the whole run, and the only way to see where it went wrong is to stop earlier and let a complete prefix publish. **The evaluation order is not the stage numbering**: R2.5 runs before R1 and R2, because the dependency graph's caveat has to state how many mechanisms stand between it and the running program, and the execution surface is what counts them. The order is declared once, in the analysis, and every declared stage appears in it exactly once
-3. **The target is digested before and after.** The analysis digests the tree before and after and refuses to publish if a single byte moved. The tree must be quiescent, and no stage writes to it
+2. **There is no command-line prefix instrument** — precisely because of (1). A failure late in a long run costs the whole run, and the command line offers no way to stop earlier and let a complete prefix publish. **The evaluation order is not the stage numbering**: R2.5 runs before R1 and R2, because the dependency graph's caveat has to state how many mechanisms stand between it and the running program, and the execution surface is what counts them. The order is declared once, in the analysis, and every declared stage appears in it exactly once. The `analyzeProject` API still takes `through`, so a prefix is reachable from a program — but not from here, and this step must not pretend otherwise
+3. **The target is digested before and after.** The analysis digests the tree before and after and refuses to publish if a single byte moved outside the reserved destination. The tree must be quiescent, and no stage writes to it
 
-But: a full run reaches R8 in about three minutes. **Run to the exit; descend with `--through` only if the exit is refused.** The ladder is a diagnostic, not a ritual.
+But: a full run reaches R8 in about three minutes. **Run to the exit.** When the exit is refused, read Step 8: the failing stage is named, and nothing was published, so there is no prefix to fall back to and nothing to clean up.
 
 - **Success condition (to advance)**: the run exits 0 and `ORIGIN-LONG-SPEC.json` and `ORIGIN-LONG-SPEC.md` are present in the destination
 - **On failure**: see Step 8
@@ -279,9 +278,9 @@ Five modules stand outside the closure. Two are absences nobody owns; three are 
 
 - **A stage that could not run** — read the named stage and the input, correct it, and run again. Nothing was written, so there is no partial state to clear
 - **The run refused to publish** — the target changed while it was measured. Find what wrote to the tree and run again over a quiescent checkout
-- **The exit is refused late in a long run** — re-run with `--through=<the stage before it>` so a complete prefix publishes, and read the prefix. This is what the prefix instrument is for
-- **The destination is inside the target** — name a destination outside the tree being measured. This is refused rather than worked around
-- **A withdrawn option is passed** — not a warning. The entrance names it, says why it can no longer be honoured, and publishes nothing: re-run without it, and ask a search tool directly if a search is what is wanted
+- **The exit is refused late in a long run** — the named stage and the input it was reading are the finding. Nothing was published, so there is no partial result to read and no prefix to fall back to: correct the input and run again. A prefix is reachable only through the `analyzeProject` API's `through`, which this procedure does not use
+- **The documents are not where they were looked for** — they are in `workspacify/reverse` beneath the directory the command was run in, and nowhere else. The run prints that path on success
+- **A withdrawn option or a bare argument is passed** — not a warning. The entrance names the token, says why it can no longer be honoured, and publishes nothing: re-run without it. A root cannot be named at all, and a search is something a search tool is asked directly
 
 ## Prohibitions
 

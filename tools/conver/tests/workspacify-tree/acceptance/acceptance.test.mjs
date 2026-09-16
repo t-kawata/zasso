@@ -14,19 +14,20 @@ const CONVER_ROOT = process.cwd();
 const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
 const FIXTURES = join(CONVER_ROOT, 'tests/workspacify-tree/fixtures');
 const MANIFEST_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
+import { stageTreeDecisionsFrom } from '../helpers/stage-tree-decisions.mjs';
 
 function sha256HexBytes(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('acceptance C005 [@verifies C005]: a long specification produces a COMPLETE manifest meeting every §14.4 condition', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-accept-'));
   const specPath = join(dir, 'long-spec.md');
-  const decisionsPath = join(dir, 'decisions-long-ok.json');
   cpSync(join(FIXTURES, 'long-spec.md'), specPath);
-  cpSync(join(FIXTURES, 'decisions-long-ok.json'), decisionsPath);
+  stageTreeDecisionsFrom(dir, join(FIXTURES, 'decisions-long-ok.json'));
 
-  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], {
+  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], {
     cwd: dir,
     encoding: 'utf8',
   });

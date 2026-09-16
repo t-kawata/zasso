@@ -44,9 +44,11 @@ const DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'WORKSPACIFY-4-PATTERNS-COMPLETE-
  * `run.mjs`, two in `command.test.mjs` — and each was re-measured to the line that now
  * carries its token rather than adjusted to fit.
  */
+// [::TICKET::] PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-213 --for-spec --no-implementation-order`.
+// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
 const ANCHORED_CITATIONS = Object.freeze([
   { asWritten: 'allocate-manifest.mjs:43', path: '.claude/scripts/workspacify-allocate/lib/allocate-manifest.mjs', line: 43, token: 'SEED_FILE_NAME' },
-  { asWritten: 'workspacify-allocate/lib/reverse-mode.mjs:210', path: '.claude/scripts/workspacify-allocate/lib/reverse-mode.mjs', line: 210, token: 'seed-bearing package(s) holds exactly one' },
+  { asWritten: 'workspacify-allocate/lib/reverse-mode.mjs:212', path: '.claude/scripts/workspacify-allocate/lib/reverse-mode.mjs', line: 212, token: 'seed-bearing package(s) holds exactly one' },
   { asWritten: 'seed-render.mjs:76', path: '.claude/scripts/workspacify-allocate/lib/seed-render.mjs', line: 76, token: 'SEED_TITLE_PREFIX}${pkg.name}' },
   { asWritten: '.claude/commands/split-to-tickets.md:46-47', path: '.claude/commands/split-to-tickets.md', line: 47, token: 'docs/Tickets.json' },
   { asWritten: "`ROOT_PACKAGE_PATH = '.'` (line 69)", path: '.claude/scripts/workspacify-tree/lib/structure-parity.mjs', line: 69, token: "ROOT_PACKAGE_PATH = '.'" },
@@ -54,13 +56,13 @@ const ANCHORED_CITATIONS = Object.freeze([
   { asWritten: 'line 172', path: '.claude/scripts/workspacify-tree/lib/structure-parity.mjs', line: 172, token: 'function packageOwnsPath' },
   { asWritten: 'drill-rfc-down/boundify-step.js:66', path: '.claude/scripts/drill-rfc-down/boundify-step.js', line: 66, token: '.delta.json' },
   { asWritten: 'command-file-digest.mjs:50', path: '.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs', line: 50, token: 'COMMAND_FILE_NAMES' },
-  { asWritten: 'command.test.mjs:142', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 142, token: 'a creation, not an edit' },
+  { asWritten: 'command.test.mjs:147', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 147, token: 'a creation, not an edit' },
   { asWritten: 'command-file.mjs:217', path: 'tests/workspacify-reverse/helpers/command-file.mjs', line: 217, token: 'function assertCommandFileStructure' },
-  { asWritten: 'command.test.mjs:150', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 150, token: 'assertCommandFileStructure' },
-  { asWritten: 'scope.mjs:1929', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1929, token: 'publishDocuments(out, documents)' },
-  { asWritten: 'scope.mjs:1791-1797', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1794, token: 'the analysis modified its target' },
+  { asWritten: 'command.test.mjs:155', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 155, token: 'assertCommandFileStructure' },
+  { asWritten: 'scope.mjs:1948', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1948, token: 'publishDocuments(out, documents)' },
+  { asWritten: 'scope.mjs:1806-1811', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1809, token: 'the analysis modified its target' },
   { asWritten: 'seed-local-checks.mjs:36', path: '.claude/scripts/workspacify-allocate/lib/seed-local-checks.mjs', line: 36, token: 'SEED_REQUIRED_SECTIONS.length' },
-  { asWritten: 'run.mjs:80', path: '.claude/scripts/workspacify-reverse/run.mjs', line: 80, token: 'ROOT_TAKING_SUBCOMMANDS' },
+  { asWritten: 'run.mjs:321-326', path: '.claude/scripts/workspacify-reverse/run.mjs', line: 326, token: 'action: second, root: process.cwd()' },
 ]);
 
 /**

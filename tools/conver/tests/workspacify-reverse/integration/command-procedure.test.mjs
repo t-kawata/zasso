@@ -30,8 +30,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -98,17 +97,10 @@ function subcommandsRunBySteps(text) {
   );
 }
 
-/** A throwaway directory to publish into, so no test writes into the project. */
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
-function scratchDirectory(prefix) {
-  const root = mkdtempSync(join(tmpdir(), prefix));
-  return { root, dispose: () => rmSync(root, { recursive: true, force: true }) };
-}
-
 /** Run the entrance as an operator would, and capture what they would see. */
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
-function runEntrance(args) {
-  const result = spawnSync(process.execPath, [RUNNER, ...args], { encoding: 'utf8' });
+// [::TICKET::] P23-1, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P23-1|PX-213|PX-214) --for-spec --no-implementation-order`.
+function runEntrance(args, cwd) {
+  const result = spawnSync(process.execPath, [RUNNER, ...args], { cwd, encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
 }
 
@@ -194,12 +186,15 @@ test('C001/UT-1: the eight assertions are defined once and read the same file as
   );
 });
 
-test('C001/UT: the frontmatter the command API rests on is unchanged, read as the first five lines', () => {
+test('C001/UT: the frontmatter the command API rests on, read as the first five lines', () => {
   const frontmatter = TEXT.split('\n').slice(0, 5);
   assert.deepEqual(frontmatter, [
     '---',
     'description: Run R0 through R8 over an existing implementation and publish the origin spec (the entrance to the reverse rotation)',
-    'argument-hint: <path-to-the-project-root>',
+    // Empty because the entrance takes nothing: the subject is the directory the
+    // command is run in. A hint that named an argument would be the document
+    // asking the operator for something the entrance no longer accepts.
+    'argument-hint: ""',
     'disable-model-invocation: true',
     '---',
   ]);
@@ -360,10 +355,14 @@ test('C003/UT: the absence guard is falsifiable, shown on a fixture rather than 
   );
 });
 
-test('C003/UT: --through is stated as the only prefix instrument, with the evaluation order and its reason', () => {
+test('C003/UT: the absent prefix instrument is stated as absent, with the evaluation order and its reason', () => {
   const step3 = sectionText(TEXT, '## Step 3: reach the exit');
-  assert.match(step3, /`--through` is the only instrument/i, 'the prefix instrument is stated');
-  assert.match(step3, /publishing is atomic/i, 'and the reason is stated');
+  // The command line lost its ladder when the entrance lost its options. A step
+  // that stayed silent about that would leave the reader believing a prefix is
+  // still reachable from the command line, which is the dropped question the
+  // withdrawn options are refused for.
+  assert.match(step3, /no command-line prefix instrument/i, 'the absent instrument is stated rather than dropped');
+  assert.match(step3, /publishing is atomic/i, 'and the reason a prefix is not free is stated');
   assert.match(step3, /R2\.5 runs before R1 and R2|precedes R1 and R2/i, 'the reordering is explained');
 });
 
@@ -538,21 +537,28 @@ test('IT: the invocation the procedure declares is one the entrance accepts', ()
     'Cargo.toml': '[package]\nname = "procedure-subject"\n',
     'src/api/login.rs': 'pub fn login(user_name: &str) -> bool { !user_name.is_empty() }\n',
   });
-  const out = scratchDirectory('wsp-procedure-out-');
   try {
-    const run = runEntrance(['analyze', tree.root, `--out=${out.root}`, '--through=r0']);
+    const run = runEntrance(['analyze'], tree.root);
     assert.equal(run.status, 0, `the entrance must accept the declared invocation: ${run.stderr}`);
   } finally {
     tree.dispose();
-    out.dispose();
   }
 });
 
-test('IT: the flags the procedure declares are the flags the entrance parses', () => {
+test('IT: the flags the procedure names are the ones the entrance refuses, and it declares no other', () => {
   const argumentsSection = sectionText(TEXT, '## Arguments');
-  const declared = ['--out', '--through', '--query'].filter((flag) => argumentsSection.includes(flag));
-  assert.deepEqual(declared, ['--out', '--through', '--query'], 'the four arguments are the documented four');
-  assert.match(argumentsSection, /path to the project root/i, 'the positional root is documented');
+  const named = ['--out', '--through', '--query'].filter((flag) => argumentsSection.includes(flag));
+  assert.deepEqual(
+    named,
+    ['--out', '--through', '--query'],
+    'every option the entrance once honoured is named as withdrawn rather than dropped',
+  );
+  assert.deepEqual(
+    [...argumentsSection.matchAll(/^\s+- `(--[a-z-]+)/gm)].map(([, name]) => name),
+    [],
+    'and none of them is headed as an argument the operator may pass',
+  );
+  assert.match(argumentsSection, /current working directory/i, 'the subject is documented');
 });
 
 test('IT: the evaluation order stated in the file equals the order the code declares', () => {
