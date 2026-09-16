@@ -41,9 +41,14 @@ import {
   copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync,
 } from 'node:fs';
 import os from 'node:os';
-import { basename, join, relative } from 'node:path';
+import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  RESERVED_REVERSE_SUBDIRECTORY,
+  RESERVED_ROOT_NAME,
+  reservedReverseDirectory,
+} from '../../../.claude/scripts/workspacify-reverse/lib/holdout-ledger.mjs';
 import { PATTERN_REPRESENTATIVE_ROOTS } from '../../../.claude/scripts/workspacify-reverse/lib/language-representatives.mjs';
 import {
   LADDER_POSITIONS,
@@ -61,6 +66,8 @@ import { createScratchFrom, hashTree, sha256 } from '../helpers/scratch.mjs';
 import { buildGraphNodes } from '../helpers/graph-nodes.mjs';
 import { DECISIONS_INPUT_SKELETON, decisionsPathFor } from '../helpers/decisions-authoring.mjs';
 import { makeDecisions } from '../../workspacify-allocate/helpers/build-valid-manifest.mjs';
+import { stageAllocateDecisions, reservedAllocateDecisionsPath } from '../../workspacify-allocate/helpers/stage-allocate-decisions.mjs';
+import { stageTreeDecisionsFrom } from '../../workspacify-tree/helpers/stage-tree-decisions.mjs';
 import { assembleManifest } from '../../../.claude/scripts/workspacify-tree/lib/render.mjs';
 import { REVERSE_PROVENANCE_FIELD } from '../../../.claude/scripts/workspacify-tree/lib/reverse-mode.mjs';
 
@@ -130,6 +137,7 @@ const CONFIGURED_REPRESENTATIVE = 'siprs-for-reverse';
 
 /** The fourth layer's manifest — the artefact the allocate step reads its plan from. */
 const TREE_MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
+const ROOT_GRAPH_FILE = 'RFC-ROOT-GRAPH.json';
 
 /** The fifth layer's manifest, written at the workspace root. */
 const ALLOCATE_MANIFEST_FILE_NAME = 'WORKSPACIFY-ALLOCATE-MANIFEST.json';
@@ -268,10 +276,10 @@ function assertSectionCitesTheRecord() {
 }
 
 /** Run one command of the chain and report its exit status and output. */
-// [::TICKET::] P24-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-8 --for-spec --no-implementation-order`.
-function runChain(command, args) {
+// [::TICKET::] P24-8, PX-213, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-8|PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
+function runChain(command, args, { cwd = PROJECT_ROOT } = {}) {
   const result = spawnSync(process.execPath, [join(COMMAND_ROOT, command), ...args], {
-    cwd: PROJECT_ROOT, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' },
+    cwd, encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' },
   });
   return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
 }
@@ -287,10 +295,16 @@ function runChain(command, args) {
  * The graph is materialised beside the other documents because `--graph` takes a path:
  * a node set has to exist on disk before a command can be told to read it.
  */
-// [::TICKET::] P24-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11, PX-214, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-11|PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
 function reverseInputsFor({ inputsRoot, workspaceRoot, preparedGraphPath = null }) {
-  const graphPath = preparedGraphPath ?? join(inputsRoot, GROUNDING_NODES_FILE);
-  if (preparedGraphPath === null) {
+  // The graph is the subject's own: a project already driven through conver's loop
+  // carries one, and the rotation reads it from the subject rather than being told
+  // where it is. A subject that carries none gets the grounding nodes this test
+  // builds, written under the name the derivation looks for.
+  const graphPath = join(workspaceRoot, ROOT_GRAPH_FILE);
+  if (preparedGraphPath !== null) {
+    copyFileSync(preparedGraphPath, graphPath);
+  } else if (!existsSync(graphPath)) {
     writeFileSync(
       graphPath,
       `${JSON.stringify({ nodes: buildGraphNodes({ specPath: join(inputsRoot, ORIGIN_SPEC_JSON_FILE) }) }, null, 2)}\n`,
@@ -304,12 +318,7 @@ function reverseInputsFor({ inputsRoot, workspaceRoot, preparedGraphPath = null 
   const deltaPath = join(workspaceRoot, DELTA_FILE);
   if (!existsSync(deltaPath)) writeFileSync(deltaPath, `${JSON.stringify({ mismatches: [] }, null, 2)}\n`, 'utf8');
 
-  return {
-    graph: graphPath,
-    measured: join(inputsRoot, DEPENDENCIES_FILE),
-    sidecars: SIDECAR_DIR,
-    delta: deltaPath,
-  };
+  return { graphPath, deltaPath };
 }
 
 /**
@@ -321,34 +330,24 @@ function reverseInputsFor({ inputsRoot, workspaceRoot, preparedGraphPath = null 
  * produced. The **documents** are the analysis's own output, which the run reads by
  * path and never writes to.
  */
-// [::TICKET::] P24-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11, PX-214, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-11|PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
 function reverseArgs({ subject, documents }) {
-  const base = {
-    spec: subject.specPath,
-    decisions: documents.decisionsPath,
-    root: subject.root,
-    // The tree run publishes into the tree it was pointed at. §2.2 puts the fourth
-    // layer at the workspace root, and the allocate step reads its plan from exactly
-    // there, so a manifest published into an analysis scratch is a plan no seed can
-    // be rendered from.
-    out: subject.root,
-    ...reverseInputsFor({
-      inputsRoot: documents.inputsRoot,
-      workspaceRoot: subject.root,
-      preparedGraphPath: documents.graphPath,
-    }),
-  };
+  // The origin spec and the measured edge set were published by the analysis run
+  // into the reserved directory beneath the subject, which is where the rotation
+  // reads them; the graph and the delta belong to the subject itself, beside the
+  // manifest §2.2 puts at its root; the sidecars are that same reserved bundle.
+  // This helper's work is therefore the placement and nothing else — a run handed a
+  // path would prove nothing about the run that finds it, which is the whole of
+  // what these tickets change. The decisions document is placed the same way: it is
+  // authored, and where the run reads it is derived, so the placement is the proof.
+  reverseInputsFor({
+    inputsRoot: documents.inputsRoot,
+    workspaceRoot: subject.root,
+    preparedGraphPath: documents.graphPath,
+  });
+  stageTreeDecisionsFrom(subject.root, documents.decisionsPath);
 
-  return {
-    base,
-    args: argsFrom(base),
-  };
-}
-
-/** The argument list for one resolved input set, each entry spelled as the command reads it. */
-// [::TICKET::] P24-10 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-10 --for-spec --no-implementation-order`.
-function argsFrom(resolved) {
-  return Object.entries(resolved).map(([name, value]) => `--${name}=${value}`);
+  return { args: [] };
 }
 
 /** The verdict heading every chained command publishes for each gate it judged. */
@@ -450,10 +449,10 @@ function stagesFrom(output) {
  * @param {{ subject: object, documents: object, through?: 'tree'|'allocate' }} input
  * @returns {{ invocation: object, tree: object, allocate: object|null, stages: Array<object>, manifestPath: string }}
  */
-// [::TICKET::] P24-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11, PX-214, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-11|PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
 function runReverseChain({ subject, documents, through = 'allocate' }) {
   const invocation = reverseArgs({ subject, documents });
-  const tree = runChain('workspacify-tree/run.mjs', ['reverse', ...invocation.args]);
+  const tree = runChain('workspacify-tree/run.mjs', ['reverse', ...invocation.args], { cwd: subject.root });
   const stages = stagesFrom(`${tree.stdout}\n${tree.stderr}`);
 
   const manifestPath = join(subject.root, TREE_MANIFEST_FILE_NAME);
@@ -461,11 +460,8 @@ function runReverseChain({ subject, documents, through = 'allocate' }) {
     return { invocation, tree, allocate: null, stages, manifestPath };
   }
 
-  const allocate = runChain('workspacify-allocate/run.mjs', [
-    'reverse',
-    `--root=${subject.root}`,
-    `--decisions=${allocateDecisionsFor({ workspaceRoot: subject.root, inputsRoot: documents.inputsRoot })}`,
-  ]);
+  allocateDecisionsFor({ workspaceRoot: subject.root, inputsRoot: documents.inputsRoot });
+  const allocate = runChain('workspacify-allocate/run.mjs', ['reverse'], { cwd: subject.root });
   stages.push(...stagesFrom(`${allocate.stdout}\n${allocate.stderr}`));
   return { invocation, tree, allocate, stages, manifestPath };
 }
@@ -483,20 +479,23 @@ test('IT: the chain reaches the terminal state over each representative, or says
     const before = hashTree(subject);
 
     const source = createScratchFrom(subject);
-    const out = scratchOutput();
-    const decisions = decisionsFor(representative, out.root);
+    // The entrance publishes beneath the directory it is run in, so the analysis
+    // documents land inside the scratch copy of the subject and are disposed of
+    // with it. The chain is handed that root rather than one of its own.
+    const analysisRoot = reservedReverseDirectory(source.root);
+    const decisions = decisionsFor(representative, analysisRoot);
     const stages = [];
 
     // The analysis is the chain's first stage, and it is read first: a representative
     // it cannot run over never reaches the reverse commands, and the stage it named
     // is the finding rather than an absence of one.
-    const analysed = runChain('workspacify-reverse/run.mjs', ['analyze', source.root, '--through=r8', `--out=${out.root}`]);
+    const analysed = runChain('workspacify-reverse/run.mjs', ['analyze'], { cwd: source.root });
     stages.push(...stagesFrom(`${analysed.stdout}\n${analysed.stderr}`));
 
-    if (existsSync(join(out.root, ORIGIN_SPEC_FILE))) {
+    if (existsSync(join(analysisRoot, ORIGIN_SPEC_FILE))) {
       const chained = runReverseChain({
-        subject: { root: source.root, specPath: join(out.root, ORIGIN_SPEC_FILE) },
-        documents: { inputsRoot: out.root, decisionsPath: decisions },
+        subject: { root: source.root, specPath: join(analysisRoot, ORIGIN_SPEC_FILE) },
+        documents: { inputsRoot: analysisRoot, decisionsPath: decisions },
       });
       stages.push(...chained.stages);
     }
@@ -562,7 +561,6 @@ test('IT: the chain reaches the terminal state over each representative, or says
       );
     }
     source.dispose();
-    out.dispose();
   }
 
   const comparison = compareTerminalStates(reaching);
@@ -689,23 +687,24 @@ test('IT: the two refusals a decisions input meets are each named, and neither p
   try {
     assert.equal(seedTheFourthLayer(workspace, { through: 'tree' }).tree.status, 0, 'the tree step grounded the copy');
 
-    // The flag is absent: the command cannot read a plan from a path nobody named,
-    // and it says which flag it needed rather than running with a default.
-    const absentFlag = runChain('workspacify-allocate/run.mjs', ['reverse', `--root=${workspace.root}`]);
-    assert.notEqual(absentFlag.status, 0, 'a run with no decisions input is refused rather than run with defaults');
-    assert.match(absentFlag.stdout, /"gateId":"A1"/, 'the refusal is judged at A1');
-    assert.match(absentFlag.stdout, /--decisions=<path>/, 'and names the input that was missing');
-
-    // The flag names a path that holds nothing: the run is refused by path, so an
-    // operator can see which document to repair.
-    const unreadable = join(workspace.inputs, 'no-such-decisions.json');
-    const absentFile = runChain('workspacify-allocate/run.mjs', [
-      'reverse', `--root=${workspace.root}`, `--decisions=${unreadable}`,
-    ]);
-    assert.notEqual(absentFile.status, 0, 'an unreadable decisions input is refused');
+    // The document is absent: the command cannot read a plan nobody authored, and it
+    // says which file it looked for rather than running with a default.
+    const absentDocument = runChain('workspacify-allocate/run.mjs', ['reverse'], { cwd: workspace.root });
+    assert.notEqual(absentDocument.status, 0, 'a run with no decisions document is refused rather than run with defaults');
     assert.ok(
-      `${absentFile.stdout}${absentFile.stderr}`.includes(unreadable),
-      'the refusal names the path that could not be read',
+      `${absentDocument.stdout}${absentDocument.stderr}`.includes(reservedAllocateDecisionsPath(workspace.root)),
+      'the refusal names the derived path it looked for',
+    );
+
+    // The document is there but holds nothing a run can read, so the refusal names
+    // the document itself rather than leaving the operator to guess which input the
+    // command wanted.
+    stageAllocateDecisions(workspace.root, '{ not json');
+    const unreadable = runChain('workspacify-allocate/run.mjs', ['reverse'], { cwd: workspace.root });
+    assert.notEqual(unreadable.status, 0, 'an unreadable decisions document is refused');
+    assert.ok(
+      `${unreadable.stdout}${unreadable.stderr}`.includes(reservedAllocateDecisionsPath(workspace.root)),
+      'the refusal names the document that could not be read',
     );
 
     assert.equal(existsSync(join(workspace.root, ALLOCATE_MANIFEST_FILE_NAME)), false, 'neither refusal published a manifest');
@@ -740,42 +739,73 @@ const T4_CYCLE_REPORT = /the measured DAG contains \d+ cycle\(s\)/;
  * The caller reads the published documents, so the scratch directories are handed
  * back with the run rather than disposed of here: `dispose` closes both.
  */
-// [::TICKET::] P24-10, P24-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-10|P24-11) --for-spec --no-implementation-order`.
+// [::TICKET::] P24-10, P24-11, PX-213, PX-214, PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-10|P24-11|PX-213|PX-214|PX-215) --for-spec --no-implementation-order`.
 function configuredRepresentativeRun() {
   const subject = join(PROJECT_ROOT, CONFIGURED_REPRESENTATIVE);
   const before = hashTree(subject);
   const source = createScratchFrom(subject);
-  const out = scratchOutput();
+  // The entrance publishes beneath the directory it is run in, so the analysis
+  // documents live inside the scratch copy and are closed with it.
+  const analysisRoot = reservedReverseDirectory(source.root);
   const dispose = () => {
     source.dispose();
-    out.dispose();
   };
 
-  // The analysis publishes the documents the reverse command is pointed at; its
-  // exit status is read from what it left on disk, below.
-  runChain('workspacify-reverse/run.mjs', ['analyze', source.root, '--through=r8', `--out=${out.root}`]);
+  // The analysis publishes the documents the reverse command is pointed at. An
+  // analysis that did not reach the exit is named here rather than surfacing as
+  // a missing file several calls later: the reverse command cannot be measured
+  // over a run that never produced its input, and a failure reported as an
+  // ENOENT inside a graph reader says nothing about what actually refused.
+  const analysed = runChain('workspacify-reverse/run.mjs', ['analyze'], { cwd: source.root });
+  assert.equal(
+    existsSync(join(analysisRoot, ORIGIN_SPEC_FILE)),
+    true,
+    `${CONFIGURED_REPRESENTATIVE}: the analysis must reach the exit before the chain can be measured; `
+    + `exit ${analysed.status}\n${analysed.stdout}\n${analysed.stderr}`,
+  );
   const invocation = reverseArgs({
-    subject: { root: source.root, specPath: join(out.root, ORIGIN_SPEC_FILE) },
-    documents: { inputsRoot: out.root, decisionsPath: decisionsFor(CONFIGURED_REPRESENTATIVE, out.root) },
+    subject: { root: source.root, specPath: join(analysisRoot, ORIGIN_SPEC_FILE) },
+    documents: { inputsRoot: analysisRoot, decisionsPath: decisionsFor(CONFIGURED_REPRESENTATIVE, analysisRoot) },
   });
-  const reverse = runChain('workspacify-tree/run.mjs', ['reverse', ...invocation.args]);
+  const reverse = runChain('workspacify-tree/run.mjs', ['reverse', ...invocation.args], { cwd: source.root });
   const reverseOutput = `${reverse.stdout}\n${reverse.stderr}`;
 
-  // One input replaced, the rest as they were read: the refusal tests start from a
-  // run that works and change exactly one thing, so what they observe is that input.
-  const withInput = (name, value) => ['reverse', ...argsFrom({ ...invocation.base, [name]: value })];
+  // One input replaced, the rest as they were read. The inputs are placed rather
+  // than passed, so a substitution is a write to the place the derivation looks:
+  // the refusal tests start from a run that works and change exactly one artefact,
+  // so what they observe is that artefact rather than an argument nobody reads.
+  const originalsUnderTest = new Map();
+  const withPlacedInput = (relativePath, contents) => {
+    const target = join(source.root, relativePath);
+    if (!originalsUnderTest.has(relativePath)) originalsUnderTest.set(relativePath, readFileSync(target, 'utf8'));
+    writeFileSync(target, contents, 'utf8');
+    return ['reverse', ...invocation.args];
+  };
+  // Each case is judged against the same working run, so a substitution has to be
+  // undone before the next one: the measured edges are read before the graph, and a
+  // file left broken by an earlier case would answer for a later one.
+  const restorePlacedInputs = () => {
+    for (const [relativePath, contents] of originalsUnderTest) {
+      writeFileSync(join(source.root, relativePath), contents, 'utf8');
+    }
+    originalsUnderTest.clear();
+  };
 
   return {
     subject,
     before,
+    subjectRoot: source.root,
+    restorePlacedInputs,
+    measuredRelative: join(RESERVED_ROOT_NAME, RESERVED_REVERSE_SUBDIRECTORY, DEPENDENCIES_FILE),
+    graphRelative: ROOT_GRAPH_FILE,
     dispose,
-    withInput,
+    withPlacedInput,
     // The analysis publishes its documents and prints its stage list to a report
     // rather than to stdout, so presence on disk is what says the exit was reached.
-    specPublished: existsSync(join(out.root, ORIGIN_SPEC_FILE)),
+    specPublished: existsSync(join(analysisRoot, ORIGIN_SPEC_FILE)),
     reverseOutput,
     gates: gatesFrom(reverseOutput),
-    outRoot: out.root,
+    outRoot: analysisRoot,
     // The fourth layer and the record T5 judges are artefacts of the tree §2.2
     // describes, so both are looked for where the chain publishes them: the tree it
     // was pointed at, not the scratch the analysis happens to write into.
@@ -791,7 +821,11 @@ test('IT: every input a reverse run reads is the chain\'s own document, and five
     // reverse run is pointed at, so both inputs are documents the chain produced.
     assert.equal(run.specPublished, true, 'the analysis reached its exit and published the origin spec');
     assert.equal(existsSync(join(run.outRoot, DEPENDENCIES_FILE)), true, 'the analysis published the measured edges');
-    assert.equal(existsSync(join(run.outRoot, GROUNDING_NODES_FILE)), true, 'the graph nodes were read from the origin spec');
+    assert.equal(
+      existsSync(join(run.subjectRoot, run.graphRelative)),
+      true,
+      'the graph nodes were read from the origin spec and placed at the subject root, where the rotation reads them',
+    );
 
     // T3 judges the graph the origin spec grounds, T5 the record the operator named,
     // and T6 the sidecar bundle: each passes on a document the chain published.
@@ -838,32 +872,31 @@ test('IT: T4 is the one gate the frozen inputs cannot prove, and it names what i
 test('IT: an input that cannot be read is refused by name, and nothing is synthesised in its place', () => {
   const run = configuredRepresentativeRun();
   try {
-    const absent = join(run.outRoot, 'no-such-input.json');
-    // A graph that parses but carries no nodes array: the run has to refuse this
-    // rather than read it as an empty graph, which would pass T3 on nothing.
-    const claimlessGraph = join(run.outRoot, 'graph-without-nodes.json');
-    writeFileSync(claimlessGraph, `${JSON.stringify({ claims: [] }, null, 2)}\n`, 'utf8');
-
+    // The three artefacts a run reads that can carry something unreadable. The
+    // sidecar directory is no longer among them: it is the reserved directory the
+    // rotation derives, so a caller can no longer point it at a directory that is
+    // not there — the case it covered is unreachable now, and saying so here is
+    // better than keeping a case that would pass on an unrelated refusal.
     const cases = [
-      { input: 'measured', value: absent, pattern: /could not be read as JSON/ },
-      { input: 'graph', value: absent, pattern: /the graph .* could not be read as JSON/ },
-      { input: 'graph', value: claimlessGraph, pattern: /does not carry a "nodes" array/ },
-      // The sidecar directory is listed rather than parsed, so it is refused by
-      // existence. It is read after the two readers above, which is the order the
-      // command reads its inputs in.
-      { input: 'sidecars', value: absent, pattern: /the sidecar directory .* does not exist/ },
+      { path: run.measuredRelative, contents: '{ not json\n', pattern: /could not be read as JSON/ },
+      { path: run.graphRelative, contents: '{ not json\n', pattern: /the graph .* could not be read as JSON/ },
+      // A graph that parses but carries no nodes array: the run has to refuse this
+      // rather than read it as an empty graph, which would pass T3 on nothing.
+      { path: run.graphRelative, contents: `${JSON.stringify({ claims: [] }, null, 2)}\n`, pattern: /does not carry a "nodes" array/ },
     ];
 
-    for (const { input, value, pattern } of cases) {
-      const refused = runChain('workspacify-tree/run.mjs', run.withInput(input, value));
+    for (const { path, contents, pattern } of cases) {
+      const args = run.withPlacedInput(path, contents);
+      const refused = runChain('workspacify-tree/run.mjs', args, { cwd: run.subjectRoot });
+      run.restorePlacedInputs();
       const output = `${refused.stdout}${refused.stderr}`;
-      const named = `--${input}=${value}`;
+      const named = path;
 
       assert.notEqual(refused.status, 0, `${named}: an unreadable input is refused`);
       assert.match(output, pattern, `${named}: the refusal names the problem`);
       // The path is what an operator needs to fix it, and an empty substitute
       // would leave a gate judging something nobody supplied.
-      assert.ok(output.includes(value), `${named}: the refusal names the path`);
+      assert.ok(output.includes(join(run.subjectRoot, path)), `${named}: the refusal names the path`);
     }
   } finally {
     run.dispose();
@@ -890,7 +923,7 @@ test('IT: an input that cannot be read is refused by name, and nothing is synthe
  * shaped to a gate. The origin spec is co-located with the manifest because every
  * source reference a seed cites is anchored to the specification bytes.
  */
-// [::TICKET::] P24-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11, PX-214, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-11|PX-214|PX-215|PX-213) --for-spec --no-implementation-order`.
 function buildGroundedWorkspace() {
   const decisions = JSON.parse(readFileSync(join(PROJECT_ROOT, GROUNDED_DECISIONS), 'utf8'));
   const packagePath = decisions.workspace[0].path;
@@ -900,12 +933,18 @@ function buildGroundedWorkspace() {
 
   mkdirSync(join(root, packagePath), { recursive: true });
   writeFileSync(join(root, sourcePath), 'pub fn call() {}\n', 'utf8');
-  copyFileSync(join(PROJECT_ROOT, GROUNDED_SPEC), join(root, basename(GROUNDED_SPEC)));
+  // The origin spec and the measured edge set go into the reserved directory
+  // beneath the subject, which is where the analysis publishes them and where the
+  // reverse rotation reads them. Placing them anywhere else would leave the
+  // rotation reading a path this test chose rather than the one it derives.
+  const reserve = reservedReverseDirectory(root);
+  mkdirSync(reserve, { recursive: true });
+  copyFileSync(join(PROJECT_ROOT, GROUNDED_SPEC), join(reserve, ORIGIN_SPEC_FILE));
 
   // The measured edge set, at the path the chain passes to `--measured`. One package
   // has nothing to depend on, so the set is empty because the subject is one unit
   // and not because a measurement was withheld.
-  writeFileSync(join(inputs, DEPENDENCIES_FILE), `${JSON.stringify({ edges: [] }, null, 2)}\n`, 'utf8');
+  writeFileSync(join(reserve, DEPENDENCIES_FILE), `${JSON.stringify({ edges: [] }, null, 2)}\n`, 'utf8');
   writeFileSync(
     join(inputs, GROUNDING_NODES_FILE),
     `${JSON.stringify({ sourceFile: 'RFC-ROOT.md', nodes: [{ id: 'N0001', title: 'Purpose', file: sourcePath }] }, null, 2)}\n`,
@@ -919,7 +958,7 @@ function buildGroundedWorkspace() {
     // than written here: a subject whose directories were renamed in this file
     // instead of derived from its own plan would drift from the fixture silently.
     topLevelPath: packagePath.split('/')[0],
-    specPath: join(root, basename(GROUNDED_SPEC)),
+    specPath: join(reservedReverseDirectory(root), ORIGIN_SPEC_FILE),
     decisionsPath: join(PROJECT_ROOT, GROUNDED_DECISIONS),
     dispose: () => {
       rmSync(root, { recursive: true, force: true });
@@ -959,12 +998,10 @@ function seedTheFourthLayer(workspace, { through = 'allocate' } = {}) {
  * derived from the manifest that plan produced, so the seeds restate the partition
  * rather than an invention beside it.
  */
-// [::TICKET::] P24-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-11 --for-spec --no-implementation-order`.
+// [::TICKET::] P24-11, PX-215, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-11|PX-215|PX-213) --for-spec --no-implementation-order`.
 function allocateDecisionsFor({ workspaceRoot, inputsRoot }) {
   const manifest = JSON.parse(readFileSync(join(workspaceRoot, TREE_MANIFEST_FILE_NAME), 'utf8'));
-  const path = join(inputsRoot, 'allocate-decisions.json');
-  writeFileSync(path, `${JSON.stringify(makeDecisions(manifest), null, 2)}\n`, 'utf8');
-  return path;
+  return stageAllocateDecisions(workspaceRoot, makeDecisions(manifest));
 }
 
 /** The manifest as a forward run would have published it, self-hash recomputed. */
@@ -1060,9 +1097,8 @@ test('IT: a manifest with no reverse provenance is refused naming it, and no see
       'utf8',
     );
 
-    const refused = runChain('workspacify-allocate/run.mjs', [
-      'reverse', `--root=${workspace.root}`, `--decisions=${allocateDecisionsFor({ workspaceRoot: workspace.root, inputsRoot: workspace.inputs })}`,
-    ]);
+    allocateDecisionsFor({ workspaceRoot: workspace.root, inputsRoot: workspace.inputs });
+    const refused = runChain('workspacify-allocate/run.mjs', ['reverse'], { cwd: workspace.root });
     assert.notEqual(refused.status, 0, 'a manifest that records no provenance is refused');
     assert.match(refused.stdout, /## A4 — BLOCKED/, 'the gate that judges the index is named');
     assert.match(refused.stdout, /does not carry a reverse_index/, 'the missing provenance is named rather than rendered empty');
@@ -1081,9 +1117,8 @@ test('IT: a copy renamed at the top level is refused by A1, and the rename is no
     const renamedTo = `${workspace.topLevelPath}-renamed`;
     renameSync(join(workspace.root, workspace.topLevelPath), join(workspace.root, renamedTo));
 
-    const refused = runChain('workspacify-allocate/run.mjs', [
-      'reverse', `--root=${workspace.root}`, `--decisions=${allocateDecisionsFor({ workspaceRoot: workspace.root, inputsRoot: workspace.inputs })}`,
-    ]);
+    allocateDecisionsFor({ workspaceRoot: workspace.root, inputsRoot: workspace.inputs });
+    const refused = runChain('workspacify-allocate/run.mjs', ['reverse'], { cwd: workspace.root });
 
     assert.notEqual(refused.status, 0, 'a renamed top-level entry stops the run');
     assert.match(refused.stdout, /## A1 — BLOCKED/, 'A1 names the gate');
@@ -1092,8 +1127,10 @@ test('IT: a copy renamed at the top level is refused by A1, and the rename is no
     assert.deepEqual(seedsUnder(workspace.root), [], 'a blocked run publishes no seed');
     assert.deepEqual(
       topLevelDirectories(workspace.root),
-      [renamedTo],
-      'the entry stands where it was moved to: a run that cannot match the plan does not repair it',
+      [RESERVED_ROOT_NAME, renamedTo].sort(),
+      'the entry stands where it was moved to: a run that cannot match the plan does not repair it. '
+      + 'The reserved root is present because the analysis published beneath the subject, and it is not '
+      + 'a directory the plan claims',
     );
   } finally {
     workspace.dispose();

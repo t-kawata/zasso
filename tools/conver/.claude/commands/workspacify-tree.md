@@ -46,9 +46,9 @@ Under `.claude/scripts/workspacify-tree/`.
 |---|---|
 | `run.mjs parse <spec>` | Input lock / normalisation / hash / headings / segments / reconstruction match (G0/G1). Returns PASS/FAIL through the exit code |
 | `run.mjs extract <spec>` | Harvests object/claim plus invariant / state machine / error code / required test as independent categories, and gives every candidate source traceability (G2). Prints candidate statistics |
-| `run.mjs gate --spec=.. --decisions=..` | Runs the **real gate pipeline** over the decision input and returns the per-gate result. Only COMPLETE exits 0 |
-| `run.mjs finalize --spec=.. --decisions=..` | Applies ownership → runs every gate → assembles the manifest → self-hash → publishes to the current directory |
-| `run.mjs reverse --spec=.. --decisions=.. --root=..` | **Reverse mode.** Runs the same G0–G5, then judges T1 to T6 over the measured project tree under `--root`, reads the logical/physical mismatches the operator recorded in `ARCHITECTURE-DELTA.json`, and publishes the manifest with `reverse_provenance`. Only `COMPLETE` exits 0; a failing gate publishes nothing |
+| `run.mjs gate --spec=..` | Runs the **real gate pipeline** over the decision input and returns the per-gate result. Only COMPLETE exits 0 |
+| `run.mjs finalize --spec=..` | Applies ownership → runs every gate → assembles the manifest → self-hash → publishes to the current directory |
+| `run.mjs reverse` | **Reverse mode.** Runs the same G0–G5, then judges T1 to T6 over the measured project tree, which is the directory the command is run in, reads the logical/physical mismatches the operator recorded in `ARCHITECTURE-DELTA.json`, and publishes the manifest with `reverse_provenance`. Only `COMPLETE` exits 0; a failing gate publishes nothing |
 
 ## Statuses and gates
 
@@ -115,7 +115,9 @@ Do not complete the decision in one pass; **while watching the gate results of S
 6. **Complete the approval register**: leave the grounds for each judgement in `approvals` (decisionId/rationale/approver) and subject them to machine verification
 7. **The AI's final semantic approval**: the AI checks **every** item of the "AI final approval checklist" below and records `{ status: "APPROVED", statement, approver }` in `semantic_review`. If even one item is unmet, do not mark it APPROVED: go back to the gate and redesign (unless the AI's judgement is recorded, the machine never emits COMPLETE)
 
-Create the decision JSON as one file outside the specification's directory (for example in `os.tmpdir()`). The schema is machine-verified against `schemas/workspacify-tree-decisions.schema.json`.
+Create the decision JSON at **`workspacify/tree/DECISIONS.json` beneath the workspace root** — the directory the command is run in. The location is derived, not chosen: the gate reads it there and the finalize applies it there, so the semantics approved are the semantics applied. Nothing selects it — no argument, no environment variable and no pre-existing file can move it. The schema is machine-verified against `schemas/workspacify-tree-decisions.schema.json`.
+
+- **It is staging, not a record.** The published `WORKSPACIFY-TREE-MANIFEST.json` is the record of what was decided, so the finalize sweeps this document — and the directories that held nothing else — once the manifest is published. A run that is refused leaves it in place, so the decision can be repaired rather than re-authored
 
 ```json
 {
@@ -181,7 +183,7 @@ Once every item is checked, record it in the decision's `semantic_review`: `{ "s
 **The purpose of this step**: verify with the machine's real gate pipeline whether the decision (the design) from Step 3 "conforms to the objective rules". If it does not, find the cause of the FAIL/REVIEW_REQUIRED, correct the decision, verify again, and converge on **all gates PASS, unresolved 0 (COMPLETE)**. Nothing may be published unless this passes. Note that a decision which does not record the final semantic judgement (`semantic_review.status === "APPROVED"`) also makes G2/G3 return REVIEW_REQUIRED and never reach COMPLETE.
 
 ```bash
-node .claude/scripts/workspacify-tree/run.mjs gate "--spec=$ARGUMENTS" "--decisions=<decision.json>"
+node .claude/scripts/workspacify-tree/run.mjs gate "--spec=$ARGUMENTS"
 ```
 
 - **What the output means**: the per-gate result (PASS/FAIL/REVIEW_REQUIRED for `G0..G5`) and `finalAudit` (each count). `COMPLETE` (exit 0) means every gate PASS and unresolved 0
@@ -208,7 +210,7 @@ node .claude/scripts/workspacify-tree/run.mjs gate "--spec=$ARGUMENTS" "--decisi
 **The purpose of this step**: assemble the manifest from the decision that reached COMPLETE and the analysis result, compute the canonical JSON plus its self-hash, and **atomically publish the single canonical authority `WORKSPACIFY-TREE-MANIFEST.json` to the current directory**. Stage two can take this file alone as its argument.
 
 ```bash
-node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=$ARGUMENTS" "--decisions=<decision.json>"
+node .claude/scripts/workspacify-tree/run.mjs finalize "--spec=$ARGUMENTS"
 ```
 
 - **Condition to run**: only when every gate is PASS and unresolved is 0. Otherwise it does not reach COMPLETE and exits non-zero
@@ -243,7 +245,15 @@ Success is consolidated into the coexistence of **① the AI's final semantic ap
 
 **Role**: when a project already contains a substantial implementation, the partition cannot be designed from a specification alone — it has to be grounded in the tree that exists. Reverse mode preserves the physical layout exactly and holds the logical architecture as a separate layer, so that the existing technical debt is **recorded** rather than frozen into the canonical record as if it had been designed.
 
-**Invocation**: `run.mjs reverse --spec=<origin-spec.md> --decisions=<path> --root=<project directory>`, with optional `--graph=<graph.json>`, `--measured=<dependency measurement>`, `--sidecars=<dir>`, `--delta=<path>` and `--out=<dir>`.
+**Invocation**: `run.mjs reverse`. The subject is the directory the command is run in, and nothing else is selectable.
+
+- **The origin spec** is read from `workspacify/reverse/ORIGIN-LONG-SPEC.md` beneath the subject, and the run places a copy of it at the workspace root before the gates read it, because stage two resolves the recorded `input.spec_path` — a basename — against the manifest's directory and refuses a specification that is not there
+- **The sidecar bundle** is that same reserved directory, and **the measured dependency report** is `workspacify/reverse/DEPENDENCIES.json` within it
+- **The graph** is `RFC-ROOT-GRAPH.json` and **the layer-structure seam** is `RFC-ROOT-Dirs-Tree.json`, both at the subject's root — the documents a project that already ran conver's own loop carries. A subject that carries neither is judged by T3 and T4 exactly as it was when those flags were omitted, because an omitted measurement and an empty one are different claims and the gates have to tell them apart
+- **The manifest and `ARCHITECTURE-DELTA.json` live at the workspace root**, which is the subject itself: §2.2 puts the fifth layer beside the ROOT package's own four layers, so a destination beneath the reserved root would build the workspace inside the reserve
+- **The options this invocation once honoured are refused by name rather than ignored**: `--spec`, `--graph`, `--measured`, `--sidecars`, `--root`, `--delta`, `--out`, `--prior-partition` and the decisions argument. A caller who names one is answering a question the command has already settled, and a silently dropped path reads as a path that was used. The refused token is reported whole
+- **The decisions document** is `workspacify/tree/DECISIONS.json` beneath the subject — the same document the forward `gate` and `finalize` read, read once, and swept by the run that successfully publishes
+- It needs no dialogue, environment variable, hook or external fetch
 
 The forward gates G0 to G5 are unchanged and still have to reach `COMPLETE`. Reverse mode then judges six gates over the measured tree:
 
@@ -264,7 +274,7 @@ The forward gates G0 to G5 are unchanged and still have to reach `COMPLETE`. Rev
 
 **Prohibitions**:
 
-- Never rename a top-level entry in reverse mode: the existing tree is preserved. The writes are the manifest and `ARCHITECTURE-DELTA.json` only
+- Never rename a top-level entry in reverse mode: the existing tree is preserved. The writes are the manifest at the workspace root, the origin spec placed beside it, and — only when the subject carries a prior partition — the delta, into which the seam is published. The reserved root is written by the analysis before the gates run, and it is the one place beneath the subject that no walk reads
 - Never add a field to `*-GRAPH.json` or `*-Dirs-Tree.json`; reverse provenance lives on the manifest alone
 - Never treat the measured DAG as the logical architecture. T5 exists precisely because they are different things
 - Never record a mismatch and then treat its record as a repair. The record is the artefact, not the fix

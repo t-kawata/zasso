@@ -43,6 +43,7 @@ import {
 } from '../../../.claude/scripts/workspacify-allocate/lib/seed-model.mjs';
 import { parseSeed, scanSeedHeadings, determineSeedFormat, reportSeedCompatibility } from '../../../.claude/scripts/workspacify-allocate/lib/seed-parse.mjs';
 import { GATE_STATUS } from '../../../.claude/scripts/workspacify-tree/lib/errors.mjs';
+import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 import {
   ALLOCATE_MODES,
   REVERSE_GATE_IDS,
@@ -104,6 +105,7 @@ function reverseGateInputs({ seedTexts }) {
 // C001 — the format is determined mechanically, and never inferred
 // ---------------------------------------------------------------------------
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C001 precondition: the declared formats are a table whose rows carry a version, ordered sections and a machine section index', () => {
   assert.ok(Array.isArray(SEED_FORMATS), 'the table is an array');
   assert.ok(SEED_FORMATS.length >= 1, 'the table declares at least one format');
@@ -488,17 +490,16 @@ test('integration: a reverse allocate run with no gap says so, and still names t
   assert.match(report, /[Ee]very seed/);
 });
 
+// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('integration: the real reverse run publishes the finding beside its report, and publishes nothing else', () => {
   const workspace = buildReverseWorkspace();
-  const decisionsPath = `${workspace.dir}.decisions.json`;
-  writeFileSync(decisionsPath, JSON.stringify(workspace.decisions));
+  // Staged at the derived path, with the directory created before the fingerprint is
+  // taken: the reserve is not part of what the fingerprint measures, so the two
+  // readings agree either way.
+  stageAllocateDecisions(workspace.dir, workspace.decisions);
   try {
     const before = fingerprintTree(workspace.dir);
-    const run = spawnSync(
-      process.execPath,
-      [ALLOCATE_RUN, 'reverse', `--root=${workspace.dir}`, `--decisions=${decisionsPath}`],
-      { encoding: 'utf8' },
-    );
+    const run = spawnSync(process.execPath, [ALLOCATE_RUN, 'reverse'], { cwd: workspace.dir, encoding: 'utf8' });
 
     assert.equal(run.status, 0, `reverse allocate must exit 0\nstdout: ${run.stdout}\nstderr: ${run.stderr}`);
     assert.match(run.stdout, /SEED-COMPATIBILITY\.md/, 'the finding reaches the operator, not the log');
@@ -511,7 +512,6 @@ test('integration: the real reverse run publishes the finding beside its report,
     );
   } finally {
     removeTree(workspace.dir);
-    rmSync(decisionsPath, { force: true });
   }
 });
 

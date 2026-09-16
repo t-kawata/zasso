@@ -10,6 +10,8 @@ import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { stageTreeDecisions, stageTreeDecisionsFrom } from '../helpers/stage-tree-decisions.mjs';
+
 const RUN_SCRIPT = join(process.cwd(), '.claude/scripts/workspacify-tree/run.mjs');
 const SPEC = join(process.cwd(), 'tests/workspacify-tree/fixtures/objects-table.md');
 const { settlePulseCandidates } = await import('../helpers/settle-pulse.mjs');
@@ -22,6 +24,7 @@ function runCli(args, cwd = process.cwd()) {
 
 const SPEC_FILE_TEXT = '# S\n\n## Object Catalog\n\n| object | kind |\n|--------|------|\n| RuleRecord | record |\n';
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('PX-188 C001 [PX-188 @verifies C001]: unknown subcommand prints usage and exits non-zero', () => {
   const result = runCli(['bogus']);
   assert.notEqual(result.status, 0);
@@ -47,13 +50,17 @@ test('PX-188 C001 [PX-188 @verifies C001]: extract prints inventory stats JSON a
 });
 
 test('PX-188 C001 [PX-188 @verifies C001]: gate and finalize reject missing flags', () => {
-  const gate = runCli(['gate', '--decisions=x.json']);
-  assert.notEqual(gate.status, 0);
-  assert.ok(gate.stdout.includes('gate requires --spec'));
-  const gateNoDecisions = runCli(['gate', `--spec=${SPEC}`]);
-  assert.notEqual(gateNoDecisions.status, 0);
-  assert.ok(gateNoDecisions.stdout.includes('gate requires --spec'));
-  const finalize = runCli(['finalize']);
+  const dir = mkdtempSync(join(tmpdir(), 'wst-cli-'));
+  // The decisions document is derived at the subject, so the working directory has
+  // to be a scratch directory: a call that inherited the repository would stage a
+  // document into the repository.
+  const gateNoSpec = runCli(['gate'], dir);
+  assert.notEqual(gateNoSpec.status, 0);
+  assert.ok(gateNoSpec.stdout.includes('gate requires --spec'));
+  const gateNoDecisions = runCli(['gate', `--spec=${SPEC}`], dir);
+  assert.notEqual(gateNoDecisions.status, 0, 'a gate with no staged document cannot pass');
+  assert.ok(gateNoDecisions.stdout.includes('DECISIONS.json'), 'and it names the document it looked for');
+  const finalize = runCli(['finalize'], dir);
   assert.notEqual(finalize.status, 0);
   assert.ok(finalize.stdout.includes('finalize requires --spec'));
 });
@@ -61,7 +68,6 @@ test('PX-188 C001 [PX-188 @verifies C001]: gate and finalize reject missing flag
 test('PX-188 C002 [PX-188 @verifies C002]: finalize is blocked when an existing manifest records a different source hash', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-block-'));
   const specPath = join(dir, 'spec.md');
-  const decisionPath = join(dir, 'dec.json');
   writeFileSync(specPath, '# S\n\n## Object Catalog\n\n| object | kind |\n|--------|------|\n| RuleRecord | record |\n');
   const decisions = {
     workspace: [{ id: 'pkg-rules', name: 'rules', path: 'crates/protocol/rules', layer: 'protocol', kind: 'production-library', responsibilities: ['owns records'], seed_required: true, owns: { objects: ['obj-000001'], claims: [], invariants: [], state_machines: [], error_codes: [], required_tests: [] } }],
@@ -73,23 +79,26 @@ test('PX-188 C002 [PX-188 @verifies C002]: finalize is blocked when an existing 
     approvals: [],
     semantic_review: { status: 'APPROVED', statement: 'rules owns the record', approver: 'ai' },
   };
-  writeFileSync(decisionPath, JSON.stringify(settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions }) })));
-  const first = runCli(['finalize', `--spec=${specPath}`, `--decisions=${decisionPath}`], dir);
+  const settled = settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions }) });
+  stageTreeDecisions(dir, settled);
+  const first = runCli(['finalize', `--spec=${specPath}`], dir);
   assert.equal(first.status, 0, first.stdout);
   const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
   const original = readFileSync(manifestPath, 'utf8');
   const otherSpec = join(dir, 'other.md');
   writeFileSync(otherSpec, '# T\n\n## Object Catalog\n\n| object | kind |\n|--------|------|\n| OtherRecord | record |\n');
-  const second = runCli(['finalize', `--spec=${otherSpec}`, `--decisions=${decisionPath}`], dir);
+  // The same document, staged again: the first finalize published and therefore
+  // swept it, and the run under test is the one that meets the existing manifest.
+  stageTreeDecisions(dir, settled);
+  const second = runCli(['finalize', `--spec=${otherSpec}`], dir);
   assert.notEqual(second.status, 0);
   assert.equal(readFileSync(manifestPath, 'utf8'), original, 'existing manifest is preserved');
 });
 
 test('PX-188 C001 [PX-188 @verifies C001]: schema-invalid decisions never reach the pipeline', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-cli-'));
-  const badPath = join(dir, 'bad.json');
-  writeFileSync(badPath, JSON.stringify({ workspace: [{ id: 'pkg-1' }], ownership: [], dependencies: [], approvals: [] }));
-  const gate = runCli(['gate', `--spec=${SPEC}`, `--decisions=${badPath}`]);
+  stageTreeDecisions(dir, { workspace: [{ id: 'pkg-1' }], ownership: [], dependencies: [], approvals: [] });
+  const gate = runCli(['gate', `--spec=${SPEC}`], dir);
   assert.notEqual(gate.status, 0);
   assert.ok(gate.stdout.includes('decision schema invalid'));
 });
@@ -98,9 +107,8 @@ test('PX-188 C001 [PX-188 @verifies C001]: finalize on a non-COMPLETE decision p
   const dir = mkdtempSync(join(tmpdir(), 'wst-cli-'));
   const decisions = JSON.parse(readFileSync(COMPLETE, 'utf8'));
   delete decisions.semantic_review;
-  const path = join(dir, 'no-sr.json');
-  writeFileSync(path, JSON.stringify(decisions));
-  const result = runCli(['finalize', `--spec=${SPEC}`, `--decisions=${path}`], dir);
+  stageTreeDecisions(dir, decisions);
+  const result = runCli(['finalize', `--spec=${SPEC}`], dir);
   assert.notEqual(result.status, 0);
   assert.equal(existsSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json')), false);
 });
@@ -122,9 +130,8 @@ test('PX-188 C001 [PX-188 @verifies C001]: finalize with a test-support package 
     approvals: [],
     semantic_review: { status: 'APPROVED', statement: 'rules owns the record; testkit is the conformance sink', approver: 'ai' },
   };
-  const decisionPath = join(dir, 'dec.json');
-  writeFileSync(decisionPath, JSON.stringify(settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions }) })));
-  const result = runCli(['finalize', `--spec=${specPath}`, `--decisions=${decisionPath}`], dir);
+  stageTreeDecisions(dir, settlePulseCandidates({ specPath, decisions: settleDependencyReviews({ decisions }) }));
+  const result = runCli(['finalize', `--spec=${specPath}`], dir);
   assert.equal(result.status, 0, result.stdout);
   const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
   assert.ok(manifest.conformance.test_obligations.some((entry) => entry.package === 'pkg-testkit'));

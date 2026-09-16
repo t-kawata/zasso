@@ -11,6 +11,8 @@
 import { readdirSync, mkdirSync, mkdtempSync, renameSync, rmSync, lstatSync, existsSync } from 'node:fs';
 import path from 'node:path';
 
+import { RESERVED_ROOT_NAME } from '../../workspacify-tree/lib/reserved-root.mjs';
+
 /** Reserved staging prefix; never a planned path, always removed before exit. */
 export const STAGING_PREFIX = '.workspacify-allocate-stage-';
 
@@ -187,14 +189,23 @@ export function rollbackPublished(root, topLevels) {
 /**
  * Recursively list directories and non-directory entries under a root.
  *
+ * The reserved root is not walked. It is where the rotations keep their own
+ * documents — the decisions they staged, the reverse analysis's sidecars — and none
+ * of it is workspace content: a walk that descended into it would report the run's
+ * own staging as an unexpected directory, so a reload verification would fail on
+ * the very thing that made the run possible. The exclusion matches at any depth,
+ * for the same reason it does in the reverse measurement.
+ *
  * @param {string} absRoot - absolute directory to walk
  * @returns {{ dirs: string[], entries: string[] }} root-relative POSIX paths
  */
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 function walkTree(absRoot) {
   const dirs = [];
   const entries = [];
   const visit = (dirAbs, rel) => {
     for (const dirent of readdirSync(dirAbs, { withFileTypes: true })) {
+      if (dirent.name === RESERVED_ROOT_NAME) continue;
       const relPath = rel ? `${rel}/${dirent.name}` : dirent.name;
       if (dirent.isDirectory()) {
         dirs.push(relPath);

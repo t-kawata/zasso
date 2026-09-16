@@ -14,6 +14,7 @@ import { verifyStagedWorkspace, publishWorkspace } from '../../../.claude/script
 import { residueIsPublishedOnly } from '../../../.claude/scripts/workspacify-allocate/cleanup-workspace-artifacts.mjs';
 import { buildValidManifest, materializeSeedFixture, makeDecisions } from '../helpers/build-valid-manifest.mjs';
 import { runFinalize } from '../../../.claude/scripts/workspacify-allocate/run.mjs';
+import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 
 function silent(callback) {
   const stdout = process.stdout.write;
@@ -28,6 +29,7 @@ function silent(callback) {
   }
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C001 a sparse manifest still yields a complete, self-verifying record', () => {
   const { manifest } = buildValidManifest();
   const sparse = { ...manifest, workspace: { ...manifest.workspace, packages: [] }, structure: {}, dependencies: {} };
@@ -96,9 +98,9 @@ test('C003 reload reports a missing manifest, a missing seed and a sparse expect
     assert.ok(verdict.divergences.some((entry) => entry.artefact === 'coverage'));
 
     // Publish, then delete a seed the expectation still lists.
-    const decisionsPath = join(fixture.dir, 'decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(makeDecisions(fixture.manifest)));
-    silent(() => runFinalize(['finalize', fixture.manifestPath, `--decisions=${decisionsPath}`]));
+    const decisionsRoot = fixture.dir;
+    stageAllocateDecisions(decisionsRoot, makeDecisions(fixture.manifest));
+    silent(() => runFinalize(['finalize', fixture.manifestPath]));
     const published = JSON.parse(readFileSync(join(fixture.dir, 'WORKSPACIFY-ALLOCATE-MANIFEST.json'), 'utf8'));
     rmSync(join(fixture.dir, 'crates/protocol/beta/RFC-SEED.md'));
     const afterDelete = reloadAndVerify({ workspaceRoot: fixture.dir, plan, manifest: fixture.manifest, manifestPath: fixture.manifestPath, expected: published });

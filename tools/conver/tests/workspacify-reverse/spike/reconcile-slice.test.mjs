@@ -235,14 +235,20 @@ test('a reconciliation against a changed oracle is refused', () => {
 
 // --- IT: the whole path, through the CLI the ticket declares -------------------
 
+// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
 test('IT: the spike runs a slice, then reconciles it, through run.mjs', () => {
   const project = makeOracleProject();
   const subject = createSyntheticTree(SPIKE_SINGLE_CLAIM_FILES);
-  const out = join(project.projectRoot, 'spike-out');
+  // The candidate directory is declared by the ticket rather than chosen, so it is
+  // the constant resolved against the project root the run was pointed at.
+  const out = join(project.projectRoot, 'tests', 'workspacify-reverse', 'spike', 'candidates');
+  // The candidates land under the project root the run was pointed at, never in the
+  // repository: the directory is a declared constant, and this assertion is what
+  // says it is resolved against the subject rather than against the caller's cwd.
 
   const run = spawnSync(
     process.execPath,
-    [RUN_SCRIPT, 'spike', subject.root, 'solo', '--project-root', project.projectRoot, '--out', out],
+    [RUN_SCRIPT, 'spike', subject.root, 'solo', '--project-root', project.projectRoot],
     { encoding: 'utf8' },
   );
   assert.equal(run.status, 0, run.stderr);
@@ -256,7 +262,7 @@ test('IT: the spike runs a slice, then reconciles it, through run.mjs', () => {
 
   const reconcileRun = spawnSync(
     process.execPath,
-    [RUN_SCRIPT, 'spike', 'reconcile', '--project-root', project.projectRoot, '--out', out],
+    [RUN_SCRIPT, 'spike', 'reconcile', '--project-root', project.projectRoot],
     { encoding: 'utf8' },
   );
   assert.equal(reconcileRun.status, 0, reconcileRun.stderr);
@@ -272,7 +278,7 @@ test('IT: the spike runs a slice, then reconciles it, through run.mjs', () => {
   // rather than inside the text it previously inserted.
   const again = spawnSync(
     process.execPath,
-    [RUN_SCRIPT, 'spike', 'reconcile', '--project-root', project.projectRoot, '--out', out],
+    [RUN_SCRIPT, 'spike', 'reconcile', '--project-root', project.projectRoot],
     { encoding: 'utf8' },
   );
   assert.equal(again.status, 0, again.stderr);

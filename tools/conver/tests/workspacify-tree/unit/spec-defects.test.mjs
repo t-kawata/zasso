@@ -10,6 +10,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stageTreeDecisions } from '../helpers/stage-tree-decisions.mjs';
 
 import { validateSpecDefects, FORBIDDEN_PHRASES } from '../../../.claude/scripts/workspacify-tree/lib/spec-defects.mjs';
 import { buildSpecPulse } from '../../../.claude/scripts/workspacify-tree/lib/spec-pulse.mjs';
@@ -38,6 +39,7 @@ function resolved() {
   };
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C002 a fully accounted payload passes and every defect field is required', () => {
   const clean = validateSpecDefects(resolved());
   assert.equal(clean.ok, true, JSON.stringify(clean.errors));
@@ -123,10 +125,9 @@ test('C003 the CLI publishes the pulse summary and both hand-off sets', () => {
       spec_defects: specDefects,
       residual_questions: residualQuestions,
     };
-    const decisionsPath = join(dir, 'decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(decisions));
+    stageTreeDecisions(dir, decisions);
 
-    const result = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], { cwd: dir, encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
     assert.equal(result.status, 0, result.stdout + result.stderr);
     const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
     assert.equal(manifest.structure.spec_pulse.summary.candidate_count, pulse.candidates.length);
@@ -137,9 +138,9 @@ test('C003 the CLI publishes the pulse summary and both hand-off sets', () => {
     assert.equal(manifest.final_audit.residual_question_count, residualQuestions.length);
 
     // An unsettled candidate stops the run and names the candidate.
-    const unsettledPath = join(dir, 'unsettled.json');
-    writeFileSync(unsettledPath, JSON.stringify({ ...decisions, residual_questions: [] }));
-    const blocked = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`, `--decisions=${unsettledPath}`], { cwd: dir, encoding: 'utf8' });
+    // Staged again: the run above published, and a published run sweeps the document.
+    stageTreeDecisions(dir, { ...decisions, residual_questions: [] });
+    const blocked = spawnSync(process.execPath, [RUN, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(blocked.status, 0);
     // The machine-readable result is on stdout; the located reason is on stderr.
     assert.ok((blocked.stdout + blocked.stderr).includes(pulse.candidates[1].id), blocked.stdout + blocked.stderr);

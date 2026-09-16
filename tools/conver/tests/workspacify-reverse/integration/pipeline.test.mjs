@@ -18,9 +18,16 @@ const RUNNER = fileURLToPath(
   new URL('../../../.claude/scripts/workspacify-reverse/run.mjs', import.meta.url),
 );
 
-/** Run the CLI and capture its exit code and stdout. */
-function runCli(args) {
-  const result = spawnSync(process.execPath, [RUNNER, ...args], { encoding: 'utf8' });
+/**
+ * Run the CLI and capture its exit code and stdout.
+ *
+ * `cwd` is the subject: the entrance measures the directory it is run in, so a
+ * call that did not name one would inspect whatever the harness is standing in
+ * and report on it.
+ */
+// [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
+function runCli(args, cwd) {
+  const result = spawnSync(process.execPath, [RUNNER, ...args], { cwd, encoding: 'utf8' });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
 
@@ -28,15 +35,15 @@ function runCli(args) {
 test('detect, scrub and verify converge to zero residue', () => {
   const scratch = createScratchProject();
   try {
-    const detected = runCli(['detect', scratch.root]);
+    const detected = runCli(['detect'], scratch.root);
     assert.equal(detected.status, 0);
     assert.match(detected.stdout, /## Forward-rotation traces/);
 
-    const scrubbed = runCli(['scrub', scratch.root, '--apply', '--rename-ticket-keyed-files']);
+    const scrubbed = runCli(['scrub', '--apply', '--rename-ticket-keyed-files'], scratch.root);
     assert.equal(scrubbed.status, 0);
     assert.match(scrubbed.stdout, /## Scrub result/);
 
-    const verified = runCli(['verify', scratch.root]);
+    const verified = runCli(['verify'], scratch.root);
     assert.equal(verified.status, 0, verified.stdout);
     assert.match(verified.stdout, /PASS/);
   } finally {
@@ -48,7 +55,7 @@ test('detect, scrub and verify converge to zero residue', () => {
 test('verification fails on a tree that has not been scrubbed', () => {
   const scratch = createScratchProject();
   try {
-    const verified = runCli(['verify', scratch.root]);
+    const verified = runCli(['verify'], scratch.root);
     assert.equal(verified.status, 1);
     assert.match(verified.stdout, /FAIL/);
     assert.match(verified.stdout, /:\d+/);
@@ -62,7 +69,7 @@ test('scrub without --apply writes nothing', () => {
   const scratch = createScratchProject();
   try {
     const before = hashTree(scratch.root);
-    const planned = runCli(['scrub', scratch.root]);
+    const planned = runCli(['scrub'], scratch.root);
     assert.equal(planned.status, 0);
     assert.match(planned.stdout, /no changes written/);
     assert.deepEqual(hashTree(scratch.root), before);
@@ -77,7 +84,7 @@ test('scrubbing one tree leaves another byte-identical', () => {
   const bystander = createScratchProject();
   try {
     const before = hashTree(bystander.root);
-    runCli(['scrub', target.root, '--apply']);
+    runCli(['scrub', '--apply'], target.root);
     assert.deepEqual(hashTree(bystander.root), before);
   } finally {
     target.dispose();

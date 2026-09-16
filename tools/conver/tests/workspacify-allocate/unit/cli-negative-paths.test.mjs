@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { materializeSeedFixture, makeDecisions } from '../helpers/build-valid-manifest.mjs';
+import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-allocate/run.mjs', import.meta.url));
 
@@ -15,6 +16,7 @@ function runCli(args, options = {}) {
   return spawnSync(process.execPath, [RUN, ...args], { encoding: 'utf8', ...options });
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C001 unknown subcommand and missing arguments exit non-zero with a guide', () => {
   assert.notEqual(runCli(['bogus']).status, 0);
   assert.ok(runCli(['bogus']).stderr.includes('guide'));
@@ -53,9 +55,8 @@ test('C001 packet rejects an unknown --package target', () => {
 test('C003 gate BLOCKs when semantic_review is not APPROVED', () => {
   const { dir, manifestPath, manifest } = materializeSeedFixture();
   try {
-    const decisionsPath = join(dir, 'decisions-review.json');
-    writeFileSync(decisionsPath, JSON.stringify(makeDecisions(manifest, { approved: false })));
-    const result = runCli(['gate', manifestPath, `--decisions=${decisionsPath}`]);
+    stageAllocateDecisions(dir, makeDecisions(manifest, { approved: false }));
+    const result = runCli(['gate', manifestPath]);
     assert.notEqual(result.status, 0);
     assert.ok(result.stderr.includes('semantic_review'));
   } finally {
@@ -69,9 +70,8 @@ test('C002 finalize BLOCKs on an existing non-empty planned directory and preser
     // Pre-create a non-empty planned leaf directory.
     mkdirSync(join(dir, 'crates', 'protocol', 'alpha'), { recursive: true });
     writeFileSync(join(dir, 'crates', 'protocol', 'alpha', 'sentinel.txt'), 'keep');
-    const decisionsPath = join(dir, 'decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(makeDecisions(manifest)));
-    const result = runCli(['finalize', manifestPath, `--decisions=${decisionsPath}`]);
+    stageAllocateDecisions(dir, makeDecisions(manifest));
+    const result = runCli(['finalize', manifestPath]);
     assert.notEqual(result.status, 0);
     assert.equal(readFileSync(join(dir, 'crates', 'protocol', 'alpha', 'sentinel.txt'), 'utf8'), 'keep');
   } finally {
@@ -82,9 +82,8 @@ test('C002 finalize BLOCKs on an existing non-empty planned directory and preser
 test('C002 finalize schema-invalid decisions exits non-zero', () => {
   const { dir, manifestPath } = materializeSeedFixture();
   try {
-    const decisionsPath = join(dir, 'bad-decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify({ seeds: [] })); // missing semantic_review
-    const result = runCli(['finalize', manifestPath, `--decisions=${decisionsPath}`]);
+    stageAllocateDecisions(dir, { seeds: [] }); // missing semantic_review
+    const result = runCli(['finalize', manifestPath]);
     assert.notEqual(result.status, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });

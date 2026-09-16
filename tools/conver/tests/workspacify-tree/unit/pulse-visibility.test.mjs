@@ -10,6 +10,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stageTreeDecisions } from '../helpers/stage-tree-decisions.mjs';
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const RUN = join(ROOT, '.claude/scripts/workspacify-tree/run.mjs');
@@ -19,6 +20,7 @@ function runExtract(specPath) {
   return spawnSync(process.execPath, [RUN, 'extract', specPath], { encoding: 'utf8' });
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C004 extract prints the pulse candidates the gate will require to be settled', () => {
   const result = runExtract(SPEC);
   assert.equal(result.status, 0, result.stdout + result.stderr);
@@ -43,13 +45,12 @@ test('C004 the printed candidates are the ones the gate refuses to publish witho
     cpSync(SPEC, specPath);
     const stats = JSON.parse(runExtract(specPath).stdout);
     // An empty decisions payload is refused, and the refusal names exactly the printed candidates.
-    const decisionsPath = join(dir, 'empty.json');
-    writeFileSync(decisionsPath, JSON.stringify({
+    stageTreeDecisions(dir, {
       workspace: [], tree: [], ownership: [], dependencies: [], boundaries: [],
       adapters: { ports: [], databasePolicy: { applicable: false } }, approvals: [],
       semantic_review: { status: 'APPROVED', statement: 'probe', approver: 'px-202' },
-    }));
-    const gate = spawnSync(process.execPath, [RUN, 'gate', `--spec=${specPath}`, `--decisions=${decisionsPath}`], { cwd: dir, encoding: 'utf8' });
+    });
+    const gate = spawnSync(process.execPath, [RUN, 'gate', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(gate.status, 0);
     assert.equal(existsSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json')), false);
     for (const id of stats.spec_pulse.candidate_ids) {

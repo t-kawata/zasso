@@ -18,15 +18,16 @@ import { checkTreeEntryGate } from '../../../.claude/scripts/workspacify-tree/li
 const CONVER_ROOT = process.cwd();
 const RUN_SCRIPT = join(CONVER_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
 const FIXTURES = join(CONVER_ROOT, 'tests/workspacify-tree/fixtures');
+import { stageTreeDecisionsFrom } from '../helpers/stage-tree-decisions.mjs';
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('gaia-grade C001/C002 [@verifies C001][@verifies C002]: dependency discipline and conformance are emitted', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-g2-'));
   const specPath = join(dir, 'gaia-like-spec.md');
-  const decisionsPath = join(dir, 'gaia-decisions.json');
   cpSync(join(FIXTURES, 'gaia-like-spec.md'), specPath);
-  cpSync(join(FIXTURES, 'gaia-decisions.json'), decisionsPath);
+  stageTreeDecisionsFrom(dir, join(FIXTURES, 'gaia-decisions.json'));
 
-  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], { cwd: dir, encoding: 'utf8' });
+  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stdout);
   const manifest = JSON.parse(readFileSync(join(dir, 'WORKSPACIFY-TREE-MANIFEST.json'), 'utf8'));
 
@@ -57,10 +58,9 @@ test('gaia-grade C003 [@verifies C003]: a contract boundary carries ContractEdge
 test('gaia-grade C004 [@verifies C004]: the published manifest passes the extended entry gate', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wst-g2-'));
   const specPath = join(dir, 'gaia-like-spec.md');
-  const decisionsPath = join(dir, 'gaia-decisions.json');
   cpSync(join(FIXTURES, 'gaia-like-spec.md'), specPath);
-  cpSync(join(FIXTURES, 'gaia-decisions.json'), decisionsPath);
-  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], { cwd: dir, encoding: 'utf8' });
+  stageTreeDecisionsFrom(dir, join(FIXTURES, 'gaia-decisions.json'));
+  const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
   assert.equal(result.status, 0);
   const manifestPath = join(dir, 'WORKSPACIFY-TREE-MANIFEST.json');
   assert.equal(existsSync(manifestPath), true);

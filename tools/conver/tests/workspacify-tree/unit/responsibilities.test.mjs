@@ -9,12 +9,14 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stageTreeDecisions } from '../helpers/stage-tree-decisions.mjs';
 
 import { validatePackageResponsibilities, runGatePipeline } from '../../../.claude/scripts/workspacify-tree/lib/validation.mjs';
 import { buildValidTreeManifest } from '../helpers/build-valid-tree-manifest.mjs';
 
 const RUN_SCRIPT = fileURLToPath(new URL('../../../.claude/scripts/workspacify-tree/run.mjs', import.meta.url));
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('C004 an empty or absent responsibilities list fails validation by package id', () => {
   const empty = validatePackageResponsibilities([
     { id: 'pkg-a', name: 'alpha', path: 'crates/alpha', layer: 'protocol', kind: 'production-library', responsibilities: [] },
@@ -74,10 +76,9 @@ test('C004 the CLI refuses a decision input whose package declares no responsibi
     cpSync(join(process.cwd(), 'tests/workspacify-tree/fixtures/gaia-like-spec.md'), specPath);
     const decisions = JSON.parse(readFileSync(join(process.cwd(), 'tests/workspacify-tree/fixtures/gaia-decisions.json'), 'utf8'));
     decisions.workspace = decisions.workspace.map((pkg) => ({ ...pkg, responsibilities: [] }));
-    const decisionsPath = join(dir, 'decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(decisions));
+    stageTreeDecisions(dir, decisions);
 
-    const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`, `--decisions=${decisionsPath}`], { cwd: dir, encoding: 'utf8' });
+    const result = spawnSync(process.execPath, [RUN_SCRIPT, 'finalize', `--spec=${specPath}`], { cwd: dir, encoding: 'utf8' });
     assert.notEqual(result.status, 0, 'finalize must not succeed without responsibilities');
     assert.ok(
       /decision schema|responsibilit/i.test(result.stdout + result.stderr),

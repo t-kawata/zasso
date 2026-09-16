@@ -35,13 +35,14 @@ import {
   compareDigests,
   digestCommandFiles,
 } from '../../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs';
+import { reservedReverseDirectory } from '../../../.claude/scripts/workspacify-reverse/lib/holdout-ledger.mjs';
 import {
   ANALYSIS_EVALUATION_ORDER,
   ANALYSIS_STAGES,
   analyzeProject,
 } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
 import { EXPECTED_FROZEN_COMMAND_FILES, assertCommandFileStructure } from '../helpers/command-file.mjs';
-import { createSyntheticTree } from '../helpers/scratch.mjs';
+import { createScratchFrom, createSyntheticTree } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const RUNNER = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/run.mjs');
@@ -58,9 +59,13 @@ const targetAvailable = existsSync(REVERSE_ROOT);
  */
 // [::TICKET::] P22-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-9 --for-spec --no-implementation-order`.
 // [::TICKET::] P23-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-7 --for-spec --no-implementation-order`.
-// [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
-function runCli(args, { path } = {}) {
+// [::TICKET::] P25-7, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
+function runCli(args, { path, cwd } = {}) {
   const result = spawnSync(process.execPath, [RUNNER, ...args], {
+    // The entrance takes no root: the subject is the directory the command is run
+    // in, so a call that does not name one would analyse whatever the harness
+    // happens to be standing in — the repository, in this suite's case.
+    cwd,
     encoding: 'utf8',
     env: path === undefined ? process.env : { ...process.env, PATH: path },
   });
@@ -196,12 +201,13 @@ test('C002 postcondition / UT-2 / IT-1: a single invocation runs R0 through R8 i
     await analyzeProject({ root: tree.root, out: out.root, options: { onStage: (stage) => observed.push(stage) } });
     assert.deepEqual(observed, [...ANALYSIS_EVALUATION_ORDER], 'every stage runs, and none runs out of turn');
 
-    const run = runCli(['analyze', tree.root, `--out=${out.root}`]);
+    const run = runCli(['analyze'], { cwd: tree.root });
     assert.equal(run.status, 0, run.stderr);
-    assert.equal(existsSync(join(out.root, 'ORIGIN-LONG-SPEC.json')), true);
-    assert.equal(existsSync(join(out.root, 'ORIGIN-LONG-SPEC.md')), true);
+    const destination = reservedReverseDirectory(tree.root);
+    assert.equal(existsSync(join(destination, 'ORIGIN-LONG-SPEC.json')), true);
+    assert.equal(existsSync(join(destination, 'ORIGIN-LONG-SPEC.md')), true);
     assert.equal(
-      JSON.parse(readFileSync(join(out.root, 'ORIGIN-LONG-SPEC.json'), 'utf8')).kind,
+      JSON.parse(readFileSync(join(destination, 'ORIGIN-LONG-SPEC.json'), 'utf8')).kind,
       'origin-long-spec',
     );
   } finally {
@@ -264,52 +270,66 @@ test('UT-9: a target holding a single file reaches every stage', async () => {
 
 test('UT-7: an empty target produces an explicit empty analysis', () => {
   const tree = createSyntheticTree({});
-  const out = scratchDirectory('wsp-empty-');
   try {
-    const run = runCli(['analyze', tree.root, `--out=${out.root}`]);
+    const run = runCli(['analyze'], { cwd: tree.root });
     assert.equal(run.status, 0, run.stderr);
 
-    const spec = JSON.parse(readFileSync(join(out.root, 'ORIGIN-LONG-SPEC.json'), 'utf8'));
+    const destination = reservedReverseDirectory(tree.root);
+    const spec = JSON.parse(readFileSync(join(destination, 'ORIGIN-LONG-SPEC.json'), 'utf8'));
     assert.deepEqual(spec.claims, []);
     assert.match(
-      readFileSync(join(out.root, 'ORIGIN-LONG-SPEC.md'), 'utf8'),
+      readFileSync(join(destination, 'ORIGIN-LONG-SPEC.md'), 'utf8'),
       /This origin spec is empty\./,
       'the emptiness is stated rather than implied by an absent section',
     );
   } finally {
     tree.dispose();
-    out.dispose();
   }
 });
 
 // --- UT-4 / UT-6: a stage that cannot run names itself -------------------------
 
-test('UT-4 / UT-6: a stage that cannot run reports its name and its input, and publishes nothing', () => {
-  const parent = scratchDirectory('wsp-absent-');
-  const out = scratchDirectory('wsp-absent-out-');
-  const absentRoot = join(parent.root, 'no-such-tree');
+test('UT-4 / UT-6: a subject that cannot be listed is refused by name, and publishes nothing', () => {
+  const tree = createSyntheticTree(CLAIM_BEARING_TREE);
   try {
-    const run = runCli(['analyze', absentRoot, `--out=${out.root}`]);
+    // The entrance has no way to be pointed at an absent tree any more, so the
+    // unreadable subject is made by taking the listing permission off the
+    // directory the command is run in: R0 cannot enumerate it, and says so.
+    chmodSync(tree.root, 0o300);
+    const run = runCli(['analyze'], { cwd: tree.root });
+    chmodSync(tree.root, 0o700);
 
     assert.equal(run.status, 1, 'a stage that cannot run is a failure, not a report');
     assert.equal(run.stderr.includes('R0'), true, 'the failing stage is named');
-    assert.equal(run.stderr.includes(absentRoot), true, 'the input is named by its path');
+    assert.equal(run.stderr.includes(tree.root), true, 'the input is named by its path');
     assert.match(run.stderr, /nothing was published/i);
-    assert.deepEqual(publishedNames(out.root), [], 'a failed run emits no partial document');
+    assert.equal(
+      existsSync(reservedReverseDirectory(tree.root)),
+      false,
+      'a failed run emits no partial document',
+    );
   } finally {
-    parent.dispose();
-    out.dispose();
+    tree.dispose();
   }
 });
 
-test('UT-4: an unknown stage is refused by name rather than silently running everything', () => {
+test('UT-4: an unknown stage is refused by name rather than silently running everything', async () => {
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
   const out = scratchDirectory('wsp-badstage-');
   try {
-    const run = runCli(['analyze', tree.root, `--out=${out.root}`, '--through=r99']);
+    // The command line carries no stage option now, so the refusal an operator
+    // meets is the withdrawn-option one; the pipeline's own refusal of an
+    // unrecognised stage is what still holds the name to account.
+    const run = runCli(['analyze', '--through=r99'], { cwd: tree.root });
     assert.equal(run.status, 1);
-    assert.equal(run.stderr.includes('r99'), true);
-    assert.deepEqual(publishedNames(out.root), []);
+    assert.equal(run.stderr.includes('r99'), true, 'the refused token is named rather than dropped');
+    assert.equal(existsSync(reservedReverseDirectory(tree.root)), false);
+
+    await assert.rejects(
+      () => analyzeProject({ root: tree.root, out: out.root, through: 'r99' }),
+      /r99/,
+      'an unrecognised stage is still refused by name',
+    );
   } finally {
     tree.dispose();
     out.dispose();
@@ -325,16 +345,27 @@ test('IT-4: the published set is the same whatever the host has installed', () =
   // cannot show that. This is the property the removed section's own test asserted,
   // and it outlives the section it was written beside.
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
-  const served = scratchDirectory('wsp-with-tool-');
-  const bare = scratchDirectory('wsp-without-tool-');
   const toolBin = zgBinDirectory();
   const noTool = emptyPathDirectory();
+  const snapshots = [];
   try {
-    const withTool = runCli(['analyze', tree.root, `--out=${served.root}`], { path: `${toolBin.root}:${process.env.PATH}` });
-    const withoutTool = runCli(['analyze', tree.root, `--out=${bare.root}`], { path: noTool.root });
+    // One subject, two sequential runs: the entrance publishes beneath the
+    // directory it is run in, so the second run would overwrite the first. The
+    // first run's documents are lifted out before that happens. Two subjects
+    // would differ in the root each document records, which is not the
+    // difference this test is about.
+    const destination = reservedReverseDirectory(tree.root);
 
+    const withTool = runCli(['analyze'], { cwd: tree.root, path: `${toolBin.root}:${process.env.PATH}` });
     assert.equal(withTool.status, 0, withTool.stderr);
+    snapshots.push(createScratchFrom(destination));
+    rmSync(destination, { recursive: true, force: true });
+
+    const withoutTool = runCli(['analyze'], { cwd: tree.root, path: noTool.root });
     assert.equal(withoutTool.status, 0, withoutTool.stderr);
+    snapshots.push(createScratchFrom(destination));
+
+    const [served, bare] = snapshots;
     assert.deepEqual(
       publishedNames(served.root),
       publishedNames(bare.root),
@@ -350,8 +381,7 @@ test('IT-4: the published set is the same whatever the host has installed', () =
     }
   } finally {
     tree.dispose();
-    served.dispose();
-    bare.dispose();
+    for (const snapshot of snapshots) snapshot.dispose();
     toolBin.dispose();
     noTool.dispose();
   }
@@ -381,48 +411,55 @@ test('UT: an option is documented exactly when the entrance declares it', () => 
   const undeclared = [...documented].filter((name) => !declared.has(name));
   assert.deepEqual(undeclared, [], `the command file documents options the entrance does not declare: ${undeclared.join(', ')}`);
 
-  const analyzeLine = /run\.mjs analyze <root>([^']*)'/.exec(source);
-  assert.notEqual(analyzeLine, null, 'the entrance prints how analyze is invoked');
-  const undocumented = [...new Set([...analyzeLine[1].matchAll(/--[a-z-]+/g)].map(([name]) => name))]
+  // The four subcommands that measure the directory they are run in share one
+  // usage line, because they share one argument surface: none. The line is read
+  // rather than restated, so an option added to it is reported by this test.
+  const invocationLine = /'Usage: run\.mjs ([^']*)'/.exec(source);
+  assert.notEqual(invocationLine, null, 'the entrance prints how its argument-free subcommands are invoked');
+  const undocumented = [...new Set([...invocationLine[1].matchAll(/--[a-z-]+/g)].map(([name]) => name))]
     .filter((name) => !documented.has(name));
   assert.deepEqual(undocumented, [], `the entrance accepts options the command file does not document: ${undocumented.join(', ')}`);
 });
 
 test('UT: a withdrawn question is refused by name, and nothing is published', () => {
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
-  const out = scratchDirectory('wsp-withdrawn-');
   try {
-    const run = runCli(['analyze', tree.root, `--out=${out.root}`, '--query=where credentials are validated']);
+    const run = runCli(['analyze', '--query=where credentials are validated'], { cwd: tree.root });
 
     assert.notEqual(run.status, 0, 'a question the entrance cannot answer is not a success');
     assert.match(run.stderr, /--query/, 'the option is named rather than the failure being left anonymous');
     assert.match(run.stderr, /Nothing was published/);
-    assert.deepEqual(publishedNames(out.root), [], 'a refused run leaves no document behind');
+    assert.equal(
+      existsSync(reservedReverseDirectory(tree.root)),
+      false,
+      'a refused run leaves no document behind',
+    );
   } finally {
     tree.dispose();
-    out.dispose();
   }
 });
 
 test('UT: the entrance serves the pipeline\'s documents and none of its own', async () => {
   const tree = createSyntheticTree(CLAIM_BEARING_TREE);
-  const throughEntrance = scratchDirectory('wsp-entrance-');
   const throughPipeline = scratchDirectory('wsp-pipeline-');
   try {
-    const run = runCli(['analyze', tree.root, `--out=${throughEntrance.root}`]);
-    assert.equal(run.status, 0, run.stderr);
+    // The pipeline runs first so the entrance's own run meets a tree that already
+    // holds a published set beside it — which is the case the reserved directory
+    // exists for, and the case in which its exclusion has to hold.
     await analyzeProject({ root: tree.root, out: throughPipeline.root, through: 'r8' });
+    const run = runCli(['analyze'], { cwd: tree.root });
+    assert.equal(run.status, 0, run.stderr);
+    const throughEntrance = reservedReverseDirectory(tree.root);
 
     // This is what makes the set closed: a document that exists because of what the
     // host has installed would appear here and nowhere in the pipeline's own output.
     assert.deepEqual(
-      publishedNames(throughEntrance.root),
+      publishedNames(throughEntrance),
       publishedNames(throughPipeline.root),
       'the entrance adds no document to the ones the stages publish',
     );
   } finally {
     tree.dispose();
-    throughEntrance.dispose();
     throughPipeline.dispose();
   }
 });
@@ -439,19 +476,21 @@ test('IT-3: the forward-rotation regression gate is still proved', () => {
 // --- IT-1: over the real experiment input -------------------------------------
 
 test('IT-1: over siprs-for-reverse the entrance publishes the origin spec', { skip: !targetAvailable }, () => {
-  const out = scratchDirectory('wsp-real-');
   const noZg = emptyPathDirectory();
+  const destination = reservedReverseDirectory(REVERSE_ROOT);
   try {
-    const run = runCli(['analyze', REVERSE_ROOT, `--out=${out.root}`], { path: noZg.root });
+    const run = runCli(['analyze'], { cwd: REVERSE_ROOT, path: noZg.root });
     assert.equal(run.status, 0, run.stderr);
 
-    const sidecar = JSON.parse(readFileSync(join(out.root, 'ORIGIN-LONG-SPEC.json'), 'utf8'));
-    const markdown = readFileSync(join(out.root, 'ORIGIN-LONG-SPEC.md'), 'utf8');
+    const sidecar = JSON.parse(readFileSync(join(destination, 'ORIGIN-LONG-SPEC.json'), 'utf8'));
+    const markdown = readFileSync(join(destination, 'ORIGIN-LONG-SPEC.md'), 'utf8');
     assert.equal(sidecar.kind, 'origin-long-spec');
     assert.ok(sidecar.claims.length > 1000, `expected the real population, found ${sidecar.claims.length}`);
     assert.match(markdown, /^# /m);
   } finally {
-    out.dispose();
+    // The subject is a tracked tree, so the run's own destination is removed
+    // rather than left beside it. Nothing else the run touched is inside it.
+    rmSync(destination, { recursive: true, force: true });
     noZg.dispose();
   }
 });

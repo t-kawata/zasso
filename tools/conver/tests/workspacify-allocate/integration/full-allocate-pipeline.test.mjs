@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { materializeSeedFixture, makeDecisions } from '../helpers/build-valid-manifest.mjs';
 import { parseSeed } from '../../../.claude/scripts/workspacify-allocate/lib/seed-parse.mjs';
 import { SEED_REQUIRED_SECTIONS } from '../../../.claude/scripts/workspacify-allocate/lib/seed-model.mjs';
+import { stageAllocateDecisions } from '../helpers/stage-allocate-decisions.mjs';
 
 const RUN = fileURLToPath(new URL('../../../.claude/scripts/workspacify-allocate/run.mjs', import.meta.url));
 
@@ -17,6 +18,7 @@ function runCli(args) {
   return spawnSync(process.execPath, [RUN, ...args], { encoding: 'utf8' });
 }
 
+// [::TICKET::] PX-215 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-215 --for-spec --no-implementation-order`.
 test('IT validate -> plan -> packet -> gate -> finalize publishes the real tree and seeds', () => {
   const { dir, manifestPath, manifest } = materializeSeedFixture();
   try {
@@ -32,14 +34,17 @@ test('IT validate -> plan -> packet -> gate -> finalize publishes the real tree 
     assert.equal(packet.status, 0, packet.stderr);
     assert.ok(packet.stdout.includes('"packets"'));
 
-    const decisionsPath = join(dir, 'decisions.json');
-    writeFileSync(decisionsPath, JSON.stringify(makeDecisions(manifest)));
+    // Staged at the derived path: the command line names the manifest and nothing else.
+    stageAllocateDecisions(dir, makeDecisions(manifest));
 
-    const gate = runCli(['gate', manifestPath, `--decisions=${decisionsPath}`]);
+    const gate = runCli(['gate', manifestPath]);
     assert.equal(gate.status, 0, gate.stderr);
     assert.ok(gate.stdout.includes('"status":"COMPLETE"'));
 
-    const finalize = runCli(['finalize', manifestPath, `--decisions=${decisionsPath}`]);
+    // Staged again, because the gate above did not publish but a finalize that does
+    // sweeps the document.
+    stageAllocateDecisions(dir, makeDecisions(manifest));
+    const finalize = runCli(['finalize', manifestPath]);
     assert.equal(finalize.status, 0, finalize.stderr);
     assert.ok(finalize.stdout.includes('"published":true'));
     assert.ok(finalize.stdout.includes('"seedCount":2'));
