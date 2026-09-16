@@ -11,7 +11,7 @@
 
 ---
 
-## 0. How to read this document
+## 0. How to read this document 
 
 Sections 1–4 are **understanding**: what the four patterns are, what state they must all reach, and
 what "reaching it" means for the one pattern that is a structural break rather than an addition.
