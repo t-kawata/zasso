@@ -43,14 +43,22 @@ const PROJECT_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '
 /** Where the declaration lives, relative to the project root. */
 export const LANGUAGE_DECLARATION_PATH = 'tests/workspacify-reverse/fixtures/languages/LANGUAGES.json';
 
-/** The experiment's own subject, and the frozen key the reconciliation reads. */
-export const EXPERIMENT_SUBJECT_ROOT = 'siprs-for-reverse';
-export const ORACLE_ROOT = 'siprs-with-4layers';
-
-/** The four representatives P23-12's audit reads, in the design's pattern order. */
+/**
+ * The representatives P23-12's audit reads, in the design's pattern order.
+ *
+ * Two of the four are gone. The experiment pair — `siprs-for-reverse` and the
+ * answer key `siprs-with-4layers` — were the pattern-1 and pattern-2
+ * representatives, and both trees have since been deleted. What is left is the
+ * two fixtures under `fixtures/patterns/`, so the population now names what
+ * exists rather than what the audit was first written against.
+ *
+ * The two patterns that lost their representative did not lose their coverage:
+ * `unit/pattern-detection.test.mjs` exercises all four patterns, plus the
+ * no-pattern and unreadable-root states, over trees it builds itself. A
+ * representative was evidence that the detection reads a real project the way it
+ * reads a fixture, and that evidence retired with the trees.
+ */
 export const PATTERN_REPRESENTATIVE_ROOTS = Object.freeze([
-  EXPERIMENT_SUBJECT_ROOT,
-  ORACLE_ROOT,
   'tests/workspacify-reverse/fixtures/patterns/partial-conver-project',
   'tests/workspacify-reverse/fixtures/patterns/spec-only-project',
 ]);
@@ -59,9 +67,9 @@ export const PATTERN_REPRESENTATIVE_ROOTS = Object.freeze([
  * Where each language's representative lives.
  *
  * Rust is the language the instrument already exercised, so its representative is
- * an existing fixture rather than a sixth tree: the five trees beside the two
- * siprs trees are the non-Rust languages, and inventing a second Rust subject
- * would have added a population rather than a row.
+ * an existing fixture rather than a sixth tree: the five fixtures beside it are
+ * the non-Rust languages, and inventing a second Rust subject would have added a
+ * population rather than a row.
  */
 export const REPRESENTATIVE_ROOTS = Object.freeze({
   rust: 'tests/workspacify-reverse/fixtures/r3-subject',
@@ -195,15 +203,10 @@ const DECLARATION_COMMENT = [
   'Regenerating it with the recorded revisions produces this file byte for byte; a digest that stops reproducing is reported rather than re-pinned.',
 ].join(' ');
 
-const EXPERIMENT_PURPOSE =
-  'The experiment\'s own subject. The reverse rotation runs over `siprs-for-reverse`, with '
-  + '`siprs-with-4layers` frozen as the key it reconciles against. Nothing in this population is a validation tree.';
-
-const ORACLE_PURPOSE = 'The frozen answer key: the layered tree the experiment is reconciled against, and never an input to it.';
-
 const PATTERN_PURPOSE =
-  'The four pattern representatives P23-12\'s audit reads — the experiment pair and the two fixtures under '
-  + '`fixtures/patterns/`. They are separate from the language population, so no validation tree can be reached as an answer key.';
+  'The pattern representatives P23-12\'s audit reads — the two fixtures under `fixtures/patterns/`. The experiment pair '
+  + 'that once stood beside them has been deleted with its trees. They are separate from the language population, so '
+  + 'no validation tree can be reached as an answer key.';
 
 const LANGUAGE_PURPOSE =
   'The instrument\'s validation population: the six representatives the six-language vocabulary, name filters and '
@@ -329,8 +332,6 @@ export function buildDeclaration({ projectRoot = PROJECT_ROOT, previous = null }
     version: 1,
     comment: DECLARATION_COMMENT,
     populations: {
-      experiment: { purpose: EXPERIMENT_PURPOSE, roots: [EXPERIMENT_SUBJECT_ROOT] },
-      oracle: { purpose: ORACLE_PURPOSE, roots: [ORACLE_ROOT] },
       patterns: { purpose: PATTERN_PURPOSE, roots: [...PATTERN_REPRESENTATIVE_ROOTS], declaredBy: 'P23-11' },
       languages: { purpose: LANGUAGE_PURPOSE, roots: languages.map((entry) => entry.root), declaredBy: 'P24-1' },
     },
@@ -452,11 +453,12 @@ function verifyConstruct(entry, construct, absoluteRoot) {
 function verifyPopulationSeparation(declaration, entries) {
   const findings = [];
   const populations = declaration.populations ?? {};
-  const otherRoots = [
-    ...(populations.experiment?.roots ?? []),
-    ...(populations.oracle?.roots ?? []),
-    ...(populations.patterns?.roots ?? []),
-  ];
+  // Every population except this one, read from the declaration rather than from
+  // a list of names kept here: a population added later is checked by being
+  // declared, which is the opposite of the failure this check exists to catch.
+  const otherRoots = Object.entries(populations)
+    .filter(([name]) => name !== 'languages')
+    .flatMap(([, population]) => population?.roots ?? []);
 
   for (const entry of entries) {
     if (otherRoots.includes(entry.root)) {

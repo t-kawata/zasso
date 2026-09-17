@@ -43,6 +43,13 @@ const DESIGN_PATH = join(PROJECT_ROOT, 'docs', 'WORKSPACIFY-4-PATTERNS-COMPLETE-
  * Three of these moved on 2026-09-15 when `P25-7` removed lines above them — one in
  * `run.mjs`, two in `command.test.mjs` — and each was re-measured to the line that now
  * carries its token rather than adjusted to fit.
+ *
+ * Seven more were re-measured on 2026-09-17. The experiment's two trees were deleted
+ * and the suites that drove them were edited down, which moved lines in `command.test.mjs`
+ * and `run.mjs`; the other four had drifted earlier and unnoticed, which is the drift this
+ * table exists to make fail. The document was corrected beside the table, because a
+ * pointer that resolves to the right line while the prose still prints the old number is
+ * the same defect one reader further on.
  */
 // [::TICKET::] PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-213 --for-spec --no-implementation-order`.
 // [::TICKET::] PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-214 --for-spec --no-implementation-order`.
@@ -52,19 +59,19 @@ const ANCHORED_CITATIONS = Object.freeze([
   { asWritten: 'allocate-manifest.mjs:43', path: '.claude/scripts/workspacify-allocate/lib/allocate-manifest.mjs', line: 43, token: 'SEED_FILE_NAME' },
   { asWritten: 'workspacify-allocate/lib/reverse-mode.mjs:212', path: '.claude/scripts/workspacify-allocate/lib/reverse-mode.mjs', line: 212, token: 'seed-bearing package(s) holds exactly one' },
   { asWritten: 'seed-render.mjs:76', path: '.claude/scripts/workspacify-allocate/lib/seed-render.mjs', line: 76, token: 'SEED_TITLE_PREFIX}${pkg.name}' },
-  { asWritten: '.claude/commands/split-to-tickets.md:46-47', path: '.claude/commands/split-to-tickets.md', line: 47, token: 'docs/Tickets.json' },
+  { asWritten: '.claude/commands/split-to-tickets.md:44', path: '.claude/commands/split-to-tickets.md', line: 44, token: 'docs/Tickets.json' },
   { asWritten: "`ROOT_PACKAGE_PATH = '.'` (line 69)", path: '.claude/scripts/workspacify-tree/lib/structure-parity.mjs', line: 69, token: "ROOT_PACKAGE_PATH = '.'" },
   { asWritten: 'lines 126-131', path: '.claude/scripts/workspacify-tree/lib/structure-parity.mjs', line: 131, token: 'ROOT_PACKAGE_PATH : relativeDir' },
   { asWritten: 'line 172', path: '.claude/scripts/workspacify-tree/lib/structure-parity.mjs', line: 172, token: 'function packageOwnsPath' },
   { asWritten: 'drill-rfc-down/boundify-step.js:66', path: '.claude/scripts/drill-rfc-down/boundify-step.js', line: 66, token: '.delta.json' },
   { asWritten: 'command-file-digest.mjs:50', path: '.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs', line: 50, token: 'COMMAND_FILE_NAMES' },
-  { asWritten: 'command.test.mjs:147', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 147, token: 'a creation, not an edit' },
-  { asWritten: 'command-file.mjs:214', path: 'tests/workspacify-reverse/helpers/command-file.mjs', line: 214, token: 'function assertCommandFileStructure' },
-  { asWritten: 'command.test.mjs:155', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 155, token: 'assertCommandFileStructure' },
-  { asWritten: 'scope.mjs:1974', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1974, token: 'replacePublishedDocuments(out, documents)' },
-  { asWritten: 'scope.mjs:1834-1838', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1835, token: 'the analysis modified its target' },
+  { asWritten: 'command.test.mjs:145', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 145, token: 'a creation, not an edit' },
+  { asWritten: 'command-file.mjs:270', path: 'tests/workspacify-reverse/helpers/command-file.mjs', line: 270, token: 'function assertCommandFileStructure' },
+  { asWritten: 'command.test.mjs:153', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 153, token: 'assertCommandFileStructure' },
+  { asWritten: 'scope.mjs:1973', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1973, token: 'replacePublishedDocuments(out, documents)' },
+  { asWritten: 'scope.mjs:1812-1817', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1812, token: 'the analysis modified its target' },
   { asWritten: 'seed-local-checks.mjs:36', path: '.claude/scripts/workspacify-allocate/lib/seed-local-checks.mjs', line: 36, token: 'SEED_REQUIRED_SECTIONS.length' },
-  { asWritten: 'run.mjs:367-372', path: '.claude/scripts/workspacify-reverse/run.mjs', line: 372, token: 'action: second, root: process.cwd()' },
+  { asWritten: 'run.mjs:383-387', path: '.claude/scripts/workspacify-reverse/run.mjs', line: 387, token: 'action: second, root: process.cwd()' },
 ]);
 
 /**

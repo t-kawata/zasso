@@ -18,7 +18,7 @@ live under `languages/`. The rest are Rust subjects that the earlier stages read
 | `two-package-crate/` | two packages that import back into each other, so every boundary crossing runs both ways and the cycle is real |
 | `patterns/partial-conver-project/` | **pattern 3**: some conver artefacts and not the set — a design document and its ledger at the document's own directory, no graph, no Dirs-Tree, no DesignTree |
 | `patterns/spec-only-project/` | **pattern 4**: empty plus a long specification — a specification above the detection's declared threshold and no implementation source at all |
-| `patterns/siprs-for-reverse/` | **not a representative**: the experiment subject's decisions input, mirrored here because the subject is a frozen instrument and the oracle counts its files |
+| `patterns/siprs-for-reverse/` | **not a representative**: the deleted experiment subject's decisions input, mirrored here while the subject was frozen and now the only copy of that reading |
 | `languages/` | the five non-Rust language representatives, declared with their revisions, digests and constructs in `languages/LANGUAGES.json` — the instrument's validation population rather than a subject a rotation runs over |
 
 ## The two representatives

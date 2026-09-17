@@ -100,13 +100,18 @@ export const DECISIONS_INPUT_SKELETON = Object.freeze({
  * Where the authored decisions input for one representative lives.
  *
  * A representative under `tests/` is a fixture and already holds its own files,
- * so the input sits beside it. A representative that is a frozen instrument does
- * not: `siprs-for-reverse` is measured against `siprs-with-4layers`, and the
- * oracle asserts that the two trees differ by exactly the renamed test files —
- * so a decisions input written inside the instrument would be an eleventh
- * difference and would refuse the answer key rather than describe the subject.
- * Its input is mirrored under the fixture root instead, which is also where the
- * specification's own fixture representatives keep theirs.
+ * so the input sits beside it. The experiment's subject was not: it was a frozen
+ * instrument measured against an answer key, and the oracle asserted the two
+ * trees differed by exactly the renamed test files — so a decisions input written
+ * inside it would have been an eleventh difference and would have refused the key
+ * rather than described the subject. Its input was mirrored under the fixture root
+ * instead, which is also where the specification's own fixture representatives
+ * keep theirs.
+ *
+ * The subject has since been deleted, and the mirror is all that is left of that
+ * arrangement: `patterns/siprs-for-reverse/DECISIONS.json` is the reading a run
+ * took over a spec that no longer exists. The branch below stays because the
+ * mirror is still a real path this function has to resolve.
  *
  * This is the one declaration of the path: a second copy would be a second thing
  * to drift, and the input is the record a later operator has to find.

@@ -2,7 +2,7 @@
 // @verifies C002
 // [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
 /**
- * Pattern detection, measured against the four representatives.
+ * Pattern detection, measured against one representative per declared pattern.
  *
  * Design 1.1 distinguishes the four patterns "by what conver scaffolding
  * already exists on disk, and by nothing else", and 5.4's Step 0 says the
@@ -11,10 +11,13 @@
  * absence material that decided it, an explicit answer when nothing matches, and
  * no prompt, environment variable or clock anywhere in the answer.
  *
- * The two existing trees are read, never written: they are P22's measuring
- * instrument and this repository records them as not to be rewritten.
+ * Two of the four representatives are built here rather than checked in. The
+ * experiment's subject and its answer key held the pattern-1 and pattern-2
+ * places and have been deleted; `representativeRoot` replaces them with trees
+ * carrying exactly the markers those patterns name, which is the whole of what
+ * the detection reads.
  */
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -45,17 +48,55 @@ const PATTERN_MODULE_URL = new URL(
   '../../../.claude/scripts/workspacify-reverse/lib/pattern-detection.mjs',
   import.meta.url,
 );
-const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
-const LAYERED_ROOT = join(PROJECT_ROOT, 'siprs-with-4layers');
 const PATTERNS_FIXTURES = join(PROJECT_ROOT, 'tests/workspacify-reverse/fixtures/patterns');
 const FIXTURES_README = join(PROJECT_ROOT, 'tests/workspacify-reverse/fixtures/README.md');
 
-/** The four representatives, one per declared pattern. */
+/**
+ * The representatives that are checked in, one per declared pattern.
+ *
+ * Two, not four. `siprs-for-reverse` and `siprs-with-4layers` were the pattern-1
+ * and pattern-2 representatives, and both trees have been deleted.
+ */
 const REPRESENTATIVES = Object.freeze({
-  'pattern-1': REVERSE_ROOT,
-  'pattern-2': LAYERED_ROOT,
   'pattern-3': join(PATTERNS_FIXTURES, 'partial-conver-project'),
   'pattern-4': join(PATTERNS_FIXTURES, 'spec-only-project'),
+});
+
+/**
+ * The two patterns whose representative was a tree, built here instead.
+ *
+ * Design 1.1 distinguishes the patterns "by what conver scaffolding already
+ * exists on disk, and by nothing else", and this module's input is an artefact
+ * list rather than a project. A tree carrying exactly the markers a pattern
+ * names is therefore the same evidence the deleted project was, and it is the
+ * evidence the assertions below were always about: pattern 1 is implementation
+ * source and no conver artefact, pattern 2 is the five-artefact root set.
+ */
+const SYNTHETIC_REPRESENTATIVE_FILES = Object.freeze({
+  'pattern-1': Object.freeze({ 'src/lib.rs': 'pub fn a() -> u8 { 1 }\n' }),
+  'pattern-2': Object.freeze({
+    'RFC-ROOT.md': '# ROOT\n',
+    'RFC-ROOT-GRAPH.json': '{}\n',
+    'RFC-ROOT-Dirs-Tree.json': '{}\n',
+    'Tickets.json': '{}\n',
+    'DesignTree.json': '{}\n',
+  }),
+});
+
+/** The synthetic trees, built once and disposed of with the file. */
+const syntheticRepresentatives = new Map();
+
+// [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
+function representativeRoot(patternId) {
+  if (REPRESENTATIVES[patternId]) return REPRESENTATIVES[patternId];
+  if (!syntheticRepresentatives.has(patternId)) {
+    syntheticRepresentatives.set(patternId, createSyntheticTree(SYNTHETIC_REPRESENTATIVE_FILES[patternId]));
+  }
+  return syntheticRepresentatives.get(patternId).root;
+}
+
+after(() => {
+  for (const tree of syntheticRepresentatives.values()) tree.dispose();
 });
 
 /** The detection over a real root: the walk is the caller's, the answer is the function's. */
@@ -102,8 +143,10 @@ test('C001 precondition — every marker is declared once, and the searched set 
   assert.equal(SEARCHED_MARKERS.length, 9, 'seven conver artefacts, an implementation shape and a specification shape');
 });
 
-test('C001 precondition — the four representatives are readable directories, and each holds something', () => {
-  for (const [patternId, root] of Object.entries(REPRESENTATIVES)) {
+test('C001 precondition — every representative is a readable directory, and each holds something', () => {
+  for (const pattern of PATTERNS) {
+    const patternId = pattern.id;
+    const root = representativeRoot(patternId);
     assert.equal(statSync(root).isDirectory(), true, `${patternId}: ${root} is a directory`);
     assert.doesNotThrow(() => readdirSync(root), `${patternId}: the representative is readable, not merely present`);
     assert.ok(listArtefacts(root).length > 0, `${patternId}: a representative holding nothing decides nothing`);
@@ -115,7 +158,7 @@ test('C001 precondition — the four representatives are readable directories, a
 // ---------------------------------------------------------------------------
 
 test('C001 postcondition — the pattern-1 representative detects as pattern 1, with the fourth-layer markers absent', () => {
-  const detection = detect(REPRESENTATIVES['pattern-1']);
+  const detection = detect(representativeRoot('pattern-1'));
 
   assert.equal(detection.pattern, 'pattern-1');
   assert.equal(detection.state, 'pattern-1');
@@ -140,7 +183,7 @@ test('C001 postcondition — the pattern-1 representative detects as pattern 1, 
 });
 
 test('C001 postcondition — the pattern-2 representative names its five root artefacts, each with the path that evidenced it', () => {
-  const detection = detect(REPRESENTATIVES['pattern-2']);
+  const detection = detect(representativeRoot('pattern-2'));
 
   assert.equal(detection.pattern, 'pattern-2');
   assert.deepEqual(
@@ -150,7 +193,11 @@ test('C001 postcondition — the pattern-2 representative names its five root ar
   );
   assert.deepEqual(detection.absent, [], 'every marker the pattern-2 declaration names was found');
   for (const entry of detection.present) {
-    assert.equal(existsSync(join(LAYERED_ROOT, entry.path)), true, `${entry.path} is on disk where the marker was read`);
+    assert.equal(
+      existsSync(join(representativeRoot('pattern-2'), entry.path)),
+      true,
+      `${entry.path} is on disk where the marker was read`,
+    );
     assert.equal(entry.scope, 'root', 'the pattern-2 criterion names the root set, not a nested copy of it');
   }
   assert.equal(detection.present.find((entry) => entry.marker === 'root-rfc').path, 'RFC-ROOT.md');
@@ -204,7 +251,7 @@ test('C002 postcondition — the pattern-4 representative detects as pattern 4: 
   assert.equal(detection.pattern, 'pattern-4');
   assert.deepEqual(detection.present.map((entry) => entry.marker), ['long-specification']);
   const specificationPath = detection.present[0].path;
-  assert.ok(statSync(join(REPRESENTATIVES['pattern-4'], specificationPath)).size >= LONG_SPECIFICATION_MIN_BYTES);
+  assert.ok(statSync(join(representativeRoot('pattern-4'), specificationPath)).size >= LONG_SPECIFICATION_MIN_BYTES);
   assert.equal(
     detection.absent.some((entry) => entry.marker === 'project-source'),
     true,
@@ -213,8 +260,10 @@ test('C002 postcondition — the pattern-4 representative detects as pattern 4: 
   for (const entry of detection.absent) assert.equal(entry.found, undefined, 'absent entries name what was searched, not a hit');
 });
 
-test('C002 postcondition — every present path is one the walk returned, for all four representatives', () => {
-  for (const [patternId, root] of Object.entries(REPRESENTATIVES)) {
+test('C002 postcondition — every present path is one the walk returned, for every representative', () => {
+  for (const pattern of PATTERNS) {
+    const patternId = pattern.id;
+    const root = representativeRoot(patternId);
     const walk = new Set(listArtefacts(root).map((entry) => entry.path));
     for (const entry of detect(root).present) {
       assert.ok(walk.has(entry.path), `${patternId}: ${entry.path} came from the walk rather than from a guess`);
@@ -300,14 +349,14 @@ test('C001 invariant — the module writes nothing: the subject is unchanged aft
 // C002 invariant — mutually exclusive and jointly exhaustive over the declaration
 // ---------------------------------------------------------------------------
 
-test('C002 invariant — the four representatives yield four distinct values covering the declared set exactly', () => {
-  const detected = Object.entries(REPRESENTATIVES).map(([expected, root]) => ({ expected, actual: detect(root).pattern }));
+test('C002 invariant — one representative per declared pattern, each detecting as itself and as no other', () => {
+  const detected = PATTERNS.map((pattern) => ({ expected: pattern.id, actual: detect(representativeRoot(pattern.id)).pattern }));
 
   for (const row of detected) {
     assert.equal(typeof row.actual, 'string', 'a detection is one value, never a set and never nothing');
     assert.equal(row.actual, row.expected, `${row.expected} detects as itself and as no other`);
   }
-  assert.equal(new Set(detected.map((row) => row.actual)).size, 4);
+  assert.equal(new Set(detected.map((row) => row.actual)).size, PATTERNS.length);
   assert.deepEqual(
     [...new Set(detected.map((row) => row.actual))].sort(),
     PATTERNS.map((row) => row.id).sort(),
@@ -321,7 +370,7 @@ test('C002 invariant — the four representatives yield four distinct values cov
 test('C001 invariant — every declared marker is in one list or the other, and none is in both', () => {
   for (const pattern of PATTERNS) {
     const declaration = PATTERN_MARKERS[pattern.id];
-    const detection = detect(REPRESENTATIVES[pattern.id]);
+    const detection = detect(representativeRoot(pattern.id));
     const named = [...detection.present, ...detection.absent].map((entry) => entry.marker);
 
     assert.equal(new Set(named).size, named.length, `${pattern.id}: no marker appears in both lists`);

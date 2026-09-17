@@ -79,9 +79,11 @@ function readTrackedPaths(repoRoot) {
  * Count tracked files per extension, ignoring every path beneath an ignored
  * root and dropping extensions below the decision floor.
  *
- * The ignored roots are path prefixes, not extension names, which is what keeps
- * 2253 vendored C/C++ files out of the census while the same extensions in this
- * repository's own tree would still owe a decision.
+ * The ignored roots are path prefixes, not extension names, which is what would
+ * keep a vendored C/C++ tree out of the census while the same extension in this
+ * repository's own tree still owed a decision. No root is currently declared —
+ * the two trees the list was written for have been deleted — so the rule is
+ * exercised by the caller's own list rather than by the repository's.
  *
  * Returns a Map from dotted extension to count.
  */

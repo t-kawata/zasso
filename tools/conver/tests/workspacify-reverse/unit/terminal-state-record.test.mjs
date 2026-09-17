@@ -39,7 +39,7 @@ import { DECISIONS_INPUT_SKELETON } from '../helpers/decisions-authoring.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 
-/** The observation the chain's four runs are recorded in. */
+/** The observation the chain's runs are recorded in. */
 const RECORD_PATH = join(PROJECT_ROOT, 'tests', 'workspacify-reverse', 'analysis', 'TERMINAL-STATE.json');
 
 /** What the record writes when the input is the skeleton written beside the scratch copy. */
@@ -58,7 +58,9 @@ function digestOfCommittedFile(relativePath) {
 
 test('the record describes a run per representative, and each run names the input it read', () => {
   assert.equal(Array.isArray(RECORD.runs), true, 'the record carries the runs');
-  assert.equal(RECORD.runs.length, 4, 'one run per pattern representative');
+  // Two, not four: the experiment's subject and its answer key held the other two
+  // places and both trees have been deleted with their runs.
+  assert.equal(RECORD.runs.length, 2, 'one run per pattern representative');
   for (const run of RECORD.runs) {
     assert.equal(typeof run.representative, 'string');
     assert.equal(typeof run.decisions?.input, 'string', `${run.representative} names its decisions input`);

@@ -10,12 +10,17 @@
  * totality is proved by arithmetic rather than by inspection. That is why the mapping
  * returns an explicit remainder instead of a list of successes.
  *
- * S2 is deliberately not a detector. Measured against this target, no syntactic rule
- * recovers the answer key's ten design-derived tests: eight of them call the public API,
- * so reading the source text cannot separate them from a test that had a Red. What S2
- * returns is therefore the evidence it read, a candidate carrying `requires_human_approval`,
- * and an explicit unclassified remainder. The measurement is made by
- * `run.mjs oracle compare`, which lists disagreements for a human to classify.
+ * S2 is deliberately not a detector. Measured against the answer key, no syntactic rule
+ * recovered its ten design-derived tests: eight of them call the public API, so reading
+ * the source text cannot separate them from a test that had a Red. What S2 returns is
+ * therefore the evidence it read, a candidate carrying `requires_human_approval`, and an
+ * explicit unclassified remainder. The measurement is made by `run.mjs oracle compare`,
+ * which lists disagreements for a human to classify.
+ *
+ * The measurement over the real subject retired with the subject. `siprs-for-reverse`
+ * has been deleted, so the tests that read its `tests/` directory — the sixteen-file
+ * inventory and the eight recovered design-derived names — are gone. Every mechanism
+ * they exercised is exercised below over test lists this file declares.
  *
  * Run: node --test "tests/tickets/**\/*.test.cjs"
  */
@@ -23,7 +28,7 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { readFileSync, readdirSync } = require('node:fs');
+const { readFileSync } = require('node:fs');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 
@@ -42,7 +47,6 @@ const {
 } = require('../../../.claude/scripts/tickets/lib/test-mapping.js');
 
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
-const SUBJECT_TESTS_DIR = path.join(PROJECT_ROOT, 'siprs-for-reverse/tests');
 const ORACLE_BUNDLE_PATH = path.join(PROJECT_ROOT, 'tests/workspacify-reverse/oracle/ORACLE-BUNDLE.json');
 const GAPS_PATH = path.join(PROJECT_ROOT, 'tests/workspacify-reverse/analysis/GAPS.json');
 const RUN_MJS = path.join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/run.mjs');
@@ -51,14 +55,6 @@ const RUN_MJS = path.join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/run
 const ORACLE = JSON.parse(readFileSync(ORACLE_BUNDLE_PATH, 'utf8'));
 const DECLARED_TICKET_KEYS = ORACLE.artefacts.tickets.ticketKeys;
 
-/** Every test file of the subject tree, with its text, as the inventory measures them. */
-function readSubjectTestFiles() {
-  return readdirSync(SUBJECT_TESTS_DIR)
-    .filter((name) => name.endsWith('.rs'))
-    .sort()
-    .map((name) => ({ path: `tests/${name}`, text: readFileSync(path.join(SUBJECT_TESTS_DIR, name), 'utf8') }));
-}
-
 /** A test file that names its spec — the shape a design-derived test has. */
 const SPEC_NAMING_TEST = Object.freeze({
   path: 'tests/verify_spec_0963da9b.rs',
@@ -66,18 +62,6 @@ const SPEC_NAMING_TEST = Object.freeze({
 });
 
 describe('S1 — test mapping', () => {
-  it('UT-1: every existing test is mapped to a ticket, and the remainder is arithmetic', () => {
-    const tests = measureTestInventory({ testFiles: readSubjectTestFiles() });
-    const { mapped, unmapped, mappingCoverage } = mapTestsToTickets({
-      tests,
-      ticketKeys: DECLARED_TICKET_KEYS,
-    });
-
-    assert.equal(mappingCoverage.tests, tests.length);
-    assert.equal(mappingCoverage.mapped + mappingCoverage.unmapped, tests.length);
-    assert.equal(mappingCoverage.total, true);
-    assert.doesNotThrow(() => assertMappingTotal({ tests, mapped, unmapped }));
-  });
 
   it('UT-1: a test naming a spec document maps to the ticket that spec belongs to', () => {
     const tests = measureTestInventory({ testFiles: [SPEC_NAMING_TEST] });
@@ -134,52 +118,6 @@ describe('S1 — test mapping', () => {
   });
 });
 
-describe('S1 — the subject tree, measured', () => {
-  it('IT-1: every test file of siprs-for-reverse is accounted for, mapped or reported', () => {
-    const tests = measureTestInventory({ testFiles: readSubjectTestFiles() });
-    const { mapped, unmapped, mappingCoverage } = mapTestsToTickets({
-      tests,
-      ticketKeys: DECLARED_TICKET_KEYS,
-    });
-
-    assert.equal(tests.length, 16, 'the subject tree holds sixteen test files');
-    assert.equal(mappingCoverage.mapped + mappingCoverage.unmapped, 16);
-    assert.equal(new Set(mapped.map((row) => row.test.path)).size, mappingCoverage.mapped);
-
-    // The remainder is reported, not assumed away. S1 is proved only when it is empty, and
-    // this target is measured to leave six tests unattributable: the four shared tests that
-    // name no ticket, plus the two design-derived tests whose bodies name none either.
-    assert.equal(mappingCoverage.mapped, 10);
-    assert.equal(mappingCoverage.unmapped, 6);
-    for (const row of unmapped) assert.ok(row.test.path.length > 0 && row.reason.length > 0);
-  });
-
-  it('IT-1: design-derived tests are recovered from content, and the ones that are not are reported', () => {
-    const tests = measureTestInventory({ testFiles: readSubjectTestFiles() });
-    const { mapped, unmapped } = mapTestsToTickets({ tests, ticketKeys: DECLARED_TICKET_KEYS });
-
-    const recovered = [...new Set(mapped.map((row) => row.test.basename))].sort();
-    const recoveredDesignDerived = recovered.filter((name) => /^verify_spec_[0-9a-f]{8}\.rs$/.test(name));
-
-    // Eight of the ten hash-named files name their spec in their bodies, so content
-    // recovers them without reading their names. The remaining two name no ticket at all
-    // and are reported by path rather than assumed mapped — which is precisely why the
-    // absent-Red population is recorded as a candidate rather than asserted as detected.
-    assert.equal(recoveredDesignDerived.length, 8);
-    assert.ok(mapped.some((row) => row.test.basename === 'verify_spec_0963da9b.rs' && row.ticketKey === 'P8-2'));
-
-    const reported = unmapped.map((row) => row.test.basename).sort();
-    assert.deepEqual(reported, [
-      'non_exhaustive.rs',
-      'ownership_ffi_boundary.rs',
-      'runtime_audio_lifecycle.rs',
-      'verify_spec_64eff610.rs',
-      'verify_spec_f330ed39.rs',
-      'verify_unsafe_isolation.rs',
-    ]);
-  });
-});
-
 describe('S2 — absence of Red', () => {
   it('C002 precondition: contracts exist — the population is measured, never assumed', () => {
     const gaps = JSON.parse(readFileSync(GAPS_PATH, 'utf8')).gaps;
@@ -192,26 +130,6 @@ describe('S2 — absence of Red', () => {
     }
   });
 
-  it('UT-2/C002 postcondition: every contract without Red is recorded with its identifier', () => {
-    const inventory = measureTestInventory({ testFiles: readSubjectTestFiles() });
-    const gaps = JSON.parse(readFileSync(GAPS_PATH, 'utf8')).gaps;
-    const contracts = gaps.filter((gap) => gap.kind === 'absent_red');
-
-    const { absentRedContracts, unclassified, classified, absenceCount, gate } = detectAbsentRed({
-      contracts,
-      inventory,
-    });
-
-    assert.equal(absenceCount, absentRedContracts.length);
-    assert.equal(classified + unclassified.length, contracts.length);
-    assert.equal(unclassified.length, 0);
-    assert.equal(gate.status, GATE_STATUS.PASS);
-    for (const record of absentRedContracts) {
-      assert.ok(typeof record.contract_id === 'string' && record.contract_id.length > 0);
-      assert.ok(Object.values(RED_ABSENCE).includes(record.red_absence));
-      assert.ok(record.evidence.length > 0, 'an absence is recorded with the evidence that supports it');
-    }
-  });
 
   it('UT-7: an absence that cannot be classified is recorded as unclassified, not dropped', () => {
     const { absentRedContracts, unclassified, classificationCoverage } = detectAbsentRed({

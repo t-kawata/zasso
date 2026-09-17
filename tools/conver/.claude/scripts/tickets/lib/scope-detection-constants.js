@@ -39,19 +39,25 @@ const SOURCE_EXTENSIONS = new Set([
 ]);
 
 /**
- * Path prefixes the census ignores.
+ * Path prefixes the census ignores, empty because nothing in this repository is
+ * vendored any more.
  *
- * These are complete copies of other projects' trees, neither of them owned by
- * this repository: `siprs-with-4layers/` has no `.git` of its own and has
- * already diverged from this toolchain, and `siprs-for-reverse/` vendors pjsip.
- * Between them they hold 2253 C/C++ files and the WebRTC build files, which is
- * what reduces the census from forty undecided extensions to four.
+ * The list named `siprs-with-4layers/` and `siprs-for-reverse/` — two complete
+ * copies of another project, neither owned by this repository, between them
+ * holding 2253 C/C++ files and the WebRTC build files. That exclusion is what
+ * reduced the census from forty undecided extensions to four. Both trees have
+ * since been deleted, and with them the files the exclusion was written for: the
+ * census now counts the same extensions with the list empty as it did with the
+ * list full.
  *
- * The exclusion is by path, not by extension, so a vendored `.rs` is excluded
- * exactly as a vendored `.h` is, and a `.h` file in this repository's own tree
- * would still owe a decision.
+ * The declaration stays, and stays a declaration. The exclusion is by path
+ * rather than by extension, so the day a tree is vendored again the census owes
+ * a decision for a vendored `.rs` exactly as it does for a vendored `.h` — and
+ * `tests/scope-extensions.test.cjs` exercises that rule against a list of its
+ * own rather than against this one, which is what lets the rule outlive its
+ * first subject.
  */
-const VENDORED_ROOTS = ["siprs-with-4layers/", "siprs-for-reverse/"];
+const VENDORED_ROOTS = [];
 
 /**
  * Extensions present in this repository that the annotation system deliberately

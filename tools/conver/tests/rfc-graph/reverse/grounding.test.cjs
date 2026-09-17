@@ -10,6 +10,10 @@
  * A node the run never grounded is not the same claim as a node whose path is
  * missing. Both fail, and both are reported by identifier — a gate that fails
  * without naming the node it failed on cannot be acted on.
+ *
+ * The block that ran the gate over the experiment's own graph retired with the two
+ * trees it read: `siprs-for-reverse` and `siprs-with-4layers` have been deleted. The
+ * gate is otherwise exercised here over graphs and Dirs-Trees this file declares.
  */
 'use strict';
 
@@ -36,8 +40,6 @@ const { buildNodeIdToPathMap } = require('../../../.claude/scripts/rfc-graph/dum
 
 const SCHEMAS_DIR = path.resolve(__dirname, '../../../.claude/scripts/rfc-graph/schema');
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
-const SUBJECT_ROOT = path.join(PROJECT_ROOT, 'siprs-for-reverse');
-const ORACLE_ROOT = path.join(PROJECT_ROOT, 'siprs-with-4layers');
 const CLI_PATH = path.join(PROJECT_ROOT, '.claude/scripts/rfc-graph/grounding-check.js');
 
 /** Run the CLI against a temporary workspace and report what it said. */
@@ -297,95 +299,6 @@ describe('GF1 — the GRAPH schema is not changed (UT-3)', () => {
   });
 });
 
-describe('GF1 — the graph of the subject tree (IT-1, IT-4)', () => {
-  const oracleGraphPath = path.join(ORACLE_ROOT, 'RFC-ROOT-GRAPH.json');
-  const oracleDirsTreePath = path.join(ORACLE_ROOT, 'RFC-ROOT-Dirs-Tree.json');
-
-  it('IT-1 never reports a node whose declared path exists, and names every one it cannot resolve', () => {
-    const graph = JSON.parse(readFileSync(oracleGraphPath, 'utf8'));
-    const dirsTree = JSON.parse(readFileSync(oracleDirsTreePath, 'utf8'));
-    const declaredFiles = buildNodeIdToPathMap(dirsTree);
-
-    const table = extractGroundingTable({ nodes: graph.nodes, declaredFiles });
-    const record = resolveGroundingTable({ nodes: table, root: SUBJECT_ROOT });
-
-    assert.equal(record.counts.nodes, 113, 'the answer key is the frozen 113-node graph');
-
-    // The mapping is asserted to be a real one before anything is concluded from
-    // it. A Dirs-Tree read with the wrong `mappedNodeIds` shape yields a map with
-    // a single unusable key, and every node then reports "no path declared" —
-    // which looks like a finding and is in fact a broken reader.
-    assert.ok(Object.keys(declaredFiles).length > 0, 'the Dirs-Tree must map at least one node to a path');
-    assert.ok(
-      Object.keys(declaredFiles).every((key) => /^N\d{4}$/.test(key)),
-      'the map is keyed by node identifier; keys that are not identifiers mean the entries were read wrong',
-    );
-
-    // An independent derivation: the gate's verdict is checked against the graph,
-    // the Dirs-Tree and the filesystem rather than against the gate's own output.
-    const expectedUnresolvable = graph.nodes
-      .filter((node) => {
-        const declared = declaredFiles[node.id];
-        return typeof declared !== 'string' || !existsSync(path.join(SUBJECT_ROOT, declared));
-      })
-      .map((node) => node.id);
-
-    assert.ok(expectedUnresolvable.length < graph.nodes.length, 'some node must actually ground, or nothing was measured');
-    assert.deepEqual(record.unresolvable, expectedUnresolvable);
-    assert.ok(
-      record.reasons.every((reason) => typeof reason === 'string' && reason.length > 0),
-      'an ungrounded node is reported with a reason a reader can act on',
-    );
-  });
-
-  it('IT-4 compares the grounded node set through P22-2 and reports no verdict', () => {
-    const graph = JSON.parse(readFileSync(oracleGraphPath, 'utf8'));
-    const table = extractGroundingTable({ nodes: graph.nodes, declaredFiles: {} });
-
-    const candidate = buildGroundingCandidate({ graph, table });
-
-    assert.equal(candidate.entries.length, 113);
-    assert.equal('score' in candidate, false);
-    assert.equal('passed' in candidate, false);
-    assert.equal('verdict' in candidate, false);
-  });
-
-  it('IT-4 runs `oracle compare --stage grounding` and lists disagreements rather than a score', () => {
-    const graph = JSON.parse(readFileSync(oracleGraphPath, 'utf8'));
-    const dirsTree = JSON.parse(readFileSync(oracleDirsTreePath, 'utf8'));
-    const table = extractGroundingTable({ nodes: graph.nodes, declaredFiles: buildNodeIdToPathMap(dirsTree) });
-
-    const dir = mkdtempSync(path.join(tmpdir(), 'p22-14-gf1-oracle-'));
-    try {
-      const candidatePath = path.join(dir, 'grounding.candidate.json');
-      writeFileSync(candidatePath, `${JSON.stringify(buildGroundingCandidate({ graph, table }))}\n`);
-
-      const result = require('../../../.claude/scripts/workspacify-reverse/lib/reconcile.mjs').reconcile({
-        stage: 'grounding',
-        projectRoot: PROJECT_ROOT,
-        candidatePath,
-      });
-
-      assert.equal(result.stage, 'grounding');
-      assert.equal('score' in result, false, 'a comparison yields disagreements, never a score');
-      assert.equal('passed' in result, false);
-      assert.ok(
-        result.disagreements.every((entry) => [
-          'missing_from_analysis', 'extra_in_analysis', 'divergent', 'unobserved',
-        ].includes(entry.kind)),
-        'every disagreement names one of the four kinds, and the fourth is not a disagreement',
-      );
-      assert.equal(result.disagreements.length, 0, 'the candidate is the answer key itself, so nothing disagrees');
-      assert.match(
-        result.findings.map((finding) => finding.message).join(' '),
-        /contamination signal|scrutinise/i,
-        'a zero-disagreement result is reported as a signal to examine, not as accuracy',
-      );
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-});
 
 describe('GF1 — the CLI', () => {
   /** A workspace holding a graph, a grounding table and the files the table names. */

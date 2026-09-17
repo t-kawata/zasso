@@ -44,9 +44,16 @@ const {
 const { judgeMeasuredFilesGate } = require('../../../.claude/scripts/tickets/lib/reverse-split.js');
 
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
+/**
+ * The deleted experiment subject, kept as a name rather than a tree.
+ *
+ * `measuredFilesFor` takes the root it measures as an argument, and the tests that
+ * use this one inject `exists`, so no file is ever read from it. The three tests
+ * that did read it — the CLI runs over its `tests/` directory — retired when the
+ * tree was deleted.
+ */
 const SUBJECT_ROOT = path.join(PROJECT_ROOT, 'siprs-for-reverse');
 const ORACLE_BUNDLE_PATH = path.join(PROJECT_ROOT, 'tests/workspacify-reverse/oracle/ORACLE-BUNDLE.json');
-const RUN_MJS = path.join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/run.mjs');
 const CLI_PATH = path.join(PROJECT_ROOT, '.claude/scripts/tickets/lib/reverse-split.js');
 
 const ORACLE = JSON.parse(readFileSync(ORACLE_BUNDLE_PATH, 'utf8'));
@@ -223,37 +230,6 @@ describe('S6 — driving references', () => {
 });
 
 describe('S1 through S6 — the CLI and the oracle', () => {
-  it('IT-3: the CLI writes a ticket set in which every ticket carries a plan identifier', () => {
-    const outDir = mkdtempSync(path.join(tmpdir(), 'p22-16-cli-'));
-    try {
-      const result = spawnSync(process.execPath, [
-        CLI_PATH,
-        `--root=${SUBJECT_ROOT}`,
-        `--tickets=${ORACLE_BUNDLE_PATH}`,
-        `--out=${outDir}`,
-      ], { encoding: 'utf8' });
-
-      assert.equal(result.stderr, '', 'the run completes rather than crashing');
-      assert.equal(result.status, 1, 'this target leaves a remainder, so the run reports not proved');
-
-      const written = JSON.parse(readFileSync(path.join(outDir, 'reverse-split-tickets.json'), 'utf8'));
-      assert.ok(Array.isArray(written.tickets) && written.tickets.length > 0);
-      for (const ticket of written.tickets) {
-        assert.doesNotThrow(() => assertPlanIdPresent(ticket));
-      }
-      assert.equal(written.refused.length, 0, 'no ticket may be refused when every contract has a plan');
-
-      // The non-zero exit is a gate verdict, not a failure to run: S1 cannot be proved on a
-      // target whose shared tests name no ticket. The count and the cause are recorded, which
-      // is what makes the remainder a finding rather than a silent omission.
-      const s1 = written.gates.find((gate) => gate.gateId === 'S1');
-      assert.equal(s1.status, 'FAIL');
-      assert.equal(s1.counts.unmapped, 6);
-      assert.equal(s1.counts.mapped, 10);
-    } finally {
-      rmSync(outDir, { recursive: true, force: true });
-    }
-  });
 
   it('IT-3: the CLI refuses to run without a declared ticket set rather than guessing one', () => {
     const result = spawnSync(process.execPath, [CLI_PATH, `--root=${SUBJECT_ROOT}`], { encoding: 'utf8' });
@@ -290,25 +266,6 @@ describe('S1 through S6 — the CLI and the oracle', () => {
     }
   });
 
-  it('IT-3/S6: every ticket names the claim its plan came from', () => {
-    const outDir = mkdtempSync(path.join(tmpdir(), 'p22-16-driving-'));
-    try {
-      const result = spawnSync(process.execPath, [
-        CLI_PATH,
-        `--root=${SUBJECT_ROOT}`,
-        `--tickets=${ORACLE_BUNDLE_PATH}`,
-        `--out=${outDir}`,
-      ], { encoding: 'utf8' });
-
-      const written = JSON.parse(readFileSync(path.join(outDir, 'reverse-split-tickets.json'), 'utf8'));
-      const withoutClaim = written.tickets.filter((ticket) => ticket.driving_claim_ids.length === 0);
-
-      assert.equal(withoutClaim.length, 0, `S6 resolves a claim for every ticket; ${result.stderr}`);
-      assert.ok(written.tickets[0].driving_claim_ids[0].startsWith('clm-'));
-    } finally {
-      rmSync(outDir, { recursive: true, force: true });
-    }
-  });
 
   it('IT-4: the gates are reported by identifier, and a zero absence is not a pass', () => {
     const summary = summarizeMappingGates({
@@ -322,35 +279,6 @@ describe('S1 through S6 — the CLI and the oracle', () => {
     assert.match(summary.reasons.join(' '), /S2/);
   });
 
-  it('IT-6: the generated ticket set is compared against the answer key, both directions named', () => {
-    const outDir = mkdtempSync(path.join(tmpdir(), 'p22-16-oracle-'));
-    const candidatePath = path.join(outDir, 'candidate.json');
-    try {
-      const run = spawnSync(process.execPath, [
-        CLI_PATH,
-        `--root=${SUBJECT_ROOT}`,
-        `--tickets=${ORACLE_BUNDLE_PATH}`,
-        `--out=${outDir}`,
-        `--candidate=${candidatePath}`,
-      ], { encoding: 'utf8' });
-      assert.equal(run.stderr, '', 'the run completes rather than crashing');
-      assert.ok(run.status === 0 || run.status === 1, 'the exit code is a gate verdict');
-
-      const candidate = JSON.parse(readFileSync(candidatePath, 'utf8'));
-      assert.equal(candidate.stage, 'mapping');
-      assert.ok(candidate.entries.length > 0);
-
-      const compared = spawnSync(process.execPath, [
-        RUN_MJS, 'oracle', 'compare', '--stage', 'mapping', `--candidate=${candidatePath}`,
-      ], { encoding: 'utf8' });
-
-      assert.equal(compared.status, 0, compared.stderr || compared.stdout);
-      assert.match(compared.stdout, /missing_from_analysis/, 'the answer key names what the analysis did not produce');
-      assert.match(compared.stdout, /extra_in_analysis/, 'and what the analysis produced that the key does not hold');
-    } finally {
-      rmSync(outDir, { recursive: true, force: true });
-    }
-  });
 
   it('IT-6: the answer key holds the 146 tickets and the ten design-derived tests', () => {
     assert.equal(ORACLE.artefacts.tickets.total, 146);

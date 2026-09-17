@@ -60,8 +60,6 @@ import { FORWARD_ROTATION_PATTERNS, renderIsolationReport, verifyIsolation } fro
 import {
   BUNDLE_RELATIVE_PATH,
   KNOWN_DELTA_RELATIVE_PATH,
-  ORACLE_TREE_RELATIVE_PATH,
-  SUBJECT_TREE_RELATIVE_PATH,
   extractKnownDelta,
   freezeOracle,
   renderOracleReport,
@@ -120,7 +118,10 @@ const SUBCOMMANDS = [
 const ARGUMENT_FREE_SUBCOMMANDS = ['analyze', 'detect', 'scrub', 'verify', 'gate', 'pattern', 'inventory', 'decide', 'status', 'seam', 'report', 'readings'];
 
 /** The options that name a value; every other `--name` is a switch. */
-const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--recorded', '--answers', '--semantics', '--scope', '--item'];
+const VALUE_TAKING_FLAGS = [
+  '--project-root', '--frozen-at', '--stage', '--candidate', '--recorded',
+  '--answers', '--semantics', '--scope', '--item', '--oracle-root', '--subject-root',
+];
 
 /**
  * The options the entrance used to honour and no longer does, with the reason each left.
@@ -205,7 +206,9 @@ const USAGE = [
   'Usage: run.mjs <detect|scrub|verify|analyze|gate|pattern|inventory|decide|status|seam|report|readings> [options]',
   '       run.mjs regression <capture|check>',
   '       run.mjs holdout [freeze|isolation <root>] [--project-root=<path>] [--frozen-at=<ISO-8601>]',
-  '       run.mjs oracle <freeze|compare --stage <stage> --candidate <path>> [--project-root=<path>] [--frozen-at=<ISO-8601>]',
+  '       run.mjs oracle freeze --oracle-root=<path> [--project-root=<path>] [--frozen-at=<ISO-8601>]',
+  '       run.mjs oracle delta --oracle-root=<path> --subject-root=<path> [--project-root=<path>]',
+  '       run.mjs oracle compare --stage <stage> --candidate <path> [--project-root=<path>]',
   '       run.mjs spike <root> <slice> [--project-root=<path>] [--recorded=<json>]',
   '       run.mjs spike reconcile [--project-root=<path>]',
   '',
@@ -250,6 +253,8 @@ const USAGE = [
   '  --frozen-at=<ISO-8601>       Freeze timestamp recorded in the artefact',
   '  --stage=<stage>              Stage to compare (oracle compare)',
   '  --candidate=<path>           The stage output document (oracle compare)',
+  '  --oracle-root=<path>         The answer key to freeze or to measure a delta against (oracle)',
+  '  --subject-root=<path>        The tree the answer key is measured against (oracle delta)',
   '  --recorded=<path>            JSON holding the interventions and decision samples a spike recorded',
 ].join('\n');
 
@@ -336,6 +341,8 @@ function parseLedgerArguments(subcommand, second, rest) {
     frozenAt: flagValue(optionArgs, '--frozen-at'),
     stage: flagValue(optionArgs, '--stage'),
     candidate: flagValue(optionArgs, '--candidate'),
+    oracleRoot: flagValue(optionArgs, '--oracle-root'),
+    subjectRoot: flagValue(optionArgs, '--subject-root'),
   };
 }
 
@@ -941,61 +948,83 @@ function runHoldout({ action, positional, projectRoot, frozenAt }) {
  * reports disagreements by name. It never reports a score: classifying a
  * disagreement is a human's work.
  */
-function runOracle({ action, projectRoot, frozenAt, stage, candidate }) {
-  if (action === 'freeze') {
-    const oracleRoot = join(projectRoot, ORACLE_TREE_RELATIVE_PATH);
-    let bundle;
-    try {
-      bundle = freezeOracle({ oracleRoot, frozenAt });
-    } catch (error) {
-      process.stderr.write(`${error.message}\n`);
-      return 1;
-    }
-    writeOracleBundle({ projectRoot, bundle });
-    process.stdout.write(`Frozen the answer key into \`${BUNDLE_RELATIVE_PATH}\`.\n\n`);
-    process.stdout.write(`${renderOracleReport({ bundle })}\n`);
-    return 0;
-  }
-
-  if (action === 'delta') {
-    const oracleRoot = join(projectRoot, ORACLE_TREE_RELATIVE_PATH);
-    const subjectRoot = join(projectRoot, SUBJECT_TREE_RELATIVE_PATH);
-    if (!existsSync(oracleRoot) || !existsSync(subjectRoot)) {
-      process.stderr.write(
-        `the delta measures two trees and one is absent: ${ORACLE_TREE_RELATIVE_PATH} and ${SUBJECT_TREE_RELATIVE_PATH} must both be present under ${projectRoot}\n`,
-      );
-      return 1;
-    }
-    const delta = extractKnownDelta({ oracleRoot, subjectRoot });
-    writeKnownDelta({ projectRoot, delta });
-    process.stdout.write(
-      `Wrote the measured delta to \`${KNOWN_DELTA_RELATIVE_PATH}\`: `
-      + `${delta.counts.differing} differing shared file(s), ${delta.counts.onlyInOracle} answer-key-only path(s), `
-      + `${delta.renamedTestFiles.length} rename(s) recovered, ${delta.unresolvedRenames.length} unresolved.\n\n`,
-    );
-    return 0;
-  }
-
-  if (action === 'compare') {
-    if (!stage || !candidate) {
-      process.stderr.write(`${USAGE}\n`);
-      return 2;
-    }
-    const knownDeltaPath = join(projectRoot, KNOWN_DELTA_RELATIVE_PATH);
-    const knownDelta = existsSync(knownDeltaPath) ? JSON.parse(readFileSync(knownDeltaPath, 'utf8')) : NO_KNOWN_DELTA;
-    let result;
-    try {
-      result = reconcile({ stage, projectRoot, candidatePath: candidate, knownDelta });
-    } catch (error) {
-      process.stderr.write(`${error.message}\n`);
-      return 1;
-    }
-    process.stdout.write(`${renderReconciliation(result)}\n`);
-    return 0;
-  }
-
+function runOracle(options) {
+  if (options.action === 'freeze') return runOracleFreeze(options);
+  if (options.action === 'delta') return runOracleDelta(options);
+  if (options.action === 'compare') return runOracleCompare(options);
   process.stderr.write(`${USAGE}\n`);
   return 2;
+}
+
+/** Freeze an answer key into the bundle a later comparison reads. */
+// [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
+function runOracleFreeze({ projectRoot, frozenAt, oracleRoot }) {
+  if (!oracleRoot) {
+    process.stderr.write(
+      'oracle freeze measures an answer key, and the tree to measure has to be named: --oracle-root=<path>\n',
+    );
+    return 2;
+  }
+  let bundle;
+  try {
+    bundle = freezeOracle({ oracleRoot, frozenAt });
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    return 1;
+  }
+  writeOracleBundle({ projectRoot, bundle });
+  process.stdout.write(`Frozen the answer key into \`${BUNDLE_RELATIVE_PATH}\`.\n\n`);
+  process.stdout.write(`${renderOracleReport({ bundle })}\n`);
+  return 0;
+}
+
+/** Measure the known-and-intentional difference between a key and the tree it is paired with. */
+// [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
+function runOracleDelta({ projectRoot, oracleRoot, subjectRoot }) {
+  if (!oracleRoot || !subjectRoot) {
+    process.stderr.write(
+      'the delta measures two trees and both have to be named: --oracle-root=<path> --subject-root=<path>\n',
+    );
+    return 2;
+  }
+  if (!existsSync(oracleRoot) || !existsSync(subjectRoot)) {
+    process.stderr.write(`the delta measures two trees and one is absent: ${oracleRoot} and ${subjectRoot}\n`);
+    return 1;
+  }
+  const delta = extractKnownDelta({ oracleRoot, subjectRoot });
+  writeKnownDelta({ projectRoot, delta });
+  process.stdout.write(
+    `Wrote the measured delta to \`${KNOWN_DELTA_RELATIVE_PATH}\`: `
+    + `${delta.counts.differing} differing shared file(s), ${delta.counts.onlyInOracle} answer-key-only path(s), `
+    + `${delta.renamedTestFiles.length} rename(s) recovered, ${delta.unresolvedRenames.length} unresolved.\n\n`,
+  );
+  return 0;
+}
+
+/**
+ * Compare one stage's output against the frozen key.
+ *
+ * The key is read from the bundle, which records the root it was frozen from —
+ * so the tree does not have to be named again here, and a comparison cannot be
+ * pointed at a key the bundle does not describe.
+ */
+// [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
+function runOracleCompare({ projectRoot, stage, candidate }) {
+  if (!stage || !candidate) {
+    process.stderr.write(`${USAGE}\n`);
+    return 2;
+  }
+  const knownDeltaPath = join(projectRoot, KNOWN_DELTA_RELATIVE_PATH);
+  const knownDelta = existsSync(knownDeltaPath) ? JSON.parse(readFileSync(knownDeltaPath, 'utf8')) : NO_KNOWN_DELTA;
+  let result;
+  try {
+    result = reconcile({ stage, projectRoot, candidatePath: candidate, knownDelta });
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    return 1;
+  }
+  process.stdout.write(`${renderReconciliation(result)}\n`);
+  return 0;
 }
 
 /** Where a spike's candidate documents go unless the caller names somewhere else. */

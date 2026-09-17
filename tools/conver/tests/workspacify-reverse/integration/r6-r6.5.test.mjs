@@ -32,8 +32,6 @@ import { requestPipelineRun } from '../helpers/shared-run.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 // [::TICKET::] P25-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-5 --for-spec --no-implementation-order`.
-const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
-const targetAvailable = existsSync(REVERSE_ROOT);
 
 /**
  * Where the integration runs stop.
@@ -267,20 +265,6 @@ test('IT-1: properties are recorded as not generated while no category has been 
   }
 });
 
-test('IT-1: over the real experiment input, every claim carries a plan identifier', { skip: !targetAvailable }, async () => {
-  const run = await requestPipelineRun({ root: REVERSE_ROOT, through: THROUGH_R6_5 });
-  {
-    const plan = JSON.parse(readFileSync(join(run.root, 'RED-RECONSTRUCTION-PLAN.json'), 'utf8'));
-    const ledger = JSON.parse(readFileSync(join(run.root, 'CLAIM-LEDGER.json'), 'utf8'));
-
-    assert.equal(plan.entries.length, ledger.claims.length);
-    assert.ok(plan.entries.length > 1000, `expected the real population, found ${plan.entries.length}`);
-    assert.equal(plan.entries.every((entry) => /^cxp-/.test(entry.counterexample_plan_id)), true);
-    assert.equal(plan.entries.every((entry) => entry.target.kind === 'isolated_environment'), true);
-    assert.equal(plan.unassigned.length, 0, 'every subject kind in this population selects a technique');
-    assert.equal(plan.oracle_independence_counts.strong, 0, 'none of these oracles can falsify the implementation yet');
-  }
-});
 
 test('IT-3: the forward rotation still reproduces every frozen value', () => {
   const result = checkBaselines({ projectRoot: PROJECT_ROOT });

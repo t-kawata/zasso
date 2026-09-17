@@ -61,11 +61,6 @@ const STRUCTURE_PATH = join(ANALYSIS_ROOT, 'STRUCTURE.json');
 /** The R2 dependency measurement over the same tree. */
 const DEPENDENCIES_PATH = join(ANALYSIS_ROOT, 'DEPENDENCIES.json');
 
-/** The partitioning the forward rotation chose — the material a human adjudicates against. */
-const ORACLE_TREE_PATH = fileURLToPath(
-  new URL('../../../siprs-with-4layers/RFC-ROOT-Dirs-Tree.json', import.meta.url),
-);
-
 /** One measured directory, in the shape `measureStructure` writes. */
 // [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function measuredPackage(directory, files) {
@@ -179,13 +174,19 @@ function syntheticCandidates() {
   return generateCandidates({ structure, dependencies, dirsTree: syntheticDirsTree() });
 }
 
-/** Read the R1 and R2 measurements P22-4 wrote, and the oracle's tree. */
+/**
+ * Read the R1 and R2 measurements P22-4 wrote.
+ *
+ * The forward rotation's Dirs-Tree used to be read here too, from
+ * `siprs-with-4layers/RFC-ROOT-Dirs-Tree.json`. That tree has been deleted, so
+ * the node mapping is absent: `generateCandidates` takes it as optional and the
+ * `mappedNodeIds` chain is exercised by `syntheticDirsTree` above.
+ */
 // [::TICKET::] P22-20 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-20 --for-spec --no-implementation-order`.
 function recordedMeasurements() {
   return {
     structure: JSON.parse(readFileSync(STRUCTURE_PATH, 'utf8')),
     dependencies: JSON.parse(readFileSync(DEPENDENCIES_PATH, 'utf8')),
-    dirsTree: JSON.parse(readFileSync(ORACLE_TREE_PATH, 'utf8')),
   };
 }
 
@@ -212,8 +213,8 @@ test('UT-1: the measurements support more than one candidate model', () => {
 });
 
 test('UT-1b: the candidate set is measured against the real R1 and R2 artefacts', () => {
-  const { structure, dependencies, dirsTree } = recordedMeasurements();
-  const candidates = generateCandidates({ structure, dependencies, dirsTree });
+  const { structure, dependencies } = recordedMeasurements();
+  const candidates = generateCandidates({ structure, dependencies });
 
   assert.ok(candidates.length > 1);
   for (const candidate of candidates) {
@@ -320,29 +321,12 @@ test('UT-12c: mapDirNodes indexes the chain, and the root directory is the first
   assert.deepEqual([...mapDirNodes(undefined).keys()], [], 'an absent tree maps nothing rather than failing');
 });
 
-test('UT-12d: the real Dirs-Tree is indexed by the paths its own dependency directions name', () => {
-  const { dirsTree } = recordedMeasurements();
-  const declared = [...new Set(Object.values(dirsTree.dependencyDirections ?? {}).flat()
-    .flatMap((direction) => [direction.from, direction.to]))].sort();
-
-  assert.ok(declared.length > 0, 'the oracle tree states the directions it expects to be read at');
-
-  const index = mapDirNodes(dirsTree);
-  const unresolved = declared.filter((path) => !index.has(path));
-
-  assert.deepEqual(
-    unresolved,
-    [],
-    'a path the tree declares a direction between but does not map would leave a mismatch unanchored',
-  );
-});
-
 test('IT-1, IT-2: the real measurements produce candidates, recordable mismatches, and an intact set', () => {
-  const { structure, dependencies, dirsTree } = recordedMeasurements();
-  const candidates = generateCandidates({ structure, dependencies, dirsTree });
+  const { structure, dependencies } = recordedMeasurements();
+  const candidates = generateCandidates({ structure, dependencies });
   const physical = physicalPartition(structure);
 
-  assert.ok(candidates.length > 1, 'IT-1: more than one candidate model is generated for siprs-for-reverse');
+  assert.ok(candidates.length > 1, 'IT-1: more than one candidate model is generated for the measured tree');
 
   const adjudicated = adjudicateCandidates(candidates, { 'cand-cycle-collapsed': 'resolved' });
   const chosen = adjudicated.find((candidate) => candidate.derivedFrom === 'cycle_collapsed');
@@ -355,11 +339,6 @@ test('IT-1, IT-2: the real measurements produce candidates, recordable mismatche
     assert.ok(physical.groups.some((group) => group.name === mismatch.path));
     assert.ok(Array.isArray(mismatch.mappedNodeIds));
   }
-  assert.ok(
-    differences.some((mismatch) => mismatch.mappedNodeIds.length > 0),
-    'IT-1: the mismatches are anchored on the mappedNodeIds chain the oracle tree carries',
-  );
-
   const delta = recordArchitectureDelta({ differences, recorded: differences });
   assert.equal(delta.unrecorded.length, 0, 'IT-1: every mismatch the real measurement produces can be recorded');
 

@@ -12,18 +12,21 @@
  * same depth and compare what they published. A key set that differed per
  * pattern would be a gate wearing a document's clothes.
  *
- * The four representatives are tracked files of this repository, so none of
- * these tests is skipped: a run that reached three of them would be exactly the
- * silent narrowing this file exists to prevent.
+ * Two of the four representatives are trees this file builds, because the two
+ * that held those places — `siprs-for-reverse` and `siprs-with-4layers` — have
+ * been deleted. The other two are tracked fixtures. None of these tests is
+ * skipped: a run that reached three of them would be exactly the silent
+ * narrowing this file exists to prevent.
  *
- * Cost, measured 2026-09-13: the full-run test pays about 23 s for
- * `siprs-for-reverse` and about 70 s for `siprs-with-4layers` (R8; design A.1
- * measures roughly three minutes for the first on a cold tree). That is the
- * price of measuring the invariant over four inputs rather than over two.
+ * Cost, measured 2026-09-13: the full-run test paid about 23 s for the
+ * pattern-1 tree and about 70 s for the pattern-2 tree. Those two were the
+ * experiment's own projects; the trees that replaced them carry only the markers
+ * the patterns are declared by, so the invariant is now measured over four
+ * inputs at the price of two fixtures.
  */
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,10 +35,9 @@ import { listArtefacts } from '../../../.claude/scripts/workspacify-reverse/lib/
 import { ANALYSIS_STAGES, analyzeProject } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
 import { PATTERNS, PATTERN_FILE_NAME, detectPattern } from '../../../.claude/scripts/workspacify-reverse/lib/pattern-detection.mjs';
 import { requestPipelineRun } from '../helpers/shared-run.mjs';
+import { createSyntheticTree } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
-const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
-const LAYERED_ROOT = join(PROJECT_ROOT, 'siprs-with-4layers');
 const PATTERNS_FIXTURES = join(PROJECT_ROOT, 'tests/workspacify-reverse/fixtures/patterns');
 const DESIGN_DOCUMENT = join(PROJECT_ROOT, 'docs/WORKSPACIFY-4-PATTERNS-COMPLETE-DESIGN.md');
 const SCOPE_MODULE = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/lib/scope.mjs');
@@ -48,10 +50,46 @@ const SCOPE_MODULE = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/lib
  */
 const FULL_STAGE = ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1];
 
-/** The four representatives, in the declared order, each with the pattern it is. */
+/**
+ * The trees that hold the pattern-1 and pattern-2 places.
+ *
+ * They were `siprs-for-reverse` and `siprs-with-4layers`, and both have been
+ * deleted with the experiment they belonged to. What the invariant below needs
+ * is not those projects but four inputs that are genuinely of four different
+ * patterns, so that a stage refusing one of them would show. These carry exactly
+ * the markers the two patterns are declared by.
+ */
+const SYNTHETIC_REPRESENTATIVES = Object.freeze({
+  'pattern-1': Object.freeze({ 'src/lib.rs': 'pub fn a() -> u8 { 1 }\n' }),
+  'pattern-2': Object.freeze({
+    'RFC-ROOT.md': '# ROOT\n',
+    'RFC-ROOT-GRAPH.json': '{}\n',
+    'RFC-ROOT-Dirs-Tree.json': '{}\n',
+    'Tickets.json': '{}\n',
+    'DesignTree.json': '{}\n',
+  }),
+});
+
+const syntheticTrees = Object.freeze(
+  Object.fromEntries(
+    Object.entries(SYNTHETIC_REPRESENTATIVES).map(([patternId, files]) => [patternId, createSyntheticTree(files)]),
+  ),
+);
+
+after(() => {
+  for (const tree of Object.values(syntheticTrees)) tree.dispose();
+});
+
+/**
+ * The four representatives, in the declared order, each with the pattern it is.
+ *
+ * The synthetic roots are resolved before they are used: a run publishes the
+ * path it resolved, and on a platform where the temporary directory is reached
+ * through a symlink the unresolved spelling would read as a different tree.
+ */
 const REPRESENTATIVES = Object.freeze([
-  Object.freeze({ patternId: 'pattern-1', root: REVERSE_ROOT }),
-  Object.freeze({ patternId: 'pattern-2', root: LAYERED_ROOT }),
+  Object.freeze({ patternId: 'pattern-1', root: realpathSync(syntheticTrees['pattern-1'].root) }),
+  Object.freeze({ patternId: 'pattern-2', root: realpathSync(syntheticTrees['pattern-2'].root) }),
   Object.freeze({ patternId: 'pattern-3', root: join(PATTERNS_FIXTURES, 'partial-conver-project') }),
   Object.freeze({ patternId: 'pattern-4', root: join(PATTERNS_FIXTURES, 'spec-only-project') }),
 ]);
@@ -212,17 +250,13 @@ test('IT: no stage gates on the pattern — the refusal design 1.2 forbids is ab
 // The implementation and the design document agree about the two real trees
 // ---------------------------------------------------------------------------
 
-test('IT: design 1.3 names the two existing trees, and the detection reads them the same way', () => {
+test('IT: design 1.3 names the two trees that held patterns 1 and 2, as the record of what was measured', () => {
+  // The trees themselves are deleted; what the document says about them is
+  // history, and this asserts only that the history still names them rather than
+  // having been quietly rewritten to describe trees that never existed.
   const design = readFileSync(DESIGN_DOCUMENT, 'utf8');
+
   assert.match(design, /siprs-for-reverse\s+none of the above/, 'the design names the pattern-1 input');
   assert.match(design, /pattern-1 representative/);
   assert.match(design, /pattern-2 representative/);
-
-  for (const [patternId, root] of [['pattern-1', REVERSE_ROOT], ['pattern-2', LAYERED_ROOT]]) {
-    assert.equal(
-      detectPattern({ root, artefacts: listArtefacts(root) }).pattern,
-      patternId,
-      `the tree the design calls ${patternId} detects as ${patternId}`,
-    );
-  }
 });
