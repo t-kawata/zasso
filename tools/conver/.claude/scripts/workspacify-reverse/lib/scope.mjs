@@ -88,12 +88,10 @@ import {
   renderAdjudicationCards,
 } from './reflexion.mjs';
 import {
-  assertRoundTrip,
-  buildOriginSpec,
   buildOriginSpecCandidate,
   renderOriginSpec,
-  validateOriginSpec,
 } from './origin-spec.mjs';
+import { buildPublishedSpec } from './spec-assembly.mjs';
 import { buildCapabilityProfile } from './capability-profile.mjs';
 import { assessEligibility, renderEligibility } from './eligibility.mjs';
 import { EXCLUSION_RULES, buildAttemptLedger, listArtefacts } from './analysis-tech.mjs';
@@ -1581,6 +1579,7 @@ function renderAdjudicationMarkdown(adjudication) {
 }
 
 export async function analyzeProject({
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
@@ -1590,7 +1589,7 @@ export async function analyzeProject({
   through = ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
   options = {},
 } = {}) {
-  const { onStage = null, reconstruction = {} } = options;
+  const { onStage = null, reconstruction = {}, semantics: authoredSemantics = null } = options;
   if (!ANALYSIS_STAGES.includes(through)) {
     throw new AnalysisScopeError(
       `unknown analysis stage ${JSON.stringify(through)}; the stages are ${ANALYSIS_STAGES.join(', ')}. `
@@ -1803,28 +1802,6 @@ export async function analyzeProject({
       prior: readPriorPartition(scope.root),
     }))
     : null;
-  const originSpec = stagesRun.includes('r8') && ledger !== null
-    ? runStage('r8', () => {
-      const spec = validateOriginSpec(
-        buildOriginSpec({ root: scope.root, ledger, treeHash: before.sha256 }),
-        { root: scope.root },
-      );
-      // The command file states that the Markdown re-parses to the sidecar exactly and
-      // that the round trip is asserted by the run, so the two cannot disagree. This is
-      // where that is true rather than nearly true: `renderOriginSpec` refuses a spec it
-      // could not re-parse, which covers the renderer's own shapes, and asserting the
-      // pair here covers the pair. A spec that failed this is not published at all.
-      if (!assertRoundTrip(spec).equal) {
-        throw new Error(
-          'the origin spec does not survive the round trip: its Markdown re-parses to something other '
-          + 'than the sidecar that would be published beside it. A spec whose two documents disagree '
-          + 'cannot be believed, so nothing is published. Report this shape; the renderer and the parser '
-          + 'have parted.',
-        );
-      }
-      return spec;
-    })
-    : null;
   const profile = stagesRun.includes('r8')
     ? buildCapabilityProfile({ ledger, gaps: classifiedGaps, surface, redPlan, counterexamples })
     : null;
@@ -1861,6 +1838,7 @@ export async function analyzeProject({
     capabilityMatrix,
     stagesRun,
   });
+
 
   const documents = {
     'ANALYSIS-SCOPE.json': {
@@ -1971,6 +1949,20 @@ export async function analyzeProject({
   publishWhenPresent(documents, 'R7-SECURITY-LANE.md', securityLane === null ? null : renderSecurityLaneMarkdown(securityLane));
   publishWhenPresent(documents, 'ADJUDICATION-CANDIDATES.json', adjudication);
   publishWhenPresent(documents, 'R7-ADJUDICATION.md', adjudication === null ? null : renderAdjudicationMarkdown(adjudication));
+  // R8's spec is built from the set the run is about to publish, and it is built last
+  // so that every stage has already produced its document. A spec assembled from the
+  // ledger alone is what left twenty documents published and read by nobody: the
+  // sections carry the published values themselves, so what the spec holds and what the
+  // run wrote cannot drift apart without the projection check failing.
+  const originSpec = stagesRun.includes('r8') && ledger !== null
+    ? runStage('r8', () => buildPublishedSpec({
+      root: scope.root,
+      treeHash: before.sha256,
+      analysis: { root: scope.root, treeHash: before.sha256, ledger, documents, destination: out },
+      authoredSemantics,
+    }))
+    : null;
+
   if (originSpec !== null) {
     documents['ORIGIN-LONG-SPEC.json'] = originSpec;
     documents['ORIGIN-LONG-SPEC.md'] = renderOriginSpec(originSpec);

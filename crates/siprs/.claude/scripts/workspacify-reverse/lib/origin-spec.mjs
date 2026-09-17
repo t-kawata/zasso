@@ -32,6 +32,7 @@ import { join } from 'node:path';
 
 import { PROVENANCE_CLASSES } from './provenance.mjs';
 import { compareText } from './holdout-ledger.mjs';
+import { SPEC_SECTIONS } from './spec-sections.mjs';
 
 export const ORIGIN_SPEC_SCHEMA_VERSION = 1;
 export const ORIGIN_SPEC_KIND = 'origin-long-spec';
@@ -59,15 +60,41 @@ export const DEMOTION_REASONS = Object.freeze({
   unlocatableEvidence: 'unlocatable_evidence',
 });
 
-/** The sections whose entries the parser reads back. The others are read past. */
-const CLAIMS_SECTION = 'Claims';
-const DEMOTIONS_SECTION = 'Demotions';
+/**
+ * The three section keys the renderer treats differently from the rest.
+ *
+ * Almost every section is a heading, a stage, a status and the documents it carries.
+ * These three carry the spec's own structure: the scope is the section the scalars
+ * belong to, the provenance counts are derived from the claims, and the packages are
+ * the claims themselves, grouped.
+ */
 const SCOPE_SECTION = 'Scope';
+const PROVENANCE_SECTION_KEY = 'provenance';
+const PACKAGES_SECTION_KEY = 'packages';
+const SCOPE_SECTION_KEY = 'scope';
+const DEMOTIONS_SECTION_KEY = 'demotions';
 
-/** ATX levels: one title, one level for sections, one for each claim. */
+/** The two states a section can be in, as the document spells them. */
+const RECORDED_STATUS = 'recorded';
+const NOT_RUN_STATUS = 'not-run';
+
+/** ATX levels: one title, one level for sections, one for each claim, one for a package. */
 const TITLE_LEVEL = 1;
 const SECTION_LEVEL = 2;
 const ENTRY_LEVEL = 3;
+const CLAIM_LEVEL = 4;
+
+/** A heading at any level the document uses below the title, and its text. */
+const HEADING_PATTERN = /^#{3,6} (.+)$/;
+
+/** A fenced block opener: the fixed fence, opened for a JSON payload. */
+const FENCE_PATTERN = /^(`{3})json$/;
+
+/** The one fence a rendered payload uses, and the reason it is fixed rather than computed. */
+const FENCE = '```';
+
+/** The language the fence declares, so a reader knows what is quoted before parsing it. */
+const FENCE_LANGUAGE = 'json';
 
 /** The scalar fields a claim always renders, in the order a reader meets them. */
 const CLAIM_SCALAR_FIELDS = Object.freeze(['claim_type', 'scope', 'statement', 'falsification']);
@@ -110,6 +137,18 @@ const FIELD_PATTERN = /^- ([a-z_]+):\s*(.*)$/;
 const LIST_ITEM_PATTERN = /^ {2}- (.*)$/;
 const EVIDENCE_PATTERN = /^`(.+):(\d+)` \((\w+)\)$/;
 const ENTRY_HEADING_PATTERN = /^(Claim|Demotion) `(.+)`$/;
+
+/**
+ * The heading a carried document sits under, and why it names no document.
+ *
+ * The next rotation harvests claim candidates from every fenced block whose nearest
+ * heading mentions a claim or a proof, and `CLAIM-LEDGER.json` is such a name: putting
+ * the document's name in the heading made the ledger's twelve megabytes of JSON into
+ * some millions of candidates, and a reverse run that took thirty seconds stopped
+ * finishing at all. The name is a field instead, which is also where a reader looks for
+ * it.
+ */
+const CARRIED_HEADING = 'Carried document';
 
 /** The fixed line the document opens with when the population held no claim. */
 const EMPTY_SENTENCE =
@@ -211,9 +250,15 @@ function normaliseClaim(claim) {
  * demotion are a separate pass, so a caller can run the same checks over a spec
  * a human wrote.
  *
- * @param {{root: string, ledger: object, treeHash?: string}} params
+ * The sections are the other half of the document and are carried the same way: each
+ * holds the documents the run published for it, whole, so that nothing the analysis
+ * found is readable only from a sidecar. A caller that supplies no sections gets every
+ * section recorded as not run, which is a smaller spec rather than a differently shaped
+ * one — and is what a caller driving this function for a unit test wants.
+ *
+ * @param {{root: string, ledger: object, treeHash?: string, sections?: object, scopes?: string[]}} params
  */
-export function buildOriginSpec({ root, ledger, treeHash = '' } = {}) {
+export function buildOriginSpec({ root, ledger, treeHash = '', sections = {}, scopes = null } = {}) {
   if (typeof root !== 'string' || root.length === 0) {
     throw new Error('an origin spec must name the root of the population it describes');
   }
@@ -224,17 +269,68 @@ export function buildOriginSpec({ root, ledger, treeHash = '' } = {}) {
   const title = `ORIGIN-LONG-SPEC — ${root}`;
   assertSingleLine(title, 'title');
 
+  const claims = [...ledger.claims]
+    .sort((left, right) => compareText(left.claim_id, right.claim_id))
+    .map(normaliseClaim);
+
   return {
     schema_version: ORIGIN_SPEC_SCHEMA_VERSION,
     kind: ORIGIN_SPEC_KIND,
     root,
     title,
     tree_hash: treeHash,
-    claims: [...ledger.claims]
-      .sort((left, right) => compareText(left.claim_id, right.claim_id))
-      .map(normaliseClaim),
+    claims,
     demotions: [],
+    sections: buildSections({ sections, scopes: scopes ?? [], claims }),
   };
+}
+
+/**
+ * The sections, in the registry's declared order, each in the shape the parser rebuilds.
+ *
+ * The key order is fixed here as well as in the parser because the round trip compares
+ * serialised values: an object the parser rebuilt with its keys in a different order
+ * would compare unequal while saying exactly the same thing.
+ */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function buildSections({ sections, scopes, claims }) {
+  return Object.fromEntries(
+    SPEC_SECTIONS.map((entry) => {
+      const supplied = sections?.[entry.key];
+      // A section that carries the spec's own structure is recorded whatever the caller
+      // supplied: the claims are being built from, so reporting them as a stage that
+      // never ran would describe the document's own content as missing.
+      if (supplied === null || (supplied === undefined && !entry.always)) {
+        return [entry.key, { status: NOT_RUN_STATUS, content: null, documents: {}, scopes: [] }];
+      }
+      return [
+        entry.key,
+        {
+          status: RECORDED_STATUS,
+          content: supplied?.content ?? null,
+          documents: supplied?.documents ?? {},
+          scopes: packageScopes(entry, supplied, scopes, claims),
+        },
+      ];
+    }),
+  );
+}
+
+/**
+ * The packages a section declares, in the one order both sides agree on.
+ *
+ * The list is the union of the scopes the caller declared and the scopes the claims
+ * actually carry, sorted so that the reading order does not depend on the order the
+ * claims arrived in — `.` sorts first, which is where the workspace root belongs. The
+ * union matters more than the order: a claim whose scope nobody declared would otherwise
+ * be printed under no heading at all, which is content lost from a document that still
+ * looks whole.
+ */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function packageScopes(entry, supplied, scopes, claims) {
+  if (entry.key !== PACKAGES_SECTION_KEY) return [];
+  const declared = supplied?.scopes ?? scopes;
+  return [...new Set([...declared, ...claims.map((claim) => claim.scope)])].sort(compareText);
 }
 
 /** Whether the evidence a claim rests on is on disk at the line it names. */
@@ -377,10 +473,31 @@ function renderListField(lines, field, items) {
  * Rendering is a pure function of the spec: it reads no file, consults no clock
  * and mutates nothing, which is what lets the round trip be asserted without
  * touching the filesystem.
+ *
+ * Every registered section is rendered, in the registry's order, whether or not the
+ * stage that produces it ran — a section whose stage did not run says so, because a
+ * document whose shape changed with the depth of the run would make two runs of
+ * different depth look like two different documents.
+ *
+ * The claims are grouped by package rather than listed flat. Each claim appears once,
+ * under the subsection of its scope: a reader asking what `src/api` is finds one
+ * section, where the flat list made them read a subsection every few hundred lines
+ * apart across sixty thousand.
  */
 export function renderOriginSpec(spec) {
   if (spec === null || typeof spec !== 'object' || !Array.isArray(spec.claims)) {
     throw new Error('renderOriginSpec needs the spec it is to render; it was given no spec with claims');
+  }
+  // A spec without sections would render an empty document: the claims are grouped under
+  // the package headings an absent section never emits, so every one of them would be
+  // dropped and the result would look like a complete spec that happened to find nothing.
+  // Refusing is the only safe answer — a caller building a spec by hand must say what its
+  // sections are, and `buildOriginSpec` does.
+  if (spec.sections === null || typeof spec.sections !== 'object') {
+    throw new Error(
+      'renderOriginSpec needs a spec carrying its sections; without them the claims have no package '
+      + 'headings to hang from and the document would silently drop all of them',
+    );
   }
 
   const lines = [`${'#'.repeat(TITLE_LEVEL)} ${spec.title}`, ''];
@@ -390,7 +507,56 @@ export function renderOriginSpec(spec) {
     '',
   );
 
-  lines.push(`${'#'.repeat(SECTION_LEVEL)} ${SCOPE_SECTION}`, '');
+  for (const entry of SPEC_SECTIONS) {
+    renderSection(lines, entry, spec);
+  }
+
+  return lines.join('\n');
+}
+
+/** One registered section: its heading, its stage, and what it carries. */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function renderSection(lines, entry, spec) {
+  const value = spec.sections?.[entry.key] ?? null;
+  lines.push(`${'#'.repeat(SECTION_LEVEL)} ${entry.heading}`, '');
+  lines.push(`- stage: ${entry.stage ?? 'none'}`);
+  lines.push(`- status: ${value?.status ?? NOT_RUN_STATUS}`, '');
+
+  if (value?.status !== RECORDED_STATUS) {
+    lines.push(
+      entry.stage === null
+        ? 'The document this section carries was not produced in this analysis, so it carries nothing.'
+        : `The stage that produces this section — ${entry.stage.toUpperCase()} — did not run in this analysis, so it carries nothing.`,
+      'The heading stays, because a document whose shape changed with the depth of the run would make',
+      'a shallower run read as a different document rather than as a smaller one.',
+      '',
+    );
+    return;
+  }
+
+  if (entry.key === SCOPE_SECTION_KEY) renderScopeScalars(lines, spec);
+  if (entry.key === PROVENANCE_SECTION_KEY) renderProvenanceCounts(lines, spec.claims);
+  if (entry.key === PACKAGES_SECTION_KEY) renderPackages(lines, spec, value);
+  if (entry.key === DEMOTIONS_SECTION_KEY) renderDemotions(lines, spec.demotions);
+
+  if (value.content !== null && value.content !== undefined) {
+    appendLines(lines, ['- content:', ...fencedJson(value.content), '']);
+  }
+  for (const [name, carried] of Object.entries(value.documents ?? {})) {
+    appendLines(lines, [
+      `${'#'.repeat(ENTRY_LEVEL)} ${CARRIED_HEADING}`,
+      '',
+      `- name: ${name}`,
+      '',
+      ...fencedJson(carried),
+      '',
+    ]);
+  }
+}
+
+/** The scalar half of the scope, which the section heading opens. */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function renderScopeScalars(lines, spec) {
   for (const [key, value] of [
     ['schema_version', String(spec.schema_version)],
     ['kind', spec.kind],
@@ -404,41 +570,69 @@ export function renderOriginSpec(spec) {
     lines.push(`- tree_hash: ${spec.tree_hash}`);
   }
   lines.push('');
+}
 
-  const summary = provenanceSummary(spec.claims);
-  lines.push(`${'#'.repeat(SECTION_LEVEL)} Provenance`, '');
+/** The counts, which are derived from the claims and stored nowhere. */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function renderProvenanceCounts(lines, claims) {
+  const summary = provenanceSummary(claims);
   for (const name of PROVENANCE_CLASSES) {
     lines.push(`- ${name}: ${summary[name]}`);
   }
   lines.push('');
+}
 
-  lines.push(`${'#'.repeat(SECTION_LEVEL)} ${CLAIMS_SECTION}`, '');
+/**
+ * The claims, grouped by the package each one is scoped to.
+ *
+ * The grouping is a view and not a second claim set: the scope is a field the claim
+ * already carries, so the reader below reconstructs the flat list from the claims
+ * themselves, and a grouping that dropped one would change what the spec says rather
+ * than only how it reads.
+ */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function renderPackages(lines, spec, value) {
   if (spec.claims.length === 0) {
     lines.push(EMPTY_SENTENCE, '');
   }
-  for (const claim of spec.claims) {
-    lines.push(`${'#'.repeat(ENTRY_LEVEL)} Claim \`${claim.claim_id}\``, '');
-    for (const field of CLAIM_SCALAR_FIELDS) {
-      assertSingleLine(claim[field], `${claim.claim_id}.${field}`);
-      lines.push(`- ${field}: ${claim[field]}`);
+  for (const scope of value.scopes ?? []) {
+    lines.push(`${'#'.repeat(ENTRY_LEVEL)} ${scope}`, '');
+    const owned = spec.claims.filter((claim) => claim.scope === scope);
+    if (owned.length === 0) {
+      lines.push('No claim is scoped to this package: it was measured, and nothing about it was settled.', '');
+      continue;
     }
-    for (const field of CLAIM_OPTIONAL_FIELDS) {
-      if (claim[field] === null) continue;
-      assertSingleLine(claim[field], `${claim.claim_id}.${field}`);
-      lines.push(`- ${field}: ${claim[field]}`);
-    }
-    for (const { name, itemsAreSpans } of CLAIM_LIST_FIELDS) {
-      const items = claim[name] ?? [];
-      renderListField(lines, name, itemsAreSpans ? items.map(renderEvidenceItem) : items);
-    }
-    lines.push('');
+    for (const claim of owned) renderClaimEntry(lines, claim);
   }
+}
 
-  lines.push(`${'#'.repeat(SECTION_LEVEL)} ${DEMOTIONS_SECTION}`, '');
-  if (spec.demotions.length === 0) {
+/** One claim, as the fields its reader sees. */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function renderClaimEntry(lines, claim) {
+  lines.push(`${'#'.repeat(CLAIM_LEVEL)} Claim \`${claim.claim_id}\``, '');
+  for (const field of CLAIM_SCALAR_FIELDS) {
+    assertSingleLine(claim[field], `${claim.claim_id}.${field}`);
+    lines.push(`- ${field}: ${claim[field]}`);
+  }
+  for (const field of CLAIM_OPTIONAL_FIELDS) {
+    if (claim[field] === null) continue;
+    assertSingleLine(claim[field], `${claim.claim_id}.${field}`);
+    lines.push(`- ${field}: ${claim[field]}`);
+  }
+  for (const { name, itemsAreSpans } of CLAIM_LIST_FIELDS) {
+    const items = claim[name] ?? [];
+    renderListField(lines, name, itemsAreSpans ? items.map(renderEvidenceItem) : items);
+  }
+  lines.push('');
+}
+
+/** The demotions, as the record of what could not be settled. */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function renderDemotions(lines, demotions) {
+  if (demotions.length === 0) {
     lines.push('No claim was demoted: every classification the spec carries was supported by the material.', '');
   }
-  for (const demotion of spec.demotions) {
+  for (const demotion of demotions) {
     lines.push(`${'#'.repeat(ENTRY_LEVEL)} Demotion \`${demotion.claim_id}\``, '');
     for (const field of ['from', 'to', 'reason', 'missing']) {
       assertSingleLine(demotion[field], `${demotion.claim_id}.${field}`);
@@ -446,9 +640,46 @@ export function renderOriginSpec(spec) {
     }
     lines.push('');
   }
-
-  return lines.join('\n');
 }
+
+/**
+ * Add lines one at a time.
+ *
+ * `push(...lines)` looks equivalent and is not: a carried document can hold a hundred
+ * thousand lines once it is pretty-printed, and spreading that many arguments overflows
+ * the stack — which is how the first full run of the absorption died, with a RangeError
+ * rather than a message about the document that caused it.
+ */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function appendLines(lines, added) {
+  for (const line of added) lines.push(line);
+}
+
+/**
+ * The payload inside a fence, as the lines of the document.
+ *
+ * The fence is always exactly three backticks, and that is a constraint rather than a
+ * convenience: the readers downstream track which *character* opened a fence, not how
+ * many of them did, so a longer fence is closed early by the first line of its own
+ * payload that starts with three. A reader that then takes the rest of the payload for
+ * the document's prose finds headings inside a JSON string and sections that begin
+ * mid-sentence — which is how a spec carrying its documents produced forty-six claims
+ * whose package came out as `src/`.
+ *
+ * Three is therefore safe only because the payload is JSON: `JSON.stringify` escapes
+ * every newline inside a string, so no line of a payload can begin with a fence
+ * delimiter and none can close the fence it sits in.
+ */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function fencedJson(value, { indent = '' } = {}) {
+  const payload = JSON.stringify(value, null, 2);
+  return [
+    `${indent}${FENCE}${FENCE_LANGUAGE}`,
+    ...payload.split('\n').map((line) => `${indent}${line}`),
+    `${indent}${FENCE}`,
+  ];
+}
+
 
 /** One claim rebuilt from the fields its entry rendered. */
 // [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
@@ -482,6 +713,11 @@ function parseClaimEntry(entry) {
  * scalar against a list opener — is settled by the lookahead that gives a list
  * opener its meaning: indented items. The Provenance section carries nothing
  * the spec does not derive from its claims, and is read past.
+ *
+ * Sections are rebuilt in the registry's declared order rather than in the order the
+ * headings happen to appear, so a section missing from the Markdown reads as the
+ * section that did not run and the round trip reports the difference — which is what
+ * makes this a check on the document rather than a description of it.
  */
 export function parseOriginSpec(markdown) {
   if (typeof markdown !== 'string' || markdown.length === 0) {
@@ -492,12 +728,38 @@ export function parseOriginSpec(markdown) {
   const scope = {};
   const claimEntries = [];
   const demotionEntries = [];
+  const sections = Object.fromEntries(
+    SPEC_SECTIONS.map((entry) => [entry.key, { status: NOT_RUN_STATUS, content: null, documents: {}, scopes: [] }]),
+  );
+  let record = null;
   let section = null;
   let target = null;
   let entry = null;
+  let pendingContent = false;
+  let fence = null;
+  let fenceLines = [];
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
+
+    if (fence !== null) {
+      if (line === fence) {
+        const payload = JSON.parse(fenceLines.join('\n'));
+        if (pendingContent) record.content = payload;
+        else record.documents[entry.fields.name] = payload;
+        fence = null;
+        pendingContent = false;
+      } else {
+        fenceLines.push(line);
+      }
+      continue;
+    }
+    const opening = FENCE_PATTERN.exec(line);
+    if (opening !== null) {
+      fence = opening[1];
+      fenceLines = [];
+      continue;
+    }
 
     if (line.startsWith(`${'#'.repeat(TITLE_LEVEL)} `)) {
       scope.title = line.slice(TITLE_LEVEL + 1);
@@ -505,21 +767,48 @@ export function parseOriginSpec(markdown) {
     }
     if (line.startsWith(`${'#'.repeat(SECTION_LEVEL)} `)) {
       section = line.slice(SECTION_LEVEL + 1);
+      const registered = SPEC_SECTIONS.find((candidate) => candidate.heading === section);
+      record = registered === undefined ? null : sections[registered.key];
+      if (record !== null) record.status = RECORDED_STATUS;
       entry = null;
       target = section === SCOPE_SECTION ? scope : null;
       continue;
     }
-    if (line.startsWith(`${'#'.repeat(ENTRY_LEVEL)} `)) {
-      const heading = ENTRY_HEADING_PATTERN.exec(line.slice(ENTRY_LEVEL + 1));
-      if (heading === null) {
-        throw new Error(`an entry heading names neither a claim nor a demotion: ${JSON.stringify(line)}`);
+
+    const heading = HEADING_PATTERN.exec(line);
+    if (heading !== null) {
+      const written = heading[1];
+      if (written === CARRIED_HEADING) {
+        entry = { kind: 'Carried', id: null, fields: {} };
+        target = entry.fields;
+        continue;
       }
-      entry = { kind: heading[1], id: heading[2], fields: {} };
+      const named = ENTRY_HEADING_PATTERN.exec(written);
+      if (named === null) {
+        // A bare subsection heading is the package a group of claims is scoped to.
+        // It is reading order rather than data — every claim already carries its
+        // scope — so it is collected for the round trip and not for the claim list.
+        if (record !== null && !record.scopes.includes(written)) record.scopes.push(written);
+        entry = null;
+        target = null;
+        continue;
+      }
+      entry = { kind: named[1], id: named[2], fields: {} };
       target = entry.fields;
-      if (section === CLAIMS_SECTION) claimEntries.push(entry);
-      else if (section === DEMOTIONS_SECTION) demotionEntries.push(entry);
+      if (named[1] === 'Claim') claimEntries.push(entry);
+      else demotionEntries.push(entry);
       continue;
     }
+
+    if (record !== null && line === '- content:') {
+      pendingContent = true;
+      continue;
+    }
+    if (record !== null && line.startsWith('- status: ')) {
+      record.status = line.slice('- status: '.length);
+      continue;
+    }
+    if (line.startsWith('- stage: ')) continue;
 
     const item = LIST_ITEM_PATTERN.exec(line);
     if (item !== null) {
@@ -548,8 +837,9 @@ export function parseOriginSpec(markdown) {
     root: scope.root ?? null,
     title: scope.title ?? null,
     tree_hash: scope.tree_hash ?? '',
-    claims: claimEntries.map(parseClaimEntry),
+    claims: claimEntries.map(parseClaimEntry).sort((left, right) => compareText(left.claim_id, right.claim_id)),
     demotions: demotionEntries.map((found) => ({ claim_id: found.id, ...found.fields })),
+    sections,
   };
 }
 

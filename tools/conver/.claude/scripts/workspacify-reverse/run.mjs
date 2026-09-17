@@ -117,7 +117,7 @@ const SUBCOMMANDS = [
 const ARGUMENT_FREE_SUBCOMMANDS = ['analyze', 'detect', 'scrub', 'verify', 'gate', 'pattern', 'inventory', 'decide', 'status', 'seam', 'report'];
 
 /** The options that name a value; every other `--name` is a switch. */
-const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--recorded', '--answers'];
+const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--recorded', '--answers', '--semantics'];
 
 /**
  * The options the entrance used to honour and no longer does, with the reason each left.
@@ -210,7 +210,8 @@ const USAGE = [
   '  scrub [--dry-run]                Report what would be removed',
   '  scrub --apply                    Remove L1/L2 traces and rename keyed files',
   '  verify                           Exit 0 when no trace remains, 1 otherwise',
-  `  analyze                          The entrance: run R0 through ${stageLabel(ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1])} in series and publish the origin spec into ${RESERVED_ROOT_NAME}/${RESERVED_REVERSE_SUBDIRECTORY}`,
+  `  analyze [--semantics=<path>]     The entrance: run R0 through ${stageLabel(ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1])} in series and publish the origin spec into ${RESERVED_ROOT_NAME}/${RESERVED_REVERSE_SUBDIRECTORY}`,
+  '                                   --semantics admits the design readings an author wrote, each an inference citing the measured claims it rests on',
   `  gate                             Exit 0 when the six decisions are recorded at ${RESERVED_ROOT_NAME}/${RESERVED_REVERSE_SUBDIRECTORY}/${RESERVED_DECISIONS_FILE_NAME}; 1 with the advice otherwise`,
   '  regression capture               Freeze the forward rotation as it behaves now',
   '  regression check                 Exit 0 when every frozen value is reproduced',
@@ -359,7 +360,7 @@ function parseSpikeArguments(second, rest, argv) {
   };
 }
 
-// [::TICKET::] P22-4, P22-9, P25-7, PX-213, PX-214, P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P25-7|PX-213|PX-214|P26-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P25-7, PX-213, PX-214, P26-3, P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P25-7|PX-213|PX-214|P26-3|P26-4) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const [subcommand, second, ...rest] = argv;
   const common = commonOptions(subcommand, optionTokens(second, rest));
@@ -410,6 +411,10 @@ function parseArgs(argv) {
     // reader authored, and the content is theirs rather than derivable from the
     // directory, so it is named rather than read from a fixed place.
     answers: flagValue(optionTokens(second, rest), '--answers'),
+    // The second authored input: the AI's design readings, admitted as inferred claims
+    // beside the measured ones. Like `--answers` it names a file the operator wrote, so
+    // it is an option rather than a positional and a bare path stays refused.
+    semantics: flagValue(optionTokens(second, rest), '--semantics'),
   };
 }
 
@@ -474,8 +479,8 @@ function reportStage({ stage, input, error }) {
  * publishes is what the stages produce and nothing beside it, so the set a reader
  * receives does not depend on what the host has installed.
  */
-// [::TICKET::] P22-4, P22-9, P23-7, P25-7, PX-213, PX-214, P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|P25-7|PX-213|PX-214|P26-2) --for-spec --no-implementation-order`.
-async function runAnalysisPipeline({ root, through, out }) {
+// [::TICKET::] P22-4, P22-9, P23-7, P25-7, PX-213, PX-214, P26-2, P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|P25-7|PX-213|PX-214|P26-2|P26-4) --for-spec --no-implementation-order`.
+async function runAnalysisPipeline({ root, through, out, semantics }) {
   let currentStage = null;
   let outcome;
   try {
@@ -483,7 +488,7 @@ async function runAnalysisPipeline({ root, through, out }) {
       root,
       out,
       through,
-      options: { onStage: (stage) => { currentStage = stage; } },
+      options: { onStage: (stage) => { currentStage = stage; }, semantics: semantics ?? null },
     });
   } catch (error) {
     return reportStage({ stage: currentStage, input: { root, out, through }, error });

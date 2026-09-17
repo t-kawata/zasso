@@ -93,16 +93,23 @@ function specClaims() {
 }
 
 // [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
-function specOver(tree) {
-  return {
-    schema_version: ORIGIN_SPEC_SCHEMA_VERSION,
-    kind: ORIGIN_SPEC_KIND,
+/**
+ * A spec over the fixture tree, built the way the run builds one.
+ *
+ * It was hand-written until P26-4, and that is what let the change hide: a hand-written
+ * object carried no sections, and a spec whose sections are absent renders no package
+ * headings and therefore no claims. Building it through `buildOriginSpec` makes the
+ * fixture the shape the run actually produces, which is what the round trip is a
+ * statement about.
+ */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function specOver(tree, { claims = specClaims(), sections = {} } = {}) {
+  return buildOriginSpec({
     root: tree.root,
-    title: `ORIGIN-LONG-SPEC — ${tree.root}`,
-    tree_hash: 'sha256:deadbeef',
-    claims: specClaims(),
-    demotions: [],
-  };
+    ledger: { root: tree.root, claims },
+    treeHash: 'sha256:deadbeef',
+    sections,
+  });
 }
 
 // --- C002 precondition -----------------------------------------------------------
@@ -242,7 +249,7 @@ test('UT-3 / C003 postcondition: the Markdown carries ATX headings and re-parses
 
     assert.match(markdown, /^# /m, 'the document opens with an ATX heading');
     assert.match(markdown, /^## /m, 'the document sections with ATX headings');
-    assert.match(markdown, /^### /m, 'each claim hangs from an ATX heading');
+    assert.match(markdown, /^#{3,6} Claim `/m, 'each claim hangs from its own ATX heading');
 
     const reparsed = parseOriginSpec(markdown);
     assert.deepEqual(reparsed, spec, 'the Markdown re-parses to the structure it was rendered from');
@@ -328,7 +335,7 @@ test('UT-3 / C001: an inferred claim keeps the basis that makes it admissible', 
 test('UT-3: the round trip holds for an empty spec and for one carrying demotions', () => {
   const tree = createSyntheticTree(SPEC_TREE);
   try {
-    const empty = { ...specOver(tree), claims: [] };
+    const empty = specOver(tree, { claims: [] });
     assert.deepEqual(parseOriginSpec(renderOriginSpec(empty)), empty);
 
     const demoted = {

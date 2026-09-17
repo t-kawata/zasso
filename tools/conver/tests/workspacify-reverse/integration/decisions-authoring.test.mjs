@@ -57,7 +57,14 @@ const OUTPUT_BUFFER_BYTES = 64 * 1024 * 1024;
  * this constant, and an input edited without re-taking the judgement fails here
  * instead of passing quietly as the same reading.
  */
-const PINNED_DECISIONS_DIGEST = '68d6a84fb85b6211cdeef0c01405e05ccaec8f7fd3d69aa24dd8ce276fc80ffd';
+// Re-measured 2026-09-17 by P26-4. The pinned input is the decisions authored over a
+// representative's origin spec, and the spec changed: its sections now carry the analysis's
+// own published documents, so the pulse sees seventeen chapter-level observations it did
+// not see before and every positional candidate id moved with them. The fixture was
+// re-authored from the new spec by `writeDecisions`, which derives every entry from the
+// spec and the measured tree rather than from this file.
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+const PINNED_DECISIONS_DIGEST = 'ad893f48502403f840b3f5adc3c3e7e7de12652c91162f8876441bfd11e562a5';
 
 /** The representative that carries claims, and the one that carries none. */
 const CLAIM_CARRYING = 'siprs-for-reverse';

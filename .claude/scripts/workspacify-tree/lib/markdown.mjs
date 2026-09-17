@@ -42,18 +42,31 @@ export function scanFenceStates(lines) {
 }
 
 /**
- * Byte offset at which each line starts within the UTF-8 source text.
+ * The string offset at which each line starts.
+ *
+ * This counted UTF-8 bytes once, and every caller slices the *string* with the result.
+ * The two agree while the text is ASCII and part company at the first character outside
+ * it: the em dash in a title is three bytes and one character, and a document carrying
+ * fourteen thousand of them — a specification with the analysis's own prose inside it —
+ * drifts nineteen thousand bytes, far enough that a heading's recorded start lands in
+ * the middle of an earlier line. A section's body then began mid-sentence, and the
+ * directory it named came out as `src/`.
+ *
+ * The fields these offsets fill are still called `byte_start` and `byte_end` throughout
+ * the tree. That name predates this fix and is now inaccurate: they hold string offsets,
+ * because a string offset is what every reader needs. Renaming them touches every
+ * producer, every consumer and every frozen record, so it belongs to a ticket of its own
+ * rather than to this one.
  *
  * @param {string} sourceText - normalized text
- * @returns {number[]} offsets[i] is the byte offset of line i (0-based)
+ * @returns {number[]} offsets[i] is the offset of line i (0-based) into the string
  */
-export function lineByteOffsets(sourceText) {
-  const bytes = Buffer.from(sourceText, 'utf8');
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+export function lineStartOffsets(sourceText) {
   const offsets = [0];
-  for (let i = 0; i < bytes.length; i++) {
-    if (bytes[i] === 0x0a) {
-      offsets.push(i + 1);
-    }
+  for (let index = 0; index < sourceText.length; index += 1) {
+    if (sourceText[index] === '\n') offsets.push(index + 1);
   }
   return offsets;
 }
+

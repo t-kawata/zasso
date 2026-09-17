@@ -10,7 +10,7 @@
  * recorded source hash.
  */
 import { sha256Hex } from './hash.mjs';
-import { lineByteOffsets } from './markdown.mjs';
+import { lineStartOffsets } from './markdown.mjs';
 import { WorkSpacifyTreeError } from './errors.mjs';
 
 /** Default segmentation anchor level chosen by the design (## chapters). */
@@ -25,12 +25,13 @@ export const DEFAULT_SEGMENT_LEVEL = 2;
  * @throws {WorkSpacifyTreeError} gateId "G1.3" when no ATX heading exists
  */
 export function segmentAtHeadings({ sourceText, headings }, { segmentLevel = DEFAULT_SEGMENT_LEVEL } = {}) {
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
   if (!headings || headings.length === 0) {
     throw new WorkSpacifyTreeError('cannot segment: no ATX heading found', { gateId: 'G1.3' });
   }
   const sourceBytes = Buffer.from(sourceText, 'utf8');
   const totalBytes = sourceBytes.length;
-  const offsets = lineByteOffsets(sourceText);
+  const offsets = lineStartOffsets(sourceText);
   const anchors = headings
     .filter((heading) => heading.level === segmentLevel && heading.byte_start !== null)
     .sort((a, b) => a.byte_start - b.byte_start);

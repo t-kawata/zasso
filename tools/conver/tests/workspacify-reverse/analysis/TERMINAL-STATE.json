@@ -80,7 +80,7 @@
       "representative": "siprs-for-reverse",
       "decisions": {
         "input": "tests/workspacify-reverse/fixtures/patterns/siprs-for-reverse/DECISIONS.json",
-        "digest": "68d6a84fb85b6211cdeef0c01405e05ccaec8f7fd3d69aa24dd8ce276fc80ffd"
+        "digest": "ad893f48502403f840b3f5adc3c3e7e7de12652c91162f8876441bfd11e562a5"
       },
       "analysed": 0,
       "started_from": "b6dbffdd319c7cd29dd4af03468992a052c146de3c95665280279b10728d237c"
@@ -134,7 +134,7 @@
     "position": "L0",
     "omissionZero": {
       "measured": false,
-      "reason": "this observation runs no find-omissions round; §5.9 makes the result material for the human’s judgement rather than this run’s output"
+      "reason": "this observation runs no find-omissions round; \u00a75.9 makes the result material for the human\u2019s judgement rather than this run\u2019s output"
     },
     "residue": "0 difference(s) recorded and none resolved",
     "disagreements": []

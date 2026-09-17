@@ -1,3 +1,4 @@
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
 // @verifies C003
 // [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
 /**
@@ -103,9 +104,12 @@ test('C003 invariant: the measurement is over the library and not over the tests
   // Re-measured 2026-09-17 by P26-3, which added the five modules the Step-level
   // subcommands read: `published-set.mjs`, `inventory.mjs`, `seam.mjs`, `step-report.mjs`
   // and `decision-writing.mjs`.
+  // Re-measured 2026-09-17 by P26-4, which added the three the absorption reads:
+  // `spec-sections.mjs` (the registry), `spec-assembly.mjs` (the spec built from the
+  // published set) and `design-semantics.mjs` (the authored readings).
   assert.equal(
     readdirSync(MODULE_DIRECTORY).filter((name) => name.endsWith('.mjs')).length,
-    56,
+    59,
     'the library the measurement is taken over',
   );
 });

@@ -11,6 +11,7 @@
  * and never removes a candidate. The AI settles each candidate in the same session.
  */
 import { NORMATIVE_PHRASES } from './extraction.mjs';
+import { lineStartOffsets, scanFenceStates } from './markdown.mjs';
 
 /** Every observation kind the pulse can report. */
 export const PULSE_KINDS = Object.freeze([
@@ -66,7 +67,45 @@ export function buildSpecPulse({ sourceText = '', headings = [], segments = [], 
   return { candidate_ids: candidates.map((candidate) => candidate.id), candidates, summary: summarizeKinds(candidates) };
 }
 
+/**
+ * The line an offset falls on, by binary search over the line starts.
+ *
+ * `scanFenceStates` answers per line and a match index is an offset into the whole
+ * document, so the offset is translated before the question is asked.
+ */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function lineOf(offsets, offset) {
+  let low = 0;
+  let high = offsets.length - 1;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (offsets[middle] <= offset) low = middle;
+    else high = middle - 1;
+  }
+  return low;
+}
+
+/**
+ * A chapter's own prose: neither its table rows nor its quoted blocks.
+ *
+ * The same distinction the table filter already draws, extended to fences. Without it a
+ * chapter that carries a published document reads as one that argues for it.
+ */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function proseOf(text) {
+  return proseLines(text).join('\n');
+}
+
+/** The non-empty lines of a chapter that are its own prose, in order. */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+function proseLines(text) {
+  const kept = text.split('\n').filter((line) => !TABLE_ROW_RE.test(line));
+  const fenceStates = scanFenceStates(kept);
+  return kept.filter((line, index) => fenceStates[index]?.inFence !== true && line.trim().length > 0);
+}
+
 /** One view per segment: its text, its owned items and its line count. */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function buildChapterViews({ sourceText, headings, segments, inventory }) {
   const ownedBySegment = new Map();
   for (const item of collectInventoryItems(inventory)) {
@@ -91,9 +130,11 @@ function buildChapterViews({ sourceText, headings, segments, inventory }) {
         is_chapter: Boolean(segment.heading_id) && (segment.title ?? '').length > 0,
         title,
         text,
-        // Prose only: a table mentioning a name does not explain it.
-        prose: text.split('\n').filter((line) => !TABLE_ROW_RE.test(line)).join('\n'),
-        lines: text.split('\n').filter((line) => line.trim().length > 0).length,
+        // Prose only: a table mentioning a name does not explain it, and neither does a
+        // quoted block. A chapter carrying a payload rather than an argument is quoted
+        // material, and its length and its identifiers are facts about what it quotes.
+        prose: proseOf(text),
+        lines: proseLines(text).length,
         owned_items: [...(ownedBySegment.get(segment.id) ?? [])].sort(),
         order: index,
         byte_span: segment.byte_end - segment.byte_start,
@@ -214,6 +255,7 @@ function detectTableProseMismatch(chapters) {
 }
 
 /** An identifier used once and defined nowhere. */
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function detectUndefinedReference({ sourceText, chapters, inventory }) {
   const defined = new Set();
   for (const chapter of chapters) {
@@ -226,10 +268,20 @@ function detectUndefinedReference({ sourceText, chapters, inventory }) {
       defined.add(String(item.canonical_name).toLowerCase());
     }
   }
+  // Only the document's own prose counts. A fenced block is quoted material — a schema, a
+  // payload, a document the analysis published — and an identifier inside it is not one
+  // this specification uses. Reading them as such reported three thousand
+  // `undefined_reference` candidates about a specification that quotes its own JSON,
+  // every one of them a fact about the quoted payload.
   const counts = new Map();
+  const fenceStates = scanFenceStates(sourceText.split('\n'));
+  const offsets = lineStartOffsets(sourceText);
   for (const match of sourceText.matchAll(INLINE_CODE_RE)) {
     const token = match[1].trim();
     if (token.length === 0) {
+      continue;
+    }
+    if (fenceStates[lineOf(offsets, match.index)]?.inFence === true) {
       continue;
     }
     counts.set(token, (counts.get(token) ?? 0) + 1);
