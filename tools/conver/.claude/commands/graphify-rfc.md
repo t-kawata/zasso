@@ -5,14 +5,11 @@ allowed-tools: Read, Write, Bash
 disable-model-invocation: true
 ---
 
-# CRITICAL — NON-INTERACTIVE EXECUTION
+# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION
 
-Strictly prohibit questions, confirmations, approval requests, option presentation, and delegation of decisions to humans.
-Do not use ambiguous requirements, uncertainty, design choices, or execution failures as reasons to stop.
-Make autonomous decisions based on existing code, types, tests, documentation, and nearby implementations.
-When no decision is determinable, decide by prioritizing minimal change, backward compatibility, reversibility, and existing conventions.
-Once started, complete the task unattended and independently: implement, validate, fix, and reach all defined completion criteria.
-Instead of asking questions, record assumptions, decision rationale, and remaining risks in the final report.
+Pipeline commands (/workspacify-*, /graphify-rfc, /split-to-tickets, /boundify-graph, /make-ticket, /plan-ticket, /start-ticket, /review-ticket, /resolve-ticket, /consolidate-stubs, /find-omissions, /crystalize-readme, /epush-branch, /jpush-branch) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor / background tasks / polling, then resume immediately; NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only—narrow by impact, target tests, parallelize/background work—and NEVER reduce completion criteria or justify deferral.
+
+Strictly prohibit questions, confirmations, approvals, options, and human decision delegation. Decide autonomously from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Once started: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: final outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
 # /graphify-rfc <source-file-path>
 
