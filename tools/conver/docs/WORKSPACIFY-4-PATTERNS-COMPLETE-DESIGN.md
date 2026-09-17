@@ -114,7 +114,7 @@ Evidence, all from the code:
 | `RFC-SEED.md` is written into **every package directory** | `allocate-manifest.mjs:43` — `` path: `${pkg.path}/${SEED_FILE_NAME}` `` |
 | There is exactly one seed per package | `workspacify-allocate/lib/reverse-mode.mjs:212` — *"each of the N seed-bearing package(s) holds exactly one `RFC-SEED.md`"* |
 | The seed names its package | `seed-render.mjs:76` — `` `${SEED_TITLE_PREFIX}${pkg.name}` `` where `SEED_TITLE_PREFIX = '# RFC Seed: '` |
-| `Tickets.json` is generated **in the same directory as its design document** | `.claude/commands/split-to-tickets.md:46-47` — *"e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`"* |
+| `Tickets.json` is generated **in the same directory as its design document** | `.claude/commands/split-to-tickets.md:44` — *"e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`"* |
 | The graph and the Dirs-Tree sit **beside their RFC** | `.claude/commands/boundify-graph.md` — `basename="$(basename "$1" -GRAPH.json)"`, `dirsTreePath="${graphDir}/${basename}-Dirs-Tree.json"` |
 | The workspace root **is itself a package**, path `.` | `workspacify-tree/lib/structure-parity.mjs` — `ROOT_PACKAGE_PATH = '.'` (line 69); the comment and the assignment at lines 126–131 read *"A file at the project root is owned by the package whose path is `.` … Without this a project with a root-level `build.rs` could satisfy neither gate"*; `packageOwnsPath` (line 172) treats `.` as owning everything |
 
@@ -411,7 +411,7 @@ incompleteness is not reported and left; it is *converted*. And `ABOUT-REVERSE` 
 Before designing the content, the permissions:
 
 - The file is **not** in `COMMAND_FILE_NAMES` (`command-file-digest.mjs:50`), which freezes
-  **fifteen** command files. `command.test.mjs:147` asserts this explicitly:
+  **fifteen** command files. `command.test.mjs:145` asserts this explicitly:
   *"the reverse file is deliberately outside the frozen digest: it is a creation, not an edit"*.
   `P22-9` **created** it as a new file, so the append-only discipline that binds the frozen set does
   not bind it. **A rewrite is permitted.**
@@ -419,8 +419,8 @@ Before designing the content, the permissions:
   that name a script and were never guarded joined it — and this file stayed outside, for the reason
   above.)*
 - But eight structural assertions **do** bind it. They are defined in
-  `helpers/command-file.mjs:214` (`assertCommandFileStructure`) and applied to this file at
-  `command.test.mjs:155`. A rewrite must keep
+  `helpers/command-file.mjs:270` (`assertCommandFileStructure`) and applied to this file at
+  `command.test.mjs:153`. A rewrite must keep
   all of them:
 
 | # | Assertion |
@@ -476,9 +476,11 @@ The defects are kept here as the record of what the rewrite was for:
 ## Step 3: reach the exit
 ## Step 4: read the material in the order it is needed
 ## Step 5: decide the partition
-## Step 6: record the seam
-## Step 7: hand over
-## Step 8: report
+## Step 6: author the design semantics     ← P26-5: the readings an author writes, each an inference citing the measured claims it rests on
+## Step 7: inspect, repair and reinforce the semantics   ← P26-5: the locator prints where to look; the judgement stays the author's
+## Step 8: record the seam
+## Step 9: hand over
+## Step 10: report
 ## The terminal state this command serves    ← §2; P26-2 moved it after the Steps and gave the reader the instrument that measures it
 ## What this command cannot yet reach        ← §6, named absences
   Error recovery                           ← P26-2: a symptom → return-Step table
@@ -486,7 +488,7 @@ The defects are kept here as the record of what the rewrite was for:
   Definition of success                    ← rewritten
 ```
 
-Assertion 7 (`/Step \d/`) is satisfied by `## Step 0` … `## Step 8`.
+Assertion 7 (`/Step \d/`) is satisfied by `## Step 0` … `## Step 10`.
 
 ### 5.4 The workflow
 
@@ -530,7 +532,7 @@ Three mechanical facts the file must state, because without them the operator mi
 outcome:
 
 1. **Publishing is atomic.** `replacePublishedDocuments` is called **once**, after every stage in the
-   prefix has run and the target has been re-digested (`scope.mjs:1974`), and it replaces the
+   prefix has run and the target has been re-digested (`scope.mjs:1973`), and it replaces the
    destination rather than adding to it, so the directory holds one run's documents and no other
    round's. A run that stops **publishes nothing**. There is no partial-document state to clean up.
 2. **There is no command-line prefix instrument.** Because of (1), a failure late in a long run
@@ -542,7 +544,7 @@ outcome:
    running program.
    **But**: a full run reached R8 in about **three minutes** (Appendix A.1). Run to the exit.
 3. **The target is digested before and after.** A single byte moved outside the reserved directory
-   and the run refuses to publish (`scope.mjs:1834-1838`). The tree must be quiescent, and the
+   and the run refuses to publish (`scope.mjs:1812-1817`). The tree must be quiescent, and the
    digest record names the directories it did not cover, so the claim is read as what it is rather
    than as a claim over the whole tree.
 
@@ -630,7 +632,7 @@ Each of these is a formulation that was tried and rejected:
 | `scrub` / `detect` / `verify` as workflow steps | `scrub` **removes** forward traces. On a pattern-2 project those traces are its 143 `Initial Design Artifact` headers and its `@verifies` annotations. Removing them is supreme law 4 territory and destroys exactly what must be carried forward |
 | `oracle compare` as a workflow step | An answer key exists only in the paired-tree experiment. No real project has one |
 | An invocation that hands a rotation a path the rotation can derive | §9. The criterion the family applies is that an argument is hidden unless hiding it breaks one of the four patterns. `--root`, `--graph`, `--measured`, `--sidecars`, `--delta`, `--out` and `--prior-partition` left the reverse rotation for this reason, and the decisions document left both forward rotations; all of them are refused by name rather than ignored, because a question dropped in silence reads exactly like one answered |
-| `run.mjs regression check` as a precondition | It takes **no root** (`.claude/scripts/workspacify-reverse/run.mjs:367-372` — the branch fixes `action: second, root: process.cwd()` and states that requiring a root would make the command unrunnable by the automated sessions that run it before every later ticket's step). It measures the conver repository, and its fixtures are not installed into a user's project |
+| `run.mjs regression check` as a precondition | It takes **no root** (`.claude/scripts/workspacify-reverse/run.mjs:383-387` — the branch fixes `action: second, root: process.cwd()` and states that requiring a root would make the command unrunnable by the automated sessions that run it before every later ticket's step). It measures the conver repository, and its fixtures are not installed into a user's project |
 | Any statement that the project must already be a complete conver project | §1.2 |
 
 ### 5.9 The round, and what success is
@@ -699,7 +701,7 @@ think the rows are still there.
 | The analysis does not write to its subject | The run's own digest comparison; plus `git status` clean afterwards |
 | The workspace root is a package, path `.` | `structure-parity.mjs` lines 69, 126–131, 172 |
 | `RFC-SEED.md` is per-package | `allocate-manifest.mjs:43`, `workspacify-allocate/lib/reverse-mode.mjs:212` |
-| `Tickets.json` is per-design-document | `.claude/commands/split-to-tickets.md:46-47` |
+| `Tickets.json` is per-design-document | `.claude/commands/split-to-tickets.md:44` |
 | Graph / Dirs-Tree sit beside their RFC | `.claude/commands/boundify-graph.md` |
 | The isolation check rejects a pattern-2 tree | `holdout isolation siprs-with-4layers` → exit 1, 9 artefacts named |
 | The `.delta.json` family is the evolution loop's | `drill-rfc-down/boundify-step.js:66` |

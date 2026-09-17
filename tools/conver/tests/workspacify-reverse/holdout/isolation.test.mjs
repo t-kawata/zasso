@@ -26,18 +26,10 @@ import {
 import { createSyntheticTree, hashTree } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
-const SUBJECT_ROOT = fileURLToPath(new URL('../../../siprs-for-reverse', import.meta.url));
 const RUN_SCRIPT = fileURLToPath(new URL('../../../.claude/scripts/workspacify-reverse/run.mjs', import.meta.url));
-const subjectAvailable = existsSync(SUBJECT_ROOT);
 
 // --- UT-2: a clean root is clean ----------------------------------------------
 
-test('UT-2: verifyIsolation returns clean for the real subject tree', { skip: !subjectAvailable }, () => {
-  const result = verifyIsolation(SUBJECT_ROOT);
-  assert.equal(result.clean, true, renderIsolationReport(result, SUBJECT_ROOT));
-  assert.deepEqual(result.violations, []);
-  assert.ok(result.filesScanned > 0);
-});
 
 test('C003 postcondition: every contamination pattern is declared with a kind a human can read', () => {
   assert.deepEqual(
@@ -147,11 +139,6 @@ test('UT-17 / C003 invariant: the isolation check performs no write to the targe
   }
 });
 
-test('UT-17 companion: the real subject tree is byte-identical after an isolation check', { skip: !subjectAvailable }, () => {
-  const before = hashTree(SUBJECT_ROOT);
-  verifyIsolation(SUBJECT_ROOT);
-  assert.deepEqual(hashTree(SUBJECT_ROOT), before);
-});
 
 test('a holdout\'s own readme is its documentation; a forward-rotation artefact still fails it', () => {
   const tree = createSyntheticTree({

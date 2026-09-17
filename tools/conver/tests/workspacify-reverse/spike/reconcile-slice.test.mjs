@@ -28,17 +28,21 @@ import { fileURLToPath } from 'node:url';
 import { buildPartitionCandidate, resolveSlice, runSpike } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
 import { buildClaimCandidate, buildClaimLedger } from '../../../.claude/scripts/workspacify-reverse/lib/claim-ledger.mjs';
 import { DISAGREEMENT_KINDS, NO_KNOWN_DELTA, reconcile, renderReconciliation } from '../../../.claude/scripts/workspacify-reverse/lib/reconcile.mjs';
-import { ORACLE_TREE_RELATIVE_PATH, freezeOracle, writeOracleBundle } from '../../../.claude/scripts/workspacify-reverse/lib/oracle-bundle.mjs';
+import { freezeOracle, writeOracleBundle } from '../../../.claude/scripts/workspacify-reverse/lib/oracle-bundle.mjs';
 import {
   ORACLE_FIXTURE_FILES,
   SPIKE_SINGLE_CLAIM_FILES,
   createSyntheticTree,
+  hashTree,
   writeSyntheticTree,
 } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const RUN_SCRIPT = fileURLToPath(new URL('../../../.claude/scripts/workspacify-reverse/run.mjs', import.meta.url));
 const FROZEN_AT = '2026-09-10T00:00:00Z';
+
+/** Where the synthetic answer key sits inside a throwaway project root. */
+const SYNTHETIC_ORACLE_DIRECTORY = 'synthetic-answer-key';
 const RECONCILIATION_KEYS = ['candidatePath', 'disagreements', 'expected', 'findings', 'oracleSha256', 'stage', 'unobserved'];
 
 /**
@@ -78,7 +82,7 @@ const SPIKE_ORACLE_FILES = Object.freeze({
 /** A throwaway project holding the synthetic answer key and its frozen bundle. */
 function makeOracleProject() {
   const projectRoot = mkdtempSync(join(tmpdir(), 'p22-3-spike-'));
-  const oracleRoot = join(projectRoot, ORACLE_TREE_RELATIVE_PATH);
+  const oracleRoot = join(projectRoot, SYNTHETIC_ORACLE_DIRECTORY);
   writeSyntheticTree(oracleRoot, SPIKE_ORACLE_FILES);
   writeOracleBundle({ projectRoot, bundle: freezeOracle({ oracleRoot, frozenAt: FROZEN_AT }) });
   return { projectRoot, oracleRoot, dispose: () => rmSync(projectRoot, { recursive: true, force: true }) };
@@ -304,17 +308,18 @@ test('IT: the reconcile action refuses when no run has happened', () => {
 // --- IT-4 / C004 invariant: the answer key is never written to ------------------
 
 test('IT-4: the answer key is untouched after a comparison', () => {
-  const before = spawnSync('git', ['status', '--porcelain', '--', ORACLE_TREE_RELATIVE_PATH], { cwd: PROJECT_ROOT, encoding: 'utf8' });
-  assert.equal(before.stdout.trim(), '', 'the answer key starts clean');
-
   const project = makeOracleProject();
   const subject = createSyntheticTree(SPIKE_SINGLE_CLAIM_FILES);
+  // The key is digested rather than asked of git: the experiment's own key has
+  // been deleted, and a comparison is read-only over whichever key it is given.
+  const before = hashTree(project.oracleRoot);
+
   const { slice } = buildSliceOutputs(subject.root, 'solo');
   const candidatePath = writeCandidate(project.projectRoot, 'r1.candidate.json', buildPartitionCandidate(slice));
   reconcile({ stage: 'r1', projectRoot: project.projectRoot, candidatePath, knownDelta: NO_KNOWN_DELTA });
 
-  const after = spawnSync('git', ['status', '--porcelain', '--', ORACLE_TREE_RELATIVE_PATH], { cwd: PROJECT_ROOT, encoding: 'utf8' });
-  assert.equal(after.stdout.trim(), '', 'the answer key is written to by nothing in this path');
+  assert.deepEqual(hashTree(project.oracleRoot), before, 'the answer key is written to by nothing in this path');
+  assert.equal(existsSync(project.oracleRoot), true);
   subject.dispose();
   project.dispose();
 });

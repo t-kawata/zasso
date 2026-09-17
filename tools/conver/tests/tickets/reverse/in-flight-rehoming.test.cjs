@@ -18,6 +18,11 @@
  * offered and a set that declares no ticket are three different zeroes, and each is
  * stated rather than rendered as "no work in flight".
  *
+ * The one test that drove the CLI over the real subject retired with the subject:
+ * `siprs-for-reverse` has been deleted, and the mapping counts it froze for S1
+ * cannot be re-measured. What remains drives the same CLI over ticket sets this
+ * file declares.
+ *
  * Run: node --test "tests/tickets/reverse/*.test.cjs"
  */
 'use strict';
@@ -49,7 +54,6 @@ const {
 
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const CLI_PATH = path.join(PROJECT_ROOT, '.claude/scripts/tickets/lib/reverse-split.js');
-const ORACLE_BUNDLE_PATH = path.join(PROJECT_ROOT, 'tests/workspacify-reverse/oracle/ORACLE-BUNDLE.json');
 
 /** A scratch tree, disposed by the caller's `finally`. */
 // [::TICKET::] P23-9 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-9 --for-spec --no-implementation-order`.
@@ -541,26 +545,4 @@ describe('C001 — the in-flight population', () => {
     assert.match(renderInFlightReport(inFlight), /declares no ticket/);
   });
 
-  it('UT-16: the oracle run keeps the mapping counts it had, and gains the flight block', () => {
-    const outDir = mkdtempSync(path.join(tmpdir(), 'p23-9-oracle-'));
-    try {
-      const result = spawnSync(process.execPath, [
-        CLI_PATH,
-        `--root=${path.join(PROJECT_ROOT, 'siprs-for-reverse')}`,
-        `--tickets=${ORACLE_BUNDLE_PATH}`,
-        `--out=${outDir}`,
-      ], { encoding: 'utf8' });
-
-      assert.equal(result.status, 1, 'this target leaves a remainder, so the run reports not proved');
-      const written = JSON.parse(readFileSync(path.join(outDir, 'reverse-split-tickets.json'), 'utf8'));
-      const s1 = written.gates.find((gate) => gate.gateId === 'S1');
-      assert.equal(s1.counts.unmapped, 6, 'the frozen mapping is what this target leaves');
-      assert.equal(s1.counts.mapped, 10);
-      assert.equal(written.inFlight.declared, true, 'the frozen oracle bundle declares ticket keys, so the read happens');
-      assert.equal(written.inFlight.counts.nonTerminal, 0, 'the bundle carries keys only, so no ticket declares a status');
-      assert.equal(written.inFlight.reason, EMPTY_DECLARED_TICKET_SET_REASON);
-    } finally {
-      rmSync(outDir, { recursive: true, force: true });
-    }
-  });
 });

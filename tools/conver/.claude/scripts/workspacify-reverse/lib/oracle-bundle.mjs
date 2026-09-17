@@ -1,12 +1,18 @@
 // [::TICKET::] P22-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-2 --for-spec --no-implementation-order`.
 /**
- * The answer key: `siprs-with-4layers` extracted into a frozen bundle.
+ * The answer key extracted into a frozen bundle.
  *
- * `siprs-with-4layers` is the same project taken through the forward rotation
- * to RESIDUE 0, so it holds the RFC, the graph, the partition, the tickets and
- * the contract annotations that reverse rotation is trying to reconstruct.
- * Measuring against it turns "does the analysis look plausible" into a
- * concrete, falsifiable disagreement list.
+ * An answer key is a project taken through the forward rotation to RESIDUE 0, so
+ * it holds the RFC, the graph, the partition, the tickets and the contract
+ * annotations that reverse rotation is trying to reconstruct. Measuring against
+ * one turns "does the analysis look plausible" into a concrete, falsifiable
+ * disagreement list.
+ *
+ * **The key is named by its root, not declared here.** This module used to carry
+ * the path of the experiment's own key, `siprs-with-4layers`, as a default; that
+ * tree has been deleted, and with it the reason to have a default at all. Every
+ * entry point takes the root it measures, so an operator pointing the instrument
+ * at a key of their own gets the same extraction the experiment got.
  *
  * Three properties decide whether the instrument is sound.
  *
@@ -38,9 +44,6 @@ import { dirname, join, relative } from 'node:path';
 
 import { NEVER_WALKED_DIRECTORY_NAMES, compareText, listTreeFiles, nonCommentLines } from './holdout-ledger.mjs';
 
-export const ORACLE_TREE_RELATIVE_PATH = 'siprs-with-4layers';
-/** The subject: the answer key with its forward-rotation artefacts stripped. */
-export const SUBJECT_TREE_RELATIVE_PATH = 'siprs-for-reverse';
 export const BUNDLE_RELATIVE_PATH = 'tests/workspacify-reverse/oracle/ORACLE-BUNDLE.json';
 export const KNOWN_DELTA_RELATIVE_PATH = 'tests/workspacify-reverse/oracle/KNOWN-DELTA.json';
 export const BUNDLE_SCHEMA_VERSION = 1;
@@ -381,7 +384,6 @@ export function freezeOracle({ oracleRoot, frozenAt, gitCwd }) {
     schemaVersion: BUNDLE_SCHEMA_VERSION,
     frozenAt: frozenAt ?? null,
     source: {
-      tree: ORACLE_TREE_RELATIVE_PATH,
       root: oracleRoot,
       control: readVersionControl(oracleRoot, gitCwd),
     },
@@ -426,7 +428,21 @@ export function loadOracleBundle({ projectRoot, oracleRoot }) {
     throw new Error(`no oracle bundle is frozen at ${BUNDLE_RELATIVE_PATH} — run "run.mjs oracle freeze" first`);
   }
   const bundle = JSON.parse(readFileSync(bundlePath, 'utf8'));
-  const root = oracleRoot ?? join(projectRoot, ORACLE_TREE_RELATIVE_PATH);
+  // The root the bundle was frozen from is its own record, so a reader that
+  // supplies nothing still checks against the tree the bundle describes — and is
+  // told by name when that tree is not on this machine, rather than silently
+  // reporting every artefact as drifted.
+  const root = oracleRoot ?? bundle.source?.root;
+  if (!root) {
+    throw new Error(
+      `the bundle at ${BUNDLE_RELATIVE_PATH} records no root, so the tree to check it against has to be given`,
+    );
+  }
+  if (!existsSync(root)) {
+    throw new Error(
+      `the bundle was frozen from ${root}, which is not on this machine — name the answer key to check it against`,
+    );
+  }
   const observed = extractArtefacts({ oracleRoot: root });
 
   const recomputed = [];

@@ -165,21 +165,6 @@ export const BYTECODE_CACHE_PATHS = Object.freeze([
 ]);
 
 /**
- * The bytecode cache that stays tracked, because it lives inside the answer key.
- *
- * `siprs-with-4layers/` is the frozen forward-rotation tree, and three tests in
- * `tests/workspacify-reverse/spike/reconcile-slice.test.mjs` read
- * `git status --porcelain -- siprs-with-4layers/` to assert that nothing writes to
- * it. Untracking a path inside it makes the answer key read as modified, and the
- * rewrite this cache receives is exactly the signal those tests exist to give. So
- * the cache is part of what was frozen rather than debris to be hidden, and this
- * list records the decision instead of leaving it as an omission.
- */
-export const FROZEN_BYTECODE_CACHE_PATHS = Object.freeze([
-  'tools/conver/siprs-with-4layers/.claude/scripts/lib/__pycache__/ecc_dashboard_runtime.cpython-314.pyc',
-]);
-
-/**
  * The digest of the run output as it stood when it left the index.
  *
  * This is the assertion `git rm` without `--cached` cannot survive: the paths would

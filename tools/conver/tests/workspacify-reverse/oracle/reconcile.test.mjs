@@ -30,7 +30,7 @@ import {
   reconcile,
   renderReconciliation,
 } from '../../../.claude/scripts/workspacify-reverse/lib/reconcile.mjs';
-import { ORACLE_TREE_RELATIVE_PATH, freezeOracle, writeOracleBundle } from '../../../.claude/scripts/workspacify-reverse/lib/oracle-bundle.mjs';
+import { freezeOracle, writeOracleBundle } from '../../../.claude/scripts/workspacify-reverse/lib/oracle-bundle.mjs';
 import { ORACLE_FIXTURE_FILES, writeSyntheticTree } from '../helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
@@ -38,10 +38,13 @@ const RUN_SCRIPT = fileURLToPath(new URL('../../../.claude/scripts/workspacify-r
 const FROZEN_AT = '2026-09-10T00:00:00Z';
 const RESULT_KEYS = ['candidatePath', 'disagreements', 'expected', 'findings', 'oracleSha256', 'stage', 'unobserved'];
 
+/** Where the synthetic answer key sits inside a throwaway project root. */
+const SYNTHETIC_ORACLE_DIRECTORY = 'synthetic-answer-key';
+
 /** A throwaway project holding the synthetic oracle tree and its frozen bundle. */
 function makeOracleProject() {
   const projectRoot = mkdtempSync(join(tmpdir(), 'p22-2-reconcile-'));
-  const oracleRoot = join(projectRoot, ORACLE_TREE_RELATIVE_PATH);
+  const oracleRoot = join(projectRoot, SYNTHETIC_ORACLE_DIRECTORY);
   writeSyntheticTree(oracleRoot, ORACLE_FIXTURE_FILES);
   writeOracleBundle({ projectRoot, bundle: freezeOracle({ oracleRoot, frozenAt: FROZEN_AT }) });
   return { projectRoot, oracleRoot, dispose: () => rmSync(projectRoot, { recursive: true, force: true }) };

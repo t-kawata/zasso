@@ -58,10 +58,7 @@ const {
 } = require('../../../.claude/scripts/rfc-graph/reverse-boundify.js');
 
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
-const SUBJECT_ROOT = path.join(PROJECT_ROOT, 'siprs-for-reverse');
-const ANSWERS_GRAPH_PATH = path.join(PROJECT_ROOT, 'siprs-with-4layers', 'RFC-ROOT-GRAPH.json');
 const CLI_PATH = path.join(PROJECT_ROOT, '.claude/scripts/rfc-graph/reverse-boundify.js');
-const ORACLE_CLI = path.join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/run.mjs');
 
 /** A one-line header, so the line a refusal names is arithmetic rather than a guess. */
 const MINIMAL_HEADER = '// Initial Design Artifact — RFC-driven Implementation\n';
@@ -699,99 +696,6 @@ describe('B1 through B3 — the CLI', () => {
   });
 });
 
-describe('IT — the measured trees', () => {
-  it('IT-1 the Dirs-Tree describes the measured directories of siprs-for-reverse', () => {
-    const inventoryBefore = buildFileInventory(SUBJECT_ROOT);
-
-    const dirsTree = loadDirsTreeFromForward(ANSWERS_GRAPH_PATH);
-    const plan = planReverseBoundify({ dirsTree, root: SUBJECT_ROOT, graphPath: ANSWERS_GRAPH_PATH });
-
-    assert.equal(plan.correspondence.length > 0, true, 'the declared files are described');
-    assert.equal(
-      plan.correspondence.some((row) => row.disposition === DISPOSITIONS.ATTACHED),
-      true,
-      'files that exist and carry no header are planned for a header',
-    );
-    assert.equal(
-      plan.correspondence.some((row) => row.disposition === DISPOSITIONS.ABSENT),
-      true,
-      'the declared files that were never generated are recorded rather than dropped',
-    );
-    assert.equal(
-      plan.correspondence.filter((row) => row.disposition === DISPOSITIONS.PRESERVED).length,
-      0,
-      'PX-203 stripped every header from the subject tree, so nothing is preserved',
-    );
-    assert.deepEqual(buildFileInventory(SUBJECT_ROOT), inventoryBefore, 'planning against the subject tree writes nothing');
-  });
-
-  it('IT-2 every file the plan would touch differs from its original by the header alone', () => {
-    const dirsTree = loadDirsTreeFromForward(ANSWERS_GRAPH_PATH);
-    const plan = planReverseBoundify({ dirsTree, root: SUBJECT_ROOT, graphPath: ANSWERS_GRAPH_PATH });
-    const attachable = plan.operations.filter((operation) => operation.disposition === DISPOSITIONS.ATTACHED);
-    assert.equal(attachable.length > 0, true, 'there is something to attach, or this assertion proves nothing');
-
-    withWorkspace(({ base }) => {
-      const scratch = path.join(base, 'scratch');
-      for (const operation of attachable) {
-        const full = place(scratch, operation.declaredPath, operation.before);
-        applyReverseBoundify(
-          { ...plan, operations: [operation], correspondence: buildCorrespondenceTable([operation]) },
-          { root: scratch, outDir: path.join(base, 'out2') },
-        );
-
-        const applied = readFileSync(full, 'utf8');
-        assert.equal(bodyHash(applied), bodyHash(operation.before), `${operation.declaredPath} kept its body`);
-        assert.equal(applied, operation.headerText + operation.before, `${operation.declaredPath} gained a header and nothing else`);
-      }
-    });
-  });
-
-  it('Exception verification — every attached header names a node the graph carries', () => {
-    // The Exception this ticket records is that a header's *semantic* correctness is not
-    // testable: whether a file's mapped node is the right one is a design judgement, and the
-    // source holds no record that would confirm or refute it. This is the alternative
-    // verification it names in place of that. A header may still cite a node the graph does
-    // not carry, and that is checkable — so it is checked, over every file in the real plan.
-    const graph = JSON.parse(readFileSync(ANSWERS_GRAPH_PATH, 'utf8'));
-    const nodeIds = new Set(graph.nodes.map((node) => node.id));
-    const dirsTree = loadDirsTreeFromForward(ANSWERS_GRAPH_PATH);
-    const plan = planReverseBoundify({ dirsTree, root: SUBJECT_ROOT, graphPath: ANSWERS_GRAPH_PATH });
-    const attachable = plan.operations.filter((operation) => operation.disposition === DISPOSITIONS.ATTACHED);
-
-    assert.equal(attachable.length > 0, true, 'there is a header to check, or this assertion proves nothing');
-    for (const operation of attachable) {
-      assert.match(operation.headerText, /NODE_ID=N\d+/, `${operation.declaredPath} names a node`);
-      for (const nodeId of operation.originatingNodeId.split(', ')) {
-        assert.equal(
-          nodeIds.has(nodeId),
-          true,
-          `${operation.declaredPath} cites ${nodeId}, which the ${nodeIds.size}-node graph does not carry`,
-        );
-      }
-    }
-  });
-
-  it('IT-4 the oracle compares the candidate against its recorded header set', () => {
-    const dirsTree = loadDirsTreeFromForward(ANSWERS_GRAPH_PATH);
-    const plan = planReverseBoundify({ dirsTree, root: SUBJECT_ROOT, graphPath: ANSWERS_GRAPH_PATH });
-
-    withWorkspace(({ outDir }) => {
-      const candidatePath = path.join(outDir, 'headers-candidate.json');
-      writeFileSync(candidatePath, `${JSON.stringify(buildHeaderCandidate(plan, { language: 'rust' }), null, 2)}\n`);
-
-      const result = spawnSync(
-        process.execPath,
-        [ORACLE_CLI, 'oracle', 'compare', '--stage', 'headers', `--candidate=${candidatePath}`, `--project-root=${PROJECT_ROOT}`],
-        { encoding: 'utf8', cwd: PROJECT_ROOT },
-      );
-
-      assert.equal(result.status, 0, result.stderr);
-      assert.match(result.stdout, /## Reconciliation/);
-      assert.doesNotMatch(result.stdout, /score|grade|verdict/i, 'a comparison is a list of disagreements, never a score');
-    });
-  });
-});
 
 describe('B1 through B3 — forward compatibility', () => {
   it('UT-12 the header marker is named once, and the generator still emits it', () => {

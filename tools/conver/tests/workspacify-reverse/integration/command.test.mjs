@@ -48,8 +48,6 @@ const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const RUNNER = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/run.mjs');
 const NEW_COMMAND_PATH = join(PROJECT_ROOT, COMMANDS_RELATIVE_DIR, 'workspacify-reverse.md');
 const BASELINE_PATH = 'tests/workspacify-tree/baselines/manifest-hashes.json';
-const REVERSE_ROOT = join(PROJECT_ROOT, 'siprs-for-reverse');
-const targetAvailable = existsSync(REVERSE_ROOT);
 
 /**
  * Run the command and capture what an operator would see.
@@ -511,22 +509,3 @@ test('IT-3: the forward-rotation regression gate is still proved', () => {
 
 // --- IT-1: over the real experiment input -------------------------------------
 
-test('IT-1: over siprs-for-reverse the entrance publishes the origin spec', { skip: !targetAvailable }, () => {
-  const noZg = emptyPathDirectory();
-  const destination = reservedReverseDirectory(REVERSE_ROOT);
-  try {
-    const run = runCli(['analyze'], { cwd: REVERSE_ROOT, path: noZg.root });
-    assert.equal(run.status, 0, run.stderr);
-
-    const sidecar = JSON.parse(readFileSync(join(destination, 'ORIGIN-LONG-SPEC.json'), 'utf8'));
-    const markdown = readFileSync(join(destination, 'ORIGIN-LONG-SPEC.md'), 'utf8');
-    assert.equal(sidecar.kind, 'origin-long-spec');
-    assert.ok(sidecar.claims.length > 1000, `expected the real population, found ${sidecar.claims.length}`);
-    assert.match(markdown, /^# /m);
-  } finally {
-    // The subject is a tracked tree, so the run's own destination is removed
-    // rather than left beside it. Nothing else the run touched is inside it.
-    rmSync(destination, { recursive: true, force: true });
-    noZg.dispose();
-  }
-});

@@ -2,23 +2,9 @@
   "version": 1,
   "comment": "The six language representatives: the instrument's validation population. Each entry is measured from its tree — the digest, the construct lines and the build flag are read, not typed. Regenerating it with the recorded revisions produces this file byte for byte; a digest that stops reproducing is reported rather than re-pinned.",
   "populations": {
-    "experiment": {
-      "purpose": "The experiment's own subject. The reverse rotation runs over `siprs-for-reverse`, with `siprs-with-4layers` frozen as the key it reconciles against. Nothing in this population is a validation tree.",
-      "roots": [
-        "siprs-for-reverse"
-      ]
-    },
-    "oracle": {
-      "purpose": "The frozen answer key: the layered tree the experiment is reconciled against, and never an input to it.",
-      "roots": [
-        "siprs-with-4layers"
-      ]
-    },
     "patterns": {
-      "purpose": "The four pattern representatives P23-12's audit reads — the experiment pair and the two fixtures under `fixtures/patterns/`. They are separate from the language population, so no validation tree can be reached as an answer key.",
+      "purpose": "The pattern representatives P23-12's audit reads — the two fixtures under `fixtures/patterns/`. The experiment pair that once stood beside them has been deleted with its trees. They are separate from the language population, so no validation tree can be reached as an answer key.",
       "roots": [
-        "siprs-for-reverse",
-        "siprs-with-4layers",
         "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
         "tests/workspacify-reverse/fixtures/patterns/spec-only-project"
       ],

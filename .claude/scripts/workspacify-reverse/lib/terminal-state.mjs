@@ -196,10 +196,10 @@ function isRootPackagePath(path) {
  * The directories under a root, as the fallback scope when no partition is declared.
  *
  * This is the fallback and the name says so. It cannot know the partition: it sees
- * every directory, so a build output directory is a package to it. `siprs-for-reverse`
- * carries an ignored `target/`, and this walk counts it — which is why the partition
- * is the source of record where one exists, and why the state records which source
- * produced the scope it reports.
+ * every directory, so a build output directory is a package to it. The experiment's
+ * subject carried an ignored `target/`, and this walk counted it — which is why the
+ * partition is the source of record where one exists, and why the state records which
+ * source produced the scope it reports.
  */
 // [::TICKET::] P24-8, P25-3, P25-4, P25-5, P25-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P24-8|P25-3|P25-4|P25-5|P25-6) --for-spec --no-implementation-order`.
 function directoriesUnder(root) {

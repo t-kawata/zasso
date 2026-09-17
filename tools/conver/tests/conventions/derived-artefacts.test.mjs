@@ -13,11 +13,10 @@
  * three days after the census was written. Three bytecode caches are tracked the
  * same way, and a test run rewrites them, so the working tree dirties itself.
  *
- * A fourth cache sits inside `siprs-with-4layers/` and stays tracked. That tree is
- * the answer key, three tests assert nothing writes into it, and a cache being
- * rewritten there is the signal they exist to give rather than dirt to hide. The
- * decision is data (`FROZEN_BYTECODE_CACHE_PATHS`) and is asserted below, so the
- * one cache that is left alone is not left alone by omission.
+ * A fourth cache sat inside `siprs-with-4layers/` and stayed tracked, because that
+ * tree was the answer key and untracking a path inside it would have made the key
+ * read as modified. The tree has been deleted, and with it the exception: every
+ * bytecode cache this repository holds is now untracked for the same reason.
  *
  * The digest is not decoration, for the reason `repo-hygiene.mjs` records: `git rm`
  * without `--cached` deletes the working-tree file, and every other assertion here
@@ -39,7 +38,6 @@ import { fileURLToPath } from 'node:url';
 import {
   BYTECODE_CACHE_PATHS,
   DERIVED_ARTEFACT_PREFIXES,
-  FROZEN_BYTECODE_CACHE_PATHS,
   FROZEN_DERIVED_ARTEFACT_DIGEST,
   decidingIgnoreRule,
   isGitRepository,
@@ -60,30 +58,13 @@ test('C001 the derived artefacts are declared by name, and every name exists on 
 // [::TICKET::] P25-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-5 --for-spec --no-implementation-order`.
   assert.ok(REPOSITORY_ROOT, 'the tree under test belongs to a repository, or nothing here can be measured');
   assert.deepStrictEqual(DERIVED_ARTEFACT_PREFIXES, ['tools/conver/tmp/'], 'one directory of run output');
-  assert.strictEqual(BYTECODE_CACHE_PATHS.length, 3, 'three trees outside the answer key carry a bytecode cache');
+  assert.strictEqual(BYTECODE_CACHE_PATHS.length, 3, 'three trees carry a bytecode cache');
   for (const path of BYTECODE_CACHE_PATHS) {
     assert.ok(path.endsWith('.pyc'), path + ' is a bytecode cache');
     assert.ok(!path.startsWith('tools/conver/siprs-with-4layers/'), 'the answer key is handled separately, not by omission');
     assert.ok(existsSync(join(REPOSITORY_ROOT, path)), path + ' must be present before its index state means anything');
   }
   assert.ok(isGitRepository(REPOSITORY_ROOT), 'the repository root is a git repository');
-});
-
-test('C001 the bytecode cache inside the answer key stays tracked, and that decision is data', () => {
-  // `siprs-with-4layers/` is the frozen forward-rotation tree. Three tests in
-  // tests/workspacify-reverse/spike/reconcile-slice.test.mjs read
-  // `git status --porcelain -- siprs-with-4layers/` to assert that nothing writes
-  // into it, and untracking a path inside it makes the answer key read as modified.
-  // The rewrite this cache receives is the signal those tests exist to give, so it
-  // is part of what was frozen rather than debris to be hidden.
-  assert.strictEqual(FROZEN_BYTECODE_CACHE_PATHS.length, 1);
-
-  const tracked = trackedPaths(REPOSITORY_ROOT);
-  for (const path of FROZEN_BYTECODE_CACHE_PATHS) {
-    assert.ok(path.startsWith('tools/conver/siprs-with-4layers/'), path + ' is inside the answer key, which is why it is not in the list above');
-    assert.ok(existsSync(join(REPOSITORY_ROOT, path)), path + ' is present on disk');
-    assert.ok(tracked.includes(path), path + ' must stay tracked: removing it from the index is a change to the measuring instrument');
-  }
 });
 
 // ---------------------------------------------------------------------------

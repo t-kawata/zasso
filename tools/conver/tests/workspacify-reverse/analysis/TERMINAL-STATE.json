@@ -1,46 +1,6 @@
 {
   "observations": [
     {
-      "representative": "siprs-for-reverse",
-      "stages": {
-        "reached": [
-          "T1",
-          "T2",
-          "T3",
-          "T5",
-          "T6"
-        ],
-        "refused": [
-          {
-            "stage": "T4",
-            "input": "the measured DAG contains 18 cycle(s), so it has no implementation order: pkg-0004 -> pkg-0005 -> pkg-0004; pkg-0005 -> pkg-0010 -> pkg-0005; pkg-0005 -> pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0005; pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0010; pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0011; pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0010; pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0011; pkg-0005 -> pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0005; pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0007; pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0010; pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0011; pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0012; pkg-0013 -> pkg-0014 -> pkg-0013; pkg-0005 -> pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0016 -> pkg-0005; pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0016 -> pkg-0010; pkg-0012 -> pkg-0007 -> pkg-0013 -> pkg-0014 -> pkg-0016 -> pkg-0012; pkg-0014 -> pkg-0016 -> pkg-0014; pkg-0010 -> pkg-0011 -> pkg-0012 -> pkg-0010"
-          }
-        ],
-        "complete": false
-      },
-      "outcome": "not proved",
-      "scopeSource": "partition",
-      "missing": 146,
-      "packages": 18
-    },
-    {
-      "representative": "siprs-with-4layers",
-      "stages": {
-        "reached": [],
-        "refused": [
-          {
-            "stage": "G2",
-            "input": "pipeline ended with status REVIEW_REQUIRED"
-          }
-        ],
-        "complete": false
-      },
-      "outcome": "not proved",
-      "scopeSource": "directory-walk",
-      "missing": 98,
-      "packages": 12
-    },
-    {
       "representative": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
       "stages": {
         "reached": [],
@@ -54,7 +14,7 @@
       },
       "outcome": "not proved",
       "scopeSource": "partition",
-      "missing": 25,
+      "missing": 24,
       "packages": 2
     },
     {
@@ -71,29 +31,11 @@
       },
       "outcome": "not proved",
       "scopeSource": "directory-walk",
-      "missing": 18,
-      "packages": 1
+      "missing": 25,
+      "packages": 2
     }
   ],
   "runs": [
-    {
-      "representative": "siprs-for-reverse",
-      "decisions": {
-        "input": "tests/workspacify-reverse/fixtures/patterns/siprs-for-reverse/DECISIONS.json",
-        "digest": "ad893f48502403f840b3f5adc3c3e7e7de12652c91162f8876441bfd11e562a5"
-      },
-      "analysed": 0,
-      "started_from": "b6dbffdd319c7cd29dd4af03468992a052c146de3c95665280279b10728d237c"
-    },
-    {
-      "representative": "siprs-with-4layers",
-      "decisions": {
-        "input": "<scratch>",
-        "digest": "631f102db822472741936371db78ce52b39a486c4323e7bc123a62b93aa63987"
-      },
-      "analysed": 0,
-      "started_from": "079cdf1d787042a2ad66bd2e1d073cd8f0a385ad5c6ede7929f195d4c5ccf081"
-    },
     {
       "representative": "tests/workspacify-reverse/fixtures/patterns/partial-conver-project",
       "decisions": {
@@ -134,7 +76,7 @@
     "position": "L0",
     "omissionZero": {
       "measured": false,
-      "reason": "this observation runs no find-omissions round; \u00a75.9 makes the result material for the human\u2019s judgement rather than this run\u2019s output"
+      "reason": "this observation runs no find-omissions round; §5.9 makes the result material for the human’s judgement rather than this run’s output"
     },
     "residue": "0 difference(s) recorded and none resolved",
     "disagreements": []

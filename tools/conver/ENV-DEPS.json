@@ -52,13 +52,6 @@
       "description": "Declares no dependencies."
     },
     {
-      "id": "oracle-tree",
-      "path": "siprs-with-4layers/.claude",
-      "requiredFor": "experiment",
-      "providedBy": "P22-2",
-      "description": "The answer key's own installed tree. P22-2 is the ticket that freezes and uses it, so before then its absence is normal."
-    },
-    {
       "id": "workspacify-reverse",
       "path": ".claude/scripts/workspacify-reverse",
       "requiredFor": "reverse",

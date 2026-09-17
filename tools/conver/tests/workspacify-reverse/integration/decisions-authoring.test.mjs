@@ -11,14 +11,18 @@
  * settlement is judged against is the run's own, never a fixture — a fixture
  * would let the coverage assertion pass while the real candidates moved.
  *
- * **It runs over a copy.** The representative is a frozen instrument and one of
- * its neighbours is the answer key the oracle rests on, so every command is
- * pointed at a throwaway copy and the representative is asserted byte-identical
- * afterwards.
+ * **It runs over a copy.** The representative is a frozen instrument, so every
+ * command is pointed at a throwaway copy and the representative is asserted
+ * byte-identical afterwards.
  *
- * The whole observation costs about twenty seconds — a copy, a sixteen-second
- * analysis and a three-second gate — so it runs by default rather than behind a
- * switch.
+ * The claim-carrying half of this file retired with its subject. It drove the
+ * chain to COMPLETE over `siprs-for-reverse`, the experiment's own tree, and that
+ * tree has been deleted: the fixture under `patterns/siprs-for-reverse/` holds
+ * the decisions input that was authored for it, but no longer the project it was
+ * authored over, so nothing can re-publish the spec those judgements were taken
+ * against. What remains is the refusal path — a representative whose spec carries
+ * no claim — and the record that the authored input is still the reading the
+ * digest names.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -66,7 +70,13 @@ const OUTPUT_BUFFER_BYTES = 64 * 1024 * 1024;
 // [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
 const PINNED_DECISIONS_DIGEST = 'ad893f48502403f840b3f5adc3c3e7e7de12652c91162f8876441bfd11e562a5';
 
-/** The representative that carries claims, and the one that carries none. */
+/**
+ * The deleted experiment subject, whose authored decisions input is still on disk.
+ *
+ * It is named because it locates a record rather than a tree: `decisionsPathFor`
+ * mirrors a non-fixture representative's input under `patterns/`, and the mirror
+ * is the judgement a run took over a spec that no longer exists.
+ */
 const CLAIM_CARRYING = 'siprs-for-reverse';
 const ZERO_CLAIM = join('tests', 'workspacify-reverse', 'fixtures', 'patterns', 'partial-conver-project');
 
@@ -118,61 +128,6 @@ test('IT — the pinned decisions input is the reading that was taken, byte for 
     64,
     'the record carries the digest of the origin spec the reading was taken over, not only the path it happened to sit at',
   );
-});
-
-test('IT C002 — every pulse candidate of the run\'s own list is settled exactly once, and the gate judges the settlement it was handed', () => {
-  const published = publishOriginSpec(CLAIM_CARRYING);
-  try {
-    const extracted = runChain('workspacify-tree/run.mjs', ['extract', published.specPath]);
-    assert.equal(extracted.status, 0, 'extract publishes the pulse candidate list');
-    const measured = JSON.parse(extracted.stdout);
-    const candidates = measured.spec_pulse.candidates;
-    assert.ok(candidates.length > 0, 'the origin spec reports pulse candidates');
-
-    const settled = settleCandidates({ candidates, readings: SETTLEMENT_READINGS });
-    assert.equal(
-      settled.spec_defects.length + settled.residual_questions.length,
-      candidates.length,
-      'the settled count equals the candidate count over the run\'s own list',
-    );
-    assert.deepEqual(
-      validateSpecDefects({ candidates, specDefects: settled.spec_defects, residualQuestions: settled.residual_questions }),
-      { ok: true, errors: [] },
-    );
-
-    // The pinned input settles the same candidate set the run just produced:
-    // the run is deterministic, so a divergence is a real finding.
-    const pinned = JSON.parse(readFileSync(decisionsPathFor(CLAIM_CARRYING, PROJECT_ROOT), 'utf8'));
-    const pinnedIds = [...(pinned.spec_defects ?? []), ...(pinned.residual_questions ?? [])].map((record) => record.candidate_id);
-    assert.deepEqual(pinnedIds.slice().sort(), candidates.map((candidate) => candidate.id).sort());
-  } finally {
-    published.source.dispose();
-    published.source.dispose();
-  }
-});
-
-test('IT C001 — the gate prints COMPLETE over a scratch copy of the claim-carrying representative, and leaves it byte-identical', () => {
-  const before = hashTree(join(PROJECT_ROOT, CLAIM_CARRYING));
-  const published = publishOriginSpec(CLAIM_CARRYING);
-  try {
-    // The subject is the scratch copy, and the decisions document is placed where
-    // the rotation derives it: the command line names the specification and nothing
-    // else. A call that inherited the repository would stage into the repository.
-    stageTreeDecisionsFrom(published.source.root, decisionsPathFor(CLAIM_CARRYING, PROJECT_ROOT));
-    const gated = runChain('workspacify-tree/run.mjs', ['gate', `--spec=${published.specPath}`], { cwd: published.source.root });
-    const summary = JSON.parse(gated.stdout);
-
-    assert.equal(gated.status, 0, `the gate exits 0:\n${gated.stderr.slice(0, 2000)}`);
-    assert.equal(summary.status, 'COMPLETE');
-    assert.equal(summary.finalAudit.unallocated_count, 0, 'every harvested item has an owner');
-    assert.equal(summary.finalAudit.spec_defect_count, 0, 'every pulse candidate is settled');
-    assert.equal(summary.finalAudit.ownership_disagreement_count, 0);
-  } finally {
-    published.source.dispose();
-    published.source.dispose();
-  }
-
-  assert.deepEqual(hashTree(join(PROJECT_ROOT, CLAIM_CARRYING)), before, 'the representative was not modified');
 });
 
 test('IT C001 boundary — a representative whose spec carries no claim is reported as not proved, with the gate and the reason named', () => {

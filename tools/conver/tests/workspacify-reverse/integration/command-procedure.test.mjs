@@ -795,7 +795,7 @@ test('C001 invariant: the quotation sits on the line this file records for it', 
   // line inserted or removed above the quotation is reported here by name instead of
   // moving in silence. The citations into this file under `specs/` are dated
   // measurements that keep their text, so this number is updated on its own.
-  assert.deepEqual(declaredOrderLines(TEXT), [201], 'the quotation is where this file says it is');
+  assert.deepEqual(declaredOrderLines(TEXT), [198], 'the quotation is where this file says it is');
 });
 
 test('C002/UT: the lowercase spelling is closed to the line that quotes the declared order', () => {

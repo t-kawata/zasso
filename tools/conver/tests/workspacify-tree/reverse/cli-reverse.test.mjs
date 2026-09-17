@@ -13,6 +13,8 @@ import { fileURLToPath } from 'node:url';
 
 import { compareDigests, digestCommandFiles } from '../../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs';
 import { stageTreeDecisions, stageTreeDecisionsFrom, reservedTreeDecisionsPath } from '../../workspacify-tree/helpers/stage-tree-decisions.mjs';
+import { freezeOracle, writeOracleBundle } from '../../../.claude/scripts/workspacify-reverse/lib/oracle-bundle.mjs';
+import { ORACLE_FIXTURE_FILES, writeSyntheticTree } from '../../workspacify-reverse/helpers/scratch.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const RUN_SCRIPT = join(PROJECT_ROOT, '.claude/scripts/workspacify-tree/run.mjs');
@@ -20,6 +22,7 @@ const REGRESSION_SCRIPT = join(PROJECT_ROOT, '.claude/scripts/workspacify-revers
 const FIXTURES = join(PROJECT_ROOT, 'tests/workspacify-tree/fixtures');
 const BASELINE_PATH = join(PROJECT_ROOT, 'tests/workspacify-tree/baselines/manifest-hashes.json');
 const MANIFEST_FILE_NAME = 'WORKSPACIFY-TREE-MANIFEST.json';
+const FROZEN_AT = '2026-09-10T00:00:00Z';
 
 /** The fixture pair that reaches COMPLETE through the forward gates. */
 const SPEC_NAME = 'objects-table.md';
@@ -179,14 +182,24 @@ test('IT-1d an unrecorded mismatch fails T5 even when the recorded delta is othe
   }
 });
 
-test('IT-5 the partition is compared against the frozen answer key, naming every extra and missing package', () => {
+test('IT-5 the partition is compared against a frozen answer key, naming every extra and missing package', () => {
   const workspace = buildReverseWorkspace();
+  // The key is frozen in a project root of its own. The checked-in bundle used to
+  // answer here and its tree, `siprs-with-4layers`, has been deleted; freezing one
+  // for this comparison keeps the integration the test is about — a manifest the
+  // reverse CLI just published, compared against a key — without borrowing a tree
+  // that no longer exists.
+  const oracleProject = realpathSync(mkdtempSync(join(tmpdir(), 'cli-reverse-oracle-')));
   const candidatePath = join(workspace.dir, 'partition-candidate.json');
   try {
     authorDelta(workspace.deltaPath);
     const run = runReverseCli(workspace);
     assert.equal(run.status, 0, `${run.stdout}\n${run.stderr}`);
     const manifest = JSON.parse(readFileSync(join(workspace.out, MANIFEST_FILE_NAME), 'utf8'));
+
+    const oracleRoot = join(oracleProject, 'answer-key');
+    writeSyntheticTree(oracleRoot, ORACLE_FIXTURE_FILES);
+    writeOracleBundle({ projectRoot: oracleProject, bundle: freezeOracle({ oracleRoot, frozenAt: FROZEN_AT }) });
 
     // T1 and the oracle read the same set: the manifest's package paths.
     writeFileSync(
@@ -195,19 +208,23 @@ test('IT-5 the partition is compared against the frozen answer key, naming every
     );
     const comparison = spawnSync(
       process.execPath,
-      [REGRESSION_SCRIPT, 'oracle', 'compare', '--stage=partition', `--candidate=${candidatePath}`],
+      [
+        REGRESSION_SCRIPT, 'oracle', 'compare',
+        '--stage=partition', `--candidate=${candidatePath}`, `--project-root=${oracleProject}`,
+      ],
       { cwd: PROJECT_ROOT, encoding: 'utf8' },
     );
     assert.notEqual(comparison.status, 2, `the comparison must run: ${comparison.stdout}${comparison.stderr}`);
 
     const report = `${comparison.stdout}${comparison.stderr}`;
-    // The fixture is not the siprs tree, so the comparison must disagree — and it
+    // The fixture is not the key's tree, so the comparison must disagree — and it
     // must say so by naming each package, never by emitting a number or a verdict.
     assert.match(report, /missing|extra/i, 'a disagreement is named');
     assert.match(report, new RegExp(workspace.packagePath.replace(/[/.]/g, '\\$&')), 'the package is named');
     assert.doesNotMatch(report, /\b(score|accuracy|percentage|%)\b/i, 'a comparison never scores');
   } finally {
     rmSync(workspace.dir, { recursive: true, force: true });
+    rmSync(oracleProject, { recursive: true, force: true });
   }
 });
 

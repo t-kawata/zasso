@@ -12,8 +12,9 @@
  * cannot be acted on, and a filename can.
  *
  * Dependency directories are treated differently from the project's own files.
- * `siprs-for-reverse` vendors PJSIP, and five of its `README.md` files belong
- * to that dependency rather than to the project. A check that called those
+ * The experiment's subject, `siprs-for-reverse`, vendored PJSIP, and five of its
+ * `README.md` files belonged to that dependency rather than to the project. A
+ * check that called those
  * contaminations would be unusable on every vendored project, and one that
  * skipped them silently would hide a real one, so they are reported separately
  * and do not by themselves fail the check.

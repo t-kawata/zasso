@@ -19,7 +19,7 @@
  * The audit observes. It adds no gate, refuses nothing, and its own failure mode is a
  * failing test. The last test in this file asserts that about the module's very shape.
  */
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -51,10 +51,43 @@ const INVARIANT_AUDIT_MODULE = join(
   '.claude/scripts/workspacify-reverse/lib/invariant-audit.mjs',
 );
 
-/** The four representatives P23-11 established, in the declared order. */
+/**
+ * The four representatives P23-11 established, in the declared order.
+ *
+ * The two that were the experiment's own trees — `siprs-for-reverse` and
+ * `siprs-with-4layers` — have been deleted, so those two places are held by trees
+ * this file builds. They carry exactly the markers the two patterns are declared
+ * by, which is what the chain is driven over here: the gates read the measured
+ * tree, and a tree of the wrong pattern would measure the wrong thing.
+ */
+const SYNTHETIC_REPRESENTATIVE_FILES = Object.freeze({
+  'pattern-1': Object.freeze({ 'src/lib.rs': 'pub fn a() -> u8 { 1 }\n' }),
+  'pattern-2': Object.freeze({
+    'RFC-ROOT.md': '# ROOT\n',
+    'RFC-ROOT-GRAPH.json': '{}\n',
+    'RFC-ROOT-Dirs-Tree.json': '{}\n',
+    'Tickets.json': '{}\n',
+    'DesignTree.json': '{}\n',
+  }),
+});
+
+const syntheticRepresentatives = new Map();
+
+// [::TICKET::] P23-12 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-12 --for-spec --no-implementation-order`.
+function representativeRoot(patternId) {
+  if (!syntheticRepresentatives.has(patternId)) {
+    syntheticRepresentatives.set(patternId, createSyntheticTree(SYNTHETIC_REPRESENTATIVE_FILES[patternId]));
+  }
+  return syntheticRepresentatives.get(patternId).root;
+}
+
+after(() => {
+  for (const tree of syntheticRepresentatives.values()) tree.dispose();
+});
+
 const REPRESENTATIVES = Object.freeze([
-  Object.freeze({ patternId: 'pattern-1', root: join(PROJECT_ROOT, 'siprs-for-reverse') }),
-  Object.freeze({ patternId: 'pattern-2', root: join(PROJECT_ROOT, 'siprs-with-4layers') }),
+  Object.freeze({ patternId: 'pattern-1', root: representativeRoot('pattern-1') }),
+  Object.freeze({ patternId: 'pattern-2', root: representativeRoot('pattern-2') }),
   Object.freeze({ patternId: 'pattern-3', root: join(PATTERNS_FIXTURES, 'partial-conver-project') }),
   Object.freeze({ patternId: 'pattern-4', root: join(PATTERNS_FIXTURES, 'spec-only-project') }),
 ]);

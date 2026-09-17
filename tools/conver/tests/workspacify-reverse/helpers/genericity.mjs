@@ -7,14 +7,12 @@
  * protects this repository's answer key and leaves every other tree refused only if
  * its path happens to contain one of the four generic words.
  *
- * The oracle instrument is a different kind of thing and keeps its names.
- * `oracle-bundle.mjs` exports the paths of this repository's own two trees —
- * `siprs-with-4layers` and `siprs-for-reverse` — beside `BUNDLE_RELATIVE_PATH` and
- * `KNOWN_DELTA_RELATIVE_PATH`, and measured 2026-09-15 those constants are read only
- * by the `oracle` subcommand and by the oracle tests. `run.mjs analyze` never reaches
- * them: they are the paths of the material this toolchain is tested with, not a rule
- * about anyone's project. So they are exempt by declaration here rather than hidden
- * by a filter, and the exemption carries its reason so widening it is a decision.
+ * Nothing is exempt any more. `oracle-bundle.mjs` used to export the paths of this
+ * repository's own two trees, and the exemption declared here is what let it; both
+ * trees have been deleted and the module now takes the answer key it measures as a
+ * parameter, so the exemption was removed rather than left standing. The sweep is
+ * what noticed, which is what it is for: an exemption that matches nothing is a
+ * permission nobody is using and is the first step to one nobody is watching.
  *
  * Pure over an injected module list: the caller reads the files, this decides. A
  * sweep that reads the tree itself could only ever be seen to pass.
@@ -39,12 +37,7 @@ export const REPOSITORY_MATERIAL_NAMES = Object.freeze([
  * Every entry must be exempt for something: the sweep reports an entry that matches
  * no finding, so a stale exemption is removed rather than accumulating.
  */
-export const EXPERIMENT_ONLY_MODULES = Object.freeze({
-  'oracle-bundle.mjs':
-    'The oracle instrument names the two trees it compares. Both constants are read only by the '
-    + '`oracle` subcommand and by the oracle tests, which are experiment configuration rather than '
-    + 'a rule applied to a subject; the operational `analyze` path never reaches them.',
-});
+export const EXPERIMENT_ONLY_MODULES = Object.freeze({});
 
 /** A line whose first non-space characters open a comment. */
 const COMMENT_LINE = /^\s*(\/\/|\*|\/\*)/;

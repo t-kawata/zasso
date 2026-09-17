@@ -1,8 +1,10 @@
 # `patterns/siprs-for-reverse/` — the experiment subject's decisions input
 
-This directory is **not a representative**. The representative is the tree at the
-project root, `siprs-for-reverse/`, and this directory exists so nothing has to be
-written into it.
+This directory is **not a representative**. It was the decisions input of the tree
+at the project root, `siprs-for-reverse/`, mirrored here so nothing had to be
+written into that tree. **The tree has since been deleted**, and this directory is
+now the only copy: the reading below outlives its subject, and nothing can
+re-derive it.
 
 `DECISIONS.json` is the AI-authored judgement `workspacify-tree` requires before
 it will publish: the `workspace[]` partition, the `ownership[]` table and a
@@ -10,16 +12,20 @@ settlement for every specification-pulse candidate. It is derived from the
 measured tree and from the origin spec the reverse rotation publishes, and pinned
 here once it is taken.
 
-It is mirrored rather than placed beside the representative because that
-representative is a frozen instrument. `siprs-for-reverse` is measured against
-`siprs-with-4layers`, and the oracle asserts the two trees differ by exactly the
-renamed test files; a decisions input inside the subject would be an eleventh
-difference and would make the answer key disagree with the subject it answers
-for. A fixture under `tests/` is already written by the suite and holds its own
-files, so the specification's two pattern representatives keep theirs beside them
-— this one cannot.
+It was mirrored rather than placed beside the representative because that
+representative was a frozen instrument: `siprs-for-reverse` was measured against
+`siprs-with-4layers`, and the oracle asserted the two trees differed by exactly
+the renamed test files, so a decisions input inside the subject would have been an
+eleventh difference. A fixture under `tests/` is already written by the suite and
+holds its own files, which is why the specification's two pattern representatives
+keep theirs beside them — this one could not.
 
-Reproduce or replace it with the helper that authored it:
+Reproducing it needs the tree it was measured over, so this command no longer
+runs; it is kept as the record of how the reading was taken. Replacing it needs a
+new subject to measure, which is a different representative and a different
+reading.
+
+The helper that authored it:
 
 ```sh
 node -e "import('./tests/workspacify-reverse/helpers/decisions-authoring.mjs') \

@@ -31,6 +31,7 @@ const { filterSourceFiles, processFile } = require(
   "../.claude/scripts/tickets/annotate-ticket-context-by-git-diff",
 );
 const {
+  MINIMUM_FILES_FOR_DECISION,
   censusTrackedExtensions,
   findUndecidedExtensions,
   parseExtension,
@@ -40,9 +41,9 @@ const {
 const REPO_ROOT = path.resolve(__dirname, "..");
 const KEY = "PX-209";
 
-const undecidedIn = (trackedPaths) =>
+const undecidedIn = (trackedPaths, ignoredRoots = VENDORED_ROOTS) =>
   findUndecidedExtensions(
-    censusTrackedExtensions({ trackedPaths, ignoredRoots: VENDORED_ROOTS }),
+    censusTrackedExtensions({ trackedPaths, ignoredRoots }),
     { included: SOURCE_EXTENSIONS, excluded: EXCLUDED_SOURCE_EXTENSIONS },
   );
 
@@ -229,54 +230,75 @@ test("C002: a definition-less .cjs file resolves ambiguously once and only once"
 // C003 — the boundary is a path prefix, not an extension
 // ---------------------------------------------------------------------------
 
-test("C003: the vendored trees contribute nothing to the census", () => {
+test("C003: every C/C++ file this repository owns is counted, and carries a decision", () => {
   const all = readTrackedPaths(REPO_ROOT);
   const cFamily = all.filter((tracked) => /\.(h|c|cc|cpp|hpp)$/.test(tracked));
 
-  assert.ok(cFamily.length > 2000, "the C/C++ family is present in the repository");
+  // The C/C++ family used to be thousands of files: two vendored trees supplied
+  // 2253 of them and the path-prefix exclusion is what kept them out of the
+  // census. Both trees have been deleted, so the family is now this repository's
+  // own files only — and the assertion that they are present is what notices if
+  // the census starts reading an empty repository as a fully decided one.
+  assert.ok(cFamily.length > 0, "the C/C++ family is present in the repository");
 
-  // The boundary is a path prefix, and the C/C++ language representatives P24-1
-  // added are what makes it observable: they are this repository's own files, so
-  // the census counts them and their extensions owe a decision, while the
-  // 4500-odd vendored ones are neither counted nor owed.
-  const own = cFamily.filter((tracked) => !VENDORED_ROOTS.some((root) => tracked.startsWith(root)));
-  for (const tracked of own) {
+  for (const tracked of cFamily) {
     assert.ok(
       EXCLUDED_SOURCE_EXTENSIONS.has(path.extname(tracked)),
-      tracked + " is this repository's own C/C++ file and must carry a decision",
+      tracked + " is this repository's C/C++ file and must carry a decision",
     );
   }
 
   const census = censusTrackedExtensions({ trackedPaths: all, ignoredRoots: VENDORED_ROOTS });
   for (const extension of [".h", ".c", ".cc", ".cpp", ".hpp"]) {
-    const ownOfExtension = own.filter((tracked) => tracked.endsWith(extension)).length;
+    const ownOfExtension = cFamily.filter((tracked) => tracked.endsWith(extension)).length;
+    const counted = census.get(extension) ?? 0;
+
     assert.ok(
-      (census.get(extension) ?? 0) <= ownOfExtension,
-      extension + " must not reach the census in its vendored form",
+      counted <= ownOfExtension,
+      extension + ": the census never counts a file the repository does not have",
     );
+    if (ownOfExtension >= MINIMUM_FILES_FOR_DECISION) {
+      assert.strictEqual(
+        counted,
+        ownOfExtension,
+        extension + ": at the decision floor the census counts every one of them",
+      );
+    }
   }
   assert.strictEqual(census.get(".cpp"), 3, "and this repository's own .cpp files are all of it");
 });
 
 test("C003: path decides, not extension", () => {
+  // A list of the test's own, because the rule outlives the trees it was written
+  // for: an empty declaration would make this pass by having nothing to ignore.
+  const vendoredRoots = ["vendor/dependency/", "third_party/sdk/"];
   const own = ["tests/alpha.zig", "tests/beta.zig", "tests/gamma.zig"];
-  const vendored = VENDORED_ROOTS.flatMap((root) => [
+  const vendored = vendoredRoots.flatMap((root) => [
     root + "alpha.zig", root + "beta.zig", root + "gamma.zig",
   ]);
 
   assert.deepStrictEqual(undecidedIn(own), [".zig"], "the same extension in our own tree owes a decision");
-  assert.deepStrictEqual(undecidedIn(vendored), [], "and vendored, it owes none");
+  assert.deepStrictEqual(
+    undecidedIn(vendored, vendoredRoots),
+    [],
+    "and vendored, it owes none",
+  );
 });
 
-test("C003: the declared vendored roots exist and are non-empty", () => {
-  assert.ok(Array.isArray(VENDORED_ROOTS) && VENDORED_ROOTS.length > 0, "the roots are declared");
-
+test("C003: the declaration is empty, and an empty declaration does not widen the census", () => {
+  assert.ok(Array.isArray(VENDORED_ROOTS), "the roots are declared, even when there are none");
   for (const root of VENDORED_ROOTS) {
     assert.ok(root.endsWith("/"), root + " must be a path prefix, not a name");
-    const full = path.join(REPO_ROOT, root);
-    assert.ok(
-      fs.existsSync(full) && fs.statSync(full).isDirectory(),
-      root + " must still exist; a renamed tree must fail rather than widen the census",
-    );
   }
+
+  // The two trees the list named have been deleted, so the declaration excludes
+  // nothing. Taking the census twice — with the declaration, and with a list that
+  // names a tree that is gone — asserts that the declaration still governs the
+  // answer rather than having quietly stopped being read.
+  const all = readTrackedPaths(REPO_ROOT);
+  assert.deepStrictEqual(
+    [...censusTrackedExtensions({ trackedPaths: all, ignoredRoots: VENDORED_ROOTS })],
+    [...censusTrackedExtensions({ trackedPaths: all, ignoredRoots: ["siprs-for-reverse/"] })],
+    "nothing is excluded, so excluding a deleted tree changes nothing",
+  );
 });

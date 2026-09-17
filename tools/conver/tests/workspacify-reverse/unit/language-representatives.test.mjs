@@ -282,8 +282,12 @@ test('C002 invariant as a property — digesting the same tree twice yields the 
   }
 });
 
-test('C003 precondition — the three subject populations are declared separately, each with its purpose named', () => {
-  for (const name of ['experiment', 'patterns', 'languages']) {
+test('C003 precondition — the subject populations are declared separately, each with its purpose named', () => {
+  // Two, not three: the experiment and oracle populations named the two siprs
+  // trees, and both declarations left with the trees.
+  assert.deepEqual(Object.keys(declaration.populations).sort(), ['languages', 'patterns']);
+
+  for (const name of ['patterns', 'languages']) {
     const population = declaration.populations[name];
 
     assert.ok(population, `${name} is declared`);
@@ -293,14 +297,20 @@ test('C003 precondition — the three subject populations are declared separatel
   }
 });
 
-test('C003 precondition — the three population declarations name the roots the design names', () => {
-  assert.deepEqual(declaration.populations.experiment.roots, ['siprs-for-reverse']);
+test('C003 precondition — the population declarations name the roots the design names', () => {
   assert.deepEqual(declaration.populations.patterns.roots, [...PATTERN_REPRESENTATIVE_ROOTS]);
   assert.deepEqual(
     declaration.populations.languages.roots,
     declaration.languages.map((entry) => entry.root),
     'the language population is the representatives, named once',
   );
+  for (const root of declaration.populations.patterns.roots) {
+    assert.equal(
+      existsSync(join(PROJECT_ROOT, root)),
+      true,
+      `${root} is declared as a representative, so it has to be there to be read`,
+    );
+  }
 });
 
 test('C003 postcondition — the language representatives are declared as the instrument\'s validation population', () => {
@@ -310,12 +320,9 @@ test('C003 postcondition — the language representatives are declared as the in
   assert.match(purpose, /not the experiment/i, 'and what it is not');
 });
 
-test('C003 invariant — no language representative is used as the experiment subject', () => {
+test('C003 invariant — no language representative is used as a pattern representative', () => {
   const languageRoots = declaration.languages.map((entry) => entry.root);
-  const otherPopulations = [
-    ...declaration.populations.experiment.roots,
-    ...declaration.populations.patterns.roots,
-  ];
+  const otherPopulations = [...declaration.populations.patterns.roots];
 
   for (const root of languageRoots) {
     assert.equal(
@@ -337,11 +344,11 @@ test('C003 invariant — no representative root holds another, computed as a pat
   }
 });
 
-test('C003 error — a declaration naming the experiment subject as a language representative produces a finding', () => {
+test('C003 error — a declaration naming a pattern representative as a language representative produces a finding', () => {
   const conflated = {
     ...declaration,
     languages: [
-      { ...representative('rust'), root: 'siprs-for-reverse' },
+      { ...representative('rust'), root: declaration.populations.patterns.roots[0] },
       ...declaration.languages.filter((entry) => entry.language !== 'rust'),
     ],
   };
@@ -351,7 +358,7 @@ test('C003 error — a declaration naming the experiment subject as a language r
   assert.equal(
     findings.some((finding) => finding.code === 'population-overlap' && finding.language === 'rust'),
     true,
-    'the three populations cannot be conflated by a typo',
+    'the populations cannot be conflated by a typo',
   );
 });
 
