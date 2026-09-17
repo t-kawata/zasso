@@ -19,7 +19,7 @@
  * keeps the detection and the boundary from disagreeing about what is on disk.
  */
 import { compareText } from './holdout-ledger.mjs';
-import { languageOfPath } from './analysis-tech.mjs';
+import { listArtefacts, languageOfPath } from './analysis-tech.mjs';
 
 /** The name the detection is published under, so the writer and the reader agree. */
 export const PATTERN_FILE_NAME = 'PATTERN.json';
@@ -410,6 +410,21 @@ export function detectPattern({ root, artefacts } = {}) {
 // [::TICKET::] P23-11 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
 function renderAbsence(absent) {
   return absent.map((entry) => `- \`${entry.searched}\` — searched, not found`);
+}
+
+/**
+ * Identify the pattern of the directory, from what is on disk.
+ *
+ * R0 and the `pattern` subcommand both answer this question, and two ways of asking it
+ * would be two answers: the walk and the detection are here, for that reason, rather
+ * than at either call site. A caller that assembled the artefacts itself would be free
+ * to assemble them differently, and the disagreement would surface as a document nobody
+ * is told to compare.
+ *
+ * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ */
+export function detectPatternAt(root, { artefacts = listArtefacts(root) } = {}) {
+  return detectPattern({ root, artefacts });
 }
 
 /** One line per marker that was found, naming the path that evidenced it. */

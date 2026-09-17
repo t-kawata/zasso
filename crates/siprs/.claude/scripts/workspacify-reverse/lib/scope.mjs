@@ -99,7 +99,7 @@ import { assessEligibility, renderEligibility } from './eligibility.mjs';
 import { EXCLUSION_RULES, buildAttemptLedger, listArtefacts } from './analysis-tech.mjs';
 // [::TICKET::] P23-11: R0's identification — which of the four declared patterns
 // the subject is. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
-import { PATTERN_FILE_NAME, detectPattern, renderPatternDetection } from './pattern-detection.mjs';
+import { PATTERN_FILE_NAME, detectPatternAt, renderPatternDetection } from './pattern-detection.mjs';
 import { measureStructure, renderStructureReport, syntaxLanguageOf } from './structure.mjs';
 import { extractSemantics, renderSemanticsReport } from './semantics.mjs';
 import { reconstructHistory, renderHistoryRecord } from './history.mjs';
@@ -1581,6 +1581,7 @@ function renderAdjudicationMarkdown(adjudication) {
 }
 
 export async function analyzeProject({
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
 // [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
@@ -1632,7 +1633,7 @@ export async function analyzeProject({
   // result is published by every run whatever it found — an identification that
   // changed the document set would be the gate design 1.2 forbids.
   const artefacts = listArtefacts(scope.root);
-  const pattern = runStage('r0', () => detectPattern({ root: scope.root, artefacts }));
+  const pattern = runStage('r0', () => detectPatternAt(scope.root, { artefacts }));
 
   const boundary = runStage('r0.5', () => classifyArtefacts({ root: scope.root, scope, artefacts }));
   const excludedPaths = boundary.artefacts

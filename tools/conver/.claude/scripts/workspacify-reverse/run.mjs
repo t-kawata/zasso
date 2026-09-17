@@ -21,6 +21,16 @@
  *                spec into the reserved directory beneath the subject. The
  *                documents it publishes are the ones the stages produce, so the
  *                set is the same whatever the host has installed.
+ *   gate       — the check after the run: are the six decisions recorded?
+ *
+ * Six more perform the mechanical half of one Step of the procedure each, so that a
+ * Step names a command rather than asking its reader to derive by eye what a function
+ * already computes. `pattern` answers Step 0 from the same function R0 calls;
+ * `inventory` records what the subject already holds for Step 1; `status` holds the
+ * destination to what the exit owes it for Steps 3 and 4; `decide` writes the six
+ * answers through the schema the gate reads for Step 5; `seam` reports where the prior
+ * partition and the fixed one differ for Step 6; and `report` prints the stages, the
+ * destination and the outcome for Step 8.
  *
  * The process performs no semantic judgement: which traces exist and whether
  * they are gone are facts, not opinions. Deciding what the cleaned tree then
@@ -73,8 +83,17 @@ import {
   RESERVED_DECISIONS_FILE_NAME,
   reservedReverseDecisionsPath,
 } from '../workspacify-tree/lib/reserved-root.mjs';
+import { readAnswers, renderDecisionWritingAdvice, renderDecisionWritingVerdict, writeDecisions } from './lib/decision-writing.mjs';
+import { readInventory, renderInventory } from './lib/inventory.mjs';
+import { detectPatternAt, renderPatternDetection } from './lib/pattern-detection.mjs';
+import { findUnpublished, readPublishedSet, renderPublishedSet, renderUnpublishedAdvice } from './lib/published-set.mjs';
+import { computeSeam, readFixedPartitionPaths, readPriorPartitionPaths, renderSeam, renderSeamAdvice } from './lib/seam.mjs';
+import { readStepReport, renderReportAdvice, renderStepReport } from './lib/step-report.mjs';
 
-const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike', 'analyze', 'gate'];
+const SUBCOMMANDS = [
+  'detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike', 'analyze', 'gate',
+  'pattern', 'inventory', 'decide', 'status', 'seam', 'report',
+];
 
 /**
  * The subcommands whose subject is the directory the command is run in, and
@@ -89,11 +108,16 @@ const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'orac
  * `holdout isolation <root>`, `spike <root> <slice>`, and the ledger flags the
  * experiment instruments carry — keeps its argument, because *which* fixture is a
  * choice with no derivable answer.
+ *
+ * The six Step-level subcommands measure the same subject the other five do, so they
+ * are argument-free for the same reason: `decide` names the file it reads with
+ * `--answers`, which is an option rather than a positional, and a bare path is refused
+ * for all six.
  */
-const ARGUMENT_FREE_SUBCOMMANDS = ['analyze', 'detect', 'scrub', 'verify', 'gate'];
+const ARGUMENT_FREE_SUBCOMMANDS = ['analyze', 'detect', 'scrub', 'verify', 'gate', 'pattern', 'inventory', 'decide', 'status', 'seam', 'report'];
 
 /** The options that name a value; every other `--name` is a switch. */
-const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--recorded'];
+const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--recorded', '--answers'];
 
 /**
  * The options the entrance used to honour and no longer does, with the reason each left.
@@ -175,7 +199,7 @@ const SPIKE_REPORT_RELATIVE_PATH = 'docs/SPIKE-REPORT.md';
 const SPIKE_STAGES = Object.freeze(['r1', 'r3']);
 
 const USAGE = [
-  'Usage: run.mjs <detect|scrub|verify|analyze|gate> [options]',
+  'Usage: run.mjs <detect|scrub|verify|analyze|gate|pattern|inventory|decide|status|seam|report> [options]',
   '       run.mjs regression <capture|check>',
   '       run.mjs holdout [freeze|isolation <root>] [--project-root=<path>] [--frozen-at=<ISO-8601>]',
   '       run.mjs oracle <freeze|compare --stage <stage> --candidate <path>> [--project-root=<path>] [--frozen-at=<ISO-8601>]',
@@ -199,7 +223,14 @@ const USAGE = [
   '  spike <root> <slice>             Run one vertical slice through R0.5, R3.5 and R7, and measure it',
   '  spike reconcile                  Add the disagreement list to the spike report, from the frozen bundle',
   '',
-  '  detect, scrub, verify and analyze measure the directory the command is run in and take no argument.',
+  '  pattern                          Identify the pattern of the current directory and report it, without running a stage',
+  '  inventory                        Report what the subject already holds: its artefacts, its ticket statuses, its DesignTree and its prior partition',
+  '  decide --answers=<path>          Write the six decisions the answers file holds, through the schema the gate reads',
+  '  status                           Exit 0 when the destination holds every document the exit owes; 1 naming what is absent or empty',
+  '  seam                             Report where the prior partition and the fixed one differ, in both directions',
+  '  report                           Print the stages that ran, the destination and proved / not proved',
+  '',
+  '  detect, scrub, verify, analyze and the six Step-level subcommands measure the directory the command is run in and take no argument.',
   '  holdout isolation and spike name which fixture or slice they act on, so they keep theirs.',
   '',
   'Options:',
@@ -328,7 +359,7 @@ function parseSpikeArguments(second, rest, argv) {
   };
 }
 
-// [::TICKET::] P22-4, P22-9, P25-7, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P25-7, PX-213, PX-214, P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P25-7|PX-213|PX-214|P26-3) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const [subcommand, second, ...rest] = argv;
   const common = commonOptions(subcommand, optionTokens(second, rest));
@@ -375,6 +406,10 @@ function parseArgs(argv) {
     root: process.cwd(),
     withdrawn: withdrawnOptionsUsed(optionTokens(second, rest)),
     positionals: positionalArgs(argv.slice(1)),
+    // The one option a Step-level subcommand reads: `decide` writes the answers the
+    // reader authored, and the content is theirs rather than derivable from the
+    // directory, so it is named rather than read from a fixed place.
+    answers: flagValue(optionTokens(second, rest), '--answers'),
   };
 }
 
@@ -584,6 +619,150 @@ function runGate({ root }) {
 
   process.stdout.write(`${renderDecisionsVerdict({ path })}\n`);
   return 0;
+}
+
+// --- The Step-level subcommands ---------------------------------------------
+//
+// Each of these performs one Step's mechanical half, so that a Step of the procedure
+// names a command instead of asking its reader to derive by eye what a library call
+// already computes. They are the same shape as `runGate`: read what the Step is a
+// predicate over, print the answer or name what is wrong, and hand the operator the
+// exit code they act on. None of them writes into the subject — `decide` writes into
+// the reserved destination, which is a member of the never-walked set.
+
+/**
+ * Step 0 — the pattern, from the same function the run's R0 calls.
+ *
+ * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ */
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+function runPatternStep({ root }) {
+  try {
+    process.stdout.write(`${renderPatternDetection(detectPatternAt(root))}\n`);
+    return 0;
+  } catch (error) {
+    process.stderr.write(renderStepFailure({ step: 'Step 0', root, error }));
+    return 1;
+  }
+}
+
+/**
+ * Step 1 — what the subject already holds, recorded before anything is measured.
+ *
+ * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ */
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+function runInventoryStep({ root }) {
+  process.stdout.write(`${renderInventory(readInventory({ root }))}\n`);
+  return 0;
+}
+
+/**
+ * Steps 3 and 4 — what the destination holds against what the exit owes it.
+ *
+ * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ */
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+function runStatusStep({ root }) {
+  const destination = reservedReverseDirectory(root);
+  const set = readPublishedSet({ destination });
+  const findings = findUnpublished(set);
+
+  if (findings.length > 0) {
+    process.stderr.write(`${renderUnpublishedAdvice(findings, { destination })}\n`);
+    return 1;
+  }
+
+  process.stdout.write(`${renderPublishedSet(set)}\n`);
+  return 0;
+}
+
+/**
+ * Step 5 — the six decisions, written through the schema the gate reads.
+ *
+ * The answers are the reader's, and the document's shape is not: a hand-written
+ * document can be shaped wrong in ways the gate then reports as missing answers, which
+ * is why the writing is here rather than in the reader's hands.
+ *
+ * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ */
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+function runDecideStep({ root, answers }) {
+  const path = reservedReverseDecisionsPath(root);
+  if (answers === undefined || answers === null) {
+    process.stderr.write(`${renderDecisionWritingAdvice(['no answers file was named — pass --answers=<path>'], { path })}\n`);
+    return 1;
+  }
+
+  const { answers: parsed, findings: readFindings } = readAnswers(answers);
+  if (parsed === null) {
+    process.stderr.write(`${renderDecisionWritingAdvice(readFindings, { path })}\n`);
+    return 1;
+  }
+
+  const { path: written, findings: writeFindings } = writeDecisions({
+    destination: reservedReverseDirectory(root),
+    answers: parsed,
+    path,
+  });
+  if (written === null) {
+    process.stderr.write(`${renderDecisionWritingAdvice(writeFindings, { path })}\n`);
+    return 1;
+  }
+
+  process.stdout.write(renderDecisionWritingVerdict({ path: written }));
+  return 0;
+}
+
+/**
+ * Step 6 — where the partition already on disk differs from the one the analysis fixed.
+ *
+ * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ */
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+function runSeamStep({ root }) {
+  const seam = computeSeam({ prior: readPriorPartitionPaths(root), fixed: readFixedPartitionPaths(root) });
+
+  if (seam.findings.length > 0) {
+    process.stderr.write(renderSeamAdvice(seam.findings));
+    return 1;
+  }
+
+  process.stdout.write(renderSeam(seam, { root }));
+  return 0;
+}
+
+/**
+ * Step 8 — the stages that ran, the destination, and the digest outcome.
+ *
+ * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ */
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+function runReportStep({ root }) {
+  const destination = reservedReverseDirectory(root);
+  const report = readStepReport({ root, destination });
+
+  if (report.findings.length > 0) {
+    process.stderr.write(`${renderReportAdvice(report.findings, { destination })}\n`);
+    return 1;
+  }
+
+  process.stdout.write(renderStepReport(report));
+  return 0;
+}
+
+/**
+ * A Step-level subcommand that could not run, as an instruction rather than a stack.
+ *
+ * The rule is the one `reportStage` states: a gate's job is to name what is wrong. A
+ * stack names neither what to correct nor where to look, and the reader here is an
+ * operator forbidden from asking.
+ *
+ * [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+ */
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+function renderStepFailure({ step, root, error }) {
+  return `${step} could not run.\n  Where: ${root}\n  Why: ${error.message}\nWhat to do: correct what the message names and run the same command again.\n`;
 }
 
 // [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
@@ -874,7 +1053,7 @@ function runSpikeSubcommand(options) {
   return runSpikeSlice(options);
 }
 
-// [::TICKET::] P22-4, P22-9, P23-7, PX-214, PX-213, P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|PX-214|PX-213|P26-2) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P23-7, PX-214, PX-213, P26-2, P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|PX-214|PX-213|P26-2|P26-3) --for-spec --no-implementation-order`.
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (!options.subcommand || !SUBCOMMANDS.includes(options.subcommand)) {
@@ -905,6 +1084,12 @@ async function main() {
   if (options.subcommand === 'spike') return runSpikeSubcommand(options);
   if (options.subcommand === 'analyze') return runAnalysisPipeline(options);
   if (options.subcommand === 'gate') return runGate(options);
+  if (options.subcommand === 'pattern') return runPatternStep(options);
+  if (options.subcommand === 'inventory') return runInventoryStep(options);
+  if (options.subcommand === 'decide') return runDecideStep(options);
+  if (options.subcommand === 'status') return runStatusStep(options);
+  if (options.subcommand === 'seam') return runSeamStep(options);
+  if (options.subcommand === 'report') return runReportStep(options);
   return runVerify(options);
 }
 

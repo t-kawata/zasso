@@ -100,9 +100,12 @@ test('C003 invariant: the measurement is over the library and not over the tests
   // measured would agree with it by construction. `tests/conventions/installed-copy-drift.test.mjs`
   // records the same number for the copies, which is a second place it lives; the two are
   // re-measured together whenever a module is added.
+  // Re-measured 2026-09-17 by P26-3, which added the five modules the Step-level
+  // subcommands read: `published-set.mjs`, `inventory.mjs`, `seam.mjs`, `step-report.mjs`
+  // and `decision-writing.mjs`.
   assert.equal(
     readdirSync(MODULE_DIRECTORY).filter((name) => name.endsWith('.mjs')).length,
-    51,
+    56,
     'the library the measurement is taken over',
   );
 });

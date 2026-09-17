@@ -655,6 +655,7 @@ function commandFileCopies() {
  * would have to be told which line is the quotation, which is the question.
  */
 // [::TICKET::] PX-216 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-216 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function declaredOrderLines(text) {
   const declared = ANALYSIS_EVALUATION_ORDER.join(', ');
   return text
@@ -705,7 +706,7 @@ test('C001 invariant: the quotation sits on the line this file records for it', 
   // line inserted or removed above the quotation is reported here by name instead of
   // moving in silence. The citations into this file under `specs/` are dated
   // measurements that keep their text, so this number is updated on its own.
-  assert.deepEqual(declaredOrderLines(TEXT), [176], 'the quotation is where this file says it is');
+  assert.deepEqual(declaredOrderLines(TEXT), [188], 'the quotation is where this file says it is');
 });
 
 test('C002/UT: the lowercase spelling is closed to the line that quotes the declared order', () => {

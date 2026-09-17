@@ -75,7 +75,15 @@ const DIFFERING_IN_COPIES = Object.freeze([]);
  * case where a run of it silently reverted another ticket's hand-edits.
  */
 // [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
-const SOURCE_MODULE_COUNT = 51;
+//
+// **Re-measured 2026-09-17 by P26-3**, which added five modules — `published-set.mjs`,
+// `inventory.mjs`, `seam.mjs`, `step-report.mjs` and `decision-writing.mjs` — and
+// changed `run.mjs`, `scope.mjs` and `pattern-detection.mjs`. The copies were advanced
+// file-wise again, and P26-2's reason holds more sharply here: the command file each
+// copy installs now names six subcommands, and a copy whose entrance does not accept
+// them is not a copy behind a release — it is a copy that aborts on its own procedure.
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+const SOURCE_MODULE_COUNT = 56;
 
 const measure = () => measureInstalledCopyDrift({ repositoryRoot: REPOSITORY_ROOT });
 

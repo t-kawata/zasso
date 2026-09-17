@@ -494,8 +494,8 @@ Assertion 7 (`/Step \d/`) is satisfied by `## Step 0` … `## Step 8`.
 
 | Step | Purpose | Instrument | Machine decides | What must **not** happen |
 |---|---|---|---|---|
-| **0** | Identify the pattern | Read the disk. Which conver artefacts exist: root `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` / `RFC-*.md`; per-directory `RFC-SEED.md`; `WORKSPACIFY-*MANIFEST*` | Presence and absence are facts, read from the filesystem | The pattern must **not** be inferred by asking, and must **not** be a gate |
-| **1** | Record what is already there | The artefacts Step 0 found, plus the in-flight state (§3.3): ticket lifecycle statuses, the `DesignTree`, the old partition | The inventory is mechanical | Silent continuation of an existing cycle; silent deletion of anything |
+| **0** | Identify the pattern | `run.mjs pattern` — it reads the disk and decides the pattern from what conver artefacts exist: root `*-GRAPH.json` / `*-Dirs-Tree.json` / `Tickets.json` / `RFC-*.md`; per-directory `RFC-SEED.md`; `WORKSPACIFY-*MANIFEST*` | Presence and absence are facts, read from the filesystem | The pattern must **not** be inferred by asking, and must **not** be a gate |
+| **1** | Record what is already there | `run.mjs inventory` — the artefacts Step 0 found, plus the in-flight state (§3.3): ticket lifecycle statuses, the `DesignTree`, the old partition | The inventory is mechanical | Silent continuation of an existing cycle; silent deletion of anything |
 | **2** | Fix the boundary and the scope | `run.mjs analyze` — the one invocation, which reaches R8 | The scope, the target commit, the tree hash, the directories the digest did not cover, exclusions, permissions, the external-transmission policy | — |
 
 **There is no gate before Step 3 that can stop the run because the project is incomplete.** That is
@@ -506,10 +506,13 @@ a precondition here.** Naming it as a precondition is one of the errors this des
 
 #### Movement II — Confirm the exit (Step 3)
 
-**Step 3 runs nothing.** The entrance reached R8 in Step 2, because publishing is atomic and the
-command line has no prefix instrument: there is no second invocation to make and no shorter run to
-fall back to. What Step 3 does is read the scope the run fixed, **before** any other document, and
-confirm the exit's two documents are present beside it. It carried the same `run.mjs analyze`
+**Step 3 runs one command and no stage.** `run.mjs status` reads the destination the run
+published into and exits 0 only when it holds every document the exit owes, naming any
+that is absent or empty. The entrance reached R8 in Step 2, because publishing is atomic
+and the command line has no prefix instrument: there is no second invocation to make and
+no shorter run to fall back to. What Step 3 does is read the scope the run fixed,
+**before** any other document, and confirm the exit's two documents are present beside
+it. It carried the same `run.mjs analyze`
 invocation as Step 2 until P26-2: two Steps showing one command is a procedure whose reader runs a
 three-minute analysis twice, and Step 2's own instruction to read `ANALYSIS-SCOPE.json` first was
 impossible, because that document is published once at the end of the run it was telling the reader
@@ -527,7 +530,7 @@ Three mechanical facts the file must state, because without them the operator mi
 outcome:
 
 1. **Publishing is atomic.** `replacePublishedDocuments` is called **once**, after every stage in the
-   prefix has run and the target has been re-digested (`scope.mjs:1973`), and it replaces the
+   prefix has run and the target has been re-digested (`scope.mjs:1974`), and it replaces the
    destination rather than adding to it, so the directory holds one run's documents and no other
    round's. A run that stops **publishes nothing**. There is no partial-document state to clean up.
 2. **There is no command-line prefix instrument.** Because of (1), a failure late in a long run
@@ -539,7 +542,7 @@ outcome:
    running program.
    **But**: a full run reached R8 in about **three minutes** (Appendix A.1). Run to the exit.
 3. **The target is digested before and after.** A single byte moved outside the reserved directory
-   and the run refuses to publish (`scope.mjs:1833-1837`). The tree must be quiescent, and the
+   and the run refuses to publish (`scope.mjs:1834-1838`). The tree must be quiescent, and the
    digest record names the directories it did not cover, so the claim is read as what it is rather
    than as a claim over the whole tree.
 
@@ -547,11 +550,11 @@ outcome:
 
 | Step | Purpose | What the reader gets / does |
 |---|---|---|
-| **4** | Read the material in the order it is needed | See the table below |
-| **5** | **Decide the partition** — the one load-bearing decision (§5.6) | The AI decides. Everything downstream is instantiated from this |
-| **6** | Record the seam (patterns 2 and 3 only) | The old partition, the in-flight work, the difference — recorded, never eliminated (§3.4) |
+| **4** | Read the material in the order it is needed | `run.mjs status` first — the five documents present and non-empty — then see the table below |
+| **5** | **Decide the partition** — the one load-bearing decision (§5.6) | `run.mjs decide --answers=<path>` writes the six answers; `run.mjs gate` checks them. The AI decides; the shape is not theirs to get wrong. Everything downstream is instantiated from this |
+| **6** | Record the seam (patterns 2 and 3 only) | `run.mjs seam` prints the old partition, the in-flight work and the difference, in both directions — recorded, never eliminated (§3.4) |
 | **7** | Hand over | `/workspacify-tree` reverse mode consumes `ORIGIN-LONG-SPEC.md` |
-| **8** | Report | *proved* / *not proved*, the stage list, the destination. **Never whether the reverse engineering succeeded** (§3.3 of `ABOUT-REVERSE`) |
+| **8** | Report | `run.mjs report` prints *proved* / *not proved*, the stage list and the destination. **Never whether the reverse engineering succeeded** (§3.3 of `ABOUT-REVERSE`) |
 
 The material, in reading order:
 
@@ -627,7 +630,7 @@ Each of these is a formulation that was tried and rejected:
 | `scrub` / `detect` / `verify` as workflow steps | `scrub` **removes** forward traces. On a pattern-2 project those traces are its 143 `Initial Design Artifact` headers and its `@verifies` annotations. Removing them is supreme law 4 territory and destroys exactly what must be carried forward |
 | `oracle compare` as a workflow step | An answer key exists only in the paired-tree experiment. No real project has one |
 | An invocation that hands a rotation a path the rotation can derive | §9. The criterion the family applies is that an argument is hidden unless hiding it breaks one of the four patterns. `--root`, `--graph`, `--measured`, `--sidecars`, `--delta`, `--out` and `--prior-partition` left the reverse rotation for this reason, and the decisions document left both forward rotations; all of them are refused by name rather than ignored, because a question dropped in silence reads exactly like one answered |
-| `run.mjs regression check` as a precondition | It takes **no root** (`.claude/scripts/workspacify-reverse/run.mjs:336-341` — the branch fixes `action: second, root: process.cwd()` and states that requiring a root would make the command unrunnable by the automated sessions that run it before every later ticket's step). It measures the conver repository, and its fixtures are not installed into a user's project |
+| `run.mjs regression check` as a precondition | It takes **no root** (`.claude/scripts/workspacify-reverse/run.mjs:367-372` — the branch fixes `action: second, root: process.cwd()` and states that requiring a root would make the command unrunnable by the automated sessions that run it before every later ticket's step). It measures the conver repository, and its fixtures are not installed into a user's project |
 | Any statement that the project must already be a complete conver project | §1.2 |
 
 ### 5.9 The round, and what success is

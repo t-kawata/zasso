@@ -117,7 +117,13 @@ The entrance exits **0** when the analysis was published, **1** when a stage cou
 
 **The purpose of this step**: know which pattern the subject is. It changes what Steps 1 and 6 do, and nothing else.
 
-**Run**: nothing. Read the disk and record what conver scaffolding is present: root `*-GRAPH.json`, `*-Dirs-Tree.json`, `Tickets.json`, `RFC-*.md`; a per-directory `RFC-SEED.md`; `WORKSPACIFY-*MANIFEST*`. Presence and absence are facts, read from the filesystem, never inferred by asking.
+**Run**:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs pattern
+```
+
+It reads the disk and names what conver scaffolding is present — root `*-GRAPH.json`, `*-Dirs-Tree.json`, `Tickets.json`, `RFC-*.md`; a per-directory `RFC-SEED.md`; `WORKSPACIFY-*MANIFEST*` — and decides the pattern from it. Presence and absence are facts, read from the filesystem, never inferred by asking. The run re-derives the same answer in R0 and publishes it as `PATTERN.json`, so your reading and the machine's are two documents rather than one impression.
 
 | Pattern | The input project | What must happen |
 |---|---|---|
@@ -136,7 +142,13 @@ The entrance exits **0** when the analysis was published, **1** when a stage cou
 
 **The purpose of this step**: hold the state the subject arrived in, so that whatever happens downstream is read against it.
 
-**Run**: nothing. Assemble the inventory in your working notes; this Step writes to no file.
+**Run**:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs inventory
+```
+
+It names what is already on disk — the artefacts, the lifecycle status of every ticket, the `DesignTree` and the prior partition — and writes to no file. The inventory is mechanical, which is why it is printed rather than assembled in your notes: what a later Step must not lose is then a document rather than a recollection.
 
 - The artefacts Step 0 found
 - The work in flight: the ticket lifecycle statuses in any existing `Tickets.json`, the `DesignTree.json`, and the existing partition. An interrupted cycle's in-flight work is **recorded**, never silently continued and never silently deleted
@@ -182,7 +194,13 @@ Three mechanical facts. Without them every outcome is misread:
 2. **There is no command-line prefix instrument** — precisely because of (1). A failure late in a long run costs the whole run, and the command line offers no way to stop earlier and let a complete prefix publish. **The evaluation order is not the stage numbering**: R2.5 runs before R1 and R2, because the dependency graph's caveat has to state how many mechanisms stand between it and the running program, and the execution surface is what counts them. The order is declared once, in the analysis, and every declared stage appears in it exactly once. The `analyzeProject` API still takes `through`, so a prefix is reachable from a program — but not from here, and this step must not pretend otherwise
 3. **The target is digested before and after.** The analysis digests the tree before and after and refuses to publish if a single byte moved outside the reserved destination. The tree must be quiescent, and no stage writes to it
 
-**Run**: nothing. The entrance reached R8 in Step 2; publishing is atomic, so there is no second invocation to make and no prefix to reach for.
+**Run**:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs status
+```
+
+The entrance reached R8 in Step 2; publishing is atomic, so there is no second invocation to make and no prefix to reach for. This command reads the destination and exits 0 only when it holds every document the exit owes, naming any that is absent or empty.
 
 **Gate**: `ANALYSIS-SCOPE.json` opens the reading, and the exit's two documents are present beside it. Read the scope **before** any other document, because it is the record of what every later measurement is a measurement *of*; then confirm `ORIGIN-LONG-SPEC.json` and `ORIGIN-LONG-SPEC.md` are both in the destination.
 
@@ -202,7 +220,13 @@ Three mechanical facts. Without them every outcome is misread:
 | `ORIGIN-LONG-SPEC.md` | the spec itself. Every claim states what would falsify it; the `unresolved` ones say what a human has to decide |
 | `CAPABILITY-PROFILE.json` | what this analysis can and cannot prove, in five dimensions. It carries **no eligibility verdict** |
 
-**Run**: open the source. A measurement tells you where to look; it is not the evidence. For every claim your six decisions touch, open the file and line the measurement names, read the surrounding code, and let that reading be what the decision rests on. No stage of this analysis reads a search result, and neither do you: a search is a place to look, never a finding.
+**Run**:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs status
+```
+
+It reports whether the five documents below are present and non-empty, so a document you cannot find is named rather than inferred missing. Then open the source. A measurement tells you where to look; it is not the evidence. For every claim your six decisions touch, open the file and line the measurement names, read the surrounding code, and let that reading be what the decision rests on. No stage of this analysis reads a search result, and neither do you: a search is a place to look, never a finding.
 
 **Gate**: the five documents above are present in the destination and non-empty, and `ORIGIN-LONG-SPEC.md` is the spec you are deciding about rather than a stage sidecar.
 
@@ -216,9 +240,10 @@ Three mechanical facts. Without them every outcome is misread:
 
 Decide the package boundary — the first of the six. Because the terminal state is a per-directory re-instantiation of the four layers, **a wrong partition does not produce one wrong file; it produces a whole wrong structure, in every directory, at every level.** A hallucinated specification is what a boundary decided carelessly becomes.
 
-**Run**: write all six decisions into `workspacify/reverse/DECISIONS.json`, then
+**Run**: author the six answers as a JSON object — one key per decision, the shape `schemas/workspacify-reverse-decisions.schema.json` declares — and hand them to the writer rather than writing the document by hand:
 
 ```bash
+node .claude/scripts/workspacify-reverse/run.mjs decide --answers=<path to your answers.json>
 node .claude/scripts/workspacify-reverse/run.mjs gate
 ```
 
@@ -234,7 +259,13 @@ The path is derived from the subject and is not selectable. The schema is `schem
 
 **The purpose of this step**: record the discontinuity, on the subjects where there is one.
 
-**Run**: nothing. **Pattern 1 has no seam — skip to Step 7.** Patterns 2 and 3 record it here.
+**Run**:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs seam
+```
+
+**Pattern 1 has no seam — skip to Step 7**, and the command states that itself rather than leaving you to decide it. Patterns 2 and 3 record it here, from the two directions the command prints: what only the prior partition carries, and what only the fixed one does.
 
 - The old partition, the work in flight, and the difference between the two — **recorded, never eliminated**
 - The old `RFC-ROOT-Dirs-Tree.json` is a prior, not the answer. The act was taken *because* those boundaries are too coarse
@@ -262,7 +293,13 @@ The path is derived from the subject and is not selectable. The schema is `schem
 
 **The purpose of this step**: print the outcome in the minimal form the next reader can act on.
 
-**Run**: nothing. Report what happened.
+**Run**:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs report
+```
+
+It prints the stages that ran, the destination the documents were published to, and `proved` / `not proved` — read from what the run published, so the report is a reading rather than a recollection. Nothing else goes in it.
 
 **Gate**: the report carries the stage list that ran, the destination the documents were published to, and `proved` / `not proved` — and nothing else. Whether the reverse engineering succeeded is not a report this command can give.
 

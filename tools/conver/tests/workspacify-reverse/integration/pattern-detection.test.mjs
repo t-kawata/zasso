@@ -189,7 +189,10 @@ test('IT: the pipeline walks the tree once, and this is what would catch a secon
     'one call in the pipeline, and the classification default that call satisfies — a third would be a second walk',
   );
   assert.match(source, /classifyArtefacts\(\{[^}]*artefacts[^}]*\}\)/, 'the boundary is handed the walk, not left to take its own');
-  assert.match(source, /detectPattern\(\{[^}]*artefacts[^}]*\}\)/, 'and so is the identification');
+  // P26-3 routed both call sites through one function: the identification is still handed
+  // the walk rather than taking its own, and the name now says it is the directory-level
+  // entry point.
+  assert.match(source, /detectPatternAt\([^)]*artefacts[^)]*\)/, 'and so is the identification');
 });
 
 test('IT: no stage gates on the pattern — the refusal design 1.2 forbids is absent from the code, not only from this run', () => {
@@ -202,7 +205,7 @@ test('IT: no stage gates on the pattern — the refusal design 1.2 forbids is ab
       `the pipeline names ${row.id}, which is the shape a gate would take`,
     );
   }
-  assert.match(source, /detectPattern\(/, 'and the pipeline does call the detection, so the absence is not silence');
+  assert.match(source, /detectPattern(?:At)?\(/, 'and the pipeline does call the detection, so the absence is not silence');
 });
 
 // ---------------------------------------------------------------------------
