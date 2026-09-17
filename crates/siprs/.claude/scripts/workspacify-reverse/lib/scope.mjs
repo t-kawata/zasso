@@ -36,7 +36,7 @@
  * than of the analysis plus its answer.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
 import {
@@ -88,17 +88,16 @@ import {
   renderAdjudicationCards,
 } from './reflexion.mjs';
 import {
-  buildOriginSpec,
   buildOriginSpecCandidate,
   renderOriginSpec,
-  validateOriginSpec,
 } from './origin-spec.mjs';
+import { buildPublishedSpec } from './spec-assembly.mjs';
 import { buildCapabilityProfile } from './capability-profile.mjs';
 import { assessEligibility, renderEligibility } from './eligibility.mjs';
 import { EXCLUSION_RULES, buildAttemptLedger, listArtefacts } from './analysis-tech.mjs';
 // [::TICKET::] P23-11: R0's identification — which of the four declared patterns
 // the subject is. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-11 --for-spec --no-implementation-order`.
-import { PATTERN_FILE_NAME, detectPattern, renderPatternDetection } from './pattern-detection.mjs';
+import { PATTERN_FILE_NAME, detectPatternAt, renderPatternDetection } from './pattern-detection.mjs';
 import { measureStructure, renderStructureReport, syntaxLanguageOf } from './structure.mjs';
 import { extractSemantics, renderSemanticsReport } from './semantics.mjs';
 import { reconstructHistory, renderHistoryRecord } from './history.mjs';
@@ -941,7 +940,15 @@ function dominantLanguageOf(paths) {
 }
 
 // [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
-function publishDocuments(out, documents) {
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+export function replacePublishedDocuments(out, documents) {
+  // The destination holds what this run published and nothing else. Four documents
+  // are published only when present, so a run over a tree that changed — which is
+  // what a round is — can produce a smaller set than the round before it, and a
+  // document left standing would be read as this run's. The removal is scoped to
+  // `out`, which is the reserved *reverse* directory: `workspacify/` holds the tree
+  // and allocate rotations' decisions documents, and neither is this run's to remove.
+  rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
   for (const [name, document] of Object.entries(documents)) {
     writeFileSync(join(out, name), typeof document === 'string' ? document : canonicalSerialize(document));
@@ -1572,6 +1579,8 @@ function renderAdjudicationMarkdown(adjudication) {
 }
 
 export async function analyzeProject({
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P24-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-7 --for-spec --no-implementation-order`.
 // [::TICKET::] P24-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-6 --for-spec --no-implementation-order`.
 // [::TICKET::] P24-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P24-3 --for-spec --no-implementation-order`.
@@ -1580,7 +1589,7 @@ export async function analyzeProject({
   through = ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
   options = {},
 } = {}) {
-  const { onStage = null, reconstruction = {} } = options;
+  const { onStage = null, reconstruction = {}, semantics: authoredSemantics = null } = options;
   if (!ANALYSIS_STAGES.includes(through)) {
     throw new AnalysisScopeError(
       `unknown analysis stage ${JSON.stringify(through)}; the stages are ${ANALYSIS_STAGES.join(', ')}. `
@@ -1623,7 +1632,7 @@ export async function analyzeProject({
   // result is published by every run whatever it found — an identification that
   // changed the document set would be the gate design 1.2 forbids.
   const artefacts = listArtefacts(scope.root);
-  const pattern = runStage('r0', () => detectPattern({ root: scope.root, artefacts }));
+  const pattern = runStage('r0', () => detectPatternAt(scope.root, { artefacts }));
 
   const boundary = runStage('r0.5', () => classifyArtefacts({ root: scope.root, scope, artefacts }));
   const excludedPaths = boundary.artefacts
@@ -1793,12 +1802,6 @@ export async function analyzeProject({
       prior: readPriorPartition(scope.root),
     }))
     : null;
-  const originSpec = stagesRun.includes('r8') && ledger !== null
-    ? runStage('r8', () => validateOriginSpec(
-      buildOriginSpec({ root: scope.root, ledger, treeHash: before.sha256 }),
-      { root: scope.root },
-    ))
-    : null;
   const profile = stagesRun.includes('r8')
     ? buildCapabilityProfile({ ledger, gaps: classifiedGaps, surface, redPlan, counterexamples })
     : null;
@@ -1836,9 +1839,17 @@ export async function analyzeProject({
     stagesRun,
   });
 
+
   const documents = {
     'ANALYSIS-SCOPE.json': {
       ...scope,
+      // The stages this run actually reached, in the order it reached them. It is
+      // recorded here because Step 8's report reads the stage list from this
+      // document, and a reader for a field no producer writes reports an empty
+      // list on every subject: the report said "none recorded" after a run that
+      // reached all fourteen, and the Step's own gate then asked for a list no
+      // instrument could give it.
+      stages_run: [...stagesRun],
       // A fact about what the run could see, beside the boundary it fixed:
       // whether the subject declared how it is built, and how many translation
       // units that declaration named.
@@ -1938,6 +1949,20 @@ export async function analyzeProject({
   publishWhenPresent(documents, 'R7-SECURITY-LANE.md', securityLane === null ? null : renderSecurityLaneMarkdown(securityLane));
   publishWhenPresent(documents, 'ADJUDICATION-CANDIDATES.json', adjudication);
   publishWhenPresent(documents, 'R7-ADJUDICATION.md', adjudication === null ? null : renderAdjudicationMarkdown(adjudication));
+  // R8's spec is built from the set the run is about to publish, and it is built last
+  // so that every stage has already produced its document. A spec assembled from the
+  // ledger alone is what left twenty documents published and read by nobody: the
+  // sections carry the published values themselves, so what the spec holds and what the
+  // run wrote cannot drift apart without the projection check failing.
+  const originSpec = stagesRun.includes('r8') && ledger !== null
+    ? runStage('r8', () => buildPublishedSpec({
+      root: scope.root,
+      treeHash: before.sha256,
+      analysis: { root: scope.root, treeHash: before.sha256, ledger, documents, destination: out },
+      authoredSemantics,
+    }))
+    : null;
+
   if (originSpec !== null) {
     documents['ORIGIN-LONG-SPEC.json'] = originSpec;
     documents['ORIGIN-LONG-SPEC.md'] = renderOriginSpec(originSpec);
@@ -1945,7 +1970,7 @@ export async function analyzeProject({
   }
   if (profile !== null) documents['CAPABILITY-PROFILE.json'] = profile;
 
-  publishDocuments(out, documents);
+  replacePublishedDocuments(out, documents);
 
   return {
     scope,

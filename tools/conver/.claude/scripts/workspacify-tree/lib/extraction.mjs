@@ -8,7 +8,7 @@
  * are recorded as REVIEW_REQUIRED so a later AI review confirms or rejects
  * them. No candidate is ever dropped silently.
  */
-import { scanFenceStates, lineByteOffsets } from './markdown.mjs';
+import { scanFenceStates, lineStartOffsets } from './markdown.mjs';
 
 /** Column headers that announce an object/entity column and their classification. */
 const OBJECT_HEADER_CLASSIFICATION = {
@@ -71,7 +71,7 @@ const CLAIM_HEADING_RE = /claim|proof/i;
  */
 export function harvestObjectCandidates({ sourceText, headings, segments }) {
   const lines = sourceText.split('\n');
-  const offsets = lineByteOffsets(sourceText);
+  const offsets = lineStartOffsets(sourceText);
   const fenceStates = scanFenceStates(lines);
   const document = { lines, offsets, headings, sourceText, segments };
   const byName = new Map();
@@ -139,7 +139,7 @@ export function harvestObjectCandidates({ sourceText, headings, segments }) {
  */
 export function harvestClaimCandidates({ sourceText, headings, segments }) {
   const lines = sourceText.split('\n');
-  const offsets = lineByteOffsets(sourceText);
+  const offsets = lineStartOffsets(sourceText);
   const fenceStates = scanFenceStates(lines);
   const document = { lines, offsets, headings, sourceText, segments };
   const byName = new Map();
@@ -204,9 +204,10 @@ export function harvestRequirementCandidates({ sourceText, headings, segments })
   return all.filter((candidate) => REQUIREMENT_CLASSIFICATIONS.has(candidate.classification));
 }
 
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
 function harvestPhraseCandidates({ sourceText, headings, segments }, phrases) {
   const lines = sourceText.split('\n');
-  const offsets = lineByteOffsets(sourceText);
+  const offsets = lineStartOffsets(sourceText);
   const fenceStates = scanFenceStates(lines);
   const document = { lines, offsets, headings, sourceText, segments };
   const candidates = [];

@@ -1,3 +1,4 @@
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
 // @verifies C001
@@ -28,7 +29,7 @@ import {
 } from '../../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs';
 
 /** The procedure's declared spine: `## Step 0` through `## Step 8`. */
-export const EXPECTED_STEP_HEADINGS = 9;
+export const EXPECTED_STEP_HEADINGS = 11;
 
 /** The AI's judgement surface, closed to exactly this many items (ABOUT-REVERSE §6.2). */
 export const JUDGEMENT_SURFACE_SIZE = 6;
@@ -87,8 +88,60 @@ export const SCRIPTLESS_COMMAND_FILES = Object.freeze([
 /** Where the instrument's subcommands are catalogued. */
 export const SCRIPTS_USED_HEADING = '## Scripts used';
 
-/** Where the two modes of design §5.8 are declared, and which one an operational run is in. */
-export const MODES_HEADING = '## Two modes, never conflated';
+/**
+ * A row of the catalogue, as the subcommand it names.
+ *
+ * The catalogue is the operator's only index of what can be run, and it is written by
+ * hand. It drifted six rows behind the Steps while nothing read it: the six Step-level
+ * subcommands were invoked by the procedure and absent from the table, so a reader
+ * looking one up found no row and a closing sentence asserting the table was complete.
+ * Reading the rows here is what lets a guard compare the two lists instead of trusting
+ * either one.
+ */
+const CATALOGUE_ROW = /^\|\s*`run\.mjs\s+([a-z]+)/;
+
+/** The subcommands the catalogue lists, in the order it lists them. */
+export function cataloguedSubcommands(text) {
+  return sectionLines(text, SCRIPTS_USED_HEADING)
+    .map((line) => CATALOGUE_ROW.exec(line))
+    .filter((match) => match !== null)
+    .map((match) => match[1]);
+}
+
+/**
+ * The entrance's declared surface, read from the one block that declares it.
+ *
+ * Read from the source rather than transcribed into a test, because a transcribed list
+ * is a second declaration: the one that broke was transcribed once, went stale when six
+ * subcommands were added, and left a guard reporting that the procedure runs nothing
+ * beyond the entrance and its gate. A reader that takes the list from the machine cannot
+ * disagree with it.
+ */
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+export function declaredUsage(source) {
+  const usage = /const USAGE = \[([\s\S]*?)\]\.join\('\\n'\)/.exec(source);
+  assert.notEqual(usage, null, 'the entrance declares its surface in one block');
+  return usage[1];
+}
+
+/**
+ * The subcommands `USAGE` declares.
+ *
+ * The block declares them two ways — one synopsis naming the argument-free set, and a
+ * usage line per subcommand that takes an action or a fixture — so both are read. A
+ * reader that took only the synopsis would report `regression` as undeclared.
+ */
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+export function declaredSubcommands(source) {
+  const usage = declaredUsage(source);
+  const names = new Set();
+  for (const [, alternatives, single] of usage.matchAll(/run\.mjs (?:<([a-z|]+)>|([a-z]+))/g)) {
+    if (alternatives !== undefined) for (const name of alternatives.split('|')) names.add(name);
+    if (single !== undefined) names.add(single);
+  }
+  assert.ok(names.size > 0, 'the entrance declares its subcommands in its USAGE block');
+  return [...names];
+}
 
 /** Where the AI's judgement surface is enumerated, one numbered item per decision. */
 export const JUDGEMENT_HEADING = '## What the machine decides, and what you decide';
@@ -141,25 +194,25 @@ export const FORBIDDEN_FORMULATIONS = Object.freeze([
   Object.freeze({
     id: 'holdout-isolation',
     markers: Object.freeze(['holdout isolation', 'run.mjs holdout']),
-    exemptIn: Object.freeze([SCRIPTS_USED_HEADING, MODES_HEADING]),
+    exemptIn: Object.freeze([SCRIPTS_USED_HEADING]),
     reason: '§5.7 — it manufactures the experiment input; it does not qualify a real project',
   }),
   Object.freeze({
     id: 'scrub-detect-verify-as-step',
     markers: Object.freeze(['run.mjs scrub', 'run.mjs detect', 'run.mjs verify']),
-    exemptIn: Object.freeze([SCRIPTS_USED_HEADING, MODES_HEADING]),
+    exemptIn: Object.freeze([SCRIPTS_USED_HEADING]),
     reason: '§5.7 — they remove or re-detect the forward traces a pattern-2 project must carry forward',
   }),
   Object.freeze({
     id: 'oracle-compare-as-step',
     markers: Object.freeze(['oracle compare', 'run.mjs oracle']),
-    exemptIn: Object.freeze([SCRIPTS_USED_HEADING, MODES_HEADING]),
+    exemptIn: Object.freeze([SCRIPTS_USED_HEADING]),
     reason: '§5.7 — an answer key exists only in the paired-tree experiment',
   }),
   Object.freeze({
     id: 'regression-check-as-precondition',
     markers: Object.freeze(['run.mjs regression']),
-    exemptIn: Object.freeze([SCRIPTS_USED_HEADING, MODES_HEADING]),
+    exemptIn: Object.freeze([SCRIPTS_USED_HEADING]),
     reason: '§5.7 — it takes no root and measures the conver repository, not the subject',
   }),
 ]);
@@ -368,4 +421,142 @@ export function findAbsenceContradictions({ sectionText: section, unreachable, r
   }
 
   return findings;
+}
+
+/**
+ * The sentence a command file must carry where it spells a stage identifier lowercase.
+ *
+ * The file writes a stage two ways and the case carries the meaning: lowercase is the
+ * identifier the command line matches and `ANALYSIS_EVALUATION_ORDER` declares,
+ * uppercase is the label a reader sees (`stageLabel` in `lib/scope.mjs`, which derives
+ * it so a stage can never be displayed under a name it is not invoked by). One line is
+ * therefore supposed to be lowercase — the block quoting the declared order — and
+ * without the rule stated beside it that line reads as an inconsistency.
+ *
+ * It sits beside its only consumer rather than with the constants at the top because
+ * `design-citations.test.mjs` pins `command-file.mjs:214` to `assertCommandFileStructure`:
+ * a constant added above that line moves it, and the guard reports the drift.
+ *
+ * The sentence is matched rather than quoted so the wording can be improved without a
+ * test edit, while the two facts it must carry — the case, and the reason — cannot be
+ * dropped.
+ */
+export const CASE_CONVENTION = /lowercase[^.;]*identifier the command line matches[^.;]*label a reader sees/i;
+
+/**
+ * Where a command file spells a stage lowercase without stating the convention.
+ *
+ * The section is passed as text rather than as a path so a fixture can drive the
+ * check, for the same reason `findAbsenceContradictions` takes its section that way:
+ * a guard that can only be pointed at the real file can only ever be seen to pass.
+ *
+ * @param {{ text: string, heading: string }} input
+ * @returns {Array<{ kind: string, region: string }>} one finding when the rule is unstated
+ */
+// [::TICKET::] PX-216 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-216 --for-spec --no-implementation-order`.
+export function findUnstatedCaseConvention({ text, heading }) {
+  return CASE_CONVENTION.test(sectionText(text, heading))
+    ? []
+    : [{ kind: 'unstated-case-convention', region: heading }];
+}
+
+/**
+ * Where a command file spells a stage identifier in lowercase.
+ *
+ * The vocabulary is passed in rather than imported so a fixture can drive the check.
+ * Matching is case sensitive and longest token first, so `r2.5` is one occurrence
+ * rather than `r2` followed by `.5`, uppercase `R0` is no occurrence at all, and the
+ * `r2` inside a word like `render2` is neither — a finding is a stage the command line
+ * would match, not a substring that resembles one.
+ *
+ * @param {{ text: string, vocabulary: string[] }} input
+ * @returns {Array<{ line: number, token: string, text: string }>} one finding per occurrence
+ */
+// [::TICKET::] PX-216 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-216 --for-spec --no-implementation-order`.
+export function findLowercaseStageLines({ text, vocabulary }) {
+  if (vocabulary.length === 0) {
+    return [];
+  }
+
+  const alternation = [...vocabulary]
+    .map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .sort((left, right) => right.length - left.length)
+    .join('|');
+  const tokenPattern = new RegExp(`(?<![A-Za-z0-9_.])(${alternation})(?![0-9])`, 'g');
+  const findings = [];
+
+  for (const [index, line] of text.split('\n').entries()) {
+    for (const match of line.matchAll(tokenPattern)) {
+      findings.push({ line: index + 1, token: match[1], text: line.trim() });
+    }
+  }
+
+  return findings;
+}
+
+/**
+ * The five parts every Step of the procedure must carry.
+ *
+ * The file states each part under a literal label rather than inside a sentence,
+ * because a part that is only implied cannot be checked and therefore cannot be
+ * missed. `**The purpose of this step**` was already carried by all nine Steps; the
+ * other four are what makes a Step executable rather than descriptive — the command
+ * it runs, the gate that verifies it, the advice and return Step when the gate
+ * fails, and what it records.
+ *
+ * A label rather than a sentence is the same trade `CASE_CONVENTION` makes, and the
+ * reason is the same: the wording inside each part can be improved without a test
+ * edit, while the presence of the part cannot be dropped.
+ */
+export const STEP_PARTS = Object.freeze({
+  purpose: /\*\*The purpose of this step\*\*/,
+  run: /\*\*Run\*\*/,
+  gate: /\*\*Gate\*\*/,
+  failure: /\*\*If the gate fails\*\*/,
+  record: /\*\*Record\*\*/,
+});
+
+/** The `## Step N` headings a command file declares, in the order it declares them. */
+export function stepHeadingsOf(text) {
+  return extractCommandFileSections(text).headings.filter((heading) => /^## Step \d/.test(heading));
+}
+
+/**
+ * Where a Step carries fewer than the five parts it must.
+ *
+ * One finding per missing part, naming the Step, so a report says which Step lost
+ * which part rather than how many parts are absent. The section is passed as text
+ * rather than as a path so a fixture can drive the check, following
+ * `findAbsenceContradictions`: a guard that can only be pointed at the real file can
+ * only ever be seen to pass.
+ *
+ * @param {{ text: string }} input
+ * @returns {Array<{ kind: string, heading: string, part: string }>} one finding per missing part
+ */
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+export function findStepsMissingParts({ text }) {
+  return stepHeadingsOf(text).flatMap((heading) =>
+    Object.entries(STEP_PARTS)
+      .filter(([, pattern]) => !pattern.test(sectionText(text, heading)))
+      .map(([part]) => ({ kind: 'step-missing-part', heading, part })));
+}
+
+/**
+ * Where a Step's gate names nothing on disk.
+ *
+ * A gate is a predicate over an artefact, and the artefact is written in backticks
+ * because that is the form the rest of the file already uses to name a document. A
+ * gate that names none is a sentence about the Step rather than a check on it — the
+ * shape every gate in this file had before P26-2, when the section on gates stated
+ * their absence.
+ *
+ * @param {{ text: string }} input
+ * @returns {Array<{ kind: string, heading: string }>} one finding per ungrounded gate
+ */
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+export function findUngroundedGates({ text }) {
+  return stepHeadingsOf(text).flatMap((heading) => {
+    const gate = /^\*\*Gate\*\*: (.+)$/m.exec(sectionText(text, heading));
+    return gate === null || !/`[^`]+`/.test(gate[1]) ? [{ kind: 'gate-names-nothing', heading }] : [];
+  });
 }

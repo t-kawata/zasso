@@ -9,7 +9,7 @@
  * they are reported as warnings by collectHeadingWarnings so the caller can
  * decide whether to fail (the design keeps this configurable).
  */
-import { scanFenceStates, lineByteOffsets } from './markdown.mjs';
+import { scanFenceStates, lineStartOffsets } from './markdown.mjs';
 
 /**
  * Parse a single line as an ATX heading.
@@ -40,9 +40,10 @@ export function parseAtxHeading(line) {
  *   byte range/parent_id/children
  */
 export function buildHeadingTree(lines, fenceStates, { sourceText } = {}) {
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
   const states = fenceStates ?? scanFenceStates(lines);
-  const offsets = sourceText !== undefined ? lineByteOffsets(sourceText) : null;
-  const byteLength = sourceText !== undefined ? Buffer.byteLength(sourceText, 'utf8') : null;
+  const offsets = sourceText !== undefined ? lineStartOffsets(sourceText) : null;
+  const textLength = sourceText !== undefined ? sourceText.length : null;
 
   const raw = [];
   for (let i = 0; i < lines.length; i++) {
@@ -53,7 +54,7 @@ export function buildHeadingTree(lines, fenceStates, { sourceText } = {}) {
     if (!parsed || parsed.text === '') {
       continue;
     }
-    const lineEndOffset = offsets !== null && i + 1 < offsets.length ? offsets[i + 1] - 1 : byteLength;
+    const lineEndOffset = offsets !== null && i + 1 < offsets.length ? offsets[i + 1] - 1 : textLength;
     raw.push({
       level: parsed.level,
       text: parsed.text,

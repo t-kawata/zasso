@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://workspacify.invalid/schemas/workspacify-reverse-decisions.schema.json",
+  "title": "WORKSPACIFY-REVERSE-DECISIONS",
+  "description": "The six decisions ABOUT-REVERSE section 6.2 licenses the AI to make, answered under the keys reverse-decisions.mjs declares. Every answer is required: the surface is closed to six, and an item left out is a decision the procedure did not record rather than one it declined to make.",
+  "type": "object",
+  "required": [
+    "package_boundary",
+    "owner_assignment",
+    "layer_estimation",
+    "contract_meaning",
+    "over_splitting",
+    "proposition_classification"
+  ],
+  "properties": {
+    "package_boundary": {
+      "type": "object",
+      "required": ["packages", "rationale"],
+      "properties": {
+        "packages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["path", "name"],
+            "properties": {
+              "path": { "type": "string" },
+              "name": { "type": "string" }
+            }
+          }
+        },
+        "rationale": { "type": "string" }
+      }
+    },
+    "owner_assignment": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["package", "owns"],
+        "properties": {
+          "package": { "type": "string" },
+          "owns": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "layer_estimation": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["package", "layer"],
+        "properties": {
+          "package": { "type": "string" },
+          "layer": { "type": "string" }
+        }
+      }
+    },
+    "contract_meaning": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["contract", "meaning"],
+        "properties": {
+          "contract": { "type": "string" },
+          "meaning": { "type": "string" }
+        }
+      }
+    },
+    "over_splitting": {
+      "type": "object",
+      "required": ["decision", "rationale"],
+      "properties": {
+        "decision": { "type": "string" },
+        "rationale": { "type": "string" }
+      }
+    },
+    "proposition_classification": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["claim", "class"],
+        "properties": {
+          "claim": { "type": "string" },
+          "class": { "type": "string", "enum": ["observed", "inferred", "normative", "unresolved"] }
+        }
+      }
+    }
+  }
+}

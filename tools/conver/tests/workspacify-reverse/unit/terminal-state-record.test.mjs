@@ -67,6 +67,11 @@ test('the record describes a run per representative, and each run names the inpu
   }
 });
 
+// The digest is re-measured whenever the file it names is re-authored. P26-4 re-authored
+// `siprs-for-reverse`'s decisions from the spec the absorption produces, so the record was
+// re-measured with it: the digest is over a file the chain actually read, and leaving the
+// old value would have recorded a reading of bytes that are no longer on disk.
+// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
 test('a recorded decisions input is the bytes of the committed file it names', () => {
   const authored = RECORD.runs.filter((run) => run.decisions.input !== SCRATCH_PLACEHOLDER);
   assert.equal(authored.length > 0, true, 'at least one representative reads an authored input');

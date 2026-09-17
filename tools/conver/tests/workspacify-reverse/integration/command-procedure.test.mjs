@@ -1,3 +1,4 @@
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
@@ -31,10 +32,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { repositoryRootFrom } from '../../lib/repo-hygiene.mjs';
 import { readModuleClosure, reachableModulesIn } from '../helpers/module-closure.mjs';
 
 import {
@@ -45,26 +47,35 @@ import {
   extractCommandFileSections,
 } from '../../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs';
 import { ANALYSIS_EVALUATION_ORDER, ANALYSIS_STAGES } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
+import { DECISION_KEYS } from '../../../.claude/scripts/workspacify-reverse/lib/decision-writing.mjs';
 import { createSyntheticTree } from '../helpers/scratch.mjs';
 import {
+  CASE_CONVENTION,
   EXPECTED_STEP_HEADINGS,
   FORBIDDEN_FORMULATIONS,
   FORBIDDEN_FORMULATION_COUNT,
   JUDGEMENT_SURFACE_SIZE,
-  MODES_HEADING,
   SCRIPTS_USED_HEADING,
   assertCommandFileStructure,
   assertJudgementSurface,
   auditForbiddenFormulations,
+  cataloguedSubcommands,
+  declaredSubcommands,
   extractJudgementItems,
   extractMachineDecisions,
   findAbsenceContradictions,
+  findLowercaseStageLines,
+  findStepsMissingParts,
+  findUnstatedCaseConvention,
+  findUngroundedGates,
   readCommandFile,
   regionsOf,
   sectionText,
+  stepHeadingsOf,
 } from '../helpers/command-file.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
+const REPOSITORY_ROOT = repositoryRootFrom(dirname(fileURLToPath(import.meta.url)));
 const RUNNER = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/run.mjs');
 const MODULE_DIRECTORY = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/lib');
 const COMMAND_PATH = join(PROJECT_ROOT, COMMANDS_RELATIVE_DIR, 'workspacify-reverse.md');
@@ -77,14 +88,22 @@ const ABSENCE_HEADING = '## What this command cannot yet reach';
 const TEXT = readFileSync(COMMAND_PATH, 'utf8');
 const SECTIONS = extractCommandFileSections(TEXT);
 
-/** The `## Step N` headings, in the order the file declares them. */
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
-function stepHeadings(text) {
-  return extractCommandFileSections(text).headings.filter((heading) => /^## Step \d/.test(heading));
-}
-
-/** Every subcommand the entrance accepts, so a step's invocation is matched by name. */
-const KNOWN_SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike', 'analyze'];
+/**
+ * Every subcommand the entrance accepts, so a step's invocation is matched by name.
+ *
+ * `gate` joined the set because the procedure now runs one after the analysis. The
+ * two later rotations already dispatch one — `workspacify-tree/run.mjs:122` and
+ * `workspacify-allocate/run.mjs:779` — so this is the third rotation acquiring the
+ * shape its two successors have, not a new kind of step.
+ *
+ * The set is read from the entrance rather than transcribed here. While it was a
+ * literal it held the older nine names, so the scan below could not see the six
+ * Step-level invocations the Steps had acquired and went on passing while reporting
+ * that no Step runs anything beyond the entrance and its gate — a list used to find
+ * something has to name everything that is there, or the finding it produces is a
+ * finding about the list.
+ */
+const KNOWN_SUBCOMMANDS = declaredSubcommands(readFileSync(RUNNER, 'utf8'));
 
 /** The subcommands invoked inside the procedure's own step sections. */
 // [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
@@ -217,21 +236,20 @@ test('C003 precondition: the sections design §5.3 declares are present', () => 
     SCRIPTS_USED_HEADING,
     '## Statuses and gates',
     '## What this command cannot yet reach',
-    '## A round, and what success is',
   ];
   for (const heading of required) {
     assert.ok(SECTIONS.headings.includes(heading), `${heading} must exist`);
   }
 });
 
-test('C003/UT: the procedure declares Step 0 through Step 8 as nine headings, first and last included', () => {
-  const steps = stepHeadings(TEXT);
-  assert.equal(steps.length, EXPECTED_STEP_HEADINGS, 'the declared spine is nine steps');
+test('C003/UT: the procedure declares Step 0 through Step 10 as eleven headings, first and last included', () => {
+  const steps = stepHeadingsOf(TEXT);
+  assert.equal(steps.length, EXPECTED_STEP_HEADINGS, 'the declared spine is eleven steps');
   assert.match(steps[0], /^## Step 0: /, 'the procedure opens at Step 0');
-  assert.match(steps[steps.length - 1], /^## Step 8: /, 'the procedure ends at Step 8');
+  assert.match(steps[steps.length - 1], /^## Step 10: /, 'the procedure ends at Step 10');
   assert.deepEqual(
-    steps.map((heading) => /^## Step (\d)/.exec(heading)[1]),
-    ['0', '1', '2', '3', '4', '5', '6', '7', '8'],
+    steps.map((heading) => /^## Step (\d+):/.exec(heading)[1]),
+    ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
     'no step number is skipped or repeated',
   );
 });
@@ -258,9 +276,29 @@ test('C003/UT: the judgement surface enumerates exactly six items, each the one 
 
 test('C003/UT: the machine half is bullets and the AI half is the only numbered list', () => {
   const machine = sectionText(TEXT, '## What the machine decides, and what you decide');
-  assert.match(machine, /T1–T6|T1-T6/, 'the accepted machine verdicts are named');
   assert.match(machine, /accepted, not re-opened|accepted rather than re-opened/i, 'the verdicts are accepted');
   assert.ok(extractMachineDecisions(TEXT).length > 0, 'the machine half is set out as bullets');
+});
+
+test('C007/UT: the judgement surface spells the six keys the writer accepts, and no seventh', () => {
+  const spelled = extractJudgementItems(TEXT).map((item) => /`([a-z_]+)`/.exec(item)?.[1] ?? item);
+  assert.deepEqual(
+    [...spelled].sort(),
+    [...DECISION_KEYS].sort(),
+    'the surface names the keys the answers file is written under, so the operator can author it',
+  );
+});
+
+test('C007 boundary: an item naming a key the writer refuses is reported by name', () => {
+  const widened = TEXT.replace(
+    '6. **`proposition_classification`**',
+    '7. **`a_seventh_decision`** — not licensed.\n6. **`proposition_classification`**',
+  );
+  assert.notEqual(widened, TEXT, 'the fixture is actually different');
+  const spelled = extractJudgementItems(widened)
+    .map((item) => /`([a-z_]+)`/.exec(item)?.[1] ?? item)
+    .filter((key) => !DECISION_KEYS.includes(key));
+  assert.deepEqual(spelled, ['a_seventh_decision'], 'a key outside the six is named rather than ignored');
 });
 
 test('C003/UT: the terminal state of design §2 is stated', () => {
@@ -268,17 +306,6 @@ test('C003/UT: the terminal state of design §2 is stated', () => {
   assert.match(terminal, /four-layer set/i, 'every package holds its complete four-layer set');
   assert.match(terminal, /partition is explicit/i, 'the partition is explicit');
   assert.match(terminal, /every inconsistency is recorded/i, 'every inconsistency is recorded');
-});
-
-test('C003/UT: the round and the success condition are stated, and omission 0 is not it', () => {
-  const round = sectionText(TEXT, '## A round, and what success is');
-  assert.match(round, /RESIDUE 0/, 'success is RESIDUE 0 in /crystalize-readme');
-  assert.match(round, /omission 0/, 'omission 0 is named');
-  assert.match(round, /not the success condition/i, 'omission 0 is denied as the success condition');
-  for (const rung of ['L0', 'L1', 'L2', 'L2.5', 'L3']) {
-    assert.ok(round.includes(rung), `the ${rung} rung is named`);
-  }
-  assert.match(round, /only L3 may be called success/i, 'only L3 is success');
 });
 
 test('C003/UT: the machine vocabulary is proved / not proved, and never succeeded / failed', () => {
@@ -294,14 +321,6 @@ test('C003/UT: the four patterns are named, and only 1-3 enter through the rever
   assert.match(step0, /Pattern 3/i, 'pattern 3 is named');
   assert.match(step0, /Pattern 4/i, 'pattern 4 is named');
   assert.match(step0, /Pattern 4 does not enter through the reverse rotation/i, 'pattern 4 does not enter here');
-});
-
-test('C003/UT: the two modes are named, and an operational run is in the operational one', () => {
-  assert.ok(SECTIONS.headings.includes(MODES_HEADING), 'the modes section exists');
-  const modes = sectionText(TEXT, MODES_HEADING);
-  assert.match(modes, /operational mode/i);
-  assert.match(modes, /experiment mode/i);
-  assert.match(modes, /must not gate an operational run/i, 'the experiment mode does not gate an operational run');
 });
 
 test('C003/UT: the absence section names exactly the modules the closure reports as unreachable', () => {
@@ -416,9 +435,9 @@ test('C002 invariant: an exempt region covers a table row and not a sentence', (
   );
 });
 
-test('C002 invariant: the exempt regions are exactly the catalogue and the modes section', () => {
+test('C002 invariant: the catalogue is the one exempt region', () => {
   const exemptRegions = new Set(FORBIDDEN_FORMULATIONS.flatMap((formulation) => formulation.exemptIn));
-  assert.deepEqual([...exemptRegions].sort(), [MODES_HEADING, SCRIPTS_USED_HEADING].sort());
+  assert.deepEqual([...exemptRegions].sort(), [SCRIPTS_USED_HEADING].sort());
   assert.deepEqual(
     FORBIDDEN_FORMULATIONS.filter((formulation) => formulation.exemptIn.length === 0).map((formulation) => formulation.id),
     ['incompleteness-gate', 'must-already-be-complete'],
@@ -443,9 +462,85 @@ test('C002 invariant: the exempt regions are exactly the catalogue and the modes
   }
 });
 
-test('C001/UT: the subcommands the procedure invokes inside its steps are exactly analyze', () => {
+test('C001/UT: the procedure invokes the entrance, its gate and the Step subcommands, and no other', () => {
   const invoked = [...new Set(subcommandsRunBySteps(TEXT))];
-  assert.deepEqual(invoked, ['analyze'], 'no step runs a subcommand other than the entrance');
+  assert.deepEqual(
+    invoked,
+    ['pattern', 'inventory', 'analyze', 'status', 'decide', 'gate', 'readings', 'seam', 'report'],
+    'every Step runs the entrance, the gate, or one of the subcommands that answer a Step',
+  );
+  assert.equal(invoked.includes('readings'), true, 'and the locator the semantics Steps call is among them');
+});
+
+// --- C006: the catalogue and the Steps name the same subcommands --------------
+
+test('C006/UT: every subcommand a Step invokes is catalogued, and every row is a subcommand', () => {
+  const catalogued = cataloguedSubcommands(TEXT);
+  const declared = declaredSubcommands(readFileSync(RUNNER, 'utf8'));
+
+  for (const name of subcommandsRunBySteps(TEXT)) {
+    assert.ok(catalogued.includes(name), `${name} is invoked by a Step and has no row in ${SCRIPTS_USED_HEADING}`);
+  }
+  for (const name of catalogued) {
+    assert.ok(declared.includes(name), `${name} is catalogued and the entrance declares no such subcommand`);
+  }
+});
+
+test('C006 boundary: a catalogue missing a Step subcommand is reported by name', () => {
+  const stripped = TEXT.replace(/^\| `run\.mjs inventory.*$/m, '');
+  assert.notEqual(stripped, TEXT, 'the fixture is actually different');
+  assert.deepEqual(
+    subcommandsRunBySteps(stripped).filter((name) => !cataloguedSubcommands(stripped).includes(name)),
+    ['inventory'],
+    'a Step subcommand holding no catalogue row is named rather than counted',
+  );
+});
+
+// --- C001: every Step is executable, not merely described --------------------
+
+test('C001/UT: every Step carries the five parts it must', () => {
+  assert.deepEqual(
+    findStepsMissingParts({ text: TEXT }),
+    [],
+    'a Step without its gate, its failure advice or its record is a description rather than an instruction',
+  );
+});
+
+test('C001/UT: every gate names the artefact it is a predicate over', () => {
+  assert.deepEqual(
+    findUngroundedGates({ text: TEXT }),
+    [],
+    'a gate that names nothing on disk verifies nothing',
+  );
+});
+
+test('C001 boundary: a Step stripped of its Gate is reported by heading', () => {
+  const mutated = TEXT.replace(
+    /(## Step 5: decide the partition\n)([\s\S]*?)(?=\n## )/,
+    (whole, heading, body) => heading + body.replace(/^\*\*Gate\*\*.*$/m, ''),
+  );
+  assert.notEqual(mutated, TEXT, 'the fixture is actually different');
+  assert.deepEqual(
+    findStepsMissingParts({ text: mutated }),
+    [{ kind: 'step-missing-part', heading: '## Step 5: decide the partition', part: 'gate' }],
+    'exactly one Step is reported, and it is the one that was mutated',
+  );
+});
+
+test('C002 boundary: no Step names a document a later Step publishes', () => {
+  // Step 2 read `ANALYSIS-SCOPE.json` before the run that writes it, and publishing
+  // is atomic, so the file did not exist at the point the reader was told to read it.
+  const step2 = sectionText(TEXT, '## Step 2: fix the boundary and the scope');
+  assert.ok(
+    !step2.includes('ANALYSIS-SCOPE.json'),
+    'the scope document is read after the run that publishes it, not before',
+  );
+
+  const owner = stepHeadingsOf(TEXT)
+    .map((heading) => ({ heading, text: sectionText(TEXT, heading) }))
+    .filter(({ text }) => text.includes('ANALYSIS-SCOPE.json'));
+  assert.equal(owner.length, 1, 'exactly one Step reads the scope document');
+  assert.match(owner[0].heading, /^## Step 3: /, 'and it is the Step the entrance runs in');
 });
 
 // --- Boundary: the guards discriminate --------------------------------------
@@ -512,6 +607,33 @@ test('C002 boundary: a file that cannot be read is reported by path, not thrown 
 
 // --- Invariants: the rewrite did not escape its box --------------------------
 
+test('C008/UT: the file states the loop rule, the terminal obligation, and the prohibition', () => {
+  const recovery = sectionText(TEXT, '## Error recovery');
+  assert.match(recovery, /A Step is re-entered only after something it reads has changed/, 'the progress rule is stated');
+  assert.match(recovery, /never a reason to end the run without the origin spec/i, 'stopping is closed');
+  const success = sectionText(TEXT, '## Definition of success');
+  assert.match(success, /loop does not end before/, 'the terminal obligation is stated');
+  assert.match(success, /not this command's outcome at all|not this command’s outcome at all/, 'an inability report is refused');
+});
+
+test('C008/UT: no Step sends the reader back to itself over unchanged input', () => {
+  const selfReturning = [];
+  for (const heading of stepHeadingsOf(TEXT)) {
+    const advice = /^\*\*If the gate fails\*\*: (.+)$/m.exec(sectionText(TEXT, heading))?.[1] ?? '';
+    if (!advice.includes(`Return to \`${heading}\``)) continue;
+    selfReturning.push(heading);
+    assert.match(
+      advice,
+      /once the [^.]*?has changed|the same bytes|same finding|over the same bytes/,
+      `${heading} returns to itself, so it must say what has to change first`,
+    );
+  }
+  assert.ok(
+    selfReturning.length > 0,
+    'the check has subjects: a self-returning Step is where a dead loop hides, and a check that found none proves nothing',
+  );
+});
+
 test('C001 invariant: the frozen command files are byte-stable across the rewrite', () => {
   const baseline = JSON.parse(readFileSync(join(PROJECT_ROOT, BASELINE_PATH), 'utf8'));
   assert.deepEqual(
@@ -554,9 +676,11 @@ test('IT: the flags the procedure names are the ones the entrance refuses, and i
     'every option the entrance once honoured is named as withdrawn rather than dropped',
   );
   assert.deepEqual(
-    [...argumentsSection.matchAll(/^\s+- `(--[a-z-]+)/gm)].map(([, name]) => name),
+    [...argumentsSection.matchAll(/^\s+- `(--[a-z-]+)/gm)]
+      .map(([, name]) => name)
+      .filter((name) => ['--out', '--through', '--query'].includes(name)),
     [],
-    'and none of them is headed as an argument the operator may pass',
+    'and no withdrawn option is headed as an argument the operator may pass',
   );
   assert.match(argumentsSection, /current working directory/i, 'the subject is documented');
 });
@@ -570,5 +694,203 @@ test('IT: the evaluation order stated in the file equals the order the code decl
   assert.ok(
     TEXT.includes(ANALYSIS_EVALUATION_ORDER.join(', ')),
     `the file must state the order the code declares: ${ANALYSIS_EVALUATION_ORDER.join(', ')}`,
+  );
+});
+
+// --- The stage-identifier case convention ------------------------------------
+//
+// The file writes a stage two ways and the case carries the meaning: lowercase is
+// the identifier the command line matches and `ANALYSIS_EVALUATION_ORDER` declares,
+// uppercase is the label a reader sees (`stageLabel` in `lib/scope.mjs`). Exactly
+// one line is therefore *supposed* to be lowercase — the block quoting the declared
+// order — and a reader who meets it with no rule stated reads it as an inconsistency
+// rather than as the distinction it is. These assertions state the rule's presence
+// and close the lowercase spelling to that one line.
+
+/** The step carrying the one place the file spells a stage identifier lowercase. */
+const STEP_3_HEADING = '## Step 3: reach the exit';
+
+/** The vocabulary the code declares, which is the form the command line matches. */
+const STAGE_VOCABULARY = Object.freeze([...ANALYSIS_EVALUATION_ORDER]);
+
+/**
+ * The three places the command file is installed.
+ *
+ * The source of record and its two installs, derived from the git root rather than
+ * spelled: a fourth install then joins by existing rather than by being added to a
+ * list here. Nothing but these assertions holds a command file's copies together,
+ * because `installed-copy-drift.test.mjs` measures `lib/` modules only.
+ */
+// [::TICKET::] PX-216 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-216 --for-spec --no-implementation-order`.
+function commandFileCopies() {
+  return [
+    { label: 'the source of record', path: COMMAND_PATH },
+    {
+      label: 'the repository root install',
+      path: join(REPOSITORY_ROOT, COMMANDS_RELATIVE_DIR, 'workspacify-reverse.md'),
+    },
+    {
+      label: 'the crates/siprs install',
+      path: join(REPOSITORY_ROOT, 'crates', 'siprs', COMMANDS_RELATIVE_DIR, 'workspacify-reverse.md'),
+    },
+  ];
+}
+
+/**
+ * The lines whose trimmed text is the declared evaluation order.
+ *
+ * These are the lines permitted to spell a stage lowercase, and the set is found by
+ * equality against the code's own declaration rather than by pattern: a pattern
+ * would have to be told which line is the quotation, which is the question.
+ */
+// [::TICKET::] PX-216 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-216 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+function declaredOrderLines(text) {
+  const declared = ANALYSIS_EVALUATION_ORDER.join(', ');
+  return text
+    .split('\n')
+    .map((line, index) => ({ line: index + 1, text: line.trim() }))
+    .filter((entry) => entry.text === declared)
+    .map((entry) => entry.line);
+}
+
+test('C001/UT: Step 3 states why a stage identifier is written lowercase', () => {
+  assert.deepEqual(
+    findUnstatedCaseConvention({ text: TEXT, heading: STEP_3_HEADING }),
+    [],
+    'the section that spells a stage lowercase states the convention it is following',
+  );
+});
+
+test('C001/UT: a section without the sentence is reported rather than passed', () => {
+  const withoutRule = TEXT.replace(CASE_CONVENTION, 'the stages, in order');
+  assert.notEqual(withoutRule, TEXT, 'the fixture is the real file with its sentence replaced');
+  assert.deepEqual(
+    findUnstatedCaseConvention({ text: withoutRule, heading: STEP_3_HEADING }),
+    [{ kind: 'unstated-case-convention', region: STEP_3_HEADING }],
+    'the finding names the section that is missing it, so a dropped rule is not a silence',
+  );
+});
+
+test('C001/UT: every installed copy states the rule and quotes the order unchanged', () => {
+  assert.ok(REPOSITORY_ROOT, 'the tree under test belongs to a repository, or the two installs cannot be located');
+  for (const copy of commandFileCopies()) {
+    assert.equal(existsSync(copy.path), true, `${copy.label} is present at ${copy.path}`);
+    const text = readFileSync(copy.path, 'utf8');
+    assert.deepEqual(
+      findUnstatedCaseConvention({ text, heading: STEP_3_HEADING }),
+      [],
+      `${copy.label} states the convention`,
+    );
+    assert.equal(
+      text.includes(ANALYSIS_EVALUATION_ORDER.join(', ')),
+      true,
+      `${copy.label} still quotes the order the code declares, verbatim`,
+    );
+  }
+});
+
+test('C001 invariant: the quotation sits on the line this file records for it', () => {
+  // An anchor rather than a decoration: the line number is the whole assertion, so a
+  // line inserted or removed above the quotation is reported here by name instead of
+  // moving in silence. The citations into this file under `specs/` are dated
+  // measurements that keep their text, so this number is updated on its own.
+  assert.deepEqual(declaredOrderLines(TEXT), [201], 'the quotation is where this file says it is');
+});
+
+test('C002/UT: the lowercase spelling is closed to the line that quotes the declared order', () => {
+  const reported = findLowercaseStageLines({ text: TEXT, vocabulary: STAGE_VOCABULARY });
+  assert.deepEqual(
+    [...new Set(reported.map((finding) => finding.line))],
+    declaredOrderLines(TEXT),
+    'the file spells a stage lowercase on the quotation and on no other line',
+  );
+  assert.equal(
+    reported.length,
+    ANALYSIS_EVALUATION_ORDER.length,
+    'the quotation carries the whole vocabulary, so the census reads it as one occurrence per stage',
+  );
+});
+
+test('C002/UT: a prose token recased is reported, and it is the only finding the mutation adds', () => {
+  const drifted = TEXT.replace('R2.5 runs before R1 and R2', 'r2.5 runs before R1 and R2');
+  assert.notEqual(drifted, TEXT, 'the fixture differs from the real file');
+  assert.equal(
+    drifted.split('\n').filter((line, index) => line !== TEXT.split('\n')[index]).length,
+    1,
+    'and differs on exactly one line, so the fixture is wrong in one way',
+  );
+  const outside = findLowercaseStageLines({ text: drifted, vocabulary: STAGE_VOCABULARY }).filter(
+    (finding) => !declaredOrderLines(drifted).includes(finding.line),
+  );
+  assert.equal(outside.length, 1, 'exactly one prose occurrence is reported');
+  assert.equal(outside[0].token, 'r2.5', 'the finding names the token');
+  assert.match(outside[0].text, /r2\.5 runs before/, 'and the line it names is the mutated one');
+});
+
+test('C002/UT: the frontmatter and the R-prefixed document filenames are not reported', () => {
+  const frontmatter = TEXT.split('\n').slice(0, 5).join('\n');
+  assert.deepEqual(
+    findLowercaseStageLines({ text: frontmatter, vocabulary: STAGE_VOCABULARY }),
+    [],
+    'the description spells its stages uppercase, so the census leaves it alone',
+  );
+  const filenameLines = TEXT.split('\n').filter((line) => /R\d.*\.md/.test(line));
+  assert.ok(filenameLines.length >= 2, 'the file names at least two R-prefixed documents');
+  assert.deepEqual(
+    findLowercaseStageLines({ text: filenameLines.join('\n'), vocabulary: STAGE_VOCABULARY }),
+    [],
+    'and every one of them is uppercase, so none is reported',
+  );
+});
+
+test('C003 boundary: an empty vocabulary yields no findings rather than a match at every position', () => {
+  // An empty alternation is a pattern that matches the empty string everywhere, so
+  // without this the census would report an empty token at every offset of every line
+  // — the one input for which "a stage the command line would match" has no referent.
+  assert.deepEqual(
+    findLowercaseStageLines({ text: 'a r0.5 b\nc d', vocabulary: [] }),
+    [],
+    'with no stages to match there is nothing to report',
+  );
+});
+
+test('C003 boundary: a token carrying a regex metacharacter is matched literally', () => {
+  // `r2.5` is one of the fourteen declared tokens and `.` is a metacharacter: unescaped
+  // the pattern would match `r2X5`, so the escape is load-bearing for the shipped
+  // vocabulary rather than for a hypothetical one. The vocabulary is narrowed to the
+  // dotted token so that `r2` — a real stage, and one `r2X5` legitimately carries —
+  // cannot answer for it.
+  assert.deepEqual(
+    findLowercaseStageLines({ text: 'r2X5', vocabulary: ['r2.5'] }),
+    [],
+    'the dot matches a dot and not any character',
+  );
+  assert.deepEqual(
+    findLowercaseStageLines({ text: 'r2.5', vocabulary: ['r2.5'] }),
+    [{ line: 1, token: 'r2.5', text: 'r2.5' }],
+    'while the token itself is still found',
+  );
+});
+
+test('C003/UT: the census matches longest first, case sensitively, and reports by line', () => {
+  const probe = findLowercaseStageLines({
+    text: 'a r2.5 b\nc R0 d\ne render2 f',
+    vocabulary: STAGE_VOCABULARY,
+  });
+  assert.deepEqual(
+    probe.map((finding) => finding.token),
+    ['r2.5'],
+    'r2.5 is one token rather than r2, and neither R0 nor render2 matches',
+  );
+  assert.deepEqual(
+    probe.map((finding) => finding.line),
+    [1],
+    'and only the line carrying it is reported',
+  );
+  assert.deepEqual(
+    findLowercaseStageLines({ text: 'nothing to see here', vocabulary: STAGE_VOCABULARY }),
+    [],
+    'a document that carries none yields an empty list rather than a blank',
   );
 });

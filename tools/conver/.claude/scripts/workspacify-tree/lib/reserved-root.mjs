@@ -105,3 +105,19 @@ export function reservedTreeDecisionsPath(root) {
 export function reservedAllocateDecisionsPath(root) {
   return join(root, RESERVED_ROOT_NAME, RESERVED_ALLOCATE_SUBDIRECTORY, RESERVED_DECISIONS_FILE_NAME);
 }
+
+/**
+ * The decisions document the reverse rotation reads, as a function of its subject.
+ *
+ * The subject is the directory the command is run in, because that is where the
+ * analysis published and therefore what the decisions are about. The reverse
+ * rotation gained this document later than the other two, and it is derived the
+ * same way for the same reason: the gate that checks the decisions and the Step
+ * that must answer them have to be reading and writing one file, and a path the
+ * caller could name is a path two callers can disagree about while each believes
+ * it approved the same semantics.
+ */
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+export function reservedReverseDecisionsPath(root) {
+  return join(root, RESERVED_ROOT_NAME, RESERVED_REVERSE_SUBDIRECTORY, RESERVED_DECISIONS_FILE_NAME);
+}
