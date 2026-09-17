@@ -32,6 +32,8 @@ import {
 } from '../../../.claude/scripts/workspacify-reverse/lib/reverse-decisions.mjs';
 import { reservedReverseDecisionsPath } from '../../../.claude/scripts/workspacify-tree/lib/reserved-root.mjs';
 import { createSyntheticTree } from '../helpers/scratch.mjs';
+import { declaredSubcommands } from '../helpers/command-file.mjs';
+import { DECISION_KEYS } from '../../../.claude/scripts/workspacify-reverse/lib/decision-writing.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const RUNNER = join(PROJECT_ROOT, '.claude/scripts/workspacify-reverse/run.mjs');
@@ -69,33 +71,6 @@ const SIX_ANSWERS = Object.freeze({
 // [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
 function runCli(args, { cwd } = {}) {
   return spawnSync(process.execPath, [RUNNER, ...args], { cwd, encoding: 'utf8' });
-}
-
-/** The declared surface of the entrance, read from its one declaration. */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
-function declaredUsage(source) {
-  const usage = /const USAGE = \[([\s\S]*?)\]\.join\('\\n'\)/.exec(source);
-  assert.notEqual(usage, null, 'the entrance declares its surface in one block');
-  return usage[1];
-}
-
-/**
- * The subcommands `USAGE` declares.
- *
- * The block declares them two ways — one synopsis naming the argument-free set, and a
- * usage line per subcommand that takes an action or a fixture — so both are read. A
- * reader that took only the synopsis would report `regression` as undeclared.
- */
-// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
-function declaredSubcommands(source) {
-  const usage = declaredUsage(source);
-  const names = new Set();
-  for (const [, alternatives, single] of usage.matchAll(/run\.mjs (?:<([a-z|]+)>|([a-z]+))/g)) {
-    if (alternatives !== undefined) for (const name of alternatives.split('|')) names.add(name);
-    if (single !== undefined) names.add(single);
-  }
-  assert.ok(names.size > 0, 'the entrance declares its subcommands in its USAGE block');
-  return [...names];
 }
 
 // ---------------------------------------------------------------------------
@@ -297,6 +272,20 @@ test('C004 boundary: decide over a missing answers file exits 1 without writing'
     assert.equal(run.status, 1);
     assert.match(run.stderr, /absent\.json/, 'the file it could not read is named');
     assert.deepEqual(digestTree(tree.root), before);
+  } finally {
+    tree.dispose();
+  }
+});
+
+test('C004: a refused write names the six keys, so the operator can author the file', () => {
+  const tree = createSyntheticTree({ 'placeholder.txt': '\n' });
+  try {
+    const run = runCli(['decide'], { cwd: tree.root });
+
+    assert.equal(run.status, 1);
+    for (const key of DECISION_KEYS) {
+      assert.match(run.stderr, new RegExp(key), `the refusal names ${key}`);
+    }
   } finally {
     tree.dispose();
   }

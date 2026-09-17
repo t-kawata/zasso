@@ -1865,6 +1865,13 @@ export async function analyzeProject({
   const documents = {
     'ANALYSIS-SCOPE.json': {
       ...scope,
+      // The stages this run actually reached, in the order it reached them. It is
+      // recorded here because Step 8's report reads the stage list from this
+      // document, and a reader for a field no producer writes reports an empty
+      // list on every subject: the report said "none recorded" after a run that
+      // reached all fourteen, and the Step's own gate then asked for a list no
+      // instrument could give it.
+      stages_run: [...stagesRun],
       // A fact about what the run could see, beside the boundary it fixed:
       // whether the subject declared how it is built, and how many translation
       // units that declaration named.

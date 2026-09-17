@@ -46,6 +46,7 @@ import {
   extractCommandFileSections,
 } from '../../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs';
 import { ANALYSIS_EVALUATION_ORDER, ANALYSIS_STAGES } from '../../../.claude/scripts/workspacify-reverse/lib/scope.mjs';
+import { DECISION_KEYS } from '../../../.claude/scripts/workspacify-reverse/lib/decision-writing.mjs';
 import { createSyntheticTree } from '../helpers/scratch.mjs';
 import {
   CASE_CONVENTION,
@@ -57,6 +58,8 @@ import {
   assertCommandFileStructure,
   assertJudgementSurface,
   auditForbiddenFormulations,
+  cataloguedSubcommands,
+  declaredSubcommands,
   extractJudgementItems,
   extractMachineDecisions,
   findAbsenceContradictions,
@@ -87,13 +90,19 @@ const SECTIONS = extractCommandFileSections(TEXT);
 /**
  * Every subcommand the entrance accepts, so a step's invocation is matched by name.
  *
- * `gate` joins the set because the procedure now runs one after the analysis. The
+ * `gate` joined the set because the procedure now runs one after the analysis. The
  * two later rotations already dispatch one — `workspacify-tree/run.mjs:122` and
  * `workspacify-allocate/run.mjs:779` — so this is the third rotation acquiring the
  * shape its two successors have, not a new kind of step.
+ *
+ * The set is read from the entrance rather than transcribed here. While it was a
+ * literal it held the older nine names, so the scan below could not see the six
+ * Step-level invocations the Steps had acquired and went on passing while reporting
+ * that no Step runs anything beyond the entrance and its gate — a list used to find
+ * something has to name everything that is there, or the finding it produces is a
+ * finding about the list.
  */
-// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
-const KNOWN_SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike', 'analyze', 'gate'];
+const KNOWN_SUBCOMMANDS = declaredSubcommands(readFileSync(RUNNER, 'utf8'));
 
 /** The subcommands invoked inside the procedure's own step sections. */
 // [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
@@ -270,6 +279,27 @@ test('C003/UT: the machine half is bullets and the AI half is the only numbered 
   assert.ok(extractMachineDecisions(TEXT).length > 0, 'the machine half is set out as bullets');
 });
 
+test('C007/UT: the judgement surface spells the six keys the writer accepts, and no seventh', () => {
+  const spelled = extractJudgementItems(TEXT).map((item) => /`([a-z_]+)`/.exec(item)?.[1] ?? item);
+  assert.deepEqual(
+    [...spelled].sort(),
+    [...DECISION_KEYS].sort(),
+    'the surface names the keys the answers file is written under, so the operator can author it',
+  );
+});
+
+test('C007 boundary: an item naming a key the writer refuses is reported by name', () => {
+  const widened = TEXT.replace(
+    '6. **`proposition_classification`**',
+    '7. **`a_seventh_decision`** — not licensed.\n6. **`proposition_classification`**',
+  );
+  assert.notEqual(widened, TEXT, 'the fixture is actually different');
+  const spelled = extractJudgementItems(widened)
+    .map((item) => /`([a-z_]+)`/.exec(item)?.[1] ?? item)
+    .filter((key) => !DECISION_KEYS.includes(key));
+  assert.deepEqual(spelled, ['a_seventh_decision'], 'a key outside the six is named rather than ignored');
+});
+
 test('C003/UT: the terminal state of design §2 is stated', () => {
   const terminal = sectionText(TEXT, '## The terminal state this command serves');
   assert.match(terminal, /four-layer set/i, 'every package holds its complete four-layer set');
@@ -431,9 +461,37 @@ test('C002 invariant: the catalogue is the one exempt region', () => {
   }
 });
 
-test('C001/UT: the procedure invokes the entrance and its gate, and no other subcommand', () => {
+test('C001/UT: the procedure invokes the entrance, its gate and the six Step subcommands, and no other', () => {
   const invoked = [...new Set(subcommandsRunBySteps(TEXT))];
-  assert.deepEqual(invoked, ['analyze', 'gate'], 'no step runs a subcommand beyond the entrance and its gate');
+  assert.deepEqual(
+    invoked,
+    ['pattern', 'inventory', 'analyze', 'status', 'decide', 'gate', 'seam', 'report'],
+    'every Step runs the entrance, the gate, or one of the six subcommands that answer a Step',
+  );
+});
+
+// --- C006: the catalogue and the Steps name the same subcommands --------------
+
+test('C006/UT: every subcommand a Step invokes is catalogued, and every row is a subcommand', () => {
+  const catalogued = cataloguedSubcommands(TEXT);
+  const declared = declaredSubcommands(readFileSync(RUNNER, 'utf8'));
+
+  for (const name of subcommandsRunBySteps(TEXT)) {
+    assert.ok(catalogued.includes(name), `${name} is invoked by a Step and has no row in ${SCRIPTS_USED_HEADING}`);
+  }
+  for (const name of catalogued) {
+    assert.ok(declared.includes(name), `${name} is catalogued and the entrance declares no such subcommand`);
+  }
+});
+
+test('C006 boundary: a catalogue missing a Step subcommand is reported by name', () => {
+  const stripped = TEXT.replace(/^\| `run\.mjs inventory.*$/m, '');
+  assert.notEqual(stripped, TEXT, 'the fixture is actually different');
+  assert.deepEqual(
+    subcommandsRunBySteps(stripped).filter((name) => !cataloguedSubcommands(stripped).includes(name)),
+    ['inventory'],
+    'a Step subcommand holding no catalogue row is named rather than counted',
+  );
 });
 
 // --- C001: every Step is executable, not merely described --------------------
@@ -546,6 +604,33 @@ test('C002 boundary: a file that cannot be read is reported by path, not thrown 
 });
 
 // --- Invariants: the rewrite did not escape its box --------------------------
+
+test('C008/UT: the file states the loop rule, the terminal obligation, and the prohibition', () => {
+  const recovery = sectionText(TEXT, '## Error recovery');
+  assert.match(recovery, /A Step is re-entered only after something it reads has changed/, 'the progress rule is stated');
+  assert.match(recovery, /never a reason to end the run without the origin spec/i, 'stopping is closed');
+  const success = sectionText(TEXT, '## Definition of success');
+  assert.match(success, /loop does not end before/, 'the terminal obligation is stated');
+  assert.match(success, /not this command's outcome at all|not this command’s outcome at all/, 'an inability report is refused');
+});
+
+test('C008/UT: no Step sends the reader back to itself over unchanged input', () => {
+  const selfReturning = [];
+  for (const heading of stepHeadingsOf(TEXT)) {
+    const advice = /^\*\*If the gate fails\*\*: (.+)$/m.exec(sectionText(TEXT, heading))?.[1] ?? '';
+    if (!advice.includes(`Return to \`${heading}\``)) continue;
+    selfReturning.push(heading);
+    assert.match(
+      advice,
+      /once the [^.]*?has changed|the same bytes|same finding|over the same bytes/,
+      `${heading} returns to itself, so it must say what has to change first`,
+    );
+  }
+  assert.ok(
+    selfReturning.length > 0,
+    'the check has subjects: a self-returning Step is where a dead loop hides, and a check that found none proves nothing',
+  );
+});
 
 test('C001 invariant: the frozen command files are byte-stable across the rewrite', () => {
   const baseline = JSON.parse(readFileSync(join(PROJECT_ROOT, BASELINE_PATH), 'utf8'));
@@ -706,7 +791,7 @@ test('C001 invariant: the quotation sits on the line this file records for it', 
   // line inserted or removed above the quotation is reported here by name instead of
   // moving in silence. The citations into this file under `specs/` are dated
   // measurements that keep their text, so this number is updated on its own.
-  assert.deepEqual(declaredOrderLines(TEXT), [188], 'the quotation is where this file says it is');
+  assert.deepEqual(declaredOrderLines(TEXT), [195], 'the quotation is where this file says it is');
 });
 
 test('C002/UT: the lowercase spelling is closed to the line that quotes the declared order', () => {

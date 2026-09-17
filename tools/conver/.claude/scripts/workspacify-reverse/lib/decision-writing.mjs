@@ -70,10 +70,18 @@ export function writeDecisions({ destination, answers, path }) {
   return { path, findings: [] };
 }
 
-/** The advice an operator acts on when the answers were refused, naming each finding. */
+/**
+ * The advice an operator acts on when the answers were refused, naming each finding.
+ *
+ * The six keys are printed from `DECISION_KEYS` rather than described, because they are
+ * the one thing the operator cannot derive: an answers file is authored by hand, and the
+ * refusal that named a missing key without naming the set it is missing from would send
+ * the operator to the schema to read off a list this module already holds.
+ */
 export function renderDecisionWritingAdvice(findings, { path }) {
   const lines = ['The six decisions were not written.', `  Where: ${path}`];
   for (const finding of findings) lines.push(`  Which: ${finding}`);
+  lines.push(`The six keys, and no seventh: ${DECISION_KEYS.join(', ')}.`);
   lines.push('What to do: correct the answers file and run the same command again. Nothing was');
   lines.push('  written, so the destination holds no partial document to repair.');
   return `${lines.join('\n')}\n`;

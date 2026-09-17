@@ -87,6 +87,61 @@ export const SCRIPTLESS_COMMAND_FILES = Object.freeze([
 /** Where the instrument's subcommands are catalogued. */
 export const SCRIPTS_USED_HEADING = '## Scripts used';
 
+/**
+ * A row of the catalogue, as the subcommand it names.
+ *
+ * The catalogue is the operator's only index of what can be run, and it is written by
+ * hand. It drifted six rows behind the Steps while nothing read it: the six Step-level
+ * subcommands were invoked by the procedure and absent from the table, so a reader
+ * looking one up found no row and a closing sentence asserting the table was complete.
+ * Reading the rows here is what lets a guard compare the two lists instead of trusting
+ * either one.
+ */
+const CATALOGUE_ROW = /^\|\s*`run\.mjs\s+([a-z]+)/;
+
+/** The subcommands the catalogue lists, in the order it lists them. */
+export function cataloguedSubcommands(text) {
+  return sectionLines(text, SCRIPTS_USED_HEADING)
+    .map((line) => CATALOGUE_ROW.exec(line))
+    .filter((match) => match !== null)
+    .map((match) => match[1]);
+}
+
+/**
+ * The entrance's declared surface, read from the one block that declares it.
+ *
+ * Read from the source rather than transcribed into a test, because a transcribed list
+ * is a second declaration: the one that broke was transcribed once, went stale when six
+ * subcommands were added, and left a guard reporting that the procedure runs nothing
+ * beyond the entrance and its gate. A reader that takes the list from the machine cannot
+ * disagree with it.
+ */
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+export function declaredUsage(source) {
+  const usage = /const USAGE = \[([\s\S]*?)\]\.join\('\\n'\)/.exec(source);
+  assert.notEqual(usage, null, 'the entrance declares its surface in one block');
+  return usage[1];
+}
+
+/**
+ * The subcommands `USAGE` declares.
+ *
+ * The block declares them two ways — one synopsis naming the argument-free set, and a
+ * usage line per subcommand that takes an action or a fixture — so both are read. A
+ * reader that took only the synopsis would report `regression` as undeclared.
+ */
+// [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
+export function declaredSubcommands(source) {
+  const usage = declaredUsage(source);
+  const names = new Set();
+  for (const [, alternatives, single] of usage.matchAll(/run\.mjs (?:<([a-z|]+)>|([a-z]+))/g)) {
+    if (alternatives !== undefined) for (const name of alternatives.split('|')) names.add(name);
+    if (single !== undefined) names.add(single);
+  }
+  assert.ok(names.size > 0, 'the entrance declares its subcommands in its USAGE block');
+  return [...names];
+}
+
 /** Where the AI's judgement surface is enumerated, one numbered item per decision. */
 export const JUDGEMENT_HEADING = '## What the machine decides, and what you decide';
 

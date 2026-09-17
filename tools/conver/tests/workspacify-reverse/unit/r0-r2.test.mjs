@@ -248,6 +248,23 @@ test('C001 postcondition — ANALYSIS-SCOPE.json fixes commit, exclusions, permi
   out.dispose();
 });
 
+test('C001 postcondition — a published scope names the stages the run reached', async () => {
+  const tree = syntheticCrateTree();
+  const out = outputDirectory();
+  await analyzeProject({ root: tree.root, out: out.root, through: 'r0.5' });
+
+  const scope = JSON.parse(readFileSync(join(out.root, 'ANALYSIS-SCOPE.json'), 'utf8'));
+
+  // Read from a real publication rather than a fixture: the report's stage list was
+  // tested against a fixture that supplied the field, so the reader and the producer
+  // disagreed without anything reporting it, and a run that reached every stage
+  // reported "none recorded".
+  assert.ok(Array.isArray(scope.stages_run), 'the scope carries the stages that ran');
+  assert.deepEqual(scope.stages_run, ['r0', 'r0.5'], 'and they are the stages this depth reached');
+  tree.dispose();
+  out.dispose();
+});
+
 test('C001 invariant — a full run leaves the target byte-identical', async () => {
   const tree = syntheticCrateTree();
   const out = outputDirectory();
