@@ -62,10 +62,13 @@ import {
   extractMachineDecisions,
   findAbsenceContradictions,
   findLowercaseStageLines,
+  findStepsMissingParts,
   findUnstatedCaseConvention,
+  findUngroundedGates,
   readCommandFile,
   regionsOf,
   sectionText,
+  stepHeadingsOf,
 } from '../helpers/command-file.mjs';
 
 const PROJECT_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
@@ -82,14 +85,16 @@ const ABSENCE_HEADING = '## What this command cannot yet reach';
 const TEXT = readFileSync(COMMAND_PATH, 'utf8');
 const SECTIONS = extractCommandFileSections(TEXT);
 
-/** The `## Step N` headings, in the order the file declares them. */
-// [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
-function stepHeadings(text) {
-  return extractCommandFileSections(text).headings.filter((heading) => /^## Step \d/.test(heading));
-}
-
-/** Every subcommand the entrance accepts, so a step's invocation is matched by name. */
-const KNOWN_SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike', 'analyze'];
+/**
+ * Every subcommand the entrance accepts, so a step's invocation is matched by name.
+ *
+ * `gate` joins the set because the procedure now runs one after the analysis. The
+ * two later rotations already dispatch one — `workspacify-tree/run.mjs:122` and
+ * `workspacify-allocate/run.mjs:779` — so this is the third rotation acquiring the
+ * shape its two successors have, not a new kind of step.
+ */
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+const KNOWN_SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike', 'analyze', 'gate'];
 
 /** The subcommands invoked inside the procedure's own step sections. */
 // [::TICKET::] P23-1 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P23-1 --for-spec --no-implementation-order`.
@@ -230,7 +235,7 @@ test('C003 precondition: the sections design §5.3 declares are present', () => 
 });
 
 test('C003/UT: the procedure declares Step 0 through Step 8 as nine headings, first and last included', () => {
-  const steps = stepHeadings(TEXT);
+  const steps = stepHeadingsOf(TEXT);
   assert.equal(steps.length, EXPECTED_STEP_HEADINGS, 'the declared spine is nine steps');
   assert.match(steps[0], /^## Step 0: /, 'the procedure opens at Step 0');
   assert.match(steps[steps.length - 1], /^## Step 8: /, 'the procedure ends at Step 8');
@@ -448,9 +453,56 @@ test('C002 invariant: the exempt regions are exactly the catalogue and the modes
   }
 });
 
-test('C001/UT: the subcommands the procedure invokes inside its steps are exactly analyze', () => {
+test('C001/UT: the procedure invokes the entrance and its gate, and no other subcommand', () => {
   const invoked = [...new Set(subcommandsRunBySteps(TEXT))];
-  assert.deepEqual(invoked, ['analyze'], 'no step runs a subcommand other than the entrance');
+  assert.deepEqual(invoked, ['analyze', 'gate'], 'no step runs a subcommand beyond the entrance and its gate');
+});
+
+// --- C001: every Step is executable, not merely described --------------------
+
+test('C001/UT: every Step carries the five parts it must', () => {
+  assert.deepEqual(
+    findStepsMissingParts({ text: TEXT }),
+    [],
+    'a Step without its gate, its failure advice or its record is a description rather than an instruction',
+  );
+});
+
+test('C001/UT: every gate names the artefact it is a predicate over', () => {
+  assert.deepEqual(
+    findUngroundedGates({ text: TEXT }),
+    [],
+    'a gate that names nothing on disk verifies nothing',
+  );
+});
+
+test('C001 boundary: a Step stripped of its Gate is reported by heading', () => {
+  const mutated = TEXT.replace(
+    /(## Step 5: decide the partition\n)([\s\S]*?)(?=\n## )/,
+    (whole, heading, body) => heading + body.replace(/^\*\*Gate\*\*.*$/m, ''),
+  );
+  assert.notEqual(mutated, TEXT, 'the fixture is actually different');
+  assert.deepEqual(
+    findStepsMissingParts({ text: mutated }),
+    [{ kind: 'step-missing-part', heading: '## Step 5: decide the partition', part: 'gate' }],
+    'exactly one Step is reported, and it is the one that was mutated',
+  );
+});
+
+test('C002 boundary: no Step names a document a later Step publishes', () => {
+  // Step 2 read `ANALYSIS-SCOPE.json` before the run that writes it, and publishing
+  // is atomic, so the file did not exist at the point the reader was told to read it.
+  const step2 = sectionText(TEXT, '## Step 2: fix the boundary and the scope');
+  assert.ok(
+    !step2.includes('ANALYSIS-SCOPE.json'),
+    'the scope document is read after the run that publishes it, not before',
+  );
+
+  const owner = stepHeadingsOf(TEXT)
+    .map((heading) => ({ heading, text: sectionText(TEXT, heading) }))
+    .filter(({ text }) => text.includes('ANALYSIS-SCOPE.json'));
+  assert.equal(owner.length, 1, 'exactly one Step reads the scope document');
+  assert.match(owner[0].heading, /^## Step 3: /, 'and it is the Step the entrance runs in');
 });
 
 // --- Boundary: the guards discriminate --------------------------------------

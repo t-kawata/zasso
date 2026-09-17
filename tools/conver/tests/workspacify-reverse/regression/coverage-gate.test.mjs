@@ -14,7 +14,7 @@
  * branch percentages and `--test-coverage-branches=<n>` fails the run below them.
  *
  * The threshold is 80, which is the project's own stated minimum rather than the
- * measured figure. Measured 2026-09-15 over the 50 modules the library holds, on the
+ * measured figure. Measured 2026-09-15 over the 50 modules the library then held, on the
  * routine basis the Makefile gates: **84.51% branch**, 94.19% line, 95.29% functions.
  * Gating at the measured number would make the gate brittle against any small change;
  * gating at the standard leaves the figure as the record.
@@ -90,12 +90,19 @@ test('C003 postcondition: a figure below the threshold fails, so the number is a
 });
 
 // [::TICKET::] P25-7 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-7 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
 test('C003 invariant: the measurement is over the library and not over the tests, and the threshold is applied rather than printed', () => {
   assert.ok(!LIBRARY_GLOB.includes('tests/'), "a glob that caught the suite would report the tests' own coverage as the library's");
   assert.match(MAKEFILE, /--test-coverage-branches=\d+/, 'the flag is present, so the number is applied');
+  // Re-measured 2026-09-17 by P26-2, which added `reverse-decisions.mjs`: the gate the
+  // command file's Step 5 runs. The figure is recorded rather than derived because this
+  // test's subject is the Makefile's glob, and a count imported from the thing being
+  // measured would agree with it by construction. `tests/conventions/installed-copy-drift.test.mjs`
+  // records the same number for the copies, which is a second place it lives; the two are
+  // re-measured together whenever a module is added.
   assert.equal(
     readdirSync(MODULE_DIRECTORY).filter((name) => name.endsWith('.mjs')).length,
-    50,
+    51,
     'the library the measurement is taken over',
   );
 });

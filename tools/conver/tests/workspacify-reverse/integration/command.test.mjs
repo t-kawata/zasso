@@ -254,6 +254,41 @@ test('C002 invariant / UT-12: each stage adds its own documents and reaches back
   }
 });
 
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+test('IT: a completed run prints a verdict naming what it published and what it verified', () => {
+  // The verdict is the only place a run states which of its own guarantees held, and a
+  // statement nothing asserts is one that can quietly stop being true. The document count
+  // is read back off the directory rather than matched as a pattern, so the number the
+  // verdict prints is the number that is there.
+  const tree = createSyntheticTree(CLAIM_BEARING_TREE);
+  try {
+    const run = runCli(['analyze'], { cwd: tree.root });
+    assert.equal(run.status, 0, run.stderr);
+
+    assert.match(run.stdout, /published to `.*workspacify\/reverse`/, 'the destination is named');
+    for (const stage of ANALYSIS_STAGES) {
+      assert.ok(run.stdout.includes(`\`${stage}\``), `the stage list names ${stage}`);
+    }
+    assert.match(
+      run.stdout,
+      /every stage of the declared set ran, and the last declared stage was reached/,
+      'and the run states which of its guarantees held',
+    );
+    assert.match(run.stdout, /the Markdown re-parses to the sidecar published beside it/);
+    assert.match(run.stdout, /the subject hashed the same before and after/);
+
+    const stated = /The destination holds (\d+) document\(s\)/.exec(run.stdout);
+    assert.notEqual(stated, null, 'the verdict states how many documents it published');
+    assert.equal(
+      Number(stated[1]),
+      publishedNames(reservedReverseDirectory(tree.root)).length,
+      'and the number it states is the number the destination holds',
+    );
+  } finally {
+    tree.dispose();
+  }
+});
+
 test('UT-9: a target holding a single file reaches every stage', async () => {
   const tree = createSyntheticTree({ 'src/one.rs': 'pub fn one() -> u8 { 1 }\n' });
   const out = scratchDirectory('wsp-single-');
@@ -350,16 +385,17 @@ test('IT-4: the published set is the same whatever the host has installed', () =
   const snapshots = [];
   try {
     // One subject, two sequential runs: the entrance publishes beneath the
-    // directory it is run in, so the second run would overwrite the first. The
-    // first run's documents are lifted out before that happens. Two subjects
-    // would differ in the root each document records, which is not the
-    // difference this test is about.
+    // directory it is run in, and each run replaces that directory rather than
+    // adding to it, so the first run's documents are lifted out before the second
+    // begins. Two subjects would differ in the root each document records, which is
+    // not the difference this test is about. The `rmSync` that used to stand between
+    // the runs left with P26-2: it was the test doing what the run now does, and its
+    // presence would have hidden a run that stopped doing it.
     const destination = reservedReverseDirectory(tree.root);
 
     const withTool = runCli(['analyze'], { cwd: tree.root, path: `${toolBin.root}:${process.env.PATH}` });
     assert.equal(withTool.status, 0, withTool.stderr);
     snapshots.push(createScratchFrom(destination));
-    rmSync(destination, { recursive: true, force: true });
 
     const withoutTool = runCli(['analyze'], { cwd: tree.root, path: noTool.root });
     assert.equal(withoutTool.status, 0, withoutTool.stderr);

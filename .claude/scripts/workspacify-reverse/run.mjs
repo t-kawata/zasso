@@ -38,7 +38,7 @@
  * before every later ticket's step stand in the project root.
  */
 import process from 'node:process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { detectForwardTraces } from './lib/detect-forward-traces.mjs';
@@ -62,21 +62,35 @@ import { NO_KNOWN_DELTA, reconcile, renderReconciliation } from './lib/reconcile
 import { ANALYSIS_STAGES, analyzeProject, buildPartitionCandidate, renderDisagreements, renderSpikeReport, runSpike, stageLabel } from './lib/scope.mjs';
 import { buildClaimCandidate, renderClaimLedger } from './lib/claim-ledger.mjs';
 import { renderCardsMarkdown } from './lib/packet.mjs';
+import {
+  findSchemaViolations,
+  readReverseDecisions,
+  renderDecisionsAdvice,
+  renderDecisionsVerdict,
+  verifyReverseDecisions,
+} from './lib/reverse-decisions.mjs';
+import {
+  RESERVED_DECISIONS_FILE_NAME,
+  reservedReverseDecisionsPath,
+} from '../workspacify-tree/lib/reserved-root.mjs';
 
-const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike', 'analyze'];
+const SUBCOMMANDS = ['detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike', 'analyze', 'gate'];
 
 /**
  * The subcommands whose subject is the directory the command is run in, and
  * which therefore take no argument at all.
  *
- * These four measure a subject the operator is standing in. `regression` says so
- * in its own comment; the other three say it here, because the same rule is what
- * makes a run reproducible from its directory alone. A subcommand that names a
- * fixture instead — `holdout isolation <root>`, `spike <root> <slice>`, and the
- * ledger flags the experiment instruments carry — keeps its argument, because
- * *which* fixture is a choice with no derivable answer.
+ * These five measure a subject the operator is standing in. `regression` says so
+ * in its own comment; the others say it here, because the same rule is what makes
+ * a run reproducible from its directory alone. `gate` reads the decisions document
+ * from the reserved directory beneath that subject rather than from a path the
+ * caller names — a caller who named one would be naming a document this command
+ * already knows the place of. A subcommand that names a fixture instead —
+ * `holdout isolation <root>`, `spike <root> <slice>`, and the ledger flags the
+ * experiment instruments carry — keeps its argument, because *which* fixture is a
+ * choice with no derivable answer.
  */
-const ARGUMENT_FREE_SUBCOMMANDS = ['analyze', 'detect', 'scrub', 'verify'];
+const ARGUMENT_FREE_SUBCOMMANDS = ['analyze', 'detect', 'scrub', 'verify', 'gate'];
 
 /** The options that name a value; every other `--name` is a switch. */
 const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--recorded'];
@@ -161,7 +175,7 @@ const SPIKE_REPORT_RELATIVE_PATH = 'docs/SPIKE-REPORT.md';
 const SPIKE_STAGES = Object.freeze(['r1', 'r3']);
 
 const USAGE = [
-  'Usage: run.mjs <detect|scrub|verify|analyze> [options]',
+  'Usage: run.mjs <detect|scrub|verify|analyze|gate> [options]',
   '       run.mjs regression <capture|check>',
   '       run.mjs holdout [freeze|isolation <root>] [--project-root=<path>] [--frozen-at=<ISO-8601>]',
   '       run.mjs oracle <freeze|compare --stage <stage> --candidate <path>> [--project-root=<path>] [--frozen-at=<ISO-8601>]',
@@ -173,6 +187,7 @@ const USAGE = [
   '  scrub --apply                    Remove L1/L2 traces and rename keyed files',
   '  verify                           Exit 0 when no trace remains, 1 otherwise',
   `  analyze                          The entrance: run R0 through ${stageLabel(ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1])} in series and publish the origin spec into ${RESERVED_ROOT_NAME}/${RESERVED_REVERSE_SUBDIRECTORY}`,
+  `  gate                             Exit 0 when the six decisions are recorded at ${RESERVED_ROOT_NAME}/${RESERVED_REVERSE_SUBDIRECTORY}/${RESERVED_DECISIONS_FILE_NAME}; 1 with the advice otherwise`,
   '  regression capture               Freeze the forward rotation as it behaves now',
   '  regression check                 Exit 0 when every frozen value is reproduced',
   '  holdout                          Verify the ledger and isolate every frozen holdout',
@@ -364,6 +379,31 @@ function parseArgs(argv) {
 }
 
 /**
+ * Refuse a decisions argument the gate was handed.
+ *
+ * The gate reads the document from the path the reserved root derives from the
+ * directory the command is run in, and nothing moves it. This mirrors
+ * `workspacify-tree/run.mjs`'s refusal for its own gate, for the reason it gives
+ * there: the Step that writes the document and the gate that reads it have to be
+ * answering about one file, and a path the caller could name is a path two callers
+ * can disagree about while each believes it approved the same decisions.
+ *
+ * The token the caller wrote travels into the message rather than being summarised,
+ * because a refusal that named only the option would leave the value unaccounted for.
+ */
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+function refuseDecisionsArgument(argv) {
+  const tokens = argv.filter((token) => token === '--decisions' || token.startsWith('--decisions='));
+  if (tokens.length === 0) return;
+  throw new Error(
+    `the decisions document is read from ${RESERVED_ROOT_NAME}/${RESERVED_REVERSE_SUBDIRECTORY}/`
+    + `${RESERVED_DECISIONS_FILE_NAME} beneath the directory the command is run in, which is not selectable, `
+    + `and ${tokens.map((token) => JSON.stringify(token)).join(', ')} was given. `
+    + 'Remove it and run the gate again.',
+  );
+}
+
+/**
  * Report a stage that could not run, naming the stage and the input it was reading.
  *
  * "The analysis failed" is not an answer to "what could not be read", so the
@@ -399,7 +439,7 @@ function reportStage({ stage, input, error }) {
  * publishes is what the stages produce and nothing beside it, so the set a reader
  * receives does not depend on what the host has installed.
  */
-// [::TICKET::] P22-4, P22-9, P23-7, P25-7, PX-213, PX-214 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|P25-7|PX-213|PX-214) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P23-7, P25-7, PX-213, PX-214, P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|P25-7|PX-213|PX-214|P26-2) --for-spec --no-implementation-order`.
 async function runAnalysisPipeline({ root, through, out }) {
   let currentStage = null;
   let outcome;
@@ -415,13 +455,54 @@ async function runAnalysisPipeline({ root, through, out }) {
   }
 
   process.stdout.write(`${outcome.report}\n`);
-  process.stdout.write(
-    `\nStages ${outcome.stagesRun.map((stage) => `\`${stage}\``).join(', ')} published to \`${out}\`.\n`,
-  );
+  process.stdout.write(`${renderAnalysisVerdict({ outcome, out })}\n`);
   return 0;
 }
 
-// [::TICKET::] P22-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-4 --for-spec --no-implementation-order`.
+/**
+ * What a completed run leaves behind, stated as the things the next reader relies on.
+ *
+ * A stage list and a destination answer "did it run". They do not answer "is what it
+ * published the whole of what it should have", and that is the question the Steps
+ * after this one are built on. So the three properties the run already enforces are
+ * re-measured here against what is on disk and printed:
+ *
+ *   - **the destination holds this run's set and nothing else.** Read from the
+ *     directory rather than from the run's own record, because a record that listed
+ *     what was meant to be written would agree with itself.
+ *   - **the Markdown re-parses to the sidecar beside it.** Measured on the published
+ *     pair, not on a re-render, so what is proved is a property of the files.
+ *   - **the subject did not move.** `analyzeProject` throws rather than publishing
+ *     when it did, so reaching this point is the proof; what the verdict adds is
+ *     that the reader is told it was checked.
+ *
+ * The last line names the Step to go to. An AI that has just watched a two-minute run
+ * finish should not have to work out where it now stands.
+ */
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+function renderAnalysisVerdict({ outcome, out }) {
+  const published = readdirSync(out).sort();
+  const lines = [
+    '',
+    `Stages ${outcome.stagesRun.map((stage) => `\`${stage}\``).join(', ')} published to \`${out}\`.`,
+    '',
+    `  The destination holds ${published.length} document(s), and they are exactly this run's:`,
+    '  it was replaced rather than added to, so nothing a previous round left is standing.',
+    '',
+    '  Verified before anything was written:',
+    // "the declared order" would be read against the file's own phrase for the
+    // evaluation order, which is a different list. What ran is the declared SET.
+    '    - every stage of the declared set ran, and the last declared stage was reached',
+    '    - the Markdown re-parses to the sidecar published beside it',
+    '    - the subject hashed the same before and after, so nothing outside the destination moved',
+    '',
+    'Next: ## Step 4: read the material in the order it is needed.',
+  ];
+  return lines.join('\n');
+}
+
+
+// [::TICKET::] P22-4, P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P26-2) --for-spec --no-implementation-order`.
 function runDetect({ root, json }) {
   const report = detectForwardTraces(root);
   process.stdout.write(`${report.markdown}\n`);
@@ -431,6 +512,7 @@ function runDetect({ root, json }) {
   return 0;
 }
 
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function runScrub({ root, apply, dryRun, renameTicketKeyedFiles, json }) {
   if (!apply) {
     const plan = planScrub(detectForwardTraces(root));
@@ -466,6 +548,45 @@ function runScrub({ root, apply, dryRun, renameTicketKeyedFiles, json }) {
   return 0;
 }
 
+/**
+ * The gate the procedure runs after the analysis: are the six decisions recorded?
+ *
+ * The entrance measures the subject. This measures the *procedure* — whether the Step
+ * that decides left behind what the Steps after it are built on. The distinction is
+ * the one the command file's `## Statuses and gates` section lost: it defined a gate
+ * as a refusal, design §1.2 forbids refusing a subject for being an incomplete conver
+ * project, and so the file forbade every gate. §1.2 is about the subject; a Step that
+ * produced nothing is a fact about this run.
+ *
+ * The decisions are read from the path the reserved root derives from the subject,
+ * never from an argument, for the reason `workspacify-tree` and `workspacify-allocate`
+ * both give: a caller who named the document would be naming one this command already
+ * knows the place of, and a question dropped in silence reads like one answered.
+ */
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+function runGate({ root }) {
+  refuseDecisionsArgument(process.argv.slice(2));
+  const path = reservedReverseDecisionsPath(root);
+  const out = reservedReverseDirectory(root);
+  const { decisions, findings: readFindings } = readReverseDecisions(path);
+  const present = existsSync(out) ? readdirSync(out) : [];
+
+  const findings = [
+    ...readFindings,
+    ...verifyReverseDecisions({ decisions, present }),
+    ...(decisions === null ? [] : findSchemaViolations(decisions)),
+  ];
+
+  if (findings.length > 0) {
+    process.stderr.write(`${renderDecisionsAdvice(findings, { path })}\n`);
+    return 1;
+  }
+
+  process.stdout.write(`${renderDecisionsVerdict({ path })}\n`);
+  return 0;
+}
+
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function runVerify({ root }) {
   const result = verifyScrub(root);
   process.stdout.write(`${renderVerification(result, root)}\n`);
@@ -478,6 +599,7 @@ function runVerify({ root }) {
  * A missing baseline is an operator error and is reported in one line rather
  * than as a stack trace: the gate's job is to name what is wrong.
  */
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
 function runRegression({ action, root }) {
   if (action === 'capture') {
     process.stdout.write(`${renderCaptureReport(captureBaselines({ projectRoot: root }))}\n`);
@@ -752,7 +874,7 @@ function runSpikeSubcommand(options) {
   return runSpikeSlice(options);
 }
 
-// [::TICKET::] P22-4, P22-9, P23-7, PX-214, PX-213 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|PX-214|PX-213) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P23-7, PX-214, PX-213, P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|PX-214|PX-213|P26-2) --for-spec --no-implementation-order`.
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (!options.subcommand || !SUBCOMMANDS.includes(options.subcommand)) {
@@ -782,16 +904,38 @@ async function main() {
   if (options.subcommand === 'oracle') return runOracle(options);
   if (options.subcommand === 'spike') return runSpikeSubcommand(options);
   if (options.subcommand === 'analyze') return runAnalysisPipeline(options);
+  if (options.subcommand === 'gate') return runGate(options);
   return runVerify(options);
 }
 
 // `analyze` awaits an execution, so the dispatch is asynchronous and the process
 // exit code is set once it settles. Every other subcommand returns its code on the
 // same tick it always did; the promise is the price of the one stage that waits.
+/**
+ * Report a failure that reached the top level, as an instruction rather than a stack.
+ *
+ * `reportStage` above already does this for a stage that could not run, and its JSDoc
+ * states the rule: a gate's job is to name what is wrong. The same rule applies one
+ * level up, and the stack trace this replaces was the one place in the file that
+ * broke it. A stack names neither what to correct nor where to look, and the reader
+ * here is an operator forbidden from asking.
+ *
+ * Nothing is said about a Step, because a failure that reaches this point is raised
+ * before any Step has run — an argument the command line cannot honour, or a fault
+ * inside a handler. The line the operator needs is what to do about it.
+ */
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+function reportUnhandledFailure(error) {
+  process.stderr.write(
+    'The reverse rotation could not continue.\n'
+    + `  Why: ${error?.message ?? String(error)}\n`
+    + 'What to do: correct what the message names and run the same command again. Nothing was '
+    + 'published, so no partial result is left behind and there is no prefix to fall back to.\n',
+  );
+  process.exitCode = 1;
+}
+
 main().then(
   (exitCode) => { process.exitCode = exitCode; },
-  (error) => {
-    process.stderr.write(`${error?.stack ?? error?.message ?? String(error)}\n`);
-    process.exitCode = 1;
-  },
+  reportUnhandledFailure,
 );

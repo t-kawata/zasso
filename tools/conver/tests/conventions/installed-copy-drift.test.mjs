@@ -61,8 +61,21 @@ const REPOSITORY_ROOT = repositoryRootFrom(dirname(fileURLToPath(import.meta.url
 const ABSENT_FROM_COPIES = Object.freeze([]);
 const DIFFERING_IN_COPIES = Object.freeze([]);
 
-/** The modules the source of record holds, re-measured 2026-09-15 by P25-7. */
-const SOURCE_MODULE_COUNT = 50;
+/**
+ * The modules the source of record holds, re-measured 2026-09-17 by P26-2.
+ *
+ * P26-2 added `reverse-decisions.mjs` and changed `scope.mjs` and `run.mjs`, and the
+ * copies were advanced to match rather than left to lag — P25-7's criterion again,
+ * and this time on the sharper edge of it. The installed command file tells its reader
+ * to run `run.mjs gate`, and the gate is a subcommand the copies did not have: a copy
+ * whose command file names a subcommand its entrance does not accept is not a copy
+ * behind a release, it is a copy that aborts. The advance was file-wise rather than
+ * through the installer, for the reason `specs/PX-216` records — the installer has no
+ * module-selection flag, rewrites every tracked file, and this repository carries a
+ * case where a run of it silently reverted another ticket's hand-edits.
+ */
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+const SOURCE_MODULE_COUNT = 51;
 
 const measure = () => measureInstalledCopyDrift({ repositoryRoot: REPOSITORY_ROOT });
 

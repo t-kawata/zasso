@@ -440,3 +440,70 @@ export function findLowercaseStageLines({ text, vocabulary }) {
 
   return findings;
 }
+
+/**
+ * The five parts every Step of the procedure must carry.
+ *
+ * The file states each part under a literal label rather than inside a sentence,
+ * because a part that is only implied cannot be checked and therefore cannot be
+ * missed. `**The purpose of this step**` was already carried by all nine Steps; the
+ * other four are what makes a Step executable rather than descriptive — the command
+ * it runs, the gate that verifies it, the advice and return Step when the gate
+ * fails, and what it records.
+ *
+ * A label rather than a sentence is the same trade `CASE_CONVENTION` makes, and the
+ * reason is the same: the wording inside each part can be improved without a test
+ * edit, while the presence of the part cannot be dropped.
+ */
+export const STEP_PARTS = Object.freeze({
+  purpose: /\*\*The purpose of this step\*\*/,
+  run: /\*\*Run\*\*/,
+  gate: /\*\*Gate\*\*/,
+  failure: /\*\*If the gate fails\*\*/,
+  record: /\*\*Record\*\*/,
+});
+
+/** The `## Step N` headings a command file declares, in the order it declares them. */
+export function stepHeadingsOf(text) {
+  return extractCommandFileSections(text).headings.filter((heading) => /^## Step \d/.test(heading));
+}
+
+/**
+ * Where a Step carries fewer than the five parts it must.
+ *
+ * One finding per missing part, naming the Step, so a report says which Step lost
+ * which part rather than how many parts are absent. The section is passed as text
+ * rather than as a path so a fixture can drive the check, following
+ * `findAbsenceContradictions`: a guard that can only be pointed at the real file can
+ * only ever be seen to pass.
+ *
+ * @param {{ text: string }} input
+ * @returns {Array<{ kind: string, heading: string, part: string }>} one finding per missing part
+ */
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+export function findStepsMissingParts({ text }) {
+  return stepHeadingsOf(text).flatMap((heading) =>
+    Object.entries(STEP_PARTS)
+      .filter(([, pattern]) => !pattern.test(sectionText(text, heading)))
+      .map(([part]) => ({ kind: 'step-missing-part', heading, part })));
+}
+
+/**
+ * Where a Step's gate names nothing on disk.
+ *
+ * A gate is a predicate over an artefact, and the artefact is written in backticks
+ * because that is the form the rest of the file already uses to name a document. A
+ * gate that names none is a sentence about the Step rather than a check on it — the
+ * shape every gate in this file had before P26-2, when the section on gates stated
+ * their absence.
+ *
+ * @param {{ text: string }} input
+ * @returns {Array<{ kind: string, heading: string }>} one finding per ungrounded gate
+ */
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+export function findUngroundedGates({ text }) {
+  return stepHeadingsOf(text).flatMap((heading) => {
+    const gate = /^\*\*Gate\*\*: (.+)$/m.exec(sectionText(text, heading));
+    return gate === null || !/`[^`]+`/.test(gate[1]) ? [{ kind: 'gate-names-nothing', heading }] : [];
+  });
+}

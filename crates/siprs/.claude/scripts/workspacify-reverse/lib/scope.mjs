@@ -36,7 +36,7 @@
  * than of the analysis plus its answer.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
 import {
@@ -88,6 +88,7 @@ import {
   renderAdjudicationCards,
 } from './reflexion.mjs';
 import {
+  assertRoundTrip,
   buildOriginSpec,
   buildOriginSpecCandidate,
   renderOriginSpec,
@@ -941,7 +942,15 @@ function dominantLanguageOf(paths) {
 }
 
 // [::TICKET::] P22-6 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-6 --for-spec --no-implementation-order`.
-function publishDocuments(out, documents) {
+// [::TICKET::] P26-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-2 --for-spec --no-implementation-order`.
+export function replacePublishedDocuments(out, documents) {
+  // The destination holds what this run published and nothing else. Four documents
+  // are published only when present, so a run over a tree that changed — which is
+  // what a round is — can produce a smaller set than the round before it, and a
+  // document left standing would be read as this run's. The removal is scoped to
+  // `out`, which is the reserved *reverse* directory: `workspacify/` holds the tree
+  // and allocate rotations' decisions documents, and neither is this run's to remove.
+  rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
   for (const [name, document] of Object.entries(documents)) {
     writeFileSync(join(out, name), typeof document === 'string' ? document : canonicalSerialize(document));
@@ -1794,10 +1803,26 @@ export async function analyzeProject({
     }))
     : null;
   const originSpec = stagesRun.includes('r8') && ledger !== null
-    ? runStage('r8', () => validateOriginSpec(
-      buildOriginSpec({ root: scope.root, ledger, treeHash: before.sha256 }),
-      { root: scope.root },
-    ))
+    ? runStage('r8', () => {
+      const spec = validateOriginSpec(
+        buildOriginSpec({ root: scope.root, ledger, treeHash: before.sha256 }),
+        { root: scope.root },
+      );
+      // The command file states that the Markdown re-parses to the sidecar exactly and
+      // that the round trip is asserted by the run, so the two cannot disagree. This is
+      // where that is true rather than nearly true: `renderOriginSpec` refuses a spec it
+      // could not re-parse, which covers the renderer's own shapes, and asserting the
+      // pair here covers the pair. A spec that failed this is not published at all.
+      if (!assertRoundTrip(spec).equal) {
+        throw new Error(
+          'the origin spec does not survive the round trip: its Markdown re-parses to something other '
+          + 'than the sidecar that would be published beside it. A spec whose two documents disagree '
+          + 'cannot be believed, so nothing is published. Report this shape; the renderer and the parser '
+          + 'have parted.',
+        );
+      }
+      return spec;
+    })
     : null;
   const profile = stagesRun.includes('r8')
     ? buildCapabilityProfile({ ledger, gaps: classifiedGaps, surface, redPlan, counterexamples })
@@ -1945,7 +1970,7 @@ export async function analyzeProject({
   }
   if (profile !== null) documents['CAPABILITY-PROFILE.json'] = profile;
 
-  publishDocuments(out, documents);
+  replacePublishedDocuments(out, documents);
 
   return {
     scope,
