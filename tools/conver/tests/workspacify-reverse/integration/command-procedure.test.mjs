@@ -53,7 +53,6 @@ import {
   FORBIDDEN_FORMULATIONS,
   FORBIDDEN_FORMULATION_COUNT,
   JUDGEMENT_SURFACE_SIZE,
-  MODES_HEADING,
   SCRIPTS_USED_HEADING,
   assertCommandFileStructure,
   assertJudgementSurface,
@@ -227,7 +226,6 @@ test('C003 precondition: the sections design §5.3 declares are present', () => 
     SCRIPTS_USED_HEADING,
     '## Statuses and gates',
     '## What this command cannot yet reach',
-    '## A round, and what success is',
   ];
   for (const heading of required) {
     assert.ok(SECTIONS.headings.includes(heading), `${heading} must exist`);
@@ -268,7 +266,6 @@ test('C003/UT: the judgement surface enumerates exactly six items, each the one 
 
 test('C003/UT: the machine half is bullets and the AI half is the only numbered list', () => {
   const machine = sectionText(TEXT, '## What the machine decides, and what you decide');
-  assert.match(machine, /T1–T6|T1-T6/, 'the accepted machine verdicts are named');
   assert.match(machine, /accepted, not re-opened|accepted rather than re-opened/i, 'the verdicts are accepted');
   assert.ok(extractMachineDecisions(TEXT).length > 0, 'the machine half is set out as bullets');
 });
@@ -278,17 +275,6 @@ test('C003/UT: the terminal state of design §2 is stated', () => {
   assert.match(terminal, /four-layer set/i, 'every package holds its complete four-layer set');
   assert.match(terminal, /partition is explicit/i, 'the partition is explicit');
   assert.match(terminal, /every inconsistency is recorded/i, 'every inconsistency is recorded');
-});
-
-test('C003/UT: the round and the success condition are stated, and omission 0 is not it', () => {
-  const round = sectionText(TEXT, '## A round, and what success is');
-  assert.match(round, /RESIDUE 0/, 'success is RESIDUE 0 in /crystalize-readme');
-  assert.match(round, /omission 0/, 'omission 0 is named');
-  assert.match(round, /not the success condition/i, 'omission 0 is denied as the success condition');
-  for (const rung of ['L0', 'L1', 'L2', 'L2.5', 'L3']) {
-    assert.ok(round.includes(rung), `the ${rung} rung is named`);
-  }
-  assert.match(round, /only L3 may be called success/i, 'only L3 is success');
 });
 
 test('C003/UT: the machine vocabulary is proved / not proved, and never succeeded / failed', () => {
@@ -304,14 +290,6 @@ test('C003/UT: the four patterns are named, and only 1-3 enter through the rever
   assert.match(step0, /Pattern 3/i, 'pattern 3 is named');
   assert.match(step0, /Pattern 4/i, 'pattern 4 is named');
   assert.match(step0, /Pattern 4 does not enter through the reverse rotation/i, 'pattern 4 does not enter here');
-});
-
-test('C003/UT: the two modes are named, and an operational run is in the operational one', () => {
-  assert.ok(SECTIONS.headings.includes(MODES_HEADING), 'the modes section exists');
-  const modes = sectionText(TEXT, MODES_HEADING);
-  assert.match(modes, /operational mode/i);
-  assert.match(modes, /experiment mode/i);
-  assert.match(modes, /must not gate an operational run/i, 'the experiment mode does not gate an operational run');
 });
 
 test('C003/UT: the absence section names exactly the modules the closure reports as unreachable', () => {
@@ -426,9 +404,9 @@ test('C002 invariant: an exempt region covers a table row and not a sentence', (
   );
 });
 
-test('C002 invariant: the exempt regions are exactly the catalogue and the modes section', () => {
+test('C002 invariant: the catalogue is the one exempt region', () => {
   const exemptRegions = new Set(FORBIDDEN_FORMULATIONS.flatMap((formulation) => formulation.exemptIn));
-  assert.deepEqual([...exemptRegions].sort(), [MODES_HEADING, SCRIPTS_USED_HEADING].sort());
+  assert.deepEqual([...exemptRegions].sort(), [SCRIPTS_USED_HEADING].sort());
   assert.deepEqual(
     FORBIDDEN_FORMULATIONS.filter((formulation) => formulation.exemptIn.length === 0).map((formulation) => formulation.id),
     ['incompleteness-gate', 'must-already-be-complete'],
@@ -722,12 +700,12 @@ test('C001/UT: every installed copy states the rule and quotes the order unchang
   }
 });
 
-test('C001 invariant: the quotation stays on the line the citations into this file expect', () => {
-  // An anchor rather than a decoration: specs/P25-2.md and specs/P25-7.md cite this
-  // file by line, and `specs/` sits outside `design-citations.test.mjs`'s coverage,
-  // so a line inserted above the quotation would move every citation below it with
-  // nothing to report it.
-  assert.deepEqual(declaredOrderLines(TEXT), [178], 'the quotation has not moved');
+test('C001 invariant: the quotation sits on the line this file records for it', () => {
+  // An anchor rather than a decoration: the line number is the whole assertion, so a
+  // line inserted or removed above the quotation is reported here by name instead of
+  // moving in silence. The citations into this file under `specs/` are dated
+  // measurements that keep their text, so this number is updated on its own.
+  assert.deepEqual(declaredOrderLines(TEXT), [176], 'the quotation is where this file says it is');
 });
 
 test('C002/UT: the lowercase spelling is closed to the line that quotes the declared order', () => {

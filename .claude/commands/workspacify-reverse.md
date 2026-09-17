@@ -29,13 +29,26 @@ Instead of asking questions, record assumptions, decision rationale, and remaini
 
 **First-Class Rule — [::STUB::] Marker is an Absolute Obligation**: Every incomplete implementation (stub, mock, placeholder, temporary implementation, by any name) **must** carry a `[::STUB::]` marker without exception. This is an absolute, inviolable law; violations are recorded as "crimes" in Malfeasance.json. In all phases of this command, read Malfeasance.json and verify there are no unresolved crimes. If you discover a violation, resolve it immediately, or add the marker and record it on the spot.
 
+## The five-layer loop, and where this command sits
+
+conver is five loops. Four do the work, and the fifth wraps them.
+
+| Layer | What it does |
+|---|---|
+| **Upstream** | write the canon RFC, graph it, fix the directory boundaries, split it into tickets |
+| **Implementation** | implement every ticket, measure the gap against the RFC, repeat until it closes |
+| **Shipment** | write the usage README, and drive every RESIDUE to zero |
+| **Evolution** | move the canon itself forward, as a difference |
+| **Fit — the fifth layer** | partition the workspace into packages, and re-instantiate the four above once per package directory |
+
+**You are here: the fit layer's first of three commands, and the reverse rotation's only one.** It reconstructs the origin spec from an implementation that already exists. `/workspacify-tree` and `/workspacify-allocate` follow it and fix the partition from what it published; the four inner loops begin only after that, one set per package. A project holding no implementation starts the same forward chain at `/workspacify-tree` instead, and reaches the same terminal state.
+
 ## Arguments
 
-**It takes no arguments, and needs nothing else supplied.** The subject is the current working directory and the destination is `workspacify/reverse` beneath it. Neither is selectable, so there is no destination to get wrong and no root to name. No dialogue, environment variable, hook or external fetch is involved.
+**It takes no arguments.** The subject is the current working directory and the destination is `workspacify/reverse` beneath it, and neither is selectable.
 
-- **The destination is reserved, and that is what makes publishing safe.** No walk of the analysis descends into `workspacify`, so a run that writes there leaves the tree it measured exactly as it found it. The documents land where you ran the command, not in the project this tool happens to live in. The name is bound once, in the library, and the destination and the walk exclusion both derive from that binding
-- **The subject is read-only.** The run digests the tree before and after and refuses to publish if a single byte moved outside the destination. The digest record names the directories it did not cover, so the claim is read as what it is
-- **Do not pass `--out`, `--through` or `--query`, and do not pass a bare path.** All four are refused by name, with the reason, and the run publishes nothing. `--out` named the destination, `--through` the last stage to run, `--query` a question for a search tool: none of the three is a question this entrance can still be asked, and a question silently dropped reads exactly like one answered
+- **Do not pass `--out`, `--through` or `--query`, and do not pass a bare path.** All four are refused by name, and the run publishes nothing
+- **Do not modify the tree while the run is in flight.** The run digests the subject before and after and refuses to publish if a single byte moved outside the destination
 
 ## The four principles
 
@@ -50,7 +63,7 @@ The spine of the reverse rotation. Every Step below is an instance of one of the
 
 - **The machine decides, deterministically**: the root boundary and the artefact classification; the structural measurement; the dependency graph, its cycles and its cohesion; the execution surface; the semantic extraction; the claim ledger and the independence of its evidence; history and its quality; the gap enumeration; the oracle's validity; the Red plan and the generated properties; the origin spec's validation and its Markdown round trip; and the proof that the target did not change. These are read from the source text and its syntax tree.
 
-**Its measurements are the material, not the verdict on your work.** The machine's findings on T1–T6, A1–A6, G4–G5, GF1–GF2, B1–B3, S1–S6 and §6.14.7 are accepted rather than re-opened — but accepting a measurement is not the same as being excused from reading the code it measured. Where a Step below tells you to open the source, open it: the measurement says where to look, and what the code says is the evidence your decision rests on.
+**Its measurements are the material, not the verdict on your work.** Its findings are accepted rather than re-opened — but accepting a measurement is not the same as being excused from reading the code it measured. Where a Step below tells you to open the source, open it: the measurement says where to look, and what the code says is the evidence your decision rests on.
 
 **You decide exactly these six, and nothing else:**
 
@@ -61,7 +74,7 @@ The spine of the reverse rotation. Every Step below is an instance of one of the
 5. the over-splitting decision
 6. the classification of each proposition as `observed` / `inferred` / `normative` / `unresolved`
 
-A seventh item is a defect in the procedure, not a judgement to make. Write all six into the decisions document Step 5 names, and the gate reads them.
+Write all six into the decisions document Step 5 names, and the gate reads them.
 
 ## The canonical output and its constraints
 
@@ -79,15 +92,15 @@ Under `.claude/scripts/workspacify-reverse/`.
 |---|---|
 | `run.mjs analyze` | **The entrance.** Runs R0 through R8 in series over the current directory and publishes the origin spec into `workspacify/reverse` beneath it. Exit 0 on success; 1 when a stage could not run or a withdrawn option was passed (the cause is named on stderr); 2 on a usage error |
 | `run.mjs gate` | **The check after the run.** Exit 0 when the six decisions are recorded at `workspacify/reverse/DECISIONS.json`; 1 otherwise, with what is missing and the Step to return to named in English |
-| `run.mjs detect` | Reports the forward-rotation traces in the current directory as Markdown. Experiment only |
-| `run.mjs scrub [--apply]` | Plans, or performs, the removal of the removable traces, in the current directory. Experiment only |
-| `run.mjs verify` | Re-detects in the current directory; exits 0 when no trace remains, 1 otherwise. Experiment only |
+| `run.mjs detect` | Reports the forward-rotation traces in the current directory as Markdown. Not used by this procedure |
+| `run.mjs scrub [--apply]` | Plans, or performs, the removal of the removable traces, in the current directory. Not used by this procedure |
+| `run.mjs verify` | Re-detects in the current directory; exits 0 when no trace remains, 1 otherwise. Not used by this procedure |
 | `run.mjs regression <capture\|check>` | Freezes, or reproduces, the forward rotation's observable output. A maintainer's instrument: it measures this repository, not the subject |
-| `run.mjs holdout [freeze\|isolation <root>]` | Freezes, verifies and isolates the projects generality is measured on. Experiment only |
-| `run.mjs oracle <freeze\|delta\|compare>` | Freezes the answer key, measures the delta between the two trees, or lists one stage's disagreements against it. A comparison lists disagreements; it never scores. Experiment only |
-| `run.mjs spike <root> <slice>` / `spike reconcile` | Runs one vertical slice and measures it, then adds the disagreement list from the frozen bundle. Experiment only |
+| `run.mjs holdout [freeze\|isolation <root>]` | Freezes, verifies and isolates the projects generality is measured on. Not used by this procedure |
+| `run.mjs oracle <freeze\|delta\|compare>` | Freezes the answer key, measures the delta between the two trees, or lists one stage's disagreements against it. A comparison lists disagreements; it never scores. Not used by this procedure |
+| `run.mjs spike <root> <slice>` / `spike reconcile` | Runs one vertical slice and measures it, then adds the disagreement list from the frozen bundle. Not used by this procedure |
 
-**An operational run invokes only the first two rows.** The rest are the instrument's own validation and belong to the experiment mode; the table marks each. Nothing in this procedure runs them.
+**This procedure invokes only the first two rows.** The rest belong to the tool's own validation and are marked so in the table; nothing in this procedure runs them.
 
 ## Statuses and gates
 
@@ -95,25 +108,10 @@ The machine's vocabulary is **`proved`** and **`not proved`**, and nothing else.
 
 There are two kinds of gate, and this file observes the difference:
 
-- **A refusal gate stops the run because of the subject** — "this is not a complete conver project". **None exists and none may be added.** Incompleteness is the input, not a refusal condition, and a subject carrying `RFC-ROOT.md` and `Tickets.json` is a project whose prior work the analysis must read. The forward rotation's frozen fixtures are a maintainer's gate over *this* repository, never a precondition of an operational run
+- **A refusal gate stops the run because of the subject** — "this is not a complete conver project". **None exists and none may be added.** Incompleteness is the input, not a refusal condition, and a subject carrying `RFC-ROOT.md` and `Tickets.json` is a project whose prior work the analysis must read. The forward rotation's frozen fixtures are a maintainer's gate over *this* repository, never a precondition of a run of this procedure
 - **A progress gate reports that a Step of this procedure did not produce what it must.** Every Step below carries one. It is a fact about this run, not a verdict on the project, and its output is an instruction: what is wrong, what to do, and the Step to return to
 
 The entrance exits **0** when the analysis was published, **1** when a stage could not run, **2** on a usage error. `run.mjs gate` exits **0** when the decisions are recorded and **1** otherwise.
-
-## Two modes, never conflated
-
-The same file is an input in one mode and a contaminant in the other. **An operational run — the one this command performs — is in the operational mode**, and every Step below is written for it. Nothing you do here is in the experiment mode.
-
-| | **Operational** (patterns 1, 2, 3) | **Experiment** (validating the instrument) |
-|---|---|---|
-| Subject | any project the operator names | `siprs-for-reverse` set against `siprs-with-4layers` |
-| Terminal state | the complete per-directory four-layer structure | a disagreement list, never a score |
-| `holdout isolation` | **never used** | central: it proves the executor cannot read its own answer |
-| `run.mjs scrub` / `run.mjs detect` / `run.mjs verify` | **never used** | used to manufacture the stripped input from the complete one |
-| `oracle compare` | **never used** — there is no answer key | central; ten stage rows in `docs/ANSWER-KEY.md` §5 |
-| `RFC-*.md`, `*-GRAPH.json`, `Tickets.json` in the tree | **input** | **contaminant** |
-
-The experiment mode is documented in `docs/HOLDOUT-PROTOCOL.md`, `docs/ANSWER-KEY.md` and `docs/SPIKE-REPORT.md`. It validates the instrument and **must not gate an operational run**.
 
 ## Step 0: identify the input
 
@@ -307,14 +305,6 @@ Five modules stand outside the closure. Two are absences nobody owns; three are 
 
 **Read these as absences and exclusions, not as findings about the subject.** A run that reaches R8 without the first two is a complete run with two fewer sections. The three exclusions are decisions rather than debts, and they are listed because a reader who finds a module in the library and no mention of it here cannot tell a decision from an omission.
 
-## A round, and what success is
-
-- Success is **RESIDUE 0 in `/crystalize-readme`**, and it is reached only after several rounds. A human judges it; no machine gate can
-- **`omission 0` from `/find-omissions` is not the success condition.** It is material for the human's decision. Neither is a small gap count a statement of quality
-- One round is **this command plus the whole downstream chain**, not this command alone. What changes between rounds is the human's answers to the `unresolved` claims
-- The ladder, and only its top rung is success: **L0** the analysis runs but the RFC is pure ratification of what was already there · **L1** some directories reach RESIDUE 0 · **L2** all do, but the Red reconstruction is incomplete · **L2.5** coverage is fully proven, and every unprovable oracle-collusion suspicion is marked `unverified_oracle_risk` · **L3** RESIDUE 0, Red evidence on every ticket, and a human judges it a success
-- **Only L3 may be called success.** The rungs below it are progress, and calling one of them success is the ratification failure mode this design exists to prevent
-
 ## Error recovery
 
 Every failure below names where to go back to. Nothing here is a question, and none of them ends the work.
@@ -340,4 +330,4 @@ Every failure below names where to go back to. Nothing here is a question, and n
 
 ## Definition of success
 
-Success for this command is the coexistence of **① a complete analysis** (the run reached R8 and published the origin spec and its sidecar, with the Markdown re-parsing to it, and `run.mjs gate` reporting the six decisions recorded) and **② the forward rotation untouched** (its frozen fixtures still reproduce, and the gate still says *proved*). This command says neither "the reverse engineering worked" nor "it failed": the origin spec's `unresolved` claims and the disagreement list against the answer key are what a human reads to decide that, over several rounds, using the ladder above.
+Success for this command is the coexistence of **① a complete analysis** (the run reached R8 and published the origin spec and its sidecar, with the Markdown re-parsing to it, and `run.mjs gate` reporting the six decisions recorded) and **② the forward rotation untouched** (its frozen fixtures still reproduce, and the gate still says *proved*).

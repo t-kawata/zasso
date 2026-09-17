@@ -87,9 +87,6 @@ export const SCRIPTLESS_COMMAND_FILES = Object.freeze([
 /** Where the instrument's subcommands are catalogued. */
 export const SCRIPTS_USED_HEADING = '## Scripts used';
 
-/** Where the two modes of design §5.8 are declared, and which one an operational run is in. */
-export const MODES_HEADING = '## Two modes, never conflated';
-
 /** Where the AI's judgement surface is enumerated, one numbered item per decision. */
 export const JUDGEMENT_HEADING = '## What the machine decides, and what you decide';
 
@@ -141,25 +138,25 @@ export const FORBIDDEN_FORMULATIONS = Object.freeze([
   Object.freeze({
     id: 'holdout-isolation',
     markers: Object.freeze(['holdout isolation', 'run.mjs holdout']),
-    exemptIn: Object.freeze([SCRIPTS_USED_HEADING, MODES_HEADING]),
+    exemptIn: Object.freeze([SCRIPTS_USED_HEADING]),
     reason: '§5.7 — it manufactures the experiment input; it does not qualify a real project',
   }),
   Object.freeze({
     id: 'scrub-detect-verify-as-step',
     markers: Object.freeze(['run.mjs scrub', 'run.mjs detect', 'run.mjs verify']),
-    exemptIn: Object.freeze([SCRIPTS_USED_HEADING, MODES_HEADING]),
+    exemptIn: Object.freeze([SCRIPTS_USED_HEADING]),
     reason: '§5.7 — they remove or re-detect the forward traces a pattern-2 project must carry forward',
   }),
   Object.freeze({
     id: 'oracle-compare-as-step',
     markers: Object.freeze(['oracle compare', 'run.mjs oracle']),
-    exemptIn: Object.freeze([SCRIPTS_USED_HEADING, MODES_HEADING]),
+    exemptIn: Object.freeze([SCRIPTS_USED_HEADING]),
     reason: '§5.7 — an answer key exists only in the paired-tree experiment',
   }),
   Object.freeze({
     id: 'regression-check-as-precondition',
     markers: Object.freeze(['run.mjs regression']),
-    exemptIn: Object.freeze([SCRIPTS_USED_HEADING, MODES_HEADING]),
+    exemptIn: Object.freeze([SCRIPTS_USED_HEADING]),
     reason: '§5.7 — it takes no root and measures the conver repository, not the subject',
   }),
 ]);
@@ -381,7 +378,7 @@ export function findAbsenceContradictions({ sectionText: section, unreachable, r
  * without the rule stated beside it that line reads as an inconsistency.
  *
  * It sits beside its only consumer rather than with the constants at the top because
- * `design-citations.test.mjs` pins `command-file.mjs:217` to `assertCommandFileStructure`:
+ * `design-citations.test.mjs` pins `command-file.mjs:214` to `assertCommandFileStructure`:
  * a constant added above that line moves it, and the guard reports the drift.
  *
  * The sentence is matched rather than quoted so the wording can be improved without a

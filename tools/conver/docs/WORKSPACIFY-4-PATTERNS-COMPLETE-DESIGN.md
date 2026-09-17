@@ -419,7 +419,7 @@ Before designing the content, the permissions:
   that name a script and were never guarded joined it — and this file stayed outside, for the reason
   above.)*
 - But eight structural assertions **do** bind it. They are defined in
-  `helpers/command-file.mjs:217` (`assertCommandFileStructure`) and applied to this file at
+  `helpers/command-file.mjs:214` (`assertCommandFileStructure`) and applied to this file at
   `command.test.mjs:155`. A rewrite must keep
   all of them:
 
@@ -463,13 +463,13 @@ The defects are kept here as the record of what the rewrite was for:
   Role                                     ← unchanged
   Language Protocol                        ← unchanged, byte-identical
   First-Class Rule                         ← unchanged, byte-identical
+## The five-layer loop, and where this command sits   ← the five loops, and this command's place among them
 ## Arguments                               ← assertion 8; P26-2 compressed it to what an operator must know
 ## The four principles                      ← the spine
 ## What the machine decides, and what you decide   ← P26-2: the machine half is bullets, and the AI half is told to open the source
 ## The canonical output and its constraints  ← kept
 ## Scripts used                              ← assertion 8; P26-2 adds the gate row and marks which rows an operational run uses
 ## Statuses and gates                        ← P26-2: the two kinds of gate, refusal and progress
-## Two modes, never conflated                 ← §5.8, so the two are never confused
 ## Step 0: identify the input
 ## Step 1: record what is already there
 ## Step 2: fix the boundary and the scope
@@ -481,7 +481,6 @@ The defects are kept here as the record of what the rewrite was for:
 ## Step 8: report
 ## The terminal state this command serves    ← §2; P26-2 moved it after the Steps and gave the reader the instrument that measures it
 ## What this command cannot yet reach        ← §6, named absences
-## A round, and what success is              ← L0–L3, RESIDUE 0
   Error recovery                           ← P26-2: a symptom → return-Step table
   Prohibitions                             ← rewritten
   Definition of success                    ← rewritten
@@ -589,9 +588,8 @@ never findings, and no stage may read one (`P25-7`).
 5. the over-splitting decision,
 6. the classification of each proposition as `observed` / `inferred` / `normative` / `unresolved`.
 
-Nothing else. In particular the machine's measurements on T1–T6, A1–A6, G4–G5, GF1–GF2, B1–B3,
-S1–S6 and §6.14.7 are **accepted, not re-opened** — which is not the same as being excused from
-reading the code they measured, and P26-2 says so in the file.
+Nothing else. In particular the machine's measurements are **accepted, not re-opened** — which is
+not the same as being excused from reading the code they measured, and P26-2 says so in the file.
 
 **Two kinds of gate, and only one of them is forbidden.** A *refusal* gate stops the run because of
 the subject — "this is not a complete conver project" — and §1.2 forbids it outright. A *progress*
@@ -631,29 +629,6 @@ Each of these is a formulation that was tried and rejected:
 | An invocation that hands a rotation a path the rotation can derive | §9. The criterion the family applies is that an argument is hidden unless hiding it breaks one of the four patterns. `--root`, `--graph`, `--measured`, `--sidecars`, `--delta`, `--out` and `--prior-partition` left the reverse rotation for this reason, and the decisions document left both forward rotations; all of them are refused by name rather than ignored, because a question dropped in silence reads exactly like one answered |
 | `run.mjs regression check` as a precondition | It takes **no root** (`.claude/scripts/workspacify-reverse/run.mjs:336-341` — the branch fixes `action: second, root: process.cwd()` and states that requiring a root would make the command unrunnable by the automated sessions that run it before every later ticket's step). It measures the conver repository, and its fixtures are not installed into a user's project |
 | Any statement that the project must already be a complete conver project | §1.2 |
-
-> **The general rule behind the table.** *The same file is an input in one mode and a contaminant in
-> the other.* `RFC-ROOT.md` is the answer the executor must not read during the **experiment**, and
-> it is a design document the analysis **should** read during an **operational** run on a pattern-2
-> project. Conflating the two modes is the root error of the current design, and §5.8 is how the
-> file prevents it.
-
-### 5.8 Two modes, never conflated
-
-The file must name both modes and say which one it is in.
-
-| | **Operational** (patterns 1, 2, 3) | **Experiment** (validating the instrument) |
-|---|---|---|
-| Subject | any project the operator names | `siprs-for-reverse` against `siprs-with-4layers` |
-| `holdout isolation` | **never used** | central: proves the executor cannot read its own answer |
-| `detect` / `scrub` / `verify` | **never used** | used to manufacture the stripped input from the complete one |
-| `oracle compare` | **never used** — there is no answer key | central; ten stage rows in `docs/ANSWER-KEY.md` §5 |
-| `RFC-*.md`, `*-GRAPH.json`, `Tickets.json` in the tree | **input** | **contaminant** |
-| Terminal state | the complete per-directory four-layer structure (§2.2) | a disagreement list, never a score |
-
-The experiment mode is documented in `docs/HOLDOUT-PROTOCOL.md`, `docs/ANSWER-KEY.md` and
-`docs/SPIKE-REPORT.md`. It belongs to the instrument's own validation and must not gate an
-operational run.
 
 ### 5.9 The round, and what success is
 

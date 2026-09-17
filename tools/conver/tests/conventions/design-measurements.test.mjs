@@ -161,8 +161,8 @@ test('§5.3 lists every section the command file carries', () => {
   const command = readFileSync(join(PROJECT_ROOT, '.claude', 'commands', 'workspacify-reverse.md'), 'utf8');
   // The block writes a section either as a heading or as a bare name, so the fixed
   // point is the title rather than the line. A section the block does not name is a
-  // section a rewriter is told not to produce, which is how the file came to carry
-  // "Two modes, never conflated" — required by §5.8 — while §5.3 said nothing of it.
+  // section a rewriter is told not to produce — the two can drift in that direction
+  // only, which is why this assertion reads the file and not the block.
   const missing = [...command.matchAll(/^## (.+)$/gm)]
     .map(([, title]) => title.trim())
     .filter((title) => !block.includes(title));

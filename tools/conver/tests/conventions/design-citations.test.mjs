@@ -58,7 +58,7 @@ const ANCHORED_CITATIONS = Object.freeze([
   { asWritten: 'drill-rfc-down/boundify-step.js:66', path: '.claude/scripts/drill-rfc-down/boundify-step.js', line: 66, token: '.delta.json' },
   { asWritten: 'command-file-digest.mjs:50', path: '.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs', line: 50, token: 'COMMAND_FILE_NAMES' },
   { asWritten: 'command.test.mjs:147', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 147, token: 'a creation, not an edit' },
-  { asWritten: 'command-file.mjs:217', path: 'tests/workspacify-reverse/helpers/command-file.mjs', line: 217, token: 'function assertCommandFileStructure' },
+  { asWritten: 'command-file.mjs:214', path: 'tests/workspacify-reverse/helpers/command-file.mjs', line: 214, token: 'function assertCommandFileStructure' },
   { asWritten: 'command.test.mjs:155', path: 'tests/workspacify-reverse/integration/command.test.mjs', line: 155, token: 'assertCommandFileStructure' },
   { asWritten: 'scope.mjs:1973', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1973, token: 'replacePublishedDocuments(out, documents)' },
   { asWritten: 'scope.mjs:1833-1837', path: '.claude/scripts/workspacify-reverse/lib/scope.mjs', line: 1834, token: 'the analysis modified its target' },
