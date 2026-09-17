@@ -45,11 +45,15 @@ conver is five loops. Four do the work, and the fifth wraps them.
 
 ## Arguments
 
-**It takes no positional arguments, and one option.** The subject is the current working directory and the destination is `workspacify/reverse` beneath it, and neither is selectable.
+**It takes no positional arguments, and two options.** The subject is the current working directory and the destination is `workspacify/reverse` beneath it, and neither is selectable.
 
 - **Do not pass `--out`, `--through` or `--query`, and do not pass a bare path.** All four are refused by name, and the run publishes nothing
 - **Do not modify the tree while the run is in flight.** The run digests the subject before and after and refuses to publish if a single byte moved outside the destination
-- **One option is yours to pass, and one only**: `--answers=<path>`, on `run.mjs decide` in Step 5. It names the file you authored, so it is not derivable and not refused. Nothing else on the command line is yours: `run.mjs gate` reads `DECISIONS.json` from the reserved directory, and no Step passes it a path
+- **Two options are yours to pass, and two only.** Both name a file you authored, which is why neither is derivable and neither is refused:
+  - `--answers=<path>`, on `run.mjs decide` in Step 5 — the six decisions, one key per judgement
+  - `--semantics=<path>`, on `run.mjs analyze` in Step 7 — the design readings, one per cell of the package x item matrix
+
+  Nothing else on the command line is yours: `run.mjs gate` reads `DECISIONS.json` from the reserved directory, `run.mjs readings` reads the spec from it, and no Step passes either a path
 
 ## The four principles
 
@@ -95,10 +99,12 @@ Under `.claude/scripts/workspacify-reverse/`.
 | `run.mjs gate` | **The check after the run.** Exit 0 when the six decisions are recorded at `workspacify/reverse/DECISIONS.json`; 1 otherwise, with what is missing and the Step to return to named in English |
 | `run.mjs pattern` | Step 0. Reports which pattern the subject is: the conver scaffolding present, and the pattern those facts decide. It reads the disk and writes nothing, so it is safe to run before the analysis |
 | `run.mjs inventory` | Step 1. Reports what the subject already holds — its artefacts, the lifecycle status of every ticket, its `DesignTree` and its prior partition. It writes to no file |
-| `run.mjs decide --answers=<path>` | Step 5. Writes the six decisions the answers file holds, through the schema the gate reads. The only path this procedure passes |
+| `run.mjs decide --answers=<path>` | Step 5. Writes the six decisions the answers file holds, through the schema the gate reads. One of the two paths this procedure passes |
 | `run.mjs status` | Steps 3 and 4. Exit 0 when the destination holds every document the exit owes; 1 naming what is absent or empty |
-| `run.mjs seam` | Step 6. Reports where the prior partition and the fixed one differ, in both directions. On a subject with no prior partition it exits 0 and states that there is no seam |
-| `run.mjs report` | Step 8. Prints the stages that ran, the destination, and `proved` / `not proved` |
+| `run.mjs analyze --semantics=<path>` | Step 7. The entrance again, with the design readings admitted: each reading becomes an `inferred` claim beside the measured ones, or the whole file is refused and nothing is published. It erases the destination before it writes, so Step 7 closes by re-running `decide` |
+| `run.mjs readings [--scope=<path>] [--item=<key>]` | Steps 6 and 7. The locator: it prints the matrix, the reading that closes each cell, and the source lines that reading's basis rests on. It judges nothing — whether a reading is true of the code is yours — and the findings it does print are the deterministic ones |
+| `run.mjs seam` | Step 8. Reports where the prior partition and the fixed one differ, in both directions. On a subject with no prior partition it exits 0 and states that there is no seam |
+| `run.mjs report` | Step 10. Prints the stages that ran, the destination, and `proved` / `not proved` |
 | `run.mjs detect` | Reports the forward-rotation traces in the current directory as Markdown. Not used by this procedure |
 | `run.mjs scrub [--apply]` | Plans, or performs, the removal of the removable traces, in the current directory. Not used by this procedure |
 | `run.mjs verify` | Re-detects in the current directory; exits 0 when no trace remains, 1 otherwise. Not used by this procedure |
@@ -107,7 +113,7 @@ Under `.claude/scripts/workspacify-reverse/`.
 | `run.mjs oracle <freeze\|delta\|compare>` | Freezes the answer key, measures the delta between the two trees, or lists one stage's disagreements against it. A comparison lists disagreements; it never scores. Not used by this procedure |
 | `run.mjs spike <root> <slice>` / `spike reconcile` | Runs one vertical slice and measures it, then adds the disagreement list from the frozen bundle. Not used by this procedure |
 
-**This procedure invokes the first eight rows, and every one of them is reached from a Step that names it.** The rows below them belong to the tool's own validation and are marked so in the table; nothing in this procedure runs them. One command the procedure runs is not a row here at all, because it belongs to the next rotation rather than to this entrance: Step 7 hands over to `.claude/scripts/workspacify-tree/run.mjs reverse`.
+**This procedure invokes the rows that name a Step, and each is reached from the Step that names it.** The rest are the tool's own validation and are marked `Not used by this procedure`; nothing here runs them. One command the procedure runs is not a row here at all, because it belongs to the next rotation rather than to this entrance: Step 9 hands over to `.claude/scripts/workspacify-tree/run.mjs reverse`.
 
 ## Statuses and gates
 
@@ -277,7 +283,114 @@ A key left out, a key added, or an answer whose shape the schema refuses is refu
 
 **Record**: `workspacify/reverse/DECISIONS.json` — the six decisions, each beside the material it was made from.
 
-## Step 6: record the seam
+## Step 6: author the design semantics
+
+**The purpose of this step**: say what the measurements mean, at every package.
+
+The analysis measures, and a measurement is not an interpretation. It states that a reference
+exists at a line; it cannot state what the package is for, what it guarantees, why its boundary
+is where it is. That is the design reading, it is an engineer's to write, and the spec is not
+published with the rest of its content until it is written.
+
+**The unit is the package, not the document.** One reading set for the whole spec is not what is
+asked for: each package owes an answer to each of the 21 items, and a file that fills one package
+and leaves the next is refused whole. Read the list before writing:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs readings
+```
+
+It prints the matrix as it stands — every cell, and whether a reading closes it — and for each
+cell it names the question that has to be answered. Narrow it when you want one package or one
+item at a time:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs readings --scope=src/api --item=purpose
+```
+
+**Run**: author the readings file as one JSON object with two keys, and hand it to the entrance
+rather than writing the document by hand.
+
+```json
+{
+  "readings": [
+    {
+      "scope": "src/api",
+      "item": "purpose",
+      "statement": "src/api owns the request lifecycle, so no caller outside it observes a half-built request",
+      "falsification": "publish a request from src/state before the guard at src/api/login.rs:7 returns, and observe whether a consumer reads it as open",
+      "basis": ["clm-login-boundary_crossing-1"]
+    }
+  ],
+  "declined": [
+    { "scope": "src/build", "item": "concurrency", "reason": "this package runs single-threaded and holds no concurrent state" }
+  ]
+}
+```
+
+- **Every cell is either a reading or a decline.** A decline needs a reason a reader can weigh; `N/A` and `none` are refused by name
+- **`basis` names the measured claims the reading rests on**, and every id must exist. A reading is an inference beside the measurements, never a measurement
+- **`falsification` names something a reader could go and do** — a `file:line` or a command. An interpretation nobody can refute is indistinguishable from a preference
+- **A reading may not repeat the measurement**, reuse another cell's sentence, or re-open a measured claim by naming an id, a `claim_type` or evidence
+
+Then close every cell whose basis the run has not changed, re-read the source where it has, and hand the file over:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs analyze --semantics=<path to your readings.json>
+```
+
+**Gate**: exit 0, and `readings` reports every cell closed and every basis resolving. The readings appear as `clm-design-*` claims under their own package in `## Packages`, and `## Design semantics` records what was written and what was declined.
+
+**Record**: the readings file you wrote and the destination the re-run published. What it records is not a summary of your work: each reading is a claim in the spec carrying the `item` it answers, the basis it rests on and the falsification that would refute it, and each decline is a cell recorded as deliberately left open with the reason you gave.
+
+**If the gate fails**: the refusal names the cell, the rule and the act that fixes it, and **nothing is published** — so there is no partial spec to repair. Correct the file and run the same command again. A cell you cannot answer is a decline, not a gap: decline it with the reason, and the matrix closes.
+
+## Step 7: inspect, repair and reinforce the semantics
+
+**The purpose of this step**: judge the readings against the code, not against their own wording.
+
+Step 6 establishes that every cell is closed. That is a statement about the file, not about the
+subject: 21 fields can be filled with true sentences that say nothing. Whether a reading is *true
+of this package* is a judgement, and no script makes it — which is why this step is yours and why
+the tool it runs shows you evidence rather than a verdict.
+
+**Run**: the locator over the cells you are judging.
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs readings --scope=<path> --item=<key>
+```
+
+For each cell it prints the reading, the measured claims it rests on, the `file:line` each of
+those anchors to, and a bounded window of the source around each anchor.
+
+**Then open the file.** The window is where to look, not the evidence — a reading whose subject is
+larger than the window cannot be judged from it. Ask of each cell:
+
+- is the statement **true of this code**, or is it true of the file's wording?
+- does it name the **right** invariant, owner, counterpart — or one that merely sounds plausible?
+- is there something this package owes a reader that none of the 21 items has caught?
+
+Repair what is wrong and reinforce what is thin: reword a sentence that restates the measurement,
+replace a counterpart that does not exist, add the reading a package was declined out of laziness
+rather than honesty.
+
+**Gate**: `readings` exits 0, **and** `run.mjs gate` exits 0 after the closing write, because the
+entrance erases the destination before it writes and `DECISIONS.json` is not a published document:
+
+```bash
+node .claude/scripts/workspacify-reverse/run.mjs decide --answers=<the same answers file>
+node .claude/scripts/workspacify-reverse/run.mjs gate
+```
+
+**Record**: the repaired readings file, the cell each repair was about, and the source you read it
+against — the `file:line` `readings` printed. A repair that changed a statement without opening the
+file it describes is a rewording, and the record is what lets a reader tell the two apart.
+
+**If the gate fails**: `readings` names the cell that is still open, and the correction is the one
+Step 6 describes. A `gate` failure after a re-run is the erasure described above, not a wrong
+decision: re-run `decide` with the same answers file and the same decisions are written again.
+
+## Step 8: record the seam
 
 **The purpose of this step**: record the discontinuity, on the subjects where there is one.
 
@@ -287,7 +400,7 @@ A key left out, a key added, or an answer whose shape the schema refuses is refu
 node .claude/scripts/workspacify-reverse/run.mjs seam
 ```
 
-**Pattern 1 has no seam — skip to Step 7**, and the command states that itself rather than leaving you to decide it. Patterns 2 and 3 record it here, from the two directions the command prints: what only the prior partition carries, and what only the fixed one does.
+**Pattern 1 has no seam — skip to Step 9**, and the command states that itself rather than leaving you to decide it. Patterns 2 and 3 record it here, from the two directions the command prints: what only the prior partition carries, and what only the fixed one does.
 
 - The old partition, the work in flight, and the difference between the two — **recorded, never eliminated**
 - The old `RFC-ROOT-Dirs-Tree.json` is a prior, not the answer. The act was taken *because* those boundaries are too coarse
@@ -295,11 +408,11 @@ node .claude/scripts/workspacify-reverse/run.mjs seam
 
 **Gate**: the two partitions the seam is computed from are both readable — the prior at `RFC-ROOT-Dirs-Tree.json` in the subject, the fixed one inside `ORIGIN-LONG-SPEC.json` in the destination — and `run.mjs seam` exited 0 on both directions. On pattern 1 there is no prior partition, so there is no seam to name, and `PATTERN.json` says so.
 
-**If the gate fails**: the command names which partition document it could not read, and the corrective act is on that document — repair it, or move it aside, and run the same command again. A partition that is present and unreadable is not a subject without one, so the one thing that does not help is re-running over the same bytes: the same unreadable file yields the same finding. If the document cannot be repaired and must not be moved, then the seam cannot be computed here, and the record says so rather than being guessed at. Return to `## Step 6: record the seam` once the document, and not the command, has changed.
+**If the gate fails**: the command names which partition document it could not read, and the corrective act is on that document — repair it, or move it aside, and run the same command again. A partition that is present and unreadable is not a subject without one, so the one thing that does not help is re-running over the same bytes: the same unreadable file yields the same finding. If the document cannot be repaired and must not be moved, then the seam cannot be computed here, and the record says so rather than being guessed at. Return to `## Step 8: record the seam` once the document, and not the command, has changed.
 
 **Record**: nothing on disk in this Step, and the seam's durable home is downstream rather than here. `/workspacify-tree` reverse publishes it into `ARCHITECTURE-DELTA.json` at the workspace root when the subject carries a prior partition, computing it from the same two documents this Step read. What this Step records is the printed seam, carried into the hand-over as the statement of what the next rotation is about to meet.
 
-## Step 7: hand over
+## Step 9: hand over
 
 **The purpose of this step**: place the spec where the next command reads it.
 
@@ -317,7 +430,7 @@ The next rotation's reverse mode consumes `ORIGIN-LONG-SPEC.md` from `workspacif
 
 **Record**: nothing further. What changes between one round and the next is the human's answers to the `unresolved` claims, which return through the existing residual → grill → RFC path. **No separate human-norm-setting stage exists and none may be created.**
 
-## Step 8: report
+## Step 10: report
 
 **The purpose of this step**: print the outcome in the minimal form the next reader can act on.
 
@@ -331,7 +444,7 @@ It prints the stages that ran, the destination the documents were published to, 
 
 **Gate**: the report carries the stage list that ran, the destination the documents were published to, and `proved` / `not proved` — and nothing else. Whether the reverse engineering succeeded is not a report this command can give.
 
-**If the gate fails**: the command says which of the three it could not read. When it names a destination holding nothing, the entrance did not reach the exit and the return is Step 2 — re-running this Step over the same destination reports the same absence. When it names a stage list or an outcome the report does not carry, you are about to report something this command cannot know: read the exit code and the verdict block again, and report only what they say. Return to `## Step 8: report` once the destination, and not the command, has changed.
+**If the gate fails**: the command says which of the three it could not read. When it names a destination holding nothing, the entrance did not reach the exit and the return is Step 2 — re-running this Step over the same destination reports the same absence. When it names a stage list or an outcome the report does not carry, you are about to report something this command cannot know: read the exit code and the verdict block again, and report only what they say. Return to `## Step 10: report` once the destination, and not the command, has changed.
 
 **Record**: nothing on disk.
 
@@ -382,12 +495,15 @@ Every failure below names where to go back to. Nothing here is a question, and n
 |---|---|---|
 | A stage that could not run | The named stage could not read its input. Nothing was published | `## Step 2: fix the boundary and the scope` |
 | The run refused to publish | The target changed while it was measured. Nothing was published | `## Step 2: fix the boundary and the scope`, over a quiescent checkout |
+| `analyze --semantics=` refuses the readings | The refusal names the cell, the rule and the act. Nothing was published, so there is no partial spec to repair | `## Step 6: author the design semantics`, once the file has changed |
+| `readings` reports a cell still open after the entrance admitted the file | The file and the document have parted: the run that admitted it is not the one the destination holds | `## Step 7: inspect, repair and reinforce the semantics` |
+| `gate` is red after a semantics re-run | The entrance erases the destination before it writes and `DECISIONS.json` is not a published document, so the decisions were removed rather than refused | `## Step 7: inspect, repair and reinforce the semantics` — re-run `decide` with the same answers file |
 | The exit was refused late in a long run | The named stage and the input it was reading are the finding. There is no prefix to fall back to | `## Step 2: fix the boundary and the scope` |
-| The documents are not where they were looked for | They are in `workspacify/reverse` beneath the directory the command was run in, and nowhere else | `## Step 7: hand over` |
+| The documents are not where they were looked for | They are in `workspacify/reverse` beneath the directory the command was run in, and nowhere else | `## Step 9: hand over` |
 | A withdrawn option or a bare argument was passed | Not a warning. The entrance names the token and publishes nothing | Re-run without it; nothing to correct |
 | `run.mjs gate` names an unanswered item | The procedure's own Step 5 did not finish. No document the run publishes is affected | `## Step 5: decide the partition` |
 | `run.mjs gate` names material that was not published | The entrance did not reach the exit, so the decision has no material | `## Step 2: fix the boundary and the scope` |
-| `run.mjs seam` names a partition document it could not read | The document is corrupt, not absent. The same bytes yield the same finding | `## Step 6: record the seam`, once the document has been repaired or moved aside |
+| `run.mjs seam` names a partition document it could not read | The document is corrupt, not absent. The same bytes yield the same finding | `## Step 8: record the seam`, once the document has been repaired or moved aside |
 | `run.mjs report` names a destination holding nothing | The entrance did not reach the exit | `## Step 2: fix the boundary and the scope` |
 
 ## Prohibitions

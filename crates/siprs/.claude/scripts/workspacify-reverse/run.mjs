@@ -81,6 +81,7 @@ import {
 } from './lib/reverse-decisions.mjs';
 import {
   RESERVED_DECISIONS_FILE_NAME,
+  RESERVED_ORIGIN_SPEC_FILE_NAME,
   reservedReverseDecisionsPath,
 } from '../workspacify-tree/lib/reserved-root.mjs';
 import { readAnswers, renderDecisionWritingAdvice, renderDecisionWritingVerdict, writeDecisions } from './lib/decision-writing.mjs';
@@ -89,17 +90,18 @@ import { detectPatternAt, renderPatternDetection } from './lib/pattern-detection
 import { findUnpublished, readPublishedSet, renderPublishedSet, renderUnpublishedAdvice } from './lib/published-set.mjs';
 import { computeSeam, readFixedPartitionPaths, readPriorPartitionPaths, renderSeam, renderSeamAdvice } from './lib/seam.mjs';
 import { readStepReport, renderReportAdvice, renderStepReport } from './lib/step-report.mjs';
+import { renderReadingsView } from './lib/readings-view.mjs';
 
 const SUBCOMMANDS = [
   'detect', 'scrub', 'verify', 'regression', 'holdout', 'oracle', 'spike', 'analyze', 'gate',
-  'pattern', 'inventory', 'decide', 'status', 'seam', 'report',
+  'pattern', 'inventory', 'decide', 'status', 'seam', 'report', 'readings',
 ];
 
 /**
  * The subcommands whose subject is the directory the command is run in, and
  * which therefore take no argument at all.
  *
- * These five measure a subject the operator is standing in. `regression` says so
+ * Every one of them measures a subject the operator is standing in. `regression` says so
  * in its own comment; the others say it here, because the same rule is what makes
  * a run reproducible from its directory alone. `gate` reads the decisions document
  * from the reserved directory beneath that subject rather than from a path the
@@ -109,15 +111,16 @@ const SUBCOMMANDS = [
  * experiment instruments carry — keeps its argument, because *which* fixture is a
  * choice with no derivable answer.
  *
- * The six Step-level subcommands measure the same subject the other five do, so they
- * are argument-free for the same reason: `decide` names the file it reads with
- * `--answers`, which is an option rather than a positional, and a bare path is refused
- * for all six.
+ * The Step-level subcommands measure the same subject as the rest, so they are
+ * argument-free for the same reason: an input the operator authored is named with an
+ * option rather than a positional — `decide` with `--answers`, `readings` with `--scope`
+ * and `--item` — and a bare path is refused for every one of them. The list is the
+ * authority; an earlier version of this comment counted them and was wrong.
  */
-const ARGUMENT_FREE_SUBCOMMANDS = ['analyze', 'detect', 'scrub', 'verify', 'gate', 'pattern', 'inventory', 'decide', 'status', 'seam', 'report'];
+const ARGUMENT_FREE_SUBCOMMANDS = ['analyze', 'detect', 'scrub', 'verify', 'gate', 'pattern', 'inventory', 'decide', 'status', 'seam', 'report', 'readings'];
 
 /** The options that name a value; every other `--name` is a switch. */
-const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--recorded', '--answers', '--semantics'];
+const VALUE_TAKING_FLAGS = ['--project-root', '--frozen-at', '--stage', '--candidate', '--recorded', '--answers', '--semantics', '--scope', '--item'];
 
 /**
  * The options the entrance used to honour and no longer does, with the reason each left.
@@ -199,7 +202,7 @@ const SPIKE_REPORT_RELATIVE_PATH = 'docs/SPIKE-REPORT.md';
 const SPIKE_STAGES = Object.freeze(['r1', 'r3']);
 
 const USAGE = [
-  'Usage: run.mjs <detect|scrub|verify|analyze|gate|pattern|inventory|decide|status|seam|report> [options]',
+  'Usage: run.mjs <detect|scrub|verify|analyze|gate|pattern|inventory|decide|status|seam|report|readings> [options]',
   '       run.mjs regression <capture|check>',
   '       run.mjs holdout [freeze|isolation <root>] [--project-root=<path>] [--frozen-at=<ISO-8601>]',
   '       run.mjs oracle <freeze|compare --stage <stage> --candidate <path>> [--project-root=<path>] [--frozen-at=<ISO-8601>]',
@@ -230,8 +233,12 @@ const USAGE = [
   '  status                           Exit 0 when the destination holds every document the exit owes; 1 naming what is absent or empty',
   '  seam                             Report where the prior partition and the fixed one differ, in both directions',
   '  report                           Print the stages that ran, the destination and proved / not proved',
+  '  readings [--scope=<path>] [--item=<key>]',
+  '                                   Show the design-semantics matrix, the readings that close it',
+  '                                   and the source they rest on. It judges nothing; it prints',
+  '                                   where to look.',
   '',
-  '  detect, scrub, verify, analyze and the six Step-level subcommands measure the directory the command is run in and take no argument.',
+  '  detect, scrub, verify, analyze and the Step-level subcommands measure the directory the command is run in and take no argument.',
   '  holdout isolation and spike name which fixture or slice they act on, so they keep theirs.',
   '',
   'Options:',
@@ -360,7 +367,7 @@ function parseSpikeArguments(second, rest, argv) {
   };
 }
 
-// [::TICKET::] P22-4, P22-9, P25-7, PX-213, PX-214, P26-3, P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P25-7|PX-213|PX-214|P26-3|P26-4) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P25-7, PX-213, PX-214, P26-3, P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P25-7|PX-213|PX-214|P26-3|P26-4|P26-5) --for-spec --no-implementation-order`.
 function parseArgs(argv) {
   const [subcommand, second, ...rest] = argv;
   const common = commonOptions(subcommand, optionTokens(second, rest));
@@ -394,6 +401,11 @@ function parseArgs(argv) {
       through: ANALYSIS_STAGES[ANALYSIS_STAGES.length - 1],
       withdrawn: withdrawnOptionsUsed(optionArgs),
       positionals: positionalArgs(argv.slice(1)),
+      // The second authored input, and the reason it is set here rather than in the
+      // fall-through further down: this branch never reaches that one, so an option
+      // carried only there is parsed, advertised, and then discarded. A readings file
+      // that had to be refused published instead.
+      semantics: flagValue(optionArgs, '--semantics'),
     };
   }
 
@@ -411,10 +423,10 @@ function parseArgs(argv) {
     // reader authored, and the content is theirs rather than derivable from the
     // directory, so it is named rather than read from a fixed place.
     answers: flagValue(optionTokens(second, rest), '--answers'),
-    // The second authored input: the AI's design readings, admitted as inferred claims
-    // beside the measured ones. Like `--answers` it names a file the operator wrote, so
-    // it is an option rather than a positional and a bare path stays refused.
-    semantics: flagValue(optionTokens(second, rest), '--semantics'),
+    // The narrowing a locator takes: which package and which item to show. Both are
+    // optional, and their absence means the whole matrix rather than an error.
+    scope: flagValue(optionTokens(second, rest), '--scope'),
+    item: flagValue(optionTokens(second, rest), '--item'),
   };
 }
 
@@ -480,6 +492,53 @@ function reportStage({ stage, input, error }) {
  * receives does not depend on what the host has installed.
  */
 // [::TICKET::] P22-4, P22-9, P23-7, P25-7, PX-213, PX-214, P26-2, P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|P25-7|PX-213|PX-214|P26-2|P26-4) --for-spec --no-implementation-order`.
+/**
+ * The locator, as the Step that inspects the semantics calls it.
+ *
+ * It exits 0 only when every cell is closed and every basis resolves, so the Step has a
+ * gate that means something; but its purpose is the output, not the code. What it prints
+ * is the material a judgement needs — the reading, its basis, and the source lines the
+ * basis rests on — and never the judgement itself.
+ */
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+function runReadingsStep(options) {
+  const destination = options.out ?? reservedReverseDirectory(process.cwd());
+  // The reserved name is the Markdown the next rotation reads; the matrix is built from
+  // the sidecar beside it, which carries the claims as data.
+  const specFile = RESERVED_ORIGIN_SPEC_FILE_NAME.replace(/\.md$/, '.json');
+  const specPath = join(destination, specFile);
+  if (!existsSync(specPath)) {
+    process.stderr.write(renderReadingsAdvice({ specPath, reason: 'the origin spec is not in the destination' }));
+    return 1;
+  }
+
+  let spec;
+  try {
+    spec = JSON.parse(readFileSync(specPath, 'utf8'));
+  } catch (error) {
+    process.stderr.write(renderReadingsAdvice({ specPath, reason: `the origin spec could not be read (${error.message})` }));
+    return 1;
+  }
+
+  const { markdown, findings } = renderReadingsView({
+    spec,
+    scope: options.scope ?? null,
+    item: options.item ?? null,
+    root: process.cwd(),
+  });
+  process.stdout.write(markdown);
+  return findings.length === 0 ? 0 : 1;
+}
+
+/** What to do when the locator has no spec to read. */
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+function renderReadingsAdvice({ specPath, reason }) {
+  return `${reason}: ${specPath}. `
+    + 'The matrix is read from the spec the run published, so there is nothing to locate until a run\n'
+    + 'has reached the exit. Nothing was written by this command.\n';
+}
+
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
 async function runAnalysisPipeline({ root, through, out, semantics }) {
   let currentStage = null;
   let outcome;
@@ -1058,7 +1117,7 @@ function runSpikeSubcommand(options) {
   return runSpikeSlice(options);
 }
 
-// [::TICKET::] P22-4, P22-9, P23-7, PX-214, PX-213, P26-2, P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|PX-214|PX-213|P26-2|P26-3) --for-spec --no-implementation-order`.
+// [::TICKET::] P22-4, P22-9, P23-7, PX-214, PX-213, P26-2, P26-3, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-4|P22-9|P23-7|PX-214|PX-213|P26-2|P26-3|P26-5) --for-spec --no-implementation-order`.
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (!options.subcommand || !SUBCOMMANDS.includes(options.subcommand)) {
@@ -1095,6 +1154,7 @@ async function main() {
   if (options.subcommand === 'status') return runStatusStep(options);
   if (options.subcommand === 'seam') return runSeamStep(options);
   if (options.subcommand === 'report') return runReportStep(options);
+  if (options.subcommand === 'readings') return runReadingsStep(options);
   return runVerify(options);
 }
 

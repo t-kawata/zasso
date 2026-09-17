@@ -1,3 +1,4 @@
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C003
 // @verifies C005
@@ -24,6 +25,7 @@ import {
   findUnpublishedProjections,
   specSectionsFor,
 } from '../../../.claude/scripts/workspacify-reverse/lib/spec-sections.mjs';
+import { SEMANTICS_ITEMS } from '../../../.claude/scripts/workspacify-reverse/lib/design-semantics-schema.mjs';
 import { createSyntheticTree } from '../helpers/scratch.mjs';
 
 /** A tree that yields claims in more than one scope, so the grouping has something to group. */
@@ -163,32 +165,38 @@ test('C004/IT: an authored entry reaches the published spec, and an unresolvable
   try {
     await analyzeProject({ root: tree.root, out: out.root, through: 'r8' });
     const measuredSpec = readRun(out.root).spec;
+    const crossings = measuredSpec.claims.filter((claim) => claim.claim_id.includes('boundary_crossing'));
+    const basis = crossings.map((claim) => claim.claim_id);
+
+    // One reading per cell of the matrix this run's partition declares, because a file
+    // that leaves a cell open is refused: completeness is a property of the matrix.
+    const packages = measuredSpec.sections.packages.scopes;
+    const readings = packages.flatMap((scope) => SEMANTICS_ITEMS.map((entry) => ({
+      scope,
+      item: entry.key,
+      statement: `${scope} answers ${entry.key}, which the measurement of ${scope} cannot state`,
+      falsification: `remove the condition at ${crossings[0].evidence[0].source_span.file}:1 and observe whether a test fails`,
+      basis,
+    })));
 
     const sound = join(scratch.root, 'sound.json');
-    writeJson(sound, {
-      semantics: [
-        {
-          statement: 'src/api owns the request lifecycle',
-          falsification: 'publish a request from src/state and observe whether a consumer reads it half-built',
-          basis: [measuredSpec.claims[0].claim_id],
-          scope: measuredSpec.claims[0].scope,
-        },
-      ],
-    });
+    writeJson(sound, { readings, declined: [] });
 
     await analyzeProject({ root: tree.root, out: out.root, through: 'r8', options: { semantics: sound } });
     const authored = readRun(out.root).spec;
 
-    assert.equal(authored.claims.length, measuredSpec.claims.length + 1, 'the authored entry is in the spec');
+    assert.equal(authored.claims.length, measuredSpec.claims.length + readings.length,
+      'the authored readings are in the spec, beside the measurements');
     assert.equal(
       authored.claims.some((claim) => claim.claim_id.startsWith('clm-design-')),
       true,
-      'and it is marked as an inference the author made, not as a measurement',
+      'and they are marked as inferences the author made, not as measurements',
     );
 
     const broken = join(scratch.root, 'broken.json');
     writeJson(broken, {
-      semantics: [{ statement: 'x', falsification: 'y', basis: ['clm-absent-1'], scope: 'src/api' }],
+      readings: [{ ...readings[0], basis: ['clm-absent-1'] }],
+      declined: readings.slice(1).map((entry) => ({ scope: entry.scope, item: entry.item, reason: `nothing to state for ${entry.item}` })),
     });
 
     await assert.rejects(

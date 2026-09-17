@@ -1,3 +1,4 @@
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
 /**
  * The six subcommands that perform a Step's mechanical half.
  *
@@ -422,7 +423,7 @@ test('every Step of the command file names a command the entrance declares', () 
   // A Run line is a block rather than a line: a Step whose command is a bash fence
   // states it there, and one whose command is a slash command states it inline.
   const runBlocks = [...text.matchAll(/^\*\*Run\*\*:[\s\S]*?(?=\n\*\*|\n## |\n?$)/gm)].map(([block]) => block);
-  assert.equal(runBlocks.length, 9, 'every Step carries a Run line');
+  assert.equal(runBlocks.length, 11, 'every Step carries a Run line');
 
   for (const block of runBlocks) {
     for (const [, name] of block.matchAll(/run\.mjs ([a-z]+)/g)) {

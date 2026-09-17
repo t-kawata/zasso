@@ -74,9 +74,22 @@ const PACKAGES_SECTION_KEY = 'packages';
 const SCOPE_SECTION_KEY = 'scope';
 const DEMOTIONS_SECTION_KEY = 'demotions';
 
+/** The two sections whose material is authored, so their records render differently. */
+const DECISIONS_SECTION_KEY = 'decisions';
+const DESIGN_SEMANTICS_SECTION_KEY = 'design_semantics';
+
 /** The two states a section can be in, as the document spells them. */
 const RECORDED_STATUS = 'recorded';
 const NOT_RUN_STATUS = 'not-run';
+
+/**
+ * The third reason a section carries nothing: its stage ran, and the material it
+ * carries is authored rather than produced. Kept apart from `not-run` because the two
+ * are different facts with different remedies — one is a shallower run, the other is a
+ * Step the operator has not taken — and a document that gave the first reason for the
+ * second was stating a falsehood about its own run.
+ */
+export const NOT_AUTHORED_STATUS = 'not-authored';
 
 /** ATX levels: one title, one level for sections, one for each claim, one for a package. */
 const TITLE_LEVEL = 1;
@@ -109,6 +122,11 @@ const CLAIM_SCALAR_FIELDS = Object.freeze(['claim_type', 'scope', 'statement', '
  * decision.
  */
 const CLAIM_OPTIONAL_FIELDS = Object.freeze([
+  // Which of the design-semantics items this claim answers. It rides on the claim
+  // because a reading is only readable as an answer to a question: without it the
+  // document prints prose that does not say what it is about, and the locator cannot
+  // tell a written cell from an unwritten one by reading the spec.
+  'semantics_item',
   'grill_question',
   'normative_decision_id',
   'residual_id',
@@ -217,7 +235,7 @@ function toEvidenceItem(item) {
 }
 
 /** One claim as the spec carries it, keeping the ledger's evidence shape. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-8|P26-5) --for-spec --no-implementation-order`.
 function normaliseClaim(claim) {
   if (claim === null || typeof claim !== 'object') {
     throw new Error('every origin-spec claim must be an object');
@@ -231,6 +249,7 @@ function normaliseClaim(claim) {
     evidence: (claim.evidence ?? []).map(toEvidenceItem),
     support: [...(claim.support ?? [])],
     counterevidence: [...(claim.counterevidence ?? [])],
+    semantics_item: orNull(claim.semantics_item),
     grill_question: orNull(claim.grill_question),
     normative_decision_id: orNull(claim.normative_decision_id),
     residual_id: orNull(claim.residual_id),
@@ -292,7 +311,7 @@ export function buildOriginSpec({ root, ledger, treeHash = '', sections = {}, sc
  * serialised values: an object the parser rebuilt with its keys in a different order
  * would compare unequal while saying exactly the same thing.
  */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
 function buildSections({ sections, scopes, claims }) {
   return Object.fromEntries(
     SPEC_SECTIONS.map((entry) => {
@@ -306,7 +325,7 @@ function buildSections({ sections, scopes, claims }) {
       return [
         entry.key,
         {
-          status: RECORDED_STATUS,
+          status: supplied?.status ?? RECORDED_STATUS,
           content: supplied?.content ?? null,
           documents: supplied?.documents ?? {},
           scopes: packageScopes(entry, supplied, scopes, claims),
@@ -514,8 +533,129 @@ export function renderOriginSpec(spec) {
   return lines.join('\n');
 }
 
+/**
+ * Why a section carries nothing, in the words of the reason that is true of it.
+ *
+ * Three reasons, and they are different facts with different remedies: no stage produces
+ * it, its stage did not run, or its stage ran and the material it carries is authored and
+ * was not written. The third was previously reported as the second, so a run that had
+ * reached R8 printed a sentence saying R8 had not run — a document lying about itself,
+ * which is worse than an absence.
+ */
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+function renderAbsence(entry, status) {
+  if (status === NOT_AUTHORED_STATUS) {
+    return [
+      'The stage that produces this section ran, and the material it carries is authored rather than',
+      'produced, so it carries nothing yet. The Step that authors it is the one named in the command',
+      'file; a re-run is what brings the material into the spec.',
+      'The heading stays, because a document whose shape changed with the depth of the run would make',
+      'a shallower run read as a different document rather than as a smaller one.',
+      '',
+    ];
+  }
+  return [
+    entry.stage === null
+      ? 'The document this section carries was not produced in this analysis, so it carries nothing.'
+      : `The stage that produces this section — ${entry.stage.toUpperCase()} — did not run in this analysis, so it carries nothing.`,
+    'The heading stays, because a document whose shape changed with the depth of the run would make',
+    'a shallower run read as a different document rather than as a smaller one.',
+    '',
+  ];
+}
+
+/**
+ * What a section carries besides its documents: a record for the authored sections, and
+ * the payload itself for the rest.
+ *
+ * The two authored sections are records because their material is printed where it
+ * belongs — the decisions as the partition they decided, each reading under the package
+ * it is about — so what a reader needs from the section is what was authored, what was
+ * declined, and where to find the rest. A fenced dump of the answers file would be the
+ * same content twice, in the one form a reader cannot use.
+ */
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+function renderContent(entry, content) {
+  if (entry.key === DESIGN_SEMANTICS_SECTION_KEY) return [...renderSemanticsRecord(content), ...machineCopy(content)];
+  if (entry.key === DECISIONS_SECTION_KEY) return [...renderDecisionsRecord(content), ...machineCopy(content)];
+  return machineCopy(content);
+}
+
+/**
+ * The payload the round trip is checked against, written after the readable record.
+ *
+ * The record above is what a reader uses; this is what the parser needs, because the
+ * round trip compares the sidecar to itself and a table cannot be read back into the
+ * object it was drawn from. Both are printed rather than one: dropping the payload would
+ * make the readable form unverifiable, and dropping the record is what made the section
+ * a dump nobody could read.
+ */
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+function machineCopy(content) {
+  return ['- content:', ...fencedJson(content), ''];
+}
+
+/** A value as one line, so a record reads without a fenced block the parser would claim. */
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+function inlineValue(value) {
+  if (Array.isArray(value)) return value.map((entry) => inlineValue(entry)).join('; ');
+  if (value !== null && typeof value === 'object') {
+    return Object.entries(value).map(([key, inner]) => `${key} ${inlineValue(inner)}`).join(', ');
+  }
+  return String(value);
+}
+
+/** The Design semantics section: where the readings came from, and how the matrix closed. */
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+function renderSemanticsRecord(content) {
+  const coverage = content?.coverage ?? {};
+  const lines = [
+    `- authored_from: ${content?.source ?? 'nowhere'}`,
+    `- packages: ${coverage.packages ?? 0}`,
+    `- cells: ${coverage.cells ?? 0}`,
+    `- written: ${coverage.written ?? 0}`,
+    `- declined: ${coverage.declined ?? 0}`,
+    '',
+    // A bold label rather than a heading: the parser reads a bare `####` inside a section
+    // as the package a group of claims is scoped to, so a heading here would be collected
+    // as one and the round trip would report the difference.
+    '**Coverage**',
+    '',
+    '| package | written | declined |',
+    '|---|---|---|',
+  ];
+  for (const row of coverage.rows ?? []) lines.push(`| ${row.scope} | ${row.written} | ${row.declined} |`);
+  lines.push('');
+  if ((coverage.declinedCells ?? []).length > 0) {
+    lines.push('**Declined**', '');
+    for (const cell of coverage.declinedCells) {
+      lines.push(`- ${cell.scope} — ${cell.item}: ${cell.reason}`);
+    }
+    lines.push('');
+  }
+  lines.push(
+    '**Where the readings are printed**',
+    '',
+    'Each reading is printed under its own package in the Packages section above, beside the',
+    'measurements it rests on, because that is where a reader of that package is already looking.',
+    '',
+  );
+  return lines;
+}
+
+/** The Decisions section: the six answers as the record they are. */
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
+function renderDecisionsRecord(content) {
+  const lines = [];
+  for (const [key, value] of Object.entries(content ?? {})) {
+    lines.push(`**${key}**`, '', `- ${inlineValue(value)}`, '');
+  }
+  if (lines.length === 0) lines.push('The decisions document is present and holds no key.', '');
+  return lines;
+}
+
 /** One registered section: its heading, its stage, and what it carries. */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
 function renderSection(lines, entry, spec) {
   const value = spec.sections?.[entry.key] ?? null;
   lines.push(`${'#'.repeat(SECTION_LEVEL)} ${entry.heading}`, '');
@@ -523,14 +663,7 @@ function renderSection(lines, entry, spec) {
   lines.push(`- status: ${value?.status ?? NOT_RUN_STATUS}`, '');
 
   if (value?.status !== RECORDED_STATUS) {
-    lines.push(
-      entry.stage === null
-        ? 'The document this section carries was not produced in this analysis, so it carries nothing.'
-        : `The stage that produces this section — ${entry.stage.toUpperCase()} — did not run in this analysis, so it carries nothing.`,
-      'The heading stays, because a document whose shape changed with the depth of the run would make',
-      'a shallower run read as a different document rather than as a smaller one.',
-      '',
-    );
+    appendLines(lines, renderAbsence(entry, value?.status ?? NOT_RUN_STATUS));
     return;
   }
 
@@ -540,7 +673,7 @@ function renderSection(lines, entry, spec) {
   if (entry.key === DEMOTIONS_SECTION_KEY) renderDemotions(lines, spec.demotions);
 
   if (value.content !== null && value.content !== undefined) {
-    appendLines(lines, ['- content:', ...fencedJson(value.content), '']);
+    appendLines(lines, renderContent(entry, value.content));
   }
   for (const [name, carried] of Object.entries(value.documents ?? {})) {
     appendLines(lines, [
@@ -607,7 +740,7 @@ function renderPackages(lines, spec, value) {
 }
 
 /** One claim, as the fields its reader sees. */
-// [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
+// [::TICKET::] P26-4, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P26-4|P26-5) --for-spec --no-implementation-order`.
 function renderClaimEntry(lines, claim) {
   lines.push(`${'#'.repeat(CLAIM_LEVEL)} Claim \`${claim.claim_id}\``, '');
   for (const field of CLAIM_SCALAR_FIELDS) {
@@ -615,7 +748,9 @@ function renderClaimEntry(lines, claim) {
     lines.push(`- ${field}: ${claim[field]}`);
   }
   for (const field of CLAIM_OPTIONAL_FIELDS) {
-    if (claim[field] === null) continue;
+    // Absent is absent whether the object says `null` or says nothing: a claim that
+    // never carried the field is not a claim asserting something about it.
+    if (claim[field] === null || claim[field] === undefined) continue;
     assertSingleLine(claim[field], `${claim.claim_id}.${field}`);
     lines.push(`- ${field}: ${claim[field]}`);
   }
@@ -682,7 +817,7 @@ function fencedJson(value, { indent = '' } = {}) {
 
 
 /** One claim rebuilt from the fields its entry rendered. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-8|P26-5) --for-spec --no-implementation-order`.
 function parseClaimEntry(entry) {
   const fields = entry.fields;
   return {
@@ -694,6 +829,7 @@ function parseClaimEntry(entry) {
     evidence: (fields.evidence ?? []).map(parseEvidenceItem),
     support: [...(fields.support ?? [])],
     counterevidence: [...(fields.counterevidence ?? [])],
+    semantics_item: fields.semantics_item ?? null,
     grill_question: fields.grill_question ?? null,
     normative_decision_id: fields.normative_decision_id ?? null,
     residual_id: fields.residual_id ?? null,

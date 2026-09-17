@@ -1,3 +1,4 @@
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
 // @verifies C001
@@ -28,7 +29,7 @@ import {
 } from '../../../.claude/scripts/workspacify-reverse/lib/command-file-digest.mjs';
 
 /** The procedure's declared spine: `## Step 0` through `## Step 8`. */
-export const EXPECTED_STEP_HEADINGS = 9;
+export const EXPECTED_STEP_HEADINGS = 11;
 
 /** The AI's judgement surface, closed to exactly this many items (ABOUT-REVERSE §6.2). */
 export const JUDGEMENT_SURFACE_SIZE = 6;

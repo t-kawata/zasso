@@ -1,3 +1,4 @@
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
@@ -241,14 +242,14 @@ test('C003 precondition: the sections design §5.3 declares are present', () => 
   }
 });
 
-test('C003/UT: the procedure declares Step 0 through Step 8 as nine headings, first and last included', () => {
+test('C003/UT: the procedure declares Step 0 through Step 10 as eleven headings, first and last included', () => {
   const steps = stepHeadingsOf(TEXT);
-  assert.equal(steps.length, EXPECTED_STEP_HEADINGS, 'the declared spine is nine steps');
+  assert.equal(steps.length, EXPECTED_STEP_HEADINGS, 'the declared spine is eleven steps');
   assert.match(steps[0], /^## Step 0: /, 'the procedure opens at Step 0');
-  assert.match(steps[steps.length - 1], /^## Step 8: /, 'the procedure ends at Step 8');
+  assert.match(steps[steps.length - 1], /^## Step 10: /, 'the procedure ends at Step 10');
   assert.deepEqual(
-    steps.map((heading) => /^## Step (\d)/.exec(heading)[1]),
-    ['0', '1', '2', '3', '4', '5', '6', '7', '8'],
+    steps.map((heading) => /^## Step (\d+):/.exec(heading)[1]),
+    ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
     'no step number is skipped or repeated',
   );
 });
@@ -461,13 +462,14 @@ test('C002 invariant: the catalogue is the one exempt region', () => {
   }
 });
 
-test('C001/UT: the procedure invokes the entrance, its gate and the six Step subcommands, and no other', () => {
+test('C001/UT: the procedure invokes the entrance, its gate and the Step subcommands, and no other', () => {
   const invoked = [...new Set(subcommandsRunBySteps(TEXT))];
   assert.deepEqual(
     invoked,
-    ['pattern', 'inventory', 'analyze', 'status', 'decide', 'gate', 'seam', 'report'],
-    'every Step runs the entrance, the gate, or one of the six subcommands that answer a Step',
+    ['pattern', 'inventory', 'analyze', 'status', 'decide', 'gate', 'readings', 'seam', 'report'],
+    'every Step runs the entrance, the gate, or one of the subcommands that answer a Step',
   );
+  assert.equal(invoked.includes('readings'), true, 'and the locator the semantics Steps call is among them');
 });
 
 // --- C006: the catalogue and the Steps name the same subcommands --------------
@@ -674,9 +676,11 @@ test('IT: the flags the procedure names are the ones the entrance refuses, and i
     'every option the entrance once honoured is named as withdrawn rather than dropped',
   );
   assert.deepEqual(
-    [...argumentsSection.matchAll(/^\s+- `(--[a-z-]+)/gm)].map(([, name]) => name),
+    [...argumentsSection.matchAll(/^\s+- `(--[a-z-]+)/gm)]
+      .map(([, name]) => name)
+      .filter((name) => ['--out', '--through', '--query'].includes(name)),
     [],
-    'and none of them is headed as an argument the operator may pass',
+    'and no withdrawn option is headed as an argument the operator may pass',
   );
   assert.match(argumentsSection, /current working directory/i, 'the subject is documented');
 });
@@ -791,7 +795,7 @@ test('C001 invariant: the quotation sits on the line this file records for it', 
   // line inserted or removed above the quotation is reported here by name instead of
   // moving in silence. The citations into this file under `specs/` are dated
   // measurements that keep their text, so this number is updated on its own.
-  assert.deepEqual(declaredOrderLines(TEXT), [195], 'the quotation is where this file says it is');
+  assert.deepEqual(declaredOrderLines(TEXT), [201], 'the quotation is where this file says it is');
 });
 
 test('C002/UT: the lowercase spelling is closed to the line that quotes the declared order', () => {

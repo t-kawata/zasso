@@ -50,7 +50,7 @@ const SPEC_TREE = Object.freeze({
 });
 
 /** The claims a run over SPEC_TREE yields: one located, one handed to the grill. */
-// [::TICKET::] P22-8 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P22-8 --for-spec --no-implementation-order`.
+// [::TICKET::] P22-8, P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=(P22-8|P26-5) --for-spec --no-implementation-order`.
 function specClaims() {
   return [
     {
@@ -62,6 +62,7 @@ function specClaims() {
       evidence: [{ source_span: { file: 'src/api/login.rs', line: 4 }, evidence_mode: 'source_static' }],
       support: ['ev-login-004'],
       counterevidence: [],
+      semantics_item: null,
       grill_question: null,
       normative_decision_id: null,
       residual_id: null,
@@ -80,6 +81,7 @@ function specClaims() {
       evidence: [{ source_span: { file: 'src/api/login.rs', line: 1 }, evidence_mode: 'source_static' }],
       support: [],
       counterevidence: ['the import arrived in a single commit with no design note'],
+      semantics_item: null,
       grill_question: 'Is the crossing an intended boundary or an accident of history?',
       normative_decision_id: null,
       residual_id: null,
@@ -271,6 +273,7 @@ test('UT-3 / C001: the round trip carries a normative clause and its whole prove
       evidence: [span],
       support: ['ev-login-004'],
       counterevidence: [],
+      semantics_item: null,
       grill_question: null,
       normative_decision_id: 'nd-001',
       residual_id: 'res-001',
@@ -308,6 +311,7 @@ test('UT-3 / C001: an inferred claim keeps the basis that makes it admissible', 
       evidence: [{ source_span: { file: 'src/api/login.rs', line: 4 }, evidence_mode: 'source_static' }],
       support: [],
       counterevidence: [],
+      semantics_item: null,
       grill_question: null,
       normative_decision_id: null,
       residual_id: null,

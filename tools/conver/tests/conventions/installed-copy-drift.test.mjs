@@ -1,3 +1,4 @@
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-4 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-3 --for-spec --no-implementation-order`.
 // [::TICKET::] P25-2 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P25-2 --for-spec --no-implementation-order`.
@@ -83,7 +84,7 @@ const DIFFERING_IN_COPIES = Object.freeze([]);
 // copy installs now names six subcommands, and a copy whose entrance does not accept
 // them is not a copy behind a release — it is a copy that aborts on its own procedure.
 // [::TICKET::] P26-3 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-3 --for-spec --no-implementation-order`.
-const SOURCE_MODULE_COUNT = 59;
+const SOURCE_MODULE_COUNT = 61;
 // [::TICKET::] P26-4 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-4 --for-spec --no-implementation-order`.
 
 const measure = () => measureInstalledCopyDrift({ repositoryRoot: REPOSITORY_ROOT });

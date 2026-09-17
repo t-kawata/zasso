@@ -1,3 +1,4 @@
+// [::TICKET::] P26-5 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=P26-5 --for-spec --no-implementation-order`.
 // @verifies C001
 // @verifies C002
 // @verifies C003
@@ -411,12 +412,22 @@ test('PX-214 / C004 invariant: the reserved root name is written once in the fam
 // C005 — the document and the entrance declare the same, empty, surface
 // ---------------------------------------------------------------------------
 
-test('PX-214 / C005 precondition: the command file heads no option as an argument', () => {
+test('PX-214 / C005 precondition: the command file heads no withdrawn option as an argument', () => {
   const section = argumentsSection(readFileSync(COMMAND_PATH, 'utf8'));
+  const headed = [...section.matchAll(/^\s+- `(--[a-z-]+)/gm)].map(([, name]) => name);
+
   assert.deepEqual(
-    [...section.matchAll(/^\s+- `(--[a-z-]+)/gm)].map(([, name]) => name),
+    headed.filter((name) => ['--out', '--through', '--query'].includes(name)),
     [],
     'an option the entrance refuses is named in prose, never headed as an argument the operator may pass',
+  );
+  // The other half, which the empty list above used to carry by accident: the options
+  // the operator does own are headed, because a procedure that names them only in prose
+  // is one whose reader never learns they exist.
+  assert.deepEqual(
+    [...new Set(headed)].sort(),
+    ['--answers', '--semantics'],
+    'exactly the two authored inputs are headed as the operator\'s arguments, and no third',
   );
 });
 
