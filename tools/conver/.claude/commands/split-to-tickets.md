@@ -6,66 +6,68 @@ disable-model-invocation: true
 
 # CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION
 
-Pipeline commands (/workspacify-*, /graphify-rfc, /split-to-tickets, /boundify-graph, /make-ticket, /plan-ticket, /start-ticket, /review-ticket, /resolve-ticket, /consolidate-stubs, /find-omissions, /crystalize-readme, /epush-branch, /jpush-branch) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor / background tasks / polling, then resume immediately; NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only—narrow by impact, target tests, parallelize/background work—and NEVER reduce completion criteria or justify deferral.
+Pipeline commands (`/workspacify-*`, `/graphify-rfc`, `/split-to-tickets`, `/boundify-graph`, `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`, `/resolve-ticket`, `/consolidate-stubs`, `/find-omissions`, `/crystalize-readme`, `/epush-branch`, `/jpush-branch`) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor, background tasks, or polling; resume immediately. NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only: narrow by impact, target tests, or parallelize/background work; NEVER reduce completion criteria, defer, or justify deferral.
 
-Strictly prohibit questions, confirmations, approvals, options, and human decision delegation. Decide autonomously from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Once started: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: final outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
+Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
 # /split-to-tickets
 
-**Role**: Analyzes a design document (Requirements / Functional Specification / RFC / Design Document) and decomposes it into phases and individual tickets based on dependencies. Each ticket is decomposed into implementation units with safe I/O boundaries.
+Role: decompose RFC into dependency-ordered phases and safe-I/O-boundary implementation tickets.
+Downstream: `Tickets.json` is read/updated by `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`, and related commands.
 
-The generated result is saved as `Tickets.json`, which is referenced and updated via scripts from subsequent commands (`/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`, etc.).
+Invariants:
+- In: RFC, GRAPH, Dirs-Tree; positional order fixed. Out: `DOC_DIR/Tickets.json`.
+- existing `Tickets.json` → ask; stop; overwrite only after user approval.
+- all ticket scripts schema-validate before write; failure → no save.
+- phase processing: P0 → P1 → …; one phase at a time; never bulk-present/process phases.
+- ticketization: every phase-local node exactly once; no omission, duplication, or cross-phase node.
+- phase name/summary: every phase complete before Step 5.
+- ticket creation: `contracts: []`; only `merge-contracts-to-tickets.js` populates contracts after 5-2.
+- script-owned: `id`, `phaseId`, `status`, `default_files`; AI must not provide.
+- closure/coverage failure → no Step 6.
+- phase <3 tickets → backward merge into following phase; re-index IDs; regenerate `relatedTicketIds`; final verify.
+- TDD: Red → Green → Refactor; serial only; no skip/reorder/parallel.
 
 ## Language Protocol
 
-| Context | Language | Reason |
-|---------|----------|--------|
-| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
-| Code comments | **English** | Must be written in the language AI understands most reliably. |
-| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
-| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
-| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
+| Context | Language |
+|---|---|
+| Chat, proposals, explanations addressing user | Japanese only |
+| Code comments | English |
+| Design docs, plans, tasks | English |
+| Runtime logs | English |
+| Every other non-user-directed context | English |
 
 ## Argument Interpretation
 
-- **1st argument (required)**: Path to the design document (RFC) file
-  - e.g. `conver/RFC-001-process-registry.md`
-  - e.g. `/absolute/path/to/design-doc.md`
-- **2nd argument (required)**: Path to the I/O boundary relationship graph file
-  - e.g. `conver/RFC-001-process-registry-GRAPH.json`
-  - e.g. `/absolute/path/to/design-doc-GRAPH.json`
-- **3rd argument (required)**: Path to the directory tree file safely delimited from the I/O boundary relationship graph
-  - e.g. `conver/RFC-001-process-registry-Dirs-Tree.json`
-  - e.g. `/absolute/path/to/design-doc-Dirs-Tree.json`
+In: arg1 required RFC/design-document; arg2 required I/O-boundary GRAPH; arg3 required safe-boundary Dirs-Tree; paths relative | absolute.
 
 ## Output Destination
 
-- Automatically generates `Tickets.json` in the same directory as the design document
-- e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`
-- If the file already exists, confirm with the user before overwriting
+Out: `Tickets.json` in RFC directory; e.g. `docs/RFC-001-process-registry.md` → `docs/Tickets.json`.
+Existing output → ask; stop before overwrite.
 
 ## List of Scripts Used
 
-Located under `.claude/scripts/tickets/`.
+Root: `.claude/scripts/tickets/`; status/graph utility invocations below retain source paths.
 
-| Script | Arguments | Description |
-|--------|-----------|-------------|
-| `write-tickets-json-template.js` | `<PATH of Tickets.json> '<metadata-json>'` | Generate Tickets.json skeleton (phases: []) |
-| `add-phase.js` | `<PATH of Tickets.json>` (stdin: phase JSON) | Add a phase. phaseID auto-increments from 0 |
-| `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}` (stdin: ticket JSON) | Add a ticket (single). ticketID auto-increments within the phase |
-| `bulk-add-tickets.js` | `<PATH of Tickets.json>` (stdin: bulk JSON) | Add tickets (bulk). Specify phase via phaseId/phaseName |
-| `get-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | Retrieve single ticket by composite key |
-| `search-tickets.js` | `<PATH of Tickets.json> <query>` | Full-text search (title/background/scope/referenceSection) |
-| `all-tickets.js` | `<PATH of Tickets.json> [status-filter]` | List all tickets. Optional status filter |
-| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | Update a ticket. phaseId/ticketID are immutable |
-| `bulk-update-tickets.js` | `<PATH of Tickets.json>` (stdin: bulk update JSON) | Bulk update multiple tickets |
-| `delete-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` | Delete a single ticket |
-| `bulk-delete-tickets.js` | `<PATH of Tickets.json>` (stdin: list of deletion keys) | Bulk delete multiple tickets |
-| `list-phases-and-tickets.js` | `<PATH of Tickets.json>` | Display in checklist format |
-| `update-split-step-status.js` | `--status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <STEP_ID>` | Manage SPLIT-Status.json progress (6 subcommands) |
-| `lib/reverse-split.js` | `--root=<path> --tickets=<path> [--test-dir=<path>] [--gaps=<path>] [--ledger=<path>] [--out=<dir>] [--candidate=<path>] [--json]` | Reverse rotation S1 to S6 only: map existing tests to tickets, record every contract without a Red, and generate one reconstruction ticket per absence, each carrying its `counterexample_plan_id` |
+| Script | Contract |
+|---|---|
+| `write-tickets-json-template.js <Tickets.json> '<metadata-json>'` | skeleton; `phases: []` |
+| `add-phase.js <Tickets.json>` | stdin phase JSON; phaseID auto-increments from 0 |
+| `add-ticket.js <Tickets.json> P{phaseID}` | stdin one ticket; ticketID auto-increments in phase |
+| `bulk-add-tickets.js <Tickets.json>` | stdin bulk tickets; phase by `phaseId`/`phaseName` |
+| `get-ticket.js <Tickets.json> P{phaseID}-{ticketID}` | ticket lookup |
+| `search-tickets.js <Tickets.json> <query>` | title/background/scope/referenceSection search |
+| `all-tickets.js <Tickets.json> [status-filter]` | list; optional status filter |
+| `update-ticket.js <Tickets.json> P{phaseID}-{ticketID}` | stdin update; phaseId/ticketID immutable |
+| `bulk-update-tickets.js <Tickets.json>` | stdin bulk update |
+| `delete-ticket.js <Tickets.json> P{phaseID}-{ticketID}` | one deletion |
+| `bulk-delete-tickets.js <Tickets.json>` | stdin deletion-key list |
+| `list-phases-and-tickets.js <Tickets.json>` | checklist output |
+| `update-split-step-status.js --status=<path> <start-step\|end-step\|fail-step\|reset-to-step\|status> <STEP_ID>` | SPLIT status; source invocations below literal |
 
-All scripts run schema validation (`validate-tickets.js`) before writing, and do not save on failure.
+All ticket scripts: pre-write `validate-tickets.js`; failure → no save.
 
 ## Analysis Procedure
 
@@ -74,7 +76,6 @@ All scripts run schema validation (`validate-tickets.js`) before writing, and do
 #### 0-1. Initialization
 
 ```bash
-# Parse all arguments as an array (1st arg=RFC, 2nd arg=GRAPH.json, 3rd arg=Dirs-Tree.json)
 IFS=' ' read -r DOC_PATH GRAPH_PATH DIRS_TREE_PATH <<< "$ARGUMENTS"
 DOC_DIR="$(dirname "$DOC_PATH")"
 BASENAME="$(basename "$DOC_PATH" .md)"
@@ -82,41 +83,28 @@ STATUS_PATH="${DOC_DIR}/${BASENAME}-SPLIT-Status.json"
 bash .claude/scripts/tickets/init-split-to-ticket.sh --doc-path="$DOC_PATH"
 ```
 
-Note: From Step 0-1 onwards, use `update-split-step-status.js` to manage progress status.
-
-Example calls at the start and end of each step:
+From 0-1, status commands:
 
 ```bash
-# Start of Step (STEP_ID is an actual step identifier such as "0-1", "4-2", etc.)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step <STEP_ID>
-# ... processing ...
-# Normal end of Step (currentStep advances to the next Step)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step <STEP_ID>
-# On abnormal end (currentStep remains unchanged)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" fail-step <STEP_ID>
-# After error correction, resume
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step <STEP_ID>
 ```
 
 #### 0-2. Create Malfeasance.json
 
 ```bash
-# Start Step 0-1
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "0-1"
-```
-
-Malfeasance.json is a ledger that records incomplete implementations (those lacking a `[::STUB::]` marker) as "crimes." Initialize it within `DOC_DIR`.
-
-```bash
-# Create the crime record ledger as empty if it does not exist
 node .claude/scripts/tickets/ensure-malfeasance.js "$DOC_DIR"
-
-# Normal end of Step 0-1
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "0-1"
 ```
 
+`Malfeasance.json`: `DOC_DIR` ledger; incomplete implementation without `[::STUB::]` = crime; create empty if absent.
+
 ### Resuming from an Error
-After fixing the error according to the script's error message, use `reset-to-step "0-1"` to roll back the status and re-execute the Step 0 commands from the beginning.
+
+fix per script error; reset `"0-1"`; rerun Step 0.
 
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "0-1"
@@ -125,32 +113,20 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 #### 0-3. Read RFC (understand structure via analyze-source-structure.js → read sections sequentially)
 
 ```bash
-# Start Step 0-2
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "0-2"
-
 echo "=== RFC Structure Analysis ==="
 node ".claude/scripts/rfc-graph/analyze-source-structure.js" "$DOC_PATH"
 echo "=============================="
 ```
 
-Since the RFC document is extremely long, do not attempt to read the entire text at once.
-After understanding the section listing (with line ranges) from the structure analysis above, read sections **from top to bottom** sequentially.
-
-How many sections to read at once is left to the AI's judgment, but read through all of them while keeping the following aspects in memory:
-
-- **Purpose and scope**: What this RFC aims to achieve and the extent of its scope
-- **Technology stack**: Languages, frameworks, and external dependencies used
-- **Key data types**: Struct, enum, trait definitions and their relationships
-- **Architecture**: Module dependencies, data flow, and control flow
-- **I/O boundaries**: Contracts with the outside (public API, file I/O, network I/O, DB access, etc.)
-- **Testing strategy**: Testing methodology, verification criteria, and integration plan
+Never read long RFC all at once. After line-range structure analysis, read all sections top→bottom sequentially; retain purpose/scope, stack, data types, architecture/data/control flow, I/O boundaries, testing strategy.
 
 ```bash
-# Normal end of Step 0-2
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "0-2"
 ```
 
 ### Resuming from an Error
+
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "0-2"
 ```
@@ -160,30 +136,20 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 ### Step 1: Reference I/O boundary information in the RFC
 
 ```bash
-# Start Step 1
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "1"
-```
-
-This I/O boundary reference information was created at the stage when the RFC was written as a detailed design document through grill / drill.
-It is a draft of I/O boundaries written when the RFC author's design intent was freshest, and must be respected as much as possible in ticket decomposition.
-However, note that the subsequent `/graphify-rfc` may have further divergently subdivided the I/O boundaries, so the current state may not match the I/O boundaries at the time of RFC writing.
-
-If the target RFC has an I/O boundary reference information section, display it.
-
-```bash
 echo "=== I/O Boundary Reference ==="
 node ".claude/scripts/grill-me-for-rfc/extract-io-boundary.js" "$DOC_PATH" || echo "(No I/O boundary reference. grill/drill needed beforehand. Interrupt split.)"
 echo "============================="
 ```
 
-If no I/O boundary reference exists, prompt prior grill/drill and interrupt split.
+I/O reference: RFC-author intent at grill/drill time; respect as far as possible; may differ from later `/graphify-rfc` divergent subdivision. Missing → prompt prior grill/drill; interrupt split.
 
 ```bash
-# Normal end of Step 1
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "1"
 ```
 
 ### Resuming from an Error
+
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "1"
 ```
@@ -193,16 +159,7 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 ### Step 2: Examine the relationship graph structure in the RFC design
 
 ```bash
-# Start Step 2
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "2"
-```
-
-This graph structure consists of nodes and their relationships, subdivided by `/graphify-rfc` into safe I/O boundary units finer than the I/O boundary assumptions in the original RFC.
-It is one stage more advanced than the I/O boundary reference information from RFC writing time displayed in Step 1, and serves as the primary decision material for ticket decomposition.
-
-If the graph generated by `/graphify-rfc` exists, display the graph structure summary via `show-graph-summary-markdown.js`:
-
-```bash
 echo "=== Graph Structure Summary ==="
 if [ -f "$GRAPH_PATH" ]; then
   node .claude/scripts/rfc-graph/show-graph-summary-markdown.js --graph="$GRAPH_PATH" --source="$DOC_PATH" --with-cli-examples
@@ -212,14 +169,14 @@ fi
 echo "==============================="
 ```
 
-If no graph structure summary exists, prompt prior graphify and interrupt split.
+GRAPH: `/graphify-rfc` safe I/O-boundary nodes; finer/newer than Step 1 reference; primary ticket-decomposition material. Missing → prompt prior graphify; interrupt split.
 
 ```bash
-# Normal end of Step 2
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "2"
 ```
 
 ### Resuming from an Error
+
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "2"
 ```
@@ -229,16 +186,7 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 ### Step 3: Examine directory and file structure via boundify
 
 ```bash
-# Start Step 3
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "3"
-```
-
-This directory and file structure is the current implementation directory and file configuration, ultimately generated by the serial pipeline of grill / drill → `/graphify-rfc` → `/boundify-graph`.
-
-**The current directory and file structure must not be modified.** However, **adding** directories or files that expose interfaces for crates, packages, classes, etc. to be used by other programs is permitted as needed.
-When adding, you **must explicitly state** in the ticket that these are additional directories or files not defined in the corresponding *-GRAPH.json or *-Dirs-Tree.json.
-
-```bash
 echo "=== boundify Directory/File Structure ==="
 if [ -f "$DIRS_TREE_PATH" ]; then
   node .claude/scripts/rfc-graph/show-dirs-files-tree.js "$DIRS_TREE_PATH"
@@ -248,14 +196,14 @@ fi
 echo "========================================="
 ```
 
-If *-Dirs-Tree.json does not exist, prompt prior boundify and interrupt split.
+Current dirs/files: grill/drill → `/graphify-rfc` → `/boundify-graph` result; do not modify. Allowed: add interface-exposing dir/file for other programs; ticket must state it is absent from corresponding GRAPH/Dirs-Tree. Missing → prompt prior boundify; interrupt split.
 
 ```bash
-# Normal end of Step 3
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "3"
 ```
 
 ### Resuming from an Error
+
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "3"
 ```
@@ -267,26 +215,18 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 #### 4-1. Phase splitting via script
 
 ```bash
-# Start Step 4-1
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "4-1"
+node .claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js "$GRAPH_PATH" "$DIRS_TREE_PATH"
 ```
 
-Taking GRAPH.json and Dirs-Tree.json as input, `phasify-graph-and-dirs-files-tree.js` groups all nodes into implementation phases using mathematically safe weighted topological sorting and SCC condensation. The result is written to Tickets.json's `phase[].nodeIds`.
+Weighted topological sorting + SCC condensation; all nodes → `Tickets.json.phase[].nodeIds`. Final `✅` → pass; `⚠️` → report cause; interrupt split.
 
 ```bash
-node .claude/scripts/rfc-graph/phasify-graph-and-dirs-files-tree.js \
-  "$GRAPH_PATH" \
-  "$DIRS_TREE_PATH"
-```
-
-Confirm the summary line at the end of the output shows a pass (✅). If it shows a failure (⚠️), report the cause and interrupt split.
-
-```bash
-# Normal end of Step 4-1
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "4-1"
 ```
 
 ### Resuming from an Error
+
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "4-1"
 ```
@@ -294,269 +234,121 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 #### 4-2. Write names and summaries for all phases
 
 ```bash
-# Start Step 4-2 (start of the 4-2 loop)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "4-2"
 ```
 
-For all phases written to Tickets.json in 4.1, set the phase name and summary using the following procedure. Two scripts are needed: `show-all-nodes-title-summary.js` (display) and `write-phase-name-summary.js` (writing).
-
-For all phases, execute the following ①→②→③ **sequentially, one phase at a time**. Do not output all phases in bulk.
+Order: P0 → P1 → …; one phase only; display nodes → judge name/summary → write; never output all phases in bulk.
 
 ```bash
-# ① Display the list of nodes for the relevant phase (example: phase P0)
-node .claude/scripts/rfc-graph/show-all-nodes-title-summary.js \
-  --tickets="$TICKETS_PATH" \
-  --graph="$GRAPH_PATH" \
-  --phase="P0"
-```
-
-Example output of ①:
-```
-N0001: [§1 Purpose — Definition of this crate's responsibilities] Safely wrapping PJSUA from Rust...
-N0002: [§1a M20 implementation priority map] All implementation items of the M20 supplement...
-```
-
-② AI reads the output of ① and generates an appropriate name and summary for this phase.
-
-```bash
-# ③ Write the generated name/summary to Tickets.json
-echo '{"name":"Authentication Infrastructure","summary":"Authentication token generation, verification, and session management"}' | \
-  node .claude/scripts/rfc-graph/write-phase-name-summary.js \
-    "$TICKETS_PATH" \
-    "P0"
-```
-
-After completing ①→②→③, proceed to the next phase (P1, P2, ...). After all phases are done, verify that the name/summary of every phase is filled using the following script. If verification fails, prohibit progression to Step 5 until all phases are complete.
-
-```bash
+node .claude/scripts/rfc-graph/show-all-nodes-title-summary.js --tickets="$TICKETS_PATH" --graph="$GRAPH_PATH" --phase="P0"
+echo '{"name":"Authentication Infrastructure","summary":"Authentication token generation, verification, and session management"}' | node .claude/scripts/rfc-graph/write-phase-name-summary.js "$TICKETS_PATH" "P0"
 node .claude/scripts/rfc-graph/check-phase-names-summaries.js "$TICKETS_PATH"
-
-# Normal end of Step 4-2 (4-2 loop complete)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "4-2"
 ```
 
+Missing name/summary → fail; no Step 5.
+
 ### Resuming from an Error
+
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "4-2"
 ```
 
 ### Step 5: Primary ticket definition (ticket creation)
 
-```bash
-# Start Step 5-1 (start of the 5-1 node detail display loop)
-node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-1"
-```
-
-For all phases written in 4-2, execute the following 5-1 → 5-2 **sequentially, one phase at a time**.
-Do not process all phases in bulk.
-
 #### 5-1: Retrieve detailed information for nodes within a phase
 
-`show-phase-nodes.js` outputs detailed information (ID, title, kind, summary, implementation file path) for all nodes assigned to the specified phase in Markdown format.
+Phase-order contract:
+1. Run 5-1 for all phases P0 → P1 → …, one phase at a time; never bulk-process phases.
+2. Only after every 5-1 phase loop completes: end 5-1; start 5-2.
+3. Then run 5-2 for all phases P0 → P1 → …, one phase at a time.
 
 ```bash
-node .claude/scripts/rfc-graph/show-phase-nodes.js \
-  --tickets="$TICKETS_PATH" \
-  --graph="$GRAPH_PATH" \
-  --dirs-tree="$DIRS_TREE_PATH" \
-  --phase="P{n}"
+node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-1"
+node .claude/scripts/rfc-graph/show-phase-nodes.js --tickets="$TICKETS_PATH" --graph="$GRAPH_PATH" --dirs-tree="$DIRS_TREE_PATH" --phase="P{n}"
 ```
 
-The AI understands the output and determines, considering the I/O boundary nature and implementation file path of each node, which combination of nodes can be safely implemented in a single implementation.
-
-Once all phase loops in 5-1 are complete, proceed to 5-2.
+Read phase node ID/title/kind/summary/implementation path; judge safe single-implementation bundles from I/O-boundary character + file path.
 
 ```bash
-# Normal end of Step 5-1 (5-1 loop complete)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-1"
-
-# Start Step 5-2 (start of the 5-2 ticket creation loop)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-2"
 ```
 
 #### 5-2: Ticket creation (add-tickets-for-phase.js)
 
-`add-tickets-for-phase.js` bulk-adds the ticket array received from stdin, and after addition verifies whether all `nodeIds` for that phase have been ticketized. If verification fails, no write occurs (rollback) and the script exits with exit code 1.
+stdin ticket array → bulk add; script proves all phase `nodeIds` ticketized; failure → rollback/no write/exit 1.
 
 ```bash
-echo '<tickets-array-json>' | node .claude/scripts/tickets/add-tickets-for-phase.js \
-  "$TICKETS_PATH" \
-  "$DIRS_TREE_PATH" \
-  "P{n}" \
-  "$GRAPH_PATH"
+echo '<tickets-array-json>' | node .claude/scripts/tickets/add-tickets-for-phase.js "$TICKETS_PATH" "$DIRS_TREE_PATH" "P{n}" "$GRAPH_PATH"
 ```
 
-#### Ticket Field Definitions and Detail Level Guidelines
+Fields: schema `tickets-schema.json#/definitions/ticket`; auto only `id`, `phaseId`, `status`; `additionalProperties: true`; `default_files` script-set with `--dirs-tree`; AI must not input; `contracts` required input `[]`, auto-populated after 5-2.
 
-Each field's schema is defined in `tickets-schema.json` `#/definitions/ticket`.
-`id`, `phaseId`, and `status` are set automatically by the script and must not be provided as input. All other fields can be added via `additionalProperties: true`.
+| Field | Minimum contract |
+|---|---|
+| `background` | 300+ chars; concrete code-level investigation/reference |
+| `scope` | every item with type signature |
+| `notes` | multiple sections; 500+ chars; implementation/test/translatability/risks |
+| `relatedTicketIds` | explicit dependency direction + reason |
+| `acceptanceCriteria` | 3–5 one-line happy/error/edge conditions |
 
-**Strict guidelines on description length and information density**:
-
-When the AI registers a ticket, **short, simplistic descriptions are considered "cutting corners."** The following are minimum requirements.
-
-| Field | Minimum Guideline | Benchmark (from actual Tickets.json examples) |
-|-------|-------------------|-----------------------------------------------|
-| `background` | **300+ characters** | 622 chars — Investigation results (bullet points), multiple paragraphs with concrete code-level references |
-| `scope` | **Enumerate each item with type signatures** | 828 chars — File name + processing content + type, concrete per item |
-| `notes` | **Multiple sections, 500+ characters** | 1342 chars — Structured with implementation summary, test results, translatability, and risks |
-| `relatedTicketIds` | **Explicitly state dependency direction and reason** | 251 chars — "P17-1 (depends on: ...), P19-1 (depended by: ...)" format |
-| `acceptanceCriteria` | **Concisely describe each condition in one line** | Happy path / Error case / Edge case in one line each, 3-5 items per ticket |
+Ticket composition: one or more nodes/ticket; single node allowed; all nodeIds exactly once; every included node listed; phase-local only; no simplistic `<...>` placeholder.
 
 ### Reference — Implementation Order (TDD Red-Green-Refactor)
 
-Implementation must strictly follow the **Red → Green → Refactor** sequence. Skipping steps, reordering, or parallel execution is prohibited.
+Red → Green → Refactor; serial only; skip/reorder/parallel prohibited.
 
-#### 1. Red — Fully Implement Failing Tests
+Red: before implementation, failing automated tests cover Goal/Purpose/Motivation/Constraints/Scope/Acceptance Criteria/Invariants; edge contract pre/post/invariant → testable input/output/invariant assertions; all observable behavior/edge/failure/invariant covered; deterministic but fundamentally untestable → redesign architectural defect; absent implementation must fail tests; accidental green invalid.
 
-Before writing a single line of implementation code, write a failing test suite that achieves 100% coverage of the spec's **Goal, Purpose, Motivation, Constraints, Scope, Acceptance Criteria, and Invariants**. Coverage of these seven elements is mandatory; partial implementation is not acceptable.
+Green: generalized specified behavior only; no hardcode/input branch/stub/disguised green; inability to distinguish genuine green → add tests; never modify/delete/weaken tests; unprovable correctness invalid.
 
-When the ticket defines **Contracts** (Precondition/Postcondition/Invariant from graph edge annotation), the Red phase must first translate each Contract into testable form — input schemas, output assertions, and invariant predicates — before implementing them as concrete test code. A Contract whose Precondition/Postcondition/Invariant cannot be expressed as a testable assertion is not yet fully specified.
+Refactor: green only; Boy Scout Rule; eliminate touched `unwrap()`, hardcode, false comment, untested code; green before/after each refactor; broken green → immediate rollback.
 
-- Tests must cover all observable behaviors, edge cases, failure modes, and invariants. Any behavior not covered is considered undefined and fails review.
-- If a feature is deterministic yet fundamentally untestable, this is not a testing gap but an architectural defect. Redesign the system until it is testable before proceeding to implementation.
-- Confirm that all tests fail red due to the absence of implementation. Tests that pass green by accident (e.g., meaningless assertions) are invalid.
-
-#### 2. Green — Implement Behavior (No Stubs, No Test Modification)
-
-Implement the **behavior** specified by the tests; do not treat passing the tests as an end in itself. Tests are a means of verifying correctness, not the goal itself.
-
-- Implementations that merely satisfy the literal wording of tests—via hardcoding, input-specific branching, or stubbed return values—are prohibited. The implementation must be a generalized, correct solution.
-- If it is impossible to distinguish, via testing, whether an implementation is genuine or a disguised green, this indicates a design flaw caused by insufficient coverage. Add tests until the distinction is possible before proceeding with implementation.
-- Modifying, deleting, or weakening tests to make an implementation pass is strictly forbidden. The implementation must conform to the tests; the reverse is never acceptable.
-- An implementation whose correctness cannot be proven is invalid. It is not considered complete until it (or its design) is restructured into a provably correct form.
-
-#### 3. Refactor — Apply the Boy Scout Rule (Green State Only)
-
-Refactor only after all tests are green. Refactoring in a red state is prohibited.
-
-- Apply the Boy Scout Rule (leave the code cleaner than you found it; readability = translatability) to eliminate `unwrap()` calls, hardcoded values, false comments, and untested code in anything you touch.
-- Verify that all tests remain green before and after each refactoring step. If a refactor breaks green, roll it back immediately.
-
-#### Definition of Done
-
-Implementation is considered incomplete unless all of the following are satisfied:
-
-- The tests fully and precisely specify the intended behavior.
-- The implementation passes all tests green, without exception.
-- Correctness is empirically guaranteed by the tests (not a disguised green).
-- No gap exists between test coverage and intended behavior.
-
-Green without red, green achieved by modifying tests, and green achieved through stubs are all violations and constitute incomplete work.
+Done: precise tests, all green, empirical genuine correctness, no coverage/intent gap. Green-without-red, test-modified-green, stub-green = incomplete violation.
 
 ### Test Field Reference
 
-| Field | Requirement | Format |
-|-------|------------|--------|
-| `testUnit` | Unit tests — automated tests covering individual functions/modules | `UT:` prefix; enumerate normal/edge/failure cases |
-| `testIntegration` | Integration tests — automated tests spanning multiple modules | `IT:` prefix; specify which tickets/modules are integrated |
-| `testExceptions` | Items that cannot be tested, with mandatory technical justification | Free text; every item must state why it cannot be tested, **and explain why this is not a case of "deterministic yet fundamentally untestable" (which is an architectural defect, not a testing gap)** |
+| Field | Contract | Format |
+|---|---|---|
+| `testUnit` | automated function/module normal/edge/failure tests | `UT:` |
+| `testIntegration` | automated multi-module tests; name integrated tickets/modules | `IT:` |
+| `testExceptions` | technical reason + why not deterministic/fundamentally-untestable architecture defect | free text |
 
-`UT:` and `IT:` are automated test code, not manual tests. Together they must enable verification of the correctness of all implementation code. `testExceptions` is a supplement to this, not a substitute.
+`UT:` / `IT:` are automated code, never manual tests; together cover implementation correctness. `testExceptions` supplements, never substitutes.
 
-The following JSON is an example description that meets the above guidelines. **Do not settle for simplistic placeholders (in `<...>` format).**
-`default_files` is set automatically by the script when `--dirs-tree` is specified; the AI must not provide it as input.
-`contracts` is required by the schema; set it to an empty array (`[]`) at creation time. It will be auto-populated by `merge-contracts-to-tickets.js` after Step 5-2 completes.
-
-```json
-[
-  {
-    "title": "Authentication Token Generation — Ed448-Goldilocks signature generation and verification API",
-    "nodeIds": ["N0001", "N0003"],
-    "contracts": [],
-    "default_files": [
-      "src/auth/keystore.rs",
-      "src/auth/token.rs"
-    ],
-    "background": "Core of Phase 0 \"Authentication Infrastructure.\" N0001 defines token generation processing (key pair generation, signing, verification) using Ed448-Goldilocks, and N0003 defines the token refresh mechanism (expiration detection, re-signing). Both share the same key store (src/auth/keystore.rs) and serialization format for keys, so implementing them in the same ticket makes it easier to verify invariants (key consistency). Key length is fixed at 448 bits, signature algorithm is EdDSA. Implementation targets are src/auth/token.rs and src/auth/keystore.rs.",
-    "scope": [
-      "pub fn generate_keypair() -> Result<(PrivateKey, PublicKey), CryptoError> — Ed448 key pair generation. Uses system entropy as source with OS-provided CSPRNG.",
-      "pub fn sign(payload: &[u8], private_key: &PrivateKey) -> Result<Signature, CryptoError> — Ed448 signature generation for the specified payload. Signature length is fixed at 114 bytes.",
-      "pub fn verify(payload: &[u8], signature: &Signature, public_key: &PublicKey) -> Result<bool, CryptoError> — Signature verification. Comparison must be constant-time to prevent timing attacks.",
-      "pub struct Token { pub payload: Vec<u8>, pub signature: Signature, pub expires_at: SystemTime } — Token type. Holds an expiration time, compared against the current time during verification.",
-      "pub fn refresh(token: &Token, private_key: &PrivateKey) -> Result<Token, CryptoError> — Re-signing of expired tokens. Sets a new expiration time and re-signs tokens within their validity period."
-    ],
-    "testUnit": [
-      "UT: generate_keypair produces a different key pair each time (non-identity verification)",
-      "UT: sign → verify returns true for a valid signature (Happy Path)",
-      "UT: verify returns false for a tampered payload (tamper detection)",
-      "UT: verify returns false for a signature from a different key pair (key binding)",
-      "UT: refresh sets a new expiration and re-signs a within-validity token",
-      "UT: refresh returns an error when given an expired token",
-      "UT: verify returns false when Token's expires_at is in the past (expiration detection)",
-      "Boundary: signature generation and verification with an empty payload",
-      "Boundary: signature and verification at maximum payload length (65535 bytes)"
-    ],
-    "testIntegration": [
-      "IT: After P0-4 (Session management) implementation, verify end-to-end Token issuance → verify → Session establishment",
-      "IT: Confirm authentication flow integrity under 10 concurrent sessions"
-    ],
-    "testExceptions": ["Memory zeroing of SecretKey (mlock/mprotect) is kernel-dependent and cannot be unit-tested. Verify with valgrind in CI integration tests."],
-    "acceptanceCriteria": [
-      "All APIs for signing, verification, and refresh work without errors",
-      "Return appropriate errors for all abnormal cases: invalid signature, tampered payload, expired token",
-      "No failure at boundary values: empty payload and maximum length payload (65535 bytes)"
-    ],
-    "referenceSection": "RFC-ROOT.md (§3.1 Authentication token format, §3.2 Key management)",
-    "relatedTicketIds": "P0-2 (depends on: definition of error type CryptoError), PX-YY (Ed448 library wrapper, must be implemented first), P0-4 (depended by: Session management uses this ticket's Token as input)",
-    "notes": "PrivateKey serialization follows PKCS#8 v2 format, PublicKey serialization follows SPKI format. Use subtle::ConstantTimeEq for constant-time comparison."
-  }
-]
-```
-
-**Rules for ticket composition**:
-- Bundle one or more nodes into one ticket (a single node is also acceptable)
-- Ticketize all `nodeIds` without duplication or omission
-- The `nodeIds` array of each ticket must list all node IDs included in that ticket
-- Ticketization must be self-contained within the relevant phase and must not include nodes from other phases
-
-After completing 5-1 → 5-2, proceed to the next phase (P1, P2, ...).
-
-After all phases are complete, verify that ticketization of all phases is complete using the following script.
-If verification fails, prohibit progression to Step 6 until all phases are complete.
+After all 5-2 phase loops complete:
 
 ```bash
-# Merge edge contracts into each ticket, then verify contract chain closure
 node .claude/scripts/tickets/merge-contracts-to-tickets.js "$TICKETS_PATH" "$GRAPH_PATH"
 node .claude/scripts/tickets/verify-ticket-closure.js --tickets="$TICKETS_PATH" --graph="$GRAPH_PATH"
-
 node .claude/scripts/tickets/verify-all-ticket-coverage.js "$TICKETS_PATH"
-
-# Normal end of Step 5-2 (5-2 loop complete)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-2"
 ```
 
+Closure/coverage fail → no Step 6; reset 5-2.
+
 ### Resuming from an Error
+
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "5-2"
 ```
 
 ### Step 5-3: Phase consolidation
 
-For all phases where ticketization is complete, automatically consolidate phases with fewer than 3 tickets.
-`consolidate-phase-tickets.js` scans from the back and safely merges phases below the threshold.
+Complete ticketization → scan phases backward; phase <3 tickets → safely merge into following phase.
+Sequence: guard → validation → backward merge → ID re-index → `relatedTicketIds` regeneration → status update → final verification.
 
 ```bash
-# Start Step 5-3
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "5-3"
-```
-
-`consolidate-phase-tickets.js` checks the ticket count of all phases and merges phases with fewer than 3 tickets into the following phase. It executes 6 substeps sequentially: guard → validation → backward merge → re-index IDs → regenerate relatedTicketIds → update status.json → final verification.
-
-```bash
-node .claude/scripts/tickets/consolidate-phase-tickets.js \
-  "$TICKETS_PATH" \
-  "$STATUS_PATH"
-```
-
-Check for ✅ or ⚠️ at the end of the output. On failure, verify the cause of the error, fix it, then re-run 5-3.
-
-```bash
-# Normal end of Step 5-3
+node .claude/scripts/tickets/consolidate-phase-tickets.js "$TICKETS_PATH" "$STATUS_PATH"
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "5-3"
 ```
 
+Final `✅` → pass; `⚠️` → judge cause; fix; rerun 5-3.
+
 ### Resuming from an Error
+
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "5-3"
 ```
@@ -564,87 +356,19 @@ node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PAT
 ### Step 6: Output phase and ticket checklist
 
 ```bash
-# Start Step 6
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" start-step "6"
-```
-
-Once all tickets have been added, output and report the checklist via list-phases-and-tickets.js:
-
-```bash
 node .claude/scripts/tickets/list-phases-and-tickets.js "$TICKETS_PATH"
-
-# Normal end of Step 6 (all steps complete)
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" end-step "6"
 ```
 
+Out: checklist hierarchy `P<n>` → `P<n>-<ticket>`.
+
 ### Resuming from an Error
+
 ```bash
 node .claude/scripts/rfc-graph/update-split-step-status.js --status="$STATUS_PATH" reset-to-step "6"
 ```
 
-Example output:
-```
-- [] P0: Pure logic — full isolation verification of state machine
-    - [ ] P0-1: Definition of pure data types
-    - [ ] P0-2: Definition of error types
-    - [ ] P0-3: Definition of process state and registry types
-- [] P1: Async runtime — mockable execution foundation
-    - [ ] P1-1: Implementation of RestartPolicy::on_crash_default and next_delay
-```
-
 ## Notes
-- If the destination Tickets.json already exists, confirm with the user before overwriting.
 
-## Reverse mode (S1 to S6)
-
-**Rotation gate** — this section runs only when `measured-tree-root` holds. The forward rotation generates the tree from a Dirs-Tree and is given no `--root`, so this section cannot fire in one.
-
-Everything above describes the forward rotation: a design document is decomposed into
-phases and tickets, and the tickets declare what is to be built. When a project already
-contains an implementation and a test suite, the same step has to describe what is there
-instead of declaring what should be. Reverse mode is entered by naming a subject tree
-rather than a design document, and it changes four things.
-
-- **The input is a tree, not a document.** `--root` names the project to describe. There is
-  no RFC and no `GRAPH.json` to read first; the directory structure comes from the
-  `/boundify-graph` reverse branch, which measures the tree that already exists.
-- **`default_files` is measured, not resolved.** In the forward flow the script resolves it
-  from the Dirs-Tree through `nodeIds`. Here the implementation already exists, so the file
-  is measured on disk and recorded on the ticket — and when no implementation exists yet,
-  that fact is recorded explicitly rather than left as an empty list. The implementation
-  loop runs one ticket per session, so an empty file list is not an inconvenience but a
-  ticket no session can execute.
-- **Tickets are reconstruction tickets.** A contract whose test never had a Red cannot be
-  proved by a green suite: the test was written against an implementation that already
-  existed. Each such contract produces exactly one ticket whose purpose is to rebuild that
-  Red, and the ticket records whether the absence is re-checkable or is a candidate only a
-  human can settle.
-- **`counterexample_plan_id` is mandatory.** The field names what the ticket will confirm or
-  refute, not merely what it will implement. A ticket without it is refused rather than
-  emitted: without the plan identifier the uncertainty the plan encoded would dissolve at
-  implementation time and the reconstruction would become ordinary test-writing.
-
-```bash
-node .claude/scripts/tickets/lib/reverse-split.js --root=<subject tree> \
-  --tickets=<path> [--test-dir=<dir>] [--gaps=<path>] [--ledger=<path>] \
-  [--language=<name>] [--out=<dir>] [--candidate=<path>] [--json]
-```
-
-The exit code is a gate verdict rather than a measure of success: 0 when every existing
-test is mapped and every reconstruction ticket carries a plan identifier, non-zero
-otherwise. An absence count of zero is a comparison result, never a pass — it means either
-that no contract was measured or that the detection reads nothing.
-
-Nothing in reverse mode executes a reconstruction ticket. Executing them is a separate
-step, and the tickets this mode produces are its input.
-
-Absent-Red detection is compared against the frozen answer key rather than asserted, which
-is what keeps it a measurement:
-
-```bash
-node .claude/scripts/workspacify-reverse/run.mjs oracle compare --stage mapping \
-  --candidate=<path written by --candidate>
-```
-
-The comparison lists disagreements by name — in both directions — and never a score or a
-verdict. Classifying each disagreement is a human's work.
+Existing destination `Tickets.json` → confirm with user before overwrite.
