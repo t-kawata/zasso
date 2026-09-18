@@ -188,6 +188,7 @@ export function adviseFailure({ gateId, reason, stage = 'workspacify-allocate' }
  * stage 1 with stage-2 words would send the AI to edit a file that does not exist yet.
  */
 const TREE_ADVICE = Object.freeze({
+// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
   G0: {
     why: 'the specification must be the exact bytes the gates verified, or every source reference in the manifest would point at text that no longer exists.',
     how: [
@@ -217,6 +218,8 @@ const TREE_ADVICE = Object.freeze({
       'Answer every dependency_reviews candidate with a decision (keep, replace_with_port, merge, split or residual) and a rationale; residual also needs why_unresolved. Replace_with_port is only valid once the edge and its boundary are gone from the payload.',
       'Settle every structure.spec_pulse candidate in spec_defects or residual_questions. Answering is your own work in this session: never ask a human now, because the per-directory grill happens later.',
       'Give every package a non-empty responsibilities list and make the tree leaves match the package paths one for one.',
+      'Give every adapter a home: a package whose kind is adapter must be named by some port declared in adapters.ports, and a package that declares externalImplementations must find a port whose provides names that capability.',
+      'Settle every object/claim collision the message names. The same normalized key appearing as both an object and a claim is a question, not a defect: record an approvals entry whose decisionId is that normalized_key when the name is both by design, and repair the extractor output when it is not.',
       'Re-run gate and continue only when it prints COMPLETE.',
     ],
   },
@@ -229,9 +232,10 @@ const TREE_ADVICE = Object.freeze({
     ],
   },
   G5: {
-    why: 'the manifest is only published when it is complete and self-consistent: a half-verified manifest would be consumed by stage 2 as if it were proven.',
+    why: 'the manifest is only published when it is complete and self-consistent: a half-verified manifest would be consumed by stage 2 as if it were proven. The database policy is judged on all three of its dimensions, because a run that declares migration atomicity as a substitute for domain atomicity has answered the wrong question and no count would otherwise say so.',
     how: [
       'Fix what the reported acceptance error names - usually a stage-2 requirement the manifest does not satisfy yet.',
+      'When the reason names a package that treats migration atomicity as domain atomicity, correct that package: a migration that applies atomically says nothing about a domain operation that spans two of them, so model the domain transaction where it belongs or remove the claim.',
       'Re-run gate, then finalize. Nothing is published while the check fails, and an existing manifest is left untouched.',
     ],
   },
