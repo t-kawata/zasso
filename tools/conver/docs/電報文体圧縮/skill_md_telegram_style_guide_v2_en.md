@@ -16,6 +16,20 @@ The 6 target characteristics:
 
 ---
 
+## Compression policy
+- Rewrite every eligible passage into the shortest English telegram form that
+  preserves its operational semantics.
+- Preserve semantics, not wording.
+- Original wording has no default retention privilege.
+- Convert rationale into an executable form where possible:
+  invariant, contract, cmd, gate, fail, out:, judge:, prohibition, or table.
+- Retain original text only where replacing it would change behavior, remove a
+  constraint, weaken a boundary, or make verification less exact.
+- Retain only the smallest necessary span.
+- Do not add explanations, transformation notes, equivalence claims, exception
+  labels, audit records, or meta-commentary to the command file.
+- The resulting file contains only command semantics.
+
 ## 0. Core Principles
 
 > The workflow and purpose-achievement defined in the original slash command Markdown must never be destroyed.

@@ -6,103 +6,116 @@ disable-model-invocation: true
 
 # CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION
 
-Pipeline commands (/workspacify-*, /graphify-rfc, /split-to-tickets, /boundify-graph, /make-ticket, /plan-ticket, /start-ticket, /review-ticket, /resolve-ticket, /consolidate-stubs, /find-omissions, /crystalize-readme, /epush-branch, /jpush-branch) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor / background tasks / polling, then resume immediately; NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only—narrow by impact, target tests, parallelize/background work—and NEVER reduce completion criteria or justify deferral.
+Pipeline commands (`/workspacify-*`, `/graphify-rfc`, `/split-to-tickets`, `/boundify-graph`, `/make-ticket`, `/plan-ticket`, `/start-ticket`, `/review-ticket`, `/resolve-ticket`, `/consolidate-stubs`, `/find-omissions`, `/crystalize-readme`, `/epush-branch`, `/jpush-branch`) MUST run uninterrupted through the final Step. DO NOT end the turn except on final-Step completion or an external blocker that cannot be resolved internally. Waiting is NOT completion: use Monitor, background tasks, or polling; resume immediately. NEVER say “waiting,” “I will report later,” or equivalent. Intermediate status is not output. Time limits change validation method only: narrow by impact, target tests, or parallelize/background work; NEVER reduce completion criteria, defer, or justify deferral.
 
-Strictly prohibit questions, confirmations, approvals, options, and human decision delegation. Decide autonomously from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Once started: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: final outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
+Strictly prohibit questions, confirmations, approvals, options, and human-decision delegation. Decide from code, types, tests, docs, and local conventions. If indeterminate, choose the minimal, backward-compatible, reversible, conventional, lowest-risk change. Flow: analyze → decide → implement → validate → fix → revalidate → complete. Ambiguity, uncertainty, failures, and missing preferences are not stopping conditions: inspect, retry, monitor, isolate, safely fall back, and continue. If about to ask, defer, wait, or provide progress-only output, delete it and perform the next concrete action. Final report ONLY: outcome, artifacts, validation, assumptions/rationale, unavoidable external blockers, and remaining risks.
 
 # /make-ticket
 
-**Role**: Creates and details an implementation specification (spec) document.
+Role: Creates and details an implementation specification (spec) document.
 
 ## Language Protocol
 
-| Context | Language | Reason |
-|---------|----------|--------|
-| Chat, proposals, explanations | **Japanese** | Japanese is mandatory **ONLY** when addressing the user directly. |
-| Code comments | **English** | Must be written in the language AI understands most reliably. |
-| Design docs, plans, tasks | **English** | Must be written in the language AI understands most reliably. |
-| Runtime logs (`log::info!`, etc.) | **English** | International debugging environment and searchability |
-| Everything else, i.e. any context where you are not speaking to the user | **English** | Must be written in the language AI understands most reliably. |
+| Context | Language |
+|---|---|
+| Chat, proposals, explanations addressing user | Japanese only |
+| Code comments | English |
+| Design docs, plans, tasks | English |
+| Runtime logs | English |
+| Every other non-user-directed context | English |
 
 ## Position in the Workflow
 
-The workflow flow is `make → plan → start → review`, currently executing `make`.
+Flow: `make → plan → start → review`. Current: `make`.
 
-- **`/make-ticket`**: Creates and details an implementation specification (spec) document.
-- **`/plan-ticket`**: Detailed implementation-level planning.
-- **`/start-ticket`**: Implementation.
-- **`/review-ticket`**: Reviews completed tickets.
+| Stage | Role |
+|---|---|
+| `make` | Create/detail implementation spec |
+| `plan` | Detailed implementation-level planning |
+| `start` | Implementation |
+| `review` | Review completed ticket |
+
+Upstream contract: ticket-definition process provides a ticket key and, if present, ticket metadata.
+Downstream contract: implementation-planning process consumes a schema-valid spec.
+Done: validated `Tickets.json` ticket, `specs/<ticketKey>.md`, status `made`.
 
 ## Argument Interpretation
 
-- `P{phaseID}-{ticketID}` format (e.g. `P0-1`, `PX-53`) → Ticket key. Required. Passed to `show-ticket-context.js`'s `--ticket-key`.
-- No argument → Interrupt with error
-- Numeric only → Interrupt with error
-- Anything else → Interrupt with error
+In:
+- `$ARGUMENTS`: required `P{phaseID}-{ticketID}`; e.g. `P0-1`, `PX-53`
+- pass unchanged to `show-ticket-context.js --ticket-key`
+- missing, numeric-only, or other format → error; stop
 
 ## Boy Scout Rule
 
-When creating a new spec, the spec's "Boy Scout Rule — Translatability Plan" section must always include: function names as verb phrases, variable names as domain concepts, one function one responsibility, hardcoded values as named constants, no error swallowing. **Include a plan to proactively improve existing code that violates translatability, both inside and outside the scope.**
+Every new spec `Boy Scout Rule — Translatability Plan` includes:
+- function names: verb phrases
+- variable names: domain concepts
+- one function: one responsibility
+- hardcoded values: named constants
+- no swallowed errors
+- proactive improvement of violating existing code, inside and outside scope
 
 ## List of Scripts Used
 
-Located under `.claude/scripts/tickets/`.
+Root: `.claude/scripts/tickets/`.
 
-| Script | Arguments | Description |
-|--------|-----------|-------------|
-| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan] [--no-implementation-order]` | **Executed in Step 1 / Step 9**. Outputs ticket information in Markdown. In Step 9, uses `--for-spec` to write out the spec file. |
-| `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--acceptance-criteria='["..."]'] [--contracts='[{...}]'] [--notes=...]` | **Executed in Step 2 Case B**. Sequentially calls add-ticket.js → show-ticket-context.js. Only derives the spec path; does not create the file. |
-| `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Executed in Step 3**. Inserts template merge markers into 11 fields. Also sets `created_at`/`updated_at` simultaneously. |
-| `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}` | **Executed in Step 6 loop**. Lists remaining `[::TEMPLATE-STUB::]` markers in natural language. exit 0 = all replacements complete. |
-| `update-ticket.js` | `<PATH of Tickets.json> P{phaseID}-{ticketID}` (stdin: update JSON) | **Executed in Step 6 / Step 10**. Updates fields (overwrite). Rejects a field whose type does not match its stored shape (array fields require arrays); the whole update is aborted and nothing is written. |
-| `verify-make-contracts.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --tickets=<Tickets.json>` | **Executed in Step 7**. Gate M verification — validates each Contract's Precondition/Postcondition/Invariant is covered in testUnit, and testExceptions entries include proper justification (reason why testable assertion is impossible + statement that this is not a design defect). Rejects empty contracts array (exit 1). Exits 0 on pass, 1 on failure. |
-| `add-ticket.js` | `<PATH of Tickets.json> P{phaseID}` (stdin: ticket JSON) | Adds a ticket (called internally by ensure-ticket.js). |
+| Script | Arguments / contract |
+|---|---|
+| `show-ticket-context.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> [--for-spec] [--plan] [--no-implementation-order]`; Step 1/9; emits ticket Markdown; Step 9 `--for-spec` emits spec content |
+| `ensure-ticket.js` | `--ticket-key=... --title="..." [--background=...] [--scope='["..."]'] [--test-unit='["..."]'] [--test-integration='["..."]'] [--test-exceptions='["..."]'] [--default-files='["..."]'] [--acceptance-criteria='["..."]'] [--contracts='[{...}]'] [--notes=...]`; Step 2B; internally `add-ticket.js → show-ticket-context.js`; derives spec path only; does not create it |
+| `insert-field-template.js` | `<Tickets.json> P{phaseID}-{ticketID}`; Step 3; inserts markers in 11 fields; simultaneously sets `created_at`/`updated_at` |
+| `list-remaining-stubs.js` | `<Tickets.json> P{phaseID}-{ticketID}`; Step 6; lists remaining `[::TEMPLATE-STUB::]` in natural language; exit 0: all replaced |
+| `update-ticket.js` | `<Tickets.json path> P{phaseID}-{ticketID}`; stdin update JSON; Step 6/10; overwrites fields; handles string/array distinction |
+| `verify-make-contracts.js` | `--ticket-key=<P{id}-{id}\|PX-{id}> --tickets=<Tickets.json>`; Step 7; checks each Contract pre/post/invariant in `testUnit`, justified `testExceptions`, nonempty contracts; exit 0 pass, 1 fail |
+| `add-ticket.js` | `<Tickets.json path> P{phaseID}`; stdin ticket JSON; called internally by `ensure-ticket.js` |
 
 ## Workflow
 
-**Important**: show-ticket-context.js outputs Markdown. In subsequent Steps, read the paths and keys displayed in that Markdown and use them to supply concrete values in commands.
+Invariants:
+- Step 1 Markdown is the source of concrete paths and keys for later commands.
+- Never write spec before Steps 7 and 8 pass.
+- Implementation order: Red → Green → Refactor; no skip, reorder, or parallel execution.
 
 ### Step 1: Display context (show-ticket-context.js)
-
-Execute show-ticket-context.js and retrieve the ticket state in Markdown.
 
 ```bash
 node .claude/scripts/tickets/show-ticket-context.js --ticket-key=$ARGUMENTS
 ```
 
-The output Markdown includes all fields that have values in the ticket (no display if empty):
+Output: every nonempty ticket field:
 
 | Section | Content |
-|---------|---------|
-| `# {ticketKey}: {title} [{status}]` | H1 heading + status badge |
-| `## RFC Reference` | Reference to sections in the RFC document |
-| `## Background` | Background and purpose |
-| `## Scope` | Bullet list of implementation scope |
-| `## Implementation Target Files` | List of implementation target files |
-| `## To show related RFC graph details` | Usage of query.js and NODE-IDs (only when pipelineAvailable). Investigation entry point referenced first in Step 5 |
-| `## Investigation` | Material evidence obtained from investigation |
-| `## Acceptance Criteria` | Pass conditions (Happy path / Error case / Edge case) |
-| `## Invariants` | Invariant conditions (normal establishment / on error / internal state / boundary values) |
-| `## Contracts — mandatory 100% test coverage in TDD Red phase` | Contract-based pre/post/invariant conditions derived from graph edge annotation. Only rendered when `ticket.contracts` is a non-empty array. Each contract lists Precondition / Postcondition / Invariant |
-| `## Boy Scout Rule` | Translatability improvement plan |
-| `## Test Plan` | Unit Tests / Integration Tests / Exceptions |
-| `## Related Tickets` | List of related tickets |
-| `## Notes` | Supplementary information |
-| `## Pipeline Context` | Table listing all resource paths and their existence status (normal mode only) |
+|---|---|
+| `# {ticketKey}: {title} [{status}]` | H1/status |
+| `## RFC Reference` | RFC-section references |
+| `## Background` | background/purpose |
+| `## Scope` | implementation-scope bullets |
+| `## Implementation Target Files` | target files |
+| `## To show related RFC graph details` | `query.js` usage and NODE-IDs; only if `pipelineAvailable`; Step 5 first investigation entry |
+| `## Investigation` | material investigation evidence |
+| `## Acceptance Criteria` | happy/error/edge pass conditions |
+| `## Invariants` | normal/error/internal/boundary conditions |
+| `## Contracts — mandatory 100% test coverage in TDD Red phase` | only nonempty `ticket.contracts`; each Precondition/Postcondition/Invariant |
+| `## Boy Scout Rule` | translatability plan |
+| `## Test Plan` | unit/integration/exceptions |
+| `## Related Tickets` | related tickets |
+| `## Notes` | supplementary information |
+| `## Pipeline Context` | normal mode only: resource paths/existence status |
 
-If the ticket does not exist, a Not Found message is displayed.
+Missing ticket → Not Found.
 
 ### Step 2: Decision branching
 
-Branch based on the output of Step 1.
+Branch on Step 1.
 
 **Case A: Ticket exists**
 
-Keep the Markdown displayed in Step 1 as context and **proceed to Step 3**. No interaction required.
+Keep Step 1 Markdown; continue Step 3. auto; never ask.
 
-**Case B: Ticket does not exist + prior conversation exists**
+**Case B: Ticket missing + prior conversation agreement**
 
-If you have already conversed with the user and reached agreement on this ticket's content, execute the following command.
+Use all agreed conversation information:
 
 ```bash
 node .claude/scripts/tickets/ensure-ticket.js \
@@ -119,186 +132,187 @@ node .claude/scripts/tickets/ensure-ticket.js \
   [--notes="(supplementary information)"]
 ```
 
-**About optional arguments**: `--scope` / `--test-unit` / `--test-integration` / `--test-exceptions` / `--default-files` are passed as JSON arrays. The same holds for `update-ticket.js`: array-typed fields (`scope`, `testUnit`, `testIntegration`, `testExceptions`, `acceptanceCriteria`, `contracts`, `changes`) must be written as arrays. A type mismatch is rejected as a whole (exit 1, nothing written, the offending field named on stderr) - there is no silent coercion. `--background` / `--notes` are strings. Filling in all information obtained from the conversation reduces empty sections and makes subsequent steps more efficient. `--test-unit` contains the unit test plan (`UT:` prefix), `--test-integration` contains the integration test plan (`IT:` prefix), and `--test-exceptions` contains reasons for items that cannot be tested. Both `UT:` and `IT:` are automated test code; `testExceptions` is a supplement to this, not a substitute.
+- JSON arrays: `scope`, `test-unit`, `test-integration`, `test-exceptions`, `default-files`, `acceptance-criteria`, `contracts`.
+- Strings: `background`, `notes`.
+- `test-unit`: automated `UT:` tests; `test-integration`: automated `IT:` tests; `test-exceptions`: supplement, not substitute.
+- Keep emitted Markdown; continue Step 3.
 
-This script internally executes add-ticket.js → show-ticket-context.js sequentially, finally displaying the ticket information in Markdown. Keep that output as context and **proceed to Step 3**.
+**Case C: Ticket missing + no prior conversation**
 
-**Case C: Ticket does not exist + no prior conversation**
+Reply exactly: `No prior information available to create ticket & spec, so /make-ticket is interrupted.` Stop.
 
-Respond to the user with "No prior information available to create ticket & spec, so /make-ticket is interrupted." and exit.
-
-### Step 3: Insert template markers into ticket
-
-Each field gets markers in `[::TEMPLATE-STUB::<field-name>::]` format, making it clear which items the AI should fill in subsequent steps.
+### Step 3: Insert template markers
 
 ```bash
 node ".claude/scripts/tickets/insert-field-template.js" "Tickets.json" "$ARGUMENTS"
 ```
 
+Markers: `[::TEMPLATE-STUB::<field-name>::]` in 11 fields.
+
 ### Step 4: Full understanding of Universal Implementation Order
 
-As stated in the Reference — Implementation Order section below, TDD is an absolute obligation. This rule serves as the law when filling in the testUnit / testIntegration / testExceptions stubs in Step 6. During the investigation in Step 5, you must always reason in compliance with the Implementation Order.
+Apply during Step 5 investigation and Step 6 test-field completion.
 
 #### Reference — Implementation Order (TDD Red-Green-Refactor)
 
-Implementation must strictly follow the **Red → Green → Refactor** sequence. Skipping steps, reordering, or parallel execution is prohibited.
+**1. Red — Fully Implement Failing Tests**
 
-##### 1. Red — Fully Implement Failing Tests
+Before any implementation code, write failing tests covering 100% of Goal, Purpose, Motivation, Constraints, Scope, Acceptance Criteria, and Invariants.
 
-Before writing a single line of implementation code, write a failing test suite that achieves 100% coverage of the spec's **Goal, Purpose, Motivation, Constraints, Scope, Acceptance Criteria, and Invariants**. Coverage of these seven elements is mandatory; partial implementation is not acceptable.
+- Contract first: translate every Precondition/Postcondition/Invariant to input schemas, output assertions, invariant predicates; then concrete tests.
+- Cover all observable behavior, edge cases, failure modes, invariants. Uncovered behavior is undefined; review fails.
+- Deterministic yet fundamentally untestable → architectural defect; redesign before implementation.
+- Confirm failures are due to absent implementation. Accidental Green, including meaningless assertions, is invalid.
 
-When the ticket defines **Contracts** (Precondition/Postcondition/Invariant from graph edge annotation), the Red phase must first translate each Contract into testable form — input schemas, output assertions, and invariant predicates — before implementing them as concrete test code. A Contract whose Precondition/Postcondition/Invariant cannot be expressed as a testable assertion is not yet fully specified.
+**2. Green — Implement Behavior (No Stubs, No Test Modification)**
 
-- Tests must cover all observable behaviors, edge cases, failure modes, and invariants. Any behavior not covered is considered undefined and fails review.
-- If a feature is deterministic yet fundamentally untestable, this is not a testing gap but an architectural defect. Redesign the system until it is testable before proceeding to implementation.
-- Confirm that all tests fail red due to the absence of implementation. Tests that pass green by accident (e.g., meaningless assertions) are invalid.
+Implement the specified generalized behavior. Tests verify correctness; passing tests is not the end.
 
-##### 2. Green — Implement Behavior (No Stubs, No Test Modification)
+- No hardcoding, input-specific branching, stubbed returns, or disguised Green.
+- If tests cannot distinguish genuine behavior from disguised Green, add tests before implementation.
+- Never modify, delete, or weaken tests to pass.
+- Unprovable correctness is invalid; restructure design or implementation until provable.
 
-Implement the **behavior** specified by the tests; do not treat passing the tests as an end in itself. Tests are a means of verifying correctness, not the goal itself.
+**3. Refactor — Apply the Boy Scout Rule (Green State Only)**
 
-- Implementations that merely satisfy the literal wording of tests—via hardcoding, input-specific branching, or stubbed return values—are prohibited. The implementation must be a generalized, correct solution.
-- If it is impossible to distinguish, via testing, whether an implementation is genuine or a disguised green, this indicates a design flaw caused by insufficient coverage. Add tests until the distinction is possible before proceeding with implementation.
-- Modifying, deleting, or weakening tests to make an implementation pass is strictly forbidden. The implementation must conform to the tests; the reverse is never acceptable.
-- An implementation whose correctness cannot be proven is invalid. It is not considered complete until it (or its design) is restructured into a provably correct form.
+Refactor only after all tests are Green.
 
-##### 3. Refactor — Apply the Boy Scout Rule (Green State Only)
+- In touched code, remove `unwrap()`, hardcoded values, false comments, untested code; readability = translatability.
+- Verify Green before and after each refactor. Break Green → rollback immediately.
 
-Refactor only after all tests are green. Refactoring in a red state is prohibited.
+**Definition of Done**
 
-- Apply the Boy Scout Rule (leave the code cleaner than you found it; readability = translatability) to eliminate `unwrap()` calls, hardcoded values, false comments, and untested code in anything you touch.
-- Verify that all tests remain green before and after each refactoring step. If a refactor breaks green, roll it back immediately.
+All required:
+- tests fully and precisely specify intended behavior
+- all tests pass Green
+- tests empirically guarantee correctness; no disguised Green
+- no gap between intended behavior and test coverage
 
-##### Definition of Done
-
-Implementation is considered incomplete unless all of the following are satisfied:
-
-- The tests fully and precisely specify the intended behavior.
-- The implementation passes all tests green, without exception.
-- Correctness is empirically guaranteed by the tests (not a disguised green).
-- No gap exists between test coverage and intended behavior.
-
-Green without red, green achieved by modifying tests, and green achieved through stubs are all violations and constitute incomplete work.
+Green without Red, test-modified Green, or stub Green → incomplete.
 
 #### Test Field Reference
 
 | Field | Requirement | Format |
-|-------|------------|--------|
-| `testUnit` | Unit tests — automated tests covering individual functions/modules | `UT:` prefix; enumerate normal/edge/failure cases |
-| `testIntegration` | Integration tests — automated tests spanning multiple modules | `IT:` prefix; specify which tickets/modules are integrated |
-| `testExceptions` | Items that cannot be tested, with mandatory technical justification | Free text; every item must state why it cannot be tested, **and explain why this is not a case of "deterministic yet fundamentally untestable" (which is an architectural defect, not a testing gap)** |
+|---|---|---|
+| `testUnit` | automated individual function/module tests; normal/edge/failure | `UT:` |
+| `testIntegration` | automated multi-module tests; identify integrated tickets/modules | `IT:` |
+| `testExceptions` | untestable item; technical reason; why not deterministic-but-fundamentally-untestable | free text |
 
-`UT:` and `IT:` are automated test code, not manual tests. Together they must enable verification of the correctness of all implementation code. `testExceptions` is a supplement to this, not a substitute.
+`UT:` + `IT:` must verify all implementation correctness. `testExceptions` supplements; never substitutes.
 
 ### Step 5: Design and source code investigation
 
-Choose the investigation method based on the requirements of each field defined in the template.
-
-- **pipelineAvailable is true**: Conduct investigation utilizing the output information from show-ticket-context.js and the related graph node information obtained via query.js usage. Reference all NODE-IDs in "Related RFC graph NODE-IDs to check" within the output using the script execution commands presented in "Usage of query.js," and after obtaining all design information, begin the concrete source code investigation.
-- **pipelineAvailable is false**: Spot investigation (in addition to prior conversation with the user, directly grep / read source code to gather information).
+- `pipelineAvailable=true`: use Step 1 `query.js` instructions; query every `Related RFC graph NODE-ID`; obtain all design information; then investigate concrete source.
+- `pipelineAvailable=false`: spot-investigate using prior conversation plus direct source grep/read.
 
 ### Step 6: Replace template markers
 
-Based on the investigation results, replace all `[::TEMPLATE-STUB::<field-name>::]` markers in the 11 fields with actual content.
+Replace all markers in all 11 fields from investigation evidence.
 
-**Quality standards (strict compliance)**: The content written here must be **significantly more concrete**, **significantly more detailed**, **based on material evidence**, and **high-density information** compared to the show-ticket-context.js output from Step 1 or the ensure-ticket.js output from Step 2. The character count of each item should increase substantially. Simple placeholders are considered "cutting corners." Concretely enumerate type signatures, file paths, data structures, and error types.
+Quality: materially evidenced, high-density, substantially more concrete, detailed, and longer than Step 1/2 output. Enumerate type signatures, paths, data structures, error types. Placeholder content fails.
 
-**Phase 1 — Test first (TDD)**: Following the Implementation Order (presented in Step 4), first replace all markers in `testUnit`, `testIntegration`, and `testExceptions`. Do not start on other fields until the test plan is solidified.
+**Phase 1 — Test first (TDD)**
 
-**Phase 1.5 — Contracts definition and expansion (mandatory)**: Always execute this phase before replacing remaining fields. If the ticket already defines **Contracts** (Precondition/Postcondition/Invariant), expand them with investigation findings and translate each into testable form. If the ticket has no Contracts, define them first from investigation and RFC graph analysis, then translate. For each Contract:
+Fill `testUnit`, `testIntegration`, `testExceptions` first. Do not fill other fields until test plan is solid.
 
-1. **Translate Precondition** into concrete input schemas or type definitions — e.g., JSON Schema, TypeScript interface, Rust struct, or valid/invalid input enumerations
-2. **Translate Postcondition** into concrete output assertions or state-transition predicates — e.g., return type definitions, side-effect specifications, state machine transitions
-3. **Translate Invariant** into assertable predicates — e.g., `assert!()`, `debug_assert!()`, property-based testing invariants
+**Phase 1.5 — Contracts definition and expansion (mandatory)**
 
-Each translated element must map to at least one `testUnit` entry. A Contract whose Precondition/Postcondition/Invariant cannot be expressed as a testable assertion is not yet fully specified — return to Step 5 (investigation) to refine the Contract definition.
+Before remaining fields:
+- existing Contracts → expand using investigation; missing Contracts → define from investigation and RFC graph analysis
+- Precondition → concrete input schemas/type definitions/valid-invalid inputs
+- Postcondition → concrete output assertions/state-transition predicates
+- Invariant → assertable predicates, e.g. `assert!()`, `debug_assert!()`, property-based invariants
+- every translated element maps to at least one `testUnit`
+- untestable Contract element → Step 5; refine Contract; retry
 
-**Phase 2 — All remaining fields**: Replace all remaining markers in `investigation`, `boyScoutPlan`, `scope`, `invariants`, `background`, `instrumentation`, `notes`, `acceptanceCriteria`.
+**Phase 2 — All remaining fields**
 
-The types and marker configuration for each field are as follows:
+Fill `investigation`, `boyScoutPlan`, `scope`, `invariants`, `background`, `instrumentation`, `notes`, `acceptanceCriteria`.
 
-| Field | Type | Marker Count | Meaning of Each Marker |
-|-------|------|-------------|----------------------|
-| `invariants` | string | 4 | Normal establishment condition / Invariant on error / Internal state invariant / Boundary invariant |
-| `background` | string | 4 | Goal / Purpose / Motivation / Constraints |
-| `scope` | array | 13 | Changes (path/action/detail/before-after/api/schema/config/dep) / Non-change scope (item/why) / Impact scope (component/nature/response) |
-| `testUnit` | array | 4 + Contracts | Normal / Error / Boundary / Invariant. Each Contract's Precondition/Postcondition/Invariant must be covered by at least one `testUnit` entry — translate Precondition → input schema test, Postcondition → output assertion test, Invariant → invariant predicate test |
-| `testIntegration` | array | 4 | Integration point / Verification / Prerequisites / Related tickets |
-| `testExceptions` | array | 3 | Item / Reason / Alternative verification |
-| `instrumentation` | string | 4 | Logging / Metrics / Error tracking / Health check |
-| `notes` | string | 5 | Implementation steps / Risks / Caveats / Open items / Future improvements |
-| `acceptanceCriteria` | array | 3 | Happy path / Error case / Edge case |
-| `investigation` | string | 1 | Set of evidence obtained from code investigation |
-| `boyScoutPlan` | string | 1 | Translatability improvement plan |
-| `contracts` | array | 5 | Contract ID (C000 format) / Source edge / Precondition / Postcondition / Invariant. When contracts defined by Phase 1.5, each Precondition/Postcondition/Invariant must map to testUnit entries |
+| Field | Type | Markers | Required content |
+|---|---|---:|---|
+| `invariants` | string | 4 | normal establishment/error/internal/boundary |
+| `background` | string | 4 | goal/purpose/motivation/constraints |
+| `scope` | array | 13 | change path/action/detail/before-after/api/schema/config/dep; non-change item/why; impact component/nature/response |
+| `testUnit` | array | 4 + Contracts | normal/error/boundary/invariant; Contract pre→input, post→output, invariant→predicate |
+| `testIntegration` | array | 4 | integration point/verification/prerequisites/related tickets |
+| `testExceptions` | array | 3 | item/reason/alternative verification |
+| `instrumentation` | string | 4 | logging/metrics/error tracking/health check |
+| `notes` | string | 5 | implementation steps/risks/caveats/open items/future improvements |
+| `acceptanceCriteria` | array | 3 | happy/error/edge |
+| `investigation` | string | 1 | source-investigation evidence |
+| `boyScoutPlan` | string | 1 | translatability improvement plan |
+| `contracts` | array | 5 | `C000` ID/source edge/precondition/postcondition/invariant; each maps to `testUnit` |
 
-For **string** type fields, replace the entire string per marker line. For **array** type fields, replace markers element by element:
+String: replace whole string per marker line. Array: replace marker elements.
 
 ```bash
-# Example: updating a string type field
-echo '{"invariants":"- 【Normal establishment】Input values must pass schema validation\n- 【Invariant on error】DB integrity is maintained even on error"}', | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
+# string
+echo '{"invariants":"- 【Normal establishment】Input values must pass schema validation\n- 【Invariant on error】DB integrity is maintained even on error"}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 
-# Example: updating an array type field
+# array
 echo '{"testUnit":["UT: [Normal] Valid input returns correct result","UT: [Error] Invalid input returns an error"]}' | node ".claude/scripts/tickets/update-ticket.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-**Check remaining markers and loop**: After performing one or more replacements, execute the following:
+Heal-loop stubs:
 
 ```bash
 node ".claude/scripts/tickets/list-remaining-stubs.js" "Tickets.json" "$ARGUMENTS"
 ```
 
-As long as unfilled markers remain (exit 1), return to Step 6 and continue replacement. When all markers have been replaced (exit 0), proceed to Step 7.
+- exit 1 → continue Step 6 replacements; re-run
+- exit 0 → Step 7
 
 ### Step 7: Contracts verification
 
-Run these steps in this order: (1) verify Contracts coverage, (2) validate STUB targets, (3) write the spec file only after verification passes, (4) update status.
-
-Verify that every Contract's Precondition/Postcondition/Invariant is covered by corresponding `testUnit` entries, and that `testExceptions` entries include proper justification. Exit code 0 = pass, 1 = fail.
+Order: verify Contracts → validate STUB targets → write spec after pass → update status.
 
 ```bash
 node .claude/scripts/tickets/verify-make-contracts.js --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-If verification fails (exit 1), return to Step 6 to fix the template markers, then re-run from Step 7.
+- 0 → Step 8
+- 1 → Step 6; repair markers, Contract coverage, or exception justification; re-run Step 7
 
 ### Step 8: STUB enumeration and validation (mandatory)
 
-Before writing the spec file, enumerate all `[::STUB::]` markers in the source tree and validate that targetStubs/targetCrimes pass all structural checks. This gate ensures no STUB goes untracked at make time.
+No spec write before every gate passes.
 
-**Step 8a — Enumerate STUBs:**
+**Step 8a — Enumerate STUBs**
 
 ```bash
 node .claude/scripts/tickets/enumerate-ticket-targets.js \
   --dir=. --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-On failure (exit 1 or stderr), fix the reported issues and re-run.
+Enumerates source-tree `[::STUB::]` markers and validates structural tracking by `targetStubs`/`targetCrimes`.
 
-**Step 8b — Validate targets:**
+**Step 8b — Validate targets**
 
 ```bash
 node .claude/scripts/tickets/validate-ticket-targets.js \
   --ticket-key="$ARGUMENTS" --tickets="Tickets.json"
 ```
 
-**Step 8c — No-excuse gate:**
+**Step 8c — No-excuse gate**
 
 ```bash
 node .claude/scripts/tickets/validate-no-external-excuses.js --fail-on-excuse
 ```
 
-The ticket being made must not own a terminal-excuse stub (Check A/B) or a stale-key stub (Check C). A ticket that absorbs an excuse stub at make time turns its implementation into "solving the excuse" and never converges.
+This ticket must own neither terminal-excuse STUB (Check A/B) nor stale-key STUB (Check C); owning one turns implementation into solving an excuse and prevents convergence.
 
-**Convergence loop**: If Step 8b or 8c exits 1, read stderr guidance, resolve the reported violations, then re-run the Gate. **Loop until all three commands exit 0 before proceeding to Step 9.** Skipping this loop or declaring the ticket made without passing validation is a contract violation.
+Heal-loop targets:
+- run 8a → 8b → 8c in this order
+- 8a exit 1 or stderr; or 8b/8c exit 1 → read stderr; fix; re-run all three
+- all exit 0 → Step 9
+- no skip; declaring `made` before pass violates contract
 
 ### Step 9: Write spec file
 
-**About the "Design Context" block**: Design the spec being aware of the 4 sections automatically appended in this Step by dump-ticket-graph-commands.js and dump-node-context-to-spec.js.
+`--for-spec` writes all `Tickets.json` fields into the spec, including graph node details, edge relationships, and file paths. Design with the four Design Context sections automatically appended by `dump-ticket-graph-commands.js` and `dump-node-context-to-spec.js`.
 
-Execute `show-ticket-context.js --for-spec` to write all fields from Tickets.json into the spec file. Graph information (node details, edge relationships, file paths) is automatically included in the `--for-spec` output.
-
-The spec file output destination **must be `specs/$ARGUMENTS.md`** (`$ARGUMENTS` is the ticket key such as `P0-1`). Do not modify this manually; use the following command as-is.
+Destination: exactly `specs/$ARGUMENTS.md`. Do not modify manually.
 
 ```bash
 mkdir -p specs && \
