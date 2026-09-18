@@ -12,6 +12,8 @@ import { runDagChecks } from './dag.mjs';
 import { checkDependencyMatrix } from './dependencies.mjs';
 import { validatePackageCatalog, validateWorkspaceTree } from './workspace-model.mjs';
 import { findOverSplitRisks } from './boundary-review.mjs';
+import { checkPortAdapterBoundary } from './adapters.mjs';
+import { detectAliasCycles } from './alias-normalization.mjs';
 import { checkDatabasePolicy } from './database-policy.mjs';
 import { assertSourceTraceability } from './traceability.mjs';
 import { GATE_STATUS } from './errors.mjs';
@@ -64,7 +66,17 @@ export function runGatePipeline(input = {}) {
   const semanticApproval = evaluateSemanticApproval(decisionsData);
   const dagResult = evaluateDag(dependenciesData, workspaceData.packages);
   const dbResult = evaluateDatabase(adapters, packages);
+  const portBoundary = checkPortAdapterBoundary({ ports: adapters?.ports ?? [], packages });
+  const aliasCycles = detectAliasCycles(aliasPairsFrom(inventoryData.normalization_decisions));
   const approvalCount = (decisionsData.approvals ?? []).length;
+  const objectClaimCollisions = inventoryData.object_claim_collisions ?? [];
+  const approvedDecisionIds = new Set((decisionsData.approvals ?? []).map((approval) => approval.decisionId));
+  // A collision is a question, not a defect: the same name can legitimately be both
+  // an object and a claim. It is resolved by an approval that names its key, and
+  // until one does, the gate refuses rather than permit it to pass unexamined.
+  const unresolvedCollisions = objectClaimCollisions.filter(
+    (collision) => !approvedDecisionIds.has(collision.normalized_key),
+  );
 
   const checks = [
     { id: 'G0', status: GATE_STATUS.PASS, counts: {}, reasons: ['input lock passed'] },
@@ -92,7 +104,11 @@ export function runGatePipeline(input = {}) {
         boundaryCoverage.uncoveredEdges === 0 &&
         boundaryCoverage.orphanBoundaries === 0 &&
         referenceResolution.unknownOwns === 0 &&
-        referenceResolution.unknownOwnership === 0
+        referenceResolution.unknownOwnership === 0 &&
+        portBoundary.violations.length === 0 &&
+        portBoundary.missingPorts.length === 0 &&
+        unresolvedCollisions.length === 0 &&
+        aliasCycles.length === 0
           ? GATE_STATUS.PASS
           : GATE_STATUS.REVIEW_REQUIRED,
       counts: {
@@ -109,6 +125,11 @@ export function runGatePipeline(input = {}) {
         orphan_boundary_count: boundaryCoverage.orphanBoundaries,
         unknown_owns_reference_count: referenceResolution.unknownOwns,
         unknown_ownership_reference_count: referenceResolution.unknownOwnership,
+        unattached_adapter_count: portBoundary.violations.length,
+        missing_port_count: portBoundary.missingPorts.length,
+        object_claim_collision_count: objectClaimCollisions.length,
+        unresolved_object_claim_collision_count: unresolvedCollisions.length,
+        alias_cycle_count: aliasCycles.length,
       },
       reasons: catalogErrors
         .map((error) => error.message)
@@ -120,7 +141,11 @@ export function runGatePipeline(input = {}) {
         .concat(treeReport.errors)
         .concat(boundaryResolution.errors)
         .concat(boundaryCoverage.errors)
-        .concat(referenceResolution.errors),
+        .concat(referenceResolution.errors)
+        .concat(portBoundary.violations.map((violation) => `${violation.packageId} is an adapter that no port implements through, so it is reached outside the boundary`))
+        .concat(portBoundary.missingPorts.map((capability) => `capability ${capability} is declared as an external implementation but no port provides it`))
+        .concat(unresolvedCollisions.map((collision) => `object and claim candidates share the normalized key ${collision.normalized_key}, which no approval resolves`))
+        .concat(aliasCycles.map((cycle) => `alias cycle: ${cycle.path.join(' -> ')}`)),
     },
     {
       id: 'G4',
@@ -152,8 +177,18 @@ export function runGatePipeline(input = {}) {
     },
     {
       id: 'G5',
-      status: dbResult.raw_sql_count === 0 && dbResult.db_type_leak_count === 0 && approvalCount >= 0 ? GATE_STATUS.PASS : GATE_STATUS.FAIL,
-      counts: { raw_sql_count: dbResult.raw_sql_count, db_type_leak_count: dbResult.db_type_leak_count, approval_count: approvalCount },
+      status:
+        dbResult.raw_sql_count === 0 &&
+        dbResult.db_type_leak_count === 0 &&
+        dbResult.migration_atomicity_misuse_count === 0
+          ? GATE_STATUS.PASS
+          : GATE_STATUS.FAIL,
+      counts: {
+        raw_sql_count: dbResult.raw_sql_count,
+        db_type_leak_count: dbResult.db_type_leak_count,
+        migration_atomicity_misuse_count: dbResult.migration_atomicity_misuse_count,
+        approval_count: approvalCount,
+      },
       reasons: dbResult.details,
     },
   ];
@@ -335,15 +370,54 @@ function evaluateDag(dependenciesData, packages) {
   return { report, matrix };
 }
 
+/**
+ * Evaluate the database policy, returning one key set on both of its exits.
+ *
+ * The G5 predicate reads all three counts, so an exit that omitted one would make
+ * the comparison `undefined === 0` and turn a legitimate `applicable: false` run
+ * into a FAIL. Both exits therefore answer with the same three names, and
+ * `checkDatabasePolicy` already answers with them on its own early return.
+ *
+ * @param {object|undefined} adapters - the pipeline adapters, possibly absent
+ * @param {Array<object>} packages - the package catalog
+ * @returns {{ raw_sql_count: number, db_type_leak_count: number,
+ *             migration_atomicity_misuse_count: number, details: Array<string> }}
+ */
+// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
 function evaluateDatabase(adapters, packages) {
   const adapterPolicy = adapters?.databasePolicy;
   if (!adapterPolicy) {
-    return { raw_sql_count: 0, db_type_leak_count: 0, details: [] };
+    return { raw_sql_count: 0, db_type_leak_count: 0, migration_atomicity_misuse_count: 0, details: [] };
   }
   const result = checkDatabasePolicy({ databasePolicy: adapterPolicy, packages });
   return result;
 }
 
+/**
+ * The alias map the manifest publishes, read as name -> alias edges.
+ *
+ * The pairs come from the published `normalization_decisions` rather than from a
+ * second normalization pass, so the map the gate walks is the map the artifact
+ * carries: a manifest that publishes a cycle cannot be judged as though it did not.
+ *
+ * A decision that maps a name to itself is not an alias edge. Normalization emits
+ * one when two candidates carry the same canonical name, which is a duplicate it has
+ * already merged; walking it would report that duplicate as a one-step cycle and
+ * refuse a sound run. `harvestObjectCandidates` groups by exact name, so the pipeline
+ * produces none today, and they are excluded here so that the word "cycle" cannot
+ * come to mean "duplicate".
+ *
+ * @param {Array<object>} normalizationDecisions - `{ from, to }` merge records
+ * @returns {Array<{ name: string, alias: string }>}
+ */
+// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
+function aliasPairsFrom(normalizationDecisions) {
+  return (normalizationDecisions ?? [])
+    .filter((decision) => decision.from !== decision.to)
+    .map((decision) => ({ name: decision.from, alias: decision.to }));
+}
+
+// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
 function countReviewRequired(inventoryData) {
   let count = 0;
   const listKeys = ['objects', 'claims', 'terms', 'invariants', 'stateMachines', 'errorCodes', 'requiredTests'];
@@ -371,10 +445,14 @@ function applyParentGating(checks) {
   return gates;
 }
 
+// [::TICKET::] PX-217 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-217 --for-spec --no-implementation-order`.
 function buildFinalAudit(aggregate) {
   const { gates, ownershipResult, dagResult, dbResult, reviewRequiredCount, unresolvedCandidates, responsibilityResult } = aggregate;
   const passed = gates.every((gate) => gate.status === GATE_STATUS.PASS);
   const report = dagResult.report;
+  // The G3 record is read once: two counts transcribed from two lookups is two
+  // chances for the report to disagree with the gate it reports on.
+  const g3Counts = gates.find((gate) => gate.id === 'G3')?.counts ?? {};
   return {
     status: passed ? GATE_STATUS.PASS : GATE_STATUS.REVIEW_REQUIRED,
     orphan_object_count: ownershipResult.counts.orphan_object_count,
@@ -388,13 +466,19 @@ function buildFinalAudit(aggregate) {
     review_required_count: reviewRequiredCount,
     unresolved_count: unresolvedCandidates.length,
     missing_responsibilities_count: responsibilityResult.missing_responsibilities_count,
-    ownership_disagreement_count: (gates.find((gate) => gate.id === 'G3')?.counts?.ownership_disagreement_count) ?? 0,
-    spec_defect_count: (gates.find((gate) => gate.id === 'G3')?.counts?.spec_defect_count) ?? 0,
-    residual_question_count: (gates.find((gate) => gate.id === 'G3')?.counts?.residual_question_count) ?? 0,
-    dependency_review_count: (gates.find((gate) => gate.id === 'G3')?.counts?.dependency_review_count) ?? 0,
-    unresolved_review_count: (gates.find((gate) => gate.id === 'G3')?.counts?.unresolved_review_count) ?? 0,
+    ownership_disagreement_count: g3Counts.ownership_disagreement_count ?? 0,
+    spec_defect_count: g3Counts.spec_defect_count ?? 0,
+    residual_question_count: g3Counts.residual_question_count ?? 0,
+    dependency_review_count: g3Counts.dependency_review_count ?? 0,
+    unresolved_review_count: g3Counts.unresolved_review_count ?? 0,
     raw_sql_count: dbResult.raw_sql_count,
     db_type_leak_count: dbResult.db_type_leak_count,
+    migration_atomicity_misuse_count: dbResult.migration_atomicity_misuse_count,
+    unattached_adapter_count: g3Counts.unattached_adapter_count ?? 0,
+    missing_port_count: g3Counts.missing_port_count ?? 0,
+    object_claim_collision_count: g3Counts.object_claim_collision_count ?? 0,
+    unresolved_object_claim_collision_count: g3Counts.unresolved_object_claim_collision_count ?? 0,
+    alias_cycle_count: g3Counts.alias_cycle_count ?? 0,
   };
 }
 

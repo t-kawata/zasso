@@ -130,11 +130,20 @@ function hasClause(contract, clause) {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-/** Whether stage 1 declared this clause for the contract's boundary. */
+/**
+ * Whether stage 1 declared this clause for the contract's boundary.
+ *
+ * The declared scope is the whole requirement. It already carries `signature` for a
+ * boundary that takes signed input and `proof_verification` for one that verifies a
+ * proof, so inferring either from the other would demand a clause the contract
+ * validator refuses as out of scope in the same run - a requirement no authored
+ * payload can satisfy.
+ */
+// [::TICKET::] PX-218 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-218 --for-spec --no-implementation-order`.
 function declaresClause(contract, manifest, clause) {
   const boundary = (manifest?.dependencies?.boundaries ?? []).find((entry) => `contract-${entry.id}` === contract?.contract_id);
   const scope = boundary?.stage2_contract_scope ?? [];
-  return scope.includes(clause) || (clause === 'proof_verification' && scope.includes('signature'));
+  return scope.includes(clause);
 }
 
 /** Two contracts for the same pair must not claim different owners for a slot. */
@@ -177,41 +186,39 @@ function findOwnerConflicts(edges, slot, violationClass) {
   return conflicts;
 }
 
-/** A reachable path from a forbidden source to a forbidden target. */
+/** At most this many forbidden flows are reported; the first is the one to repair. */
+const MAX_REPORTED_FLOWS = 1;
+
+/**
+ * The graph edges whose two endpoints are a pair the manifest forbids.
+ *
+ * The manifest declares layer PAIRS (`forbidden_layer_rules`), and stage 1 audits the
+ * same table pair by pair in `dag.mjs`. Reading it as reachability instead would flag
+ * every composition that routes a higher layer through its mediator - interfaces reach
+ * protocol through core by design - and a rule no workspace can satisfy proves nothing.
+ * The mediated case is covered where it belongs: `layer_violation` still reports the
+ * edge that breaks a layer rule, from the compiled table.
+ */
+// [::TICKET::] PX-218 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-218 --for-spec --no-implementation-order`.
 function findForbiddenFlows({ graph, manifest }) {
   const rules = manifest?.dependencies?.forbidden_layer_rules ?? [];
   if (rules.length === 0) {
     return [];
   }
-  const nodeById = new Map(graph.nodes.map((node) => [node.package_id, node]));
-  const adjacency = new Map();
-  for (const edge of graph.edges) {
-    adjacency.set(edge.consumer_package, [...(adjacency.get(edge.consumer_package) ?? []), edge.provider_package]);
-  }
+  const layerByPackage = new Map(graph.nodes.map((node) => [node.package_id, node.layer]));
   const paths = [];
   for (const rule of rules) {
-    const sources = graph.nodes.filter((node) => node.layer === rule.from_layer).map((node) => node.package_id);
-    const targets = new Set(graph.nodes.filter((node) => (rule.forbidden_to ?? []).includes(node.layer)).map((node) => node.package_id));
-    for (const source of sources) {
-      const stack = [[source]];
-      const visited = new Set([source]);
-      while (stack.length > 0) {
-        const path = stack.pop();
-        const current = path[path.length - 1];
-        if (targets.has(current) && current !== source) {
-          paths.push(path);
-          break;
-        }
-        for (const next of adjacency.get(current) ?? []) {
-          if (!visited.has(next)) {
-            visited.add(next);
-            stack.push([...path, next]);
-          }
-        }
+    for (const edge of graph.edges) {
+      if (layerByPackage.get(edge.consumer_package) !== rule.from_layer) {
+        continue;
       }
+      if (!(rule.forbidden_to ?? []).includes(layerByPackage.get(edge.provider_package))) {
+        continue;
+      }
+      paths.push([edge.consumer_package, edge.provider_package]);
     }
   }
-  return paths.slice(0, 1);
+  return paths.slice(0, MAX_REPORTED_FLOWS);
 }
 
 function violatesLayerRule(consumer, provider) {

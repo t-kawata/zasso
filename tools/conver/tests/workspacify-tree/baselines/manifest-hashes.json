@@ -52,14 +52,15 @@
     "normative-words.md": "1217d5fd3a10cf739859d2ee3946d830db21d64c35bc6690f14cf05fdf5ccee9",
     "objects-table.md": "88efa60b124d3ae35203aecb3ca2453fb21bdd0f0b901e66f781982a7f0f67fd",
     "ownerless-model.json": "c4c79ea44cdc3d736e5ce7401cfcf7474d2cdd4da744aef0ee198ce5d87cda69",
-    "pair:gaia-like-spec.md+gaia-decisions.json": "f83107935b2f51d0f8cc9cd710ece66e96bfb4785cae26fc6d0436444609da94",
-    "pair:long-spec.md+decisions-long-ok.json": "5839038442b0ac69a3b36c4faf764f988b433f8a8284ce9fa7e55c45b528d60f",
-    "pair:objects-table.md+decisions-complete.json": "ce6c74f48f6a506bc42aaaceb1fb54cd209a699742ff64061eec38e75cbdf286",
+    "pair:gaia-like-spec.md+gaia-decisions.json": "70ac5462803d4791185968b56c1526d6f5833e22d6deb46b68eb86bcf594c82c",
+    "pair:long-spec.md+decisions-long-ok.json": "f8da6ac002bfd8e049c69cff6eab14ef47c7b6fc7910d4d5c5919631248bf216",
+    "pair:objects-table.md+decisions-complete.json": "6d2964bb352a258bc4dfba2b7a10785d8e2e76ed9370b03317a95b832618cdf3",
     "small-spec.md": "7d1ee55ad9066b2550fe8f936959422ea0c1300baea8cb2ddc7f523b4d71026b"
   },
   "commandFileDigests": {
     "boundify-graph": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /boundify-graph <graph-file-path>",
         "## Language Protocol",
         "## Arguments",
@@ -79,15 +80,15 @@
         "## Step 3: Batch File Generation",
         "### Structure of Generated Files",
         "### Recovery on Error",
-        "## Completion Report",
-        "### Reverse Mode"
+        "## Completion Report"
       ],
-      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
+      "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "42eccab5fe61fc02cc30f3f83dc8ede9e77c6bab9d98133905c3410c43c478a3"
+      "documentDigest": "e282859b11d9bdb2cf775da3b7e742f2aa9a94c6977e1f4a4c39e59eb29eb98c"
     },
     "consolidate-stubs": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /consolidate-stubs",
         "## Why",
         "## Design Principles",
@@ -100,10 +101,11 @@
       ],
       "languageProtocolDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "firstClassRuleDigest": "bafc5883e14ec090630bc90fb691e018b32b09c2d1ed0f7f6c56421a568ff5bf",
-      "documentDigest": "ba4482cb53bac73d0617e429069a36ef3b368f63da48addd432b3a755d18028d"
+      "documentDigest": "100afc78b5e024d05001ef58d5bdd8fd05fc45fcb39b04e2fbcbb6df245b191f"
     },
     "crystalize-readme": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /crystalize-readme <graph-path>",
         "## Language Protocol",
         "## Arguments",
@@ -126,7 +128,7 @@
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "032201d0c731858c13a86ff10bc02924308713a1f2c36394f18e7524c14c867d"
+      "documentDigest": "3c71694eeeafd38480a1e431c34356dce9bba2c29e887222c66acf66358c2979"
     },
     "drill-rfc-down": {
       "headings": [
@@ -152,15 +154,15 @@
         "### Step 2: graphify",
         "### Step 3: boundify",
         "### Step 4: split",
-        "### Step 5: verify",
-        "## Reverse rotation only — staleness as an input to this drill"
+        "### Step 5: verify"
       ],
-      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
+      "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "a359e72799e8490445879c2d1f2bb1f8d691a8779b4a6fea56392ced0af88701"
+      "documentDigest": "28b75c2b121128da747804da675c448426484021607ad35b10a01548cea33292"
     },
     "find-omissions": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /find-omissions",
         "## Pre-flight — argument + consolidation prerequisite validation (mandatory)",
         "## Overview",
@@ -188,10 +190,11 @@
       ],
       "languageProtocolDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "e3592aa0a4d3387be8aa021c37aa1c938af9efc9c5a1dfd56c901762538c9644"
+      "documentDigest": "454acf50b0c18a1c2f2a28c73a3c4e5452bf98e74d0352de750e56ca9f30e0e9"
     },
     "graphify-rfc": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /graphify-rfc <source-file-path>",
         "## Language Protocol",
         "## Arguments",
@@ -202,7 +205,6 @@
         "### Root (graph.schema.json)",
         "### Node (node.schema.json)",
         "## Step 0: Heading Deduplication (Pre-processing)",
-        "### Error Recovery",
         "## Step 1: Node Splitting",
         "### Pre-Reference: I/O Boundary Reference Information",
         "### Node Splitting Procedure",
@@ -210,22 +212,16 @@
         "## Step 2: Edge Assignment",
         "### Error Recovery",
         "## Step 3: Machine Verification",
-        "### Error Recovery",
         "## Step 4: Self-Verification",
         "### AI Quality Inspection (Random Sampling Visual Check)",
         "### Error Recovery",
-        "#### Recovery on test-query-all.js Failure",
-        "#### Recovery on Unknown Errors",
         "## Step 5: Final Quality Verification — Full Summary Inspection",
-        "### AI Adequacy Judgment",
-        "### Decision and Branching",
         "### Error Recovery",
-        "## Completion Report",
-        "## Reverse mode (GF1, GF2)"
+        "## Completion Report"
       ],
-      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
+      "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "39a0486a316f668fbf27c246d0ec772b22d064732f5a2ab23d696fd82d0ef809"
+      "documentDigest": "3daf865f86d5c77cf485d040d14cddc9cd09b0e2b80f54b7ddcc971d003a44a1"
     },
     "grill-me-for-rfc": {
       "headings": [
@@ -261,6 +257,7 @@
     },
     "make-ticket": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /make-ticket",
         "## Language Protocol",
         "## Position in the Workflow",
@@ -270,13 +267,9 @@
         "## Workflow",
         "### Step 1: Display context (show-ticket-context.js)",
         "### Step 2: Decision branching",
-        "### Step 3: Insert template markers into ticket",
+        "### Step 3: Insert template markers",
         "### Step 4: Full understanding of Universal Implementation Order",
         "#### Reference — Implementation Order (TDD Red-Green-Refactor)",
-        "##### 1. Red — Fully Implement Failing Tests",
-        "##### 2. Green — Implement Behavior (No Stubs, No Test Modification)",
-        "##### 3. Refactor — Apply the Boy Scout Rule (Green State Only)",
-        "##### Definition of Done",
         "#### Test Field Reference",
         "### Step 5: Design and source code investigation",
         "### Step 6: Replace template markers",
@@ -285,18 +278,20 @@
         "### Step 9: Write spec file",
         "### Step 10: Update ticket status"
       ],
-      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
+      "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "07732ce654ee203dbf53a115640c6b5f75ebe500fa137562cbbda8d1c7f00c42"
+      "documentDigest": "121acfa8253d5be35c12a5e6ff804e1a97908ab594800d05b0457c0bc5f053de"
     },
     "plan-ticket": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /plan-ticket",
+        "## First-Class Rule — [::STUB::] Marker is an Absolute Obligation",
         "## Language Protocol",
         "## Position in the Workflow",
         "## Argument Interpretation",
         "## Boy Scout Rule",
-        "### Translatability Checks (common to all languages; select grep patterns per language)",
+        "### Translatability Checks",
         "## List of Scripts Used",
         "## Workflow",
         "### Step 0: Status gate — verify ticket is ready for planning",
@@ -306,21 +301,18 @@
         "### Step 3.5 — Phase 1.5: Contract-to-test-code translation (mandatory)",
         "### Step 4: Formulate the plan",
         "#### Reference — Implementation Order (TDD Red-Green-Refactor)",
-        "##### 1. Red — Fully Implement Failing Tests",
-        "##### 2. Green — Implement Behavior (No Stubs, No Test Modification)",
-        "##### 3. Refactor — Apply the Boy Scout Rule (Green State Only)",
-        "##### Definition of Done",
         "### Step 4.5 — Gate P: Verify contract-to-test-code translation",
         "### Step 5: Spec re-export → status update → report plan completion",
         "#### 5-1: Re-export spec file",
         "#### 5-2: Update ticket status"
       ],
-      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
-      "firstClassRuleDigest": "f208c14c2d726ef629962b7b77f0571951addab3ddd8bdff0ad2b933d6fab01c",
-      "documentDigest": "f4bed2d0529e2324d1fda2cefbacd89d7fd28382429495865731361c9dbd63bd"
+      "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
+      "firstClassRuleDigest": "c3f1df74f936d58cf4d0b6b4ca8c92bb89ebd2c00944de3e02d890d3b3bd4677",
+      "documentDigest": "cdf23a3c3106b453af765310b4d82327dc9fedd625bd77c1efa479241dd2b940"
     },
     "resolve-ticket": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /resolve-ticket",
         "## Language Protocol",
         "## Argument Interpretation",
@@ -339,10 +331,11 @@
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "f208c14c2d726ef629962b7b77f0571951addab3ddd8bdff0ad2b933d6fab01c",
-      "documentDigest": "2a532b97f23ccc7265e7eb879cc0dea2db313b90b4e2449196ce1a83535e5279"
+      "documentDigest": "b9dec780e09e9d8e47ae83aacf78572721de540f1c1b57b5cab11cc74d182d51"
     },
     "review-ticket": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /review-ticket",
         "## Language Protocol",
         "## Position in the Workflow",
@@ -368,10 +361,11 @@
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "f208c14c2d726ef629962b7b77f0571951addab3ddd8bdff0ad2b933d6fab01c",
-      "documentDigest": "f8c8512d1673259aad42c7a8ba63f555f2ffe9f66afc13fe96042663f15f08b0"
+      "documentDigest": "c51da51c9a4b663a318075a4d1efa5f6ea57bcde5d11979116daa25b5f2b0747"
     },
     "split-to-tickets": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /split-to-tickets",
         "## Language Protocol",
         "## Argument Interpretation",
@@ -398,27 +392,22 @@
         "### Step 5: Primary ticket definition (ticket creation)",
         "#### 5-1: Retrieve detailed information for nodes within a phase",
         "#### 5-2: Ticket creation (add-tickets-for-phase.js)",
-        "#### Ticket Field Definitions and Detail Level Guidelines",
         "### Reference — Implementation Order (TDD Red-Green-Refactor)",
-        "#### 1. Red — Fully Implement Failing Tests",
-        "#### 2. Green — Implement Behavior (No Stubs, No Test Modification)",
-        "#### 3. Refactor — Apply the Boy Scout Rule (Green State Only)",
-        "#### Definition of Done",
         "### Test Field Reference",
         "### Resuming from an Error",
         "### Step 5-3: Phase consolidation",
         "### Resuming from an Error",
         "### Step 6: Output phase and ticket checklist",
         "### Resuming from an Error",
-        "## Notes",
-        "## Reverse mode (S1 to S6)"
+        "## Notes"
       ],
-      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
+      "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "c9acfb43e19dd28993aa6d560b099f5407bbe9620a5947c65ce14bee48edda6d"
+      "documentDigest": "f69370bdce9c0d36cd87d6d0e1211d6917984526ee3929bc1af5dfbc5a0add9a"
     },
     "start-ticket": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /start-ticket",
         "## Language Protocol",
         "## Position in the Workflow",
@@ -452,10 +441,11 @@
       ],
       "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
       "firstClassRuleDigest": "f208c14c2d726ef629962b7b77f0571951addab3ddd8bdff0ad2b933d6fab01c",
-      "documentDigest": "a5c62472334ec5c1ca883eef6dcf2a654bcd040c269bf4ee48a2352fcd78b253"
+      "documentDigest": "ae340aef8f58aa06c905d0499280c0d3bebbd1b54d41731926b295cd248d6299"
     },
     "workspacify-allocate": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /workspacify-allocate",
         "## Language Protocol",
         "## Arguments",
@@ -485,12 +475,13 @@
         "## Definition of success",
         "## Reverse mode (A1 to A6)"
       ],
-      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
+      "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "bcd2a0beca8f1508884f6710217d2b3966eb1e4993757314b392110ff8381b91"
+      "documentDigest": "31486e5573c865cf1a0613a8f7444c85cfbb8b029448222563c9cf3a07d1825a"
     },
     "workspacify-tree": {
       "headings": [
+        "# CRITICAL — NON-INTERACTIVE, END-TO-END EXECUTION",
         "# /workspacify-tree",
         "## Language Protocol",
         "## Arguments",
@@ -502,9 +493,6 @@
         "## Step 1: parse (G0/G1)",
         "## Step 2: extract (G2)",
         "## Step 3: authoring the decision JSON (the AI's design judgement)",
-        "### Iterative procedure to raise the information level",
-        "### The meaning of each field and its rules",
-        "### Guidance for the design",
         "### The AI final approval checklist (non-deterministic; the machine enforces only that APPROVED exists)",
         "## Step 4: the gate loop (G3/G4)",
         "## Step 5: finalize and publish (G5)",
@@ -514,9 +502,9 @@
         "## Definition of success",
         "## Reverse mode (T1 to T6)"
       ],
-      "languageProtocolDigest": "4054c041d1b484d1470b2dfcfa8f18b0c4791e6fc9ccf255a677cfeec9688bb7",
+      "languageProtocolDigest": "c075070ebc7a3ca1d912d3cbd831a74440f97c770d375532f78281a1fe696ec7",
       "firstClassRuleDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "documentDigest": "51eda1ddf837188da8e6314ad0cc2f707c8eab1f57886be74f7257a69595835d"
+      "documentDigest": "04896c8cb71c48b49c8513bb2317c9f94457c8da2a2c6396a601f0f95eab545d"
     }
   },
   "forwardSurfaces": [
