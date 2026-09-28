@@ -25,13 +25,13 @@ export const INFO_SECTION_IDS = Object.freeze(['I1', 'I2', 'I3', 'I4', 'I5', 'I6
  * section whenever anything at all changed.
  */
 export const EXPLAIN_SECTION_FACTS = Object.freeze([
-  Object.freeze({ id: 'E1', info: Object.freeze(['I2', 'I3']) }),
-  Object.freeze({ id: 'E2', info: Object.freeze(['I2']) }),
-  Object.freeze({ id: 'E3', info: Object.freeze(['I3', 'I6']) }),
-  Object.freeze({ id: 'E4', info: Object.freeze(['I4', 'I5']) }),
-  Object.freeze({ id: 'E5', info: Object.freeze(['I9']) }),
-  Object.freeze({ id: 'E6', info: Object.freeze(['I5', 'I7', 'I8']) }),
-  Object.freeze({ id: 'E7', info: Object.freeze(['I7', 'I6']) }),
+  Object.freeze({ id: 'E1', restsOn: Object.freeze(['I2', 'I3']) }),
+  Object.freeze({ id: 'E2', restsOn: Object.freeze(['I2']) }),
+  Object.freeze({ id: 'E3', restsOn: Object.freeze(['I3', 'I6']) }),
+  Object.freeze({ id: 'E4', restsOn: Object.freeze(['I4', 'I5']) }),
+  Object.freeze({ id: 'E5', restsOn: Object.freeze(['I9']) }),
+  Object.freeze({ id: 'E6', restsOn: Object.freeze(['I5', 'I7', 'I8']) }),
+  Object.freeze({ id: 'E7', restsOn: Object.freeze(['I7', 'I6']) }),
 ]);
 
 /** The comment that opens the block recording those digests. */
@@ -71,8 +71,8 @@ export function computeFrameDigests(sections) {
     EXPLAIN_SECTION_FACTS.map((entry) => [
       entry.id,
       {
-        digest: digestText(entry.info.map((id) => sections[id] ?? '').join('\n')),
-        facts: entry.info.map((id) => ({ id, digest: infoDigests[id] })),
+        digest: digestText(entry.restsOn.map((id) => sections[id] ?? '').join('\n')),
+        facts: entry.restsOn.map((id) => ({ id, digest: infoDigests[id] })),
       },
     ]),
   );
@@ -88,7 +88,7 @@ function isDigestRecord(parsed) {
     if (section === undefined || !/^[0-9a-f]{64}$/.test(String(section.digest))) return false;
     return (
       Array.isArray(section.facts) &&
-      entry.info.every((infoId) => section.facts.some((fact) => fact.id === infoId && /^[0-9a-f]{64}$/.test(String(fact.digest))))
+      entry.restsOn.every((infoId) => section.facts.some((fact) => fact.id === infoId && /^[0-9a-f]{64}$/.test(String(fact.digest))))
     );
   });
 }
@@ -147,8 +147,8 @@ export function movedFactNames({ recorded, computed }) {
     if (before === undefined || before.digest === after.digest) continue;
 
     const beforeFacts = new Map((before.facts ?? []).map((fact) => [fact.id, fact.digest]));
-    const differing = entry.info.filter((infoId) => beforeFacts.get(infoId) !== after.facts.find((fact) => fact.id === infoId)?.digest);
-    moved[entry.id] = differing.length > 0 ? differing : [...entry.info];
+    const differing = entry.restsOn.filter((infoId) => beforeFacts.get(infoId) !== after.facts.find((fact) => fact.id === infoId)?.digest);
+    moved[entry.id] = differing.length > 0 ? differing : [...entry.restsOn];
   }
   return moved;
 }

@@ -41,7 +41,7 @@ export const MAX_EXCERPT_CHARS = 160;
 /**
  * The whole document's bound, asserted by the test that gives one package far more than any
  * real one carries. A document past this is not read, so the human would grill while believing
- * they had prepared.
+ * the preparation was done.
  */
 export const MAX_DOCUMENT_CHARS = 20000;
 

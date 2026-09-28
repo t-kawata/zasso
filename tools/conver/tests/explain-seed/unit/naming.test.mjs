@@ -10,7 +10,7 @@
 // exactly the wrong reading when the sentence is about the human.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -23,19 +23,57 @@ const COMMAND_FILE = fileURLToPath(new URL('../../../.claude/commands/explain-se
 
 const SECOND_PERSON = /\b(you|your|yours|yourself)\b/i;
 
-/** Any pronoun that could stand for one of the two agents. */
-const AGENT_PRONOUN = /\b(you|your|yours|yourself|they|them|their|theirs)\b/i;
+/**
+ * A third person pronoun is a defect only where it can stand for one of the two agents:
+ * both read the same page, so "they decide" leaves which of the two decides unanswered.
+ * A pronoun whose own sentence names a thing to stand for is unambiguous, and is allowed.
+ */
+const THIRD_PERSON = /\b(they|them|their|theirs)\b/i;
+
+/** The things a pronoun may stand for. Never a person. */
+const INANIMATE_ANTECEDENT = /\b(tables?|sections?|items?|entries?|documents?|facts|markers?|questions?|contracts?|clauses?|rules?|lines?|files?|sentences?|columns?|rows?|prose)\b/i;
 
 const BARE_READER = /\b(?:the|a) reader\b/i;
+
+/** A document's sentences, so a pronoun is judged against the words of its own sentence. */
+// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+function sentencesOf(documentText) {
+  return documentText.split(/(?<=[.!?])\s+/);
+}
+
+/** Every module of the implementation that builds the two documents. */
+// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+function implementationFiles() {
+  const directory = fileURLToPath(new URL('../../../.claude/scripts/explain-seed/', import.meta.url));
+  return readdirSync(directory, { recursive: true })
+    .filter((name) => name.endsWith('.mjs'))
+    .map((name) => `${directory}${name}`);
+}
 
 /** Japanese second person, which is what the explanation used to address the human with. */
 const JAPANESE_SECOND_PERSON = /あなた/;
 
-test('C003 invariant: the command file addresses neither agent as "you"', () => {
+test('C003 invariant: no pronoun stands for either agent', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
 
   assert.doesNotMatch(commandFile, SECOND_PERSON, 'a second person in these instructions reads as the AI, even where the human is meant');
-  assert.doesNotMatch(commandFile, AGENT_PRONOUN, 'and no pronoun stands in for either agent');
+  for (const sentence of sentencesOf(commandFile)) {
+    if (!THIRD_PERSON.test(sentence)) continue;
+    assert.match(sentence, INANIMATE_ANTECEDENT, `a pronoun must have a thing to stand for, not one of the agents: ${sentence.trim()}`);
+  }
+});
+
+test('C003 invariant: the implementation addresses neither agent as "you" either', () => {
+  const sources = implementationFiles();
+
+  assert.ok(sources.length > 1, 'the scan found the implementation, so an empty list cannot pass this');
+  for (const sourceFile of sources) {
+    assert.doesNotMatch(
+      readFileSync(sourceFile, 'utf8'),
+      SECOND_PERSON,
+      `${sourceFile} is read by the AI, so a second person in it reads as the AI`,
+    );
+  }
 });
 
 test('C003 invariant: the command file names both agents rather than leaving either to a role', () => {
@@ -65,9 +103,9 @@ test('C003 invariant: the command file quotes the section titles the frame actua
   }
 });
 
-test('C002 invariant: the facts document and the explanation name their own reader', () => {
+test('C002 invariant: each document says which of the two agents it is for', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
 
-  assert.match(commandFile, /its reader is a machine or an AI/, 'the facts state who reads them');
-  assert.match(commandFile, /its reader is a person/, 'and the explanation states who reads it');
+  assert.match(commandFile, /this is what the AI works from/, 'the facts say the AI works from them');
+  assert.match(commandFile, /human's writing under the placeholders/, 'and the explanation says the human writes into it');
 });

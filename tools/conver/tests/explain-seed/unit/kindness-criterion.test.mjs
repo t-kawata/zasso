@@ -42,6 +42,29 @@ function firstHumanItem(frameText) {
   return end < 0 ? rest : rest.slice(0, end);
 }
 
+/** One numbered item of the command file's flow, up to the next item. */
+// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+function flowItem(commandFile, number) {
+  const flowStart = commandFile.indexOf('\n## Flow');
+  assert.notEqual(flowStart, -1, 'the command file has a flow to read');
+  const flow = commandFile.slice(flowStart);
+  const itemStart = flow.search(new RegExp(`^${number}\\. \\*\\*`, 'm'));
+  assert.notEqual(itemStart, -1, `the flow has an item ${number}`);
+  const item = flow.slice(itemStart);
+  const end = item.search(new RegExp(`\\n${number + 1}\\. \\*\\*`));
+  return end < 0 ? item : item.slice(0, end);
+}
+
+/** The `## ` section carrying a given block — found by the block, not by the section's own name. */
+// [::TICKET::] PX-222 changes. Details: `node .claude/scripts/tickets/show-ticket-context.js --ticket-key=PX-222 --for-spec --no-implementation-order`.
+function sectionAround(commandFile, token) {
+  const at = commandFile.indexOf(token);
+  assert.notEqual(at, -1, `the command file carries ${token}`);
+  const section = commandFile.slice(commandFile.lastIndexOf('\n## ', at) + 1);
+  const end = section.search(/\n## /);
+  return end < 0 ? section : section.slice(0, end);
+}
+
 test('C005 invariant: the classification rule reaches the item the AI has to classify', () => {
   const frame = buildFrame({ facts: syntheticFacts(), previous: null });
   const item = firstHumanItem(frame.text);
@@ -82,10 +105,10 @@ test('C003 invariant: every instruction says what an unacceptable answer looks l
 
 test('C005 invariant: the command file states the classification where the writing happens', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
-  const step2 = commandFile.slice(commandFile.indexOf('## Step 2'), commandFile.indexOf('## Step 3'));
+  const writingStep = flowItem(commandFile, 2);
 
-  assert.match(step2, /could I write/i, 'the self-question for a handed-back engineering question is in the writing step');
-  assert.match(step2, /would a reasonable engineer/i, 'and so is the self-question for a silently decided experiential one');
+  assert.match(writingStep, /could I write/i, 'the self-question for a handed-back engineering question is in the writing step');
+  assert.match(writingStep, /would a reasonable engineer/i, 'and so is the self-question for a silently decided experiential one');
 });
 
 test('C005 invariant: the pre-decided section tells its reader how to challenge it', () => {
@@ -98,15 +121,15 @@ test('C005 invariant: the pre-decided section tells its reader how to challenge 
 
 test('C003 invariant: the command file tells the AI where the standard is applied', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
-  const criterion = commandFile.slice(commandFile.indexOf('## What makes this document kind'), commandFile.indexOf('## Step 1'));
+  const criterion = sectionAround(commandFile, '### Kind');
 
   assert.match(criterion, /\[::MUST-FILL::\]/, 'the criterion says the operative form of it arrives with each instruction');
 });
 
 test('C003 invariant: the command file sends the AI back to the criterion at the gate, not to a memory of it', () => {
   const commandFile = readFileSync(COMMAND_FILE, 'utf8');
-  const step3 = commandFile.slice(commandFile.indexOf('## Step 3'), commandFile.indexOf('## Step 4'));
+  const gateStep = flowItem(commandFile, 3);
 
-  assert.match(step3, /unfit to report/, 'the gate step names the criterion rather than gesturing at it');
-  assert.match(step3, /does \*\*not\*\* mean/, 'and says plainly that passing the gate is not the criterion');
+  assert.match(gateStep, /Kind\/Unfit/, 'the gate step names the criterion rather than gesturing at it');
+  assert.match(gateStep, /≠|does \*\*not\*\* mean|does not mean/, 'and says plainly that passing the gate is not the criterion');
 });

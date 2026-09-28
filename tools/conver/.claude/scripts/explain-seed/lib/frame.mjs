@@ -1,10 +1,10 @@
 /**
- * The explanation's frame: the structure, the questions, and the places a person writes.
+ * The explanation's frame: the structure, the questions, and the places the human writes.
  *
  * This is the other half of a split the command exists to make. `render.mjs` states the
- * facts; this module writes a document addressed to a person, in which every point that
+ * facts; this module writes a document addressed to the human, in which every point that
  * needs prose is an open `[::MUST-FILL::]` instruction for the AI, every point that needs
- * a human judgement carries a `<!-- 判断内容を人間が書き込む -->` place for them to write,
+ * a human judgement carries a `<!-- 判断内容を人間が書き込む -->` place for the human to write,
  * and every engineering question the facts and conventions already settle is decided here,
  * with the ground it rests on and the condition that would overturn it. The point of
  * deciding those here is that the human should arrive at the grill holding only what only
@@ -86,7 +86,7 @@ export const FRAME_SECTIONS = Object.freeze([
 /** The heading that opens one question for the human. */
 export const HUMAN_ITEM_HEADING = '### 判断';
 
-/** The heading that opens one thing already decided for them. */
+/** The heading that opens one thing already decided for the human. */
 export const PREDECIDED_ITEM_HEADING = '### 先に決めた';
 
 /** The line that declares how many things the human is being asked to decide. */
@@ -762,8 +762,9 @@ function faultsOfStaleDigests(recorded, digests) {
  * The two counts are returned alongside the verdict because the ratio between them is the
  * visible symptom of the failure this command exists to prevent. A document that asks the
  * human to decide everything the manifests already settled has handed back work that was
- * never theirs, and no structural rule can see that — but an operator reading "0 decided,
- * 11 left to them" can, in one line, before the grill rather than during it.
+ * never the human's, and no structural rule can see that — but an operator reading "0
+ * decided for the human, 11 left to the human" can, in one line, before the grill rather
+ * than during it.
  *
  * @param {{ facts: object, explainText: string }} input
  * @returns {{ ok: boolean, faults: Array<object>, askedOfHuman: number, decidedForHuman: number }}

@@ -29,8 +29,8 @@ test('C003 invariant: every EXPLAIN section declares which INFO sections feed it
     'the mapping covers the frame sections in order',
   );
   for (const entry of EXPLAIN_SECTION_FACTS) {
-    assert.ok(entry.info.length > 0, `${entry.id} rests on at least one INFO section`);
-    for (const infoId of entry.info) assert.ok(INFO_SECTION_IDS.includes(infoId), `${infoId} is a known INFO section`);
+    assert.ok(entry.restsOn.length > 0, `${entry.id} rests on at least one INFO section`);
+    for (const infoId of entry.restsOn) assert.ok(INFO_SECTION_IDS.includes(infoId), `${infoId} is a known INFO section`);
   }
 });
 
@@ -54,7 +54,7 @@ test('C003 invariant: each section records its own digest and the digest of ever
     assert.match(digests[entry.id].digest, /^[0-9a-f]{64}$/);
     assert.deepEqual(
       digests[entry.id].facts.map((fact) => fact.id),
-      entry.info,
+      entry.restsOn,
     );
     for (const fact of digests[entry.id].facts) assert.equal(fact.digest, infoDigests[fact.id]);
   }
